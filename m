@@ -1,86 +1,70 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH/RFC v6 net-next] ravb: Add dma queue interrupt support
-Date: Wed, 9 Mar 2016 02:18:07 +0900
-Message-ID: <CAH1o70JGx5AWOyke2AU5DwFvi58TzKbAGVJP7XbXZC2VAJHoOA@mail.gmail.com>
-References: <1456674078-1316-1-git-send-email-ykaneko0929@gmail.com>
+From: =?UTF-8?Q?Frank_Sch=c3=a4fer?= <fschaefer.oss@googlemail.com>
+Subject: [4.5-rc7+ regression, bisected] libphy: PHY stmmac-0:ffffffff not
+ found
+Date: Tue, 8 Mar 2016 19:06:23 +0100
+Message-ID: <56DF149F.6090100@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1456674078-1316-1-git-send-email-ykaneko0929@gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: gabriel.fernandez@linaro.org, peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:33886 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbcCHSEm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 13:04:42 -0500
+Received: by mail-wm0-f45.google.com with SMTP id p65so160799121wmp.1
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 10:04:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei-san,
+commit 88f8b1bb41c6208f81b6a480244533ded7b59493
+Author: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Date:   Mon Feb 29 17:18:22 2016 +0100
 
-2016-02-29 0:41 GMT+09:00 Yoshihiro Kaneko <ykaneko0929@gmail.com>:
-
-[snip]
-
-> +static bool ravb_timestamp_interrupt(struct net_device *ndev, u32 tis)
-> +{
-
-I'd like to read TIS here like ravb_queue_interrupt().
-
-
-> +       if (tis & TIS_TFUF) {
-> +               ravb_write(ndev, ~TIS_TFUF, TIS);
-> +               ravb_get_tx_tstamp(ndev);
-> +               return true;
-> +       }
-> +       return false;
-> +}
-
-[snip]
-
-> +/* Timestamp/Error/gPTP interrupt handler */
-> +static irqreturn_t ravb_multi_interrupt(int irq, void *dev_id)
-> +{
-> +       struct net_device *ndev = dev_id;
-> +       struct ravb_private *priv = netdev_priv(ndev);
-> +       irqreturn_t result = IRQ_NONE;
-> +       u32 iss, tis;
-> +
-> +       spin_lock(&priv->lock);
-> +       /* Get interrupt status */
-> +       iss = ravb_read(ndev, ISS);
-> +
-> +       /* Timestamp updated */
-> +       if (iss & ISS_TFUS) {
-> +               tis  = ravb_read(ndev, TIS);
-> +               if (ravb_timestamp_interrupt(ndev, tis))
-> +                       result = IRQ_HANDLED;
-> +       }
-> +
-> +       /* Error status summary */
-> +       if (iss & ISS_ES) {
-> +               ravb_error_interrupt(ndev);
-> +               result = IRQ_HANDLED;
-> +       }
-> +
-> +       /* gPTP interrupt status summary */
-> +       if (iss & ISS_CGIS)
-> +               result = ravb_ptp_interrupt(ndev);
-
-This assignment overwrites the result above.
-How about this?
-    if ((iss & ISS_CGIS) && ravb_ptp_interrupt(ndev) == IRQ_HANDLED)
-            result = IRQ_HANDLED;
+    stmmac: Fix 'eth0: No PHY found' regression
+  =20
+    This patch manages the case when you have an Ethernet MAC with
+    a "fixed link", and not connected to a normal MDIO-managed PHY devi=
+ce.
+  =20
+    The test of phy_bus_name was not helpful because it was never affec=
+ted
+    and replaced by the mdio test node.
+  =20
+    Signed-off-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+    Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
-> +
-> +       mmiowb();
-> +       spin_unlock(&priv->lock);
-> +       return result;
-> +}
-[snip]
+caused a regression on the Banana Pi M1 board:
+=2E..
+[    1.573419] sun7i-dwmac 1c50000.ethernet: no reset control found
+[    1.583476]  Ring mode enabled
+[    1.590476]  No HW DMA feature register supported
+[    1.595153]  Normal descriptors
+[    1.606075]  TX Checksum insertion supported
+=2E..
+[    9.430047] libphy: PHY stmmac-0:ffffffff not found
+[    9.441829] eth0: Could not attach to PHY
+[    9.452743] stmmac_open: Cannot attach to PHY (error: -19)
 
+Reverting this commit makes it work again:
 
-Thanks,
-kaneko
+[    1.574459] sun7i-dwmac 1c50000.ethernet: no reset control found
+[    1.584501]  Ring mode enabled
+[    1.591491]  No HW DMA feature register supported
+[    1.596169]  Normal descriptors
+[    1.607076]  TX Checksum insertion supported
+[    1.615766] sun7i-dwmac 1c50000.ethernet eth0: No MDIO subnode found
+[    1.629108] libphy: stmmac: probed
+[    1.636267] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) active
+[    1.646446] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
+=2E..
+[   10.086423]  RX IPC Checksum Offload disabled
+[   10.097628]  No MAC Management Counters available
+[   14.084839] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+100Mbps/Full - flow control rx/tx
+
+Regards,
+=46rank Sch=C3=A4fer
