@@ -1,115 +1,181 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/10] netfilter: ipvs: avoid unused variable warnings
-Date: Tue,  8 Mar 2016 11:00:42 +0100
-Message-ID: <1457431250-3086-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/10] netfilter: nft_masq: support port range
+Date: Tue,  8 Mar 2016 11:00:50 +0100
+Message-ID: <1457431250-3086-11-git-send-email-pablo@netfilter.org>
 References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40447 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932153AbcCHKBM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 05:01:12 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id CED1C8424
-	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:07 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id B2F49CA108
-	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:07 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 83A4928D25B
-	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:01 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+Complete masquerading support by allowing port range selection.
 
-The proc_create() and remove_proc_entry() functions do not reference
-their arguments when CONFIG_PROC_FS is disabled, so we get a couple
-of warnings about unused variables in IPVS:
-
-ipvs/ip_vs_app.c:608:14: warning: unused variable 'net' [-Wunused-variable]
-ipvs/ip_vs_ctl.c:3950:14: warning: unused variable 'net' [-Wunused-variable]
-ipvs/ip_vs_ctl.c:3994:14: warning: unused variable 'net' [-Wunused-variable]
-
-This removes the local variables and instead looks them up separately
-for each use, which obviously avoids the warning.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 4c50a8ce2b63 ("netfilter: ipvs: avoid unused variable warning")
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_app.c |  8 ++------
- net/netfilter/ipvs/ip_vs_ctl.c | 15 ++++++---------
- 2 files changed, 8 insertions(+), 15 deletions(-)
+ include/net/netfilter/nft_masq.h         |  4 ++-
+ include/uapi/linux/netfilter/nf_tables.h |  4 +++
+ net/ipv4/netfilter/nft_masq_ipv4.c       |  7 ++++-
+ net/ipv6/netfilter/nft_masq_ipv6.c       |  7 ++++-
+ net/netfilter/nft_masq.c                 | 51 +++++++++++++++++++++++++-------
+ 5 files changed, 59 insertions(+), 14 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_app.c b/net/netfilter/ipvs/ip_vs_app.c
-index 0328f72..299edc6 100644
---- a/net/netfilter/ipvs/ip_vs_app.c
-+++ b/net/netfilter/ipvs/ip_vs_app.c
-@@ -605,17 +605,13 @@ static const struct file_operations ip_vs_app_fops = {
+diff --git a/include/net/netfilter/nft_masq.h b/include/net/netfilter/nft_masq.h
+index e2a518b..a3f3c11 100644
+--- a/include/net/netfilter/nft_masq.h
++++ b/include/net/netfilter/nft_masq.h
+@@ -2,7 +2,9 @@
+ #define _NFT_MASQ_H_
  
- int __net_init ip_vs_app_net_init(struct netns_ipvs *ipvs)
- {
--	struct net *net = ipvs->net;
+ struct nft_masq {
+-	u32	flags;
++	u32			flags;
++	enum nft_registers      sreg_proto_min:8;
++	enum nft_registers      sreg_proto_max:8;
+ };
+ 
+ extern const struct nla_policy nft_masq_policy[];
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index b19be0a..eeffde1 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -951,10 +951,14 @@ enum nft_nat_attributes {
+  * enum nft_masq_attributes - nf_tables masquerade expression attributes
+  *
+  * @NFTA_MASQ_FLAGS: NAT flags (see NF_NAT_RANGE_* in linux/netfilter/nf_nat.h) (NLA_U32)
++ * @NFTA_MASQ_REG_PROTO_MIN: source register of proto range start (NLA_U32: nft_registers)
++ * @NFTA_MASQ_REG_PROTO_MAX: source register of proto range end (NLA_U32: nft_registers)
+  */
+ enum nft_masq_attributes {
+ 	NFTA_MASQ_UNSPEC,
+ 	NFTA_MASQ_FLAGS,
++	NFTA_MASQ_REG_PROTO_MIN,
++	NFTA_MASQ_REG_PROTO_MAX,
+ 	__NFTA_MASQ_MAX
+ };
+ #define NFTA_MASQ_MAX		(__NFTA_MASQ_MAX - 1)
+diff --git a/net/ipv4/netfilter/nft_masq_ipv4.c b/net/ipv4/netfilter/nft_masq_ipv4.c
+index b72ffc5..51ced81 100644
+--- a/net/ipv4/netfilter/nft_masq_ipv4.c
++++ b/net/ipv4/netfilter/nft_masq_ipv4.c
+@@ -25,7 +25,12 @@ static void nft_masq_ipv4_eval(const struct nft_expr *expr,
+ 
+ 	memset(&range, 0, sizeof(range));
+ 	range.flags = priv->flags;
 -
- 	INIT_LIST_HEAD(&ipvs->app_list);
--	proc_create("ip_vs_app", 0, net->proc_net, &ip_vs_app_fops);
-+	proc_create("ip_vs_app", 0, ipvs->net->proc_net, &ip_vs_app_fops);
++	if (priv->sreg_proto_min) {
++		range.min_proto.all =
++			*(__be16 *)&regs->data[priv->sreg_proto_min];
++		range.max_proto.all =
++			*(__be16 *)&regs->data[priv->sreg_proto_max];
++	}
+ 	regs->verdict.code = nf_nat_masquerade_ipv4(pkt->skb, pkt->hook,
+ 						    &range, pkt->out);
+ }
+diff --git a/net/ipv6/netfilter/nft_masq_ipv6.c b/net/ipv6/netfilter/nft_masq_ipv6.c
+index cd1ac16..9597ffb 100644
+--- a/net/ipv6/netfilter/nft_masq_ipv6.c
++++ b/net/ipv6/netfilter/nft_masq_ipv6.c
+@@ -26,7 +26,12 @@ static void nft_masq_ipv6_eval(const struct nft_expr *expr,
+ 
+ 	memset(&range, 0, sizeof(range));
+ 	range.flags = priv->flags;
+-
++	if (priv->sreg_proto_min) {
++		range.min_proto.all =
++			*(__be16 *)&regs->data[priv->sreg_proto_min];
++		range.max_proto.all =
++			*(__be16 *)&regs->data[priv->sreg_proto_max];
++	}
+ 	regs->verdict.code = nf_nat_masquerade_ipv6(pkt->skb, &range, pkt->out);
+ }
+ 
+diff --git a/net/netfilter/nft_masq.c b/net/netfilter/nft_masq.c
+index 9aea747..81b5ad6 100644
+--- a/net/netfilter/nft_masq.c
++++ b/net/netfilter/nft_masq.c
+@@ -17,7 +17,9 @@
+ #include <net/netfilter/nft_masq.h>
+ 
+ const struct nla_policy nft_masq_policy[NFTA_MASQ_MAX + 1] = {
+-	[NFTA_MASQ_FLAGS]	= { .type = NLA_U32 },
++	[NFTA_MASQ_FLAGS]		= { .type = NLA_U32 },
++	[NFTA_MASQ_REG_PROTO_MIN]	= { .type = NLA_U32 },
++	[NFTA_MASQ_REG_PROTO_MAX]	= { .type = NLA_U32 },
+ };
+ EXPORT_SYMBOL_GPL(nft_masq_policy);
+ 
+@@ -40,6 +42,7 @@ int nft_masq_init(const struct nft_ctx *ctx,
+ 		  const struct nft_expr *expr,
+ 		  const struct nlattr * const tb[])
+ {
++	u32 plen = FIELD_SIZEOF(struct nf_nat_range, min_addr.all);
+ 	struct nft_masq *priv = nft_expr_priv(expr);
+ 	int err;
+ 
+@@ -47,12 +50,32 @@ int nft_masq_init(const struct nft_ctx *ctx,
+ 	if (err)
+ 		return err;
+ 
+-	if (tb[NFTA_MASQ_FLAGS] == NULL)
+-		return 0;
+-
+-	priv->flags = ntohl(nla_get_be32(tb[NFTA_MASQ_FLAGS]));
+-	if (priv->flags & ~NF_NAT_RANGE_MASK)
+-		return -EINVAL;
++	if (tb[NFTA_MASQ_FLAGS]) {
++		priv->flags = ntohl(nla_get_be32(tb[NFTA_MASQ_FLAGS]));
++		if (priv->flags & ~NF_NAT_RANGE_MASK)
++			return -EINVAL;
++	}
++
++	if (tb[NFTA_MASQ_REG_PROTO_MIN]) {
++		priv->sreg_proto_min =
++			nft_parse_register(tb[NFTA_MASQ_REG_PROTO_MIN]);
++
++		err = nft_validate_register_load(priv->sreg_proto_min, plen);
++		if (err < 0)
++			return err;
++
++		if (tb[NFTA_MASQ_REG_PROTO_MAX]) {
++			priv->sreg_proto_max =
++				nft_parse_register(tb[NFTA_MASQ_REG_PROTO_MAX]);
++
++			err = nft_validate_register_load(priv->sreg_proto_max,
++							 plen);
++			if (err < 0)
++				return err;
++		} else {
++			priv->sreg_proto_max = priv->sreg_proto_min;
++		}
++	}
+ 
  	return 0;
  }
- 
- void __net_exit ip_vs_app_net_cleanup(struct netns_ipvs *ipvs)
+@@ -62,12 +85,18 @@ int nft_masq_dump(struct sk_buff *skb, const struct nft_expr *expr)
  {
--	struct net *net = ipvs->net;
+ 	const struct nft_masq *priv = nft_expr_priv(expr);
+ 
+-	if (priv->flags == 0)
+-		return 0;
 -
- 	unregister_ip_vs_app(ipvs, NULL /* all */);
--	remove_proc_entry("ip_vs_app", net->proc_net);
-+	remove_proc_entry("ip_vs_app", ipvs->net->proc_net);
- }
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index daf4cb7..404b2a4 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3945,7 +3945,6 @@ static struct notifier_block ip_vs_dst_notifier = {
+-	if (nla_put_be32(skb, NFTA_MASQ_FLAGS, htonl(priv->flags)))
++	if (priv->flags != 0 &&
++	    nla_put_be32(skb, NFTA_MASQ_FLAGS, htonl(priv->flags)))
+ 		goto nla_put_failure;
  
- int __net_init ip_vs_control_net_init(struct netns_ipvs *ipvs)
- {
--	struct net *net = ipvs->net;
- 	int i, idx;
++	if (priv->sreg_proto_min) {
++		if (nft_dump_register(skb, NFTA_MASQ_REG_PROTO_MIN,
++				      priv->sreg_proto_min) ||
++		    nft_dump_register(skb, NFTA_MASQ_REG_PROTO_MAX,
++				      priv->sreg_proto_max))
++			goto nla_put_failure;
++	}
++
+ 	return 0;
  
- 	/* Initialize rs_table */
-@@ -3972,9 +3971,9 @@ int __net_init ip_vs_control_net_init(struct netns_ipvs *ipvs)
- 
- 	spin_lock_init(&ipvs->tot_stats.lock);
- 
--	proc_create("ip_vs", 0, net->proc_net, &ip_vs_info_fops);
--	proc_create("ip_vs_stats", 0, net->proc_net, &ip_vs_stats_fops);
--	proc_create("ip_vs_stats_percpu", 0, net->proc_net,
-+	proc_create("ip_vs", 0, ipvs->net->proc_net, &ip_vs_info_fops);
-+	proc_create("ip_vs_stats", 0, ipvs->net->proc_net, &ip_vs_stats_fops);
-+	proc_create("ip_vs_stats_percpu", 0, ipvs->net->proc_net,
- 		    &ip_vs_stats_percpu_fops);
- 
- 	if (ip_vs_control_net_init_sysctl(ipvs))
-@@ -3989,13 +3988,11 @@ err:
- 
- void __net_exit ip_vs_control_net_cleanup(struct netns_ipvs *ipvs)
- {
--	struct net *net = ipvs->net;
--
- 	ip_vs_trash_cleanup(ipvs);
- 	ip_vs_control_net_cleanup_sysctl(ipvs);
--	remove_proc_entry("ip_vs_stats_percpu", net->proc_net);
--	remove_proc_entry("ip_vs_stats", net->proc_net);
--	remove_proc_entry("ip_vs", net->proc_net);
-+	remove_proc_entry("ip_vs_stats_percpu", ipvs->net->proc_net);
-+	remove_proc_entry("ip_vs_stats", ipvs->net->proc_net);
-+	remove_proc_entry("ip_vs", ipvs->net->proc_net);
- 	free_percpu(ipvs->tot_stats.cpustats);
- }
- 
+ nla_put_failure:
 -- 
 2.1.4
+
