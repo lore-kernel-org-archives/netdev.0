@@ -1,96 +1,67 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCHv2 net] bridge: a netlink notification should be sent
- whenever those attributes change
-Date: Tue, 8 Mar 2016 10:44:19 +0100
-Message-ID: <56DE9EF3.4010501@cumulusnetworks.com>
-References: <b58f9a4012cfc37e730916a092f2ff5530b299fd.1457407644.git.lucien.xin@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH next 3/3] net: Use l3_dev instead of skb->dev for L3
+ processing
+Date: Tue, 8 Mar 2016 10:46:47 +0100
+Message-ID: <56DE9F87.8060009@6wind.com>
+References: <1456783704-18746-1-git-send-email-mahesh@bandewar.net>
+ <CAM_iQpXmoSZhNw+CCbFw5b6Dzq4W+vt5WH8FmRc1ZiuJgv1xnQ@mail.gmail.com>
+ <CAF2d9jhopDVGxsSM3wfYh2XgENebJNbEOn9D7Vb8t13bQ7dRcQ@mail.gmail.com>
+ <CAF2d9jiyjThgeQKw==tKRk3Sh0dNfzUdwJciwsVGPFLdb9uGTA@mail.gmail.com>
+ <CAM_iQpUB_b3S_Mi8QyzhX_XBog3+ZshY8xbSby5eUytnG2OQRg@mail.gmail.com>
+ <CAF2d9jhgoWeZdPkM-aev6j9a8OjUQ78CbE7dgp1wPXu91qp_-A@mail.gmail.com>
+ <CAM_iQpVoRuWgk6_x-MWj=A520XjpC3e2QoPspQG6pfd--+m=KA@mail.gmail.com>
+ <CAF2d9jg2ioCsRa+FHUnwEYSXmqszd6h8MFOcWpWaT4ikaUKc0w@mail.gmail.com>
+ <CAM_iQpXHHMvbOMO5iG8jhk5yz3CyxB0641FYhcRPA65HL7DLjA@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hannes@stressinduktion.org
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
+	Alex Pollitt <alex.pollitt@metaswitch.com>,
+	Matthew Dupre <matthew.dupre@metaswitch.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35492 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932084AbcCHJoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 04:44:23 -0500
-Received: by mail-wm0-f43.google.com with SMTP id l68so122870671wml.0
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 01:44:23 -0800 (PST)
-In-Reply-To: <b58f9a4012cfc37e730916a092f2ff5530b299fd.1457407644.git.lucien.xin@gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37162 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932084AbcCHJqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 04:46:51 -0500
+Received: by mail-wm0-f47.google.com with SMTP id p65so19746925wmp.0
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 01:46:50 -0800 (PST)
+In-Reply-To: <CAM_iQpXHHMvbOMO5iG8jhk5yz3CyxB0641FYhcRPA65HL7DLjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/08/2016 04:27 AM, Xin Long wrote:
-> Now when we change the attributes of bridge or br_port by netlink,
-> a relevant netlink notification will be sent, but if we change them
-> by ioctl or sysfs, no notification will be sent.
-> 
-> we should ensure that whenever those attributes change internally or from
-> sysfs/ioctl, that a netlink notification is sent out to listeners.
-> 
-> Also, NetworkManager will use this in the future to listen for out-of-band
-> bridge master attribute updates and incorporate them into the runtime
-> configuration.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_ioctl.c    | 40 ++++++++++++++++++++++++----------------
->  net/bridge/br_sysfs_br.c |  5 +++++
->  net/bridge/br_sysfs_if.c |  6 +++++-
->  3 files changed, 34 insertions(+), 17 deletions(-)
-> 
++ Eric B.
 
-The patch should be targeted at net-next, not net.
+Le 08/03/2016 06:37, Cong Wang a =C3=A9crit :
+> On Fri, Mar 4, 2016 at 2:12 PM, Mahesh Bandewar <maheshb@google.com> =
+wrote:
+>>
+>> Unfortunately we don't have a way to switch to ns after L3 processin=
+g.
+>
+> I am totally aware of this, this is exactly why I said this might not=
+ be easy.
+>
+> The question is how hard it is to implement one? My gut feeling is we=
+ only
+> need to change some data in skb, something similar to skb_scrub_packe=
+t().
+> But I never even try.
 
-> diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-> index 263b4de..f8fc624 100644
-> --- a/net/bridge/br_ioctl.c
-> +++ b/net/bridge/br_ioctl.c
-[snip]
->  static int old_deviceless(struct net *net, void __user *uarg)
-> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-> index 6b80914..09608e6 100644
-> --- a/net/bridge/br_sysfs_br.c
-> +++ b/net/bridge/br_sysfs_br.c
-> @@ -44,6 +44,11 @@ static ssize_t store_bridge_parm(struct device *d,
->  		return -EINVAL;
->  
->  	err = (*set)(br, val);
-> +	if (!err) {
-> +		rtnl_lock();
+Note that Eric Biederman has made "some" patches to be able to "control=
+" the
+netns on the egress side. The goal is to be able to have routes that le=
+ak to
+another netns.
+It seems that the same work should probably be done at the ingress side=
+=2E
 
-This will deadlock, there's a reason rtnl_trylock() is used in sysfs options.
-As I said the br_sysfs_br.c would need more work.
-
-> +		netdev_state_change(br->dev);
-> +		rtnl_unlock();
-> +	}
->  	return err ? err : len;
->  }
->  
-> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-> index efe415a..64c8422 100644
-> --- a/net/bridge/br_sysfs_if.c
-> +++ b/net/bridge/br_sysfs_if.c
-> @@ -253,8 +253,12 @@ static ssize_t brport_store(struct kobject *kobj,
->  			spin_lock_bh(&p->br->lock);
->  			ret = brport_attr->store(p, val);
->  			spin_unlock_bh(&p->br->lock);
-> -			if (ret == 0)
-> +			if (!ret) {
-> +				rtnl_lock();
-
-rtnl is already held here, this way you deadlock. Again I'm really
-curious how this patch was tested, you'd have deadlocked immediately.
-On your next submission I'd suggest you add some notes on how you tested
-the patch.
-
-> +				br_ifinfo_notify(RTM_NEWLINK, p);
-> +				rtnl_unlock();
->  				ret = count;
-> +			}
->  		}
->  		rtnl_unlock();
->  	}
-> 
+I agree with Cong that just changing skb->dev is not the right approach=
+=2E
