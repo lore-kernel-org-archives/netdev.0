@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 0/12] bpf: map pre-alloc
-Date: Mon, 7 Mar 2016 21:57:12 -0800
-Message-ID: <1457416641-306326-1-git-send-email-ast@fb.com>
+Subject: [PATCH v2 net-next 02/12] bpf: introduce percpu_freelist
+Date: Mon, 7 Mar 2016 21:57:14 -0800
+Message-ID: <1457416641-306326-3-git-send-email-ast@fb.com>
+References: <1457416641-306326-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Daniel Borkmann <daniel@iogearbox.net>,
@@ -14,109 +15,205 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	<kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51320 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51322 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753455AbcCHF5X (ORCPT
+	by vger.kernel.org with ESMTP id S1753911AbcCHF5X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 00:57:23 -0500
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u285sETm030475
+	by mx0a-00082601.pphosted.com (8.15.0.59/8.15.0.59) with SMTP id u285sNqd030711
 	for <netdev@vger.kernel.org>; Mon, 7 Mar 2016 21:57:22 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 21hqut8c00-1
+	by mx0a-00082601.pphosted.com with ESMTP id 21hqut8c01-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 21:57:22 -0800
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.103.99.97) with ESMTP	id
- 9f882454e4f211e5b6550002c9931860-cf0c8420 for <netdev@vger.kernel.org>;	Mon,
+ mx-out.facebook.com (10.102.107.97) with ESMTP	id
+ 9f98f7b6e4f211e599480002c99331b0-5f4e2420 for <netdev@vger.kernel.org>;	Mon,
  07 Mar 2016 21:57:21 -0800
+In-Reply-To: <1457416641-306326-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1->v2:
-. fix few issues spotted by Daniel
-. converted stackmap into pre-allocation as well
-. added a workaround for lockdep false positive
-. added pcpu_freelist_populate to be used by hashmap and stackmap
+Introduce simple percpu_freelist to keep single list of elements
+spread across per-cpu singly linked lists.
 
-this path set switches bpf hash map to use pre-allocation by default
-and introduces BPF_F_NO_PREALLOC flag to keep old behavior for cases
-where full map pre-allocation is too memory expensive.
+/* push element into the list */
+void pcpu_freelist_push(struct pcpu_freelist *, struct pcpu_freelist_node *);
 
-Some time back Daniel Wagner reported crashes when bpf hash map is
-used to compute time intervals between preempt_disable->preempt_enable
-and recently Tom Zanussi reported a dead lock in iovisor/bcc/funccount
-tool if it's used to count the number of invocations of kernel
-'*spin*' functions. Both problems are due to the recursive use of
-slub and can only be solved by pre-allocating all map elements.
+/* pop element from the list */
+struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *);
 
-A lot of different solutions were considered. Many implemented,
-but at the end pre-allocation seems to be the only feasible answer.
-As far as pre-allocation goes it also was implemented 4 different ways:
-- simple free-list with single lock
-- percpu_ida with optimizations
-- blk-mq-tag variant customized for bpf use case
-- percpu_freelist
-For bpf style of alloc/free patterns percpu_freelist is the best
-and implemented in this patch set.
-Detailed performance numbers in patch 3.
-Patch 2 introduces percpu_freelist
-Patch 1 fixes simple deadlocks due to missing recursion checks
-Patch 5: converts stackmap to pre-allocation
-Patches 6-9: prepare test infra
-Patch 10: stress test for hash map infra. It attaches to spin_lock
-functions and bpf_map_update/delete are called from different contexts
-Patch 11: stress for bpf_get_stackid
-Patch 12: map performance test
+The object is pushed to the current cpu list.
+Pop first trying to get the object from the current cpu list,
+if it's empty goes to the neigbour cpu list.
 
-Reported-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
-Reported-by: Tom Zanussi <tom.zanussi@linux.intel.com>
+For bpf program usage pattern the collision rate is very low,
+since programs push and pop the objects typically on the same cpu.
 
-Alexei Starovoitov (12):
-  bpf: prevent kprobe+bpf deadlocks
-  bpf: introduce percpu_freelist
-  bpf: pre-allocate hash map elements
-  bpf: check for reserved flag bits in array and stack maps
-  bpf: convert stackmap to pre-allocation
-  samples/bpf: make map creation more verbose
-  samples/bpf: move ksym_search() into library
-  samples/bpf: add map_flags to bpf loader
-  samples/bpf: test both pre-alloc and normal maps
-  samples/bpf: add bpf map stress test
-  samples/bpf: stress test bpf_get_stackid
-  samples/bpf: add map performance test
-
- include/linux/bpf.h              |   6 +
- include/uapi/linux/bpf.h         |   3 +
- kernel/bpf/Makefile              |   2 +-
- kernel/bpf/arraymap.c            |   2 +-
- kernel/bpf/hashtab.c             | 240 +++++++++++++++++++++++++++------------
- kernel/bpf/percpu_freelist.c     | 100 ++++++++++++++++
- kernel/bpf/percpu_freelist.h     |  31 +++++
- kernel/bpf/stackmap.c            |  89 ++++++++++++---
- kernel/bpf/syscall.c             |  30 ++++-
- kernel/trace/bpf_trace.c         |   2 -
- samples/bpf/Makefile             |   8 ++
- samples/bpf/bpf_helpers.h        |   1 +
- samples/bpf/bpf_load.c           |  70 +++++++++++-
- samples/bpf/bpf_load.h           |   6 +
- samples/bpf/fds_example.c        |   2 +-
- samples/bpf/libbpf.c             |   5 +-
- samples/bpf/libbpf.h             |   2 +-
- samples/bpf/map_perf_test_kern.c | 100 ++++++++++++++++
- samples/bpf/map_perf_test_user.c | 155 +++++++++++++++++++++++++
- samples/bpf/offwaketime_user.c   |  67 +----------
- samples/bpf/sock_example.c       |   2 +-
- samples/bpf/spintest_kern.c      |  68 +++++++++++
- samples/bpf/spintest_user.c      |  50 ++++++++
- samples/bpf/test_maps.c          |  29 +++--
- samples/bpf/test_verifier.c      |   4 +-
- 25 files changed, 895 insertions(+), 179 deletions(-)
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/Makefile          |   2 +-
+ kernel/bpf/percpu_freelist.c | 100 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/percpu_freelist.h |  31 ++++++++++++++
+ 3 files changed, 132 insertions(+), 1 deletion(-)
  create mode 100644 kernel/bpf/percpu_freelist.c
  create mode 100644 kernel/bpf/percpu_freelist.h
- create mode 100644 samples/bpf/map_perf_test_kern.c
- create mode 100644 samples/bpf/map_perf_test_user.c
- create mode 100644 samples/bpf/spintest_kern.c
- create mode 100644 samples/bpf/spintest_user.c
 
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index 8a932d079c24..eed911d091da 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,7 +1,7 @@
+ obj-y := core.o
+ 
+ obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
+-obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o
++obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o
+ ifeq ($(CONFIG_PERF_EVENTS),y)
+ obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
+ endif
+diff --git a/kernel/bpf/percpu_freelist.c b/kernel/bpf/percpu_freelist.c
+new file mode 100644
+index 000000000000..5c51d1985b51
+--- /dev/null
++++ b/kernel/bpf/percpu_freelist.c
+@@ -0,0 +1,100 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include "percpu_freelist.h"
++
++int pcpu_freelist_init(struct pcpu_freelist *s)
++{
++	int cpu;
++
++	s->freelist = alloc_percpu(struct pcpu_freelist_head);
++	if (!s->freelist)
++		return -ENOMEM;
++
++	for_each_possible_cpu(cpu) {
++		struct pcpu_freelist_head *head = per_cpu_ptr(s->freelist, cpu);
++
++		raw_spin_lock_init(&head->lock);
++		head->first = NULL;
++	}
++	return 0;
++}
++
++void pcpu_freelist_destroy(struct pcpu_freelist *s)
++{
++	free_percpu(s->freelist);
++}
++
++static inline void __pcpu_freelist_push(struct pcpu_freelist_head *head,
++					struct pcpu_freelist_node *node)
++{
++	raw_spin_lock(&head->lock);
++	node->next = head->first;
++	head->first = node;
++	raw_spin_unlock(&head->lock);
++}
++
++void pcpu_freelist_push(struct pcpu_freelist *s,
++			struct pcpu_freelist_node *node)
++{
++	struct pcpu_freelist_head *head = this_cpu_ptr(s->freelist);
++
++	__pcpu_freelist_push(head, node);
++}
++
++void pcpu_freelist_populate(struct pcpu_freelist *s, void *buf, u32 elem_size,
++			    u32 nr_elems)
++{
++	struct pcpu_freelist_head *head;
++	unsigned long flags;
++	int i, cpu, pcpu_entries;
++
++	pcpu_entries = nr_elems / num_possible_cpus() + 1;
++	i = 0;
++
++	/* disable irq to workaround lockdep false positive
++	 * in bpf usage pcpu_freelist_populate() will never race
++	 * with pcpu_freelist_push()
++	 */
++	local_irq_save(flags);
++	for_each_possible_cpu(cpu) {
++again:
++		head = per_cpu_ptr(s->freelist, cpu);
++		__pcpu_freelist_push(head, buf);
++		i++;
++		buf += elem_size;
++		if (i == nr_elems)
++			break;
++		if (i % pcpu_entries)
++			goto again;
++	}
++	local_irq_restore(flags);
++}
++
++struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *s)
++{
++	struct pcpu_freelist_head *head;
++	struct pcpu_freelist_node *node;
++	int orig_cpu, cpu;
++
++	orig_cpu = cpu = raw_smp_processor_id();
++	while (1) {
++		head = per_cpu_ptr(s->freelist, cpu);
++		raw_spin_lock(&head->lock);
++		node = head->first;
++		if (node) {
++			head->first = node->next;
++			raw_spin_unlock(&head->lock);
++			return node;
++		}
++		raw_spin_unlock(&head->lock);
++		cpu = cpumask_next(cpu, cpu_possible_mask);
++		if (cpu >= nr_cpu_ids)
++			cpu = 0;
++		if (cpu == orig_cpu)
++			return NULL;
++	}
++}
+diff --git a/kernel/bpf/percpu_freelist.h b/kernel/bpf/percpu_freelist.h
+new file mode 100644
+index 000000000000..3049aae8ea1e
+--- /dev/null
++++ b/kernel/bpf/percpu_freelist.h
+@@ -0,0 +1,31 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#ifndef __PERCPU_FREELIST_H__
++#define __PERCPU_FREELIST_H__
++#include <linux/spinlock.h>
++#include <linux/percpu.h>
++
++struct pcpu_freelist_head {
++	struct pcpu_freelist_node *first;
++	raw_spinlock_t lock;
++};
++
++struct pcpu_freelist {
++	struct pcpu_freelist_head __percpu *freelist;
++};
++
++struct pcpu_freelist_node {
++	struct pcpu_freelist_node *next;
++};
++
++void pcpu_freelist_push(struct pcpu_freelist *, struct pcpu_freelist_node *);
++struct pcpu_freelist_node *pcpu_freelist_pop(struct pcpu_freelist *);
++void pcpu_freelist_populate(struct pcpu_freelist *s, void *buf, u32 elem_size,
++			    u32 nr_elems);
++int pcpu_freelist_init(struct pcpu_freelist *);
++void pcpu_freelist_destroy(struct pcpu_freelist *s);
++#endif
 -- 
 2.8.0.rc1
