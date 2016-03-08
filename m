@@ -1,7 +1,8 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net 0/3] Few mvneta fixes
-Date: Tue,  8 Mar 2016 13:57:03 +0100
-Message-ID: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH net 2/3] net: mvneta: enable change MAC address when interface is up
+Date: Tue,  8 Mar 2016 13:57:05 +0100
+Message-ID: <1457441826-6100-3-git-send-email-gregory.clement@free-electrons.com>
+References: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory CLEMENT <gregory.clement@free-electrons.com>,
@@ -11,43 +12,47 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Marcin Wojtas <mw@semihalf.com>,
 	Patrick Uiterwijk <patrick@puiterwijk.org>,
 	Dimitri Epshtein <dima@marvell.com>,
-	Ofer Heifetz <oferh@marvell.com>
+	Ofer Heifetz <oferh@marvell.com>, stable@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from down.free-electrons.com ([37.187.137.238]:43319 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751531AbcCHM5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 07:57:23 -0500
+In-Reply-To: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Dmitri Epshtein <dima@marvell.com>
 
-here is a patch set of few fixes. Without the first one, a kernel
-configured with debug features ended to hang when the driver is built
-as a module and is removed. This is quite is annoying for debugging!
+Function eth_prepare_mac_addr_change() is called as part of MAC
+address change. This function check if interface is running.
+To enable change MAC address when interface is running:
+IFF_LIVE_ADDR_CHANGE flag must be set to dev->priv_flags field
 
-The second patch fix a forgotten flag at the initial submission of the
-driver.
+Fixes: c5aff18204da ("net: mvneta: driver for Marvell Armada 370/XP
+network unit")
+Cc: stable@vger.kernel.org
+Signed-off-by: Dmitri Epshtein <dima@marvell.com>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The third patch is only really a cosmetic one so I have no problem to
-not apply it for 4.5 and wait for 4.6.
-
-I really would like to see the first one applied for 4.5 and for the
-second I let you judge if it something needed for now or that should
-wait the next release.
-
-Thanks,
-
-Gregory
-
-Dmitri Epshtein (2):
-  net: mvneta: enable change MAC address when interface is up
-  net: mvneta: fix error messages in mvneta_port_down function
-
-Gregory CLEMENT (1):
-  net: mvneta: Fix spinlock usage
-
- drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 8dc7df2edff6..2ee05cebea75 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3721,7 +3721,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	dev->hw_features |= dev->features;
+ 	dev->vlan_features |= dev->features;
+-	dev->priv_flags |= IFF_UNICAST_FLT;
++	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
+ 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
+ 
+ 	err = register_netdev(dev);
 -- 
 2.5.0
