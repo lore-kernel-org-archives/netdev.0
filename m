@@ -1,55 +1,186 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: use gfp insteaad of GFP_NOWAIT in
- idr_alloc_cyclic when sctp_assoc_set_id
-Date: Tue, 8 Mar 2016 10:54:52 +0800
-Message-ID: <CADvbK_dMjcw6LKsSQogb65i_9VHNKdrc_YTcJ3osYQ=aEytQWw@mail.gmail.com>
-References: <ef48b2b8895b4d0fab07b4e72b464d5a11d3bd79.1457193572.git.lucien.xin@gmail.com>
-	<1457196133.2663.3.camel@edumazet-ThinkPad-T530>
-	<CADvbK_faS8mNtUNiVT6d-kLRnngQ=4+z6meuO0XM+RJG50iaNw@mail.gmail.com>
-	<1457306476.2663.28.camel@edumazet-ThinkPad-T530>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCHv2 net] bridge: a netlink notification should be sent whenever those attributes change
+Date: Tue,  8 Mar 2016 11:27:24 +0800
+Message-ID: <b58f9a4012cfc37e730916a092f2ff5530b299fd.1457407644.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, hannes@stressinduktion.org,
+	nikolay@cumulusnetworks.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f196.google.com ([209.85.214.196]:33273 "EHLO
-	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753468AbcCHCyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 21:54:53 -0500
-In-Reply-To: <1457306476.2663.28.camel@edumazet-ThinkPad-T530>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34819 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753309AbcCHD12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:27:28 -0500
+Received: by mail-pf0-f176.google.com with SMTP id x188so2799479pfb.2
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 19:27:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 7, 2016 at 7:21 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> What is the problem of being not able to allocate memory at this point ?
->
-Now I think about it again,  this patch cannot work, because of:
-__sctp_connect()
-    sctp_assoc_set_id(asoc, GFP_KERNEL)
+Now when we change the attributes of bridge or br_port by netlink,
+a relevant netlink notification will be sent, but if we change them
+by ioctl or sysfs, no notification will be sent.
 
-thanks, Eric
+we should ensure that whenever those attributes change internally or from
+sysfs/ioctl, that a netlink notification is sent out to listeners.
 
-> If really it bothers you (although we have thousands of other places it
-> can happen), maybe add __GFP_NOWARN
->
-> But whatever flag we use here, idr_alloc() _can_ fail.
->
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 2bf8ec92dde4..2ae3874e3696 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1606,7 +1606,8 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
->                 idr_preload(gfp);
->         spin_lock_bh(&sctp_assocs_id_lock);
->         /* 0 is not a valid assoc_id, must be >= 1 */
-> -       ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0, GFP_NOWAIT);
-> +       ret = idr_alloc_cyclic(&sctp_assocs_id, asoc, 1, 0,
-> +                              (gfp & ~__GFP_DIRECT_RECLAIM) | __GFP_NOWARN);
->         spin_unlock_bh(&sctp_assocs_id_lock);
->         if (preload)
->                 idr_preload_end();
->
->
+Also, NetworkManager will use this in the future to listen for out-of-band
+bridge master attribute updates and incorporate them into the runtime
+configuration.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/bridge/br_ioctl.c    | 40 ++++++++++++++++++++++++----------------
+ net/bridge/br_sysfs_br.c |  5 +++++
+ net/bridge/br_sysfs_if.c |  6 +++++-
+ 3 files changed, 34 insertions(+), 17 deletions(-)
+
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 263b4de..f8fc624 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -112,7 +112,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_port *p = NULL;
+ 	unsigned long args[4];
++	int ret = -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(args, rq->ifr_data, sizeof(args)))
+ 		return -EFAULT;
+@@ -182,25 +184,29 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_forward_delay(br, args[1]);
++		ret = br_set_forward_delay(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_HELLO_TIME:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_hello_time(br, args[1]);
++		ret = br_set_hello_time(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_MAX_AGE:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_max_age(br, args[1]);
++		ret = br_set_max_age(br, args[1]);
++		break;
+ 
+ 	case BRCTL_SET_AGEING_TIME:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+-		return br_set_ageing_time(br, args[1]);
++		ret = br_set_ageing_time(br, args[1]);
++		break;
+ 
+ 	case BRCTL_GET_PORT_INFO:
+ 	{
+@@ -240,20 +246,19 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 			return -EPERM;
+ 
+ 		br_stp_set_enabled(br, args[1]);
+-		return 0;
++		ret = 0;
++		break;
+ 
+ 	case BRCTL_SET_BRIDGE_PRIORITY:
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+ 		br_stp_set_bridge_priority(br, args[1]);
+-		return 0;
++		ret = 0;
++		break;
+ 
+ 	case BRCTL_SET_PORT_PRIORITY:
+ 	{
+-		struct net_bridge_port *p;
+-		int ret;
+-
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+@@ -263,14 +268,11 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		else
+ 			ret = br_stp_set_port_priority(p, args[2]);
+ 		spin_unlock_bh(&br->lock);
+-		return ret;
++		break;
+ 	}
+ 
+ 	case BRCTL_SET_PATH_COST:
+ 	{
+-		struct net_bridge_port *p;
+-		int ret;
+-
+ 		if (!ns_capable(dev_net(dev)->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 
+@@ -280,8 +282,7 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 		else
+ 			ret = br_stp_set_path_cost(p, args[2]);
+ 		spin_unlock_bh(&br->lock);
+-
+-		return ret;
++		break;
+ 	}
+ 
+ 	case BRCTL_GET_FDB_ENTRIES:
+@@ -289,7 +290,14 @@ static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 				       args[2], args[3]);
+ 	}
+ 
+-	return -EOPNOTSUPP;
++	if (!ret) {
++		if (p)
++			br_ifinfo_notify(RTM_NEWLINK, p);
++		else
++			netdev_state_change(br->dev);
++	}
++
++	return ret;
+ }
+ 
+ static int old_deviceless(struct net *net, void __user *uarg)
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 6b80914..09608e6 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -44,6 +44,11 @@ static ssize_t store_bridge_parm(struct device *d,
+ 		return -EINVAL;
+ 
+ 	err = (*set)(br, val);
++	if (!err) {
++		rtnl_lock();
++		netdev_state_change(br->dev);
++		rtnl_unlock();
++	}
+ 	return err ? err : len;
+ }
+ 
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index efe415a..64c8422 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -253,8 +253,12 @@ static ssize_t brport_store(struct kobject *kobj,
+ 			spin_lock_bh(&p->br->lock);
+ 			ret = brport_attr->store(p, val);
+ 			spin_unlock_bh(&p->br->lock);
+-			if (ret == 0)
++			if (!ret) {
++				rtnl_lock();
++				br_ifinfo_notify(RTM_NEWLINK, p);
++				rtnl_unlock();
+ 				ret = count;
++			}
+ 		}
+ 		rtnl_unlock();
+ 	}
+-- 
+2.1.0
