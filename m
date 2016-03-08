@@ -1,58 +1,104 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH next 3/3] net: Use l3_dev instead of skb->dev for L3 processing
-Date: Mon, 7 Mar 2016 21:37:46 -0800
-Message-ID: <CAM_iQpXHHMvbOMO5iG8jhk5yz3CyxB0641FYhcRPA65HL7DLjA@mail.gmail.com>
-References: <1456783704-18746-1-git-send-email-mahesh@bandewar.net>
-	<CAM_iQpXmoSZhNw+CCbFw5b6Dzq4W+vt5WH8FmRc1ZiuJgv1xnQ@mail.gmail.com>
-	<CAF2d9jhopDVGxsSM3wfYh2XgENebJNbEOn9D7Vb8t13bQ7dRcQ@mail.gmail.com>
-	<CAF2d9jiyjThgeQKw==tKRk3Sh0dNfzUdwJciwsVGPFLdb9uGTA@mail.gmail.com>
-	<CAM_iQpUB_b3S_Mi8QyzhX_XBog3+ZshY8xbSby5eUytnG2OQRg@mail.gmail.com>
-	<CAF2d9jhgoWeZdPkM-aev6j9a8OjUQ78CbE7dgp1wPXu91qp_-A@mail.gmail.com>
-	<CAM_iQpVoRuWgk6_x-MWj=A520XjpC3e2QoPspQG6pfd--+m=KA@mail.gmail.com>
-	<CAF2d9jg2ioCsRa+FHUnwEYSXmqszd6h8MFOcWpWaT4ikaUKc0w@mail.gmail.com>
+From: Nick Wang <nwang@suse.com>
+Subject: [PATCH] include/net/inet_connection_sock.h: Use pr_devel() instead of pr_debug()
+Date: Tue,  8 Mar 2016 13:52:28 +0800
+Message-ID: <1457416348-32463-1-git-send-email-nwang@suse.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
-	Alex Pollitt <alex.pollitt@metaswitch.com>,
-	Matthew Dupre <matthew.dupre@metaswitch.com>
-To: Mahesh Bandewar <maheshb@google.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: whs_alex@163.com, nwang@suse.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nick Wang <nwang@suse.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f196.google.com ([209.85.160.196]:35516 "EHLO
-	mail-yk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754013AbcCHFhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 00:37:47 -0500
-Received: by mail-yk0-f196.google.com with SMTP id p128so160740ykc.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 21:37:46 -0800 (PST)
-In-Reply-To: <CAF2d9jg2ioCsRa+FHUnwEYSXmqszd6h8MFOcWpWaT4ikaUKc0w@mail.gmail.com>
+Received: from victor.provo.novell.com ([137.65.250.26]:33689 "EHLO
+	prv3-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751534AbcCHFyE (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:0:0>);
+	Tue, 8 Mar 2016 00:54:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 4, 2016 at 2:12 PM, Mahesh Bandewar <maheshb@google.com> wrote:
->
-> Unfortunately we don't have a way to switch to ns after L3 processing.
+When DYNAMIC_DEBUG enabled, pr_debug() depends on KBUILD_MODNAME which
+also depends on the modules name in Makefile.
+Refer to the information in "scripts/Makefile.lib":
 
-I am totally aware of this, this is exactly why I said this might not be easy.
+ # $(modname_flags) #defines KBUILD_MODNAME as the name of the module i=
+t will
+ # end up in (or would, if it gets compiled in)
+ # Note: Files that end up in two or more modules are compiled without =
+the
+ #       KBUILD_MODNAME definition. The reason is that any made-up name=
+ would
+ #       differ in different configs.
 
-The question is how hard it is to implement one? My gut feeling is we only
-need to change some data in skb, something similar to skb_scrub_packet().
-But I never even try.
+=46ile "inet_connection_sock.h" is a common share header that not can=20
+be use for one module, so use pr_devel instead of pr_debug is OK.
 
-> So I would
-> argue it the other-way around. The way it is now; breaks the _isolation_ model.
-> If the default-ns is responsible for whole L3 (in this situation) and
-> it does pretty well
-> on egress but there is no way to do that in ingress path. IPtables is
-> not the only thing,
-> how about routing, how about IPsec? None of this will function well.
-> So we need to
-> have a generic solution to solve all these problems.
+In file included from include/linux/printk.h:277:0,
+                 from include/linux/kernel.h:13,
+                 from include/linux/list.h:8,
+                 from include/linux/kobject.h:20,
+                 from include/linux/device.h:17,
+                 from include/rdma/ib_verbs.h:43,
+                 from /usr/src/drbd-9.0/drbd/drbd-kernel-compat/tests/h=
+ave_ib_cq_init_attr.c:1:
+include/net/inet_connection_sock.h: In function =E2=80=98inet_csk_clear=
+_xmit_timer=E2=80=99:
+include/linux/dynamic_debug.h:66:14: error: =E2=80=98KBUILD_MODNAME=E2=80=
+=99 undeclared (first use in this function)
+   .modname =3D KBUILD_MODNAME,   \
+              ^
+include/linux/dynamic_debug.h:76:2: note: in expansion of macro =E2=80=98=
+DEFINE_DYNAMIC_DEBUG_METADATA=E2=80=99
+  DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, fmt);  \
+  ^
+include/linux/printk.h:283:2: note: in expansion of macro =E2=80=98dyna=
+mic_pr_debug=E2=80=99
+  dynamic_pr_debug(fmt, ##__VA_ARGS__)
+  ^
+include/net/inet_connection_sock.h:213:3: note: in expansion of macro =E2=
+=80=98pr_debug=E2=80=99
+   pr_debug("%s", inet_csk_timer_bug_msg);
+   ^
 
-I don't understand why you question me this, it is you who only cares
-about iptables from your cover letter for this patchset, not me.
+Signed-off-by: Nick Wang <nwang@suse.de>
+---
+ include/net/inet_connection_sock.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-The more subsystems involves, the more struct net pointers you
-potentially need to touch, the less likely you can make it correct
-by just switching skb->dev.
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_conn=
+ection_sock.h
+index 49dcad4..b59be52 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -210,7 +210,7 @@ static inline void inet_csk_clear_xmit_timer(struct=
+ sock *sk, const int what)
+ 	}
+ #ifdef INET_CSK_DEBUG
+ 	else {
+-		pr_debug("%s", inet_csk_timer_bug_msg);
++		pr_devel("%s", inet_csk_timer_bug_msg);
+ 	}
+ #endif
+ }
+@@ -226,7 +226,7 @@ static inline void inet_csk_reset_xmit_timer(struct=
+ sock *sk, const int what,
+=20
+ 	if (when > max_when) {
+ #ifdef INET_CSK_DEBUG
+-		pr_debug("reset_xmit_timer: sk=3D%p %d when=3D0x%lx, caller=3D%p\n",
++		pr_devel("reset_xmit_timer: sk=3D%p %d when=3D0x%lx, caller=3D%p\n",
+ 			 sk, what, when, current_text_addr());
+ #endif
+ 		when =3D max_when;
+@@ -244,7 +244,7 @@ static inline void inet_csk_reset_xmit_timer(struct=
+ sock *sk, const int what,
+ 	}
+ #ifdef INET_CSK_DEBUG
+ 	else {
+-		pr_debug("%s", inet_csk_timer_bug_msg);
++		pr_devel("%s", inet_csk_timer_bug_msg);
+ 	}
+ #endif
+ }
+--=20
+1.8.5.6
