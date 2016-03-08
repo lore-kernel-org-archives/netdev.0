@@ -1,35 +1,39 @@
-From: Lino Sanfilippo <lsanfil@marvell.com>
-Subject: Question concerning function illegal_highdma
-Date: Tue, 8 Mar 2016 11:32:26 +0100
-Message-ID: <56DEAA3A.4080207@marvell.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [10/14] wireless: cw1200: use __maybe_unused to hide pm functions_
+Date: Tue,  8 Mar 2016 10:33:29 +0000 (UTC)
+Message-ID: <20160308103329.5480960885@smtp.codeaurora.org>
+References: <1456934350-1389172-11-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-	<linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:22271 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932828AbcCHKcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:32:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Solomon Peachy <pizza@shaftnet.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Arnd Bergmann <arnd@arndb.de>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1456934350-1389172-11-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Hi all,
+> The cw1200 uses #ifdef to check for CONFIG_PM, but then
+> uses SIMPLE_DEV_PM_OPS, which leaves the references out when
+> CONFIG_PM_SLEEP is not defined, so we get a warning with
+> PM=y && PM_SLEEP=n:
+> 
+> drivers/net/wireless/st/cw1200/cw1200_spi.c:450:12: error: 'cw1200_spi_suspend' defined but not used [-Werror=unused-function]
+> 
+> This removes the incorrect #ifdef and instead uses a __maybe_unused
+> annotation to let the compiler know it can silently drop
+> the function definition.
+> 
+> For the DEV_PM_OPS definition, we can use an IS_ENABLED() check
+> to avoid defining the structure when CONFIG_PM is not set without
+> the #ifdef.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-while trying to understand the meaning of the net_device flag NETIF_F_HIGHDMA
-I came across the function illegal_highdma() which seems to perform two tasks:
+Thanks, applied to wireless-drivers-next.git.
 
-1. Check if a network interface is able to handle high memory pages
-2. Check if a network interface is able to handle the resulting DMA addresses
-
-What I dont understand is why both conditions are only checked if CONFIG_HIGHMEM is set.
-For 1. this makes sense, of course. But why is 2. also only checked with CONFIG_HIGHMEM?
-Should not 2. always be checked, regardless of whether high memory exists in the system or not?
-
-Thanks for any enlightenment in advance!
-
-Regards,
-Lino
+Kalle Valo
