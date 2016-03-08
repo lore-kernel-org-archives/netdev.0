@@ -1,45 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 2/3] ipv6: per netns fib6 walkers
-Date: Mon, 7 Mar 2016 16:28:26 -0800
-Message-ID: <CAM_iQpXynuGx2F6RdeFcyCH7qSxPv0Q0p7etwTTje07hMSaZbw@mail.gmail.com>
-References: <cover.1457085016.git.mkubecek@suse.cz>
-	<6df8e224d6337b658a097ac87e72e1467cddf13d.1457085016.git.mkubecek@suse.cz>
-	<CAM_iQpUxHX71GRmnmcvXpOX4P4mzJXpoYmcYhcZi2CXxEK4XFQ@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 8 Mar 2016 11:37:19 +1100
+Message-ID: <20160308113719.68a56294@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Martin KaFai Lau <kafai@fb.com>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:36831 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933160AbcCHA23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 19:28:29 -0500
-In-Reply-To: <CAM_iQpUxHX71GRmnmcvXpOX4P4mzJXpoYmcYhcZi2CXxEK4XFQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 7, 2016 at 4:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Fri, Mar 4, 2016 at 2:59 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
->>  static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
->>  {
->> +#ifdef CONFIG_NET_NS
->> +       struct net *net = iter->p.net;
->> +#else
->> +       struct net *net = &init_net;
->> +#endif
->> +
->
-> You should pass the struct net pointer to ipv6_route_seq_setup_walk()
-> instead of reading it by yourself.
->
-> I don't find anyone actually using iter->p, it probably can be just removed.
+Hi all,
 
-Er, seq_file_net() uses it... but callers already call it.
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  net/tipc/subscr.c
+
+between commit:
+
+  4de13d7ed6ff ("tipc: fix nullptr crash during subscription cancel")
+
+from the net tree and commit:
+
+  7c13c6224123 ("tipc: introduce tipc_subscrb_subscribe() routine")
+(and following ones)
+
+from the net-next tree.
+
+I fixed it up (I used the net-next tree version as it is not obvious tha
+the net tree patch is still needed) and can carry the fix as necessary
+(no action is required).
+
+-- 
+Cheers,
+Stephen Rothwell
