@@ -1,54 +1,111 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH net 4/4] net: hns: remove useless
- head=ring->next_to_clean
-Date: Tue, 08 Mar 2016 10:12:34 +0200
-Message-ID: <1457424754.1347.10.camel@linux.intel.com>
-References: <1457409147-77086-1-git-send-email-lisheng011@huawei.com>
-	 <1457409147-77086-5-git-send-email-lisheng011@huawei.com>
-	 <1457421488.1347.5.camel@linux.intel.com> <56DE86FC.8000408@huawei.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH net v2 2/2] qlcnic: Fix mailbox completion handling during spurious interrupt
+Date: Tue, 8 Mar 2016 02:39:58 -0500
+Message-ID: <1457422798-17981-3-git-send-email-rajesh.borundia@qlogic.com>
+References: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: yisen.zhuang@huawei.com, yankejian@huawei.com,
-	xieqianqian@huawei.com, huangdaode@hisilicon.com,
-	salil.mehta@huawei.com, netdev@vger.kernel.org,
-	haifeng.wei@huawei.com, charles.chenxin@huawei.com,
-	linuxarm@huawei.com
-To: Lisheng011 <lisheng011@huawei.com>, davem@davemloft.net
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47223 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753495AbcCHILu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 03:11:50 -0500
-In-Reply-To: <56DE86FC.8000408@huawei.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:43983 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753530AbcCHIU2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 03:20:28 -0500
+In-Reply-To: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-08 at 16:02 +0800, Lisheng011 wrote:
->=20
-> =E5=9C=A8 2016/3/8 15:18, Andy Shevchenko =E5=86=99=E9=81=93:
-> >=20
-> > On Tue, 2016-03-08 at 11:52 +0800, Lisheng wrote:
-> > >=20
-> > > From: Qianqian Xie <xieqianqian@huawei.com>
-> > >=20
-> > > The variable head in hns_nic_tx_fini_pro has read a value,
-> > > but the value is not used. The patch will solve it.
+o While the driver is in the middle of a MB completion processing
+and it receives a spurious MB interrupt, it is mistaken as a good MB
+completion interrupt leading to premature completion of the next MB
+request. Fix the driver to guard against this by checking the current
+state of MB processing and ignore the spurious interrupt.
+Also added a stats counter to record this condition.
 
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h         |  1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 15 +++++++++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c |  3 ++-
+ 3 files changed, 14 insertions(+), 5 deletions(-)
 
-> -	/* for hardware bug fixed */
-> > This is not good. Explanation is needed why you removed this
-> > comment.
-
-> This bug-fixed comment is for the function pointer=C2=A0
-> ring_data->fini_process,that is called in function
-> hns_nic_common_poll.
-
-
-> The comment should not be here, so remove it.
-
-Please, add above paragraph to the commit message.
-
---=20
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index d18667b..55007f1 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -566,6 +566,7 @@ struct qlcnic_adapter_stats {
+ 	u64  tx_dma_map_error;
+ 	u64  spurious_intr;
+ 	u64  mac_filter_limit_overrun;
++	u64  mbx_spurious_intr;
+ };
+ 
+ /*
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index e3d1bb7..f9640d5ce 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -2338,9 +2338,9 @@ static void qlcnic_83xx_handle_link_aen(struct qlcnic_adapter *adapter,
+ 
+ static irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
+ {
++	u32 mask, resp, event, rsp_status = QLC_83XX_MBX_RESPONSE_ARRIVED;
+ 	struct qlcnic_adapter *adapter = data;
+ 	struct qlcnic_mailbox *mbx;
+-	u32 mask, resp, event;
+ 	unsigned long flags;
+ 
+ 	mbx = adapter->ahw->mailbox;
+@@ -2350,10 +2350,14 @@ static irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
+ 		goto out;
+ 
+ 	event = readl(QLCNIC_MBX_FW(adapter->ahw, 0));
+-	if (event &  QLCNIC_MBX_ASYNC_EVENT)
++	if (event &  QLCNIC_MBX_ASYNC_EVENT) {
+ 		__qlcnic_83xx_process_aen(adapter);
+-	else
+-		qlcnic_83xx_notify_mbx_response(mbx);
++	} else {
++		if (mbx->rsp_status != rsp_status)
++			qlcnic_83xx_notify_mbx_response(mbx);
++		else
++			adapter->stats.mbx_spurious_intr++;
++	}
+ 
+ out:
+ 	mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
+@@ -4053,6 +4057,7 @@ static void qlcnic_83xx_mailbox_worker(struct work_struct *work)
+ 	struct list_head *head = &mbx->cmd_q;
+ 	struct qlcnic_hardware_context *ahw;
+ 	struct qlcnic_cmd_args *cmd = NULL;
++	unsigned long flags;
+ 
+ 	ahw = adapter->ahw;
+ 
+@@ -4062,7 +4067,9 @@ static void qlcnic_83xx_mailbox_worker(struct work_struct *work)
+ 			return;
+ 		}
+ 
++		spin_lock_irqsave(&mbx->aen_lock, flags);
+ 		mbx->rsp_status = QLC_83XX_MBX_RESPONSE_WAIT;
++		spin_unlock_irqrestore(&mbx->aen_lock, flags);
+ 
+ 		spin_lock(&mbx->queue_lock);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 494e810..0a2318c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -59,7 +59,8 @@ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
+ 	 QLC_OFF(stats.mac_filter_limit_overrun)},
+ 	{"spurious intr", QLC_SIZEOF(stats.spurious_intr),
+ 	 QLC_OFF(stats.spurious_intr)},
+-
++	{"mbx spurious intr", QLC_SIZEOF(stats.mbx_spurious_intr),
++	 QLC_OFF(stats.mbx_spurious_intr)},
+ };
+ 
+ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
+-- 
+1.8.3.1
