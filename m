@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Tool for sampling /proc/net/softnet_stat statistics
-Date: Tue, 08 Mar 2016 14:47:59 -0500 (EST)
-Message-ID: <20160308.144759.2020954787254128202.davem@davemloft.net>
-References: <20160307163607.1da5f17e@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/8] bnxt_en: Updates for net-next.
+Date: Tue, 08 Mar 2016 14:52:00 -0500 (EST)
+Message-ID: <20160308.145200.1695616552135335814.davem@davemloft.net>
+References: <1457383128-28645-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com,
-	linux-kernel@vger.kernel.org
-To: jbrouer@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160307163607.1da5f17e@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44022 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbcCHTwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 14:52:03 -0500
+In-Reply-To: <1457383128-28645-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Date: Mon, 7 Mar 2016 16:36:07 +0100
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Mon,  7 Mar 2016 15:38:40 -0500
 
-> I lack of better, I coded up my own tool softnet_stat.pl here:
->  https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
+> Updates to support autoneg for all supported speeds, add PF port statistics,
+> and Advanced Error Reporting.
 > 
-> The output format/columns in /proc/net/softnet_stat is undocumented,
-> plus values are printed in hex.  E.g. to decode the columns you need to
-> read kernel function kernel softnet_seq_show() in
-> kernel/net/core/net-procfs.c.
-> 
-> To make things easier I wrote this small perl script for get
-> so human readable statistics from /proc/net/softnet_stat.
+> v2: Fixed patch 3 to not use parentheses on function return.
 
-Good stuff!
+Series applied, thanks Michael.
