@@ -1,8 +1,7 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next v2 1/3] ipv6: replace global gc_args with local
- variable
-Date: Tue,  8 Mar 2016 14:44:25 +0100 (CET)
-Message-ID: <bb59dc573391233b6f0e033f1f7928d9a35f3dd9.1457443526.git.mkubecek@suse.cz>
+Subject: [PATCH net-next v2 3/3] ipv6: per netns FIB garbage collection
+Date: Tue,  8 Mar 2016 14:44:45 +0100 (CET)
+Message-ID: <a954fd75251de99cf39e6785f971dbffdd6503b0.1457443527.git.mkubecek@suse.cz>
 References: <cover.1457443526.git.mkubecek@suse.cz>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -18,77 +17,73 @@ In-Reply-To: <cover.1457443526.git.mkubecek@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Global variable gc_args is only used in fib6_run_gc() and functions
-called from it. As fib6_run_gc() makes sure there is at most one
-instance of fib6_clean_all() running at any moment, we can replace
-gc_args with a local variable which will be needed once multiple
-instances (per netns) of garbage collector are allowed.
+One of our customers observed issues with FIB6 garbage collectors
+running in different network namespaces blocking each other, resulting
+in soft lockups (fib6_run_gc() initiated from timer runs always in
+forced mode).
+
+Now that FIB6 walkers are separated per namespace, there is no more need
+for instances of fib6_run_gc() in different namespaces blocking each
+other. There is still a call to icmp6_dst_gc() which operates on shared
+data but this function is protected by its own shared lock.
 
 Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- net/ipv6/ip6_fib.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ include/net/netns/ipv6.h | 1 +
+ net/ipv6/ip6_fib.c       | 9 ++++-----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
+index f0109b973648..10d0848f5b8a 100644
+--- a/include/net/netns/ipv6.h
++++ b/include/net/netns/ipv6.h
+@@ -61,6 +61,7 @@ struct netns_ipv6 {
+ 	struct list_head	fib6_walkers;
+ 	struct dst_ops		ip6_dst_ops;
+ 	rwlock_t		fib6_walker_lock;
++	spinlock_t		fib6_gc_lock;
+ 	unsigned int		 ip6_rt_gc_expire;
+ 	unsigned long		 ip6_rt_last_gc;
+ #ifdef CONFIG_IPV6_MULTIPLE_TABLES
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 0c7e276c230e..d7c715accac9 100644
+index 883f2836beab..ea071fad67a0 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -1725,14 +1725,15 @@ static void fib6_flush_trees(struct net *net)
-  *	Garbage collection
-  */
- 
--static struct fib6_gc_args
-+struct fib6_gc_args
- {
- 	int			timeout;
- 	int			more;
--} gc_args;
-+};
- 
- static int fib6_age(struct rt6_info *rt, void *arg)
- {
-+	struct fib6_gc_args *gc_args = arg;
- 	unsigned long now = jiffies;
- 
- 	/*
-@@ -1748,10 +1749,10 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 			RT6_TRACE("expiring %p\n", rt);
- 			return -1;
- 		}
--		gc_args.more++;
-+		gc_args->more++;
- 	} else if (rt->rt6i_flags & RTF_CACHE) {
- 		if (atomic_read(&rt->dst.__refcnt) == 0 &&
--		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
-+		    time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
- 			RT6_TRACE("aging clone %p\n", rt);
- 			return -1;
- 		} else if (rt->rt6i_flags & RTF_GATEWAY) {
-@@ -1769,7 +1770,7 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 				return -1;
- 			}
- 		}
--		gc_args.more++;
-+		gc_args->more++;
- 	}
- 
+@@ -1776,16 +1776,14 @@ static int fib6_age(struct rt6_info *rt, void *arg)
  	return 0;
-@@ -1779,6 +1780,7 @@ static DEFINE_SPINLOCK(fib6_gc_lock);
+ }
  
+-static DEFINE_SPINLOCK(fib6_gc_lock);
+-
  void fib6_run_gc(unsigned long expires, struct net *net, bool force)
  {
-+	struct fib6_gc_args gc_args;
+ 	struct fib6_gc_args gc_args;
  	unsigned long now;
  
  	if (force) {
-@@ -1792,7 +1794,7 @@ void fib6_run_gc(unsigned long expires, struct net *net, bool force)
+-		spin_lock_bh(&fib6_gc_lock);
+-	} else if (!spin_trylock_bh(&fib6_gc_lock)) {
++		spin_lock_bh(&net->ipv6.fib6_gc_lock);
++	} else if (!spin_trylock_bh(&net->ipv6.fib6_gc_lock)) {
+ 		mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
+ 		return;
+ 	}
+@@ -1804,7 +1802,7 @@ void fib6_run_gc(unsigned long expires, struct net *net, bool force)
+ 					+ net->ipv6.sysctl.ip6_rt_gc_interval));
+ 	else
+ 		del_timer(&net->ipv6.ip6_fib_timer);
+-	spin_unlock_bh(&fib6_gc_lock);
++	spin_unlock_bh(&net->ipv6.fib6_gc_lock);
+ }
  
- 	gc_args.more = icmp6_dst_gc();
+ static void fib6_gc_timer_cb(unsigned long arg)
+@@ -1816,6 +1814,7 @@ static int __net_init fib6_net_init(struct net *net)
+ {
+ 	size_t size = sizeof(struct hlist_head) * FIB6_TABLE_HASHSZ;
  
--	fib6_clean_all(net, fib6_age, NULL);
-+	fib6_clean_all(net, fib6_age, &gc_args);
- 	now = jiffies;
- 	net->ipv6.ip6_rt_last_gc = now;
- 
++	spin_lock_init(&net->ipv6.fib6_gc_lock);
+ 	rwlock_init(&net->ipv6.fib6_walker_lock);
+ 	INIT_LIST_HEAD(&net->ipv6.fib6_walkers);
+ 	setup_timer(&net->ipv6.ip6_fib_timer, fib6_gc_timer_cb, (unsigned long)net);
 -- 
 2.7.2
