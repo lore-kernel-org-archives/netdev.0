@@ -1,54 +1,68 @@
-From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
-Subject: Re: [PATCHv2 08/10] rfkill: Use switch to demux userspace operations
-Date: Tue, 8 Mar 2016 09:01:06 -0500
-Message-ID: <CA+A7VXXd0SONVPi2BOokL13YevR0+hmFz4KE-U1MvXT0qqWN_A@mail.gmail.com>
-References: <1456159001-20307-1-git-send-email-jprvita@endlessm.com>
- <1456159001-20307-9-git-send-email-jprvita@endlessm.com> <20160226175925.GA9331@w1.fi>
- <CA+A7VXUY=qVDQ-OqT+QJK8haN6AFX4Br=OPXi-6RCxpvH3=QRg@mail.gmail.com>
- <20160229223918.GA32464@w1.fi> <1456839787.3926.20.camel@sipsolutions.net> <CA+A7VXWWQOti7pOre08QcXN9vgssQH3V1f6RjphaK0VwM27C7g@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts
+ disabled
+Date: Tue, 8 Mar 2016 09:31:46 -0500
+Message-ID: <20160308143146.GA26031@hmsreliant.think-freely.org>
+References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
+ <20160307.151614.818719625382924245.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jouni Malinen <j@w1.fi>, "David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux@endlessm.com,
-	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CA+A7VXWWQOti7pOre08QcXN9vgssQH3V1f6RjphaK0VwM27C7g@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55989 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753112AbcCHOcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 09:32:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20160307.151614.818719625382924245.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Johannes,
+On Mon, Mar 07, 2016 at 03:16:14PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri,  4 Mar 2016 13:40:48 -0500
+> 
+> > vmxnet3 has a function vmxnet3_parse_and_copy_hdr which, among other operations,
+> > uses pskb_may_pull to linearize the header portion of an skb.  That operation
+> > eventually uses local_bh_disable/enable to ensure that it doesn't race with the
+> > drivers bottom half handler.  Unfortunately, vmxnet3 preforms this
+> > parse_and_copy operation with a spinlock held and interrupts disabled.  This
+> > causes us to run afoul of the WARN_ON_ONCE(irqs_disabled()) warning in
+> > local_bh_enable, resulting in this:
+> > 
+> > WARNING: at kernel/softirq.c:159 local_bh_enable+0x59/0x90() (Not tainted)
+> > Hardware name: VMware Virtual Platform
+> > Modules linked in: ipv6 ppdev parport_pc parport microcode e1000 vmware_balloon
+> > vmxnet3 i2c_piix4 sg ext4 jbd2 mbcache sd_mod crc_t10dif sr_mod cdrom mptspi
+> > mptscsih mptbase scsi_transport_spi pata_acpi ata_generic ata_piix vmwgfx ttm
+> > drm_kms_helper drm i2c_core dm_mirror dm_region_hash dm_log dm_mod [last
+> > unloaded: mperf]
+>  ...
+> > Fix it by splitting vmxnet3_parse_and_copy_hdr into two functions:
+> > 
+> > vmxnet3_parse_hdr, which sets up the internal/on stack ctx datastructure, and
+> > pulls the skb (both of which can be done without holding the spinlock with irqs
+> > disabled
+> > 
+> > and
+> > 
+> > vmxnet3_copy_header, which just copies the skb to the tx ring under the lock
+> > safely.
+> > 
+> > tested and shown to correct the described problem.  Applies cleanly to the head
+> > of the net tree
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Applied, thanks Neil.
+> 
+> > +static void 
+> 
+> Trailing whitespace, which I fixed up while applying this.
+Sorry about that, appreciate the fixup
+Neil
 
-On 1 March 2016 at 11:15, Jo=C3=A3o Paulo Rechi Vita <jprvita@gmail.com=
-> wrote:
-> On 1 March 2016 at 08:43, Johannes Berg <johannes@sipsolutions.net> w=
-rote:
->>
->> I'm fine with Jouni's change, preserving the original behaviour of
->> requiring TYPE_ALL or the correct type, but I'm tempted to simply
->> remove the type check entirely.
->>
->> Thoughts?
->>
->
-> I think this patch should keep the original logic, as this is suppose=
-d
-> to be a refactor only. If we decide to remove the check, we should to
-> it in a separate patch, to make it clear for someone looking at the
-> history later.
->
-> I'm fine with removing the type check (in a separate patch), but I
-> don't see much gain in doing so.
->
-
-I just saw you picked this patch with Jouni's fix, thanks!
-
---
-Jo=C3=A3o Paulo Rechi Vita
-http://about.me/jprvita
+> 
+> Just FYI.
+> 
