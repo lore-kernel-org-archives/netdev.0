@@ -1,68 +1,83 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net-next 2/3] ipv6: per netns fib6 walkers
-Date: Tue, 8 Mar 2016 11:03:35 +0100
-Message-ID: <20160308100335.GB8710@unicorn.suse.cz>
-References: <cover.1457085016.git.mkubecek@suse.cz>
- <6df8e224d6337b658a097ac87e72e1467cddf13d.1457085016.git.mkubecek@suse.cz>
- <CAM_iQpUxHX71GRmnmcvXpOX4P4mzJXpoYmcYhcZi2CXxEK4XFQ@mail.gmail.com>
- <CAM_iQpXynuGx2F6RdeFcyCH7qSxPv0Q0p7etwTTje07hMSaZbw@mail.gmail.com>
- <20160308070544.GA8710@unicorn.suse.cz>
+From: Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Tue, 8 Mar 2016 11:03:27 +0100
+Message-ID: <CAG374jBLD5YuBT=r3V98OqdUTXMepvQ_tLz4XMJdQMzzGYi22A@mail.gmail.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
+ <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego> <56DD7593.5060003@suse.de>
+ <56DD8176.2080603@st.com> <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
+ <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de>
+ <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Martin KaFai Lau <kafai@fb.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47337 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932159AbcCHKDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Mar 2016 05:03:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20160308070544.GA8710@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+	Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
+	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+	Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>
+To: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 08, 2016 at 08:05:44AM +0100, Michal Kubecek wrote:
-> On Mon, Mar 07, 2016 at 04:28:26PM -0800, Cong Wang wrote:
-> > On Mon, Mar 7, 2016 at 4:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > > On Fri, Mar 4, 2016 at 2:59 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> > >>  static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
-> > >>  {
-> > >> +#ifdef CONFIG_NET_NS
-> > >> +       struct net *net = iter->p.net;
-> > >> +#else
-> > >> +       struct net *net = &init_net;
-> > >> +#endif
-> > >> +
-> > >
-> > > You should pass the struct net pointer to ipv6_route_seq_setup_walk()
-> > > instead of reading it by yourself.
-> 
-> I considered this. While it probably wouldn't bring any extra overhead
-> as the function is going to be inlined anyway, it didn't look really
-> nice. I gues I'll use read_pnet() as David suggested; I just didn't
-> realize the reason it's a macro in !CONFIG_NET_NS case is to allow
-> passing a pointer to non-existent struct member.
+Hi Andreas and Dinh  Thanks for your feedback i will check it.
 
-Well, not anymore, actually, since commit 0c5c9fb55106 ("net: Introduce
-possible_net_t"). Unfortunately seq_file_net does not use possible_net_t
-and fixing that could potentially affect too much code to just throw it
-in now without sufficient testing.
+Best regards
 
-I was also wrong about ipv6_route_seq_setup_walk() being inlined as
-there are two callers. On the other hand, the only difference is two
-register mov instructions (one in caller, one in callee) vs. one read
-from memory so it's not clear if there is an actual overhead.
+Gabriel
 
-So I'll pass net as second argument after all and submit the
-seq_net_private conversion to possible_net_t later, most likely after
-net-next opens again for 4.7.
-
-                                                        Michal Kubecek
+On 8 March 2016 at 00:22, Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Mon, Mar 7, 2016 at 11:15 AM, Andreas F=C3=A4rber <afaerber@suse.d=
+e> wrote:
+>> Am 07.03.2016 um 16:52 schrieb Giuseppe CAVALLARO:
+>>> On 3/7/2016 4:46 PM, Andreas F=C3=A4rber wrote:
+>>>> Am 07.03.2016 um 16:09 schrieb Giuseppe CAVALLARO:
+>>>>> On 3/7/2016 3:27 PM, Andreas F=C3=A4rber wrote:
+>>>>>> Indeed, reverting Gabriel's commit fixes the observed error mess=
+ages
+>>>> [...]
+>>>>>> However, I am unable to ping any hosts on the network now.
+>>>>>
+>>>>> hmm, this could be another problem. I wonder if you can
+>>>>> check which recent patch is introducing the problem on ARM64.
+>>>>> For example if this depends on Oct_2015 update.
+>>>>
+>>>> I've had success reverting drivers/net/ethernet/stmicro/ up to and
+>>>> including "stmmac: first frame prep at the end of xmit routine", i=
+=2Ee.
+>>>> top 7 commits.
+>>>
+>>> Andreas, I will check it and let you know asap.
+>>
+>> I verified that it's just these two commits that I need to revert:
+>>
+>> "stmmac: Fix 'eth0: No PHY found' regression"
+>> "stmmac: first frame prep at the end of xmit routine"
+>>
+>> Those in between don't cause conflicts and seem to work okay.
+>>
+>
+> I'm seeing the same issue on the SoCFPGA platform:
+>
+> libphy: PHY stmmac-0:ffffffff not found
+> eth0: Could not attach to PHY
+> stmmac_open: Cannot attach to PHY (error: -19)
+>
+> If I just revert:
+>
+>  "stmmac: Fix 'eth0: No PHY found' regression"
+>
+> then the issue goes away.
+>
+> Thanks,
+> Dinh
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
