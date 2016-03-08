@@ -1,80 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/10] netfilter: don't call hooks unless needed
-Date: Tue,  8 Mar 2016 11:00:49 +0100
-Message-ID: <1457431250-3086-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/10] netfilter: nf_defrag_ipv4: Drop redundant ip_send_check()
+Date: Tue,  8 Mar 2016 11:00:45 +0100
+Message-ID: <1457431250-3086-6-git-send-email-pablo@netfilter.org>
 References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:40451 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932488AbcCHKBM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 05:01:12 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 46CD98427
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:09 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 3A27E28D24E
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:09 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 3E8D428D240
+	for <netdev@vger.kernel.org>; Tue,  8 Mar 2016 11:01:05 +0100 (CET)
 In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Joe Stringer <joe@ovn.org>
 
-With the previous patches in place, a netns nf_hook_list might be empty,
-even if e.g. init_net performs filtering.
+Since commit 0848f6428ba3 ("inet: frags: fix defragmented packet's IP
+header for af_packet"), ip_send_check() would be called twice for
+defragmentation that occurs from netfilter ipv4 defrag hooks. Remove the
+extra call.
 
-Thus change nf_hook_thresh to check the hook_list as well before
-initializing hook_state and calling nf_hook_slow().
-
-We still make use of static keys; if no netfilter modules are loaded
-list is guaranteed to be empty.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Joe Stringer <joe@ovn.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter.h | 29 +++++++++++------------------
- 1 file changed, 11 insertions(+), 18 deletions(-)
+ net/ipv4/netfilter/nf_defrag_ipv4.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 0ad5567..9230f9a 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -141,22 +141,6 @@ void nf_unregister_sockopt(struct nf_sockopt_ops *reg);
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index a04dee5..d88da36 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -31,10 +31,8 @@ static int nf_ct_ipv4_gather_frags(struct net *net, struct sk_buff *skb,
+ 	err = ip_defrag(net, skb, user);
+ 	local_bh_enable();
  
- #ifdef HAVE_JUMP_LABEL
- extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
--
--static inline bool nf_hook_list_active(struct list_head *hook_list,
--				       u_int8_t pf, unsigned int hook)
--{
--	if (__builtin_constant_p(pf) &&
--	    __builtin_constant_p(hook))
--		return static_key_false(&nf_hooks_needed[pf][hook]);
--
--	return !list_empty(hook_list);
--}
--#else
--static inline bool nf_hook_list_active(struct list_head *hook_list,
--				       u_int8_t pf, unsigned int hook)
--{
--	return !list_empty(hook_list);
--}
- #endif
+-	if (!err) {
+-		ip_send_check(ip_hdr(skb));
++	if (!err)
+ 		skb->ignore_df = 1;
+-	}
  
- int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
-@@ -177,9 +161,18 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
- 				 int (*okfn)(struct net *, struct sock *, struct sk_buff *),
- 				 int thresh)
- {
--	struct list_head *hook_list = &net->nf.hooks[pf][hook];
-+	struct list_head *hook_list;
-+
-+#ifdef HAVE_JUMP_LABEL
-+	if (__builtin_constant_p(pf) &&
-+	    __builtin_constant_p(hook) &&
-+	    !static_key_false(&nf_hooks_needed[pf][hook]))
-+		return 1;
-+#endif
-+
-+	hook_list = &net->nf.hooks[pf][hook];
- 
--	if (nf_hook_list_active(hook_list, pf, hook)) {
-+	if (!list_empty(hook_list)) {
- 		struct nf_hook_state state;
- 
- 		nf_hook_state_init(&state, hook_list, hook, thresh,
+ 	return err;
+ }
 -- 
 2.1.4
-
