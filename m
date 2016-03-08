@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v4 03/11] ethtool.c: fix dump_regs heap corruption
-Date: Mon,  7 Mar 2016 19:34:54 -0800
-Message-ID: <1457408102-46662-4-git-send-email-ddecotig@gmail.com>
+Subject: [ethtool PATCH v4 04/11] ethtool.c: do_seeprom checks for params & stdin sanity
+Date: Mon,  7 Mar 2016 19:34:55 -0800
+Message-ID: <1457408102-46662-5-git-send-email-ddecotig@gmail.com>
 References: <1457408102-46662-1-git-send-email-ddecotig@gmail.com>
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
@@ -11,99 +11,70 @@ Cc: Jeff Garzik <jgarzik@pobox.com>,
 	David Decotigny <decot@googlers.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35738 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522AbcCHDfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:35:16 -0500
-Received: by mail-pf0-f196.google.com with SMTP id x188so351999pfb.2
-        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 19:35:16 -0800 (PST)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34680 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbcCHDfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Mar 2016 22:35:17 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 184so353322pff.1
+        for <netdev@vger.kernel.org>; Mon, 07 Mar 2016 19:35:17 -0800 (PST)
 In-Reply-To: <1457408102-46662-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Decotigny <decot@googlers.com>
 
-The 'regs' pointer is owned by do_gregs(), but updated internally inside
-dump_regs() without propagating it back to do_gregs(): later free(regs)
-in do_gregs() reclaims the wrong area. This commit moves the realloc()
-inside do_gregs().
+Tested:
+  On qemu e1000:
+  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 9
+  too much data from stdin
+  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 11
+  not enough data from stdin
+  $ dd if=/dev/zero bs=2 count=5 | /mnt/ethtool -E eth0 length 10
+  Cannot set EEPROM data: Bad address
 
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- ethtool.c | 46 +++++++++++++++++++++++++---------------------
- 1 file changed, 25 insertions(+), 21 deletions(-)
+ ethtool.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/ethtool.c b/ethtool.c
-index 9f80d5f..7c2b5cb 100644
+index 7c2b5cb..d349bee 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -994,7 +994,6 @@ void dump_hex(FILE *file, const u8 *data, int len, int offset)
- }
+@@ -2828,8 +2828,10 @@ static int do_seeprom(struct cmd_context *ctx)
+ 	if (seeprom_length == -1)
+ 		seeprom_length = drvinfo.eedump_len;
  
- static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
--		     const char *gregs_dump_file,
- 		     struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- {
- 	int i;
-@@ -1004,25 +1003,6 @@ static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
- 		return 0;
- 	}
+-	if (drvinfo.eedump_len < seeprom_offset + seeprom_length)
+-		seeprom_length = drvinfo.eedump_len - seeprom_offset;
++	if (drvinfo.eedump_len < seeprom_offset + seeprom_length) {
++		fprintf(stderr, "offset & length out of bounds\n");
++		return 1;
++	}
  
--	if (gregs_dump_file) {
--		FILE *f = fopen(gregs_dump_file, "r");
--		struct stat st;
--		size_t nread;
--
--		if (!f || fstat(fileno(f), &st) < 0) {
--			fprintf(stderr, "Can't open '%s': %s\n",
--				gregs_dump_file, strerror(errno));
--			return -1;
--		}
--
--		regs = realloc(regs, sizeof(*regs) + st.st_size);
--		regs->len = st.st_size;
--		nread = fread(regs->data, regs->len, 1, f);
--		fclose(f);
--		if (nread != 1)
--			return -1;
--	}
--
- 	if (!gregs_dump_hex)
- 		for (i = 0; i < ARRAY_SIZE(driver_list); i++)
- 			if (!strncmp(driver_list[i].name, info->driver,
-@@ -2711,7 +2691,31 @@ static int do_gregs(struct cmd_context *ctx)
- 		free(regs);
- 		return 74;
- 	}
--	if (dump_regs(gregs_dump_raw, gregs_dump_hex, gregs_dump_file,
-+
-+	if (!gregs_dump_raw && gregs_dump_file != NULL) {
-+		/* overwrite reg values from file dump */
-+		FILE *f = fopen(gregs_dump_file, "r");
-+		struct stat st;
-+		size_t nread;
-+
-+		if (!f || fstat(fileno(f), &st) < 0) {
-+			fprintf(stderr, "Can't open '%s': %s\n",
-+				gregs_dump_file, strerror(errno));
-+			free(regs);
+ 	eeprom = calloc(1, sizeof(*eeprom)+seeprom_length);
+ 	if (!eeprom) {
+@@ -2844,8 +2846,18 @@ static int do_seeprom(struct cmd_context *ctx)
+ 	eeprom->data[0] = seeprom_value;
+ 
+ 	/* Multi-byte write: read input from stdin */
+-	if (!seeprom_value_seen)
+-		eeprom->len = fread(eeprom->data, 1, eeprom->len, stdin);
++	if (!seeprom_value_seen) {
++		if (1 != fread(eeprom->data, eeprom->len, 1, stdin)) {
++			fprintf(stderr, "not enough data from stdin\n");
++			free(eeprom);
 +			return 75;
 +		}
-+
-+		regs = realloc(regs, sizeof(*regs) + st.st_size);
-+		regs->len = st.st_size;
-+		nread = fread(regs->data, regs->len, 1, f);
-+		fclose(f);
-+		if (nread != 1) {
-+			free(regs);
++		if ((fgetc(stdin) != EOF) || !feof(stdin)) {
++			fprintf(stderr, "too much data from stdin\n");
++			free(eeprom);
 +			return 75;
 +		}
-+        }
-+
-+	if (dump_regs(gregs_dump_raw, gregs_dump_hex,
- 		      &drvinfo, regs) < 0) {
- 		fprintf(stderr, "Cannot dump registers\n");
- 		free(regs);
++	}
+ 
+ 	err = send_ioctl(ctx, eeprom);
+ 	if (err < 0) {
 -- 
 2.7.0.rc3.207.g0ac5344
