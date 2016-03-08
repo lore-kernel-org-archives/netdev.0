@@ -1,8 +1,7 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V3 01/10] net/flower: Introduce hardware offload support
-Date: Tue,  8 Mar 2016 12:42:29 +0200
-Message-ID: <1457433758-9193-2-git-send-email-amir@vadai.me>
-References: <1457433758-9193-1-git-send-email-amir@vadai.me>
+Subject: [PATCH net-next V3 00/10] cls_flower hardware offload support
+Date: Tue,  8 Mar 2016 12:42:28 +0200
+Message-ID: <1457433758-9193-1-git-send-email-amir@vadai.me>
 Cc: netdev@vger.kernel.org,
 	John Fastabend <john.r.fastabend@intel.com>,
 	Jiri Pirko <jiri@mellanox.com>,
@@ -12,203 +11,142 @@ Cc: netdev@vger.kernel.org,
 	Rony Efraim <ronye@mellanox.com>, Amir Vadai <amir@vadai.me>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33140 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933110AbcCHKjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:39:10 -0500
-Received: by mail-wm0-f68.google.com with SMTP id n186so3246813wmn.0
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 02:39:09 -0800 (PST)
-In-Reply-To: <1457433758-9193-1-git-send-email-amir@vadai.me>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34469 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753703AbcCHKjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 05:39:07 -0500
+Received: by mail-wm0-f67.google.com with SMTP id p65so3237237wmp.1
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 02:39:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is based on a patch made by John Fastabend.
-It adds support for offloading cls_flower.
-when NETIF_F_HW_TC is on:
-  flags = 0       => Rule will be processed twice - by hardware, and if
-                     still relevant, by software.
-  flags = SKIP_HW => Rull will be processed by software only
+Hi,
 
-If hardware fail/not capabale to apply the rule, operation will NOT
-fail. Filter will be processed by SW only.
+Please see changes from V2 at the bottom.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
-Suggested-by: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Amir Vadai <amir@vadai.me>
----
- include/linux/netdevice.h    |  2 ++
- include/net/pkt_cls.h        | 14 ++++++++++
- include/uapi/linux/pkt_cls.h |  2 ++
- net/sched/cls_flower.c       | 64 +++++++++++++++++++++++++++++++++++++++++++-
- 4 files changed, 81 insertions(+), 1 deletion(-)
+This patchset introduces cls_flower hardware offload support over ConnectX-4
+driver, more hardware vendors are welcome to use it too.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index efe7cec..12db9d6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -785,6 +785,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
- enum {
- 	TC_SETUP_MQPRIO,
- 	TC_SETUP_CLSU32,
-+	TC_SETUP_CLSFLOWER,
- };
- 
- struct tc_cls_u32_offload;
-@@ -794,6 +795,7 @@ struct tc_to_netdev {
- 	union {
- 		u8 tc;
- 		struct tc_cls_u32_offload *cls_u32;
-+		struct tc_cls_flower_offload *cls_flower;
- 	};
- };
- 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index bea14ee..5b4e8f0 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -409,4 +409,18 @@ static inline bool tc_should_offload(struct net_device *dev, u32 flags)
- 	return true;
- }
- 
-+enum tc_fl_command {
-+	TC_CLSFLOWER_REPLACE,
-+	TC_CLSFLOWER_DESTROY,
-+};
-+
-+struct tc_cls_flower_offload {
-+	enum tc_fl_command command;
-+	u64 cookie;
-+	struct flow_dissector *dissector;
-+	struct fl_flow_key *mask;
-+	struct fl_flow_key *key;
-+	struct tcf_exts *exts;
-+};
-+
- #endif
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 9874f568..c43c5f7 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -417,6 +417,8 @@ enum {
- 	TCA_FLOWER_KEY_TCP_DST,		/* be16 */
- 	TCA_FLOWER_KEY_UDP_SRC,		/* be16 */
- 	TCA_FLOWER_KEY_UDP_DST,		/* be16 */
-+
-+	TCA_FLOWER_FLAGS,
- 	__TCA_FLOWER_MAX,
- };
- 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 95b0212..25d8766 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -165,6 +165,51 @@ static void fl_destroy_filter(struct rcu_head *head)
- 	kfree(f);
- }
- 
-+static void fl_hw_destroy_filter(struct tcf_proto *tp, u64 cookie)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_flower_offload offload = {0};
-+	struct tc_to_netdev tc;
-+
-+	if (!tc_should_offload(dev, 0))
-+		return;
-+
-+	offload.command = TC_CLSFLOWER_DESTROY;
-+	offload.cookie = cookie;
-+
-+	tc.type = TC_SETUP_CLSFLOWER;
-+	tc.cls_flower = &offload;
-+
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+}
-+
-+static void fl_hw_replace_filter(struct tcf_proto *tp,
-+				 struct flow_dissector *dissector,
-+				 struct fl_flow_key *mask,
-+				 struct fl_flow_key *key,
-+				 struct tcf_exts *actions,
-+				 u64 cookie, u32 flags)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_cls_flower_offload offload = {0};
-+	struct tc_to_netdev tc;
-+
-+	if (!tc_should_offload(dev, flags))
-+		return;
-+
-+	offload.command = TC_CLSFLOWER_REPLACE;
-+	offload.cookie = cookie;
-+	offload.dissector = dissector;
-+	offload.mask = mask;
-+	offload.key = key;
-+	offload.exts = actions;
-+
-+	tc.type = TC_SETUP_CLSFLOWER;
-+	tc.cls_flower = &offload;
-+
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+}
-+
- static bool fl_destroy(struct tcf_proto *tp, bool force)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
-@@ -174,6 +219,7 @@ static bool fl_destroy(struct tcf_proto *tp, bool force)
- 		return false;
- 
- 	list_for_each_entry_safe(f, next, &head->filters, list) {
-+		fl_hw_destroy_filter(tp, (u64)f);
- 		list_del_rcu(&f->list);
- 		call_rcu(&f->rcu, fl_destroy_filter);
- 	}
-@@ -459,6 +505,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	struct cls_fl_filter *fnew;
- 	struct nlattr *tb[TCA_FLOWER_MAX + 1];
- 	struct fl_flow_mask mask = {};
-+	u32 flags = 0;
- 	int err;
- 
- 	if (!tca[TCA_OPTIONS])
-@@ -486,6 +533,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	}
- 	fnew->handle = handle;
- 
-+	if (tb[TCA_FLOWER_FLAGS])
-+		flags = nla_get_u32(tb[TCA_FLOWER_FLAGS]);
-+
- 	err = fl_set_parms(net, tp, fnew, &mask, base, tb, tca[TCA_RATE], ovr);
- 	if (err)
- 		goto errout;
-@@ -498,9 +548,20 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 				     head->ht_params);
- 	if (err)
- 		goto errout;
--	if (fold)
-+
-+	fl_hw_replace_filter(tp,
-+			     &head->dissector,
-+			     &mask.key,
-+			     &fnew->key,
-+			     &fnew->exts,
-+			     (u64)fnew,
-+			     flags);
-+
-+	if (fold) {
- 		rhashtable_remove_fast(&head->ht, &fold->ht_node,
- 				       head->ht_params);
-+		fl_hw_destroy_filter(tp, (u64)fold);
-+	}
- 
- 	*arg = (unsigned long) fnew;
- 
-@@ -527,6 +588,7 @@ static int fl_delete(struct tcf_proto *tp, unsigned long arg)
- 	rhashtable_remove_fast(&head->ht, &f->ht_node,
- 			       head->ht_params);
- 	list_del_rcu(&f->list);
-+	fl_hw_destroy_filter(tp, (u64)f);
- 	tcf_unbind_filter(tp, &f->res);
- 	call_rcu(&f->rcu, fl_destroy_filter);
- 	return 0;
+This patchset is based on John's infrastructure for tc offloading [2] to add
+hardware offload support to the flower filter. It also extends the support to
+an additional tc action - skbedit mark operation.
+NIC driver that was used is ConnectX-4. Feature is off by default and could be
+turned on using ethtool.
+
+Some commands to use this code:
+
+export TC=../iproute2/tc/tc
+export ETH=ens9
+
+ethtool  -K ens9 hw-tc-offload on
+
+# add an ingress qdisc
+$TC qdisc add dev $ETH ingress
+
+# Drop ICMP (ip_proto 1) packets
+$TC filter add dev $ETH protocol ip prio 20 parent ffff: \
+	flower ip_proto 1 \
+	dst_mac 7c:fe:90:69:81:62 \
+	src_mac 7c:fe:90:69:81:56 \
+	dst_ip 11.11.11.11 \
+	src_ip 11.11.11.12 \
+	indev $ETH \
+	action drop
+
+# Mark (with 0x1234) TCP (ip_proto 6) packets
+$TC filter add dev $ETH protocol ip prio 30 parent ffff: \
+	flower ip_proto 6 \
+	indev $ETH \
+	action skbedit mark 0x1234
+
+# A NOP software filter used to count marked packets using "tc show -s"
+$TC filter add dev $ETH protocol ip prio 10 parent ffff: \
+	handle 0x1234 fw action pass
+
+The code was tested and applied on top of commit 3ebeac1 ("Merge branch
+'cxgb4-next'")
+
+Changes from V2:
+- patch 1/10 ("net/flower: Introduce hardware offload support")
+  - Remove unused variable [Dave]
+  - Don't fail command when HW can't offload filter [John]
+- patch 3/10 ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
+  - Mention in changelog that struct tc_action is now exposed out of the ifdef.
+- patch 4/10 ("net/act_skbedit: Utility functions for mark action")
+  - Document clearly that is_tcf_skbedit_mark() is returning true if and only
+    if the only action is mark [Dave]
+- patch 8/10 ("net/mlx5e: Introduce tc offload support")
+  - make mlx5e_tc_add_flow() static
+
+Changes from V1:
+- patch 3/10 ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
+  - fixed return value of tc_no_actions
+
+Changes from V0:
+- Use tc_no_actions and tc_for_each_action instead of ifdef CONFIG_NET_CLS_ACT
+- Replace ENOTSUPP (and some EINVAL) with EOPNOTSUPP
+- Name the flower command enum
+- fl_hw_destroy_filter() to return void - nobody uses the return value
+- mlx5e_tc_init() and mlx5e_tc_cleanup() to be called from the right places.
+- When adding HW rule fails - fail the command
+- Rules are added to be processed both by HW and SW unless SKIP_HW is given
+- Adding patch 6/10 ("net/mlx5e: Relax ndo_setup_tc handle restriction")
+
+Main changes from the RFC [1]:
+- API
+  - Using ndo_setup_tc() instead of switchdev
+- act_skbedit, act_gact
+  - Actions are not serialized to NIC driver, instead using access functions.
+- cls_flower
+  - prevent double classification by software by not adding
+    successfuly offloaded filters to the hashtable
+  - Fixed some bugs in original RFC with rule delete  
+- mlx5
+  - Adding flow table to kernel namespace instead of a new namespace
+  - s/offload/tc/ in many places
+  - no need for a special kconfig since switchdev is not used
+
+Thanks,
+Amir
+
+[1] - http://permalink.gmane.org/gmane.linux.network/397064
+[2] - http://permalink.gmane.org/gmane.linux.network/397045 
+[3] - http://permalink.gmane.org/gmane.linux.network/401226
+
+Amir Vadai (10):
+  net/flower: Introduce hardware offload support
+  net/flow_dissector: Make dissector_uses_key() and
+    skb_flow_dissector_target() public
+  net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef
+  net/act_skbedit: Utility functions for mark action
+  net/mlx5_core: Set flow steering dest only for forward rules
+  net/mlx5e: Relax ndo_setup_tc handle restriction
+  net/mlx5e: Add a new priority for kernel flow tables
+  net/mlx5e: Introduce tc offload support
+  net/mlx5e: Support offload cls_flower with drop action
+  net/mlx5e: Support offload cls_flower with skbedit mark action
+
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile  |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  47 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   | 429 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.h   |  51 +++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c  |  29 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |  22 +-
+ include/linux/netdevice.h                         |   2 +
+ include/net/act_api.h                             |  21 +-
+ include/net/flow_dissector.h                      |  13 +
+ include/net/pkt_cls.h                             |  14 +
+ include/net/tc_act/tc_gact.h                      |   4 +-
+ include/net/tc_act/tc_skbedit.h                   |  16 +
+ include/uapi/linux/pkt_cls.h                      |   2 +
+ net/core/flow_dissector.c                         |  13 -
+ net/sched/cls_flower.c                            |  64 +++-
+ 18 files changed, 698 insertions(+), 47 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tc.h
+
 -- 
 2.7.0
