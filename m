@@ -1,56 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/10] Netfilter/IPVS updates for net-next
-Date: Tue, 08 Mar 2016 14:28:49 -0500 (EST)
-Message-ID: <20160308.142849.1605654925313096504.davem@davemloft.net>
-References: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next v3] net_sched: dsmark: use
+ qdisc_dequeue_peeked()
+Date: Tue, 08 Mar 2016 14:36:12 -0500 (EST)
+Message-ID: <20160308.143612.780302416140653742.davem@davemloft.net>
+References: <20160307040735.17574.71568.stgit@kyeongy-dl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org
+To: kyeong.yoo@alliedtelesis.co.nz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43860 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43898 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782AbcCHT2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 14:28:51 -0500
-In-Reply-To: <1457431250-3086-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1750898AbcCHTgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 14:36:15 -0500
+In-Reply-To: <20160307040735.17574.71568.stgit@kyeongy-dl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue,  8 Mar 2016 11:00:40 +0100
+From: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
+Date: Mon, 07 Mar 2016 17:07:57 +1300
 
-> The following patchset contains Netfilter updates for your net-next tree,
-> they are:
+> This fix is for dsmark similar to commit 3557619f0f6f7496ed453d4825e249
+> ("net_sched: prio: use qdisc_dequeue_peeked")
+> and makes use of qdisc_dequeue_peeked() instead of direct dequeue() call.
 > 
-> 1) Remove useless debug message when deleting IPVS service, from
->    Yannick Brosseau.
+> First time, wrr peeks dsmark, which will then peek into sfq.
+> sfq dequeues an skb and it's stored in sch->gso_skb.
+> Next time, wrr tries to dequeue from dsmark, which will call sfq dequeue
+> directly. This results skipping the previously peeked skb.
 > 
-> 2) Get rid of compilation warning when CONFIG_PROC_FS is unset in
->    several spots of the IPVS code, from Arnd Bergmann.
+> So changed dsmark dequeue to call qdisc_dequeue_peeked() instead to use
+> peeked skb if exists.
 > 
-> 3) Add prandom_u32 support to nft_meta, from Florian Westphal.
-> 
-> 4) Remove unused variable in xt_osf, from Sudip Mukherjee.
-> 
-> 5) Don't calculate IP checksum twice from netfilter ipv4 defrag hook
->    since fixing af_packet defragmentation issues, from Joe Stringer.
-> 
-> 6) On-demand hook registration for iptables from netns. Instead of
->    registering the hooks for every available netns whenever we need
->    one of the support tables, we register this on the specific netns
->    that needs it, patchset from Florian Westphal.
-> 
-> 7) Add missing port range selection to nf_tables masquerading support.
-> 
-> BTW, just for the record, there is a typo in the description of
-> 5f6c253ebe93b0 ("netfilter: bridge: register hooks only when bridge
-> interface is added") that refers to the cluster match as deprecated, but
-> it is actually the CLUSTERIP target (which registers hooks
-> inconditionally) the one that is scheduled for removal.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> Signed-off-by: Kyeong Yoo <kyeong.yoo@alliedtelesis.co.nz>
 
-Pulled, thanks Pablo!
+Applied, thank you.
