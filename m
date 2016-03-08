@@ -1,56 +1,70 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH 4/5] net: sxgbe: fix error paths in sxgbe_platform_probe()
-Date: Tue, 08 Mar 2016 21:44:20 +0100
-Message-ID: <8737s0d7iz.fsf@rasmusvillemoes.dk>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1455048677-19882-5-git-send-email-linux@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Girish K S <ks.giri@samsung.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Byungho An <bh74.an@samsung.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH 1/3] mlxsw: spectrum: Check requested ageing time is valid
+Date: Tue,  8 Mar 2016 12:59:33 -0800
+Message-ID: <1457470775-32224-2-git-send-email-stephen@networkplumber.org>
+References: <1457470775-32224-1-git-send-email-stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, Ido Schimmel <idosch@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35013 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396AbcCHUoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:44:23 -0500
-Received: by mail-wm0-f51.google.com with SMTP id l68so149619125wml.0
-        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 12:44:23 -0800 (PST)
-In-Reply-To: <1455048677-19882-5-git-send-email-linux@rasmusvillemoes.dk>
-	(Rasmus Villemoes's message of "Tue, 9 Feb 2016 21:11:15 +0100")
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34903 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751685AbcCHU7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:59:24 -0500
+Received: by mail-pf0-f169.google.com with SMTP id x188so21187829pfb.2
+        for <netdev@vger.kernel.org>; Tue, 08 Mar 2016 12:59:24 -0800 (PST)
+In-Reply-To: <1457470775-32224-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ping
+From: Ido Schimmel <idosch@mellanox.com>
 
-On Tue, Feb 09 2016, Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
+Commit c62987bbd8a1 ("bridge: push bridge setting ageing_time down to
+switchdev") added a check for minimum and maximum ageing time, but this
+breaks existing behaviour where one can set ageing time to 0 for a
+non-learning bridge.
 
-> We need to use post-decrement to ensure that irq_dispose_mapping is
-> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
-> loops failed already at i==0 (so we reach one of these labels with
-> that value of i), we'll enter an essentially infinite loop of
-> out-of-bounds accesses.
->
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> ---
->  drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-> index b02eed12bfc5..73427e29df2a 100644
-> --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-> +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
-> @@ -155,11 +155,11 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
->  	return 0;
->  
->  err_rx_irq_unmap:
-> -	while (--i)
-> +	while (i--)
->  		irq_dispose_mapping(priv->rxq[i]->irq_no);
->  	i = SXGBE_TX_QUEUES;
->  err_tx_irq_unmap:
-> -	while (--i)
-> +	while (i--)
->  		irq_dispose_mapping(priv->txq[i]->irq_no);
->  	irq_dispose_mapping(priv->irq);
->  err_drv_remove:
+Push this check down to the driver and allow the check in the bridge
+layer to be removed. Currently ageing time 0 is refused by the driver,
+but we can later add support for this functionality.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h           | 2 ++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 9 +++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 3b89ed2..65a115f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -118,6 +118,8 @@ struct mlxsw_sp {
+ #define MLXSW_SP_DEFAULT_LEARNING_INTERVAL 100
+ 		unsigned int interval; /* ms */
+ 	} fdb_notify;
++#define MLXSW_SP_MIN_AGEING_TIME 10
++#define MLXSW_SP_MAX_AGEING_TIME 1000000
+ #define MLXSW_SP_DEFAULT_AGEING_TIME 300
+ 	u32 ageing_time;
+ 	struct mlxsw_sp_upper master_bridge;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 7b56098..e1c74ef 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -311,8 +311,13 @@ static int mlxsw_sp_port_attr_br_ageing_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	unsigned long ageing_jiffies = clock_t_to_jiffies(ageing_clock_t);
+ 	u32 ageing_time = jiffies_to_msecs(ageing_jiffies) / 1000;
+ 
+-	if (switchdev_trans_ph_prepare(trans))
+-		return 0;
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (ageing_time < MLXSW_SP_MIN_AGEING_TIME ||
++		    ageing_time > MLXSW_SP_MAX_AGEING_TIME)
++			return -ERANGE;
++		else
++			return 0;
++	}
+ 
+ 	return mlxsw_sp_ageing_set(mlxsw_sp, ageing_time);
+ }
+-- 
+2.1.4
