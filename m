@@ -1,78 +1,47 @@
-From: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Tue, 8 Mar 2016 11:57:41 +0100
-Message-ID: <CA+BoTQ=ASe2o7kfiC8q6YOkNp9q6DF3Yc3XZgL=scVsw9VdqrA@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 net-next] net: Implement fast csum_partial for x86_64
+Date: Tue, 8 Mar 2016 11:03:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D4111ACE2@AcuExch.aculab.com>
+References: <1456957112-2702469-1-git-send-email-tom@herbertland.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41113AD4@AcuExch.aculab.com>
+	<CA+55aFzz7xt+RwruV3GvWJzQ67925gkDYeOYqgbjMEAHxxztnQ@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41114809@AcuExch.aculab.com>
+	<CAKgT0UcQEkhbpBvT69tBKvmY1EVm91vMwVUHOdkE4RJ3hH+Q9g@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D41116831@AcuExch.aculab.com>
+	<CALx6S35h+oSCKsaEotah30tspZPdp3GZThrN8=cLbE2O7nhU2g@mail.gmail.com>
+ <CAKgT0UfKA=ugpxuUYmv_DaEErRvEDFbGkhHDaFCxDM9C5YzeCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>
-To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"kernel-team@fb.com" <kernel-team@fb.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.182]:53665 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932920AbcCHLGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 06:06:42 -0500
+In-Reply-To: <CAKgT0UfKA=ugpxuUYmv_DaEErRvEDFbGkhHDaFCxDM9C5YzeCQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8 March 2016 at 00:06, Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Dear Michal:
->
-> Going through this patchset... (while watching it compile)
->
->
-> +       if (!local->hw.txq_cparams.target)
-> +               local->hw.txq_cparams.target =3D MS2TIME(5);
->
-> MS2TIME(20) for now and/or add something saner to this than !*backlog
->
-> target will not be a constant in the long run.
->
-> +       if (now - custom_codel_get_enqueue_time(skb) < p->target ||
-> +           !*backlog) {
-> +               /* went below - stay below for at least interval */
-> +               vars->first_above_time =3D 0;
-> +               return false;
-> +       }
->
->
-> *backlog < some_sane_value_for_an_aggregate_for_this_station
->
-> Unlike regular codel *backlog should be a ptr to the queuesize for
-> this station, not the total queue.
->
-> regular codel, by using the shared backlog for all queues, is trying
-> to get to a 1 packet depth for all queues, (see commit:
-> 865ec5523dadbedefbc5710a68969f686a28d928 ), and store the flow in the
-> network, not the queue...
->
-> BUT in wifi's case you want to provide good service to all stations,
-> which is filling up an aggregate
-> for each... (and varying the "sane_value_for_the_aggregate" to suit
-> per sta service time requirements in a given round of all stations).
-
-Hmm.. This actually makes me think that:
-
-        skb =3D codel_dequeue(flow, &flow->backlog, &flow->cvars,
-                            &hw->txq_cparams, codel_get_time(), false);
-
-is kind of wrong.
-
-If you want to maintain per-sta aggregate-long queue this probably
-needs a sta->backlog instead of flow->backlog (because you can have
-multiple flows per station) in the first place.
-
-Not quite sure about cvars though. Thoughts?
-
-
-Micha=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogQWxleGFuZGVyIER1eWNrIA0KLi4uDQo+IE9uZSB0aG91Z2h0IEkgaGFkIGlzIHRoYXQg
+d2UgbWF5IHdhbnQgdG8gbG9vayBpbnRvIG1ha2luZyBhbiBpbmxpbmUNCj4gZnVuY3Rpb24gdGhh
+dCB3ZSBjYW4gY2FsbCBmb3IgY29tcGlsZS10aW1lIGRlZmluZWQgbGVuZ3RocyBsZXNzIHRoYW4N
+Cj4gNjQuICBNYXliZSBjYWxsIGl0IHNvbWV0aGluZyBsaWtlIF9fY3N1bV9wYXJ0aWFsIGFuZCB3
+ZSBjb3VsZCB0aGVuIHVzZQ0KPiB0aGF0IGluIHBsYWNlIG9mIGNzdW1fcGFydGlhbCBmb3IgYWxs
+IHRob3NlIGhlYWRlcnMgdGhhdCBhcmUgYSBmaXhlZA0KPiBsZW5ndGggdGhhdCB3ZSBwdWxsIHN1
+Y2ggYXMgVURQLCBWWExBTiwgRXRoZXJuZXQsIGFuZCB0aGUgcmVzdC4gIFRoZW4NCj4gd2UgbWln
+aHQgYmUgYWJsZSB0byBsb29rIGF0IHRha2luZyBjYXJlIG9mIGFsaWdubWVudCBmb3IgY3N1bV9w
+YXJ0aWFsDQo+IHdoaWNoIHdpbGwgaW1wcm92ZSB0aGUgc2tiX2NoZWNrc3VtKCkgY2FzZSB3aXRo
+b3V0IGltcGFjdGluZyB0aGUNCj4gaGVhZGVyIHB1bGxpbmcgY2FzZXMgYXMgbXVjaCBzaW5jZSB0
+aGF0IGNvZGUgd291bGQgYmUgaW5saW5lZA0KPiBlbHNld2hlcmUuDQoNCkkgdGhpbmsgdGhlcmUg
+YXJlIHNvbWUgcGF0Y2hlcyBnb2luZyB0aHJvdWdoIHRoZSBwcGMgdHJlZSB0byBkbw0KZXhhY3Rs
+eSB0aGF0Lg0KDQoJRGF2aWQNCg0K
