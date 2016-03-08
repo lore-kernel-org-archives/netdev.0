@@ -1,47 +1,47 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net v2 0/2] qlcnic fixes
-Date: Tue, 8 Mar 2016 02:39:56 -0500
-Message-ID: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net] r8169:Remove unnecessary phy reset for pcie nic when setting link spped.
+Date: Tue, 8 Mar 2016 16:51:05 +0800
+Message-ID: <1457427065-3699-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
-To: <davem@davemloft.net>
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:16991 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753959AbcCHIU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 03:20:29 -0500
+Received: from rtits2.realtek.com ([60.250.210.242]:32985 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932256AbcCHIxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 03:53:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+For pcie nic, after setting link speed and thers is no link  driver does not need
+to do phy reset untill link up.
 
-This series adds following fixes.
+For some pcie nics, to do this will also reset phy speed down counter and prevent
+phy from auto speed down.
 
-o While processing mailbox if driver gets a spurious mailbox
-  interrupt it leads into premature completion of a next
-  mailbox request. Added a guard against this by checking current
-  state of mailbox and ignored spurious interrupt.
-  Added a stats counter to record this condition.
+This patch fix the issue reported in following link.
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
 
-v2:
+Signed-off-by: Chunhao Lin <hau@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-o Added patch that removes usage of atomic_t as we are not implemeting
-  atomicity by using atomic_t value.
-
-Please apply these fixes to net.
-
-Thanks,
-Rajesh
-
-Rajesh Borundia (2):
-  qlcnic: Remove unnecessary usage of atomic_t
-  qlcnic: Fix mailbox completion handling during spurious interrupt
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  3 ++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 24 ++++++++++++++--------
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  3 ++-
- 3 files changed, 19 insertions(+), 11 deletions(-)
-
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index dd2cf37..94f08f1 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1999,7 +1999,8 @@ static int rtl8169_set_speed(struct net_device *dev,
+ 		goto out;
+ 
+ 	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
+-	    (advertising & ADVERTISED_1000baseT_Full)) {
++	    (advertising & ADVERTISED_1000baseT_Full) &&
++	    !pci_is_pcie(tp->pci_dev)) {
+ 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+ 	}
+ out:
 -- 
-1.8.3.1
+1.9.1
