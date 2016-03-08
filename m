@@ -1,145 +1,218 @@
 From: Aaron Young <Aaron.Young@oracle.com>
-Subject: [PATCH net-next 2/4] ldmvsw: Make sunvnet_common compatible with ldmvsw
-Date: Tue,  8 Mar 2016 07:02:34 -0800
-Message-ID: <85723889cbcaab6d1f72581f5d34b07c7dc67f6f.1457401532.git.Aaron.Young@oracle.com>
+Subject: [PATCH net-next 3/4] ldmvsw: Add ldmvsw.c driver code
+Date: Tue,  8 Mar 2016 07:02:35 -0800
+Message-ID: <f3e221f516c1514b7d60b8e8970130b4a31d1d59.1457401532.git.Aaron.Young@oracle.com>
 References: <cover.1457401532.git.Aaron.Young@oracle.com>
 Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
 	alexandre.chartre@oracle.com, rashmi.narasimhan@oracle.com,
 	aaron.young@oracle.com, Aaron Young <Aaron.Young@oracle.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:40872 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:40886 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913AbcCHPEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 10:04:16 -0500
+	with ESMTP id S1751516AbcCHPES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 10:04:18 -0500
 In-Reply-To: <cover.1457401532.git.Aaron.Young@oracle.com>
 In-Reply-To: <cover.1457401532.git.Aaron.Young@oracle.com>
 References: <cover.1457401532.git.Aaron.Young@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  Modify sunvnet common code and data structures to be compatible
-  with both sunvnet and ldmvsw drivers.
+  Add ldmvsw.c driver
 
   Details:
 
-  Sunvnet operates on "vnet-port" nodes which appear in the Machine
-  Description (MD) in a guest domain. Ldmvsw operates on "vsw-port"
-  nodes which appear in the MD of a service domain.
+  The ldmvsw driver very closely follows the sunvnet.c code and makes
+  use of the sunvnet_common.c code for core functionality.
 
-  A difference between the sunvnet driver and the ldmvsw driver is
-  the sunvnet driver creates a network interface (i.e. a struct net_device)
-  for every vnet-port *parent* "network" node. Several vnet-ports may appear
-  under this common parent network node - each corresponding to a common parent
-  network interface.  Conversely, since bridge/vswitch software will need
-  to interface with every vsw-port in a system, the ldmvsw driver creates
-  a network interface (i.e. a struct net_device) for every vsw-port - not
-  every parent node as with sunvnet.  This difference required some special
-  handling in the common code as explained below.
+  A significant difference between sunvnet and ldmvsw driver is
+  sunvnet creates a network interface for each vnet-port *parent*
+  node in the MD while the ldmvsw driver creates a network interface
+  for every vsw-port node in the Machine Description (MD).
+  Therefore the netdev_priv() for sunvnet is a vnet structure while
+  the netdev_priv() for ldmvsw is a vnet_port structure.
 
-  There are 2 key data structures used by the sunvnet and ldmvsw drivers
-  (which are now found in sunvnet_common.h):
+  Vnet_port structures allocated by ldmvsw have the vsw bit set.
+  When finding the net_device associated with a port, the common code keys
+  off this bit to use either the net_device found in the vnet_port or the
+  net_device in the vnet structure (see the VNET_PORT_TO_NET_DEVICE() macro in
+  sunvnet_common.h). This scheme allows the common code to work with
+  both drivers with minimal changes.
 
-  1. struct vnet_port
-     This structure represents a vnet-port node in sunvnet and a vsw-port
-     in the ldmvsw driver.
-
-  2. struct vnet
-     This structure represents a parent "network" node in sunvnet and a parent
-     "virtual-network-switch" node in ldmvsw.
-
-  Since the sunvnet driver allocates a net_device for every parent "network"
-  node, a net_device member appears in the struct vnet. Since the ldmvsw
-  driver allocates a net_device for every port, a net_device member was
-  added to the vnet_port. The common code distinguishes which structure
-  net_device member to use by checking a 'vsw' bit that was added to the
-  vnet_port structure. See the VNET_PORT_TO_NET_DEVICE() marco in
-  sunvnet_common.h.
-
-  The netdev_priv() in sunvnet is allocated as a vnet. The netdev_priv()
-  in ldmvsw is a vnet_port. Therefore, any place in the common code
-  where a netdev_priv() call was made, a wrapper function was implemented
-  in each driver to first get the vnet and/or vnet_port (in a driver
-  specific way) and pass them as newly added parameters to the common
-  functions (see wrapper funcs: vnet_set_rx_mode() and vnet_poll_controller()).
-  Since these wrapper functions call __tx_port_find(), __tx_port_find() was
-  moved from the common code back into sunvnet.c. Note - ldmvsw.c does not
-  require this function.
-
-  These changes also required that port_is_up() be made
-  into a common function and thus it was given a _common suffix and
-  exported like the other common functions.
-
-  A wrapper function was also added for vnet_start_xmit_common() to pass a
-  driver-specific function arg to return the port associated with a given
-  struct sk_buff and struct net_device. This was required because
-  vnet_start_xmit_common() grabs a lock prior to getting the associated
-  port. Using a function pointer arg allowed the code to work unchanged
-  without risking changes to the non-trivial locking logic in
-  vnet_start_xmit_common().
+  Similar to Xen, network interfaces created by the ldmvsw driver will always
+  have a HW Addr (i.e. mac address) of FE:FF:FF:FF:FF:FF and each will be
+  assigned the devname "vif<cfg_handle>.<port_id>" - where <cfg_handle> and
+  <port_id> are a unique handle/port pair assigned to the associated
+  vsw-port node in the MD.
 
   Signed-off-by: Aaron Young <aaron.young@oracle.com>
   Signed-off-by: Rashmi Narasimhan <rashmi.narasimhan@oracle.com>
   Reviewed-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
   Reviewed-by: Alexandre Chartre <Alexandre.Chartre@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c        |   74 ++++++++++++++++++++++-
- drivers/net/ethernet/sun/sunvnet_common.c |   89 ++++++++++-------------------
- drivers/net/ethernet/sun/sunvnet_common.h |   28 +++++++---
- 3 files changed, 121 insertions(+), 70 deletions(-)
+ arch/sparc/configs/sparc64_defconfig |    1 +
+ drivers/net/ethernet/sun/Kconfig     |   11 +
+ drivers/net/ethernet/sun/Makefile    |    1 +
+ drivers/net/ethernet/sun/ldmvsw.c    |  460 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 473 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/sun/ldmvsw.c
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 0ac7148..bc07d03 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1,6 +1,7 @@
- /* sunvnet.c: Sun LDOM Virtual Network Driver.
-  *
-  * Copyright (C) 2007, 2008 David S. Miller <davem@davemloft.net>
-+ * Copyright (C) 2016 Oracle. All rights reserved.
-  */
+diff --git a/arch/sparc/configs/sparc64_defconfig b/arch/sparc/configs/sparc64_defconfig
+index 6b68f12..04920ab 100644
+--- a/arch/sparc/configs/sparc64_defconfig
++++ b/arch/sparc/configs/sparc64_defconfig
+@@ -102,6 +102,7 @@ CONFIG_SUNLANCE=m
+ CONFIG_HAPPYMEAL=m
+ CONFIG_SUNGEM=m
+ CONFIG_SUNVNET=m
++CONFIG_LDMVSW=m
+ CONFIG_NET_PCI=y
+ CONFIG_E1000=m
+ CONFIG_E1000E=m
+diff --git a/drivers/net/ethernet/sun/Kconfig b/drivers/net/ethernet/sun/Kconfig
+index aa58c11..a4b40e3 100644
+--- a/drivers/net/ethernet/sun/Kconfig
++++ b/drivers/net/ethernet/sun/Kconfig
+@@ -80,6 +80,17 @@ config SUNVNET
+ 	---help---
+ 	  Support for virtual network devices under Sun Logical Domains.
  
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -84,18 +85,83 @@ static const struct ethtool_ops vnet_ethtool_ops = {
- static LIST_HEAD(vnet_list);
- static DEFINE_MUTEX(vnet_list_mutex);
- 
-+static struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
-+{
-+	unsigned int hash = vnet_hashfn(skb->data);
-+	struct hlist_head *hp = &vp->port_hash[hash];
-+	struct vnet_port *port;
++config LDMVSW
++	tristate "Sun4v LDoms Virtual Switch support"
++	depends on SUN_LDOMS
++	---help---
++	  Support for virtual switch devices under Sun4v Logical Domains.
++	  This driver adds a network interface for every vsw-port node
++	  found in the machine description of a service domain.
++	  Linux bridge/switch software can use these interfaces for
++	  guest domain network interconnectivity or guest domain
++	  connection to a physical network on a service domain.
 +
-+	hlist_for_each_entry_rcu(port, hp, hash) {
-+		if (!port_is_up_common(port))
-+			continue;
-+		if (ether_addr_equal(port->raddr, skb->data))
-+			return port;
-+	}
-+	list_for_each_entry_rcu(port, &vp->port_list, list) {
-+		if (!port->switch_port)
-+			continue;
-+		if (!port_is_up_common(port))
-+			continue;
-+		return port;
-+	}
-+	return NULL;
+ config NIU
+ 	tristate "Sun Neptune 10Gbit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/sun/Makefile b/drivers/net/ethernet/sun/Makefile
+index 7b622aa..3785543 100644
+--- a/drivers/net/ethernet/sun/Makefile
++++ b/drivers/net/ethernet/sun/Makefile
+@@ -9,4 +9,5 @@ obj-$(CONFIG_SUNGEM) += sungem.o
+ obj-$(CONFIG_CASSINI) += cassini.o
+ obj-$(CONFIG_SUNVNET_COMMON) += sunvnet_common.o
+ obj-$(CONFIG_SUNVNET) += sunvnet.o
++obj-$(CONFIG_LDMVSW) += ldmvsw.o
+ obj-$(CONFIG_NIU) += niu.o
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+new file mode 100644
+index 0000000..7d1bf56
+--- /dev/null
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -0,0 +1,460 @@
++/* ldmvsw.c: Sun4v LDOM Virtual Switch Driver.
++ *
++ * Copyright (C) 2016 Oracle. All rights reserved.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/delay.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/highmem.h>
++#include <linux/if_vlan.h>
++#include <linux/init.h>
++#include <linux/kconfig.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/netdevice.h>
++#include <linux/slab.h>
++#include <linux/types.h>
++
++#if defined(CONFIG_IPV6)
++#include <linux/icmpv6.h>
++#endif
++
++#include <net/ip.h>
++#include <net/icmp.h>
++#include <net/route.h>
++
++#include <asm/vio.h>
++#include <asm/ldc.h>
++
++/* This driver makes use of the common code in sunvnet_common.c */
++#include "sunvnet_common.h"
++
++/* Length of time before we decide the hardware is hung,
++ * and dev->tx_timeout() should be called to fix the problem.
++ */
++#define VSW_TX_TIMEOUT			(5 * HZ)
++
++/* Static HW Addr used for the network interfaces representing vsw ports */
++static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
++
++#define DRV_MODULE_NAME		"ldmvsw"
++#define DRV_MODULE_VERSION	"1.0"
++#define DRV_MODULE_RELDATE	"Jan 15, 2016"
++
++static char version[] =
++	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
++MODULE_AUTHOR("Oracle");
++MODULE_DESCRIPTION("Sun4v LDOM Virtual Switch Driver");
++MODULE_LICENSE("GPL");
++MODULE_VERSION(DRV_MODULE_VERSION);
++
++/* Ordered from largest major to lowest */
++static struct vio_version vsw_versions[] = {
++	{ .major = 1, .minor = 8 },
++	{ .major = 1, .minor = 7 },
++	{ .major = 1, .minor = 6 },
++	{ .major = 1, .minor = 0 },
++};
++
++static void vsw_get_drvinfo(struct net_device *dev,
++			    struct ethtool_drvinfo *info)
++{
++	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
++	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
 +}
++
++static u32 vsw_get_msglevel(struct net_device *dev)
++{
++	struct vnet_port *port = netdev_priv(dev);
++
++	return port->vp->msg_enable;
++}
++
++static void vsw_set_msglevel(struct net_device *dev, u32 value)
++{
++	struct vnet_port *port = netdev_priv(dev);
++
++	port->vp->msg_enable = value;
++}
++
++static const struct ethtool_ops vsw_ethtool_ops = {
++	.get_drvinfo		= vsw_get_drvinfo,
++	.get_msglevel		= vsw_get_msglevel,
++	.set_msglevel		= vsw_set_msglevel,
++	.get_link		= ethtool_op_get_link,
++};
++
++static LIST_HEAD(vnet_list);
++static DEFINE_MUTEX(vnet_list_mutex);
 +
 +/* func arg to vnet_start_xmit_common() to get the proper tx port */
-+static struct vnet_port *vnet_tx_port_find(struct sk_buff *skb,
-+					   struct net_device *dev)
++static struct vnet_port *vsw_tx_port_find(struct sk_buff *skb,
++					  struct net_device *dev)
 +{
-+	struct vnet *vp = netdev_priv(dev);
++	struct vnet_port *port = netdev_priv(dev);
 +
-+	return __tx_port_find(vp, skb);
++	return port;
 +}
 +
-+static u16 vnet_select_queue(struct net_device *dev, struct sk_buff *skb,
-+			     void *accel_priv, select_queue_fallback_t fallback)
++static u16 vsw_select_queue(struct net_device *dev, struct sk_buff *skb,
++			    void *accel_priv, select_queue_fallback_t fallback)
 +{
-+	struct vnet *vp = netdev_priv(dev);
-+	struct vnet_port *port = __tx_port_find(vp, skb);
++	struct vnet_port *port = netdev_priv(dev);
 +
 +	if (!port)
 +		return 0;
@@ -148,358 +221,351 @@ index 0ac7148..bc07d03 100644
 +}
 +
 +/* Wrappers to common functions */
-+static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static int vsw_start_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
-+	return vnet_start_xmit_common(skb, dev, vnet_tx_port_find);
++	return vnet_start_xmit_common(skb, dev, vsw_tx_port_find);
 +}
 +
-+static void vnet_set_rx_mode(struct net_device *dev)
++static void vsw_set_rx_mode(struct net_device *dev)
 +{
-+	struct vnet *vp = netdev_priv(dev);
++	struct vnet_port *port = netdev_priv(dev);
 +
-+	return vnet_set_rx_mode_common(dev, vp);
++	return vnet_set_rx_mode_common(dev, port->vp);
 +}
 +
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void vnet_poll_controller(struct net_device *dev)
++static void vsw_poll_controller(struct net_device *dev)
 +{
-+	struct vnet *vp = netdev_priv(dev);
++	struct vnet_port *port = netdev_priv(dev);
 +
-+	return vnet_poll_controller_common(dev, vp);
++	return vnet_poll_controller_common(dev, port->vp);
 +}
 +#endif
 +
- static const struct net_device_ops vnet_ops = {
- 	.ndo_open		= vnet_open_common,
- 	.ndo_stop		= vnet_close_common,
--	.ndo_set_rx_mode	= vnet_set_rx_mode_common,
-+	.ndo_set_rx_mode	= vnet_set_rx_mode,
- 	.ndo_set_mac_address	= vnet_set_mac_addr_common,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_tx_timeout		= vnet_tx_timeout_common,
- 	.ndo_change_mtu		= vnet_change_mtu_common,
--	.ndo_start_xmit		= vnet_start_xmit_common,
--	.ndo_select_queue	= vnet_select_queue_common,
-+	.ndo_start_xmit		= vnet_start_xmit,
-+	.ndo_select_queue	= vnet_select_queue,
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	.ndo_poll_controller	= vnet_poll_controller_common,
-+	.ndo_poll_controller	= vnet_poll_controller,
- #endif
- };
- 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index a1d9a9c..94bfdb7 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -1,6 +1,7 @@
- /* sunvnet.c: Sun LDOM Virtual Network Driver.
-  *
-  * Copyright (C) 2007, 2008 David S. Miller <davem@davemloft.net>
-+ * Copyright (C) 2016 Oracle. All rights reserved.
-  */
- 
- #include <linux/module.h>
-@@ -62,7 +63,7 @@ static int vnet_port_alloc_tx_ring(struct vnet_port *port);
- int vnet_send_attr_common(struct vio_driver_state *vio)
- {
- 	struct vnet_port *port = to_vnet_port(vio);
--	struct net_device *dev = port->vp->dev;
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 	struct vio_net_attr_info pkt;
- 	int framelen = ETH_FRAME_LEN;
- 	int i, err;
-@@ -330,7 +331,7 @@ static inline void vnet_fullcsum(struct sk_buff *skb)
- 
- static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
- {
--	struct net_device *dev = port->vp->dev;
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 	unsigned int len = desc->size;
- 	unsigned int copy_len;
- 	struct sk_buff *skb;
-@@ -633,7 +634,6 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
- 	struct vio_dring_state *dr = &port->vio.drings[VIO_DRIVER_TX_RING];
- 	struct vio_dring_data *pkt = msgbuf;
- 	struct net_device *dev;
--	struct vnet *vp;
- 	u32 end;
- 	struct vio_net_desc *desc;
- 	struct netdev_queue *txq;
-@@ -642,8 +642,7 @@ static int vnet_ack(struct vnet_port *port, void *msgbuf)
- 		return 0;
- 
- 	end = pkt->end_idx;
--	vp = port->vp;
--	dev = vp->dev;
-+	dev = VNET_PORT_TO_NET_DEVICE(port);
- 	netif_tx_lock(dev);
- 	if (unlikely(!idx_is_pending(dr, end))) {
- 		netif_tx_unlock(dev);
-@@ -688,10 +687,11 @@ static int vnet_nack(struct vnet_port *port, void *msgbuf)
- static int handle_mcast(struct vnet_port *port, void *msgbuf)
- {
- 	struct vio_net_mcast_info *pkt = msgbuf;
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 
- 	if (pkt->tag.stype != VIO_SUBTYPE_ACK)
- 		pr_err("%s: Got unexpected MCAST reply [%02x:%02x:%04x:%08x]\n",
--		       port->vp->dev->name,
-+		       dev->name,
- 		       pkt->tag.type,
- 		       pkt->tag.stype,
- 		       pkt->tag.stype_env,
-@@ -708,7 +708,8 @@ static void maybe_tx_wakeup(struct vnet_port *port)
- {
- 	struct netdev_queue *txq;
- 
--	txq = netdev_get_tx_queue(port->vp->dev, port->q_index);
-+	txq = netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
-+				  port->q_index);
- 	__netif_tx_lock(txq, smp_processor_id());
- 	if (likely(netif_tx_queue_stopped(txq))) {
- 		struct vio_dring_state *dr;
-@@ -719,12 +720,13 @@ static void maybe_tx_wakeup(struct vnet_port *port)
- 	__netif_tx_unlock(txq);
- }
- 
--static inline bool port_is_up(struct vnet_port *vnet)
-+inline bool port_is_up_common(struct vnet_port *vnet)
- {
- 	struct vio_driver_state *vio = &vnet->vio;
- 
- 	return !!(vio->hs_state & VIO_HS_COMPLETE);
- }
-+EXPORT_SYMBOL(port_is_up_common);
- 
- static int vnet_event_napi(struct vnet_port *port, int budget)
- {
-@@ -797,7 +799,7 @@ ldc_ctrl:
- napi_resume:
- 		if (likely(msgbuf.tag.type == VIO_TYPE_DATA)) {
- 			if (msgbuf.tag.stype == VIO_SUBTYPE_INFO) {
--				if (!port_is_up(port)) {
-+				if (!port_is_up_common(port)) {
- 					/* failures like handshake_failure()
- 					 * may have cleaned up dring, but
- 					 * NAPI polling may bring us here.
-@@ -911,28 +913,6 @@ static int __vnet_tx_trigger(struct vnet_port *port, u32 start)
- 	return err;
- }
- 
--static struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
--{
--	unsigned int hash = vnet_hashfn(skb->data);
--	struct hlist_head *hp = &vp->port_hash[hash];
--	struct vnet_port *port;
--
--	hlist_for_each_entry_rcu(port, hp, hash) {
--		if (!port_is_up(port))
--			continue;
--		if (ether_addr_equal(port->raddr, skb->data))
--			return port;
--	}
--	list_for_each_entry_rcu(port, &vp->port_list, list) {
--		if (!port->switch_port)
--			continue;
--		if (!port_is_up(port))
--			continue;
--		return port;
--	}
--	return NULL;
--}
--
- static struct sk_buff *vnet_clean_tx_ring(struct vnet_port *port,
- 					  unsigned *pending)
- {
-@@ -994,9 +974,9 @@ void vnet_clean_timer_expire_common(unsigned long port0)
- 	struct sk_buff *freeskbs;
- 	unsigned pending;
- 
--	netif_tx_lock(port->vp->dev);
-+	netif_tx_lock(VNET_PORT_TO_NET_DEVICE(port));
- 	freeskbs = vnet_clean_tx_ring(port, &pending);
--	netif_tx_unlock(port->vp->dev);
-+	netif_tx_unlock(VNET_PORT_TO_NET_DEVICE(port));
- 
- 	vnet_free_skbs(freeskbs);
- 
-@@ -1140,21 +1120,11 @@ static inline struct sk_buff *vnet_skb_shape(struct sk_buff *skb, int ncookies)
- 	return skb;
- }
- 
--u16 vnet_select_queue_common(struct net_device *dev, struct sk_buff *skb,
--		  void *accel_priv, select_queue_fallback_t fallback)
-+static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb,
-+				struct vnet_port *(*vnet_tx_port)
-+				(struct sk_buff *, struct net_device *))
- {
--	struct vnet *vp = netdev_priv(dev);
--	struct vnet_port *port = __tx_port_find(vp, skb);
--
--	if (port == NULL)
--		return 0;
--	return port->q_index;
--}
--EXPORT_SYMBOL(vnet_select_queue_common);
--
--static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
--{
--	struct net_device *dev = port->vp->dev;
-+	struct net_device *dev = VNET_PORT_TO_NET_DEVICE(port);
- 	struct vio_dring_state *dr = &port->vio.drings[VIO_DRIVER_TX_RING];
- 	struct sk_buff *segs;
- 	int maclen, datalen;
-@@ -1239,7 +1209,8 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
- 			curr->csum_offset = offsetof(struct udphdr, check);
- 
- 		if (!(status & NETDEV_TX_MASK))
--			status = vnet_start_xmit_common(curr, dev);
-+			status = vnet_start_xmit_common(curr, dev,
-+							vnet_tx_port);
- 		if (status & NETDEV_TX_MASK)
- 			dev_kfree_skb_any(curr);
- 	}
-@@ -1253,9 +1224,10 @@ out_dropped:
- 	return NETDEV_TX_OK;
- }
- 
--int vnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev)
-+int vnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
-+			   struct vnet_port *(*vnet_tx_port)
-+			   (struct sk_buff *, struct net_device *))
- {
--	struct vnet *vp = netdev_priv(dev);
- 	struct vnet_port *port = NULL;
- 	struct vio_dring_state *dr;
- 	struct vio_net_desc *d;
-@@ -1266,14 +1238,14 @@ int vnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev)
- 	struct netdev_queue *txq;
- 
- 	rcu_read_lock();
--	port = __tx_port_find(vp, skb);
-+	port = vnet_tx_port(skb, dev);
- 	if (unlikely(!port)) {
- 		rcu_read_unlock();
- 		goto out_dropped;
- 	}
- 
- 	if (skb_is_gso(skb) && skb->len > port->tsolen) {
--		err = vnet_handle_offloads(port, skb);
-+		err = vnet_handle_offloads(port, skb, vnet_tx_port);
- 		rcu_read_unlock();
- 		return err;
- 	}
-@@ -1588,9 +1560,8 @@ static void __send_mc_list(struct vnet *vp, struct vnet_port *port)
- 	}
- }
- 
--void vnet_set_rx_mode_common(struct net_device *dev)
-+void vnet_set_rx_mode_common(struct net_device *dev, struct vnet *vp)
- {
--	struct vnet *vp = netdev_priv(dev);
- 	struct vnet_port *port;
- 
- 	rcu_read_lock();
-@@ -1717,9 +1688,8 @@ err_out:
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--void vnet_poll_controller_common(struct net_device *dev)
-+void vnet_poll_controller_common(struct net_device *dev, struct vnet *vp)
- {
--	struct vnet *vp = netdev_priv(dev);
- 	struct vnet_port *port;
- 	unsigned long flags;
- 
-@@ -1741,13 +1711,16 @@ void vnet_port_add_txq_common(struct vnet_port *port)
- 	n = vp->nports++;
- 	n = n & (VNET_MAX_TXQS - 1);
- 	port->q_index = n;
--	netif_tx_wake_queue(netdev_get_tx_queue(vp->dev, port->q_index));
-+	netif_tx_wake_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
-+						port->q_index));
++static const struct net_device_ops vsw_ops = {
++	.ndo_open		= vnet_open_common,
++	.ndo_stop		= vnet_close_common,
++	.ndo_set_rx_mode	= vsw_set_rx_mode,
++	.ndo_set_mac_address	= vnet_set_mac_addr_common,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_tx_timeout		= vnet_tx_timeout_common,
++	.ndo_change_mtu		= vnet_change_mtu_common,
++	.ndo_start_xmit		= vsw_start_xmit,
++	.ndo_select_queue	= vsw_select_queue,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller    = vsw_poll_controller,
++#endif
++};
 +
- }
- EXPORT_SYMBOL(vnet_port_add_txq_common);
- 
- void vnet_port_rm_txq_common(struct vnet_port *port)
- {
- 	port->vp->nports--;
--	netif_tx_stop_queue(netdev_get_tx_queue(port->vp->dev, port->q_index));
-+	netif_tx_stop_queue(netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
-+						port->q_index));
- }
- EXPORT_SYMBOL(vnet_port_rm_txq_common);
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.h b/drivers/net/ethernet/sun/sunvnet_common.h
-index 6c05896..10a3db9 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.h
-+++ b/drivers/net/ethernet/sun/sunvnet_common.h
-@@ -32,6 +32,13 @@ struct vnet_tx_entry {
- };
- 
- struct vnet;
++static const char *local_mac_prop = "local-mac-address";
++static const char *cfg_handle_prop = "cfg-handle";
 +
-+/* Structure to describe a vnet-port or vsw-port in the MD.
-+ * If the vsw bit is set, this structure represents a vswitch
-+ * port, and the net_device can be found from ->dev. If the
-+ * vsw bit is not set, the net_device is available from ->vp->dev.
-+ * See the VNET_PORT_TO_NET_DEVICE macro below.
-+ */
- struct vnet_port {
- 	struct vio_driver_state	vio;
- 
-@@ -39,9 +46,11 @@ struct vnet_port {
- 	u8			raddr[ETH_ALEN];
- 	unsigned		switch_port:1;
- 	unsigned		tso:1;
--	unsigned		__pad:14;
-+	unsigned		vsw:1;
-+	unsigned		__pad:13;
- 
- 	struct vnet		*vp;
-+	struct net_device	*dev;
- 
- 	struct vnet_tx_entry	tx_bufs[VNET_TX_RING_SIZE];
- 
-@@ -105,21 +114,23 @@ struct vnet {
- 	int			nports;
- };
- 
-+/* Def used by common code to get the net_device from the proper location */
-+#define VNET_PORT_TO_NET_DEVICE(__port) \
-+	((__port)->vsw ? (__port)->dev : (__port)->vp->dev)
++static struct vnet *vsw_get_vnet(struct mdesc_handle *hp,
++				 u64 port_node,
++				 u64 *handle)
++{
++	struct vnet *vp;
++	struct vnet *iter;
++	const u64 *local_mac = NULL;
++	const u64 *cfghandle = NULL;
++	u64 a;
 +
- /* Common funcs */
- void vnet_clean_timer_expire_common(unsigned long port0);
- int vnet_open_common(struct net_device *dev);
- int vnet_close_common(struct net_device *dev);
--void vnet_set_rx_mode_common(struct net_device *dev);
-+void vnet_set_rx_mode_common(struct net_device *dev, struct vnet *vp);
- int vnet_set_mac_addr_common(struct net_device *dev, void *p);
- void vnet_tx_timeout_common(struct net_device *dev);
- int vnet_change_mtu_common(struct net_device *dev, int new_mtu);
--int vnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev);
--u16 vnet_select_queue_common(struct net_device *dev,
--			     struct sk_buff *skb,
--			     void *accel_priv,
--			     select_queue_fallback_t fallback);
-+int vnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
-+			   struct vnet_port *(*vnet_tx_port)
-+			   (struct sk_buff *, struct net_device *));
- #ifdef CONFIG_NET_POLL_CONTROLLER
--void vnet_poll_controller_common(struct net_device *dev);
-+void vnet_poll_controller_common(struct net_device *dev, struct vnet *vp);
- #endif
- void vnet_event_common(void *arg, int event);
- int vnet_send_attr_common(struct vio_driver_state *vio);
-@@ -127,6 +138,7 @@ int vnet_handle_attr_common(struct vio_driver_state *vio, void *arg);
- void vnet_handshake_complete_common(struct vio_driver_state *vio);
- int vnet_poll_common(struct napi_struct *napi, int budget);
- void vnet_port_free_tx_bufs_common(struct vnet_port *port);
-+inline bool port_is_up_common(struct vnet_port *vnet);
- void vnet_port_add_txq_common(struct vnet_port *port);
- void vnet_port_rm_txq_common(struct vnet_port *port);
- 
++	/* Get the parent virtual-network-switch macaddr and cfghandle */
++	mdesc_for_each_arc(a, hp, port_node, MDESC_ARC_TYPE_BACK) {
++		u64 target = mdesc_arc_target(hp, a);
++		const char *name;
++
++		name = mdesc_get_property(hp, target, "name", NULL);
++		if (!name || strcmp(name, "virtual-network-switch"))
++			continue;
++
++		local_mac = mdesc_get_property(hp, target,
++					       local_mac_prop, NULL);
++		cfghandle = mdesc_get_property(hp, target,
++					       cfg_handle_prop, NULL);
++		break;
++	}
++	if (!local_mac || !cfghandle)
++		return ERR_PTR(-ENODEV);
++
++	/* find or create associated vnet */
++	vp = NULL;
++	mutex_lock(&vnet_list_mutex);
++	list_for_each_entry(iter, &vnet_list, list) {
++		if (iter->local_mac == *local_mac) {
++			vp = iter;
++			break;
++		}
++	}
++
++	if (!vp) {
++		vp = kzalloc(sizeof(*vp), GFP_KERNEL);
++		if (unlikely(!vp)) {
++			mutex_unlock(&vnet_list_mutex);
++			return ERR_PTR(-ENOMEM);
++		}
++
++		spin_lock_init(&vp->lock);
++		INIT_LIST_HEAD(&vp->port_list);
++		INIT_LIST_HEAD(&vp->list);
++		vp->local_mac = *local_mac;
++		list_add(&vp->list, &vnet_list);
++	}
++
++	mutex_unlock(&vnet_list_mutex);
++
++	*handle = (u64)*cfghandle;
++
++	return vp;
++}
++
++static struct net_device *vsw_alloc_netdev(u8 hwaddr[],
++					   struct vio_dev *vdev,
++					   u64 handle,
++					   u64 port_id)
++{
++	struct net_device *dev;
++	struct vnet_port *port;
++	int i;
++
++	dev = alloc_etherdev_mqs(sizeof(*port), VNET_MAX_TXQS, 1);
++	if (!dev)
++		return ERR_PTR(-ENOMEM);
++	dev->needed_headroom = VNET_PACKET_SKIP + 8;
++	dev->needed_tailroom = 8;
++
++	for (i = 0; i < ETH_ALEN; i++) {
++		dev->dev_addr[i] = hwaddr[i];
++		dev->perm_addr[i] = dev->dev_addr[i];
++	}
++
++	sprintf(dev->name, "vif%d.%d", (int)handle, (int)port_id);
++
++	dev->netdev_ops = &vsw_ops;
++	dev->ethtool_ops = &vsw_ethtool_ops;
++	dev->watchdog_timeo = VSW_TX_TIMEOUT;
++
++	dev->hw_features = NETIF_F_TSO | NETIF_F_GSO | NETIF_F_GSO_SOFTWARE |
++			   NETIF_F_HW_CSUM | NETIF_F_SG;
++	dev->features = dev->hw_features;
++
++	SET_NETDEV_DEV(dev, &vdev->dev);
++
++	return dev;
++}
++
++static struct ldc_channel_config vsw_ldc_cfg = {
++	.event		= vnet_event_common,
++	.mtu		= 64,
++	.mode		= LDC_MODE_UNRELIABLE,
++};
++
++static struct vio_driver_ops vsw_vio_ops = {
++	.send_attr		= vnet_send_attr_common,
++	.handle_attr		= vnet_handle_attr_common,
++	.handshake_complete	= vnet_handshake_complete_common,
++};
++
++static void print_version(void)
++{
++	printk_once(KERN_INFO "%s", version);
++}
++
++static const char *remote_macaddr_prop = "remote-mac-address";
++static const char *id_prop = "id";
++
++static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
++{
++	struct mdesc_handle *hp;
++	struct vnet_port *port;
++	unsigned long flags;
++	struct vnet *vp;
++	struct net_device *dev;
++	const u64 *rmac;
++	int len, i, err;
++	const u64 *port_id;
++	u64 handle;
++
++	print_version();
++
++	hp = mdesc_grab();
++
++	rmac = mdesc_get_property(hp, vdev->mp, remote_macaddr_prop, &len);
++	err = -ENODEV;
++	if (!rmac) {
++		pr_err("Port lacks %s property\n", remote_macaddr_prop);
++		goto err_out_put_mdesc;
++	}
++
++	port_id = mdesc_get_property(hp, vdev->mp, id_prop, NULL);
++	err = -ENODEV;
++	if (!port_id) {
++		pr_err("Port lacks %s property\n", id_prop);
++		goto err_out_put_mdesc;
++	}
++
++	/* Get (or create) the vnet associated with this port */
++	vp = vsw_get_vnet(hp, vdev->mp, &handle);
++	if (unlikely(IS_ERR(vp))) {
++		err = PTR_ERR(vp);
++		pr_err("Failed to get vnet for vsw-port\n");
++		goto err_out_put_mdesc;
++	}
++
++	dev = vsw_alloc_netdev(vsw_port_hwaddr, vdev, handle, *port_id);
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		pr_err("Failed to alloc netdev for vsw-port\n");
++		goto err_out_put_mdesc;
++	}
++
++	port = netdev_priv(dev);
++
++	for (i = 0; i < ETH_ALEN; i++)
++		port->raddr[i] = (*rmac >> (5 - i) * 8) & 0xff;
++
++	port->vp = vp;
++	port->dev = dev;
++	port->switch_port = 1;
++	port->tso = true;
++	port->tsolen = 0;
++
++	/* Mark the port as belonging to ldmvsw which directs the
++	 * the common code to use the net_device in the vnet_port
++	 * rather than the net_device in the vnet (which is used
++	 * by sunvnet). This bit is used by the VNET_PORT_TO_NET_DEVICE
++	 * macro.
++	 */
++	port->vsw = 1;
++
++	err = vio_driver_init(&port->vio, vdev, VDEV_NETWORK,
++			      vsw_versions, ARRAY_SIZE(vsw_versions),
++			      &vsw_vio_ops, dev->name);
++	if (err)
++		goto err_out_free_port;
++
++	err = vio_ldc_alloc(&port->vio, &vsw_ldc_cfg, port);
++	if (err)
++		goto err_out_free_port;
++
++	err = register_netdev(dev);
++	if (err) {
++		pr_err("Cannot register net device, aborting\n");
++		goto err_out_free_ldc;
++	}
++
++	netif_napi_add(dev, &port->napi, vnet_poll_common,
++		       NAPI_POLL_WEIGHT);
++
++	INIT_LIST_HEAD(&port->list);
++
++	spin_lock_irqsave(&vp->lock, flags);
++	list_add_rcu(&port->list, &vp->port_list);
++	vnet_port_add_txq_common(port);
++	spin_unlock_irqrestore(&vp->lock, flags);
++
++	dev_set_drvdata(&vdev->dev, port);
++
++	netdev_info(dev, "LDOM vsw-port %pM\n", dev->dev_addr);
++
++	pr_info("%s: PORT ( remote-mac %pM%s )\n",
++		dev->name, port->raddr, " switch-port");
++
++	setup_timer(&port->clean_timer, vnet_clean_timer_expire_common,
++		    (unsigned long)port);
++
++	napi_enable(&port->napi);
++	vio_port_up(&port->vio);
++
++	mdesc_release(hp);
++
++	return 0;
++
++err_out_free_ldc:
++	vio_ldc_free(&port->vio);
++
++err_out_free_port:
++	free_netdev(dev);
++
++err_out_put_mdesc:
++	mdesc_release(hp);
++	return err;
++}
++
++static int vsw_port_remove(struct vio_dev *vdev)
++{
++	struct vnet_port *port = dev_get_drvdata(&vdev->dev);
++	unsigned long flags;
++
++	if (port) {
++		del_timer_sync(&port->vio.timer);
++
++		napi_disable(&port->napi);
++
++		list_del_rcu(&port->list);
++
++		synchronize_rcu();
++		del_timer_sync(&port->clean_timer);
++		spin_lock_irqsave(&port->vp->lock, flags);
++		vnet_port_rm_txq_common(port);
++		spin_unlock_irqrestore(&port->vp->lock, flags);
++		netif_napi_del(&port->napi);
++		vnet_port_free_tx_bufs_common(port);
++		vio_ldc_free(&port->vio);
++
++		dev_set_drvdata(&vdev->dev, NULL);
++
++		unregister_netdev(port->dev);
++		free_netdev(port->dev);
++	}
++
++	return 0;
++}
++
++static void vsw_cleanup(void)
++{
++	struct vnet *vp;
++
++	/* just need to free up the vnet list */
++	mutex_lock(&vnet_list_mutex);
++	while (!list_empty(&vnet_list)) {
++		vp = list_first_entry(&vnet_list, struct vnet, list);
++		list_del(&vp->list);
++		/* vio_unregister_driver() should have cleaned up port_list */
++		if (!list_empty(&vp->port_list))
++			pr_err("Ports not removed by VIO subsystem!\n");
++		kfree(vp);
++	}
++	mutex_unlock(&vnet_list_mutex);
++}
++
++static const struct vio_device_id vsw_port_match[] = {
++	{
++		.type = "vsw-port",
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(vio, vsw_port_match);
++
++static struct vio_driver vsw_port_driver = {
++	.id_table	= vsw_port_match,
++	.probe		= vsw_port_probe,
++	.remove		= vsw_port_remove,
++	.name		= "vsw_port",
++};
++
++static int __init vsw_init(void)
++{
++	return vio_register_driver(&vsw_port_driver);
++}
++
++static void __exit vsw_exit(void)
++{
++	vio_unregister_driver(&vsw_port_driver);
++	vsw_cleanup();
++}
++
++module_init(vsw_init);
++module_exit(vsw_exit);
 -- 
 1.7.1
