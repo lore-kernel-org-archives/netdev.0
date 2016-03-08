@@ -1,48 +1,50 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH] cdc_ncm: do not call usbnet_link_change from
- cdc_ncm_bind
-Date: Tue, 08 Mar 2016 21:20:13 +0100
-Message-ID: <1457468413.19125.8.camel@suse.com>
-References: <CA+55aFw43uKkUK-h=VMwXcb9NM+g2AdeB960kWb4YihmjQ8DRw@mail.gmail.com>
-	 <20160307.141100.1511700720120062677.davem@davemloft.net>
-	 <CA+fCnZdurxGBsOrANb_m5BLK1BKzH3J_GmZ=dbH=ABThgFNGxg@mail.gmail.com>
-	 <20160307.145406.188091362181073486.davem@davemloft.net>
-	 <87k2le815w.fsf_-_@nemi.mork.no>
-	 <CA+55aFxt7zWW+-EkwCbAWCb9wkgVswYJNAz86bc_QRcv1pBHZw@mail.gmail.com>
-	 <871t7k7mgo.fsf@nemi.mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next v2] tcp: Add RFC4898
+ tcpEStatsPerfDataSegsOut/In
+Date: Tue, 08 Mar 2016 15:24:44 -0500 (EST)
+Message-ID: <20160308.152444.555296214200726963.davem@davemloft.net>
+References: <1457402465-1736429-1-git-send-email-kafai@fb.com>
+	<20160308194153.GN31728@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Andrey Konovalov <andreyknvl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <871t7k7mgo.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kafai@fb.com, netdev@vger.kernel.org, kernel-team@fb.com,
+	rapier@psc.edu, edumazet@google.com, ncardwell@google.com,
+	ycheng@google.com
+To: mleitner@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44373 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750954AbcCHUYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 15:24:48 -0500
+In-Reply-To: <20160308194153.GN31728@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-08 at 21:18 +0100, Bj=C3=B8rn Mork wrote:
-> > Why is it called "FLAG_LINK_INTR" anyway? There doesn't seem to be
-> > anything "INTR" about it.
->=20
-> Beats me.  I can only say that I always find naming difficult...
-> We could ask Ben, who introduced it in:
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Date: Tue, 8 Mar 2016 16:41:54 -0300
 
-It used to be done over USB interrupt endpoints.
+> On Mon, Mar 07, 2016 at 06:01:05PM -0800, Martin KaFai Lau wrote:
+>> v2:
+>> Rework based on recent fix by Eric:
+>> commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
+>> 
+>> v1:
+> 
+> Patch itself looks good to me, just this patch history is better placed
+> on the Notes region (together with the diffstat) or place a scissors
+> mark, otherwise it will be present in the git changelog too.
 
-	Regards
-		Oliver
+I like seeing it in the commit message.
 
+Then later people can figure out answers to questions like "why didn't you
+implement this like X" and see in the version history that this was
+attempted first and then intentionally changed.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I even move version history into the commit message when people try to
+move it out, so please don't do that.
+
+This is important _especially_ for "0/N" header postings for a patch
+series.
+
+DO NOT LOSE INFORMATION.
