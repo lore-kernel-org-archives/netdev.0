@@ -1,135 +1,102 @@
-From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: [v6, 5/5] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-Date: Wed, 9 Mar 2016 18:08:51 +0800
-Message-ID: <1457518131-11339-6-git-send-email-yangbo.lu@nxp.com>
-References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Wed, 9 Mar 2016 11:27:42 +0100
+Message-ID: <56DFFA9E.7060602@st.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de> <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego> <56DD7593.5060003@suse.de> <56DD8176.2080603@st.com> <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com> <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de> <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com> <56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com> <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com> <56DFE55B.2090806@st.com> <56DFE64B.8060606@st.com> <CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com> <56DFF253.9050208@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rob Herring <robh+dt@kernel.org>, <scott.wood@nxp.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	<ulf.hansson@linaro.org>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	"Zhao Qiang" <qiang.zhao@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	"Santosh Shilimkar" <ssantosh@kernel.org>, <leoyang.li@nxp.com>,
-	<xiaobo.xie@nxp.com>, Yangbo Lu <yangbo.lu@nxp.com>
-To: <devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<linux-clk@vger.kernel.org>, <linux-i2c@vger.kernel.org>,
-	<iommu@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-mmc@vger.kernel.org>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="------------080902020606030807080607"
+Cc: Dinh Nguyen <dinh.linux@gmail.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	=?UTF-8?B?SGVpa28gU3TDvGJuZXI=?= <heiko@sntech.de>,
+	<netdev@vger.kernel.org>,
+	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	=?UTF-8?B?QW5kcmVhcyBGw6Ry?= =?UTF-8?B?YmVy?= <afaerber@suse.de>,
+	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	Alexandre TORGUE <alexandre.torgue@st.com>,
+	=?UTF-8?B?RnJhbmsgU2Now6RmZXI=?= <fschaefer.oss@googlemail.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Tomeu Vizoso <tomeu@tomeuvizoso.net>,
+	Fabrice GASNIER <fabrice.gasnier@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:44049 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932144AbcCIK20 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:28:26 -0500
+In-Reply-To: <56DFF253.9050208@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The eSDHC of T4240-R1.0-R2.0 has incorrect vender version and spec version.
-Acturally the right version numbers should be VVN=0x13 and SVN = 0x1.
-This patch adds the GUTS driver support for eSDHC driver to get SVR(System
-version register). And fix host version to avoid that incorrect version
-numbers break down the ADMA data transfer.
+--------------080902020606030807080607
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
-Acked-by: Ulf Hansson <ulf.hansson@linaro.org>
----
-Changes for v2:
-	- Got SVR through iomap instead of dts
-Changes for v3:
-	- Managed GUTS through syscon instead of iomap in eSDHC driver
-Changes for v4:
-	- Got SVR by GUTS driver instead of SYSCON
-Changes for v5:
-	- Changed to get SVR through API fsl_guts_get_svr()
-	- Combined patch 4, patch 5 and patch 6 into one
-Changes for v6:
-	- Added 'Acked-by: Ulf Hansson'
----
- drivers/mmc/host/Kconfig          |  1 +
- drivers/mmc/host/sdhci-of-esdhc.c | 23 +++++++++++++++++++++++
- 2 files changed, 24 insertions(+)
+Hello Tomeu, Andreas,
 
-diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
-index 04feea8..5743b05 100644
---- a/drivers/mmc/host/Kconfig
-+++ b/drivers/mmc/host/Kconfig
-@@ -142,6 +142,7 @@ config MMC_SDHCI_OF_ESDHC
- 	depends on MMC_SDHCI_PLTFM
- 	depends on PPC || ARCH_MXC || ARCH_LAYERSCAPE
- 	select MMC_SDHCI_IO_ACCESSORS
-+	select FSL_GUTS
- 	help
- 	  This selects the Freescale eSDHC controller support.
+On 3/9/2016 10:52 AM, Giuseppe CAVALLARO wrote:
+>> * today's linux-next: probe failed
+>>
+>> * today's linux-next + revert of 88f8b1bb41c6 stmmac: Fix 'eth0: No
+>> PHY found' regression: probe succeeded but no network at all
+>>
+>> * today's linux-next + revert of 88f8b1bb41c6 (stmmac: Fix 'eth0: No
+>> PHY found' regression) + revert of 0e80bdc9a72d (stmmac: first frame
+>> prep at the end of xmit routine): probe succeeded, dhcp succeeds and
+>> nfsroot works for a few seconds before timing out
+>
+> ok, I was looking at this problem now that seems to related
+> the "stmmac: first frame prep at the end of xmit routine"
+> that, at first glance, is breaking the gmac 3.50 with normal descriptor.
+
+I have no Hw where to test this use case. So, I wonder if may I ask you 
+to test some patch.
+
+This first patch adds a missing barrier to the normal routine that inits 
+the descriptor. Barrier was needed to well manage the OWN
+descriptor and it was not added in case of normal desc case after
+the xmit rework.
+
+Then I will check the algo behind the new xmit and in case of problems,
+if you agree, we will decide to revert it because it aimed to add an
+optimization.
+
+Let me know if you agree.
+
+Regards
+Peppe
+
+--------------080902020606030807080607
+Content-Type: text/x-patch; name="normal_tmp.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="normal_tmp.patch"
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index e13228f..4392610 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -210,7 +210,7 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 		tdes1 &= ~TDES1_FIRST_SEGMENT;
  
-diff --git a/drivers/mmc/host/sdhci-of-esdhc.c b/drivers/mmc/host/sdhci-of-esdhc.c
-index 3f34d35..68cc020 100644
---- a/drivers/mmc/host/sdhci-of-esdhc.c
-+++ b/drivers/mmc/host/sdhci-of-esdhc.c
-@@ -18,6 +18,8 @@
- #include <linux/of.h>
- #include <linux/delay.h>
- #include <linux/module.h>
-+#include <linux/fsl/svr.h>
-+#include <linux/fsl/guts.h>
- #include <linux/mmc/host.h>
- #include "sdhci-pltfm.h"
- #include "sdhci-esdhc.h"
-@@ -28,6 +30,8 @@
- struct sdhci_esdhc {
- 	u8 vendor_ver;
- 	u8 spec_ver;
-+	u32 soc_ver;
-+	u8 soc_rev;
- };
- 
- /**
-@@ -73,6 +77,8 @@ static u32 esdhc_readl_fixup(struct sdhci_host *host,
- static u16 esdhc_readw_fixup(struct sdhci_host *host,
- 				     int spec_reg, u32 value)
- {
-+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-+	struct sdhci_esdhc *esdhc = sdhci_pltfm_priv(pltfm_host);
- 	u16 ret;
- 	int shift = (spec_reg & 0x2) * 8;
- 
-@@ -80,6 +86,13 @@ static u16 esdhc_readw_fixup(struct sdhci_host *host,
- 		ret = value & 0xffff;
+ 	if (likely(csum_flag))
+-		tdes1 |= (TX_CIC_FULL) << TDES1_CHECKSUM_INSERTION_SHIFT;
++		tdes1 |= (TX_CIC_FULL << TDES1_CHECKSUM_INSERTION_SHIFT);
  	else
- 		ret = (value >> shift) & 0xffff;
+ 		tdes1 &= ~(TX_CIC_FULL << TDES1_CHECKSUM_INSERTION_SHIFT);
+ 
+@@ -220,6 +220,13 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 	if (tx_own)
+ 		tdes1 |= TDES0_OWN;
+ 
++	if (is_fs & tx_own)
++		/* When the own bit, for the first frame, has to be set, all
++		 * descriptors for the same frame has to be set before, to
++		 * avoid race condition.
++		 */
++		wmb();
 +
-+	/* Workaround for T4240-R1.0-R2.0 eSDHC which has incorrect
-+	 * vendor version and spec version information.
-+	 */
-+	if ((spec_reg == SDHCI_HOST_VERSION) &&
-+	    (esdhc->soc_ver == SVR_T4240) && (esdhc->soc_rev <= 0x20))
-+		ret = (VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) | SDHCI_SPEC_200;
- 	return ret;
+ 	p->des1 = tdes1;
  }
  
-@@ -567,10 +580,20 @@ static void esdhc_init(struct platform_device *pdev, struct sdhci_host *host)
- 	struct sdhci_pltfm_host *pltfm_host;
- 	struct sdhci_esdhc *esdhc;
- 	u16 host_ver;
-+	u32 svr;
- 
- 	pltfm_host = sdhci_priv(host);
- 	esdhc = sdhci_pltfm_priv(pltfm_host);
- 
-+	fsl_guts_init();
-+	svr = fsl_guts_get_svr();
-+	if (svr) {
-+		esdhc->soc_ver = SVR_SOC_VER(svr);
-+		esdhc->soc_rev = SVR_REV(svr);
-+	} else {
-+		dev_err(&pdev->dev, "Failed to get SVR value!\n");
-+	}
-+
- 	host_ver = sdhci_readw(host, SDHCI_HOST_VERSION);
- 	esdhc->vendor_ver = (host_ver & SDHCI_VENDOR_VER_MASK) >>
- 			     SDHCI_VENDOR_VER_SHIFT;
--- 
-2.1.0.27.g96db324
 
+--------------080902020606030807080607--
