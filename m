@@ -1,7 +1,7 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Wed, 9 Mar 2016 19:51:28 +0300
-Message-ID: <20160309165128.GK2207@uranus.lan>
+Date: Wed, 9 Mar 2016 08:58:52 -0800
+Message-ID: <20160309165850.GA49579@ast-mbp.thefacebook.com>
 References: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
  <20160304.231109.1838919633640757059.davem@davemloft.net>
  <20160306100932.GP4184@uranus.lan>
@@ -10,18 +10,18 @@ References: <1457136510.2761.8.camel@edumazet-ThinkPad-T530>
  <20160309163919.GJ2207@uranus.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	solar@openwall.com, vvs@virtuozzo.com, avagin@virtuozzo.com,
+	xemul@virtuozzo.com, vdavydov@virtuozzo.com, khorenko@virtuozzo.com
+To: Cyrill Gorcunov <gorcunov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33756 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753598AbcCIQvx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 11:51:53 -0500
-Received: by mail-lb0-f174.google.com with SMTP id k15so75028433lbg.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 08:51:52 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34812 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933301AbcCIQ64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 11:58:56 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 129so45251574pfw.1
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 08:58:56 -0800 (PST)
 Content-Disposition: inline
 In-Reply-To: <20160309163919.GJ2207@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
@@ -37,24 +37,37 @@ On Wed, Mar 09, 2016 at 07:39:19PM +0300, Cyrill Gorcunov wrote:
 > Hi Eric, David. Sorry for the delay. Finally I've measured the
 > latency on the hw. It's i7-2600 cpu with 16G of memory. Here
 > are the collected data.
-...
 > 
+> ---
+> Unpatched vanilla
+> =================
 > 
-> Also here is a graph for the data collected (blue line: unpatched
-> version, red -- patched. Of course with patched version it become
-> a way more better but still hanging).
+> commit 7f02bf6b5f5de90b7a331759b5364e41c0f39bf9
+> Author: Linus Torvalds <torvalds@linux-foundation.org>
+> Date:   Tue Mar 8 09:41:20 2016 -0800
 > 
-> https://docs.google.com/spreadsheets/d/1eyQDxjuZY2DHKYksGACpHDDcV1Bd92e-ZiY8ywPKshA/edit?usp=sharing
+>  Creating new addresses
+>  ----------------------
+>   19.26%  [kernel]                      [k] check_lifetime
+>   13.88%  [kernel]                      [k] __inet_insert_ifa
+>   13.01%  [kernel]                      [k] inet_rtm_newaddr
 > 
-> The perf output earlier shows the "perf top" when addresses
-> are created and when they are releasing.
+>  Release
+>  -------
+>   20.96%  [kernel]                    [k] _raw_spin_lock
+>   17.79%  [kernel]                    [k] preempt_count_add
 
-In text form
--------------
-Num of addresses	Unpatched (sec)		Patched (sec)
-4			1			1
-2704			5			5
-10404			20			20
-23104			45			42
-40804			83			74
-63504			139			113
+above line is an indication that you have:
+#if defined(CONFIG_DEBUG_PREEMPT) || defined(CONFIG_PREEMPT_TRACER)
+turning it off will speed up things significantly.
+
+>   14.79%  [kernel]                    [k] __local_bh_enable_ip
+>   13.08%  [kernel]                    [k] preempt_count_sub
+>    9.21%  [kernel]                    [k] nf_ct_iterate_cleanup
+>    3.15%  [kernel]                    [k] _raw_spin_unlock
+>    2.80%  [kernel]                    [k] nf_conntrack_lock
+>    2.67%  [kernel]                    [k] in_lock_functions
+>    2.63%  [kernel]                    [k] get_parent_ip
+>    2.26%  [kernel]                    [k] __inet_del_ifa
+>    2.17%  [kernel]                    [k] fib_del_ifaddr
+>    1.77%  [kernel]                    [k] _cond_resched
