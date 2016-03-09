@@ -1,95 +1,64 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v9 3/8] openvswitch: Add commentary to conntrack.c
-Date: Wed,  9 Mar 2016 15:10:19 -0800
-Message-ID: <1457565024-27300-3-git-send-email-jarno@ovn.org>
+Subject: [PATCH nf-next v9 7/8] openvswitch: Delay conntrack helper call for new connections.
+Date: Wed,  9 Mar 2016 15:10:23 -0800
+Message-ID: <1457565024-27300-7-git-send-email-jarno@ovn.org>
 References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:46607 "EHLO
-	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752693AbcCIXKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 18:10:38 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1457565024-27300-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This makes the code easier to understand and the following patches
-more focused.
+There is no need to help connections that are not confirmed, so we can
+delay helping new connections to the time when they are confirmed.
+This change is needed for NAT support, and having this as a separate
+patch will make the following NAT patch a bit easier to review.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+ net/openvswitch/conntrack.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 3045290..8cd0110 100644
+index 92613de..5711f80 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -152,8 +152,12 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (ct) {
- 		state = ovs_ct_get_state(ctinfo);
-+		/* All unconfirmed entries are NEW connections. */
- 		if (!nf_ct_is_confirmed(ct))
- 			state |= OVS_CS_F_NEW;
-+		/* OVS persists the related flag for the duration of the
-+		 * connection.
-+		 */
- 		if (ct->master)
- 			state |= OVS_CS_F_RELATED;
- 		zone = nf_ct_zone(ct);
-@@ -165,6 +169,9 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	__ovs_ct_update_key(key, state, zone, ct);
- }
+@@ -483,7 +483,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 * actually run the packet through conntrack twice unless it's for a
+ 	 * different zone.
+ 	 */
+-	if (!skb_nfct_cached(net, key, info, skb)) {
++	bool cached = skb_nfct_cached(net, key, info, skb);
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
++
++	if (!cached) {
+ 		struct nf_conn *tmpl = info->ct;
+ 		int err;
  
-+/* This is called to initialize CT key fields possibly coming in from the local
-+ * stack.
-+ */
- void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
- {
- 	ovs_ct_update_key(skb, NULL, key, false);
-@@ -199,7 +206,6 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct nf_conn *ct;
- 	u32 new_mark;
+@@ -506,11 +510,17 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			return -ENOENT;
  
--
- 	/* The connection could be invalid, in which case set_mark is no-op. */
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (!ct)
-@@ -375,6 +381,11 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
- 	return true;
- }
+ 		ovs_ct_update_key(skb, info, key, true);
++	}
  
-+/* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
-+ * not done already.  Update key with new CT state.
-+ * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
-+ * set to NULL and 0 will be returned.
-+ */
- static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 			   const struct ovs_conntrack_info *info,
- 			   struct sk_buff *skb)
-@@ -418,6 +429,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- {
- 	struct nf_conntrack_expect *exp;
- 
-+	/* If we pass an expected packet through nf_conntrack_in() the
-+	 * expectiation is typically removed, but the packet could still be
-+	 * lost in upcall processing.  To prevent this from happening we
-+	 * perform an explicit expectation lookup.  Expected connections are
-+	 * always new, and will be passed through conntrack only when they are
-+	 * committed, as it is OK to remove the expectation at that time.
+-		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+-			WARN_ONCE(1, "helper rejected packet");
+-			return -EINVAL;
+-		}
++	/* Call the helper only if we did nf_conntrack_in() above ('!cached')
++	 * for confirmed connections, but only when committing for unconfirmed
++	 * connections.
 +	 */
- 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
- 	if (exp) {
- 		u8 state;
-@@ -455,6 +473,7 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
-+	/* This is a no-op if the connection has already been confirmed. */
- 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
- 		return -EINVAL;
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit) &&
++	    ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
++		WARN_ONCE(1, "helper rejected packet");
++		return -EINVAL;
+ 	}
  
+ 	return 0;
 -- 
 2.1.4
+
