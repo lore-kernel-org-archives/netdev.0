@@ -1,53 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
-Date: Wed, 09 Mar 2016 18:19:21 +0100
-Message-ID: <56E05B19.5040101@iogearbox.net>
-References: <20160309163852.4dd159b1@canb.auug.org.au> <56E052E4.90504@infradead.org> <56E053D3.7090009@iogearbox.net> <56E0583A.1080205@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Wed, 09 Mar 2016 12:19:28 -0500 (EST)
+Message-ID: <20160309.121928.103638956202937455.davem@davemloft.net>
+References: <1457281392.2663.5.camel@edumazet-ThinkPad-T530>
+	<20160306170641.GA8820@uranus.lan>
+	<20160309163919.GJ2207@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <56E0583A.1080205@infradead.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
+To: gorcunov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59804 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933571AbcCIRTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:19:31 -0500
+In-Reply-To: <20160309163919.GJ2207@uranus.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2016 06:07 PM, Randy Dunlap wrote:
-> On 03/09/16 08:48, Daniel Borkmann wrote:
->> On 03/09/2016 05:44 PM, Randy Dunlap wrote:
->>> On 03/08/16 21:38, Stephen Rothwell wrote:
->>>> Hi all,
->>>>
->>>> Changes since 20160308:
->>>
->>> on x86_64:
->>>
->>> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
->>> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
->>>     ip_tunnel_info_opts_get(to, info);
->>>     ^
->>> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
->>> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
->>>     ip_tunnel_info_opts_set(info, from, size);
->>>     ^
->>> Full randconfig file is attached.
->>
->> Already fixed with net-next commit e28e87ed474c ("ip_tunnel, bpf:
->> ip_tunnel_info_opts_{get, set} depends on CONFIG_INET").
-[...]
-> Is that patch on the netdev mailing list or patchwork?
-> I can't find it.
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Wed, 9 Mar 2016 19:39:19 +0300
 
-It is in patchwork archive or also here:
+>    9.21%  [kernel]                    [k] nf_ct_iterate_cleanup
+ ...
+>  Release
+>  -------
+>   24.26%  [kernel]                    [k] _raw_spin_lock
+>   17.55%  [kernel]                    [k] preempt_count_add
+>   14.81%  [kernel]                    [k] __local_bh_enable_ip
+>   14.17%  [kernel]                    [k] preempt_count_sub
+>   10.10%  [kernel]                    [k] nf_ct_iterate_cleanup
+ ...
+> The main problem still I think is that we allow to request
+> as many inet addresses as there is enough free memory and
+> of course kernel can't handle all in O(1) time, all resources
+> must be released so there always be some lagging moment. Thus
+> maybe introducing limits would be a good idea for sysadmins.
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=e28e87ed474c5a0b378c66fb85efc8e487f4f63f
+Primary problem seems to be netfilter conntrack.
 
-Was reported first by Fengguang's build bot i.e. his config had !CONFIG_INET
-like in your case, so should resolve the issue.
+It's at least 10 times more expensive than any of the other
+operations and probably is where all of the lock banging is
+coming from.
 
-Thanks,
-Daniel
+I'm not adding a limit when there is so much low hanging fruit
+remaining, no way.
