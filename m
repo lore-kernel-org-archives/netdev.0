@@ -1,54 +1,72 @@
-From: Weongyo Jeong <weongyo.linux@gmail.com>
-Subject: [PATCH] inet: set `error' value not under lock_sock().
-Date: Wed, 9 Mar 2016 10:22:21 -0800
-Message-ID: <20160309182217.GA9708@jwg>
-Reply-To: Weongyo Jeong <wjeong@barracuda.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 2/2] net: dsa: support
+ SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF
+Date: Wed, 9 Mar 2016 19:32:13 +0100
+Message-ID: <20160309183213.GA18196@lunn.ch>
+References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1457545368-20647-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Ido Schimmel <idosch@mellanox.com>,
+	nikolay@cumulusnetworks.com, Elad Raz <eladr@mellanox.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:32877 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933595AbcCISWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 13:22:23 -0500
-Received: by mail-pa0-f66.google.com with SMTP id q6so3938880pav.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 10:22:23 -0800 (PST)
-Received: from jwg ([64.235.157.5])
-        by smtp.gmail.com with ESMTPSA id xn8sm14018893pab.15.2016.03.09.10.22.21
-        for <netdev@vger.kernel.org>
-        (version=TLS1 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Wed, 09 Mar 2016 10:22:21 -0800 (PST)
+Received: from vps0.lunn.ch ([178.209.37.122]:53492 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933584AbcCIScR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 13:32:17 -0500
 Content-Disposition: inline
+In-Reply-To: <1457545368-20647-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A trivial patch to set `error' variable while not holding
-lock_sock().
+Hi Vivien
 
-Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
----
- net/ipv4/inet_connection_sock.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> -static bool dsa_slave_dev_check(struct net_device *dev)
+> -{
+> -	return dev->netdev_ops == &dsa_slave_netdev_ops;
+> -}
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 6414891..58bc39f 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -306,14 +306,13 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
- 	struct request_sock_queue *queue = &icsk->icsk_accept_queue;
- 	struct request_sock *req;
- 	struct sock *newsk;
--	int error;
-+	int error = -EINVAL;
- 
- 	lock_sock(sk);
- 
- 	/* We need to make sure that this socket is listening,
- 	 * and that it has something pending.
- 	 */
--	error = -EINVAL;
- 	if (sk->sk_state != TCP_LISTEN)
- 		goto out_err;
- 
--- 
-2.1.3
+Where is the equivalent of this happening? Where do we check that the
+interface added to the bridge is part of the switch?
+
+> -int dsa_slave_netdevice_event(struct notifier_block *unused,
+> -			      unsigned long event, void *ptr)
+> -{
+> -	struct net_device *dev;
+> -	int err = 0;
+> -
+> -	switch (event) {
+> -	case NETDEV_CHANGEUPPER:
+> -		dev = netdev_notifier_info_to_dev(ptr);
+> -		if (!dsa_slave_dev_check(dev))
+> -			goto out;
+> -
+> -		err = dsa_slave_master_changed(dev);
+> -		if (err && err != -EOPNOTSUPP)
+> -			netdev_warn(dev, "failed to reflect master change\n");
+> -
+> -		break;
+> -	}
+> -
+> -out:
+> -	return NOTIFY_DONE;
+> -}
+
+How about team/bonding? We are not ready to implement it yet with the
+Marvell devices, but at some point we probably will. Won't we need the
+events then? We need to know when a switch port has been added to a
+team?
+
+Or do you think a switchdev object will be added for this case?
+Mellanox already have the ability to add switch interfaces to a team,
+and then add the team to a bridge. So we need to ensure your solution
+works for such stacked systems.
+
+      Andrew
