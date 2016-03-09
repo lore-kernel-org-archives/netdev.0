@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/4] ip_tunnel: add support for setting flow label via collect metadata
-Date: Wed,  9 Mar 2016 03:00:02 +0100
-Message-ID: <048c342f924a59757d950668c490809a792ad592.1457488298.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 2/4] vxlan: support setting IPv6 flow label
+Date: Wed,  9 Mar 2016 03:00:03 +0100
+Message-ID: <7775042611e823098fd14d2929fb6b12cc0b3f98.1457488298.git.daniel@iogearbox.net>
 References: <cover.1457488298.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45214 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45221 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903AbcCICAK (ORCPT
+	with ESMTP id S1750971AbcCICAK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 21:00:10 -0500
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
@@ -17,154 +17,161 @@ References: <cover.1457488298.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch extends udp_tunnel6_xmit_skb() to pass in the IPv6 flow label
-from call sites. Currently, there's no such option and it's always set to
-zero when writing ip6_flow_hdr(). Add a label member to ip_tunnel_key, so
-that flow-based tunnels via collect metadata frontends can make use of it.
-vxlan and geneve will be converted to add flow label support separately.
+This work adds support for setting the IPv6 flow label for vxlan per
+device and through collect metadata (ip_tunnel_key) frontends. The
+vxlan dst cache does not need any special considerations here, for
+the cases where caches can be used, the label is static per cache.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/geneve.c       | 2 +-
- drivers/net/vxlan.c        | 2 +-
- include/net/dst_metadata.h | 5 ++++-
- include/net/ip_tunnels.h   | 4 +++-
- include/net/udp_tunnel.h   | 4 ++--
- net/ipv6/ip6_udp_tunnel.c  | 6 +++---
- net/tipc/udp_media.c       | 2 +-
- 7 files changed, 15 insertions(+), 10 deletions(-)
+ drivers/net/vxlan.c          | 26 +++++++++++++++++++++-----
+ include/net/vxlan.h          |  1 +
+ include/uapi/linux/if_link.h |  1 +
+ 3 files changed, 23 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 6a0cbbe..89ccff7 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -1054,7 +1054,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		ttl = ttl ? : ip6_dst_hoplimit(dst);
- 	}
- 	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
--			     &fl6.saddr, &fl6.daddr, prio, ttl,
-+			     &fl6.saddr, &fl6.daddr, prio, ttl, 0,
- 			     sport, geneve->dst_port,
- 			     !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
- 	return NETDEV_TX_OK;
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2399099..8bdcd5e 100644
+index 8bdcd5e..8eda76f 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -2066,7 +2066,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+@@ -1790,6 +1790,7 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
+ 					  struct sk_buff *skb, int oif, u8 tos,
++					  __be32 label,
+ 					  const struct in6_addr *daddr,
+ 					  struct in6_addr *saddr,
+ 					  struct dst_cache *dst_cache,
+@@ -1813,6 +1814,7 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
+ 	fl6.flowi6_tos = RT_TOS(tos);
+ 	fl6.daddr = *daddr;
+ 	fl6.saddr = vxlan->cfg.saddr.sin6.sin6_addr;
++	fl6.flowlabel = label;
+ 	fl6.flowi6_mark = skb->mark;
+ 	fl6.flowi6_proto = IPPROTO_UDP;
+ 
+@@ -1888,7 +1890,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	struct vxlan_metadata _md;
+ 	struct vxlan_metadata *md = &_md;
+ 	__be16 src_port = 0, dst_port;
+-	__be32 vni;
++	__be32 vni, label;
+ 	__be16 df = 0;
+ 	__u8 tos, ttl;
+ 	int err;
+@@ -1939,12 +1941,14 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	if (tos == 1)
+ 		tos = ip_tunnel_get_dsfield(old_iph, skb);
+ 
++	label = vxlan->cfg.label;
+ 	src_port = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
+ 				     vxlan->cfg.port_max, true);
+ 
+ 	if (info) {
+ 		ttl = info->key.ttl;
+ 		tos = info->key.tos;
++		label = info->key.label;
+ 		udp_sum = !!(info->key.tun_flags & TUNNEL_CSUM);
+ 
+ 		if (info->options_len)
+@@ -2020,7 +2024,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		ndst = vxlan6_get_route(vxlan, skb,
+ 					rdst ? rdst->remote_ifindex : 0, tos,
+-					&dst->sin6.sin6_addr, &saddr,
++					label, &dst->sin6.sin6_addr, &saddr,
+ 					dst_cache, info);
+ 		if (IS_ERR(ndst)) {
+ 			netdev_dbg(dev, "no route to %pI6\n",
+@@ -2066,8 +2070,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
  			return;
  		}
  		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
--				     &saddr, &dst->sin6.sin6_addr, tos, ttl,
-+				     &saddr, &dst->sin6.sin6_addr, tos, ttl, 0,
- 				     src_port, dst_port, !udp_sum);
+-				     &saddr, &dst->sin6.sin6_addr, tos, ttl, 0,
+-				     src_port, dst_port, !udp_sum);
++				     &saddr, &dst->sin6.sin6_addr, tos, ttl,
++				     label, src_port, dst_port, !udp_sum);
  #endif
  	}
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index 84b833a..5db9f59 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -126,7 +126,7 @@ static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
  
- 	ip_tunnel_key_init(&tun_dst->u.tun_info.key,
- 			   iph->saddr, iph->daddr, iph->tos, iph->ttl,
--			   0, 0, tunnel_id, flags);
-+			   0, 0, 0, tunnel_id, flags);
- 	return tun_dst;
- }
+@@ -2390,7 +2394,7 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
+ 		if (!vxlan->vn6_sock)
+ 			return -EINVAL;
+ 		ndst = vxlan6_get_route(vxlan, skb, 0, info->key.tos,
+-					&info->key.u.ipv6.dst,
++					info->key.label, &info->key.u.ipv6.dst,
+ 					&info->key.u.ipv6.src, NULL, info);
+ 		if (IS_ERR(ndst))
+ 			return PTR_ERR(ndst);
+@@ -2505,6 +2509,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+ 	[IFLA_VXLAN_LOCAL6]	= { .len = sizeof(struct in6_addr) },
+ 	[IFLA_VXLAN_TOS]	= { .type = NLA_U8 },
+ 	[IFLA_VXLAN_TTL]	= { .type = NLA_U8 },
++	[IFLA_VXLAN_LABEL]	= { .type = NLA_U32 },
+ 	[IFLA_VXLAN_LEARNING]	= { .type = NLA_U8 },
+ 	[IFLA_VXLAN_AGEING]	= { .type = NLA_U32 },
+ 	[IFLA_VXLAN_LIMIT]	= { .type = NLA_U32 },
+@@ -2739,6 +2744,11 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+ 		vxlan->flags |= VXLAN_F_IPV6;
+ 	}
  
-@@ -152,8 +152,11 @@ static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
- 
- 	info->key.u.ipv6.src = ip6h->saddr;
- 	info->key.u.ipv6.dst = ip6h->daddr;
++	if (conf->label && !use_ipv6) {
++		pr_info("label only supported in use with IPv6\n");
++		return -EINVAL;
++	}
 +
- 	info->key.tos = ipv6_get_dsfield(ip6h);
- 	info->key.ttl = ip6h->hop_limit;
-+	info->key.label = ip6_flowlabel(ip6h);
-+
- 	return tun_dst;
- }
+ 	if (conf->remote_ifindex) {
+ 		lowerdev = __dev_get_by_index(src_net, conf->remote_ifindex);
+ 		dst->remote_ifindex = conf->remote_ifindex;
+@@ -2887,6 +2897,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+ 	if (data[IFLA_VXLAN_TTL])
+ 		conf.ttl = nla_get_u8(data[IFLA_VXLAN_TTL]);
  
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 0acd80f..5dc2e45 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -48,6 +48,7 @@ struct ip_tunnel_key {
- 	__be16			tun_flags;
- 	u8			tos;		/* TOS for IPv4, TC for IPv6 */
- 	u8			ttl;		/* TTL for IPv4, HL for IPv6 */
-+	__be32			label;		/* Flow Label for IPv6 */
- 	__be16			tp_src;
- 	__be16			tp_dst;
++	if (data[IFLA_VXLAN_LABEL])
++		conf.label = nla_get_be32(data[IFLA_VXLAN_LABEL]) &
++			     IPV6_FLOWLABEL_MASK;
++
+ 	if (!data[IFLA_VXLAN_LEARNING] || nla_get_u8(data[IFLA_VXLAN_LEARNING]))
+ 		conf.flags |= VXLAN_F_LEARN;
+ 
+@@ -2990,6 +3004,7 @@ static size_t vxlan_get_size(const struct net_device *dev)
+ 		nla_total_size(sizeof(struct in6_addr)) + /* IFLA_VXLAN_LOCAL{6} */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TTL */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TOS */
++		nla_total_size(sizeof(__be32)) + /* IFLA_VXLAN_LABEL */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_LEARNING */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_PROXY */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_RSC */
+@@ -3053,6 +3068,7 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 
+ 	if (nla_put_u8(skb, IFLA_VXLAN_TTL, vxlan->cfg.ttl) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_TOS, vxlan->cfg.tos) ||
++	    nla_put_be32(skb, IFLA_VXLAN_LABEL, vxlan->cfg.label) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_LEARNING,
+ 			!!(vxlan->flags & VXLAN_F_LEARN)) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_PROXY,
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 6eda4ed..a763c96 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -162,6 +162,7 @@ struct vxlan_config {
+ 	u16			port_max;
+ 	u8			tos;
+ 	u8			ttl;
++	__be32			label;
+ 	u32			flags;
+ 	unsigned long		age_interval;
+ 	unsigned int		addrmax;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index d452cea..6bebc97 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -456,6 +456,7 @@ enum {
+ 	IFLA_VXLAN_GBP,
+ 	IFLA_VXLAN_REMCSUM_NOPARTIAL,
+ 	IFLA_VXLAN_COLLECT_METADATA,
++	IFLA_VXLAN_LABEL,
+ 	__IFLA_VXLAN_MAX
  };
-@@ -181,7 +182,7 @@ int ip_tunnel_encap_del_ops(const struct ip_tunnel_encap_ops *op,
- 
- static inline void ip_tunnel_key_init(struct ip_tunnel_key *key,
- 				      __be32 saddr, __be32 daddr,
--				      u8 tos, u8 ttl,
-+				      u8 tos, u8 ttl, __be32 label,
- 				      __be16 tp_src, __be16 tp_dst,
- 				      __be64 tun_id, __be16 tun_flags)
- {
-@@ -192,6 +193,7 @@ static inline void ip_tunnel_key_init(struct ip_tunnel_key *key,
- 	       0, IP_TUNNEL_KEY_IPV4_PAD_LEN);
- 	key->tos = tos;
- 	key->ttl = ttl;
-+	key->label = label;
- 	key->tun_flags = tun_flags;
- 
- 	/* For the tunnel types on the top of IPsec, the tp_src and tp_dst of
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index 97f5adb..b831140 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -88,8 +88,8 @@ int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 			 struct sk_buff *skb,
- 			 struct net_device *dev, struct in6_addr *saddr,
- 			 struct in6_addr *daddr,
--			 __u8 prio, __u8 ttl, __be16 src_port,
--			 __be16 dst_port, bool nocheck);
-+			 __u8 prio, __u8 ttl, __be32 label,
-+			 __be16 src_port, __be16 dst_port, bool nocheck);
- #endif
- 
- void udp_tunnel_sock_release(struct socket *sock);
-diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
-index 14dacf1..a752052 100644
---- a/net/ipv6/ip6_udp_tunnel.c
-+++ b/net/ipv6/ip6_udp_tunnel.c
-@@ -73,8 +73,8 @@ int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 			 struct sk_buff *skb,
- 			 struct net_device *dev, struct in6_addr *saddr,
- 			 struct in6_addr *daddr,
--			 __u8 prio, __u8 ttl, __be16 src_port,
--			 __be16 dst_port, bool nocheck)
-+			 __u8 prio, __u8 ttl, __be32 label,
-+			 __be16 src_port, __be16 dst_port, bool nocheck)
- {
- 	struct udphdr *uh;
- 	struct ipv6hdr *ip6h;
-@@ -98,7 +98,7 @@ int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
- 	__skb_push(skb, sizeof(*ip6h));
- 	skb_reset_network_header(skb);
- 	ip6h		  = ipv6_hdr(skb);
--	ip6_flow_hdr(ip6h, prio, htonl(0));
-+	ip6_flow_hdr(ip6h, prio, label);
- 	ip6h->payload_len = htons(skb->len);
- 	ip6h->nexthdr     = IPPROTO_UDP;
- 	ip6h->hop_limit   = ttl;
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 49b3c2e..c94f9a1 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -196,7 +196,7 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- 		ttl = ip6_dst_hoplimit(ndst);
- 		err = udp_tunnel6_xmit_skb(ndst, ub->ubsock->sk, skb,
- 					   ndst->dev, &src->ipv6,
--					   &dst->ipv6, 0, ttl, src->udp_port,
-+					   &dst->ipv6, 0, ttl, 0, src->udp_port,
- 					   dst->udp_port, false);
- #endif
- 	}
+ #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
 -- 
 1.9.3
