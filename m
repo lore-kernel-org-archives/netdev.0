@@ -1,135 +1,87 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net 1/3] net: mvneta: Fix spinlock usage
-Date: Wed, 09 Mar 2016 08:49:40 +0100
-Message-ID: <87wppc2iqz.fsf@free-electrons.com>
-References: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
-	<1457441826-6100-2-git-send-email-gregory.clement@free-electrons.com>
-	<20160309144254.3fbf177f@xhacker>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [4.5-rc7+ regression, bisected] libphy: PHY stmmac-0:ffffffff
+ not found
+Date: Wed, 9 Mar 2016 08:53:57 +0100
+Message-ID: <56DFD695.1050300@st.com>
+References: <56DF149F.6090100@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Ofer Heifetz <oferh@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Patrick Uiterwijk <patrick@puiterwijk.org>,
-	"Marcin Wojtas" <mw@semihalf.com>,
-	Dimitri Epshtein <dima@marvell.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jisheng Zhang <jszhang@marvell.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: =?UTF-8?B?RnJhbmsgU2Now6RmZXI=?= <fschaefer.oss@googlemail.com>,
+	<gabriel.fernandez@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:35763 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750887AbcCIHtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 02:49:43 -0500
-In-Reply-To: <20160309144254.3fbf177f@xhacker> (Jisheng Zhang's message of
-	"Wed, 9 Mar 2016 14:42:54 +0800")
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:33036 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751246AbcCIHyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 02:54:01 -0500
+In-Reply-To: <56DF149F.6090100@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jisheng,
- 
- On mer., mars 09 2016, Jisheng Zhang <jszhang@marvell.com> wrote:
+Hi Frank
 
-> Dear Gregory,
+yes we are also looking at this problem in this thread:
+
+   [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+
+I am implementing a patch and I will propose it soon.
+
+Peppe
+
+On 3/8/2016 7:06 PM, Frank Sch=C3=A4fer wrote:
+> commit 88f8b1bb41c6208f81b6a480244533ded7b59493
+> Author: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+> Date:   Mon Feb 29 17:18:22 2016 +0100
 >
-> On Tue, 8 Mar 2016 13:57:04 +0100 Gregory CLEMENT wrote:
+>      stmmac: Fix 'eth0: No PHY found' regression
 >
->> In the previous patch, the spinlock was not initialized. While it didn't
->> cause any trouble yet it could be a problem to use it uninitialized.
->> 
->> The most annoying part was the critical section protected by the spinlock
->> in mvneta_stop(). Some of the functions could sleep as pointed when
->> activated CONFIG_DEBUG_ATOMIC_SLEEP. Actually, in mvneta_stop() we only
->> need to protect the is_stopped flagged, indeed the code of the notifier
->> for CPU online is protected by the same spinlock, so when we get the
->> lock, the notifer work is done.
->> 
->> Reported-by: Patrick Uiterwijk <patrick@puiterwijk.org>
->> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
->> ---
->>  drivers/net/ethernet/marvell/mvneta.c | 11 ++++++-----
->>  1 file changed, 6 insertions(+), 5 deletions(-)
->> 
->> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
->> index b0ae69f84493..8dc7df2edff6 100644
->> --- a/drivers/net/ethernet/marvell/mvneta.c
->> +++ b/drivers/net/ethernet/marvell/mvneta.c
->> @@ -3070,17 +3070,17 @@ static int mvneta_stop(struct net_device *dev)
->>  	struct mvneta_port *pp = netdev_priv(dev);
->>  
->>  	/* Inform that we are stopping so we don't want to setup the
->> -	 * driver for new CPUs in the notifiers
->> +	 * driver for new CPUs in the notifiers. The code of the
->> +	 * notifier for CPU online is protected by the same spinlock,
->> +	 * so when we get the lock, the notifer work is done.
->>  	 */
->>  	spin_lock(&pp->lock);
->>  	pp->is_stopped = true;
->> +	spin_unlock(&pp->lock);
+>      This patch manages the case when you have an Ethernet MAC with
+>      a "fixed link", and not connected to a normal MDIO-managed PHY d=
+evice.
 >
-> This fix sleep in atomic issue. But
-> I see race here. Let's assume is_stopped is false.
-
-You forgot that the lock was hold in the mvneta_percpu_notifier so your
-scenario can't happen.
-
+>      The test of phy_bus_name was not helpful because it was never af=
+fected
+>      and replaced by the mdio test node.
 >
-> cpu0:                           	cpu1:
-> mvneta_percpu_notifier():		mvneta_stop():
->
-
-spin_lock(&pp->lock);
-
-> if (pp->is_stopped) {
-> 	spin_unlock(&pp->lock);
-> 	break;
-> }
->
-
-                                      the lock is hold in
-                                      mvneta_percpu_notifier(), so as
-                                      said in the comment this cpu is
-                                      waiting for on the following
-                                      line:
-                                      spin_lock(&pp->lock);
-
-                                      This code will be executed only
-                                      when the lock will be released
-> 					pp->is_stopped = true;
-> 					spin_unlock(&pp->lock);
+>      Signed-off-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+>      Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>      Signed-off-by: David S. Miller <davem@davemloft.net>
 >
 >
-> netif_tx_stop_all_queues(pp->dev);
-> for_each_online_cpu(other_cpu) {
-> ....
+> caused a regression on the Banana Pi M1 board:
+> ...
+> [    1.573419] sun7i-dwmac 1c50000.ethernet: no reset control found
+> [    1.583476]  Ring mode enabled
+> [    1.590476]  No HW DMA feature register supported
+> [    1.595153]  Normal descriptors
+> [    1.606075]  TX Checksum insertion supported
+> ...
+> [    9.430047] libphy: PHY stmmac-0:ffffffff not found
+> [    9.441829] eth0: Could not attach to PHY
+> [    9.452743] stmmac_open: Cannot attach to PHY (error: -19)
 >
-So what will happen is:
-cpu0:                           	cpu1:
-mvneta_percpu_notifier():		mvneta_stop():
-
-spin_lock(&pp->lock);
-if (pp->is_stopped) {
-	spin_unlock(&pp->lock);
-	break;
-}
-                                        spin_lock(&pp->lock);
-
-netif_tx_stop_all_queues(pp->dev);
-for_each_online_cpu(other_cpu) {
-....
-spin_unlock(&pp->lock);
-					pp->is_stopped = true;
-					spin_unlock(&pp->lock);
-
-
-Gregory
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+> Reverting this commit makes it work again:
+>
+> [    1.574459] sun7i-dwmac 1c50000.ethernet: no reset control found
+> [    1.584501]  Ring mode enabled
+> [    1.591491]  No HW DMA feature register supported
+> [    1.596169]  Normal descriptors
+> [    1.607076]  TX Checksum insertion supported
+> [    1.615766] sun7i-dwmac 1c50000.ethernet eth0: No MDIO subnode fou=
+nd
+> [    1.629108] libphy: stmmac: probed
+> [    1.636267] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) acti=
+ve
+> [    1.646446] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
+> ...
+> [   10.086423]  RX IPC Checksum Offload disabled
+> [   10.097628]  No MAC Management Counters available
+> [   14.084839] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+> 100Mbps/Full - flow control rx/tx
+>
+> Regards,
+> Frank Sch=C3=A4fer
+>
+>
