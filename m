@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v2 7/7] ipvlan: Implement L3-symmetric mode.
-Date: Wed,  9 Mar 2016 13:50:15 -0800
-Message-ID: <1457560215-13395-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next v2 4/7] ipv6: Use l3_dev for L3 ingress processing
+Date: Wed,  9 Mar 2016 13:50:06 -0800
+Message-ID: <1457560206-13153-1-git-send-email-mahesh@bandewar.net>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
@@ -9,33 +9,20 @@ Cc: Mahesh Bandewar <maheshb@google.com>,
 	Matthew Dupre <matthew.dupre@metaswitch.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33985 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934101AbcCIVuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:50:19 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 184so4419689pff.1
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:50:19 -0800 (PST)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35558 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458AbcCIVuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:50:09 -0500
+Received: by mail-pf0-f195.google.com with SMTP id u190so1207217pfb.2
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:50:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Current packet processing from IPtables perspective is asymmetric
-for IPvlan L3 mode. On egress path, packets hit LOCAL_OUT and
-POST_ROUTING hooks in slave-ns as well as master's ns however
-during ingress path, LOCAL_IN and PRE_ROUTING hooks are hit only
-in slave's ns. L3 mode is restrictive and uses master's L3 for
-packet processing, so it does not make sense to skip these hooks
-in ingress path in master's ns.
-
-The changes in this patch nominates master-dev to be the device
-for L3 ingress processing when skb device is the IPvlan slave.
-Since master device is used for L3 processing, the IPT hooks are
-hit in master's ns making the packet processing symmetric.
-
-The other minor change this patch does is to add a force parameter
-for set_port_mode() to ensure correct settings are set during the
-device initialization phase.
+Use the in-dev passed by the packet dispatcher for the L3 phase. If
+there are places where code uses skb->dev, use the netif_get_l3_dev()
+helper to get l3_dev.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 CC: Eric Dumazet <edumazet@google.com>
@@ -43,62 +30,84 @@ CC: Tim Hockin <thockin@google.com>
 CC: Alex Pollitt <alex.pollitt@metaswitch.com>
 CC: Matthew Dupre <matthew.dupre@metaswitch.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ net/ipv6/ip6_input.c | 14 ++++++++------
+ net/ipv6/route.c     |  7 ++++---
+ 2 files changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 5802b9025765..734c25e52c60 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -14,16 +14,19 @@ static void ipvlan_adjust_mtu(struct ipvl_dev *ipvlan, struct net_device *dev)
- 	ipvlan->dev->mtu = dev->mtu - ipvlan->mtu_adj;
- }
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index c05c425c2389..f02da6d7e097 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -67,7 +67,8 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	const struct ipv6hdr *hdr;
+ 	u32 pkt_len;
+ 	struct inet6_dev *idev;
+-	struct net *net = dev_net(skb->dev);
++	struct net_device *l3dev = netif_get_l3_dev(skb->dev);
++	struct net *net = dev_net(l3dev);
  
--static void ipvlan_set_port_mode(struct ipvl_port *port, u16 nval)
-+static void ipvlan_set_port_mode(struct ipvl_port *port, u16 nval, bool force)
- {
- 	struct ipvl_dev *ipvlan;
+ 	if (skb->pkt_type == PACKET_OTHERHOST) {
+ 		kfree_skb(skb);
+@@ -76,7 +77,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
  
--	if (port->mode != nval) {
-+	if (port->mode != nval || force) {
- 		list_for_each_entry(ipvlan, &port->ipvlans, pnode) {
--			if (nval == IPVLAN_MODE_L3)
-+			if (nval == IPVLAN_MODE_L3) {
- 				ipvlan->dev->flags |= IFF_NOARP;
--			else
-+				ipvlan->dev->l3_dev = port->dev;
-+			} else {
- 				ipvlan->dev->flags &= ~IFF_NOARP;
-+				ipvlan->dev->l3_dev = ipvlan->dev;
-+			}
+ 	rcu_read_lock();
+ 
+-	idev = __in6_dev_get(skb->dev);
++	idev = __in6_dev_get(l3dev);
+ 
+ 	IP6_UPD_PO_STATS_BH(net, idev, IPSTATS_MIB_IN, skb->len);
+ 
+@@ -246,8 +247,8 @@ resubmit:
+ 					   skb_network_header_len(skb));
+ 			hdr = ipv6_hdr(skb);
+ 			if (ipv6_addr_is_multicast(&hdr->daddr) &&
+-			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
+-			    &hdr->saddr) &&
++			    !ipv6_chk_mcast_addr(netif_get_l3_dev(skb->dev),
++						 &hdr->daddr, &hdr->saddr) &&
+ 			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
+ 				goto discard;
  		}
- 		port->mode = nval;
- 	}
-@@ -392,7 +395,7 @@ static int ipvlan_nl_changelink(struct net_device *dev,
- 	if (data && data[IFLA_IPVLAN_MODE]) {
- 		u16 nmode = nla_get_u16(data[IFLA_IPVLAN_MODE]);
+@@ -287,9 +288,10 @@ discard:
  
--		ipvlan_set_port_mode(port, nmode);
-+		ipvlan_set_port_mode(port, nmode, false);
- 	}
- 	return 0;
+ int ip6_input(struct sk_buff *skb)
+ {
++	struct net_device *dev = netif_get_l3_dev(skb->dev);
++
+ 	return NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_IN,
+-		       dev_net(skb->dev), NULL, skb, skb->dev, NULL,
+-		       ip6_input_finish);
++		       dev_net(dev), NULL, skb, dev, NULL, ip6_input_finish);
  }
-@@ -479,7 +482,6 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 	memcpy(dev->dev_addr, phy_dev->dev_addr, ETH_ALEN);
  
- 	dev->priv_flags |= IFF_IPVLAN_SLAVE;
--
- 	port->count += 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
-@@ -490,7 +492,7 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
- 		goto ipvlan_destroy_port;
+ int ip6_mc_input(struct sk_buff *skb)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ed446639219c..3a1b3c62d80b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1158,11 +1158,12 @@ static struct dst_entry *ip6_route_input_lookup(struct net *net,
+ void ip6_route_input(struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+-	struct net *net = dev_net(skb->dev);
++	struct net_device *dev = netif_get_l3_dev(skb->dev);
++	struct net *net = dev_net(dev);
+ 	int flags = RT6_LOOKUP_F_HAS_SADDR;
+ 	struct ip_tunnel_info *tun_info;
+ 	struct flowi6 fl6 = {
+-		.flowi6_iif = l3mdev_fib_oif(skb->dev),
++		.flowi6_iif = l3mdev_fib_oif(dev),
+ 		.daddr = iph->daddr,
+ 		.saddr = iph->saddr,
+ 		.flowlabel = ip6_flowinfo(iph),
+@@ -1174,7 +1175,7 @@ void ip6_route_input(struct sk_buff *skb)
+ 	if (tun_info && !(tun_info->mode & IP_TUNNEL_INFO_TX))
+ 		fl6.flowi6_tun_key.tun_id = tun_info->key.tun_id;
+ 	skb_dst_drop(skb);
+-	skb_dst_set(skb, ip6_route_input_lookup(net, skb->dev, &fl6, flags));
++	skb_dst_set(skb, ip6_route_input_lookup(net, dev, &fl6, flags));
+ }
  
- 	list_add_tail_rcu(&ipvlan->pnode, &port->ipvlans);
--	ipvlan_set_port_mode(port, mode);
-+	ipvlan_set_port_mode(port, mode, true);
- 
- 	netif_stacked_transfer_operstate(phy_dev, dev);
- 	return 0;
+ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
 -- 
 2.7.0.rc3.207.g0ac5344
