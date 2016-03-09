@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip_tunnel, bpf: ip_tunnel_info_opts_{get,set}
- depends on CONFIG_INET
-Date: Tue, 08 Mar 2016 23:21:07 -0500 (EST)
-Message-ID: <20160308.232107.2293307827554042545.davem@davemloft.net>
-References: <3ecfa7ed9f730147c925e010907cf920b8071a27.1457476284.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] samples/bpf: add bpf map stress test
+Date: Tue, 08 Mar 2016 23:22:13 -0500 (EST)
+Message-ID: <20160308.232213.1624474136438943765.davem@davemloft.net>
+References: <1457478474-1614041-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	fengguang.wu@intel.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49707 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654AbcCIEVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 23:21:15 -0500
-In-Reply-To: <3ecfa7ed9f730147c925e010907cf920b8071a27.1457476284.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457478474-1614041-1-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Tue,  8 Mar 2016 23:36:03 +0100
+From: Alexei Starovoitov <ast@fb.com>
+Date: Tue, 8 Mar 2016 15:07:52 -0800
 
-> Helpers like ip_tunnel_info_opts_{get,set}() are only available if
-> CONFIG_INET is set, thus add an empty definition into the header for
-> the !CONFIG_INET case, where already other empty inline helpers are
-> defined.
+> this test calls bpf programs from different contexts:
+> from inside of slub, from rcu, from pretty much everywhere,
+> since it kprobes all spin_lock functions.
+> It stresses the bpf hash and percpu map pre-allocation,
+> deallocation logic and call_rcu mechanisms.
+> User space part adding more stress by walking and deleting map elements.
 > 
-> This avoids ifdef kludge inside filter.c, but also vxlan and geneve
-> themself where this facility can only be used with, depend on INET
-> being set. For the !INET case TUNNEL_OPTIONS_PRESENT would never be
-> set in flags.
+> Note that due to nature bpf_load.c the earlier kprobe+bpf programs are
+> already active while loader loads new programs, creates new kprobes and
+> attaches them.
 > 
-> Fixes: 14ca0751c96f ("bpf: support for access to tunnel options")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied, thanks Daniel.
+Applied.
