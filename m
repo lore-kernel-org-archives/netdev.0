@@ -1,63 +1,66 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net] r8169:Remove unnecessary phy reset for pcie nic when
- setting link spped.
-Date: Wed, 9 Mar 2016 00:48:55 +0100
-Message-ID: <20160308234855.GA6182@electric-eye.fr.zoreil.com>
-References: <1457427065-3699-1-git-send-email-hau@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: Chunhao Lin <hau@realtek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57640 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbcCHXtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 18:49:06 -0500
-Content-Disposition: inline
-In-Reply-To: <1457427065-3699-1-git-send-email-hau@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH nf-next v8 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Tue,  8 Mar 2016 16:24:37 -0800
+Message-ID: <1457483084-13944-1-git-send-email-jarno@ovn.org>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Chunhao Lin <hau@realtek.com> :
-> For pcie nic, after setting link speed and thers is no link  driver does not need
-> to do phy reset untill link up.
-> 
-> For some pcie nics, to do this will also reset phy speed down counter and prevent
-> phy from auto speed down.
-> 
-> This patch fix the issue reported in following link.
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
-> 
-> Signed-off-by: Chunhao Lin <hau@realtek.com>
-> ---
->  drivers/net/ethernet/realtek/r8169.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index dd2cf37..94f08f1 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -1999,7 +1999,8 @@ static int rtl8169_set_speed(struct net_device *dev,
->  		goto out;
->  
->  	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
-> -	    (advertising & ADVERTISED_1000baseT_Full)) {
-> +	    (advertising & ADVERTISED_1000baseT_Full) &&
-> +	    !pci_is_pcie(tp->pci_dev)) {
->  		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
->  	}
->  out:
+Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+not make sense.  This allows the definition of IP_CT_NUMBER to be
+simplified as well.
 
-Can you clarify:
-- actually this patch does not care about the link at all. So when there's
-  link no phy reset is needed either, right ?
-- does "this" in "to do this" means that
-  1. phy reset prevents phy from auto speed down
-  2. avoiding phy reset prevents phy from auto speed down
-  I would expect 1. from the rtl_wol_pll_power_down + rtl_speed_down +
-  rtl8169_set_speed combo (i.e. we want the driver to allow auto speed down)
-  but it's a bit ambiguous.
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+ net/openvswitch/conntrack.c                        |  2 --
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 319f471..6d074d1 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -20,9 +20,15 @@ enum ip_conntrack_info {
+ 
+ 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+ 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+-	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+-	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+-	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
++	/* No NEW in reply direction. */
++
++	/* Number of distinct IP_CT types. */
++	IP_CT_NUMBER,
++
++	/* only for userspace compatibility */
++#ifndef __KERNEL__
++	IP_CT_NEW_REPLY = IP_CT_NUMBER,
++#endif
+ };
+ 
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index ee6ff8f..3045290 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 	switch (ctinfo) {
+ 	case IP_CT_ESTABLISHED_REPLY:
+ 	case IP_CT_RELATED_REPLY:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_REPLY_DIR;
+ 		break;
+ 	default:
+@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 		ct_state |= OVS_CS_F_RELATED;
+ 		break;
+ 	case IP_CT_NEW:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_NEW;
+ 		break;
+ 	default:
 -- 
-Ueimor
+2.1.4
+
