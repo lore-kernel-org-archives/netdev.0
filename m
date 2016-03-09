@@ -1,52 +1,156 @@
-From: Weongyo Jeong <wjeong@barracuda.com>
-Subject: Re: [PATCH] inet: set `error' value not under lock_sock().
-Date: Wed, 9 Mar 2016 14:46:04 -0800
-Message-ID: <56E0A7AC.70806@barracuda.com>
-References: <20160309182217.GA9708@jwg>
- <20160309.153715.770009288781656553.davem@davemloft.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [RFC PATCH net-next 1/2] net: bridge: add switchdev attr for port bridging
+Date: Wed, 09 Mar 2016 17:58:22 -0500
+Message-ID: <87k2lbb6nl.fsf@ketchup.mtl.sfl>
+References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1457545368-20647-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20160309214214.GA4865@colbert.idosch.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"weongyo.linux@gmail.com" <weongyo.linux@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, nikolay@cumulusnetworks.com,
+	Elad Raz <eladr@mellanox.com>
+To: Ido Schimmel <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bsf01.barracuda.com ([64.235.145.81]:60653 "EHLO
-	bsf01.barracuda.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933722AbcCIW54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 17:57:56 -0500
-In-Reply-To: <20160309.153715.770009288781656553.davem@davemloft.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:43052 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167AbcCIW60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 17:58:26 -0500
+In-Reply-To: <20160309214214.GA4865@colbert.idosch.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2016 12:37 PM, David Miller wrote:
-> From: Weongyo Jeong <weongyo.linux@gmail.com>
-> Date: Wed, 9 Mar 2016 10:22:21 -0800
->
->> A trivial patch to set `error' variable while not holding
->> lock_sock().
+Hi Ido,
+
+Ido Schimmel <idosch@mellanox.com> writes:
+
+> Wed, Mar 09, 2016 at 07:42:47PM IST, vivien.didelot@savoirfairelinux.com wrote:
+>>Add a new SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF switchdev attribute which is
+>>set before adding a port to a bridge and deleting a port from a bridge.
 >>
->> Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
+>>The main purpose for this attribute is to provide switchdev users a
+>>simple and common way to retrieve bridging information, instead of
+>>implementing complex notifier blocks to listen to global netdev events.
+>>
+>>We can also imagine a switchdev user returning an error different from
+>>-EOPNOTSUPP in the prepare phase to prevent a port from being bridged.
 >
-> Deferring the assignment means gcc doesn't have to potentially put it
-> on the stack across the lock_sock() call.
+> I don't really understand the motivation for this change. We are already
+> doing all these stuff with the notifiers and it's pretty
+> straight-forward.
 >
-> You're making the code worse not better, the assignment into a local
-> variable is not an expensive operation.
+> In fact, I believe using an existing mechanism instead of introducing
+> more switchdev hooks is more elegant. This RFC only deals with bridge,
+> but you'll have to do the same for team, bond and vlan devices. And
+> you'll probably place the hooks in the exact locations where the
+> notifiers are called from anyway.
 >
-> I'm not applying this change, sorry.
+>>
+>>Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>>---
+>> include/net/switchdev.h |  2 ++
+>> net/bridge/br_if.c      | 27 +++++++++++++++++++++++++++
+>> 2 files changed, 29 insertions(+)
+>>
+>>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>>index d451122..65f8514 100644
+>>--- a/include/net/switchdev.h
+>>+++ b/include/net/switchdev.h
+>>@@ -46,6 +46,7 @@ enum switchdev_attr_id {
+>> 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+>> 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+>> 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+>>+	SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
+>> 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+>> 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+>> };
+>>@@ -58,6 +59,7 @@ struct switchdev_attr {
+>> 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+>> 		u8 stp_state;				/* PORT_STP_STATE */
+>> 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
+>>+		bool join;				/* PORT_BRIDGE_IF */
+>> 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
+>> 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
+>> 	} u;
+>>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>>index a73df33..105b9fd 100644
+>>--- a/net/bridge/br_if.c
+>>+++ b/net/bridge/br_if.c
+>>@@ -28,6 +28,24 @@
+>> 
+>> #include "br_private.h"
+>> 
+>>+static int switchdev_bridge_if(struct net_device *dev, struct net_bridge *br,
+>>+			       bool join)
+>>+{
+>>+	struct switchdev_attr attr = {
+>>+		.orig_dev = br->dev,
+>
+> This should be just 'dev', since you need to know for which stacked
+> device on top of the port this was called for. This also means you'll
+> have to call netdev_master_upper_dev_get() from within your driver if
+> you want to limit the number of VLAN filtering bridges (for example).
+> However, since this is called before bridge dev and dev itself are
+> linked, you'll get NULL.
+>
+>>+		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
+>>+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+>>+		.u.join = join,
+>>+	};
+>>+	int err;
+>>+
+>>+	err = switchdev_port_attr_set(dev, &attr);
+>>+	if (err && err != -EOPNOTSUPP)
+>>+		return err;
+>>+
+>>+	return 0;
+>>+}
+>>+
+>> /*
+>>  * Determine initial path cost based on speed.
+>>  * using recommendations from 802.1d standard
+>>@@ -297,6 +315,10 @@ static void del_nbp(struct net_bridge_port *p)
+>> 	br_netpoll_disable(p);
+>> 
+>> 	call_rcu(&p->rcu, destroy_nbp_rcu);
+>>+
+>>+	if (switchdev_bridge_if(dev, br, false))
+>>+		br_warn(br, "error unbridging port %u(%s)\n",
+>>+			(unsigned int) p->port_no, dev->name);
+>> }
+>> 
+>> /* Delete bridge device */
+>>@@ -347,6 +369,11 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+>> {
+>> 	int index;
+>> 	struct net_bridge_port *p;
+>>+	int err;
+>>+
+>>+	err = switchdev_bridge_if(dev, br, true);
+>
+> If you look at br_add_if() - where new_nbp() is called from - then
+> you'll see that you aren't rollbacking this operation in case of error.
+> Same for subsequent errors in this function I believe.
+>
+>>+	if (err)
+>>+		return ERR_PTR(err);
+>> 
+>> 	index = find_portno(br);
+>> 	if (index < 0)
+>>-- 
+>>2.7.2
+>>
+>
+> Maybe this is something we'll have to do in the future, but for now I
+> think we are OK with the notifiers. :)
+>
+> Thanks Vivien!
 
-No problem.  Thank you for review and opinion.
+I didn't have the big picture for team, bond and vlan devices as well.
 
-Regards,
-Weongyo Jeong
+I can drop this RFC then. Thanks for the details!
 
-
-
-===========================================================
-
-
-Considering Office 365?  Barracuda security and storage solutions can help. Learn more about Barracuda solutions for Office 365 at http://barracuda.com/office365.
-
-DISCLAIMER:
-This e-mail and any attachments to it contain confidential and proprietary material of Barracuda, its affiliates or agents, and is solely for the use of the intended recipient. Any review, use, disclosure, distribution or copying of this transmittal is prohibited except by or on behalf of the intended recipient. If you have received this transmittal in error, please notify the sender and destroy this e-mail and any attachments and all copies, whether electronic or printed.
+    Vivien
