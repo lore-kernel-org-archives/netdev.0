@@ -1,201 +1,84 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 3/4] geneve: support setting IPv6 flow label
-Date: Wed,  9 Mar 2016 03:00:04 +0100
-Message-ID: <be638e46f291db03ca9f67ea54cfc4837cefc225.1457488298.git.daniel@iogearbox.net>
-References: <cover.1457488298.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: subashab@codeaurora.org
+Subject: [RFC] xfrm: netdevice unregistration during decryption
+Date: Tue, 08 Mar 2016 19:16:23 -0700
+Message-ID: <9fb4925ea87677df44c75c435efc329f@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45226 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbcCICAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 21:00:10 -0500
-In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
-References: <cover.1457488298.git.daniel@iogearbox.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:60426 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750802AbcCICQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 21:16:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds support for setting the IPv6 flow label for geneve per
-device and through collect metadata (ip_tunnel_key) frontends. Also here,
-the geneve dst cache does not need any special considerations, for the
-cases where caches can be used, the label is static per cache.
+I am observing a crash originating from XFRM framework on a 3.18 ARM64
+kernel.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- drivers/net/geneve.c         | 35 +++++++++++++++++++++++++++--------
- include/uapi/linux/if_link.h |  1 +
- 2 files changed, 28 insertions(+), 8 deletions(-)
+get_rps_cpus tries to dereference the skb->dev fields but it appears 
+that
+the device is freed from the poison pattern.
+The following is the crash call stack -
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 89ccff7..33185b9 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -68,6 +68,7 @@ struct geneve_dev {
- 	u8                 tos;		/* TOS override */
- 	union geneve_addr  remote;	/* IP address for link partner */
- 	struct list_head   next;	/* geneve's per namespace list */
-+	__be32		   label;	/* IPv6 flowlabel override */
- 	__be16		   dst_port;
- 	bool		   collect_md;
- 	struct gro_cells   gro_cells;
-@@ -846,6 +847,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 		fl6->daddr = info->key.u.ipv6.dst;
- 		fl6->saddr = info->key.u.ipv6.src;
- 		fl6->flowi6_tos = RT_TOS(info->key.tos);
-+		fl6->flowlabel = info->key.label;
- 		dst_cache = &info->dst_cache;
- 	} else {
- 		prio = geneve->tos;
-@@ -857,6 +859,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
- 		}
- 
- 		fl6->flowi6_tos = RT_TOS(prio);
-+		fl6->flowlabel = geneve->label;
- 		fl6->daddr = geneve->remote.sin6.sin6_addr;
- 		dst_cache = &geneve->dst_cache;
- 	}
-@@ -998,6 +1001,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	struct flowi6 fl6;
- 	__u8 prio, ttl;
- 	__be16 sport;
-+	__be32 label;
- 	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
- 	u32 flags = geneve->flags;
- 
-@@ -1041,6 +1045,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 
- 		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
- 		ttl = key->ttl;
-+		label = info->key.label;
- 	} else {
- 		err = geneve6_build_skb(dst, skb, 0, geneve->vni,
- 					0, NULL, flags, xnet);
-@@ -1052,9 +1057,11 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 		if (!ttl && ipv6_addr_is_multicast(&fl6.daddr))
- 			ttl = 1;
- 		ttl = ttl ? : ip6_dst_hoplimit(dst);
-+		label = geneve->label;
- 	}
-+
- 	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
--			     &fl6.saddr, &fl6.daddr, prio, ttl, 0,
-+			     &fl6.saddr, &fl6.daddr, prio, ttl, label,
- 			     sport, geneve->dst_port,
- 			     !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
- 	return NETDEV_TX_OK;
-@@ -1238,6 +1245,7 @@ static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
- 	[IFLA_GENEVE_REMOTE6]		= { .len = sizeof(struct in6_addr) },
- 	[IFLA_GENEVE_TTL]		= { .type = NLA_U8 },
- 	[IFLA_GENEVE_TOS]		= { .type = NLA_U8 },
-+	[IFLA_GENEVE_LABEL]		= { .type = NLA_U32 },
- 	[IFLA_GENEVE_PORT]		= { .type = NLA_U16 },
- 	[IFLA_GENEVE_COLLECT_METADATA]	= { .type = NLA_FLAG },
- 	[IFLA_GENEVE_UDP_CSUM]		= { .type = NLA_U8 },
-@@ -1295,8 +1303,8 @@ static struct geneve_dev *geneve_find_dev(struct geneve_net *gn,
- 
- static int geneve_configure(struct net *net, struct net_device *dev,
- 			    union geneve_addr *remote,
--			    __u32 vni, __u8 ttl, __u8 tos, __be16 dst_port,
--			    bool metadata, u32 flags)
-+			    __u32 vni, __u8 ttl, __u8 tos, __be32 label,
-+			    __be16 dst_port, bool metadata, u32 flags)
- {
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
- 	struct geneve_dev *t, *geneve = netdev_priv(dev);
-@@ -1306,7 +1314,7 @@ static int geneve_configure(struct net *net, struct net_device *dev,
- 	if (!remote)
- 		return -EINVAL;
- 	if (metadata &&
--	    (remote->sa.sa_family != AF_UNSPEC || vni || tos || ttl))
-+	    (remote->sa.sa_family != AF_UNSPEC || vni || tos || ttl || label))
- 		return -EINVAL;
- 
- 	geneve->net = net;
-@@ -1321,10 +1329,14 @@ static int geneve_configure(struct net *net, struct net_device *dev,
- 	    (remote->sa.sa_family == AF_INET6 &&
- 	     ipv6_addr_is_multicast(&remote->sin6.sin6_addr)))
- 		return -EINVAL;
-+	if (label && remote->sa.sa_family != AF_INET6)
-+		return -EINVAL;
-+
- 	geneve->remote = *remote;
- 
- 	geneve->ttl = ttl;
- 	geneve->tos = tos;
-+	geneve->label = label;
- 	geneve->dst_port = dst_port;
- 	geneve->collect_md = metadata;
- 	geneve->flags = flags;
-@@ -1367,6 +1379,7 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	__u8 ttl = 0, tos = 0;
- 	bool metadata = false;
- 	union geneve_addr remote = geneve_remote_unspec;
-+	__be32 label = 0;
- 	__u32 vni = 0;
- 	u32 flags = 0;
- 
-@@ -1403,6 +1416,10 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	if (data[IFLA_GENEVE_TOS])
- 		tos = nla_get_u8(data[IFLA_GENEVE_TOS]);
- 
-+	if (data[IFLA_GENEVE_LABEL])
-+		label = nla_get_be32(data[IFLA_GENEVE_LABEL]) &
-+			IPV6_FLOWLABEL_MASK;
-+
- 	if (data[IFLA_GENEVE_PORT])
- 		dst_port = nla_get_be16(data[IFLA_GENEVE_PORT]);
- 
-@@ -1421,8 +1438,8 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
- 		flags |= GENEVE_F_UDP_ZERO_CSUM6_RX;
- 
--	return geneve_configure(net, dev, &remote, vni, ttl, tos, dst_port,
--				metadata, flags);
-+	return geneve_configure(net, dev, &remote, vni, ttl, tos, label,
-+				dst_port, metadata, flags);
- }
- 
- static void geneve_dellink(struct net_device *dev, struct list_head *head)
-@@ -1439,6 +1456,7 @@ static size_t geneve_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(struct in6_addr)) + /* IFLA_GENEVE_REMOTE{6} */
- 		nla_total_size(sizeof(__u8)) +  /* IFLA_GENEVE_TTL */
- 		nla_total_size(sizeof(__u8)) +  /* IFLA_GENEVE_TOS */
-+		nla_total_size(sizeof(__be32)) +  /* IFLA_GENEVE_LABEL */
- 		nla_total_size(sizeof(__be16)) +  /* IFLA_GENEVE_PORT */
- 		nla_total_size(0) +	 /* IFLA_GENEVE_COLLECT_METADATA */
- 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_CSUM */
-@@ -1469,7 +1487,8 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	}
- 
- 	if (nla_put_u8(skb, IFLA_GENEVE_TTL, geneve->ttl) ||
--	    nla_put_u8(skb, IFLA_GENEVE_TOS, geneve->tos))
-+	    nla_put_u8(skb, IFLA_GENEVE_TOS, geneve->tos) ||
-+	    nla_put_be32(skb, IFLA_GENEVE_LABEL, geneve->label))
- 		goto nla_put_failure;
- 
- 	if (nla_put_be16(skb, IFLA_GENEVE_PORT, geneve->dst_port))
-@@ -1521,7 +1540,7 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
- 		return dev;
- 
- 	err = geneve_configure(net, dev, &geneve_remote_unspec,
--			       0, 0, 0, htons(dst_port), true,
-+			       0, 0, 0, 0, htons(dst_port), true,
- 			       GENEVE_F_UDP_ZERO_CSUM6_RX);
- 	if (err)
- 		goto err;
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 6bebc97..249eef9 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -479,6 +479,7 @@ enum {
- 	IFLA_GENEVE_UDP_CSUM,
- 	IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
- 	IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
-+	IFLA_GENEVE_LABEL,
- 	__IFLA_GENEVE_MAX
- };
- #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
--- 
-1.9.3
+  55428.227024:   <2> [<ffffffc000af58ec>] get_rps_cpu+0x94/0x2f0
+  55428.227027:   <2> [<ffffffc000af5f94>] netif_rx_internal+0x140/0x1cc
+  55428.227030:   <2> [<ffffffc000af6094>] netif_rx+0x74/0x94
+  55428.227035:   <2> [<ffffffc000bc0b6c>] xfrm_input+0x754/0x7d0
+  55428.227038:   <2> [<ffffffc000bc0bf8>] xfrm_input_resume+0x10/0x1c
+  55428.227044:   <2> [<ffffffc000ba6eb8>] esp_input_done+0x20/0x30
+  55428.227056:   <2> [<ffffffc0000b64c8>] process_one_work+0x244/0x3fc
+  55428.227060:   <2> [<ffffffc0000b7324>] worker_thread+0x2f8/0x418
+  55428.227064:   <2> [<ffffffc0000bb40c>] kthread+0xe0/0xec
+
+-013|get_rps_cpu(
+     |    dev = 0xFFFFFFC08B688000,
+     |    skb = 0xFFFFFFC0C76AAC00 -> (
+     |      dev = 0xFFFFFFC08B688000 -> (
+     |        name = 
+"......................................................
+     |        name_hlist = (next = 0xAAAAAAAAAAAAAAAA, pprev = 
+0xAAAAAAAAAAA
+
+Following are the sequence of events observed -
+
+1. Encrypted packet in receive path from netdevice queued to network 
+stack
+
+2. Encrypted packet queued for decryption (asynchronous)
+
+static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+...
+          aead_request_set_callback(req, 0, esp_input_done, skb);
+
+3. Netdevice brought down and freed
+
+4. Packet is decrypted and returned through callback in esp_input_done.
+
+5. Packet is queued again for process in network stack using netif_rx.
+
+The device appears to have been freed and as result, the dereference of
+skb->dev in get_rps_cpus() leads to an unhandled page fault exception.
+
+Would it make sense here to detect the device going away here using a
+netdev notifier callback and free the packets after the asynchronous
+callback returns.
+
+Additionally, since the callback is from a worker thread, is it better
+to use netif_rx_ni instead of netif_rx
+
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 85d1d47..f791128 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -351,7 +351,7 @@ resume:
+
+         if (decaps) {
+                 skb_dst_drop(skb);
+-               netif_rx(skb);
++               netif_rx_ni(skb);
