@@ -1,79 +1,109 @@
 From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver
- code)
-Date: Wed, 9 Mar 2016 19:18:06 +0800
-Message-ID: <56E0066E.1000106@huawei.com>
+Subject: Re: [PATCH 1/4] net: hns: add Hisilicon RoCE support(the dependent
+ routine)
+Date: Wed, 9 Mar 2016 19:20:11 +0800
+Message-ID: <56E006EB.6070108@huawei.com>
 References: <1457080877-13456-1-git-send-email-xavier.huwei@huawei.com>
- <1457080877-13456-4-git-send-email-xavier.huwei@huawei.com>
- <20160304091628.GB2150@nanopsycho.orion>
+ <1457080877-13456-2-git-send-email-xavier.huwei@huawei.com>
+ <20160306142516.GE13396@leon.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
-	"Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160304091628.GB2150-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+In-Reply-To: <20160306142516.GE13396-2ukJVAZIZ/Y@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jiri Pirko, thanks for reviewing
-On 2016/3/4 17:16, Jiri Pirko wrote:
-> Fri, Mar 04, 2016 at 09:41:16AM CET, xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org wrote:
-> 
-> <snip>
-> 
->> +int hns_roce_buf_alloc(
->> +			struct hns_roce_dev *hr_dev,
->> +			int size, int max_direct,
->> +			struct hns_roce_buf *buf)
-> 
-> <snip>	
-> 	
->> +
->> +			pages =
->> +				kmalloc(sizeof(*pages) * buf->nbufs,
->> +					GFP_KERNEL);
-> 
-> <snip>
-> 
->> +
->> +			buf->direct.buf = vmap(
->> +						pages, buf->nbufs, VM_MAP,
->> +						PAGE_KERNEL);
-> 
-> <snip>
-> 
->> +	if (
->> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_ID_INVALID &&
->> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_ACCESS_ERROR &&
->> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_OVERFLOW) {
->> +		dev_err(&hr_dev->pdev->dev,
->> +			"hns_roce_ib: Unexpected event type 0x%x on CQ %06x\n",
->> +			event_type, hr_cq->cqn);
->> +		return;
->> +	}
-> 
-> Although checkpatch does not complain, I find this semi-random adding of
-> newlines quite odd.
-> 
-    Really, the question you mentioned exit in many location in currently patch. I done it
-in order to make it complain checkpatch and linux norms. Now, I have checked and adjust it
-properly combined to checkpatch
-    I will send a new patch in future. if not modified in some locations, it have to violate
-checkpatch once modified and is unable to adjust it better. About these,  have you best strategy?
+Hi, dledford
+thanks your reviewing.
+I will send a new patch soon.
 
-Thanks
+thanks
 Lijun Ou
+On 2016/3/6 22:25, Leon Romanovsky wrote:
+> Please rewrite your title to be without (...).
+> 
+> On Fri, Mar 04, 2016 at 04:41:14PM +0800, Wei Hu(Xavier) wrote:
+>> It added hns_dsaf_roce_reset routine for roce driver.
+>> RoCE is a feature of hns.
+>> In hip06 SOC, in roce reset process, it's needed to configure
+>> dsaf channel reset,port and sl map info.
+>>
+>> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Lisheng <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 82 ++++++++++++++++++++++
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  7 ++
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 +++++++++++++---
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 14 ++++
+>>  4 files changed, 155 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> index 9439f04..41ba948 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> @@ -12,6 +12,7 @@
+>>  #include <linux/init.h>
+>>  #include <linux/interrupt.h>
+>>  #include <linux/netdevice.h>
+>> +#include <linux/of_platform.h>
+>>  #include <linux/platform_device.h>
+>>  #include <linux/of.h>
+>>  #include <linux/of_address.h>
+>> @@ -2556,6 +2557,87 @@ static struct platform_driver g_dsaf_driver = {
+>>  
+>>  module_platform_driver(g_dsaf_driver);
+>>  
+>> +/**
+>> + * hns_dsaf_roce_reset - reset dsaf and roce
+>> + * @dsaf_fwnode: Pointer to framework node for the dasf
+>> + * @val: 0 - request reset , 1 - drop reset
+>> + * retuen 0 - success , negative --fail
+>> + */
+>> +int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
+>> +{
+>> +	struct dsaf_device *dsaf_dev;
+>> +	struct platform_device *pdev;
+>> +	unsigned int mp;
+>> +	unsigned int sl;
+>> +	unsigned int credit;
+>> +	int i;
+>> +	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+>> +		{0, 0, 0},
+>> +		{1, 0, 0},
+>> +		{2, 1, 0},
+>> +		{3, 1, 0},
+>> +		{4, 2, 1},
+>> +		{4, 2, 1},
+>> +		{5, 3, 1},
+>> +		{5, 3, 1},
+>> +	};
+>> +	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+>> +		{0, 0, 0},
+>> +		{0, 1, 1},
+>> +		{0, 0, 2},
+>> +		{0, 1, 3},
+>> +		{0, 0, 0},
+>> +		{1, 1, 1},
+>> +		{0, 0, 2},
+>> +		{1, 1, 3},
+>> +	};
+> 
+> Please prefer enums/defines instead of hard coded values.
+> it is applicable to whole submitted code.
+> 
+> 
 > .
 > 
 
