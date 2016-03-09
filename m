@@ -1,92 +1,39 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH nf-next v7 6/7] openvswitch: Delay conntrack
-	helper call for new connections.
-Date: Tue, 8 Mar 2016 16:28:25 -0800
-Message-ID: <9AC136E6-B71A-4419-825C-FEE8D1D74E37@ovn.org>
-References: <1454722865-59558-1-git-send-email-jarno@ovn.org>
- <1454722865-59558-7-git-send-email-jarno@ovn.org>
- <CAPWQB7FrMyad6D-wGyPQow079uW=uhTAW5azjKVTOV378k-TmA@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAPWQB7FrMyad6D-wGyPQow079uW=uhTAW5azjKVTOV378k-TmA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Question on switchdev
+Date: Wed, 9 Mar 2016 01:39:19 +0100
+Message-ID: <20160309003919.GA31963@lunn.ch>
+References: <56D4BB74.2010109@ti.com>
+ <20160229222934.GA4904@lunn.ch>
+ <56D8BB61.5020500@ti.com>
+ <56DE0A36.9090807@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52991 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752826AbcCIAjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Mar 2016 19:39:24 -0500
+Content-Disposition: inline
+In-Reply-To: <56DE0A36.9090807@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhhbmtzIGZvciB0aGUgcmV2aWV3cywgSm9lIQoKSSBqdXN0IHBvc3RlZCBhIHY4IGFkZHJlc3Np
-bmcgeW91ciBjb25jZXJucywKCiAgSmFybm8KCj4gT24gRmViIDE3LCAyMDE2LCBhdCA0OjAwIFBN
-LCBKb2UgU3RyaW5nZXIgPGpvZUBvdm4ub3JnPiB3cm90ZToKPiAKPiBPbiA1IEZlYnJ1YXJ5IDIw
-MTYgYXQgMTc6NDEsIEphcm5vIFJhamFoYWxtZSA8amFybm9Ab3ZuLm9yZyA8bWFpbHRvOmphcm5v
-QG92bi5vcmc+PiB3cm90ZToKPj4gVGhlcmUgaXMgbm8gbmVlZCB0byBoZWxwIGNvbm5lY3Rpb25z
-IHRoYXQgYXJlIG5vdCBjb25maXJtZWQsIHNvIHdlIGNhbgo+PiBkZWxheSBoZWxwaW5nIG5ldyBj
-b25uZWN0aW9ucyB0byB0aGUgdGltZSB3aGVuIHRoZXkgYXJlIGNvbmZpcm1lZC4KPj4gVGhpcyBj
-aGFuZ2UgaXMgbmVlZGVkIGZvciBOQVQgc3VwcG9ydCwgYW5kIGhhdmluZyB0aGlzIGFzIGEgc2Vw
-YXJhdGUKPj4gcGF0Y2ggd2lsbCBtYWtlIHRoZSBmb2xsb3dpbmcgTkFUIHBhdGNoIGEgYml0IGVh
-c2llciB0byByZXZpZXcuCj4+IAo+PiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGph
-cm5vQG92bi5vcmc+Cj4+IC0tLQo+PiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgfCAyMCAr
-KysrKysrKysrKysrKystLS0tLQo+PiAxIGZpbGUgY2hhbmdlZCwgMTUgaW5zZXJ0aW9ucygrKSwg
-NSBkZWxldGlvbnMoLSkKPj4gCj4+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRy
-YWNrLmMgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKPj4gaW5kZXggZmE5YWIyNS4uZmMw
-ZWYxMSAxMDA2NDQKPj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCj4+ICsrKyBi
-L25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwo+PiBAQCAtNDY0LDYgKzQ2NCw3IEBAIHN0YXRp
-YyBib29sIHNrYl9uZmN0X2NhY2hlZChzdHJ1Y3QgbmV0ICpuZXQsCj4+IC8qIFBhc3MgJ3NrYicg
-dGhyb3VnaCBjb25udHJhY2sgaW4gJ25ldCcsIHVzaW5nIHpvbmUgY29uZmlndXJlZCBpbiAnaW5m
-bycsIGlmCj4+ICAqIG5vdCBkb25lIGFscmVhZHkuICBVcGRhdGUga2V5IHdpdGggbmV3IENUIHN0
-YXRlIGFmdGVyIHBhc3NpbmcgdGhlIHBhY2tldAo+PiAgKiB0aHJvdWdoIGNvbm50cmFjay4KPj4g
-KyAqIE5vdGUgdGhhdCBpbnZhbGlkIHBhY2tldHMgYXJlIGFjY2VwdGVkIHdoaWxlIHRoZSBza2It
-Pm5mY3QgcmVtYWlucyB1bnNldCEKPj4gICovCj4+IHN0YXRpYyBpbnQgX19vdnNfY3RfbG9va3Vw
-KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCj4+ICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKPiAK
-PiBUaGlzIHNlZW1zIHVucmVsYXRlZCB0byB0aGUgcGF0Y2guCj4gCj4gSSAqdGhpbmsqIHRoYXQg
-eW91J3JlIHRyeWluZyB0byBzYXkgdGhhdCAnaWYgdGhlIHBhY2tldCBpcyBkZWVtZWQKPiBpbnZh
-bGlkIGJ5IGNvbm50cmFjaywgc2tiLT5uZmN0IHdpbGwgYmUgc2V0IHRvIE5VTEwgYW5kIDAgd2ls
-bCBiZQo+IHJldHVybmVkLicgSSB0aGluayB0aGF0IHRoaXMgaXMgYSBkb2N1bWVudGF0aW9uIGlz
-c3VlIHNlcGFyYXRlIGZyb20KPiB0aGlzIHBhdGNoIChNYXliZSBjb3VsZCBiZSBjb21iaW5lZCB3
-aXRoIG9uZSBvZiB0aGUgZWFybGllciBmcmFnbWVudHMKPiBpbiB0aGUgc2VyaWVzPykuCj4gCj4+
-IEBAIC00NzQsNyArNDc1LDExIEBAIHN0YXRpYyBpbnQgX19vdnNfY3RfbG9va3VwKHN0cnVjdCBu
-ZXQgKm5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCj4+ICAgICAgICAgKiBhY3R1YWxseSBy
-dW4gdGhlIHBhY2tldCB0aHJvdWdoIGNvbm50cmFjayB0d2ljZSB1bmxlc3MgaXQncyBmb3IgYQo+
-PiAgICAgICAgICogZGlmZmVyZW50IHpvbmUuCj4+ICAgICAgICAgKi8KPj4gLSAgICAgICBpZiAo
-IXNrYl9uZmN0X2NhY2hlZChuZXQsIGtleSwgaW5mbywgc2tiKSkgewo+PiArICAgICAgIGJvb2wg
-Y2FjaGVkID0gc2tiX25mY3RfY2FjaGVkKG5ldCwga2V5LCBpbmZvLCBza2IpOwo+PiArICAgICAg
-IGVudW0gaXBfY29ubnRyYWNrX2luZm8gY3RpbmZvOwo+PiArICAgICAgIHN0cnVjdCBuZl9jb25u
-ICpjdDsKPj4gKwo+PiArICAgICAgIGlmICghY2FjaGVkKSB7Cj4+ICAgICAgICAgICAgICAgIHN0
-cnVjdCBuZl9jb25uICp0bXBsID0gaW5mby0+Y3Q7Cj4+ICAgICAgICAgICAgICAgIGludCBlcnI7
-Cj4+IAo+PiBAQCAtNDk3LDExICs1MDIsMTYgQEAgc3RhdGljIGludCBfX292c19jdF9sb29rdXAo
-c3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKPj4gICAgICAgICAgICAg
-ICAgICAgICAgICByZXR1cm4gLUVOT0VOVDsKPj4gCj4+ICAgICAgICAgICAgICAgIG92c19jdF91
-cGRhdGVfa2V5KHNrYiwgaW5mbywga2V5LCB0cnVlKTsKPj4gKyAgICAgICB9Cj4+IAo+PiAtICAg
-ICAgICAgICAgICAgaWYgKG92c19jdF9oZWxwZXIoc2tiLCBpbmZvLT5mYW1pbHkpICE9IE5GX0FD
-Q0VQVCkgewo+PiAtICAgICAgICAgICAgICAgICAgICAgICBXQVJOX09OQ0UoMSwgImhlbHBlciBy
-ZWplY3RlZCBwYWNrZXQiKTsKPj4gLSAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5W
-QUw7Cj4+IC0gICAgICAgICAgICAgICB9Cj4+ICsgICAgICAgLyogQ2FsbCB0aGUgaGVscGVyIHJp
-Z2h0IGFmdGVyIG5mX2Nvbm50cmFja19pbigpIGZvciBjb25maXJtZWQKPj4gKyAgICAgICAgKiBj
-b25uZWN0aW9ucywgYnV0IG9ubHkgd2hlbiBjb21taXRpbmcgZm9yIHVuY29uZmlybWVkIGNvbm5l
-Y3Rpb25zLgo+PiArICAgICAgICAqLwo+PiArICAgICAgIGN0ID0gbmZfY3RfZ2V0KHNrYiwgJmN0
-aW5mbyk7Cj4+ICsgICAgICAgaWYgKGN0ICYmIChuZl9jdF9pc19jb25maXJtZWQoY3QpID8gIWNh
-Y2hlZCA6IGluZm8tPmNvbW1pdCkKPj4gKyAgICAgICAgICAgJiYgb3ZzX2N0X2hlbHBlcihza2Is
-IGluZm8tPmZhbWlseSkgIT0gTkZfQUNDRVBUKSB7Cj4+ICsgICAgICAgICAgICAgICBXQVJOX09O
-Q0UoMSwgImhlbHBlciByZWplY3RlZCBwYWNrZXQiKTsKPj4gKyAgICAgICAgICAgICAgIHJldHVy
-biAtRUlOVkFMOwo+PiAgICAgICAgfQo+IAo+IFRoZSBjb21tZW50IHBvaW50cyBvdXQgd2hhdCBJ
-IHRoaW5rIGlzIHRoZSBtb3JlIG9idmlvdXMgcGllY2UgaGVyZToKPiB0aGF0IHRoZSBoZWxwZXIg
-c2hvdWxkIGJlIGV4ZWN1dGVkIHdoZW4gdGhlIGNvbm5lY3Rpb24gaXMvd2lsbCBiZQo+IGNvbW1p
-dHRlZC4gVGhlIHBpZWNlIHRoYXQgSSBmb3VuZCBsZXNzIG9idmlvdXMgd2FzIHRoYXQgImNhY2hl
-ZCIKPiBpbXBsaWVzIHRoYXQgdGhlIGhlbHBlciB3YXMgYWxyZWFkeSBleGVjdXRlZCAoYW5kIHRo
-ZXJlZm9yZSBpdAo+IHNob3VsZG4ndCBiZSBydW4gYWdhaW4pLiBJIGRvbid0IGtub3cgaWYgdGhl
-cmUncyBhIHdheSB0byBtYWtlIHRoaXMKPiBtb3JlIG9idmlvdXMsIGZvciBleGFtcGxlIHdpdGgg
-YSAiaGVscGVyX2V4ZWN1dGVkIiB2YXJpYWJsZSBvcgo+IHNpbWlsYXIuIFVwIHRvIHlvdS4KCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5n
-IGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4v
-bGlzdGluZm8vZGV2Cg==
+> Andrew,
+> 
+> >From the high level, it looks like netcp switch meets the specifications
+> of a DSA hardware. Can you point me to a specific implementation that
+> I can use as an example to implement this for netcp?
+
+You need two parts:
+
+A tagging implementation, in net/dsa/tag_*.c. They are all pretty
+similar, and all pretty simple.
+
+A switch driver. driver/net/dsa/mv88e6060.c is the simplest. I would
+suggest your first submission implements similar features as to what
+this driver does. This is very minimalistic, but a good start. Once
+that is accepted, you can incrementally add more features.
+
+     Andrew
