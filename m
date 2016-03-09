@@ -1,45 +1,54 @@
-From: =?UTF-8?Q?Frank_Sch=c3=a4fer?= <fschaefer.oss@googlemail.com>
-Subject: Re: [PATCH (net.git) 0/2] stmmac: MDIO fixes
-Date: Wed, 9 Mar 2016 19:20:07 +0100
-Message-ID: <56E06957.1070309@googlemail.com>
-References: <1457514007-32333-1-git-send-email-peppe.cavallaro@st.com>
+From: Weongyo Jeong <weongyo.linux@gmail.com>
+Subject: [PATCH] inet: set `error' value not under lock_sock().
+Date: Wed, 9 Mar 2016 10:22:21 -0800
+Message-ID: <20160309182217.GA9708@jwg>
+Reply-To: Weongyo Jeong <wjeong@barracuda.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: gabriel.fernandez@linaro.org, afaerber@suse.de,
-	dinh.linux@gmail.com, davem@davemloft.net
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35993 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933612AbcCISSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 13:18:24 -0500
-Received: by mail-wm0-f54.google.com with SMTP id n186so191591943wmn.1
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 10:18:23 -0800 (PST)
-In-Reply-To: <1457514007-32333-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:32877 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933595AbcCISWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 13:22:23 -0500
+Received: by mail-pa0-f66.google.com with SMTP id q6so3938880pav.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 10:22:23 -0800 (PST)
+Received: from jwg ([64.235.157.5])
+        by smtp.gmail.com with ESMTPSA id xn8sm14018893pab.15.2016.03.09.10.22.21
+        for <netdev@vger.kernel.org>
+        (version=TLS1 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Wed, 09 Mar 2016 10:22:21 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A trivial patch to set `error' variable while not holding
+lock_sock().
 
-Am 09.03.2016 um 10:00 schrieb Giuseppe Cavallaro:
-> These two patches are to fix the recent regressions raised
-> when test the stmmac on some platforms.
-> Please I kindly ask you to give me the feedback if it actually
-> covers all the cases and if the stmmac runs fine on the boxes.
-> I have tested on my side the H410 B2120 with an embedded switch
-> (so using the fixed-link).
->
-> Giuseppe Cavallaro (2):
->   Revert "stmmac: Fix 'eth0: No PHY found' regression"
->   stmmac: fix MDIO settings
->
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 ++-------
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   11 +++++++++-
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   22 +++++--------------
->  include/linux/stmmac.h                             |    3 +-
->  4 files changed, 20 insertions(+), 27 deletions(-)
-Works fine on the Banana Pi M1 board.
-(Fixes "libphy: PHY stmmac-0:ffffffff not found")
+Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
+---
+ net/ipv4/inet_connection_sock.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Regards,
-Frank
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 6414891..58bc39f 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -306,14 +306,13 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err)
+ 	struct request_sock_queue *queue = &icsk->icsk_accept_queue;
+ 	struct request_sock *req;
+ 	struct sock *newsk;
+-	int error;
++	int error = -EINVAL;
+ 
+ 	lock_sock(sk);
+ 
+ 	/* We need to make sure that this socket is listening,
+ 	 * and that it has something pending.
+ 	 */
+-	error = -EINVAL;
+ 	if (sk->sk_state != TCP_LISTEN)
+ 		goto out_err;
+ 
+-- 
+2.1.3
