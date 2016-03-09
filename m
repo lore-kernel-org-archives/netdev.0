@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 1/2] net: bridge: add switchdev attr for port bridging
-Date: Wed,  9 Mar 2016 12:42:47 -0500
-Message-ID: <1457545368-20647-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 2/2] net: dsa: support SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF
+Date: Wed,  9 Mar 2016 12:42:48 -0500
+Message-ID: <1457545368-20647-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,101 +14,217 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58639 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58645 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273AbcCIRnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:43:08 -0500
+	with ESMTP id S932397AbcCIRnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:43:10 -0500
 In-Reply-To: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF switchdev attribute which is
-set before adding a port to a bridge and deleting a port from a bridge.
+Add a new dsa_slave_bridge_if function to handle the
+SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF switchdev attribute.
 
-The main purpose for this attribute is to provide switchdev users a
-simple and common way to retrieve bridging information, instead of
-implementing complex notifier blocks to listen to global netdev events.
-
-We can also imagine a switchdev user returning an error different from
--EOPNOTSUPP in the prepare phase to prevent a port from being bridged.
+Thus remove the code related to the netdev notifier block.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/switchdev.h |  2 ++
- net/bridge/br_if.c      | 27 +++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+)
+ net/dsa/dsa.c      |   7 ----
+ net/dsa/dsa_priv.h |   2 -
+ net/dsa/slave.c    | 113 ++++++++++++++---------------------------------------
+ 3 files changed, 30 insertions(+), 92 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d451122..65f8514 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -46,6 +46,7 @@ enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
- 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
-+	SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
- 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
- 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index fa4daba..cfb678b 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -977,10 +977,6 @@ static struct packet_type dsa_pack_type __read_mostly = {
+ 	.func	= dsa_switch_rcv,
  };
-@@ -58,6 +59,7 @@ struct switchdev_attr {
- 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
- 		u8 stp_state;				/* PORT_STP_STATE */
- 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
-+		bool join;				/* PORT_BRIDGE_IF */
- 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
- 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
- 	} u;
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index a73df33..105b9fd 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -28,6 +28,24 @@
  
- #include "br_private.h"
+-static struct notifier_block dsa_netdevice_nb __read_mostly = {
+-	.notifier_call	= dsa_slave_netdevice_event,
+-};
+-
+ #ifdef CONFIG_PM_SLEEP
+ static int dsa_suspend(struct device *d)
+ {
+@@ -1047,8 +1043,6 @@ static int __init dsa_init_module(void)
+ {
+ 	int rc;
  
-+static int switchdev_bridge_if(struct net_device *dev, struct net_bridge *br,
-+			       bool join)
-+{
-+	struct switchdev_attr attr = {
-+		.orig_dev = br->dev,
-+		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
-+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-+		.u.join = join,
-+	};
-+	int err;
-+
-+	err = switchdev_port_attr_set(dev, &attr);
-+	if (err && err != -EOPNOTSUPP)
-+		return err;
-+
-+	return 0;
-+}
-+
- /*
-  * Determine initial path cost based on speed.
-  * using recommendations from 802.1d standard
-@@ -297,6 +315,10 @@ static void del_nbp(struct net_bridge_port *p)
- 	br_netpoll_disable(p);
+-	register_netdevice_notifier(&dsa_netdevice_nb);
+-
+ 	rc = platform_driver_register(&dsa_driver);
+ 	if (rc)
+ 		return rc;
+@@ -1061,7 +1055,6 @@ module_init(dsa_init_module);
  
- 	call_rcu(&p->rcu, destroy_nbp_rcu);
-+
-+	if (switchdev_bridge_if(dev, br, false))
-+		br_warn(br, "error unbridging port %u(%s)\n",
-+			(unsigned int) p->port_no, dev->name);
+ static void __exit dsa_cleanup_module(void)
+ {
+-	unregister_netdevice_notifier(&dsa_netdevice_nb);
+ 	dev_remove_pack(&dsa_pack_type);
+ 	platform_driver_unregister(&dsa_driver);
+ }
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 1d1a546..34d1951 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -64,8 +64,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ void dsa_slave_destroy(struct net_device *slave_dev);
+ int dsa_slave_suspend(struct net_device *slave_dev);
+ int dsa_slave_resume(struct net_device *slave_dev);
+-int dsa_slave_netdevice_event(struct notifier_block *unused,
+-			      unsigned long event, void *ptr);
+ 
+ /* tag_dsa.c */
+ extern const struct dsa_device_ops dsa_netdev_ops;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 27bf03d..90ef149 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -305,16 +305,38 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return -EOPNOTSUPP;
  }
  
- /* Delete bridge device */
-@@ -347,6 +369,11 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+-static int dsa_slave_stp_update(struct net_device *dev, u8 state)
++static int dsa_slave_bridge_if(struct net_device *dev,
++			       const struct switchdev_attr *attr,
++			       struct switchdev_trans *trans)
  {
- 	int index;
- 	struct net_bridge_port *p;
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
 +	int err;
-+
-+	err = switchdev_bridge_if(dev, br, true);
-+	if (err)
-+		return ERR_PTR(err);
  
- 	index = find_portno(br);
- 	if (index < 0)
+-	if (ds->drv->port_stp_update)
+-		ret = ds->drv->port_stp_update(ds, p->port, state);
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (!ds->drv->port_join_bridge || !ds->drv->port_leave_bridge)
++			return -EOPNOTSUPP;
++		return 0;
++	}
+ 
+-	return ret;
++	if (attr->u.join) {
++		err = ds->drv->port_join_bridge(ds, p->port, attr->orig_dev);
++		if (!err)
++			p->bridge_dev = attr->orig_dev;
++	} else {
++		err = ds->drv->port_leave_bridge(ds, p->port);
++
++		/* When a port leaves a bridge, the bridge layer sets its STP
++		 * state to DISABLED. Restore FORWARDING to keep it functional.
++		 */
++		if (ds->drv->port_stp_update)
++			ds->drv->port_stp_update(ds, p->port,
++						 BR_STATE_FORWARDING);
++
++		p->bridge_dev = NULL;
++	}
++
++	return err;
+ }
+ 
+ static int dsa_slave_vlan_filtering(struct net_device *dev,
+@@ -354,6 +376,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
+ 		ret = dsa_slave_vlan_filtering(dev, attr, trans);
+ 		break;
++	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF:
++		ret = dsa_slave_bridge_if(dev, attr, trans);
++		break;
+ 	default:
+ 		ret = -EOPNOTSUPP;
+ 		break;
+@@ -439,41 +464,6 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
+ 	return err;
+ }
+ 
+-static int dsa_slave_bridge_port_join(struct net_device *dev,
+-				      struct net_device *br)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
+-
+-	p->bridge_dev = br;
+-
+-	if (ds->drv->port_join_bridge)
+-		ret = ds->drv->port_join_bridge(ds, p->port, br);
+-
+-	return ret;
+-}
+-
+-static int dsa_slave_bridge_port_leave(struct net_device *dev)
+-{
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
+-
+-
+-	if (ds->drv->port_leave_bridge)
+-		ret = ds->drv->port_leave_bridge(ds, p->port);
+-
+-	p->bridge_dev = NULL;
+-
+-	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
+-	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
+-	 */
+-	dsa_slave_stp_update(dev, BR_STATE_FORWARDING);
+-
+-	return ret;
+-}
+-
+ static int dsa_slave_port_attr_get(struct net_device *dev,
+ 				   struct switchdev_attr *attr)
+ {
+@@ -1136,46 +1126,3 @@ void dsa_slave_destroy(struct net_device *slave_dev)
+ 	unregister_netdev(slave_dev);
+ 	free_netdev(slave_dev);
+ }
+-
+-static bool dsa_slave_dev_check(struct net_device *dev)
+-{
+-	return dev->netdev_ops == &dsa_slave_netdev_ops;
+-}
+-
+-static int dsa_slave_master_changed(struct net_device *dev)
+-{
+-	struct net_device *master = netdev_master_upper_dev_get(dev);
+-	struct dsa_slave_priv *p = netdev_priv(dev);
+-	int err = 0;
+-
+-	if (master && master->rtnl_link_ops &&
+-	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
+-		err = dsa_slave_bridge_port_join(dev, master);
+-	else if (dsa_port_is_bridged(p))
+-		err = dsa_slave_bridge_port_leave(dev);
+-
+-	return err;
+-}
+-
+-int dsa_slave_netdevice_event(struct notifier_block *unused,
+-			      unsigned long event, void *ptr)
+-{
+-	struct net_device *dev;
+-	int err = 0;
+-
+-	switch (event) {
+-	case NETDEV_CHANGEUPPER:
+-		dev = netdev_notifier_info_to_dev(ptr);
+-		if (!dsa_slave_dev_check(dev))
+-			goto out;
+-
+-		err = dsa_slave_master_changed(dev);
+-		if (err && err != -EOPNOTSUPP)
+-			netdev_warn(dev, "failed to reflect master change\n");
+-
+-		break;
+-	}
+-
+-out:
+-	return NOTIFY_DONE;
+-}
 -- 
 2.7.2
