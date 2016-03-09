@@ -1,75 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on
- outer headers
-Date: Wed, 09 Mar 2016 16:02:25 -0500 (EST)
-Message-ID: <20160309.160225.262235291935624404.davem@davemloft.net>
-References: <20160307.140947.1831226984496616218.davem@davemloft.net>
-	<CAMt9YRoWs1iYxpAbw0SD6Q3GM=gBoe2dGXh-OBR3r-_=BjK8vA@mail.gmail.com>
-	<CAEh+42goYHorJiP2ShhMj6CXCfPyn1r+obb0YsKXLeZFNW2PLw@mail.gmail.com>
+Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get
+ bulk free operations
+Date: Wed, 09 Mar 2016 16:03:20 -0500 (EST)
+Message-ID: <20160309.160320.1535201013338177802.davem@davemloft.net>
+References: <20160308.142422.1791364638495761357.davem@davemloft.net>
+	<20160309120039.38cfdb88@redhat.com>
+	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aduyck@mirantis.com, gerlitz.or@gmail.com, netdev@vger.kernel.org
-To: jesse@kernel.org
+Cc: brouer@redhat.com, netdev@vger.kernel.org, eugenia@mellanox.com,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	gerlitz.or@gmail.com
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33826 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33836 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbcCIVC1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:02:27 -0500
-In-Reply-To: <CAEh+42goYHorJiP2ShhMj6CXCfPyn1r+obb0YsKXLeZFNW2PLw@mail.gmail.com>
+	with ESMTP id S1753912AbcCIVDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:03:22 -0500
+In-Reply-To: <CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@kernel.org>
-Date: Mon, 7 Mar 2016 15:42:59 -0800
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Wed, 9 Mar 2016 08:47:58 -0800
 
-> On Mon, Mar 7, 2016 at 3:06 PM, Alex Duyck <aduyck@mirantis.com> wrote:
->> On Mon, Mar 7, 2016 at 11:09 AM, David Miller <davem@davemloft.net> wrote:
->>> From: Or Gerlitz <gerlitz.or@gmail.com>
->>> Date: Mon, 7 Mar 2016 20:05:20 +0200
->>>
->>>> On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->>>>> This change enforces the IP ID verification on outer headers.  As a result
->>>>> if the DF flag is not set on the outer header we will force the flow to be
->>>>> flushed in the event that the IP ID is out of sequence with the existing
->>>>> flow.
->>>>
->>>> Can you please state the precise requirement for aggregation w.r.t IP
->>>> IDs here? and point to where/how this is enforced, e.g for
->>>> non-tunneled TCP GRO-ing?
->>>
->>> I also didn't see a nice "PATCH 0/4" posting explaining this series and
->>> I'd really like to see that.
->>
->> Sorry about that.  I forgot to add the cover page when I sent this.
->>
->> The enforcement is coming from the IP and TCP layers.  If you take a
->> look in inet_gro_receive we have the NAPI_GRO_CB(p)->flush_id value
->> being populated based on the difference between the expected ID and
->> the received one.  So for IPv4 we overwrite it, and for IPv6 we set it
->> to 0.  The only consumer currently using it is TCP in tcp_gro_receive.
->> The problem is with tunnels we lose the data for the outer when the
->> inner overwrites it, as a result we can put whatever we want currently
->> in the outer IP ID and it will be accepted.
->>
->> The patch set is based off of a conversation several of us had on the
->> list about doing TSO for tunnels and the fact that the IP IDs for the
->> outer header have to advance.  It makes it easier for me to validate
->> that I am doing things properly if GRO doesn't destroy the IP ID data
->> for the outer headers.
+> On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+>> Passing the budget down was Alex'es design.  Axel any thoughts?
 > 
-> In net/ipv4/af_inet.c:inet_gro_receive() there is the following
-> comment above where NAPI_GRO_CB(p)->flush_id is set:
-> 
-> /* Save the IP ID check to be included later when we get to
-> * the transport layer so only the inner most IP ID is checked.
-> * This is because some GSO/TSO implementations do not
-> * correctly increment the IP ID for the outer hdrs.
-> */
-> 
-> There was a long discussion about this a couple years ago and the
-> conclusion was that it is the inner IP ID is really the important one
-> in the case of encapsulation. Obviously, things like TCP/IP header
-> compression don't apply to the outer encapsulation header.
+> I'd say just use dev_consume_skb_any in the bulk free instead of
+> dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
+> come up often.
 
-That's how I remember the conversation going as wel...
+Agreed.
+
+>> I do wonder how expensive this check is... as it goes into a code
+>> hotpath, which is very unlikely.  The good thing would be, that we
+>> handle if buggy drivers call this function from a none softirq context
+>> (as these bugs could be hard to catch).
+>>
+>> Can netpoll ever be called from softirq or with BH disabled? (It
+>> disables IRQs, which would break calling kmem_cache_free_bulk).
+> 
+> It is better for us to switch things out so that the napi_consume_skb
+> is the fast path with dev_consume_skb_any as the slow.  There are too
+> many scenarios where we could be invoking something that makes use of
+> this within the Tx path so it is probably easiest to just solve it
+> that way so we don't have to deal with it again in the future.
+
+Indeed.
