@@ -1,92 +1,92 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v8 3/8] openvswitch: Add commentary to conntrack.c
-Date: Tue,  8 Mar 2016 16:24:39 -0800
-Message-ID: <1457483084-13944-3-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH nf-next v8 2/8] netfilter: Allow calling into nat
+	helper without skb_dst.
+Date: Tue,  8 Mar 2016 16:24:38 -0800
+Message-ID: <1457483084-13944-2-git-send-email-jarno@ovn.org>
 References: <1457483084-13944-1-git-send-email-jarno@ovn.org>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1457483084-13944-1-git-send-email-jarno@ovn.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457483084-13944-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This makes the code easier to understand and the following patches
-more focused.
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 3045290..8cd0110 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -152,8 +152,12 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (ct) {
- 		state = ovs_ct_get_state(ctinfo);
-+		/* All unconfirmed entries are NEW connections. */
- 		if (!nf_ct_is_confirmed(ct))
- 			state |= OVS_CS_F_NEW;
-+		/* OVS persists the related flag for the duration of the
-+		 * connection.
-+		 */
- 		if (ct->master)
- 			state |= OVS_CS_F_RELATED;
- 		zone = nf_ct_zone(ct);
-@@ -165,6 +169,9 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	__ovs_ct_update_key(key, state, zone, ct);
- }
- 
-+/* This is called to initialize CT key fields possibly coming in from the local
-+ * stack.
-+ */
- void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
- {
- 	ovs_ct_update_key(skb, NULL, key, false);
-@@ -199,7 +206,6 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct nf_conn *ct;
- 	u32 new_mark;
- 
--
- 	/* The connection could be invalid, in which case set_mark is no-op. */
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (!ct)
-@@ -375,6 +381,11 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
- 	return true;
- }
- 
-+/* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
-+ * not done already.  Update key with new CT state.
-+ * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
-+ * set to NULL and 0 will be returned.
-+ */
- static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 			   const struct ovs_conntrack_info *info,
- 			   struct sk_buff *skb)
-@@ -418,6 +429,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- {
- 	struct nf_conntrack_expect *exp;
- 
-+	/* If we pass an expected packet through nf_conntrack_in() the
-+	 * expectiation is typically removed, but the packet could still be
-+	 * lost in upcall processing.  To prevent this from happening we
-+	 * perform an explicit expectation lookup.  Expected connections are
-+	 * always new, and will be passed through conntrack only when they are
-+	 * committed, as it is OK to remove the expectation at that time.
-+	 */
- 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
- 	if (exp) {
- 		u8 state;
-@@ -455,6 +473,7 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
-+	/* This is a no-op if the connection has already been confirmed. */
- 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
- 		return -EINVAL;
- 
--- 
-2.1.4
-
+TkFUIGNoZWNrc3VtIHJlY2FsY3VsYXRpb24gY29kZSBhc3N1bWVzIGV4aXN0ZW5jZSBvZiBza2Jf
+ZHN0LCB3aGljaApiZWNvbWVzIGEgcHJvYmxlbSBmb3IgYSBsYXRlciBwYXRjaCBpbiB0aGUgc2Vy
+aWVzICgib3BlbnZzd2l0Y2g6CkludGVyZmFjZSB3aXRoIE5BVC4iKS4gIFNpbXBsaWZ5IHRoaXMg
+YnkgcmVtb3ZpbmcgdGhlIGNoZWNrIG9uCnNrYl9kc3QsIGFzIHRoZSBjaGVja3N1bSB3aWxsIGJl
+IGRlYWx0IHdpdGggbGF0ZXIgaW4gdGhlIHN0YWNrLgoKU3VnZ2VzdGVkLWJ5OiBQcmF2aW4gU2hl
+bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+ClNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8
+amFybm9Ab3ZuLm9yZz4KLS0tCiBuZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2
+NC5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBuZXQvaXB2Ni9uZXRmaWx0
+ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tCiAyIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDQ0IGRlbGV0aW9ucygtKQoK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0LmMgYi9u
+ZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jCmluZGV4IDYxYzdjYzIuLmY4
+YWFkMDMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0
+LmMKKysrIGIvbmV0L2lwdjQvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjQuYwpAQCAtMTI3
+LDI5ICsxMjcsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjRfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXBoZHIgKmlwaCA9IGlwX2hkcihza2IpOwotCXN0cnVjdCBydGFibGUgKnJ0ID0gc2tiX3J0YWJs
+ZShza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJ
+aWYgKCEocnQtPnJ0X2ZsYWdzICYgUlRDRl9MT0NBTCkgJiYKLQkJICAgICghc2tiLT5kZXYgfHwg
+c2tiLT5kZXYtPmZlYXR1cmVzICYKLQkJICAgICAoTkVUSUZfRl9JUF9DU1VNIHwgTkVUSUZfRl9I
+V19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNr
+Yi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShza2IpICsKLQkJCQkJICBza2JfbmV0d29ya19v
+ZmZzZXQoc2tiKSArCi0JCQkJCSAgaXBfaGRybGVuKHNrYik7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0
+ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgICBkYXRhbGVuLCBwcm90bywgMCk7Ci0J
+CX0gZWxzZSB7Ci0JCQkqY2hlY2sgPSAwOwotCQkJKmNoZWNrID0gY3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgIGRhdGFsZW4sIHByb3RvLAotCQkJCQkJ
+ICAgY3N1bV9wYXJ0aWFsKGRhdGEsIGRhdGFsZW4sCi0JCQkJCQkJCTApKTsKLQkJCWlmIChwcm90
+byA9PSBJUFBST1RPX1VEUCAmJiAhKmNoZWNrKQotCQkJCSpjaGVjayA9IENTVU1fTUFOR0xFRF8w
+OwotCQl9CisJCWNvbnN0IHN0cnVjdCBpcGhkciAqaXBoID0gaXBfaGRyKHNrYik7CisKKwkJc2ti
+LT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9QQVJUSUFMOworCQlza2ItPmNzdW1fc3RhcnQgPSBza2Jf
+aGVhZHJvb20oc2tiKSArIHNrYl9uZXR3b3JrX29mZnNldChza2IpICsKKwkJCWlwX2hkcmxlbihz
+a2IpOworCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7CisJCSpjaGVj
+ayA9IH5jc3VtX3RjcHVkcF9tYWdpYyhpcGgtPnNhZGRyLCBpcGgtPmRhZGRyLCBkYXRhbGVuLAor
+CQkJCQkgICAgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1fcmVwbGFjZTIo
+Y2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4pLCB0cnVlKTsK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2LmMgYi9u
+ZXQvaXB2Ni9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jCmluZGV4IDZjZTMwOTkuLmUw
+YmU5N2UgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2
+LmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYwpAQCAtMTMx
+LDI5ICsxMzEsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjZfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOwotCXN0cnVjdCBydDZfaW5mbyAqcnQgPSAo
+c3RydWN0IHJ0Nl9pbmZvICopc2tiX2RzdChza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9
+IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJaWYgKCEocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfTE9DQUwp
+ICYmCi0JCSAgICAoIXNrYi0+ZGV2IHx8IHNrYi0+ZGV2LT5mZWF0dXJlcyAmCi0JCSAgICAgKE5F
+VElGX0ZfSVBWNl9DU1VNIHwgTkVUSUZfRl9IV19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVk
+ID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNrYi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShz
+a2IpICsKLQkJCQkJICBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCi0JCQkJCSAgKGRhdGEgLSAo
+dm9pZCAqKXNrYi0+ZGF0YSk7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAt
+IGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2
+aC0+ZGFkZHIsCi0JCQkJCQkgIGRhdGFsZW4sIHByb3RvLCAwKTsKLQkJfSBlbHNlIHsKLQkJCSpj
+aGVjayA9IDA7Ci0JCQkqY2hlY2sgPSBjc3VtX2lwdjZfbWFnaWMoJmlwdjZoLT5zYWRkciwgJmlw
+djZoLT5kYWRkciwKLQkJCQkJCSBkYXRhbGVuLCBwcm90bywKLQkJCQkJCSBjc3VtX3BhcnRpYWwo
+ZGF0YSwgZGF0YWxlbiwKLQkJCQkJCQkgICAgICAwKSk7Ci0JCQlpZiAocHJvdG8gPT0gSVBQUk9U
+T19VRFAgJiYgISpjaGVjaykKLQkJCQkqY2hlY2sgPSBDU1VNX01BTkdMRURfMDsKLQkJfQorCQlj
+b25zdCBzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOworCisJCXNrYi0+aXBf
+c3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKKwkJc2tiLT5jc3VtX3N0YXJ0ID0gc2tiX2hlYWRy
+b29tKHNrYikgKyBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCisJCQkoZGF0YSAtICh2b2lkICop
+c2tiLT5kYXRhKTsKKwkJc2tiLT5jc3VtX29mZnNldCA9ICh2b2lkICopY2hlY2sgLSBkYXRhOwor
+CQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2aC0+ZGFkZHIs
+CisJCQkJCSAgZGF0YWxlbiwgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1f
+cmVwbGFjZTIoY2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4p
+LCB0cnVlKTsKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
