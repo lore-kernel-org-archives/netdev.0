@@ -1,82 +1,79 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 2/2] net: dsa: support
- SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF
-Date: Wed, 9 Mar 2016 21:07:43 +0100
-Message-ID: <20160309200743.GB18196@lunn.ch>
-References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1457545368-20647-3-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20160309183213.GA18196@lunn.ch>
- <87h9gfo3be.fsf@ketchup.mtl.sfl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] net: macb: Fix coding style issues
+Date: Wed, 09 Mar 2016 15:26:41 -0500 (EST)
+Message-ID: <20160309.152641.1788526652068750778.davem@davemloft.net>
+References: <56E04F73.6030504@xilinx.com>
+	<20160309.122210.1419008371671612631.davem@davemloft.net>
+	<56E05D5D.80604@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Ido Schimmel <idosch@mellanox.com>,
-	nikolay@cumulusnetworks.com, Elad Raz <eladr@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87h9gfo3be.fsf@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.ferre@atmel.com, moritz.fischer@ettus.com,
+	cyrille.pitchen@atmel.com, punnaia@xilinx.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: michal.simek@xilinx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847AbcCIU0o convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 15:26:44 -0500
+In-Reply-To: <56E05D5D.80604@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2016 at 02:32:05PM -0500, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> >> -static bool dsa_slave_dev_check(struct net_device *dev)
-> >> -{
-> >> -	return dev->netdev_ops == &dsa_slave_netdev_ops;
-> >> -}
-> >
-> > Where is the equivalent of this happening? Where do we check that the
-> > interface added to the bridge is part of the switch?
-> 
-> Why should we check that? In this RFC, br_if.c tries to set the new
-> attribute to the net_device, when creating and deleting the net bridge
-> port. If it supports attr_set and this attribute, then we're good. Or am
-> I missing something?
+=46rom: Michal Simek <michal.simek@xilinx.com>
+Date: Wed, 9 Mar 2016 18:29:01 +0100
 
-One of us is missing something...
+> On 9.3.2016 18:22, David Miller wrote:
+>> From: Michal Simek <michal.simek@xilinx.com>
+>> Date: Wed, 9 Mar 2016 17:29:39 +0100
+>>=20
+>>> On 7.3.2016 18:13, Nicolas Ferre wrote:
+>>>> Le 07/03/2016 17:17, Moritz Fischer a =E9crit :
+>>>>> Hi Nicolas,
+>>>>>
+>>>>> this series deals with most of the checkpatch warnings
+>>>>> generated for macb. There are two BUG_ON()'s that I didn't touch,=
+ yet,
+>>>>> that were suggested by checkpatch, that I can address in a follow=
+ up
+>>>>> commit if needed.
+>>>>> Let me know if you want me to split the fixes differently or squa=
+sh
+>>>>> them into one commit.
+>>>>
+>>>> Hi,
+>>>>
+>>>> I'm not usually fond of this type of patches, but I must admit tha=
+t this
+>>>> series corrects some style issues.
+>>>>
+>>>> So, I would like more feedback from Michal and Cyrille as these ch=
+anges
+>>>> may delay some of the not-merged-yet features or more important
+>>>> work-in-progress on their side.
+>>>>
+>>>> On the other hand, if we all think it's a calm period for this mac=
+b
+>>>> driver, we may find interesting to merge some "cleanup and style"
+>>>> enhancements.
+>>>
+>>> Not a problem with merging cleanups in general. We have several out=
+ of
+>>> tree patches but doesn't make sense to to wait.
+>>> I wasn't in cc for the series but I don't like this change to be th=
+e
+>>> part of cleanup series.
+>>>
+>>> 	mac =3D of_get_mac_address(np);
+>>>  	if (mac)
+>>> -		memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
+>>> +		ether_addr_copy(bp->dev->dev_addr, mac);
+>>=20
+>> Why?  This is what we tell people to use.
+>=20
+> I would expect this as separate patch not the part of one huge cleanu=
+p
+> patch which does just comment and space cleanups.
 
-What happens if i have two dsa clusters? We probably want to limit the
-object to only being passed to the DSA cluster which contains the
-port, or once we receive the object, we verify it belongs to the
-cluster processing it.
-
-What happens with a team/bind interface is added to the bridge. In the
-future we need to know about this, so we can add the trunk in Marvells
-terms to the bridge.
-
-> > How about team/bonding? We are not ready to implement it yet with the
-> > Marvell devices, but at some point we probably will. Won't we need the
-> > events then? We need to know when a switch port has been added to a
-> > team?
-> >
-> > Or do you think a switchdev object will be added for this case?
-> > Mellanox already have the ability to add switch interfaces to a team,
-> > and then add the team to a bridge. So we need to ensure your solution
-> > works for such stacked systems.
-> 
-> Indeed these features can be propagated through new switchdev attributes
-> or objects.
-> 
-> I think it'd be preferable to factorize the switch related operations
-> into the switchdev API, instead of having every single switchdev user
-> implement its custom (but similar) listeners and checks for global
-> netdev events. What do you think?
-
-Centralizing the code would be good. But DSA is way behind what
-Mellanox can do, so you need to look at how your changes fit into
-their driver.
-
-During a netdev 1.1 BOF there was a conversation about the stack of
-interfaces, teams/bonds, bridges, etc. If the video is available, you
-might find it interesting.
-
-      Andrew
+That is true.
