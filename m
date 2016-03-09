@@ -1,59 +1,136 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Wed, 09 Mar 2016 12:24:00 -0500 (EST)
-Message-ID: <20160309.122400.951958972682394628.davem@davemloft.net>
-References: <20160309163919.GJ2207@uranus.lan>
-	<20160309165850.GA49579@ast-mbp.thefacebook.com>
-	<20160309170921.GL2207@uranus.lan>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2 1/2] gro: Defer clearing of flush bit in tunnel
+ paths
+Date: Wed, 09 Mar 2016 09:24:23 -0800
+Message-ID: <20160309172254.11477.43113.stgit@localhost.localdomain>
+References: <20160309171924.11477.93179.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com
-To: gorcunov@gmail.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59863 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbcCIRYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:24:03 -0500
-In-Reply-To: <20160309170921.GL2207@uranus.lan>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:32821 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273AbcCIRYZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:24:25 -0500
+Received: by mail-pa0-f43.google.com with SMTP id fl4so44572988pad.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:24:25 -0800 (PST)
+In-Reply-To: <20160309171924.11477.93179.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Wed, 9 Mar 2016 20:09:21 +0300
+This patch updates the GRO handlers for GRE, VXLAN, GENEVE, and FOU so that
+we do not clear the flush bit until after we have called the next level GRO
+handler.  Previously this was being cleared before parsing through the list
+of frames, however this resulted in several paths where either the bit
+needed to be reset but wasn't as in the case of FOU, or cases where it was
+being set as in GENEVE.  By just deferring the clearing of the bit until
+after the next level protocol has been parsed we can avoid any unnecessary
+bit twiddling and avoid bugs.
 
-> On Wed, Mar 09, 2016 at 08:58:52AM -0800, Alexei Starovoitov wrote:
-> ...
->> 
->> above line is an indication that you have:
->> #if defined(CONFIG_DEBUG_PREEMPT) || defined(CONFIG_PREEMPT_TRACER)
->> turning it off will speed up things significantly.
-> 
-> Look, this won't change the overall picture. For sure it will
-> speedup the kernel but it won't prevent the users from allowing
-> allocating addresses. So timings will drop a bit but the main
-> issue will remain -- there is no explicit way to limit this
-> resource. We can create say 1K of netnamespaces and allocate
-> 100K addresses in each, then start destorying the namespaces
-> and node gonna be unreachable until everything is freed. The
-> kernel works as it shold simply in case of highload is stops
-> react due to big number of rtnl-locks taken.
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
 
-We asked you for numbers without a lot of features enabled, it'll
-help us diagnose which subsystem still causes a lot of overhead
-much more clearly.
+v2: This was originally code for checking the flush_id in tunnels but since
+    that was rejected I thought it best to at least submit the bit that can
+    fix actual issues in the code.
 
-So please do so.
+ drivers/net/geneve.c   |    7 ++-----
+ drivers/net/vxlan.c    |    3 +--
+ net/ipv4/fou.c         |    3 +--
+ net/ipv4/gre_offload.c |    3 +--
+ 4 files changed, 5 insertions(+), 11 deletions(-)
 
-Although it's already pretty clear that netfilter conntrack
-cleanup is insanely expensive.
-
-You're also jumping to a lot of conclusions, work with us to fix the
-fundamental performance problems rather than continually insisting on
-a limit.
-
-We should be able to remove millions of IP addresses in less than
-half a second, no problem.  Limits make no sense at all.
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 6a0cbbe03e5d..aebb4a9289c1 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -462,8 +462,6 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
+ 			goto out;
+ 	}
+ 
+-	flush = 0;
+-
+ 	for (p = *head; p; p = p->next) {
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+@@ -480,14 +478,13 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
+ 
+ 	rcu_read_lock();
+ 	ptype = gro_find_receive_by_type(type);
+-	if (!ptype) {
+-		flush = 1;
++	if (!ptype)
+ 		goto out_unlock;
+-	}
+ 
+ 	skb_gro_pull(skb, gh_len);
+ 	skb_gro_postpull_rcsum(skb, gh, gh_len);
+ 	pp = ptype->callbacks.gro_receive(head, skb);
++	flush = 0;
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 2399099e68cf..63929877619f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -591,8 +591,6 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
+ 
+-	flush = 0;
+-
+ 	for (p = *head; p; p = p->next) {
+ 		if (!NAPI_GRO_CB(p)->same_flow)
+ 			continue;
+@@ -606,6 +604,7 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
+ 	}
+ 
+ 	pp = eth_gro_receive(head, skb);
++	flush = 0;
+ 
+ out:
+ 	skb_gro_remcsum_cleanup(skb, &grc);
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 88dab0c1670c..780484243e14 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -319,8 +319,6 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
+ 
+ 	skb_gro_pull(skb, hdrlen);
+ 
+-	flush = 0;
+-
+ 	for (p = *head; p; p = p->next) {
+ 		const struct guehdr *guehdr2;
+ 
+@@ -352,6 +350,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
+ 		goto out_unlock;
+ 
+ 	pp = ops->callbacks.gro_receive(head, skb);
++	flush = 0;
+ 
+ out_unlock:
+ 	rcu_read_unlock();
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 47f4c544c916..540866dbd27d 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -175,8 +175,6 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 					     null_compute_pseudo);
+ 	}
+ 
+-	flush = 0;
+-
+ 	for (p = *head; p; p = p->next) {
+ 		const struct gre_base_hdr *greh2;
+ 
+@@ -213,6 +211,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
+ 	skb_gro_postpull_rcsum(skb, greh, grehlen);
+ 
+ 	pp = ptype->callbacks.gro_receive(head, skb);
++	flush = 0;
+ 
+ out_unlock:
+ 	rcu_read_unlock();
