@@ -1,144 +1,81 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: =?UTF-8?q?=5BPATCH=20=28net=2Egit=29=202/2=5D=20stmmac=3A=20fix=20MDIO=20settings?=
-Date: Wed, 9 Mar 2016 10:00:07 +0100
-Message-ID: <1457514007-32333-3-git-send-email-peppe.cavallaro@st.com>
-References: <1457514007-32333-1-git-send-email-peppe.cavallaro@st.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Wed, 9 Mar 2016 09:56:59 +0100
+Message-ID: <56DFE55B.2090806@st.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
+ <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego>
+ <56DD7593.5060003@suse.de> <56DD8176.2080603@st.com>
+ <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
+ <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com>
+ <56DDB749.1020808@suse.de>
+ <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
+ <56DE7E1D.5070508@st.com>
+ <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
+ <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
-	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
-	<davem@davemloft.net>, Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:63994 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752579AbcCIIxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 03:53:10 -0500
-In-Reply-To: <1457514007-32333-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ =?ISO-8859-1?Q?Heiko_St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ =?ISO-8859-1?Q?Frank_Sch=E4?= =?ISO-8859-1?Q?fer?=
+ <fschaefer.oss-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+ "open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>,
+ =?ISO-8859-1?Q?Andreas_F=E4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+ LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+To: Tomeu Vizoso <tomeu-XCtybt49RKsYaV1qd6yewg@public.gmane.org>, Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Initially the phy_bus_name was added to manipulate the
-driver name but It was recently just used to manage the
-fixed-link and then to take some decision at run-time
-inside the main (for example to skip EEE).
+Hello
 
-So the patch now introduces a new platforms boolean to
-manage that and removes the phy_bus_name variable not
-necessary anymore.
+On 3/9/2016 9:35 AM, Tomeu Vizoso wrote:
+>
+> in order to get the onboard network on the Radxa Rock2 to work at all
+> on today's linux-next, I had to revert both commits:
+>
+> * "stmmac: Fix 'eth0: No PHY found' regression" for the drivers to
+> probe and the link to come up, and
 
-The driver can manage the mdio registration by using phy-handle,
-dwmac-mdio and own parameter e.g. snps,phy-addr.
-This patch takes care about all these possible configurations
-and fixes the mdio registration in case of there is a real
-transceiver or a switch (that needs to be managed by using
-fixed-link).
+I've just sent two patches (on top of net.git) to fix this problem
+pls let me know if these help on your side too.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-Cc: Andreas F=C3=A4rber <afaerber@suse.de>
-Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
-Cc: Dinh Nguyen <dinh.linux@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++--------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   15 ++++++------=
----
- include/linux/stmmac.h                             |    2 +-
- 3 files changed, 10 insertions(+), 18 deletions(-)
+>
+> * "stmmac: first frame prep at the end of the xmit routine" for the
+> network interface to work at all.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c21015b..87e4643 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -271,7 +271,6 @@ static void stmmac_eee_ctrl_timer(unsigned long arg=
-)
-  */
- bool stmmac_eee_init(struct stmmac_priv *priv)
- {
--	char *phy_bus_name =3D priv->plat->phy_bus_name;
- 	unsigned long flags;
- 	bool ret =3D false;
-=20
-@@ -283,7 +282,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
- 		goto out;
-=20
- 	/* Never init EEE in case of a switch is attached */
--	if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
-+	if (priv->plat->is_fixed_link)
- 		goto out;
-=20
- 	/* MAC core supports the EEE feature. */
-@@ -820,12 +819,8 @@ static int stmmac_init_phy(struct net_device *dev)
- 		phydev =3D of_phy_connect(dev, priv->plat->phy_node,
- 					&stmmac_adjust_link, 0, interface);
- 	} else {
--		if (priv->plat->phy_bus_name)
--			snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
--				 priv->plat->phy_bus_name, priv->plat->bus_id);
--		else
--			snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
--				 priv->plat->bus_id);
-+		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-+			 priv->plat->bus_id);
-=20
- 		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
- 			 priv->plat->phy_addr);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
-ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6a52fa1..09684dd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -138,7 +138,12 @@ stmmac_probe_config_dt(struct platform_device *pde=
-v, const char **mac)
- 			return ERR_PTR(-ENODEV);
-=20
- 		plat->phy_node =3D of_node_get(np);
--	}
-+		plat->is_fixed_link =3D true;
-+	} else
-+		plat->mdio_bus_data =3D
-+			devm_kzalloc(&pdev->dev,
-+				     sizeof(struct stmmac_mdio_bus_data),
-+				     GFP_KERNEL);
-=20
- 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
- 	 * and warn of its use. Remove this when phy node support is added.
-@@ -146,14 +151,6 @@ stmmac_probe_config_dt(struct platform_device *pde=
-v, const char **mac)
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D=
- 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
-=20
--	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_na=
-me)
--		plat->mdio_bus_data =3D NULL;
--	else
--		plat->mdio_bus_data =3D
--			devm_kzalloc(&pdev->dev,
--				     sizeof(struct stmmac_mdio_bus_data),
--				     GFP_KERNEL);
--
- 	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
-=20
- 	of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index eead8ab..1550558 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -94,10 +94,10 @@ struct stmmac_dma_cfg {
- };
-=20
- struct plat_stmmacenet_data {
--	char *phy_bus_name;
- 	int bus_id;
- 	int phy_addr;
- 	int interface;
-+	bool is_fixed_link;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
- 	struct device_node *phy_node;
- 	struct stmmac_dma_cfg *dma_cfg;
---=20
-1.7.4.4
+I cannot reproduce it right now but I am looking at this again and let
+you know.
+I will check your output file too
+
+Regards
+peppe
+
+
+> But a few seconds into the nfsroot boot I start getting:
+>
+> [    9.136701] systemd[1]: Started Load Kernel Modules.
+> [   18.116321] nfs: server 10.42.0.1 not responding, still trying
+> [   18.516224] ------------[ cut here ]------------
+> [   18.521024] WARNING: CPU: 1 PID: 0 at net/sched/sch_generic.c:303
+> dev_watchdog+0x284/0x288
+> [   18.529456] NETDEV WATCHDOG: eth0 (rk_gmac-dwmac): transmit queue 0 timed out
+>
+> I'm attaching the full boot log.
+>
+> Regards,
+>
+> Tomeu
+>
