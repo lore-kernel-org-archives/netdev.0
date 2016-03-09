@@ -1,112 +1,92 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
- free operations
-Date: Wed, 9 Mar 2016 22:47:48 +0100
-Message-ID: <20160309224748.6c00c4f3@redhat.com>
-References: <20160308.142422.1791364638495761357.davem@davemloft.net>
-	<20160309120039.38cfdb88@redhat.com>
-	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
-	<20160309.160320.1535201013338177802.davem@davemloft.net>
-	<20160309223607.0ab4d61d@redhat.com>
-	<CAKgT0Ue2qRhJr2_7q3ih9wNQ3SAwVuzf8-YCctS_3So=9m8bXw@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 3/4] vxlan: Enforce IP ID verification on outer headers
+Date: Wed, 9 Mar 2016 13:49:24 -0800
+Message-ID: <CAKgT0UfNtToyAJiBM2p0-y8BDp=wwMOtqBbdj+iRxUzDRU0kKA@mail.gmail.com>
+References: <20160307.140947.1831226984496616218.davem@davemloft.net>
+	<CAMt9YRoWs1iYxpAbw0SD6Q3GM=gBoe2dGXh-OBR3r-_=BjK8vA@mail.gmail.com>
+	<CAEh+42goYHorJiP2ShhMj6CXCfPyn1r+obb0YsKXLeZFNW2PLw@mail.gmail.com>
+	<20160309.160225.262235291935624404.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, eugenia@mellanox.com,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@kernel.org>, Alex Duyck <aduyck@mirantis.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54145 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750872AbcCIVrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2016 16:47:53 -0500
-In-Reply-To: <CAKgT0Ue2qRhJr2_7q3ih9wNQ3SAwVuzf8-YCctS_3So=9m8bXw@mail.gmail.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:38783 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbcCIVtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:49:25 -0500
+Received: by mail-ig0-f170.google.com with SMTP id ig19so3014177igb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:49:25 -0800 (PST)
+In-Reply-To: <20160309.160225.262235291935624404.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Mar 2016 13:43:59 -0800
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
+On Wed, Mar 9, 2016 at 1:02 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@kernel.org>
+> Date: Mon, 7 Mar 2016 15:42:59 -0800
+>
+>> On Mon, Mar 7, 2016 at 3:06 PM, Alex Duyck <aduyck@mirantis.com> wrote:
+>>> On Mon, Mar 7, 2016 at 11:09 AM, David Miller <davem@davemloft.net> wrote:
+>>>> From: Or Gerlitz <gerlitz.or@gmail.com>
+>>>> Date: Mon, 7 Mar 2016 20:05:20 +0200
+>>>>
+>>>>> On Mon, Mar 7, 2016 at 7:22 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>>>>>> This change enforces the IP ID verification on outer headers.  As a result
+>>>>>> if the DF flag is not set on the outer header we will force the flow to be
+>>>>>> flushed in the event that the IP ID is out of sequence with the existing
+>>>>>> flow.
+>>>>>
+>>>>> Can you please state the precise requirement for aggregation w.r.t IP
+>>>>> IDs here? and point to where/how this is enforced, e.g for
+>>>>> non-tunneled TCP GRO-ing?
+>>>>
+>>>> I also didn't see a nice "PATCH 0/4" posting explaining this series and
+>>>> I'd really like to see that.
+>>>
+>>> Sorry about that.  I forgot to add the cover page when I sent this.
+>>>
+>>> The enforcement is coming from the IP and TCP layers.  If you take a
+>>> look in inet_gro_receive we have the NAPI_GRO_CB(p)->flush_id value
+>>> being populated based on the difference between the expected ID and
+>>> the received one.  So for IPv4 we overwrite it, and for IPv6 we set it
+>>> to 0.  The only consumer currently using it is TCP in tcp_gro_receive.
+>>> The problem is with tunnels we lose the data for the outer when the
+>>> inner overwrites it, as a result we can put whatever we want currently
+>>> in the outer IP ID and it will be accepted.
+>>>
+>>> The patch set is based off of a conversation several of us had on the
+>>> list about doing TSO for tunnels and the fact that the IP IDs for the
+>>> outer header have to advance.  It makes it easier for me to validate
+>>> that I am doing things properly if GRO doesn't destroy the IP ID data
+>>> for the outer headers.
+>>
+>> In net/ipv4/af_inet.c:inet_gro_receive() there is the following
+>> comment above where NAPI_GRO_CB(p)->flush_id is set:
+>>
+>> /* Save the IP ID check to be included later when we get to
+>> * the transport layer so only the inner most IP ID is checked.
+>> * This is because some GSO/TSO implementations do not
+>> * correctly increment the IP ID for the outer hdrs.
+>> */
+>>
+>> There was a long discussion about this a couple years ago and the
+>> conclusion was that it is the inner IP ID is really the important one
+>> in the case of encapsulation. Obviously, things like TCP/IP header
+>> compression don't apply to the outer encapsulation header.
+>
+> That's how I remember the conversation going as wel...
 
-> On Wed, Mar 9, 2016 at 1:36 PM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > On Wed, 09 Mar 2016 16:03:20 -0500 (EST)
-> > David Miller <davem@davemloft.net> wrote:
-> >  
-> >> From: Alexander Duyck <alexander.duyck@gmail.com>
-> >> Date: Wed, 9 Mar 2016 08:47:58 -0800
-> >>  
-> >> > On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
-> >> > <brouer@redhat.com> wrote:  
-> >> >> Passing the budget down was Alex'es design.  Axel any thoughts?  
-> >> >
-> >> > I'd say just use dev_consume_skb_any in the bulk free instead of
-> >> > dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
-> >> > come up often.  
-> >>
-> >> Agreed.
-> >>  
-> >> >> I do wonder how expensive this check is... as it goes into a code
-> >> >> hotpath, which is very unlikely.  The good thing would be, that we
-> >> >> handle if buggy drivers call this function from a none softirq context
-> >> >> (as these bugs could be hard to catch).
-> >> >>
-> >> >> Can netpoll ever be called from softirq or with BH disabled? (It
-> >> >> disables IRQs, which would break calling kmem_cache_free_bulk).  
-> >> >
-> >> > It is better for us to switch things out so that the napi_consume_skb
-> >> > is the fast path with dev_consume_skb_any as the slow.  There are too
-> >> > many scenarios where we could be invoking something that makes use of
-> >> > this within the Tx path so it is probably easiest to just solve it
-> >> > that way so we don't have to deal with it again in the future.  
-> >>
-> >> Indeed.  
-> >
-> > So, if I understand you correctly, then we drop the budget parameter
-> > and check for in_softirq(), like:
-> >
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index 7af7ec635d90..a3c61a9b65d2 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -796,14 +796,14 @@ void __kfree_skb_defer(struct sk_buff *skb)
-> >         _kfree_skb_defer(skb);
-> >  }
-> >
-> > -void napi_consume_skb(struct sk_buff *skb, int budget)
-> > +void napi_consume_skb(struct sk_buff *skb)
-> >  {
-> >         if (unlikely(!skb))
-> >                 return;
-> >
-> > -       /* if budget is 0 assume netpoll w/ IRQs disabled */
-> > -       if (unlikely(!budget)) {
-> > -               dev_consume_skb_irq(skb);
-> > +       /* Handle if not called from NAPI context, and netpoll invocation */
-> > +       if (unlikely(!in_softirq())) {
-> > +               dev_consume_skb_any(skb);
-> >                 return;
-> >         }
-> >  
-> 
-> No.  We still need to have the budget value.  What we do though is
-> have that feed into dev_consume_skb_any.
-> 
-> The problem with using in_softirq is that it will trigger if softirqs
-> are just disabled so there are more possible paths where it is
-> possible.  For example the transmit path has bottom halves disabled so
-> I am pretty sure it might trigger this as well.  We want this to only
-> execute when we are running from a NAPI polling routine with a
-> non-zero budget.
+Given that then, how would you feel about a software scheme to use
+existing TSO support on devices to support UDP/GRE tunnel TSO by
+pre-computing the values for the outer headers and then having those
+duplicated on TSO frames?
 
-What about using in_serving_softirq() instead of in_softirq() ?
-(would that allow us to drop the budget parameter?)
+This is kind of what got me started down the path of validating the
+outer IP ID.  If we are okay with UDP or GRE encapsulated tunnels
+using the same IP ID for the outer headers then I should be able to
+code up something in software so that we can get more devices
+supporting tunnel TSO offload for tunnels.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+- Alex
