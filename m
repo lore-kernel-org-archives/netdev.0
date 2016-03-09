@@ -1,91 +1,182 @@
-From: Tomeu Vizoso <tomeu@tomeuvizoso.net>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Wed, 9 Mar 2016 11:53:29 +0100
-Message-ID: <CAAObsKBUzBXcamEyup44N1bYUzGr_ZZTsYcD5x3PXb-2E00cGA@mail.gmail.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
- <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego> <56DD7593.5060003@suse.de>
- <56DD8176.2080603@st.com> <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
- <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de>
- <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
- <56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
- <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>
- <56DFE55B.2090806@st.com> <56DFE64B.8060606@st.com> <CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com>
- <56DFF253.9050208@st.com> <56DFFA9E.7060602@st.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net-next 3/3] macsec: introduce IEEE 802.1AE driver
+Date: Wed, 9 Mar 2016 11:56:14 +0100
+Message-ID: <20160309105614.GA24911@bistromath.redhat.com>
+References: <cover.1456937772.git.sd@queasysnail.net>
+ <d7145f6037142ea5134be0402e014a9c72f7b8d4.1456937772.git.sd@queasysnail.net>
+ <1457468033.24270.38.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fabrice GASNIER <fabrice.gasnier@st.com>,
-	Dinh Nguyen <dinh.linux@gmail.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
-	netdev@vger.kernel.org,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	Alexandre TORGUE <alexandre.torgue@st.com>,
-	=?UTF-8?Q?Frank_Sch=C3=A4fer?= <fschaefer.oss@googlemail.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>, stephen@networkplumber.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37516 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752283AbcCIKxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:53:52 -0500
-Received: by mail-wm0-f44.google.com with SMTP id p65so65232109wmp.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 02:53:51 -0800 (PST)
-In-Reply-To: <56DFFA9E.7060602@st.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53732 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752635AbcCIK4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 05:56:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1457468033.24270.38.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9 March 2016 at 11:27, Giuseppe CAVALLARO <peppe.cavallaro@st.com> wrote:
-> Hello Tomeu, Andreas,
->
-> On 3/9/2016 10:52 AM, Giuseppe CAVALLARO wrote:
->>>
->>> * today's linux-next: probe failed
->>>
->>> * today's linux-next + revert of 88f8b1bb41c6 stmmac: Fix 'eth0: No
->>> PHY found' regression: probe succeeded but no network at all
->>>
->>> * today's linux-next + revert of 88f8b1bb41c6 (stmmac: Fix 'eth0: No
->>> PHY found' regression) + revert of 0e80bdc9a72d (stmmac: first frame
->>> prep at the end of xmit routine): probe succeeded, dhcp succeeds and
->>> nfsroot works for a few seconds before timing out
->>
->>
->> ok, I was looking at this problem now that seems to related
->> the "stmmac: first frame prep at the end of xmit routine"
->> that, at first glance, is breaking the gmac 3.50 with normal descriptor.
->
->
-> I have no Hw where to test this use case. So, I wonder if may I ask you to
-> test some patch.
->
-> This first patch adds a missing barrier to the normal routine that inits the
-> descriptor. Barrier was needed to well manage the OWN
-> descriptor and it was not added in case of normal desc case after
-> the xmit rework.
->
-> Then I will check the algo behind the new xmit and in case of problems,
-> if you agree, we will decide to revert it because it aimed to add an
-> optimization.
->
-> Let me know if you agree.
+2016-03-08, 21:13:53 +0100, Johannes Berg wrote:
+> On Mon, 2016-03-07 at 18:12 +0100, Sabrina Dubroca wrote:
+> >=C2=A0
+> > +struct gcm_iv {
+> > +	union {
+> > +		u8 secure_channel_id[8];
+> > +		sci_t sci;
+> > +	};
+> > +	__be32 pn;
+> > +};
+>=20
+> Should this be __packed?
 
-I'm not sure what you would like to be tested, but just in case, I
-have just tried your patch on top of these commits and the result is
-the "transmit queue 0 timed out" error during boot:
+I think that's not necessary here.
 
-6542b30d0a67 Revert "stmmac: first frame prep at the end of xmit routine"
-eb5274cbc0f7 Revert "stmmac: do not poll phy handler when attach a switch"
-e88e625a68d9 Revert "stmmac: fix phy init when attached to a phy"
-ef5dd3777876 stmmac: fix MDIO settings
-77634ba1f25c Revert "stmmac: Fix 'eth0: No PHY found' regression"
-7811b4ffc312 Add linux-next specific files for 20160309
 
-Regards,
+> But the struct is confusing; sci_t is a host type (that depends on
+> endianness), and __be32 would seem to be a network type, how can they
+> both be in the same struct? Or does sci_t have to be __be64?
+>=20
+> > +/**
+> > + * struct macsec_rx_sa - receive secure association
+> > + * @active
+> > + * @next_pn packet number expected for the next packet
+> > + * @lock protects next_pn manipulations
+> > + * @key key structure
+> > + * @stats per-SA stats
+> > + */
+> > +struct macsec_rx_sa {
+> > +	bool active;
+> > +	u32 next_pn;
+> > +	spinlock_t lock;
+>=20
+> If you put the spinlock first or at least next to active you can get
+> rid of some padding (on arches/configs where spinlock is small, at
+> least)
 
-Tomeu
+Ok, I rearranged macsec_rx_sa and macsec_tx_sa.
 
-> Regards
-> Peppe
+
+> > +/**
+> > + * struct macsec_rx_sc - receive secure channel
+> > + * @sci secure channel identifier for this SC
+> > + * @active channel is active
+> > + * @sa array of secure associations
+> > + * @stats per-SC stats
+> > + */
+>=20
+> Btw, all your kernel-doc comments are actually malformed, they're
+> missing a colon after the @member, e.g.
+>=20
+> =C2=A0@stats: per-SC stats
+
+duh, I never noticed that :(
+Thanks.
+
+
+> > +struct macsec_tx_sc {
+> > +	bool active;
+> > +	u8 encoding_sa;
+> > +	bool encrypt;
+> > +	bool send_sci;
+> > +	bool end_station;
+> > +	bool scb;
+> > +	struct macsec_tx_sa __rcu *sa[4];
+>=20
+>=20
+> What's 4?
+
+Good point.  I added:
+
+    #define MACSEC_NUM_AN 4 /* 2 bits for the association number */
+
+and used it in all the range tests (< 4, >=3D 3).
+
+
+> > +static sci_t make_sci(u8 *addr, __be16 port)
+> > +{
+> > +	sci_t sci;
+> > +
+> > +	memcpy(&sci, addr, ETH_ALEN);
+> > +	memcpy(((char *)&sci) + ETH_ALEN, &port, sizeof(port));
+> > +
+> > +	return sci;
+> > +}
+>=20
+> Oh, maybe this explains my earlier question - looks like the sci_t
+> isn't really a 64-bit integer but some kind of structure.
+
+Yes, the bits in the SCI have some meaning.
+
+
+> Is there really much point in using a __bitwise u64 typedef, rather
+> than a small packed struct then?
+
+I can use =3D=3D tests, as in find_rx_sc().
+
+
+> > +/* minimum secure data length deemed "not short", see IEEE 802.1AE=
+-
+> > 2006 9.7 */
+> > +#define MIN_NON_SHORT_LEN 48
+>=20
+> I saw
+>=20
+> > +#define MACSEC_SHORTLEN_THR 48
+>=20
+> before, are they different? Seem very similar.
+
+They are exactly the same, good catch.
+
+
+> > +	tx_sa->next_pn++;
+> > +	if (tx_sa->next_pn =3D=3D 0) {
+> > +		pr_debug("PN wrapped, transitionning to !oper\n");
+>=20
+> typo: transitioning
+
+=46ixed.
+
+
+> > +static const struct genl_ops macsec_genl_ops[] =3D {
+> > +	{
+> > +		.cmd =3D MACSEC_CMD_GET_TXSC,
+> > +		.dumpit =3D macsec_dump_txsc,
+> > +		.policy =3D macsec_genl_policy,
+> > +	},
+> > +	{
+> > +		.cmd =3D MACSEC_CMD_ADD_RXSC,
+> > +		.doit =3D macsec_add_rxsc,
+> > +		.policy =3D macsec_genl_rxsc_policy,
+> > +		.flags =3D GENL_ADMIN_PERM,
+>=20
+> IMHO, having different policies for different operations is pretty
+> confusing. I now slowly start to understand why you had to do all thi=
+s
+> aliasing with the IDs. However, perhaps it'd be better to define a to=
+p-
+> level attribute list with the ifindex etc., and make all the
+> *additional* data needed for RXSC operations for example go into a
+> nested attribute in the top-level.
+>=20
+> That way, you have the same policy for everything and also don't have
+> to play tricks with the aliasing since the top-level attributes
+> actually exist now, coming from the same namespace & policy.
+
+That's a good idea, I'll have a look today.
+I don't really like the aliasing games I have to play, but I'd like to
+keep the RXSC attributes separate from the SA attributes, I think it
+looks cleaner (the first RFC had everything in the same policy:
+http://www.spinics.net/lists/netdev/msg358152.html).
+
+
+Thanks for the review.
+
+--=20
+Sabrina
