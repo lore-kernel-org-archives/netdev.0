@@ -1,59 +1,56 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
-Date: Wed, 9 Mar 2016 09:07:06 -0800
-Message-ID: <56E0583A.1080205@infradead.org>
-References: <20160309163852.4dd159b1@canb.auug.org.au>
- <56E052E4.90504@infradead.org> <56E053D3.7090009@iogearbox.net>
+From: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] ovs: allow nl 'flow set' to use ufid
+	without flow key
+Date: Wed,  9 Mar 2016 18:05:57 +0100
+Message-ID: <1457543157-5240-1-git-send-email-samuel.gauthier@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38762 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933435AbcCIRHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:07:12 -0500
-In-Reply-To: <56E053D3.7090009@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 03/09/16 08:48, Daniel Borkmann wrote:
-> On 03/09/2016 05:44 PM, Randy Dunlap wrote:
->> On 03/08/16 21:38, Stephen Rothwell wrote:
->>> Hi all,
->>>
->>> Changes since 20160308:
->>
->> on x86_64:
->>
->> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
->> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
->>    ip_tunnel_info_opts_get(to, info);
->>    ^
->> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
->> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
->>    ip_tunnel_info_opts_set(info, from, size);
->>    ^
->> Full randconfig file is attached.
-> 
-> Already fixed with net-next commit e28e87ed474c ("ip_tunnel, bpf:
-> ip_tunnel_info_opts_{get, set} depends on CONFIG_INET").
-> 
-> Thanks,
-> Daniel
-> 
-
-Hi Daniel,
-
-Is that patch on the netdev mailing list or patchwork?
-I can't find it.
-
-Does it handle where net/Kconfig symbol NET selects BPF unconditionally?
-
-thanks,
--- 
-~Randy
+V2hlbiB3ZSB3YW50IHRvIGNoYW5nZSBhIGZsb3cgdXNpbmcgbmV0bGluaywgd2UgaGF2ZSB0byBp
+ZGVudGlmeSBpdCB0bwpiZSBhYmxlIHRvIHBlcmZvcm0gYSBsb29rdXAuIEJvdGggdGhlIGZsb3cg
+a2V5IGFuZCB1bmlxdWUgZmxvdyBJRAoodWZpZCkgYXJlIHZhbGlkIGlkZW50aWZpZXJzLCBidXQg
+d2UgYWx3YXlzIGhhdmUgdG8gc3BlY2lmeSB0aGUgZmxvdwprZXkgaW4gdGhlIG5ldGxpbmsgbWVz
+c2FnZS4gV2hlbiBib3RoIGF0dHJpYnV0ZXMgYXJlIHRoZXJlLCB0aGUgdWZpZAppcyB1c2VkLgoK
+VGhpcyBjb21taXQgYWxsb3dzIHRvIHVzZSB0aGUgdWZpZCB3aXRob3V0IGhhdmluZyB0byBwcm92
+aWRlIHRoZSBmbG93CmtleSwgYXMgaXQgaXMgYWxyZWFkeSBkb25lIGluIHRoZSBuZXRsaW5rICdm
+bG93IGdldCcgYW5kICdmbG93IGRlbCcKcGF0aC4KClNpZ25lZC1vZmYtYnk6IFNhbXVlbCBHYXV0
+aGllciA8c2FtdWVsLmdhdXRoaWVyQDZ3aW5kLmNvbT4KLS0tCiBuZXQvb3BlbnZzd2l0Y2gvZGF0
+YXBhdGguYyB8IDIxICsrKysrKysrKystLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDEwIGlu
+c2VydGlvbnMoKyksIDExIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRj
+aC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKaW5kZXggZGVhZGZkYWIx
+YmMzLi4wNmYxNTE0M2NmMmEgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5j
+CisrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCkBAIC0xMTAwLDIxICsxMTAwLDIwIEBA
+IHN0YXRpYyBpbnQgb3ZzX2Zsb3dfY21kX3NldChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
+Z2VubF9pbmZvICppbmZvKQogCXN0cnVjdCBzd19mbG93X21hdGNoIG1hdGNoOwogCXN0cnVjdCBz
+d19mbG93X2lkIHNmaWQ7CiAJdTMyIHVmaWRfZmxhZ3MgPSBvdnNfbmxhX2dldF91ZmlkX2ZsYWdz
+KGFbT1ZTX0ZMT1dfQVRUUl9VRklEX0ZMQUdTXSk7Ci0JaW50IGVycm9yOworCWludCBlcnJvciA9
+IDA7CiAJYm9vbCBsb2cgPSAhYVtPVlNfRkxPV19BVFRSX1BST0JFXTsKIAlib29sIHVmaWRfcHJl
+c2VudDsKIAotCS8qIEV4dHJhY3Qga2V5LiAqLwotCWVycm9yID0gLUVJTlZBTDsKLQlpZiAoIWFb
+T1ZTX0ZMT1dfQVRUUl9LRVldKSB7Ci0JCU9WU19OTEVSUihsb2csICJGbG93IGtleSBhdHRyaWJ1
+dGUgbm90IHByZXNlbnQgaW4gc2V0IGZsb3cuIik7Ci0JCWdvdG8gZXJyb3I7Ci0JfQotCiAJdWZp
+ZF9wcmVzZW50ID0gb3ZzX25sYV9nZXRfdWZpZCgmc2ZpZCwgYVtPVlNfRkxPV19BVFRSX1VGSURd
+LCBsb2cpOwotCW92c19tYXRjaF9pbml0KCZtYXRjaCwgJmtleSwgJm1hc2spOwotCWVycm9yID0g
+b3ZzX25sYV9nZXRfbWF0Y2gobmV0LCAmbWF0Y2gsIGFbT1ZTX0ZMT1dfQVRUUl9LRVldLAotCQkJ
+CSAgYVtPVlNfRkxPV19BVFRSX01BU0tdLCBsb2cpOworCWlmIChhW09WU19GTE9XX0FUVFJfS0VZ
+XSkgeworCQlvdnNfbWF0Y2hfaW5pdCgmbWF0Y2gsICZrZXksIE5VTEwpOworCQllcnJvciA9IG92
+c19ubGFfZ2V0X21hdGNoKG5ldCwgJm1hdGNoLCBhW09WU19GTE9XX0FUVFJfS0VZXSwKKwkJCQkJ
+ICBOVUxMLCBsb2cpOworCX0gZWxzZSBpZiAoIXVmaWRfcHJlc2VudCkgeworCQlPVlNfTkxFUlIo
+bG9nLAorCQkJICAiRmxvdyBzZXQgbWVzc2FnZSByZWplY3RlZCwgS2V5IGF0dHJpYnV0ZSBtaXNz
+aW5nLiIpOworCQllcnJvciA9IC1FSU5WQUw7CisJfQogCWlmIChlcnJvcikKIAkJZ290byBlcnJv
+cjsKIAotLSAKMi4yLjEuNjIuZzNmMTUwOTgKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpo
+dHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
