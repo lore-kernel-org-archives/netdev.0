@@ -1,75 +1,61 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 0/3] net: macb: Fix coding style issues
-Date: Wed, 9 Mar 2016 18:29:01 +0100
-Message-ID: <56E05D5D.80604@xilinx.com>
-References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
- <56DDB6CA.8000100@atmel.com> <56E04F73.6030504@xilinx.com>
- <20160309.122210.1419008371671612631.davem@davemloft.net>
+From: Ben Hawkes <hawkes@google.com>
+Subject: Re: Linux netfilter IPT_SO_SET_REPLACE memory corruption
+Date: Wed, 9 Mar 2016 09:33:41 -0800
+Message-ID: <CABWXx8Hk_V910+AOWSwU5L7Z1k3Wz1Uy0kVCzYAyr8zOA9J4Mg@mail.gmail.com>
+References: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nicolas.ferre@atmel.com>, <moritz.fischer@ettus.com>,
-	<cyrille.pitchen@atmel.com>, <punnaia@xilinx.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <michal.simek@xilinx.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0074.outbound.protection.outlook.com ([104.47.37.74]:22184
-	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753756AbcCIR3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2016 12:29:16 -0500
-In-Reply-To: <20160309.122210.1419008371671612631.davem@davemloft.net>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:36512 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbcCIRdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:33:43 -0500
+Received: by mail-yw0-f181.google.com with SMTP id g3so45767046ywa.3
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:33:42 -0800 (PST)
+In-Reply-To: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9.3.2016 18:22, David Miller wrote:
-> From: Michal Simek <michal.simek@xilinx.com>
-> Date: Wed, 9 Mar 2016 17:29:39 +0100
->=20
->> On 7.3.2016 18:13, Nicolas Ferre wrote:
->>> Le 07/03/2016 17:17, Moritz Fischer a =E9crit :
->>>> Hi Nicolas,
->>>>
->>>> this series deals with most of the checkpatch warnings
->>>> generated for macb. There are two BUG_ON()'s that I didn't touch, =
-yet,
->>>> that were suggested by checkpatch, that I can address in a follow =
-up
->>>> commit if needed.
->>>> Let me know if you want me to split the fixes differently or squas=
-h
->>>> them into one commit.
->>>
->>> Hi,
->>>
->>> I'm not usually fond of this type of patches, but I must admit that=
- this
->>> series corrects some style issues.
->>>
->>> So, I would like more feedback from Michal and Cyrille as these cha=
-nges
->>> may delay some of the not-merged-yet features or more important
->>> work-in-progress on their side.
->>>
->>> On the other hand, if we all think it's a calm period for this macb
->>> driver, we may find interesting to merge some "cleanup and style"
->>> enhancements.
->>
->> Not a problem with merging cleanups in general. We have several out =
-of
->> tree patches but doesn't make sense to to wait.
->> I wasn't in cc for the series but I don't like this change to be the
->> part of cleanup series.
->>
->> 	mac =3D of_get_mac_address(np);
->>  	if (mac)
->> -		memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
->> +		ether_addr_copy(bp->dev->dev_addr, mac);
->=20
-> Why?  This is what we tell people to use.
+Small correction: IPT_SO_SET_REPLACE is reached via setsockopt, not ioctl.
 
-I would expect this as separate patch not the part of one huge cleanup
-patch which does just comment and space cleanups.
-
-Thanks,
-Michal
+On Wed, Mar 9, 2016 at 9:25 AM, Ben Hawkes <hawkes@google.com> wrote:
+> N.B. I was redirected to this list by security@kernel.org. I'm told
+> that networking related issues such as this are handled on the public
+> netdev mailing list.
+>
+> A memory corruption vulnerability exists in the IPT_SO_SET_REPLACE
+> ioctl in the netfilter code for iptables support. This ioctl is can be
+> triggered by an unprivileged user on PF_INET sockets when unprivileged
+> user namespaces are available (CONFIG_USER_NS=y). Android does not
+> enable this option, but desktop/server distributions and Chrome OS
+> will commonly enable this to allow for containers support or
+> sandboxing.
+>
+> In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
+> is possible for a user-supplied ipt_entry structure to have a large
+> next_offset field. This field is not bounds checked prior to writing a
+> counter value at the supplied offset:
+>
+> newpos = pos + e->next_offset;
+> ...
+> e = (struct ipt_entry *) (entry0 + newpos);
+> e->counters.pcnt = pos;
+>
+> This means that an out of bounds 32-bit write can occur in a 64kb
+> range from the allocated heap entry, with a controlled offset and a
+> partially controlled write value ("pos") or zero. The attached
+> proof-of-concept (netfilter_setsockopt_v3.c) triggers the corruption
+> multiple times to set adjacent heap structures to zero.
+>
+> This issue affects (at least) kernel versions 3.10, 3.18 and 4.4, and
+> could be used for local privilege escalation. It appears that a
+> similar codepath is accessible via arp_tables.c/ARPT_SO_SET_REPLACE as
+> well.
+>
+> Furthermore, a recent refactoring of this codepath
+> (https://github.com/torvalds/linux/commit/2e4e6a17af35be359cc8f1c924f8f198fbd478cc)
+> introduced an integer overflow in xt_alloc_table_info, which on 32-bit
+> systems can lead to small structure allocation and a copy_from_user
+> based heap corruption. The attached proof-of-concept
+> (netfilter_setsockopt_v4.c) triggers this issue on 4.4.
