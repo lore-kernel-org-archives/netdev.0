@@ -1,151 +1,101 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [RFC PATCH net-next 1/2] net: bridge: add switchdev attr for
- port bridging
-Date: Wed, 9 Mar 2016 23:42:14 +0200
-Message-ID: <20160309214214.GA4865@colbert.idosch.org>
-References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1457545368-20647-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
+ free operations
+Date: Wed, 9 Mar 2016 13:43:59 -0800
+Message-ID: <CAKgT0Ue2qRhJr2_7q3ih9wNQ3SAwVuzf8-YCctS_3So=9m8bXw@mail.gmail.com>
+References: <20160308.142422.1791364638495761357.davem@davemloft.net>
+	<20160309120039.38cfdb88@redhat.com>
+	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
+	<20160309.160320.1535201013338177802.davem@davemloft.net>
+	<20160309223607.0ab4d61d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"Scott Feldman" <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	<nikolay@cumulusnetworks.com>, Elad Raz <eladr@mellanox.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, eugenia@mellanox.com,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0094.outbound.protection.outlook.com ([157.55.234.94]:60608
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750819AbcCIVn0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2016 16:43:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1457545368-20647-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:38564 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753094AbcCIVoA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:44:00 -0500
+Received: by mail-ig0-f170.google.com with SMTP id ig19so2909662igb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:44:00 -0800 (PST)
+In-Reply-To: <20160309223607.0ab4d61d@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien,
-
-Wed, Mar 09, 2016 at 07:42:47PM IST, vivien.didelot@savoirfairelinux.com wrote:
->Add a new SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF switchdev attribute which is
->set before adding a port to a bridge and deleting a port from a bridge.
+On Wed, Mar 9, 2016 at 1:36 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Wed, 09 Mar 2016 16:03:20 -0500 (EST)
+> David Miller <davem@davemloft.net> wrote:
 >
->The main purpose for this attribute is to provide switchdev users a
->simple and common way to retrieve bridging information, instead of
->implementing complex notifier blocks to listen to global netdev events.
+>> From: Alexander Duyck <alexander.duyck@gmail.com>
+>> Date: Wed, 9 Mar 2016 08:47:58 -0800
+>>
+>> > On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
+>> > <brouer@redhat.com> wrote:
+>> >> Passing the budget down was Alex'es design.  Axel any thoughts?
+>> >
+>> > I'd say just use dev_consume_skb_any in the bulk free instead of
+>> > dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
+>> > come up often.
+>>
+>> Agreed.
+>>
+>> >> I do wonder how expensive this check is... as it goes into a code
+>> >> hotpath, which is very unlikely.  The good thing would be, that we
+>> >> handle if buggy drivers call this function from a none softirq context
+>> >> (as these bugs could be hard to catch).
+>> >>
+>> >> Can netpoll ever be called from softirq or with BH disabled? (It
+>> >> disables IRQs, which would break calling kmem_cache_free_bulk).
+>> >
+>> > It is better for us to switch things out so that the napi_consume_skb
+>> > is the fast path with dev_consume_skb_any as the slow.  There are too
+>> > many scenarios where we could be invoking something that makes use of
+>> > this within the Tx path so it is probably easiest to just solve it
+>> > that way so we don't have to deal with it again in the future.
+>>
+>> Indeed.
 >
->We can also imagine a switchdev user returning an error different from
->-EOPNOTSUPP in the prepare phase to prevent a port from being bridged.
-
-I don't really understand the motivation for this change. We are already
-doing all these stuff with the notifiers and it's pretty
-straight-forward.
-
-In fact, I believe using an existing mechanism instead of introducing
-more switchdev hooks is more elegant. This RFC only deals with bridge,
-but you'll have to do the same for team, bond and vlan devices. And
-you'll probably place the hooks in the exact locations where the
-notifiers are called from anyway.
-
+> So, if I understand you correctly, then we drop the budget parameter
+> and check for in_softirq(), like:
 >
->Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->---
-> include/net/switchdev.h |  2 ++
-> net/bridge/br_if.c      | 27 +++++++++++++++++++++++++++
-> 2 files changed, 29 insertions(+)
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 7af7ec635d90..a3c61a9b65d2 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -796,14 +796,14 @@ void __kfree_skb_defer(struct sk_buff *skb)
+>         _kfree_skb_defer(skb);
+>  }
 >
->diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->index d451122..65f8514 100644
->--- a/include/net/switchdev.h
->+++ b/include/net/switchdev.h
->@@ -46,6 +46,7 @@ enum switchdev_attr_id {
-> 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
-> 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
-> 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
->+	SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
-> 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
-> 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
-> };
->@@ -58,6 +59,7 @@ struct switchdev_attr {
-> 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
-> 		u8 stp_state;				/* PORT_STP_STATE */
-> 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
->+		bool join;				/* PORT_BRIDGE_IF */
-> 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
-> 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
-> 	} u;
->diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->index a73df33..105b9fd 100644
->--- a/net/bridge/br_if.c
->+++ b/net/bridge/br_if.c
->@@ -28,6 +28,24 @@
-> 
-> #include "br_private.h"
-> 
->+static int switchdev_bridge_if(struct net_device *dev, struct net_bridge *br,
->+			       bool join)
->+{
->+	struct switchdev_attr attr = {
->+		.orig_dev = br->dev,
-
-This should be just 'dev', since you need to know for which stacked
-device on top of the port this was called for. This also means you'll
-have to call netdev_master_upper_dev_get() from within your driver if
-you want to limit the number of VLAN filtering bridges (for example).
-However, since this is called before bridge dev and dev itself are
-linked, you'll get NULL.
-
->+		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
->+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
->+		.u.join = join,
->+	};
->+	int err;
->+
->+	err = switchdev_port_attr_set(dev, &attr);
->+	if (err && err != -EOPNOTSUPP)
->+		return err;
->+
->+	return 0;
->+}
->+
-> /*
->  * Determine initial path cost based on speed.
->  * using recommendations from 802.1d standard
->@@ -297,6 +315,10 @@ static void del_nbp(struct net_bridge_port *p)
-> 	br_netpoll_disable(p);
-> 
-> 	call_rcu(&p->rcu, destroy_nbp_rcu);
->+
->+	if (switchdev_bridge_if(dev, br, false))
->+		br_warn(br, "error unbridging port %u(%s)\n",
->+			(unsigned int) p->port_no, dev->name);
-> }
-> 
-> /* Delete bridge device */
->@@ -347,6 +369,11 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
-> {
-> 	int index;
-> 	struct net_bridge_port *p;
->+	int err;
->+
->+	err = switchdev_bridge_if(dev, br, true);
-
-If you look at br_add_if() - where new_nbp() is called from - then
-you'll see that you aren't rollbacking this operation in case of error.
-Same for subsequent errors in this function I believe.
-
->+	if (err)
->+		return ERR_PTR(err);
-> 
-> 	index = find_portno(br);
-> 	if (index < 0)
->-- 
->2.7.2
+> -void napi_consume_skb(struct sk_buff *skb, int budget)
+> +void napi_consume_skb(struct sk_buff *skb)
+>  {
+>         if (unlikely(!skb))
+>                 return;
+>
+> -       /* if budget is 0 assume netpoll w/ IRQs disabled */
+> -       if (unlikely(!budget)) {
+> -               dev_consume_skb_irq(skb);
+> +       /* Handle if not called from NAPI context, and netpoll invocation */
+> +       if (unlikely(!in_softirq())) {
+> +               dev_consume_skb_any(skb);
+>                 return;
+>         }
 >
 
-Maybe this is something we'll have to do in the future, but for now I
-think we are OK with the notifiers. :)
+No.  We still need to have the budget value.  What we do though is
+have that feed into dev_consume_skb_any.
 
-Thanks Vivien!
+The problem with using in_softirq is that it will trigger if softirqs
+are just disabled so there are more possible paths where it is
+possible.  For example the transmit path has bottom halves disabled so
+I am pretty sure it might trigger this as well.  We want this to only
+execute when we are running from a NAPI polling routine with a
+non-zero budget.
+
+- Alex
