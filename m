@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v2 3/7] ipv4: Use l3_dev for L3 ingress processing
-Date: Wed,  9 Mar 2016 13:50:02 -0800
-Message-ID: <1457560202-13083-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next v2 1/7] dev: Add netif_get_l3_dev() helper
+Date: Wed,  9 Mar 2016 13:49:55 -0800
+Message-ID: <1457560195-12938-1-git-send-email-mahesh@bandewar.net>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
@@ -9,20 +9,24 @@ Cc: Mahesh Bandewar <maheshb@google.com>,
 	Matthew Dupre <matthew.dupre@metaswitch.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35540 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754068AbcCIVuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:50:06 -0500
-Received: by mail-pf0-f195.google.com with SMTP id u190so1207141pfb.2
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:50:06 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33552 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbcCIVt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:49:59 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 129so1837939pfw.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:49:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Use the in-dev passed by the packet dispatcher for the L3 phase. If
-there are places where code uses skb->dev, use the netif_get_l3_dev()
-helper to get l3_dev.
+This patch adds a l3_dev to net_device struct and a helper
+function to retrieve it. During L3 ingress packet processing,
+this device will be used and should serve the current purpose
+of skb->dev. Since l3_dev is initialized to self; l3_dev should
+be pointing to skb->dev so the normal packet processing is
+neither altered nor should incur any additional cost (as it
+resides in the RX cache line).
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 CC: Eric Dumazet <edumazet@google.com>
@@ -30,81 +34,45 @@ CC: Tim Hockin <thockin@google.com>
 CC: Alex Pollitt <alex.pollitt@metaswitch.com>
 CC: Matthew Dupre <matthew.dupre@metaswitch.com>
 ---
- net/ipv4/ip_input.c   | 12 +++++++-----
- net/ipv4/ip_options.c |  3 ++-
- 2 files changed, 9 insertions(+), 6 deletions(-)
+ include/linux/netdevice.h | 6 ++++++
+ net/core/dev.c            | 1 +
+ 2 files changed, 7 insertions(+)
 
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index e3d782746d9d..cae3503c872b 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -247,7 +247,8 @@ int ip_local_deliver(struct sk_buff *skb)
- 	/*
- 	 *	Reassemble IP fragments.
- 	 */
--	struct net *net = dev_net(skb->dev);
-+	struct net_device *dev = netif_get_l3_dev(skb->dev);
-+	struct net *net = dev_net(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e52077ffe5ed..1cf7e8d61043 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1738,6 +1738,7 @@ struct net_device {
+ 	unsigned long		gro_flush_timeout;
+ 	rx_handler_func_t __rcu	*rx_handler;
+ 	void __rcu		*rx_handler_data;
++	struct net_device	*l3_dev;
  
- 	if (ip_is_fragment(ip_hdr(skb))) {
- 		if (ip_defrag(net, skb, IP_DEFRAG_LOCAL_DELIVER))
-@@ -255,7 +256,7 @@ int ip_local_deliver(struct sk_buff *skb)
- 	}
- 
- 	return NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_IN,
--		       net, NULL, skb, skb->dev, NULL,
-+		       net, NULL, skb, dev, NULL,
- 		       ip_local_deliver_finish);
+ #ifdef CONFIG_NET_CLS_ACT
+ 	struct tcf_proto __rcu  *ingress_cl_list;
+@@ -4085,6 +4086,11 @@ static inline void netif_keep_dst(struct net_device *dev)
+ 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM);
  }
  
-@@ -263,7 +264,7 @@ static inline bool ip_rcv_options(struct sk_buff *skb)
- {
- 	struct ip_options *opt;
- 	const struct iphdr *iph;
--	struct net_device *dev = skb->dev;
-+	struct net_device *dev = netif_get_l3_dev(skb->dev);
++static inline struct net_device *netif_get_l3_dev(struct net_device *dev)
++{
++	return dev->l3_dev;
++}
++
+ extern struct pernet_operations __net_initdata loopback_net_ops;
  
- 	/* It looks as overkill, because not all
- 	   IP options require packet mangling.
-@@ -312,6 +313,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct rtable *rt;
-+	struct net_device *dev = netif_get_l3_dev(skb->dev);
+ /* Logging, debugging and troubleshooting/diagnostic helpers. */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index edb7179bc051..c4023a68cdc1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7463,6 +7463,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	if (!dev->ethtool_ops)
+ 		dev->ethtool_ops = &default_ethtool_ops;
  
- 	if (net->ipv4.sysctl_ip_early_demux &&
- 	    !skb_dst(skb) &&
-@@ -334,7 +336,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
- 	 */
- 	if (!skb_valid_dst(skb)) {
- 		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
--					       iph->tos, skb->dev);
-+					       iph->tos, dev);
- 		if (unlikely(err)) {
- 			if (err == -EXDEV)
- 				NET_INC_STATS_BH(net, LINUX_MIB_IPRPFILTER);
-@@ -363,7 +365,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INBCAST, skb->len);
- 	} else if (skb->pkt_type == PACKET_BROADCAST ||
- 		   skb->pkt_type == PACKET_MULTICAST) {
--		struct in_device *in_dev = __in_dev_get_rcu(skb->dev);
-+		struct in_device *in_dev = __in_dev_get_rcu(dev);
++	dev->l3_dev = dev;
+ 	nf_hook_ingress_init(dev);
  
- 		/* RFC 1122 3.3.6:
- 		 *
-diff --git a/net/ipv4/ip_options.c b/net/ipv4/ip_options.c
-index bd246792360b..fc434b12a3d3 100644
---- a/net/ipv4/ip_options.c
-+++ b/net/ipv4/ip_options.c
-@@ -639,7 +639,8 @@ int ip_options_rcv_srr(struct sk_buff *skb)
- 
- 		orefdst = skb->_skb_refdst;
- 		skb_dst_set(skb, NULL);
--		err = ip_route_input(skb, nexthop, iph->saddr, iph->tos, skb->dev);
-+		err = ip_route_input(skb, nexthop, iph->saddr, iph->tos,
-+				     netif_get_l3_dev(skb->dev));
- 		rt2 = skb_rtable(skb);
- 		if (err || (rt2->rt_type != RTN_UNICAST && rt2->rt_type != RTN_LOCAL)) {
- 			skb_dst_drop(skb);
+ 	return dev;
 -- 
 2.7.0.rc3.207.g0ac5344
