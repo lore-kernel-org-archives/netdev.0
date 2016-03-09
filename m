@@ -1,118 +1,92 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
- free operations
-Date: Wed, 9 Mar 2016 14:07:40 -0800
-Message-ID: <CAKgT0Uey2fgDj3-7sitLofLP3UwD+=Su_5tSxi7T8FngE_CptQ@mail.gmail.com>
-References: <20160308.142422.1791364638495761357.davem@davemloft.net>
-	<20160309120039.38cfdb88@redhat.com>
-	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
-	<20160309.160320.1535201013338177802.davem@davemloft.net>
-	<20160309223607.0ab4d61d@redhat.com>
-	<CAKgT0Ue2qRhJr2_7q3ih9wNQ3SAwVuzf8-YCctS_3So=9m8bXw@mail.gmail.com>
-	<20160309224748.6c00c4f3@redhat.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Wed, 9 Mar 2016 23:10:18 +0100
+Message-ID: <56E09F4A.8010202@imap.cc>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+ <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+ <56D7F62E.6050502@linux-pingi.de> <1659125.tHp8H942OG@wuerfel>
+ <1457108303.2651.112.camel@tiscali.nl> <56DADA57.9010200@imap.cc>
+ <1457340486.2737.19.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, eugenia@mellanox.com,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:36402 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932445AbcCIWHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 17:07:41 -0500
-Received: by mail-ig0-f180.google.com with SMTP id vs8so3187476igb.1
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 14:07:41 -0800 (PST)
-In-Reply-To: <20160309224748.6c00c4f3@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="KEAUc6AuPA014B2jCPQx20NhO6aWh8Bem"
+Cc: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>,
+	linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devel@driverdev.osuosl.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Paul Bolle <pebolle@tiscali.nl>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1457340486.2737.19.camel@tiscali.nl>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 9, 2016 at 1:47 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Wed, 9 Mar 2016 13:43:59 -0800
-> Alexander Duyck <alexander.duyck@gmail.com> wrote:
->
->> On Wed, Mar 9, 2016 at 1:36 PM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> > On Wed, 09 Mar 2016 16:03:20 -0500 (EST)
->> > David Miller <davem@davemloft.net> wrote:
->> >
->> >> From: Alexander Duyck <alexander.duyck@gmail.com>
->> >> Date: Wed, 9 Mar 2016 08:47:58 -0800
->> >>
->> >> > On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
->> >> > <brouer@redhat.com> wrote:
->> >> >> Passing the budget down was Alex'es design.  Axel any thoughts?
->> >> >
->> >> > I'd say just use dev_consume_skb_any in the bulk free instead of
->> >> > dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
->> >> > come up often.
->> >>
->> >> Agreed.
->> >>
->> >> >> I do wonder how expensive this check is... as it goes into a code
->> >> >> hotpath, which is very unlikely.  The good thing would be, that we
->> >> >> handle if buggy drivers call this function from a none softirq context
->> >> >> (as these bugs could be hard to catch).
->> >> >>
->> >> >> Can netpoll ever be called from softirq or with BH disabled? (It
->> >> >> disables IRQs, which would break calling kmem_cache_free_bulk).
->> >> >
->> >> > It is better for us to switch things out so that the napi_consume_skb
->> >> > is the fast path with dev_consume_skb_any as the slow.  There are too
->> >> > many scenarios where we could be invoking something that makes use of
->> >> > this within the Tx path so it is probably easiest to just solve it
->> >> > that way so we don't have to deal with it again in the future.
->> >>
->> >> Indeed.
->> >
->> > So, if I understand you correctly, then we drop the budget parameter
->> > and check for in_softirq(), like:
->> >
->> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> > index 7af7ec635d90..a3c61a9b65d2 100644
->> > --- a/net/core/skbuff.c
->> > +++ b/net/core/skbuff.c
->> > @@ -796,14 +796,14 @@ void __kfree_skb_defer(struct sk_buff *skb)
->> >         _kfree_skb_defer(skb);
->> >  }
->> >
->> > -void napi_consume_skb(struct sk_buff *skb, int budget)
->> > +void napi_consume_skb(struct sk_buff *skb)
->> >  {
->> >         if (unlikely(!skb))
->> >                 return;
->> >
->> > -       /* if budget is 0 assume netpoll w/ IRQs disabled */
->> > -       if (unlikely(!budget)) {
->> > -               dev_consume_skb_irq(skb);
->> > +       /* Handle if not called from NAPI context, and netpoll invocation */
->> > +       if (unlikely(!in_softirq())) {
->> > +               dev_consume_skb_any(skb);
->> >                 return;
->> >         }
->> >
->>
->> No.  We still need to have the budget value.  What we do though is
->> have that feed into dev_consume_skb_any.
->>
->> The problem with using in_softirq is that it will trigger if softirqs
->> are just disabled so there are more possible paths where it is
->> possible.  For example the transmit path has bottom halves disabled so
->> I am pretty sure it might trigger this as well.  We want this to only
->> execute when we are running from a NAPI polling routine with a
->> non-zero budget.
->
-> What about using in_serving_softirq() instead of in_softirq() ?
-> (would that allow us to drop the budget parameter?)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--KEAUc6AuPA014B2jCPQx20NhO6aWh8Bem
+Content-Type: multipart/mixed; boundary="DxNOIBt8GrA1jpJPa5lA9uu0FEUxkiaWo"
+From: Tilman Schmidt <tilman@imap.cc>
+To: Paul Bolle <pebolle@tiscali.nl>, Arnd Bergmann <arnd@arndb.de>
+Cc: Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>,
+ linux-arm-kernel@lists.infradead.org, isdn@linux-pingi.de,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, devel@driverdev.osuosl.org,
+ linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+ Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>
+Message-ID: <56E09F4A.8010202@imap.cc>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+ <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+ <56D7F62E.6050502@linux-pingi.de> <1659125.tHp8H942OG@wuerfel>
+ <1457108303.2651.112.camel@tiscali.nl> <56DADA57.9010200@imap.cc>
+ <1457340486.2737.19.camel@tiscali.nl>
+In-Reply-To: <1457340486.2737.19.camel@tiscali.nl>
 
-The problem is there are multiple softirq handlers you could be
-referring to.  NAPI is just one.  What if for example someone sets up
-a tasklet that has to perform some sort of reset with RTNL held.  I am
-pretty sure we don't want the tasklet using the NAPI free context
-since there will be nothing to actually free the buffers at the end of
-it.  We want to avoid that.  That is why I was using the budget value.
+--DxNOIBt8GrA1jpJPa5lA9uu0FEUxkiaWo
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-- Alex
+Am 07.03.2016 um 09:48 schrieb Paul Bolle:
+> On za, 2016-03-05 at 14:08 +0100, Tilman Schmidt wrote:
+>> As a consequence, owners of HiSAX type adapters are in fact stuck with=
+
+>> the old hisax driver if they want to continue using i4l userspace
+>> tools.
+>=20
+> Do you know whether or not mISDN tools offer functionality comparable t=
+o
+> i4l tools?
+
+AFAICS they don't. mISDN seems very much geared towards voice use, for
+example with Asterisk. The entire topic of ISDN data connections appears
+to be missing. I don't see how someone currently using i4l for Internet
+dial-in (either client or server side) could migrate to mISDN.
+
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Nous, on a des fleurs et des bougies pour nous prot=C3=A9ger.
+
+
+--DxNOIBt8GrA1jpJPa5lA9uu0FEUxkiaWo--
+
+--KEAUc6AuPA014B2jCPQx20NhO6aWh8Bem
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJW4J9WAAoJEFPuqx0v+F+qt1cH/jgHOY97fm2LSQZUDdjPx3h6
+QZO+O0eXSljbgg2nzPjELmt0D0Ay43YR4TYjaAmYv46GzT71VqDcoGKYKMynXx1M
+r2UH2MaEy12l/Q2DAKJyFgI8oEsXSiZ1sB2arPeS9tm3QN1RE+lbKJ4CqjGILOa3
+jKKJKb5IwKAqBZKPcPkxwkYZ2l+DJNqDBt+67jhqMdPSFNQV+miUK9jNBYtzIG4m
+W8tYo54cP1B1U1bWuwJyPcWSqjgxD89AgoNxmRu5nIgK82i6ZZp9jaxtc1+W8IdK
+v7i8sUHP4h2AD30gTTG0twyE2yhjhZchGSDJf/HDXzx9pMruUHSzojnHhsr40o4=
+=7sH4
+-----END PGP SIGNATURE-----
+
+--KEAUc6AuPA014B2jCPQx20NhO6aWh8Bem--
