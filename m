@@ -1,69 +1,75 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 2/2] csum: Update csum_block_add to use rotate
- instead of byteswap
-Date: Wed, 09 Mar 2016 09:25:26 -0800
-Message-ID: <20160309172429.11477.29342.stgit@localhost.localdomain>
-References: <20160309171924.11477.93179.stgit@localhost.localdomain>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [PATCH 0/3] net: macb: Fix coding style issues
+Date: Wed, 9 Mar 2016 18:29:01 +0100
+Message-ID: <56E05D5D.80604@xilinx.com>
+References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
+ <56DDB6CA.8000100@atmel.com> <56E04F73.6030504@xilinx.com>
+ <20160309.122210.1419008371671612631.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.ferre@atmel.com>, <moritz.fischer@ettus.com>,
+	<cyrille.pitchen@atmel.com>, <punnaia@xilinx.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <michal.simek@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35208 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933251AbcCIRZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:25:28 -0500
-Received: by mail-pa0-f52.google.com with SMTP id td3so18112800pab.2
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:25:28 -0800 (PST)
-In-Reply-To: <20160309171924.11477.93179.stgit@localhost.localdomain>
+Received: from mail-cys01nam02on0074.outbound.protection.outlook.com ([104.47.37.74]:22184
+	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753756AbcCIR3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 12:29:16 -0500
+In-Reply-To: <20160309.122210.1419008371671612631.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code for csum_block_add was doing a funky byteswap to swap the even and
-odd bytes of the checksum if the offset was odd.  Instead of doing this we
-can save ourselves some trouble and just shift by 8 as this should have the
-same effect in terms of the final checksum value and only requires one
-instruction.
+On 9.3.2016 18:22, David Miller wrote:
+> From: Michal Simek <michal.simek@xilinx.com>
+> Date: Wed, 9 Mar 2016 17:29:39 +0100
+>=20
+>> On 7.3.2016 18:13, Nicolas Ferre wrote:
+>>> Le 07/03/2016 17:17, Moritz Fischer a =E9crit :
+>>>> Hi Nicolas,
+>>>>
+>>>> this series deals with most of the checkpatch warnings
+>>>> generated for macb. There are two BUG_ON()'s that I didn't touch, =
+yet,
+>>>> that were suggested by checkpatch, that I can address in a follow =
+up
+>>>> commit if needed.
+>>>> Let me know if you want me to split the fixes differently or squas=
+h
+>>>> them into one commit.
+>>>
+>>> Hi,
+>>>
+>>> I'm not usually fond of this type of patches, but I must admit that=
+ this
+>>> series corrects some style issues.
+>>>
+>>> So, I would like more feedback from Michal and Cyrille as these cha=
+nges
+>>> may delay some of the not-merged-yet features or more important
+>>> work-in-progress on their side.
+>>>
+>>> On the other hand, if we all think it's a calm period for this macb
+>>> driver, we may find interesting to merge some "cleanup and style"
+>>> enhancements.
+>>
+>> Not a problem with merging cleanups in general. We have several out =
+of
+>> tree patches but doesn't make sense to to wait.
+>> I wasn't in cc for the series but I don't like this change to be the
+>> part of cleanup series.
+>>
+>> 	mac =3D of_get_mac_address(np);
+>>  	if (mac)
+>> -		memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
+>> +		ether_addr_copy(bp->dev->dev_addr, mac);
+>=20
+> Why?  This is what we tell people to use.
 
-In addition we can update csum_block_sub to just use csum_block_add with a
-inverse value for csum2.  This way we follow the same code path as
-csum_block_add without having to duplicate it.
+I would expect this as separate patch not the part of one huge cleanup
+patch which does just comment and space cleanups.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
-
-v2:  Replaced (x << 24) + (x >> 8) with ror32(x, 8) and added comment.
-
- include/net/checksum.h |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index abffc64e7300..5c30891e84e5 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -88,8 +88,11 @@ static inline __wsum
- csum_block_add(__wsum csum, __wsum csum2, int offset)
- {
- 	u32 sum = (__force u32)csum2;
--	if (offset&1)
--		sum = ((sum&0xFF00FF)<<8)+((sum>>8)&0xFF00FF);
-+
-+	/* rotate sum to align it with a 16b boundary */
-+	if (offset & 1)
-+		sum = ror32(sum, 8);
-+
- 	return csum_add(csum, (__force __wsum)sum);
- }
- 
-@@ -102,10 +105,7 @@ csum_block_add_ext(__wsum csum, __wsum csum2, int offset, int len)
- static inline __wsum
- csum_block_sub(__wsum csum, __wsum csum2, int offset)
- {
--	u32 sum = (__force u32)csum2;
--	if (offset&1)
--		sum = ((sum&0xFF00FF)<<8)+((sum>>8)&0xFF00FF);
--	return csum_sub(csum, (__force __wsum)sum);
-+	return csum_block_add(csum, ~csum2, offset);
- }
- 
- static inline __wsum csum_unfold(__sum16 n)
+Thanks,
+Michal
