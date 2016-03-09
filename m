@@ -1,92 +1,118 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v2 5/7] raw: Use l3_dev for L3 ingress raw packet delivery
-Date: Wed,  9 Mar 2016 13:50:09 -0800
-Message-ID: <1457560209-13221-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
-	Alex Pollitt <alex.pollitt@metaswitch.com>,
-	Matthew Dupre <matthew.dupre@metaswitch.com>
-To: David Miller <davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
+ free operations
+Date: Wed, 9 Mar 2016 14:07:40 -0800
+Message-ID: <CAKgT0Uey2fgDj3-7sitLofLP3UwD+=Su_5tSxi7T8FngE_CptQ@mail.gmail.com>
+References: <20160308.142422.1791364638495761357.davem@davemloft.net>
+	<20160309120039.38cfdb88@redhat.com>
+	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
+	<20160309.160320.1535201013338177802.davem@davemloft.net>
+	<20160309223607.0ab4d61d@redhat.com>
+	<CAKgT0Ue2qRhJr2_7q3ih9wNQ3SAwVuzf8-YCctS_3So=9m8bXw@mail.gmail.com>
+	<20160309224748.6c00c4f3@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, eugenia@mellanox.com,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35955 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934101AbcCIVuM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:50:12 -0500
-Received: by mail-pa0-f65.google.com with SMTP id 1so4199287pal.3
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:50:12 -0800 (PST)
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:36402 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932445AbcCIWHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 17:07:41 -0500
+Received: by mail-ig0-f180.google.com with SMTP id vs8so3187476igb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 14:07:41 -0800 (PST)
+In-Reply-To: <20160309224748.6c00c4f3@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+On Wed, Mar 9, 2016 at 1:47 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Wed, 9 Mar 2016 13:43:59 -0800
+> Alexander Duyck <alexander.duyck@gmail.com> wrote:
+>
+>> On Wed, Mar 9, 2016 at 1:36 PM, Jesper Dangaard Brouer
+>> <brouer@redhat.com> wrote:
+>> > On Wed, 09 Mar 2016 16:03:20 -0500 (EST)
+>> > David Miller <davem@davemloft.net> wrote:
+>> >
+>> >> From: Alexander Duyck <alexander.duyck@gmail.com>
+>> >> Date: Wed, 9 Mar 2016 08:47:58 -0800
+>> >>
+>> >> > On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
+>> >> > <brouer@redhat.com> wrote:
+>> >> >> Passing the budget down was Alex'es design.  Axel any thoughts?
+>> >> >
+>> >> > I'd say just use dev_consume_skb_any in the bulk free instead of
+>> >> > dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
+>> >> > come up often.
+>> >>
+>> >> Agreed.
+>> >>
+>> >> >> I do wonder how expensive this check is... as it goes into a code
+>> >> >> hotpath, which is very unlikely.  The good thing would be, that we
+>> >> >> handle if buggy drivers call this function from a none softirq context
+>> >> >> (as these bugs could be hard to catch).
+>> >> >>
+>> >> >> Can netpoll ever be called from softirq or with BH disabled? (It
+>> >> >> disables IRQs, which would break calling kmem_cache_free_bulk).
+>> >> >
+>> >> > It is better for us to switch things out so that the napi_consume_skb
+>> >> > is the fast path with dev_consume_skb_any as the slow.  There are too
+>> >> > many scenarios where we could be invoking something that makes use of
+>> >> > this within the Tx path so it is probably easiest to just solve it
+>> >> > that way so we don't have to deal with it again in the future.
+>> >>
+>> >> Indeed.
+>> >
+>> > So, if I understand you correctly, then we drop the budget parameter
+>> > and check for in_softirq(), like:
+>> >
+>> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> > index 7af7ec635d90..a3c61a9b65d2 100644
+>> > --- a/net/core/skbuff.c
+>> > +++ b/net/core/skbuff.c
+>> > @@ -796,14 +796,14 @@ void __kfree_skb_defer(struct sk_buff *skb)
+>> >         _kfree_skb_defer(skb);
+>> >  }
+>> >
+>> > -void napi_consume_skb(struct sk_buff *skb, int budget)
+>> > +void napi_consume_skb(struct sk_buff *skb)
+>> >  {
+>> >         if (unlikely(!skb))
+>> >                 return;
+>> >
+>> > -       /* if budget is 0 assume netpoll w/ IRQs disabled */
+>> > -       if (unlikely(!budget)) {
+>> > -               dev_consume_skb_irq(skb);
+>> > +       /* Handle if not called from NAPI context, and netpoll invocation */
+>> > +       if (unlikely(!in_softirq())) {
+>> > +               dev_consume_skb_any(skb);
+>> >                 return;
+>> >         }
+>> >
+>>
+>> No.  We still need to have the budget value.  What we do though is
+>> have that feed into dev_consume_skb_any.
+>>
+>> The problem with using in_softirq is that it will trigger if softirqs
+>> are just disabled so there are more possible paths where it is
+>> possible.  For example the transmit path has bottom halves disabled so
+>> I am pretty sure it might trigger this as well.  We want this to only
+>> execute when we are running from a NAPI polling routine with a
+>> non-zero budget.
+>
+> What about using in_serving_softirq() instead of in_softirq() ?
+> (would that allow us to drop the budget parameter?)
 
-Use the in-dev passed by the packet dispatcher for the L3 phase. If
-there are places where code uses skb->dev, use the netif_get_l3_dev()
-helper to get l3_dev.
+The problem is there are multiple softirq handlers you could be
+referring to.  NAPI is just one.  What if for example someone sets up
+a tasklet that has to perform some sort of reset with RTNL held.  I am
+pretty sure we don't want the tasklet using the NAPI free context
+since there will be nothing to actually free the buffers at the end of
+it.  We want to avoid that.  That is why I was using the budget value.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Tim Hockin <thockin@google.com>
-CC: Alex Pollitt <alex.pollitt@metaswitch.com>
-CC: Matthew Dupre <matthew.dupre@metaswitch.com>
----
- net/ipv4/raw.c | 11 +++++------
- net/ipv6/raw.c |  2 +-
- 2 files changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 8d22de74080c..7802ce24a42d 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -173,22 +173,22 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
- 	struct hlist_head *head;
- 	int delivered = 0;
- 	struct net *net;
-+	struct net_device *dev = netif_get_l3_dev(skb->dev);
- 
- 	read_lock(&raw_v4_hashinfo.lock);
- 	head = &raw_v4_hashinfo.ht[hash];
- 	if (hlist_empty(head))
- 		goto out;
- 
--	net = dev_net(skb->dev);
-+	net = dev_net(dev);
- 	sk = __raw_v4_lookup(net, __sk_head(head), iph->protocol,
- 			     iph->saddr, iph->daddr,
--			     skb->dev->ifindex);
-+			     dev->ifindex);
- 
- 	while (sk) {
- 		delivered = 1;
- 		if ((iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) &&
--		    ip_mc_sf_allow(sk, iph->daddr, iph->saddr,
--				   skb->dev->ifindex)) {
-+		    ip_mc_sf_allow(sk, iph->daddr, iph->saddr, dev->ifindex)) {
- 			struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
- 
- 			/* Not releasing hash table! */
-@@ -196,8 +196,7 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
- 				raw_rcv(sk, clone);
- 		}
- 		sk = __raw_v4_lookup(net, sk_next(sk), iph->protocol,
--				     iph->saddr, iph->daddr,
--				     skb->dev->ifindex);
-+				     iph->saddr, iph->daddr, dev->ifindex);
- 	}
- out:
- 	read_unlock(&raw_v4_hashinfo.lock);
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index fa59dd7a427e..22d001f0645d 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -175,7 +175,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
- 	if (!sk)
- 		goto out;
- 
--	net = dev_net(skb->dev);
-+	net = dev_net(netif_get_l3_dev(skb->dev));
- 	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, inet6_iif(skb));
- 
- 	while (sk) {
--- 
-2.7.0.rc3.207.g0ac5344
+- Alex
