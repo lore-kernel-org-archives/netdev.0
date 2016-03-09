@@ -1,66 +1,92 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v8 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
-Date: Tue,  8 Mar 2016 16:24:37 -0800
-Message-ID: <1457483084-13944-1-git-send-email-jarno@ovn.org>
+Subject: [PATCH nf-next v8 3/8] openvswitch: Add commentary to conntrack.c
+Date: Tue,  8 Mar 2016 16:24:39 -0800
+Message-ID: <1457483084-13944-3-git-send-email-jarno@ovn.org>
+References: <1457483084-13944-1-git-send-email-jarno@ovn.org>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1457483084-13944-1-git-send-email-jarno@ovn.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
-not make sense.  This allows the definition of IP_CT_NUMBER to be
-simplified as well.
+This makes the code easier to understand and the following patches
+more focused.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
- net/openvswitch/conntrack.c                        |  2 --
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
-index 319f471..6d074d1 100644
---- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-+++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-@@ -20,9 +20,15 @@ enum ip_conntrack_info {
- 
- 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
- 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
--	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
--	/* Number of distinct IP_CT types (no NEW in reply dirn). */
--	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
-+	/* No NEW in reply direction. */
-+
-+	/* Number of distinct IP_CT types. */
-+	IP_CT_NUMBER,
-+
-+	/* only for userspace compatibility */
-+#ifndef __KERNEL__
-+	IP_CT_NEW_REPLY = IP_CT_NUMBER,
-+#endif
- };
- 
- #define NF_CT_STATE_INVALID_BIT			(1 << 0)
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index ee6ff8f..3045290 100644
+index 3045290..8cd0110 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 	switch (ctinfo) {
- 	case IP_CT_ESTABLISHED_REPLY:
- 	case IP_CT_RELATED_REPLY:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_REPLY_DIR;
- 		break;
- 	default:
-@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 		ct_state |= OVS_CS_F_RELATED;
- 		break;
- 	case IP_CT_NEW:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_NEW;
- 		break;
- 	default:
+@@ -152,8 +152,12 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (ct) {
+ 		state = ovs_ct_get_state(ctinfo);
++		/* All unconfirmed entries are NEW connections. */
+ 		if (!nf_ct_is_confirmed(ct))
+ 			state |= OVS_CS_F_NEW;
++		/* OVS persists the related flag for the duration of the
++		 * connection.
++		 */
+ 		if (ct->master)
+ 			state |= OVS_CS_F_RELATED;
+ 		zone = nf_ct_zone(ct);
+@@ -165,6 +169,9 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
+ 	__ovs_ct_update_key(key, state, zone, ct);
+ }
+ 
++/* This is called to initialize CT key fields possibly coming in from the local
++ * stack.
++ */
+ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
+ {
+ 	ovs_ct_update_key(skb, NULL, key, false);
+@@ -199,7 +206,6 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
+ 	struct nf_conn *ct;
+ 	u32 new_mark;
+ 
+-
+ 	/* The connection could be invalid, in which case set_mark is no-op. */
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (!ct)
+@@ -375,6 +381,11 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+ 	return true;
+ }
+ 
++/* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
++ * not done already.  Update key with new CT state.
++ * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
++ * set to NULL and 0 will be returned.
++ */
+ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			   const struct ovs_conntrack_info *info,
+ 			   struct sk_buff *skb)
+@@ -418,6 +429,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ {
+ 	struct nf_conntrack_expect *exp;
+ 
++	/* If we pass an expected packet through nf_conntrack_in() the
++	 * expectiation is typically removed, but the packet could still be
++	 * lost in upcall processing.  To prevent this from happening we
++	 * perform an explicit expectation lookup.  Expected connections are
++	 * always new, and will be passed through conntrack only when they are
++	 * committed, as it is OK to remove the expectation at that time.
++	 */
+ 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
+ 	if (exp) {
+ 		u8 state;
+@@ -455,6 +473,7 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
+ 	err = __ovs_ct_lookup(net, key, info, skb);
+ 	if (err)
+ 		return err;
++	/* This is a no-op if the connection has already been confirmed. */
+ 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
+ 		return -EINVAL;
+ 
 -- 
 2.1.4
 
