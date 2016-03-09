@@ -1,32 +1,70 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 00:16:29 +0300
-Message-ID: <20160309211629.GR2207@uranus.lan>
-References: <20160309204158.GO2207@uranus.lan>
- <20160309.154725.1921352291794389965.davem@davemloft.net>
- <20160309205746.GQ2207@uranus.lan>
- <20160309.161038.283281065293712589.davem@davemloft.net>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next] ovs: allow nl 'flow set' to use ufid
+ without flow key
+Date: Wed, 9 Mar 2016 13:35:03 -0800
+Message-ID: <CAOrHB_DtUjG4DkmFZb+Qj1UAWsTOG3sJH0tQEknnTF-PRQCWzQ@mail.gmail.com>
+References: <1457543157-5240-1-git-send-email-samuel.gauthier@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160309.161038.283281065293712589.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457543157-5240-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 09, 2016 at 04:10:38PM -0500, David Miller wrote:
-> > 
-> > and here we call for NETDEV_DOWN, which then hits masq_device_event
-> > and go further to conntrack code.
-> 
-> Yes that's where the notifier comes from, which happens with or without
-> my patch.
-
-Thanks for explanation, Dave! I'll continue on this task tomorrow
-tryin to implement optimization you proposed.
+T24gV2VkLCBNYXIgOSwgMjAxNiBhdCA5OjA1IEFNLCBTYW11ZWwgR2F1dGhpZXIKPHNhbXVlbC5n
+YXV0aGllckA2d2luZC5jb20+IHdyb3RlOgo+IFdoZW4gd2Ugd2FudCB0byBjaGFuZ2UgYSBmbG93
+IHVzaW5nIG5ldGxpbmssIHdlIGhhdmUgdG8gaWRlbnRpZnkgaXQgdG8KPiBiZSBhYmxlIHRvIHBl
+cmZvcm0gYSBsb29rdXAuIEJvdGggdGhlIGZsb3cga2V5IGFuZCB1bmlxdWUgZmxvdyBJRAo+ICh1
+ZmlkKSBhcmUgdmFsaWQgaWRlbnRpZmllcnMsIGJ1dCB3ZSBhbHdheXMgaGF2ZSB0byBzcGVjaWZ5
+IHRoZSBmbG93Cj4ga2V5IGluIHRoZSBuZXRsaW5rIG1lc3NhZ2UuIFdoZW4gYm90aCBhdHRyaWJ1
+dGVzIGFyZSB0aGVyZSwgdGhlIHVmaWQKPiBpcyB1c2VkLgo+Cj4gVGhpcyBjb21taXQgYWxsb3dz
+IHRvIHVzZSB0aGUgdWZpZCB3aXRob3V0IGhhdmluZyB0byBwcm92aWRlIHRoZSBmbG93Cj4ga2V5
+LCBhcyBpdCBpcyBhbHJlYWR5IGRvbmUgaW4gdGhlIG5ldGxpbmsgJ2Zsb3cgZ2V0JyBhbmQgJ2Zs
+b3cgZGVsJwo+IHBhdGguCj4KPiBTaWduZWQtb2ZmLWJ5OiBTYW11ZWwgR2F1dGhpZXIgPHNhbXVl
+bC5nYXV0aGllckA2d2luZC5jb20+Cj4gLS0tCj4gIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5j
+IHwgMjEgKysrKysrKysrKy0tLS0tLS0tLS0tCj4gIDEgZmlsZSBjaGFuZ2VkLCAxMCBpbnNlcnRp
+b25zKCspLCAxMSBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gv
+ZGF0YXBhdGguYyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCj4gaW5kZXggZGVhZGZkYWIx
+YmMzLi4wNmYxNTE0M2NmMmEgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRo
+LmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwo+IEBAIC0xMTAwLDIxICsxMTAw
+LDIwIEBAIHN0YXRpYyBpbnQgb3ZzX2Zsb3dfY21kX3NldChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBz
+dHJ1Y3QgZ2VubF9pbmZvICppbmZvKQo+ICAgICAgICAgc3RydWN0IHN3X2Zsb3dfbWF0Y2ggbWF0
+Y2g7Cj4gICAgICAgICBzdHJ1Y3Qgc3dfZmxvd19pZCBzZmlkOwo+ICAgICAgICAgdTMyIHVmaWRf
+ZmxhZ3MgPSBvdnNfbmxhX2dldF91ZmlkX2ZsYWdzKGFbT1ZTX0ZMT1dfQVRUUl9VRklEX0ZMQUdT
+XSk7Cj4gLSAgICAgICBpbnQgZXJyb3I7Cj4gKyAgICAgICBpbnQgZXJyb3IgPSAwOwo+ICAgICAg
+ICAgYm9vbCBsb2cgPSAhYVtPVlNfRkxPV19BVFRSX1BST0JFXTsKPiAgICAgICAgIGJvb2wgdWZp
+ZF9wcmVzZW50Owo+Cj4gLSAgICAgICAvKiBFeHRyYWN0IGtleS4gKi8KPiAtICAgICAgIGVycm9y
+ID0gLUVJTlZBTDsKPiAtICAgICAgIGlmICghYVtPVlNfRkxPV19BVFRSX0tFWV0pIHsKPiAtICAg
+ICAgICAgICAgICAgT1ZTX05MRVJSKGxvZywgIkZsb3cga2V5IGF0dHJpYnV0ZSBub3QgcHJlc2Vu
+dCBpbiBzZXQgZmxvdy4iKTsKPiAtICAgICAgICAgICAgICAgZ290byBlcnJvcjsKPiAtICAgICAg
+IH0KPiAtCj4gICAgICAgICB1ZmlkX3ByZXNlbnQgPSBvdnNfbmxhX2dldF91ZmlkKCZzZmlkLCBh
+W09WU19GTE9XX0FUVFJfVUZJRF0sIGxvZyk7Cj4gLSAgICAgICBvdnNfbWF0Y2hfaW5pdCgmbWF0
+Y2gsICZrZXksICZtYXNrKTsKPiAtICAgICAgIGVycm9yID0gb3ZzX25sYV9nZXRfbWF0Y2gobmV0
+LCAmbWF0Y2gsIGFbT1ZTX0ZMT1dfQVRUUl9LRVldLAo+IC0gICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICBhW09WU19GTE9XX0FUVFJfTUFTS10sIGxvZyk7Cj4gKyAgICAgICBpZiAoYVtP
+VlNfRkxPV19BVFRSX0tFWV0pIHsKPiArICAgICAgICAgICAgICAgb3ZzX21hdGNoX2luaXQoJm1h
+dGNoLCAma2V5LCBOVUxMKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSBvdnNfbmxhX2dldF9t
+YXRjaChuZXQsICZtYXRjaCwgYVtPVlNfRkxPV19BVFRSX0tFWV0sCj4gKyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgTlVMTCwgbG9nKTsKPiArICAgICAgIH0gZWxzZSBp
+ZiAoIXVmaWRfcHJlc2VudCkgewo+ICsgICAgICAgICAgICAgICBPVlNfTkxFUlIobG9nLAo+ICsg
+ICAgICAgICAgICAgICAgICAgICAgICAgIkZsb3cgc2V0IG1lc3NhZ2UgcmVqZWN0ZWQsIEtleSBh
+dHRyaWJ1dGUgbWlzc2luZy4iKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSAtRUlOVkFMOwo+
+ICsgICAgICAgfQoKU2V0IGNvbW1hbmQgc2V0cyBuZXcgYWN0aW9uIGZvciBnaXZlbiBmbG93LiBU
+aGUgYWN0aW9uIHZhbGlkYXRpb24KZGVwZW5kcyBvbiB0aGUgZmxvdyBrZXkgYW5kIG1hc2suIHNv
+IHVzZXJzcGFjZSBuZWVkcyB0byBwcm92aWRlIHRoZQprZXkgYW5kIG1hc2suCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
+QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
+ZGV2Cg==
