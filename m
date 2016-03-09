@@ -1,51 +1,55 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [PATCH nf-next v9 4/8] openvswitch: Update the CT state
-	key only after nf_conntrack_in().
-Date: Wed,  9 Mar 2016 15:10:20 -0800
-Message-ID: <1457565024-27300-4-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH nf-next v9 6/8] openvswitch: Handle NF_REPEAT in conntrack action.
+Date: Wed,  9 Mar 2016 15:10:22 -0800
+Message-ID: <1457565024-27300-6-git-send-email-jarno@ovn.org>
 References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1457565024-27300-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:53379 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754228AbcCIXKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 18:10:43 -0500
+In-Reply-To: <1457565024-27300-1-git-send-email-jarno@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T25seSBhIHN1Y2Nlc3NmdWwgbmZfY29ubnRyYWNrX2luKCkgY2FsbCBjYW4gZWZmZWN0IGEgY29u
-bmVjdGlvbiBzdGF0ZQpjaGFuZ2UsIHNvIGlmIHN1ZmZpY2VzIHRvIHVwZGF0ZSB0aGUga2V5IG9u
-bHkgYWZ0ZXIgdGhlCm5mX2Nvbm50cmFja19pbigpIHJldHVybnMuCgpUaGlzIGNoYW5nZSBpcyBu
-ZWVkZWQgZm9yIHRoZSBsYXRlciBOQVQgcGF0Y2hlcy4KClNpZ25lZC1vZmYtYnk6IEphcm5vIFJh
-amFoYWxtZSA8amFybm9Ab3ZuLm9yZz4KLS0tCiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMg
-fCA3ICsrKystLS0KIDEgZmlsZSBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25z
-KC0pCgpkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIGIvbmV0L29wZW52
-c3dpdGNoL2Nvbm50cmFjay5jCmluZGV4IDhjZDAxMTAuLmRhODA0ZDMgMTAwNjQ0Ci0tLSBhL25l
-dC9vcGVudnN3aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNr
-LmMKQEAgLTM4Miw3ICszODIsOCBAQCBzdGF0aWMgYm9vbCBza2JfbmZjdF9jYWNoZWQoY29uc3Qg
-c3RydWN0IG5ldCAqbmV0LCBjb25zdCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogfQogCiAvKiBQYXNz
-ICdza2InIHRocm91Z2ggY29ubnRyYWNrIGluICduZXQnLCB1c2luZyB6b25lIGNvbmZpZ3VyZWQg
-aW4gJ2luZm8nLCBpZgotICogbm90IGRvbmUgYWxyZWFkeS4gIFVwZGF0ZSBrZXkgd2l0aCBuZXcg
-Q1Qgc3RhdGUuCisgKiBub3QgZG9uZSBhbHJlYWR5LiAgVXBkYXRlIGtleSB3aXRoIG5ldyBDVCBz
-dGF0ZSBhZnRlciBwYXNzaW5nIHRoZSBwYWNrZXQKKyAqIHRocm91Z2ggY29ubnRyYWNrLgogICog
-Tm90ZSB0aGF0IGlmIHRoZSBwYWNrZXQgaXMgZGVlbWVkIGludmFsaWQgYnkgY29ubnRyYWNrLCBz
-a2ItPm5mY3Qgd2lsbCBiZQogICogc2V0IHRvIE5VTEwgYW5kIDAgd2lsbCBiZSByZXR1cm5lZC4K
-ICAqLwpAQCAtNDExLDE0ICs0MTIsMTQgQEAgc3RhdGljIGludCBfX292c19jdF9sb29rdXAoc3Ry
-dWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKIAkJCQkgICAgc2tiKSAhPSBO
-Rl9BQ0NFUFQpCiAJCQlyZXR1cm4gLUVOT0VOVDsKIAorCQlvdnNfY3RfdXBkYXRlX2tleShza2Is
-IGluZm8sIGtleSwgdHJ1ZSk7CisKIAkJaWYgKG92c19jdF9oZWxwZXIoc2tiLCBpbmZvLT5mYW1p
-bHkpICE9IE5GX0FDQ0VQVCkgewogCQkJV0FSTl9PTkNFKDEsICJoZWxwZXIgcmVqZWN0ZWQgcGFj
-a2V0Iik7CiAJCQlyZXR1cm4gLUVJTlZBTDsKIAkJfQogCX0KIAotCW92c19jdF91cGRhdGVfa2V5
-KHNrYiwgaW5mbywga2V5LCB0cnVlKTsKLQogCXJldHVybiAwOwogfQogCi0tIAoyLjEuNAoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
-bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9kZXYK
+Repeat the nf_conntrack_in() call when it returns NF_REPEAT.  This
+avoids dropping a SYN packet re-opening an existing TCP connection.
+
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Acked-by: Joe Stringer <joe@ovn.org>
+---
+ net/openvswitch/conntrack.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index b838536..92613de 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -485,6 +485,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 */
+ 	if (!skb_nfct_cached(net, key, info, skb)) {
+ 		struct nf_conn *tmpl = info->ct;
++		int err;
+ 
+ 		/* Associate skb with specified zone. */
+ 		if (tmpl) {
+@@ -495,8 +496,13 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			skb->nfctinfo = IP_CT_NEW;
+ 		}
+ 
+-		if (nf_conntrack_in(net, info->family, NF_INET_PRE_ROUTING,
+-				    skb) != NF_ACCEPT)
++		/* Repeat if requested, see nf_iterate(). */
++		do {
++			err = nf_conntrack_in(net, info->family,
++					      NF_INET_PRE_ROUTING, skb);
++		} while (err == NF_REPEAT);
++
++		if (err != NF_ACCEPT)
+ 			return -ENOENT;
+ 
+ 		ovs_ct_update_key(skb, info, key, true);
+-- 
+2.1.4
