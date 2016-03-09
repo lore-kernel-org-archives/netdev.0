@@ -1,70 +1,90 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] ovs: allow nl 'flow set' to use ufid
- without flow key
-Date: Wed, 9 Mar 2016 13:35:03 -0800
-Message-ID: <CAOrHB_DtUjG4DkmFZb+Qj1UAWsTOG3sJH0tQEknnTF-PRQCWzQ@mail.gmail.com>
-References: <1457543157-5240-1-git-send-email-samuel.gauthier@6wind.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
+ free operations
+Date: Wed, 9 Mar 2016 22:36:07 +0100
+Message-ID: <20160309223607.0ab4d61d@redhat.com>
+References: <20160308.142422.1791364638495761357.davem@davemloft.net>
+	<20160309120039.38cfdb88@redhat.com>
+	<CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
+	<20160309.160320.1535201013338177802.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1457543157-5240-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexander.duyck@gmail.com, netdev@vger.kernel.org,
+	eugenia@mellanox.com, alexei.starovoitov@gmail.com,
+	saeedm@mellanox.com, gerlitz.or@gmail.com, brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52308 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753099AbcCIVgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 16:36:14 -0500
+In-Reply-To: <20160309.160320.1535201013338177802.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBNYXIgOSwgMjAxNiBhdCA5OjA1IEFNLCBTYW11ZWwgR2F1dGhpZXIKPHNhbXVlbC5n
-YXV0aGllckA2d2luZC5jb20+IHdyb3RlOgo+IFdoZW4gd2Ugd2FudCB0byBjaGFuZ2UgYSBmbG93
-IHVzaW5nIG5ldGxpbmssIHdlIGhhdmUgdG8gaWRlbnRpZnkgaXQgdG8KPiBiZSBhYmxlIHRvIHBl
-cmZvcm0gYSBsb29rdXAuIEJvdGggdGhlIGZsb3cga2V5IGFuZCB1bmlxdWUgZmxvdyBJRAo+ICh1
-ZmlkKSBhcmUgdmFsaWQgaWRlbnRpZmllcnMsIGJ1dCB3ZSBhbHdheXMgaGF2ZSB0byBzcGVjaWZ5
-IHRoZSBmbG93Cj4ga2V5IGluIHRoZSBuZXRsaW5rIG1lc3NhZ2UuIFdoZW4gYm90aCBhdHRyaWJ1
-dGVzIGFyZSB0aGVyZSwgdGhlIHVmaWQKPiBpcyB1c2VkLgo+Cj4gVGhpcyBjb21taXQgYWxsb3dz
-IHRvIHVzZSB0aGUgdWZpZCB3aXRob3V0IGhhdmluZyB0byBwcm92aWRlIHRoZSBmbG93Cj4ga2V5
-LCBhcyBpdCBpcyBhbHJlYWR5IGRvbmUgaW4gdGhlIG5ldGxpbmsgJ2Zsb3cgZ2V0JyBhbmQgJ2Zs
-b3cgZGVsJwo+IHBhdGguCj4KPiBTaWduZWQtb2ZmLWJ5OiBTYW11ZWwgR2F1dGhpZXIgPHNhbXVl
-bC5nYXV0aGllckA2d2luZC5jb20+Cj4gLS0tCj4gIG5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5j
-IHwgMjEgKysrKysrKysrKy0tLS0tLS0tLS0tCj4gIDEgZmlsZSBjaGFuZ2VkLCAxMCBpbnNlcnRp
-b25zKCspLCAxMSBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gv
-ZGF0YXBhdGguYyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCj4gaW5kZXggZGVhZGZkYWIx
-YmMzLi4wNmYxNTE0M2NmMmEgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRo
-LmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYwo+IEBAIC0xMTAwLDIxICsxMTAw
-LDIwIEBAIHN0YXRpYyBpbnQgb3ZzX2Zsb3dfY21kX3NldChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBz
-dHJ1Y3QgZ2VubF9pbmZvICppbmZvKQo+ICAgICAgICAgc3RydWN0IHN3X2Zsb3dfbWF0Y2ggbWF0
-Y2g7Cj4gICAgICAgICBzdHJ1Y3Qgc3dfZmxvd19pZCBzZmlkOwo+ICAgICAgICAgdTMyIHVmaWRf
-ZmxhZ3MgPSBvdnNfbmxhX2dldF91ZmlkX2ZsYWdzKGFbT1ZTX0ZMT1dfQVRUUl9VRklEX0ZMQUdT
-XSk7Cj4gLSAgICAgICBpbnQgZXJyb3I7Cj4gKyAgICAgICBpbnQgZXJyb3IgPSAwOwo+ICAgICAg
-ICAgYm9vbCBsb2cgPSAhYVtPVlNfRkxPV19BVFRSX1BST0JFXTsKPiAgICAgICAgIGJvb2wgdWZp
-ZF9wcmVzZW50Owo+Cj4gLSAgICAgICAvKiBFeHRyYWN0IGtleS4gKi8KPiAtICAgICAgIGVycm9y
-ID0gLUVJTlZBTDsKPiAtICAgICAgIGlmICghYVtPVlNfRkxPV19BVFRSX0tFWV0pIHsKPiAtICAg
-ICAgICAgICAgICAgT1ZTX05MRVJSKGxvZywgIkZsb3cga2V5IGF0dHJpYnV0ZSBub3QgcHJlc2Vu
-dCBpbiBzZXQgZmxvdy4iKTsKPiAtICAgICAgICAgICAgICAgZ290byBlcnJvcjsKPiAtICAgICAg
-IH0KPiAtCj4gICAgICAgICB1ZmlkX3ByZXNlbnQgPSBvdnNfbmxhX2dldF91ZmlkKCZzZmlkLCBh
-W09WU19GTE9XX0FUVFJfVUZJRF0sIGxvZyk7Cj4gLSAgICAgICBvdnNfbWF0Y2hfaW5pdCgmbWF0
-Y2gsICZrZXksICZtYXNrKTsKPiAtICAgICAgIGVycm9yID0gb3ZzX25sYV9nZXRfbWF0Y2gobmV0
-LCAmbWF0Y2gsIGFbT1ZTX0ZMT1dfQVRUUl9LRVldLAo+IC0gICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBhW09WU19GTE9XX0FUVFJfTUFTS10sIGxvZyk7Cj4gKyAgICAgICBpZiAoYVtP
-VlNfRkxPV19BVFRSX0tFWV0pIHsKPiArICAgICAgICAgICAgICAgb3ZzX21hdGNoX2luaXQoJm1h
-dGNoLCAma2V5LCBOVUxMKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSBvdnNfbmxhX2dldF9t
-YXRjaChuZXQsICZtYXRjaCwgYVtPVlNfRkxPV19BVFRSX0tFWV0sCj4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgTlVMTCwgbG9nKTsKPiArICAgICAgIH0gZWxzZSBp
-ZiAoIXVmaWRfcHJlc2VudCkgewo+ICsgICAgICAgICAgICAgICBPVlNfTkxFUlIobG9nLAo+ICsg
-ICAgICAgICAgICAgICAgICAgICAgICAgIkZsb3cgc2V0IG1lc3NhZ2UgcmVqZWN0ZWQsIEtleSBh
-dHRyaWJ1dGUgbWlzc2luZy4iKTsKPiArICAgICAgICAgICAgICAgZXJyb3IgPSAtRUlOVkFMOwo+
-ICsgICAgICAgfQoKU2V0IGNvbW1hbmQgc2V0cyBuZXcgYWN0aW9uIGZvciBnaXZlbiBmbG93LiBU
-aGUgYWN0aW9uIHZhbGlkYXRpb24KZGVwZW5kcyBvbiB0aGUgZmxvdyBrZXkgYW5kIG1hc2suIHNv
-IHVzZXJzcGFjZSBuZWVkcyB0byBwcm92aWRlIHRoZQprZXkgYW5kIG1hc2suCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
-QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
-ZGV2Cg==
+On Wed, 09 Mar 2016 16:03:20 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Wed, 9 Mar 2016 08:47:58 -0800
+> 
+> > On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
+> > <brouer@redhat.com> wrote:  
+> >> Passing the budget down was Alex'es design.  Axel any thoughts?  
+> > 
+> > I'd say just use dev_consume_skb_any in the bulk free instead of
+> > dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
+> > come up often.  
+> 
+> Agreed.
+> 
+> >> I do wonder how expensive this check is... as it goes into a code
+> >> hotpath, which is very unlikely.  The good thing would be, that we
+> >> handle if buggy drivers call this function from a none softirq context
+> >> (as these bugs could be hard to catch).
+> >>
+> >> Can netpoll ever be called from softirq or with BH disabled? (It
+> >> disables IRQs, which would break calling kmem_cache_free_bulk).  
+> > 
+> > It is better for us to switch things out so that the napi_consume_skb
+> > is the fast path with dev_consume_skb_any as the slow.  There are too
+> > many scenarios where we could be invoking something that makes use of
+> > this within the Tx path so it is probably easiest to just solve it
+> > that way so we don't have to deal with it again in the future.  
+> 
+> Indeed.
+
+So, if I understand you correctly, then we drop the budget parameter
+and check for in_softirq(), like:
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7af7ec635d90..a3c61a9b65d2 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -796,14 +796,14 @@ void __kfree_skb_defer(struct sk_buff *skb)
+        _kfree_skb_defer(skb);
+ }
+ 
+-void napi_consume_skb(struct sk_buff *skb, int budget)
++void napi_consume_skb(struct sk_buff *skb)
+ {
+        if (unlikely(!skb))
+                return;
+ 
+-       /* if budget is 0 assume netpoll w/ IRQs disabled */
+-       if (unlikely(!budget)) {
+-               dev_consume_skb_irq(skb);
++       /* Handle if not called from NAPI context, and netpoll invocation */
++       if (unlikely(!in_softirq())) {
++               dev_consume_skb_any(skb);
+                return;
+        }
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
