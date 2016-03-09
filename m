@@ -1,102 +1,186 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Wed, 9 Mar 2016 11:27:42 +0100
-Message-ID: <56DFFA9E.7060602@st.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de> <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego> <56DD7593.5060003@suse.de> <56DD8176.2080603@st.com> <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com> <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de> <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com> <56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com> <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com> <56DFE55B.2090806@st.com> <56DFE64B.8060606@st.com> <CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com> <56DFF253.9050208@st.com>
+From: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Subject: Re: [PATCH (net.git) 2/2] stmmac: fix MDIO settings
+Date: Wed, 9 Mar 2016 11:27:01 +0100
+Message-ID: <CAG374jCMZnn+brdka1iE2LyHTbvhLPE62L93r0GpLRchhaUf5Q@mail.gmail.com>
+References: <1457514007-32333-1-git-send-email-peppe.cavallaro@st.com> <1457514007-32333-3-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------080902020606030807080607"
-Cc: Dinh Nguyen <dinh.linux@gmail.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	=?UTF-8?B?SGVpa28gU3TDvGJuZXI=?= <heiko@sntech.de>,
-	<netdev@vger.kernel.org>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	=?UTF-8?B?QW5kcmVhcyBGw6Ry?= =?UTF-8?B?YmVy?= <afaerber@suse.de>,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	Alexandre TORGUE <alexandre.torgue@st.com>,
-	=?UTF-8?B?RnJhbmsgU2Now6RmZXI=?= <fschaefer.oss@googlemail.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Tomeu Vizoso <tomeu@tomeuvizoso.net>,
-	Fabrice GASNIER <fabrice.gasnier@st.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
+	fschaefer.oss@googlemail.com, Dinh Nguyen <dinh.linux@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:44049 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932144AbcCIK20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:28:26 -0500
-In-Reply-To: <56DFF253.9050208@st.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38182 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480AbcCIK1m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:27:42 -0500
+Received: by mail-wm0-f52.google.com with SMTP id l68so64315105wml.1
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 02:27:41 -0800 (PST)
+In-Reply-To: <1457514007-32333-3-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------080902020606030807080607
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi Peppe,
 
-Hello Tomeu, Andreas,
+You missed something like that in stmmac_main.c ?
 
-On 3/9/2016 10:52 AM, Giuseppe CAVALLARO wrote:
->> * today's linux-next: probe failed
->>
->> * today's linux-next + revert of 88f8b1bb41c6 stmmac: Fix 'eth0: No
->> PHY found' regression: probe succeeded but no network at all
->>
->> * today's linux-next + revert of 88f8b1bb41c6 (stmmac: Fix 'eth0: No
->> PHY found' regression) + revert of 0e80bdc9a72d (stmmac: first frame
->> prep at the end of xmit routine): probe succeeded, dhcp succeeds and
->> nfsroot works for a few seconds before timing out
+@@ -864,13 +864,12 @@ static int stmmac_init_phy(struct net_device *dev=
+)
+  phy_disconnect(phydev);
+  return -ENODEV;
+  }
+
+  /* If attached to a switch, there is no reason to poll phy handler */
+- if (priv->plat->phy_bus_name)
+- if (!strcmp(priv->plat->phy_bus_name, "fixed"))
+- phydev->irq =3D PHY_IGNORE_INTERRUPT;
++ if (priv->plat->is_fixed_link)
++ phydev->irq =3D PHY_IGNORE_INTERRUPT;
+
+
+Best regards
+
+Gabriel
+
+
+On 9 March 2016 at 10:00, Giuseppe Cavallaro <peppe.cavallaro@st.com> w=
+rote:
+> Initially the phy_bus_name was added to manipulate the
+> driver name but It was recently just used to manage the
+> fixed-link and then to take some decision at run-time
+> inside the main (for example to skip EEE).
 >
-> ok, I was looking at this problem now that seems to related
-> the "stmmac: first frame prep at the end of xmit routine"
-> that, at first glance, is breaking the gmac 3.50 with normal descriptor.
-
-I have no Hw where to test this use case. So, I wonder if may I ask you 
-to test some patch.
-
-This first patch adds a missing barrier to the normal routine that inits 
-the descriptor. Barrier was needed to well manage the OWN
-descriptor and it was not added in case of normal desc case after
-the xmit rework.
-
-Then I will check the algo behind the new xmit and in case of problems,
-if you agree, we will decide to revert it because it aimed to add an
-optimization.
-
-Let me know if you agree.
-
-Regards
-Peppe
-
---------------080902020606030807080607
-Content-Type: text/x-patch; name="normal_tmp.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="normal_tmp.patch"
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-index e13228f..4392610 100644
---- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-@@ -210,7 +210,7 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
- 		tdes1 &= ~TDES1_FIRST_SEGMENT;
- 
- 	if (likely(csum_flag))
--		tdes1 |= (TX_CIC_FULL) << TDES1_CHECKSUM_INSERTION_SHIFT;
-+		tdes1 |= (TX_CIC_FULL << TDES1_CHECKSUM_INSERTION_SHIFT);
- 	else
- 		tdes1 &= ~(TX_CIC_FULL << TDES1_CHECKSUM_INSERTION_SHIFT);
- 
-@@ -220,6 +220,13 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
- 	if (tx_own)
- 		tdes1 |= TDES0_OWN;
- 
-+	if (is_fs & tx_own)
-+		/* When the own bit, for the first frame, has to be set, all
-+		 * descriptors for the same frame has to be set before, to
-+		 * avoid race condition.
-+		 */
-+		wmb();
-+
- 	p->des1 = tdes1;
- }
- 
-
---------------080902020606030807080607--
+> So the patch now introduces a new platforms boolean to
+> manage that and removes the phy_bus_name variable not
+> necessary anymore.
+>
+> The driver can manage the mdio registration by using phy-handle,
+> dwmac-mdio and own parameter e.g. snps,phy-addr.
+> This patch takes care about all these possible configurations
+> and fixes the mdio registration in case of there is a real
+> transceiver or a switch (that needs to be managed by using
+> fixed-link).
+>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+> Cc: Andreas F=C3=A4rber <afaerber@suse.de>
+> Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
+> Cc: Dinh Nguyen <dinh.linux@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++-------=
+-
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   15 ++++++----=
+-----
+>  include/linux/stmmac.h                             |    2 +-
+>  3 files changed, 10 insertions(+), 18 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driv=
+ers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index c21015b..87e4643 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -271,7 +271,6 @@ static void stmmac_eee_ctrl_timer(unsigned long a=
+rg)
+>   */
+>  bool stmmac_eee_init(struct stmmac_priv *priv)
+>  {
+> -       char *phy_bus_name =3D priv->plat->phy_bus_name;
+>         unsigned long flags;
+>         bool ret =3D false;
+>
+> @@ -283,7 +282,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+>                 goto out;
+>
+>         /* Never init EEE in case of a switch is attached */
+> -       if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
+> +       if (priv->plat->is_fixed_link)
+>                 goto out;
+>
+>         /* MAC core supports the EEE feature. */
+> @@ -820,12 +819,8 @@ static int stmmac_init_phy(struct net_device *de=
+v)
+>                 phydev =3D of_phy_connect(dev, priv->plat->phy_node,
+>                                         &stmmac_adjust_link, 0, inter=
+face);
+>         } else {
+> -               if (priv->plat->phy_bus_name)
+> -                       snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
+> -                                priv->plat->phy_bus_name, priv->plat=
+->bus_id);
+> -               else
+> -                       snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x"=
+,
+> -                                priv->plat->bus_id);
+> +               snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
+> +                        priv->plat->bus_id);
+>
+>                 snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,=
+ bus_id,
+>                          priv->plat->phy_addr);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/=
+drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 6a52fa1..09684dd 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -138,7 +138,12 @@ stmmac_probe_config_dt(struct platform_device *p=
+dev, const char **mac)
+>                         return ERR_PTR(-ENODEV);
+>
+>                 plat->phy_node =3D of_node_get(np);
+> -       }
+> +               plat->is_fixed_link =3D true;
+> +       } else
+> +               plat->mdio_bus_data =3D
+> +                       devm_kzalloc(&pdev->dev,
+> +                                    sizeof(struct stmmac_mdio_bus_da=
+ta),
+> +                                    GFP_KERNEL);
+>
+>         /* "snps,phy-addr" is not a standard property. Mark it as dep=
+recated
+>          * and warn of its use. Remove this when phy node support is =
+added.
+> @@ -146,14 +151,6 @@ stmmac_probe_config_dt(struct platform_device *p=
+dev, const char **mac)
+>         if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr=
+) =3D=3D 0)
+>                 dev_warn(&pdev->dev, "snps,phy-addr property is depre=
+cated\n");
+>
+> -       if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->ph=
+y_bus_name)
+> -               plat->mdio_bus_data =3D NULL;
+> -       else
+> -               plat->mdio_bus_data =3D
+> -                       devm_kzalloc(&pdev->dev,
+> -                                    sizeof(struct stmmac_mdio_bus_da=
+ta),
+> -                                    GFP_KERNEL);
+> -
+>         of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size=
+);
+>
+>         of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size=
+);
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index eead8ab..1550558 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -94,10 +94,10 @@ struct stmmac_dma_cfg {
+>  };
+>
+>  struct plat_stmmacenet_data {
+> -       char *phy_bus_name;
+>         int bus_id;
+>         int phy_addr;
+>         int interface;
+> +       bool is_fixed_link;
+>         struct stmmac_mdio_bus_data *mdio_bus_data;
+>         struct device_node *phy_node;
+>         struct stmmac_dma_cfg *dma_cfg;
+> --
+> 1.7.4.4
+>
