@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/4] vxlan: support setting IPv6 flow label
-Date: Wed,  9 Mar 2016 03:00:03 +0100
-Message-ID: <7775042611e823098fd14d2929fb6b12cc0b3f98.1457488298.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 4/4] bpf: support flow label for bpf_skb_{set,get}_tunnel_key
+Date: Wed,  9 Mar 2016 03:00:05 +0100
+Message-ID: <a1d02a81fb4811648e278440ffe4fb6096f26c5c.1457488298.git.daniel@iogearbox.net>
 References: <cover.1457488298.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45221 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45232 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971AbcCICAK (ORCPT
+	with ESMTP id S1752044AbcCICAK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 21:00:10 -0500
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
@@ -17,161 +17,93 @@ References: <cover.1457488298.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work adds support for setting the IPv6 flow label for vxlan per
-device and through collect metadata (ip_tunnel_key) frontends. The
-vxlan dst cache does not need any special considerations here, for
-the cases where caches can be used, the label is static per cache.
+This patch extends bpf_tunnel_key with a tunnel_label member, that maps
+to ip_tunnel_key's label so underlying backends like vxlan and geneve
+can propagate the label to udp_tunnel6_xmit_skb(), where it's being set
+in the IPv6 header. It allows for having 20 more bits to encode/decode
+flow related meta information programmatically. Tested with vxlan and
+geneve.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- drivers/net/vxlan.c          | 26 +++++++++++++++++++++-----
- include/net/vxlan.h          |  1 +
- include/uapi/linux/if_link.h |  1 +
- 3 files changed, 23 insertions(+), 5 deletions(-)
+ include/uapi/linux/bpf.h |  1 +
+ net/core/filter.c        | 14 ++++++++++++--
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8bdcd5e..8eda76f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1790,6 +1790,7 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
- #if IS_ENABLED(CONFIG_IPV6)
- static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  struct sk_buff *skb, int oif, u8 tos,
-+					  __be32 label,
- 					  const struct in6_addr *daddr,
- 					  struct in6_addr *saddr,
- 					  struct dst_cache *dst_cache,
-@@ -1813,6 +1814,7 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 	fl6.flowi6_tos = RT_TOS(tos);
- 	fl6.daddr = *daddr;
- 	fl6.saddr = vxlan->cfg.saddr.sin6.sin6_addr;
-+	fl6.flowlabel = label;
- 	fl6.flowi6_mark = skb->mark;
- 	fl6.flowi6_proto = IPPROTO_UDP;
- 
-@@ -1888,7 +1890,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct vxlan_metadata _md;
- 	struct vxlan_metadata *md = &_md;
- 	__be16 src_port = 0, dst_port;
--	__be32 vni;
-+	__be32 vni, label;
- 	__be16 df = 0;
- 	__u8 tos, ttl;
- 	int err;
-@@ -1939,12 +1941,14 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	if (tos == 1)
- 		tos = ip_tunnel_get_dsfield(old_iph, skb);
- 
-+	label = vxlan->cfg.label;
- 	src_port = udp_flow_src_port(dev_net(dev), skb, vxlan->cfg.port_min,
- 				     vxlan->cfg.port_max, true);
- 
- 	if (info) {
- 		ttl = info->key.ttl;
- 		tos = info->key.tos;
-+		label = info->key.label;
- 		udp_sum = !!(info->key.tun_flags & TUNNEL_CSUM);
- 
- 		if (info->options_len)
-@@ -2020,7 +2024,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 
- 		ndst = vxlan6_get_route(vxlan, skb,
- 					rdst ? rdst->remote_ifindex : 0, tos,
--					&dst->sin6.sin6_addr, &saddr,
-+					label, &dst->sin6.sin6_addr, &saddr,
- 					dst_cache, info);
- 		if (IS_ERR(ndst)) {
- 			netdev_dbg(dev, "no route to %pI6\n",
-@@ -2066,8 +2070,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			return;
- 		}
- 		udp_tunnel6_xmit_skb(ndst, sk, skb, dev,
--				     &saddr, &dst->sin6.sin6_addr, tos, ttl, 0,
--				     src_port, dst_port, !udp_sum);
-+				     &saddr, &dst->sin6.sin6_addr, tos, ttl,
-+				     label, src_port, dst_port, !udp_sum);
- #endif
- 	}
- 
-@@ -2390,7 +2394,7 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 		if (!vxlan->vn6_sock)
- 			return -EINVAL;
- 		ndst = vxlan6_get_route(vxlan, skb, 0, info->key.tos,
--					&info->key.u.ipv6.dst,
-+					info->key.label, &info->key.u.ipv6.dst,
- 					&info->key.u.ipv6.src, NULL, info);
- 		if (IS_ERR(ndst))
- 			return PTR_ERR(ndst);
-@@ -2505,6 +2509,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_LOCAL6]	= { .len = sizeof(struct in6_addr) },
- 	[IFLA_VXLAN_TOS]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_TTL]	= { .type = NLA_U8 },
-+	[IFLA_VXLAN_LABEL]	= { .type = NLA_U32 },
- 	[IFLA_VXLAN_LEARNING]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_AGEING]	= { .type = NLA_U32 },
- 	[IFLA_VXLAN_LIMIT]	= { .type = NLA_U32 },
-@@ -2739,6 +2744,11 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 		vxlan->flags |= VXLAN_F_IPV6;
- 	}
- 
-+	if (conf->label && !use_ipv6) {
-+		pr_info("label only supported in use with IPv6\n");
-+		return -EINVAL;
-+	}
-+
- 	if (conf->remote_ifindex) {
- 		lowerdev = __dev_get_by_index(src_net, conf->remote_ifindex);
- 		dst->remote_ifindex = conf->remote_ifindex;
-@@ -2887,6 +2897,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_TTL])
- 		conf.ttl = nla_get_u8(data[IFLA_VXLAN_TTL]);
- 
-+	if (data[IFLA_VXLAN_LABEL])
-+		conf.label = nla_get_be32(data[IFLA_VXLAN_LABEL]) &
-+			     IPV6_FLOWLABEL_MASK;
-+
- 	if (!data[IFLA_VXLAN_LEARNING] || nla_get_u8(data[IFLA_VXLAN_LEARNING]))
- 		conf.flags |= VXLAN_F_LEARN;
- 
-@@ -2990,6 +3004,7 @@ static size_t vxlan_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(struct in6_addr)) + /* IFLA_VXLAN_LOCAL{6} */
- 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TTL */
- 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TOS */
-+		nla_total_size(sizeof(__be32)) + /* IFLA_VXLAN_LABEL */
- 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_LEARNING */
- 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_PROXY */
- 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_RSC */
-@@ -3053,6 +3068,7 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 
- 	if (nla_put_u8(skb, IFLA_VXLAN_TTL, vxlan->cfg.ttl) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_TOS, vxlan->cfg.tos) ||
-+	    nla_put_be32(skb, IFLA_VXLAN_LABEL, vxlan->cfg.label) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_LEARNING,
- 			!!(vxlan->flags & VXLAN_F_LEARN)) ||
- 	    nla_put_u8(skb, IFLA_VXLAN_PROXY,
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index 6eda4ed..a763c96 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -162,6 +162,7 @@ struct vxlan_config {
- 	u16			port_max;
- 	u8			tos;
- 	u8			ttl;
-+	__be32			label;
- 	u32			flags;
- 	unsigned long		age_interval;
- 	unsigned int		addrmax;
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index d452cea..6bebc97 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -456,6 +456,7 @@ enum {
- 	IFLA_VXLAN_GBP,
- 	IFLA_VXLAN_REMCSUM_NOPARTIAL,
- 	IFLA_VXLAN_COLLECT_METADATA,
-+	IFLA_VXLAN_LABEL,
- 	__IFLA_VXLAN_MAX
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0e30b19..924f537 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -375,6 +375,7 @@ struct bpf_tunnel_key {
+ 	};
+ 	__u8 tunnel_tos;
+ 	__u8 tunnel_ttl;
++	__u32 tunnel_label;
  };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+ 
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index a66dc03..6fc3893 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1770,12 +1770,15 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 		return -EPROTO;
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
+ 		switch (size) {
++		case offsetof(struct bpf_tunnel_key, tunnel_label):
++			goto set_compat;
+ 		case offsetof(struct bpf_tunnel_key, remote_ipv6[1]):
+ 			/* Fixup deprecated structure layouts here, so we have
+ 			 * a common path later on.
+ 			 */
+ 			if (ip_tunnel_info_af(info) != AF_INET)
+ 				return -EINVAL;
++set_compat:
+ 			to = (struct bpf_tunnel_key *)compat;
+ 			break;
+ 		default:
+@@ -1787,11 +1790,13 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 	to->tunnel_tos = info->key.tos;
+ 	to->tunnel_ttl = info->key.ttl;
+ 
+-	if (flags & BPF_F_TUNINFO_IPV6)
++	if (flags & BPF_F_TUNINFO_IPV6) {
+ 		memcpy(to->remote_ipv6, &info->key.u.ipv6.src,
+ 		       sizeof(to->remote_ipv6));
+-	else
++		to->tunnel_label = be32_to_cpu(info->key.label);
++	} else {
+ 		to->remote_ipv4 = be32_to_cpu(info->key.u.ipv4.src);
++	}
+ 
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key)))
+ 		memcpy((void *)(long) r2, to, size);
+@@ -1850,6 +1855,7 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 		return -EINVAL;
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
+ 		switch (size) {
++		case offsetof(struct bpf_tunnel_key, tunnel_label):
+ 		case offsetof(struct bpf_tunnel_key, remote_ipv6[1]):
+ 			/* Fixup deprecated structure layouts here, so we have
+ 			 * a common path later on.
+@@ -1862,6 +1868,8 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 			return -EINVAL;
+ 		}
+ 	}
++	if (unlikely(!(flags & BPF_F_TUNINFO_IPV6) && from->tunnel_label))
++		return -EINVAL;
+ 
+ 	skb_dst_drop(skb);
+ 	dst_hold((struct dst_entry *) md);
+@@ -1882,6 +1890,8 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 		info->mode |= IP_TUNNEL_INFO_IPV6;
+ 		memcpy(&info->key.u.ipv6.dst, from->remote_ipv6,
+ 		       sizeof(from->remote_ipv6));
++		info->key.label = cpu_to_be32(from->tunnel_label) &
++				  IPV6_FLOWLABEL_MASK;
+ 	} else {
+ 		info->key.u.ipv4.dst = cpu_to_be32(from->remote_ipv4);
+ 		if (flags & BPF_F_ZERO_CSUM_TX)
 -- 
 1.9.3
