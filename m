@@ -1,61 +1,54 @@
-From: Ben Hawkes <hawkes@google.com>
-Subject: Re: Linux netfilter IPT_SO_SET_REPLACE memory corruption
-Date: Wed, 9 Mar 2016 09:33:41 -0800
-Message-ID: <CABWXx8Hk_V910+AOWSwU5L7Z1k3Wz1Uy0kVCzYAyr8zOA9J4Mg@mail.gmail.com>
-References: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
+From: Jonathan Thibault <jonathan@navigue.com>
+Subject: gretap default MTU question
+Date: Wed, 9 Mar 2016 12:25:35 -0500
+Message-ID: <56E05C8F.1060901@navigue.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:36512 "EHLO
-	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbcCIRdn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:33:43 -0500
-Received: by mail-yw0-f181.google.com with SMTP id g3so45767046ywa.3
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:33:42 -0800 (PST)
-In-Reply-To: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
+Received: from mail.navigue.com ([74.117.40.3]:40813 "EHLO mail.navigue.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932950AbcCIReD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 12:34:03 -0500
+Received: from [192.168.7.182] (unknown [74.117.40.10])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.navigue.com (Postfix) with ESMTPSA id 8553C1A003E
+	for <netdev@vger.kernel.org>; Wed,  9 Mar 2016 12:25:35 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Small correction: IPT_SO_SET_REPLACE is reached via setsockopt, not ioctl.
+Hello good people of netdev,
 
-On Wed, Mar 9, 2016 at 9:25 AM, Ben Hawkes <hawkes@google.com> wrote:
-> N.B. I was redirected to this list by security@kernel.org. I'm told
-> that networking related issues such as this are handled on the public
-> netdev mailing list.
->
-> A memory corruption vulnerability exists in the IPT_SO_SET_REPLACE
-> ioctl in the netfilter code for iptables support. This ioctl is can be
-> triggered by an unprivileged user on PF_INET sockets when unprivileged
-> user namespaces are available (CONFIG_USER_NS=y). Android does not
-> enable this option, but desktop/server distributions and Chrome OS
-> will commonly enable this to allow for containers support or
-> sandboxing.
->
-> In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
-> is possible for a user-supplied ipt_entry structure to have a large
-> next_offset field. This field is not bounds checked prior to writing a
-> counter value at the supplied offset:
->
-> newpos = pos + e->next_offset;
-> ...
-> e = (struct ipt_entry *) (entry0 + newpos);
-> e->counters.pcnt = pos;
->
-> This means that an out of bounds 32-bit write can occur in a 64kb
-> range from the allocated heap entry, with a controlled offset and a
-> partially controlled write value ("pos") or zero. The attached
-> proof-of-concept (netfilter_setsockopt_v3.c) triggers the corruption
-> multiple times to set adjacent heap structures to zero.
->
-> This issue affects (at least) kernel versions 3.10, 3.18 and 4.4, and
-> could be used for local privilege escalation. It appears that a
-> similar codepath is accessible via arp_tables.c/ARPT_SO_SET_REPLACE as
-> well.
->
-> Furthermore, a recent refactoring of this codepath
-> (https://github.com/torvalds/linux/commit/2e4e6a17af35be359cc8f1c924f8f198fbd478cc)
-> introduced an integer overflow in xt_alloc_table_info, which on 32-bit
-> systems can lead to small structure allocation and a copy_from_user
-> based heap corruption. The attached proof-of-concept
-> (netfilter_setsockopt_v4.c) triggers this issue on 4.4.
+When setting up gretap devices like so:
+
+ip link add mydev type gretap remote 1.1.1.1 local 2.2.2.2 nopmtudisc
+
+I'm observing two different behavior:
+
+- On system A, the MTU of 'mydev' is set to the MTU of the 'parent'
+interface (currently 1600) minus 38. All other interfaces on that system
+have a default MTU of 1500, only the parent was forced to 1600 to avoid
+fragmentation.  So 'mydev' accurately figures out that its MTU is 1562.
+
+- On system B, with the 'parent' interface MTU set to 1600 and all other
+defaulting to 1500 (same situation as A), the MTU of 'mydev' gets set to
+1462.
+
+I'm trying to figure out which behavior is normal and what mechanism (if
+any) causes the MTU to be set differently.  In both cases the 'parent'
+device has an MTU of 1600.  The code in ip_gre.c does this:
+
+dev->mtu = ETH_DATA_LEN - t_hlen - 4;
+
+In this case, system B would have the expected behavior and I need some
+way to explain what goes on with system A.
+
+Of course I can force the MTU on system B but I was rather pleased with
+the 'magic' on system A.
+
+If anyone here familiar with this code can offer an explanation, it
+would greatly ease my curiosity.
+
+Jonathan
