@@ -1,7 +1,7 @@
 From: Yangbo Lu <yangbo.lu@nxp.com>
-Subject: [v6, 3/5] dt: move guts devicetree doc out of powerpc directory
-Date: Wed, 9 Mar 2016 18:08:49 +0800
-Message-ID: <1457518131-11339-4-git-send-email-yangbo.lu@nxp.com>
+Subject: [v6, 4/5] powerpc/fsl: move mpc85xx.h to include/linux/fsl
+Date: Wed, 9 Mar 2016 18:08:50 +0800
+Message-ID: <1457518131-11339-5-git-send-email-yangbo.lu@nxp.com>
 References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -23,18 +23,18 @@ To: <devicetree@vger.kernel.org>,
 	<iommu@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
 	<linux-mmc@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0085.outbound.protection.outlook.com ([65.55.169.85]:18512
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1on0053.outbound.protection.outlook.com ([157.56.110.53]:57440
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752395AbcCIKSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2016 05:18:38 -0500
+	id S1752395AbcCIKSv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 05:18:51 -0500
 In-Reply-To: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move guts devicetree doc to Documentation/devicetree/bindings/soc/fsl/
-since it's used by not only PowerPC but also ARM. And add a specification
-for 'little-endian' property.
+Move mpc85xx.h to include/linux/fsl and rename it to svr.h as
+a common header file. It has been used for mpc85xx and it will
+be used for ARM-based SoC as well.
 
 Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
 ---
@@ -43,32 +43,108 @@ Changes for v2:
 Changes for v3:
 	- None
 Changes for v4:
-	- Added this patch
+	- None
 Changes for v5:
-	- Modified the description for little-endian property
+	- Changed to Move mpc85xx.h to include/linux/fsl/
+	- Adjusted '#include <linux/fsl/svr.h>' position in file
 Changes for v6:
 	- None
 ---
- Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt | 3 +++
- 1 file changed, 3 insertions(+)
- rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ drivers/clk/clk-qoriq.c                                       | 3 +--
+ drivers/i2c/busses/i2c-mpc.c                                  | 2 +-
+ drivers/iommu/fsl_pamu.c                                      | 3 +--
+ drivers/net/ethernet/freescale/gianfar.c                      | 2 +-
+ arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h | 4 ++--
+ 5 files changed, 6 insertions(+), 8 deletions(-)
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
-diff --git a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt b/Documentation/devicetree/bindings/soc/fsl/guts.txt
-similarity index 91%
-rename from Documentation/devicetree/bindings/powerpc/fsl/guts.txt
-rename to Documentation/devicetree/bindings/soc/fsl/guts.txt
-index b71b203..07adca9 100644
---- a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt
-+++ b/Documentation/devicetree/bindings/soc/fsl/guts.txt
-@@ -25,6 +25,9 @@ Recommended properties:
-  - fsl,liodn-bits : Indicates the number of defined bits in the LIODN
-    registers, for those SOCs that have a PAMU device.
+diff --git a/drivers/clk/clk-qoriq.c b/drivers/clk/clk-qoriq.c
+index 7bc1c45..fc7f722 100644
+--- a/drivers/clk/clk-qoriq.c
++++ b/drivers/clk/clk-qoriq.c
+@@ -13,6 +13,7 @@
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/fsl/guts.h>
++#include <linux/fsl/svr.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -1148,8 +1149,6 @@ bad_args:
+ }
  
-+ - little-endian : Indicates that the global utilities block is little
-+   endian. The default is big endian.
-+
- Examples:
- 	global-utilities@e0000 {	/* global utilities block */
- 		compatible = "fsl,mpc8548-guts";
+ #ifdef CONFIG_PPC
+-#include <asm/mpc85xx.h>
+-
+ static const u32 a4510_svrs[] __initconst = {
+ 	(SVR_P2040 << 8) | 0x10,	/* P2040 1.0 */
+ 	(SVR_P2040 << 8) | 0x11,	/* P2040 1.1 */
+diff --git a/drivers/i2c/busses/i2c-mpc.c b/drivers/i2c/busses/i2c-mpc.c
+index 48ecffe..600704c 100644
+--- a/drivers/i2c/busses/i2c-mpc.c
++++ b/drivers/i2c/busses/i2c-mpc.c
+@@ -27,9 +27,9 @@
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/delay.h>
++#include <linux/fsl/svr.h>
+ 
+ #include <asm/mpc52xx.h>
+-#include <asm/mpc85xx.h>
+ #include <sysdev/fsl_soc.h>
+ 
+ #define DRV_NAME "mpc-i2c"
+diff --git a/drivers/iommu/fsl_pamu.c b/drivers/iommu/fsl_pamu.c
+index a34355f..af8fb27 100644
+--- a/drivers/iommu/fsl_pamu.c
++++ b/drivers/iommu/fsl_pamu.c
+@@ -21,11 +21,10 @@
+ #include "fsl_pamu.h"
+ 
+ #include <linux/fsl/guts.h>
++#include <linux/fsl/svr.h>
+ #include <linux/interrupt.h>
+ #include <linux/genalloc.h>
+ 
+-#include <asm/mpc85xx.h>
+-
+ /* define indexes for each operation mapping scenario */
+ #define OMI_QMAN        0x00
+ #define OMI_FMAN        0x01
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 2aa7b40..675da4a 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -86,11 +86,11 @@
+ #include <linux/udp.h>
+ #include <linux/in.h>
+ #include <linux/net_tstamp.h>
++#include <linux/fsl/svr.h>
+ 
+ #include <asm/io.h>
+ #ifdef CONFIG_PPC
+ #include <asm/reg.h>
+-#include <asm/mpc85xx.h>
+ #endif
+ #include <asm/irq.h>
+ #include <asm/uaccess.h>
+diff --git a/arch/powerpc/include/asm/mpc85xx.h b/include/linux/fsl/svr.h
+similarity index 97%
+rename from arch/powerpc/include/asm/mpc85xx.h
+rename to include/linux/fsl/svr.h
+index 213f3a8..8d13836 100644
+--- a/arch/powerpc/include/asm/mpc85xx.h
++++ b/include/linux/fsl/svr.h
+@@ -9,8 +9,8 @@
+  * (at your option) any later version.
+  */
+ 
+-#ifndef __ASM_PPC_MPC85XX_H
+-#define __ASM_PPC_MPC85XX_H
++#ifndef FSL_SVR_H
++#define FSL_SVR_H
+ 
+ #define SVR_REV(svr)	((svr) & 0xFF)		/* SOC design resision */
+ #define SVR_MAJ(svr)	(((svr) >>  4) & 0xF)	/* Major revision field*/
 -- 
 2.1.0.27.g96db324
