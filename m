@@ -1,62 +1,53 @@
-From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: Re: [PATCH 0/3] net: macb: Fix coding style issues
-Date: Wed, 9 Mar 2016 09:18:11 -0800
-Message-ID: <CAAtXAHd9AV4Ca4HyOOUEd9bgQztL7FaDRQZONVs+XA2-qEbdDw@mail.gmail.com>
-References: <1457367460-9123-1-git-send-email-moritz.fischer@ettus.com>
-	<56DDB6CA.8000100@atmel.com>
-	<56E04F73.6030504@xilinx.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
+Date: Wed, 09 Mar 2016 18:19:21 +0100
+Message-ID: <56E05B19.5040101@iogearbox.net>
+References: <20160309163852.4dd159b1@canb.auug.org.au> <56E052E4.90504@infradead.org> <56E053D3.7090009@iogearbox.net> <56E0583A.1080205@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f44.google.com ([209.85.213.44]:35130 "EHLO
-	mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933466AbcCIRSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:18:13 -0500
-Received: by mail-vk0-f44.google.com with SMTP id e6so63883059vkh.2
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:18:12 -0800 (PST)
-In-Reply-To: <56E04F73.6030504@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <56E0583A.1080205@infradead.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 03/09/2016 06:07 PM, Randy Dunlap wrote:
+> On 03/09/16 08:48, Daniel Borkmann wrote:
+>> On 03/09/2016 05:44 PM, Randy Dunlap wrote:
+>>> On 03/08/16 21:38, Stephen Rothwell wrote:
+>>>> Hi all,
+>>>>
+>>>> Changes since 20160308:
+>>>
+>>> on x86_64:
+>>>
+>>> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
+>>> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
+>>>     ip_tunnel_info_opts_get(to, info);
+>>>     ^
+>>> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
+>>> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
+>>>     ip_tunnel_info_opts_set(info, from, size);
+>>>     ^
+>>> Full randconfig file is attached.
+>>
+>> Already fixed with net-next commit e28e87ed474c ("ip_tunnel, bpf:
+>> ip_tunnel_info_opts_{get, set} depends on CONFIG_INET").
+[...]
+> Is that patch on the netdev mailing list or patchwork?
+> I can't find it.
 
-thanks for the feedback.
+It is in patchwork archive or also here:
 
-On Wed, Mar 9, 2016 at 8:29 AM, Michal Simek <michal.simek@xilinx.com> wrote:
-> On 7.3.2016 18:13, Nicolas Ferre wrote:
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=e28e87ed474c5a0b378c66fb85efc8e487f4f63f
 
->> I'm not usually fond of this type of patches, but I must admit that this
->> series corrects some style issues.
+Was reported first by Fengguang's build bot i.e. his config had !CONFIG_INET
+like in your case, so should resolve the issue.
 
-While I was playing around with my fixed-link for macb RFC I was
-flooded with warnings,
-so I figured I'll fix it while I'm at it. Just makes it easier for
-other people to work
-on it afterwards I thought.
-
->
->         mac = of_get_mac_address(np);
->         if (mac)
-> -               memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
-> +               ether_addr_copy(bp->dev->dev_addr, mac);
->         else
-
-So don't you like this in general or just would like to have it split
-out in a separate patch?
-
-> Also extending scope of variables is not the right way to go. Especially
-> when some automation tools are reporting that you should reduce scope of
-> use for them. Wolfram is checking it for example.
-
-Alright, understood, I'll address this.
-
-Cheers,
-
-Moritz
+Thanks,
+Daniel
