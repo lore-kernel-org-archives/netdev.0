@@ -1,39 +1,59 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 0/2] A couple of minor clean-ups and
- optimizations
-Date: Wed, 09 Mar 2016 09:22:48 -0800
-Message-ID: <20160309171924.11477.93179.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Wed, 09 Mar 2016 12:24:00 -0500 (EST)
+Message-ID: <20160309.122400.951958972682394628.davem@davemloft.net>
+References: <20160309163919.GJ2207@uranus.lan>
+	<20160309165850.GA49579@ast-mbp.thefacebook.com>
+	<20160309170921.GL2207@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
+	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
+	khorenko@virtuozzo.com
+To: gorcunov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:33912 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933506AbcCIRWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:22:55 -0500
-Received: by mail-pa0-f49.google.com with SMTP id fe3so28747805pab.1
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:22:50 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:59863 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751786AbcCIRYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:24:03 -0500
+In-Reply-To: <20160309170921.GL2207@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series is basically just a v2 of a couple patches I recently
-submitted.
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Wed, 9 Mar 2016 20:09:21 +0300
 
-The two patches aren't technically related but there are just items I found
-while cleaning up and prepping some further work to enable Tx checksums for
-tunnels.
+> On Wed, Mar 09, 2016 at 08:58:52AM -0800, Alexei Starovoitov wrote:
+> ...
+>> 
+>> above line is an indication that you have:
+>> #if defined(CONFIG_DEBUG_PREEMPT) || defined(CONFIG_PREEMPT_TRACER)
+>> turning it off will speed up things significantly.
+> 
+> Look, this won't change the overall picture. For sure it will
+> speedup the kernel but it won't prevent the users from allowing
+> allocating addresses. So timings will drop a bit but the main
+> issue will remain -- there is no explicit way to limit this
+> resource. We can create say 1K of netnamespaces and allocate
+> 100K addresses in each, then start destorying the namespaces
+> and node gonna be unreachable until everything is freed. The
+> kernel works as it shold simply in case of highload is stops
+> react due to big number of rtnl-locks taken.
 
----
+We asked you for numbers without a lot of features enabled, it'll
+help us diagnose which subsystem still causes a lot of overhead
+much more clearly.
 
-Alexander Duyck (2):
-      gro: Defer clearing of flush bit in tunnel paths
-      csum: Update csum_block_add to use rotate instead of byteswap
+So please do so.
 
+Although it's already pretty clear that netfilter conntrack
+cleanup is insanely expensive.
 
- drivers/net/geneve.c   |    7 ++-----
- drivers/net/vxlan.c    |    3 +--
- include/net/checksum.h |   12 ++++++------
- net/ipv4/fou.c         |    3 +--
- net/ipv4/gre_offload.c |    3 +--
- 5 files changed, 11 insertions(+), 17 deletions(-)
+You're also jumping to a lot of conclusions, work with us to fix the
+fundamental performance problems rather than continually insisting on
+a limit.
+
+We should be able to remove millions of IP addresses in less than
+half a second, no problem.  Limits make no sense at all.
