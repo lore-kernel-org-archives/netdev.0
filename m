@@ -1,69 +1,135 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Wed, 9 Mar 2016 08:24:14 +0100
-Message-ID: <56DFCF9E.5040206@st.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>	<56DD7172.4000707@suse.de>	<2714888.1DdqvJZ8cb@diego>	<56DD7593.5060003@suse.de>	<56DD8176.2080603@st.com>	<56DD8FBE.9010200@suse.de>	<56DD99A4.5030004@st.com>	<56DDA26C.3050301@suse.de>	<56DDA3D5.3090209@st.com>	<56DDB749.1020808@suse.de>	<CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>	<56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net 1/3] net: mvneta: Fix spinlock usage
+Date: Wed, 09 Mar 2016 08:49:40 +0100
+Message-ID: <87wppc2iqz.fsf@free-electrons.com>
+References: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
+	<1457441826-6100-2-git-send-email-gregory.clement@free-electrons.com>
+	<20160309144254.3fbf177f@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?QW5kcmVhcyBGw6RyYmVy?= <afaerber@suse.de>,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	=?UTF-8?B?SGVpa28gU3TDvGJuZXI=?= <heiko@sntech.de>,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
-	<netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	LAKML <linux-arm-kernel@lists.infradead.org>,
-	Alexandre TORGUE <alexandre.torgue@st.com>,
-	Fabrice GASNIER <fabrice.gasnier@st.com>
-To: Dinh Nguyen <dinh.linux@gmail.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Ofer Heifetz <oferh@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Patrick Uiterwijk <patrick@puiterwijk.org>,
+	"Marcin Wojtas" <mw@semihalf.com>,
+	Dimitri Epshtein <dima@marvell.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:47517 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752080AbcCIHYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 02:24:50 -0500
-In-Reply-To: <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
+Received: from down.free-electrons.com ([37.187.137.238]:35763 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750887AbcCIHtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 02:49:43 -0500
+In-Reply-To: <20160309144254.3fbf177f@xhacker> (Jisheng Zhang's message of
+	"Wed, 9 Mar 2016 14:42:54 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dinh
+Hi Jisheng,
+ 
+ On mer., mars 09 2016, Jisheng Zhang <jszhang@marvell.com> wrote:
 
-On 3/8/2016 4:45 PM, Dinh Nguyen wrote:
-> On Tue, Mar 8, 2016 at 1:24 AM, Giuseppe CAVALLARO
-> <peppe.cavallaro@st.com> wrote:
->> Hi Dinh,
->>
->> On 3/8/2016 12:22 AM, Dinh Nguyen wrote:
->> [snip]
->>>
->>>
->>> I'm seeing the same issue on the SoCFPGA platform:
->>>
->>> libphy: PHY stmmac-0:ffffffff not found
->>> eth0: Could not attach to PHY
->>> stmmac_open: Cannot attach to PHY (error: -19)
->>>
->>> If I just revert:
->>>
->>>    "stmmac: Fix 'eth0: No PHY found' regression"
->>>
->>> then the issue goes away.
->>
->>
->> do you have this patch "stmmac: first frame prep at the end of xmit routine"
->> ? Or you just reverted
->>    "stmmac: Fix 'eth0: No PHY found' regression"
+> Dear Gregory,
 >
-> I only reverted "stmmac: Fix 'eth0: No PHY found' regression". I do have the
-> patch "stmmac: first frame prep at the end of the xmit routine", but I did not
-> need to revert that patch.
+> On Tue, 8 Mar 2016 13:57:04 +0100 Gregory CLEMENT wrote:
+>
+>> In the previous patch, the spinlock was not initialized. While it didn't
+>> cause any trouble yet it could be a problem to use it uninitialized.
+>> 
+>> The most annoying part was the critical section protected by the spinlock
+>> in mvneta_stop(). Some of the functions could sleep as pointed when
+>> activated CONFIG_DEBUG_ATOMIC_SLEEP. Actually, in mvneta_stop() we only
+>> need to protect the is_stopped flagged, indeed the code of the notifier
+>> for CPU online is protected by the same spinlock, so when we get the
+>> lock, the notifer work is done.
+>> 
+>> Reported-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+>> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+>> ---
+>>  drivers/net/ethernet/marvell/mvneta.c | 11 ++++++-----
+>>  1 file changed, 6 insertions(+), 5 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+>> index b0ae69f84493..8dc7df2edff6 100644
+>> --- a/drivers/net/ethernet/marvell/mvneta.c
+>> +++ b/drivers/net/ethernet/marvell/mvneta.c
+>> @@ -3070,17 +3070,17 @@ static int mvneta_stop(struct net_device *dev)
+>>  	struct mvneta_port *pp = netdev_priv(dev);
+>>  
+>>  	/* Inform that we are stopping so we don't want to setup the
+>> -	 * driver for new CPUs in the notifiers
+>> +	 * driver for new CPUs in the notifiers. The code of the
+>> +	 * notifier for CPU online is protected by the same spinlock,
+>> +	 * so when we get the lock, the notifer work is done.
+>>  	 */
+>>  	spin_lock(&pp->lock);
+>>  	pp->is_stopped = true;
+>> +	spin_unlock(&pp->lock);
+>
+> This fix sleep in atomic issue. But
+> I see race here. Let's assume is_stopped is false.
 
-thx for this input.
-
-FYI, I am reworking the code to manage the mdio inside the driver so a
-patch will come soon.
-
-peppe
+You forgot that the lock was hold in the mvneta_percpu_notifier so your
+scenario can't happen.
 
 >
-> Dinh
+> cpu0:                           	cpu1:
+> mvneta_percpu_notifier():		mvneta_stop():
 >
+
+spin_lock(&pp->lock);
+
+> if (pp->is_stopped) {
+> 	spin_unlock(&pp->lock);
+> 	break;
+> }
+>
+
+                                      the lock is hold in
+                                      mvneta_percpu_notifier(), so as
+                                      said in the comment this cpu is
+                                      waiting for on the following
+                                      line:
+                                      spin_lock(&pp->lock);
+
+                                      This code will be executed only
+                                      when the lock will be released
+> 					pp->is_stopped = true;
+> 					spin_unlock(&pp->lock);
+>
+>
+> netif_tx_stop_all_queues(pp->dev);
+> for_each_online_cpu(other_cpu) {
+> ....
+>
+So what will happen is:
+cpu0:                           	cpu1:
+mvneta_percpu_notifier():		mvneta_stop():
+
+spin_lock(&pp->lock);
+if (pp->is_stopped) {
+	spin_unlock(&pp->lock);
+	break;
+}
+                                        spin_lock(&pp->lock);
+
+netif_tx_stop_all_queues(pp->dev);
+for_each_online_cpu(other_cpu) {
+....
+spin_unlock(&pp->lock);
+					pp->is_stopped = true;
+					spin_unlock(&pp->lock);
+
+
+Gregory
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
