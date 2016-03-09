@@ -1,133 +1,69 @@
-From: Ben Hawkes <hawkes@google.com>
-Subject: Linux netfilter IPT_SO_SET_REPLACE memory corruption
-Date: Wed, 9 Mar 2016 09:25:05 -0800
-Message-ID: <CABWXx8H08vO+jXQgMCJ5xRukza0o1HA_VVfshsrgy2wBY8toCg@mail.gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2 2/2] csum: Update csum_block_add to use rotate
+ instead of byteswap
+Date: Wed, 09 Mar 2016 09:25:26 -0800
+Message-ID: <20160309172429.11477.29342.stgit@localhost.localdomain>
+References: <20160309171924.11477.93179.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=94eb2c07d0fa92fa36052da0fa8f
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f180.google.com ([209.85.161.180]:36163 "EHLO
-	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753273AbcCIRZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:25:07 -0500
-Received: by mail-yw0-f180.google.com with SMTP id g3so45549296ywa.3
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:25:06 -0800 (PST)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35208 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933251AbcCIRZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:25:28 -0500
+Received: by mail-pa0-f52.google.com with SMTP id td3so18112800pab.2
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 09:25:28 -0800 (PST)
+In-Reply-To: <20160309171924.11477.93179.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---94eb2c07d0fa92fa36052da0fa8f
-Content-Type: text/plain; charset=UTF-8
+The code for csum_block_add was doing a funky byteswap to swap the even and
+odd bytes of the checksum if the offset was odd.  Instead of doing this we
+can save ourselves some trouble and just shift by 8 as this should have the
+same effect in terms of the final checksum value and only requires one
+instruction.
 
-N.B. I was redirected to this list by security@kernel.org. I'm told
-that networking related issues such as this are handled on the public
-netdev mailing list.
+In addition we can update csum_block_sub to just use csum_block_add with a
+inverse value for csum2.  This way we follow the same code path as
+csum_block_add without having to duplicate it.
 
-A memory corruption vulnerability exists in the IPT_SO_SET_REPLACE
-ioctl in the netfilter code for iptables support. This ioctl is can be
-triggered by an unprivileged user on PF_INET sockets when unprivileged
-user namespaces are available (CONFIG_USER_NS=y). Android does not
-enable this option, but desktop/server distributions and Chrome OS
-will commonly enable this to allow for containers support or
-sandboxing.
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
 
-In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
-is possible for a user-supplied ipt_entry structure to have a large
-next_offset field. This field is not bounds checked prior to writing a
-counter value at the supplied offset:
+v2:  Replaced (x << 24) + (x >> 8) with ror32(x, 8) and added comment.
 
-newpos = pos + e->next_offset;
-...
-e = (struct ipt_entry *) (entry0 + newpos);
-e->counters.pcnt = pos;
+ include/net/checksum.h |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-This means that an out of bounds 32-bit write can occur in a 64kb
-range from the allocated heap entry, with a controlled offset and a
-partially controlled write value ("pos") or zero. The attached
-proof-of-concept (netfilter_setsockopt_v3.c) triggers the corruption
-multiple times to set adjacent heap structures to zero.
-
-This issue affects (at least) kernel versions 3.10, 3.18 and 4.4, and
-could be used for local privilege escalation. It appears that a
-similar codepath is accessible via arp_tables.c/ARPT_SO_SET_REPLACE as
-well.
-
-Furthermore, a recent refactoring of this codepath
-(https://github.com/torvalds/linux/commit/2e4e6a17af35be359cc8f1c924f8f198fbd478cc)
-introduced an integer overflow in xt_alloc_table_info, which on 32-bit
-systems can lead to small structure allocation and a copy_from_user
-based heap corruption. The attached proof-of-concept
-(netfilter_setsockopt_v4.c) triggers this issue on 4.4.
-
---94eb2c07d0fa92fa36052da0fa8f
-Content-Type: text/x-csrc; charset=US-ASCII; name="netfilter_setsockopt_v3.c"
-Content-Disposition: attachment; filename="netfilter_setsockopt_v3.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ill44i490
-
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
-PgojaW5jbHVkZSA8c2NoZWQuaD4KI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxl
-cnJuby5oPgojaW5jbHVkZSA8c3lzL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNp
-bmNsdWRlIDxsaW51eC9uZXRsaW5rLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPHN5
-cy9wdHJhY2UuaD4KI2luY2x1ZGUgPG5ldGluZXQvaW4uaD4KI2luY2x1ZGUgPG5ldC9pZi5oPgoj
-aW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfdGFibGVzLmg+CiNpbmNsdWRlIDxmY250
-bC5oPgoKaW50IG5ldGZpbHRlcl9zZXRzb2Nrb3B0KHZvaWQgKnApIHsKCWludCBzb2NrLCBvcHRs
-ZW47CglpbnQgcmV0OwoJdm9pZCAqZGF0YTsKCXNpemVfdCBzaXplOwoJc3RydWN0IGlwdF9yZXBs
-YWNlICpyZXBsOwoJc3RydWN0IGlwdF9lbnRyeSAqZW50cnk7CglzdHJ1Y3QgeHRfc3RhbmRhcmRf
-dGFyZ2V0ICp0YXJnZXQ7CglpbnQgeDsKCglmb3IgKHggPSAwOyB4IDwgNjU1MzY7IHgrKykgewoK
-CQlzb2NrID0gc29ja2V0KFBGX0lORVQsIFNPQ0tfUkFXLCBJUFBST1RPX1JBVyk7CgoJCWlmIChz
-b2NrID09IC0xKSB7CgkJICAgICAgICBwZXJyb3IoInNvY2tldCIpOwoJCSAgICAgICAgcmV0dXJu
-IC0xOwoJCX0KCgkJc2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXB0X3JlcGxhY2UpICsgc2l6ZW9mKHN0
-cnVjdCBpcHRfZW50cnkpICsgc2l6ZW9mKHN0cnVjdCB4dF9zdGFuZGFyZF90YXJnZXQpICsgNDsK
-CgkJZGF0YSA9IG1hbGxvYyhzaXplKTsKCgkJaWYgKGRhdGEgPT0gTlVMTCkgewoJCQlwZXJyb3Io
-Im1hbGxvYyIpOwoJCQlyZXR1cm4gLTE7CgkJfQoKCQltZW1zZXQoZGF0YSwgMCwgc2l6ZSk7CgoJ
-CXJlcGwgPSAoc3RydWN0IGlwdF9yZXBsYWNlICopIGRhdGE7CgkJZW50cnkgPSAoc3RydWN0IGlw
-dF9lbnRyeSAqKSAoZGF0YSArIHNpemVvZihzdHJ1Y3QgaXB0X3JlcGxhY2UpKTsKCQl0YXJnZXQg
-PSAoc3RydWN0IHh0X3N0YW5kYXJkX3RhcmdldCAqKSAoZGF0YSArIHNpemVvZihzdHJ1Y3QgaXB0
-X3JlcGxhY2UpICsgc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpICsgNCk7CgoJCXByaW50ZigicmVw
-bCAlcCAoJWx4KSBlbnRyeSAlcCAoJWx4KSB0YXJnZXQgJXBcbiIsIHJlcGwsIHNpemVvZihzdHJ1
-Y3QgaXB0X3JlcGxhY2UpLCBlbnRyeSwgc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpLCB0YXJnZXQp
-OwoKCQlyZXBsLT5udW1fY291bnRlcnMgPSAweDE7CgkJcmVwbC0+c2l6ZSA9IHNpemVvZihzdHJ1
-Y3QgaXB0X2VudHJ5KSArIHNpemVvZihzdHJ1Y3QgeHRfc3RhbmRhcmRfdGFyZ2V0KTsKCQlyZXBs
-LT52YWxpZF9ob29rcyA9IDB4MTsKCQlyZXBsLT5udW1fZW50cmllcyA9IDB4MTsKCgkJbWVtc2V0
-KCZyZXBsLT51bmRlcmZsb3csIDEsIHNpemVvZihyZXBsLT51bmRlcmZsb3cpKTsKCQlyZXBsLT51
-bmRlcmZsb3dbMF0gPSAwOwoKCQllbnRyeS0+bmV4dF9vZmZzZXQgPSB4OwoJCWVudHJ5LT50YXJn
-ZXRfb2Zmc2V0ID0gc2l6ZW9mKHN0cnVjdCBpcHRfZW50cnkpICsgNDsKCgkJdGFyZ2V0LT52ZXJk
-aWN0ID0gLShORl9BQ0NFUFQgKyAxKTsKCgkJcmV0ID0gc2V0c29ja29wdChzb2NrLCBTT0xfSVAs
-IElQVF9TT19TRVRfUkVQTEFDRSwgKHZvaWQgKikgZGF0YSwgc2l6ZSk7CgoJCWNsb3NlKHNvY2sp
-OwoJCWZyZWUoZGF0YSk7CgoJCXByaW50ZigiZG9uZSAlZCA9PiAlZFxuIiwgeCwgcmV0KTsKCX0K
-CglyZXR1cm4gMDsKfQoKaW50IG1haW4odm9pZCkgewoJdm9pZCAqc3RhY2s7CglpbnQgcmV0OwoK
-CXJldCA9IHVuc2hhcmUoQ0xPTkVfTkVXVVNFUik7CgoJaWYgKHJldCA9PSAtMSkgewoJCXBlcnJv
-cigidW5zaGFyZSIpOwoJCXJldHVybiAtMTsKCX0KCglzdGFjayA9ICh2b2lkICopIG1hbGxvYyg2
-NTUzNik7CgoJaWYgKHN0YWNrID09IE5VTEwpIHsKCQlwZXJyb3IoIm1hbGxvYyIpOwoJCXJldHVy
-biAtMTsKCX0KCgljbG9uZShuZXRmaWx0ZXJfc2V0c29ja29wdCwgc3RhY2sgKyA2NTUzNiwgQ0xP
-TkVfTkVXTkVULCBOVUxMKTsKCglzbGVlcCgxKTsKCglyZXR1cm4gMDsKfQo=
---94eb2c07d0fa92fa36052da0fa8f
-Content-Type: text/x-csrc; charset=US-ASCII; name="netfilter_setsockopt_v4.c"
-Content-Disposition: attachment; filename="netfilter_setsockopt_v4.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ill44i551
-
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
-PgojaW5jbHVkZSA8c2NoZWQuaD4KI2luY2x1ZGUgPGxpbnV4L3NjaGVkLmg+CiNpbmNsdWRlIDxl
-cnJuby5oPgojaW5jbHVkZSA8c3lzL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNp
-bmNsdWRlIDxsaW51eC9uZXRsaW5rLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPHN5
-cy9wdHJhY2UuaD4KI2luY2x1ZGUgPG5ldGluZXQvaW4uaD4KI2luY2x1ZGUgPG5ldC9pZi5oPgoj
-aW5jbHVkZSA8bGludXgvbmV0ZmlsdGVyX2lwdjQvaXBfdGFibGVzLmg+CiNpbmNsdWRlIDxmY250
-bC5oPgoKaW50IG5ldGZpbHRlcl9zZXRzb2Nrb3B0KHZvaWQgKnApIHsKCWludCBzb2NrOwoJaW50
-IHJldDsKCXZvaWQgKmRhdGE7CglzaXplX3Qgc2l6ZTsKCXN0cnVjdCBpcHRfcmVwbGFjZSAqcmVw
-bDsKCglzb2NrID0gc29ja2V0KFBGX0lORVQsIFNPQ0tfUkFXLCBJUFBST1RPX1JBVyk7CgoJaWYg
-KHNvY2sgPT0gLTEpIHsKCSAgICAgICAgcGVycm9yKCJzb2NrZXQiKTsKCSAgICAgICAgcmV0dXJu
-IC0xOwoJfQoKCXNpemUgPSBzaXplb2Yoc3RydWN0IGlwdF9yZXBsYWNlKTsKCglkYXRhID0gbWFs
-bG9jKHNpemUpOwoKCWlmIChkYXRhID09IE5VTEwpIHsKCQlwZXJyb3IoIm1hbGxvYyIpOwoJCXJl
-dHVybiAtMTsKCX0KCgltZW1zZXQoZGF0YSwgMCwgc2l6ZSk7CgoJcmVwbCA9IChzdHJ1Y3QgaXB0
-X3JlcGxhY2UgKikgZGF0YTsKCglyZXBsLT5udW1fY291bnRlcnMgPSAweDE7CglyZXBsLT5zaXpl
-ID0gMHhmZmZmZmZmZjsKCXJlcGwtPnZhbGlkX2hvb2tzID0gMHgxOwoJcmVwbC0+bnVtX2VudHJp
-ZXMgPSAweDE7CgoJcmV0ID0gc2V0c29ja29wdChzb2NrLCBTT0xfSVAsIElQVF9TT19TRVRfUkVQ
-TEFDRSwgKHZvaWQgKikgZGF0YSwgc2l6ZSk7CgoJcHJpbnRmKCJkb25lICVkXG4iLCByZXQpOwoK
-CXJldHVybiAwOwp9CgppbnQgbWFpbih2b2lkKSB7Cgl2b2lkICpzdGFjazsKCWludCByZXQ7CgoJ
-cmV0ID0gdW5zaGFyZShDTE9ORV9ORVdVU0VSKTsKCglpZiAocmV0ID09IC0xKSB7CgkJcGVycm9y
-KCJ1bnNoYXJlIik7CgkJcmV0dXJuIC0xOwoJfQoKCXN0YWNrID0gKHZvaWQgKikgbWFsbG9jKDY1
-NTM2KTsKCglpZiAoc3RhY2sgPT0gTlVMTCkgewoJCXBlcnJvcigibWFsbG9jIik7CgkJcmV0dXJu
-IC0xOwoJfQoKCWNsb25lKG5ldGZpbHRlcl9zZXRzb2Nrb3B0LCBzdGFjayArIDY1NTM2LCBDTE9O
-RV9ORVdORVQsIE5VTEwpOwoKCXNsZWVwKDEpOwoKCXJldHVybiAwOwp9Cg==
---94eb2c07d0fa92fa36052da0fa8f--
+diff --git a/include/net/checksum.h b/include/net/checksum.h
+index abffc64e7300..5c30891e84e5 100644
+--- a/include/net/checksum.h
++++ b/include/net/checksum.h
+@@ -88,8 +88,11 @@ static inline __wsum
+ csum_block_add(__wsum csum, __wsum csum2, int offset)
+ {
+ 	u32 sum = (__force u32)csum2;
+-	if (offset&1)
+-		sum = ((sum&0xFF00FF)<<8)+((sum>>8)&0xFF00FF);
++
++	/* rotate sum to align it with a 16b boundary */
++	if (offset & 1)
++		sum = ror32(sum, 8);
++
+ 	return csum_add(csum, (__force __wsum)sum);
+ }
+ 
+@@ -102,10 +105,7 @@ csum_block_add_ext(__wsum csum, __wsum csum2, int offset, int len)
+ static inline __wsum
+ csum_block_sub(__wsum csum, __wsum csum2, int offset)
+ {
+-	u32 sum = (__force u32)csum2;
+-	if (offset&1)
+-		sum = ((sum&0xFF00FF)<<8)+((sum>>8)&0xFF00FF);
+-	return csum_sub(csum, (__force __wsum)sum);
++	return csum_block_add(csum, ~csum2, offset);
+ }
+ 
+ static inline __wsum csum_unfold(__sum16 n)
