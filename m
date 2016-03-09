@@ -1,114 +1,41 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 2/7] mlx4: use napi_consume_skb API to get bulk
- free operations
-Date: Wed, 9 Mar 2016 08:47:58 -0800
-Message-ID: <CAKgT0UeiAaMdGOzqFcC2iWRvrFC1MUcFM6czU=Kd+Et=5MGp0w@mail.gmail.com>
-References: <20160304130054.32651.51776.stgit@firesoul>
-	<20160304130133.32651.55278.stgit@firesoul>
-	<20160308.142422.1791364638495761357.davem@davemloft.net>
-	<20160309120039.38cfdb88@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
+Date: Wed, 09 Mar 2016 17:48:19 +0100
+Message-ID: <56E053D3.7090009@iogearbox.net>
+References: <20160309163852.4dd159b1@canb.auug.org.au> <56E052E4.90504@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, eugenia@mellanox.com,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:36212 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933344AbcCIQr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 11:47:59 -0500
-Received: by mail-io0-f171.google.com with SMTP id z76so72835941iof.3
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 08:47:58 -0800 (PST)
-In-Reply-To: <20160309120039.38cfdb88@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E052E4.90504@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 9, 2016 at 3:00 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Tue, 08 Mar 2016 14:24:22 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
->
->> From: Jesper Dangaard Brouer <brouer@redhat.com>
->> Date: Fri, 04 Mar 2016 14:01:33 +0100
+On 03/09/2016 05:44 PM, Randy Dunlap wrote:
+> On 03/08/16 21:38, Stephen Rothwell wrote:
+>> Hi all,
 >>
->> > @@ -276,7 +276,8 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
->> >
->> >  static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
->> >                             struct mlx4_en_tx_ring *ring,
->> > -                           int index, u8 owner, u64 timestamp)
->> > +                           int index, u8 owner, u64 timestamp,
->> > +                           int napi_mode)
->> >  {
->> >     struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
->> >     struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
->> > @@ -347,7 +348,11 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
->> >                     }
->> >             }
->> >     }
->> > -   dev_consume_skb_any(skb);
->> > +   if (unlikely(napi_mode < 0))
->> > +           dev_consume_skb_any(skb); /* none-NAPI via mlx4_en_stop_port */
->> > +   else
->> > +           napi_consume_skb(skb, napi_mode);
->> > +
->> >     return tx_info->nr_txbb;
->> >  }
->>
->> If '0' is the signal that napi_consume_skb() uses to detect the case where we
->> can't bulk, just pass that instead of having a special test here on yet another
->> special value "-1".
+>> Changes since 20160308:
 >
-> Cannot use '0' to signal this, because napi_consume_skb() invoke
-> dev_consume_skb_irq(), and here we need dev_consume_skb_any(), as
-> mlx4_en_stop_port() assume memory is released immediately.
+> on x86_64:
 >
-> I guess, we can (in napi_consume_skb) just replace the
-> dev_consume_skb_irq() with dev_consume_skb_any(), and then use '0' to
-> signal both situations?
->
->
->> If it makes any nicer, you can define a NAPI_BUDGET_FROM_NETPOLL macro
->> or similar.
->>
->> I also wonder if passing the budget around all the way down to
->> napi_consume_skb() is the cleanest thing to do, as we just want to
->> know if bulk freeing is possible or not.
->
-> Passing the budget down was Alex'es design.  Axel any thoughts?
+> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
+> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
+>    ip_tunnel_info_opts_get(to, info);
+>    ^
+> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
+> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
+>    ip_tunnel_info_opts_set(info, from, size);
+>    ^
+> Full randconfig file is attached.
 
-I'd say just use dev_consume_skb_any in the bulk free instead of
-dev_consume_skb_irq.  This is slow path, as you said, so it shouldn't
-come up often.
+Already fixed with net-next commit e28e87ed474c ("ip_tunnel, bpf:
+ip_tunnel_info_opts_{get, set} depends on CONFIG_INET").
 
-> Perhaps we can use another way to detect if bulk freeing is possible?
-> E.g. using test in_serving_softirq() ?
->
->    if (!in_serving_softirq())
->        dev_consume_skb_any(skb); /* cannot bulk free */
->
-> Or maybe in_softirq() is enough? (to also allows callers having bh disabled).
-
-I wasn't so much concerned about the check as us getting it mixed up.
-For example the Tx path has soft IRQ disabled if I recall correctly.
-Is this called from there?  At least with the "any" approach you can
-guarantee you don't leave stale buffers sitting in the lists until
-someone wakes up NAPI.
-
-> I do wonder how expensive this check is... as it goes into a code
-> hotpath, which is very unlikely.  The good thing would be, that we
-> handle if buggy drivers call this function from a none softirq context
-> (as these bugs could be hard to catch).
->
-> Can netpoll ever be called from softirq or with BH disabled? (It
-> disables IRQs, which would break calling kmem_cache_free_bulk).
-
-It is better for us to switch things out so that the napi_consume_skb
-is the fast path with dev_consume_skb_any as the slow.  There are too
-many scenarios where we could be invoking something that makes use of
-this within the Tx path so it is probably easiest to just solve it
-that way so we don't have to deal with it again in the future.
-
-- Alex
+Thanks,
+Daniel
