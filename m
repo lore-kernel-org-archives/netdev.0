@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next v2 1/7] dev: Add netif_get_l3_dev() helper
-Date: Wed,  9 Mar 2016 13:49:55 -0800
-Message-ID: <1457560195-12938-1-git-send-email-mahesh@bandewar.net>
+Subject: [PATCH next v2 6/7] xfrm: Use l3_dev for xfrm policy checks.
+Date: Wed,  9 Mar 2016 13:50:12 -0800
+Message-ID: <1457560212-13289-1-git-send-email-mahesh@bandewar.net>
 Cc: Mahesh Bandewar <maheshb@google.com>,
 	Eric Dumazet <edumazet@google.com>,
 	netdev <netdev@vger.kernel.org>, Tim Hockin <thockin@google.com>,
@@ -9,24 +9,20 @@ Cc: Mahesh Bandewar <maheshb@google.com>,
 	Matthew Dupre <matthew.dupre@metaswitch.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33552 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872AbcCIVt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:49:59 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 129so1837939pfw.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:49:59 -0800 (PST)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33622 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934194AbcCIVuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 16:50:15 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 129so1838279pfw.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 13:50:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-This patch adds a l3_dev to net_device struct and a helper
-function to retrieve it. During L3 ingress packet processing,
-this device will be used and should serve the current purpose
-of skb->dev. Since l3_dev is initialized to self; l3_dev should
-be pointing to skb->dev so the normal packet processing is
-neither altered nor should incur any additional cost (as it
-resides in the RX cache line).
+IPsec, whether it's tunnel mode or transport mode, is still a
+function of L3 so all the decisions should be based on the L3
+device.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 CC: Eric Dumazet <edumazet@google.com>
@@ -34,45 +30,44 @@ CC: Tim Hockin <thockin@google.com>
 CC: Alex Pollitt <alex.pollitt@metaswitch.com>
 CC: Matthew Dupre <matthew.dupre@metaswitch.com>
 ---
- include/linux/netdevice.h | 6 ++++++
- net/core/dev.c            | 1 +
- 2 files changed, 7 insertions(+)
+ include/net/xfrm.h     | 2 +-
+ net/xfrm/xfrm_policy.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e52077ffe5ed..1cf7e8d61043 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1738,6 +1738,7 @@ struct net_device {
- 	unsigned long		gro_flush_timeout;
- 	rx_handler_func_t __rcu	*rx_handler;
- 	void __rcu		*rx_handler_data;
-+	struct net_device	*l3_dev;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index d6f6e5006ee9..30f9a351c3b9 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1067,7 +1067,7 @@ static inline int __xfrm_policy_check2(struct sock *sk, int dir,
+ 				       struct sk_buff *skb,
+ 				       unsigned int family, int reverse)
+ {
+-	struct net *net = dev_net(skb->dev);
++	struct net *net = dev_net(netif_get_l3_dev(skb->dev));
+ 	int ndir = dir | (reverse ? XFRM_POLICY_MASK + 1 : 0);
  
- #ifdef CONFIG_NET_CLS_ACT
- 	struct tcf_proto __rcu  *ingress_cl_list;
-@@ -4085,6 +4086,11 @@ static inline void netif_keep_dst(struct net_device *dev)
- 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM);
- }
+ 	if (sk && sk->sk_policy[XFRM_POLICY_IN])
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b5e665b3cfb0..c5942744f2e3 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2462,7 +2462,7 @@ static inline int secpath_has_nontransport(const struct sec_path *sp, int k, int
+ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 			unsigned short family)
+ {
+-	struct net *net = dev_net(skb->dev);
++	struct net *net = dev_net(netif_get_l3_dev(skb->dev));
+ 	struct xfrm_policy *pol;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	int npols = 0;
+@@ -2620,7 +2620,7 @@ EXPORT_SYMBOL(__xfrm_policy_check);
  
-+static inline struct net_device *netif_get_l3_dev(struct net_device *dev)
-+{
-+	return dev->l3_dev;
-+}
-+
- extern struct pernet_operations __net_initdata loopback_net_ops;
- 
- /* Logging, debugging and troubleshooting/diagnostic helpers. */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index edb7179bc051..c4023a68cdc1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7463,6 +7463,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 	if (!dev->ethtool_ops)
- 		dev->ethtool_ops = &default_ethtool_ops;
- 
-+	dev->l3_dev = dev;
- 	nf_hook_ingress_init(dev);
- 
- 	return dev;
+ int __xfrm_route_forward(struct sk_buff *skb, unsigned short family)
+ {
+-	struct net *net = dev_net(skb->dev);
++	struct net *net = dev_net(netif_get_l3_dev(skb->dev));
+ 	struct flowi fl;
+ 	struct dst_entry *dst;
+ 	int res = 1;
 -- 
 2.7.0.rc3.207.g0ac5344
