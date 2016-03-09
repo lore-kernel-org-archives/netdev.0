@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 4/4] bpf: support flow label for bpf_skb_{set,get}_tunnel_key
-Date: Wed,  9 Mar 2016 03:00:05 +0100
-Message-ID: <a1d02a81fb4811648e278440ffe4fb6096f26c5c.1457488298.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 3/4] geneve: support setting IPv6 flow label
+Date: Wed,  9 Mar 2016 03:00:04 +0100
+Message-ID: <be638e46f291db03ca9f67ea54cfc4837cefc225.1457488298.git.daniel@iogearbox.net>
 References: <cover.1457488298.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45232 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:45226 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752044AbcCICAK (ORCPT
+	with ESMTP id S1751238AbcCICAK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 8 Mar 2016 21:00:10 -0500
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1457488298.git.daniel@iogearbox.net>
@@ -17,93 +17,185 @@ References: <cover.1457488298.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch extends bpf_tunnel_key with a tunnel_label member, that maps
-to ip_tunnel_key's label so underlying backends like vxlan and geneve
-can propagate the label to udp_tunnel6_xmit_skb(), where it's being set
-in the IPv6 header. It allows for having 20 more bits to encode/decode
-flow related meta information programmatically. Tested with vxlan and
-geneve.
+This work adds support for setting the IPv6 flow label for geneve per
+device and through collect metadata (ip_tunnel_key) frontends. Also here,
+the geneve dst cache does not need any special considerations, for the
+cases where caches can be used, the label is static per cache.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/uapi/linux/bpf.h |  1 +
- net/core/filter.c        | 14 ++++++++++++--
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/geneve.c         | 35 +++++++++++++++++++++++++++--------
+ include/uapi/linux/if_link.h |  1 +
+ 2 files changed, 28 insertions(+), 8 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 0e30b19..924f537 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -375,6 +375,7 @@ struct bpf_tunnel_key {
- 	};
- 	__u8 tunnel_tos;
- 	__u8 tunnel_ttl;
-+	__u32 tunnel_label;
- };
- 
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index a66dc03..6fc3893 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1770,12 +1770,15 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 		return -EPROTO;
- 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
- 		switch (size) {
-+		case offsetof(struct bpf_tunnel_key, tunnel_label):
-+			goto set_compat;
- 		case offsetof(struct bpf_tunnel_key, remote_ipv6[1]):
- 			/* Fixup deprecated structure layouts here, so we have
- 			 * a common path later on.
- 			 */
- 			if (ip_tunnel_info_af(info) != AF_INET)
- 				return -EINVAL;
-+set_compat:
- 			to = (struct bpf_tunnel_key *)compat;
- 			break;
- 		default:
-@@ -1787,11 +1790,13 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 	to->tunnel_tos = info->key.tos;
- 	to->tunnel_ttl = info->key.ttl;
- 
--	if (flags & BPF_F_TUNINFO_IPV6)
-+	if (flags & BPF_F_TUNINFO_IPV6) {
- 		memcpy(to->remote_ipv6, &info->key.u.ipv6.src,
- 		       sizeof(to->remote_ipv6));
--	else
-+		to->tunnel_label = be32_to_cpu(info->key.label);
-+	} else {
- 		to->remote_ipv4 = be32_to_cpu(info->key.u.ipv4.src);
-+	}
- 
- 	if (unlikely(size != sizeof(struct bpf_tunnel_key)))
- 		memcpy((void *)(long) r2, to, size);
-@@ -1850,6 +1855,7 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 		return -EINVAL;
- 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
- 		switch (size) {
-+		case offsetof(struct bpf_tunnel_key, tunnel_label):
- 		case offsetof(struct bpf_tunnel_key, remote_ipv6[1]):
- 			/* Fixup deprecated structure layouts here, so we have
- 			 * a common path later on.
-@@ -1862,6 +1868,8 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 			return -EINVAL;
- 		}
- 	}
-+	if (unlikely(!(flags & BPF_F_TUNINFO_IPV6) && from->tunnel_label))
-+		return -EINVAL;
- 
- 	skb_dst_drop(skb);
- 	dst_hold((struct dst_entry *) md);
-@@ -1882,6 +1890,8 @@ static u64 bpf_skb_set_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
- 		info->mode |= IP_TUNNEL_INFO_IPV6;
- 		memcpy(&info->key.u.ipv6.dst, from->remote_ipv6,
- 		       sizeof(from->remote_ipv6));
-+		info->key.label = cpu_to_be32(from->tunnel_label) &
-+				  IPV6_FLOWLABEL_MASK;
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 89ccff7..33185b9 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -68,6 +68,7 @@ struct geneve_dev {
+ 	u8                 tos;		/* TOS override */
+ 	union geneve_addr  remote;	/* IP address for link partner */
+ 	struct list_head   next;	/* geneve's per namespace list */
++	__be32		   label;	/* IPv6 flowlabel override */
+ 	__be16		   dst_port;
+ 	bool		   collect_md;
+ 	struct gro_cells   gro_cells;
+@@ -846,6 +847,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
+ 		fl6->daddr = info->key.u.ipv6.dst;
+ 		fl6->saddr = info->key.u.ipv6.src;
+ 		fl6->flowi6_tos = RT_TOS(info->key.tos);
++		fl6->flowlabel = info->key.label;
+ 		dst_cache = &info->dst_cache;
  	} else {
- 		info->key.u.ipv4.dst = cpu_to_be32(from->remote_ipv4);
- 		if (flags & BPF_F_ZERO_CSUM_TX)
+ 		prio = geneve->tos;
+@@ -857,6 +859,7 @@ static struct dst_entry *geneve_get_v6_dst(struct sk_buff *skb,
+ 		}
+ 
+ 		fl6->flowi6_tos = RT_TOS(prio);
++		fl6->flowlabel = geneve->label;
+ 		fl6->daddr = geneve->remote.sin6.sin6_addr;
+ 		dst_cache = &geneve->dst_cache;
+ 	}
+@@ -998,6 +1001,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 	struct flowi6 fl6;
+ 	__u8 prio, ttl;
+ 	__be16 sport;
++	__be32 label;
+ 	bool xnet = !net_eq(geneve->net, dev_net(geneve->dev));
+ 	u32 flags = geneve->flags;
+ 
+@@ -1041,6 +1045,7 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		prio = ip_tunnel_ecn_encap(key->tos, iip, skb);
+ 		ttl = key->ttl;
++		label = info->key.label;
+ 	} else {
+ 		err = geneve6_build_skb(dst, skb, 0, geneve->vni,
+ 					0, NULL, flags, xnet);
+@@ -1052,9 +1057,11 @@ static netdev_tx_t geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
+ 		if (!ttl && ipv6_addr_is_multicast(&fl6.daddr))
+ 			ttl = 1;
+ 		ttl = ttl ? : ip6_dst_hoplimit(dst);
++		label = geneve->label;
+ 	}
++
+ 	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
+-			     &fl6.saddr, &fl6.daddr, prio, ttl, 0,
++			     &fl6.saddr, &fl6.daddr, prio, ttl, label,
+ 			     sport, geneve->dst_port,
+ 			     !!(flags & GENEVE_F_UDP_ZERO_CSUM6_TX));
+ 	return NETDEV_TX_OK;
+@@ -1238,6 +1245,7 @@ static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
+ 	[IFLA_GENEVE_REMOTE6]		= { .len = sizeof(struct in6_addr) },
+ 	[IFLA_GENEVE_TTL]		= { .type = NLA_U8 },
+ 	[IFLA_GENEVE_TOS]		= { .type = NLA_U8 },
++	[IFLA_GENEVE_LABEL]		= { .type = NLA_U32 },
+ 	[IFLA_GENEVE_PORT]		= { .type = NLA_U16 },
+ 	[IFLA_GENEVE_COLLECT_METADATA]	= { .type = NLA_FLAG },
+ 	[IFLA_GENEVE_UDP_CSUM]		= { .type = NLA_U8 },
+@@ -1295,8 +1303,8 @@ static struct geneve_dev *geneve_find_dev(struct geneve_net *gn,
+ 
+ static int geneve_configure(struct net *net, struct net_device *dev,
+ 			    union geneve_addr *remote,
+-			    __u32 vni, __u8 ttl, __u8 tos, __be16 dst_port,
+-			    bool metadata, u32 flags)
++			    __u32 vni, __u8 ttl, __u8 tos, __be32 label,
++			    __be16 dst_port, bool metadata, u32 flags)
+ {
+ 	struct geneve_net *gn = net_generic(net, geneve_net_id);
+ 	struct geneve_dev *t, *geneve = netdev_priv(dev);
+@@ -1306,7 +1314,7 @@ static int geneve_configure(struct net *net, struct net_device *dev,
+ 	if (!remote)
+ 		return -EINVAL;
+ 	if (metadata &&
+-	    (remote->sa.sa_family != AF_UNSPEC || vni || tos || ttl))
++	    (remote->sa.sa_family != AF_UNSPEC || vni || tos || ttl || label))
+ 		return -EINVAL;
+ 
+ 	geneve->net = net;
+@@ -1321,10 +1329,14 @@ static int geneve_configure(struct net *net, struct net_device *dev,
+ 	    (remote->sa.sa_family == AF_INET6 &&
+ 	     ipv6_addr_is_multicast(&remote->sin6.sin6_addr)))
+ 		return -EINVAL;
++	if (label && remote->sa.sa_family != AF_INET6)
++		return -EINVAL;
++
+ 	geneve->remote = *remote;
+ 
+ 	geneve->ttl = ttl;
+ 	geneve->tos = tos;
++	geneve->label = label;
+ 	geneve->dst_port = dst_port;
+ 	geneve->collect_md = metadata;
+ 	geneve->flags = flags;
+@@ -1367,6 +1379,7 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 	__u8 ttl = 0, tos = 0;
+ 	bool metadata = false;
+ 	union geneve_addr remote = geneve_remote_unspec;
++	__be32 label = 0;
+ 	__u32 vni = 0;
+ 	u32 flags = 0;
+ 
+@@ -1403,6 +1416,10 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 	if (data[IFLA_GENEVE_TOS])
+ 		tos = nla_get_u8(data[IFLA_GENEVE_TOS]);
+ 
++	if (data[IFLA_GENEVE_LABEL])
++		label = nla_get_be32(data[IFLA_GENEVE_LABEL]) &
++			IPV6_FLOWLABEL_MASK;
++
+ 	if (data[IFLA_GENEVE_PORT])
+ 		dst_port = nla_get_be16(data[IFLA_GENEVE_PORT]);
+ 
+@@ -1421,8 +1438,8 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
+ 		flags |= GENEVE_F_UDP_ZERO_CSUM6_RX;
+ 
+-	return geneve_configure(net, dev, &remote, vni, ttl, tos, dst_port,
+-				metadata, flags);
++	return geneve_configure(net, dev, &remote, vni, ttl, tos, label,
++				dst_port, metadata, flags);
+ }
+ 
+ static void geneve_dellink(struct net_device *dev, struct list_head *head)
+@@ -1439,6 +1456,7 @@ static size_t geneve_get_size(const struct net_device *dev)
+ 		nla_total_size(sizeof(struct in6_addr)) + /* IFLA_GENEVE_REMOTE{6} */
+ 		nla_total_size(sizeof(__u8)) +  /* IFLA_GENEVE_TTL */
+ 		nla_total_size(sizeof(__u8)) +  /* IFLA_GENEVE_TOS */
++		nla_total_size(sizeof(__be32)) +  /* IFLA_GENEVE_LABEL */
+ 		nla_total_size(sizeof(__be16)) +  /* IFLA_GENEVE_PORT */
+ 		nla_total_size(0) +	 /* IFLA_GENEVE_COLLECT_METADATA */
+ 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_CSUM */
+@@ -1469,7 +1487,8 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	}
+ 
+ 	if (nla_put_u8(skb, IFLA_GENEVE_TTL, geneve->ttl) ||
+-	    nla_put_u8(skb, IFLA_GENEVE_TOS, geneve->tos))
++	    nla_put_u8(skb, IFLA_GENEVE_TOS, geneve->tos) ||
++	    nla_put_be32(skb, IFLA_GENEVE_LABEL, geneve->label))
+ 		goto nla_put_failure;
+ 
+ 	if (nla_put_be16(skb, IFLA_GENEVE_PORT, geneve->dst_port))
+@@ -1521,7 +1540,7 @@ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 		return dev;
+ 
+ 	err = geneve_configure(net, dev, &geneve_remote_unspec,
+-			       0, 0, 0, htons(dst_port), true,
++			       0, 0, 0, 0, htons(dst_port), true,
+ 			       GENEVE_F_UDP_ZERO_CSUM6_RX);
+ 	if (err)
+ 		goto err;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 6bebc97..249eef9 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -479,6 +479,7 @@ enum {
+ 	IFLA_GENEVE_UDP_CSUM,
+ 	IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
+ 	IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
++	IFLA_GENEVE_LABEL,
+ 	__IFLA_GENEVE_MAX
+ };
+ #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
 -- 
 1.9.3
