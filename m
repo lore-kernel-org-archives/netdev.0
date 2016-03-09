@@ -1,33 +1,33 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [RFC 5/7] wlcore: avoid fragile snprintf use
-Date: Wed, 09 Mar 2016 13:49:12 +0200
-Message-ID: <8760wvswg7.fsf@kamboji.qca.qualcomm.com>
-References: <CAGXu5jJ-NApCpANjfz+bAEfwZJ8xizkM-jDHVhOPCzhxV-aqdA@mail.gmail.com>
-	<1457469654-17059-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1457469654-17059-6-git-send-email-linux@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook@chromium.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457469654-17059-6-git-send-email-linux@rasmusvillemoes.dk>
-	(Rasmus Villemoes's message of "Tue, 8 Mar 2016 21:40:52 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH iproute2 v2 0/1] tc ife action
+Date: Wed,  9 Mar 2016 07:04:35 -0500
+Message-ID: <1457525076-6923-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, phil@nwl.cc,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: shemming@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:32977 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932340AbcCIMEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 07:04:47 -0500
+Received: by mail-io0-f170.google.com with SMTP id n190so63014643iof.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 04:04:46 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rasmus Villemoes <linux@rasmusvillemoes.dk> writes:
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> Appending to a buffer like this is not guaranteed to work (passing
-> overlapping src and dst buffers to snprintf is undefined
-> behaviour). The standard and safe idiom is to keep track of the
-> current string length.
->
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 
-Should I take this or what's the plan?
+v2 changes:
+Incorporate help guide and other suggestions from Phil Sutter
+
+Jamal Hadi Salim (1):
+  tc: introduce IFE action
+
+ tc/Makefile |   1 +
+ tc/m_ife.c  | 340 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 341 insertions(+)
+ create mode 100644 tc/m_ife.c
 
 -- 
-Kalle Valo
+1.9.1
