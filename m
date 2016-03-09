@@ -1,41 +1,36 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
-Date: Wed, 09 Mar 2016 17:48:19 +0100
-Message-ID: <56E053D3.7090009@iogearbox.net>
-References: <20160309163852.4dd159b1@canb.auug.org.au> <56E052E4.90504@infradead.org>
+From: Hau <hau@realtek.com>
+Subject: RE: [PATCH net] r8169:Remove unnecessary phy reset for pcie nic when setting link spped.
+Date: Wed, 9 Mar 2016 16:48:41 +0000
+Message-ID: <80377ECBC5453840BA8C7155328B53770137C08D@RTITMBSV03.realtek.com.tw>
+References: <1457427065-3699-1-git-send-email-hau@realtek.com>
+ <20160308234855.GA6182@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E052E4.90504@infradead.org>
+In-Reply-To: <20160308234855.GA6182@electric-eye.fr.zoreil.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/09/2016 05:44 PM, Randy Dunlap wrote:
-> On 03/08/16 21:38, Stephen Rothwell wrote:
->> Hi all,
->>
->> Changes since 20160308:
->
-> on x86_64:
->
-> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
-> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
->    ip_tunnel_info_opts_get(to, info);
->    ^
-> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
-> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
->    ip_tunnel_info_opts_set(info, from, size);
->    ^
-> Full randconfig file is attached.
+[...] 
+> Can you clarify:
+> - actually this patch does not care about the link at all. So when there's
+>   link no phy reset is needed either, right ?
+> - does "this" in "to do this" means that
+>   1. phy reset prevents phy from auto speed down
+>   2. avoiding phy reset prevents phy from auto speed down
+>   I would expect 1. from the rtl_wol_pll_power_down + rtl_speed_down +
+>   rtl8169_set_speed combo (i.e. we want the driver to allow auto speed
+> down)
+>   but it's a bit ambiguous.
 
-Already fixed with net-next commit e28e87ed474c ("ip_tunnel, bpf:
-ip_tunnel_info_opts_{get, set} depends on CONFIG_INET").
+Unless pcie nic has bug, pcie nic does not need to reset phy to let phy link on.
 
-Thanks,
-Daniel
+There is a counter for phy speed down. If phy is in link down state, this counter will start to count down. When it count to 0, phy will speed down. Reset phy will reset this counter and prevent phy from speed down.
+
+ ------Please consider the environment before printing this e-mail.
