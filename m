@@ -1,156 +1,66 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [RFC PATCH net-next 1/2] net: bridge: add switchdev attr for port bridging
-Date: Wed, 09 Mar 2016 17:58:22 -0500
-Message-ID: <87k2lbb6nl.fsf@ketchup.mtl.sfl>
-References: <1457545368-20647-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1457545368-20647-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20160309214214.GA4865@colbert.idosch.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, nikolay@cumulusnetworks.com,
-	Elad Raz <eladr@mellanox.com>
-To: Ido Schimmel <idosch@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:43052 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752167AbcCIW60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 17:58:26 -0500
-In-Reply-To: <20160309214214.GA4865@colbert.idosch.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH nf-next v9 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Wed,  9 Mar 2016 15:10:17 -0800
+Message-ID: <1457565024-27300-1-git-send-email-jarno@ovn.org>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ido,
+Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+not make sense.  This allows the definition of IP_CT_NUMBER to be
+simplified as well.
 
-Ido Schimmel <idosch@mellanox.com> writes:
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+ net/openvswitch/conntrack.c                        |  2 --
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-> Wed, Mar 09, 2016 at 07:42:47PM IST, vivien.didelot@savoirfairelinux.com wrote:
->>Add a new SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF switchdev attribute which is
->>set before adding a port to a bridge and deleting a port from a bridge.
->>
->>The main purpose for this attribute is to provide switchdev users a
->>simple and common way to retrieve bridging information, instead of
->>implementing complex notifier blocks to listen to global netdev events.
->>
->>We can also imagine a switchdev user returning an error different from
->>-EOPNOTSUPP in the prepare phase to prevent a port from being bridged.
->
-> I don't really understand the motivation for this change. We are already
-> doing all these stuff with the notifiers and it's pretty
-> straight-forward.
->
-> In fact, I believe using an existing mechanism instead of introducing
-> more switchdev hooks is more elegant. This RFC only deals with bridge,
-> but you'll have to do the same for team, bond and vlan devices. And
-> you'll probably place the hooks in the exact locations where the
-> notifiers are called from anyway.
->
->>
->>Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->>---
->> include/net/switchdev.h |  2 ++
->> net/bridge/br_if.c      | 27 +++++++++++++++++++++++++++
->> 2 files changed, 29 insertions(+)
->>
->>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->>index d451122..65f8514 100644
->>--- a/include/net/switchdev.h
->>+++ b/include/net/switchdev.h
->>@@ -46,6 +46,7 @@ enum switchdev_attr_id {
->> 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
->> 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
->> 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
->>+	SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
->> 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
->> 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
->> };
->>@@ -58,6 +59,7 @@ struct switchdev_attr {
->> 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
->> 		u8 stp_state;				/* PORT_STP_STATE */
->> 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
->>+		bool join;				/* PORT_BRIDGE_IF */
->> 		u32 ageing_time;			/* BRIDGE_AGEING_TIME */
->> 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
->> 	} u;
->>diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->>index a73df33..105b9fd 100644
->>--- a/net/bridge/br_if.c
->>+++ b/net/bridge/br_if.c
->>@@ -28,6 +28,24 @@
->> 
->> #include "br_private.h"
->> 
->>+static int switchdev_bridge_if(struct net_device *dev, struct net_bridge *br,
->>+			       bool join)
->>+{
->>+	struct switchdev_attr attr = {
->>+		.orig_dev = br->dev,
->
-> This should be just 'dev', since you need to know for which stacked
-> device on top of the port this was called for. This also means you'll
-> have to call netdev_master_upper_dev_get() from within your driver if
-> you want to limit the number of VLAN filtering bridges (for example).
-> However, since this is called before bridge dev and dev itself are
-> linked, you'll get NULL.
->
->>+		.id = SWITCHDEV_ATTR_ID_PORT_BRIDGE_IF,
->>+		.flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
->>+		.u.join = join,
->>+	};
->>+	int err;
->>+
->>+	err = switchdev_port_attr_set(dev, &attr);
->>+	if (err && err != -EOPNOTSUPP)
->>+		return err;
->>+
->>+	return 0;
->>+}
->>+
->> /*
->>  * Determine initial path cost based on speed.
->>  * using recommendations from 802.1d standard
->>@@ -297,6 +315,10 @@ static void del_nbp(struct net_bridge_port *p)
->> 	br_netpoll_disable(p);
->> 
->> 	call_rcu(&p->rcu, destroy_nbp_rcu);
->>+
->>+	if (switchdev_bridge_if(dev, br, false))
->>+		br_warn(br, "error unbridging port %u(%s)\n",
->>+			(unsigned int) p->port_no, dev->name);
->> }
->> 
->> /* Delete bridge device */
->>@@ -347,6 +369,11 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
->> {
->> 	int index;
->> 	struct net_bridge_port *p;
->>+	int err;
->>+
->>+	err = switchdev_bridge_if(dev, br, true);
->
-> If you look at br_add_if() - where new_nbp() is called from - then
-> you'll see that you aren't rollbacking this operation in case of error.
-> Same for subsequent errors in this function I believe.
->
->>+	if (err)
->>+		return ERR_PTR(err);
->> 
->> 	index = find_portno(br);
->> 	if (index < 0)
->>-- 
->>2.7.2
->>
->
-> Maybe this is something we'll have to do in the future, but for now I
-> think we are OK with the notifiers. :)
->
-> Thanks Vivien!
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 319f471..6d074d1 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -20,9 +20,15 @@ enum ip_conntrack_info {
+ 
+ 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+ 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+-	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+-	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+-	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
++	/* No NEW in reply direction. */
++
++	/* Number of distinct IP_CT types. */
++	IP_CT_NUMBER,
++
++	/* only for userspace compatibility */
++#ifndef __KERNEL__
++	IP_CT_NEW_REPLY = IP_CT_NUMBER,
++#endif
+ };
+ 
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index ee6ff8f..3045290 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 	switch (ctinfo) {
+ 	case IP_CT_ESTABLISHED_REPLY:
+ 	case IP_CT_RELATED_REPLY:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_REPLY_DIR;
+ 		break;
+ 	default:
+@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 		ct_state |= OVS_CS_F_RELATED;
+ 		break;
+ 	case IP_CT_NEW:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_NEW;
+ 		break;
+ 	default:
+-- 
+2.1.4
 
-I didn't have the big picture for team, bond and vlan devices as well.
-
-I can drop this RFC then. Thanks for the details!
-
-    Vivien
