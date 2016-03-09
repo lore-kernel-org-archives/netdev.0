@@ -1,50 +1,91 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/4] vxlan: support setting IPv6 flow label
-Date: Wed, 09 Mar 2016 11:53:29 +0100
-Message-ID: <56E000A9.9060001@iogearbox.net>
-References: <cover.1457488298.git.daniel@iogearbox.net>	<7775042611e823098fd14d2929fb6b12cc0b3f98.1457488298.git.daniel@iogearbox.net> <CALx6S37cKnQwMhjjJBodgNbLb7OQ7qzp76Ubr7BVd11SPznGuA@mail.gmail.com>
+From: Tomeu Vizoso <tomeu@tomeuvizoso.net>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Wed, 9 Mar 2016 11:53:29 +0100
+Message-ID: <CAAObsKBUzBXcamEyup44N1bYUzGr_ZZTsYcD5x3PXb-2E00cGA@mail.gmail.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
+ <56DD7172.4000707@suse.de> <2714888.1DdqvJZ8cb@diego> <56DD7593.5060003@suse.de>
+ <56DD8176.2080603@st.com> <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com>
+ <56DDA26C.3050301@suse.de> <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de>
+ <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
+ <56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
+ <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>
+ <56DFE55B.2090806@st.com> <56DFE64B.8060606@st.com> <CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com>
+ <56DFF253.9050208@st.com> <56DFFA9E.7060602@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Fabrice GASNIER <fabrice.gasnier@st.com>,
+	Dinh Nguyen <dinh.linux@gmail.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	netdev@vger.kernel.org,
+	"open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
+	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	Alexandre TORGUE <alexandre.torgue@st.com>,
+	=?UTF-8?Q?Frank_Sch=C3=A4fer?= <fschaefer.oss@googlemail.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49151 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642AbcCIKxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:53:34 -0500
-In-Reply-To: <CALx6S37cKnQwMhjjJBodgNbLb7OQ7qzp76Ubr7BVd11SPznGuA@mail.gmail.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37516 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752283AbcCIKxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 05:53:52 -0500
+Received: by mail-wm0-f44.google.com with SMTP id p65so65232109wmp.0
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 02:53:51 -0800 (PST)
+In-Reply-To: <56DFFA9E.7060602@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/09/2016 04:29 AM, Tom Herbert wrote:
-[...]
->> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> index d452cea..6bebc97 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -456,6 +456,7 @@ enum {
->>          IFLA_VXLAN_GBP,
->>          IFLA_VXLAN_REMCSUM_NOPARTIAL,
->>          IFLA_VXLAN_COLLECT_METADATA,
->> +       IFLA_VXLAN_LABEL,
+On 9 March 2016 at 11:27, Giuseppe CAVALLARO <peppe.cavallaro@st.com> wrote:
+> Hello Tomeu, Andreas,
 >
-> Should this interface align with ip_gre that uses IFLA_GRE_FLOWINFO to
-> set both traffic class and flow label in one shot?
+> On 3/9/2016 10:52 AM, Giuseppe CAVALLARO wrote:
+>>>
+>>> * today's linux-next: probe failed
+>>>
+>>> * today's linux-next + revert of 88f8b1bb41c6 stmmac: Fix 'eth0: No
+>>> PHY found' regression: probe succeeded but no network at all
+>>>
+>>> * today's linux-next + revert of 88f8b1bb41c6 (stmmac: Fix 'eth0: No
+>>> PHY found' regression) + revert of 0e80bdc9a72d (stmmac: first frame
+>>> prep at the end of xmit routine): probe succeeded, dhcp succeeds and
+>>> nfsroot works for a few seconds before timing out
+>>
+>>
+>> ok, I was looking at this problem now that seems to related
+>> the "stmmac: first frame prep at the end of xmit routine"
+>> that, at first glance, is breaking the gmac 3.50 with normal descriptor.
+>
+>
+> I have no Hw where to test this use case. So, I wonder if may I ask you to
+> test some patch.
+>
+> This first patch adds a missing barrier to the normal routine that inits the
+> descriptor. Barrier was needed to well manage the OWN
+> descriptor and it was not added in case of normal desc case after
+> the xmit rework.
+>
+> Then I will check the algo behind the new xmit and in case of problems,
+> if you agree, we will decide to revert it because it aimed to add an
+> optimization.
+>
+> Let me know if you agree.
 
-For vxlan and geneve by the way, there's already IFLA_VXLAN_TOS and
-IFLA_GENEVE_TOS attribute that configure the tos for IPv4 or traffic
-class for IPv6 case on the device, and have special handling in the
-xmit path that they can inherit the tos/tc when configured as such on
-the device in non collect metadata case. Seems like grev6 is handled
-differently and also still without tunnel key support, if I see this
-correctly. Agree with you that some more consolidation would be nice.
+I'm not sure what you would like to be tested, but just in case, I
+have just tried your patch on top of these commits and the result is
+the "transmit queue 0 timed out" error during boot:
 
->>          __IFLA_VXLAN_MAX
->>   };
->>   #define IFLA_VXLAN_MAX (__IFLA_VXLAN_MAX - 1)
->> --
->> 1.9.3
+6542b30d0a67 Revert "stmmac: first frame prep at the end of xmit routine"
+eb5274cbc0f7 Revert "stmmac: do not poll phy handler when attach a switch"
+e88e625a68d9 Revert "stmmac: fix phy init when attached to a phy"
+ef5dd3777876 stmmac: fix MDIO settings
+77634ba1f25c Revert "stmmac: Fix 'eth0: No PHY found' regression"
+7811b4ffc312 Add linux-next specific files for 20160309
+
+Regards,
+
+Tomeu
+
+> Regards
+> Peppe
