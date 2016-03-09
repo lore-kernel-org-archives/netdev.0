@@ -1,98 +1,67 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver
- code)
-Date: Wed, 9 Mar 2016 12:25:52 +0100
-Message-ID: <20160309112552.GA2300@nanopsycho.orion>
+From: oulijun <oulijun@huawei.com>
+Subject: Re: [PATCH 4/4] infiniband: hns: add Hisilicon RoCE support(Kconfig)
+Date: Wed, 9 Mar 2016 19:23:41 +0800
+Message-ID: <56E007BD.5060902@huawei.com>
 References: <1457080877-13456-1-git-send-email-xavier.huwei@huawei.com>
- <1457080877-13456-4-git-send-email-xavier.huwei@huawei.com>
- <20160304091628.GB2150@nanopsycho.orion>
- <56E0066E.1000106@huawei.com>
+ <1457080877-13456-5-git-send-email-xavier.huwei@huawei.com>
+ <20160306142908.GF13396@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56E0066E.1000106-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: "Wei Hu(Xavier)" <xavier.huwei@huawei.com>, <dledford@redhat.com>,
+	<sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
+	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+	<jiri@mellanox.com>, <ogerlitz@mellanox.com>,
+	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <lisheng011@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160306142908.GF13396@leon.nu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wed, Mar 09, 2016 at 12:18:06PM CET, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org wrote:
->Hi Jiri Pirko, thanks for reviewing
->On 2016/3/4 17:16, Jiri Pirko wrote:
->> Fri, Mar 04, 2016 at 09:41:16AM CET, xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org wrote:
->> 
->> <snip>
->> 
->>> +int hns_roce_buf_alloc(
->>> +			struct hns_roce_dev *hr_dev,
->>> +			int size, int max_direct,
->>> +			struct hns_roce_buf *buf)
->> 
->> <snip>	
->> 	
->>> +
->>> +			pages =
->>> +				kmalloc(sizeof(*pages) * buf->nbufs,
->>> +					GFP_KERNEL);
->> 
->> <snip>
->> 
->>> +
->>> +			buf->direct.buf = vmap(
->>> +						pages, buf->nbufs, VM_MAP,
->>> +						PAGE_KERNEL);
->> 
->> <snip>
->> 
->>> +	if (
->>> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_ID_INVALID &&
->>> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_ACCESS_ERROR &&
->>> +		event_type != HNS_ROCE_EVENT_TYPE_CQ_OVERFLOW) {
->>> +		dev_err(&hr_dev->pdev->dev,
->>> +			"hns_roce_ib: Unexpected event type 0x%x on CQ %06x\n",
->>> +			event_type, hr_cq->cqn);
->>> +		return;
->>> +	}
->> 
->> Although checkpatch does not complain, I find this semi-random adding of
->> newlines quite odd.
->> 
->    Really, the question you mentioned exit in many location in currently patch. I done it
->in order to make it complain checkpatch and linux norms. Now, I have checked and adjust it
->properly combined to checkpatch
->    I will send a new patch in future. if not modified in some locations, it have to violate
->checkpatch once modified and is unable to adjust it better. About these,  have you best strategy?
+Hi dledford, thanks your reviewing
 
-I'm not sure what violation you are talking about. I'm just simply
-suggesting to change:
-			buf->direct.buf = vmap(
-						pages, buf->nbufs, VM_MAP,
-						PAGE_KERNEL);
-to:
-			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP,
-					       PAGE_KERNEL);
+On 2016/3/6 22:29, Leon Romanovsky wrote:
+> On Fri, Mar 04, 2016 at 04:41:17PM +0800, Wei Hu(Xavier) wrote:
+>> This submit add Kconfig.
+> 
+> It needs be part of previous patch.
+We were discussed your review. We will accept it in new patchset.
+It will be send soon.
 
-
-and to change:
-			pages =
-				kmalloc(sizeof(*pages) * buf->nbufs,
-					GFP_KERNEL);
-to:
-			pages = kmalloc(sizeof(*pages) * buf->nbufs,
-					GFP_KERNEL);
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks
+Lijun Ou
+> 
+>>
+>> Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
+>> Signed-off-by: oulijun <oulijun@huawei.com>
+> 
+> ................^^^^^^^...... -- Is this first name or second name?
+> 
+>> ---
+>>  drivers/infiniband/Kconfig | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+>> index 8a8440c..c7a24bb 100644
+>> --- a/drivers/infiniband/Kconfig
+>> +++ b/drivers/infiniband/Kconfig
+>> @@ -73,7 +73,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+>>  source "drivers/infiniband/hw/nes/Kconfig"
+>>  source "drivers/infiniband/hw/ocrdma/Kconfig"
+>>  source "drivers/infiniband/hw/usnic/Kconfig"
+>> -
+>> +source "drivers/infiniband/hw/hisilicon/hns/Kconfig"
+>>  source "drivers/infiniband/ulp/ipoib/Kconfig"
+>>  
+>>  source "drivers/infiniband/ulp/srp/Kconfig"
+>> -- 
+>> 1.9.1
+>>
+> 
+> .
+> 
