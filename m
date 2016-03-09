@@ -1,50 +1,82 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Wed, 09 Mar 2016 12:19:28 -0500 (EST)
-Message-ID: <20160309.121928.103638956202937455.davem@davemloft.net>
-References: <1457281392.2663.5.camel@edumazet-ThinkPad-T530>
-	<20160306170641.GA8820@uranus.lan>
-	<20160309163919.GJ2207@uranus.lan>
+Subject: Re: linux-next: Tree for Mar 9 (net: bpf)
+Date: Wed, 09 Mar 2016 12:20:18 -0500 (EST)
+Message-ID: <20160309.122018.2278830951828937177.davem@davemloft.net>
+References: <20160309163852.4dd159b1@canb.auug.org.au>
+	<56E052E4.90504@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
-	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
-	vdavydov@virtuozzo.com, khorenko@virtuozzo.com
-To: gorcunov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59804 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933571AbcCIRTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 12:19:31 -0500
-In-Reply-To: <20160309163919.GJ2207@uranus.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: rdunlap@infradead.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <56E052E4.90504@infradead.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Wed, 9 Mar 2016 19:39:19 +0300
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Wed, 9 Mar 2016 08:44:20 -0800
 
->    9.21%  [kernel]                    [k] nf_ct_iterate_cleanup
- ...
->  Release
->  -------
->   24.26%  [kernel]                    [k] _raw_spin_lock
->   17.55%  [kernel]                    [k] preempt_count_add
->   14.81%  [kernel]                    [k] __local_bh_enable_ip
->   14.17%  [kernel]                    [k] preempt_count_sub
->   10.10%  [kernel]                    [k] nf_ct_iterate_cleanup
- ...
-> The main problem still I think is that we allow to request
-> as many inet addresses as there is enough free memory and
-> of course kernel can't handle all in O(1) time, all resources
-> must be released so there always be some lagging moment. Thus
-> maybe introducing limits would be a good idea for sysadmins.
+> on x86_64:
+> 
+> ../net/core/filter.c: In function 'bpf_skb_get_tunnel_opt':
+> ../net/core/filter.c:1824:2: error: implicit declaration of function 'ip_tunnel_info_opts_get' [-Werror=implicit-function-declaration]
+>   ip_tunnel_info_opts_get(to, info);
+>   ^
+> ../net/core/filter.c: In function 'bpf_skb_set_tunnel_opt':
+> ../net/core/filter.c:1918:2: error: implicit declaration of function 'ip_tunnel_info_opts_set' [-Werror=implicit-function-declaration]
+>   ip_tunnel_info_opts_set(info, from, size);
+>   ^
+Should have been fixed last night by:
 
-Primary problem seems to be netfilter conntrack.
+====================
+>From e28e87ed474c5a0b378c66fb85efc8e487f4f63f Mon Sep 17 00:00:00 2001
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Tue, 8 Mar 2016 23:36:03 +0100
+Subject: [PATCH 1/4] ip_tunnel, bpf: ip_tunnel_info_opts_{get, set} depends on
+ CONFIG_INET
 
-It's at least 10 times more expensive than any of the other
-operations and probably is where all of the lock banging is
-coming from.
+Helpers like ip_tunnel_info_opts_{get,set}() are only available if
+CONFIG_INET is set, thus add an empty definition into the header for
+the !CONFIG_INET case, where already other empty inline helpers are
+defined.
 
-I'm not adding a limit when there is so much low hanging fruit
-remaining, no way.
+This avoids ifdef kludge inside filter.c, but also vxlan and geneve
+themself where this facility can only be used with, depend on INET
+being set. For the !INET case TUNNEL_OPTIONS_PRESENT would never be
+set in flags.
+
+Fixes: 14ca0751c96f ("bpf: support for access to tunnel options")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip_tunnels.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index e1395d7..0acd80f 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -369,6 +369,17 @@ static inline void ip_tunnel_unneed_metadata(void)
+ {
+ }
+ 
++static inline void ip_tunnel_info_opts_get(void *to,
++					   const struct ip_tunnel_info *info)
++{
++}
++
++static inline void ip_tunnel_info_opts_set(struct ip_tunnel_info *info,
++					   const void *from, int len)
++{
++	info->options_len = 0;
++}
++
+ #endif /* CONFIG_INET */
+ 
+ #endif /* __NET_IP_TUNNELS_H */
+-- 
+2.4.1
