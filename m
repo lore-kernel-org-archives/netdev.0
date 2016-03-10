@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/5] vti: Add pmtu handling to vti_xmit.
-Date: Thu, 10 Mar 2016 11:24:25 +0100
-Message-ID: <1457605469-17332-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 5/5] vti: Fix recource leeks on pmtu discovery
+Date: Thu, 10 Mar 2016 11:24:29 +0100
+Message-ID: <1457605469-17332-6-git-send-email-steffen.klassert@secunet.com>
 References: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,56 +10,39 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36664 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36665 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935304AbcCJKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S935309AbcCJKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 10 Mar 2016 05:54:15 -0500
 In-Reply-To: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently rely on the PMTU discovery of xfrm.
-However if a packet is localy sent, the PMTU mechanism
-of xfrm tries to to local socket notification what
-might not work for applications like ping that don't
-check for this. So add pmtu handling to vti_xmit to
-report MTU changes immediately.
+A recent patch introduced pmtu handling directly in the
+vti transmit routine. Unfortunately we now return without
+releasing the dst_entry and freeing the sk_buff. This patch
+fixes the issue.
 
+Fixes: 325b71fe0f57 ("vti: Add pmtu handling to vti_xmit.")
+Reported-by: Mark McKinstry <Mark.McKinstry@alliedtelesis.co.nz>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ip_vti.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ net/ipv4/ip_vti.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 5cf10b7..6862305 100644
+index 6862305..2ea2b6e 100644
 --- a/net/ipv4/ip_vti.c
 +++ b/net/ipv4/ip_vti.c
-@@ -156,6 +156,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;	/* Device to other host */
- 	int err;
-+	int mtu;
+@@ -206,7 +206,8 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		else
+ 			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
  
- 	if (!dst) {
- 		dev->stats.tx_carrier_errors++;
-@@ -196,6 +197,18 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 	skb_dst_set(skb, dst);
- 	skb->dev = skb_dst(skb)->dev;
+-		return -EMSGSIZE;
++		dst_release(dst);
++		goto tx_error;
+ 	}
  
-+	mtu = dst_mtu(dst);
-+	if (!skb->ignore_df && skb->len > mtu) {
-+		skb_dst(skb)->ops->update_pmtu(dst, NULL, skb, mtu);
-+		if (skb->protocol == htons(ETH_P_IP))
-+			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-+				  htonl(mtu));
-+		else
-+			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-+
-+		return -EMSGSIZE;
-+	}
-+
  	err = dst_output(tunnel->net, skb->sk, skb);
- 	if (net_xmit_eval(err) == 0)
- 		err = skb->len;
 -- 
 1.9.1
