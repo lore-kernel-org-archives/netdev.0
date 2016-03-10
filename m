@@ -1,49 +1,63 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH nf-next v9 8/8] openvswitch: Interface with
-	NAT.
-Date: Thu, 10 Mar 2016 13:00:21 +0100
-Message-ID: <20160310120021.GA26693@pox.localdomain>
-References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
- <1457565024-27300-8-git-send-email-jarno@ovn.org>
- <CAPWQB7GkhrfZaaT-LkTP7Esfj4tzU=Fgto2ZaSq4YkurhOf8bw@mail.gmail.com>
+From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Subject: Re: [patch net 1/2] net: hns: fix return value of the function about
+ rss
+Date: Thu, 10 Mar 2016 20:04:18 +0800
+Message-ID: <56E162C2.6070709@huawei.com>
+References: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
+ <1457576189-22924-2-git-send-email-yankejian@huawei.com>
+ <1457597509.1347.49.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7GkhrfZaaT-LkTP7Esfj4tzU=Fgto2ZaSq4YkurhOf8bw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ivecera@redhat.com, andrew@lunn.ch, salil.mehta@huawei.com,
+ liguozhu@huawei.com, haifeng.wei@huawei.com, arnd@arndb.de,
+ lisheng011@huawei.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linuxarm@huawei.com, chenny.xu@huawei.com, huangdaode@hisilicon.com,
+ fengguang.wu@intel.com, yisen.zhuang@huawei.com,
+ linux-arm-kernel@lists.infradead.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>, <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1457597509.1347.49.camel@linux.intel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDMvMDkvMTYgYXQgMDc6NDdwbSwgSm9lIFN0cmluZ2VyIHdyb3RlOgo+IE9uIDkgTWFyY2gg
-MjAxNiBhdCAxNToxMCwgSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPiB3cm90ZToKPiA+
-IEV4dGVuZCBPVlMgY29ubnRyYWNrIGludGVyZmFjZSB0byBjb3ZlciBOQVQuICBOZXcgbmVzdGVk
-Cj4gPiBPVlNfQ1RfQVRUUl9OQVQgYXR0cmlidXRlIG1heSBiZSB1c2VkIHRvIGluY2x1ZGUgTkFU
-IHdpdGggYSBDVCBhY3Rpb24uCj4gPiBBIGJhcmUgT1ZTX0NUX0FUVFJfTkFUIG9ubHkgbWFuZ2xl
-cyBleGlzdGluZyBhbmQgZXhwZWN0ZWQgY29ubmVjdGlvbnMuCj4gPiBJZiBPVlNfTkFUX0FUVFJf
-U1JDIG9yIE9WU19OQVRfQVRUUl9EU1QgaXMgaW5jbHVkZWQgd2l0aGluIHRoZSBuZXN0ZWQKPiA+
-IGF0dHJpYnV0ZXMsIG5ldyAobm9uLWNvbW1pdHRlZC9ub24tY29uZmlybWVkKSBjb25uZWN0aW9u
-cyBhcmUgbWFuZ2xlZAo+ID4gYWNjb3JkaW5nIHRvIHRoZSByZXN0IG9mIHRoZSBuZXN0ZWQgYXR0
-cmlidXRlcy4KPiA+Cj4gPiBUaGUgY29ycmVzcG9uZGluZyBPVlMgdXNlcnNwYWNlIHBhdGNoIHNl
-cmllcyBpbmNsdWRlcyB0ZXN0IGNhc2VzIChpbgo+ID4gdGVzdHMvc3lzdGVtLXRyYWZmaWMuYXQp
-IHRoYXQgYWxzbyBzZXJ2ZSBhcyBleGFtcGxlIHVzZXMuCj4gPgo+ID4gVGhpcyB3b3JrIGV4dGVu
-ZHMgb24gYSBicmFuY2ggYnkgVGhvbWFzIEdyYWYgYXQKPiA+IGh0dHBzOi8vZ2l0aHViLmNvbS90
-Z3JhZi9vdnMvdHJlZS9uYXQuCj4gCj4gVGhvbWFzLCBJIGd1ZXNzIHRoZXJlIHdhcyBub3Qgc2ln
-bm9mZiBpbiB0aGVzZSBwYXRjaGVzIHNvIEphcm5vIGRvZXMKPiBub3QgaGF2ZSB5b3VyIHNpZ25v
-ZmYgaW4gdGhpcyBwYXRjaC4KClRoYXQncyBmaW5lLiBUaGUgY29kZSBoYXMgZXZvbHZlZCBhIGxv
-dCBzaW5jZS4gSSBkb24ndCBzZWUgYW55dGhpbmcKZnVydGhlciB0aGFuIHdoYXQgSm9lIHNwb3R0
-ZWQgc28gZmVlbCBmcmVlIHRvIGFkZCBteQoKQWNrZWQtYnk6IFRob21hcyBHcmFmIDx0Z3JhZkBz
-dXVnLmNoPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+
+
+On 2016/3/10 16:11, Andy Shevchenko wrote:
+> On Thu, 2016-03-10 at 10:16 +0800, Kejian Yan wrote:
+>> Both .get_rxfh and .get_rxfh are always return 0, it should return
+>> result
+>> from hardware when getting or setting rss. And the rss function
+>> should
+>> return the correct data type.
+>>
+> @@ -1213,7 +1213,7 @@ hns_get_rss(struct net_device *netdev, u32
+>> *indir, u8 *key, u8 *hfunc)
+>>  
+>>
+>>  	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
+>>  
+>> -	return 0;
+>> +	return ret;
+> All three can be one line.
+
+ok, thanks!
+
+>> @@ -1241,7 +1241,7 @@ hns_set_rss(struct net_device *netdev, const
+>> u32 *indir, const u8 *key,
+>>  
+>>  	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
+>>  
+>> -	return 0;
+>> +	return ret;
+> Ditto.
+>
+ok, thanks!
