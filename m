@@ -1,49 +1,39 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Subject: Re: [PATCH 2/3] dm9601: manage eeprom to assure the chip for correct operation
-Date: Thu, 10 Mar 2016 19:36:46 +0100
-Message-ID: <87r3fimb7l.fsf@dell.be.48ers.dk>
-References: <1457609038-3636-1-git-send-email-josright123@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Korsgaard <jacmet@sunsite.dk>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joseph Chang <joseph_chang@davicom.com.tw>
-To: Joseph CHANG <josright123@gmail.com>
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: Re: [PATCH nf-next v8 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Thu, 10 Mar 2016 10:44:51 -0800
+Message-ID: <B234C951-5BA2-4A1F-B418-FCDDDEEBE544@ovn.org>
+References: <1457483084-13944-1-git-send-email-jarno@ovn.org> <CAJ3xEMjEhfGBL9ts-vMMShEzyN+hN2mQL1oYNY2PmFyNw-npsQ@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netfilter-devel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34173 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbcCJSi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:38:57 -0500
-In-Reply-To: <1457609038-3636-1-git-send-email-josright123@gmail.com> (Joseph
-	CHANG's message of "Thu, 10 Mar 2016 19:23:58 +0800")
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:43111 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbcCJSo7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:44:59 -0500
+In-Reply-To: <CAJ3xEMjEhfGBL9ts-vMMShEzyN+hN2mQL1oYNY2PmFyNw-npsQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Joseph" == Joseph CHANG <josright123@gmail.com> writes:
+Thanks for pointing this out, v10, which hope is the final version, will have the cover letter back.
 
- > Add to maintain variant eeprom adapters which may have not right
- > dm962x's format.
+  Jarno
 
- > Signed-off-by: Joseph CHANG <josright123@gmail.com>
-
-> +static void dm_render_begin(struct usbnet *dev)
- > +{
- > +	/* Render eeprom if need, WORD3 render, set D[15:14] 01b */
- > +	dm_eeprom_render(dev, 3, 0x4000, 0xc000);
- > +	/* Render eeprom if need, WORD7 render, clear D[10] */
- > +	dm_eeprom_render(dev, 7, 0x0000, 0x0400);
- > +	/* Render eeprom if need, WORD11 render, need 0x005a */
- > +	dm_eeprom_render(dev, 11, 0x005a, 0xffff);
- > +	/* Render eeprom if need, WORD12 render, need 0x0007 */
- > +	dm_eeprom_render(dev, 12, DM_EP3I_VAL, 0xffff);
-
-With render I guess you mean something like fixup? I'm not sure we want
-to do this automatically without an explicit action from the user.
-
-How common are these adapters without valid eeprom? What happens if the
-eeprom content isn't fixed?
-
-Do we need to reset the device once the eeprom is updated?
-
--- 
-Bye, Peter Korsgaard
+> On Mar 10, 2016, at 1:16 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> 
+> On Wed, Mar 9, 2016 at 2:24 AM, Jarno Rajahalme <jarno@ovn.org> wrote:
+>> Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+>> not make sense.  This allows the definition of IP_CT_NUMBER to be
+>> simplified as well.
+> 
+> I just realized that after V7 you stopped sending cover letter (patch 0/N)
+> with this series.
+> 
+> Maybe you send it and this misses the list? we need to be able to see
+> differences from earlier versions.
+> 
+> Or.
