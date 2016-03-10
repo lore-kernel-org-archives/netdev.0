@@ -1,39 +1,30 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 13:09:15 -0800
-Message-ID: <CAM_iQpU3EuioDavDQAXMuuyRAXPQn2O+hOmnwcWMawrusNiX4g@mail.gmail.com>
-References: <20160310150920.GC21154@uranus.lan>
-	<20160310.130138.1302349043066531127.davem@davemloft.net>
-	<CAM_iQpWWbj00H-cKvpeaKq6mVWK_D2CFuarXiE6YDQeQX5JupA@mail.gmail.com>
-	<20160310.145543.990436948715023108.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: rework port state setter
+Date: Thu, 10 Mar 2016 16:11:30 -0500 (EST)
+Message-ID: <20160310.161130.1092102174723373091.davem@davemloft.net>
+References: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	solar@openwall.com, Vasily Averin <vvs@virtuozzo.com>,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160310.145543.990436948715023108.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch,
+	kevin.smith@elecsyscorp.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 11:55 AM, David Miller <davem@davemloft.net> wrote:
-> Indeed, good catch.  Therefore:
->
-> 1) Keep the masq netdev notifier.  That will flush the conntrack table
->    for the inetdev_destroy event.
->
-> 2) Make the inetdev notifier only do something if inetdev->dead is
->    false.  (ie. we are flushing an individual address)
->
-> And then we don't need the NETDEV_UNREGISTER thing at all:
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon,  7 Mar 2016 18:24:17 -0500
 
+> Apply a few non-functional changes on the port state setter:
+> 
+>   * add a dynamic debug message with state names to track changes
+>   * explicit states checking instead of assuming their numeric values
+>   * lock mutex only once when changing several port states
+>   * use bitmap macros to declare and access port_state_update_mask
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-This makes sense to me. I guess similar thing needs to do for IPv6 masq too.
-
-Thanks.
+Applied.
