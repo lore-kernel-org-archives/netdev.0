@@ -1,28 +1,50 @@
 From: "Michael Rapoport" <RAPOPORT@il.ibm.com>
 Subject: Re: [PATCH V4 0/3] basic busy polling support for vhost_net
 Date: Thu, 10 Mar 2016 08:48:21 +0200
-Message-ID: <201603100648.u2A6mR1v023611@d06av12.portsmouth.uk.ibm.com>
+Message-ID: <201603100648.u2A6mSTl020833@d06av07.portsmouth.uk.ibm.com>
 References: <1457090693-55974-1-git-send-email-jasowang@redhat.com>
-	<20160309202645.030ad7b2@bahia.lab.toulouse-stg.fr.ibm.com>
+ <20160309202645.030ad7b2@bahia.lab.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: yang.zhang.wz@gmail.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, borntraeger@de.ibm.com
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: borntraeger@de.ibm.com, Jason Wang <jasowang@redhat.com>,
+	kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	yang.zhang.wz@gmail.com
 To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:45306 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932794AbcCJGsc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 01:48:32 -0500
+Received: from localhost
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <rapoport@il.ibm.com>;
+	Thu, 10 Mar 2016 06:48:30 -0000
+Received: from b06cxnps4075.portsmouth.uk.ibm.com (d06relay12.portsmouth.uk.ibm.com [9.149.109.197])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id F337C2190056
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 06:48:11 +0000 (GMT)
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [9.149.37.248])
+	by b06cxnps4075.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u2A6mT8d8126764
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 06:48:29 GMT
+Received: from d06av07.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u2A6mTla020879
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 01:48:29 -0500
+Received: from d50lp02.ny.us.ibm.com (d50lp02.pok.ibm.com [146.89.104.208])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u2A6mSTl020833
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 01:48:28 -0500
+Received: from localhost
+	by d50lp02.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <rapoport@il.ibm.com>;
+	Thu, 10 Mar 2016 01:48:27 -0500
+Received: from /spool/local
+	by smtp.notes.na.collabserv.com with smtp.notes.na.collabserv.com ESMTP
+	for <netdev@vger.kernel.org> from <rapoport@il.ibm.com>;
+	Thu, 10 Mar 2016 06:48:24 -0000
 In-Reply-To: <20160309202645.030ad7b2@bahia.lab.toulouse-stg.fr.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Greg,
 
