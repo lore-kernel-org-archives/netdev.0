@@ -1,67 +1,66 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 13:20:18 +0300
-Message-ID: <20160310102018.GA21154@uranus.lan>
-References: <20160309204158.GO2207@uranus.lan>
- <20160309.154725.1921352291794389965.davem@davemloft.net>
- <20160309205746.GQ2207@uranus.lan>
- <20160309.161038.283281065293712589.davem@davemloft.net>
- <20160309211629.GR2207@uranus.lan>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 1/2] net: thunderx: Set recevie buffer page usage count in bulk
+Date: Thu, 10 Mar 2016 16:13:28 +0530
+Message-ID: <CA+sq2Cc44v_ggy=QLOX_FGt6uTv3Qo1KmqCeZ8=3G1COuWxAHw@mail.gmail.com>
+References: <1457336157-31508-2-git-send-email-sunil.kovvuri@gmail.com>
+	<20160307.111534.235286977900488968.davem@davemloft.net>
+	<CA+sq2CewOQGSiRC5m64ioYS36-WO0C5XzykZRZd+OLE1tJ-sSQ@mail.gmail.com>
+	<20160307.120410.1851177945150642006.davem@davemloft.net>
+	<CA+sq2CcyOV3FbpUvSkX4ZhjC+fJuHk9cUpjdiJtkFNaEXOWu6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160309211629.GR2207@uranus.lan>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <robert.richter@caviumnetworks.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33181 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965356AbcCJKna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 05:43:30 -0500
+In-Reply-To: <CA+sq2CcyOV3FbpUvSkX4ZhjC+fJuHk9cUpjdiJtkFNaEXOWu6Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
-> 
-> Thanks for explanation, Dave! I'll continue on this task tomorrow
-> tryin to implement optimization you proposed.
+Hi David,
 
-OK, here are the results for the preliminary patch with conntrack running
----
-[root@s125 ~]# ./exploit.sh 
-START 4		addresses STOP 1457604516 1457604518
-START 2704 	addresses STOP 1457604520 1457604521
-START 10404 	addresses STOP 1457604533 1457604534
-START 23104 	addresses STOP 1457604566 1457604567
-START 40804 	addresses STOP 1457604642 1457604643
-START 63504 	addresses STOP 1457604809 1457604810
 
-It takes ~1 second for each case, which is great.
----
- net/ipv4/devinet.c |   13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+>> So if you know ahead of time how the page will be split up, just
+>> calculate that when you get the page and increment the page count
+>> appropriately.
+>>
+>> That's what we do in the NIU driver.
+>
+> Thanks for the suggestion, will check and get back.
+>
 
-Index: linux-ml.git/net/ipv4/devinet.c
-===================================================================
---- linux-ml.git.orig/net/ipv4/devinet.c
-+++ linux-ml.git/net/ipv4/devinet.c
-@@ -403,7 +403,18 @@ no_promotions:
- 	   So that, this order is correct.
- 	 */
- 	rtmsg_ifa(RTM_DELADDR, ifa1, nlh, portid);
--	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
-+
-+	if (!in_dev->dead || (in_dev->dead && !ifa1->ifa_next)) {
-+		/*
-+		 * We might be destroying device with millions
-+		 * of addresses assigned, so we need to call
-+		 * the notifier on the last pass only, otherwise
-+		 * conntack code (if kernel supports) gonna scan
-+		 * on each cleanup iteration wasting huge amount
-+		 * of time.
-+		 */
-+		blocking_notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
-+	}
- 
- 	if (promote) {
- 		struct in_ifaddr *next_sec = promote->ifa_next;
+I looked at the NIU driver and in fn() niu_rbr_refill()
+static void niu_rbr_refill(struct niu *np, struct rx_ring_info *rp, gfp_t mask)
+{
+        int index = rp->rbr_index;
+
+        rp->rbr_pending++;
+        if ((rp->rbr_pending % rp->rbr_blocks_per_page) == 0) {
+
+Here it's been checked whether rbr_pending is a exact multiple of page
+split count.
+And hence updating page count based on fixed calculation is right.
+
+On my platform driver receives a interrupt when free buffer count
+falls below a threshold
+and by the time SW reads count of buffers to be refilled it can be any
+number i.e
+may or may not be a exact multiple of page split count.
+
+When interface is being brought down and while freeing unused receive
+buffers one
+page's count will go wrong and hence will disappear completely. In the
+patch i am
+updating page->count before issuing doorbell to HW irrespective of
+full page utilised
+or not. So there is no mismatch while doing put_page(unused buffer).
+
+Thanks,
+Sunil.
