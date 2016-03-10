@@ -1,30 +1,42 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: libertas: fix an error code in probe
-Date: Thu, 10 Mar 2016 12:57:24 +0000 (UTC)
-Message-ID: <20160310125724.879A060DB3@smtp.codeaurora.org>
-References: <20160308120408.GA28684@mwanda>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Thu, 10 Mar 2016 13:58:24 +0100
+Message-ID: <1457614704.2478.11.camel@tiscali.nl>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+	 <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+	 <56D7F62E.6050502@linux-pingi.de> <1659125.tHp8H942OG@wuerfel>
+	 <1457108303.2651.112.camel@tiscali.nl> <56DADA57.9010200@imap.cc>
+	 <1457340486.2737.19.camel@tiscali.nl> <56E09F4A.8010202@imap.cc>
+	 <56E15211.7080206@linux-pingi.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andreas Kemnade <andreas@kemnade.info>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:44427 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbcCJM5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 07:57:25 -0500
-In-Reply-To: <20160308120408.GA28684@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tilman Schmidt <tilman@imap.cc>, Arnd Bergmann <arnd@arndb.de>,
+	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devel@driverdev.osuosl.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: isdn@linux-pingi.de
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <56E15211.7080206@linux-pingi.de>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Hi Karsten,
+
+On do, 2016-03-10 at 11:53 +0100, isdn@linux-pingi.de wrote:
+> mISDN with CAPI support works just fine with pppd and pppdcapiplugin
+> and the CAPI works for all mISDN HW.
+
+In the mainline tree the mISDN and CAPI stacks are effectively separate.
+Do you perhaps refer to a mISDN + Asterisk + chan-capi setup? (That's
+the closest to mISDN with CAPI support that I could find. Did I miss
+something?)
+
+Thanks,
 
 
-> We accidentally return success instead of a negative error code.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Thanks, applied to wireless-drivers-next.git.
-
-Kalle Valo
+Paul Bolle
