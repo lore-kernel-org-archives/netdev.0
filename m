@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8169:Remove unnecessary phy reset for pcie nic
- when setting link spped.
-Date: Thu, 10 Mar 2016 16:18:41 -0500 (EST)
-Message-ID: <20160310.161841.1115097085022801181.davem@davemloft.net>
-References: <1457427065-3699-1-git-send-email-hau@realtek.com>
+Subject: Re: [PATCH net-next 1/1] qede: Fix net-next "make ARCH=x86_64"
+Date: Thu, 10 Mar 2016 16:19:43 -0500 (EST)
+Message-ID: <20160310.161943.1520841961288028312.davem@davemloft.net>
+References: <1457428184-18336-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457427065-3699-1-git-send-email-hau@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51552 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932216AbcCJVTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 16:19:44 -0500
+In-Reply-To: <1457428184-18336-1-git-send-email-manish.chopra@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Tue, 8 Mar 2016 16:51:05 +0800
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Tue, 8 Mar 2016 04:09:44 -0500
 
-> For pcie nic, after setting link speed and thers is no link  driver does not need
-> to do phy reset untill link up.
+> 'commit 55482edc25f0606851de42e73618f813f310d009
+> ("qede: Add slowpath/fastpath support and enable hardware GRO")'
+> introduces below error when compiling net-next with "make ARCH=x86_64"
+> 
+> drivers/built-in.o: In function `qede_rx_int':
+> qede_main.c:(.text+0x6101a0): undefined reference to `tcp_gro_complete'
+> 
+> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 
-"there's", "until"
-
-> For some pcie nics, to do this will also reset phy speed down counter and prevent
-> phy from auto speed down.
-
-Please fix these typos and resubmit, thanks.
+Applied, thank you.
