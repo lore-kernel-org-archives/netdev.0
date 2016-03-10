@@ -1,63 +1,47 @@
-From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-Subject: Re: [patch net 1/2] net: hns: fix return value of the function about
- rss
-Date: Thu, 10 Mar 2016 20:04:18 +0800
-Message-ID: <56E162C2.6070709@huawei.com>
-References: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
- <1457576189-22924-2-git-send-email-yankejian@huawei.com>
- <1457597509.1347.49.camel@linux.intel.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V2 0/3] net: bulk free adjustment and two driver
+ use-cases
+Date: Thu, 10 Mar 2016 13:15:18 +0100
+Message-ID: <20160310121414.3680.45727.stgit@firesoul>
+References: <CAKgT0Uey2fgDj3-7sitLofLP3UwD+=Su_5tSxi7T8FngE_CptQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, andrew@lunn.ch, salil.mehta@huawei.com,
- liguozhu@huawei.com, haifeng.wei@huawei.com, arnd@arndb.de,
- lisheng011@huawei.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linuxarm@huawei.com, chenny.xu@huawei.com, huangdaode@hisilicon.com,
- fengguang.wu@intel.com, yisen.zhuang@huawei.com,
- linux-arm-kernel@lists.infradead.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1457597509.1347.49.camel@linux.intel.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	gerlitz.or@gmail.com
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54192 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753798AbcCJMP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 07:15:26 -0500
+In-Reply-To: <CAKgT0Uey2fgDj3-7sitLofLP3UwD+=Su_5tSxi7T8FngE_CptQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+I've split out the bulk free adjustments, from the bulk alloc patches,
+as I want the adjustment to napi_consume_skb to be in same kernel cycle
+the API was introduced.
+
+Adjustments based on discussion:
+ Subj: "mlx4: use napi_consume_skb API to get bulk free operations"
+ http://thread.gmane.org/gmane.linux.network/402503/focus=403386
+
+Patchset based on net-next at commit 3ebeac1d0295
+
+---
+
+Jesper Dangaard Brouer (3):
+      net: adjust napi_consume_skb to handle none-NAPI callers
+      mlx4: use napi_consume_skb API to get bulk free operations
+      mlx5: use napi_consume_skb API to get bulk free operations
 
 
-
-On 2016/3/10 16:11, Andy Shevchenko wrote:
-> On Thu, 2016-03-10 at 10:16 +0800, Kejian Yan wrote:
->> Both .get_rxfh and .get_rxfh are always return 0, it should return
->> result
->> from hardware when getting or setting rss. And the rss function
->> should
->> return the correct data type.
->>
-> @@ -1213,7 +1213,7 @@ hns_get_rss(struct net_device *netdev, u32
->> *indir, u8 *key, u8 *hfunc)
->>  
->>
->>  	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
->>  
->> -	return 0;
->> +	return ret;
-> All three can be one line.
-
-ok, thanks!
-
->> @@ -1241,7 +1241,7 @@ hns_set_rss(struct net_device *netdev, const
->> u32 *indir, const u8 *key,
->>  
->>  	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
->>  
->> -	return 0;
->> +	return ret;
-> Ditto.
->
-ok, thanks!
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |   16 ++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
+ net/core/skbuff.c                                 |    4 ++--
+ 5 files changed, 16 insertions(+), 12 deletions(-)
