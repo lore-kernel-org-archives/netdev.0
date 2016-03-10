@@ -1,68 +1,48 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v10 7/8] openvswitch: Delay conntrack helper call for new connections.
-Date: Thu, 10 Mar 2016 10:54:22 -0800
-Message-ID: <1457636063-92746-8-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH nf-next v10 6/8] openvswitch: Handle NF_REPEAT in
+	conntrack action.
+Date: Thu, 10 Mar 2016 10:54:21 -0800
+Message-ID: <1457636063-92746-7-git-send-email-jarno@ovn.org>
 References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:42123 "EHLO
-	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517AbcCJSzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:55:02 -0500
-In-Reply-To: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457636063-92746-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-There is no need to help connections that are not confirmed, so we can
-delay helping new connections to the time when they are confirmed.
-This change is needed for NAT support, and having this as a separate
-patch will make the following NAT patch a bit easier to review.
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
-
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 85256b3..f718b72 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -483,7 +483,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 	 * actually run the packet through conntrack twice unless it's for a
- 	 * different zone.
- 	 */
--	if (!skb_nfct_cached(net, key, info, skb)) {
-+	bool cached = skb_nfct_cached(net, key, info, skb);
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+
-+	if (!cached) {
- 		struct nf_conn *tmpl = info->ct;
- 		int err;
- 
-@@ -506,11 +510,18 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 			return -ENOENT;
- 
- 		ovs_ct_update_key(skb, info, key, true);
-+	}
- 
--		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
--			WARN_ONCE(1, "helper rejected packet");
--			return -EINVAL;
--		}
-+	/* Call the helper only if:
-+	 * - nf_conntrack_in() was executed above ("!cached") for a confirmed
-+	 *   connection, or
-+	 * - When committing an unconfirmed connection.
-+	 */
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit) &&
-+	    ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
-+		WARN_ONCE(1, "helper rejected packet");
-+		return -EINVAL;
- 	}
- 
- 	return 0;
--- 
-2.1.4
+UmVwZWF0IHRoZSBuZl9jb25udHJhY2tfaW4oKSBjYWxsIHdoZW4gaXQgcmV0dXJucyBORl9SRVBF
+QVQuICBUaGlzCmF2b2lkcyBkcm9wcGluZyBhIFNZTiBwYWNrZXQgcmUtb3BlbmluZyBhbiBleGlz
+dGluZyBUQ1AgY29ubmVjdGlvbi4KClNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8amFy
+bm9Ab3ZuLm9yZz4KQWNrZWQtYnk6IEpvZSBTdHJpbmdlciA8am9lQG92bi5vcmc+Ci0tLQogbmV0
+L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIHwgMTAgKysrKysrKystLQogMSBmaWxlIGNoYW5nZWQs
+IDggaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZz
+d2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKaW5kZXggYWUz
+NmZlMi4uODUyNTZiMyAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCisr
+KyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYwpAQCAtNDg1LDYgKzQ4NSw3IEBAIHN0YXRp
+YyBpbnQgX19vdnNfY3RfbG9va3VwKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5
+ICprZXksCiAJICovCiAJaWYgKCFza2JfbmZjdF9jYWNoZWQobmV0LCBrZXksIGluZm8sIHNrYikp
+IHsKIAkJc3RydWN0IG5mX2Nvbm4gKnRtcGwgPSBpbmZvLT5jdDsKKwkJaW50IGVycjsKIAogCQkv
+KiBBc3NvY2lhdGUgc2tiIHdpdGggc3BlY2lmaWVkIHpvbmUuICovCiAJCWlmICh0bXBsKSB7CkBA
+IC00OTUsOCArNDk2LDEzIEBAIHN0YXRpYyBpbnQgX19vdnNfY3RfbG9va3VwKHN0cnVjdCBuZXQg
+Km5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCiAJCQlza2ItPm5mY3RpbmZvID0gSVBfQ1Rf
+TkVXOwogCQl9CiAKLQkJaWYgKG5mX2Nvbm50cmFja19pbihuZXQsIGluZm8tPmZhbWlseSwgTkZf
+SU5FVF9QUkVfUk9VVElORywKLQkJCQkgICAgc2tiKSAhPSBORl9BQ0NFUFQpCisJCS8qIFJlcGVh
+dCBpZiByZXF1ZXN0ZWQsIHNlZSBuZl9pdGVyYXRlKCkuICovCisJCWRvIHsKKwkJCWVyciA9IG5m
+X2Nvbm50cmFja19pbihuZXQsIGluZm8tPmZhbWlseSwKKwkJCQkJICAgICAgTkZfSU5FVF9QUkVf
+Uk9VVElORywgc2tiKTsKKwkJfSB3aGlsZSAoZXJyID09IE5GX1JFUEVBVCk7CisKKwkJaWYgKGVy
+ciAhPSBORl9BQ0NFUFQpCiAJCQlyZXR1cm4gLUVOT0VOVDsKIAogCQlvdnNfY3RfdXBkYXRlX2tl
+eShza2IsIGluZm8sIGtleSwgdHJ1ZSk7Ci0tIAoyLjEuNAoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0
+Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
