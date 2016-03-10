@@ -1,63 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC -next 2/2] virtio_net: Read and use the advised MTU
-Date: Thu, 10 Mar 2016 21:56:50 +0300
-Message-ID: <56E1C372.60204@cogentembedded.com>
-References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
-	<1457620092-24170-3-git-send-email-aconole@redhat.com>
+From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Thu, 10 Mar 2016 10:57:35 -0800
+Message-ID: <CAA93jw47wtioiUUD8ZTm4hFSVL7Uc8ubpSG5urHtWQhfAo1nmQ@mail.gmail.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
+	<CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: Aaron Conole <aconole@redhat.com>, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1457620092-24170-3-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 03/10/2016 05:28 PM, Aaron Conole wrote:
-
-> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
-> exists, read the advised MTU and use it.
+>> regular fq_codel uses 1024 and there has not been much reason to
+>> change it. In the case of an AP which has more limited memory, 256 or
+>> 1024 would be a good setting, per station. I'd stick to 1024 for now.
 >
-> No proper error handling is provided for the case where a user changes the
-> negotiated MTU. A future commit will add proper error handling. Instead, a
-> warning is emitted if the guest changes the device MTU after previously being
-> given advice.
->
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
-> ---
->   drivers/net/virtio_net.c | 15 ++++++++++++++-
->   1 file changed, 14 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 767ab11..7175563 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-[...]
-> @@ -1390,8 +1391,12 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->
->   static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->   {
-> +	struct virtnet_info *vi = netdev_priv(dev);
->   	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
->   		return -EINVAL;
-> +	if (vi->negotiated_mtu == true) {
-> +		pr_warn("changing mtu from negotiated mtu.");
-> +	}
+> Do note that the 4096 is shared _across_ station-tid queues. It is not
+> per-station. If you have 10 stations you still have 4096 flows
+> (actually 4096 + 16*10, because each tid - and there are 16 - has it's
+> own fallback flow in case of hash collision on the global flowmap to
+> maintain per-sta-tid queuing).
 
-    {} not needed, see Documentation/CodingStyle.
+I have to admit I didn't parse this well - still haven't, I think I
+need to draw. (got a picture?)
 
-[...]
+Where is this part happening in the code (or firmware?)
 
-MBR, Sergei
+" because each tid - and there are 16 - has it's
+ own fallback flow in case of hash collision on the global flowmap to
+ maintain per-sta-tid queuing"
+
+"fallback flow - hash collision on global flowmap" - huh?
+
+> With that in mind do you still think 1024 is enough?
+
+Can't answer that question without understanding what you said above.
+
+I assembled a few of the patches to date (your fq_codel patch, avery's
+and tims ath9k stuff) and tested them, to no measurable effect,
+against linus's tree a day or two back. I also acquired an ath10k card
+- would one of these suit?
+
+http://www.amazon.com/gp/product/B011SIMFR8?psc=1&redirect=true&ref_=oh_aui_detailpage_o08_s00
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
