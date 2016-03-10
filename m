@@ -1,60 +1,64 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Thu, 10 Mar 2016 11:48:31 -0500
-Message-ID: <56E1A55F.3090906@ti.com>
-References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next PATCH V3 1/3] net: adjust napi_consume_skb to handle
+ none-NAPI callers
+Date: Thu, 10 Mar 2016 20:21:55 +0300
+Message-ID: <56E1AD33.3020507@cogentembedded.com>
+References: <20160310145803.22901.24734.stgit@firesoul>
+ <20160310145911.22901.28762.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, <johan@kernel.org>,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>
+Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	gerlitz.or@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:50559 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752938AbcCJQsc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 11:48:32 -0500
-In-Reply-To: <56D8D3D7.6070900@gmail.com>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:34850 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085AbcCJRV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 12:21:59 -0500
+Received: by mail-lb0-f169.google.com with SMTP id bc4so121585284lbc.2
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 09:21:59 -0800 (PST)
+In-Reply-To: <20160310145911.22901.28762.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2016 07:16 PM, Florian Fainelli wrote:
-> On 03/03/16 14:18, Murali Karicheri wrote:
->> Hi,
->>
->> We are using Micrel Phy in one of our board and wondering if we can force the
->> Phy to disable flow control at start. I have a 1G ethernet switch connected
->> to Phy and the phy always enable flow control. I would like to configure the
->> phy not to flow control. Is that possible and if yes, what should I do in the
->> my Ethernet driver to tell the Phy not to enable flow control?
-> 
-> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
-> the switch is doing, along with the link partner advertising support for
-> it. You would want to make sure that your PHY device interface (provided
-> that you are using the PHY library) is not starting with Pause
-> advertised, but it could be supported.
+Hello.
 
-Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
-by default FC supported. After negotiation, I see that Phylib provide the 
-link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
-to advertise?
+On 03/10/2016 05:59 PM, Jesper Dangaard Brouer wrote:
 
-I call following sequence in the Ethernet driver.
+> Some drivers reuse/share code paths that free SKBs between NAPI
+> and none-NAPI calls. Adjust napi_consume_skb to handle this
+> use-case.
+>
+> Before, calls from netpoll (w/ IRQs disabled) was handled and
+> indicated with a budget zero indication.  Use the same zero
+> indication to handle calls not originating from NAPI/softirq.
+> Simply handled by using dev_consume_skb_any().
+>
+> This adds an extra branch+call for the netpoll case (checking
+> in_irq() + irqs_disabled()), but that is okay as this is a slowpath.
+>
+> Suggested-by: Alexander Duyck <aduyck@mirantis.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>   net/core/skbuff.c |    4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 7af7ec635d90..bc62baa54ceb 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -801,9 +801,9 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
+>   	if (unlikely(!skb))
+>   		return;
+>
+> -	/* if budget is 0 assume netpoll w/ IRQs disabled */
+> +	/* Zero budget indicate none-NAPI context called us, like netpoll */
 
-of_phy_connect(x,y,hndlr,a,z);
-phy_start()
+    Non-NAPI?
 
-Now in hndlr() I have pause = 1, asym_pause = 1, in phy_device ptr. How can 
-I tell the phy not to advertise initially?
+[...]
 
-Murali
-> 
-> As Andrew indicated the proper way to do this is do to use ethtool if
-> you need to this dynamically.
-> 
-
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+MBR, Sergei
