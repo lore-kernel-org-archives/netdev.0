@@ -1,7 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2016-03-10
-Date: Thu, 10 Mar 2016 11:24:24 +0100
-Message-ID: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/5] flowcache: Avoid OOM condition under preasure
+Date: Thu, 10 Mar 2016 11:24:26 +0100
+Message-ID: <1457605469-17332-3-git-send-email-steffen.klassert@secunet.com>
+References: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -9,57 +10,83 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36672 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36667 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935312AbcCJKyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 05:54:17 -0500
+	id S935308AbcCJKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 05:54:15 -0500
+In-Reply-To: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Add pmtu handling to vti, we need it do report
-   pmtu informations for local generated packets.
+We can hit an OOM condition if we are under presure because
+we can not free the entries in gc_list fast enough. So add
+a counter for the not yet freed entries in the gc_list and
+refuse new allocations if the value is too high.
 
-2) The flowcache can hit an OOM condition if too
-   many entries are in the gc_list. Fix this by
-   counting the entries in the gc_list and refuse
-   new allocations if the value is too high.
-
-3) The inner headers are invalid after a xfrm transformation,
-   so reset the skb encapsulation field ensure nobody tries
-   access the inner headers. Otherwise tunnel divices stacked
-   on top of xfrm may build the outer headers based on wrong
-   informations.
-
-4) Fix recource leeks for vti4/vti6 introduced with the
-   pmtu handling.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit aac8d3c282e024c344c5b86dc1eab7af88bb9716:
-
-  qmi_wwan: add "4G LTE usb-modem U901" (2016-02-16 20:39:32 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to 52717aa430949249993f1f7d570f70be863c2652:
-
-  vti: Fix recource leeks on pmtu discovery (2016-03-03 07:45:09 +0100)
-
-----------------------------------------------------------------
-Steffen Klassert (5):
-      vti: Add pmtu handling to vti_xmit.
-      flowcache: Avoid OOM condition under preasure
-      xfrm: Reset encapsulation field of the skb before transformation
-      vti6: Fix dst_entry leek on pmtu discovery
-      vti: Fix recource leeks on pmtu discovery
-
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
  include/net/netns/xfrm.h |  1 +
  net/core/flow.c          | 14 +++++++++++++-
- net/ipv4/ip_vti.c        | 14 ++++++++++++++
- net/ipv6/ip6_vti.c       |  3 ++-
- net/xfrm/xfrm_output.c   |  3 +++
- 5 files changed, 33 insertions(+), 2 deletions(-)
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
+index 730d82a..24cd394 100644
+--- a/include/net/netns/xfrm.h
++++ b/include/net/netns/xfrm.h
+@@ -80,6 +80,7 @@ struct netns_xfrm {
+ 	struct flow_cache	flow_cache_global;
+ 	atomic_t		flow_cache_genid;
+ 	struct list_head	flow_cache_gc_list;
++	atomic_t		flow_cache_gc_count;
+ 	spinlock_t		flow_cache_gc_lock;
+ 	struct work_struct	flow_cache_gc_work;
+ 	struct work_struct	flow_cache_flush_work;
+diff --git a/net/core/flow.c b/net/core/flow.c
+index 1033725..3937b1b 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -92,8 +92,11 @@ static void flow_cache_gc_task(struct work_struct *work)
+ 	list_splice_tail_init(&xfrm->flow_cache_gc_list, &gc_list);
+ 	spin_unlock_bh(&xfrm->flow_cache_gc_lock);
+ 
+-	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list)
++	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list) {
+ 		flow_entry_kill(fce, xfrm);
++		atomic_dec(&xfrm->flow_cache_gc_count);
++		WARN_ON(atomic_read(&xfrm->flow_cache_gc_count) < 0);
++	}
+ }
+ 
+ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
+@@ -101,6 +104,7 @@ static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
+ 				     struct netns_xfrm *xfrm)
+ {
+ 	if (deleted) {
++		atomic_add(deleted, &xfrm->flow_cache_gc_count);
+ 		fcp->hash_count -= deleted;
+ 		spin_lock_bh(&xfrm->flow_cache_gc_lock);
+ 		list_splice_tail(gc_list, &xfrm->flow_cache_gc_list);
+@@ -232,6 +236,13 @@ flow_cache_lookup(struct net *net, const struct flowi *key, u16 family, u8 dir,
+ 		if (fcp->hash_count > fc->high_watermark)
+ 			flow_cache_shrink(fc, fcp);
+ 
++		if (fcp->hash_count > 2 * fc->high_watermark ||
++		    atomic_read(&net->xfrm.flow_cache_gc_count) > fc->high_watermark) {
++			atomic_inc(&net->xfrm.flow_cache_genid);
++			flo = ERR_PTR(-ENOBUFS);
++			goto ret_object;
++		}
++
+ 		fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC);
+ 		if (fle) {
+ 			fle->net = net;
+@@ -446,6 +457,7 @@ int flow_cache_init(struct net *net)
+ 	INIT_WORK(&net->xfrm.flow_cache_gc_work, flow_cache_gc_task);
+ 	INIT_WORK(&net->xfrm.flow_cache_flush_work, flow_cache_flush_task);
+ 	mutex_init(&net->xfrm.flow_flush_sem);
++	atomic_set(&net->xfrm.flow_cache_gc_count, 0);
+ 
+ 	fc->hash_shift = 10;
+ 	fc->low_watermark = 2 * flow_cache_hash_size(fc);
+-- 
+1.9.1
