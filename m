@@ -1,103 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 13:01:38 -0500 (EST)
-Message-ID: <20160310.130138.1302349043066531127.davem@davemloft.net>
-References: <20160310102018.GA21154@uranus.lan>
-	<20160310110324.GB21154@uranus.lan>
-	<20160310150920.GC21154@uranus.lan>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
+ flow control?
+Date: Thu, 10 Mar 2016 10:05:19 -0800
+Message-ID: <56E1B75F.9070100@gmail.com>
+References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
+ <56E1A55F.3090906@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: gorcunov@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160310150920.GC21154@uranus.lan>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Murali Karicheri <m-karicheri2@ti.com>, johan@kernel.org,
+	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	"Kwok, WingMan" <w-kwok2@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35863 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455AbcCJSGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:06:51 -0500
+Received: by mail-pf0-f170.google.com with SMTP id u190so45010008pfb.3
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 10:06:51 -0800 (PST)
+In-Reply-To: <56E1A55F.3090906@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Thu, 10 Mar 2016 18:09:20 +0300
-
-> On Thu, Mar 10, 2016 at 02:03:24PM +0300, Cyrill Gorcunov wrote:
->> On Thu, Mar 10, 2016 at 01:20:18PM +0300, Cyrill Gorcunov wrote:
->> > On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
->> > > 
->> > > Thanks for explanation, Dave! I'll continue on this task tomorrow
->> > > tryin to implement optimization you proposed.
->> > 
->> > OK, here are the results for the preliminary patch with conntrack running
->> ...
->> >  net/ipv4/devinet.c |   13 ++++++++++++-
->> >  1 file changed, 12 insertions(+), 1 deletion(-)
->> > 
->> > Index: linux-ml.git/net/ipv4/devinet.c
->> > ===================================================================
->> > --- linux-ml.git.orig/net/ipv4/devinet.c
->> > +++ linux-ml.git/net/ipv4/devinet.c
->> > @@ -403,7 +403,18 @@ no_promotions:
->> >  	   So that, this order is correct.
->> >  	 */
->> 
->> This patch is wrong, so drop it please. I'll do another.
+On 10/03/16 08:48, Murali Karicheri wrote:
+> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
+>> On 03/03/16 14:18, Murali Karicheri wrote:
+>>> Hi,
+>>>
+>>> We are using Micrel Phy in one of our board and wondering if we can force the
+>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
+>>> to Phy and the phy always enable flow control. I would like to configure the
+>>> phy not to flow control. Is that possible and if yes, what should I do in the
+>>> my Ethernet driver to tell the Phy not to enable flow control?
+>>
+>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
+>> the switch is doing, along with the link partner advertising support for
+>> it. You would want to make sure that your PHY device interface (provided
+>> that you are using the PHY library) is not starting with Pause
+>> advertised, but it could be supported.
 > 
-> Here I think is a better variant. The resulst are good
-> enough -- 1 sec for cleanup. Does the patch look sane?
+> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
+> by default FC supported. After negotiation, I see that Phylib provide the 
+> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
+> to advertise?
+> 
+> I call following sequence in the Ethernet driver.
+> 
+> of_phy_connect(x,y,hndlr,a,z);
 
-I'm tempted to say that we should provide these notifier handlers with
-the information they need, explicitly, to handle this case.
+Here you should be able to change phydev->advertising and
+phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
+bits and have phy_start() restart with that which should disable pause
+and asym_pause as seen by your adjust_link handler.
 
-Most intdev notifiers actually want to know the individual addresses
-that get removed, one by one.  That's handled by the existing
-NETDEV_DOWN event and the ifa we pass to that.
-
-But some, like this netfilter masq case, would be satisfied with a
-single event that tells them the whole inetdev instance is being torn
-down.  Which is the case we care about here.
-
-We currently don't use NETDEV_UNREGISTER for inetdev notifiers, so
-maybe we could use that.
-
-And that is consistent with the core netdev notifier that triggers
-this call chain in the first place.
-
-Roughly, something like this:
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 8c3df2c..6eee5cb 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -292,6 +292,11 @@ static void inetdev_destroy(struct in_device *in_dev)
- 
- 	in_dev->dead = 1;
- 
-+	if (in_dev->ifa_list)
-+		blocking_notifier_call_chain(&inetaddr_chain,
-+					     NETDEV_UNREGISTER,
-+					     in_dev->ifa_list);
-+
- 	ip_mc_destroy_dev(in_dev);
- 
- 	while ((ifa = in_dev->ifa_list) != NULL) {
-diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-index c6eb421..1bb8026 100644
---- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-@@ -111,6 +111,10 @@ static int masq_inet_event(struct notifier_block *this,
- 	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
- 	struct netdev_notifier_info info;
- 
-+	if (event != NETDEV_UNREGISTER)
-+		return NOTIFY_DONE;
-+	event = NETDEV_DOWN;
-+
- 	netdev_notifier_info_init(&info, dev);
- 	return masq_device_event(this, event, &info);
- }
-
-
-
-
+> phy_start()
+> 
+> Now in hndlr() I have pause = 1, asym_pause = 1, in phy_device ptr. How can 
+> I tell the phy not to advertise initially?
+-- 
+Florian
