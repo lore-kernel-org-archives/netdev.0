@@ -1,96 +1,58 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC -next 2/2] virtio_net: Read and use the advised MTU
-Date: Thu, 10 Mar 2016 15:57:28 +0100
-Message-ID: <1457621848.9753.44.camel@redhat.com>
-References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
-	 <1457620092-24170-3-git-send-email-aconole@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V3 1/3] net: adjust napi_consume_skb to handle
+ none-NAPI callers
+Date: Thu, 10 Mar 2016 15:59:11 +0100
+Message-ID: <20160310145911.22901.28762.stgit@firesoul>
+References: <20160310145803.22901.24734.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: Aaron Conole <aconole@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457620092-24170-3-git-send-email-aconole@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sergei.shtylyov@cogentembedded.com, eugenia@mellanox.com,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	gerlitz.or@gmail.com
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53552 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752550AbcCJO7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 09:59:16 -0500
+In-Reply-To: <20160310145803.22901.24734.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-03-10 at 09:28 -0500, Aaron Conole wrote:
-> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
-> exists, read the advised MTU and use it.
-> 
-> No proper error handling is provided for the case where a user changes the
-> negotiated MTU. A future commit will add proper error handling. Instead, a
-> warning is emitted if the guest changes the device MTU after previously being
-> given advice.
-> 
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
-> ---
->  drivers/net/virtio_net.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 767ab11..7175563 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -146,6 +146,7 @@ struct virtnet_info {
->  	virtio_net_ctrl_ack ctrl_status;
->  	u8 ctrl_promisc;
->  	u8 ctrl_allmulti;
-> +	bool negotiated_mtu;
->  };
->  
->  struct padded_vnet_hdr {
-> @@ -1390,8 +1391,12 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->  
->  static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->  {
-> +	struct virtnet_info *vi = netdev_priv(dev);
->  	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
->  		return -EINVAL;
-> +	if (vi->negotiated_mtu == true) {
+Some drivers reuse/share code paths that free SKBs between NAPI
+and none-NAPI calls. Adjust napi_consume_skb to handle this
+use-case.
 
-why don't:
+Before, calls from netpoll (w/ IRQs disabled) was handled and
+indicated with a budget zero indication.  Use the same zero
+indication to handle calls not originating from NAPI/softirq.
+Simply handled by using dev_consume_skb_any().
 
-if ((vi->negotiated_mtu == true) && (dev->mtu != new_mtu))
+This adds an extra branch+call for the netpoll case (checking
+in_irq() + irqs_disabled()), but that is okay as this is a slowpath.
 
-?
+Suggested-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ net/core/skbuff.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> +		pr_warn("changing mtu from negotiated mtu.");
-> +	}
->  	dev->mtu = new_mtu;
->  	return 0;
->  }
-> @@ -1836,6 +1841,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
->  
-> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-> +		vi->negotiated_mtu = true;
-> +		dev->mtu = virtio_cread16(vdev,
-> +					  offsetof(struct virtio_net_config,
-> +						   mtu));
-> +	}
-> +
->  	if (vi->any_header_sg)
->  		dev->needed_headroom = vi->hdr_len;
->  
-> @@ -2017,8 +2029,9 @@ static unsigned int features[] = {
->  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
->  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
-> -	VIRTIO_NET_F_CTRL_MAC_ADDR,
-> +	VIRTIO_NET_F_CTRL_MAC_ADDR, 
-
-Here a trailing white space slipped-in.
-
-Otherwise LGTM.
-
-Paolo
-
->  	VIRTIO_F_ANY_LAYOUT,
-> +	VIRTIO_NET_F_MTU,
->  };
->  
->  static struct virtio_driver virtio_net_driver = {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 7af7ec635d90..bc62baa54ceb 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -801,9 +801,9 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
+ 	if (unlikely(!skb))
+ 		return;
+ 
+-	/* if budget is 0 assume netpoll w/ IRQs disabled */
++	/* Zero budget indicate none-NAPI context called us, like netpoll */
+ 	if (unlikely(!budget)) {
+-		dev_consume_skb_irq(skb);
++		dev_consume_skb_any(skb);
+ 		return;
+ 	}
+ 
