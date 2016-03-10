@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 5/5] vti: Fix recource leeks on pmtu discovery
-Date: Thu, 10 Mar 2016 11:24:29 +0100
-Message-ID: <1457605469-17332-6-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/5] xfrm: Reset encapsulation field of the skb before transformation
+Date: Thu, 10 Mar 2016 11:24:27 +0100
+Message-ID: <1457605469-17332-4-git-send-email-steffen.klassert@secunet.com>
 References: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,39 +10,36 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	<netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:36665 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:36666 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935309AbcCJKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S935305AbcCJKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 10 Mar 2016 05:54:15 -0500
 In-Reply-To: <1457605469-17332-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A recent patch introduced pmtu handling directly in the
-vti transmit routine. Unfortunately we now return without
-releasing the dst_entry and freeing the sk_buff. This patch
-fixes the issue.
+The inner headers are invalid after a xfrm transformation.
+So reset the skb encapsulation field to ensure nobody tries
+to access the inner headers.
 
-Fixes: 325b71fe0f57 ("vti: Add pmtu handling to vti_xmit.")
-Reported-by: Mark McKinstry <Mark.McKinstry@alliedtelesis.co.nz>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ip_vti.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/xfrm/xfrm_output.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 6862305..2ea2b6e 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -206,7 +206,8 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 		else
- 			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index ff4a91f..637387b 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -99,6 +99,9 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
  
--		return -EMSGSIZE;
-+		dst_release(dst);
-+		goto tx_error;
- 	}
+ 		skb_dst_force(skb);
  
- 	err = dst_output(tunnel->net, skb->sk, skb);
++		/* Inner headers are invalid now. */
++		skb->encapsulation = 0;
++
+ 		err = x->type->output(x, skb);
+ 		if (err == -EINPROGRESS)
+ 			goto out;
 -- 
 1.9.1
