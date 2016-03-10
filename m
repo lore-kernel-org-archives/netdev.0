@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: rework port state setter
-Date: Thu, 10 Mar 2016 16:11:30 -0500 (EST)
-Message-ID: <20160310.161130.1092102174723373091.davem@davemloft.net>
-References: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: read then write PVID
+Date: Thu, 10 Mar 2016 16:11:35 -0500 (EST)
+Message-ID: <20160310.161135.1253557043734177722.davem@davemloft.net>
+References: <1457393079-22740-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,19 +11,18 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kevin.smith@elecsyscorp.com
 To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457393057-22618-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <1457393079-22740-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon,  7 Mar 2016 18:24:17 -0500
+Date: Mon,  7 Mar 2016 18:24:39 -0500
 
-> Apply a few non-functional changes on the port state setter:
+> The port register 0x07 contains more options than just the default VID,
+> even though they are not used yet. So prefer a read then write operation
+> over a direct write.
 > 
->   * add a dynamic debug message with state names to track changes
->   * explicit states checking instead of assuming their numeric values
->   * lock mutex only once when changing several port states
->   * use bitmap macros to declare and access port_state_update_mask
+> This also allows to keep track of the change through dynamic debug.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
