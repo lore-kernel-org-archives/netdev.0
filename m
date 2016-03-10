@@ -1,50 +1,117 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2] phy: remove documentation of removed members of phy_device structure
-Date: Thu, 10 Mar 2016 13:58:58 +0100
-Message-ID: <1457614738-17337-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	LABBE Corentin <clabbe.montjoie@gmail.com>
-To: f.fainelli@gmail.com
+From: Kejian Yan <yankejian@huawei.com>
+Subject: [PATCH v2 net-next 1/2] net: hns: fix return value of the function about rss
+Date: Thu, 10 Mar 2016 21:21:49 +0800
+Message-ID: <1457616110-225844-2-git-send-email-yankejian@huawei.com>
+References: <1457616110-225844-1-git-send-email-yankejian@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+	<liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<chenny.xu@huawei.com>, <ivecera@redhat.com>,
+	<lisheng011@huawei.com>, <fengguang.wu@intel.com>,
+	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34854 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbcCJM7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 07:59:06 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:2486 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773AbcCJNDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 08:03:05 -0500
+In-Reply-To: <1457616110-225844-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed addr,
-bus and dev member of the phy_device structure.
-This patch remove the documentation about those members.
+Both .get_rxfh and .get_rxfh are always return 0, it should return result
+from hardware when getting or setting rss. And the rss function should
+return the correct data type.
 
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
 ---
- include/linux/phy.h | 3 ---
- 1 file changed, 3 deletions(-)
+change log:
+PATCH v2:
+ - This patch fixes the comments provided by Andy Shevchenko <Andy Shevchenko>
 
-Changes since v1
-- remove also documentation for dev and bus
+PATCH v1:
+ - first submit
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d6f3641..2abd791 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -327,8 +327,6 @@ struct phy_c45_device_ids {
- /* phy_device: An instance of a PHY
-  *
-  * drv: Pointer to the driver for this PHY instance
-- * bus: Pointer to the bus this PHY is on
-- * dev: driver model device structure for this PHY
-  * phy_id: UID for this device found during discovery
-  * c45_ids: 802.3-c45 Device Identifers if is_c45.
-  * is_c45:  Set to true if this phy uses clause 45 addressing.
-@@ -338,7 +336,6 @@ struct phy_c45_device_ids {
-  * suspended: Set to true if this phy has been suspended successfully.
-  * state: state of the PHY for management purposes
-  * dev_flags: Device-specific flags used by the PHY driver.
-- * addr: Bus address of PHY
-  * link_timeout: The number of timer firings to wait before the
-  * giving up on the current attempt at acquiring a link
-  * irq: IRQ number of the PHY's interrupt (-1 if none)
+ Link: https://lkml.org/lkml/2016/3/9/978
+---
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 12 ++++--------
+ 3 files changed, 6 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index d4f92ed..d07db1f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -799,7 +799,7 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 
+ 	/* set the RSS Hash Key if specififed by the user */
+ 	if (key)
+-		hns_ppe_set_rss_key(ppe_cb, (int *)key);
++		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
+ 
+ 	/* update the shadow RSS table with user specified qids */
+ 	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index f302ef9..811ef35 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -27,7 +27,7 @@ void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
+ void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
+ 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
+ {
+-	int key_item = 0;
++	u32 key_item = 0;
+ 
+ 	for (key_item = 0; key_item < HNS_PPEV2_RSS_KEY_NUM; key_item++)
+ 		dsaf_write_dev(ppe_cb, PPEV2_RSS_KEY_REG + key_item * 0x4,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3c4a3bc..3b914ac 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1178,7 +1178,7 @@ hns_get_rss_key_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1197,7 +1197,7 @@ hns_get_rss_indir_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1224,9 +1224,7 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
+ 	if (!indir)
+ 		return 0;
+ 
+-	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
+-
+-	return 0;
++	return ops->get_rss(priv->ae_handle, indir, key, hfunc);
+ }
+ 
+ static int
+@@ -1252,9 +1250,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 	if (!indir)
+ 		return 0;
+ 
+-	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
+-
+-	return 0;
++	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ }
+ 
+ static struct ethtool_ops hns_ethtool_ops = {
 -- 
-2.4.10
+1.9.1
