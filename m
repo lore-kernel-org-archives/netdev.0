@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] sh_eth: fix couple of bugs in sh_eth_ring_format()
-Date: Thu, 10 Mar 2016 16:07:52 -0500 (EST)
-Message-ID: <20160310.160752.440578142471376021.davem@davemloft.net>
-References: <4881302.XJJSmqvE1J@wasted.cogentembedded.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Thu, 10 Mar 2016 13:09:15 -0800
+Message-ID: <CAM_iQpU3EuioDavDQAXMuuyRAXPQn2O+hOmnwcWMawrusNiX4g@mail.gmail.com>
+References: <20160310150920.GC21154@uranus.lan>
+	<20160310.130138.1302349043066531127.davem@davemloft.net>
+	<CAM_iQpWWbj00H-cKvpeaKq6mVWK_D2CFuarXiE6YDQeQX5JupA@mail.gmail.com>
+	<20160310.145543.990436948715023108.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <4881302.XJJSmqvE1J@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	solar@openwall.com, Vasily Averin <vvs@virtuozzo.com>,
+	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
+	khorenko@virtuozzo.com, Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160310.145543.990436948715023108.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 08 Mar 2016 01:33:38 +0300
+On Thu, Mar 10, 2016 at 11:55 AM, David Miller <davem@davemloft.net> wrote:
+> Indeed, good catch.  Therefore:
+>
+> 1) Keep the masq netdev notifier.  That will flush the conntrack table
+>    for the inetdev_destroy event.
+>
+> 2) Make the inetdev notifier only do something if inetdev->dead is
+>    false.  (ie. we are flushing an individual address)
+>
+> And then we don't need the NETDEV_UNREGISTER thing at all:
 
->    Here's a set of 2 patches against DaveM's 'net.git' repo fixing two bugs
-> in sh_eth_.ring_format()...
-> 
-> [1/2] sh_eth: fix NULL pointer dereference in sh_eth_ring_format()
-> [2/2] sh_eth: advance 'rxdesc' later in sh_eth_ring_format()
 
-Since Linus is likely to release today or otherwise very soon I'm not
-putting things into 'net'.
-
-So I've applied this series to 'net-next', let me know if I should
-queue it up for stable.
+This makes sense to me. I guess similar thing needs to do for IPv6 masq too.
 
 Thanks.
