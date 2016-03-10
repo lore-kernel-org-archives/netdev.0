@@ -1,65 +1,96 @@
-From: Jonathan Thibault <jonathan@navigue.com>
-Subject: Re: gretap default MTU question
-Date: Thu, 10 Mar 2016 09:30:50 -0500
-Message-ID: <56E1851A.2030407@navigue.com>
-References: <56E05C8F.1060901@navigue.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [RFC -next 2/2] virtio_net: Read and use the advised MTU
+Date: Thu, 10 Mar 2016 15:57:28 +0100
+Message-ID: <1457621848.9753.44.camel@redhat.com>
+References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
+	 <1457620092-24170-3-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.navigue.com ([74.117.40.3]:50184 "EHLO mail.navigue.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751754AbcCJOaw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 09:30:52 -0500
-Received: from [192.168.7.182] (unknown [74.117.40.10])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.navigue.com (Postfix) with ESMTPSA id BFA931A0031
-	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 09:30:50 -0500 (EST)
-In-Reply-To: <56E05C8F.1060901@navigue.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Aaron Conole <aconole@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457620092-24170-3-git-send-email-aconole@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/03/16 12:25 PM, Jonathan Thibault wrote:
-> Hello good people of netdev,
->
-> When setting up gretap devices like so:
->
-> ip link add mydev type gretap remote 1.1.1.1 local 2.2.2.2 nopmtudisc
->
-> I'm observing two different behavior:
->
-> - On system A, the MTU of 'mydev' is set to the MTU of the 'parent'
-> interface (currently 1600) minus 38. All other interfaces on that system
-> have a default MTU of 1500, only the parent was forced to 1600 to avoid
-> fragmentation.  So 'mydev' accurately figures out that its MTU is 1562.
->
-> - On system B, with the 'parent' interface MTU set to 1600 and all other
-> defaulting to 1500 (same situation as A), the MTU of 'mydev' gets set to
-> 1462.
->
-> I'm trying to figure out which behavior is normal and what mechanism (if
-> any) causes the MTU to be set differently.  In both cases the 'parent'
-> device has an MTU of 1600.  The code in ip_gre.c does this:
->
-> dev->mtu = ETH_DATA_LEN - t_hlen - 4;
->
-> In this case, system B would have the expected behavior and I need some
-> way to explain what goes on with system A.
->
-> Of course I can force the MTU on system B but I was rather pleased with
-> the 'magic' on system A.
->
-> If anyone here familiar with this code can offer an explanation, it
-> would greatly ease my curiosity.
->
-> Jonathan
-Replying to myself to leave a trace.
+On Thu, 2016-03-10 at 09:28 -0500, Aaron Conole wrote:
+> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
+> exists, read the advised MTU and use it.
+> 
+> No proper error handling is provided for the case where a user changes the
+> negotiated MTU. A future commit will add proper error handling. Instead, a
+> warning is emitted if the guest changes the device MTU after previously being
+> given advice.
+> 
+> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> ---
+>  drivers/net/virtio_net.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 767ab11..7175563 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -146,6 +146,7 @@ struct virtnet_info {
+>  	virtio_net_ctrl_ack ctrl_status;
+>  	u8 ctrl_promisc;
+>  	u8 ctrl_allmulti;
+> +	bool negotiated_mtu;
+>  };
+>  
+>  struct padded_vnet_hdr {
+> @@ -1390,8 +1391,12 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  
+>  static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>  {
+> +	struct virtnet_info *vi = netdev_priv(dev);
+>  	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+>  		return -EINVAL;
+> +	if (vi->negotiated_mtu == true) {
 
-Turns out that the MTU of the gretap device is based on the MTU of the
-interface that has a route to the 'remote' address.  In my specific
-case, it used the default route on system B and a static route on system
-A.  The cause of the discrepancy was a missing route.
+why don't:
 
-Jonathan
+if ((vi->negotiated_mtu == true) && (dev->mtu != new_mtu))
+
+?
+
+> +		pr_warn("changing mtu from negotiated mtu.");
+> +	}
+>  	dev->mtu = new_mtu;
+>  	return 0;
+>  }
+> @@ -1836,6 +1841,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>  
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+> +		vi->negotiated_mtu = true;
+> +		dev->mtu = virtio_cread16(vdev,
+> +					  offsetof(struct virtio_net_config,
+> +						   mtu));
+> +	}
+> +
+>  	if (vi->any_header_sg)
+>  		dev->needed_headroom = vi->hdr_len;
+>  
+> @@ -2017,8 +2029,9 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+> -	VIRTIO_NET_F_CTRL_MAC_ADDR,
+> +	VIRTIO_NET_F_CTRL_MAC_ADDR, 
+
+Here a trailing white space slipped-in.
+
+Otherwise LGTM.
+
+Paolo
+
+>  	VIRTIO_F_ANY_LAYOUT,
+> +	VIRTIO_NET_F_MTU,
+>  };
+>  
+>  static struct virtio_driver virtio_net_driver = {
