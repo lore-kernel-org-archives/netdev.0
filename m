@@ -1,61 +1,88 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] bpf: bpf_stackmap_copy depends on CONFIG_PERF_EVENTS
-Date: Wed, 9 Mar 2016 18:56:49 -0800
-Message-ID: <1457578609-277357-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Fengguang Wu <fengguang.wu@intel.com>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 1/3] net: validate variable length ll headers
+Date: Wed,  9 Mar 2016 21:58:32 -0500
+Message-ID: <1457578714-36125-2-git-send-email-willemdebruijn.kernel@gmail.com>
+References: <1457578714-36125-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49226 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753958AbcCJC4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 21:56:54 -0500
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u2A2rWq8006451
-	for <netdev@vger.kernel.org>; Wed, 9 Mar 2016 18:56:53 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 21jt8phjw1-2
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 18:56:53 -0800
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.102.107.97) with ESMTP	id
- bbd8c9f4e66b11e5a98b0002c99331b0-614e6420 for <netdev@vger.kernel.org>;	Wed,
- 09 Mar 2016 18:56:49 -0800
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:36635 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934806AbcCJC6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 21:58:41 -0500
+Received: by mail-qg0-f65.google.com with SMTP id 14so4402190qgg.3
+        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 18:58:40 -0800 (PST)
+In-Reply-To: <1457578714-36125-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0-day bot reported build error:
-kernel/built-in.o: In function `map_lookup_elem':
->> kernel/bpf/.tmp_syscall.o:(.text+0x329b3c): undefined reference to `bpf_stackmap_copy'
-when CONFIG_BPF_SYSCALL is set and CONFIG_PERF_EVENTS is not.
-Add weak definition to resolve it.
-This code path in map_lookup_elem() is never taken
-when CONFIG_PERF_EVENTS is not set.
+From: Willem de Bruijn <willemb@google.com>
 
-Fixes: 557c0c6e7df8 ("bpf: convert stackmap to pre-allocation")
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Netdevice parameter hard_header_len is variously interpreted both as
+an upper and lower bound on link layer header length. The field is
+used as upper bound when reserving room at allocation, as lower bound
+when validating user input in PF_PACKET.
+
+Clarify the definition to be maximum header length. For validation
+of untrusted headers, add an optional validate member to header_ops.
+
+Allow bypassing of validation by passing CAP_SYS_RAWIO, for instance
+for deliberate testing of corrupt input. In this case, pad trailing
+bytes, as some device drivers expect completely initialized headers.
+
+See also http://comments.gmane.org/gmane.linux.network/401064
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- kernel/bpf/syscall.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ include/linux/netdevice.h | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 2978d0d08869..2a2efe1bc76c 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -244,6 +244,11 @@ static void __user *u64_to_ptr(__u64 val)
- 	return (void __user *) (unsigned long) val;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index efe7cec..fd30cb5 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -268,6 +268,7 @@ struct header_ops {
+ 	void	(*cache_update)(struct hh_cache *hh,
+ 				const struct net_device *dev,
+ 				const unsigned char *haddr);
++	bool	(*validate)(const char *ll_header, unsigned int len);
+ };
+ 
+ /* These flag bits are private to the generic network queueing
+@@ -1459,8 +1460,7 @@ enum netdev_priv_flags {
+  *	@dma:		DMA channel
+  *	@mtu:		Interface MTU value
+  *	@type:		Interface hardware type
+- *	@hard_header_len: Hardware header length, which means that this is the
+- *			  minimum size of a packet.
++ *	@hard_header_len: Maximum hardware header length.
+  *
+  *	@needed_headroom: Extra headroom the hardware may need, but not in all
+  *			  cases can this be guaranteed
+@@ -2687,6 +2687,24 @@ static inline int dev_parse_header(const struct sk_buff *skb,
+ 	return dev->header_ops->parse(skb, haddr);
  }
  
-+int __weak bpf_stackmap_copy(struct bpf_map *map, void *key, void *value)
++/* ll_header must have at least hard_header_len allocated */
++static inline bool dev_validate_header(const struct net_device *dev,
++				       char *ll_header, int len)
 +{
-+	return -ENOTSUPP;
++	if (likely(len >= dev->hard_header_len))
++		return true;
++
++	if (capable(CAP_SYS_RAWIO)) {
++		memset(ll_header + len, 0, dev->hard_header_len - len);
++		return true;
++	}
++
++	if (dev->header_ops && dev->header_ops->validate)
++		return dev->header_ops->validate(ll_header, len);
++
++	return false;
 +}
 +
- /* last field in 'union bpf_attr' used by this command */
- #define BPF_MAP_LOOKUP_ELEM_LAST_FIELD value
- 
+ typedef int gifconf_func_t(struct net_device * dev, char __user * bufptr, int len);
+ int register_gifconf(unsigned int family, gifconf_func_t *gifconf);
+ static inline int unregister_gifconf(unsigned int family)
 -- 
-2.8.0.rc1
+2.7.0.rc3.207.g0ac5344
