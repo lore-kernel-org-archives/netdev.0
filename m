@@ -1,103 +1,43 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Thu, 10 Mar 2016 17:51:09 -0500
-Message-ID: <56E1FA5D.9090003@ti.com>
-References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
- <56E1A55F.3090906@ti.com> <56E1B75F.9070100@gmail.com>
- <56E1CD4D.20405@ti.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH nf-next v10 8/8] openvswitch: Interface with
+	NAT.
+Date: Fri, 11 Mar 2016 12:48:26 +1300
+Message-ID: <CAPWQB7E2cCdkSnBDV=eaq=McHY9PWhyacDuAqDZTreVSW6j-8Q@mail.gmail.com>
+References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
+ <1457636063-92746-9-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, <johan@kernel.org>,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:36517 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932089AbcCJWvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 17:51:09 -0500
-In-Reply-To: <56E1CD4D.20405@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457636063-92746-9-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 03/10/2016 02:38 PM, Murali Karicheri wrote:
-> On 03/10/2016 01:05 PM, Florian Fainelli wrote:
->> On 10/03/16 08:48, Murali Karicheri wrote:
->>> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
->>>> On 03/03/16 14:18, Murali Karicheri wrote:
->>>>> Hi,
->>>>>
->>>>> We are using Micrel Phy in one of our board and wondering if we can force the
->>>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
->>>>> to Phy and the phy always enable flow control. I would like to configure the
->>>>> phy not to flow control. Is that possible and if yes, what should I do in the
->>>>> my Ethernet driver to tell the Phy not to enable flow control?
->>>>
->>>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
->>>> the switch is doing, along with the link partner advertising support for
->>>> it. You would want to make sure that your PHY device interface (provided
->>>> that you are using the PHY library) is not starting with Pause
->>>> advertised, but it could be supported.
->>>
->>> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
->>> by default FC supported. After negotiation, I see that Phylib provide the 
->>> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
->>> to advertise?
->>>
->>> I call following sequence in the Ethernet driver.
->>>
->>> of_phy_connect(x,y,hndlr,a,z);
->>
->> Here you should be able to change phydev->advertising and
->> phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
->> bits and have phy_start() restart with that which should disable pause
->> and asym_pause as seen by your adjust_link handler.
->>
-> Ok. Good point. I will try this. Thanks for your suggestion.
-> 
-
-I made following changes. The phylib still report flow control enabled to
-the driver. Some bug in the phylib/phydev?
-
-+
-+               printk("slave->phy->supported %x, slave->phy->advertising %x\n",
-+                       slave->phy->supported, slave->phy->advertising);
-+               slave->phy->supported &=
-+                               ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-+               slave->phy->advertising = slave->phy->supported;
-+               printk("slave->phy->supported %x, slave->phy->advertising %x\n",
-+                       slave->phy->supported, slave->phy->advertising);
-                phy_start(slave->phy);
-+               printk("slave->phy->supported %x, slave->phy->advertising %x\n",
-+                       slave->phy->supported, slave->phy->advertising);
-                phy_read_status(slave->phy);
-
-
-[   10.757001] slave->phy->supported 22ff, slave->phy->advertising 22ff
-[   10.763354] slave->phy->supported 2ff, slave->phy->advertising 2ff
-[   10.769552] slave->phy->supported 2ff, slave->phy->advertising 2ff
-[   10.776045] netcp-1.0 2620110.netcp eth0: Link is Down
-udhcpc (v1.23.1) started
-Sending discover...
-Sending discover...
-[   14.757280] netcp-1.0 2620110.netcp eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-Sending discover...
-Sending select for 158.218.103.170...
-Lease of 158.218.103.170 obtained, lease time 28800
-/etc/udhcpc.d/50default: Adding DNS 192.0.2.2
-/etc/udhcpc.d/50default: Adding DNS 192.0.2.3
-
-
-> Murali
->>> phy_start()
->>>
->>> Now in hndlr() I have pause = 1, asym_pause = 1, in phy_device ptr. How can 
->>> I tell the phy not to advertise initially?
-> 
-> 
-
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+T24gMTEgTWFyY2ggMjAxNiBhdCAwNzo1NCwgSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3Jn
+PiB3cm90ZToKPiBFeHRlbmQgT1ZTIGNvbm50cmFjayBpbnRlcmZhY2UgdG8gY292ZXIgTkFULiAg
+TmV3IG5lc3RlZAo+IE9WU19DVF9BVFRSX05BVCBhdHRyaWJ1dGUgbWF5IGJlIHVzZWQgdG8gaW5j
+bHVkZSBOQVQgd2l0aCBhIENUIGFjdGlvbi4KPiBBIGJhcmUgT1ZTX0NUX0FUVFJfTkFUIG9ubHkg
+bWFuZ2xlcyBleGlzdGluZyBhbmQgZXhwZWN0ZWQgY29ubmVjdGlvbnMuCj4gSWYgT1ZTX05BVF9B
+VFRSX1NSQyBvciBPVlNfTkFUX0FUVFJfRFNUIGlzIGluY2x1ZGVkIHdpdGhpbiB0aGUgbmVzdGVk
+Cj4gYXR0cmlidXRlcywgbmV3IChub24tY29tbWl0dGVkL25vbi1jb25maXJtZWQpIGNvbm5lY3Rp
+b25zIGFyZSBtYW5nbGVkCj4gYWNjb3JkaW5nIHRvIHRoZSByZXN0IG9mIHRoZSBuZXN0ZWQgYXR0
+cmlidXRlcy4KPgo+IFRoZSBjb3JyZXNwb25kaW5nIE9WUyB1c2Vyc3BhY2UgcGF0Y2ggc2VyaWVz
+IGluY2x1ZGVzIHRlc3QgY2FzZXMgKGluCj4gdGVzdHMvc3lzdGVtLXRyYWZmaWMuYXQpIHRoYXQg
+YWxzbyBzZXJ2ZSBhcyBleGFtcGxlIHVzZXMuCj4KPiBUaGlzIHdvcmsgZXh0ZW5kcyBvbiBhIGJy
+YW5jaCBieSBUaG9tYXMgR3JhZiBhdAo+IGh0dHBzOi8vZ2l0aHViLmNvbS90Z3JhZi9vdnMvdHJl
+ZS9uYXQuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
+Cj4gQWNrZWQtYnk6IFRob21hcyBHcmFmIDx0Z3JhZkBzdXVnLmNoPgoKQWNrZWQtYnk6IEpvZSBT
+dHJpbmdlciA8am9lQG92bi5vcmc+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8v
+b3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
