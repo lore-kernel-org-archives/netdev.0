@@ -1,61 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Thu, 10 Mar 2016 10:05:19 -0800
-Message-ID: <56E1B75F.9070100@gmail.com>
-References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
- <56E1A55F.3090906@ti.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [PATCH 1/2] net: thunderx: Set recevie buffer page usage count in bulk
+Date: Thu, 10 Mar 2016 23:57:48 +0530
+Message-ID: <CA+sq2CeMQMnmGPUWoLrtPzGiJpvNTsR_WmQzQr5wFVC9b3LU-w@mail.gmail.com>
+References: <20160307.120410.1851177945150642006.davem@davemloft.net>
+	<CA+sq2CcyOV3FbpUvSkX4ZhjC+fJuHk9cUpjdiJtkFNaEXOWu6Q@mail.gmail.com>
+	<CA+sq2Cc44v_ggy=QLOX_FGt6uTv3Qo1KmqCeZ8=3G1COuWxAHw@mail.gmail.com>
+	<20160310.124450.278421705870462421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Murali Karicheri <m-karicheri2@ti.com>, johan@kernel.org,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Robert Richter <robert.richter@caviumnetworks.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35863 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbcCJSGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:06:51 -0500
-Received: by mail-pf0-f170.google.com with SMTP id u190so45010008pfb.3
-        for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 10:06:51 -0800 (PST)
-In-Reply-To: <56E1A55F.3090906@ti.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33598 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753973AbcCJS1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:27:49 -0500
+In-Reply-To: <20160310.124450.278421705870462421.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/16 08:48, Murali Karicheri wrote:
-> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
->> On 03/03/16 14:18, Murali Karicheri wrote:
->>> Hi,
->>>
->>> We are using Micrel Phy in one of our board and wondering if we can force the
->>> Phy to disable flow control at start. I have a 1G ethernet switch connected
->>> to Phy and the phy always enable flow control. I would like to configure the
->>> phy not to flow control. Is that possible and if yes, what should I do in the
->>> my Ethernet driver to tell the Phy not to enable flow control?
->>
->> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
->> the switch is doing, along with the link partner advertising support for
->> it. You would want to make sure that your PHY device interface (provided
->> that you are using the PHY library) is not starting with Pause
->> advertised, but it could be supported.
-> 
-> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
-> by default FC supported. After negotiation, I see that Phylib provide the 
-> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
-> to advertise?
-> 
-> I call following sequence in the Ethernet driver.
-> 
-> of_phy_connect(x,y,hndlr,a,z);
+>
+> So calculate the modulus on the page split count and optimize the
+> increment ahead of time when possible, and for the sub page split
+> pieces do it one at a time.
+>
+Patch does almost the same with a negligible overhead of a counter
+for page->_count increment at a later time but still before HW starts
+using buffers.
+Difference between NIU driver and this patch is there it's
+calculate split count, increment page count and then divide page into
+buffers. Here it's divide page into buffers, have a counter which increments
+at every split and then at the end do a atomic increment of page->_count.
 
-Here you should be able to change phydev->advertising and
-phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
-bits and have phy_start() restart with that which should disable pause
-and asym_pause as seen by your adjust_link handler.
+Any issue with this approach ?
 
-> phy_start()
-> 
-> Now in hndlr() I have pause = 1, asym_pause = 1, in phy_device ptr. How can 
-> I tell the phy not to advertise initially?
--- 
-Florian
+Thanks,
+Sunil.
