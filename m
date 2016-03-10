@@ -1,124 +1,86 @@
-From: Joseph CHANG <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/3] dm9601: manage eeprom to assure the chip for correct operation
-Date: Thu, 10 Mar 2016 19:23:58 +0800
-Message-ID: <1457609038-3636-1-git-send-email-josright123@gmail.com>
-Cc: Joseph Chang <joseph_chang-Ubu6M+hUeUGoECsaD+WFmw@public.gmane.org>
-To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Joseph CHANG <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joseph CHANG <josright123@gmail.com>
+Subject: [PATCH 3/3] dm9601: add support ethtool style utility
+Date: Thu, 10 Mar 2016 19:24:27 +0800
+Message-ID: <1457609067-3674-1-git-send-email-josright123@gmail.com>
+Cc: Joseph Chang <joseph_chang@davicom.com.tw>
+To: Peter Korsgaard <jacmet@sunsite.dk>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joseph CHANG <josright123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add to maintain variant eeprom adapters which may have not right
-dm962x's format.
+Add function dm9601_set_eeprom which tested good with ethtool
+utility, include the eeprom words dump and the eeprom byte write.
 
-Signed-off-by: Joseph CHANG <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Joseph CHANG <josright123@gmail.com>
 ---
- drivers/net/usb/dm9601.c | 72 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
+ drivers/net/usb/dm9601.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
 diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index 520de4f..50095df 100644
+index 50095df..a6904f4 100644
 --- a/drivers/net/usb/dm9601.c
 +++ b/drivers/net/usb/dm9601.c
-@@ -60,6 +60,7 @@
- #define DM_TX_OVERHEAD	2	/* 2 byte header */
+@@ -61,6 +61,7 @@
  #define DM_RX_OVERHEAD	7	/* 3 byte header + 4 byte crc tail */
  #define DM_TIMEOUT	1000
-+#define	DM_EP3I_VAL	0x07
+ #define	DM_EP3I_VAL	0x07
++#define	MD96XX_EEPROM_MAGIC	0x9620
  
  static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
  {
-@@ -193,6 +194,75 @@ static int dm_read_eeprom_word(struct usbnet *dev, u8 offset, void *value)
- 	return dm_read_shared_word(dev, 0, offset, value);
+@@ -289,6 +290,43 @@ static int dm9601_get_eeprom(struct net_device *net,
+ 	return 0;
  }
  
-+static void dm_write_eeprom_word(struct usbnet *dev, u8 offset, __le16 data)
++static int dm9601_set_eeprom(struct net_device *net,
++			     struct ethtool_eeprom *eeprom, u8 *data)
 +{
-+	dm_write_shared_word(dev, 0, offset, data);
-+}
++	struct usbnet *dev = netdev_priv(net);
++	int offset = eeprom->offset;
++	int len = eeprom->len;
++	int done;
 +
-+static int dm_render_write(struct usbnet *dev, u8 wordoffset, u16 mask_word,
-+			   u16 orset_word, u16 *pmd)
-+{
-+	u16 srom;
-+
-+	dm_read_eeprom_word(dev, wordoffset, &srom);
-+	if ((srom & mask_word) == orset_word)
-+		return 0;
-+
-+	srom &= ~mask_word;
-+	srom |= orset_word;
-+
-+	dm_write_eeprom_word(dev, wordoffset, srom);
-+	*pmd = srom;
-+	return 1;
-+}
-+
-+static void dm_render_report(struct usbnet *dev, u8 wordoffset, u16 md)
-+{
-+	int i = 0;
-+	u16 srom;
-+
-+	do {
-+		i++;
-+		usleep_range(100, 200);
-+		dm_read_eeprom_word(dev, wordoffset, &srom);
-+		if (i == 8)
-+			break;
-+	} while (srom != md);
-+
-+	if (srom == md) {
-+		netdev_info(dev->net, "set eeprom word%d 0x%04x\n",
-+			    wordoffset, md);
-+	} else {
-+		netdev_info(dev->net, "warning - set eeprom word%d 0x%04x\n",
-+			    wordoffset, md);
-+		netdev_info(dev->net, "warning - fail as eeprom word%d 0x%04x\n",
-+			    wordoffset, srom);
++	if (eeprom->magic != MD96XX_EEPROM_MAGIC) {
++		netdev_dbg(dev->net, "EEPROM: magic value mismatch, magic = 0x%x",
++			   eeprom->magic);
++		return -EINVAL;
 +	}
++
++	while (len > 0) {
++		if (len & 1 || offset & 1) {
++			int which = offset & 1;
++			u8 tmp[2];
++
++			dm_read_eeprom_word(dev, offset / 2, tmp);
++			tmp[which] = *data;
++			dm_write_eeprom_word(dev, offset / 2,
++					     tmp[0] | tmp[1] << 8);
++			mdelay(10);
++			done = 1;
++		} else {
++			dm_write_eeprom_word(dev, offset / 2,
++					     data[0] | data[1] << 8);
++			done = 2;
++		}
++		data += done;
++		offset += done;
++		len -= done;
++	}
++	return 0;
 +}
 +
-+static void dm_eeprom_render(struct usbnet *dev, u8 wordoffset,
-+			     u16 orset_word, u16 mask_word)
-+{
-+	u16 m;
-+
-+	if (!dm_render_write(dev, wordoffset, mask_word, orset_word, &m))
-+		return;
-+
-+	dm_render_report(dev, wordoffset, m);
-+}
-+
-+static void dm_render_begin(struct usbnet *dev)
-+{
-+	/* Render eeprom if need, WORD3 render, set D[15:14] 01b */
-+	dm_eeprom_render(dev, 3, 0x4000, 0xc000);
-+	/* Render eeprom if need, WORD7 render, clear D[10] */
-+	dm_eeprom_render(dev, 7, 0x0000, 0x0400);
-+	/* Render eeprom if need, WORD11 render, need 0x005a */
-+	dm_eeprom_render(dev, 11, 0x005a, 0xffff);
-+	/* Render eeprom if need, WORD12 render, need 0x0007 */
-+	dm_eeprom_render(dev, 12, DM_EP3I_VAL, 0xffff);
-+}
-+
- 
- 
- static int dm9601_get_eeprom_len(struct net_device *dev)
-@@ -420,6 +490,8 @@ static int dm9601_bind(struct usbnet *dev, struct usb_interface *intf)
- 
- 		/* Always return 8-bytes data to host per interrupt-interval */
- 		dm_write_reg(dev, DM_USB_CTRL, USB_CTRL_EP3ACK);
-+
-+		dm_render_begin(dev);
- 	}
- 
- 	/* power up phy */
+ static int dm9601_mdio_read(struct net_device *netdev, int phy_id, int loc)
+ {
+ 	struct usbnet *dev = netdev_priv(netdev);
+@@ -354,6 +392,7 @@ static const struct ethtool_ops dm9601_ethtool_ops = {
+ 	.set_msglevel	= usbnet_set_msglevel,
+ 	.get_eeprom_len	= dm9601_get_eeprom_len,
+ 	.get_eeprom	= dm9601_get_eeprom,
++	.set_eeprom	= dm9601_set_eeprom,
+ 	.get_settings	= usbnet_get_settings,
+ 	.set_settings	= usbnet_set_settings,
+ 	.nway_reset	= usbnet_nway_reset,
 -- 
 2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
