@@ -1,90 +1,74 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH iproute2 v2 1/1] tc: introduce IFE action
-Date: Thu, 10 Mar 2016 14:12:40 +0100
-Message-ID: <20160310131240.GA19221@orbyte.nwl.cc>
-References: <1457525076-6923-1-git-send-email-jhs@emojatatu.com>
- <1457525076-6923-2-git-send-email-jhs@emojatatu.com>
- <20160309131214.GB27306@orbyte.nwl.cc>
- <56E16BB5.4070802@mojatatu.com>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH 3/3] dm9601: add support ethtool style utility
+Date: Thu, 10 Mar 2016 13:17:45 +0000
+Message-ID: <1457615865.3001.36.camel@decadent.org.uk>
+References: <201603101253.u2ACrnUJ002444@mail.davicom.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemming@brocade.com, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41671 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750924AbcCJNMn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 08:12:43 -0500
-Content-Disposition: inline
-In-Reply-To: <56E16BB5.4070802@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-CcgfkN0aVi7K8jbd6cry"
+To: Joseph Chang <joseph_chang-Ubu6M+hUeUGoECsaD+WFmw@public.gmane.org>,
+	'Joseph CHANG' <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	'Peter Korsgaard' <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201603101253.u2ACrnUJ002444-LuMwerrUz4dPN/9CU4g/Nk1QfAb4XDUr@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 07:42:29AM -0500, Jamal Hadi Salim wrote:
-> On 16-03-09 08:12 AM, Phil Sutter wrote:
-> > On Wed, Mar 09, 2016 at 07:04:36AM -0500, Jamal Hadi Salim wrote:
-> >> +static void ife_explain(void)
-> >> +{
-> >> +	fprintf(stderr,
-> >> +		"Usage:... ife {decode|encode} {ALLOW|USE} [dst DMAC] [src SMAC] [type TYPE] [CONTROL] [index INDEX]\n");
-> >
-> > I'm just nitpicking here, but this syntax implies that ALLOW and USE are
-> > mandatory and mutually exclusive. Looking at the code they're neither
-> > (although specifying both might not make sense). OTOH you could probably
-> > 'use mark' and 'allow prio'. So I'd suggest '[ALLOW] [USE]' instead.
-> >
-> 
-> Maybe we need to come up with some consistent regex/bnf
-> scheme. And then lets review all usage code and fix. Here are the rules
-> for this case:
-> Default: "allow" will be used for all metadata.
-> You can specify zero or more "allows", one per metadata
-> You can specify zero or more "use", one per metadata.
-> 
-> This is why my thinking was it was going to read
-> [ALLOW|USE] which needed to read as [ALLOW|USE]*
 
-Sure, this is still overly simplified. Using syntactically correct BNF
-in help texts though is not worth the effort IMHO, as readability will
-suffer tremendously.
+--=-CcgfkN0aVi7K8jbd6cry
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> Example, I dont see "{..}" making good sense in any bnf/regex scheme.
+On Thu, 2016-03-10 at 20:51 +0800, Joseph Chang wrote:
+> I did verify to dump EEPROM data and also write EEPROM by per byte.
+>=20
+> 1.Plug dm9601/dm9621 adapter and has get dm9601.ko be 'insmod' to have 'e=
+ht0',
+> 2.Run ethtool v3.7 (as attached executable file and it's help display.)
+> 3. Commands:
+> =C2=A0=C2=A0=C2=A0./ethtool -e eth0=C2=A0=C2=A0(dump EEPROM data for all =
+the .get_eeprom_len )
+> =C2=A0=C2=A0=C2=A0./ethtool -E eth0 magic 0x9620 offset 0 value 0xf1=C2=
+=A0=C2=A0(write 0xf1 to eeprom byte0)
+> =C2=A0=C2=A0=C2=A0./ethtool -E eth0 magic 0x9620 offset 1 value 0xf2=C2=
+=A0=C2=A0(write 0xf2 to eeprom byte1)
+> =C2=A0=C2=A0=C2=A0./ethtool -E eth0 magic 0x9620 offset 2 value 0xf3=C2=
+=A0=C2=A0(write 0xf3 to eeprom byte2)
+[...]
 
-They way I interpreted it so far (and is apparently used) is as a way of
-having an XOR. E.g. 'bla { foo | bar }' is valid for 'bla foo' and 'bla
-bar', but not just 'bla' or 'bla foo bar'.
+So you only tested writing 1 byte at a time. =C2=A0Try again with 3 bytes
+and you'll see how it goes wrong.
 
-Assuming that it's possible for allow/use statements to override
-previous ones (the code permits that), correct BNF would probably look
-like this:
+Ben.
 
-| ife {decode|encode} [AULIST] [dst DMAC] [src SMAC] [type TYPE] [CONTROL] [index INDEX]
-|
-| AULIST := [AULIST] AU
-| AU := {allow|use} {mark|prio}
+--=20
+Ben Hutchings
+To err is human; to really foul things up requires a computer.
+--=-CcgfkN0aVi7K8jbd6cry
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Of course there are different BNF variants and AFAICT the syntax used in
-iproute2 doesn't cleanly stick to any of them. So speaking of 'correct'
-is somewhat nonsensical when I define the rules at the same time. :)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> > I'm missing a list of what actual keywords can be given, but after all
-> > this is just a help text and a man page will provide much more detail
-> > anyway (which you are about to submit too, are you? :).
-> >
-> 
-> Phil, Phil - someday, yes ;->
+iQIcBAABCgAGBQJW4XP5AAoJEOe/yOyVhhEJ+YsQAI1IwOL2aHCJj2RQ9bXUQLqB
+td9vbvO0nZr9X0HmE0ZLMiPXxa0WEB6wltOmaoB7Wv/pwDUrFmq1duVGj/5AHqlf
+BeJE2EWtnLYLj3QgYXLwK7w49drAhY9UUUYzgfEJW0Hcj2gaYq8keNzyGACKKEqQ
++j4RTvYxiC6xv/6BnQRLEvdRCEDe4ws20Tiu7qqMmc9WG+/5HRWm8oE7bjKTEQYv
+FIA3lqPhp8F1tH7lS6V8fAZGDctzkTnfSJPYWTsxlmygZ0rEfVql3WwcTuXvoeTN
+FjWkonQatZYl3wTUWKkDJh49cBG8hMohTIKtEgezVTv+v/xQbTeYFNfDm/SuKPtm
+m24zaKUlWJiCaOTvE83X2dDRiQMGcAyyo0MHnjqLGWWQ/gfncVvE+sK6tMNeu4e6
+LSNbIa7Snbg5zf7BYu8eyk3xg+4oGogtDv/0pFj5mXfE5PCWWDoqZ2ZO4A+lk3OO
+uFEQzF4V4wWQaKVEjBCW7q1xPCLFg8eVHm5jRTr6wpQXhaxdXv67vp3ds+bKiYQm
+6pp6P5h+R6jA70256GUm3TldjMgzbONAR0g0UFxqrjzkSlC2t52a3lN9AWsgmQgX
+E2R+nYsBGe5Qlutt5sMVJfSVdeZCLWUilKqQtIX4iO7njVSV2t+MnkDTat+vcScB
+CWp7Q/mn4q8cpeGaQshL
+=tNC/
+-----END PGP SIGNATURE-----
 
-I'll keep that in mind! But seriously, if we treated man page (updates)
-as a substantial part of new features or code changes in general,
-quality was higher - not only of documentation, but code as well.
-
-> > Apart from that:
-> >
-> > Acked-by: Phil Sutter <phil@nwl.cc>
-> >
-> 
-> Lets please get this in and we can then do a general check on all.
-
-Famous last words? *SCNR*
-
-Thanks, Phil
+--=-CcgfkN0aVi7K8jbd6cry--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
