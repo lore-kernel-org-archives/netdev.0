@@ -1,176 +1,82 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Wed, 9 Mar 2016 16:20:22 -0800
-Message-ID: <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com> <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+From: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] ovs: allow nl 'flow set' to use ufid
+ without flow key
+Date: Thu, 10 Mar 2016 01:25:13 +0100
+Message-ID: <CAMEOZhK0kBpdS8uOqYqzQs+6LyWh5K3MWL__CRoThmNRnBN2MQ@mail.gmail.com>
+References: <1457543157-5240-1-git-send-email-samuel.gauthier@6wind.com>
+ <CAOrHB_DtUjG4DkmFZb+Qj1UAWsTOG3sJH0tQEknnTF-PRQCWzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?UTF-8?Q?P=C3=A5l_Halvorsen?= <paalh@simula.no>,
-	Jonas Markussen <jonassm@ifi.uio.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: =?UTF-8?Q?Bendik_R=C3=B8nning_Opstad?= <bro.devel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36840 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754008AbcCJAVE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 19:21:04 -0500
-Received: by mail-wm0-f41.google.com with SMTP id n186so7969628wmn.1
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 16:21:03 -0800 (PST)
-In-Reply-To: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAOrHB_DtUjG4DkmFZb+Qj1UAWsTOG3sJH0tQEknnTF-PRQCWzQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 3, 2016 at 10:06 AM, Bendik R=C3=B8nning Opstad
-<bro.devel@gmail.com> wrote:
->
-> Redundant Data Bundling (RDB) is a mechanism for TCP aimed at reducin=
-g
-> the latency for applications sending time-dependent data.
-> Latency-sensitive applications or services, such as online games and
-> remote desktop, produce traffic with thin-stream characteristics,
-> characterized by small packets and a relatively high ITT. By bundling
-> already sent data in packets with new data, RDB alleviates head-of-li=
-ne
-> blocking by reducing the need to retransmit data segments when packet=
-s
-> are lost. RDB is a continuation on the work on latency improvements f=
-or
-> TCP in Linux, previously resulting in two thin-stream mechanisms in t=
-he
-> Linux kernel
-> (https://github.com/torvalds/linux/blob/master/Documentation/networki=
-ng/tcp-thin.txt).
->
-> The RDB implementation has been thoroughly tested, and shows
-> significant latency reductions when packet loss occurs[1]. The tests
-> show that, by imposing restrictions on the bundling rate, it can be
-> made not to negatively affect competing traffic in an unfair manner.
->
-> Note: Current patch set depends on the patch "tcp: refactor struct tc=
-p_skb_cb"
-> (http://patchwork.ozlabs.org/patch/510674)
->
-> These patches have also been tested with as set of packetdrill script=
-s
-> located at
-> https://github.com/bendikro/packetdrill/tree/master/gtests/net/packet=
-drill/tests/linux/rdb
-> (The tests require patching packetdrill with a new socket option:
-> https://github.com/bendikro/packetdrill/commit/9916b6c53e33dd04329d29=
-b7d8baf703b2c2ac1b)
->
-> Detailed info about the RDB mechanism can be found at
-> http://mlab.no/blog/2015/10/redundant-data-bundling-in-tcp, as well a=
-s
-> in the paper "Latency and Fairness Trade-Off for Thin Streams using
-> Redundant Data Bundling in TCP"[2].
->
-> [1] http://home.ifi.uio.no/paalh/students/BendikOpstad.pdf
-> [2] http://home.ifi.uio.no/bendiko/rdb_fairness_tradeoff.pdf
-I read the paper. I think the underlying idea is neat. but the
-implementation is little heavy-weight that requires changes on fast
-path (tcp_write_xmit) and space in skb control blocks. ultimately this
-patch is meant for a small set of specific applications.
-
-In my mental model (please correct me if I am wrong), losses on these
-thin streams would mostly resort to RTOs instead of fast recovery, due
-to the bursty nature of Internet losses. The HOLB comes from RTO only
-retransmit the first (tiny) unacked packet while a small of new data is
-readily available. But since Linux congestion control is packet-based,
-and loss cwnd is 1, the new data needs to wait until the 1st packet is
-acked which is for another RTT.
-
-Instead what if we only perform RDB on the (first and recurring) RTO
-retransmission?
-
-PS. I don't understand how (old) RDB can masquerade the losses by
-skipping DUPACKs. Perhaps an example helps. Suppose we send 4 packets
-and the last 3 were (s)acked. We perform RDB to send a packet that has
-previous 4 payloads + 1 new byte. The sender still gets the loss
-information?
-
->
-> Changes:
->
-> v6 (PATCH):
->  * tcp-Add-Redundant-Data-Bundling-RDB:
->    * Renamed rdb_ack_event() to tcp_rdb_ack_event() (Thanks DaveM)
->    * Minor doc changes
->
->  * tcp-Add-DPIFL-thin-stream-detection-mechanism:
->    * Minor doc changes
->
-> v5 (PATCH):
->  * tcp-Add-Redundant-Data-Bundling-RDB:
->    * Removed two unnecessary EXPORT_SYMOBOLs (Thanks Eric)
->    * Renamed skb_append_data() to tcp_skb_append_data() (Thanks Eric)
->    * Fixed bugs in additions to ipv4_table (sysctl_net_ipv4.c)
->    * Merged the two if tests for max payload of RDB packet in
->      rdb_can_bundle_test()
->    * Renamed rdb_check_rtx_queue_loss() to rdb_detect_loss()
->      and restructured to reduce indentation.
->    * Improved docs
->    * Revised commit message to be more detailed.
->
->  * tcp-Add-DPIFL-thin-stream-detection-mechanism:
->    * Fixed bug in additions to ipv4_table (sysctl_net_ipv4.c)
->
-> v4 (PATCH):
->  * tcp-Add-Redundant-Data-Bundling-RDB:
->    * Moved skb_append_data() to tcp_output.c and call this
->      function from tcp_collapse_retrans() as well.
->    * Merged functionality of create_rdb_skb() into
->      tcp_transmit_rdb_skb()
->    * Removed one parameter from rdb_can_bundle_test()
->
-> v3 (PATCH):
->  * tcp-Add-Redundant-Data-Bundling-RDB:
->    * Changed name of sysctl variable from tcp_rdb_max_skbs to
->      tcp_rdb_max_packets after comment from Eric Dumazet about
->      not exposing internal (kernel) names like skb.
->    * Formatting and function docs fixes
->
-> v2 (RFC/PATCH):
->  * tcp-Add-DPIFL-thin-stream-detection-mechanism:
->    * Change calculation in tcp_stream_is_thin_dpifl based on
->      feedback from Eric Dumazet.
->
->  * tcp-Add-Redundant-Data-Bundling-RDB:
->    * Removed setting nonagle in do_tcp_setsockopt (TCP_RDB)
->      to reduce complexity as commented by Neal Cardwell.
->    * Cleaned up loss detection code in rdb_check_rtx_queue_loss
->
-> v1 (RFC/PATCH)
->
->
-> Bendik R=C3=B8nning Opstad (2):
->   tcp: Add DPIFL thin stream detection mechanism
->   tcp: Add Redundant Data Bundling (RDB)
->
->  Documentation/networking/ip-sysctl.txt |  23 ++++
->  include/linux/skbuff.h                 |   1 +
->  include/linux/tcp.h                    |   3 +-
->  include/net/tcp.h                      |  36 ++++++
->  include/uapi/linux/tcp.h               |   1 +
->  net/core/skbuff.c                      |   2 +-
->  net/ipv4/Makefile                      |   3 +-
->  net/ipv4/sysctl_net_ipv4.c             |  34 +++++
->  net/ipv4/tcp.c                         |  16 ++-
->  net/ipv4/tcp_input.c                   |   3 +
->  net/ipv4/tcp_output.c                  |  48 ++++---
->  net/ipv4/tcp_rdb.c                     | 228 +++++++++++++++++++++++=
-++++++++++
->  12 files changed, 375 insertions(+), 23 deletions(-)
->  create mode 100644 net/ipv4/tcp_rdb.c
->
-> --
-> 1.9.1
->
+U29ycnksIEkgbWlzc2VkIHRoYXQuIFRoYW5rIHlvdSBmb3IgcG9pbnRpbmcgaXQgb3V0LgoKQWx0
+aG91Z2gsIHNldCBjb21tYW5kIGlzIGFsc28gdXNlZCB0byByZXNldCB0aGUgZmxvdyBzdGF0aXN0
+aWNzLCBhbmQgdGhlCmFjdGlvbiBhdHRyaWJ1dGUgc2VlbXMgb3B0aW9uYWwuIFdvdWxkIHlvdSBm
+aW5kIGFjY2VwdGFibGUgdG8gbWFrZSB0aGUga2V5CmF0dHJpYnV0ZSBtYW5kYXRvcnkgb25seSBp
+ZiB0aGUgYWN0aW9uIGF0dHJpYnV0ZSBpcyBwcm92aWRlZD8KClRoZSBvdnMtZHBjdGwgY29tbWFu
+ZCBjb3VsZCB0aGVuIGJlIHNpbXBsaWZpZWQgdG8gc3VwcG9ydCBvdnMtZHBjdGwgLS1jbGVhcgpt
+b2QtZmxvdyB1ZmlkOjx1ZmlkPiBpbnN0ZWFkIG9mIGhhdmluZyB0byBzcGVjaWZ5IHRoZSBmbG93
+IGFuZCBhY3Rpb24gd2hlbgp5b3UganVzdCB3YW50IHRvIHJlc2V0IHRoZSBzdGF0aXN0aWNzIG9m
+IGEgZmxvdy4KTGUgOSBtYXJzIDIwMTYgMTA6MzUgUE0sICJwcmF2aW4gc2hlbGFyIiA8cHNoZWxh
+ckBvdm4ub3JnPiBhIMOpY3JpdCA6Cgo+IE9uIFdlZCwgTWFyIDksIDIwMTYgYXQgOTowNSBBTSwg
+U2FtdWVsIEdhdXRoaWVyCj4gPHNhbXVlbC5nYXV0aGllckA2d2luZC5jb20+IHdyb3RlOgo+ID4g
+V2hlbiB3ZSB3YW50IHRvIGNoYW5nZSBhIGZsb3cgdXNpbmcgbmV0bGluaywgd2UgaGF2ZSB0byBp
+ZGVudGlmeSBpdCB0bwo+ID4gYmUgYWJsZSB0byBwZXJmb3JtIGEgbG9va3VwLiBCb3RoIHRoZSBm
+bG93IGtleSBhbmQgdW5pcXVlIGZsb3cgSUQKPiA+ICh1ZmlkKSBhcmUgdmFsaWQgaWRlbnRpZmll
+cnMsIGJ1dCB3ZSBhbHdheXMgaGF2ZSB0byBzcGVjaWZ5IHRoZSBmbG93Cj4gPiBrZXkgaW4gdGhl
+IG5ldGxpbmsgbWVzc2FnZS4gV2hlbiBib3RoIGF0dHJpYnV0ZXMgYXJlIHRoZXJlLCB0aGUgdWZp
+ZAo+ID4gaXMgdXNlZC4KPiA+Cj4gPiBUaGlzIGNvbW1pdCBhbGxvd3MgdG8gdXNlIHRoZSB1Zmlk
+IHdpdGhvdXQgaGF2aW5nIHRvIHByb3ZpZGUgdGhlIGZsb3cKPiA+IGtleSwgYXMgaXQgaXMgYWxy
+ZWFkeSBkb25lIGluIHRoZSBuZXRsaW5rICdmbG93IGdldCcgYW5kICdmbG93IGRlbCcKPiA+IHBh
+dGguCj4gPgo+ID4gU2lnbmVkLW9mZi1ieTogU2FtdWVsIEdhdXRoaWVyIDxzYW11ZWwuZ2F1dGhp
+ZXJANndpbmQuY29tPgo+ID4gLS0tCj4gPiAgbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMgfCAy
+MSArKysrKysrKysrLS0tLS0tLS0tLS0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMTAgaW5zZXJ0aW9u
+cygrKSwgMTEgZGVsZXRpb25zKC0pCj4gPgo+ID4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRj
+aC9kYXRhcGF0aC5jIGIvbmV0L29wZW52c3dpdGNoL2RhdGFwYXRoLmMKPiA+IGluZGV4IGRlYWRm
+ZGFiMWJjMy4uMDZmMTUxNDNjZjJhIDEwMDY0NAo+ID4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2Rh
+dGFwYXRoLmMKPiA+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jCj4gPiBAQCAtMTEw
+MCwyMSArMTEwMCwyMCBAQCBzdGF0aWMgaW50IG92c19mbG93X2NtZF9zZXQoc3RydWN0IHNrX2J1
+ZmYgKnNrYiwKPiBzdHJ1Y3QgZ2VubF9pbmZvICppbmZvKQo+ID4gICAgICAgICBzdHJ1Y3Qgc3df
+Zmxvd19tYXRjaCBtYXRjaDsKPiA+ICAgICAgICAgc3RydWN0IHN3X2Zsb3dfaWQgc2ZpZDsKPiA+
+ICAgICAgICAgdTMyIHVmaWRfZmxhZ3MgPQo+IG92c19ubGFfZ2V0X3VmaWRfZmxhZ3MoYVtPVlNf
+RkxPV19BVFRSX1VGSURfRkxBR1NdKTsKPiA+IC0gICAgICAgaW50IGVycm9yOwo+ID4gKyAgICAg
+ICBpbnQgZXJyb3IgPSAwOwo+ID4gICAgICAgICBib29sIGxvZyA9ICFhW09WU19GTE9XX0FUVFJf
+UFJPQkVdOwo+ID4gICAgICAgICBib29sIHVmaWRfcHJlc2VudDsKPiA+Cj4gPiAtICAgICAgIC8q
+IEV4dHJhY3Qga2V5LiAqLwo+ID4gLSAgICAgICBlcnJvciA9IC1FSU5WQUw7Cj4gPiAtICAgICAg
+IGlmICghYVtPVlNfRkxPV19BVFRSX0tFWV0pIHsKPiA+IC0gICAgICAgICAgICAgICBPVlNfTkxF
+UlIobG9nLCAiRmxvdyBrZXkgYXR0cmlidXRlIG5vdCBwcmVzZW50IGluIHNldAo+IGZsb3cuIik7
+Cj4gPiAtICAgICAgICAgICAgICAgZ290byBlcnJvcjsKPiA+IC0gICAgICAgfQo+ID4gLQo+ID4g
+ICAgICAgICB1ZmlkX3ByZXNlbnQgPSBvdnNfbmxhX2dldF91ZmlkKCZzZmlkLCBhW09WU19GTE9X
+X0FUVFJfVUZJRF0sCj4gbG9nKTsKPiA+IC0gICAgICAgb3ZzX21hdGNoX2luaXQoJm1hdGNoLCAm
+a2V5LCAmbWFzayk7Cj4gPiAtICAgICAgIGVycm9yID0gb3ZzX25sYV9nZXRfbWF0Y2gobmV0LCAm
+bWF0Y2gsIGFbT1ZTX0ZMT1dfQVRUUl9LRVldLAo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIGFbT1ZTX0ZMT1dfQVRUUl9NQVNLXSwgbG9nKTsKPiA+ICsgICAgICAgaWYgKGFb
+T1ZTX0ZMT1dfQVRUUl9LRVldKSB7Cj4gPiArICAgICAgICAgICAgICAgb3ZzX21hdGNoX2luaXQo
+Jm1hdGNoLCAma2V5LCBOVUxMKTsKPiA+ICsgICAgICAgICAgICAgICBlcnJvciA9IG92c19ubGFf
+Z2V0X21hdGNoKG5ldCwgJm1hdGNoLAo+IGFbT1ZTX0ZMT1dfQVRUUl9LRVldLAo+ID4gKyAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTlVMTCwgbG9nKTsKPiA+ICsgICAg
+ICAgfSBlbHNlIGlmICghdWZpZF9wcmVzZW50KSB7Cj4gPiArICAgICAgICAgICAgICAgT1ZTX05M
+RVJSKGxvZywKPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgIkZsb3cgc2V0IG1lc3NhZ2Ug
+cmVqZWN0ZWQsIEtleSBhdHRyaWJ1dGUKPiBtaXNzaW5nLiIpOwo+ID4gKyAgICAgICAgICAgICAg
+IGVycm9yID0gLUVJTlZBTDsKPiA+ICsgICAgICAgfQo+Cj4gU2V0IGNvbW1hbmQgc2V0cyBuZXcg
+YWN0aW9uIGZvciBnaXZlbiBmbG93LiBUaGUgYWN0aW9uIHZhbGlkYXRpb24KPiBkZXBlbmRzIG9u
+IHRoZSBmbG93IGtleSBhbmQgbWFzay4gc28gdXNlcnNwYWNlIG5lZWRzIHRvIHByb3ZpZGUgdGhl
+Cj4ga2V5IGFuZCBtYXNrLgo+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
