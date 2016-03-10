@@ -1,59 +1,103 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v4] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
-Date: Thu, 10 Mar 2016 09:58:17 -0800
-Message-ID: <20160310175817.GA85582@kafai-mba.local>
-References: <1457630961-2809690-1-git-send-email-kafai@fb.com>
- <CANn89iJF2mw-2qFJ1r2xLo0FuH9JCNVPgTOAfnxL7nOX4qg2tg@mail.gmail.com>
- <CANn89iJFBqOkD8G1qQDY-p=Z3jSgtPbeSSoiuiAqWXYgXzi5-A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Thu, 10 Mar 2016 13:01:38 -0500 (EST)
+Message-ID: <20160310.130138.1302349043066531127.davem@davemloft.net>
+References: <20160310102018.GA21154@uranus.lan>
+	<20160310110324.GB21154@uranus.lan>
+	<20160310150920.GC21154@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Chris Rapier <rapier@psc.edu>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33051 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752960AbcCJR6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 12:58:31 -0500
-Content-Disposition: inline
-In-Reply-To: <CANn89iJFBqOkD8G1qQDY-p=Z3jSgtPbeSSoiuiAqWXYgXzi5-A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
+	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
+	khorenko@virtuozzo.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org
+To: gorcunov@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160310150920.GC21154@uranus.lan>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 09:43:18AM -0800, Eric Dumazet wrote:
-> On Thu, Mar 10, 2016 at 9:39 AM, Eric Dumazet <edumazet@google.com> wrote:
-> > On Thu, Mar 10, 2016 at 9:29 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> >> Per RFC4898, they count segments sent/received
-> >> containing a positive length data segment (that includes
-> >> retransmission segments carrying data).  Unlike
-> >> tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
-> >> carrying no data (e.g. pure ack).
-> >>
-> >> The patch also updates the segs_in in tcp_fastopen_add_skb()
-> >> so that segs_in >= data_segs_in property is kept.  If
-> >> tcp_segs_in() helper is used in this fastopen case, tp->segs_in
-> >> has to be 0 reset first to avoid double counting.  Also, it has
-> >> to be done before __skb_pull(skb, tcp_hdrlen(skb)) while
-> >> there is no need to check skb->len since skb has already
-> >> been confirmed carrying data.  I found it more confusing
-> >> and chose to directly set segs_in and data_segs_in in
-> >> this special case.
-> >
-> > Note that on my TODO list after commit e11ecddf5128011c936cc5360780190cbc901fdc
-> > I had the project of pulling TCP headers much earlier in input path
-> > so that we do not have all these special cases.
-> >
-> > Acked-by: Eric Dumazet <edumazet@google.com>
->
-> Actually, tcp_fastopen_add_skb() can queue a packet with a FIN only,
-> but no data.
-Thanks for pointing it out.  Didn't know it is allowed and
-the above end_seq check could also be +1 by the FIN.
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Thu, 10 Mar 2016 18:09:20 +0300
 
->
-> I believe you need to test skb->len before setting tp->data_segs_in
-In that case, I will try to 0 reset segs_in with comment explanation and call
-tcp_segs_in() before the skb_pull.  I will spin another version.
+> On Thu, Mar 10, 2016 at 02:03:24PM +0300, Cyrill Gorcunov wrote:
+>> On Thu, Mar 10, 2016 at 01:20:18PM +0300, Cyrill Gorcunov wrote:
+>> > On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
+>> > > 
+>> > > Thanks for explanation, Dave! I'll continue on this task tomorrow
+>> > > tryin to implement optimization you proposed.
+>> > 
+>> > OK, here are the results for the preliminary patch with conntrack running
+>> ...
+>> >  net/ipv4/devinet.c |   13 ++++++++++++-
+>> >  1 file changed, 12 insertions(+), 1 deletion(-)
+>> > 
+>> > Index: linux-ml.git/net/ipv4/devinet.c
+>> > ===================================================================
+>> > --- linux-ml.git.orig/net/ipv4/devinet.c
+>> > +++ linux-ml.git/net/ipv4/devinet.c
+>> > @@ -403,7 +403,18 @@ no_promotions:
+>> >  	   So that, this order is correct.
+>> >  	 */
+>> 
+>> This patch is wrong, so drop it please. I'll do another.
+> 
+> Here I think is a better variant. The resulst are good
+> enough -- 1 sec for cleanup. Does the patch look sane?
+
+I'm tempted to say that we should provide these notifier handlers with
+the information they need, explicitly, to handle this case.
+
+Most intdev notifiers actually want to know the individual addresses
+that get removed, one by one.  That's handled by the existing
+NETDEV_DOWN event and the ifa we pass to that.
+
+But some, like this netfilter masq case, would be satisfied with a
+single event that tells them the whole inetdev instance is being torn
+down.  Which is the case we care about here.
+
+We currently don't use NETDEV_UNREGISTER for inetdev notifiers, so
+maybe we could use that.
+
+And that is consistent with the core netdev notifier that triggers
+this call chain in the first place.
+
+Roughly, something like this:
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 8c3df2c..6eee5cb 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -292,6 +292,11 @@ static void inetdev_destroy(struct in_device *in_dev)
+ 
+ 	in_dev->dead = 1;
+ 
++	if (in_dev->ifa_list)
++		blocking_notifier_call_chain(&inetaddr_chain,
++					     NETDEV_UNREGISTER,
++					     in_dev->ifa_list);
++
+ 	ip_mc_destroy_dev(in_dev);
+ 
+ 	while ((ifa = in_dev->ifa_list) != NULL) {
+diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+index c6eb421..1bb8026 100644
+--- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+@@ -111,6 +111,10 @@ static int masq_inet_event(struct notifier_block *this,
+ 	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
+ 	struct netdev_notifier_info info;
+ 
++	if (event != NETDEV_UNREGISTER)
++		return NOTIFY_DONE;
++	event = NETDEV_DOWN;
++
+ 	netdev_notifier_info_init(&info, dev);
+ 	return masq_device_event(this, event, &info);
+ }
+
+
+
+
