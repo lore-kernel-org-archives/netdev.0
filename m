@@ -1,38 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL v2 0/4] IPVS Fixes for v4.5
-Date: Thu, 10 Mar 2016 17:39:08 +0100
-Message-ID: <20160310163908.GA3153@salvia>
-References: <1457319814-8027-1-git-send-email-horms@verge.net.au>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [PATCH] mrf24j40: fix security-enabled processing on inbound
+ frames
+Date: Thu, 10 Mar 2016 17:40:47 +0100
+Message-ID: <56E1A38F.6050108@osg.samsung.com>
+References: <56C60EBA.2070707@zopieux.com> <56D4A0C2.5090605@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
+To: Alan Ott <alan@signal11.us>, zopieux <web@zopieux.com>,
+	linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54324 "EHLO mail.us.es"
+Received: from lists.s-osg.org ([54.187.51.154]:44625 "EHLO lists.s-osg.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753415AbcCJQjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 11:39:19 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 8229111483A
-	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 17:39:15 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A9328DA2DE
-	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 17:39:14 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 6FA43DA3AB
-	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 17:39:07 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1457319814-8027-1-git-send-email-horms@verge.net.au>
+	id S1752221AbcCJQkv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 11:40:51 -0500
+In-Reply-To: <56D4A0C2.5090605@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 07, 2016 at 12:03:30PM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider these IPVS fixes for v4.5 or
-> if it is too late please consider them for v4.6.
+Hello.
 
-Pulled into nf-next, thanks Simon!
+On 29/02/16 20:49, Alan Ott wrote:
+> On 02/18/2016 01:34 PM, zopieux wrote:
+>> Fix the MRF24J40 handling of security-enabled frames so it does not
+>> block upon receiving such frames.
+>>
+>> Signed-off-by: Alexander Aring <aar@pengutronix.de>
+>> Reported-by: Alexandre Macabies <web+oss@zopieux.com>
+>> Tested-by: Alexandre Macabies <web+oss@zopieux.com>
+>> ---
+>> When receiving a security-enabled IEEE 802.15.4 frame, the MRF24J40
+>> triggers a SECIF interrupt that needs to be handled for RX processing
+>> to keep functioning properly.
+>>
+>> This patch enables the SECIF interrupt and makes the MRF ignores all
+>> hardware processing of security-enabled frames, that is handled by the
+>> ieee802154 stack instead.
+>> ---
+>
+> The "From" field of the email needs to have your real name in it. This 
+> will be where the "Author" field in git comes from.
+>
+> It looks like there are a few separate things happening in this patch. 
+> Maybe they should be broken out in to separate patches. I see:
+>
+> 1. The ieee802154.h part,
+> 2. The TX part,
+> 3. The RX part.
+>
+> The patch description only really describes the RX part.
+>
+
+zopieux, could you split the patch as Alan suggested and re-submitted 
+the series?
+
+regards
+Stefan Schmidt
