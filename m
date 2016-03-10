@@ -1,37 +1,32 @@
-From: Peter Korsgaard <peter-+2lRwdCCLRT2eFz/2MeuCQ@public.gmane.org>
-Subject: Re: [PATCH 1/3] dm9601: enable EP3 interrupt
-Date: Thu, 10 Mar 2016 22:55:14 +0100
-Message-ID: <87twkej8vx.fsf@dell.be.48ers.dk>
-References: <1457609014-3597-1-git-send-email-josright123@gmail.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Fri, 11 Mar 2016 00:59:59 +0300
+Message-ID: <20160310215959.GE1989@uranus.lan>
+References: <20160310200133.GA1989@uranus.lan>
+ <20160310.150311.1210460824855467762.davem@davemloft.net>
+ <20160310201351.GB1989@uranus.lan>
+ <20160310.160521.1642655131932337300.davem@davemloft.net>
+ <20160310211945.GD1989@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Joseph Chang <joseph_chang-Ubu6M+hUeUGoECsaD+WFmw@public.gmane.org>
-To: Joseph CHANG <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1457609014-3597-1-git-send-email-josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Joseph
-	CHANG's message of "Thu, 10 Mar 2016 19:23:34 +0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160310211945.GD1989@uranus.lan>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "Joseph" == Joseph CHANG <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On Fri, Mar 11, 2016 at 12:19:45AM +0300, Cyrill Gorcunov wrote:
+> > 
+> > Oh yes they do, from masq's non-inet notifier.  masq registers two
+> > notifiers, one for generic netdev and one for inetdev.
+> 
+> Thanks a huge David! I'll test it just to be sure.
 
- > Enable chip's EP3 interrupt to get the link-up notify soon
- > immediately.
-
-Sorry, what do you mean about 'soon immediately'?
-
- > +
- > +		/* Always return 8-bytes data to host per interrupt-interval */
- > +		dm_write_reg(dev, DM_USB_CTRL, USB_CTRL_EP3ACK);
-
-Why would we want to do that instead of the current setup that afaik
-only returns data when the link status changes?
-
--- 
-Bye, Peter Korsgaard
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Works like a charm! So David, what are the next steps then?
+Mind to gather all your patches into one (maybe)?
