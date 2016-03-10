@@ -1,51 +1,221 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH nf-next v9 8/8] openvswitch: Interface with
-	NAT.
-Date: Thu, 10 Mar 2016 10:45:27 -0800
-Message-ID: <947C7126-09A4-4C70-B638-F4A75C1BC52D@ovn.org>
-References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
- <1457565024-27300-8-git-send-email-jarno@ovn.org>
- <CAPWQB7GkhrfZaaT-LkTP7Esfj4tzU=Fgto2ZaSq4YkurhOf8bw@mail.gmail.com>
- <20160310120021.GA26693@pox.localdomain>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2104\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160310120021.GA26693-4EA/1caXOu0mYvmMESoHnA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next v5] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
+Date: Thu, 10 Mar 2016 10:46:22 -0800
+Message-ID: <1457635582-2979568-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Chris Rapier <rapier@psc.edu>,
+	Eric Dumazet <edumazet@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54897 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751885AbcCJSq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:46:26 -0500
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.15.0.59/8.15.0.59) with SMTP id u2AIYlpD030538
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 10:46:25 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0089730.ppops.net with ESMTP id 21jt8pmys2-2
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 10:46:25 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.223.101.97) with ESMTP	id
+ 631399a4e6f011e5abf924be0595f910-e62f7420 for <netdev@vger.kernel.org>;	Thu,
+ 10 Mar 2016 10:46:23 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cj4gT24gTWFyIDEwLCAyMDE2LCBhdCA0OjAwIEFNLCBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5j
-aD4gd3JvdGU6Cj4gCj4gT24gMDMvMDkvMTYgYXQgMDc6NDdwbSwgSm9lIFN0cmluZ2VyIHdyb3Rl
-Ogo+PiBPbiA5IE1hcmNoIDIwMTYgYXQgMTU6MTAsIEphcm5vIFJhamFoYWxtZSA8amFybm9Ab3Zu
-Lm9yZz4gd3JvdGU6Cj4+PiBFeHRlbmQgT1ZTIGNvbm50cmFjayBpbnRlcmZhY2UgdG8gY292ZXIg
-TkFULiAgTmV3IG5lc3RlZAo+Pj4gT1ZTX0NUX0FUVFJfTkFUIGF0dHJpYnV0ZSBtYXkgYmUgdXNl
-ZCB0byBpbmNsdWRlIE5BVCB3aXRoIGEgQ1QgYWN0aW9uLgo+Pj4gQSBiYXJlIE9WU19DVF9BVFRS
-X05BVCBvbmx5IG1hbmdsZXMgZXhpc3RpbmcgYW5kIGV4cGVjdGVkIGNvbm5lY3Rpb25zLgo+Pj4g
-SWYgT1ZTX05BVF9BVFRSX1NSQyBvciBPVlNfTkFUX0FUVFJfRFNUIGlzIGluY2x1ZGVkIHdpdGhp
-biB0aGUgbmVzdGVkCj4+PiBhdHRyaWJ1dGVzLCBuZXcgKG5vbi1jb21taXR0ZWQvbm9uLWNvbmZp
-cm1lZCkgY29ubmVjdGlvbnMgYXJlIG1hbmdsZWQKPj4+IGFjY29yZGluZyB0byB0aGUgcmVzdCBv
-ZiB0aGUgbmVzdGVkIGF0dHJpYnV0ZXMuCj4+PiAKPj4+IFRoZSBjb3JyZXNwb25kaW5nIE9WUyB1
-c2Vyc3BhY2UgcGF0Y2ggc2VyaWVzIGluY2x1ZGVzIHRlc3QgY2FzZXMgKGluCj4+PiB0ZXN0cy9z
-eXN0ZW0tdHJhZmZpYy5hdCkgdGhhdCBhbHNvIHNlcnZlIGFzIGV4YW1wbGUgdXNlcy4KPj4+IAo+
-Pj4gVGhpcyB3b3JrIGV4dGVuZHMgb24gYSBicmFuY2ggYnkgVGhvbWFzIEdyYWYgYXQKPj4+IGh0
-dHBzOi8vZ2l0aHViLmNvbS90Z3JhZi9vdnMvdHJlZS9uYXQuCj4+IAo+PiBUaG9tYXMsIEkgZ3Vl
-c3MgdGhlcmUgd2FzIG5vdCBzaWdub2ZmIGluIHRoZXNlIHBhdGNoZXMgc28gSmFybm8gZG9lcwo+
-PiBub3QgaGF2ZSB5b3VyIHNpZ25vZmYgaW4gdGhpcyBwYXRjaC4KPiAKPiBUaGF0J3MgZmluZS4g
-VGhlIGNvZGUgaGFzIGV2b2x2ZWQgYSBsb3Qgc2luY2UuIEkgZG9uJ3Qgc2VlIGFueXRoaW5nCj4g
-ZnVydGhlciB0aGFuIHdoYXQgSm9lIHNwb3R0ZWQgc28gZmVlbCBmcmVlIHRvIGFkZCBteQo+IAo+
-IEFja2VkLWJ5OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KClRoYW5rcyEKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
-ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
-Zm8vZGV2Cg==
+Per RFC4898, they count segments sent/received
+containing a positive length data segment (that includes
+retransmission segments carrying data).  Unlike
+tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
+carrying no data (e.g. pure ack).
+
+The patch also updates the segs_in in tcp_fastopen_add_skb()
+so that segs_in >= data_segs_in property is kept.
+
+Together with retransmission data, tcpi_data_segs_out
+gives a better signal on the rxmit rate.
+
+v5: Eric pointed out that checking skb->len is still needed in
+tcp_fastopen_add_skb() because skb can carry a FIN without data.
+Hence, instead of open coding segs_in and data_segs_in, tcp_segs_in()
+helper is used.  Comment is added to the fastopen case to explain why
+segs_in has to be reset and tcp_segs_in() has to be called before
+__skb_pull().
+
+v4: Add comment to the changes in tcp_fastopen_add_skb()
+and also add remark on this case in the commit message.
+
+v3: Add const modifier to the skb parameter in tcp_segs_in()
+
+v2: Rework based on recent fix by Eric:
+commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Chris Rapier <rapier@psc.edu>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ include/linux/tcp.h      |  6 ++++++
+ include/net/tcp.h        | 10 ++++++++++
+ include/uapi/linux/tcp.h |  2 ++
+ net/ipv4/tcp.c           |  2 ++
+ net/ipv4/tcp_fastopen.c  |  8 ++++++++
+ net/ipv4/tcp_ipv4.c      |  2 +-
+ net/ipv4/tcp_minisocks.c |  2 +-
+ net/ipv4/tcp_output.c    |  4 +++-
+ net/ipv6/tcp_ipv6.c      |  2 +-
+ 9 files changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index bcbf51d..7be9b12 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -158,6 +158,9 @@ struct tcp_sock {
+ 	u32	segs_in;	/* RFC4898 tcpEStatsPerfSegsIn
+ 				 * total number of segments in.
+ 				 */
++	u32	data_segs_in;	/* RFC4898 tcpEStatsPerfDataSegsIn
++				 * total number of data segments in.
++				 */
+  	u32	rcv_nxt;	/* What we want to receive next 	*/
+ 	u32	copied_seq;	/* Head of yet unread data		*/
+ 	u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
+@@ -165,6 +168,9 @@ struct tcp_sock {
+ 	u32	segs_out;	/* RFC4898 tcpEStatsPerfSegsOut
+ 				 * The total number of segments sent.
+ 				 */
++	u32	data_segs_out;	/* RFC4898 tcpEStatsPerfDataSegsOut
++				 * total number of data segments sent.
++				 */
+ 	u64	bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
+ 				 * sum(delta(snd_una)), or how many bytes
+ 				 * were acked.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index e90db85..24557a8 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1816,4 +1816,14 @@ static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
+ 	skb->truesize = 2;
+ }
+ 
++static inline void tcp_segs_in(struct tcp_sock *tp, const struct sk_buff *skb)
++{
++	u16 segs_in;
++
++	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tp->segs_in += segs_in;
++	if (skb->len > tcp_hdrlen(skb))
++		tp->data_segs_in += segs_in;
++}
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index fe95446..53e8e3f 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -199,6 +199,8 @@ struct tcp_info {
+ 
+ 	__u32	tcpi_notsent_bytes;
+ 	__u32	tcpi_min_rtt;
++	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
++	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f9faadb..6b01b48 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2728,6 +2728,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_notsent_bytes = max(0, notsent_bytes);
+ 
+ 	info->tcpi_min_rtt = tcp_min_rtt(tp);
++	info->tcpi_data_segs_in = tp->data_segs_in;
++	info->tcpi_data_segs_out = tp->data_segs_out;
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index fdb286d..4fc0061 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -140,6 +140,14 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 		return;
+ 
+ 	skb_dst_drop(skb);
++	/* segs_in has been initialized to 1 in tcp_create_openreq_child().
++	 * Hence, reset segs_in to 0 before calling tcp_segs_in()
++	 * to avoid double counting.  Also, tcp_segs_in() expects
++	 * skb->len to include the tcp_hdrlen.  Hence, it should
++	 * be called before __skb_pull().
++	 */
++	tp->segs_in = 0;
++	tcp_segs_in(tp, skb);
+ 	__skb_pull(skb, tcp_hdrlen(skb));
+ 	skb_set_owner_r(skb, sk);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4c8d58d..0b02ef7 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1650,7 +1650,7 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(sk), skb);
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index ae90e4b..acb366d 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -812,7 +812,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 	int ret = 0;
+ 	int state = child->sk_state;
+ 
+-	tcp_sk(child)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(child), skb);
+ 	if (!sock_owned_by_user(child)) {
+ 		ret = tcp_rcv_state_process(child, skb);
+ 		/* Wakeup parent, send SIGIO */
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7d2c7a4..7d2dc01 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1003,8 +1003,10 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	if (likely(tcb->tcp_flags & TCPHDR_ACK))
+ 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+ 
+-	if (skb->len != tcp_header_size)
++	if (skb->len != tcp_header_size) {
+ 		tcp_event_data_sent(tp, sk);
++		tp->data_segs_out += tcp_skb_pcount(skb);
++	}
+ 
+ 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
+ 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 33f2820..9c16565 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1443,7 +1443,7 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(sk), skb);
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+-- 
+2.5.1
