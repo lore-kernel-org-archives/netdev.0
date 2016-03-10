@@ -1,89 +1,71 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [PATCH nf-next v10 0/8] openvswitch: NAT support
-Date: Thu, 10 Mar 2016 10:54:15 -0800
-Message-ID: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH nf-next v10 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Thu, 10 Mar 2016 10:54:16 -0800
+Message-ID: <1457636063-92746-2-git-send-email-jarno@ovn.org>
+References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:49864 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752392AbcCJSyv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:54:51 -0500
+In-Reply-To: <1457636063-92746-1-git-send-email-jarno@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
-LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
-bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0yLzgpLiAgUGF0Y2hlcyAzLTcgbWFrZSB0aGUgb3BlbnZz
-d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDggdGhhdCBhZGRzIHRoZSBO
-QVQgc3VwcG9ydCBieSBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCmZyb20gdGhlIG9w
-ZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCgpUaGlzIHZlcnNpb24gZml4ZXMgc3BlbGxpbmcg
-ZXJyb3JzIGluIGNvbW1lbnRzIGFuZCBlbGltaW5hdGVzIG1hbnkgb2YKdGhlICNpZmRlZnMgaW4g
-dGhlIGZpbmFsIHBhdGNoIHRoYXQgd2VyZSBub3Qgc3RyaWN0bHkgbmVjZXNzYXJ5LiAgVGhpcwpt
-YWtlcyB0aGUgY29kZSBtb3JlIHJlYWRhYmxlIGFuZCBpbXByb3ZlcyBjb21waWxlIHRpbWUgY292
-ZXJhZ2UgZXZlbgp3aGVuIE5BVCBmZWF0dXJlIGlzIG5vdCBjb25maWd1cmVkLgoKVGhlIE9WUyBt
-YXN0ZXIgbm93IGhhcyB0aGUgY29ycmVzcG9uZGluZyBPVlMgdXNlcnNwYWNlIHN1cHBvcnQgdG8g
-dXNlCmFuZCB0ZXN0IHRoZSBOQVQgZmVhdHVyZXMuICBCZWxvdyBpZiBhIHdhbGsgdGhyb3VnaCBv
-ZiBhIHNpbXBsZSB1c2UKY2FzZS4KCkluIHRoaXMgY2FzZSBwb3J0cyAxIGFuZCAyIGFyZSBpbiBk
-aWZmZXJlbnQgbmFtZXNwYWNlcy4gIFRoZSBPcGVuRmxvdwp0YWJsZSBiZWxvdyBvbmx5IGFsbG93
-cyBJUHY0IGNvbm5lY3Rpb25zIGluaXRpYXRlZCBmcm9tIHBvcnQgMSwgYW5kCmFwcGxpZXMgc291
-cmNlIE5BVCB0byB0aG9zZSBjb25uZWN0aW9uczoKCiAgaW5fcG9ydD0xLGlwLGFjdGlvbj1jdChj
-b21taXQsem9uZT0xLG5hdChzcmM9MTAuMS4xLjI0MC0xMC4xLjEuMjU1KSksMgogIGluX3BvcnQ9
-MixjdF9zdGF0ZT0tdHJrLGlwLGFjdGlvbj1jdCh0YWJsZT0wLHpvbmU9MSxuYXQpCiAgaW5fcG9y
-dD0yLGN0X3N0YXRlPStlc3QsY3Rfem9uZT0xLGlwLGFjdGlvbj0xCgpUaGlzIGZsb3cgdGFibGUg
-bWF0Y2hlcyBhbGwgSVB2NCB0cmFmZmljIGZyb20gcG9ydCAxLCBydW5zIHRoZW0KdGhyb3VnaCBj
-b25udHJhY2sgaW4gem9uZSAxIGFuZCBOQVRzIHRoZW0uICBUaGUgTkFUIGlzIGluaXRpYWxpemVk
-IHRvCmRvIHNvdXJjZSBJUCBtYXBwaW5nIHRvIHRoZSBnaXZlbiByYW5nZSBmb3IgdGhlIGZpcnN0
-IHBhY2tldCBvZiBlYWNoCmNvbm5lY3Rpb24sIGFmdGVyIHdoaWNoIHRoZSBuZXcgY29ubmVjdGlv
-biBpcyBjb21taXR0ZWQgKGNvbmZpcm1lZCkuCkZvciBmdXJ0aGVyIHBhY2tldHMgb2YgYWxyZWFk
-eSB0cmFja2VkIGNvbm5lY3Rpb25zIE5BVCBpcyBkb25lCmFjY29yZGluZyB0byB0aGUgY29ubmVj
-dGlvbiBzdGF0ZSBhbmQgdGhlIGNvbW1pdCBpcyBhIG5vLW9wLiAgRWFjaApwYWNrZXQgdGhhdCBp
-cyBub3QgZmxhZ2dlZCBhcyBhIGRyb3AgYnkgdGhlIENUIGFjdGlvbiBpcyBmb3J3YXJkZWQgdG8K
-cG9ydCAyLiAgVGhlIENUIGFjdGlvbiBkb2VzIGFuIGltcGxpY2l0IGZyYWdtZW50YXRpb24gcmVh
-c3NlbWJseSwgc28KdGhhdCBvbmx5IGNvbXBsZXRlIHBhY2tldHMgYXJlIHJ1biB0aHJvdWdoIGNv
-bm50cmFjay4gIFJlYXNzZW1ibGVkCnBhY2tldHMgYXJlIHJlLWZyYWdtZW50ZWQgb24gb3V0cHV0
-LgoKVGhlIElQdjQgdHJhZmZpYyBjb21pbmcgZnJvbSBwb3J0IDIgaXMgZmlyc3QgbWF0Y2hlZCBm
-b3IgdGhlCm5vbi10cmFja2VkIHN0YXRlICgtdHJrKSwgd2hpY2ggbWVhbnMgdGhhdCB0aGUgcGFj
-a2V0IGhhcyBub3QgYmVlbgp0aHJvdWdoIGEgQ1QgYWN0aW9uIHlldC4gIFN1Y2ggdHJhZmZpYyBp
-cyBydW4gdHJvdWdoIHRoZSBjb25udHJhY2sgaW4Kem9uZSAxIGFuZCBhbGwgcGFja2V0cyBhc3Nv
-Y2lhdGVkIHdpdGggYSBOQVR0ZWQgY29ubmVjdGlvbiBhcmUgTkFUdGVkCmFsc28gaW4gdGhlIHJl
-dHVybiBkaXJlY3Rpb24uICBBZnRlciB0aGUgcGFja2V0IGhhcyBiZWVuIHRocm91Z2gKY29ubnRy
-YWNrIGl0IGlzIHJlY2lyY3VsYXRlZCBiYWNrIHRvIE9wZW5GbG93IHRhYmxlIDAgKHdoaWNoIGlz
-IHRoZQpkZWZhdWx0IHRhYmxlLCBzbyBhbGwgdGhlIHJ1bGVzIGFib3ZlIGFyZSBpbiB0YWJsZSAw
-KS4gIFRoZSBDVCBhY3Rpb24KY2hhbmdlcyB0aGUgJ3RyaycgZmxhZyB0byBiZWluZyBzZXQsIHNv
-IHRoZSBwYWNrZXRzIGFmdGVyCnJlY2lyY3VsYXRpb24gbm8gbG9uZ2VyIG1hdGNoIHRoZSBzZWNv
-bmQgcnVsZS4gIFRoZSB0aGlyZCBydWxlIHRoZW4KbWF0Y2hlcyB0aGUgcmVjaXJjdWxhdGVkIHBh
-Y2tldHMgdGhhdCB3ZXJlIG1hcmtlZCBhcyBlc3RhYmxpc2hlZCBieQpjb25udHJhY2sgKCtlc3Qp
-LCBhbmQgdGhlIHBhY2tldCBpcyBvdXRwdXQgb24gcG9ydCAxLiAgTWF0Y2hpbmcgb24KY3Rfem9u
-ZSBpcyBub3Qgc3RyaWN0bHkgbmVlZGVkLCBidXQgaW4gdGhpcyB0ZXN0IGNhc2UgaXQgdmVyaWZp
-ZXMgdGhhdAp0aGUgY3Rfem9uZSBrZXkgYXR0cmlidXRlIGlzIHByb3Blcmx5IHNldCBieSB0aGUg
-Y29ubnRyYWNrIGFjdGlvbi4KCkEgZnVsbCB0ZXN0IGNhc2UgcmVxdWlyZXMgcnVsZXMgZm9yIEFS
-UCBoYW5kbGluZyBub3Qgc2hvd24gaGVyZS4KClRoZSBmbG93IHRhYmxlIGFib3ZlIGlzIGFuIE9w
-ZW5GbG93IHRhYmxlLCBhbmQgdGhlIHJ1bGVzIHRoZXJlaW4KYXJlIHRyYW5zbGF0ZWQgdG8ga2Vy
-bmVsIGZsb3cgZW50cmllcyBvbi1kZW1hbmQgYnkgb3ZzLXZzd2l0Y2hkLgoKSmFybm8gUmFqYWhh
-bG1lICg4KToKICBuZXRmaWx0ZXI6IFJlbW92ZSBJUF9DVF9ORVdfUkVQTFkgZGVmaW5pdGlvbi4K
-ICBuZXRmaWx0ZXI6IEFsbG93IGNhbGxpbmcgaW50byBuYXQgaGVscGVyIHdpdGhvdXQgc2tiX2Rz
-dC4KICBvcGVudnN3aXRjaDogQWRkIGNvbW1lbnRhcnkgdG8gY29ubnRyYWNrLmMKICBvcGVudnN3
-aXRjaDogVXBkYXRlIHRoZSBDVCBzdGF0ZSBrZXkgb25seSBhZnRlciBuZl9jb25udHJhY2tfaW4o
-KS4KICBvcGVudnN3aXRjaDogRmluZCBleGlzdGluZyBjb25udHJhY2sgZW50cnkgYWZ0ZXIgdXBj
-YWxsLgogIG9wZW52c3dpdGNoOiBIYW5kbGUgTkZfUkVQRUFUIGluIGNvbm50cmFjayBhY3Rpb24u
-CiAgb3BlbnZzd2l0Y2g6IERlbGF5IGNvbm50cmFjayBoZWxwZXIgY2FsbCBmb3IgbmV3IGNvbm5l
-Y3Rpb25zLgogIG9wZW52c3dpdGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuCgogaW5jbHVkZS91YXBp
-L2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAgMTIgKy0KIGluY2x1ZGUv
-dWFwaS9saW51eC9vcGVudnN3aXRjaC5oICAgICAgICAgICAgICAgICAgIHwgIDQ5ICsrCiBuZXQv
-aXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jICAgICAgICAgICB8ICAzMCArLQog
-bmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYyAgICAgICAgICAgfCAgMzAg
-Ky0KIG5ldC9vcGVudnN3aXRjaC9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
-ICAzICstCiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAg
-ICB8IDY2MCArKysrKysrKysrKysrKysrKysrLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2su
-aCAgICAgICAgICAgICAgICAgICAgICAgIHwgICAzICstCiA3IGZpbGVzIGNoYW5nZWQsIDcwMCBp
-bnNlcnRpb25zKCspLCA4NyBkZWxldGlvbnMoLSkKCi0tIAoyLjEuNAoKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+not make sense.  This allows the definition of IP_CT_NUMBER to be
+simplified as well.
+
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+---
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+ net/openvswitch/conntrack.c                        |  2 --
+ 2 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 319f471..6d074d1 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -20,9 +20,15 @@ enum ip_conntrack_info {
+ 
+ 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+ 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+-	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+-	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+-	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
++	/* No NEW in reply direction. */
++
++	/* Number of distinct IP_CT types. */
++	IP_CT_NUMBER,
++
++	/* only for userspace compatibility */
++#ifndef __KERNEL__
++	IP_CT_NEW_REPLY = IP_CT_NUMBER,
++#endif
+ };
+ 
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index ee6ff8f..3045290 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 	switch (ctinfo) {
+ 	case IP_CT_ESTABLISHED_REPLY:
+ 	case IP_CT_RELATED_REPLY:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_REPLY_DIR;
+ 		break;
+ 	default:
+@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 		ct_state |= OVS_CS_F_RELATED;
+ 		break;
+ 	case IP_CT_NEW:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_NEW;
+ 		break;
+ 	default:
+-- 
+2.1.4
