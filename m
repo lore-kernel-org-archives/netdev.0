@@ -1,75 +1,89 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 21:48:03 +0300
-Message-ID: <20160310184803.GD21154@uranus.lan>
-References: <20160310102018.GA21154@uranus.lan>
- <20160310110324.GB21154@uranus.lan>
- <20160310150920.GC21154@uranus.lan>
- <20160310.130138.1302349043066531127.davem@davemloft.net>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH nf-next v10 0/8] openvswitch: NAT support
+Date: Thu, 10 Mar 2016 10:54:15 -0800
+Message-ID: <1457636063-92746-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160310.130138.1302349043066531127.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 01:01:38PM -0500, David Miller wrote:
-> From: Cyrill Gorcunov <gorcunov@gmail.com>
-> Date: Thu, 10 Mar 2016 18:09:20 +0300
-> 
-> > On Thu, Mar 10, 2016 at 02:03:24PM +0300, Cyrill Gorcunov wrote:
-> >> On Thu, Mar 10, 2016 at 01:20:18PM +0300, Cyrill Gorcunov wrote:
-> >> > On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
-> >> > > 
-> >> > > Thanks for explanation, Dave! I'll continue on this task tomorrow
-> >> > > tryin to implement optimization you proposed.
-> >> > 
-> >> > OK, here are the results for the preliminary patch with conntrack running
-> >> ...
-> >> >  net/ipv4/devinet.c |   13 ++++++++++++-
-> >> >  1 file changed, 12 insertions(+), 1 deletion(-)
-> >> > 
-> >> > Index: linux-ml.git/net/ipv4/devinet.c
-> >> > ===================================================================
-> >> > --- linux-ml.git.orig/net/ipv4/devinet.c
-> >> > +++ linux-ml.git/net/ipv4/devinet.c
-> >> > @@ -403,7 +403,18 @@ no_promotions:
-> >> >  	   So that, this order is correct.
-> >> >  	 */
-> >> 
-> >> This patch is wrong, so drop it please. I'll do another.
-> > 
-> > Here I think is a better variant. The resulst are good
-> > enough -- 1 sec for cleanup. Does the patch look sane?
-> 
-> I'm tempted to say that we should provide these notifier handlers with
-> the information they need, explicitly, to handle this case.
-> 
-> Most intdev notifiers actually want to know the individual addresses
-> that get removed, one by one.  That's handled by the existing
-> NETDEV_DOWN event and the ifa we pass to that.
-> 
-> But some, like this netfilter masq case, would be satisfied with a
-> single event that tells them the whole inetdev instance is being torn
-> down.  Which is the case we care about here.
-> 
-> We currently don't use NETDEV_UNREGISTER for inetdev notifiers, so
-> maybe we could use that.
-> 
-> And that is consistent with the core netdev notifier that triggers
-> this call chain in the first place.
-> 
-> Roughly, something like this:
-
-I see. Dave, gimme some time to test but I'm sure it'll work.
-I don't have some strong opinion here, so your patch looks
-pretty fine to me. But maybe people from netdev camp have
-some other ideas.
-
+VGhpcyBzZXJpZXMgYWRkcyBOQVQgc3VwcG9ydCB0byBvcGVudnN3aXRjaCBrZXJuZWwgbW9kdWxl
+LiAgQSBmZXcKY2hhbmdlcyBhcmUgbmVlZGVkIHRvIHRoZSBuZXRmaWx0ZXIgY29kZSB0byBmYWNp
+bGl0YXRlIHRoaXMgKHBhdGNoZXMKMS0yLzgpLiAgUGF0Y2hlcyAzLTcgbWFrZSB0aGUgb3BlbnZz
+d2l0Y2gga2VybmVsIG1vZHVsZSByZWFkeSBmb3IgdGhlCnBhdGNoIDggdGhhdCBhZGRzIHRoZSBO
+QVQgc3VwcG9ydCBieSBjYWxsaW5nIGludG8gbmV0ZmlsdGVyIE5BVCBjb2RlCmZyb20gdGhlIG9w
+ZW52c3dpdGNoIGNvbm50cmFjayBhY3Rpb24uCgpUaGlzIHZlcnNpb24gZml4ZXMgc3BlbGxpbmcg
+ZXJyb3JzIGluIGNvbW1lbnRzIGFuZCBlbGltaW5hdGVzIG1hbnkgb2YKdGhlICNpZmRlZnMgaW4g
+dGhlIGZpbmFsIHBhdGNoIHRoYXQgd2VyZSBub3Qgc3RyaWN0bHkgbmVjZXNzYXJ5LiAgVGhpcwpt
+YWtlcyB0aGUgY29kZSBtb3JlIHJlYWRhYmxlIGFuZCBpbXByb3ZlcyBjb21waWxlIHRpbWUgY292
+ZXJhZ2UgZXZlbgp3aGVuIE5BVCBmZWF0dXJlIGlzIG5vdCBjb25maWd1cmVkLgoKVGhlIE9WUyBt
+YXN0ZXIgbm93IGhhcyB0aGUgY29ycmVzcG9uZGluZyBPVlMgdXNlcnNwYWNlIHN1cHBvcnQgdG8g
+dXNlCmFuZCB0ZXN0IHRoZSBOQVQgZmVhdHVyZXMuICBCZWxvdyBpZiBhIHdhbGsgdGhyb3VnaCBv
+ZiBhIHNpbXBsZSB1c2UKY2FzZS4KCkluIHRoaXMgY2FzZSBwb3J0cyAxIGFuZCAyIGFyZSBpbiBk
+aWZmZXJlbnQgbmFtZXNwYWNlcy4gIFRoZSBPcGVuRmxvdwp0YWJsZSBiZWxvdyBvbmx5IGFsbG93
+cyBJUHY0IGNvbm5lY3Rpb25zIGluaXRpYXRlZCBmcm9tIHBvcnQgMSwgYW5kCmFwcGxpZXMgc291
+cmNlIE5BVCB0byB0aG9zZSBjb25uZWN0aW9uczoKCiAgaW5fcG9ydD0xLGlwLGFjdGlvbj1jdChj
+b21taXQsem9uZT0xLG5hdChzcmM9MTAuMS4xLjI0MC0xMC4xLjEuMjU1KSksMgogIGluX3BvcnQ9
+MixjdF9zdGF0ZT0tdHJrLGlwLGFjdGlvbj1jdCh0YWJsZT0wLHpvbmU9MSxuYXQpCiAgaW5fcG9y
+dD0yLGN0X3N0YXRlPStlc3QsY3Rfem9uZT0xLGlwLGFjdGlvbj0xCgpUaGlzIGZsb3cgdGFibGUg
+bWF0Y2hlcyBhbGwgSVB2NCB0cmFmZmljIGZyb20gcG9ydCAxLCBydW5zIHRoZW0KdGhyb3VnaCBj
+b25udHJhY2sgaW4gem9uZSAxIGFuZCBOQVRzIHRoZW0uICBUaGUgTkFUIGlzIGluaXRpYWxpemVk
+IHRvCmRvIHNvdXJjZSBJUCBtYXBwaW5nIHRvIHRoZSBnaXZlbiByYW5nZSBmb3IgdGhlIGZpcnN0
+IHBhY2tldCBvZiBlYWNoCmNvbm5lY3Rpb24sIGFmdGVyIHdoaWNoIHRoZSBuZXcgY29ubmVjdGlv
+biBpcyBjb21taXR0ZWQgKGNvbmZpcm1lZCkuCkZvciBmdXJ0aGVyIHBhY2tldHMgb2YgYWxyZWFk
+eSB0cmFja2VkIGNvbm5lY3Rpb25zIE5BVCBpcyBkb25lCmFjY29yZGluZyB0byB0aGUgY29ubmVj
+dGlvbiBzdGF0ZSBhbmQgdGhlIGNvbW1pdCBpcyBhIG5vLW9wLiAgRWFjaApwYWNrZXQgdGhhdCBp
+cyBub3QgZmxhZ2dlZCBhcyBhIGRyb3AgYnkgdGhlIENUIGFjdGlvbiBpcyBmb3J3YXJkZWQgdG8K
+cG9ydCAyLiAgVGhlIENUIGFjdGlvbiBkb2VzIGFuIGltcGxpY2l0IGZyYWdtZW50YXRpb24gcmVh
+c3NlbWJseSwgc28KdGhhdCBvbmx5IGNvbXBsZXRlIHBhY2tldHMgYXJlIHJ1biB0aHJvdWdoIGNv
+bm50cmFjay4gIFJlYXNzZW1ibGVkCnBhY2tldHMgYXJlIHJlLWZyYWdtZW50ZWQgb24gb3V0cHV0
+LgoKVGhlIElQdjQgdHJhZmZpYyBjb21pbmcgZnJvbSBwb3J0IDIgaXMgZmlyc3QgbWF0Y2hlZCBm
+b3IgdGhlCm5vbi10cmFja2VkIHN0YXRlICgtdHJrKSwgd2hpY2ggbWVhbnMgdGhhdCB0aGUgcGFj
+a2V0IGhhcyBub3QgYmVlbgp0aHJvdWdoIGEgQ1QgYWN0aW9uIHlldC4gIFN1Y2ggdHJhZmZpYyBp
+cyBydW4gdHJvdWdoIHRoZSBjb25udHJhY2sgaW4Kem9uZSAxIGFuZCBhbGwgcGFja2V0cyBhc3Nv
+Y2lhdGVkIHdpdGggYSBOQVR0ZWQgY29ubmVjdGlvbiBhcmUgTkFUdGVkCmFsc28gaW4gdGhlIHJl
+dHVybiBkaXJlY3Rpb24uICBBZnRlciB0aGUgcGFja2V0IGhhcyBiZWVuIHRocm91Z2gKY29ubnRy
+YWNrIGl0IGlzIHJlY2lyY3VsYXRlZCBiYWNrIHRvIE9wZW5GbG93IHRhYmxlIDAgKHdoaWNoIGlz
+IHRoZQpkZWZhdWx0IHRhYmxlLCBzbyBhbGwgdGhlIHJ1bGVzIGFib3ZlIGFyZSBpbiB0YWJsZSAw
+KS4gIFRoZSBDVCBhY3Rpb24KY2hhbmdlcyB0aGUgJ3RyaycgZmxhZyB0byBiZWluZyBzZXQsIHNv
+IHRoZSBwYWNrZXRzIGFmdGVyCnJlY2lyY3VsYXRpb24gbm8gbG9uZ2VyIG1hdGNoIHRoZSBzZWNv
+bmQgcnVsZS4gIFRoZSB0aGlyZCBydWxlIHRoZW4KbWF0Y2hlcyB0aGUgcmVjaXJjdWxhdGVkIHBh
+Y2tldHMgdGhhdCB3ZXJlIG1hcmtlZCBhcyBlc3RhYmxpc2hlZCBieQpjb25udHJhY2sgKCtlc3Qp
+LCBhbmQgdGhlIHBhY2tldCBpcyBvdXRwdXQgb24gcG9ydCAxLiAgTWF0Y2hpbmcgb24KY3Rfem9u
+ZSBpcyBub3Qgc3RyaWN0bHkgbmVlZGVkLCBidXQgaW4gdGhpcyB0ZXN0IGNhc2UgaXQgdmVyaWZp
+ZXMgdGhhdAp0aGUgY3Rfem9uZSBrZXkgYXR0cmlidXRlIGlzIHByb3Blcmx5IHNldCBieSB0aGUg
+Y29ubnRyYWNrIGFjdGlvbi4KCkEgZnVsbCB0ZXN0IGNhc2UgcmVxdWlyZXMgcnVsZXMgZm9yIEFS
+UCBoYW5kbGluZyBub3Qgc2hvd24gaGVyZS4KClRoZSBmbG93IHRhYmxlIGFib3ZlIGlzIGFuIE9w
+ZW5GbG93IHRhYmxlLCBhbmQgdGhlIHJ1bGVzIHRoZXJlaW4KYXJlIHRyYW5zbGF0ZWQgdG8ga2Vy
+bmVsIGZsb3cgZW50cmllcyBvbi1kZW1hbmQgYnkgb3ZzLXZzd2l0Y2hkLgoKSmFybm8gUmFqYWhh
+bG1lICg4KToKICBuZXRmaWx0ZXI6IFJlbW92ZSBJUF9DVF9ORVdfUkVQTFkgZGVmaW5pdGlvbi4K
+ICBuZXRmaWx0ZXI6IEFsbG93IGNhbGxpbmcgaW50byBuYXQgaGVscGVyIHdpdGhvdXQgc2tiX2Rz
+dC4KICBvcGVudnN3aXRjaDogQWRkIGNvbW1lbnRhcnkgdG8gY29ubnRyYWNrLmMKICBvcGVudnN3
+aXRjaDogVXBkYXRlIHRoZSBDVCBzdGF0ZSBrZXkgb25seSBhZnRlciBuZl9jb25udHJhY2tfaW4o
+KS4KICBvcGVudnN3aXRjaDogRmluZCBleGlzdGluZyBjb25udHJhY2sgZW50cnkgYWZ0ZXIgdXBj
+YWxsLgogIG9wZW52c3dpdGNoOiBIYW5kbGUgTkZfUkVQRUFUIGluIGNvbm50cmFjayBhY3Rpb24u
+CiAgb3BlbnZzd2l0Y2g6IERlbGF5IGNvbm50cmFjayBoZWxwZXIgY2FsbCBmb3IgbmV3IGNvbm5l
+Y3Rpb25zLgogIG9wZW52c3dpdGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuCgogaW5jbHVkZS91YXBp
+L2xpbnV4L25ldGZpbHRlci9uZl9jb25udHJhY2tfY29tbW9uLmggfCAgMTIgKy0KIGluY2x1ZGUv
+dWFwaS9saW51eC9vcGVudnN3aXRjaC5oICAgICAgICAgICAgICAgICAgIHwgIDQ5ICsrCiBuZXQv
+aXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jICAgICAgICAgICB8ICAzMCArLQog
+bmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYyAgICAgICAgICAgfCAgMzAg
+Ky0KIG5ldC9vcGVudnN3aXRjaC9LY29uZmlnICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
+ICAzICstCiBuZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgICAgICAgICAgICAgICAgICAgICAg
+ICB8IDY2MCArKysrKysrKysrKysrKysrKysrLS0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2su
+aCAgICAgICAgICAgICAgICAgICAgICAgIHwgICAzICstCiA3IGZpbGVzIGNoYW5nZWQsIDcwMCBp
+bnNlcnRpb25zKCspLCA4NyBkZWxldGlvbnMoLSkKCi0tIAoyLjEuNAoKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
+bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
