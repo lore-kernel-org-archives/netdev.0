@@ -1,7 +1,7 @@
 From: "Michael Rapoport" <RAPOPORT@il.ibm.com>
 Subject: Re: [PATCH V4 0/3] basic busy polling support for vhost_net
 Date: Thu, 10 Mar 2016 08:48:21 +0200
-Message-ID: <201603100648.u2A6mSXW022819@d06av04.portsmouth.uk.ibm.com>
+Message-ID: <201603100648.u2A6mSch023921@d06av06.portsmouth.uk.ibm.com>
 References: <1457090693-55974-1-git-send-email-jasowang@redhat.com>
  <20160309202645.030ad7b2@bahia.lab.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
@@ -12,9 +12,9 @@ Cc: borntraeger@de.ibm.com, Jason Wang <jasowang@redhat.com>,
 	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	yang.zhang.wz@gmail.com
 To: Greg Kurz <gkurz@linux.vnet.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160309202645.030ad7b2@bahia.lab.toulouse-stg.fr.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Greg,
@@ -162,5 +162,3 @@ case.
 > >  4 files changed, 117 insertions(+), 5 deletions(-)
 > > 
 > 
-
-
