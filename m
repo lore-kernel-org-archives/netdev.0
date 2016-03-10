@@ -1,169 +1,83 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v5 net-next 05/10] ARM: dts: armada-xp: enable buffer manager support on Armada XP boards
-Date: Thu, 10 Mar 2016 11:09:13 +0100
-Message-ID: <1457604558-1121-6-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v5 net-next 01/10] misc: sram: add optional ioremap without
+ write combining
+Date: Thu, 10 Mar 2016 11:09:09 +0100
+Message-ID: <1457604558-1121-2-git-send-email-gregory.clement@free-electrons.com>
 References: <1457604558-1121-1-git-send-email-gregory.clement@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	Sebastian Careba <nitroshift@yahoo.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+ Russell King - ARM Linux <linux@arm.linux.org.uk>,
+ Jason Cooper <jason@lakedaemon.net>, Simon Guinot <simon.guinot@sequanux.org>,
+ Dmitri Epshtein <dima@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Timor Kardashov <timork@marvell.com>,
+ Gregory CLEMENT <gregory.clement@free-electrons.com>,
+ Sebastian Careba <nitroshift@yahoo.com>, Marcin Wojtas <mw@semihalf.com>,
+ Willy Tarreau <w@1wt.eu>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1457604558-1121-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Marcin Wojtas <mw@semihalf.com>
 
-Since mvneta driver supports using hardware buffer management (BM), in
-order to use it, board files have to be adjusted accordingly. This commit
-enables BM on AXP-DB and AXP-GP in same manner - because number of ports
-on those boards is the same as number of possible pools, each port is
-supposed to use single pool for all kind of packets.
+Some SRAM users may require non-bufferable access to the memory, which is
+impossible, because devm_ioremap_wc() is used for setting sram->virt_base.
 
-Moreover appropriate entry is added to 'soc' node ranges, as well as "okay"
-status for 'bm' and 'bm-bppi' (internal SRAM) nodes.
+This commit adds optional flag 'no-memory-wc', which allow to choose remap
+method, using DT property. Documentation is updated accordingly.
 
 Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- arch/arm/boot/dts/armada-xp-db.dts | 19 ++++++++++++++++++-
- arch/arm/boot/dts/armada-xp-gp.dts | 19 ++++++++++++++++++-
- 2 files changed, 36 insertions(+), 2 deletions(-)
+ Documentation/devicetree/bindings/sram/sram.txt | 5 +++++
+ drivers/misc/sram.c                             | 5 ++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/armada-xp-db.dts b/arch/arm/boot/dts/armada-xp-db.dts
-index f774101416a5..30657302305d 100644
---- a/arch/arm/boot/dts/armada-xp-db.dts
-+++ b/arch/arm/boot/dts/armada-xp-db.dts
-@@ -77,7 +77,8 @@
- 			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
- 			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
- 			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
--			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000>;
-+			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
-+			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+diff --git a/Documentation/devicetree/bindings/sram/sram.txt b/Documentation/devicetree/bindings/sram/sram.txt
+index 42ee9438b771..227e3a341af1 100644
+--- a/Documentation/devicetree/bindings/sram/sram.txt
++++ b/Documentation/devicetree/bindings/sram/sram.txt
+@@ -25,6 +25,11 @@ Required properties in the sram node:
+ - ranges : standard definition, should translate from local addresses
+            within the sram to bus addresses
  
- 		devbus-bootcs {
- 			status = "okay";
-@@ -181,21 +182,33 @@
- 				status = "okay";
- 				phy = <&phy0>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <0>;
- 			};
- 			ethernet@74000 {
- 				status = "okay";
- 				phy = <&phy1>;
- 				phy-mode = "rgmii-id";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <1>;
- 			};
- 			ethernet@30000 {
- 				status = "okay";
- 				phy = <&phy2>;
- 				phy-mode = "sgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <2>;
- 			};
- 			ethernet@34000 {
- 				status = "okay";
- 				phy = <&phy3>;
- 				phy-mode = "sgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <3>;
-+			};
++Optional properties in the sram node:
 +
-+			bm@c0000 {
-+				status = "okay";
- 			};
- 
- 			mvsdio@d4000 {
-@@ -230,5 +243,9 @@
- 				};
- 			};
- 		};
++- no-memory-wc : the flag indicating, that SRAM memory region has not to
++                 be remapped as write combining. WC is used by default.
 +
-+		bm-bppi {
-+			status = "okay";
-+		};
- 	};
- };
-diff --git a/arch/arm/boot/dts/armada-xp-gp.dts b/arch/arm/boot/dts/armada-xp-gp.dts
-index 4878d7353069..a1ded01d0c07 100644
---- a/arch/arm/boot/dts/armada-xp-gp.dts
-+++ b/arch/arm/boot/dts/armada-xp-gp.dts
-@@ -96,7 +96,8 @@
- 			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
- 			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
- 			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
--			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000>;
-+			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
-+			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+ Required properties in the area nodes:
  
- 		devbus-bootcs {
- 			status = "okay";
-@@ -196,21 +197,29 @@
- 				status = "okay";
- 				phy = <&phy0>;
- 				phy-mode = "qsgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <0>;
- 			};
- 			ethernet@74000 {
- 				status = "okay";
- 				phy = <&phy1>;
- 				phy-mode = "qsgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <1>;
- 			};
- 			ethernet@30000 {
- 				status = "okay";
- 				phy = <&phy2>;
- 				phy-mode = "qsgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <2>;
- 			};
- 			ethernet@34000 {
- 				status = "okay";
- 				phy = <&phy3>;
- 				phy-mode = "qsgmii";
-+				buffer-manager = <&bm>;
-+				bm,pool-long = <3>;
- 			};
+ - reg : iomem address range, relative to the SRAM range
+diff --git a/drivers/misc/sram.c b/drivers/misc/sram.c
+index 736dae715dbf..69cdabea9c03 100644
+--- a/drivers/misc/sram.c
++++ b/drivers/misc/sram.c
+@@ -360,7 +360,10 @@ static int sram_probe(struct platform_device *pdev)
+ 		return -EBUSY;
+ 	}
  
- 			/* Front-side USB slot */
-@@ -235,6 +244,10 @@
- 				};
- 			};
+-	sram->virt_base = devm_ioremap_wc(sram->dev, res->start, size);
++	if (of_property_read_bool(pdev->dev.of_node, "no-memory-wc"))
++		sram->virt_base = devm_ioremap(sram->dev, res->start, size);
++	else
++		sram->virt_base = devm_ioremap_wc(sram->dev, res->start, size);
+ 	if (IS_ERR(sram->virt_base))
+ 		return PTR_ERR(sram->virt_base);
  
-+			bm@c0000 {
-+				status = "okay";
-+			};
-+
- 			nand@d0000 {
- 				status = "okay";
- 				num-cs = <1>;
-@@ -243,5 +256,9 @@
- 				nand-on-flash-bbt;
- 			};
- 		};
-+
-+		bm-bppi {
-+			status = "okay";
-+		};
- 	};
- };
 -- 
 2.5.0
