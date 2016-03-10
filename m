@@ -1,57 +1,89 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
-Date: Thu, 10 Mar 2016 10:57:35 -0800
-Message-ID: <CAA93jw47wtioiUUD8ZTm4hFSVL7Uc8ubpSG5urHtWQhfAo1nmQ@mail.gmail.com>
-References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
-	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
-	<CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Thu, 10 Mar 2016 11:02:28 -0800
+Message-ID: <CAM_iQpWWbj00H-cKvpeaKq6mVWK_D2CFuarXiE6YDQeQX5JupA@mail.gmail.com>
+References: <20160310102018.GA21154@uranus.lan>
+	<20160310110324.GB21154@uranus.lan>
+	<20160310150920.GC21154@uranus.lan>
+	<20160310.130138.1302349043066531127.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Tim Shepard <shep-FrUbXkNCsVf2fBVCVOL8/A@public.gmane.org>
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	solar@openwall.com, Vasily Averin <vvs@virtuozzo.com>,
+	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
+	khorenko@virtuozzo.com, Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:33673 "EHLO
+	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbcCJTC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 14:02:29 -0500
+In-Reply-To: <20160310.130138.1302349043066531127.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> regular fq_codel uses 1024 and there has not been much reason to
->> change it. In the case of an AP which has more limited memory, 256 or
->> 1024 would be a good setting, per station. I'd stick to 1024 for now.
+On Thu, Mar 10, 2016 at 10:01 AM, David Miller <davem@davemloft.net> wrote:
+> I'm tempted to say that we should provide these notifier handlers with
+> the information they need, explicitly, to handle this case.
 >
-> Do note that the 4096 is shared _across_ station-tid queues. It is not
-> per-station. If you have 10 stations you still have 4096 flows
-> (actually 4096 + 16*10, because each tid - and there are 16 - has it's
-> own fallback flow in case of hash collision on the global flowmap to
-> maintain per-sta-tid queuing).
+> Most intdev notifiers actually want to know the individual addresses
+> that get removed, one by one.  That's handled by the existing
+> NETDEV_DOWN event and the ifa we pass to that.
+>
+> But some, like this netfilter masq case, would be satisfied with a
+> single event that tells them the whole inetdev instance is being torn
+> down.  Which is the case we care about here.
+>
+> We currently don't use NETDEV_UNREGISTER for inetdev notifiers, so
+> maybe we could use that.
+>
+> And that is consistent with the core netdev notifier that triggers
+> this call chain in the first place.
+>
+> Roughly, something like this:
+>
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 8c3df2c..6eee5cb 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
+> @@ -292,6 +292,11 @@ static void inetdev_destroy(struct in_device *in_dev)
+>
+>         in_dev->dead = 1;
+>
+> +       if (in_dev->ifa_list)
+> +               blocking_notifier_call_chain(&inetaddr_chain,
+> +                                            NETDEV_UNREGISTER,
+> +                                            in_dev->ifa_list);
+> +
+>         ip_mc_destroy_dev(in_dev);
 
-I have to admit I didn't parse this well - still haven't, I think I
-need to draw. (got a picture?)
 
-Where is this part happening in the code (or firmware?)
+Hmm, but inetdev_destroy() is only called when NETDEV_UNREGISTER
+is happening and masq already registers a netdev notifier...
 
-" because each tid - and there are 16 - has it's
- own fallback flow in case of hash collision on the global flowmap to
- maintain per-sta-tid queuing"
 
-"fallback flow - hash collision on global flowmap" - huh?
 
-> With that in mind do you still think 1024 is enough?
+>
+>         while ((ifa = in_dev->ifa_list) != NULL) {
+> diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+> index c6eb421..1bb8026 100644
+> --- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+> +++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+> @@ -111,6 +111,10 @@ static int masq_inet_event(struct notifier_block *this,
+>         struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
+>         struct netdev_notifier_info info;
+>
+> +       if (event != NETDEV_UNREGISTER)
+> +               return NOTIFY_DONE;
+> +       event = NETDEV_DOWN;
+> +
+>         netdev_notifier_info_init(&info, dev);
+>         return masq_device_event(this, event, &info);
+>  }
 
-Can't answer that question without understanding what you said above.
-
-I assembled a few of the patches to date (your fq_codel patch, avery's
-and tims ath9k stuff) and tested them, to no measurable effect,
-against linus's tree a day or two back. I also acquired an ath10k card
-- would one of these suit?
-
-http://www.amazon.com/gp/product/B011SIMFR8?psc=1&redirect=true&ref_=oh_aui_detailpage_o08_s00
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If masq really doesn't care about inetdev destroy or inetaddr removal,
+we should just remove its inetaddr notifier.
