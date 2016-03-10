@@ -1,33 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] qede: Fix net-next "make ARCH=x86_64"
-Date: Thu, 10 Mar 2016 16:19:43 -0500 (EST)
-Message-ID: <20160310.161943.1520841961288028312.davem@davemloft.net>
-References: <1457428184-18336-1-git-send-email-manish.chopra@qlogic.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Fri, 11 Mar 2016 00:19:45 +0300
+Message-ID: <20160310211945.GD1989@uranus.lan>
+References: <20160310200133.GA1989@uranus.lan>
+ <20160310.150311.1210460824855467762.davem@davemloft.net>
+ <20160310201351.GB1989@uranus.lan>
+ <20160310.160521.1642655131932337300.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
-	Yuval.Mintz@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51552 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932216AbcCJVTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 16:19:44 -0500
-In-Reply-To: <1457428184-18336-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160310.160521.1642655131932337300.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Tue, 8 Mar 2016 04:09:44 -0500
-
-> 'commit 55482edc25f0606851de42e73618f813f310d009
-> ("qede: Add slowpath/fastpath support and enable hardware GRO")'
-> introduces below error when compiling net-next with "make ARCH=x86_64"
+On Thu, Mar 10, 2016 at 04:05:21PM -0500, David Miller wrote:
+> > 
+> > and nobody calls for nf_ct_iterate_cleanup, no?
 > 
-> drivers/built-in.o: In function `qede_rx_int':
-> qede_main.c:(.text+0x6101a0): undefined reference to `tcp_gro_complete'
-> 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> Oh yes they do, from masq's non-inet notifier.  masq registers two
+> notifiers, one for generic netdev and one for inetdev.
 
-Applied, thank you.
+Thanks a huge David! I'll test it just to be sure.
+
+	Cyrill
