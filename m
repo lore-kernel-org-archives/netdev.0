@@ -1,72 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next PATCH V2 2/3] mlx4: use napi_consume_skb API to get
- bulk free operations
-Date: Thu, 10 Mar 2016 16:59:08 +0300
-Message-ID: <56E17DAC.2060305@cogentembedded.com>
-References: <20160310121414.3680.45727.stgit@firesoul>
- <20160310121542.3680.84170.stgit@firesoul>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] phy: remove documentation of removed members of
+ phy_device structure
+Date: Thu, 10 Mar 2016 15:21:56 +0100
+Message-ID: <20160310142156.GE20539@lunn.ch>
+References: <1457614738-17337-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	gerlitz.or@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:33278 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751550AbcCJN7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 08:59:15 -0500
-Received: by mail-lb0-f176.google.com with SMTP id k15so114261079lbg.0
-        for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 05:59:15 -0800 (PST)
-In-Reply-To: <20160310121542.3680.84170.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: LABBE Corentin <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1457614738-17337-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, Mar 10, 2016 at 01:58:58PM +0100, LABBE Corentin wrote:
+> Commit e5a03bfd873c ("phy: Add an mdio_device structure") removed addr,
+> bus and dev member of the phy_device structure.
+> This patch remove the documentation about those members.
+> 
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-On 3/10/2016 3:15 PM, Jesper Dangaard Brouer wrote:
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-> Bulk free of SKBs happen transparently by the API call napi_consume_skb().
-> The napi budget parameter is usually needed by napi_consume_skb()
-> to detect if called from netpoll.  In this patch it have an extra meaning.
+Hi Corentin
 
-    It has.
+Thanks for updating the patch with the extra removals.
 
-> For mlx4 driver, the mlx4_en_stop_port() call is done outside
-> NAPI/softirq context, and cleanup the entire TX ring via
-> mlx4_en_free_tx_buf().  The code mlx4_en_free_tx_desc() for
-> freeing SKBs are shared with NAPI calls.
->
-> To handle this shared use the zero budget indication is reused,
-> and handled appropiately in napi_consume_skb(). To reflect this,
+       Andrew
 
-    Appropriately.
-
-> variable is called napi_mode for the function call that needed
-> this distinction.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/en_tx.c |   16 ++++++++++------
->   1 file changed, 10 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index e0946ab22010..1b41feafce9e 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-[...]
-> @@ -371,7 +373,9 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
->   	while (ring->cons != ring->prod) {
->   		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
->   						ring->cons & ring->size_mask,
-> -						!!(ring->cons & ring->size), 0);
-> +						!!(ring->cons & ring->size), 0,
-> +						0 /* none-NAPI caller */
-
-    Non-NAPI, perhaps?
-
-[...]
-
-MBR, Sergei
+>  include/linux/phy.h | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> Changes since v1
+> - remove also documentation for dev and bus
+> 
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index d6f3641..2abd791 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -327,8 +327,6 @@ struct phy_c45_device_ids {
+>  /* phy_device: An instance of a PHY
+>   *
+>   * drv: Pointer to the driver for this PHY instance
+> - * bus: Pointer to the bus this PHY is on
+> - * dev: driver model device structure for this PHY
+>   * phy_id: UID for this device found during discovery
+>   * c45_ids: 802.3-c45 Device Identifers if is_c45.
+>   * is_c45:  Set to true if this phy uses clause 45 addressing.
+> @@ -338,7 +336,6 @@ struct phy_c45_device_ids {
+>   * suspended: Set to true if this phy has been suspended successfully.
+>   * state: state of the PHY for management purposes
+>   * dev_flags: Device-specific flags used by the PHY driver.
+> - * addr: Bus address of PHY
+>   * link_timeout: The number of timer firings to wait before the
+>   * giving up on the current attempt at acquiring a link
+>   * irq: IRQ number of the PHY's interrupt (-1 if none)
+> -- 
+> 2.4.10
+> 
