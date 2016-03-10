@@ -1,29 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] include/net/inet_connection_sock.h: Use pr_devel()
- instead of pr_debug()
-Date: Thu, 10 Mar 2016 16:14:49 -0500 (EST)
-Message-ID: <20160310.161449.350898270672488267.davem@davemloft.net>
-References: <1457416348-32463-1-git-send-email-nwang@suse.com>
+Subject: Re: [PATCH net v2 0/2] qlcnic fixes
+Date: Thu, 10 Mar 2016 16:16:35 -0500 (EST)
+Message-ID: <20160310.161635.432267926229064181.davem@davemloft.net>
+References: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: whs_alex@163.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nwang@suse.de
-To: nwang@suse.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457416348-32463-1-git-send-email-nwang@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
+To: rajesh.borundia@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51512 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932216AbcCJVQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 16:16:37 -0500
+In-Reply-To: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nick Wang <nwang@suse.com>
-Date: Tue,  8 Mar 2016 13:52:28 +0800
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Date: Tue, 8 Mar 2016 02:39:56 -0500
 
-> File "inet_connection_sock.h" is a common share header that not can 
-> be use for one module, so use pr_devel instead of pr_debug is OK.
+> This series adds following fixes.
+> 
+> o While processing mailbox if driver gets a spurious mailbox
+>   interrupt it leads into premature completion of a next
+>   mailbox request. Added a guard against this by checking current
+>   state of mailbox and ignored spurious interrupt.
+>   Added a stats counter to record this condition.
+> 
+> v2:
+> 
+> o Added patch that removes usage of atomic_t as we are not implemeting
+>   atomicity by using atomic_t value.
+> 
+> Please apply these fixes to net.
 
-Not really, we only want these printks to do anything only when debug
-printk's are enabled.
+As explained in other list postings, 'net' is basically closed for this
+release cycle, so I applied this series to 'net-next'.
 
-We don't want the overhead otherwise.
+Let me know if you'd like me to therefore queue these changes up for
+-stable.
 
-You'll need to find another fix for this, sorry.
+Thanks.
