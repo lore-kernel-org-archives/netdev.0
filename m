@@ -1,85 +1,102 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Thu, 10 Mar 2016 18:09:20 +0300
-Message-ID: <20160310150920.GC21154@uranus.lan>
-References: <20160309204158.GO2207@uranus.lan>
- <20160309.154725.1921352291794389965.davem@davemloft.net>
- <20160309205746.GQ2207@uranus.lan>
- <20160309.161038.283281065293712589.davem@davemloft.net>
- <20160309211629.GR2207@uranus.lan>
- <20160310102018.GA21154@uranus.lan>
- <20160310110324.GB21154@uranus.lan>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net: macb: fix default configuration for GMAC on AT91
+Date: Thu, 10 Mar 2016 16:44:32 +0100
+Message-ID: <1457624672-30666-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
-	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
-	khorenko@virtuozzo.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:35202 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452AbcCJPJ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 10:09:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20160310110324.GB21154@uranus.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	<romain.henriet@l-acoustics.com>, <michal.simek@xilinx.com>,
+	<punnaia@xilinx.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
+To: <linux-arm-kernel@lists.infradead.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 02:03:24PM +0300, Cyrill Gorcunov wrote:
-> On Thu, Mar 10, 2016 at 01:20:18PM +0300, Cyrill Gorcunov wrote:
-> > On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
-> > > 
-> > > Thanks for explanation, Dave! I'll continue on this task tomorrow
-> > > tryin to implement optimization you proposed.
-> > 
-> > OK, here are the results for the preliminary patch with conntrack running
-> ...
-> >  net/ipv4/devinet.c |   13 ++++++++++++-
-> >  1 file changed, 12 insertions(+), 1 deletion(-)
-> > 
-> > Index: linux-ml.git/net/ipv4/devinet.c
-> > ===================================================================
-> > --- linux-ml.git.orig/net/ipv4/devinet.c
-> > +++ linux-ml.git/net/ipv4/devinet.c
-> > @@ -403,7 +403,18 @@ no_promotions:
-> >  	   So that, this order is correct.
-> >  	 */
-> 
-> This patch is wrong, so drop it please. I'll do another.
+On AT91 SoCs, the User Register (USRIO) exposes a switch to configure the
+"Reduced" or "Traditional" version of the Media Independent Interface
+(RMII vs. MII or RGMII vs. GMII).
+As on the older EMAC version, on GMAC, this switch is set by default to the
+non-reduced type of interface, so use the existing capability and extend it to
+GMII as well. We then keep the current logic in the macb_init() function.
 
-Here I think is a better variant. The resulst are good
-enough -- 1 sec for cleanup. Does the patch look sane?
+The capabilities of sama5d2, sama5d4 and sama5d3 GEM interface are updated in
+the macb_config structure to be able to properly enable them with a traditional
+interface (GMII or MII).
+
+Reported-by: Romain HENRIET <romain.henriet@l-acoustics.com>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- net/ipv4/netfilter/nf_nat_masquerade_ipv4.c |   15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cadence/macb.c | 13 +++++++------
+ drivers/net/ethernet/cadence/macb.h |  2 +-
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-Index: linux-ml.git/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-===================================================================
---- linux-ml.git.orig/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-+++ linux-ml.git/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-@@ -108,9 +108,22 @@ static int masq_inet_event(struct notifi
- 			   unsigned long event,
- 			   void *ptr)
- {
--	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
-+	struct in_ifaddr *ifa = ptr;
-+	struct net_device *dev = ifa->ifa_dev->dev;
- 	struct netdev_notifier_info info;
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 7ccf2298a5fa..3ce6095ced3d 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2440,9 +2440,9 @@ static int macb_init(struct platform_device *pdev)
+ 		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
+ 			val = GEM_BIT(RGMII);
+ 		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
+-			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
++			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII))
+ 			val = MACB_BIT(RMII);
+-		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
++		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII))
+ 			val = MACB_BIT(MII);
  
-+	if (event == NETDEV_DOWN) {
-+		/*
-+		 * When we meet dead device which is
-+		 * being released with dozeon of addresses
-+		 * assigned -- we can optimize calls
-+		 * to conntrack cleanups and do it only
-+		 * once.
-+		 */
-+		if (ifa->ifa_dev->dead && ifa->ifa_next)
-+			return NOTIFY_DONE;
-+	}
-+
- 	netdev_notifier_info_init(&info, dev);
- 	return masq_device_event(this, event, &info);
+ 		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
+@@ -2774,7 +2774,7 @@ static int at91ether_init(struct platform_device *pdev)
  }
+ 
+ static const struct macb_config at91sam9260_config = {
+-	.caps = MACB_CAPS_USRIO_HAS_CLKEN | MACB_CAPS_USRIO_DEFAULT_IS_MII,
++	.caps = MACB_CAPS_USRIO_HAS_CLKEN | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+ };
+@@ -2787,21 +2787,22 @@ static const struct macb_config pc302gem_config = {
+ };
+ 
+ static const struct macb_config sama5d2_config = {
+-	.caps = 0,
++	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+ };
+ 
+ static const struct macb_config sama5d3_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE
++	      | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+ };
+ 
+ static const struct macb_config sama5d4_config = {
+-	.caps = 0,
++	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
+ 	.dma_burst_length = 4,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 9ba416d5afff..8a13824ef802 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -400,7 +400,7 @@
+ /* Capability mask bits */
+ #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
+ #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
+-#define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
++#define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
+ #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+ #define MACB_CAPS_USRIO_DISABLED		0x00000010
+ #define MACB_CAPS_FIFO_MODE			0x10000000
+-- 
+2.1.3
