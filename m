@@ -1,34 +1,55 @@
 From: Aaron Conole <aconole@redhat.com>
-Subject: [RFC -next 0/2] virtio-net: Advised MTU feature
-Date: Thu, 10 Mar 2016 09:28:10 -0500
-Message-ID: <1457620092-24170-1-git-send-email-aconole@redhat.com>
+Subject: [RFC -next 1/2] virtio: Start the advised MTU feature support
+Date: Thu, 10 Mar 2016 09:28:11 -0500
+Message-ID: <1457620092-24170-2-git-send-email-aconole@redhat.com>
+References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1457620092-24170-1-git-send-email-aconole@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The following series adds the ability for a hypervisor to set an MTU on the
-guest during feature negotiation phase. This is useful for VM orchestration
-when, for instance, tunneling is involved and the MTU of the various systems
-should be homogenous.
+This commit adds the feature bit and associated mtu device entry for the
+virtio network device. Future commits will make use of these bits to support
+negotiated MTU.
 
-The first patch adds the feature bit as described in the proposed VFIO spec
-addition found at
-https://lists.oasis-open.org/archives/virtio-dev/201603/msg00001.html
+Signed-off-by: Aaron Conole <aconole@redhat.com>
+---
+ include/uapi/linux/virtio_net.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-The second patch adds a user of the bit, and a warning when the guest changes
-the MTU from the hypervisor advised MTU. Future patches may add more thorough
-error handling.
-
-Aaron Conole (2):
-  virtio: Start the advised MTU feature support
-  virtio_net: Read and use the advised MTU
-
- drivers/net/virtio_net.c        | 15 ++++++++++++++-
- include/uapi/linux/virtio_net.h |  3 +++
- 2 files changed, 17 insertions(+), 1 deletion(-)
-
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index ec32293..41a6a01 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -55,6 +55,7 @@
+ #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+ 					 * Steering */
+ #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
++#define VIRTIO_NET_F_MTU 25	/* Device supports Default MTU Negotiation */
+ 
+ #ifndef VIRTIO_NET_NO_LEGACY
+ #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+@@ -73,6 +74,8 @@ struct virtio_net_config {
+ 	 * Legal values are between 1 and 0x8000
+ 	 */
+ 	__u16 max_virtqueue_pairs;
++	/* Default maximum transmit unit advice */
++	__u16 mtu;
+ } __attribute__((packed));
+ 
+ /*
 -- 
 2.5.0
