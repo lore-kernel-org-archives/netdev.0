@@ -1,71 +1,92 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v10 1/8] netfilter: Remove IP_CT_NEW_REPLY definition.
-Date: Thu, 10 Mar 2016 10:54:16 -0800
-Message-ID: <1457636063-92746-2-git-send-email-jarno@ovn.org>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH nf-next v10 2/8] netfilter: Allow calling into nat
+	helper without skb_dst.
+Date: Thu, 10 Mar 2016 10:54:17 -0800
+Message-ID: <1457636063-92746-3-git-send-email-jarno@ovn.org>
 References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:49864 "EHLO
-	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbcCJSyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:54:51 -0500
-In-Reply-To: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457636063-92746-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
-not make sense.  This allows the definition of IP_CT_NUMBER to be
-simplified as well.
-
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
- net/openvswitch/conntrack.c                        |  2 --
- 2 files changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
-index 319f471..6d074d1 100644
---- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-+++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-@@ -20,9 +20,15 @@ enum ip_conntrack_info {
- 
- 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
- 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
--	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
--	/* Number of distinct IP_CT types (no NEW in reply dirn). */
--	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
-+	/* No NEW in reply direction. */
-+
-+	/* Number of distinct IP_CT types. */
-+	IP_CT_NUMBER,
-+
-+	/* only for userspace compatibility */
-+#ifndef __KERNEL__
-+	IP_CT_NEW_REPLY = IP_CT_NUMBER,
-+#endif
- };
- 
- #define NF_CT_STATE_INVALID_BIT			(1 << 0)
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index ee6ff8f..3045290 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 	switch (ctinfo) {
- 	case IP_CT_ESTABLISHED_REPLY:
- 	case IP_CT_RELATED_REPLY:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_REPLY_DIR;
- 		break;
- 	default:
-@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
- 		ct_state |= OVS_CS_F_RELATED;
- 		break;
- 	case IP_CT_NEW:
--	case IP_CT_NEW_REPLY:
- 		ct_state |= OVS_CS_F_NEW;
- 		break;
- 	default:
--- 
-2.1.4
+TkFUIGNoZWNrc3VtIHJlY2FsY3VsYXRpb24gY29kZSBhc3N1bWVzIGV4aXN0ZW5jZSBvZiBza2Jf
+ZHN0LCB3aGljaApiZWNvbWVzIGEgcHJvYmxlbSBmb3IgYSBsYXRlciBwYXRjaCBpbiB0aGUgc2Vy
+aWVzICgib3BlbnZzd2l0Y2g6CkludGVyZmFjZSB3aXRoIE5BVC4iKS4gIFNpbXBsaWZ5IHRoaXMg
+YnkgcmVtb3ZpbmcgdGhlIGNoZWNrIG9uCnNrYl9kc3QsIGFzIHRoZSBjaGVja3N1bSB3aWxsIGJl
+IGRlYWx0IHdpdGggbGF0ZXIgaW4gdGhlIHN0YWNrLgoKU3VnZ2VzdGVkLWJ5OiBQcmF2aW4gU2hl
+bGFyIDxwc2hlbGFyQG5pY2lyYS5jb20+ClNpZ25lZC1vZmYtYnk6IEphcm5vIFJhamFoYWxtZSA8
+amFybm9Ab3ZuLm9yZz4KLS0tCiBuZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2
+NC5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBuZXQvaXB2Ni9uZXRmaWx0
+ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jIHwgMzAgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tCiAyIGZpbGVzIGNoYW5nZWQsIDE2IGluc2VydGlvbnMoKyksIDQ0IGRlbGV0aW9ucygtKQoK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0LmMgYi9u
+ZXQvaXB2NC9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2NC5jCmluZGV4IDYxYzdjYzIuLmY4
+YWFkMDMgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY0
+LmMKKysrIGIvbmV0L2lwdjQvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjQuYwpAQCAtMTI3
+LDI5ICsxMjcsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjRfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXBoZHIgKmlwaCA9IGlwX2hkcihza2IpOwotCXN0cnVjdCBydGFibGUgKnJ0ID0gc2tiX3J0YWJs
+ZShza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJ
+aWYgKCEocnQtPnJ0X2ZsYWdzICYgUlRDRl9MT0NBTCkgJiYKLQkJICAgICghc2tiLT5kZXYgfHwg
+c2tiLT5kZXYtPmZlYXR1cmVzICYKLQkJICAgICAoTkVUSUZfRl9JUF9DU1VNIHwgTkVUSUZfRl9I
+V19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNr
+Yi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShza2IpICsKLQkJCQkJICBza2JfbmV0d29ya19v
+ZmZzZXQoc2tiKSArCi0JCQkJCSAgaXBfaGRybGVuKHNrYik7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0
+ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgICBkYXRhbGVuLCBwcm90bywgMCk7Ci0J
+CX0gZWxzZSB7Ci0JCQkqY2hlY2sgPSAwOwotCQkJKmNoZWNrID0gY3N1bV90Y3B1ZHBfbWFnaWMo
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwKLQkJCQkJCSAgIGRhdGFsZW4sIHByb3RvLAotCQkJCQkJ
+ICAgY3N1bV9wYXJ0aWFsKGRhdGEsIGRhdGFsZW4sCi0JCQkJCQkJCTApKTsKLQkJCWlmIChwcm90
+byA9PSBJUFBST1RPX1VEUCAmJiAhKmNoZWNrKQotCQkJCSpjaGVjayA9IENTVU1fTUFOR0xFRF8w
+OwotCQl9CisJCWNvbnN0IHN0cnVjdCBpcGhkciAqaXBoID0gaXBfaGRyKHNrYik7CisKKwkJc2ti
+LT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9QQVJUSUFMOworCQlza2ItPmNzdW1fc3RhcnQgPSBza2Jf
+aGVhZHJvb20oc2tiKSArIHNrYl9uZXR3b3JrX29mZnNldChza2IpICsKKwkJCWlwX2hkcmxlbihz
+a2IpOworCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAtIGRhdGE7CisJCSpjaGVj
+ayA9IH5jc3VtX3RjcHVkcF9tYWdpYyhpcGgtPnNhZGRyLCBpcGgtPmRhZGRyLCBkYXRhbGVuLAor
+CQkJCQkgICAgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1fcmVwbGFjZTIo
+Y2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4pLCB0cnVlKTsK
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2LmMgYi9u
+ZXQvaXB2Ni9uZXRmaWx0ZXIvbmZfbmF0X2wzcHJvdG9faXB2Ni5jCmluZGV4IDZjZTMwOTkuLmUw
+YmU5N2UgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L25ldGZpbHRlci9uZl9uYXRfbDNwcm90b19pcHY2
+LmMKKysrIGIvbmV0L2lwdjYvbmV0ZmlsdGVyL25mX25hdF9sM3Byb3RvX2lwdjYuYwpAQCAtMTMx
+LDI5ICsxMzEsMTUgQEAgc3RhdGljIHZvaWQgbmZfbmF0X2lwdjZfY3N1bV9yZWNhbGMoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwKIAkJCQkgICAgdTggcHJvdG8sIHZvaWQgKmRhdGEsIF9fc3VtMTYgKmNo
+ZWNrLAogCQkJCSAgICBpbnQgZGF0YWxlbiwgaW50IG9sZGxlbikKIHsKLQljb25zdCBzdHJ1Y3Qg
+aXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOwotCXN0cnVjdCBydDZfaW5mbyAqcnQgPSAo
+c3RydWN0IHJ0Nl9pbmZvICopc2tiX2RzdChza2IpOwotCiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9
+IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJaWYgKCEocnQtPnJ0NmlfZmxhZ3MgJiBSVEZfTE9DQUwp
+ICYmCi0JCSAgICAoIXNrYi0+ZGV2IHx8IHNrYi0+ZGV2LT5mZWF0dXJlcyAmCi0JCSAgICAgKE5F
+VElGX0ZfSVBWNl9DU1VNIHwgTkVUSUZfRl9IV19DU1VNKSkpIHsKLQkJCXNrYi0+aXBfc3VtbWVk
+ID0gQ0hFQ0tTVU1fUEFSVElBTDsKLQkJCXNrYi0+Y3N1bV9zdGFydCA9IHNrYl9oZWFkcm9vbShz
+a2IpICsKLQkJCQkJICBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCi0JCQkJCSAgKGRhdGEgLSAo
+dm9pZCAqKXNrYi0+ZGF0YSk7Ci0JCQlza2ItPmNzdW1fb2Zmc2V0ID0gKHZvaWQgKiljaGVjayAt
+IGRhdGE7Ci0JCQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2
+aC0+ZGFkZHIsCi0JCQkJCQkgIGRhdGFsZW4sIHByb3RvLCAwKTsKLQkJfSBlbHNlIHsKLQkJCSpj
+aGVjayA9IDA7Ci0JCQkqY2hlY2sgPSBjc3VtX2lwdjZfbWFnaWMoJmlwdjZoLT5zYWRkciwgJmlw
+djZoLT5kYWRkciwKLQkJCQkJCSBkYXRhbGVuLCBwcm90bywKLQkJCQkJCSBjc3VtX3BhcnRpYWwo
+ZGF0YSwgZGF0YWxlbiwKLQkJCQkJCQkgICAgICAwKSk7Ci0JCQlpZiAocHJvdG8gPT0gSVBQUk9U
+T19VRFAgJiYgISpjaGVjaykKLQkJCQkqY2hlY2sgPSBDU1VNX01BTkdMRURfMDsKLQkJfQorCQlj
+b25zdCBzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSBpcHY2X2hkcihza2IpOworCisJCXNrYi0+aXBf
+c3VtbWVkID0gQ0hFQ0tTVU1fUEFSVElBTDsKKwkJc2tiLT5jc3VtX3N0YXJ0ID0gc2tiX2hlYWRy
+b29tKHNrYikgKyBza2JfbmV0d29ya19vZmZzZXQoc2tiKSArCisJCQkoZGF0YSAtICh2b2lkICop
+c2tiLT5kYXRhKTsKKwkJc2tiLT5jc3VtX29mZnNldCA9ICh2b2lkICopY2hlY2sgLSBkYXRhOwor
+CQkqY2hlY2sgPSB+Y3N1bV9pcHY2X21hZ2ljKCZpcHY2aC0+c2FkZHIsICZpcHY2aC0+ZGFkZHIs
+CisJCQkJCSAgZGF0YWxlbiwgcHJvdG8sIDApOwogCX0gZWxzZQogCQlpbmV0X3Byb3RvX2NzdW1f
+cmVwbGFjZTIoY2hlY2ssIHNrYiwKIAkJCQkJIGh0b25zKG9sZGxlbiksIGh0b25zKGRhdGFsZW4p
+LCB0cnVlKTsKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
