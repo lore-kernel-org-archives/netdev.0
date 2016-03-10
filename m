@@ -1,102 +1,94 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] net: macb: fix default configuration for GMAC on AT91
-Date: Thu, 10 Mar 2016 16:44:32 +0100
-Message-ID: <1457624672-30666-1-git-send-email-nicolas.ferre@atmel.com>
+From: Karol Herbst <git@karolherbst.de>
+Subject: Re: [PATCH 2/2] net/forcedeth: add wol p support
+Date: Thu, 10 Mar 2016 17:13:24 +0100 (CET)
+Message-ID: <184411394.167711.1457626404184.JavaMail.open-xchange@www.ud-mail.de>
+References: <1457621884-2479-1-git-send-email-git@karolherbst.de> <1457621884-2479-3-git-send-email-git@karolherbst.de>
+Reply-To: Karol Herbst <git@karolherbst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	<romain.henriet@l-acoustics.com>, <michal.simek@xilinx.com>,
-	<punnaia@xilinx.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <linux-arm-kernel@lists.infradead.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>
+To: linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp03.udag.de ([62.146.106.29]:35376 "EHLO smtp03.udag.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753263AbcCJQN0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 11:13:26 -0500
+In-Reply-To: <1457621884-2479-3-git-send-email-git@karolherbst.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On AT91 SoCs, the User Register (USRIO) exposes a switch to configure the
-"Reduced" or "Traditional" version of the Media Independent Interface
-(RMII vs. MII or RGMII vs. GMII).
-As on the older EMAC version, on GMAC, this switch is set by default to the
-non-reduced type of interface, so use the existing capability and extend it to
-GMII as well. We then keep the current logic in the macb_init() function.
+one note though:
 
-The capabilities of sama5d2, sama5d4 and sama5d3 GEM interface are updated in
-the macb_config structure to be able to properly enable them with a traditional
-interface (GMII or MII).
+I am not _really_ sure it is the right flag. I've contacted somebody at=
+ nvidia
+and asked for documentation regarding this mmio reg.
 
-Reported-by: Romain HENRIET <romain.henriet@l-acoustics.com>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 13 +++++++------
- drivers/net/ethernet/cadence/macb.h |  2 +-
- 2 files changed, 8 insertions(+), 7 deletions(-)
+I still get some random wakeups and I don't know where they are comming=
+ from.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 7ccf2298a5fa..3ce6095ced3d 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2440,9 +2440,9 @@ static int macb_init(struct platform_device *pdev)
- 		if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
- 			val = GEM_BIT(RGMII);
- 		else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII &&
--			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+			 (bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII))
- 			val = MACB_BIT(RMII);
--		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII))
-+		else if (!(bp->caps & MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII))
- 			val = MACB_BIT(MII);
- 
- 		if (bp->caps & MACB_CAPS_USRIO_HAS_CLKEN)
-@@ -2774,7 +2774,7 @@ static int at91ether_init(struct platform_device *pdev)
- }
- 
- static const struct macb_config at91sam9260_config = {
--	.caps = MACB_CAPS_USRIO_HAS_CLKEN | MACB_CAPS_USRIO_DEFAULT_IS_MII,
-+	.caps = MACB_CAPS_USRIO_HAS_CLKEN | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
- };
-@@ -2787,21 +2787,22 @@ static const struct macb_config pc302gem_config = {
- };
- 
- static const struct macb_config sama5d2_config = {
--	.caps = 0,
-+	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
- 	.dma_burst_length = 16,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
- };
- 
- static const struct macb_config sama5d3_config = {
--	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
-+	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE
-+	      | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
- 	.dma_burst_length = 16,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
- };
- 
- static const struct macb_config sama5d4_config = {
--	.caps = 0,
-+	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
- 	.dma_burst_length = 4,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 9ba416d5afff..8a13824ef802 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -400,7 +400,7 @@
- /* Capability mask bits */
- #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
- #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
--#define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
-+#define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
- #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
- #define MACB_CAPS_USRIO_DISABLED		0x00000010
- #define MACB_CAPS_FIFO_MODE			0x10000000
--- 
-2.1.3
+> Karol Herbst <git@karolherbst.de> hat am 10. M=C3=A4rz 2016 um 15:58 =
+geschrieben:
+>=20
+>=20
+> REd on my mac mini. No idea if that also works on other ethernet card=
+s
+> supported by forcedeth, but I doubt anybody cares at all, otherwise s=
+omebody
+> else would have REd it already.
+>=20
+> Signed-off-by: Karol Herbst <nouveau@karolherbst.de>
+> ---
+>  drivers/net/ethernet/nvidia/forcedeth.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c
+> b/drivers/net/ethernet/nvidia/forcedeth.c
+> index bdce33b..8e4e894 100644
+> --- a/drivers/net/ethernet/nvidia/forcedeth.c
+> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
+> @@ -291,6 +291,7 @@ enum {
+>  #define NVREG_WAKEUPFLAGS_ACCEPT_WAKEUPPAT	0x02
+>  #define NVREG_WAKEUPFLAGS_ACCEPT_LINKCHANGE	0x04
+>  #define NVREG_WAKEUPFLAGS_ENABLE_G	0x01111
+> +#define NVREG_WAKEUPFLAGS_ENABLE_P	0x12000
+> =20
+>  	NvRegMgmtUnitGetVersion =3D 0x204,
+>  #define NVREG_MGMTUNITGETVERSION	0x01
+> @@ -4216,12 +4217,14 @@ static void nv_get_drvinfo(struct net_device =
+*dev,
+> struct ethtool_drvinfo *info)
+>  static void nv_get_wol(struct net_device *dev, struct ethtool_wolinf=
+o
+> *wolinfo)
+>  {
+>  	struct fe_priv *np =3D netdev_priv(dev);
+> -	wolinfo->supported =3D WAKE_MAGIC;
+> +	wolinfo->supported =3D WAKE_MAGIC | WAKE_PHY;
+> =20
+>  	spin_lock_irq(&np->lock);
+>  	wolinfo->wolopts =3D 0;
+>  	if (np->wolenabled & WAKE_MAGIC)
+>  		wolinfo->wolopts |=3D WAKE_MAGIC;
+> +	if (np->wolenabled & WAKE_PHY)
+> +		wolinfo->wolopts |=3D WAKE_PHY;
+>  	spin_unlock_irq(&np->lock);
+>  }
+> =20
+> @@ -4236,6 +4239,10 @@ static int nv_set_wol(struct net_device *dev, =
+struct
+> ethtool_wolinfo *wolinfo)
+>  		np->wolenabled |=3D WAKE_MAGIC;
+>  		np->wol_flags |=3D NVREG_WAKEUPFLAGS_ENABLE_G;
+>  	}
+> +	if (wolinfo->wolopts & WAKE_PHY) {
+> +		np->wolenabled |=3D WAKE_PHY;
+> +		np->wol_flags |=3D NVREG_WAKEUPFLAGS_ENABLE_P;
+> +	}
+>  	if (netif_running(dev)) {
+>  		spin_lock_irq(&np->lock);
+>  		writel(np->wol_flags, base + NvRegWakeUpFlags);
+> --=20
+> 2.7.2
+>
