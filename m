@@ -1,10 +1,9 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [patch net 1/2] net: hns: fix return value of the function
- about rss
-Date: Thu, 10 Mar 2016 10:11:49 +0200
-Message-ID: <1457597509.1347.49.camel@linux.intel.com>
+Subject: Re: [patch net 2/2] net: hns: fixes a bug of RSS
+Date: Thu, 10 Mar 2016 10:24:13 +0200
+Message-ID: <1457598253.1347.52.camel@linux.intel.com>
 References: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
-	 <1457576189-22924-2-git-send-email-yankejian@huawei.com>
+	 <1457576189-22924-3-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -17,39 +16,49 @@ Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
 	linuxarm@huawei.com
 To: Kejian Yan <yankejian@huawei.com>, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457576189-22924-2-git-send-email-yankejian@huawei.com>
+In-Reply-To: <1457576189-22924-3-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Thu, 2016-03-10 at 10:16 +0800, Kejian Yan wrote:
-> Both .get_rxfh and .get_rxfh are always return 0, it should return
-> result
-> from hardware when getting or setting rss. And the rss function
-> should
-> return the correct data type.
->=20
+> If trying to get receive flow hash indirection table by ethtool, it
+> needs
+> to call .get_rxnfc to get ring number first. So this patch implements
+> the
+> .get_rxnfc of ethtool. And the data type of rss_indir_table is u32,
+> it has
+> to be multiply by the width of data type when using memcpy.
 
-@@ -1213,7 +1213,7 @@ hns_get_rss(struct net_device *netdev, u32
-> *indir, u8 *key, u8 *hfunc)
-> =C2=A0
->=20
-
-> =C2=A0	ret =3D ops->get_rss(priv->ae_handle, indir, key, hfunc);
-> =C2=A0
-> -	return 0;
++static int hns_get_rxnfc(struct net_device *netdev,
+> +			=C2=A0struct ethtool_rxnfc *cmd,
+> +			=C2=A0u32 *rule_locs)
+> +{
+> +	struct hns_nic_priv *priv =3D netdev_priv(netdev);
+> +	int ret =3D 0;
+> +
+> +	switch (cmd->cmd) {
+> +	case ETHTOOL_GRXRINGS:
+> +		cmd->data =3D priv->ae_handle->q_num;
+> +		break;
+> +	default:
+> +		ret =3D -EOPNOTSUPP;
+> +		break;
+> +	}
+> +
 > +	return ret;
 
-All three can be one line.
+Redundant ret variable.
 
-> @@ -1241,7 +1241,7 @@ hns_set_rss(struct net_device *netdev, const
-> u32 *indir, const u8 *key,
-> =C2=A0
-> =C2=A0	ret =3D ops->set_rss(priv->ae_handle, indir, key, hfunc);
-> =C2=A0
-> -	return 0;
-> +	return ret;
+switch (value) {
+case X:
+=C2=A0break;
+default:
+=C2=A0return -ERRNO;
+}
 
-Ditto.
+return 0;
+
+> +}
 
 --=20
 Andy Shevchenko <andriy.shevchenko@linux.intel.com>
