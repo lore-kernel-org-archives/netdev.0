@@ -1,70 +1,44 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Wed, 9 Mar 2016 18:27:09 -0800
-Message-ID: <CAK6E8=eq3NGJDwreh6UL2hAHXEiPbRZPbXe2pc5aUPBgNoWtGA@mail.gmail.com>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
- <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com> <78983A17-6B0C-4A11-BE0E-A98FE699D1E3@ifi.uio.no>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH nf-next v9 5/8] openvswitch: Find existing
+ conntrack entry after upcall.
+Date: Wed, 9 Mar 2016 18:29:06 -0800
+Message-ID: <CAPWQB7HjMfhpK5hGSCZ0B91QCqbrAxP4+obA1GQTbtBUwXi2zg@mail.gmail.com>
+References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
+ <1457565024-27300-5-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Bendik_R=C3=B8nning_Opstad?= <bro.devel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?UTF-8?Q?P=C3=A5l_Halvorsen?= <paalh@simula.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Jonas Markussen <jonassm@ifi.uio.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33494 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752971AbcCJC1v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 21:27:51 -0500
-Received: by mail-wm0-f43.google.com with SMTP id l68so10274699wml.0
-        for <netdev@vger.kernel.org>; Wed, 09 Mar 2016 18:27:50 -0800 (PST)
-In-Reply-To: <78983A17-6B0C-4A11-BE0E-A98FE699D1E3@ifi.uio.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457565024-27300-5-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 9, 2016 at 5:45 PM, Jonas Markussen <jonassm@ifi.uio.no> wr=
-ote:
->
->> On 10 Mar 2016, at 01:20, Yuchung Cheng <ycheng@google.com> wrote:
->>
->> PS. I don't understand how (old) RDB can masquerade the losses by
->> skipping DUPACKs. Perhaps an example helps. Suppose we send 4 packet=
-s
->> and the last 3 were (s)acked. We perform RDB to send a packet that h=
-as
->> previous 4 payloads + 1 new byte. The sender still gets the loss
->> information?
->>
->
-> If I=E2=80=99ve understood you correctly, you=E2=80=99re talking abou=
-t sending 4
-> packets and the first one is lost?
->
-> In this case, RDB will not only bundle on the last/new packet but als=
-o
-> as it sends packet 2 (which will contain 1+2), packet 3 (1+2+3)
-> and packet 4 (1+2+3+4).
->
-> So the fact that packet 1 was lost is masqueraded when it is
-> recovered by packet 2 and there won=E2=80=99t be any gap in the SACK =
-window
-> indicating that packet 1 was lost.
-I see. Thanks for the clarification.
-
-So my question is still if thin-stream app has enough inflight to use
-ack-triggered recovery. i.e., it has to send at least twice within an
-RTT.
-
-Also have you tested this with non-Linux receivers? Thanks.
-
->
-> Best regards,
-> Jonas Markussen
+T24gOSBNYXJjaCAyMDE2IGF0IDE1OjEwLCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
+IHdyb3RlOgo+IEFkZCBhIG5ldyBmdW5jdGlvbiBvdnNfY3RfZmluZF9leGlzdGluZygpIHRvIGZp
+bmQgYW4gZXhpc3RpbmcKPiBjb25udHJhY2sgZW50cnkgZm9yIHdoaWNoIHRoaXMgcGFja2V0IHdh
+cyBhbHJlYWR5IGFwcGxpZWQgdG8uICBUaGlzIGlzCj4gb25seSB0byBiZSBjYWxsZWQgd2hlbiB0
+aGVyZSBpcyBldmlkZW5jZSB0aGF0IHRoZSBwYWNrZXQgd2FzIGFscmVhZHkKPiB0cmFja2VkIGFu
+ZCBjb21taXR0ZWQsIGJ1dCB3ZSBsb3N0IHRoZSBjdCByZWZlcmVuY2UgZHVlIHRvIGFuCj4gdXNl
+cnNwYWNlIHVwY2FsbC4KPgo+IG92c19jdF9maW5kX2V4aXN0aW5nKCkgaXMgY2FsbGVkIGZyb20g
+c2tiX25mY3RfY2FjaGVkKCksIHdoaWNoIGNhbiBub3cKPiBoaWRlIHRoZSBmYWN0IHRoYXQgdGhl
+IGN0IHJlZmVyZW5jZSBtYXkgaGF2ZSBiZWVuIGxvc3QgZHVlIHRvIGFuCj4gdXBjYWxsLiAgVGhp
+cyBhbGxvd3Mgb3ZzX2N0X2NvbW1pdCgpIHRvIGJlIHNpbXBsaWZpZWQuCj4KPiBUaGlzIHBhdGNo
+IGlzIG5lZWRlZCBieSBsYXRlciAib3BlbnZzd2l0Y2g6IEludGVyZmFjZSB3aXRoIE5BVCIgcGF0
+Y2gsCj4gYXMgd2UgbmVlZCB0byBiZSBhYmxlIHRvIHBhc3MgdGhlIHBhY2tldCB0aHJvdWdoIE5B
+VCB1c2luZyB0aGUKPiBvcmlnaW5hbCBjdCByZWZlcmVuY2UgYWxzbyBhZnRlciB0aGUgcmVmZXJl
+bmNlIGlzIGxvc3QgYWZ0ZXIgYW4KPiB1cGNhbGwuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBS
+YWphaGFsbWUgPGphcm5vQG92bi5vcmc+CgpBY2tlZC1ieTogSm9lIFN0cmluZ2VyIDxqb2VAb3Zu
+Lm9yZz4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2
+IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcv
+bWFpbG1hbi9saXN0aW5mby9kZXYK
