@@ -1,49 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] kcm: mark helper functions inline
-Date: Thu, 10 Mar 2016 19:31:12 +0100
-Message-ID: <1457634674-3373509-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in recvmmsg
+Date: Thu, 10 Mar 2016 19:35:57 +0100
+Message-ID: <CACT4Y+ZwoP73BEEeNeZwYj_c098mkU4WJ4z47twT7TmjStzEPA@mail.gmail.com>
+References: <CACT4Y+YUobBGeFiq5d-==TBB7F2am+wjH6CKVz0uCvw4KuM1dg@mail.gmail.com>
+ <20160122211644.GC2470@redhat.com> <CACT4Y+ZBNZGEWAe-iXeUO=PwNb39T60Sa0hYTrY-mykYuPZgYQ@mail.gmail.com>
+ <20160126193056.GA3986@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	syzkaller <syzkaller@googlegroups.com>,
+	Kostya Serebryany <kcc@google.com>,
+	Alexander Potapenko <glider@google.com>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Arnaldo Carvalho de Melo <acme@kernel.org>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.73]:52154 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753947AbcCJSbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:31:32 -0500
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:33223 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754028AbcCJSgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:36:18 -0500
+Received: by mail-wm0-f48.google.com with SMTP id l68so40401625wml.0
+        for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 10:36:18 -0800 (PST)
+In-Reply-To: <20160126193056.GA3986@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The stub helper functions for the newly added kcm_proc_init/exit interfaces
-are defined as 'static' in a header file, which leads to build warnings for
-each file that includes them without calling them:
+On Tue, Jan 26, 2016 at 8:30 PM, Arnaldo Carvalho de Melo
+<acme@redhat.com> wrote:
+> Em Tue, Jan 26, 2016 at 08:27:48PM +0100, Dmitry Vyukov escreveu:
+>> On Fri, Jan 22, 2016 at 10:16 PM, Arnaldo Carvalho de Melo <acme@redhat.com> wrote:
+>> > Em Fri, Jan 22, 2016 at 09:39:53PM +0100, Dmitry Vyukov escreveu:
+>> >> I am on commit 30f05309bde49295e02e45c7e615f73aa4e0ccc2 (Jan 20).
+>> >> Seems to be added in commit a2e2725541fad72416326798c2d7fa4dafb7d337
+>> >> (Oct 2009).
+>> >
+>> > Maybe this helps? Compile testing now...
+>>
+>>
+>> I don't have a reliable reproducer, so can't test it per se.
+>> I will integrate this patch tomorrow and restart fuzzer with it.
+>
+> Thanks a lot!
 
-include/net/kcm.h:183:12: error: 'kcm_proc_init' defined but not used [-Werror=unused-function]
-include/net/kcm.h:184:13: error: 'kcm_proc_exit' defined but not used [-Werror=unused-function]
 
-This marks the two functions as 'static inline' instead, which avoids the
-warnings and is obviously what was meant here.
+Hi Arnaldo,
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: cd6e111bf5be ("kcm: Add statistics and proc interfaces")
----
- include/net/kcm.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/kcm.h b/include/net/kcm.h
-index 95c425ca97b6..2840b5825dcc 100644
---- a/include/net/kcm.h
-+++ b/include/net/kcm.h
-@@ -180,8 +180,8 @@ struct kcm_mux {
- int kcm_proc_init(void);
- void kcm_proc_exit(void);
- #else
--static int kcm_proc_init(void) { return 0; }
--static void kcm_proc_exit(void) { }
-+static inline int kcm_proc_init(void) { return 0; }
-+static inline void kcm_proc_exit(void) { }
- #endif
- 
- static inline void aggregate_psock_stats(struct kcm_psock_stats *stats,
--- 
-2.7.0
+I am running with that patch since then, and did not see the bug.
+Please mail it as a proper patch.
