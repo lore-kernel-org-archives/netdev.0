@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2 2/3] mlx4: use napi_consume_skb API to get bulk
+Subject: [net-next PATCH V2 3/3] mlx5: use napi_consume_skb API to get bulk
  free operations
-Date: Thu, 10 Mar 2016 13:15:42 +0100
-Message-ID: <20160310121542.3680.84170.stgit@firesoul>
+Date: Thu, 10 Mar 2016 13:15:54 +0100
+Message-ID: <20160310121554.3680.77637.stgit@firesoul>
 References: <20160310121414.3680.45727.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,92 +13,70 @@ Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
 	gerlitz.or@gmail.com
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59339 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33485 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932091AbcCJMPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 07:15:49 -0500
+	id S932091AbcCJMP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 07:15:59 -0500
 In-Reply-To: <20160310121414.3680.45727.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Bulk free of SKBs happen transparently by the API call napi_consume_skb().
-The napi budget parameter is usually needed by napi_consume_skb()
-to detect if called from netpoll.  In this patch it have an extra meaning.
-
-For mlx4 driver, the mlx4_en_stop_port() call is done outside
-NAPI/softirq context, and cleanup the entire TX ring via
-mlx4_en_free_tx_buf().  The code mlx4_en_free_tx_desc() for
-freeing SKBs are shared with NAPI calls.
-
-To handle this shared use the zero budget indication is reused,
-and handled appropiately in napi_consume_skb(). To reflect this,
-variable is called napi_mode for the function call that needed
-this distinction.
+The napi budget parameter is needed by napi_consume_skb() to detect
+if called from netpoll.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index e0946ab22010..1b41feafce9e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -276,7 +276,8 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
- 
- static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring,
--				int index, u8 owner, u64 timestamp)
-+				int index, u8 owner, u64 timestamp,
-+				int napi_mode)
- {
- 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
- 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
-@@ -347,7 +348,8 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 			}
- 		}
- 	}
--	dev_consume_skb_any(skb);
-+	napi_consume_skb(skb, napi_mode);
-+
- 	return tx_info->nr_txbb;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 9c0e80e64b43..a0708782eb78 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -619,7 +619,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev);
+ void mlx5e_completion_event(struct mlx5_core_cq *mcq);
+ void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
+ int mlx5e_napi_poll(struct napi_struct *napi, int budget);
+-bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq);
++bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
+ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
+ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
+ struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index c34f4f3e9537..996b13a5042f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -336,7 +336,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return mlx5e_sq_xmit(sq, skb);
  }
  
-@@ -371,7 +373,9 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- 	while (ring->cons != ring->prod) {
- 		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
- 						ring->cons & ring->size_mask,
--						!!(ring->cons & ring->size), 0);
-+						!!(ring->cons & ring->size), 0,
-+						0 /* none-NAPI caller */
-+			);
- 		ring->cons += ring->last_nr_txbb;
- 		cnt++;
- 	}
-@@ -385,7 +389,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- }
- 
- static bool mlx4_en_process_tx_cq(struct net_device *dev,
--				 struct mlx4_en_cq *cq)
-+				  struct mlx4_en_cq *cq, int napi_budget)
+-bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
++bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
  {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_cq *mcq = &cq->mcq;
-@@ -451,7 +455,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 			last_nr_txbb = mlx4_en_free_tx_desc(
- 					priv, ring, ring_index,
- 					!!((ring_cons + txbbs_skipped) &
--					ring->size), timestamp);
-+					ring->size), timestamp, napi_budget);
+ 	struct mlx5e_sq *sq;
+ 	u32 dma_fifo_cc;
+@@ -412,7 +412,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
+ 			npkts++;
+ 			nbytes += wi->num_bytes;
+ 			sqcc += wi->num_wqebbs;
+-			dev_kfree_skb(skb);
++			napi_consume_skb(skb, napi_budget);
+ 		} while (!last_wqe);
+ 	}
  
- 			mlx4_en_stamp_wqe(priv, ring, stamp_index,
- 					  !!((ring_cons + txbbs_stamp) &
-@@ -511,7 +515,7 @@ int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget)
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int clean_complete;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 4ac8d716dbdd..d244acee63a5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -60,7 +60,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
  
--	clean_complete = mlx4_en_process_tx_cq(dev, cq);
-+	clean_complete = mlx4_en_process_tx_cq(dev, cq, budget);
- 	if (!clean_complete)
- 		return budget;
+ 	for (i = 0; i < c->num_tc; i++)
+-		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
++		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
  
+ 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
+ 	busy |= work_done == budget;
