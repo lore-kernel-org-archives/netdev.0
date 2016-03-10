@@ -1,83 +1,98 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V3 3/3] mlx5: use napi_consume_skb API to get bulk
- free operations
-Date: Thu, 10 Mar 2016 15:59:32 +0100
-Message-ID: <20160310145931.22901.1681.stgit@firesoul>
-References: <20160310145803.22901.24734.stgit@firesoul>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix the transports round robin issue when init
+ is retransmitted
+Date: Thu, 10 Mar 2016 12:01:57 -0300
+Message-ID: <20160310150156.GK31743@localhost.localdomain>
+References: <8d3cd163c84b30797f1123a7fc8a56f768801a87.1457595117.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, eugenia@mellanox.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	gerlitz.or@gmail.com
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+	daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35522 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52086 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752344AbcCJO7g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 09:59:36 -0500
-In-Reply-To: <20160310145803.22901.24734.stgit@firesoul>
+	id S1751821AbcCJPCA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Mar 2016 10:02:00 -0500
+Content-Disposition: inline
+In-Reply-To: <8d3cd163c84b30797f1123a7fc8a56f768801a87.1457595117.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bulk free of SKBs happen transparently by the API call napi_consume_skb().
-The napi budget parameter is needed by napi_consume_skb() to detect
-if called from netpoll.
+On Thu, Mar 10, 2016 at 03:31:57PM +0800, Xin Long wrote:
+> prior to this patch, at the beginning if we have two paths in one assoc,
+> they may have the same params other than the last_time_heard, it will try
+> the paths like this:
+> 
+> 1st cycle
+>   try trans1 fail.
+>   then trans2 is selected.(cause it's last_time_heard is after trans1).
+> 
+> 2nd cycle:
+>   try  trans2 fail
+>   then trans2 is selected.(cause it's last_time_heard is after trans1).
+> 
+> 3rd cycle:
+>   try  trans2 fail
+>   then trans2 is selected.(cause it's last_time_heard is after trans1).
+> 
+> ....
+> 
+> trans1 will never have change to be selected, which is not what we expect.
+> we should keeping round robin all the paths if they are just added at the
+> beginning.
+> 
+> So at first every tranport's last_time_heard should be initialized 0, so
+> that we ensure they have the same value at the beginning, only by this,
+> all the transports could get equal chance to be selected.
+> 
+> Then for sctp_trans_elect_best, it should return the trans_next one when
+> *trans == *trans_next, so that we can try next if it fails,  but now it
+> always return trans. so we can fix it by exchanging these two params when
+> we calls sctp_trans_elect_tie().
+> 
+> Fixes: 4c47af4d5eb2 ('net: sctp: rework multihoming retransmission path selection to rfc4960')
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9c0e80e64b43..a0708782eb78 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -619,7 +619,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev);
- void mlx5e_completion_event(struct mlx5_core_cq *mcq);
- void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
- int mlx5e_napi_poll(struct napi_struct *napi, int budget);
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq);
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
- bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
- struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index c34f4f3e9537..996b13a5042f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -336,7 +336,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return mlx5e_sq_xmit(sq, skb);
- }
- 
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
- {
- 	struct mlx5e_sq *sq;
- 	u32 dma_fifo_cc;
-@@ -412,7 +412,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 			npkts++;
- 			nbytes += wi->num_bytes;
- 			sqcc += wi->num_wqebbs;
--			dev_kfree_skb(skb);
-+			napi_consume_skb(skb, napi_budget);
- 		} while (!last_wqe);
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 4ac8d716dbdd..d244acee63a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -60,7 +60,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
- 
- 	for (i = 0; i < c->num_tc; i++)
--		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
-+		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
- 
- 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
- 	busy |= work_done == budget;
+> ---
+>  net/sctp/associola.c | 2 +-
+>  net/sctp/transport.c | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 2bf8ec9..cd87344 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1263,7 +1263,7 @@ static struct sctp_transport *sctp_trans_elect_best(struct sctp_transport *curr,
+>  	if (score_curr > score_best)
+>  		return curr;
+>  	else if (score_curr == score_best)
+> -		return sctp_trans_elect_tie(curr, best);
+> +		return sctp_trans_elect_tie(best, curr);
+>  	else
+>  		return best;
+>  }
+> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+> index a431c14..d517153 100644
+> --- a/net/sctp/transport.c
+> +++ b/net/sctp/transport.c
+> @@ -72,7 +72,7 @@ static struct sctp_transport *sctp_transport_init(struct net *net,
+>  	 */
+>  	peer->rto = msecs_to_jiffies(net->sctp.rto_initial);
+>  
+> -	peer->last_time_heard = ktime_get();
+> +	peer->last_time_heard = ktime_set(0, 0);
+>  	peer->last_time_ecne_reduced = jiffies;
+>  
+>  	peer->param_flags = SPP_HB_DISABLE |
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
