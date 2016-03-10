@@ -1,61 +1,68 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH nf-next v10 4/8] openvswitch: Update the CT state key only after nf_conntrack_in().
-Date: Thu, 10 Mar 2016 10:54:19 -0800
-Message-ID: <1457636063-92746-5-git-send-email-jarno@ovn.org>
+Subject: [PATCH nf-next v10 7/8] openvswitch: Delay conntrack helper call for new connections.
+Date: Thu, 10 Mar 2016 10:54:22 -0800
+Message-ID: <1457636063-92746-8-git-send-email-jarno@ovn.org>
 References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org, jarno@ovn.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:51248 "EHLO
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:42123 "EHLO
 	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752482AbcCJSy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:54:57 -0500
+	with ESMTP id S1752517AbcCJSzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 13:55:02 -0500
 In-Reply-To: <1457636063-92746-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only a successful nf_conntrack_in() call can effect a connection state
-change, so it suffices to update the key only after the
-nf_conntrack_in() returns.
-
-This change is needed for the later NAT patches.
+There is no need to help connections that are not confirmed, so we can
+delay helping new connections to the time when they are confirmed.
+This change is needed for NAT support, and having this as a separate
+patch will make the following NAT patch a bit easier to review.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
 ---
- net/openvswitch/conntrack.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/openvswitch/conntrack.c | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 2c2bf07..a487bb3 100644
+index 85256b3..f718b72 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -382,7 +382,8 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
- }
+@@ -483,7 +483,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 * actually run the packet through conntrack twice unless it's for a
+ 	 * different zone.
+ 	 */
+-	if (!skb_nfct_cached(net, key, info, skb)) {
++	bool cached = skb_nfct_cached(net, key, info, skb);
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
++
++	if (!cached) {
+ 		struct nf_conn *tmpl = info->ct;
+ 		int err;
  
- /* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
-- * not done already.  Update key with new CT state.
-+ * not done already.  Update key with new CT state after passing the packet
-+ * through conntrack.
-  * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
-  * set to NULL and 0 will be returned.
-  */
-@@ -411,14 +412,14 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 				    skb) != NF_ACCEPT)
+@@ -506,11 +510,18 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
  			return -ENOENT;
  
-+		ovs_ct_update_key(skb, info, key, true);
-+
- 		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
- 			WARN_ONCE(1, "helper rejected packet");
- 			return -EINVAL;
- 		}
+ 		ovs_ct_update_key(skb, info, key, true);
++	}
+ 
+-		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+-			WARN_ONCE(1, "helper rejected packet");
+-			return -EINVAL;
+-		}
++	/* Call the helper only if:
++	 * - nf_conntrack_in() was executed above ("!cached") for a confirmed
++	 *   connection, or
++	 * - When committing an unconfirmed connection.
++	 */
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit) &&
++	    ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
++		WARN_ONCE(1, "helper rejected packet");
++		return -EINVAL;
  	}
  
--	ovs_ct_update_key(skb, info, key, true);
--
  	return 0;
- }
- 
 -- 
 2.1.4
