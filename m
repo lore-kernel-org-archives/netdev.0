@@ -1,103 +1,70 @@
-From: Kejian Yan <yankejian@huawei.com>
-Subject: [PATCH v2 net-next 2/2] net: hns: fixes a bug of RSS
-Date: Thu, 10 Mar 2016 21:21:50 +0800
-Message-ID: <1457616110-225844-3-git-send-email-yankejian@huawei.com>
-References: <1457616110-225844-1-git-send-email-yankejian@huawei.com>
+From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+Subject: Re: [patch net 2/2] net: hns: fixes a bug of RSS
+Date: Thu, 10 Mar 2016 21:03:49 +0800
+Message-ID: <56E170B5.90109@huawei.com>
+References: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
+ <1457576189-22924-3-git-send-email-yankejian@huawei.com>
+ <1457598253.1347.52.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
 	<liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<chenny.xu@huawei.com>, <ivecera@redhat.com>,
+	<andrew@lunn.ch>, <chenny.xu@huawei.com>, <ivecera@redhat.com>,
 	<lisheng011@huawei.com>, <fengguang.wu@intel.com>,
 	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>,
 	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457616110-225844-1-git-send-email-yankejian@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:3247 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750773AbcCJNFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 08:05:34 -0500
+In-Reply-To: <1457598253.1347.52.camel@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If trying to get receive flow hash indirection table by ethtool, it needs
-to call .get_rxnfc to get ring number first. So this patch implements the
-.get_rxnfc of ethtool. And the data type of rss_indir_table is u32, it has
-to be multiply by the width of data type when using memcpy.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
----
-change log:
-PATCH v2:
- - This patch fixes the comments provided by Andy Shevchenko <Andy Shevchenko>
 
-PATCH v1:
- - first submit
+On 2016/3/10 16:24, Andy Shevchenko wrote:
+> On Thu, 2016-03-10 at 10:16 +0800, Kejian Yan wrote:
+>> If trying to get receive flow hash indirection table by ethtool, it
+>> needs
+>> to call .get_rxnfc to get ring number first. So this patch implements
+>> the
+>> .get_rxnfc of ethtool. And the data type of rss_indir_table is u32,
+>> it has
+>> to be multiply by the width of data type when using memcpy.
+> +static int hns_get_rxnfc(struct net_device *netdev,
+>> +			 struct ethtool_rxnfc *cmd,
+>> +			 u32 *rule_locs)
+>> +{
+>> +	struct hns_nic_priv *priv = netdev_priv(netdev);
+>> +	int ret = 0;
+>> +
+>> +	switch (cmd->cmd) {
+>> +	case ETHTOOL_GRXRINGS:
+>> +		cmd->data = priv->ae_handle->q_num;
+>> +		break;
+>> +	default:
+>> +		ret = -EOPNOTSUPP;
+>> +		break;
+>> +	}
+>> +
+>> +	return ret;
+> Redundant ret variable.
+>
+> switch (value) {
+> case X:
+>  break;
+> default:
+>  return -ERRNO;
+> }
+>
+> return 0;
 
- Link: https://lkml.org/lkml/2016/3/9/981
----
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  6 ++++--
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 18 ++++++++++++++++++
- 2 files changed, 22 insertions(+), 2 deletions(-)
+ok, thanks. i will fix it in next submit.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index d07db1f..7b06e9b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -787,7 +787,8 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
- 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
- 
- 	/* update the current hash->queue mappings from the shadow RSS table */
--	memcpy(indir, ppe_cb->rss_indir_table, HNS_PPEV2_RSS_IND_TBL_SIZE);
-+	memcpy(indir, ppe_cb->rss_indir_table,
-+	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
- 
- 	return 0;
- }
-@@ -802,7 +803,8 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
- 		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
- 
- 	/* update the shadow RSS table with user specified qids */
--	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
-+	memcpy(ppe_cb->rss_indir_table, indir,
-+	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
- 
- 	/* now update the hardware */
- 	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3b914ac..24b2b5f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1253,6 +1253,23 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
- }
- 
-+static int hns_get_rxnfc(struct net_device *netdev,
-+			 struct ethtool_rxnfc *cmd,
-+			 u32 *rule_locs)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(netdev);
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = priv->ae_handle->q_num;
-+		break;
-+	default:
-+		return -ERRNO;
-+	}
-+
-+	return 0;
-+}
-+
- static struct ethtool_ops hns_ethtool_ops = {
- 	.get_drvinfo = hns_nic_get_drvinfo,
- 	.get_link  = hns_nic_get_link,
-@@ -1276,6 +1293,7 @@ static struct ethtool_ops hns_ethtool_ops = {
- 	.get_rxfh_indir_size = hns_get_rss_indir_size,
- 	.get_rxfh = hns_get_rss,
- 	.set_rxfh = hns_set_rss,
-+	.get_rxnfc = hns_get_rxnfc,
- };
- 
- void hns_ethtool_set_ops(struct net_device *ndev)
--- 
-1.9.1
+>> +}
