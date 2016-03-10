@@ -1,58 +1,85 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Thu, 10 Mar 2016 10:07:55 -0500
-Message-ID: <56E18DCB.4050702@ti.com>
-References: <56D8B83E.7000303@ti.com> <20160303222654.GS15541@lunn.ch>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Thu, 10 Mar 2016 18:09:20 +0300
+Message-ID: <20160310150920.GC21154@uranus.lan>
+References: <20160309204158.GO2207@uranus.lan>
+ <20160309.154725.1921352291794389965.davem@davemloft.net>
+ <20160309205746.GQ2207@uranus.lan>
+ <20160309.161038.283281065293712589.davem@davemloft.net>
+ <20160309211629.GR2207@uranus.lan>
+ <20160310102018.GA21154@uranus.lan>
+ <20160310110324.GB21154@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <johan@kernel.org>,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, solar@openwall.com, vvs@virtuozzo.com,
+	avagin@virtuozzo.com, xemul@virtuozzo.com, vdavydov@virtuozzo.com,
+	khorenko@virtuozzo.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48404 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752722AbcCJPIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 10:08:05 -0500
-In-Reply-To: <20160303222654.GS15541@lunn.ch>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:35202 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752452AbcCJPJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 10:09:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20160310110324.GB21154@uranus.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew,
+On Thu, Mar 10, 2016 at 02:03:24PM +0300, Cyrill Gorcunov wrote:
+> On Thu, Mar 10, 2016 at 01:20:18PM +0300, Cyrill Gorcunov wrote:
+> > On Thu, Mar 10, 2016 at 12:16:29AM +0300, Cyrill Gorcunov wrote:
+> > > 
+> > > Thanks for explanation, Dave! I'll continue on this task tomorrow
+> > > tryin to implement optimization you proposed.
+> > 
+> > OK, here are the results for the preliminary patch with conntrack running
+> ...
+> >  net/ipv4/devinet.c |   13 ++++++++++++-
+> >  1 file changed, 12 insertions(+), 1 deletion(-)
+> > 
+> > Index: linux-ml.git/net/ipv4/devinet.c
+> > ===================================================================
+> > --- linux-ml.git.orig/net/ipv4/devinet.c
+> > +++ linux-ml.git/net/ipv4/devinet.c
+> > @@ -403,7 +403,18 @@ no_promotions:
+> >  	   So that, this order is correct.
+> >  	 */
+> 
+> This patch is wrong, so drop it please. I'll do another.
 
-Thanks for your response!
+Here I think is a better variant. The resulst are good
+enough -- 1 sec for cleanup. Does the patch look sane?
+---
+ net/ipv4/netfilter/nf_nat_masquerade_ipv4.c |   15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-On 03/03/2016 05:26 PM, Andrew Lunn wrote:
-> On Thu, Mar 03, 2016 at 05:18:38PM -0500, Murali Karicheri wrote:
->> Hi,
->>
->> We are using Micrel Phy in one of our board and wondering if we can force the
->> Phy to disable flow control at start. I have a 1G ethernet switch connected
->> to Phy and the phy always enable flow control. I would like to configure the
->> phy not to flow control. Is that possible and if yes, what should I do in the
->> my Ethernet driver to tell the Phy not to enable flow control?
-> 
-> Hi Murali
-> 
-> Have you played with:
-> 
->        ethtool -a|--show-pause devname
-> 
->        ethtool -A|--pause devname [autoneg on|off] [rx on|off] [tx on|off]
-> 
-> Andrew
-> 
-I will try, but my question is for disabling flow control by default in the
-phy when Ethernet driver is initialized. How does the driver tells the phy
-to disable tx/rx flow control. Even if phy advertise flow control capability
-the Ethernet h/w MAC layer should be capable of doing a Pause. So the driver
-needs to have a way to disable tx/rx FC when it starts. How this can be 
-achieved? We would like to disable this by default. User will be able to
-enable it through ethtool command if it desire to have FC for a specific
-use case. Isn't reasonable?  
-
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+Index: linux-ml.git/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+===================================================================
+--- linux-ml.git.orig/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
++++ linux-ml.git/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+@@ -108,9 +108,22 @@ static int masq_inet_event(struct notifi
+ 			   unsigned long event,
+ 			   void *ptr)
+ {
+-	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
++	struct in_ifaddr *ifa = ptr;
++	struct net_device *dev = ifa->ifa_dev->dev;
+ 	struct netdev_notifier_info info;
+ 
++	if (event == NETDEV_DOWN) {
++		/*
++		 * When we meet dead device which is
++		 * being released with dozeon of addresses
++		 * assigned -- we can optimize calls
++		 * to conntrack cleanups and do it only
++		 * once.
++		 */
++		if (ifa->ifa_dev->dead && ifa->ifa_next)
++			return NOTIFY_DONE;
++	}
++
+ 	netdev_notifier_info_init(&info, dev);
+ 	return masq_device_event(this, event, &info);
+ }
