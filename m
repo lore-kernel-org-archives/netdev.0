@@ -1,72 +1,104 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v3] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
-Date: Wed, 9 Mar 2016 17:55:00 -0800
-Message-ID: <20160310015500.GA68025@kafai-mba.local>
-References: <1457548994-823272-1-git-send-email-kafai@fb.com>
- <CAK6E8=fxc+uefYnnEb1Np7OUTNASXvYeOfJOtEeABdWOqEY_=w@mail.gmail.com>
+From: Kejian Yan <yankejian@huawei.com>
+Subject: [patch net 1/2] net: hns: fix return value of the function about rss
+Date: Thu, 10 Mar 2016 10:16:28 +0800
+Message-ID: <1457576189-22924-2-git-send-email-yankejian@huawei.com>
+References: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-	Chris Rapier <rapier@psc.edu>,
-	Eric Dumazet <edumazet@google.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain
+Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+	<liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<chenny.xu@huawei.com>, <ivecera@redhat.com>,
+	<lisheng011@huawei.com>, <fengguang.wu@intel.com>,
+	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:46875 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753666AbcCJBzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 20:55:33 -0500
-Content-Disposition: inline
-In-Reply-To: <CAK6E8=fxc+uefYnnEb1Np7OUTNASXvYeOfJOtEeABdWOqEY_=w@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:10130 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753666AbcCJB5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 20:57:37 -0500
+In-Reply-To: <1457576189-22924-1-git-send-email-yankejian@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2016 at 03:11:50PM -0800, Yuchung Cheng wrote:
-> On Wed, Mar 9, 2016 at 10:43 AM, Martin KaFai Lau <kafai@fb.com> wrote:
-> > diff --git a/include/net/tcp.h b/include/net/tcp.h
-> > index e90db85..24557a8 100644
-> > --- a/include/net/tcp.h
-> > +++ b/include/net/tcp.h
-> > @@ -1816,4 +1816,14 @@ static inline void skb_set_tcp_pure_ack(struct sk_buff *skb)
-> >         skb->truesize = 2;
-> >  }
-> >
-> > +static inline void tcp_segs_in(struct tcp_sock *tp, const struct sk_buff *skb)
-> > +{
-> > +       u16 segs_in;
-> > +
-> > +       segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-> > +       tp->segs_in += segs_in;
-> > +       if (skb->len > tcp_hdrlen(skb))
-> > +               tp->data_segs_in += segs_in;
-> > +}
-> > +
-> >  #endif /* _TCP_H */
-> > diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> > index fdb286d..f583c85 100644
-> > --- a/net/ipv4/tcp_fastopen.c
-> > +++ b/net/ipv4/tcp_fastopen.c
-> > @@ -131,6 +131,7 @@ static bool tcp_fastopen_cookie_gen(struct request_sock *req,
-> >  void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
-> >  {
-> >         struct tcp_sock *tp = tcp_sk(sk);
-> > +       u16 segs_in;
-> >
-> >         if (TCP_SKB_CB(skb)->end_seq == tp->rcv_nxt)
-> >                 return;
-> > @@ -154,6 +155,9 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
-> >          * as we certainly are not changing upper 32bit value (0)
-> >          */
-> >         tp->bytes_received = skb->len;
-> > +       segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
-> > +       tp->segs_in = segs_in;
-> > +       tp->data_segs_in = segs_in;
-> why not use the new tcp_segs_in() helper?
-It is because
-segs_in has been set to 1 by tcp_create_openreq_child(), so calling
-tcp_segs_in() will have it double counted
-and
-tcphdr has been pulled from skb, so skb->len does not include tcp_hdrlen.
+Both .get_rxfh and .get_rxfh are always return 0, it should return result
+from hardware when getting or setting rss. And the rss function should
+return the correct data type.
 
-I will add some remark in this change.
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 8 ++++----
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index a0070d0..3b8f301 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -791,7 +791,7 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 
+ 	/* set the RSS Hash Key if specififed by the user */
+ 	if (key)
+-		hns_ppe_set_rss_key(ppe_cb, (int *)key);
++		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
+ 
+ 	/* update the shadow RSS table with user specified qids */
+ 	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index f302ef9..811ef35 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -27,7 +27,7 @@ void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
+ void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
+ 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
+ {
+-	int key_item = 0;
++	u32 key_item = 0;
+ 
+ 	for (key_item = 0; key_item < HNS_PPEV2_RSS_KEY_NUM; key_item++)
+ 		dsaf_write_dev(ppe_cb, PPEV2_RSS_KEY_REG + key_item * 0x4,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3df2284..ada8e04 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1165,7 +1165,7 @@ hns_get_rss_key_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1184,7 +1184,7 @@ hns_get_rss_indir_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1213,7 +1213,7 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
+ 
+ 	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int
+@@ -1241,7 +1241,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 
+ 	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static struct ethtool_ops hns_ethtool_ops = {
+-- 
+1.9.1
