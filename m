@@ -1,82 +1,44 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2 3/3] mlx5: use napi_consume_skb API to get bulk
- free operations
-Date: Thu, 10 Mar 2016 13:15:54 +0100
-Message-ID: <20160310121554.3680.77637.stgit@firesoul>
-References: <20160310121414.3680.45727.stgit@firesoul>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net-next 3/3] xen-netback: reduce log spam
+Date: Thu, 10 Mar 2016 12:30:28 +0000
+Message-ID: <1457613028-10381-4-git-send-email-paul.durrant@citrix.com>
+References: <1457613028-10381-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	gerlitz.or@gmail.com
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33485 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932091AbcCJMP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Mar 2016 07:15:59 -0500
-In-Reply-To: <20160310121414.3680.45727.stgit@firesoul>
+Received: from smtp02.citrix.com ([66.165.176.63]:32299 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751AbcCJMkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 07:40:25 -0500
+In-Reply-To: <1457613028-10381-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bulk free of SKBs happen transparently by the API call napi_consume_skb().
-The napi budget parameter is needed by napi_consume_skb() to detect
-if called from netpoll.
+Remove the "prepare for reconnect" pr_info in xenbus.c. It's largely
+uninteresting and the states of the frontend and backend can easily be
+observed by watching the (o)xenstored log.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/xen-netback/xenbus.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9c0e80e64b43..a0708782eb78 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -619,7 +619,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev);
- void mlx5e_completion_event(struct mlx5_core_cq *mcq);
- void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
- int mlx5e_napi_poll(struct napi_struct *napi, int budget);
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq);
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
- bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
- struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index c34f4f3e9537..996b13a5042f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -336,7 +336,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return mlx5e_sq_xmit(sq, skb);
- }
- 
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
- {
- 	struct mlx5e_sq *sq;
- 	u32 dma_fifo_cc;
-@@ -412,7 +412,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 			npkts++;
- 			nbytes += wi->num_bytes;
- 			sqcc += wi->num_wqebbs;
--			dev_kfree_skb(skb);
-+			napi_consume_skb(skb, napi_budget);
- 		} while (!last_wqe);
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 4ac8d716dbdd..d244acee63a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -60,7 +60,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
- 
- 	for (i = 0; i < c->num_tc; i++)
--		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
-+		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
- 
- 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
- 	busy |= work_done == budget;
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 39a303d..bd182cd 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -511,8 +511,6 @@ static void set_backend_state(struct backend_info *be,
+ 			switch (state) {
+ 			case XenbusStateInitWait:
+ 			case XenbusStateConnected:
+-				pr_info("%s: prepare for reconnect\n",
+-					be->dev->nodename);
+ 				backend_switch_state(be, XenbusStateInitWait);
+ 				break;
+ 			case XenbusStateClosing:
+-- 
+2.1.4
