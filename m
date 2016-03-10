@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: bpf_stackmap_copy depends on
- CONFIG_PERF_EVENTS
-Date: Wed, 09 Mar 2016 23:28:03 -0500 (EST)
-Message-ID: <20160309.232803.2152242260458545384.davem@davemloft.net>
-References: <1457578609-277357-1-git-send-email-ast@fb.com>
+Subject: Re: [PATCH net-next] bpf: avoid copying junk bytes in
+ bpf_get_current_comm()
+Date: Wed, 09 Mar 2016 23:28:12 -0500 (EST)
+Message-ID: <20160309.232812.952849846092100551.davem@davemloft.net>
+References: <1457582553-395600-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, fengguang.wu@intel.com,
-	netdev@vger.kernel.org
+Cc: daniel@iogearbox.net, tobias@waldekranz.com,
+	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
 To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39043 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39049 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932906AbcCJE2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 23:28:06 -0500
-In-Reply-To: <1457578609-277357-1-git-send-email-ast@fb.com>
+	with ESMTP id S932906AbcCJE2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 23:28:15 -0500
+In-Reply-To: <1457582553-395600-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexei Starovoitov <ast@fb.com>
-Date: Wed, 9 Mar 2016 18:56:49 -0800
+Date: Wed, 9 Mar 2016 20:02:33 -0800
 
-> 0-day bot reported build error:
-> kernel/built-in.o: In function `map_lookup_elem':
->>> kernel/bpf/.tmp_syscall.o:(.text+0x329b3c): undefined reference to `bpf_stackmap_copy'
-> when CONFIG_BPF_SYSCALL is set and CONFIG_PERF_EVENTS is not.
-> Add weak definition to resolve it.
-> This code path in map_lookup_elem() is never taken
-> when CONFIG_PERF_EVENTS is not set.
+> Lots of places in the kernel use memcpy(buf, comm, TASK_COMM_LEN); but
+> the result is typically passed to print("%s", buf) and extra bytes
+> after zero don't cause any harm.
+> In bpf the result of bpf_get_current_comm() is used as the part of
+> map key and was causing spurious hash map mismatches.
+> Use strlcpy() to guarantee zero-terminated string.
+> bpf verifier checks that output buffer is zero-initialized,
+> so even for short task names the output buffer don't have junk bytes.
+> Note it's not a security concern, since kprobe+bpf is root only.
 > 
-> Fixes: 557c0c6e7df8 ("bpf: convert stackmap to pre-allocation")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Fixes: ffeedafbf023 ("bpf: introduce current->pid, tgid, uid, gid, comm accessors")
+> Reported-by: Tobias Waldekranz <tobias@waldekranz.com>
 > Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+> Targeting net-next, since it's too late for net.
+> I think it makes sense for stable as well.
 
-Applied.
+Applied and queued up for -stable, thanks.
