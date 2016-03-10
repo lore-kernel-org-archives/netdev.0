@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V5 0/4] net-next: mediatek: add ethernet driver
-Date: Thu, 10 Mar 2016 16:22:36 -0500 (EST)
-Message-ID: <20160310.162236.155620180825637848.davem@davemloft.net>
-References: <1457432997-25526-1-git-send-email-blogic@openwrt.org>
+Subject: Re: [PATCH net-next V3 00/10] cls_flower hardware offload support
+Date: Thu, 10 Mar 2016 16:24:35 -0500 (EST)
+Message-ID: <20160310.162435.690159053489962918.davem@davemloft.net>
+References: <1457433758-9193-1-git-send-email-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, steven.liu@mediatek.com,
-	Carlos.Huang@mediatek.com, nbd@openwrt.org, igvtee@gmail.com
-To: blogic@openwrt.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457432997-25526-1-git-send-email-blogic@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	jiri@mellanox.com, ogerlitz@mellanox.com, saeedm@mellanox.com,
+	hadarh@mellanox.com, ronye@mellanox.com
+To: amir@vadai.me
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932216AbcCJVYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 16:24:38 -0500
+In-Reply-To: <1457433758-9193-1-git-send-email-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <blogic@openwrt.org>
-Date: Tue,  8 Mar 2016 11:29:53 +0100
+From: Amir Vadai <amir@vadai.me>
+Date: Tue,  8 Mar 2016 12:42:28 +0200
 
-> This series adds support for the Mediatek ethernet core found on current ARM
-> based SoCs. The driver works on MT2701 and MT7623 SoCs
+> Please see changes from V2 at the bottom.
 > 
-> Instead of trying to upstream everything at once I decided to concentrate on
-> the important parts required to make current generation silicon work. The V3
-> series only includes the code required to make dual MAC setups work and only
-> supports the newer QDMA engine.
+> This patchset introduces cls_flower hardware offload support over ConnectX-4
+> driver, more hardware vendors are welcome to use it too.
  ...
 
-Series applied, thanks.
+Series applied, thanks for retaining detailed change history in this series
+header posting.
