@@ -1,48 +1,36 @@
-From: Jonas Markussen <jonassm@ifi.uio.no>
-Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Thu, 10 Mar 2016 01:45:00 +0000
-Message-ID: <78983A17-6B0C-4A11-BE0E-A98FE699D1E3@ifi.uio.no>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
- <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH nf-next v9 4/8] openvswitch: Update the CT
+ state key only after nf_conntrack_in().
+Date: Wed, 9 Mar 2016 18:12:46 -0800
+Message-ID: <CAPWQB7GhbtuMUPMLECdv=nkyUL0=hZgdPcKqA73zK_F=jvPKtw@mail.gmail.com>
+References: <1457565024-27300-1-git-send-email-jarno@ovn.org>
+ <1457565024-27300-4-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?QmVuZGlrIFLDuG5uaW5nIE9wc3RhZA==?= <bro.devel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?utf-8?B?UMOlbCBIYWx2b3JzZW4=?= <paalh@simula.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.uio.no ([129.240.10.15]:42668 "EHLO mail-out4.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964802AbcCJCCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Mar 2016 21:02:15 -0500
-In-Reply-To: <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <EDE32F17D1142C4C9941F99B3F707F1E@mail.uio.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457565024-27300-4-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-DQo+IE9uIDEwIE1hciAyMDE2LCBhdCAwMToyMCwgWXVjaHVuZyBDaGVuZyA8eWNoZW5nQGdvb2ds
-ZS5jb20+IHdyb3RlOg0KPiANCj4gUFMuIEkgZG9uJ3QgdW5kZXJzdGFuZCBob3cgKG9sZCkgUkRC
-IGNhbiBtYXNxdWVyYWRlIHRoZSBsb3NzZXMgYnkNCj4gc2tpcHBpbmcgRFVQQUNLcy4gUGVyaGFw
-cyBhbiBleGFtcGxlIGhlbHBzLiBTdXBwb3NlIHdlIHNlbmQgNCBwYWNrZXRzDQo+IGFuZCB0aGUg
-bGFzdCAzIHdlcmUgKHMpYWNrZWQuIFdlIHBlcmZvcm0gUkRCIHRvIHNlbmQgYSBwYWNrZXQgdGhh
-dCBoYXMNCj4gcHJldmlvdXMgNCBwYXlsb2FkcyArIDEgbmV3IGJ5dGUuIFRoZSBzZW5kZXIgc3Rp
-bGwgZ2V0cyB0aGUgbG9zcw0KPiBpbmZvcm1hdGlvbj8NCj4gDQoNCklmIEnigJl2ZSB1bmRlcnN0
-b29kIHlvdSBjb3JyZWN0bHksIHlvdeKAmXJlIHRhbGtpbmcgYWJvdXQgc2VuZGluZyA0IA0KcGFj
-a2V0cyBhbmQgdGhlIGZpcnN0IG9uZSBpcyBsb3N0Pw0KDQpJbiB0aGlzIGNhc2UsIFJEQiB3aWxs
-IG5vdCBvbmx5IGJ1bmRsZSBvbiB0aGUgbGFzdC9uZXcgcGFja2V0IGJ1dCBhbHNvIA0KYXMgaXQg
-c2VuZHMgcGFja2V0IDIgKHdoaWNoIHdpbGwgY29udGFpbiAxKzIpLCBwYWNrZXQgMyAoMSsyKzMp
-IA0KYW5kIHBhY2tldCA0ICgxKzIrMys0KS4gDQoNClNvIHRoZSBmYWN0IHRoYXQgcGFja2V0IDEg
-d2FzIGxvc3QgaXMgbWFzcXVlcmFkZWQgd2hlbiBpdCBpcyANCnJlY292ZXJlZCBieSBwYWNrZXQg
-MiBhbmQgdGhlcmUgd29u4oCZdCBiZSBhbnkgZ2FwIGluIHRoZSBTQUNLIHdpbmRvdw0KaW5kaWNh
-dGluZyB0aGF0IHBhY2tldCAxIHdhcyBsb3N0Lg0KDQpCZXN0IHJlZ2FyZHMsDQpKb25hcyBNYXJr
-dXNzZW4=
+T24gOSBNYXJjaCAyMDE2IGF0IDE1OjEwLCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
+IHdyb3RlOgo+IE9ubHkgYSBzdWNjZXNzZnVsIG5mX2Nvbm50cmFja19pbigpIGNhbGwgY2FuIGVm
+ZmVjdCBhIGNvbm5lY3Rpb24gc3RhdGUKPiBjaGFuZ2UsIHNvIGlmIHN1ZmZpY2VzIHRvIHVwZGF0
+ZSB0aGUga2V5IG9ubHkgYWZ0ZXIgdGhlCj4gbmZfY29ubnRyYWNrX2luKCkgcmV0dXJucy4KCiJp
+dCIgc3VmZmljZXMgdG8gdXBkYXRlLi4uCgo+IFRoaXMgY2hhbmdlIGlzIG5lZWRlZCBmb3IgdGhl
+IGxhdGVyIE5BVCBwYXRjaGVzLgo+Cj4gU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxq
+YXJub0Bvdm4ub3JnPgoKQWNrZWQtYnk6IEpvZSBTdHJpbmdlciA8am9lQG92bi5vcmc+Cl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
+c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
+dGluZm8vZGV2Cg==
