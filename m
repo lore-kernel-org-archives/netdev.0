@@ -1,37 +1,22 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/2] sh_eth: fix couple of bugs in sh_eth_ring_format()
-Date: Fri, 11 Mar 2016 01:01:22 +0300
-Message-ID: <56E1EEB2.60106@cogentembedded.com>
-References: <4881302.XJJSmqvE1J@wasted.cogentembedded.com>
- <20160310.160752.440578142471376021.davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH nf-next v10 3/8] openvswitch: Add commentary to conntrack.c
+Date: Fri, 11 Mar 2016 11:01:06 +1300
+Message-ID: <CAPWQB7F8Nr4Dbbd+SX_OCsRAfzr4ccZJwzxrWqW2Mdb35gHaRA@mail.gmail.com>
+References: <1457636063-92746-1-git-send-email-jarno@ovn.org> <1457636063-92746-4-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20160310.160752.440578142471376021.davem@davemloft.net>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Jarno Rajahalme <jarno@ovn.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1457636063-92746-4-git-send-email-jarno@ovn.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/11/2016 12:07 AM, David Miller wrote:
-
->>     Here's a set of 2 patches against DaveM's 'net.git' repo fixing two bugs
->> in sh_eth_.ring_format()...
->>
->> [1/2] sh_eth: fix NULL pointer dereference in sh_eth_ring_format()
->> [2/2] sh_eth: advance 'rxdesc' later in sh_eth_ring_format()
+On 11 March 2016 at 07:54, Jarno Rajahalme <jarno@ovn.org> wrote:
+> This makes the code easier to understand and the following patches
+> more focused.
 >
-> Since Linus is likely to release today or otherwise very soon I'm not
-> putting things into 'net'.
->
-> So I've applied this series to 'net-next', let me know if I should
-> queue it up for stable.
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 
-    If your generally queue the error path fixes, then queue these two please.
-
-> Thanks.
-
-    My pleasure. :-)
-
-MBR, Sergei
+Acked-by: Joe Stringer <joe@ovn.org>
