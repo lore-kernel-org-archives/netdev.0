@@ -1,51 +1,49 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] bpf: avoid copying junk bytes in bpf_get_current_comm()
-Date: Wed, 9 Mar 2016 20:02:33 -0800
-Message-ID: <1457582553-395600-1-git-send-email-ast@fb.com>
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Subject: Hung up was occurred after v4.4-rc1 during IPv6 Ready Logo
+ Conformance Test
+Date: Thu, 10 Mar 2016 13:21:05 +0900
+Message-ID: <56E0F631.7010906@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Tobias Waldekranz <tobias@waldekranz.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym01.jp.fujitsu.com ([211.128.242.40]:28122 "EHLO
+	mgwym01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932238AbcCJEVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 23:21:12 -0500
+Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
+	by yt-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id 90BE8AC02F6
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 13:21:05 +0900 (JST)
+Received: from omame (omame.fct.css.fujitsu.com [10.24.14.171])
+	by m3050.s.css.fujitsu.com (Postfix) with ESMTP id 86D99172
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 13:21:05 +0900 (JST)
+Received: from [10.24.19.86] (ubi86.utsfd.cs.fujitsu.co.jp [10.24.19.86])
+	by omame (Postfix) with ESMTPSA id 763951E0088
+	for <netdev@vger.kernel.org>; Thu, 10 Mar 2016 13:21:05 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lots of places in the kernel use memcpy(buf, comm, TASK_COMM_LEN); but
-the result is typically passed to print("%s", buf) and extra bytes
-after zero don't cause any harm.
-In bpf the result of bpf_get_current_comm() is used as the part of
-map key and was causing spurious hash map mismatches.
-Use strlcpy() to guarantee zero-terminated string.
-bpf verifier checks that output buffer is zero-initialized,
-so even for short task names the output buffer don't have junk bytes.
-Note it's not a security concern, since kprobe+bpf is root only.
+Hi all,
 
-Fixes: ffeedafbf023 ("bpf: introduce current->pid, tgid, uid, gid, comm accessors")
-Reported-by: Tobias Waldekranz <tobias@waldekranz.com>
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
-Targeting net-next, since it's too late for net.
-I think it makes sense for stable as well.
+Hung up was occurred at Linux Kernel after v4.4-rc1 during IPv6 Ready Logo Conformance Test.
+Not Fix a bug in v4.5-rc7 yet.
 
- kernel/bpf/helpers.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Currently, it is under investigation.
 
-diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
-index 4504ca66118d..50da680c479f 100644
---- a/kernel/bpf/helpers.c
-+++ b/kernel/bpf/helpers.c
-@@ -166,7 +166,7 @@ static u64 bpf_get_current_comm(u64 r1, u64 size, u64 r3, u64 r4, u64 r5)
- 	if (!task)
- 		return -EINVAL;
- 
--	memcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
-+	strlcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
- 	return 0;
- }
- 
--- 
-2.8.0.rc1
+The following are the details:
+
+IPv6 Ready Logo
+https://www.ipv6ready.org/
+
+I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
+It is using userland build with yocto project.
+
+Test Environment
+Test Specification          : 4.0.6
+Tool Version                : REL_3_3_2
+Test Program Version        : V6LC_5_0_0
+Target Device               : Intel D510MO (Atom D510)
+
+Regards,
+Yuki Machida
