@@ -1,57 +1,48 @@
-From: Kejian Yan <yankejian@huawei.com>
-Subject: [PATCH net] net: hns: bug fix about ping6
-Date: Thu, 10 Mar 2016 10:17:08 +0800
-Message-ID: <1457576228-23038-1-git-send-email-yankejian@huawei.com>
+From: Jonas Markussen <jonassm@ifi.uio.no>
+Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
+Date: Thu, 10 Mar 2016 01:45:00 +0000
+Message-ID: <78983A17-6B0C-4A11-BE0E-A98FE699D1E3@ifi.uio.no>
+References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
+ <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+ <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
-	<liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<chenny.xu@huawei.com>, <ivecera@redhat.com>,
-	<lisheng011@huawei.com>, <fengguang.wu@intel.com>,
-	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: =?utf-8?B?QmVuZGlrIFLDuG5uaW5nIE9wc3RhZA==?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?utf-8?B?UMOlbCBIYWx2b3JzZW4=?= <paalh@simula.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out4.uio.no ([129.240.10.15]:42668 "EHLO mail-out4.uio.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964802AbcCJCCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Mar 2016 21:02:15 -0500
+In-Reply-To: <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <EDE32F17D1142C4C9941F99B3F707F1E@mail.uio.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current upstreaming code fails to ping other IPv6 net device, because
-the enet receives the multicast packets with the src mac addr whick is the
-same as its mac addr. These packets need to be dropped.
-
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3f77ff7..9ad5da4 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -564,6 +564,7 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
- 	struct sk_buff *skb;
- 	struct hnae_desc *desc;
- 	struct hnae_desc_cb *desc_cb;
-+	struct ethhdr *eh;
- 	unsigned char *va;
- 	int bnum, length, i;
- 	int pull_len;
-@@ -670,6 +671,14 @@ out_bnum_err:
- 		return -EFAULT;
- 	}
- 
-+	/* filter out multicast pkt with the same src mac as this port */
-+	eh = (struct ethhdr *)skb->data;
-+	if (unlikely(is_multicast_ether_addr(eh->h_dest) &&
-+		     ether_addr_equal(ndev->dev_addr, eh->h_source))) {
-+		dev_kfree_skb_any(skb);
-+		return -EFAULT;
-+	}
-+
- 	ring->stats.rx_pkts++;
- 	ring->stats.rx_bytes += skb->len;
- 
--- 
-1.9.1
+DQo+IE9uIDEwIE1hciAyMDE2LCBhdCAwMToyMCwgWXVjaHVuZyBDaGVuZyA8eWNoZW5nQGdvb2ds
+ZS5jb20+IHdyb3RlOg0KPiANCj4gUFMuIEkgZG9uJ3QgdW5kZXJzdGFuZCBob3cgKG9sZCkgUkRC
+IGNhbiBtYXNxdWVyYWRlIHRoZSBsb3NzZXMgYnkNCj4gc2tpcHBpbmcgRFVQQUNLcy4gUGVyaGFw
+cyBhbiBleGFtcGxlIGhlbHBzLiBTdXBwb3NlIHdlIHNlbmQgNCBwYWNrZXRzDQo+IGFuZCB0aGUg
+bGFzdCAzIHdlcmUgKHMpYWNrZWQuIFdlIHBlcmZvcm0gUkRCIHRvIHNlbmQgYSBwYWNrZXQgdGhh
+dCBoYXMNCj4gcHJldmlvdXMgNCBwYXlsb2FkcyArIDEgbmV3IGJ5dGUuIFRoZSBzZW5kZXIgc3Rp
+bGwgZ2V0cyB0aGUgbG9zcw0KPiBpbmZvcm1hdGlvbj8NCj4gDQoNCklmIEnigJl2ZSB1bmRlcnN0
+b29kIHlvdSBjb3JyZWN0bHksIHlvdeKAmXJlIHRhbGtpbmcgYWJvdXQgc2VuZGluZyA0IA0KcGFj
+a2V0cyBhbmQgdGhlIGZpcnN0IG9uZSBpcyBsb3N0Pw0KDQpJbiB0aGlzIGNhc2UsIFJEQiB3aWxs
+IG5vdCBvbmx5IGJ1bmRsZSBvbiB0aGUgbGFzdC9uZXcgcGFja2V0IGJ1dCBhbHNvIA0KYXMgaXQg
+c2VuZHMgcGFja2V0IDIgKHdoaWNoIHdpbGwgY29udGFpbiAxKzIpLCBwYWNrZXQgMyAoMSsyKzMp
+IA0KYW5kIHBhY2tldCA0ICgxKzIrMys0KS4gDQoNClNvIHRoZSBmYWN0IHRoYXQgcGFja2V0IDEg
+d2FzIGxvc3QgaXMgbWFzcXVlcmFkZWQgd2hlbiBpdCBpcyANCnJlY292ZXJlZCBieSBwYWNrZXQg
+MiBhbmQgdGhlcmUgd29u4oCZdCBiZSBhbnkgZ2FwIGluIHRoZSBTQUNLIHdpbmRvdw0KaW5kaWNh
+dGluZyB0aGF0IHBhY2tldCAxIHdhcyBsb3N0Lg0KDQpCZXN0IHJlZ2FyZHMsDQpKb25hcyBNYXJr
+dXNzZW4=
