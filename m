@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] validate variable length ll headers
-Date: Wed, 09 Mar 2016 22:13:40 -0500 (EST)
-Message-ID: <20160309.221340.1476836223911285635.davem@davemloft.net>
-References: <1457578714-36125-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] bpf: make bpf_stackmap_copy conditionally called
+Date: Thu, 10 Mar 2016 02:43:42 +0100
+Message-ID: <1457574245-2998842-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932750AbcCJDNr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 22:13:47 -0500
-In-Reply-To: <1457578714-36125-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from mout.kundenserver.de ([217.72.192.74]:61398 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934872AbcCJD1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Mar 2016 22:27:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Wed,  9 Mar 2016 21:58:31 -0500
+Changing the bpf syscall to use the new bpf_stackmap_copy() helper for
+BPF_MAP_TYPE_STACK_TRACE causes a link error when CONFIG_PERF_EVENTS
+is disabled:
 
-> Allow device-specific validation of link layer headers. Existing
-> checks drop all packets shorter than hard_header_len. For variable
-> length protocols, such packets can be valid.
-> 
-> patch 1 adds header_ops.validate and dev_validate_header
-> patch 2 implements the protocol specific callback for AX25
-> patch 3 replaces ll_header_truncated with dev_validate_header
+kernel/built-in.o: In function `map_lookup_elem':
+:(.text+0x7fca4): undefined reference to `bpf_stackmap_copy'
 
-Series applied and queued up for -stable, thanks!
+This patch simply avoids handling that case, which may or may not
+be the correct answer here.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 557c0c6e7df8 ("bpf: convert stackmap to pre-allocation")
+---
+ kernel/bpf/syscall.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 2978d0d08869..b014b64b6116 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -290,7 +290,8 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 		err = bpf_percpu_hash_copy(map, key, value);
+ 	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
+ 		err = bpf_percpu_array_copy(map, key, value);
+-	} else if (map->map_type == BPF_MAP_TYPE_STACK_TRACE) {
++	} else if (map->map_type == BPF_MAP_TYPE_STACK_TRACE &&
++		   IS_ENABLED(CONFIG_PERF_EVENTS)) {
+ 		err = bpf_stackmap_copy(map, key, value);
+ 	} else {
+ 		rcu_read_lock();
+-- 
+2.7.0
