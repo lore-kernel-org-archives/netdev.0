@@ -1,177 +1,108 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: Re: [PATCHv2 (net.git) 2/2] stmmac: fix MDIO settings
-Date: Fri, 11 Mar 2016 16:16:44 +0800
-Message-ID: <56E27EEC.10005@electromag.com.au>
-References: <1457682245-22746-1-git-send-email-peppe.cavallaro@st.com>
- <1457682245-22746-3-git-send-email-peppe.cavallaro@st.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [RFC/RFT] mac80211: implement fq_codel for software queuing
+Date: Fri, 11 Mar 2016 09:32:03 +0100
+Message-ID: <CA+BoTQ=-qSt3MQ-sU_rav1pTi6AWL41pL1DW7H+ceNk4xEiqcQ@mail.gmail.com>
+References: <1456492163-11437-1-git-send-email-michal.kazior@tieto.com>
+	<CAA93jw4XsEnp3jTgPL7OKWTJP-83VwRaCdb+foc8nCuqxk3WZA@mail.gmail.com>
+	<CA+BoTQk+3jhwK57_fDw0scNCGzu_Edqp9-Beeppz8xj9kSQcoQ@mail.gmail.com>
+	<CAA93jw47wtioiUUD8ZTm4hFSVL7Uc8ubpSG5urHtWQhfAo1nmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gabriel.fernandez@linaro.org, afaerber@suse.de,
-	fschaefer.oss@googlemail.com, dinh.linux@gmail.com,
-	davem@davemloft.net
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>, netdev@vger.kernel.org
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	Tim Shepard <shep@alum.mit.edu>
+To: Dave Taht <dave.taht@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchovy1.45ru.net.au ([203.30.46.145]:50322 "EHLO
-	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934359AbcCKIXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 03:23:35 -0500
-In-Reply-To: <1457682245-22746-3-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34590 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934767AbcCKIcF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 03:32:05 -0500
+Received: by mail-wm0-f45.google.com with SMTP id p65so8109429wmp.1
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 00:32:04 -0800 (PST)
+In-Reply-To: <CAA93jw47wtioiUUD8ZTm4hFSVL7Uc8ubpSG5urHtWQhfAo1nmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-G'day Giuseppe,
+On 10 March 2016 at 19:57, Dave Taht <dave.taht@gmail.com> wrote:
+>>> regular fq_codel uses 1024 and there has not been much reason to
+>>> change it. In the case of an AP which has more limited memory, 256 =
+or
+>>> 1024 would be a good setting, per station. I'd stick to 1024 for no=
+w.
+>>
+>> Do note that the 4096 is shared _across_ station-tid queues. It is n=
+ot
+>> per-station. If you have 10 stations you still have 4096 flows
+>> (actually 4096 + 16*10, because each tid - and there are 16 - has it=
+'s
+>> own fallback flow in case of hash collision on the global flowmap to
+>> maintain per-sta-tid queuing).
+>
+> I have to admit I didn't parse this well - still haven't, I think I
+> need to draw. (got a picture?)
 
-Sorry for delay in responding.
-I feel responsible for starting the changes breaking this.
+No picture, sorry. Let me rehash instead:
 
-See below.
-
-On 11/03/2016 3:44 PM, Giuseppe Cavallaro wrote:
-> Initially the phy_bus_name was added to manipulate the
-> driver name but It was recently just used to manage the
-> fixed-link and then to take some decision at run-time
-> inside the main (for example to skip EEE).
-> So the patch uses the is_pseudo_fixed_link and removes
-> removes the phy_bus_name variable not necessary anymore.
->
-> The driver can manage the mdio registration by using phy-handle,
-> dwmac-mdio and own parameter e.g. snps,phy-addr.
-> This patch takes care about all these possible configurations
-> and fixes the mdio registration in case of there is a real
-> transceiver or a switch (that needs to be managed by using
-> fixed-link).
->
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Reviewed-by: Andreas F=C3=A4rber <afaerber@suse.de>
-> Tested-by: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
-> Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-> Cc: Dinh Nguyen <dinh.linux@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->
-> V2: use is_pseudo_fixed_link
->
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +++------=
---
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   14 +++++----=
------
->   include/linux/stmmac.h                             |    1 -
->   3 files changed, 8 insertions(+), 18 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/driv=
-ers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index c21015b..389d7d0 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -271,7 +271,6 @@ static void stmmac_eee_ctrl_timer(unsigned long a=
-rg)
->    */
->   bool stmmac_eee_init(struct stmmac_priv *priv)
->   {
-> -	char *phy_bus_name =3D priv->plat->phy_bus_name;
->   	unsigned long flags;
->   	bool ret =3D false;
->
-> @@ -283,7 +282,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
->   		goto out;
->
->   	/* Never init EEE in case of a switch is attached */
-> -	if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
-> +	if (priv->phydev->is_pseudo_fixed_link)
->   		goto out;
->
->   	/* MAC core supports the EEE feature. */
-> @@ -820,12 +819,8 @@ static int stmmac_init_phy(struct net_device *de=
-v)
->   		phydev =3D of_phy_connect(dev, priv->plat->phy_node,
->   					&stmmac_adjust_link, 0, interface);
->   	} else {
-> -		if (priv->plat->phy_bus_name)
-> -			snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
-> -				 priv->plat->phy_bus_name, priv->plat->bus_id);
-> -		else
-> -			snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-> -				 priv->plat->bus_id);
-> +		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
-> +			 priv->plat->bus_id);
->
->   		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
->   			 priv->plat->phy_addr);
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/=
-drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 6a52fa1..ed33920 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -138,7 +138,11 @@ stmmac_probe_config_dt(struct platform_device *p=
-dev, const char **mac)
->   			return ERR_PTR(-ENODEV);
->
->   		plat->phy_node =3D of_node_get(np);
-> -	}
-> +	} else
-> +		plat->mdio_bus_data =3D
-> +			devm_kzalloc(&pdev->dev,
-> +				     sizeof(struct stmmac_mdio_bus_data),
-> +				     GFP_KERNEL);
-
-This breaks my use case where I have a fixed link but also need the mdi=
-o bus for
-talking to a dsa switch. stmmac_mdio_register bails out because mdio_bu=
-s_data is
-never allocated here at this point when a fixed link exists with no phy=
--handle
-property. Removing the else solves my use.
-
-Possibly it could be allocated in stmmac_mdio_register if snps,dwmac-md=
-io
-is found and not already allocated.
-With the
-	if (!mdio_bus_data)
-		return 0;
-to after the device tree query.
+ - there's a pool of 4096 tubes (flows),
+ - tubes in the pool are empty,
+ - each tube has an id sticker (0,1,2,3,...),
+ - each wi-fi station has 16 boxes (tids) for tubes as well,
+ - each station box has 1 extra immovable tube (flow),
+ - packets are hashed into tube id stickers,
+ - matching tube can be:
+   - in the pool;
+     - move the tube into station-box the packet is associated with
+     - put the packet into tube
+   - in the station-box the packet is associated with
+     - just put the packet into tube
+   - in a station-box different from the one the packet is associated w=
+ith
+     - (this is the collision case for fallback flow)
+     - put the packet into the immovable tube of station box the
+packet is associated with
+ - whenever a tube becomes empty it is moved back to the pool
 
 
+> Where is this part happening in the code (or firmware?)
 
+It's in the ieee80211_txq_enqueue(). My patch originally contains a
+mistake (pointed out by Felix) and the function should actually look
+like this:
+
+> static void ieee80211_txq_enqueue(struct ieee80211_local *local,
+>                                   struct txq_info *txqi,
+>                                   struct sk_buff *skb)
+> {
+>         struct ieee80211_fq *fq =3D &local->fq;
+>         struct ieee80211_hw *hw =3D &local->hw;
+>         struct txq_flow *flow;
+>         struct txq_flow *i;
+>         size_t idx =3D fq_hash(fq, skb);
 >
->   	/* "snps,phy-addr" is not a standard property. Mark it as deprecat=
-ed
->   	 * and warn of its use. Remove this when phy node support is added=
-=2E
-> @@ -146,14 +150,6 @@ stmmac_probe_config_dt(struct platform_device *p=
-dev, const char **mac)
->   	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=
-=3D 0)
->   		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+>         flow =3D &fq->flows[idx];
 >
-> -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_=
-name)
-> -		plat->mdio_bus_data =3D NULL;
-> -	else
-> -		plat->mdio_bus_data =3D
-> -			devm_kzalloc(&pdev->dev,
-> -				     sizeof(struct stmmac_mdio_bus_data),
-> -				     GFP_KERNEL);
-> -
->   	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
->
->   	of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size);
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index eead8ab..1b4884c 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -94,7 +94,6 @@ struct stmmac_dma_cfg {
->   };
->
->   struct plat_stmmacenet_data {
-> -	char *phy_bus_name;
->   	int bus_id;
->   	int phy_addr;
->   	int interface;
->
+>         if (flow->txqi && flow->txqi !=3D txqi)
+>                 flow =3D &txqi->flow;
+[...]
 
 
---=20
-Regards
-Phil Reid
+> I assembled a few of the patches to date (your fq_codel patch, avery'=
+s
+> and tims ath9k stuff) and tested them, to no measurable effect,
+> against linus's tree a day or two back. I also acquired an ath10k car=
+d
+> - would one of these suit?
+>
+> http://www.amazon.com/gp/product/B011SIMFR8?psc=3D1&redirect=3Dtrue&r=
+ef_=3Doh_aui_detailpage_o08_s00
+
+I haven't used this particular card. It's an older chip (no MU-MIMO)
+but otherwise should work fine.
+
+
+Micha=C5=82
