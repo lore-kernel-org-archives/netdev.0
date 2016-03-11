@@ -1,7 +1,8 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net-next v2 0/3] MACsec IEEE 802.1AE implementation
-Date: Fri, 11 Mar 2016 18:07:30 +0100
-Message-ID: <cover.1457714618.git.sd@queasysnail.net>
+Subject: [PATCH net-next v2 1/3] uapi: add MACsec bits
+Date: Fri, 11 Mar 2016 18:07:31 +0100
+Message-ID: <36ea2a64566c060e03f092b88d02eadfbe87e13c.1457714618.git.sd@queasysnail.net>
+References: <cover.1457714618.git.sd@queasysnail.net>
 Cc: Johannes Berg <johannes@sipsolutions.net>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Florian Westphal <fw@strlen.de>,
@@ -9,169 +10,270 @@ Cc: Johannes Berg <johannes@sipsolutions.net>,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40571 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35766 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932596AbcCKRIh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 12:08:37 -0500
+	id S932937AbcCKRIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 12:08:39 -0500
+In-Reply-To: <cover.1457714618.git.sd@queasysnail.net>
+In-Reply-To: <cover.1457714618.git.sd@queasysnail.net>
+References: <cover.1457714618.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MACsec (IEEE 802.1AE [0]) is a protocol that provides security for
-wired ethernet LANs.  MACsec offers two protection modes:
-authentication only, or authenticated encryption.
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+v2:
+ - put MACSEC_VALIDATE_MAX inside enum
+ - remove unnecessary string
+ - nest attributes, rename
+ - export stats as separate attributes
+ - add some documentation to uapi
 
-MACsec defines "secure channels" that allow transmission from one node
-to one or more others.  Communication on a channel is done over a
-succession of "secure associations", that each use a specific key.
-Secure associations are identified by their "association number" in
-the range 0..3.  A secure association is retired when its 32-bit
-packet number would wrap, and the same association number can later be
-reused with a new key and packet number.
+v1:
+ - rebase
 
-The standard mode of encryption is GCM AES with 128 bits keys,
-although an extension allows 256 bits keys [1] (not implemented in
-this submission).
-
-When using MACsec, an extra header, called "SecTAG", is added between
-the ethernet header and the original payload:
-
- +---------------------------------+----------------+----------------+
- |        (MACsec ethertype)       |     TCI_AN     |       SL       |
- +---------------------------------+----------------+----------------+
- |                           Packet Number                           |
- +-------------------------------------------------------------------+
- |                     Secure Channel Identifier                     |
- |                            (optional)                             |
- +-------------------------------------------------------------------+
-
-TCI_AN:
- version
- end_station
- sci_present
- scb
- encrypted
- changed_text
- association_number (2 bits)
-SL:
- short_length (6 bits)
- unused (2 bits)
-
-The ethertype for the packet is set to 0x88E5, and the original
-ethertype becomes part of the secure payload, which may be encrypted.
-The ethernet header and the SecTAG are always transmitted in the
-clear, but are integrity-protected.
-
-MACsec supports optional replay protection with a configurable replay
-window.
-
-MACsec is designed to be used with the MKA extension to 802.1X (MACsec
-Key Agreement protocol) [2], which provides channel attribution and
-key distribution to the nodes, but can also be used with static keys
-getting fed manually by an administrator.
-
-Optional (not supported yet) features:
- - confidentiality offset: in encryption mode, part of the payload may
-   be left unencrypted.
- - choice of cipher suite: GCM AES with 256 bits has been standardised
-   [1].
-
-
-Implementation
-
-A netdevice is created on top of a real device for each TX secure
-channel, like we do for VLANs.  Multiple TX channels can be created on
-top of the same underlying device.
-
-Several other approaches were considered for the RX path:
-
- - dev_add_pack: doesn't work, because we want to filter out
-   unprotected packets
- - transparent mode: MACsec would be enabled directly on the real
-   netdevice.  For this, we cannot use a rx_handler directly because
-   MACsec must be available for underlying devices enslaved in a
-   bridge or in a bond, so we need a hook directly in
-   __netif_receive_skb_core.  This approach makes it harder to filter
-   non-encrypted packets on RX without forcing the user to setup some
-   rules, so the "transparent" mode is not so transparent after all.
-   It also makes TX more complex than with a dedicated netdevice.
-
-One issue with the proposed implementation is that the qdisc layer for
-the real device operates on already encrypted packets.
-
-
-Netlink API
-
-This is currently a mix of rtnetlink (to create the device and set up
-the TX channel) and genl (for RX channels, secure associations and
-their keys).  genl provides clean demultiplexing of the {TX,RX}{SC,SA}
-commands.
-
-
-Use cases
-
-The normal use case is wired LANs, including veth and slave devices
-for bonding/teaming or bridges.
-
-MACsec can also be used on any device that makes a full ethernet
-header visible, for example VXLAN.
-The VXLAN+MACsec setup would be:
-
-         hypervisor        |     virtual machine
-    <real_dev>---<VXLAN>---|---<dev>---<macsec_dev>
-
-And the packets would look like this:
-
-| eth | IP | UDP | VXLAN | eth | MACsec | IP | ... | MACsec ICV |
-
-One benefit on this approach to encryption in the cloud is that the
-payload is encrypted by the tenant, not by the tunnel provider, thus
-the tenant has full control over the keys.
-
-
-Changes from v1:
- - rework netlink API after discussion with Johannes Berg
-   - nest attributes, rename
-   - export stats as separate attributes
-   - add some comments
- - misc small fixes (rcu, constants, struct organization)
-
-Changes from RFCv2:
- - fix ENCODING_SA param validation
- - add parent link to netlink ifdumps
-
-Changes from RFCv1:
- - addressed comments from Florian and Paolo + kbuild robot
- - also perform post-decrypt handling after crypto callback
- - fixed ->dellink behavior
-
-Future plans:
- - offload to hardware, on nics that support it
- - implement optional features
-
-
-[0] http://standards.ieee.org/getieee802/download/802.1AE-2006.pdf
-[1] http://standards.ieee.org/getieee802/download/802.1AEbn-2011.pdf
-[2] http://standards.ieee.org/getieee802/download/802.1X-2010.pdf
-[3] RFCv1: http://www.spinics.net/lists/netdev/msg358151.html
-[4] RFCv2: http://www.spinics.net/lists/netdev/msg362389.html
-[5] v1: http://www.spinics.net/lists/netdev/msg367959.html
-
-Sabrina Dubroca (3):
-  uapi: add MACsec bits
-  net: add MACsec netdevice priv_flags and helper
-  macsec: introduce IEEE 802.1AE driver
-
- drivers/net/Kconfig            |    7 +
- drivers/net/Makefile           |    1 +
- drivers/net/macsec.c           | 3297 ++++++++++++++++++++++++++++++++++++++++
- include/linux/netdevice.h      |    8 +
- include/uapi/linux/Kbuild      |    1 +
- include/uapi/linux/if_ether.h  |    1 +
- include/uapi/linux/if_link.h   |   29 +
- include/uapi/linux/if_macsec.h |  161 ++
- 8 files changed, 3505 insertions(+)
- create mode 100644 drivers/net/macsec.c
+RFCv2:
+ - add include, detected by the kbuild robot
+ - split off the attributes for RXSC and SA from enum macsec_attrs
+---
+ include/uapi/linux/Kbuild      |   1 +
+ include/uapi/linux/if_ether.h  |   1 +
+ include/uapi/linux/if_link.h   |  29 ++++++++
+ include/uapi/linux/if_macsec.h | 161 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 192 insertions(+)
  create mode 100644 include/uapi/linux/if_macsec.h
 
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index ebd10e624598..e25ebcfbcb48 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -173,6 +173,7 @@ header-y += if_hippi.h
+ header-y += if_infiniband.h
+ header-y += if_link.h
+ header-y += if_ltalk.h
++header-y += if_macsec.h
+ header-y += if_packet.h
+ header-y += if_phonet.h
+ header-y += if_plip.h
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index ea9221b0331a..4a93051c578c 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -83,6 +83,7 @@
+ #define ETH_P_8021AD	0x88A8          /* 802.1ad Service VLAN		*/
+ #define ETH_P_802_EX1	0x88B5		/* 802.1 Local Experimental 1.  */
+ #define ETH_P_TIPC	0x88CA		/* TIPC 			*/
++#define ETH_P_MACSEC	0x88E5		/* 802.1ae MACsec */
+ #define ETH_P_8021AH	0x88E7          /* 802.1ah Backbone Service Tag */
+ #define ETH_P_MVRP	0x88F5          /* 802.1Q MVRP                  */
+ #define ETH_P_1588	0x88F7		/* IEEE 1588 Timesync */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index d452cea59020..0719f8166744 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -413,6 +413,35 @@ enum {
+ 
+ #define IFLA_VRF_PORT_MAX (__IFLA_VRF_PORT_MAX - 1)
+ 
++/* MACSEC section */
++enum {
++	IFLA_MACSEC_UNSPEC,
++	IFLA_MACSEC_SCI,
++	IFLA_MACSEC_PORT,
++	IFLA_MACSEC_ICV_LEN,
++	IFLA_MACSEC_CIPHER_SUITE,
++	IFLA_MACSEC_WINDOW,
++	IFLA_MACSEC_ENCODING_SA,
++	IFLA_MACSEC_ENCRYPT,
++	IFLA_MACSEC_PROTECT,
++	IFLA_MACSEC_INC_SCI,
++	IFLA_MACSEC_ES,
++	IFLA_MACSEC_SCB,
++	IFLA_MACSEC_REPLAY_PROTECT,
++	IFLA_MACSEC_VALIDATION,
++	__IFLA_MACSEC_MAX,
++};
++
++#define IFLA_MACSEC_MAX (__IFLA_MACSEC_MAX - 1)
++
++enum macsec_validation_type {
++	MACSEC_VALIDATE_DISABLED = 0,
++	MACSEC_VALIDATE_CHECK = 1,
++	MACSEC_VALIDATE_STRICT = 2,
++	__MACSEC_VALIDATE_END,
++	MACSEC_VALIDATE_MAX = __MACSEC_VALIDATE_END - 1,
++};
++
+ /* IPVLAN section */
+ enum {
+ 	IFLA_IPVLAN_UNSPEC,
+diff --git a/include/uapi/linux/if_macsec.h b/include/uapi/linux/if_macsec.h
+new file mode 100644
+index 000000000000..26b0d1e3e3e7
+--- /dev/null
++++ b/include/uapi/linux/if_macsec.h
+@@ -0,0 +1,161 @@
++/*
++ * include/uapi/linux/if_macsec.h - MACsec device
++ *
++ * Copyright (c) 2015 Sabrina Dubroca <sd@queasysnail.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef _UAPI_MACSEC_H
++#define _UAPI_MACSEC_H
++
++#include <linux/types.h>
++
++#define MACSEC_GENL_NAME "macsec"
++#define MACSEC_GENL_VERSION 1
++
++#define MACSEC_MAX_KEY_LEN 128
++
++#define DEFAULT_CIPHER_ID   0x0080020001000001ULL
++#define DEFAULT_CIPHER_ALT  0x0080C20001000001ULL
++
++#define MACSEC_MIN_ICV_LEN 8
++#define MACSEC_MAX_ICV_LEN 32
++
++enum macsec_attrs {
++	MACSEC_ATTR_UNSPEC,
++	MACSEC_ATTR_IFINDEX,     /* u32, ifindex of the MACsec netdevice */
++	MACSEC_ATTR_RXSC_CONFIG, /* config, nested macsec_rxsc_attrs */
++	MACSEC_ATTR_SA_CONFIG,   /* config, nested macsec_sa_attrs */
++	MACSEC_ATTR_SECY,        /* dump, nested macsec_secy_attrs */
++	MACSEC_ATTR_TXSA_LIST,   /* dump, nested, macsec_sa_attrs for each TXSA */
++	MACSEC_ATTR_RXSC_LIST,   /* dump, nested, macsec_rxsc_attrs for each RXSC */
++	MACSEC_ATTR_TXSC_STATS,  /* dump, nested, macsec_txsc_stats_attr */
++	MACSEC_ATTR_SECY_STATS,  /* dump, nested, macsec_secy_stats_attr */
++	__MACSEC_ATTR_END,
++	NUM_MACSEC_ATTR = __MACSEC_ATTR_END,
++	MACSEC_ATTR_MAX = __MACSEC_ATTR_END - 1,
++};
++
++enum macsec_secy_attrs {
++	MACSEC_SECY_ATTR_UNSPEC,
++	MACSEC_SECY_ATTR_SCI,
++	MACSEC_SECY_ATTR_ENCODING_SA,
++	MACSEC_SECY_ATTR_WINDOW,
++	MACSEC_SECY_ATTR_CIPHER_SUITE,
++	MACSEC_SECY_ATTR_ICV_LEN,
++	MACSEC_SECY_ATTR_PROTECT,
++	MACSEC_SECY_ATTR_REPLAY,
++	MACSEC_SECY_ATTR_OPER,
++	MACSEC_SECY_ATTR_VALIDATE,
++	MACSEC_SECY_ATTR_ENCRYPT,
++	MACSEC_SECY_ATTR_INC_SCI,
++	MACSEC_SECY_ATTR_ES,
++	MACSEC_SECY_ATTR_SCB,
++	__MACSEC_SECY_ATTR_END,
++	NUM_MACSEC_SECY_ATTR = __MACSEC_SECY_ATTR_END,
++	MACSEC_SECY_ATTR_MAX = __MACSEC_SECY_ATTR_END - 1,
++};
++
++enum macsec_rxsc_attrs {
++	MACSEC_RXSC_ATTR_UNSPEC,
++	MACSEC_RXSC_ATTR_SCI,     /* config/dump, u64 */
++	MACSEC_RXSC_ATTR_ACTIVE,  /* config/dump, u8 0..1 */
++	MACSEC_RXSC_ATTR_SA_LIST, /* dump, nested */
++	MACSEC_RXSC_ATTR_STATS,   /* dump, nested, macsec_rxsc_stats_attr */
++	__MACSEC_RXSC_ATTR_END,
++	NUM_MACSEC_RXSC_ATTR = __MACSEC_RXSC_ATTR_END,
++	MACSEC_RXSC_ATTR_MAX = __MACSEC_RXSC_ATTR_END - 1,
++};
++
++enum macsec_sa_attrs {
++	MACSEC_SA_ATTR_UNSPEC,
++	MACSEC_SA_ATTR_AN,     /* config/dump, u8 0..3 */
++	MACSEC_SA_ATTR_ACTIVE, /* config/dump, u8 0..1 */
++	MACSEC_SA_ATTR_PN,     /* config/dump, u32 */
++	MACSEC_SA_ATTR_KEY,    /* config, data */
++	MACSEC_SA_ATTR_KEYID,  /* config/dump, u64 */
++	MACSEC_SA_ATTR_STATS,  /* dump, nested, macsec_sa_stats_attr */
++	__MACSEC_SA_ATTR_END,
++	NUM_MACSEC_SA_ATTR = __MACSEC_SA_ATTR_END,
++	MACSEC_SA_ATTR_MAX = __MACSEC_SA_ATTR_END - 1,
++};
++
++enum macsec_nl_commands {
++	MACSEC_CMD_GET_TXSC,
++	MACSEC_CMD_ADD_RXSC,
++	MACSEC_CMD_DEL_RXSC,
++	MACSEC_CMD_UPD_RXSC,
++	MACSEC_CMD_ADD_TXSA,
++	MACSEC_CMD_DEL_TXSA,
++	MACSEC_CMD_UPD_TXSA,
++	MACSEC_CMD_ADD_RXSA,
++	MACSEC_CMD_DEL_RXSA,
++	MACSEC_CMD_UPD_RXSA,
++};
++
++/* u64 per-RXSC stats */
++enum macsec_rxsc_stats_attr {
++	MACSEC_RXSC_STATS_ATTR_UNSPEC,
++	MACSEC_RXSC_STATS_ATTR_IN_OCTETS_VALIDATED,
++	MACSEC_RXSC_STATS_ATTR_IN_OCTETS_DECRYPTED,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_UNCHECKED,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_DELAYED,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_OK,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_INVALID,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_LATE,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_NOT_VALID,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_NOT_USING_SA,
++	MACSEC_RXSC_STATS_ATTR_IN_PKTS_UNUSED_SA,
++	__MACSEC_RXSC_STATS_ATTR_END,
++	NUM_MACSEC_RXSC_STATS_ATTR = __MACSEC_RXSC_STATS_ATTR_END,
++	MACSEC_RXSC_STATS_ATTR_MAX = __MACSEC_RXSC_STATS_ATTR_END - 1,
++};
++
++/* u32 per-{RX,TX}SA stats */
++enum macsec_sa_stats_attr {
++	MACSEC_SA_STATS_ATTR_UNSPEC,
++	MACSEC_SA_STATS_ATTR_IN_PKTS_OK,
++	MACSEC_SA_STATS_ATTR_IN_PKTS_INVALID,
++	MACSEC_SA_STATS_ATTR_IN_PKTS_NOT_VALID,
++	MACSEC_SA_STATS_ATTR_IN_PKTS_NOT_USING_SA,
++	MACSEC_SA_STATS_ATTR_IN_PKTS_UNUSED_SA,
++	MACSEC_SA_STATS_ATTR_OUT_PKTS_PROTECTED,
++	MACSEC_SA_STATS_ATTR_OUT_PKTS_ENCRYPTED,
++	__MACSEC_SA_STATS_ATTR_END,
++	NUM_MACSEC_SA_STATS_ATTR = __MACSEC_SA_STATS_ATTR_END,
++	MACSEC_SA_STATS_ATTR_MAX = __MACSEC_SA_STATS_ATTR_END - 1,
++};
++
++/* u64 per-TXSC stats */
++enum macsec_txsc_stats_attr {
++	MACSEC_TXSC_STATS_ATTR_UNSPEC,
++	MACSEC_TXSC_STATS_ATTR_OUT_PKTS_PROTECTED,
++	MACSEC_TXSC_STATS_ATTR_OUT_PKTS_ENCRYPTED,
++	MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_PROTECTED,
++	MACSEC_TXSC_STATS_ATTR_OUT_OCTETS_ENCRYPTED,
++	__MACSEC_TXSC_STATS_ATTR_END,
++	NUM_MACSEC_TXSC_STATS_ATTR = __MACSEC_TXSC_STATS_ATTR_END,
++	MACSEC_TXSC_STATS_ATTR_MAX = __MACSEC_TXSC_STATS_ATTR_END - 1,
++};
++
++/* u64 per-SecY stats */
++enum macsec_secy_stats_attr {
++	MACSEC_SECY_STATS_ATTR_UNSPEC,
++	MACSEC_SECY_STATS_ATTR_OUT_PKTS_UNTAGGED,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_UNTAGGED,
++	MACSEC_SECY_STATS_ATTR_OUT_PKTS_TOO_LONG,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_NO_TAG,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_BAD_TAG,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_UNKNOWN_SCI,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_NO_SCI,
++	MACSEC_SECY_STATS_ATTR_IN_PKTS_OVERRUN,
++	__MACSEC_SECY_STATS_ATTR_END,
++	NUM_MACSEC_SECY_STATS_ATTR = __MACSEC_SECY_STATS_ATTR_END,
++	MACSEC_SECY_STATS_ATTR_MAX = __MACSEC_SECY_STATS_ATTR_END - 1,
++};
++
++#endif /* _UAPI_MACSEC_H */
 -- 
 2.7.2
