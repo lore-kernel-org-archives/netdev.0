@@ -1,57 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
-Date: Fri, 11 Mar 2016 20:06:27 +0100
-Message-ID: <20160311190627.GC19277@lunn.ch>
-References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
- <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
- <20160311173125.GI3153@lunn.ch>
- <56E30332.7060003@caviumnetworks.com>
- <20160311180030.GB19277@lunn.ch>
- <56E30DDF.5040506@caviumnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
+ sndbuf/rcvbuf size of RDS-TCP socket
+Date: Fri, 11 Mar 2016 11:09:27 -0800
+Message-ID: <20160311110927.5c559421@xeon-e3>
+References: <20160311182949.GG3383@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Robert Richter <rric@kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
-	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56E30DDF.5040506@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	santosh.shilimkar@oracle.com, davem@davemloft.net
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34889 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbcCKTJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:09:17 -0500
+Received: by mail-pa0-f48.google.com with SMTP id td3so79560805pab.2
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:09:16 -0800 (PST)
+In-Reply-To: <20160311182949.GG3383@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >I don't see why it should wait around forever. I have boards with
-> >Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
-> >driver still loads, because the generic PHY driver is used instead.
-> >Why does this not work here?
-> 
-> As I said before, there is no driver for the device, so
-> of_phy_find_device() will always return NULL.
+On Fri, 11 Mar 2016 13:29:49 -0500
+Sowmini Varadhan <sowmini.varadhan@oracle.com> wrote:
 
-I'm not yet convinced this is true. I really do expect that the
-generic PHY driver will bind to it. It might then go horribly wrong,
-because it is not standard compliant, but that is a different issue.
+>  
+> -#define RDS_TCP_DEFAULT_BUFSIZE (128 * 1024)
+> +static int sndbuf_size = 16384;
+> +module_param(sndbuf_size, int, 0444);
+> +MODULE_PARM_DESC(sndbuf_size, "SO_SNDBUF size of kernel tcp socket");
+> +
+> +static int rcvbuf_size = 87380;
+> +module_param(rcvbuf_size, int, 0444);
+> +MODULE_PARM_DESC(rcvbuf_size, "SO_RCVBUF size of kernel tcp socket");
 
-The generic driver should probably have a black list for such devices.
-This is a PHY issue, not an MDIO issue, and the problem should be
-solved in the PHY layer, not in one MDIO driver.
-
-We should also consider what happens when somebody actually writes a
-driver for this PHY. Are you not going to use it?
-
-Before this patchset, you did not special case this compatible
-string. So at the very least, you need to split this into a separate
-patch, so the maintainers can ACK/NACK it, independent of the other
-change it is embedded in.
-
-       Andrew
+Module parameters are a problem for distributions and should only be used
+as a last resort.
