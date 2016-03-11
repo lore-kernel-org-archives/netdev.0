@@ -1,152 +1,356 @@
 From: Caesar Wang <wxt@rock-chips.com>
-Subject: [PATCH 0/6] arc_emac: fixes the emac issues oand cleanup emac drivers
-Date: Fri, 11 Mar 2016 18:55:25 +0800
-Message-ID: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
+Subject: [PATCH 4/6] net: arc: trivial: cleanup the emac driver
+Date: Fri, 11 Mar 2016 18:55:29 +0800
+Message-ID: <1457693731-6966-5-git-send-email-wxt@rock-chips.com>
+References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
 Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
 	leozwang@google.com, Caesar Wang <wxt@rock-chips.com>,
-	devicetree@vger.kernel.org,
-	Michael Turquette <mturquette@baylibre.com>,
-	Alexander Kochetkov <al.kochet@gmail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Stephen Boyd <sboyd@codeaurora.org>, netdev@vger.kernel.org,
-	Kumar Gala <galak@codeaurora.org>,
-	linux-kernel@vger.kernel.org,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	zhengxing <zhengxing@rock-chips.com>,
 	Jiri Kosina <trivial@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>, linux-clk@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
+	Alexander Kochetkov <al.kochet@gmail.com>,
+	Xing Zheng <zhengxing@rock-chips.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: Heiko Stuebner <heiko@sntech.de>,
 	"David S. Miller" <davem@davemloft.net>,
 	Rob Herring <robh+dt@kernel.org>
-Return-path: <linux-clk-owner@vger.kernel.org>
-Sender: linux-clk-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch will make the driver more readability
 
-This series patches are based on kernel 4.5-rc7+ version.
-Linux version 4.5.0-rc7-next-20160310+ (wxt@nb) (...) #23 SMP Fri Mar 11 15:55:53
+The emac has the error and warnings if you run
+'scripts/checkpatch.pl -f --subjective xxx' to check.
 
-Verified on kylin board with my github.
-https://github.com/Caesar-github/rockchip/tree/kylin/next
+Let's clean up such trivial details.
 
-That's verified on kylin board with ubuntu os.
-
-How to test and verify?
-
-You can refer to the following wiki document.
-http://rockchip.wikidot.com/linux-develop-guide
-
-bootup log:
-   1.268113] rockchip_emac 10200000.ethernet: no regulator found
-   [    1.286682] rockchip_emac 10200000.ethernet: ARC EMAC detected with id: 0x7fd02
-   [    1.294007] rockchip_emac 10200000.ethernet: IRQ is 29
-   [    1.299453] rockchip_emac 10200000.ethernet: MAC address is now 1e:cd:18:78:90:25
-   [    1.726564] rockchip_emac 10200000.ethernet: connected to Generic PHY phy with id 0x1cc816
-   [    8.936862] rockchip_emac 10200000.ethernet eth0: Link is Up - 100Mbps/Full - flow control off
-
-root@localhost:/# busybox ping www.baidu.com
-PING www.baidu.com (14.215.177.38): 56 data bytes
-64 bytes from 14.215.177.38: seq=0 ttl=48 time=35.046 ms
-64 bytes from 14.215.177.38: seq=1 ttl=48 time=35.095 ms
-64 bytes from 14.215.177.38: seq=2 ttl=48 time=34.203 ms
-64 bytes from 14.215.177.38: seq=3 ttl=48 time=38.516 ms
-...
+Signed-off-by: Caesar Wang <wxt@rock-chips.com>
 ---
 
-1) This series has 6 patches: (1--->6)
-net: arc_emac: make the rockchip emac document more compatible
-net: arc_emac: add phy-reset-* are optional for device tree
-net: arc_emac: support the phy reset for emac driver
-net: arc: trivial: cleanup the emac driver
-clk: rockchip: rk3036: fix and add node id for emac clock
-ARM: dts: rockchip: add support emac for RK3036
+ drivers/net/ethernet/arc/emac.h          | 54 +++++++++++++++++---------------
+ drivers/net/ethernet/arc/emac_main.c     | 35 ++++++++++-----------
+ drivers/net/ethernet/arc/emac_mdio.c     |  2 +-
+ drivers/net/ethernet/arc/emac_rockchip.c | 41 +++++++++++++++++-------
+ 4 files changed, 75 insertions(+), 57 deletions(-)
 
-2) This series patches have the following decriptions:
-
-Hi Rob, David:
-PATCH[1/6-2/6]: ====>
-net: arc_emac: make the rockchip emac document more compatible
-net: arc_emac: add phy-reset-* are optional for device tree
-
-The patches change the rockchip emac document for more compatible and
-Add the phy-reset-* property for document.
-
-This patch adds the following property for arc_emac.
-
-phy-reset-* include the following:
-1) phy-reset-gpios:
-The phy-reset-gpios is an optional property for arc emac device tree boot.
-Change the binding document to match the driver code.
-
-2) phy-reset-duration:
-Different boards may require different phy reset duration. Add property
-phy-reset-duration for device tree probe, so that the boards that need
-a longer reset duration can specify it in their device tree.
-
-3) phy-reset-active-high:
-We need that for a custom hardware that needs the reverse reset sequence.
----
-
-Hi David
-PATCH[3/6]: ====>
-net: arc_emac: support the phy reset for emac driver
-
-The emac didn't work on kylin board since in some case the clocks parent changed.
-The kylin hardware connects the phy reset pin, we should use it with real world.
-
-As the previous patch discuss on https://patchwork.kernel.org/patch/8186801/
-
-Hi David
-PATCH[4/6]: ====>
-net: arc: trivial: cleanup the emac driver
-
-The first time to look the emac drivers, I think that have to cleanup the drivers with scripts.
-Although it's the trivial things, in order to be more read.
----
-
-Hi Heiko,Michael,Stephen:
-PATCH[5/6]: ====>
-clk: rockchip: rk3036: fix and add node id for emac clock
-
-Add the emac needed clocks for rk3036 SOCs
----
-
-Hi Heiko:
-PATCH[6/6]: ====>
-ARM: dts: rockchip: add support emac for RK3036
-
-Add the emac node info for rk3036 dts/dtsi.
----
-
-Thanks your reviewing! :)
-
-
-
-Caesar Wang (4):
-  net: arc_emac: make the rockchip emac document more compatible
-  net: arc_emac: add phy-reset-* are optional for device tree
-  net: arc_emac: support the phy reset for emac driver
-  net: arc: trivial: cleanup the emac driver
-
-zhengxing (2):
-  clk: rockchip: rk3036: fix and add node id for emac clock
-  ARM: dts: rockchip: add support emac for RK3036
-
- Documentation/devicetree/bindings/net/arc_emac.txt | 10 +++
- .../devicetree/bindings/net/emac_rockchip.txt      |  8 ++-
- arch/arm/boot/dts/rk3036-evb.dts                   | 23 +++++++
- arch/arm/boot/dts/rk3036-kylin.dts                 | 20 ++++++
- arch/arm/boot/dts/rk3036.dtsi                      | 39 +++++++++++
- drivers/clk/rockchip/clk-rk3036.c                  |  9 ++-
- drivers/net/ethernet/arc/emac.h                    | 54 +++++++--------
- drivers/net/ethernet/arc/emac_main.c               | 76 +++++++++++++++++-----
- drivers/net/ethernet/arc/emac_mdio.c               |  2 +-
- drivers/net/ethernet/arc/emac_rockchip.c           | 41 ++++++++----
- include/dt-bindings/clock/rk3036-cru.h             |  2 +
- 11 files changed, 221 insertions(+), 63 deletions(-)
-
+diff --git a/drivers/net/ethernet/arc/emac.h b/drivers/net/ethernet/arc/emac.h
+index dae1ac3..63c2ba2 100644
+--- a/drivers/net/ethernet/arc/emac.h
++++ b/drivers/net/ethernet/arc/emac.h
+@@ -14,36 +14,36 @@
+ #include <linux/clk.h>
+ 
+ /* STATUS and ENABLE Register bit masks */
+-#define TXINT_MASK	(1<<0)	/* Transmit interrupt */
+-#define RXINT_MASK	(1<<1)	/* Receive interrupt */
+-#define ERR_MASK	(1<<2)	/* Error interrupt */
+-#define TXCH_MASK	(1<<3)	/* Transmit chaining error interrupt */
+-#define MSER_MASK	(1<<4)	/* Missed packet counter error */
+-#define RXCR_MASK	(1<<8)	/* RXCRCERR counter rolled over  */
+-#define RXFR_MASK	(1<<9)	/* RXFRAMEERR counter rolled over */
+-#define RXFL_MASK	(1<<10)	/* RXOFLOWERR counter rolled over */
+-#define MDIO_MASK	(1<<12)	/* MDIO complete interrupt */
+-#define TXPL_MASK	(1<<31)	/* Force polling of BD by EMAC */
++#define TXINT_MASK	BIT(0)	/* Transmit interrupt */
++#define RXINT_MASK	BIT(1)	/* Receive interrupt */
++#define ERR_MASK	BIT(2)	/* Error interrupt */
++#define TXCH_MASK	BIT(3)	/* Transmit chaining error interrupt */
++#define MSER_MASK	BIT(4)	/* Missed packet counter error */
++#define RXCR_MASK	BIT(8)	/* RXCRCERR counter rolled over  */
++#define RXFR_MASK	BIT(9)	/* RXFRAMEERR counter rolled over */
++#define RXFL_MASK	BIT(10)	/* RXOFLOWERR counter rolled over */
++#define MDIO_MASK	BIT(12)	/* MDIO complete interrupt */
++#define TXPL_MASK	BIT(31)	/* Force polling of BD by EMAC */
+ 
+ /* CONTROL Register bit masks */
+-#define EN_MASK		(1<<0)	/* VMAC enable */
+-#define TXRN_MASK	(1<<3)	/* TX enable */
+-#define RXRN_MASK	(1<<4)	/* RX enable */
+-#define DSBC_MASK	(1<<8)	/* Disable receive broadcast */
+-#define ENFL_MASK	(1<<10)	/* Enable Full-duplex */
+-#define PROM_MASK	(1<<11)	/* Promiscuous mode */
++#define EN_MASK		BIT(0)	/* VMAC enable */
++#define TXRN_MASK	BIT(3)	/* TX enable */
++#define RXRN_MASK	BIT(4)	/* RX enable */
++#define DSBC_MASK	BIT(8)	/* Disable receive broadcast */
++#define ENFL_MASK	BIT(10)	/* Enable Full-duplex */
++#define PROM_MASK	BIT(11)	/* Promiscuous mode */
+ 
+ /* Buffer descriptor INFO bit masks */
+-#define OWN_MASK	(1<<31)	/* 0-CPU owns buffer, 1-EMAC owns buffer */
+-#define FIRST_MASK	(1<<16)	/* First buffer in chain */
+-#define LAST_MASK	(1<<17)	/* Last buffer in chain */
++#define OWN_MASK	BIT(31)	/* 0-CPU or 1-EMAC owns buffer */
++#define FIRST_MASK	BIT(16)	/* First buffer in chain */
++#define LAST_MASK	BIT(17)	/* Last buffer in chain */
+ #define LEN_MASK	0x000007FF	/* last 11 bits */
+-#define CRLS		(1<<21)
+-#define DEFR		(1<<22)
+-#define DROP		(1<<23)
+-#define RTRY		(1<<24)
+-#define LTCL		(1<<28)
+-#define UFLO		(1<<29)
++#define CRLS		BIT(21)
++#define DEFR		BIT(22)
++#define DROP		BIT(23)
++#define RTRY		BIT(24)
++#define LTCL		BIT(28)
++#define UFLO		BIT(29)
+ 
+ #define FOR_EMAC	OWN_MASK
+ #define FOR_CPU		0
+@@ -66,7 +66,7 @@ enum {
+ 	R_MDIO,
+ };
+ 
+-#define TX_TIMEOUT		(400*HZ/1000)	/* Transmission timeout */
++#define TX_TIMEOUT		(400 * HZ / 1000) /* Transmission timeout */
+ 
+ #define ARC_EMAC_NAPI_WEIGHT	40		/* Workload for NAPI */
+ 
+@@ -190,6 +190,7 @@ static inline unsigned int arc_reg_get(struct arc_emac_priv *priv, int reg)
+ static inline void arc_reg_or(struct arc_emac_priv *priv, int reg, int mask)
+ {
+ 	unsigned int value = arc_reg_get(priv, reg);
++
+ 	arc_reg_set(priv, reg, value | mask);
+ }
+ 
+@@ -205,6 +206,7 @@ static inline void arc_reg_or(struct arc_emac_priv *priv, int reg, int mask)
+ static inline void arc_reg_clr(struct arc_emac_priv *priv, int reg, int mask)
+ {
+ 	unsigned int value = arc_reg_get(priv, reg);
++
+ 	arc_reg_set(priv, reg, value & ~mask);
+ }
+ 
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index 42384f6a..69760d4 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -26,7 +26,6 @@
+ 
+ #include "emac.h"
+ 
+-
+ /**
+  * arc_emac_tx_avail - Return the number of available slots in the tx ring.
+  * @priv: Pointer to ARC EMAC private data structure.
+@@ -66,7 +65,7 @@ static void arc_emac_adjust_link(struct net_device *ndev)
+ 	if (priv->duplex != phy_dev->duplex) {
+ 		reg = arc_reg_get(priv, R_CTRL);
+ 
+-		if (DUPLEX_FULL == phy_dev->duplex)
++		if (phy_dev->duplex == DUPLEX_FULL)
+ 			reg |= ENFL_MASK;
+ 		else
+ 			reg &= ~ENFL_MASK;
+@@ -466,9 +465,9 @@ static int arc_emac_open(struct net_device *ndev)
+ 
+ 	/* Set CONTROL */
+ 	arc_reg_set(priv, R_CTRL,
+-		     (RX_BD_NUM << 24) |	/* RX BD table length */
+-		     (TX_BD_NUM << 16) |	/* TX BD table length */
+-		     TXRN_MASK | RXRN_MASK);
++		    (RX_BD_NUM << 24) |	/* RX BD table length */
++		    (TX_BD_NUM << 16) |	/* TX BD table length */
++		    TXRN_MASK | RXRN_MASK);
+ 
+ 	napi_enable(&priv->napi);
+ 
+@@ -533,8 +532,10 @@ static void arc_free_tx_queue(struct net_device *ndev)
+ 		struct buffer_state *tx_buff = &priv->tx_buff[i];
+ 
+ 		if (tx_buff->skb) {
+-			dma_unmap_single(&ndev->dev, dma_unmap_addr(tx_buff, addr),
+-					 dma_unmap_len(tx_buff, len), DMA_TO_DEVICE);
++			dma_unmap_single(&ndev->dev,
++					 dma_unmap_addr(tx_buff, addr),
++					 dma_unmap_len(tx_buff, len),
++					 DMA_TO_DEVICE);
+ 
+ 			/* return the sk_buff to system */
+ 			dev_kfree_skb_irq(tx_buff->skb);
+@@ -562,8 +563,10 @@ static void arc_free_rx_queue(struct net_device *ndev)
+ 		struct buffer_state *rx_buff = &priv->rx_buff[i];
+ 
+ 		if (rx_buff->skb) {
+-			dma_unmap_single(&ndev->dev, dma_unmap_addr(rx_buff, addr),
+-					dma_unmap_len(rx_buff, len), DMA_FROM_DEVICE);
++			dma_unmap_single(&ndev->dev,
++					 dma_unmap_addr(rx_buff, addr),
++					 dma_unmap_len(rx_buff, len),
++					 DMA_FROM_DEVICE);
+ 
+ 			/* return the sk_buff to system */
+ 			dev_kfree_skb_irq(rx_buff->skb);
+@@ -717,8 +720,8 @@ static void arc_emac_set_address_internal(struct net_device *ndev)
+ 	struct arc_emac_priv *priv = netdev_priv(ndev);
+ 	unsigned int addr_low, addr_hi;
+ 
+-	addr_low = le32_to_cpu(*(__le32 *) &ndev->dev_addr[0]);
+-	addr_hi = le16_to_cpu(*(__le16 *) &ndev->dev_addr[4]);
++	addr_low = le32_to_cpu(*(__le32 *)&ndev->dev_addr[0]);
++	addr_hi = le16_to_cpu(*(__le16 *)&ndev->dev_addr[4]);
+ 
+ 	arc_reg_set(priv, R_ADDRL, addr_low);
+ 	arc_reg_set(priv, R_ADDRH, addr_hi);
+@@ -813,7 +816,6 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 	unsigned int id, clock_frequency, irq;
+ 	int err;
+ 
+-
+ 	/* Get PHY from device tree */
+ 	phy_node = of_parse_phandle(dev->of_node, "phy", 0);
+ 	if (!phy_node) {
+@@ -835,7 +837,6 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 		return -ENODEV;
+ 	}
+ 
+-
+ 	ndev->netdev_ops = &arc_emac_netdev_ops;
+ 	ndev->ethtool_ops = &arc_emac_ethtool_ops;
+ 	ndev->watchdog_timeo = TX_TIMEOUT;
+@@ -848,9 +849,9 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 	priv->dev = dev;
+ 
+ 	priv->regs = devm_ioremap_resource(dev, &res_regs);
+-	if (IS_ERR(priv->regs)) {
++	if (IS_ERR(priv->regs))
+ 		return PTR_ERR(priv->regs);
+-	}
++
+ 	dev_dbg(dev, "Registers base address is 0x%p\n", priv->regs);
+ 
+ 	if (priv->clk) {
+@@ -971,10 +972,8 @@ int arc_emac_remove(struct net_device *ndev)
+ 	unregister_netdev(ndev);
+ 	netif_napi_del(&priv->napi);
+ 
+-	if (!IS_ERR(priv->clk)) {
++	if (!IS_ERR(priv->clk))
+ 		clk_disable_unprepare(priv->clk);
+-	}
+-
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/arc/emac_mdio.c b/drivers/net/ethernet/arc/emac_mdio.c
+index d5ee986..e312652 100644
+--- a/drivers/net/ethernet/arc/emac_mdio.c
++++ b/drivers/net/ethernet/arc/emac_mdio.c
+@@ -93,7 +93,7 @@ static int arc_mdio_write(struct mii_bus *bus, int phy_addr,
+ 		phy_addr, reg_num, value);
+ 
+ 	arc_reg_set(priv, R_MDIO,
+-		     0x50020000 | (phy_addr << 23) | (reg_num << 18) | value);
++		    0x50020000 | (phy_addr << 23) | (reg_num << 18) | value);
+ 
+ 	return arc_mdio_complete_wait(priv);
+ }
+diff --git a/drivers/net/ethernet/arc/emac_rockchip.c b/drivers/net/ethernet/arc/emac_rockchip.c
+index 85e821c..e278e3d 100644
+--- a/drivers/net/ethernet/arc/emac_rockchip.c
++++ b/drivers/net/ethernet/arc/emac_rockchip.c
+@@ -50,7 +50,7 @@ static void emac_rockchip_set_mac_speed(void *priv, unsigned int speed)
+ 	u32 data;
+ 	int err = 0;
+ 
+-	switch(speed) {
++	switch (speed) {
+ 	case 10:
+ 		data = (1 << (speed_offset + 16)) | (0 << speed_offset);
+ 		break;
+@@ -83,9 +83,18 @@ static const struct emac_rockchip_soc_data emac_rk3188_emac_data = {
+ };
+ 
+ static const struct of_device_id emac_rockchip_dt_ids[] = {
+-	{ .compatible = "rockchip,rk3036-emac", .data = &emac_rk3036_emac_data },
+-	{ .compatible = "rockchip,rk3066-emac", .data = &emac_rk3066_emac_data },
+-	{ .compatible = "rockchip,rk3188-emac", .data = &emac_rk3188_emac_data },
++	{
++		.compatible = "rockchip,rk3036-emac",
++		.data = &emac_rk3036_emac_data,
++	},
++	{
++		.compatible = "rockchip,rk3066-emac",
++		.data = &emac_rk3066_emac_data,
++	},
++	{
++		.compatible = "rockchip,rk3188-emac",
++		.data = &emac_rk3188_emac_data,
++	},
+ 	{ /* Sentinel */ }
+ };
+ 
+@@ -123,9 +132,11 @@ static int emac_rockchip_probe(struct platform_device *pdev)
+ 		goto out_netdev;
+ 	}
+ 
+-	priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node, "rockchip,grf");
++	priv->grf = syscon_regmap_lookup_by_phandle(dev->of_node,
++						    "rockchip,grf");
+ 	if (IS_ERR(priv->grf)) {
+-		dev_err(dev, "failed to retrieve global register file (%ld)\n", PTR_ERR(priv->grf));
++		dev_err(dev, "failed to retrieve global register file (%ld)\n",
++			PTR_ERR(priv->grf));
+ 		err = PTR_ERR(priv->grf);
+ 		goto out_netdev;
+ 	}
+@@ -135,14 +146,16 @@ static int emac_rockchip_probe(struct platform_device *pdev)
+ 
+ 	priv->emac.clk = devm_clk_get(dev, "hclk");
+ 	if (IS_ERR(priv->emac.clk)) {
+-		dev_err(dev, "failed to retrieve host clock (%ld)\n", PTR_ERR(priv->emac.clk));
++		dev_err(dev, "failed to retrieve host clock (%ld)\n",
++			PTR_ERR(priv->emac.clk));
+ 		err = PTR_ERR(priv->emac.clk);
+ 		goto out_netdev;
+ 	}
+ 
+ 	priv->refclk = devm_clk_get(dev, "macref");
+ 	if (IS_ERR(priv->refclk)) {
+-		dev_err(dev, "failed to retrieve reference clock (%ld)\n", PTR_ERR(priv->refclk));
++		dev_err(dev, "failed to retrieve reference clock (%ld)\n",
++			PTR_ERR(priv->refclk));
+ 		err = PTR_ERR(priv->refclk);
+ 		goto out_netdev;
+ 	}
+@@ -179,19 +192,22 @@ static int emac_rockchip_probe(struct platform_device *pdev)
+ 
+ 	err = regmap_write(priv->grf, priv->soc_data->grf_offset, data);
+ 	if (err) {
+-		dev_err(dev, "unable to apply initial settings to grf (%d)\n", err);
++		dev_err(dev, "unable to apply initial settings to grf (%d)\n",
++			err);
+ 		goto out_regulator_disable;
+ 	}
+ 
+ 	/* RMII interface needs always a rate of 50MHz */
+ 	err = clk_set_rate(priv->refclk, 50000000);
+ 	if (err)
+-		dev_err(dev, "failed to change reference clock rate (%d)\n", err);
++		dev_err(dev,
++			"failed to change reference clock rate (%d)\n", err);
+ 
+ 	if (priv->soc_data->need_div_macclk) {
+ 		priv->macclk = devm_clk_get(dev, "macclk");
+ 		if (IS_ERR(priv->macclk)) {
+-			dev_err(dev, "failed to retrieve mac clock (%ld)\n", PTR_ERR(priv->macclk));
++			dev_err(dev, "failed to retrieve mac clock (%ld)\n",
++				PTR_ERR(priv->macclk));
+ 			err = PTR_ERR(priv->macclk);
+ 			goto out_regulator_disable;
+ 		}
+@@ -205,7 +221,8 @@ static int emac_rockchip_probe(struct platform_device *pdev)
+ 		/* RMII TX/RX needs always a rate of 25MHz */
+ 		err = clk_set_rate(priv->macclk, 25000000);
+ 		if (err)
+-			dev_err(dev, "failed to change mac clock rate (%d)\n", err);
++			dev_err(dev,
++				"failed to change mac clock rate (%d)\n", err);
+ 	}
+ 
+ 	err = arc_emac_probe(ndev, interface);
 -- 
 1.9.1
-
