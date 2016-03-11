@@ -1,114 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
-Date: Fri, 11 Mar 2016 15:40:46 -0500 (EST)
-Message-ID: <20160311.154046.890043899835986091.davem@davemloft.net>
-References: <20160310215959.GE1989@uranus.lan>
-	<20160310.173630.525547775491939864.davem@davemloft.net>
-	<20160310224056.GF1989@uranus.lan>
+From: aaron.young@oracle.com
+Subject: Re: [PATCH net-next 3/4] ldmvsw: Add ldmvsw.c driver code
+Date: Fri, 11 Mar 2016 12:46:00 -0800
+Message-ID: <56E32E88.2070301@oracle.com>
+References: <cover.1457401532.git.Aaron.Young@oracle.com>	<cover.1457401532.git.Aaron.Young@oracle.com>	<f3e221f516c1514b7d60b8e8970130b4a31d1d59.1457401532.git.Aaron.Young@oracle.com> <20160311.143022.2226126311284772576.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
-	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
-	vdavydov@virtuozzo.com, khorenko@virtuozzo.com,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: gorcunov@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160310224056.GF1989@uranus.lan>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
+	alexandre.chartre@oracle.com, rashmi.narasimhan@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:38137 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbcCKUpl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 15:45:41 -0500
+In-Reply-To: <20160311.143022.2226126311284772576.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Date: Fri, 11 Mar 2016 01:40:56 +0300
 
-> On Thu, Mar 10, 2016 at 05:36:30PM -0500, David Miller wrote:
->> > 
->> > Works like a charm! So David, what are the next steps then?
->> > Mind to gather all your patches into one (maybe)?
->> 
->> I'll re-review all of the changes tomorrow and also look into ipv6
->> masq, to see if it needs the same treatment, as well.
->> 
->> Thanks for all of your help and testing so far.
-> 
-> Thanks a lot, David!
+  Thank you very much for the review. I'll make the requested changes 
+and resubmit the series...
 
-Cyrill please retest this final patch and let me know if it still works
-properly.
+  -Aaron Young
 
-I looked at ipv6, and it's more complicated.  The problem is that ipv6
-doesn't mark the inet6dev object as dead in the NETDEV_DOWN case, in
-fact it keeps the object around.  It only releases it and marks it
-dead in the NETDEV_UNREGISTER case.
-
-We pay a very large price for having allowed the behavior of ipv6 and
-ipv4 to diverge so greatly in these areas :-(
-
-Nevertheless we should try to fix it somehow, maybe we can detect the
-situation in another way for the ipv6 side.
-
-====================
-ipv4: Don't do expensive useless work during inetdev destroy.
-
-When an inetdev is destroyed, every address assigned to the interface
-is removed.  And in this scenerio we do two pointless things which can
-be very expensive if the number of assigned interfaces is large:
-
-1) Address promotion.  We are deleting all addresses, so there is no
-   point in doing this.
-
-2) A full nf conntrack table purge for every address.  We only need to
-   do this once, as is already caught by the existing
-   masq_dev_notifier so masq_inet_event() can skip this.
-
-Reported-by: Cyrill Gorcunov <gorcunov@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index f6303b1..0212591 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -334,6 +334,9 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 
- 	ASSERT_RTNL();
- 
-+	if (in_dev->dead)
-+		goto no_promotions;
-+
- 	/* 1. Deleting primary ifaddr forces deletion all secondaries
- 	 * unless alias promotion is set
- 	 **/
-@@ -380,6 +383,7 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 			fib_del_ifaddr(ifa, ifa1);
- 	}
- 
-+no_promotions:
- 	/* 2. Unlink it */
- 
- 	*ifap = ifa1->ifa_next;
-diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-index c6eb421..ea91058 100644
---- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
-@@ -108,10 +108,18 @@ static int masq_inet_event(struct notifier_block *this,
- 			   unsigned long event,
- 			   void *ptr)
- {
--	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
-+	struct in_device *idev = ((struct in_ifaddr *)ptr)->ifa_dev;
- 	struct netdev_notifier_info info;
- 
--	netdev_notifier_info_init(&info, dev);
-+	/* The masq_dev_notifier will catch the case of the device going
-+	 * down.  So if the inetdev is dead and being destroyed we have
-+	 * no work to do.  Otherwise this is an individual address removal
-+	 * and we have to perform the flush.
-+	 */
-+	if (idev->dead)
-+		return NOTIFY_DONE;
-+
-+	netdev_notifier_info_init(&info, idev->dev);
- 	return masq_device_event(this, event, &info);
- }
- 
+On 03/11/16 11:30, David Miller wrote:
+> From: Aaron Young <Aaron.Young@oracle.com>
+> Date: Tue,  8 Mar 2016 07:02:35 -0800
+>
+>> +static struct vnet *vsw_get_vnet(struct mdesc_handle *hp,
+>> +				 u64 port_node,
+>> +				 u64 *handle)
+>> +{
+>> +	struct vnet *vp;
+>> +	struct vnet *iter;
+>> +	const u64 *local_mac = NULL;
+>> +	const u64 *cfghandle = NULL;
+>> +	u64 a;
+> Please order local variable declarations from longest to shortest line (reverse
+> christmas tree).
+>
+>> +static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+>> +{
+>> +	struct mdesc_handle *hp;
+>> +	struct vnet_port *port;
+>> +	unsigned long flags;
+>> +	struct vnet *vp;
+>> +	struct net_device *dev;
+>> +	const u64 *rmac;
+>> +	int len, i, err;
+>> +	const u64 *port_id;
+>> +	u64 handle;
+> Likewise.
+>
+>> +	err = register_netdev(dev);
+>> +	if (err) {
+>> +		pr_err("Cannot register net device, aborting\n");
+>> +		goto err_out_free_ldc;
+>> +	}
+>> +
+>> +	netif_napi_add(dev, &port->napi, vnet_poll_common,
+>> +		       NAPI_POLL_WEIGHT);
+>> +
+>> +	INIT_LIST_HEAD(&port->list);
+> You cannot register the netdevice so early.  It must be registerred only after
+> every single piece of software state is initialized and setup.
+>
+> At the very precise moment you invoke register_netdev() the device can
+> be brought up and attempted to be used.
