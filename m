@@ -1,49 +1,64 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 0/5] DSA cleanup and fixes
-Date: Sat, 12 Mar 2016 00:01:35 +0100
-Message-ID: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] of_mdio: use IS_ERR_OR_NULL()
+Date: Fri, 11 Mar 2016 15:03:31 -0800
+Message-ID: <56E34EC3.2000008@gmail.com>
+References: <4882738.uyje2ICxKW@wasted.cogentembedded.com>
+ <3305414.rAFdOb57tB@wasted.cogentembedded.com> <56E34C56.10300@mleia.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Vladimir Zapolskiy <vz@mleia.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	frowand.list@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55209 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932683AbcCKXC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 18:02:29 -0500
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36739 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932758AbcCKXFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 18:05:05 -0500
+In-Reply-To: <56E34C56.10300@mleia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RFC patchset for re-architecturing DSA probing contains a few
-standalone patches, either clean up or fixes. This pulls them out for
-submission.
+On 11/03/16 14:53, Vladimir Zapolskiy wrote:
+> Hello Sergei,
+> 
+> On 12.03.2016 00:12, Sergei Shtylyov wrote:
+>> IS_ERR_OR_NULL() is open coded in of_mdiobus_register_{phy|device}(), so
+>> just call it directly...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> ---
+>>  drivers/of/of_mdio.c |    4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> Index: net-next/drivers/of/of_mdio.c
+>> ===================================================================
+>> --- net-next.orig/drivers/of/of_mdio.c
+>> +++ net-next/drivers/of/of_mdio.c
+>> @@ -56,7 +56,7 @@ static int of_mdiobus_register_phy(struc
+>>  		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
+>>  	else
+>>  		phy = get_phy_device(mdio, addr, is_c45);
+>> -	if (!phy || IS_ERR(phy))
+>> +	if (IS_ERR_OR_NULL(phy))
+>>  		return 1;
+>>  
+>>  	rc = irq_of_parse_and_map(child, 0);
+>> @@ -98,7 +98,7 @@ static int of_mdiobus_register_device(st
+>>  	int rc;
+>>  
+>>  	mdiodev = mdio_device_create(mdio, addr);
+>> -	if (!mdiodev || IS_ERR(mdiodev))
+>> +	if (IS_ERR_OR_NULL(mdiodev))
+>>  		return 1;
+>>  
+> 
+> I don't see how it is possible for mdio_device_create() to return NULL,
+> instead of this change consider to remove if (!mdiodev) check.
 
-Andrew Lunn (5):
-  dsa: Rename mv88e6123_61_65 to mv88e6123 to be consistent
-  dsa: slave: Don't reference NULL pointer during phy_disconnect
-  dsa: Destroy fixed link phys after the phy has been disconnected
-  dsa: dsa: Fix freeing of fixed-phys from user ports.
-  phy: fixed: Fix removal of phys.
-
- arch/arm/configs/multi_v5_defconfig |   2 +-
- arch/arm/configs/mvebu_v5_defconfig |   2 +-
- arch/arm/configs/orion5x_defconfig  |   2 +-
- arch/tile/configs/tilegx_defconfig  |   2 +-
- arch/tile/configs/tilepro_defconfig |   2 +-
- drivers/net/dsa/Kconfig             |   2 +-
- drivers/net/dsa/Makefile            |   4 +-
- drivers/net/dsa/mv88e6123.c         | 124 ++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6123_61_65.c   | 124 ------------------------------------
- drivers/net/dsa/mv88e6xxx.c         |   8 +--
- drivers/net/dsa/mv88e6xxx.h         |   2 +-
- drivers/net/phy/fixed_phy.c         |  11 +++-
- include/linux/phy_fixed.h           |   5 +-
- net/dsa/dsa.c                       |  27 ++++----
- net/dsa/slave.c                     |  12 ++--
- 15 files changed, 167 insertions(+), 162 deletions(-)
- create mode 100644 drivers/net/dsa/mv88e6123.c
- delete mode 100644 drivers/net/dsa/mv88e6123_61_65.c
-
+Good point, worst case we return PTR_ERR(-ENOMEM).
 -- 
-2.7.0
+Florian
