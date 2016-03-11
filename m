@@ -1,72 +1,68 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 3/5] dsa: Destroy fixed link phys after the phy has been disconnected
-Date: Sat, 12 Mar 2016 00:01:38 +0100
-Message-ID: <1457737300-23660-4-git-send-email-andrew@lunn.ch>
-References: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Vladimir Zapolskiy <vz@mleia.com>
+Subject: Re: [PATCH 2/2] of_mdio: use PTR_ERR_OR_ZERO()
+Date: Sat, 12 Mar 2016 01:02:00 +0200
+Message-ID: <56E34E68.4070502@mleia.com>
+References: <4882738.uyje2ICxKW@wasted.cogentembedded.com>
+ <11956015.EKV4zhDQJ5@wasted.cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55199 "EHLO vps0.lunn.ch"
+Received: from mleia.com ([178.79.152.223]:58846 "EHLO mail.mleia.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932683AbcCKXCN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 18:02:13 -0500
-In-Reply-To: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
+	id S932683AbcCKXCD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 18:02:03 -0500
+In-Reply-To: <11956015.EKV4zhDQJ5@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy is disconnected from the slave in dsa_slave_destroy(). Don't
-destroy fixed link phys until after this, since there can be fixed
-linked phys connected to ports.
+Hello Sergei,
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/dsa/dsa.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+On 12.03.2016 00:13, Sergei Shtylyov wrote:
+> PTR_ERR_OR_ZERO() is open coded in of_phy_register_fixed_link(), so just
+> call it directly...
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> ---
+>  drivers/of/of_mdio.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> Index: net-next/drivers/of/of_mdio.c
+> ===================================================================
+> --- net-next.orig/drivers/of/of_mdio.c
+> +++ net-next/drivers/of/of_mdio.c
+> @@ -412,7 +412,7 @@ int of_phy_register_fixed_link(struct de
+>  		if (strcmp(managed, "in-band-status") == 0) {
+>  			/* status is zeroed, namely its .link member */
+>  			phy = fixed_phy_register(PHY_POLL, &status, -1, np);
+> -			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
+> +			return PTR_ERR_OR_ZERO(phy);
+>  		}
+>  	}
+>  
+> @@ -434,7 +434,7 @@ int of_phy_register_fixed_link(struct de
+>  			return -EPROBE_DEFER;
+>  
+>  		phy = fixed_phy_register(PHY_POLL, &status, link_gpio, np);
+> -		return IS_ERR(phy) ? PTR_ERR(phy) : 0;
+> +		return PTR_ERR_OR_ZERO(phy);
+>  	}
+>  
+>  	/* Old binding */
+> @@ -446,7 +446,7 @@ int of_phy_register_fixed_link(struct de
+>  		status.pause = be32_to_cpu(fixed_link_prop[3]);
+>  		status.asym_pause = be32_to_cpu(fixed_link_prop[4]);
+>  		phy = fixed_phy_register(PHY_POLL, &status, -1, np);
+> -		return IS_ERR(phy) ? PTR_ERR(phy) : 0;
+> +		return PTR_ERR_OR_ZERO(phy);
+>  	}
+>  
+>  	return -ENODEV;
+> 
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index d8fb47fcad05..1018e7dcfcc9 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -430,7 +430,18 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		hwmon_device_unregister(ds->hwmon_dev);
- #endif
- 
--	/* Disable configuration of the CPU and DSA ports */
-+	/* Destroy network devices for physical switch ports. */
-+	for (port = 0; port < DSA_MAX_PORTS; port++) {
-+		if (!(ds->phys_port_mask & (1 << port)))
-+			continue;
-+
-+		if (!ds->ports[port])
-+			continue;
-+
-+		dsa_slave_destroy(ds->ports[port]);
-+	}
-+
-+	/* Remove any fixed link PHYs */
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
-@@ -448,17 +459,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 		}
- 	}
- 
--	/* Destroy network devices for physical switch ports. */
--	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		if (!(ds->phys_port_mask & (1 << port)))
--			continue;
--
--		if (!ds->ports[port])
--			continue;
--
--		dsa_slave_destroy(ds->ports[port]);
--	}
--
- 	mdiobus_unregister(ds->slave_mii_bus);
- }
- 
--- 
-2.7.0
+Reviewed-by: Vladimir Zapolskiy <vz@mleia.com>
