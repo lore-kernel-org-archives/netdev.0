@@ -1,54 +1,59 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Generic TSO (was Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable outer
- Tx checksum by default)
-Date: Fri, 11 Mar 2016 19:20:41 +0000
-Message-ID: <56E31A89.9020602@solarflare.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
- <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
- <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
- <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
- <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
- <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
- <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
+Date: Fri, 11 Mar 2016 22:22:00 +0300
+Message-ID: <56E31AD8.3060201@cogentembedded.com>
+References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
+ <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com, Alexander Kochetkov <al.kochet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rob Herring <robh+dt@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:50742 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751983AbcCKTUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:20:51 -0500
-In-Reply-To: <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:35758 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751953AbcCKTWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:22:05 -0500
+Received: by mail-lb0-f172.google.com with SMTP id bc4so168470091lbc.2
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:22:03 -0800 (PST)
+In-Reply-To: <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/02/16 19:51, Tom Herbert wrote:
-> Right. To use LCO with TSO we would need to ensure that all packets
-> are the same size so that the UDP length field and thus checksum are
-> constant for all created segments. But this property this would also
-> make any payload lengths in headers constant for all packets so that
-> the only fields that need be set per generated packet would be the TCP
-> sequence number and checksum. This simplifying assumption could be
-> used to make a very protocol-generic GSO/TSO (up to the transport
-> header)!
+On 03/11/2016 01:55 PM, Caesar Wang wrote:
+
+> This patch adds to support the emac phy reset.
 >
-> Conceptually, a device would just need to know the start of the
-> packet, the offset of the transport header, and the size of each
-> segment. Any bits from the start of the packet to the beginning of the
-> transport header are just copied to each segment, so any combination
-> of encapsulation/network protocols is  supported as long as they are
-> constant for each segment (e.g. MPLS, NSH, etc. are on the horizon for
-> needing TSO support).
-Tom,
+> 1) phy-reset-gpios:
+> The phy-reset-gpios is an optional property for arc emac device tree boot.
+> Change the binding document to match the driver code.
+>
+> 2) phy-reset-duration:
+> Different boards may require different phy reset duration. Add property
+> phy-reset-duration for device tree probe, so that the boards that need
+> a longer reset duration can specify it in their device tree.
+>
+> 3) phy-reset-active-high:
+> We need that for a custom hardware that needs the reverse reset sequence.
 
-Are you planning to / working on implementing this?  If not, I might have a
-crack at it; I've talked to our firmware guys and (provisionally) we think
-we can support it in current sfc hardware.
-Or were there any blocking problems raised in the thread?  My understanding
-of the IP ID issue was that it only matters for the inner frame, because
-the rest aren't TCP (so hopefully no-one is doing SLHC on them).  But I may
-have missed something.
+    What concerns me the most about the existing (and suggested) PHY reset 
+related props is that they are located in the MAC device node while not having 
+*anything* to do with the MAC at all! These props actually belong to the PHY 
+nodes, and I'm currently looking into how to handle them there, where they 
+belong...
 
--Ed
+> Of course, this patch will fix the issue on
+> https://patchwork.kernel.org/patch/8186801/.
+>
+> In some cases, the emac couldn't work if you don't have reset the phy.
+> Let's add it to happy work.
+>
+> Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+
+[...]
+
+MBR, Sergei
