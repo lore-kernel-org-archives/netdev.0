@@ -1,83 +1,64 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V4 3/3] mlx5: use napi_consume_skb API to get bulk
- free operations
-Date: Fri, 11 Mar 2016 09:44:17 +0100
-Message-ID: <20160311084417.5207.55639.stgit@firesoul>
-References: <20160311084245.5207.70640.stgit@firesoul>
+From: Daode Huang <huangdaode@hisilicon.com>
+Subject: [PATCH V2 net 5/6] net: hns: fixed service-ges setting MAC-addr bug
+Date: Fri, 11 Mar 2016 17:10:45 +0800
+Message-ID: <1457687446-109867-6-git-send-email-huangdaode@hisilicon.com>
+References: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, eugenia@mellanox.com,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	gerlitz.or@gmail.com
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33732 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935040AbcCKIoW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 03:44:22 -0500
-In-Reply-To: <20160311084245.5207.70640.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
+	<yankejian@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bulk free of SKBs happen transparently by the API call napi_consume_skb().
-The napi budget parameter is needed by napi_consume_skb() to detect
-if called from netpoll.
+from: Sheng Li <lisheng011@huawei.com>
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Service gmacs can not set mac add, this patch will fix the bug.
+
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |    4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9c0e80e64b43..a0708782eb78 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -619,7 +619,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev);
- void mlx5e_completion_event(struct mlx5_core_cq *mcq);
- void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
- int mlx5e_napi_poll(struct napi_struct *napi, int budget);
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq);
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
- bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
- struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index c34f4f3e9537..996b13a5042f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -336,7 +336,7 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return mlx5e_sq_xmit(sq, skb);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index 2591a51..eb86178 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -414,18 +414,17 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
+ {
+ 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+ 
+-	if (drv->mac_id >= DSAF_SERVICE_NW_NUM) {
+-		u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
++	u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
+ 
+-		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
+-			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
++	u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
++		| (mac_addr[3] << 16) | (mac_addr[2] << 24);
+ 
+-		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
+-		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+-		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
+-		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
+-			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
+-	}
++	u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
++	u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
++
++	dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
++	dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
++		       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
  }
  
--bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
-+bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
- {
- 	struct mlx5e_sq *sq;
- 	u32 dma_fifo_cc;
-@@ -412,7 +412,7 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
- 			npkts++;
- 			nbytes += wi->num_bytes;
- 			sqcc += wi->num_wqebbs;
--			dev_kfree_skb(skb);
-+			napi_consume_skb(skb, napi_budget);
- 		} while (!last_wqe);
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 4ac8d716dbdd..d244acee63a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -60,7 +60,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
- 
- 	for (i = 0; i < c->num_tc; i++)
--		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
-+		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
- 
- 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
- 	busy |= work_done == budget;
+ static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
+-- 
+1.9.1
