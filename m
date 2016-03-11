@@ -1,66 +1,97 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v4 02/11] ethtool.c: don't ignore fread() return value
-Date: Fri, 11 Mar 2016 09:58:15 -0800
-Message-ID: <1457719104-39188-3-git-send-email-ddecotig@gmail.com>
-References: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
+Date: Fri, 11 Mar 2016 19:00:30 +0100
+Message-ID: <20160311180030.GB19277@lunn.ch>
+References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
+ <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
+ <20160311173125.GI3153@lunn.ch>
+ <56E30332.7060003@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	Joe Perches <joe@perches.com>,
-	David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33695 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbcCKR6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:58:38 -0500
-Received: by mail-pa0-f66.google.com with SMTP id q6so9056807pav.0
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 09:58:38 -0800 (PST)
-In-Reply-To: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Florian Fainelli <f.fainelli@gmail.com>, Robert Richter <rric@kernel.org>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ netdev@vger.kernel.org, David Daney <david.daney@cavium.com>,
+ linux-kernel@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+ David Daney <ddaney.cavm@gmail.com>, Kumar Gala <galak@codeaurora.org>,
+ Sunil Goutham <sgoutham@cavium.com>,
+ Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <56E30332.7060003@caviumnetworks.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: David Decotigny <decot@googlers.com>
+On Fri, Mar 11, 2016 at 09:41:06AM -0800, David Daney wrote:
+> On 03/11/2016 09:31 AM, Andrew Lunn wrote:
+> >>+		phy_np = of_parse_phandle(node, "phy-handle", 0);
+> >>+		/* If there is no phy or defective firmware presents
+> >>+		 * this cortina phy, for which there is no driver
+> >>+		 * support, ignore it.
+> >>+		 */
+> >>+		if (phy_np &&
+> >>+		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
+> >
+> >Hi David
+> >
+> >What is a cortina,cs4223-slice,
+> 
+> It is 1/4 of:
+> 
+> https://www.inphi.com/products/cs4223.php
+> 
+> >and why does it need to be handled differently?
+> >
+> 
+> $ ls drivers/net/phy/*cortina*
+> ls: cannot access drivers/net/phy/*cortina*: No such file or directory
+> 
+> For this configuration of thunder_bgx.c, the use of a Linux PHY
+> driver is optional.
+> 
+> The firmware should probably not specify a PHY here, but it does so
+> we ignore it so we don't wait around forever for the non-existent
+> driver to bind.
+ 
+Hi David
 
-This addresses:
-  ethtool.c:1116:8: warning: ignoring return value of =E2=80=98fread=E2=
-=80=99, declared with attribute warn_unused_result [-Wunused-result]
+I don't see why it should wait around forever. I have boards with
+Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
+driver still loads, because the generic PHY driver is used instead.
+Why does this not work here?
 
+Also, Documentation/devicetree/bindings/net/phy.txt says:
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- ethtool.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ compatible: Compatible list, may contain
+  "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
+  PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
+  specifications. If neither of these are specified, the default is to
+  assume clause 22.
 
-diff --git a/ethtool.c b/ethtool.c
-index 92c40b8..9f80d5f 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1007,6 +1007,7 @@ static int dump_regs(int gregs_dump_raw, int greg=
-s_dump_hex,
- 	if (gregs_dump_file) {
- 		FILE *f =3D fopen(gregs_dump_file, "r");
- 		struct stat st;
-+		size_t nread;
-=20
- 		if (!f || fstat(fileno(f), &st) < 0) {
- 			fprintf(stderr, "Can't open '%s': %s\n",
-@@ -1016,8 +1017,10 @@ static int dump_regs(int gregs_dump_raw, int gre=
-gs_dump_hex,
-=20
- 		regs =3D realloc(regs, sizeof(*regs) + st.st_size);
- 		regs->len =3D st.st_size;
--		fread(regs->data, regs->len, 1, f);
-+		nread =3D fread(regs->data, regs->len, 1, f);
- 		fclose(f);
-+		if (nread !=3D 1)
-+			return -1;
- 	}
-=20
- 	if (!gregs_dump_hex)
---=20
-2.7.0.rc3.207.g0ac5344
+  If the phy's identifier is known then the list may contain an entry
+  of the form: "ethernet-phy-idAAAA.BBBB" where
+     AAAA - The value of the 16 bit Phy Identifier 1 register as
+            4 hex digits. This is the chip vendor OUI bits 3:18
+     BBBB - The value of the 16 bit Phy Identifier 2 register as
+            4 hex digits. This is the chip vendor OUI bits 19:24,
+            followed by 10 bits of a vendor specific ID.
+
+  The compatible list should not contain other values than those
+  listed here.
+
+So having "cortina,cs4223-slice" in the compatible string goes against
+the binding. To make this work, you probably need to extend the
+whitelist_phys list in of_mdio.c.
+
+       Andrew
