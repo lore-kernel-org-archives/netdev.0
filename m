@@ -1,34 +1,37 @@
 From: "Joseph Chang" <joseph_chang@davicom.com.tw>
-Subject: RE: [PATCH 2/3] dm9601: manage eeprom to assure the chip for correct operation
-Date: Fri, 11 Mar 2016 18:56:42 +0800
-Message-ID: <201603111058.u2BAwUCT020098@mail.davicom.com.tw>
-References: <87r3fimb7l.fsf@dell.be.48ers.dk>
+Subject: RE: [PATCH 3/3] dm9601: add support ethtool style utility
+Date: Fri, 11 Mar 2016 19:08:57 +0800
+Message-ID: <201603111110.u2BBAiwV020429@mail.davicom.com.tw>
+References: <1457615865.3001.36.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="big5"
-Content-Transfer-Encoding: 7bit
-Cc: "'Peter Korsgaard'" <jacmet@sunsite.dk>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"'Joseph Chang'" <joseph_chang@davicom.com.tw>
-To: "'Peter Korsgaard'" <peter@korsgaard.com>,
-	"'Joseph CHANG'" <josright123@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87r3fimb7l.fsf@dell.be.48ers.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+To: "'Ben Hutchings'" <ben@decadent.org.uk>,
+	"'Joseph Chang'" <joseph_chang@davicom.com.tw>,
+	"'Joseph CHANG'" <josright123@gmail.com>,
+	"'Peter Korsgaard'" <jacmet@sunsite.dk>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.davicom.com.tw ([60.250.193.73]:55645 "EHLO
+	mail.davicom.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751046AbcCKLLH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 06:11:07 -0500
+In-Reply-To: <1457615865.3001.36.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yes, this is to fixup purpose.
+I tested by
+ ./ethtool -E eth0 magic 0x9620 offset 0 length 3 value 0xf1 value 0xf2 value 0xf3
 
-My customer buy "net101 USB20" netcards,
-It was manifactured by some company and in the market.
-We find it can not work due to eeprom wrong.
+I think ethtool need [ value N ] for each byte (so need three "value xx" in above command line), 
+am I right?
 
-This fixup make it correct.
-I focus on the essential eeprom words only.
-Yes, need to reset the device once the eeprom is updated.
-(I don't know how to let the device reset by software ?
- Only un-plug and then plug the device.)
+Oh, I can see it goes wrong~ Thanks~
 
+* I will go a vacation from now on, this issue will be study later.
+ Any helpful reference implementation data is appreciated. 
+ 
 Best Regards,
 Joseph CHANG
 System Application Engineering Division
@@ -41,44 +44,28 @@ Web: http://www.davicom.com.tw
 
 
 -----Original Message-----
-From: Peter Korsgaard [mailto:jacmet@gmail.com] On Behalf Of Peter Korsgaard
-Sent: Friday, March 11, 2016 2:37 AM
-To: Joseph CHANG
-Cc: Peter Korsgaard; netdev@vger.kernel.org; linux-usb@vger.kernel.org;
-linux-kernel@vger.kernel.org; Joseph Chang
-Subject: Re: [PATCH 2/3] dm9601: manage eeprom to assure the chip for correct
-operation
+From: Ben Hutchings [mailto:ben@decadent.org.uk] 
+Sent: Thursday, March 10, 2016 9:18 PM
+To: Joseph Chang; 'Joseph CHANG'; 'Peter Korsgaard'; netdev@vger.kernel.org; linux-usb@vger.kernel.org; linux-kernel@vger.kernel.org
+Subject: Re: [PATCH 3/3] dm9601: add support ethtool style utility
 
->>>>> "Joseph" == Joseph CHANG <josright123@gmail.com> writes:
+On Thu, 2016-03-10 at 20:51 +0800, Joseph Chang wrote:
+> I did verify to dump EEPROM data and also write EEPROM by per byte.
+> 
+> 1.Plug dm9601/dm9621 adapter and has get dm9601.ko be 'insmod' to have 'eht0',
+> 2.Run ethtool v3.7 (as attached executable file and it's help display.)
+> 3. Commands:
+>    ./ethtool -e eth0  (dump EEPROM data for all the .get_eeprom_len )
+>    ./ethtool -E eth0 magic 0x9620 offset 0 value 0xf1  (write 0xf1 to eeprom byte0)
+>    ./ethtool -E eth0 magic 0x9620 offset 1 value 0xf2  (write 0xf2 to eeprom byte1)
+>    ./ethtool -E eth0 magic 0x9620 offset 2 value 0xf3  (write 0xf3 to eeprom byte2)
+[...]
 
- > Add to maintain variant eeprom adapters which may have not right
- > dm962x's format.
+So you only tested writing 1 byte at a time.  Try again with 3 bytes
+and you'll see how it goes wrong.
 
- > Signed-off-by: Joseph CHANG <josright123@gmail.com>
-
-> +static void dm_render_begin(struct usbnet *dev)
- > +{
- > +	/* Render eeprom if need, WORD3 render, set D[15:14] 01b */
- > +	dm_eeprom_render(dev, 3, 0x4000, 0xc000);
- > +	/* Render eeprom if need, WORD7 render, clear D[10] */
- > +	dm_eeprom_render(dev, 7, 0x0000, 0x0400);
- > +	/* Render eeprom if need, WORD11 render, need 0x005a */
- > +	dm_eeprom_render(dev, 11, 0x005a, 0xffff);
- > +	/* Render eeprom if need, WORD12 render, need 0x0007 */
- > +	dm_eeprom_render(dev, 12, DM_EP3I_VAL, 0xffff);
-
-With render I guess you mean something like fixup? I'm not sure we want
-to do this automatically without an explicit action from the user.
-
-How common are these adapters without valid eeprom? What happens if the
-eeprom content isn't fixed?
-
-Do we need to reset the device once the eeprom is updated?
+Ben.
 
 -- 
-Bye, Peter Korsgaard
-
--- 
-This message has been scanned for viruses and
-dangerous content by MailScanner, and is
-believed to be clean.
+Ben Hutchings
+To err is human; to really foul things up requires a computer.
