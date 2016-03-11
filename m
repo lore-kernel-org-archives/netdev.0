@@ -1,47 +1,44 @@
-From: Chunhao Lin <hau@realtek.com>
-Subject: [PATCH net v2] r8169:Remove unnecessary phy reset for pcie nic when setting link spped.
-Date: Fri, 11 Mar 2016 14:21:14 +0800
-Message-ID: <1457677274-2248-1-git-send-email-hau@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	Chunhao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH] kcm: fix variable type
+Date: Fri, 11 Mar 2016 07:51:15 +0100
+Message-ID: <1457679075-22094-1-git-send-email-a.hajda@samsung.com>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:45080 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318AbcCKGVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 01:21:45 -0500
+Received: from mailout4.w1.samsung.com ([210.118.77.14]:43120 "EHLO
+	mailout4.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753198AbcCKGvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 01:51:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For pcie nic, after setting link speed and there is no link driver does not need
-to do phy reset until link up.
+Function skb_splice_bits can return negative values, its result should
+be assigned to signed variable to allow correct error checking.
 
-For some pcie nics, to do this will also reset phy speed down counter and prevent
-phy from auto speed down.
+The problem has been detected using patch
+scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci.
 
-This patch fix the issue reported in following link.
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
-
-Signed-off-by: Chunhao Lin <hau@realtek.com>
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/kcm/kcmsock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index dd2cf37..94f08f1 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1999,7 +1999,8 @@ static int rtl8169_set_speed(struct net_device *dev,
- 		goto out;
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index 40662d73..0b68ba7 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1483,7 +1483,7 @@ static ssize_t kcm_splice_read(struct socket *sock, loff_t *ppos,
+ 	long timeo;
+ 	struct kcm_rx_msg *rxm;
+ 	int err = 0;
+-	size_t copied;
++	ssize_t copied;
+ 	struct sk_buff *skb;
  
- 	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
--	    (advertising & ADVERTISED_1000baseT_Full)) {
-+	    (advertising & ADVERTISED_1000baseT_Full) &&
-+	    !pci_is_pcie(tp->pci_dev)) {
- 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
- 	}
- out:
+ 	/* Only support splice for SOCKSEQPACKET */
 -- 
 1.9.1
