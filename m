@@ -1,64 +1,75 @@
-From: Samuel Ortiz <sameo@linux.intel.com>
-Subject: [GIT] [4.6] NFC update
-Date: Fri, 11 Mar 2016 21:48:57 +0100
-Message-ID: <20160311204857.GB29902@zurbaran.home>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
+Date: Fri, 11 Mar 2016 12:56:04 -0800
+Message-ID: <56E330E4.9090800@gmail.com>
+References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com> <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com> <20160311173125.GI3153@lunn.ch> <56E30332.7060003@caviumnetworks.com> <20160311180030.GB19277@lunn.ch> <56E30DDF.5040506@caviumnetworks.com> <20160311190627.GC19277@lunn.ch> <56E31E7A.6080905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux NFC <linux-nfc@lists.01.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:61712 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751148AbcCKUtF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 15:49:05 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	David Daney <ddaney@caviumnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Robert Richter <rric@kernel.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E31E7A.6080905@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On 03/11/2016 11:37 AM, Florian Fainelli wrote:
+> On 11/03/16 11:06, Andrew Lunn wrote:
+>>>> I don't see why it should wait around forever. I have boards with
+>>>> Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
+>>>> driver still loads, because the generic PHY driver is used instead.
+>>>> Why does this not work here?
+>>>
+>>> As I said before, there is no driver for the device, so
+>>> of_phy_find_device() will always return NULL.
+>>
+>> I'm not yet convinced this is true. I really do expect that the
+>> generic PHY driver will bind to it. It might then go horribly wrong,
+>> because it is not standard compliant, but that is a different issue.
+>
+> I concur with Andrew here, unless the PHY is guaranteed to return
+> garbage when get_phy_id() is called, there is a good chance that the
+> Generic PHY driver will be bound to this PHY device, or this is not
+> happening for you for some reason?
+>
 
-This is a very small one this time, with only 5 patches.
-There are a couple of big items that could not be merged/finished
-on time.
+get_phy_id() is working a designed.
 
-We have:
+For this phy, we have:
 
-- 2 LLCP fixes for a race and a potential OOM.
-- 2 cleanups for the pn544 and microread drivers.
-- 1 Maintainer addition for the s3fwrn5 driver.
+   compatible = "cortina,cs4223-slice";
 
+Therefore get_phy_id() is being called with a is_c45 value of false.
 
-The following changes since commit 667f00630ebefc4d73aa105c6ab254e4aec867f8:
+get_phy_id() is returning a value of 0, which means that it succeeds, 
+but the returned phy_id is 0xffffffff, which causes get_phy_device() to 
+not create a phy_device, and no driver can be bound.
 
-  Merge branch 'local-checksum-offload' (2016-02-12 05:52:41 -0500)
+I know you are all skeptical, but I really think the best thing to do is 
+not try to attach a phy driver when this compatible value is encountered.
 
-are available in the git repository at:
+It is a defective device tree, and I am attempting to handle it in the 
+specific site where it can cause problems.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.6-1
+We are trying to distinguish between these two cases:
 
-for you to fetch changes up to 079c2652e5af648db6bf4f54bcafdafcc57a0d2c:
+  - of_phy_find_device() returns NULL because driver is not yet bound
 
-  MAINTAINERS: nfc: s3fwrn5: Add second maintainer (2016-03-10 17:16:22 +0100)
+  - of_phy_find_device() returns NULL because "cortina,cs4223-slice"
 
-----------------------------------------------------------------
-Cong Wang (2):
-      NFC: Use GFP_USER for user-controlled kmalloc
-      NFC: Close a race condition in llcp_sock_getname()
+I don't think we need to build some sort of frame work to handle things 
+like this in a general way.
 
-Jean Delvare (1):
-      NFC: microread: Drop platform data header file
-
-Mika Westerberg (1):
-      NFC: pn544: Drop two useless checks in ACPI probe path
-
-Robert Baldyga (1):
-      MAINTAINERS: nfc: s3fwrn5: Add second maintainer
-
- MAINTAINERS                             |  2 +-
- drivers/nfc/microread/i2c.c             |  8 --------
- drivers/nfc/pn544/i2c.c                 | 14 +------------
- include/linux/platform_data/microread.h | 35 ---------------------------------
- net/nfc/llcp_commands.c                 |  4 ++--
- net/nfc/llcp_sock.c                     |  6 ++++++
- 6 files changed, 10 insertions(+), 59 deletions(-)
- delete mode 100644 include/linux/platform_data/microread.h
+David Daney
