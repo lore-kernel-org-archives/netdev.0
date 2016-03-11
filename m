@@ -1,83 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/6] arc_emac: fixes the emac issues oand cleanup emac
- drivers
-Date: Fri, 11 Mar 2016 21:46:04 +0300
-Message-ID: <56E3126C.7000100@cogentembedded.com>
-References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
- <56E2CC39.6050907@cogentembedded.com> <56E2DAC4.4020105@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
+Date: Fri, 11 Mar 2016 20:06:27 +0100
+Message-ID: <20160311190627.GC19277@lunn.ch>
+References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
+ <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
+ <20160311173125.GI3153@lunn.ch>
+ <56E30332.7060003@caviumnetworks.com>
+ <20160311180030.GB19277@lunn.ch>
+ <56E30DDF.5040506@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Russell King <linux@arm.linux.org.uk>,
-	Pawel Moll <pawel.moll@arm.com>,
-	zhengxing <zhengxing@rock-chips.com>,
-	Alexander Kochetkov <al.kochet@gmail.com>,
-	netdev@vger.kernel.org,
-	Michael Turquette <mturquette@baylibre.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Daney <ddaney.cavm@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Robert Richter <rric@kernel.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
 	Kumar Gala <galak@codeaurora.org>,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, keescook@google.com,
-	Jiri Kosina <trivial@kernel.org>, linux-clk@vger.kernel.org,
-	leozwang@google.com
-To: Caesar Wang <caesar.upstream@gmail.com>
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <56E2DAC4.4020105@gmail.com>
-Sender: linux-clk-owner@vger.kernel.org
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: David Daney <ddaney@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56E30DDF.5040506@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+> >I don't see why it should wait around forever. I have boards with
+> >Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
+> >driver still loads, because the generic PHY driver is used instead.
+> >Why does this not work here?
+> 
+> As I said before, there is no driver for the device, so
+> of_phy_find_device() will always return NULL.
 
-On 03/11/2016 05:48 PM, Caesar Wang wrote:
+I'm not yet convinced this is true. I really do expect that the
+generic PHY driver will bind to it. It might then go horribly wrong,
+because it is not standard compliant, but that is a different issue.
 
-[...]
+The generic driver should probably have a black list for such devices.
+This is a PHY issue, not an MDIO issue, and the problem should be
+solved in the PHY layer, not in one MDIO driver.
 
->>> Hi Rob, David:
->>> PATCH[1/6-2/6]: ====>
->>> net: arc_emac: make the rockchip emac document more compatible
->>> net: arc_emac: add phy-reset-* are optional for device tree
->>>
->>> The patches change the rockchip emac document for more compatible and
->>> Add the phy-reset-* property for document.
->>>
->>> This patch adds the following property for arc_emac.
->>>
->>> phy-reset-* include the following:
->>> 1) phy-reset-gpios:
->>> The phy-reset-gpios is an optional property for arc emac device tree boot.
->>> Change the binding document to match the driver code.
->>>
->>> 2) phy-reset-duration:
->>> Different boards may require different phy reset duration. Add property
->>> phy-reset-duration for device tree probe, so that the boards that need
->>> a longer reset duration can specify it in their device tree.
->>>
->>> 3) phy-reset-active-high:
->>> We need that for a custom hardware that needs the reverse reset sequence.
->>
->>    Why not infer this from the "phy-reset-gpios" prop?
->
-> See:
-> https://patchwork.kernel.org/patch/8564511/
- >
-> phy-reset-active-high : If present then the reset sequence using the GPIO
->   specified in the "phy-reset-gpios" property is reversed (H=reset state,
->   L=operation state).
+We should also consider what happens when somebody actually writes a
+driver for this PHY. Are you not going to use it?
 
-    Referring to your own suggested bindings isn't an answer. If the driver 
-that you're copying from here (fec) had a reason to handle the GPIO sense with 
-the help of an extra prop (legacy code), it doesn't mean your new driver needs 
-to mimic this as well, AFAIU...
+Before this patchset, you did not special case this compatible
+string. So at the very least, you need to split this into a separate
+patch, so the maintainers can ACK/NACK it, independent of the other
+change it is embedded in.
 
-> Thanks,
->
-> Caesar
-
-MBR, Sergei
-
+       Andrew
