@@ -1,10 +1,10 @@
 From: Daode Huang <huangdaode@hisilicon.com>
-Subject: Re: [PATCH net 3/6] net: hns: fixed portid bug in sending manage pkt
-Date: Fri, 11 Mar 2016 09:53:33 +0800
-Message-ID: <56E2251D.905@hisilicon.com>
+Subject: Re: [PATCH net 4/6] net: hns: adds uc match for debug port
+Date: Fri, 11 Mar 2016 09:58:41 +0800
+Message-ID: <56E22651.3030903@hisilicon.com>
 References: <1457053798-93513-1-git-send-email-huangdaode@hisilicon.com>
- <1457053798-93513-4-git-send-email-huangdaode@hisilicon.com>
- <56D98F8F.5010700@cogentembedded.com>
+ <1457053798-93513-5-git-send-email-huangdaode@hisilicon.com>
+ <56D99007.6090804@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -16,71 +16,68 @@ Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
 	<lisheng011@huawei.com>, <yankejian@huawei.com>
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	<davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56D98F8F.5010700@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:55047 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933259AbcCKB7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Mar 2016 20:59:44 -0500
+In-Reply-To: <56D99007.6090804@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2016/3/4 21:37, Sergei Shtylyov wrote:
-> Hello.
->
+On 2016/3/4 21:39, Sergei Shtylyov wrote:
 > On 3/4/2016 4:09 AM, Daode Huang wrote:
 >
->> In V2 chip, when sending mamagement packets, the driver should
->> config the port id to BD descs.
+>> This patch adds uc match for debug port by:
+>> 1)Enables uc match of debug port when initializing gmac
+>> 2)Enables uc match of mac address register2
 >>
 >> Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
->> Signed-off-by: Lisheng <lisheng011@huawei.com>
->> ---
->>   drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
->>   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
->>   drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 4 ++++
->>   3 files changed, 8 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h 
->> b/drivers/net/ethernet/hisilicon/hns/hnae.h
->> index 1cbcb9f..11a3f97 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hnae.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-> [...]
->> @@ -516,6 +518,7 @@ struct hnae_handle {
->>       int q_num;
->>       int vf_id;
->>       u32 eport_id;
->> +    u32 dport_id;    /*v2 tx bd should fill the dport_id*/
+>> Signed-off-by: lipeng <lipeng321@huawei.com>
 >
->    Please add spaces after /* and before */ (like it's done in other 
-> places in this driver).
+Lipeng is his full name. i will change it to another style (Peng Li 
+<lipeng321@huawei.com>)
+
+>    True/full name is required here.
+>
+>> ---
+>>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 
+>> +++++++++++++++++-
+>>   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
+>>   2 files changed, 19 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c 
+>> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+>> index b8517b0..2591a51 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> [...]
+>> @@ -407,8 +419,12 @@ static void hns_gmac_set_mac_addr(void *mac_drv, 
+>> char *mac_addr)
+>>
+>>           u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
+>>               | (mac_addr[3] << 16) | (mac_addr[2] << 24);
+>> +
+>> +        u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
+>> +        u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+>
+>    Empty line needed after declarations.
 >
 
-Hi MBR, Sergei,
-Thanks for you comments,
-will change it in next version.
+agree,
+thanks
 Daode.
 
+>>           dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
+>> -        dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG, high_val);
+>> +        dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
+>> +                   high_val | (sta_addr_en << GMAC_ADDR_EN_B));
+>>       }
+>>   }
+>>
 > [...]
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c 
->> b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
->> index 6250a42..b45dcc2 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
->> @@ -69,6 +69,10 @@ static void fill_v2_desc(struct hnae_ring *ring, 
->> void *priv,
->>       hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
->>       hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
->>
->> +    /*fill port_id in the tx bd for sending management pkts*/
->
->    Likewise.
->
->> +    hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
->> +               HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
->> +
->>       if (type == DESC_TYPE_SKB) {
->>           skb = (struct sk_buff *)priv;
->>
 >
 > MBR, Sergei
 >
