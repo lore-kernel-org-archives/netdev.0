@@ -1,375 +1,98 @@
-From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Fri, 11 Mar 2016 13:39:23 +0100
-Message-ID: <1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
-References: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
-Cc: netdev@vger.kernel.org, labbott@fedoraproject.org,
-	davem@davemloft.net
-To: linux-kernel@vger.kernel.org
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] batman-adv: Less function calls in batadv_is_ap_isolated()
+ after error detection
+Date: Fri, 11 Mar 2016 13:40:56 +0100
+Message-ID: <56E2BCD8.9010200@users.sourceforge.net>
+References: <5307CAA2.8060406@users.sourceforge.net>
+ <564EDE1D.7070809@meshcoding.com> <564EFC67.7050307@users.sourceforge.net>
+ <1655341.WCvHHx7pqD@bentobox>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	Antonio Quartulli <a@unstable.cc>,
+	"David S. Miller" <davem@davemloft.net>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Sven Eckelmann <sven@narfation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:40779 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbcCKMj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 07:39:28 -0500
-Received: from localhost
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <imbrenda@linux.vnet.ibm.com>;
-	Fri, 11 Mar 2016 12:39:26 -0000
-In-Reply-To: <20160213.055940.1894427692019983187.davem@davemloft.net>
+Received: from mout.web.de ([212.227.17.11]:60119 "EHLO mout.web.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752320AbcCKMlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 07:41:16 -0500
+In-Reply-To: <1655341.WCvHHx7pqD@bentobox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, 
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 11 Mar 2016 13:10:20 +0100
 
-I think I found a problem with the patch submitted by Laura Abbott
-( https://lkml.org/lkml/2016/2/4/711 ): we might miss wakeups.
-Since the condition is not checked between the prepare_to_wait and the
-schedule(), if a wakeup happens after the condition is checked but before
-the sleep happens, and we miss it. ( A description of the problem can be
-found here: http://www.makelinux.net/ldd3/chp-6-sect-2 ).
+The variables "tt_local_entry" and "tt_global_entry" were eventually
+checked again despite of a corresponding null pointer test before.
 
-My solution (see patch below) is to shrink the area influenced by
-prepare_to_wait, but keeping the fragile section around the condition, and
-keep the rest of the code in "normal" running state.  This way the sleep is
-correct and the other functions don't need to worry.  The only caveat here
-is that the function(s) called to verify the conditions are really not
-allowed to sleep, so if you need synchronization in the backend of e.g. 
-vsock_stream_has_space(), you should use spinlocks and not mutexes.
+* Avoid this double check by reordering a function call sequence
+  and the better selection of jump targets.
 
-In case we want to be able to sleep while waiting for conditions, we can
-consider this instead: https://lwn.net/Articles/628628/ .
+* Omit the initialisation for these variables at the beginning then.
 
-
-I stumbled on this problem while working on fixing the upcoming virtio
-backend for vsock, below is the patch I had prepared, with the original
-message.
-
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
-When a thread is prepared for waiting by calling prepare_to_wait, sleeping
-is not allowed until either the wait has taken place or finish_wait has
-been called.  The existing code in af_vsock imposed unnecessary no-sleep
-assumptions to a broad list of backend functions.
-This patch shrinks the influence of prepare_to_wait to the area where it
-is strictly needed, therefore relaxing the no-sleep restriction there.
+ net/batman-adv/translation-table.c | 25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-Signed-off-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
----
- net/vmw_vsock/af_vsock.c | 158 +++++++++++++++++++++++++----------------------
- 1 file changed, 85 insertions(+), 73 deletions(-)
-
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 9783a38..112fa8b 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1209,10 +1209,14 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 0b43e86..9c0193ee 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -3403,8 +3403,8 @@ void batadv_tt_local_commit_changes(struct batadv_priv *bat_priv)
+ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
+ 			   unsigned short vid)
+ {
+-	struct batadv_tt_local_entry *tt_local_entry = NULL;
+-	struct batadv_tt_global_entry *tt_global_entry = NULL;
++	struct batadv_tt_local_entry *tt_local_entry;
++	struct batadv_tt_global_entry *tt_global_entry;
+ 	struct batadv_softif_vlan *vlan;
+ 	bool ret = false;
  
- 		if (signal_pending(current)) {
- 			err = sock_intr_errno(timeout);
--			goto out_wait_error;
-+			sk->sk_state = SS_UNCONNECTED;
-+			sock->state = SS_UNCONNECTED;
-+			goto out_wait;
- 		} else if (timeout == 0) {
- 			err = -ETIMEDOUT;
--			goto out_wait_error;
-+			sk->sk_state = SS_UNCONNECTED;
-+			sock->state = SS_UNCONNECTED;
-+			goto out_wait;
- 		}
+@@ -3413,27 +3413,24 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
+ 		return false;
  
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-@@ -1220,20 +1224,17 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
+ 	if (!atomic_read(&vlan->ap_isolation))
+-		goto out;
++		goto vlan_put;
  
- 	if (sk->sk_err) {
- 		err = -sk->sk_err;
--		goto out_wait_error;
--	} else
-+		sk->sk_state = SS_UNCONNECTED;
-+		sock->state = SS_UNCONNECTED;
-+	} else {
- 		err = 0;
-+	}
+ 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, dst, vid);
+ 	if (!tt_local_entry)
+-		goto out;
++		goto vlan_put;
  
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
+ 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, src, vid);
+ 	if (!tt_global_entry)
+-		goto out;
 -
--out_wait_error:
--	sk->sk_state = SS_UNCONNECTED;
--	sock->state = SS_UNCONNECTED;
--	goto out_wait;
+-	if (!_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
+-		goto out;
++		goto local_entry_put;
+ 
+-	ret = true;
++	if (_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
++		ret = true;
+ 
+-out:
++	batadv_tt_global_entry_put(tt_global_entry);
++local_entry_put:
++	batadv_tt_local_entry_put(tt_local_entry);
++vlan_put:
+ 	batadv_softif_vlan_put(vlan);
+-	if (tt_global_entry)
+-		batadv_tt_global_entry_put(tt_global_entry);
+-	if (tt_local_entry)
+-		batadv_tt_local_entry_put(tt_local_entry);
+ 	return ret;
  }
  
- static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
-@@ -1270,18 +1271,20 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
- 	       listener->sk_err == 0) {
- 		release_sock(listener);
- 		timeout = schedule_timeout(timeout);
-+		finish_wait(sk_sleep(listener), &wait);
- 		lock_sock(listener);
- 
- 		if (signal_pending(current)) {
- 			err = sock_intr_errno(timeout);
--			goto out_wait;
-+			goto out;
- 		} else if (timeout == 0) {
- 			err = -EAGAIN;
--			goto out_wait;
-+			goto out;
- 		}
- 
- 		prepare_to_wait(sk_sleep(listener), &wait, TASK_INTERRUPTIBLE);
- 	}
-+	finish_wait(sk_sleep(listener), &wait);
- 
- 	if (listener->sk_err)
- 		err = -listener->sk_err;
-@@ -1301,19 +1304,15 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
- 		 */
- 		if (err) {
- 			vconnected->rejected = true;
--			release_sock(connected);
--			sock_put(connected);
--			goto out_wait;
-+		} else {
-+			newsock->state = SS_CONNECTED;
-+			sock_graft(connected, newsock);
- 		}
- 
--		newsock->state = SS_CONNECTED;
--		sock_graft(connected, newsock);
- 		release_sock(connected);
- 		sock_put(connected);
- 	}
- 
--out_wait:
--	finish_wait(sk_sleep(listener), &wait);
- out:
- 	release_sock(listener);
- 	return err;
-@@ -1557,11 +1556,11 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
- 	while (total_written < len) {
- 		ssize_t written;
- 
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 		while (vsock_stream_has_space(vsk) == 0 &&
- 		       sk->sk_err == 0 &&
- 		       !(sk->sk_shutdown & SEND_SHUTDOWN) &&
-@@ -1570,27 +1569,33 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 			/* Don't wait for non-blocking sockets. */
- 			if (timeout == 0) {
- 				err = -EAGAIN;
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			}
- 
- 			err = transport->notify_send_pre_block(vsk, &send_data);
--			if (err < 0)
--				goto out_wait;
-+			if (err < 0) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
-+			}
- 
- 			release_sock(sk);
- 			timeout = schedule_timeout(timeout);
- 			lock_sock(sk);
- 			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeout);
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			} else if (timeout == 0) {
- 				err = -EAGAIN;
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			}
- 
- 			prepare_to_wait(sk_sleep(sk), &wait,
- 					TASK_INTERRUPTIBLE);
- 		}
-+		finish_wait(sk_sleep(sk), &wait);
- 
- 		/* These checks occur both as part of and after the loop
- 		 * conditional since we need to check before and after
-@@ -1598,16 +1603,16 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 		 */
- 		if (sk->sk_err) {
- 			err = -sk->sk_err;
--			goto out_wait;
-+			goto out_err;
- 		} else if ((sk->sk_shutdown & SEND_SHUTDOWN) ||
- 			   (vsk->peer_shutdown & RCV_SHUTDOWN)) {
- 			err = -EPIPE;
--			goto out_wait;
-+			goto out_err;
- 		}
- 
- 		err = transport->notify_send_pre_enqueue(vsk, &send_data);
- 		if (err < 0)
--			goto out_wait;
-+			goto out_err;
- 
- 		/* Note that enqueue will only write as many bytes as are free
- 		 * in the produce queue, so we don't need to ensure len is
-@@ -1620,7 +1625,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 				len - total_written);
- 		if (written < 0) {
- 			err = -ENOMEM;
--			goto out_wait;
-+			goto out_err;
- 		}
- 
- 		total_written += written;
-@@ -1628,14 +1633,13 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 		err = transport->notify_send_post_enqueue(
- 				vsk, written, &send_data);
- 		if (err < 0)
--			goto out_wait;
-+			goto out_err;
- 
- 	}
- 
--out_wait:
-+out_err:
- 	if (total_written > 0)
- 		err = total_written;
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
-@@ -1716,21 +1720,61 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
- 	while (1) {
--		s64 ready = vsock_stream_has_data(vsk);
-+		s64 ready;
- 
--		if (ready < 0) {
--			/* Invalid queue pair content. XXX This should be
--			 * changed to a connection reset in a later change.
--			 */
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+		ready = vsock_stream_has_data(vsk);
- 
--			err = -ENOMEM;
--			goto out_wait;
--		} else if (ready > 0) {
-+		if (ready == 0) {
-+			if (sk->sk_err != 0 ||
-+			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
-+			    (vsk->peer_shutdown & SEND_SHUTDOWN)) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+			/* Don't wait for non-blocking sockets. */
-+			if (timeout == 0) {
-+				err = -EAGAIN;
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+
-+			err = transport->notify_recv_pre_block(
-+					vsk, target, &recv_data);
-+			if (err < 0) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+			release_sock(sk);
-+			timeout = schedule_timeout(timeout);
-+			lock_sock(sk);
-+
-+			if (signal_pending(current)) {
-+				err = sock_intr_errno(timeout);
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			} else if (timeout == 0) {
-+				err = -EAGAIN;
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+		} else {
- 			ssize_t read;
- 
-+			finish_wait(sk_sleep(sk), &wait);
-+
-+			if (ready < 0) {
-+				/* Invalid queue pair content. XXX This should
-+				* be changed to a connection reset in a later
-+				* change.
-+				*/
-+
-+				err = -ENOMEM;
-+				goto out;
-+			}
-+
- 			err = transport->notify_recv_pre_dequeue(
- 					vsk, target, &recv_data);
- 			if (err < 0)
-@@ -1750,42 +1794,12 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 					vsk, target, read,
- 					!(flags & MSG_PEEK), &recv_data);
- 			if (err < 0)
--				goto out_wait;
-+				goto out;
- 
- 			if (read >= target || flags & MSG_PEEK)
- 				break;
- 
- 			target -= read;
--		} else {
--			if (sk->sk_err != 0 || (sk->sk_shutdown & RCV_SHUTDOWN)
--			    || (vsk->peer_shutdown & SEND_SHUTDOWN)) {
--				break;
--			}
--			/* Don't wait for non-blocking sockets. */
--			if (timeout == 0) {
--				err = -EAGAIN;
--				break;
--			}
--
--			err = transport->notify_recv_pre_block(
--					vsk, target, &recv_data);
--			if (err < 0)
--				break;
--
--			release_sock(sk);
--			timeout = schedule_timeout(timeout);
--			lock_sock(sk);
--
--			if (signal_pending(current)) {
--				err = sock_intr_errno(timeout);
--				break;
--			} else if (timeout == 0) {
--				err = -EAGAIN;
--				break;
--			}
--
--			prepare_to_wait(sk_sleep(sk), &wait,
--					TASK_INTERRUPTIBLE);
- 		}
- 	}
- 
-@@ -1816,8 +1830,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 		err = copied;
- 	}
- 
--out_wait:
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
 -- 
-1.9.1
+2.7.2
