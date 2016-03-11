@@ -1,126 +1,123 @@
-From: Caesar Wang <caesar.upstream@gmail.com>
-Subject: Re: [PATCH 0/6] arc_emac: fixes the emac issues oand cleanup emac
- drivers
-Date: Fri, 11 Mar 2016 22:48:36 +0800
-Message-ID: <56E2DAC4.4020105@gmail.com>
-References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
- <56E2CC39.6050907@cogentembedded.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
+Date: Fri, 11 Mar 2016 15:56:04 +0100
+Message-ID: <2693723.gBjS0iQk4I@diego>
+References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com> <1457693731-6966-4-git-send-email-wxt@rock-chips.com> <56E2CC8F.5040703@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Russell King <linux@arm.linux.org.uk>,
-	Pawel Moll <pawel.moll@arm.com>,
-	zhengxing <zhengxing@rock-chips.com>,
-	Alexander Kochetkov <al.kochet@gmail.com>,
-	netdev@vger.kernel.org,
-	Michael Turquette <mturquette@baylibre.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Stephen Boyd <sboyd@codeaurora.org>,
-	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
-	linux-arm-kernel@lists.infradead.org, keescook@google.com,
-	Jiri Kosina <trivial@kernel.org>, linux-clk@vger.kernel.org,
-	leozwang@google.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <56E2CC39.6050907@cogentembedded.com>
-Sender: linux-clk-owner@vger.kernel.org
+	linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com, Alexander Kochetkov <al.kochet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Caesar Wang <wxt@rock-chips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E2CC8F.5040703@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+Hi Caesar,
 
-=E5=9C=A8 2016=E5=B9=B403=E6=9C=8811=E6=97=A5 21:46, Sergei Shtylyov =E5=
-=86=99=E9=81=93:
-> Hello.
->
+Am Freitag, 11. M=E4rz 2016, 16:47:59 schrieb Sergei Shtylyov:
 > On 3/11/2016 1:55 PM, Caesar Wang wrote:
->
->> This series patches are based on kernel 4.5-rc7+ version.
->> Linux version 4.5.0-rc7-next-20160310+ (wxt@nb) (...) #23 SMP Fri Ma=
-r=20
->> 11 15:55:53
->
+> > This patch adds to support the emac phy reset.
+> >=20
+> > 1) phy-reset-gpios:
+> > The phy-reset-gpios is an optional property for arc emac device tre=
+e boot.
+> > Change the binding document to match the driver code.
+> >=20
+> > 2) phy-reset-duration:
+> > Different boards may require different phy reset duration. Add prop=
+erty
+> > phy-reset-duration for device tree probe, so that the boards that n=
+eed
+> > a longer reset duration can specify it in their device tree.
+> >=20
+> > 3) phy-reset-active-high:
+> > We need that for a custom hardware that needs the reverse reset seq=
+uence.
+> >=20
+> > Of course, this patch will fix the issue on
+> > https://patchwork.kernel.org/patch/8186801/.
+> >=20
+> > In some cases, the emac couldn't work if you don't have reset the p=
+hy.
+> > Let's add it to happy work.
+> >=20
+> > Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+> > ---
+> >=20
+> >   drivers/net/ethernet/arc/emac_main.c | 41
+> >   ++++++++++++++++++++++++++++++++++++ 1 file changed, 41 insertion=
+s(+)
+> >=20
+> > diff --git a/drivers/net/ethernet/arc/emac_main.c
+> > b/drivers/net/ethernet/arc/emac_main.c index 6446af1..42384f6a 1006=
+44
+> > --- a/drivers/net/ethernet/arc/emac_main.c
+> > +++ b/drivers/net/ethernet/arc/emac_main.c
+> > @@ -764,6 +764,45 @@ static const struct net_device_ops
+> > arc_emac_netdev_ops =3D {>=20
+> >   #endif
+> >   };
+> >=20
+> > +#ifdef CONFIG_OF
+> > +static void emac_reset_phy(struct net_device *pdev)
+> > +{
+> > +	int err, phy_reset;
+> > +	bool active_high =3D false;
+> > +	int msec =3D 10;
+> > +	struct device *dev =3D pdev->dev.parent;
+> > +	struct device_node *np =3D dev->of_node;
+> > +
+> > +	if (!np)
+> > +		return;
+> > +
+> > +	of_property_read_u32(np, "phy-reset-duration", &msec);
+> > +	/* A sane reset duration should not be longer than 1s */
+> > +	if (msec > 1000)
+> > +		msec =3D 1;
+> > +
+> > +	phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+> > +	if (!gpio_is_valid(phy_reset))
+> > +		return;
+> > +
+> > +	active_high =3D of_property_read_bool(np, "phy-reset-active-high"=
+);
+> > +
+> > +	err =3D devm_gpio_request_one(dev, phy_reset, active_high ?
+> > +				    GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
+> > +				    "phy-reset");
+> > +	if (err) {
+> > +		dev_err(dev, "failed to get phy-reset-gpios: %d\n", err);
+> > +		return;
+> > +	}
+> > +	msleep(msec);
+> > +	gpio_set_value_cansleep(phy_reset, !active_high);
+> > +}
+>=20
 > [...]
->
->> 1) This series has 6 patches: (1--->6)
->> net: arc_emac: make the rockchip emac document more compatible
->> net: arc_emac: add phy-reset-* are optional for device tree
->
->    I'm not seeing these patches on netdev...
+>=20
+>     Why not make it the mii_bus::reset() method? It gets called befor=
+e the
+> MDIO bus scan.
 
-Sent by the patman tool.
+while meddling with the emac, I've built some sort of preliminary varia=
+nt of
+Sergei's suggestion at [0] - maybe you could take a look for some sort =
+of
+inspiration ;-)=20
 
-LKML:
-https://patchwork.kernel.org/patch/8564501/
-https://patchwork.kernel.org/patch/8564511/
-
->
->> net: arc_emac: support the phy reset for emac driver
->> net: arc: trivial: cleanup the emac driver
->> clk: rockchip: rk3036: fix and add node id for emac clock
->> ARM: dts: rockchip: add support emac for RK3036
->>
->> 2) This series patches have the following decriptions:
->
->    Descriptions.
->
->> Hi Rob, David:
->> PATCH[1/6-2/6]: =3D=3D=3D=3D>
->> net: arc_emac: make the rockchip emac document more compatible
->> net: arc_emac: add phy-reset-* are optional for device tree
->>
->> The patches change the rockchip emac document for more compatible an=
-d
->> Add the phy-reset-* property for document.
->>
->> This patch adds the following property for arc_emac.
->>
->> phy-reset-* include the following:
->> 1) phy-reset-gpios:
->> The phy-reset-gpios is an optional property for arc emac device tree=
-=20
->> boot.
->> Change the binding document to match the driver code.
->>
->> 2) phy-reset-duration:
->> Different boards may require different phy reset duration. Add prope=
-rty
->> phy-reset-duration for device tree probe, so that the boards that ne=
-ed
->> a longer reset duration can specify it in their device tree.
->>
->> 3) phy-reset-active-high:
->> We need that for a custom hardware that needs the reverse reset=20
->> sequence.
->
->    Why not infer this from the "phy-reset-gpios" prop?
-
-See:
-https://patchwork.kernel.org/patch/8564511/
-
-phy-reset-active-high : If present then the reset sequence using the GP=
-IO
-  specified in the "phy-reset-gpios" property is reversed (H=3Dreset st=
-ate,
-  L=3Doperation state).
+The code is lifted from the designware gmac driver, so the binding also=
+ is
+similar.
 
 
-Thanks,
+Heiko
 
-Caesar
 
->
-> MBR, Sergei
->
->
-> _______________________________________________
-> Linux-rockchip mailing list
-> Linux-rockchip@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-rockchip
-
+[0] https://github.com/mmind/linux-rockchip/commit/a943c588783438ff1c50=
+8dfa8c79f1709aa5775e
