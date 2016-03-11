@@ -1,111 +1,66 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
-Date: Fri, 11 Mar 2016 10:26:39 -0800
-Message-ID: <56E30DDF.5040506@caviumnetworks.com>
-References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com> <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com> <20160311173125.GI3153@lunn.ch> <56E30332.7060003@caviumnetworks.com> <20160311180030.GB19277@lunn.ch>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] rds-tcp: Add module parameters to control
+ sndbuf/rcvbuf size of RDS-TCP socket
+Date: Fri, 11 Mar 2016 13:29:49 -0500
+Message-ID: <20160311182949.GG3383@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Robert Richter <rric@kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
-	<linux-kernel@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160311180030.GB19277@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 03/11/2016 10:00 AM, Andrew Lunn wrote:
-> On Fri, Mar 11, 2016 at 09:41:06AM -0800, David Daney wrote:
->> On 03/11/2016 09:31 AM, Andrew Lunn wrote:
->>>> +		phy_np = of_parse_phandle(node, "phy-handle", 0);
->>>> +		/* If there is no phy or defective firmware presents
->>>> +		 * this cortina phy, for which there is no driver
->>>> +		 * support, ignore it.
->>>> +		 */
->>>> +		if (phy_np &&
->>>> +		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
->>>
->>> Hi David
->>>
->>> What is a cortina,cs4223-slice,
->>
->> It is 1/4 of:
->>
->> https://www.inphi.com/products/cs4223.php
->>
->>> and why does it need to be handled differently?
->>>
->>
->> $ ls drivers/net/phy/*cortina*
->> ls: cannot access drivers/net/phy/*cortina*: No such file or directory
->>
->> For this configuration of thunder_bgx.c, the use of a Linux PHY
->> driver is optional.
->>
->> The firmware should probably not specify a PHY here, but it does so
->> we ignore it so we don't wait around forever for the non-existent
->> driver to bind.
->
-> Hi David
->
-> I don't see why it should wait around forever. I have boards with
-> Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
-> driver still loads, because the generic PHY driver is used instead.
-> Why does this not work here?
-
-As I said before, there is no driver for the device, so 
-of_phy_find_device() will always return NULL.
-
-It appears that the architects of the cs4223 were not familiar with the 
-various IEEE specifications for PHYs, so unsurprisingly, the device 
-cannot be handled by any standards compliant generic drivers.
-
-The Marvell PHY architects, on the other hand, seem to have designed 
-their devices with a keen eye for following the standards.  So, also 
-unsurprisingly, the Marvell devices work perfectly with the generic drivers.
-
->
-> Also, Documentation/devicetree/bindings/net/phy.txt says:
->
->   compatible: Compatible list, may contain
->    "ethernet-phy-ieee802.3-c22" or "ethernet-phy-ieee802.3-c45" for
->    PHYs that implement IEEE802.3 clause 22 or IEEE802.3 clause 45
->    specifications. If neither of these are specified, the default is to
->    assume clause 22.
->
->    If the phy's identifier is known then the list may contain an entry
->    of the form: "ethernet-phy-idAAAA.BBBB" where
->       AAAA - The value of the 16 bit Phy Identifier 1 register as
->              4 hex digits. This is the chip vendor OUI bits 3:18
->       BBBB - The value of the 16 bit Phy Identifier 2 register as
->              4 hex digits. This is the chip vendor OUI bits 19:24,
->              followed by 10 bits of a vendor specific ID.
->
->    The compatible list should not contain other values than those
->    listed here.
->
-> So having "cortina,cs4223-slice" in the compatible string goes against
-> the binding.
-
-Yes, you are probably correct.  That is why the comment in the patch 
-explains the strategy of ignoring this node that is not complaint with 
-the binding document.
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com, santosh.shilimkar@oracle.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org, rds-devel@oss.oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:37357 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976AbcCKS3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 13:29:55 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> To make this work, you probably need to extend the
-> whitelist_phys list in of_mdio.c.
+Some payload sizes/patterns stand to gain performance benefits by
+tuning the size of the TCP socket buffers, so this commit adds
+module parameters to customize those values when desired.
 
-That wouldn't work.  There is no driver for the PHY, putting it on a 
-white list doesn't solve the missing driver problem.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/rds/tcp.c |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
+
+diff --git a/net/rds/tcp.c b/net/rds/tcp.c
+index ad60299..b59e7a2 100644
+--- a/net/rds/tcp.c
++++ b/net/rds/tcp.c
+@@ -52,7 +52,13 @@ static LIST_HEAD(rds_tcp_conn_list);
+ 
+ static struct kmem_cache *rds_tcp_conn_slab;
+ 
+-#define RDS_TCP_DEFAULT_BUFSIZE (128 * 1024)
++static int sndbuf_size = 16384;
++module_param(sndbuf_size, int, 0444);
++MODULE_PARM_DESC(sndbuf_size, "SO_SNDBUF size of kernel tcp socket");
++
++static int rcvbuf_size = 87380;
++module_param(rcvbuf_size, int, 0444);
++MODULE_PARM_DESC(rcvbuf_size, "SO_RCVBUF size of kernel tcp socket");
+ 
+ /* doing it this way avoids calling tcp_sk() */
+ void rds_tcp_nonagle(struct socket *sock)
+@@ -72,7 +78,15 @@ void rds_tcp_nonagle(struct socket *sock)
+  */
+ void rds_tcp_tune(struct socket *sock)
+ {
++	struct sock *sk = sock->sk;
++
+ 	rds_tcp_nonagle(sock);
++
++	lock_sock(sk);
++	sk->sk_sndbuf = sndbuf_size;
++	sk->sk_rcvbuf = rcvbuf_size;
++	sk->sk_userlocks |= SOCK_SNDBUF_LOCK | SOCK_RCVBUF_LOCK;
++	release_sock(sk);
+ }
+ 
+ u32 rds_tcp_snd_nxt(struct rds_tcp_connection *tc)
+-- 
+1.7.1
