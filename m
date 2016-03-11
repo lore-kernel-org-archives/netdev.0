@@ -1,57 +1,114 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Generic TSO (was Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable
- outer Tx checksum by default)
-Date: Fri, 11 Mar 2016 20:24:06 +0000
-Message-ID: <56E32966.7090409@solarflare.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
- <CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
- <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
- <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
- <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
- <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
- <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
- <56E31A89.9020602@solarflare.com>
- <CALx6S37G5N-3GxXYf8uF9p8QNC+U_d6-Vf+8Jg6bFqEv_FpULg@mail.gmail.com>
- <56E3239B.7080009@solarflare.com>
- <CALx6S37P+gVA_O7vxBjGMxHpY69Cx2aL3E79ptvGkRW4L2x5Ug@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] net: ipv4 -- Introduce ifa limit per net
+Date: Fri, 11 Mar 2016 15:40:46 -0500 (EST)
+Message-ID: <20160311.154046.890043899835986091.davem@davemloft.net>
+References: <20160310215959.GE1989@uranus.lan>
+	<20160310.173630.525547775491939864.davem@davemloft.net>
+	<20160310224056.GF1989@uranus.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:29233 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751072AbcCKUYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 15:24:37 -0500
-In-Reply-To: <CALx6S37P+gVA_O7vxBjGMxHpY69Cx2aL3E79ptvGkRW4L2x5Ug@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org, solar@openwall.com,
+	vvs@virtuozzo.com, avagin@virtuozzo.com, xemul@virtuozzo.com,
+	vdavydov@virtuozzo.com, khorenko@virtuozzo.com,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: gorcunov@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160310224056.GF1989@uranus.lan>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/03/16 20:16, Tom Herbert wrote:
-> On Fri, Mar 11, 2016 at 11:59 AM, Edward Cree <ecree@solarflare.com> wrote:
->> On 11/03/16 19:57, Tom Herbert wrote:
->>> On Fri, Mar 11, 2016 at 11:20 AM, Edward Cree <ecree@solarflare.com> wrote:
->>>> Tom,
->>>>
->>>> Are you planning to / working on implementing this?  If not, I might have a
->>>> crack at it; I've talked to our firmware guys and (provisionally) we think
->>>> we can support it in current sfc hardware.
->>>> Or were there any blocking problems raised in the thread?  My understanding
->>>> of the IP ID issue was that it only matters for the inner frame, because
->>>> the rest aren't TCP (so hopefully no-one is doing SLHC on them).  But I may
->>>> have missed something.
->>>>
->>> Right, then the interface would need to just include the offset of the
->>> IP ID. But doesn't this break using LCO with GSO though-- i.e. the
->>> outer checksum and inner checksum still need to be updated per packet
->>> so we need to tell device where outer checksum(s) is.
->> No, outer checksum shouldn't change: IP ID is protected by inner IP header
->> checksum, which device will edit.  No?
-> Right, the interface would probably still need offset to the IPv4 hdr?
-Yes; I'm assuming the interface could just be "offset to inner IP header",
-and the hardware knows well enough what IP and TCP headers look like that
-it can figure out the rest (including skipping over options if e.g. ihl>5).
-So, do you want to try and implement it or shall I?
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Date: Fri, 11 Mar 2016 01:40:56 +0300
 
--Ed
+> On Thu, Mar 10, 2016 at 05:36:30PM -0500, David Miller wrote:
+>> > 
+>> > Works like a charm! So David, what are the next steps then?
+>> > Mind to gather all your patches into one (maybe)?
+>> 
+>> I'll re-review all of the changes tomorrow and also look into ipv6
+>> masq, to see if it needs the same treatment, as well.
+>> 
+>> Thanks for all of your help and testing so far.
+> 
+> Thanks a lot, David!
+
+Cyrill please retest this final patch and let me know if it still works
+properly.
+
+I looked at ipv6, and it's more complicated.  The problem is that ipv6
+doesn't mark the inet6dev object as dead in the NETDEV_DOWN case, in
+fact it keeps the object around.  It only releases it and marks it
+dead in the NETDEV_UNREGISTER case.
+
+We pay a very large price for having allowed the behavior of ipv6 and
+ipv4 to diverge so greatly in these areas :-(
+
+Nevertheless we should try to fix it somehow, maybe we can detect the
+situation in another way for the ipv6 side.
+
+====================
+ipv4: Don't do expensive useless work during inetdev destroy.
+
+When an inetdev is destroyed, every address assigned to the interface
+is removed.  And in this scenerio we do two pointless things which can
+be very expensive if the number of assigned interfaces is large:
+
+1) Address promotion.  We are deleting all addresses, so there is no
+   point in doing this.
+
+2) A full nf conntrack table purge for every address.  We only need to
+   do this once, as is already caught by the existing
+   masq_dev_notifier so masq_inet_event() can skip this.
+
+Reported-by: Cyrill Gorcunov <gorcunov@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index f6303b1..0212591 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -334,6 +334,9 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 
+ 	ASSERT_RTNL();
+ 
++	if (in_dev->dead)
++		goto no_promotions;
++
+ 	/* 1. Deleting primary ifaddr forces deletion all secondaries
+ 	 * unless alias promotion is set
+ 	 **/
+@@ -380,6 +383,7 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
+ 			fib_del_ifaddr(ifa, ifa1);
+ 	}
+ 
++no_promotions:
+ 	/* 2. Unlink it */
+ 
+ 	*ifap = ifa1->ifa_next;
+diff --git a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+index c6eb421..ea91058 100644
+--- a/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_masquerade_ipv4.c
+@@ -108,10 +108,18 @@ static int masq_inet_event(struct notifier_block *this,
+ 			   unsigned long event,
+ 			   void *ptr)
+ {
+-	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
++	struct in_device *idev = ((struct in_ifaddr *)ptr)->ifa_dev;
+ 	struct netdev_notifier_info info;
+ 
+-	netdev_notifier_info_init(&info, dev);
++	/* The masq_dev_notifier will catch the case of the device going
++	 * down.  So if the inetdev is dead and being destroyed we have
++	 * no work to do.  Otherwise this is an individual address removal
++	 * and we have to perform the flush.
++	 */
++	if (idev->dead)
++		return NOTIFY_DONE;
++
++	netdev_notifier_info_init(&info, idev->dev);
+ 	return masq_device_event(this, event, &info);
+ }
+ 
