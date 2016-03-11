@@ -1,80 +1,134 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [V9fs-developer] [PATCH] net/9p: convert to new CQ API
-Date: Thu, 10 Mar 2016 21:20:46 -0500
-Message-ID: <56E22B7E.7030400@redhat.com>
-References: <1456565151-27115-1-git-send-email-hch@lst.de>
- <1456565151-27115-2-git-send-email-hch@lst.de>
- <20160227154957.GA21186@nautica> <20160303083606.GA13828@lst.de>
- <20160308143837.GA10208@nautica>
+From: Kejian Yan <yankejian@huawei.com>
+Subject: [PATCH v3 net-next 1/2] net: hns: fix return value of the function about rss
+Date: Fri, 11 Mar 2016 11:25:46 +0800
+Message-ID: <1457666747-244953-2-git-send-email-yankejian@huawei.com>
+References: <1457666747-244953-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="7Q1MUKt8q3XjgVNm6vwI2WLXCjhSUgdQh"
-Cc: v9fs-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dominique Martinet <asmadeus-9aU+PIKW3UvdtAWm4Da02A@public.gmane.org>,
-	Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160308143837.GA10208@nautica>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+	<liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<chenny.xu@huawei.com>, <ivecera@redhat.com>,
+	<lisheng011@huawei.com>, <fengguang.wu@intel.com>,
+	<haifeng.wei@huawei.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457666747-244953-1-git-send-email-yankejian@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7Q1MUKt8q3XjgVNm6vwI2WLXCjhSUgdQh
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Both .get_rxfh and .get_rxfh are always return 0, it should return result
+from hardware when getting or setting rss. And the rss function should
+return the correct data type.
 
-On 03/08/2016 09:38 AM, Dominique Martinet wrote:
-> Christoph Hellwig wrote on Thu, Mar 03, 2016:
->> New version with the nits fixed below.  Now that checkpath started
->> a stupid warning about not using tabs for indentation which I've
->> ignored here and will take up in my usual fights against Joes
->> idicotic opinions separately..
->=20
-> Thanks for the nitpicks, I can confirm it works as expected as well so
-> all good with me.
-> I like the new CQ interface :)
->=20
-> (if someone adds an Acked-by please use dominique.martinet-KCE40YydGKI@public.gmane.org for m=
-y
-> mail; sorry for the split personality)
->=20
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+---
+change log:
+PATCH v3:
+ - This patch removes unused variable 'ret' to fix the build warning
 
-Since I haven't heard anyone else say they are picking this up, I've
-grabbed it for 4.6.  Thanks.
+PATCH v2:
+ - This patch fixes the comments provided by Andy Shevchenko <Andy Shevchenko>
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-              GPG KeyID: 0E572FDD
+ Link: https://lkml.org/lkml/2016/3/10/266
 
+PATCH v1:
+ - first submit
 
+ Link: https://lkml.org/lkml/2016/3/9/978
+---
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 14 ++++----------
+ 3 files changed, 6 insertions(+), 12 deletions(-)
 
---7Q1MUKt8q3XjgVNm6vwI2WLXCjhSUgdQh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJW4it+AAoJELgmozMOVy/d+lwQAIcO0jHGKPnDJ9YBJjaVRIoi
-DQoipgF0WtK+mvIZKQcwh5japjUlEL64LFsuSEvptYVls7BdRwNLFK91T5OHQLMW
-hE5VMYopsy3Qt8iFj1cXVFST22Ln5lqaaoI5nEbu6lpG0t+md5J0CeTvXBP7F85M
-Wnutg7UuXR51yxjN2HVAHEhkbqm482uX/e/VsJ2YJJYdB2QJ24aITuKqbPWuNTbL
-Y0hNBBD4oAlcMpH/lz/09pIcQMHgAyXwyC3Y/AYTOGvgTJ2Zhvr8cDnGD5Fb3zCm
-llLJKmyDYZvWIU/bE1Dfllz+OBl1ugf6kPzQuUIoH16pLPLVXwvLAVx7JMXx/kF6
-pKy0qF8XMFadWBR6kPUnbk4z/yVoH0JqUfpxju7CXBhDS8qWd9jZZnuQGqLk7rvZ
-k0vYo0/+mpfeYEBSsO4xNPj6UhhcLCLHKXr9hHb0mmblQez/78QOO9Ft9i39Ju4m
-UE2Gg5nYJaJAy3tkAGsih6pCT2wXZNx4QKatrX/M+E4JTmyXVnZShDGzAY86a4Js
-BiiguPIQQskeFBQi5KAUMkNQGoNbRHAsi8a1c+F3sR3vczdP61Skr1AQzjUrpRwM
-NvbxOhnYBtx+NFYejRDRqiH/ePaaJ2aA0pN3ugegxBLofptTNFXFnOOrYeoTAidW
-5xvF7dKMMs7Sb9v3bYzq
-=O2AJ
------END PGP SIGNATURE-----
-
---7Q1MUKt8q3XjgVNm6vwI2WLXCjhSUgdQh--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index d4f92ed..d07db1f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -799,7 +799,7 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 
+ 	/* set the RSS Hash Key if specififed by the user */
+ 	if (key)
+-		hns_ppe_set_rss_key(ppe_cb, (int *)key);
++		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
+ 
+ 	/* update the shadow RSS table with user specified qids */
+ 	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index f302ef9..811ef35 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -27,7 +27,7 @@ void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
+ void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
+ 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
+ {
+-	int key_item = 0;
++	u32 key_item = 0;
+ 
+ 	for (key_item = 0; key_item < HNS_PPEV2_RSS_KEY_NUM; key_item++)
+ 		dsaf_write_dev(ppe_cb, PPEV2_RSS_KEY_REG + key_item * 0x4,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3c4a3bc..01b65eb 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1178,7 +1178,7 @@ hns_get_rss_key_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1197,7 +1197,7 @@ hns_get_rss_indir_size(struct net_device *netdev)
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+ 			   "RSS feature is not supported on this hardware\n");
+-		return -EOPNOTSUPP;
++		return (u32)-EOPNOTSUPP;
+ 	}
+ 
+ 	ops = priv->ae_handle->dev->ops;
+@@ -1211,7 +1211,6 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_ae_ops *ops;
+-	int ret;
+ 
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+@@ -1224,9 +1223,7 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
+ 	if (!indir)
+ 		return 0;
+ 
+-	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
+-
+-	return 0;
++	return ops->get_rss(priv->ae_handle, indir, key, hfunc);
+ }
+ 
+ static int
+@@ -1235,7 +1232,6 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 	struct hnae_ae_ops *ops;
+-	int ret;
+ 
+ 	if (AE_IS_VER1(priv->enet_ver)) {
+ 		netdev_err(netdev,
+@@ -1252,9 +1248,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 	if (!indir)
+ 		return 0;
+ 
+-	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
+-
+-	return 0;
++	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ }
+ 
+ static struct ethtool_ops hns_ethtool_ops = {
+-- 
+1.9.1
