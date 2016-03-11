@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
- sndbuf/rcvbuf size of RDS-TCP socket
-Date: Fri, 11 Mar 2016 14:14:35 -0500 (EST)
-Message-ID: <20160311.141435.1989180808126737533.davem@davemloft.net>
-References: <20160311182949.GG3383@oracle.com>
+Subject: Re: [PATCH net 3/3] net: mvneta: fix error messages in
+ mvneta_port_down function
+Date: Fri, 11 Mar 2016 14:20:22 -0500 (EST)
+Message-ID: <20160311.142022.1421480365252928267.davem@davemloft.net>
+References: <1457441826-6100-1-git-send-email-gregory.clement@free-electrons.com>
+	<1457441826-6100-4-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	santosh.shilimkar@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36951 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbcCKTOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:14:41 -0500
-In-Reply-To: <20160311182949.GG3383@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
+	andrew@lunn.ch, sebastian.hesselbarth@gmail.com,
+	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
+	nadavh@marvell.com, mw@semihalf.com, patrick@puiterwijk.org,
+	dima@marvell.com, oferh@marvell.com
+To: gregory.clement@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457441826-6100-4-git-send-email-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Fri, 11 Mar 2016 13:29:49 -0500
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Date: Tue,  8 Mar 2016 13:57:06 +0100
 
-> Some payload sizes/patterns stand to gain performance benefits by
-> tuning the size of the TCP socket buffers, so this commit adds
-> module parameters to customize those values when desired.
+> From: Dmitri Epshtein <dima@marvell.com>
 > 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> This commit corrects error printing when shutting down the port. Also
+> magic numbers are replaced by existing macros.
+> 
+> Signed-off-by: Dmitri Epshtein <dima@marvell.com>
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 
-No module parameters, please.
+Individual patches should do one thing, rather than several at once.
+
+Please split this up into two changes, thanks.
