@@ -1,67 +1,120 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: RE: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Fri, 11 Mar 2016 07:14:43 +0000
-Message-ID: <KL1PR06MB10315B45ADA2037A5AA85A56C3B50@KL1PR06MB1031.apcprd06.prod.outlook.com>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <56DC1561.9060306@hartkopp.net>
- <SG2PR06MB10386D712BC8C345DF726523C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DD36F5.2000308@pengutronix.de>
- <SG2PR06MB1038DD47FAFF354C99AF2E4FC3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DE8345.50901@hartkopp.net>
- <SG2PR06MB1038B71C7921984611F72CF5C3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DEC49D.4@hartkopp.net>
- <SG2PR06MB10388F87746A1191E51B199FC3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DF0900.6090906@hartkopp.net>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: =?UTF-8?q?=5BPATCHv2=20=28net=2Egit=29=201/2=5D=20Revert=20=22stmmac=3A=20Fix=20=27eth0=3A=20No=20PHY=20found=27=20regression=22?=
+Date: Fri, 11 Mar 2016 08:44:04 +0100
+Message-ID: <1457682245-22746-2-git-send-email-peppe.cavallaro@st.com>
+References: <1457682245-22746-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"geert+renesas@glider.be" <geert+renesas@glider.be>,
-	Chris Paterson <Chris.Paterson2@renesas.com>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"corbet@lwn.net" <corbet@lwn.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <56DF0900.6090906@hartkopp.net>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:49263 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S934088AbcCKHhn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 02:37:43 -0500
+In-Reply-To: <1457682245-22746-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgT2xpdmVyLCBNYXJjLA0KDQo+IE9uIDAzLzA4LzIwMTYgMDE6NDggUE0sIFJhbWVzaCBTaGFu
-bXVnYXN1bmRhcmFtIHdyb3RlOg0KPiANCj4gPj4gSW4gZmFjdCB5b3UgcHJvdmlkZWQgYSBDQU4g
-ZHJpdmVyIHdoaWNoIGlzICJDQU4tRkQtb25seSIuDQo+ID4NCj4gPiBZZXMuIFRoYXQncyB0aGUg
-c3RhdHVzIG9mIGN1cnJlbnQgc3VibWlzc2lvbi4NCg0KKC4uLikNCg0KPiA+DQo+ID4gSSBkaWQg
-dHJ5IHRoaXMgb3B0aW9uIGVhcmxpZXIgYnV0IHRoZXJlIGFyZSB0d28gcHJvYmxlbXMgd2l0aCB0
-aGlzDQo+IG1ldGhvZC4NCj4gPg0KPiA+IDEpIEJlbG93IGNvbmZpZ3VyYXRpb24gaXMgbm90IHBv
-c3NpYmxlDQo+ID4NCj4gPiBpcCBsaW5rIHNldCBjYW4wIHVwIHR5cGUgY2FuIGJpdHJhdGUgMTAw
-MDAwMCBkYml0cmF0ZSAxMDAwMDAwIGZkIG9uDQo+ID4NCj4gPiAiZmQgb24iIC0+IFRoaXMgaXMg
-bm90IGFsbG93ZWQgYmVjYXVzZSBDQU5fQ1RSTE1PREVfRkQgYml0IGlzIG5vdCBzZXQgaW4NCj4g
-Y3RybG1vZGVfc3VwcG9ydGVkLg0KPiA+DQo+ID4gMikgSWYgSSBpZ25vcmUgImZkIG9uIiwgbXkg
-aW50ZXJmYWNlIE1UVSBzdGF5cyBhcyBDQU5fTVRVIG9ubHkuIElmIEkNCj4gaGF2ZSB0byBjaGFu
-Z2UgdGhlIE1UVSBhbG9uZSB0byBDQU5GRF9NVFUgdXNpbmcgYW5vdGhlciBuZXRsaW5rIG1lc3Nh
-Z2UsDQo+IGl0IGFnYWluIGNoZWNrcyBjdHJsbW9kZV9zdXBwb3J0ZWQgd2hlcmUgaXQgd291bGQg
-ZmFpbC4gSSBoYXZlIHRoZSBvcHRpb24NCj4gb2YgcHJvdmlkaW5nIG15IG93biBjaGFuZ2VfbXR1
-IGZ1bmN0aW9uICYgaWdub3JlIHRoaXMgY2hlY2sgYnV0IHR3bw0KPiBjb25maWd1cmF0aW9uIG1l
-c3NhZ2VzIGFyZSByZXF1aXJlZCBmb3IgbXkgZHJpdmVyIGFsb25lIDotKC4NCj4gPg0KPiA+IEJv
-dGggdGhlc2UgYW5vbWFsaWVzIGFyZSBhZGRyZXNzZWQgd2l0aCB0aGUgY3VycmVudCBjaGVjayBJ
-IGhhdmUuDQo+IA0KPiBPaCAtIHlvdSBhcmUgcmlnaHQgd2l0aCBjb21wbGFpbmluZyBhYm91dCB0
-aGlzIGluY29uc2lzdGVuY3kuDQo+IA0KPiBDYW4geW91IGNoZWNrIG15IFJGQyBwYXRjaCBmb3Ig
-TGludXggc3RhYmxlIEkganVzdCBzZW50IG9uIHRoZSBtYWlsaW5nDQo+IGxpc3Q/DQo+IGh0dHA6
-Ly9tYXJjLmluZm8vP2w9bGludXgtY2FuJm09MTQ1NzQ1NzI0OTE3OTc2Jnc9Mg0KDQpBcyB3ZSBh
-cmUgZml4aW5nIHRoaXMgaXNzdWUgaW4gQ0FOIGRldi5jLCBJJ2xsIHJlbW92ZSB0aGlzIGNoZWNr
-IGluIG5kb19vcGVuIGFuZCBzZXQgQ0FOX0NUUkxNT0RFX0ZEIGZsYWcgaW4gY3RybG1vZGUgJiBy
-ZW1vdmUgdGhlIGZsYWcgaW4gY3RybG1vZGVfc3VwcG9ydGVkIGluIHRoZSBuZXh0IHYzIHZlcnNp
-b24gb2YgdGhlIHBhdGNoLg0KDQpBcmUgdGhlcmUgYW55IGZ1cnRoZXIgY29tbWVudHMgb24gdjIg
-cGF0Y2ggcGxlYXNlPw0KDQpUaGFua3MsDQpSYW1lc2gNCg==
+This reverts commit 88f8b1bb41c6208f81b6a480244533ded7b59493.
+due to problems on GeekBox and Banana Pi M1 board when
+connected to a real transceiver instead of a switch via
+fixed-link.
+
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Cc: Andreas F=C3=A4rber <afaerber@suse.de>
+Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
+Cc: Dinh Nguyen <dinh.linux@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   11 ++++++++++-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    9 +--------
+ include/linux/stmmac.h                             |    1 -
+ 3 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/driver=
+s/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index efb54f3..0faf163 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -199,12 +199,21 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	struct stmmac_priv *priv =3D netdev_priv(ndev);
+ 	struct stmmac_mdio_bus_data *mdio_bus_data =3D priv->plat->mdio_bus_d=
+ata;
+ 	int addr, found;
+-	struct device_node *mdio_node =3D priv->plat->mdio_node;
++	struct device_node *mdio_node =3D NULL;
++	struct device_node *child_node =3D NULL;
+=20
+ 	if (!mdio_bus_data)
+ 		return 0;
+=20
+ 	if (IS_ENABLED(CONFIG_OF)) {
++		for_each_child_of_node(priv->device->of_node, child_node) {
++			if (of_device_is_compatible(child_node,
++						    "snps,dwmac-mdio")) {
++				mdio_node =3D child_node;
++				break;
++			}
++		}
++
+ 		if (mdio_node) {
+ 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
+ 		} else {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
+ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 4514ba7..6a52fa1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -110,7 +110,6 @@ stmmac_probe_config_dt(struct platform_device *pdev=
+, const char **mac)
+ 	struct device_node *np =3D pdev->dev.of_node;
+ 	struct plat_stmmacenet_data *plat;
+ 	struct stmmac_dma_cfg *dma_cfg;
+-	struct device_node *child_node =3D NULL;
+=20
+ 	plat =3D devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
+ 	if (!plat)
+@@ -141,19 +140,13 @@ stmmac_probe_config_dt(struct platform_device *pd=
+ev, const char **mac)
+ 		plat->phy_node =3D of_node_get(np);
+ 	}
+=20
+-	for_each_child_of_node(np, child_node)
+-		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
+-			plat->mdio_node =3D child_node;
+-			break;
+-		}
+-
+ 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
+ 	 * and warn of its use. Remove this when phy node support is added.
+ 	 */
+ 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D=
+ 0)
+ 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+=20
+-	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node=
+)
++	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_na=
+me)
+ 		plat->mdio_bus_data =3D NULL;
+ 	else
+ 		plat->mdio_bus_data =3D
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 881a79d..eead8ab 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -100,7 +100,6 @@ struct plat_stmmacenet_data {
+ 	int interface;
+ 	struct stmmac_mdio_bus_data *mdio_bus_data;
+ 	struct device_node *phy_node;
+-	struct device_node *mdio_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	int clk_csr;
+ 	int has_gmac;
+--=20
+1.7.4.4
