@@ -1,59 +1,121 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts disabled
-Date: Fri, 11 Mar 2016 22:22:18 +0900
-Message-ID: <201603112222.CDG97029.OJFHQOtVOLFMFS@I-love.SAKURA.ne.jp>
-References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
-	<20160307.151614.818719625382924245.davem@davemloft.net>
-	<20160308143146.GA26031@hmsreliant.think-freely.org>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: =?UTF-8?q?=5BPATCH=20v3=28linux-sti-3=2E10=29=28net=2Egit=29=201/2=5D=20Revert=20=22stmmac=3A=20Fix=20=27eth0=3A=20No=20PHY=20found=27=20regression=22?=
+Date: Fri, 11 Mar 2016 14:33:15 +0100
+Message-ID: <1457703196-15008-2-git-send-email-peppe.cavallaro@st.com>
+References: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
-To: nhorman@tuxdriver.com, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, <preid@electromag.com.au>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:47352 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540AbcCKNWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 08:22:31 -0500
-In-Reply-To: <20160308143146.GA26031@hmsreliant.think-freely.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:28597 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752700AbcCKN1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 08:27:02 -0500
+In-Reply-To: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Neil Horman wrote:
-> On Mon, Mar 07, 2016 at 03:16:14PM -0500, David Miller wrote:
-> > From: Neil Horman <nhorman@tuxdriver.com>
-> > Date: Fri,  4 Mar 2016 13:40:48 -0500
+This reverts commit 88f8b1bb41c6208f81b6a480244533ded7b59493.
+due to problems on GeekBox and Banana Pi M1 board when
+connected to a real transceiver instead of a switch via
+fixed-link.
 
-This patch is calling spin_unlock_irqrestore() without spin_lock_irqsave().
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Cc: Andreas F=C3=A4rber <afaerber@suse.de>
+Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
+Cc: Dinh Nguyen <dinh.linux@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   11 ++++++++++-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    9 +--------
+ include/linux/stmmac.h                             |    1 -
+ 3 files changed, 11 insertions(+), 10 deletions(-)
 
-In file included from include/linux/seqlock.h:35:0,
-                 from include/linux/time.h:5,
-                 from include/linux/stat.h:18,
-                 from include/linux/module.h:10,
-                 from drivers/net/vmxnet3/vmxnet3_drv.c:27:
-drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_xmit_frame':
-include/linux/spinlock.h:246:30: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
-   _raw_spin_unlock_irqrestore(lock, flags); \
-                              ^
-drivers/net/vmxnet3/vmxnet3_drv.c:977:16: note: 'flags' was declared here
-  unsigned long flags;
-                ^
-
-vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
-                struct vmxnet3_adapter *adapter, struct net_device *netdev)
-{
-(...snipped...)
-		goto hdr_too_big;
-(...snipped...)
-	spin_lock_irqsave(&tq->tx_lock, flags);
-(...snipped...)
-	spin_unlock_irqrestore(&tq->tx_lock, flags);
-(...snipped...)
-	return NETDEV_TX_OK;
-(...snipped...)
-hdr_too_big:
-        tq->stats.drop_oversized_hdr++;
-unlock_drop_pkt:
-        spin_unlock_irqrestore(&tq->tx_lock, flags);
-(...snipped...)
-	return NETDEV_TX_OK;
-}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/driver=
+s/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index efb54f3..0faf163 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -199,12 +199,21 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	struct stmmac_priv *priv =3D netdev_priv(ndev);
+ 	struct stmmac_mdio_bus_data *mdio_bus_data =3D priv->plat->mdio_bus_d=
+ata;
+ 	int addr, found;
+-	struct device_node *mdio_node =3D priv->plat->mdio_node;
++	struct device_node *mdio_node =3D NULL;
++	struct device_node *child_node =3D NULL;
+=20
+ 	if (!mdio_bus_data)
+ 		return 0;
+=20
+ 	if (IS_ENABLED(CONFIG_OF)) {
++		for_each_child_of_node(priv->device->of_node, child_node) {
++			if (of_device_is_compatible(child_node,
++						    "snps,dwmac-mdio")) {
++				mdio_node =3D child_node;
++				break;
++			}
++		}
++
+ 		if (mdio_node) {
+ 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
+ 		} else {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
+ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 4514ba7..6a52fa1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -110,7 +110,6 @@ stmmac_probe_config_dt(struct platform_device *pdev=
+, const char **mac)
+ 	struct device_node *np =3D pdev->dev.of_node;
+ 	struct plat_stmmacenet_data *plat;
+ 	struct stmmac_dma_cfg *dma_cfg;
+-	struct device_node *child_node =3D NULL;
+=20
+ 	plat =3D devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
+ 	if (!plat)
+@@ -141,19 +140,13 @@ stmmac_probe_config_dt(struct platform_device *pd=
+ev, const char **mac)
+ 		plat->phy_node =3D of_node_get(np);
+ 	}
+=20
+-	for_each_child_of_node(np, child_node)
+-		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
+-			plat->mdio_node =3D child_node;
+-			break;
+-		}
+-
+ 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
+ 	 * and warn of its use. Remove this when phy node support is added.
+ 	 */
+ 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D=
+ 0)
+ 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
+=20
+-	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node=
+)
++	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_na=
+me)
+ 		plat->mdio_bus_data =3D NULL;
+ 	else
+ 		plat->mdio_bus_data =3D
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index 881a79d..eead8ab 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -100,7 +100,6 @@ struct plat_stmmacenet_data {
+ 	int interface;
+ 	struct stmmac_mdio_bus_data *mdio_bus_data;
+ 	struct device_node *phy_node;
+-	struct device_node *mdio_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	int clk_csr;
+ 	int has_gmac;
+--=20
+1.7.4.4
