@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 4/5] dsa: dsa: Fix freeing of fixed-phys from user ports.
-Date: Sat, 12 Mar 2016 00:01:39 +0100
-Message-ID: <1457737300-23660-5-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 3/5] dsa: Destroy fixed link phys after the phy has been disconnected
+Date: Sat, 12 Mar 2016 00:01:38 +0100
+Message-ID: <1457737300-23660-4-git-send-email-andrew@lunn.ch>
 References: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,35 +9,64 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55193 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:55199 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933180AbcCKXCF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 18:02:05 -0500
+	id S932683AbcCKXCN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 18:02:13 -0500
 In-Reply-To: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All ports types can have a fixed PHY associated with it. Remove the
-check which limits removal to only CPU and DSA ports.
+The phy is disconnected from the slave in dsa_slave_destroy(). Don't
+destroy fixed link phys until after this, since there can be fixed
+linked phys connected to ports.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- net/dsa/dsa.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/dsa/dsa.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1018e7dcfcc9..f100f340d93f 100644
+index d8fb47fcad05..1018e7dcfcc9 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -443,9 +443,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+@@ -430,7 +430,18 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		hwmon_device_unregister(ds->hwmon_dev);
+ #endif
  
- 	/* Remove any fixed link PHYs */
+-	/* Disable configuration of the CPU and DSA ports */
++	/* Destroy network devices for physical switch ports. */
++	for (port = 0; port < DSA_MAX_PORTS; port++) {
++		if (!(ds->phys_port_mask & (1 << port)))
++			continue;
++
++		if (!ds->ports[port])
++			continue;
++
++		dsa_slave_destroy(ds->ports[port]);
++	}
++
++	/* Remove any fixed link PHYs */
  	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+ 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+ 			continue;
+@@ -448,17 +459,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		}
+ 	}
+ 
+-	/* Destroy network devices for physical switch ports. */
+-	for (port = 0; port < DSA_MAX_PORTS; port++) {
+-		if (!(ds->phys_port_mask & (1 << port)))
 -			continue;
 -
- 		port_dn = cd->port_dn[port];
- 		if (of_phy_is_fixed_link(port_dn)) {
- 			phydev = of_phy_find_device(port_dn);
+-		if (!ds->ports[port])
+-			continue;
+-
+-		dsa_slave_destroy(ds->ports[port]);
+-	}
+-
+ 	mdiobus_unregister(ds->slave_mii_bus);
+ }
+ 
 -- 
 2.7.0
