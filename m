@@ -1,8 +1,7 @@
 From: Lisheng <lisheng011@huawei.com>
-Subject: [PATCH V2 net 3/4] net: hns: bug fix for return values
-Date: Fri, 11 Mar 2016 18:20:21 +0800
-Message-ID: <1457691622-124657-4-git-send-email-lisheng011@huawei.com>
-References: <1457691622-124657-1-git-send-email-lisheng011@huawei.com>
+Subject: [PATCH V2 net 0/4] net: hns: bugs fix about hns driver
+Date: Fri, 11 Mar 2016 18:20:18 +0800
+Message-ID: <1457691622-124657-1-git-send-email-lisheng011@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
@@ -12,38 +11,38 @@ Cc: <yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
 	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:63256 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:63257 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000AbcCKKK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 05:10:26 -0500
-In-Reply-To: <1457691622-124657-1-git-send-email-lisheng011@huawei.com>
+	with ESMTP id S1750705AbcCKKKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 05:10:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Qianqian Xie <xieqianqian@huawei.com>
 
-The return values in the first two functions mdiobus_write()
-are ignored. The patch will fix it.
+There is some inappropriate application of values in hns driver,
+such as cycle index, returned value, format string, useless citation.
+This patch set will solve it.
 
-Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+change log:
+PATCH v2:
+ - This patchset fixes the comments provided by Andy Shevchenko <Andy Shevchenko>
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3df2284..cc5c545 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1000,8 +1000,8 @@ int hns_phy_led_set(struct net_device *netdev, int value)
- 	struct phy_device *phy_dev = priv->phy;
- 
- 	retval = phy_write(phy_dev, HNS_PHY_PAGE_REG, HNS_PHY_PAGE_LED);
--	retval = phy_write(phy_dev, HNS_LED_FC_REG, value);
--	retval = phy_write(phy_dev, HNS_PHY_PAGE_REG, HNS_PHY_PAGE_COPPER);
-+	retval |= phy_write(phy_dev, HNS_LED_FC_REG, value);
-+	retval |= phy_write(phy_dev, HNS_PHY_PAGE_REG, HNS_PHY_PAGE_COPPER);
- 	if (retval) {
- 		netdev_err(netdev, "mdiobus_write fail !\n");
- 		return retval;
+PATCH v1:
+ - first submit
+
+Qianqian Xie (4):
+  net: hns: fix a bug for cycle index
+  net: hns: bug fix for format string
+  net: hns: bug fix for return values
+  net: hns: remove useless head=ring->next_to_clean
+
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  3 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++------
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  5 +----
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  4 ++--
+ 4 files changed, 11 insertions(+), 13 deletions(-)
+
 -- 
 1.9.1
