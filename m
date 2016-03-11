@@ -1,29 +1,177 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/flower: Fix pointer cast
-Date: Fri, 11 Mar 2016 12:04:56 -0500 (EST)
-Message-ID: <20160311.120456.1412463922322950179.davem@davemloft.net>
-References: <1457687325-11214-1-git-send-email-amir@vadai.me>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: amir@vadai.me
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net-next v2 0/3] MACsec IEEE 802.1AE implementation
+Date: Fri, 11 Mar 2016 18:07:30 +0100
+Message-ID: <cover.1457714618.git.sd@queasysnail.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>, stephen@networkplumber.org,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932596AbcCKRE7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:04:59 -0500
-In-Reply-To: <1457687325-11214-1-git-send-email-amir@vadai.me>
+Received: from mx1.redhat.com ([209.132.183.28]:40571 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932596AbcCKRIh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 12:08:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
-Date: Fri, 11 Mar 2016 11:08:45 +0200
+MACsec (IEEE 802.1AE [0]) is a protocol that provides security for
+wired ethernet LANs.  MACsec offers two protection modes:
+authentication only, or authenticated encryption.
 
-> Cast pointer to unsigned long instead of u64, to fix compilation warning
-> on 32 bit arch, spotted by 0day build.
-> 
-> Fixes: 5b33f48 ("net/flower: Introduce hardware offload support")
-> Signed-off-by: Amir Vadai <amir@vadai.me>
+MACsec defines "secure channels" that allow transmission from one node
+to one or more others.  Communication on a channel is done over a
+succession of "secure associations", that each use a specific key.
+Secure associations are identified by their "association number" in
+the range 0..3.  A secure association is retired when its 32-bit
+packet number would wrap, and the same association number can later be
+reused with a new key and packet number.
 
-Applied, thanks.
+The standard mode of encryption is GCM AES with 128 bits keys,
+although an extension allows 256 bits keys [1] (not implemented in
+this submission).
+
+When using MACsec, an extra header, called "SecTAG", is added between
+the ethernet header and the original payload:
+
+ +---------------------------------+----------------+----------------+
+ |        (MACsec ethertype)       |     TCI_AN     |       SL       |
+ +---------------------------------+----------------+----------------+
+ |                           Packet Number                           |
+ +-------------------------------------------------------------------+
+ |                     Secure Channel Identifier                     |
+ |                            (optional)                             |
+ +-------------------------------------------------------------------+
+
+TCI_AN:
+ version
+ end_station
+ sci_present
+ scb
+ encrypted
+ changed_text
+ association_number (2 bits)
+SL:
+ short_length (6 bits)
+ unused (2 bits)
+
+The ethertype for the packet is set to 0x88E5, and the original
+ethertype becomes part of the secure payload, which may be encrypted.
+The ethernet header and the SecTAG are always transmitted in the
+clear, but are integrity-protected.
+
+MACsec supports optional replay protection with a configurable replay
+window.
+
+MACsec is designed to be used with the MKA extension to 802.1X (MACsec
+Key Agreement protocol) [2], which provides channel attribution and
+key distribution to the nodes, but can also be used with static keys
+getting fed manually by an administrator.
+
+Optional (not supported yet) features:
+ - confidentiality offset: in encryption mode, part of the payload may
+   be left unencrypted.
+ - choice of cipher suite: GCM AES with 256 bits has been standardised
+   [1].
+
+
+Implementation
+
+A netdevice is created on top of a real device for each TX secure
+channel, like we do for VLANs.  Multiple TX channels can be created on
+top of the same underlying device.
+
+Several other approaches were considered for the RX path:
+
+ - dev_add_pack: doesn't work, because we want to filter out
+   unprotected packets
+ - transparent mode: MACsec would be enabled directly on the real
+   netdevice.  For this, we cannot use a rx_handler directly because
+   MACsec must be available for underlying devices enslaved in a
+   bridge or in a bond, so we need a hook directly in
+   __netif_receive_skb_core.  This approach makes it harder to filter
+   non-encrypted packets on RX without forcing the user to setup some
+   rules, so the "transparent" mode is not so transparent after all.
+   It also makes TX more complex than with a dedicated netdevice.
+
+One issue with the proposed implementation is that the qdisc layer for
+the real device operates on already encrypted packets.
+
+
+Netlink API
+
+This is currently a mix of rtnetlink (to create the device and set up
+the TX channel) and genl (for RX channels, secure associations and
+their keys).  genl provides clean demultiplexing of the {TX,RX}{SC,SA}
+commands.
+
+
+Use cases
+
+The normal use case is wired LANs, including veth and slave devices
+for bonding/teaming or bridges.
+
+MACsec can also be used on any device that makes a full ethernet
+header visible, for example VXLAN.
+The VXLAN+MACsec setup would be:
+
+         hypervisor        |     virtual machine
+    <real_dev>---<VXLAN>---|---<dev>---<macsec_dev>
+
+And the packets would look like this:
+
+| eth | IP | UDP | VXLAN | eth | MACsec | IP | ... | MACsec ICV |
+
+One benefit on this approach to encryption in the cloud is that the
+payload is encrypted by the tenant, not by the tunnel provider, thus
+the tenant has full control over the keys.
+
+
+Changes from v1:
+ - rework netlink API after discussion with Johannes Berg
+   - nest attributes, rename
+   - export stats as separate attributes
+   - add some comments
+ - misc small fixes (rcu, constants, struct organization)
+
+Changes from RFCv2:
+ - fix ENCODING_SA param validation
+ - add parent link to netlink ifdumps
+
+Changes from RFCv1:
+ - addressed comments from Florian and Paolo + kbuild robot
+ - also perform post-decrypt handling after crypto callback
+ - fixed ->dellink behavior
+
+Future plans:
+ - offload to hardware, on nics that support it
+ - implement optional features
+
+
+[0] http://standards.ieee.org/getieee802/download/802.1AE-2006.pdf
+[1] http://standards.ieee.org/getieee802/download/802.1AEbn-2011.pdf
+[2] http://standards.ieee.org/getieee802/download/802.1X-2010.pdf
+[3] RFCv1: http://www.spinics.net/lists/netdev/msg358151.html
+[4] RFCv2: http://www.spinics.net/lists/netdev/msg362389.html
+[5] v1: http://www.spinics.net/lists/netdev/msg367959.html
+
+Sabrina Dubroca (3):
+  uapi: add MACsec bits
+  net: add MACsec netdevice priv_flags and helper
+  macsec: introduce IEEE 802.1AE driver
+
+ drivers/net/Kconfig            |    7 +
+ drivers/net/Makefile           |    1 +
+ drivers/net/macsec.c           | 3297 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/netdevice.h      |    8 +
+ include/uapi/linux/Kbuild      |    1 +
+ include/uapi/linux/if_ether.h  |    1 +
+ include/uapi/linux/if_link.h   |   29 +
+ include/uapi/linux/if_macsec.h |  161 ++
+ 8 files changed, 3505 insertions(+)
+ create mode 100644 drivers/net/macsec.c
+ create mode 100644 include/uapi/linux/if_macsec.h
+
+-- 
+2.7.2
