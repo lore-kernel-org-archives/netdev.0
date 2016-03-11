@@ -1,129 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Fri, 11 Mar 2016 11:51:58 -0800
-Message-ID: <56E321DE.9030408@gmail.com>
-References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
- <56E1A55F.3090906@ti.com> <56E1B75F.9070100@gmail.com>
- <56E1CD4D.20405@ti.com> <56E30EE5.4050904@ti.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Generic TSO (was Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable
+ outer Tx checksum by default)
+Date: Fri, 11 Mar 2016 11:57:09 -0800
+Message-ID: <CALx6S37G5N-3GxXYf8uF9p8QNC+U_d6-Vf+8Jg6bFqEv_FpULg@mail.gmail.com>
+References: <20160219191806.15687.37621.stgit@localhost.localdomain>
+	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
+	<CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
+	<CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
+	<CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
+	<CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+	<CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+	<56E31A89.9020602@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Murali Karicheri <m-karicheri2@ti.com>, johan@kernel.org,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>, Andrew Lunn <andrew@lunnc.ch>,
-	opendmb@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34548 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbcCKTxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:53:32 -0500
-Received: by mail-pa0-f49.google.com with SMTP id fe3so91103944pab.1
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:53:32 -0800 (PST)
-In-Reply-To: <56E30EE5.4050904@ti.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37394 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932162AbcCKT5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:57:10 -0500
+Received: by mail-ig0-f170.google.com with SMTP id z8so19921437ige.0
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:57:09 -0800 (PST)
+In-Reply-To: <56E31A89.9020602@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/16 10:31, Murali Karicheri wrote:
-> On 03/10/2016 02:38 PM, Murali Karicheri wrote:
->> On 03/10/2016 01:05 PM, Florian Fainelli wrote:
->>> On 10/03/16 08:48, Murali Karicheri wrote:
->>>> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
->>>>> On 03/03/16 14:18, Murali Karicheri wrote:
->>>>>> Hi,
->>>>>>
->>>>>> We are using Micrel Phy in one of our board and wondering if we can force the
->>>>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
->>>>>> to Phy and the phy always enable flow control. I would like to configure the
->>>>>> phy not to flow control. Is that possible and if yes, what should I do in the
->>>>>> my Ethernet driver to tell the Phy not to enable flow control?
->>>>>
->>>>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
->>>>> the switch is doing, along with the link partner advertising support for
->>>>> it. You would want to make sure that your PHY device interface (provided
->>>>> that you are using the PHY library) is not starting with Pause
->>>>> advertised, but it could be supported.
->>>>
->>>> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
->>>> by default FC supported. After negotiation, I see that Phylib provide the 
->>>> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
->>>> to advertise?
->>>>
->>>> I call following sequence in the Ethernet driver.
->>>>
->>>> of_phy_connect(x,y,hndlr,a,z);
->>>
->>> Here you should be able to change phydev->advertising and
->>> phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
->>> bits and have phy_start() restart with that which should disable pause
->>> and asym_pause as seen by your adjust_link handler.
->>>
->> Ok. Good point. I will try this. Thanks for your suggestion.
+On Fri, Mar 11, 2016 at 11:20 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 20/02/16 19:51, Tom Herbert wrote:
+>> Right. To use LCO with TSO we would need to ensure that all packets
+>> are the same size so that the UDP length field and thus checksum are
+>> constant for all created segments. But this property this would also
+>> make any payload lengths in headers constant for all packets so that
+>> the only fields that need be set per generated packet would be the TCP
+>> sequence number and checksum. This simplifying assumption could be
+>> used to make a very protocol-generic GSO/TSO (up to the transport
+>> header)!
 >>
-> I had to make following changes to the phy_device.c to allow the phy device
-> report maximum common flow control capability to Ethernet driver through
-> handler. My driver code looks like this.
-> 
->                 slave->phy = of_phy_connect(gbe_intf->ndev,
->                                             slave->phy_node,
->                                             hndlr, 0,
->                                             phy_mode);
->                 if (!slave->phy) {
->                         dev_err(priv->dev, "phy not found on slave %d\n",
->                                 slave->slave_num);
->                         return -ENODEV;
->                 }
->                 dev_dbg(priv->dev, "phy found: id is: 0x%s\n",
->                         dev_name(&slave->phy->dev));
-> 
->                 slave->phy->supported &=
->                                 ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
->                 slave->phy->advertising = slave->phy->supported;
->                 phy_start(slave->phy);
->                 phy_read_status(slave->phy);
-> 
-> And then in the phy_device.c, I did to get flow control off reported in
-> handler for link status update.
+>> Conceptually, a device would just need to know the start of the
+>> packet, the offset of the transport header, and the size of each
+>> segment. Any bits from the start of the packet to the beginning of the
+>> transport header are just copied to each segment, so any combination
+>> of encapsulation/network protocols is  supported as long as they are
+>> constant for each segment (e.g. MPLS, NSH, etc. are on the horizon for
+>> needing TSO support).
+> Tom,
+>
+> Are you planning to / working on implementing this?  If not, I might have a
+> crack at it; I've talked to our firmware guys and (provisionally) we think
+> we can support it in current sfc hardware.
+> Or were there any blocking problems raised in the thread?  My understanding
+> of the IP ID issue was that it only matters for the inner frame, because
+> the rest aren't TCP (so hopefully no-one is doing SLHC on them).  But I may
+> have missed something.
+>
+Right, then the interface would need to just include the offset of the
+IP ID. But doesn't this break using LCO with GSO though-- i.e. the
+outer checksum and inner checksum still need to be updated per packet
+so we need to tell device where outer checksum(s) is.
 
+Thanks,
+Tom
 
-
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index d551df6..55412ad 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -1021,8 +1021,8 @@ int genphy_read_status(struct phy_device *phydev)
->                                 phydev->duplex = DUPLEX_FULL;
->  
->                 if (phydev->duplex == DUPLEX_FULL) {
-> -                       phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
-> -                       phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-> +                       phydev->pause = adv & lpa & LPA_PAUSE_CAP ? 1 : 0;
-> +                       phydev->asym_pause = adv & lpa & LPA_PAUSE_ASYM ? 1 : 0;
-
-What it means before your patch is that flow control is reported to the
-PHY device if the link partner advertises that, with your patch applied,
-it is reported only if the link partner and yourself advertise flow control.
-
-You seem to be willing to have phydev->pause and phydev->asym_pause
-reflect the resolved pause capability, as opposed to the link partner's
-pause capability, which I am not convinced is correct here, because we
-need to take into account the user-configured pause configuration as
-well. Your adjust_link function should be the one deciding whether pause
-frame advertising and enabling is appropriate based on: locally
-configured pause settings (enabled, disabled, autoneg) and the link
-partner's pause capability.
-
-I do agree that the two fields are confusing and poorly documented, and
-we should probably be consolidating the pause frame behavior in PHYLIB
-as opposed to letting drivers deal with like e.g: gianfar, bcm63xx_enet,
-tg3 etc.
-
->  
-> Could you explain, why the common maximum capability is not reported to the
-> driver as per standard?? Or Am I understood it wrong?
-
-I do not understand the question, what is "maximum capability" in that
-context and what standard are you refering to?
--- 
-Florian
+> -Ed
