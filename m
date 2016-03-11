@@ -1,109 +1,60 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v4 03/11] ethtool.c: fix dump_regs heap corruption
-Date: Fri, 11 Mar 2016 09:58:16 -0800
-Message-ID: <1457719104-39188-4-git-send-email-ddecotig@gmail.com>
+Subject: [ethtool PATCH v4 07/11] test-features.c: add braces around array initialization
+Date: Fri, 11 Mar 2016 09:58:20 -0800
+Message-ID: <1457719104-39188-8-git-send-email-ddecotig@gmail.com>
 References: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	David Miller <davem@redhat.com>,
 	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
 	Joe Perches <joe@perches.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
 	David Decotigny <decot@googlers.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35514 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbcCKR6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:58:39 -0500
-Received: by mail-pa0-f67.google.com with SMTP id fl4so9043769pad.2
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 09:58:39 -0800 (PST)
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36133 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750989AbcCKR6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:58:42 -0500
+Received: by mail-pa0-f65.google.com with SMTP id 1so9038576pal.3
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 09:58:42 -0800 (PST)
 In-Reply-To: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+=46rom: Maciej =C5=BBenczykowski <maze@google.com>
 
-The 'regs' pointer is owned by do_gregs(), but updated internally inside
-dump_regs() without propagating it back to do_gregs(): later free(regs)
-in do_gregs() reclaims the wrong area. This commit moves the realloc()
-inside do_gregs().
+This fixes:
+  test-features.c:21:1: error: missing braces around initializer [-Werr=
+or=3Dmissing-braces]
+   cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES=
+ }, 34 };
+   ^
 
 
+Signed-off-by: Maciej =C5=BBenczykowski <maze@google.com>
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- ethtool.c | 46 +++++++++++++++++++++++++---------------------
- 1 file changed, 25 insertions(+), 21 deletions(-)
+ test-features.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ethtool.c b/ethtool.c
-index 9f80d5f..7c2b5cb 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -994,7 +994,6 @@ void dump_hex(FILE *file, const u8 *data, int len, int offset)
+diff --git a/test-features.c b/test-features.c
+index d7bd994..6ebb364 100644
+--- a/test-features.c
++++ b/test-features.c
+@@ -18,7 +18,7 @@ static const struct {
+ 	struct ethtool_sset_info cmd;
+ 	u32 data[1];
  }
- 
- static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
--		     const char *gregs_dump_file,
- 		     struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- {
- 	int i;
-@@ -1004,25 +1003,6 @@ static int dump_regs(int gregs_dump_raw, int gregs_dump_hex,
- 		return 0;
- 	}
- 
--	if (gregs_dump_file) {
--		FILE *f = fopen(gregs_dump_file, "r");
--		struct stat st;
--		size_t nread;
--
--		if (!f || fstat(fileno(f), &st) < 0) {
--			fprintf(stderr, "Can't open '%s': %s\n",
--				gregs_dump_file, strerror(errno));
--			return -1;
--		}
--
--		regs = realloc(regs, sizeof(*regs) + st.st_size);
--		regs->len = st.st_size;
--		nread = fread(regs->data, regs->len, 1, f);
--		fclose(f);
--		if (nread != 1)
--			return -1;
--	}
--
- 	if (!gregs_dump_hex)
- 		for (i = 0; i < ARRAY_SIZE(driver_list); i++)
- 			if (!strncmp(driver_list[i].name, info->driver,
-@@ -2711,7 +2691,31 @@ static int do_gregs(struct cmd_context *ctx)
- 		free(regs);
- 		return 74;
- 	}
--	if (dump_regs(gregs_dump_raw, gregs_dump_hex, gregs_dump_file,
-+
-+	if (!gregs_dump_raw && gregs_dump_file != NULL) {
-+		/* overwrite reg values from file dump */
-+		FILE *f = fopen(gregs_dump_file, "r");
-+		struct stat st;
-+		size_t nread;
-+
-+		if (!f || fstat(fileno(f), &st) < 0) {
-+			fprintf(stderr, "Can't open '%s': %s\n",
-+				gregs_dump_file, strerror(errno));
-+			free(regs);
-+			return 75;
-+		}
-+
-+		regs = realloc(regs, sizeof(*regs) + st.st_size);
-+		regs->len = st.st_size;
-+		nread = fread(regs->data, regs->len, 1, f);
-+		fclose(f);
-+		if (nread != 1) {
-+			free(regs);
-+			return 75;
-+		}
-+        }
-+
-+	if (dump_regs(gregs_dump_raw, gregs_dump_hex,
- 		      &drvinfo, regs) < 0) {
- 		fprintf(stderr, "Cannot dump registers\n");
- 		free(regs);
--- 
+-cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES }=
+, 34 };
++cmd_gssetinfo =3D { { ETHTOOL_GSSET_INFO, 0, 1ULL << ETH_SS_FEATURES }=
+, { 34 } };
+=20
+ static const struct ethtool_value
+ cmd_grxcsum_off =3D { ETHTOOL_GRXCSUM, 0 },
+--=20
 2.7.0.rc3.207.g0ac5344
