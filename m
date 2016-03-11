@@ -1,13 +1,14 @@
-From: Andrew Lunn <andrew@lunn.ch>
+From: David Daney <ddaney@caviumnetworks.com>
 Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
-Date: Fri, 11 Mar 2016 18:31:25 +0100
-Message-ID: <20160311173125.GI3153@lunn.ch>
-References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
- <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
+Date: Fri, 11 Mar 2016 09:41:06 -0800
+Message-ID: <56E30332.7060003@caviumnetworks.com>
+References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com> <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com> <20160311173125.GI3153@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Daney <ddaney.cavm@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Robert Richter <rric@kernel.org>,
 	Sunil Goutham <sgoutham@cavium.com>,
@@ -17,29 +18,40 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Pawel Moll <pawel.moll@arm.com>,
 	Rob Herring <robh+dt@kernel.org>,
 	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
-	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54916 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932124AbcCKRcA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 12:32:00 -0500
-Content-Disposition: inline
-In-Reply-To: <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	<linux-kernel@vger.kernel.org>,
+	David Daney <david.daney@cavium.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160311173125.GI3153@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +		phy_np = of_parse_phandle(node, "phy-handle", 0);
-> +		/* If there is no phy or defective firmware presents
-> +		 * this cortina phy, for which there is no driver
-> +		 * support, ignore it.
-> +		 */
-> +		if (phy_np &&
-> +		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
+On 03/11/2016 09:31 AM, Andrew Lunn wrote:
+>> +		phy_np = of_parse_phandle(node, "phy-handle", 0);
+>> +		/* If there is no phy or defective firmware presents
+>> +		 * this cortina phy, for which there is no driver
+>> +		 * support, ignore it.
+>> +		 */
+>> +		if (phy_np &&
+>> +		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
+>
+> Hi David
+>
+> What is a cortina,cs4223-slice,
 
-Hi David
+It is 1/4 of:
 
-What is a cortina,cs4223-slice, and why does it need to be handled differently?
+https://www.inphi.com/products/cs4223.php
 
-Thanks
-	Andrew
+> and why does it need to be handled differently?
+>
+
+$ ls drivers/net/phy/*cortina*
+ls: cannot access drivers/net/phy/*cortina*: No such file or directory
+
+For this configuration of thunder_bgx.c, the use of a Linux PHY driver 
+is optional.
+
+The firmware should probably not specify a PHY here, but it does so we 
+ignore it so we don't wait around forever for the non-existent driver to 
+bind.
