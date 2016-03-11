@@ -1,41 +1,32 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: [v2, resend] b43: Fix memory leaks in b43_bus_dev_ssb_init and
- b43_bus_dev_bcma_init
-Date: Fri, 11 Mar 2016 21:52:30 +0530
-Message-ID: <20160311162230.GA5436@sudip-laptop>
-References: <1452949690-16387-1-git-send-email-baijiaju1990@163.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/2] qlcnic fixes
+Date: Fri, 11 Mar 2016 11:41:08 -0500 (EST)
+Message-ID: <20160311.114108.2087660557628939670.davem@davemloft.net>
+References: <1457422798-17981-1-git-send-email-rajesh.borundia@qlogic.com>
+	<20160310.161635.432267926229064181.davem@davemloft.net>
+	<BN3PR11MB02730845402BE347A2F978848BB50@BN3PR11MB0273.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo@codeaurora.org, zajec5@gmail.com, joe@perches.com,
-	davem@davemloft.net, m@bues.ch, johannes.berg@intel.com,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Jia-Ju Bai <baijiaju1990@163.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com
+To: rajesh.borundia@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:33893 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932473AbcCKQWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 11:22:44 -0500
-Content-Disposition: inline
-In-Reply-To: <1452949690-16387-1-git-send-email-baijiaju1990@163.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35288 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932410AbcCKQlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 11:41:19 -0500
+In-Reply-To: <BN3PR11MB02730845402BE347A2F978848BB50@BN3PR11MB0273.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 16, 2016 at 09:08:10PM +0800, Jia-Ju Bai wrote:
-> The memory allocated by kzalloc in b43_bus_dev_ssb_init and
-> b43_bus_dev_bcma_init is not freed.
-> This patch fixes the bug by adding kfree in b43_ssb_remove,
-> b43_bcma_remove and error handling code of b43_bcma_probe.
-> 
-> Thanks Michael for his suggestion.
-> 
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Date: Fri, 11 Mar 2016 06:40:01 +0000
 
-The patch did not apply cleanly. I had to edit the patch to point to
-drivers/net/wireless/broadcom/b43/main.c
+>>-----Original Message-----
+>>From: David Miller [mailto:davem@davemloft.net]
+>>Sent: Friday, March 11, 2016 2:47 AM
+>>Let me know if you'd like me to therefore queue these changes up for -stable.
+>>
+> Please queue the changes for stable.
 
-For CONFIG_B43_SSB part-
-Tested-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
-
-regards
-sudip
+Done.
