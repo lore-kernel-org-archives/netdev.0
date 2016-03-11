@@ -1,86 +1,88 @@
 From: Daode Huang <huangdaode@hisilicon.com>
-Subject: [PATCH V2 net 1/6] net: hns: bug fix about the overflow of mss
-Date: Fri, 11 Mar 2016 17:10:41 +0800
-Message-ID: <1457687446-109867-2-git-send-email-huangdaode@hisilicon.com>
+Subject: [PATCH V2 net 3/6] net: hns: fixed portid bug in sending manage pkt
+Date: Fri, 11 Mar 2016 17:10:43 +0800
+Message-ID: <1457687446-109867-4-git-send-email-huangdaode@hisilicon.com>
 References: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: lisheng011@huawei.com, salil.mehta@huawei.com, yankejian@huawei.com,
- kenneth-lee-2012@foxmail.com, liguozhu@hisilicon.com, linuxarm@huawei.com,
- xuwei5@hisilicon.com, linux-kernel@vger.kernel.org, huangdaode@hisilicon.com,
- netdev@vger.kernel.org, Yisen.Zhuang@huawei.com,
- linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain
+Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
+	<huangdaode@hisilicon.com>, <kenneth-lee-2012@foxmail.com>,
+	<xuwei5@hisilicon.com>, <lisheng011@huawei.com>,
+	<yankejian@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When set MTU to the minimum value 68, there are increasing number
-of error packets occur, which is caused by the overflowed value of
-mss. This patch fix the bug.
+In V2 chip, when sending mamagement packets, the driver should
+config the port id to BD descs.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ v2: add space after /* and before */.
+---
+drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 6 +++++-
+ 3 files changed, 9 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 1cbcb9f..37d0cce 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -147,6 +147,8 @@ enum hnae_led_state {
+ 
+ #define HNSV2_TXD_BUFNUM_S 0
+ #define HNSV2_TXD_BUFNUM_M (0x7 << HNSV2_TXD_BUFNUM_S)
++#define HNSV2_TXD_PORTID_S	4
++#define HNSV2_TXD_PORTID_M	(0X7 << HNSV2_TXD_PORTID_S)
+ #define HNSV2_TXD_RI_B   1
+ #define HNSV2_TXD_L4CS_B   2
+ #define HNSV2_TXD_L3CS_B   3
+@@ -516,6 +518,7 @@ struct hnae_handle {
+ 	int q_num;
+ 	int vf_id;
+ 	u32 eport_id;
++	u32 dport_id;	/* v2 tx bd should fill the dport_id */
+ 	enum hnae_port_type port_type;
+ 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
+ 	struct hnae_buf_ops *bops; /* operation for the buffer */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index d4f92ed..90352d6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -175,6 +175,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
++	ae_handle->dport_id = port_idx;
+ 
+ 	return ae_handle;
+ vf_id_err:
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3f77ff7..9d46d57 100644
+index 6250a42..cb16b50 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -48,7 +48,6 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
- 	struct iphdr *iphdr;
- 	struct ipv6hdr *ipv6hdr;
- 	struct sk_buff *skb;
--	int skb_tmp_len;
- 	__be16 protocol;
- 	u8 bn_pid = 0;
- 	u8 rrcfv = 0;
-@@ -90,13 +89,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
- 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
+@@ -65,10 +65,14 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	desc->addr = cpu_to_le64(dma);
+ 	desc->tx.send_size = cpu_to_le16((u16)size);
  
- 				/* check for tcp/udp header */
--				if (iphdr->protocol == IPPROTO_TCP) {
-+				if (iphdr->protocol == IPPROTO_TCP &&
-+				    skb_is_gso(skb)) {
- 					hnae_set_bit(tvsvsn,
- 						     HNSV2_TXD_TSE_B, 1);
--					skb_tmp_len = SKB_TMP_LEN(skb);
- 					l4_len = tcp_hdrlen(skb);
--					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
--					paylen = skb->len - skb_tmp_len;
-+					mss = skb_shinfo(skb)->gso_size;
-+					paylen = skb->len - SKB_TMP_LEN(skb);
- 				}
- 			} else if (skb->protocol == htons(ETH_P_IPV6)) {
- 				hnae_set_bit(tvsvsn, HNSV2_TXD_IPV6_B, 1);
-@@ -104,13 +103,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
- 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
+-	/*config bd buffer end */
++	/* config bd buffer end */
+ 	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
+ 	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
  
- 				/* check for tcp/udp header */
--				if (ipv6hdr->nexthdr == IPPROTO_TCP) {
-+				if (ipv6hdr->nexthdr == IPPROTO_TCP &&
-+				    skb_is_gso(skb) && skb_is_gso_v6(skb)) {
- 					hnae_set_bit(tvsvsn,
- 						     HNSV2_TXD_TSE_B, 1);
--					skb_tmp_len = SKB_TMP_LEN(skb);
- 					l4_len = tcp_hdrlen(skb);
--					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
--					paylen = skb->len - skb_tmp_len;
-+					mss = skb_shinfo(skb)->gso_size;
-+					paylen = skb->len - SKB_TMP_LEN(skb);
- 				}
- 			}
- 			desc->tx.ip_offset = ip_offset;
++	/* fill port_id in the tx bd for sending management pkts */
++	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
++		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
++
+ 	if (type == DESC_TYPE_SKB) {
+ 		skb = (struct sk_buff *)priv;
+ 
 -- 
 1.9.1
