@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V4 1/3] net: adjust napi_consume_skb to handle
- non-NAPI callers
-Date: Fri, 11 Mar 2016 09:43:58 +0100
-Message-ID: <20160311084358.5207.54143.stgit@firesoul>
+Subject: [net-next PATCH V4 2/3] mlx4: use napi_consume_skb API to get bulk
+ free operations
+Date: Fri, 11 Mar 2016 09:44:08 +0100
+Message-ID: <20160311084407.5207.69015.stgit@firesoul>
 References: <20160311084245.5207.70640.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,45 +14,91 @@ Cc: sergei.shtylyov@cogentembedded.com, eugenia@mellanox.com,
 	gerlitz.or@gmail.com
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36285 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56975 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935408AbcCKIoE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 03:44:04 -0500
+	id S935040AbcCKIoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 03:44:17 -0500
 In-Reply-To: <20160311084245.5207.70640.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some drivers reuse/share code paths that free SKBs between NAPI
-and non-NAPI calls. Adjust napi_consume_skb to handle this
-use-case.
+Bulk free of SKBs happen transparently by the API call napi_consume_skb().
+The napi budget parameter is usually needed by napi_consume_skb()
+to detect if called from netpoll.  In this patch it has an extra meaning.
 
-Before, calls from netpoll (w/ IRQs disabled) was handled and
-indicated with a budget zero indication.  Use the same zero
-indication to handle calls not originating from NAPI/softirq.
-Simply handled by using dev_consume_skb_any().
+For mlx4 driver, the mlx4_en_stop_port() call is done outside
+NAPI/softirq context, and cleanup the entire TX ring via
+mlx4_en_free_tx_buf().  The code mlx4_en_free_tx_desc() for
+freeing SKBs are shared with NAPI calls.
 
-This adds an extra branch+call for the netpoll case (checking
-in_irq() + irqs_disabled()), but that is okay as this is a slowpath.
+To handle this shared use the zero budget indication is reused,
+and handled appropriately in napi_consume_skb(). To reflect this,
+variable is called napi_mode for the function call that needed
+this distinction.
 
-Suggested-by: Alexander Duyck <aduyck@mirantis.com>
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- net/core/skbuff.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |   15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 7af7ec635d90..cf63a6000405 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -801,9 +801,9 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
- 	if (unlikely(!skb))
- 		return;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index e0946ab22010..c0d7b7296236 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -276,7 +276,8 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
  
--	/* if budget is 0 assume netpoll w/ IRQs disabled */
-+	/* Zero budget indicate non-NAPI context called us, like netpoll */
- 	if (unlikely(!budget)) {
--		dev_consume_skb_irq(skb);
-+		dev_consume_skb_any(skb);
- 		return;
+ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_tx_ring *ring,
+-				int index, u8 owner, u64 timestamp)
++				int index, u8 owner, u64 timestamp,
++				int napi_mode)
+ {
+ 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
+ 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
+@@ -347,7 +348,8 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
+ 			}
+ 		}
  	}
+-	dev_consume_skb_any(skb);
++	napi_consume_skb(skb, napi_mode);
++
+ 	return tx_info->nr_txbb;
+ }
+ 
+@@ -371,7 +373,8 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+ 	while (ring->cons != ring->prod) {
+ 		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
+ 						ring->cons & ring->size_mask,
+-						!!(ring->cons & ring->size), 0);
++						!!(ring->cons & ring->size), 0,
++						0 /* Non-NAPI caller */);
+ 		ring->cons += ring->last_nr_txbb;
+ 		cnt++;
+ 	}
+@@ -385,7 +388,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+ }
+ 
+ static bool mlx4_en_process_tx_cq(struct net_device *dev,
+-				 struct mlx4_en_cq *cq)
++				  struct mlx4_en_cq *cq, int napi_budget)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_cq *mcq = &cq->mcq;
+@@ -451,7 +454,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
+ 			last_nr_txbb = mlx4_en_free_tx_desc(
+ 					priv, ring, ring_index,
+ 					!!((ring_cons + txbbs_skipped) &
+-					ring->size), timestamp);
++					ring->size), timestamp, napi_budget);
+ 
+ 			mlx4_en_stamp_wqe(priv, ring, stamp_index,
+ 					  !!((ring_cons + txbbs_stamp) &
+@@ -511,7 +514,7 @@ int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	int clean_complete;
+ 
+-	clean_complete = mlx4_en_process_tx_cq(dev, cq);
++	clean_complete = mlx4_en_process_tx_cq(dev, cq, budget);
+ 	if (!clean_complete)
+ 		return budget;
  
