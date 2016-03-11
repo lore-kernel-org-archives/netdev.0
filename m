@@ -1,39 +1,129 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvtap: always pass ethernet header in linear
-Date: Fri, 11 Mar 2016 14:45:54 -0500 (EST)
-Message-ID: <20160311.144554.1233700363485262783.davem@davemloft.net>
-References: <1457468334-66777-1-git-send-email-willemdebruijn.kernel@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
+ flow control?
+Date: Fri, 11 Mar 2016 11:51:58 -0800
+Message-ID: <56E321DE.9030408@gmail.com>
+References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
+ <56E1A55F.3090906@ti.com> <56E1B75F.9070100@gmail.com>
+ <56E1CD4D.20405@ti.com> <56E30EE5.4050904@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
+To: Murali Karicheri <m-karicheri2@ti.com>, johan@kernel.org,
+	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	"Kwok, WingMan" <w-kwok2@ti.com>, Andrew Lunn <andrew@lunnc.ch>,
+	opendmb@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37212 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932127AbcCKTp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:45:56 -0500
-In-Reply-To: <1457468334-66777-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34548 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbcCKTxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:53:32 -0500
+Received: by mail-pa0-f49.google.com with SMTP id fe3so91103944pab.1
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:53:32 -0800 (PST)
+In-Reply-To: <56E30EE5.4050904@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Tue,  8 Mar 2016 15:18:54 -0500
+On 11/03/16 10:31, Murali Karicheri wrote:
+> On 03/10/2016 02:38 PM, Murali Karicheri wrote:
+>> On 03/10/2016 01:05 PM, Florian Fainelli wrote:
+>>> On 10/03/16 08:48, Murali Karicheri wrote:
+>>>> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
+>>>>> On 03/03/16 14:18, Murali Karicheri wrote:
+>>>>>> Hi,
+>>>>>>
+>>>>>> We are using Micrel Phy in one of our board and wondering if we can force the
+>>>>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
+>>>>>> to Phy and the phy always enable flow control. I would like to configure the
+>>>>>> phy not to flow control. Is that possible and if yes, what should I do in the
+>>>>>> my Ethernet driver to tell the Phy not to enable flow control?
+>>>>>
+>>>>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
+>>>>> the switch is doing, along with the link partner advertising support for
+>>>>> it. You would want to make sure that your PHY device interface (provided
+>>>>> that you are using the PHY library) is not starting with Pause
+>>>>> advertised, but it could be supported.
+>>>>
+>>>> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
+>>>> by default FC supported. After negotiation, I see that Phylib provide the 
+>>>> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
+>>>> to advertise?
+>>>>
+>>>> I call following sequence in the Ethernet driver.
+>>>>
+>>>> of_phy_connect(x,y,hndlr,a,z);
+>>>
+>>> Here you should be able to change phydev->advertising and
+>>> phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
+>>> bits and have phy_start() restart with that which should disable pause
+>>> and asym_pause as seen by your adjust_link handler.
+>>>
+>> Ok. Good point. I will try this. Thanks for your suggestion.
+>>
+> I had to make following changes to the phy_device.c to allow the phy device
+> report maximum common flow control capability to Ethernet driver through
+> handler. My driver code looks like this.
+> 
+>                 slave->phy = of_phy_connect(gbe_intf->ndev,
+>                                             slave->phy_node,
+>                                             hndlr, 0,
+>                                             phy_mode);
+>                 if (!slave->phy) {
+>                         dev_err(priv->dev, "phy not found on slave %d\n",
+>                                 slave->slave_num);
+>                         return -ENODEV;
+>                 }
+>                 dev_dbg(priv->dev, "phy found: id is: 0x%s\n",
+>                         dev_name(&slave->phy->dev));
+> 
+>                 slave->phy->supported &=
+>                                 ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+>                 slave->phy->advertising = slave->phy->supported;
+>                 phy_start(slave->phy);
+>                 phy_read_status(slave->phy);
+> 
+> And then in the phy_device.c, I did to get flow control off reported in
+> handler for link status update.
 
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> The stack expects link layer headers in the skb linear section.
-> Macvtap can create skbs with llheader in frags in edge cases:
-> when (IFF_VNET_HDR is off or vnet_hdr.hdr_len < ETH_HLEN) and
-> prepad + len > PAGE_SIZE and vnet_hdr.flags has no or bad csum.
-> 
-> Add checks to ensure linear is always at least ETH_HLEN.
-> At this point, len is already ensured to be >= ETH_HLEN.
-> 
-> For backwards compatiblity, rounds up short vnet_hdr.hdr_len.
-> This differs from tap and packet, which return an error.
-> 
-> Fixes b9fb9ee07e67 ("macvtap: add GSO/csum offload support")
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied to net-next and queued up for -stable, thanks.
+
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index d551df6..55412ad 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -1021,8 +1021,8 @@ int genphy_read_status(struct phy_device *phydev)
+>                                 phydev->duplex = DUPLEX_FULL;
+>  
+>                 if (phydev->duplex == DUPLEX_FULL) {
+> -                       phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
+> -                       phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
+> +                       phydev->pause = adv & lpa & LPA_PAUSE_CAP ? 1 : 0;
+> +                       phydev->asym_pause = adv & lpa & LPA_PAUSE_ASYM ? 1 : 0;
+
+What it means before your patch is that flow control is reported to the
+PHY device if the link partner advertises that, with your patch applied,
+it is reported only if the link partner and yourself advertise flow control.
+
+You seem to be willing to have phydev->pause and phydev->asym_pause
+reflect the resolved pause capability, as opposed to the link partner's
+pause capability, which I am not convinced is correct here, because we
+need to take into account the user-configured pause configuration as
+well. Your adjust_link function should be the one deciding whether pause
+frame advertising and enabling is appropriate based on: locally
+configured pause settings (enabled, disabled, autoneg) and the link
+partner's pause capability.
+
+I do agree that the two fields are confusing and poorly documented, and
+we should probably be consolidating the pause frame behavior in PHYLIB
+as opposed to letting drivers deal with like e.g: gianfar, bcm63xx_enet,
+tg3 etc.
+
+>  
+> Could you explain, why the common maximum capability is not reported to the
+> driver as per standard?? Or Am I understood it wrong?
+
+I do not understand the question, what is "maximum capability" in that
+context and what standard are you refering to?
+-- 
+Florian
