@@ -1,98 +1,59 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] batman-adv: Less function calls in batadv_is_ap_isolated()
- after error detection
-Date: Fri, 11 Mar 2016 13:40:56 +0100
-Message-ID: <56E2BCD8.9010200@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <564EDE1D.7070809@meshcoding.com> <564EFC67.7050307@users.sourceforge.net>
- <1655341.WCvHHx7pqD@bentobox>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts disabled
+Date: Fri, 11 Mar 2016 22:22:18 +0900
+Message-ID: <201603112222.CDG97029.OJFHQOtVOLFMFS@I-love.SAKURA.ne.jp>
+References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com>
+	<20160307.151614.818719625382924245.davem@davemloft.net>
+	<20160308143146.GA26031@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	Antonio Quartulli <a@unstable.cc>,
-	"David S. Miller" <davem@davemloft.net>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Sven Eckelmann <sven@narfation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
+To: nhorman@tuxdriver.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:60119 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752320AbcCKMlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 07:41:16 -0500
-In-Reply-To: <1655341.WCvHHx7pqD@bentobox>
+Received: from www262.sakura.ne.jp ([202.181.97.72]:47352 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540AbcCKNWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 08:22:31 -0500
+In-Reply-To: <20160308143146.GA26031@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 11 Mar 2016 13:10:20 +0100
+Neil Horman wrote:
+> On Mon, Mar 07, 2016 at 03:16:14PM -0500, David Miller wrote:
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Fri,  4 Mar 2016 13:40:48 -0500
 
-The variables "tt_local_entry" and "tt_global_entry" were eventually
-checked again despite of a corresponding null pointer test before.
+This patch is calling spin_unlock_irqrestore() without spin_lock_irqsave().
 
-* Avoid this double check by reordering a function call sequence
-  and the better selection of jump targets.
+In file included from include/linux/seqlock.h:35:0,
+                 from include/linux/time.h:5,
+                 from include/linux/stat.h:18,
+                 from include/linux/module.h:10,
+                 from drivers/net/vmxnet3/vmxnet3_drv.c:27:
+drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_xmit_frame':
+include/linux/spinlock.h:246:30: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
+   _raw_spin_unlock_irqrestore(lock, flags); \
+                              ^
+drivers/net/vmxnet3/vmxnet3_drv.c:977:16: note: 'flags' was declared here
+  unsigned long flags;
+                ^
 
-* Omit the initialisation for these variables at the beginning then.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/batman-adv/translation-table.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
-
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 0b43e86..9c0193ee 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -3403,8 +3403,8 @@ void batadv_tt_local_commit_changes(struct batadv_priv *bat_priv)
- bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
- 			   unsigned short vid)
- {
--	struct batadv_tt_local_entry *tt_local_entry = NULL;
--	struct batadv_tt_global_entry *tt_global_entry = NULL;
-+	struct batadv_tt_local_entry *tt_local_entry;
-+	struct batadv_tt_global_entry *tt_global_entry;
- 	struct batadv_softif_vlan *vlan;
- 	bool ret = false;
- 
-@@ -3413,27 +3413,24 @@ bool batadv_is_ap_isolated(struct batadv_priv *bat_priv, u8 *src, u8 *dst,
- 		return false;
- 
- 	if (!atomic_read(&vlan->ap_isolation))
--		goto out;
-+		goto vlan_put;
- 
- 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, dst, vid);
- 	if (!tt_local_entry)
--		goto out;
-+		goto vlan_put;
- 
- 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, src, vid);
- 	if (!tt_global_entry)
--		goto out;
--
--	if (!_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
--		goto out;
-+		goto local_entry_put;
- 
--	ret = true;
-+	if (_batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
-+		ret = true;
- 
--out:
-+	batadv_tt_global_entry_put(tt_global_entry);
-+local_entry_put:
-+	batadv_tt_local_entry_put(tt_local_entry);
-+vlan_put:
- 	batadv_softif_vlan_put(vlan);
--	if (tt_global_entry)
--		batadv_tt_global_entry_put(tt_global_entry);
--	if (tt_local_entry)
--		batadv_tt_local_entry_put(tt_local_entry);
- 	return ret;
- }
- 
--- 
-2.7.2
+vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+                struct vmxnet3_adapter *adapter, struct net_device *netdev)
+{
+(...snipped...)
+		goto hdr_too_big;
+(...snipped...)
+	spin_lock_irqsave(&tq->tx_lock, flags);
+(...snipped...)
+	spin_unlock_irqrestore(&tq->tx_lock, flags);
+(...snipped...)
+	return NETDEV_TX_OK;
+(...snipped...)
+hdr_too_big:
+        tq->stats.drop_oversized_hdr++;
+unlock_drop_pkt:
+        spin_unlock_irqrestore(&tq->tx_lock, flags);
+(...snipped...)
+	return NETDEV_TX_OK;
+}
