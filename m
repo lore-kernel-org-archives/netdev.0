@@ -1,47 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/4] ldmvsw: Make sunvnet_common compatible
- with ldmvsw
-Date: Fri, 11 Mar 2016 14:27:33 -0500 (EST)
-Message-ID: <20160311.142733.1237549201193012342.davem@davemloft.net>
-References: <cover.1457401532.git.Aaron.Young@oracle.com>
-	<cover.1457401532.git.Aaron.Young@oracle.com>
-	<85723889cbcaab6d1f72581f5d34b07c7dc67f6f.1457401532.git.Aaron.Young@oracle.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 04/13] net/mlx5e: Use only close NUMA node for
+ default RSS
+Date: Fri, 11 Mar 2016 21:29:15 +0200
+Message-ID: <CALzJLG8Hro2S5TKP0eHnN0RkE_6+UwEfPZ=zygXDD_5dP-WEow@mail.gmail.com>
+References: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
+	<1457703594-9482-5-git-send-email-saeedm@mellanox.com>
+	<56E2D177.3090403@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	alexandre.chartre@oracle.com, rashmi.narasimhan@oracle.com
-To: Aaron.Young@oracle.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37090 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932070AbcCKT1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:27:36 -0500
-In-Reply-To: <85723889cbcaab6d1f72581f5d34b07c7dc67f6f.1457401532.git.Aaron.Young@oracle.com>
+Received: from mail-yk0-f196.google.com ([209.85.160.196]:33482 "EHLO
+	mail-yk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932070AbcCKT3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:29:16 -0500
+Received: by mail-yk0-f196.google.com with SMTP id r203so3451252ykd.0
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 11:29:16 -0800 (PST)
+In-Reply-To: <56E2D177.3090403@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Young <Aaron.Young@oracle.com>
-Date: Tue,  8 Mar 2016 07:02:34 -0800
+On Fri, Mar 11, 2016 at 4:08 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+> On 3/11/2016 4:39 PM, Saeed Mahameed wrote:
+>
+>> From: Tariq Toukan <tariqt@mellanox.com>
+>>
+>> Distribute default RSS table uniformely over the rings of the
+>
+>
+>    Uniformly.
 
-> @@ -719,12 +720,13 @@ static void maybe_tx_wakeup(struct vnet_port *port)
->  	__netif_tx_unlock(txq);
->  }
->  
-> -static inline bool port_is_up(struct vnet_port *vnet)
-> +inline bool port_is_up_common(struct vnet_port *vnet)
+Indeed :), will fix this
 
-All of these things in foo.c files shouldn't have an inline attribute.
-
->  {
->  	struct vio_driver_state *vio = &vnet->vio;
->  
->  	return !!(vio->hs_state & VIO_HS_COMPLETE);
->  }
-> +EXPORT_SYMBOL(port_is_up_common);
-
-Especially if they are also exported.
-
-Need to use EXPORT_SYMBOL_GPL() here as well, but I seriously think you need to rename
-this function in order to not pollute the global namespace of exported kernel symbols.
-You need to add a suitable prefix such as sunvnet_*() or whatever.
+Thank you.
