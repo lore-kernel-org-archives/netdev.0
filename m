@@ -1,69 +1,74 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: net/bluetooth: workqueue destruction WARNING in
- hci_unregister_dev
-Date: Fri, 11 Mar 2016 12:12:05 -0500
-Message-ID: <20160311171205.GB24046@htj.duckdns.org>
-References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
- <56C5CE85.6090808@suse.cz>
- <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
- <20160218174427.GG13177@mtj.duckdns.org>
- <56C6EC62.8080107@suse.cz>
- <56C70618.3010902@suse.cz>
- <20160302154507.GC4282@mtj.duckdns.org>
- <56D7FFE1.90900@suse.cz>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] b43: Fix memory leaks in b43_bus_dev_ssb_init and b43_bus_dev_bcma_init
+Date: Fri, 11 Mar 2016 22:44:37 +0530
+Message-ID: <1457716477-6287-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Takashi Iwai <tiwai@suse.com>
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:36425 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932643AbcCKRMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:12:09 -0500
-Content-Disposition: inline
-In-Reply-To: <56D7FFE1.90900@suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	b43-dev@lists.infradead.org, netdev@vger.kernel.org,
+	Jia-Ju Bai <baijiaju1990@163.com>,
+	=?UTF-8?q?Michael=20B=C3=BCsch?= <m@bues.ch>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+=46rom: Jia-Ju Bai <baijiaju1990@163.com>
 
-Sorry about the delay.
+The memory allocated by kzalloc in b43_bus_dev_ssb_init and
+b43_bus_dev_bcma_init is not freed.
+This patch fixes the bug by adding kfree in b43_ssb_remove,
+b43_bcma_remove and error handling code of b43_bcma_probe.
 
-On Thu, Mar 03, 2016 at 10:12:01AM +0100, Jiri Slaby wrote:
-> On 03/02/2016, 04:45 PM, Tejun Heo wrote:
-> > On Fri, Feb 19, 2016 at 01:10:00PM +0100, Jiri Slaby wrote:
-> >>> 1. didn't help, the problem persists. So I haven't applied the patch from 2.
-> >>
-> >> FWIW I dumped more info about the wq:
-> >> wq->name='hci0' pwq=ffff8800390d7600 wq->dfl_pwq=ffff8800390d5200
-> >> pwq->refcnt=2 pwq->nr_active=0 delayed_works: <nothing>
-> > 
-> > Can you please print out the same info for all pwq's during shutdown?
-> > It looks like we're leaking pwq refcnt but I can't spot a place where
-> > that could happen on an empty pwq.
-> 
-> I have not done that yet, but today, I see:
-> destroy_workqueue: name='req_hci0' pwq=ffff88002f590300
-> wq->dfl_pwq=ffff88002f591e00 pwq->refcnt=2 pwq->nr_active=0 delayed_works:
->    pwq 12: cpus=0-1 node=0 flags=0x4 nice=-20 active=0/1
->      in-flight: 18568:wq_barrier_func
+Thanks Michael for his suggestion.
 
-So, this means that there's flush_work() racing against workqueue
-destruction, which can't be safe. :(
+Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Acked-by: Michael B=C3=BCsch <m@bues.ch>
+Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+---
+ drivers/net/wireless/broadcom/b43/main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Thanks.
-
--- 
-tejun
+diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/wir=
+eless/broadcom/b43/main.c
+index 72380af..b0603e7 100644
+--- a/drivers/net/wireless/broadcom/b43/main.c
++++ b/drivers/net/wireless/broadcom/b43/main.c
+@@ -5680,11 +5680,12 @@ static int b43_bcma_probe(struct bcma_device *c=
+ore)
+ 	INIT_WORK(&wl->firmware_load, b43_request_firmware);
+ 	schedule_work(&wl->firmware_load);
+=20
+-bcma_out:
+ 	return err;
+=20
+ bcma_err_wireless_exit:
+ 	ieee80211_free_hw(wl->hw);
++bcma_out:
++	kfree(dev);
+ 	return err;
+ }
+=20
+@@ -5712,8 +5713,8 @@ static void b43_bcma_remove(struct bcma_device *c=
+ore)
+ 	b43_rng_exit(wl);
+=20
+ 	b43_leds_unregister(wl);
+-
+ 	ieee80211_free_hw(wl->hw);
++	kfree(wldev->dev);
+ }
+=20
+ static struct bcma_driver b43_bcma_driver =3D {
+@@ -5796,6 +5797,7 @@ static void b43_ssb_remove(struct ssb_device *sde=
+v)
+=20
+ 	b43_leds_unregister(wl);
+ 	b43_wireless_exit(dev, wl);
++	kfree(dev);
+ }
+=20
+ static struct ssb_driver b43_ssb_driver =3D {
+--=20
+1.9.1
