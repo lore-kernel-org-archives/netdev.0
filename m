@@ -1,7 +1,7 @@
 From: Kejian Yan <yankejian@huawei.com>
-Subject: [PATCH v3 net-next 1/2] net: hns: fix return value of the function about rss
-Date: Fri, 11 Mar 2016 11:25:46 +0800
-Message-ID: <1457666747-244953-2-git-send-email-yankejian@huawei.com>
+Subject: [PATCH v3 net-next 2/2] net: hns: fixes a bug of RSS
+Date: Fri, 11 Mar 2016 11:25:47 +0800
+Message-ID: <1457666747-244953-3-git-send-email-yankejian@huawei.com>
 References: <1457666747-244953-1-git-send-email-yankejian@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,116 +19,90 @@ In-Reply-To: <1457666747-244953-1-git-send-email-yankejian@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both .get_rxfh and .get_rxfh are always return 0, it should return result
-from hardware when getting or setting rss. And the rss function should
-return the correct data type.
+If trying to get receive flow hash indirection table by ethtool, it needs
+to call .get_rxnfc to get ring number first. So this patch implements the
+.get_rxnfc of ethtool. And the data type of rss_indir_table is u32, it has
+to be multiply by the width of data type when using memcpy.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 ---
 change log:
 PATCH v3:
- - This patch removes unused variable 'ret' to fix the build warning
+ - This patch modifies the return value of .get_rxnfc to fix building error
 
 PATCH v2:
  - This patch fixes the comments provided by Andy Shevchenko <Andy Shevchenko>
 
- Link: https://lkml.org/lkml/2016/3/10/266
+ Link: https://lkml.org/lkml/2016/3/10/267
 
 PATCH v1:
  - first submit
 
- Link: https://lkml.org/lkml/2016/3/9/978
+ Link: https://lkml.org/lkml/2016/3/9/981
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 14 ++++----------
- 3 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  6 ++++--
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 18 ++++++++++++++++++
+ 2 files changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index d4f92ed..d07db1f 100644
+index d07db1f..7b06e9b 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -799,7 +799,7 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+@@ -787,7 +787,8 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
+ 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
  
- 	/* set the RSS Hash Key if specififed by the user */
- 	if (key)
--		hns_ppe_set_rss_key(ppe_cb, (int *)key);
-+		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
+ 	/* update the current hash->queue mappings from the shadow RSS table */
+-	memcpy(indir, ppe_cb->rss_indir_table, HNS_PPEV2_RSS_IND_TBL_SIZE);
++	memcpy(indir, ppe_cb->rss_indir_table,
++	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
+ 
+ 	return 0;
+ }
+@@ -802,7 +803,8 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
  
  	/* update the shadow RSS table with user specified qids */
- 	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index f302ef9..811ef35 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -27,7 +27,7 @@ void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
- void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
- 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
- {
--	int key_item = 0;
-+	u32 key_item = 0;
+-	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
++	memcpy(ppe_cb->rss_indir_table, indir,
++	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
  
- 	for (key_item = 0; key_item < HNS_PPEV2_RSS_KEY_NUM; key_item++)
- 		dsaf_write_dev(ppe_cb, PPEV2_RSS_KEY_REG + key_item * 0x4,
+ 	/* now update the hardware */
+ 	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3c4a3bc..01b65eb 100644
+index 01b65eb..46379ce 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1178,7 +1178,7 @@ hns_get_rss_key_size(struct net_device *netdev)
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
- 			   "RSS feature is not supported on this hardware\n");
--		return -EOPNOTSUPP;
-+		return (u32)-EOPNOTSUPP;
- 	}
- 
- 	ops = priv->ae_handle->dev->ops;
-@@ -1197,7 +1197,7 @@ hns_get_rss_indir_size(struct net_device *netdev)
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
- 			   "RSS feature is not supported on this hardware\n");
--		return -EOPNOTSUPP;
-+		return (u32)-EOPNOTSUPP;
- 	}
- 
- 	ops = priv->ae_handle->dev->ops;
-@@ -1211,7 +1211,6 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	int ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
-@@ -1224,9 +1223,7 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
- 	if (!indir)
- 		return 0;
- 
--	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
--
--	return 0;
-+	return ops->get_rss(priv->ae_handle, indir, key, hfunc);
+@@ -1251,6 +1251,23 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
  }
  
- static int
-@@ -1235,7 +1232,6 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	int ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
-@@ -1252,9 +1248,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- 	if (!indir)
- 		return 0;
- 
--	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
--
--	return 0;
-+	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
- }
- 
++static int hns_get_rxnfc(struct net_device *netdev,
++			 struct ethtool_rxnfc *cmd,
++			 u32 *rule_locs)
++{
++	struct hns_nic_priv *priv = netdev_priv(netdev);
++
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXRINGS:
++		cmd->data = priv->ae_handle->q_num;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
  static struct ethtool_ops hns_ethtool_ops = {
+ 	.get_drvinfo = hns_nic_get_drvinfo,
+ 	.get_link  = hns_nic_get_link,
+@@ -1274,6 +1291,7 @@ static struct ethtool_ops hns_ethtool_ops = {
+ 	.get_rxfh_indir_size = hns_get_rss_indir_size,
+ 	.get_rxfh = hns_get_rss,
+ 	.set_rxfh = hns_set_rss,
++	.get_rxnfc = hns_get_rxnfc,
+ };
+ 
+ void hns_ethtool_set_ops(struct net_device *ndev)
 -- 
 1.9.1
