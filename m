@@ -1,108 +1,79 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH v2 1/3] net: thunderx: Cleanup PHY probing code.
-Date: Fri, 11 Mar 2016 09:53:09 -0800
-Message-ID: <1457718791-6505-2-git-send-email-ddaney.cavm@gmail.com>
-References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [ethtool PATCH v4 00/11] add support for new ETHTOOL_xLINKSETTINGS ioctls
+Date: Fri, 11 Mar 2016 09:58:13 -0800
+Message-ID: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
- linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org,
- Florian Fainelli <f.fainelli@gmail.com>,
- Robert Richter <rric@kernel.org>, Sunil Goutham <sgoutham@cavium.com>,
- Kumar Gala <galak@codeaurora.org>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>,
- Rob Herring <robh+dt@kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>,
+	David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34444 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705AbcCKR6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 12:58:32 -0500
+Received: by mail-pa0-f66.google.com with SMTP id hj7so9037303pac.1
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 09:58:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+=46rom: David Decotigny <decot@googlers.com>
 
-Remove the call to force the octeon-mdio driver to be loaded.  Allow
-the standard driver loading mechanisms to load the PHY drivers, and
-use -EPROBE_DEFER to cause the BGX driver to be probed only after the
-PHY drivers are available.
+This adds support for the new ETHTOOL_xLINKSETTINGS ioctls. This also
+fixes a few compilation warnings as well as a heap corruption bug.
 
-Reorder the setting of MAC addresses and PHY probing to allow BGX
-LMACs with no attached PHY to still be assigned a MAC address.
+History:
+  v4
+    review Ben Hutchings:
+      using AF_UNIX instead of INET6 in the absence of v4 sockets
+      use stdbool.h
+      do_seeprom always fails when offset/length out of bounds
+      sync to latest ethtool.h + kernel.h from net-next
+      __SANE_USERSPACE_TYPES__ always defined
+      cosmetic updates for var =3D=3D const tests
+      cosmetic updates for associativity in tests
+  v3
+    TRUE/FALSE obvious-ification
+  v2
+    added do_seeprom patch
+    added netdev@ as recipient
+  v1
+    initial submission
 
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 29 ++++++++++++++---------
- 1 file changed, 18 insertions(+), 11 deletions(-)
+############################################
+# Patch Set Summary:
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index f8abdff..feed231 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -978,27 +978,37 @@ static int bgx_init_of_phy(struct bgx *bgx)
- 	const char *mac;
- 
- 	device_for_each_child_node(&bgx->pdev->dev, fwn) {
-+		struct phy_device *pd;
- 		struct device_node *phy_np;
- 		struct device_node *node = to_of_node(fwn);
- 
--		/* If it is not an OF node we cannot handle it yet, so
--		 * exit the loop.
-+		/* Should always be an OF node.  But if it is not, we
-+		 * cannot handle it, so exit the loop.
- 		 */
- 		if (!node)
- 			break;
- 
--		phy_np = of_parse_phandle(node, "phy-handle", 0);
--		if (!phy_np)
--			continue;
--
--		bgx->lmac[lmac].phydev = of_phy_find_device(phy_np);
--
- 		mac = of_get_mac_address(node);
- 		if (mac)
- 			ether_addr_copy(bgx->lmac[lmac].mac, mac);
- 
- 		SET_NETDEV_DEV(&bgx->lmac[lmac].netdev, &bgx->pdev->dev);
- 		bgx->lmac[lmac].lmacid = lmac;
-+
-+		phy_np = of_parse_phandle(node, "phy-handle", 0);
-+		/* If there is no phy or defective firmware presents
-+		 * this cortina phy, for which there is no driver
-+		 * support, ignore it.
-+		 */
-+		if (phy_np &&
-+		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
-+			/* Wait until the phy drivers are available */
-+			pd = of_phy_find_device(phy_np);
-+			if (!pd)
-+				return -EPROBE_DEFER;
-+			bgx->lmac[lmac].phydev = pd;
-+		}
-+
- 		lmac++;
- 		if (lmac == MAX_LMAC_PER_BGX) {
- 			of_node_put(node);
-@@ -1032,9 +1042,6 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct bgx *bgx = NULL;
- 	u8 lmac;
- 
--	/* Load octeon mdio driver */
--	octeon_mdiobus_force_mod_depencency();
--
- 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
- 	if (!bgx)
- 		return -ENOMEM;
--- 
-1.7.11.7
+David Decotigny (7):
+  ethtool.c: don't ignore fread() return value
+  ethtool.c: fix dump_regs heap corruption
+  ethtool.c: do_seeprom checks for params & stdin sanity
+  kernel-copy.h: import kernel.h from net-next and use it
+  ethtool-copy.h: sync with net-next
+  ethtool.c: add support for ETHTOOL_xLINKSETTINGS ioctls
+  ethtool.c: support absence of v4 sockets
+
+Maciej =C5=BBenczykowski (4):
+  internal.h: change to new sane kernel headers on 64-bit archs
+  marvell.c: fix strict alias warnings
+  test-common.c: fix test_realloc(NULL, ...)
+  test-features.c: add braces around array initialization
+
+ ethtool-copy.h  | 478 ++++++++++++++++++++++++++++++------
+ ethtool.c       | 751 ++++++++++++++++++++++++++++++++++++++++++------=
+--------
+ internal.h      |  77 +++++-
+ kernel-copy.h   |  14 ++
+ marvell.c       |  21 +-
+ test-cmdline.c  |  12 +
+ test-common.c   |   2 +-
+ test-features.c |   2 +-
+ 8 files changed, 1086 insertions(+), 271 deletions(-)
+ create mode 100644 kernel-copy.h
+
+--=20
+2.7.0.rc3.207.g0ac5344
