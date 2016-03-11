@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] qed: Management firmware updates
-Date: Fri, 11 Mar 2016 15:20:38 -0500 (EST)
-Message-ID: <20160311.152038.919174177754046894.davem@davemloft.net>
-References: <1457507786-6603-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: Generic TSO
+Date: Fri, 11 Mar 2016 15:22:26 -0500 (EST)
+Message-ID: <20160311.152226.364781080223352858.davem@davemloft.net>
+References: <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
+	<CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
+	<56E31A89.9020602@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@qlogic.com
+Cc: tom@herbertland.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37507 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37546 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbcCKUUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 15:20:41 -0500
-In-Reply-To: <1457507786-6603-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1752268AbcCKUW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 15:22:29 -0500
+In-Reply-To: <56E31A89.9020602@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Wed, 9 Mar 2016 09:16:22 +0200
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 11 Mar 2016 19:20:41 +0000
 
-> This series contains several changes to driver interaction with the
-> management fw.
-> The biggest [& most significant] change here is a change in the locking
-> scheme and re-definition of the 'critical section' when accessing shared
-> resources toward the goal of interacting with the management firmware.
+> Are you planning to / working on implementing this?  If not, I might have a
+> crack at it; I've talked to our firmware guys and (provisionally) we think
+> we can support it in current sfc hardware.
+> Or were there any blocking problems raised in the thread?  My understanding
+> of the IP ID issue was that it only matters for the inner frame, because
+> the rest aren't TCP (so hopefully no-one is doing SLHC on them).  But I may
+> have missed something.
 
-Series applied, thanks.
+I've thought a lot more about the IP ID issue, and I am now starting
+to learn towards allowing it to be set to zero for "DF" packets.
+
+Considering what we gain in return, not working optimally with an
+ancient SLIP header compression implementation is a small loss.
+
+Any other opinions?
