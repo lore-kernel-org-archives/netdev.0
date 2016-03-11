@@ -1,113 +1,95 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
- flow control?
-Date: Fri, 11 Mar 2016 13:31:01 -0500
-Message-ID: <56E30EE5.4050904@ti.com>
-References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
- <56E1A55F.3090906@ti.com> <56E1B75F.9070100@gmail.com>
- <56E1CD4D.20405@ti.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
+Date: Fri, 11 Mar 2016 21:35:17 +0300
+Message-ID: <56E30FE5.1080607@cogentembedded.com>
+References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
+ <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, <johan@kernel.org>,
-	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
-	"Kwok, WingMan" <w-kwok2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:39816 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750787AbcCKSbB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 13:31:01 -0500
-In-Reply-To: <56E1CD4D.20405@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com, Alexander Kochetkov <al.kochet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rob Herring <robh+dt@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/10/2016 02:38 PM, Murali Karicheri wrote:
-> On 03/10/2016 01:05 PM, Florian Fainelli wrote:
->> On 10/03/16 08:48, Murali Karicheri wrote:
->>> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
->>>> On 03/03/16 14:18, Murali Karicheri wrote:
->>>>> Hi,
->>>>>
->>>>> We are using Micrel Phy in one of our board and wondering if we can force the
->>>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
->>>>> to Phy and the phy always enable flow control. I would like to configure the
->>>>> phy not to flow control. Is that possible and if yes, what should I do in the
->>>>> my Ethernet driver to tell the Phy not to enable flow control?
->>>>
->>>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
->>>> the switch is doing, along with the link partner advertising support for
->>>> it. You would want to make sure that your PHY device interface (provided
->>>> that you are using the PHY library) is not starting with Pause
->>>> advertised, but it could be supported.
->>>
->>> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
->>> by default FC supported. After negotiation, I see that Phylib provide the 
->>> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
->>> to advertise?
->>>
->>> I call following sequence in the Ethernet driver.
->>>
->>> of_phy_connect(x,y,hndlr,a,z);
->>
->> Here you should be able to change phydev->advertising and
->> phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
->> bits and have phy_start() restart with that which should disable pause
->> and asym_pause as seen by your adjust_link handler.
->>
-> Ok. Good point. I will try this. Thanks for your suggestion.
-> 
-I had to make following changes to the phy_device.c to allow the phy device
-report maximum common flow control capability to Ethernet driver through
-handler. My driver code looks like this.
+On 03/11/2016 01:55 PM, Caesar Wang wrote:
 
-                slave->phy = of_phy_connect(gbe_intf->ndev,
-                                            slave->phy_node,
-                                            hndlr, 0,
-                                            phy_mode);
-                if (!slave->phy) {
-                        dev_err(priv->dev, "phy not found on slave %d\n",
-                                slave->slave_num);
-                        return -ENODEV;
-                }
-                dev_dbg(priv->dev, "phy found: id is: 0x%s\n",
-                        dev_name(&slave->phy->dev));
+> This patch adds to support the emac phy reset.
+>
+> 1) phy-reset-gpios:
+> The phy-reset-gpios is an optional property for arc emac device tree boot.
+> Change the binding document to match the driver code.
 
-                slave->phy->supported &=
-                                ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
-                slave->phy->advertising = slave->phy->supported;
-                phy_start(slave->phy);
-                phy_read_status(slave->phy);
+    The binding document is apparently changed in another patch. Not sure what 
+you wanted to say here...
 
-And then in the phy_device.c, I did to get flow control off reported in
-handler for link status update.
+> 2) phy-reset-duration:
+> Different boards may require different phy reset duration. Add property
+> phy-reset-duration for device tree probe, so that the boards that need
+> a longer reset duration can specify it in their device tree.
+>
+> 3) phy-reset-active-high:
+> We need that for a custom hardware that needs the reverse reset sequence.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index d551df6..55412ad 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1021,8 +1021,8 @@ int genphy_read_status(struct phy_device *phydev)
-                                phydev->duplex = DUPLEX_FULL;
- 
-                if (phydev->duplex == DUPLEX_FULL) {
--                       phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
--                       phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-+                       phydev->pause = adv & lpa & LPA_PAUSE_CAP ? 1 : 0;
-+                       phydev->asym_pause = adv & lpa & LPA_PAUSE_ASYM ? 1 : 0;
- 
-Could you explain, why the common maximum capability is not reported to the
-driver as per standard?? Or Am I understood it wrong?
+    No, we don't really need that, "phy-reset-gpio" prop can contain this data.
 
-Murali
+> Of course, this patch will fix the issue on
+> https://patchwork.kernel.org/patch/8186801/.
+>
+> In some cases, the emac couldn't work if you don't have reset the phy.
+> Let's add it to happy work.
+>
+> Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+> ---
+>
+>   drivers/net/ethernet/arc/emac_main.c | 41 ++++++++++++++++++++++++++++++++++++
+>   1 file changed, 41 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+> index 6446af1..42384f6a 100644
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -764,6 +764,45 @@ static const struct net_device_ops arc_emac_netdev_ops = {
+>   #endif
+>   };
+>
+> +#ifdef CONFIG_OF
+> +static void emac_reset_phy(struct net_device *pdev)
+> +{
+> +	int err, phy_reset;
+> +	bool active_high = false;
+> +	int msec = 10;
+> +	struct device *dev = pdev->dev.parent;
+> +	struct device_node *np = dev->of_node;
+> +
+> +	if (!np)
+> +		return;
+> +
+> +	of_property_read_u32(np, "phy-reset-duration", &msec);
+> +	/* A sane reset duration should not be longer than 1s */
+> +	if (msec > 1000)
+> +		msec = 1;
+> +
+> +	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
 
-> Murali
->>> phy_start()
->>>
->>> Now in hndlr() I have pause = 1, asym_pause = 1, in phy_device ptr. How can 
->>> I tell the phy not to advertise initially?
-> 
-> 
+    Forgot to say that these old integer-base GPIO APIs shouldn't be used by 
+the new code, there's new 'struct gpio_desc' based APIs, like devm_gpiod_get() 
+etc.
 
+> +	if (!gpio_is_valid(phy_reset))
+> +		return;
+> +
+> +	active_high = of_property_read_bool(np, "phy-reset-active-high");
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+    Well, I still don't understand why this prop is needed, while the GPIO 
+sense is transparently handled by the gpiolib (at least when using DT).
+
+[...]
+
+MBR, Sergei
