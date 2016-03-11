@@ -1,74 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
-Date: Fri, 11 Mar 2016 11:37:30 -0800
-Message-ID: <56E31E7A.6080905@gmail.com>
-References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
- <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
- <20160311173125.GI3153@lunn.ch> <56E30332.7060003@caviumnetworks.com>
- <20160311180030.GB19277@lunn.ch> <56E30DDF.5040506@caviumnetworks.com>
- <20160311190627.GC19277@lunn.ch>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: Re: [PATCH] vmxnet3: avoid calling pskb_may_pull with interrupts
+ disabled
+Date: Fri, 11 Mar 2016 11:41:42 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1603111141020.7592@shri-linux.eng.vmware.com>
+References: <1457116848-6753-1-git-send-email-nhorman@tuxdriver.com> <20160307.151614.818719625382924245.davem@davemloft.net> <20160308143146.GA26031@hmsreliant.think-freely.org> <201603112222.CDG97029.OJFHQOtVOLFMFS@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney.cavm@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Robert Richter <rric@kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
-	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-	David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160311190627.GC19277@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: nhorman@tuxdriver.com, davem@davemloft.net, netdev@vger.kernel.org,
+	pv-drivers@vmware.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:57932 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750734AbcCKTln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 14:41:43 -0500
+In-Reply-To: <201603112222.CDG97029.OJFHQOtVOLFMFS@I-love.SAKURA.ne.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/03/16 11:06, Andrew Lunn wrote:
->>> I don't see why it should wait around forever. I have boards with
->>> Marvell PHYs, yet if i don't build the Marvell driver, the Ethernet
->>> driver still loads, because the generic PHY driver is used instead.
->>> Why does this not work here?
->>
->> As I said before, there is no driver for the device, so
->> of_phy_find_device() will always return NULL.
+
+
+On Fri, 11 Mar 2016, Tetsuo Handa wrote:
+
+> Neil Horman wrote:
+> > On Mon, Mar 07, 2016 at 03:16:14PM -0500, David Miller wrote:
+> > > From: Neil Horman <nhorman@tuxdriver.com>
+> > > Date: Fri,  4 Mar 2016 13:40:48 -0500
 > 
-> I'm not yet convinced this is true. I really do expect that the
-> generic PHY driver will bind to it. It might then go horribly wrong,
-> because it is not standard compliant, but that is a different issue.
-
-I concur with Andrew here, unless the PHY is guaranteed to return
-garbage when get_phy_id() is called, there is a good chance that the
-Generic PHY driver will be bound to this PHY device, or this is not
-happening for you for some reason?
-
+> This patch is calling spin_unlock_irqrestore() without spin_lock_irqsave().
 > 
-> The generic driver should probably have a black list for such devices.
-> This is a PHY issue, not an MDIO issue, and the problem should be
-> solved in the PHY layer, not in one MDIO driver.
-
-I considered the possibility once of disabling the generic PHY driver,
-such that systems where the vendor-specific PHY driver is expected to be
-used could utilize that. That does not play well with the fixed PHYs
-using the generic PHY driver though, anyway, I am digressing.
-
+> In file included from include/linux/seqlock.h:35:0,
+>                  from include/linux/time.h:5,
+>                  from include/linux/stat.h:18,
+>                  from include/linux/module.h:10,
+>                  from drivers/net/vmxnet3/vmxnet3_drv.c:27:
+> drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_xmit_frame':
+> include/linux/spinlock.h:246:30: warning: 'flags' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>    _raw_spin_unlock_irqrestore(lock, flags); \
+>                               ^
+> drivers/net/vmxnet3/vmxnet3_drv.c:977:16: note: 'flags' was declared here
+>   unsigned long flags;
+>                 ^
 > 
-> We should also consider what happens when somebody actually writes a
-> driver for this PHY. Are you not going to use it?
+> vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+>                 struct vmxnet3_adapter *adapter, struct net_device *netdev)
+> {
+> (...snipped...)
+> 		goto hdr_too_big;
+> (...snipped...)
+> 	spin_lock_irqsave(&tq->tx_lock, flags);
+> (...snipped...)
+> 	spin_unlock_irqrestore(&tq->tx_lock, flags);
+> (...snipped...)
+> 	return NETDEV_TX_OK;
+> (...snipped...)
+> hdr_too_big:
+>         tq->stats.drop_oversized_hdr++;
+> unlock_drop_pkt:
+>         spin_unlock_irqrestore(&tq->tx_lock, flags);
+> (...snipped...)
+> 	return NETDEV_TX_OK;
+> }
 > 
-> Before this patchset, you did not special case this compatible
-> string. So at the very least, you need to split this into a separate
-> patch, so the maintainers can ACK/NACK it, independent of the other
-> change it is embedded in.
-> 
->        Andrew
-> 
-
-
--- 
-Florian
+Thank you for reporting this. Will send out a fix later today.
