@@ -1,70 +1,64 @@
-From: aaron.young@oracle.com
-Subject: Re: [PATCH net-next 3/4] ldmvsw: Add ldmvsw.c driver code
-Date: Fri, 11 Mar 2016 12:46:00 -0800
-Message-ID: <56E32E88.2070301@oracle.com>
-References: <cover.1457401532.git.Aaron.Young@oracle.com>	<cover.1457401532.git.Aaron.Young@oracle.com>	<f3e221f516c1514b7d60b8e8970130b4a31d1d59.1457401532.git.Aaron.Young@oracle.com> <20160311.143022.2226126311284772576.davem@davemloft.net>
+From: Samuel Ortiz <sameo@linux.intel.com>
+Subject: [GIT] [4.6] NFC update
+Date: Fri, 11 Mar 2016 21:48:57 +0100
+Message-ID: <20160311204857.GB29902@zurbaran.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sowmini.varadhan@oracle.com,
-	alexandre.chartre@oracle.com, rashmi.narasimhan@oracle.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux NFC <linux-nfc@lists.01.org>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:38137 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750953AbcCKUpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 15:45:41 -0500
-In-Reply-To: <20160311.143022.2226126311284772576.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:61712 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751148AbcCKUtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 15:49:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
 
-  Thank you very much for the review. I'll make the requested changes 
-and resubmit the series...
+This is a very small one this time, with only 5 patches.
+There are a couple of big items that could not be merged/finished
+on time.
 
-  -Aaron Young
+We have:
 
-On 03/11/16 11:30, David Miller wrote:
-> From: Aaron Young <Aaron.Young@oracle.com>
-> Date: Tue,  8 Mar 2016 07:02:35 -0800
->
->> +static struct vnet *vsw_get_vnet(struct mdesc_handle *hp,
->> +				 u64 port_node,
->> +				 u64 *handle)
->> +{
->> +	struct vnet *vp;
->> +	struct vnet *iter;
->> +	const u64 *local_mac = NULL;
->> +	const u64 *cfghandle = NULL;
->> +	u64 a;
-> Please order local variable declarations from longest to shortest line (reverse
-> christmas tree).
->
->> +static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
->> +{
->> +	struct mdesc_handle *hp;
->> +	struct vnet_port *port;
->> +	unsigned long flags;
->> +	struct vnet *vp;
->> +	struct net_device *dev;
->> +	const u64 *rmac;
->> +	int len, i, err;
->> +	const u64 *port_id;
->> +	u64 handle;
-> Likewise.
->
->> +	err = register_netdev(dev);
->> +	if (err) {
->> +		pr_err("Cannot register net device, aborting\n");
->> +		goto err_out_free_ldc;
->> +	}
->> +
->> +	netif_napi_add(dev, &port->napi, vnet_poll_common,
->> +		       NAPI_POLL_WEIGHT);
->> +
->> +	INIT_LIST_HEAD(&port->list);
-> You cannot register the netdevice so early.  It must be registerred only after
-> every single piece of software state is initialized and setup.
->
-> At the very precise moment you invoke register_netdev() the device can
-> be brought up and attempted to be used.
+- 2 LLCP fixes for a race and a potential OOM.
+- 2 cleanups for the pn544 and microread drivers.
+- 1 Maintainer addition for the s3fwrn5 driver.
+
+
+The following changes since commit 667f00630ebefc4d73aa105c6ab254e4aec867f8:
+
+  Merge branch 'local-checksum-offload' (2016-02-12 05:52:41 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/sameo/nfc-next.git tags/nfc-next-4.6-1
+
+for you to fetch changes up to 079c2652e5af648db6bf4f54bcafdafcc57a0d2c:
+
+  MAINTAINERS: nfc: s3fwrn5: Add second maintainer (2016-03-10 17:16:22 +0100)
+
+----------------------------------------------------------------
+Cong Wang (2):
+      NFC: Use GFP_USER for user-controlled kmalloc
+      NFC: Close a race condition in llcp_sock_getname()
+
+Jean Delvare (1):
+      NFC: microread: Drop platform data header file
+
+Mika Westerberg (1):
+      NFC: pn544: Drop two useless checks in ACPI probe path
+
+Robert Baldyga (1):
+      MAINTAINERS: nfc: s3fwrn5: Add second maintainer
+
+ MAINTAINERS                             |  2 +-
+ drivers/nfc/microread/i2c.c             |  8 --------
+ drivers/nfc/pn544/i2c.c                 | 14 +------------
+ include/linux/platform_data/microread.h | 35 ---------------------------------
+ net/nfc/llcp_commands.c                 |  4 ++--
+ net/nfc/llcp_sock.c                     |  6 ++++++
+ 6 files changed, 10 insertions(+), 59 deletions(-)
+ delete mode 100644 include/linux/platform_data/microread.h
