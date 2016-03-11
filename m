@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 3/3] phy: mdio-thunder:  Add driver for Cavium Thunder SoC MDIO buses.
-Date: Fri, 11 Mar 2016 08:47:02 -0800
-Message-ID: <1457714822-5754-4-git-send-email-ddaney.cavm@gmail.com>
+Subject: [PATCH 1/3] net: thunderx: Cleanup PHY probing code.
+Date: Fri, 11 Mar 2016 08:47:00 -0800
+Message-ID: <1457714822-5754-2-git-send-email-ddaney.cavm@gmail.com>
 References: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
 	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
@@ -16,305 +16,83 @@ To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Mark Rutland <mark.rutland@arm.com>,
 	Pawel Moll <pawel.moll@arm.com>,
 	Rob Herring <robh+dt@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36320 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932264AbcCKQrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 11:47:14 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457714822-5754-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Daney <david.daney@cavium.com>
 
-The Cavium Thunder SoCs have multiple MIDO buses that are part of a
-single PCI device.  To model this in the device tree we call the PCI
-parent device a "cavium,thunder-8890-mdio-nexus", it has several
-children, one for each MDIO bus.
+Remove the call to force the octeon-mdio driver to be loaded.  Allow
+the standard driver loading mechanisms to load the PHY drivers, and
+use -EPROBE_DEFER to cause the BGX driver to be probed only after the
+PHY drivers are available.
 
-The MDIO bus hardware is identical to that found in the OCTEON SoCs,
-so we use that code for things that are not part of the PCI driver
-probe/remove
+Reorder the setting of MAC addresses and PHY probing to allow BGX
+LMACs with no attached PHY to still be assigned a MAC address.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- .../devicetree/bindings/net/cavium-mdio.txt        |  61 +++++++-
- drivers/net/phy/Kconfig                            |  11 ++
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/mdio-thunder.c                     | 154 +++++++++++++++++++++
- 4 files changed, 225 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/phy/mdio-thunder.c
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 31 ++++++++++++-----------
+ 1 file changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cavium-mdio.txt b/Documentation/devicetree/bindings/net/cavium-mdio.txt
-index 04cb749..020df08 100644
---- a/Documentation/devicetree/bindings/net/cavium-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/cavium-mdio.txt
-@@ -1,9 +1,12 @@
- * System Management Interface (SMI) / MDIO
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index f8abdff..928c02b 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -978,27 +978,31 @@ static int bgx_init_of_phy(struct bgx *bgx)
+ 	const char *mac;
  
- Properties:
--- compatible: "cavium,octeon-3860-mdio"
-+- compatible: One of:
+ 	device_for_each_child_node(&bgx->pdev->dev, fwn) {
++		struct phy_device *pd;
+ 		struct device_node *phy_np;
+ 		struct device_node *node = to_of_node(fwn);
  
--  Compatibility with all cn3XXX, cn5XXX and cn6XXX SOCs.
-+   "cavium,octeon-3860-mdio": Compatibility with all cn3XXX, cn5XXX
-+                       and cn6XXX SOCs.
-+
-+   "cavium,thunder-8890-mdio": Compatibility with all cn8XXX SOCs.
+-		/* If it is not an OF node we cannot handle it yet, so
+-		 * exit the loop.
+-		 */
+-		if (!node)
+-			break;
+-
+-		phy_np = of_parse_phandle(node, "phy-handle", 0);
+-		if (!phy_np)
+-			continue;
+-
+-		bgx->lmac[lmac].phydev = of_phy_find_device(phy_np);
+-
+ 		mac = of_get_mac_address(node);
+ 		if (mac)
+ 			ether_addr_copy(bgx->lmac[lmac].mac, mac);
  
- - reg: The base address of the MDIO bus controller register bank.
- 
-@@ -25,3 +28,57 @@ Example:
- 			reg = <0>;
- 		};
- 	};
+ 		SET_NETDEV_DEV(&bgx->lmac[lmac].netdev, &bgx->pdev->dev);
+ 		bgx->lmac[lmac].lmacid = lmac;
 +
-+
-+* System Management Interface (SMI) / MDIO Nexus
-+
-+  Several mdio buses may be gathered as children of a single PCI
-+  device, this PCI device is the nexus of the buses.
-+
-+Properties:
-+
-+- compatible: "cavium,thunder-8890-mdio-nexus";
-+
-+- reg: The PCI device and function numbers of the nexus device.
-+
-+- #address-cells: Must be <2>.
-+
-+- #size-cells: Must be <2>.
-+
-+- ranges: As needed for mapping of the MDIO bus device registers.
-+
-+- assigned-addresses: As needed for mapping of the MDIO bus device registers.
-+
-+Example:
-+
-+        mdio-nexus@1,3 {
-+                compatible = "cavium,thunder-8890-mdio-nexus";
-+                #address-cells = <2>;
-+                #size-cells = <2>;
-+                reg = <0x0b00 0 0 0 0>; /* DEVFN = 0x0b (1:3) */
-+                assigned-addresses = <0x03000000 0x87e0 0x05000000 0x0 0x800000>;
-+                ranges = <0x87e0 0x05000000 0x03000000 0x87e0 0x05000000 0x0 0x800000>;
-+
-+                mdio0@87e0,05003800 {
-+                        compatible = "cavium,thunder-8890-mdio";
-+                        #address-cells = <1>;
-+                        #size-cells = <0>;
-+                        reg = <0x87e0 0x05003800 0x0 0x30>;
-+
-+                        ethernet-phy@0 {
-+                                ...
-+                                reg = <0>;
-+                        };
-+                };
-+                mdio0@87e0,05003880 {
-+                        compatible = "cavium,thunder-8890-mdio";
-+                        #address-cells = <1>;
-+                        #size-cells = <0>;
-+                        reg = <0x87e0 0x05003880 0x0 0x30>;
-+
-+                        ethernet-phy@0 {
-+                                ...
-+                                reg = <0>;
-+                        };
-+                };
-+        };
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 40faec9..075a4cc 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -196,6 +196,17 @@ config MDIO_OCTEON
- 	  buses. It is required by the Octeon and ThunderX ethernet device
- 	  drivers on some systems.
- 
-+config MDIO_THUNDER
-+	tristate "Support for MDIO buses on on ThunderX SOCs"
-+	depends on 64BIT
-+	depends on PCI
-+	select MDIO_CAVIUM
-+	help
-+	  This driver supports the MDIO interfaces found on Cavium
-+	  ThunderX SoCs when the MDIO bus device appears on as a PCI
-+	  device.
-+
-+
- config MDIO_SUN4I
- 	tristate "Allwinner sun4i MDIO interface support"
- 	depends on ARCH_SUNXI
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 041b3d9..fcdbb92 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -31,6 +31,7 @@ obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
- obj-$(CONFIG_STE10XP)		+= ste10Xp.o
- obj-$(CONFIG_MICREL_PHY)	+= micrel.o
- obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
-+obj-$(CONFIG_MDIO_THUNDER)	+= mdio-thunder.o
- obj-$(CONFIG_MDIO_CAVIUM)	+= mdio-cavium.o
- obj-$(CONFIG_MICREL_KS8995MA)	+= spi_ks8995.o
- obj-$(CONFIG_AT803X_PHY)	+= at803x.o
-diff --git a/drivers/net/phy/mdio-thunder.c b/drivers/net/phy/mdio-thunder.c
-new file mode 100644
-index 0000000..5646169
---- /dev/null
-+++ b/drivers/net/phy/mdio-thunder.c
-@@ -0,0 +1,154 @@
-+/*
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2009-2016 Cavium, Inc.
-+ */
-+
-+#include <linux/of_address.h>
-+#include <linux/of_mdio.h>
-+#include <linux/module.h>
-+#include <linux/gfp.h>
-+#include <linux/phy.h>
-+#include <linux/io.h>
-+#include <linux/acpi.h>
-+#include <linux/pci.h>
-+
-+#include "mdio-cavium.h"
-+
-+struct thunder_mdiobus_nexus {
-+	void __iomem *bar0;
-+	struct cavium_mdiobus *buses[4];
-+};
-+
-+static int thunder_mdiobus_pci_probe(struct pci_dev *pdev,
-+				     const struct pci_device_id *ent)
-+{
-+	struct device_node *node;
-+	struct fwnode_handle *fwn;
-+	struct thunder_mdiobus_nexus *nexus;
-+	int err;
-+	int i;
-+
-+	nexus = devm_kzalloc(&pdev->dev, sizeof(*nexus), GFP_KERNEL);
-+	if (!nexus)
-+		return -ENOMEM;
-+
-+	pci_set_drvdata(pdev, nexus);
-+
-+	err = pcim_enable_device(pdev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to enable PCI device\n");
-+		pci_set_drvdata(pdev, NULL);
-+		return err;
-+	}
-+
-+	err = pci_request_regions(pdev, KBUILD_MODNAME);
-+	if (err) {
-+		dev_err(&pdev->dev, "pci_request_regions failed\n");
-+		goto err_disable_device;
-+	}
-+
-+	nexus->bar0 = pcim_iomap(pdev, 0, pci_resource_len(pdev, 0));
-+	if (!nexus->bar0) {
-+		err = -ENOMEM;
-+		goto err_release_regions;
-+	}
-+
-+	i = 0;
-+	device_for_each_child_node(&pdev->dev, fwn) {
-+		struct resource r;
-+		struct mii_bus *mii_bus;
-+		struct cavium_mdiobus *bus;
-+		union cvmx_smix_en smi_en;
-+
-+		/* If it is not an OF node we cannot handle it yet, so
-+		 * exit the loop.
++		phy_np = of_parse_phandle(node, "phy-handle", 0);
++		/* If there is no phy or defective firmware presents
++		 * this cortina phy, for which there is no driver
++		 * support, ignore it.
 +		 */
-+		node = to_of_node(fwn);
-+		if (!node)
-+			break;
-+
-+		err = of_address_to_resource(node, 0, &r);
-+		if (err) {
-+			dev_err(&pdev->dev,
-+				"Couldn't translate address for \"%s\"\n",
-+				node->name);
-+			break;
++		if (phy_np &&
++		    !of_device_is_compatible(phy_np, "cortina,cs4223-slice")) {
++			/* Wait until the phy drivers are available */
++			pd = of_phy_find_device(phy_np);
++			if (!pd)
++				return -EPROBE_DEFER;
++			bgx->lmac[lmac].phydev = pd;
 +		}
 +
-+		mii_bus = devm_mdiobus_alloc_size(&pdev->dev, sizeof(*bus));
-+		if (!mii_bus)
-+			break;
-+		bus = mii_bus->priv;
-+		bus->mii_bus = mii_bus;
-+
-+		nexus->buses[i] = bus;
-+		i++;
-+
-+		bus->register_base = (u64)nexus->bar0 +
-+			r.start - pci_resource_start(pdev, 0);
-+
-+		smi_en.u64 = 0;
-+		smi_en.s.en = 1;
-+		oct_mdio_writeq(smi_en.u64, bus->register_base + SMI_EN);
-+		bus->mii_bus->name = KBUILD_MODNAME;
-+		snprintf(bus->mii_bus->id, MII_BUS_ID_SIZE, "%llx", r.start);
-+		bus->mii_bus->parent = &pdev->dev;
-+		bus->mii_bus->read = cavium_mdiobus_read;
-+		bus->mii_bus->write = cavium_mdiobus_write;
-+
-+		err = of_mdiobus_register(bus->mii_bus, node);
-+		if (err)
-+			dev_err(&pdev->dev, "of_mdiobus_register failed\n");
-+
-+		dev_info(&pdev->dev, "Added bus at %llx\n", r.start);
-+		if (i >= ARRAY_SIZE(nexus->buses))
-+			break;
-+	}
-+	return 0;
-+
-+err_release_regions:
-+	pci_release_regions(pdev);
-+
-+err_disable_device:
-+	pci_set_drvdata(pdev, NULL);
-+	return err;
-+}
-+
-+static void thunder_mdiobus_pci_remove(struct pci_dev *pdev)
-+{
-+	int i;
-+	struct thunder_mdiobus_nexus *nexus = pci_get_drvdata(pdev);
-+
-+	for (i = 0; i < ARRAY_SIZE(nexus->buses); i++) {
-+		struct cavium_mdiobus *bus = nexus->buses[i];
-+
-+		if (!bus)
-+			continue;
-+
-+		mdiobus_unregister(bus->mii_bus);
-+		mdiobus_free(bus->mii_bus);
-+		oct_mdio_writeq(0, bus->register_base + SMI_EN);
-+	}
-+	pci_set_drvdata(pdev, NULL);
-+}
-+
-+static const struct pci_device_id thunder_mdiobus_id_table[] = {
-+	{ PCI_DEVICE(PCI_VENDOR_ID_CAVIUM, 0xa02b) },
-+	{ 0, } /* End of table. */
-+};
-+MODULE_DEVICE_TABLE(pci, thunder_mdiobus_id_table);
-+
-+static struct pci_driver thunder_mdiobus_driver = {
-+	.name = KBUILD_MODNAME,
-+	.id_table = thunder_mdiobus_id_table,
-+	.probe = thunder_mdiobus_pci_probe,
-+	.remove = thunder_mdiobus_pci_remove,
-+};
-+
-+module_pci_driver(thunder_mdiobus_driver);
-+
-+MODULE_DESCRIPTION("Cavium ThunderX MDIO bus driver");
-+MODULE_LICENSE("GPL");
+ 		lmac++;
+ 		if (lmac == MAX_LMAC_PER_BGX) {
+ 			of_node_put(node);
+@@ -1032,9 +1036,6 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct bgx *bgx = NULL;
+ 	u8 lmac;
+ 
+-	/* Load octeon mdio driver */
+-	octeon_mdiobus_force_mod_depencency();
+-
+ 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
+ 	if (!bgx)
+ 		return -ENOMEM;
 -- 
 1.7.11.7
