@@ -1,75 +1,87 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH 3/3] dm9601: add support ethtool style utility
-Date: Fri, 11 Mar 2016 11:42:13 +0000
-Message-ID: <1457696533.3001.88.camel@decadent.org.uk>
-References: <201603111110.u2BBAiwV020429@mail.davicom.com.tw>
-	 <1457696013.3001.86.camel@decadent.org.uk>
+From: Michael Trimarchi <michael@amarulasolutions.com>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Fri, 11 Mar 2016 13:12:03 +0100
+Message-ID: <CAOf5uwkzYBuRty7UfAOwZaAeqYqFboR=yvu7izh9vRw7e+RE5A@mail.gmail.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
+	<56DD7172.4000707@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-67Ln/kOl0cNGBHFHdhDz"
-To: Joseph Chang <joseph_chang-Ubu6M+hUeUGoECsaD+WFmw@public.gmane.org>,
-	'Joseph CHANG' <josright123-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	'Peter Korsgaard' <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1457696013.3001.86.camel-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "open list:ARM/Rockchip SoC..." <linux-rockchip@lists.infradead.org>,
+	netdev@vger.kernel.org,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Heiko Stuebner <heiko@sntech.de>,
+	LAKML <linux-arm-kernel@lists.infradead.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: =?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:34418 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752202AbcCKMMF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 07:12:05 -0500
+Received: by mail-ig0-f178.google.com with SMTP id av4so9776463igc.1
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 04:12:03 -0800 (PST)
+In-Reply-To: <56DD7172.4000707@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi
+
+On Mon, Mar 7, 2016 at 1:17 PM, Andreas F=C3=A4rber <afaerber@suse.de> =
+wrote:
+> Am 06.03.2016 um 20:53 schrieb Andreas F=C3=A4rber:
+>> On next-20160304 the GMAC seems to have regressed, it no longer find=
+s the PHY:
+>>
+>> libphy: PHY stmmac-0:ffffffff not found
+>> eth0: Could not attach to PHY
+>> stmmac_open: Cannot attach to PHY (error: -19)
+>
+> Still with us in next-20160307. CC'ing stmmac maintainers.
+>
+
+        tx_delay =3D <0x30>;
+        rx_delay =3D <0x10>;
+        status =3D "ok";
++       mdio0 {
++               #address-cells =3D <1>;
++               #size-cells =3D <0>;
++               compatible =3D "snps,dwmac-mdio";
++               ethphy0: ethernet-phy@0 {
++               };
++       };
+
+This is sufficient to get it in the rk3288 firefly
+
+git://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip.git =
+for-next
+
+Michael
+
+> http://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/log/d=
+rivers/net/ethernet/stmicro
+>
+> Regards,
+> Andreas
+>
+> --
+> SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg, Germany
+> GF: Felix Imend=C3=B6rffer, Jane Smithard, Graham Norton; HRB 21284 (=
+AG N=C3=BCrnberg)
+>
+> _______________________________________________
+> Linux-rockchip mailing list
+> Linux-rockchip@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-rockchip
 
 
---=-67Ln/kOl0cNGBHFHdhDz
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2016-03-11 at 11:33 +0000, Ben Hutchings wrote:
-> On Fri, 2016-03-11 at 19:08 +0800, Joseph Chang wrote:
-> >=20
-> > I tested by
-> > =C2=A0./ethtool -E eth0 magic 0x9620 offset 0 length 3 value 0xf1 value=
- 0xf2 value 0xf3
-> >=20
-> > I think ethtool need [ value N ] for each byte (so need three "value xx=
-" in above command line),=C2=A0
-> > am I right?
-> >=20
-> > Oh, I can see it goes wrong~ Thanks~
-> [...]
->=20
-> You can only pass one byte on the command line and that forces the
-> length to be 1. =C2=A0To set multiple bytes, you need to provide them on
-> stdin instead.
-
-...as raw binary data, not hexadecimal strings.
-
-Ben.
 
 --=20
-Ben Hutchings
-73.46% of all statistics are made up.
---=-67Ln/kOl0cNGBHFHdhDz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJW4q8VAAoJEOe/yOyVhhEJvroP+wb0jjOwt7LE9KYBcImU+D0l
-U17mwM7Sdhj4/UAribzx2dLqU0gaj7HdnofM91DnJM5sJl8Kogiv69oRwYj1DOea
-Bo9KnliRUP4O13ufl0Uidz7fFsBXK2yOQXc4C/+NYD0VNnaBr9G6FPNmYSi7vfSl
-Fvzkpye2s6mhzMJtMGdm/MmbCteUsx/Cxb375q47I4WK9lqKouiXM5JPIZj4UJ3a
-E1YViQvMCRnk3ggZt4Py+KC9wSBSjBZXnHC/dbEm5RRzAROF2Xi6QOy6TQMB7eKY
-sWm5dnJN1+MB3dq1jiqpNm+96NU5snUPbWlYs1eJztYVp9bbHLSxz29cPTxk/pKS
-MjYIKHL3PcDqWpRNES9wMqsk6ZC24qSiNo804s4tHxGASyP+s0VEYXDjIkATPf14
-3VPWtB8GdkuhbbWGLb+acRsdPhO1VwkjgLbTi62rOePzLag4B4eqPdyXlkr/jT8Y
-N249cvEz+amTTuv9f7b98m3EiyQHPnrVNn9wLuIO/Saf5DLc2/tiXpqrJ4Wm8aGH
-Y6oPlh7cptZ4MCWhQOmVPvufpr90oplL1hdR4ShRkE8H2Cr18MoIFNWy6yuNENAi
-U4Nf/BoiTGPVgNak36vI6PzrjJMbDGv6SPxDRLwBatvsSKsQZNwWUCYqf6OCBwj/
-oixzt+bBbuzJw98t64op
-=PWdz
------END PGP SIGNATURE-----
-
---=-67Ln/kOl0cNGBHFHdhDz--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+| Michael Nazzareno Trimarchi                     Amarula Solutions BV =
+|
+| COO  -  Founder                                      Cruquiuskade 47 =
+|
+| +31(0)851119172                                 Amsterdam 1018 AM NL =
+|
+|                  [`as] http://www.amarulasolutions.com               =
+|
