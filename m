@@ -1,95 +1,40 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: [PATCH] at803x: fix suspend/resume for SGMII link
-Date: Fri, 11 Mar 2016 15:31:53 +0100
-Message-ID: <1457706713-13779-1-git-send-email-zefir.kurtisi@neratec.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>, chunkeey@googlemail.com
-To: netdev@vger.kernel.org
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Fri, 11 Mar 2016 14:43:19 +0000
+Message-ID: <D841AFE4-6955-4013-BA3A-B10F6FAB6539@gmail.com>
+References: <1456241265-5766-1-git-send-email-gilberto.bertin@gmail.com> <CALx6S36_ii9hOj_Jn+xKxjoZQfbb-TfdQysH-N+Zic-bMHnHPg@mail.gmail.com> <69BFB2EA-BADE-420C-93E5-1320D53EB2C0@gmail.com> <CALx6S35UMTif0pFMKLV4Ks8hVkb9L-=571pURbGkXEux4VJfyA@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.2 \(3112\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:39312 "EHLO mail.neratec.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752893AbcCKOku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 09:40:50 -0500
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:38346 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752893AbcCKOn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 09:43:28 -0500
+Received: by mail-wm0-f45.google.com with SMTP id l68so20399696wml.1
+        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 06:43:27 -0800 (PST)
+In-Reply-To: <CALx6S35UMTif0pFMKLV4Ks8hVkb9L-=571pURbGkXEux4VJfyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When operating the at803x in SGMII mode, resuming the chip
-from power down brings up the copper-side link but leaves
-the SGMII link in unconnected state (tested with at8031
-attached to gianfar). In effect, this caused a permanent
-link loss once the related interface was put down.
 
-This patch ensures that power down handling in supspend()
-and resume() is also applied to the SGMII link.
+> On 7 Mar 2016, at 17:49, Tom Herbert <tom@herbertland.com> wrote:
+> 
+>> That said, do you believe it could be an option to maybe have both these
+>> options? I think that the ability to run BPF in the listening path is
+>> really interesting, but it's probably an overkill for the bind-to-subnet
+>> use case.
+>> 
+> 
+> Maybe. It will be quite common server configuration with IPv6 to
+> assign each server its own /64 prefix(es). From that POV I suppose
+> there is some value in having SO_BINDTOSUBNET.
 
-Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
----
- drivers/net/phy/at803x.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+Good, in this case I will submit again this RFC when the net-next window
+will open for the 4.6 release, so that we can gather more comments and
+decide what to do.
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index 2174ec9..1e901c7 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -52,6 +52,9 @@
- #define AT803X_DEBUG_REG_5			0x05
- #define AT803X_DEBUG_TX_CLK_DLY_EN		BIT(8)
- 
-+#define AT803X_REG_CHIP_CONFIG			0x1f
-+#define AT803X_BT_BX_REG_SEL			0x8000
-+
- #define ATH8030_PHY_ID 0x004dd076
- #define ATH8031_PHY_ID 0x004dd074
- #define ATH8035_PHY_ID 0x004dd072
-@@ -206,6 +209,7 @@ static int at803x_suspend(struct phy_device *phydev)
- {
- 	int value;
- 	int wol_enabled;
-+	int ccr;
- 
- 	mutex_lock(&phydev->lock);
- 
-@@ -221,6 +225,16 @@ static int at803x_suspend(struct phy_device *phydev)
- 
- 	phy_write(phydev, MII_BMCR, value);
- 
-+	if (phydev->interface != PHY_INTERFACE_MODE_SGMII)
-+		goto done;
-+
-+	/* also power-down SGMII interface */
-+	ccr = phy_read(phydev, AT803X_REG_CHIP_CONFIG);
-+	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
-+	phy_write(phydev, MII_BMCR, phy_read(phydev, MII_BMCR) | BMCR_PDOWN);
-+	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
-+
-+done:
- 	mutex_unlock(&phydev->lock);
- 
- 	return 0;
-@@ -229,6 +243,7 @@ static int at803x_suspend(struct phy_device *phydev)
- static int at803x_resume(struct phy_device *phydev)
- {
- 	int value;
-+	int ccr;
- 
- 	mutex_lock(&phydev->lock);
- 
-@@ -236,6 +251,17 @@ static int at803x_resume(struct phy_device *phydev)
- 	value &= ~(BMCR_PDOWN | BMCR_ISOLATE);
- 	phy_write(phydev, MII_BMCR, value);
- 
-+	if (phydev->interface != PHY_INTERFACE_MODE_SGMII)
-+		goto done;
-+
-+	/* also power-up SGMII interface */
-+	ccr = phy_read(phydev, AT803X_REG_CHIP_CONFIG);
-+	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
-+	value = phy_read(phydev, MII_BMCR) & ~(BMCR_PDOWN | BMCR_ISOLATE);
-+	phy_write(phydev, MII_BMCR, value);
-+	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr | AT803X_BT_BX_REG_SEL);
-+
-+done:
- 	mutex_unlock(&phydev->lock);
- 
- 	return 0;
--- 
-2.7.0
+Thank you,
+  Gilberto
