@@ -1,74 +1,77 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] b43: Fix memory leaks in b43_bus_dev_ssb_init and b43_bus_dev_bcma_init
-Date: Fri, 11 Mar 2016 22:44:37 +0530
-Message-ID: <1457716477-6287-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] bpf: avoid copying junk bytes in
+ bpf_get_current_comm()
+Date: Fri, 11 Mar 2016 09:20:04 -0800
+Message-ID: <56E2FE44.7040904@fb.com>
+References: <1457582553-395600-1-git-send-email-ast@fb.com>
+ <56E29CDA.5010004@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, netdev@vger.kernel.org,
-	Jia-Ju Bai <baijiaju1990@163.com>,
-	=?UTF-8?q?Michael=20B=C3=BCsch?= <m@bues.ch>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tobias Waldekranz <tobias@waldekranz.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E29CDA.5010004@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Jia-Ju Bai <baijiaju1990@163.com>
+On 3/11/16 2:24 AM, Daniel Borkmann wrote:
+> On 03/10/2016 05:02 AM, Alexei Starovoitov wrote:
+>> Lots of places in the kernel use memcpy(buf, comm, TASK_COMM_LEN); but
+>> the result is typically passed to print("%s", buf) and extra bytes
+>> after zero don't cause any harm.
+>> In bpf the result of bpf_get_current_comm() is used as the part of
+>> map key and was causing spurious hash map mismatches.
+>> Use strlcpy() to guarantee zero-terminated string.
+>> bpf verifier checks that output buffer is zero-initialized,
+>
+> Sorry for late reply, more below:
+>
+>> so even for short task names the output buffer don't have junk bytes.
+>> Note it's not a security concern, since kprobe+bpf is root only.
+>>
+>> Fixes: ffeedafbf023 ("bpf: introduce current->pid, tgid, uid, gid,
+>> comm accessors")
+>> Reported-by: Tobias Waldekranz <tobias@waldekranz.com>
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> [...]
+>> diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+>> index 4504ca66118d..50da680c479f 100644
+>> --- a/kernel/bpf/helpers.c
+>> +++ b/kernel/bpf/helpers.c
+>> @@ -166,7 +166,7 @@ static u64 bpf_get_current_comm(u64 r1, u64 size,
+>> u64 r3, u64 r4, u64 r5)
+>>       if (!task)
+>>           return -EINVAL;
+>>
+>> -    memcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
+>> +    strlcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
+>
+> If I see this correctly, __set_task_comm() makes sure comm is always zero
+> terminated, so that seems good, but isn't it already sufficient when
+> switching
+> to strlcpy() to simply use:
+>
+>      strlcpy(buf, task->comm, size);
+>
+> The min_t() seems unnecessary work to me, why do we still need it? size
+> is guaranteed to be > 0 through the eBPF verifier, so strlcpy() should take
+> care of the rest.
 
-The memory allocated by kzalloc in b43_bus_dev_ssb_init and
-b43_bus_dev_bcma_init is not freed.
-This patch fixes the bug by adding kfree in b43_ssb_remove,
-b43_bcma_remove and error handling code of b43_bcma_probe.
+that's one clever optimization. yep. we can drop min_t.
+btw I wanted to add memset to __set_task_comm, keep memcpy in
+bpf_get_current_comm and optimize perf_event_comm_event
+(which doing: memset+strlcpy and can be replaced with memcpy),
+but figured that such 'fix' is not suitable for stable.
+I guess we can do in the next cycle? strlen is not cheap.
+Especially since it turned out that bpf_get_current_comm() is
+used very often in the hot path in bcc/tools.
 
-Thanks Michael for his suggestion.
-
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-Acked-by: Michael B=C3=BCsch <m@bues.ch>
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
- drivers/net/wireless/broadcom/b43/main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/broadcom/b43/main.c b/drivers/net/wir=
-eless/broadcom/b43/main.c
-index 72380af..b0603e7 100644
---- a/drivers/net/wireless/broadcom/b43/main.c
-+++ b/drivers/net/wireless/broadcom/b43/main.c
-@@ -5680,11 +5680,12 @@ static int b43_bcma_probe(struct bcma_device *c=
-ore)
- 	INIT_WORK(&wl->firmware_load, b43_request_firmware);
- 	schedule_work(&wl->firmware_load);
-=20
--bcma_out:
- 	return err;
-=20
- bcma_err_wireless_exit:
- 	ieee80211_free_hw(wl->hw);
-+bcma_out:
-+	kfree(dev);
- 	return err;
- }
-=20
-@@ -5712,8 +5713,8 @@ static void b43_bcma_remove(struct bcma_device *c=
-ore)
- 	b43_rng_exit(wl);
-=20
- 	b43_leds_unregister(wl);
--
- 	ieee80211_free_hw(wl->hw);
-+	kfree(wldev->dev);
- }
-=20
- static struct bcma_driver b43_bcma_driver =3D {
-@@ -5796,6 +5797,7 @@ static void b43_ssb_remove(struct ssb_device *sde=
-v)
-=20
- 	b43_leds_unregister(wl);
- 	b43_wireless_exit(dev, wl);
-+	kfree(dev);
- }
-=20
- static struct ssb_driver b43_ssb_driver =3D {
---=20
-1.9.1
+Also for the next cycle I'm planning to extend verifier to
+allow uninitialized stack to be passed to functions like
+bpf_get_current_comm() and they would have to zero it in
+error cases. Then we can save few more cycles from the programs.
