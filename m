@@ -1,99 +1,136 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 00/13] Mellanox 100G mlx5 driver receive path optimizations
-Date: Fri, 11 Mar 2016 15:39:41 +0200
-Message-ID: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 02/13] net/mlx5: Introduce device queue counters
+Date: Fri, 11 Mar 2016 15:39:43 +0200
+Message-ID: <1457703594-9482-3-git-send-email-saeedm@mellanox.com>
+References: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Rana Shahout <ranas@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33137 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:33160 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753190AbcCKNk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 08:40:26 -0500
+	id S932079AbcCKNkb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 08:40:31 -0500
+In-Reply-To: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dave,
+From: Tariq Toukan <tariqt@mellanox.com>
 
-This series includes Some RX modifications and optimizations for
-the mlx5 Ethernet driver. 
+A queue counter can collect several statistics for one or more
+hardware queues (QPs, RQs, etc ..) that the counter is attached to.
 
->From Rana, we have one patch that adds the support for Connectx-4
-queue counters.
+For Ethernet it will provide an "out of buffer" counter which collects
+the number of all packets that are dropped due to lack of software
+buffers.
 
->From Tariq, several patches that are centralized around improving
-RX path message rate, CPU and Memory utilization, in each patch
-commit message you will find the performance improvements numbers
-related to that specific patch.
+Here we add device commands to alloc/query/dealloc queue counters.
 
-In the 3rd patch we used a queue counter to report "out of buffer" 
-dropped packet count, "Dropped packets due to lack of software resources"
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c |   68 ++++++++++++++++++++++++++
+ include/linux/mlx5/qp.h                      |    6 ++
+ 2 files changed, 74 insertions(+), 0 deletions(-)
 
-4th patch modifies the driver's to RSS default value to be spread along the
-close NUMA node cores only for better out of the box experience.
-
-In the 5th and 6th patches we utilized the use of RX multi-packet WQE
-(Striding RQ) for better memory utilization especially in case of hardware
-LRO is enabled and for better message rate for small packets.
-
-In the 7th and 8th patches we added a fallback mechanism to use fragmented
-memory when allocating large WQE strides fails, using UMR
-(User Memory Registration) and ICO (Internal Control Operations) SQs.
-
-In 9th patch To reduce the interrupt count we change the RX moderation
-period to be based on the last generated CQE rather than the last generated
-interrupt.
-
-In the 10th to 13th patches we did some small modification which show some small
-extra improvements.
-
-Note: The patch from Matan "net/mlx5: Refactor mlx5_core_mr to mkey"
-included in this series is already submitted and applied into Doug Ledford's 
-rdma tree a606b0f6691d ("net/mlx5: Refactor mlx5_core_mr to mkey").
-
-This series is generated against net-next commit e8ab563f4b2e ("Merge branch 'flower-offload'")
-
-Thanks,
-Saeed
-
-Matan Barak (1):
-  net/mlx5: Refactor mlx5_core_mr to mkey
-
-Rana Shahout (1):
-  net/mlx5e: Allocate set of queue counters per netdev
-
-Tariq Toukan (11):
-  net/mlx5: Introduce device queue counters
-  net/mlx5e: Use only close NUMA node for default RSS
-  net/mlx5e: Use function pointers for RX data path handling
-  net/mlx5e: Support RX multi-packet WQE (Striding RQ)
-  net/mlx5e: Added ICO SQs
-  net/mlx5e: Add fragmented memory support for RX multi packet WQE
-  net/mlx5e: Change RX moderation period to be based on CQE
-  net/mlx5e: Use napi_alloc_skb for RX SKB allocations
-  net/mlx5e: Prefetch next RX CQE
-  net/mlx5e: Remove redundant barrier
-  net/mlx5e: Add ethtool counter for RX SKB allocation failures
-
- drivers/infiniband/hw/mlx5/cq.c                    |   16 +-
- drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
- drivers/infiniband/hw/mlx5/mr.c                    |   50 +-
- drivers/infiniband/hw/mlx5/odp.c                   |   10 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  196 +++++++-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   28 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  386 +++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  498 ++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    6 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   59 +++-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |    6 +-
- drivers/net/ethernet/mellanox/mlx5/core/mr.c       |   54 ++-
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   68 +++
- include/linux/mlx5/device.h                        |   39 ++-
- include/linux/mlx5/driver.h                        |   24 +-
- include/linux/mlx5/mlx5_ifc.h                      |   32 +-
- include/linux/mlx5/qp.h                            |   10 +-
- 17 files changed, 1263 insertions(+), 225 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+index def2893..b720a27 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+@@ -538,3 +538,71 @@ void mlx5_core_destroy_sq_tracked(struct mlx5_core_dev *dev,
+ 	mlx5_core_destroy_sq(dev, sq->qpn);
+ }
+ EXPORT_SYMBOL(mlx5_core_destroy_sq_tracked);
++
++int mlx5_core_alloc_q_counter(struct mlx5_core_dev *dev, u16 *counter_id)
++{
++	u32 in[MLX5_ST_SZ_DW(alloc_q_counter_in)];
++	u32 out[MLX5_ST_SZ_DW(alloc_q_counter_out)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
++
++	MLX5_SET(alloc_q_counter_in, in, opcode, MLX5_CMD_OP_ALLOC_Q_COUNTER);
++	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
++	if (!err)
++		*counter_id = MLX5_GET(alloc_q_counter_out, out,
++				       counter_set_id);
++	return err;
++}
++EXPORT_SYMBOL_GPL(mlx5_core_alloc_q_counter);
++
++int mlx5_core_dealloc_q_counter(struct mlx5_core_dev *dev, u16 counter_id)
++{
++	u32 in[MLX5_ST_SZ_DW(dealloc_q_counter_in)];
++	u32 out[MLX5_ST_SZ_DW(dealloc_q_counter_out)];
++
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
++
++	MLX5_SET(dealloc_q_counter_in, in, opcode,
++		 MLX5_CMD_OP_DEALLOC_Q_COUNTER);
++	MLX5_SET(dealloc_q_counter_in, in, counter_set_id, counter_id);
++	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out,
++					  sizeof(out));
++}
++EXPORT_SYMBOL_GPL(mlx5_core_dealloc_q_counter);
++
++int mlx5_core_query_q_counter(struct mlx5_core_dev *dev, u16 counter_id,
++			      int reset, void *out, int out_size)
++{
++	u32 in[MLX5_ST_SZ_DW(query_q_counter_in)];
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(query_q_counter_in, in, opcode, MLX5_CMD_OP_QUERY_Q_COUNTER);
++	MLX5_SET(query_q_counter_in, in, clear, reset);
++	MLX5_SET(query_q_counter_in, in, counter_set_id, counter_id);
++	return mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, out_size);
++}
++EXPORT_SYMBOL_GPL(mlx5_core_query_q_counter);
++
++int mlx5_core_query_out_of_buffer(struct mlx5_core_dev *dev, u16 counter_id,
++				  u32 *out_of_buffer)
++{
++	int outlen = MLX5_ST_SZ_BYTES(query_q_counter_out);
++	void *out;
++	int err;
++
++	out = mlx5_vzalloc(outlen);
++	if (!out)
++		return -ENOMEM;
++
++	err = mlx5_core_query_q_counter(dev, counter_id, 0, out, outlen);
++	if (!err)
++		*out_of_buffer = MLX5_GET(query_q_counter_out, out,
++					  out_of_buffer);
++
++	kfree(out);
++	return err;
++}
+diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
+index f46324e..296424b 100644
+--- a/include/linux/mlx5/qp.h
++++ b/include/linux/mlx5/qp.h
+@@ -667,6 +667,12 @@ int mlx5_core_create_sq_tracked(struct mlx5_core_dev *dev, u32 *in, int inlen,
+ 				struct mlx5_core_qp *sq);
+ void mlx5_core_destroy_sq_tracked(struct mlx5_core_dev *dev,
+ 				  struct mlx5_core_qp *sq);
++int mlx5_core_alloc_q_counter(struct mlx5_core_dev *dev, u16 *counter_id);
++int mlx5_core_dealloc_q_counter(struct mlx5_core_dev *dev, u16 counter_id);
++int mlx5_core_query_q_counter(struct mlx5_core_dev *dev, u16 counter_id,
++			      int reset, void *out, int out_size);
++int mlx5_core_query_out_of_buffer(struct mlx5_core_dev *dev, u16 counter_id,
++				  u32 *out_of_buffer);
+ 
+ static inline const char *mlx5_qp_type_str(int type)
+ {
+-- 
+1.7.1
