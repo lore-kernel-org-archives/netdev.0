@@ -1,60 +1,113 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: avoid copying junk bytes in bpf_get_current_comm()
-Date: Fri, 11 Mar 2016 11:24:26 +0100
-Message-ID: <56E29CDA.5010004@iogearbox.net>
-References: <1457582553-395600-1-git-send-email-ast@fb.com>
+From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 3/3] infiniband: IB/hns: add Hisilicon RoCE support with bindings
+Date: Fri, 11 Mar 2016 18:37:11 +0800
+Message-ID: <1457692631-9290-4-git-send-email-oulijun@huawei.com>
+References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tobias Waldekranz <tobias@waldekranz.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457582553-395600-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457692631-9290-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/10/2016 05:02 AM, Alexei Starovoitov wrote:
-> Lots of places in the kernel use memcpy(buf, comm, TASK_COMM_LEN); but
-> the result is typically passed to print("%s", buf) and extra bytes
-> after zero don't cause any harm.
-> In bpf the result of bpf_get_current_comm() is used as the part of
-> map key and was causing spurious hash map mismatches.
-> Use strlcpy() to guarantee zero-terminated string.
-> bpf verifier checks that output buffer is zero-initialized,
+This submit add binding file and dts file.
 
-Sorry for late reply, more below:
+Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ .../bindings/infiniband/hisilicon-hns-roce.txt     | 68 ++++++++++++++++++++++
+ 1 file changed, 68 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
 
-> so even for short task names the output buffer don't have junk bytes.
-> Note it's not a security concern, since kprobe+bpf is root only.
->
-> Fixes: ffeedafbf023 ("bpf: introduce current->pid, tgid, uid, gid, comm accessors")
-> Reported-by: Tobias Waldekranz <tobias@waldekranz.com>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-[...]
-> diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
-> index 4504ca66118d..50da680c479f 100644
-> --- a/kernel/bpf/helpers.c
-> +++ b/kernel/bpf/helpers.c
-> @@ -166,7 +166,7 @@ static u64 bpf_get_current_comm(u64 r1, u64 size, u64 r3, u64 r4, u64 r5)
->   	if (!task)
->   		return -EINVAL;
->
-> -	memcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
-> +	strlcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
+diff --git a/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+new file mode 100644
+index 0000000..8004641
+--- /dev/null
++++ b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+@@ -0,0 +1,68 @@
++HiSilicon RoCE DT description
++
++HiSilicon RoCE engine is a part of network subsystem.
++It works depending on other part of network wubsytem, such as, gmac and
++dsa fabric.
++
++Additional properties are described here:
++
++Required properties:
++- compatible: Should contain "hisilicon,hns-roce-v1".
++- reg: Physical base address of the roce driver and
++length of memory mapped region.
++- eth-handle: phandle, specifies a reference to a node
++representing a ethernet device.
++- dsaf-handle: phandle, specifies a reference to a node
++representing a dsaf device.
++- #address-cells: must be 2
++- #size-cells: must be 2
++Optional properties:
++- dma-coherent: Present if DMA operations are coherent.
++- interrupt-parent: the interrupt parent of this device.
++- interrupts: should contain 32 completion event irq,1 async event irq
++and 1 event overflow irq.
++Example:
++	rocee@0xc4000000 {
++			compatible = "hisilicon,hns-roce-v1";
++			reg = <0x0 0xc4000000 0x0 0x100000>;
++			dma-coherent;
++			eth-handle = <&eth2 &eth3 &eth4 &eth5 &eth6 &eth7>;
++			dsaf-handle = <&soc0_dsa>;
++			#address-cells = <2>;
++			#size-cells = <2>;
++			interrupt-parent = <&mbigen_dsa>;
++			interrupts = <722 1>,
++					<723 1>,
++					<724 1>,
++					<725 1>,
++					<726 1>,
++					<727 1>,
++					<728 1>,
++					<729 1>,
++					<730 1>,
++					<731 1>,
++					<732 1>,
++					<733 1>,
++					<734 1>,
++					<735 1>,
++					<736 1>,
++					<737 1>,
++					<738 1>,
++					<739 1>,
++					<740 1>,
++					<741 1>,
++					<742 1>,
++					<743 1>,
++					<744 1>,
++					<745 1>,
++					<746 1>,
++					<747 1>,
++					<748 1>,
++					<749 1>,
++					<750 1>,
++					<751 1>,
++					<752 1>,
++					<753 1>,
++					<785 1>,
++					<754 4>;
++		};
+-- 
+1.9.1
 
-If I see this correctly, __set_task_comm() makes sure comm is always zero
-terminated, so that seems good, but isn't it already sufficient when switching
-to strlcpy() to simply use:
-
-     strlcpy(buf, task->comm, size);
-
-The min_t() seems unnecessary work to me, why do we still need it? size
-is guaranteed to be > 0 through the eBPF verifier, so strlcpy() should take
-care of the rest.
-
-Thanks,
-Daniel
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
