@@ -1,121 +1,116 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Generic TSO (was Re: [net-next PATCH 0/2] GENEVE/VXLAN: Enable
- outer Tx checksum by default)
-Date: Fri, 11 Mar 2016 14:55:33 -0800
-Message-ID: <CALx6S36wJdFnq=2ZkTfijqro1TM1GTqap=aLQ0+NszgWC6Sznw@mail.gmail.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
-	<CAEh+42jHjEqjEyN3-OopZK2hAowh4LGKSgZWgSe9+W1zdezpZA@mail.gmail.com>
-	<CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
-	<CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
-	<CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
-	<CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
-	<CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
-	<56E31A89.9020602@solarflare.com>
-	<CALx6S37G5N-3GxXYf8uF9p8QNC+U_d6-Vf+8Jg6bFqEv_FpULg@mail.gmail.com>
-	<56E3239B.7080009@solarflare.com>
-	<CALx6S37P+gVA_O7vxBjGMxHpY69Cx2aL3E79ptvGkRW4L2x5Ug@mail.gmail.com>
-	<56E32966.7090409@solarflare.com>
-	<CAKgT0Ud0bj=1Baty7O_8Bi5dEU67-036EeZxLpXjvovANem=6Q@mail.gmail.com>
-	<56E338A3.5070909@solarflare.com>
-	<CAKgT0UeBx8NepNM2oGkYOnPV2Niy9GPd7RDZdgDMY3EcRMxNmw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 5/5] phy: fixed: Fix removal of phys.
+Date: Sat, 12 Mar 2016 00:01:40 +0100
+Message-ID: <1457737300-23660-6-git-send-email-andrew@lunn.ch>
+References: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:37225 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751216AbcCKWzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 17:55:35 -0500
-Received: by mail-ig0-f179.google.com with SMTP id z8so23067222ige.0
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 14:55:34 -0800 (PST)
-In-Reply-To: <CAKgT0UeBx8NepNM2oGkYOnPV2Niy9GPd7RDZdgDMY3EcRMxNmw@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:55182 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932683AbcCKXBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 18:01:50 -0500
+In-Reply-To: <1457737300-23660-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2016 at 2:31 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Fri, Mar 11, 2016 at 1:29 PM, Edward Cree <ecree@solarflare.com> wrote:
->> On 11/03/16 21:09, Alexander Duyck wrote:
->>> The only real issue with the "generic" TSO is that it isn't going to
->>> be so generic.  We have different devices that will support different
->>> levels of stuff.  For example the ixgbe drivers will need to treat the
->>> outer tunnel header as one giant L2 header.  As a result we will need
->>> to populate all the fields in the outer header including the outer IP
->>> ID, checksum, udp->len, and UDP or GRE checksum if requested.  For
->>> i40e I think this gets a bit simpler as they already handle the outer
->>> IPv4 ID and checksum.  I think there we may need to only populate the
->>> checksum for it to work out correctly.  As such I may look at coming
->>> up with a number of functions so that we can mix and match based on
->>> what is needed in order to assemble a partially segmented frame.
->> AIUI, the point of the design is that we _can_ populate everything,
->> because we're keeping lengths and outer IP ID fixed, so outer checksums
->> stay the same and the outer tunnel header _is_ just one giant L2 header
->> which is bit-for-bit identical for each generated segment.  So every
->> devicegets to just be dumb and treat it as opaque.
->
-> This works so long as the device isn't trying to do anything like
-> insert VLAN tags.  Then I think we might have an issue since we don't
-> want to confuse the device and have it trying to insert the tag on the
-> inner frame's Ethernet header.
->
-In Edward's giant L2 header mode, couldn't VLAN tags just be part of that?
+The fixed phys delete function simply removed the fixed phy from the
+internal linked list and freed the memory. It however did not
+unregister the associated phy device. This meant it was still possible
+to find the phy device on the mdio bus.
 
-> I suspect we may have differing levels of "dumb" that we have to deal
-> with.  That is all I am saying.  By default we could just populate all
-> of the length and checksum fields in the outer header, we would just
-> have to be consistent about what is provided then.  In addition there
-> will be the matter of sorting out the IP ID bits.  For example some of
-> the i40e parts support tunnel offloads, but not tunnel offloads with
-> checksums enabled.  I suspect those parts will end up wanting to
-> handle the outer IP header and UDP length values.  As a result there
-> trying to do a "dumb" send may result in us really messing up the IP
-> ID values if we don't take steps to make it a bit smarter.
->
->>> The other issue I am working on at the moment to enable all this is to
->>> fix the differents between csum_tcpudp_magic and csum_ipv6_magic in
->>> terms of handling packet lengths greater than 65535.  Currently we are
->>> messing up the checksum in relation to IPv6 since we are using the
->>> truncated uh->len value.  I'll be submitting some patches later today
->>> that will hopefully get that fixed and that in turn should make the
->>> rest of the segmentation work easier.
->> Again, in the superpacket we want to calculate the checksum based on the
->> subsegment length, rather than the length of the superpacket.  The idea
->> is to create the header for an MSS-sized segment, then follow it with an
->> inner IP & TCP header, and n*MSS bytes of payload.  (This of course
->> produces a superpacket that's not what you'd send over a link with a 64k
->> MTU, unlike how we do it today.)
->
-> The question is at what point do we do the chopping.  Should we be
-> doing this in the drivers or somewhere higher in the stack like we do
-> for standard GSO segmentation.  I would think we would need to add
-> another bit that says we can do GSO with custom outer headers since I
-> can see VLANs being a possible issue otherwise.
->
->> Then hw just chops up the payload, fixes up the inner headers, and glues
->> the "L2" header on each packet.
->
-> Yea, it sounds really straight forward and easy.  It isn't till you
-> start digging into the actual code that it gets a bit hairy.
->
-> What this effectively is is another form of TSO where each driver will
-> want to do things a little differently.  Alot of it has to do with the
-> fact that this is kind of a nasty hack that we are trying to add since
-> many devices won't like the fact that we are lying about the size of
-> our actual L2 header so things like VLAN tag insertion are going to
-> end up blowing back on us.
->
-Right, the point is that we're trying to get out of the model where
-every driver/device implements TSO differently, supports ad hoc
-protocols, etc. Do you see any other common invasive technique that we
-need to deal with other than VLAN insertion and IP ID?
+Make fixed_phy_del() an internal function and add a
+fixed_phy_unregister() to unregisters the phy device and then uses
+fixed_phy_del() to free resources.
 
-> Really my preference in the case of ixgbe would have been to let the
-> hardware update the outer IP header and the inner TCP header and then
-> do the UDP and inner IP header as the static headers.  That way we
-> could still theoretically support fragmentation on the outer headers
-> which last I knew is a very real possibility since the DF bit is not
-> set on the outer headers for VXLAN I believe.
->
-> - Alex
+Modify DSA to use this new API function, so we don't leak phys.
+
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/phy/fixed_phy.c | 11 +++++++++--
+ include/linux/phy_fixed.h   |  5 ++---
+ net/dsa/dsa.c               |  4 +---
+ 3 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index ab9c473d75ea..fc07a8866020 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -285,7 +285,7 @@ err_regs:
+ }
+ EXPORT_SYMBOL_GPL(fixed_phy_add);
+ 
+-void fixed_phy_del(int phy_addr)
++static void fixed_phy_del(int phy_addr)
+ {
+ 	struct fixed_mdio_bus *fmb = &platform_fmb;
+ 	struct fixed_phy *fp, *tmp;
+@@ -300,7 +300,6 @@ void fixed_phy_del(int phy_addr)
+ 		}
+ 	}
+ }
+-EXPORT_SYMBOL_GPL(fixed_phy_del);
+ 
+ static int phy_fixed_addr;
+ static DEFINE_SPINLOCK(phy_fixed_addr_lock);
+@@ -371,6 +370,14 @@ struct phy_device *fixed_phy_register(unsigned int irq,
+ }
+ EXPORT_SYMBOL_GPL(fixed_phy_register);
+ 
++void fixed_phy_unregister(struct phy_device *phy)
++{
++	phy_device_remove(phy);
++
++	fixed_phy_del(phy->mdio.addr);
++}
++EXPORT_SYMBOL_GPL(fixed_phy_unregister);
++
+ static int __init fixed_mdio_bus_init(void)
+ {
+ 	struct fixed_mdio_bus *fmb = &platform_fmb;
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 2400d2ea4f34..1d41ec44e39d 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -19,7 +19,7 @@ extern struct phy_device *fixed_phy_register(unsigned int irq,
+ 					     struct fixed_phy_status *status,
+ 					     int link_gpio,
+ 					     struct device_node *np);
+-extern void fixed_phy_del(int phy_addr);
++extern void fixed_phy_unregister(struct phy_device *phydev);
+ extern int fixed_phy_set_link_update(struct phy_device *phydev,
+ 			int (*link_update)(struct net_device *,
+ 					   struct fixed_phy_status *));
+@@ -40,9 +40,8 @@ static inline struct phy_device *fixed_phy_register(unsigned int irq,
+ {
+ 	return ERR_PTR(-ENODEV);
+ }
+-static inline int fixed_phy_del(int phy_addr)
++static inline void fixed_phy_unregister(struct phy_device *phydev)
+ {
+-	return -ENODEV;
+ }
+ static inline int fixed_phy_set_link_update(struct phy_device *phydev,
+ 			int (*link_update)(struct net_device *,
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index f100f340d93f..c28c47463b7e 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -447,11 +447,9 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		if (of_phy_is_fixed_link(port_dn)) {
+ 			phydev = of_phy_find_device(port_dn);
+ 			if (phydev) {
+-				int addr = phydev->mdio.addr;
+-
+ 				phy_device_free(phydev);
+ 				of_node_put(port_dn);
+-				fixed_phy_del(addr);
++				fixed_phy_unregister(phydev);
+ 			}
+ 		}
+ 	}
+-- 
+2.7.0
