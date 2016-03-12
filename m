@@ -1,33 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC v2 08/32] net: dsa: dsa.c: Refactor to increase
- symmetry
-Date: Fri, 11 Mar 2016 15:54:52 -0800
-Message-ID: <56E35ACC.2030306@gmail.com>
-References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
- <1456677700-23027-9-git-send-email-andrew@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 2/2] phy: fixed-phy: Allow DT description of
+ an MDIO bus and PHYs.
+Date: Sat, 12 Mar 2016 01:05:28 +0100
+Message-ID: <20160312000528.GD23969@lunn.ch>
+References: <1457737726-23907-1-git-send-email-andrew@lunn.ch>
+ <1457737726-23907-3-git-send-email-andrew@lunn.ch>
+ <56E35530.6000009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36535 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbcCKX41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 18:56:27 -0500
-Received: by mail-pa0-f54.google.com with SMTP id tt10so111269040pab.3
-        for <netdev@vger.kernel.org>; Fri, 11 Mar 2016 15:56:27 -0800 (PST)
-In-Reply-To: <1456677700-23027-9-git-send-email-andrew@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:55280 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751720AbcCLAFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 19:05:30 -0500
+Content-Disposition: inline
+In-Reply-To: <56E35530.6000009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/02/16 08:41, Andrew Lunn wrote:
-> Create a dsa_switch_finish() which does the opposite of dsa_switch_setup().
-> Create a dsa_finish_dst() which does the opposite of dsa_setup_dst().
+> > +Child nodes represent PHYs on this mdio bus. Standard properties for
+> > +fixed links, 'speed', 'full-duplex', 'pause', 'asym-pause',
+> > +'link-gpios', as defined above are used. Additionally a 'reg' property
+> > +is required for the address of the PHY on the bus. This should be of
+> > +value 0 to 31.
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> This is a virtual bus, the only limitation is because we re-use to the
+> maximum permission extent the real MDIO bus code, and this is putting a
+> SW constraint on something that does not have one here.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+True. I was too lazy to audit the phy and mdio code to see if it
+actually allows phy_addr >= 32. And it is easy to instantiate another
+bus if you need it.
+ 
+> > +
+> > +Example
+> > +-------
+> > +
+> > +mdio {
+> > +	compatible = "linux,mdio-fixed-phy";
+> > +	#address-cells = <1>;
+> > +	#size-cells = <0>;
+> > +
+> > +	phy0: phy@0 {
+> > +		reg = <0>;
+> > +		speed = <1000>;
+> > +		pause;
+> > +		link-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
+> > +	};
+> > +
+> > +	phy1: phy@8 {
+> > +		reg = <8>;
+> > +		speed = <100>;
+> > +		full-duplex;
+> > +	};
+> 
+> The 'fixed-link' property, although it suffers from one basic issue
+> which is that it is placed on the consumer of it (e.g: an Ethernet MAC
+> Device Tree node) while being a two-headed snake (you actually describe
+> a data-pipe with a fixed-link) is not quite perfect, but this does not
+> seem to look any better.
+
+It is actually just the same. Not worse, not better.
+
+I see the real benefit in the drivers. They get fixed-phy for
+free. Cleanup on release just works, which most drivers don't even do
+now, so leak a fixed phy every time they are unloaded. DSA has some
+messy code, which has had a number of bugs, handling fixed phys. By
+adding this extra code, which i hope is reasonably simple to
+understand and review, we make the MAC drivers a lot simpler and less
+error prone.
+ 
+> One thing that Thomas solved nicely was avoid the need for allocating an
+> address on the virtual MDIO bus, but this is coming back here, which
+> does not seem needed except for correctness wrt. how real MDIO buses.
+
+Actually Thomas's code is broken. Fixed phy addresses are allocated
+incrementally. When a fixed phy is released, its address is not
+re-used. So as soon as you have gone through 32 alloc/free cycles, all
+further allocs fail. This is however fixable.
+
+	Andrew
