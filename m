@@ -1,67 +1,27 @@
-From: Jonas Markussen <jonassm@ifi.uio.no>
-Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
-Date: Sat, 12 Mar 2016 09:23:31 +0000
-Message-ID: <1E09F627-847B-4C86-9469-690663AEA4F7@ifi.uio.no>
-References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
- <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com>
- <78983A17-6B0C-4A11-BE0E-A98FE699D1E3@ifi.uio.no>
- <CAK6E8=eq3NGJDwreh6UL2hAHXEiPbRZPbXe2pc5aUPBgNoWtGA@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net v3.16]r8169:  Not enable/disable bus mastering when
+ is enabled on BIOS
+Date: Sat, 12 Mar 2016 10:44:01 +0100
+Message-ID: <20160312094401.GA15947@electric-eye.fr.zoreil.com>
+References: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: =?utf-8?B?QmVuZGlrIFLDuG5uaW5nIE9wc3RhZA==?= <bro.devel@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	Carsten Griwodz <griff@simula.no>,
-	=?utf-8?B?UMOlbCBIYWx2b3JzZW4=?= <paalh@simula.no>,
-	Kristian Evensen <kristian.evensen@gmail.com>,
-	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Corcodel Marian <asd@marian1000.go.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.uio.no ([129.240.10.15]:40928 "EHLO mail-out4.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751084AbcCLJXh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2016 04:23:37 -0500
-In-Reply-To: <CAK6E8=eq3NGJDwreh6UL2hAHXEiPbRZPbXe2pc5aUPBgNoWtGA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <CAAF001EC093A347B3624E0CEFCDD61F@mail.uio.no>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:41496 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbcCLJoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 04:44:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IE9uIDEwIE1hciAyMDE2LCBhdCAwMzoyNywgWXVjaHVuZyBDaGVuZyA8eWNoZW5nQGdvb2ds
-ZS5jb20+IHdyb3RlOg0KPiANCj4gU28gbXkgcXVlc3Rpb24gaXMgc3RpbGwgaWYgdGhpbi1zdHJl
-YW0gYXBwIGhhcyBlbm91Z2ggaW5mbGlnaHQgdG8gdXNlDQo+IGFjay10cmlnZ2VyZWQgcmVjb3Zl
-cnkuIGkuZS4sIGl0IGhhcyB0byBzZW5kIGF0IGxlYXN0IHR3aWNlIHdpdGhpbiBhbg0KPiBSVFQu
-DQo+IA0KDQpJIHNlZS4gVGhlIHRoaW4tc3RyZWFtIGFwcCBtdXN0IHNlbmQgdHdpY2UgYmVmb3Jl
-IGFuIFJUTyBpbiBvcmRlciB0bw0KdXNlIEFDSy10cmlnZ2VyZWQgcmVjb3ZlcnksIE15IHVuZGVy
-c3RhbmRpbmcgaXMgdGhhdCB0aGUgUlRPIHRpbWVyDQppbiBtYW55IGNhc2VzIGNhbiBiZSBtYW55
-IHRpbWVzIHRoZSBSVFQsIGUuZy4sIGZvciBsb3ctUlRUIG5ldHdvcmtzIA0Kd2hlcmUgVENQIHN0
-cmVhbXMgZGVmYXVsdHMgdG8gdGhlIGRlZmF1bHQgbWluaW1hbCBSVFQgdmFsdWUgKDIwMCBtcyku
-DQpPZiBjb3Vyc2UsIHRoZSBhZHZhbnRhZ2Ugb2YgUkRCIGlzIGdyZWF0ZXIgd2hlbiB0aGUgUlRU
-IGlzIGhpZ2guDQoNClRoZSBiZW5lZml0IG9mIFJEQiBvdmVyIG90aGVyIG1lY2hhbmlzbXMgdGhh
-dCBpbXByb3ZlIGhvdyBxdWljayANCnRoaW4tc3RyZWFtcyBhcmUgYWJsZSB0byBkaXNjb3ZlciBh
-bmQgcmVjb3ZlciBsb3NzLCBzdWNoIGFzIHRoZQ0KdGNwX3RoaW5fZHVwYWNrIGFuZCB0Y3BfZWFy
-bHlfcmV0cmFucyBzeXNjdGxzLCBpcyB0aGF0IHRoZSBzZW5kZXINCnVzaW5nIFJEQiB3aWxsIGFs
-cmVhZHkgaGF2ZSByZWNvdmVyZWQgdGhlIGxvc3QgcGFja2V0IGJ5IHRoZSB0aW1lIGENCnJlZ3Vs
-YXIgVENQIGNvbm5lY3Rpb24gZGV0ZWN0cyB0aGUgcGFja2V0IGxvc3MgKGZyb20gRFVQQUNLcykg
-YW5kDQpyZWFjdHMgYWNjb3JkaW5nbHkuIFRoaXMgcmVkdWNlcyB0aGUgcmVjb3ZlcnkgdGltZSBi
-eSBhdCBsZWFzdCBvbmUNClJUVCBzaW5jZSBpdCBhdm9pZHMgdGhlIHJldHJhbnNtaXNzaW9uIGFs
-bCB0b2dldGhlci4NCg0KQW5vdGhlciBpbXBhY3RpbmcgbWVjaGFuaXNtIGhlcmUgaXMgZGVsYXll
-ZCBBQ0tzLCB3aGljaCBhbHNvDQptYXkgYWZmZWN0IGhvdyBsb25nIGl0IHRha2VzIGJlZm9yZSAo
-UylBQ0tTIGFycml2ZSBhdCB0aGUgc2VuZGVyLg0KTXkgdW5kZXJzdGFuZGluZyBpcyB0aGF0IGRl
-bGF5ZWQgQUNLcyB3aWxsIGJlIGRpc2FibGVkIHdoZW4gDQp0aGUgaW5jb21pbmcgcGFja2V04oCZ
-cyBpcyBub3QgdGhlIGV4cGVjdGVkIHNlcXVlbmNlIG51bWJlciwgYXMgaXMNCnRoZSBjYXNlIGZv
-ciBSREIgaGF2aW5nIHBhY2tldHMgd2hlcmUgb2xkIGFuZCBuZXcgZGF0YSBpcyBjb21iaW5lZC4N
-ClRoaXMgaW1wcm92ZXMgQUNLIGZlZWRiYWNrIGZvciB0aGUgdGhpbi1zdHJlYW1zIHVzaW5nIFJE
-Qi4NCg0KPiBBbHNvIGhhdmUgeW91IHRlc3RlZCB0aGlzIHdpdGggbm9uLUxpbnV4IHJlY2VpdmVy
-cz8gVGhhbmtzLg0KPiANCg0KV2UgaGF2ZSB0ZXN0ZWQgdGhlIGN1cnJlbnQgdmVyc2lvbiB3aXRo
-IEZyZWVCU0QgdjEwIGFuZCBXaW5kb3dzIDEwLg0KVGhlIG9sZCB2ZXJzaW9uIHdhcyB0ZXN0ZWQg
-d2l0aCBXaW5kb3dzLCBGcmVlQlNELCBPUyBYIGFuZCBMaW51eA0KYmFjayBpbiAyMDEwLg0KDQpX
-ZSBhcmd1ZSB0aGF0IGFueSBUQ1AgaW1wbGVtZW50YXRpb24gY29tcGx5aW5nIHRvIHRoZSBSRkNz
-IG11c3QNCmJlIGFibGUgdG8gaGFuZGxlIHNlZ21lbnRzIGNvbWJpbmluZyBvbGQgYW5kIG5ldyBk
-YXRhIGluIHRoZSANCnNhbWUgd2F5IHRoZXkgaGFuZGxlIFRDUCByZXBhY2tldGl6YXRpb24gb24g
-cmV0cmFuc21pc3Npb25zDQoodGNwX3JldHJhbnNfY29sbGFwc2UpLg==
+Corcodel Marian <asd@marian1000.go.ro> :
+>  This patch not enable/disable bus mastering when is enabled on BIOS..
+
+It bloats the driver without any benefit.
+
+-- 
+Ueimor
