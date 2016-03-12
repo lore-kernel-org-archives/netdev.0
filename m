@@ -1,67 +1,103 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 3/3] of_mdio: use PTR_ERR_OR_ZERO()
-Date: Sun, 13 Mar 2016 00:34:58 +0300
-Message-ID: <4102374.DztQrXbNvq@wasted.cogentembedded.com>
-References: <2682275.WNlbxTfNal@wasted.cogentembedded.com>
+Subject: [PATCH] sh_eth: kill useless initializers
+Date: Sun, 13 Mar 2016 01:29:45 +0300
+Message-ID: <2737382.tXjN0OZRaC@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-To: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:35117 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753318AbcCLVfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 16:35:02 -0500
-Received: by mail-lb0-f174.google.com with SMTP id bc4so196073288lbc.2
-        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 13:35:01 -0800 (PST)
-In-Reply-To: <2682275.WNlbxTfNal@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PTR_ERR_OR_ZERO() is open coded in of_phy_register_fixed_link(), so just
-call it directly...
+Some of the local variable intializers in the driver turned out to be
+pointless,  kill 'em.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Vladimir Zapolskiy <vz@mleia.com>
 
 ---
-Changes in version 2:
-- added the "Reviewed-by:" tags.
+The patch is against the DaveM's 'net-next.git' repo.
 
- drivers/of/of_mdio.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-Index: net-next/drivers/of/of_mdio.c
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
---- net-next.orig/drivers/of/of_mdio.c
-+++ net-next/drivers/of/of_mdio.c
-@@ -412,7 +412,7 @@ int of_phy_register_fixed_link(struct de
- 		if (strcmp(managed, "in-band-status") == 0) {
- 			/* status is zeroed, namely its .link member */
- 			phy = fixed_phy_register(PHY_POLL, &status, -1, np);
--			return IS_ERR(phy) ? PTR_ERR(phy) : 0;
-+			return PTR_ERR_OR_ZERO(phy);
- 		}
- 	}
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -447,8 +447,8 @@ static bool sh_eth_is_rz_fast_ether(stru
  
-@@ -434,7 +434,7 @@ int of_phy_register_fixed_link(struct de
- 			return -EPROBE_DEFER;
+ static void sh_eth_select_mii(struct net_device *ndev)
+ {
+-	u32 value = 0x0;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
++	u32 value;
  
- 		phy = fixed_phy_register(PHY_POLL, &status, link_gpio, np);
--		return IS_ERR(phy) ? PTR_ERR(phy) : 0;
-+		return PTR_ERR_OR_ZERO(phy);
- 	}
+ 	switch (mdp->phy_interface) {
+ 	case PHY_INTERFACE_MODE_GMII:
+@@ -1231,8 +1231,8 @@ ring_free:
  
- 	/* Old binding */
-@@ -446,7 +446,7 @@ int of_phy_register_fixed_link(struct de
- 		status.pause = be32_to_cpu(fixed_link_prop[3]);
- 		status.asym_pause = be32_to_cpu(fixed_link_prop[4]);
- 		phy = fixed_phy_register(PHY_POLL, &status, -1, np);
--		return IS_ERR(phy) ? PTR_ERR(phy) : 0;
-+		return PTR_ERR_OR_ZERO(phy);
- 	}
+ static int sh_eth_dev_init(struct net_device *ndev, bool start)
+ {
+-	int ret = 0;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
++	int ret;
  
- 	return -ENODEV;
+ 	/* Soft Reset */
+ 	ret = sh_eth_reset(ndev);
+@@ -1355,7 +1355,7 @@ static int sh_eth_txfree(struct net_devi
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+ 	struct sh_eth_txdesc *txdesc;
+ 	int free_num = 0;
+-	int entry = 0;
++	int entry;
+ 
+ 	for (; mdp->cur_tx - mdp->dirty_tx > 0; mdp->dirty_tx++) {
+ 		entry = mdp->dirty_tx % mdp->num_tx_ring;
+@@ -1396,10 +1396,10 @@ static int sh_eth_rx(struct net_device *
+ 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
+ 	int limit;
+ 	struct sk_buff *skb;
+-	u16 pkt_len = 0;
+ 	u32 desc_status;
+ 	int skbuff_size = mdp->rx_buf_sz + SH_ETH_RX_ALIGN + 32 - 1;
+ 	dma_addr_t dma_addr;
++	u16 pkt_len;
+ 	u32 buf_len;
+ 
+ 	boguscnt = min(boguscnt, *quota);
+@@ -1778,7 +1778,7 @@ static int sh_eth_phy_init(struct net_de
+ {
+ 	struct device_node *np = ndev->dev.parent->of_node;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+-	struct phy_device *phydev = NULL;
++	struct phy_device *phydev;
+ 
+ 	mdp->link = 0;
+ 	mdp->speed = 0;
+@@ -2232,8 +2232,8 @@ static const struct ethtool_ops sh_eth_e
+ /* network device open function */
+ static int sh_eth_open(struct net_device *ndev)
+ {
+-	int ret = 0;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
++	int ret;
+ 
+ 	pm_runtime_get_sync(&mdp->pdev->dev);
+ 
+@@ -2988,12 +2988,12 @@ static inline struct sh_eth_plat_data *s
+ 
+ static int sh_eth_drv_probe(struct platform_device *pdev)
+ {
+-	int ret, devno = 0;
+ 	struct resource *res;
+-	struct net_device *ndev = NULL;
+-	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd = dev_get_platdata(&pdev->dev);
+ 	const struct platform_device_id *id = platform_get_device_id(pdev);
++	struct sh_eth_private *mdp;
++	struct net_device *ndev;
++	int ret, devno;
+ 
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
