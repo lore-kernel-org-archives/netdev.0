@@ -1,27 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net v3.16]r8169:  Not enable/disable bus mastering when
- is enabled on BIOS
-Date: Sat, 12 Mar 2016 10:44:01 +0100
-Message-ID: <20160312094401.GA15947@electric-eye.fr.zoreil.com>
-References: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net 0/3] bridge: ageing timer regression fix
+Date: Sat, 12 Mar 2016 10:46:30 +0100
+Message-ID: <20160312094630.GA2127@nanopsycho.orion>
+References: <1457470775-32224-1-git-send-email-stephen@networkplumber.org>
+ <20160311.150448.895454572947313792.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Corcodel Marian <asd@marian1000.go.ro>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	jiri@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41496 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305AbcCLJoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 04:44:09 -0500
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35385 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbcCLJqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 04:46:33 -0500
+Received: by mail-wm0-f67.google.com with SMTP id n205so6388734wmf.2
+        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 01:46:32 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
+In-Reply-To: <20160311.150448.895454572947313792.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Corcodel Marian <asd@marian1000.go.ro> :
->  This patch not enable/disable bus mastering when is enabled on BIOS..
+Fri, Mar 11, 2016 at 09:04:48PM CET, davem@davemloft.net wrote:
+>From: Stephen Hemminger <stephen@networkplumber.org>
+>Date: Tue,  8 Mar 2016 12:59:32 -0800
+>
+>> This fixes regression in how ageing timer is managed.
+>> Backing out the change required fixing switch drivers as well.
+>
+>Series applied, thanks.
+>
+>Jiri, since I applied this to net-next, I had to deal with the conflicts
+>created by your world splitup of the rocker driver.  I wasn't sure, while
+>doing so, whether you'd like this new ageing_time member to remain in the
+>rocker struct, as in Stephen's patch, or to be placed in the ofdpa struct.
+>I choose the former, send me a patch if you want the latter.
 
-It bloats the driver without any benefit.
-
--- 
-Ueimor
+Yeah, it belongs into ofdpa. I'll send you patch in a jiff. Thanks!
