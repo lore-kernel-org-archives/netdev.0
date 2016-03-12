@@ -1,102 +1,73 @@
-From: yumkam@gmail.com (Yuriy M. Kaminskiy)
-Subject: Re: userns, netns, and quick physical memory consumption by unprivileged user
-Date: Sat, 12 Mar 2016 16:35:55 +0300
-Message-ID: <m3io0riucg.fsf@gmail.com>
-References: <m3d1rclioc.fsf@gmail.com> <m3r3fhhx4c.fsf@gmail.com>
-	<20160311153406.GB6620@breakpoint.cc>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: Re: [v6, 4/5] powerpc/fsl: move mpc85xx.h to include/linux/fsl
+Date: Sat, 12 Mar 2016 16:52:54 +0100
+Message-ID: <20160312155254.GJ1661@katana>
+References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
+ <1457518131-11339-5-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, containers@lists.osdl.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:52910 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752720AbcCLPeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2016 10:34:03 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1aelYG-0000A5-0a
-	for netdev@vger.kernel.org; Sat, 12 Mar 2016 16:34:00 +0100
-Received: from ppp37-190-56-84.pppoe.spdop.ru ([37.190.56.84])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 16:33:59 +0100
-Received: from yumkam by ppp37-190-56-84.pppoe.spdop.ru with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 16:33:59 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 03/11/16 18:34 , Florian Westphal wrote:
-> Yuriy M. Kaminskiy <yumkam@gmail.com> wrote:
->> BTW, all those hash/conntrack/etc default sizes was calculated from
->> physical memory size in assumption there will be only *one* instance of
->> those tables. Obviously, introduction of network namespaces (and
->> especially unprivileged user-ns) thrown this assumption in the window
->> (and here comes that "falling back to vmalloc" message again; in pre-netns
->> world, those tables were allocated *once* on early system startup, with
->> typically plenty of free and unfragmented memory).
->
-> No idea how to fix this expect by removing conntrack support in net
-> namespaces completely.
-
-Well, it is not *only* conntrack. Conntrack eats big chunks at once, but
-there are other things that eat kernel memory too: *any* iptables
-rules, 'ip address', 'ip link' (at very least, 'type dummy' and
-/dev/net/tun are available inside unprivileged userns/netns), 'ip
-tunnel', 'ip rule', 'ip route', etc.
-
-Just add *a lot* of them (and over several netns to avoid potential
-O(n^2) behaviour on adding), and it will be painful, regardless of
-memcg/ulimits/free swap/etc.
-
-E.g. something like
-
-  unshare -rn sh -c 'setsid sleep inf & for i in 1 1024; do
-  ip li add d$i type dummy; ip li set d$i up;done'
-
-eats ~40M kernel memory each (unswappable and not curbed by memcg),
-that's way more than conntrack hashtables alone.
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="AXxEqdD4tcVTjWte"
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
+	iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-mmc@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+	scott.wood@nxp.com, Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	ulf.hansson@linaro.org,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Zhao Qiang <qiang.zhao@freescale.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <linux-clk-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1457518131-11339-5-git-send-email-yangbo.lu@nxp.com>
+Sender: linux-clk-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-At *very minimum*, all that must be limited by memcg (it is not
-currently!). And maybe by ulimits too (of process that created userns?
-well, natural choice of RLIMIT_MEMLOCK practically forbids netns, no
-chance it will fit in 64k).
+--AXxEqdD4tcVTjWte
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Mar 09, 2016 at 06:08:50PM +0800, Yangbo Lu wrote:
+> Move mpc85xx.h to include/linux/fsl and rename it to svr.h as
+> a common header file. It has been used for mpc85xx and it will
+> be used for ARM-based SoC as well.
+>=20
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+
+=46rom a glimpse, looks like proper refactoring. Thanks!
+
+For the I2C part:
+
+Acked-by: Wolfram Sang <wsa@the-dreams.de>
 
 
-Specifically with conntrack, separate limits on hash size/entries for
-non-initns won't harm, but that's more of "flexibility to avoid
-senseless waste of memory" (in case specific container won't use many
-connection or won't use conntrack at all) than protection against abuse.
+--AXxEqdD4tcVTjWte
+Content-Type: application/pgp-signature; name="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-By the way, there are unrestrained kernel memory consumption in *other*
-namespace types too. E.g., let's look at mount  namespace; it looks like
-tmpfs contents is at least curbed by memcg [but *not* curbed by
-ulimits!], however *mounts itself* are not; e.g.
+iQIcBAEBAgAGBQJW5DtWAAoJEBQN5MwUoCm2N8wP/A+9PzzjAh69NdEWEYwAmYNQ
+O+VKHOPKJS8+cx+LgBtRcfEPQFa1Yjhbc67iLD3iCZmflpMTPkTxJaCXtCpX7spT
+czvjtG2dnaW57mkuuu1M1n6g2Pk8AqFScH7fgJ8/T0PsLo9n/+uZQOqsahYLYBA6
+eHz4NL7vhXW0X8K1v2VnPI8PzEc3jxz72ZsGo4JdKrrSNjs20rHpjXm4/c6L/IxY
+ww6eMTeOY+aXfNEHyWX67bwVX0j+9puiQ0RWdnQEo/3n9XMdketiEwpClO/fzAmb
+YGg7ChK0pVFqt54gk5Kj6eA9hCDiNsOK9LSeVNX5qsqmIcr1enxD9WNOV0zjPTfP
+pF1mR52ygaACR5KU8LQSZVyZBjar9lMq60Fw6KCRunwCMjpnkUxLWHFH8TrH5NAG
+bcVaO158C7FW7Ixk+d0uaZpqIMg2co62nUXXLxUvMSVbDNxuzvo6gCosZt5z3oKr
+9oEVkaqTk7QhX8szHB+BYKjoBVK+oi4UsgvQ3LnTCCt5r9vGGwGGnNEluOKHzB5o
+hEdKZ7/Ubd8yuCAkVzZHW4s0i248RxUY+a45u2adw6Zp5L7Dvw4JWPo0YD6qT4UN
+AMUJnu+dAf/WgL1wn1Nb1AKsbnN3dz8paP0kdGXTtfO51B1FeFrs7x9io1wvUFyn
+4zIuW6V0i4oZlV+/XynJ
+=VEQJ
+-----END PGP SIGNATURE-----
 
-  unshare -rm sh -c 'while :; do seq -f /tmp/foo%g 1 1024|
-  while read d; do mkdir -p $d; mount --bind $d $d;done'
-
-is a bit slower [try with several instances?], but end result
-would be same).
-
-> I'd disallow all write accesses to skb->nfct (NAT, CONNMARK,
-> CONNSECMARK, ...) and then no longer clear skb->nfct when forwarding
-> packet from init_ns to container.
->
-> Containers could then still test conntrack as seen from init namespace pov
-> in PREROUTING/FORWARD/INPUT (but not OUTPUT, obviously).
->
-> [ OUTPUT *might* be doable as well by allowing NEW creation in output
->   but skipping nat and deferring the confirmation/commit of the new
->   entry to the table until skb leaves initns ]
->
-> We could key conntrack entries to initns conntrack table
-> instead of adding one new table per netns, but seems like this only
-> replaces one problem with a new one (filling/blocking initns table from
-> another netns).
->
-> Maybe we could go with a compromise and skip/disallow conntrack in
-> unpriv userns only?
+--AXxEqdD4tcVTjWte--
