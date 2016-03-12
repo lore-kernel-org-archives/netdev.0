@@ -1,73 +1,71 @@
-From: Wolfram Sang <wsa@the-dreams.de>
-Subject: Re: [v6, 4/5] powerpc/fsl: move mpc85xx.h to include/linux/fsl
-Date: Sat, 12 Mar 2016 16:52:54 +0100
-Message-ID: <20160312155254.GJ1661@katana>
-References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
- <1457518131-11339-5-git-send-email-yangbo.lu@nxp.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC v2 00/32] Make DSA switches linux devices.
+Date: Sat, 12 Mar 2016 18:08:27 +0100
+Message-ID: <20160312170827.GA2186@lunn.ch>
+References: <1456677700-23027-1-git-send-email-andrew@lunn.ch>
+ <56D88757.7050803@gmail.com>
+ <20160303202716.GQ15541@lunn.ch>
+ <56E357C7.7090309@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="AXxEqdD4tcVTjWte"
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
-	iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-mmc@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	scott.wood@nxp.com, Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	ulf.hansson@linaro.org,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Zhao Qiang <qiang.zhao@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
-	xiaobo.xie@nxp.com
-To: Yangbo Lu <yangbo.lu@nxp.com>
-Return-path: <linux-clk-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1457518131-11339-5-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-clk-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---AXxEqdD4tcVTjWte
 Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:55430 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751959AbcCLRIb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Mar 2016 12:08:31 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <56E357C7.7090309@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 09, 2016 at 06:08:50PM +0800, Yangbo Lu wrote:
-> Move mpc85xx.h to include/linux/fsl and rename it to svr.h as
-> a common header file. It has been used for mpc85xx and it will
-> be used for ARM-based SoC as well.
->=20
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> [snip]
+>
+> >
+> > The third switch is as you would expect, dsa,member = <0 2>;
+>
+> I like that representation.
+>
 
-=46rom a glimpse, looks like proper refactoring. Thanks!
+...
 
-For the I2C part:
+> So does that mean you agree we do not need the DSA platform device
+> anymore :)?
 
-Acked-by: Wolfram Sang <wsa@the-dreams.de>
+It looks like it can be	done without the DSA platform device.
 
+My previous approach was to keep the new binding as similar as
+possible to the current one. If however, we decide we are going for
+something totally new, we can remove this platform device.
 
---AXxEqdD4tcVTjWte
-Content-Type: application/pgp-signature; name="signature.asc"
+It probably means we need to turn slave.c and parts of dsa.c into a
+library. Add a new dsa_v2.c file, containing the new binding
+code. With things like having the switch devices instantiate there own
+MDIO bus, fixed phys on a compatible MDIO bus referenced via phandles,
+etc, I hope we can make parts of the dsa_v2 simpler.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+> Very true, we support a wide variety of setups, and that creates a lot
+> of complexity that could probably be absorbed by a more generic helper
+> function?
 
-iQIcBAEBAgAGBQJW5DtWAAoJEBQN5MwUoCm2N8wP/A+9PzzjAh69NdEWEYwAmYNQ
-O+VKHOPKJS8+cx+LgBtRcfEPQFa1Yjhbc67iLD3iCZmflpMTPkTxJaCXtCpX7spT
-czvjtG2dnaW57mkuuu1M1n6g2Pk8AqFScH7fgJ8/T0PsLo9n/+uZQOqsahYLYBA6
-eHz4NL7vhXW0X8K1v2VnPI8PzEc3jxz72ZsGo4JdKrrSNjs20rHpjXm4/c6L/IxY
-ww6eMTeOY+aXfNEHyWX67bwVX0j+9puiQ0RWdnQEo/3n9XMdketiEwpClO/fzAmb
-YGg7ChK0pVFqt54gk5Kj6eA9hCDiNsOK9LSeVNX5qsqmIcr1enxD9WNOV0zjPTfP
-pF1mR52ygaACR5KU8LQSZVyZBjar9lMq60Fw6KCRunwCMjpnkUxLWHFH8TrH5NAG
-bcVaO158C7FW7Ixk+d0uaZpqIMg2co62nUXXLxUvMSVbDNxuzvo6gCosZt5z3oKr
-9oEVkaqTk7QhX8szHB+BYKjoBVK+oi4UsgvQ3LnTCCt5r9vGGwGGnNEluOKHzB5o
-hEdKZ7/Ubd8yuCAkVzZHW4s0i248RxUY+a45u2adw6Zp5L7Dvw4JWPo0YD6qT4UN
-AMUJnu+dAf/WgL1wn1Nb1AKsbnN3dz8paP0kdGXTtfO51B1FeFrs7x9io1wvUFyn
-4zIuW6V0i4oZlV+/XynJ
-=VEQJ
------END PGP SIGNATURE-----
+No, i want to go the other direction. Make all these phy setups look
+identical. It is just a phy-handle=<&phandle> property. With my MDIO
+fixed-phy bus patches, it just works for user ports, and the only
+thing we need to deal with is phy-mode.
 
---AXxEqdD4tcVTjWte--
+DSA and CPU ports are harder, due to a lack of a netdev. Horrible, but
+maybe would could do a alloc_netdev(), but never register_netdev()?
+It gives us something to attach the phy to.
+
+> > 1) The switch device should use mdiobus_alloc()/mdiobus_register() for
+> > its own MDIO bus.
+> 
+> Agreed, possibly with the help of the DSA slave code, since some of that
+> is already doing its magic for most drivers here.
+
+I think the switch driver should instantiate the MDIO bus, not the
+core. The core could however offer some helper code.
+
+      Andrew
