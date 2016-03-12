@@ -1,73 +1,61 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
- sndbuf/rcvbuf size of RDS-TCP socket
-Date: Fri, 11 Mar 2016 23:39:52 -0500
-Message-ID: <20160312043952.GC26486@oracle.com>
-References: <20160311182949.GG3383@oracle.com>
- <20160311110927.5c559421@xeon-e3>
- <20160312024341.GA26486@oracle.com>
- <CALx6S37+Zj-OmApDHzb2hq0jSLsbat4M9Xv6ASzB5VGP9HrQqw@mail.gmail.com>
- <20160312034421.GB26486@oracle.com>
- <CALx6S37gHYMJdz3MzfjKwLHsw0Pmg0SxvQ036sg35AjRackARQ@mail.gmail.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH V3] net: ezchip: adapt driver to little endian
+ architecture
+Date: Sat, 12 Mar 2016 10:53:23 +0530
+Message-ID: <56E3A7CB.2020001@synopsys.com>
+References: <1457014066-27651-1-git-send-email-ltrimas@synopsys.com>
+ <20160303.172043.676796529681577242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <Alexey.Brodkin@synopsys.com>,
+	<noamc@ezchip.com>, <talz@ezchip.com>, <arnd@arndb.de>,
+	arcml <linux-snps-arc@lists.infradead.org>
+To: <Lada.Trimasova@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:16965 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbcCLEkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Mar 2016 23:40:01 -0500
-Content-Disposition: inline
-In-Reply-To: <CALx6S37gHYMJdz3MzfjKwLHsw0Pmg0SxvQ036sg35AjRackARQ@mail.gmail.com>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:54709 "EHLO
+	smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbcCLFXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 00:23:44 -0500
+In-Reply-To: <20160303.172043.676796529681577242.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (03/11/16 20:07), Tom Herbert wrote:
+On Friday 04 March 2016 03:50 AM, David Miller wrote:
+> From: Lada Trimasova <Lada.Trimasova@synopsys.com>
+> Date: Thu,  3 Mar 2016 17:07:46 +0300
+> 
+>> Since ezchip network driver is written with big endian EZChip platform it
+>> is necessary to add support for little endian architecture.
+>>
+>> The first issue is that the order of the bits in a bit field is
+>> implementation specific. So all the bit fields are removed.
+>> Named constants are used to access necessary fields.
+>>
+>> And the second one is that network byte order is big endian.
+>> For example, data on ethernet is transmitted with most-significant
+>> octet (byte) first. So in case of little endian architecture
+>> it is important to swap data byte order when we read it from
+>> register. In case of unaligned access we can use "get_unaligned_be32"
+>> and in other case we can use function "ioread32_rep" which reads all
+>> data from register and works either with little endian or big endian
+>> architecture.
+>>
+>> And then when we are going to write data to register we need to restore
+>> byte order using the function "put_unaligned_be32" in case of
+>> unaligned access and in other case "iowrite32_rep".
+>>
+>> The last little fix is a space between type and pointer to observe
+>> coding style.
+>>
+>> Signed-off-by: Lada Trimasova <ltrimas@synopsys.com>
+> 
+> Applied to net-next, thanks.
+> 
 
-> You are describing your deployment of RDS, not kernel implementation.
-> What I see is a very rigid implementation that would make it hard for
-> many us to ever even consider deploying. The abilities of applications
-> to tune TCP connections is well understood, very prevalent, and really
-> fundamental in making TCP based datacenters at large scale.
+@Lada, could you provide the corresponding arch/arc/{boot/dts,configs}/ updates so
+we can switch over to this device-model/driver for OSCI platform for 4.6.
 
-sorry, historically, OS DDI/DKI's for kernel modules have always
-had some way to set up startup parameters at module load time.  And 
-clusters have been around for a while. 
-
-So let's just focus on the technical question around module config here,
-which involves more than TCP sockets, btw.
-
->  Any way, it was just an idea... ;-)
-
-Thank you. 
-
-Moving on,
-
-> Maybe add one module parameter that indicates the module should just
-> load but not start, configure whatever is needed via netlink, and then
-> send one more netlink command to start operations.
-
-Even that needs an extra daemon. 
-
-Without getting into the vast number of questions that it raises (such
-as every module with startup params now needs a uspace counterpart?
-modprobe-r behavior, namespace behavior? Why netlink for every kernel
-module? etc)..
-
-One module parameter is as much a "distribution management"
-problem as 10 of them, yes? I hope you see that I dont need that module
-param and daemon baggage- I can just use  sysctl to set up all my params,
-including one bit for module_can_start_now to achieve the same thing.
-
-But it is still more than the handful of lines of code in my patch,
-so it would be nice to understand what is the "distribution" issue.
-
-Stepping back, how do we make sysctl fully namespace friendly? 
-
-btw setting kernel socket keepalive params via sysctl is not a problem
-to implement at all, if it ever shows up as a requirement for customers.
-
---Sowmini
+Thx,
+-Vineet
