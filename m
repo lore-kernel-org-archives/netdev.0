@@ -1,33 +1,57 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: Re: [PATCH net v3.16]r8169:  Not enable/disable bus mastering when
- is enabled on BIOS
-Date: Sat, 12 Mar 2016 12:48:28 +0200
-Message-ID: <20160312124828.07e467a1@192-168-0-108.rdsnet.ro>
-References: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
-	<20160312094401.GA15947@electric-eye.fr.zoreil.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: userns, netns, and quick physical memory consumption by
+ unprivileged user
+Date: Sat, 12 Mar 2016 12:41:40 +0100
+Message-ID: <20160312114140.GA2023@salvia>
+References: <m3d1rclioc.fsf@gmail.com>
+ <m3r3fhhx4c.fsf@gmail.com>
+ <20160311153406.GB6620@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-228-122.residential.rdsnet.ro ([5.14.228.122]:60522 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751833AbcCLLKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 06:10:31 -0500
-In-Reply-To: <20160312094401.GA15947@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Yuriy M. Kaminskiy" <yumkam@gmail.com>, netdev@vger.kernel.org,
+	containers@lists.osdl.org, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160311153406.GB6620@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Mar 2016 10:44:01 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
-
-> Corcodel Marian <asd@marian1000.go.ro> :
-> >  This patch not enable/disable bus mastering when is enabled on
-> > BIOS..
+On Fri, Mar 11, 2016 at 04:34:06PM +0100, Florian Westphal wrote:
+> Yuriy M. Kaminskiy <yumkam@gmail.com> wrote:
+> > BTW, all those hash/conntrack/etc default sizes was calculated from
+> > physical memory size in assumption there will be only *one* instance of
+> > those tables. Obviously, introduction of network namespaces (and
+> > especially unprivileged user-ns) thrown this assumption in the window
+> > (and here comes that "falling back to vmalloc" message again; in pre-netns
+> > world, those tables were allocated *once* on early system startup, with
+> > typically plenty of free and unfragmented memory).
 > 
-> It bloats the driver without any benefit.
+> No idea how to fix this expect by removing conntrack support in net
+> namespaces completely.
 > 
+> I'd disallow all write accesses to skb->nfct (NAT, CONNMARK,
+> CONNSECMARK, ...) and then no longer clear skb->nfct when forwarding
+> packet from init_ns to container.
+> 
+> Containers could then still test conntrack as seen from init namespace pov
+> in PREROUTING/FORWARD/INPUT (but not OUTPUT, obviously).
+> 
+> [ OUTPUT *might* be doable as well by allowing NEW creation in output
+>   but skipping nat and deferring the confirmation/commit of the new
+>   entry to the table until skb leaves initns ]
+> 
+> We could key conntrack entries to initns conntrack table
+> instead of adding one new table per netns, but seems like this only
+> replaces one problem with a new one (filling/blocking initns table from
+> another netns).
 
-For mee this patch is very important , decrease time to autonegociation
-and start nic on full speed alltimes.
+We can add a global perns limit in terms of conntrack entries that can
+only be set via CAP_NET_ADMIN from the initns. Thus, we avoid the
+filling/blocking from another netns, or hide this knob to
+unpriviledged userns somehow.
+
+In the previous netfilter workshop I remember we agreed on going
+towards having a single conntrack table for netns, so I suggest we
+follow that direction.
