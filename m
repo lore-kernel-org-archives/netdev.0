@@ -1,62 +1,61 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Sat, 12 Mar 2016 19:49:22 +0100
-Message-ID: <56E464B2.5050303@hartkopp.net>
-References: <1456824849-7987-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <56DC1561.9060306@hartkopp.net>
- <SG2PR06MB10386D712BC8C345DF726523C3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DD36F5.2000308@pengutronix.de>
- <SG2PR06MB1038DD47FAFF354C99AF2E4FC3B10@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DE8345.50901@hartkopp.net>
- <SG2PR06MB1038B71C7921984611F72CF5C3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DEC49D.4@hartkopp.net>
- <SG2PR06MB10388F87746A1191E51B199FC3B20@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <56DF0900.6090906@hartkopp.net>
- <KL1PR06MB10315B45ADA2037A5AA85A56C3B50@KL1PR06MB1031.apcprd06.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v3.16]r8169: Not enable/disable bus mastering when is
+ enabled on BIOS
+Date: Sat, 12 Mar 2016 22:09:31 +0300
+Message-ID: <56E4696B.1050808@cogentembedded.com>
+References: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"geert+renesas@glider.be" <geert+renesas@glider.be>,
-	Chris Paterson <Chris.Paterson2@renesas.com>
-To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"corbet@lwn.net" <corbet@lwn.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <KL1PR06MB10315B45ADA2037A5AA85A56C3B50@KL1PR06MB1031.apcprd06.prod.outlook.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+To: Corcodel Marian <asd@marian1000.go.ro>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:33743 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167AbcCLTJf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 14:09:35 -0500
+Received: by mail-lb0-f173.google.com with SMTP id k15so195609371lbg.0
+        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 11:09:34 -0800 (PST)
+In-Reply-To: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ramesh,
+Hello.
 
-On 03/11/2016 08:14 AM, Ramesh Shanmugasundaram wrote:
+On 03/12/2016 09:33 AM, Corcodel Marian wrote:
 
-> As we are fixing this issue in CAN dev.c, I'll remove this check in ndo_open and set CAN_CTRLMODE_FD flag in ctrlmode & remove the flag in ctrlmode_supported in the next v3 version of the patch.
+>   This patch not enable/disable bus mastering when is enabled on BIOS..
+>   pci_disable_device function also disable bus mastering for, disable bus mastering
+>    is dedicate function.
+>
+> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> ---
+>   drivers/net/ethernet/realtek/r8169.c | 29 ++++++++++++++++++++++++++---
+>   1 file changed, 26 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index 02aec96..ec555e7 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+[...]
+> @@ -7103,7 +7120,13 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>
+>   	rtl_ack_events(tp, 0xffff);
+>
+> -	pci_set_master(pdev);
+> +	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+> +	if (cmd & PCI_COMMAND_MASTER)
+> +		tp->bios_support = true;
+> +	else {
 
-I posted a V2 version of that fix some minutes ago.
-It also adds some documentation and a new variable ctrlmode_static which 
-makes it clear how to specify static/fixed control modes.
+    Documentation/CodingStyle requites {} on all branches of the *if* 
+statement if at least one branch has them.
 
-Please use the new can_set_static_ctrlmode() helper as suggested in the 
-changes for m_can.c.
+> +		tp->bios_support = false;
+> +		pci_set_master(pdev);
+> +	}
+>
+>   	/*
+>   	 * Pretend we are using VLANs; This bypasses a nasty bug where
 
-A feedback is welcome whether this new fix fits your expectations.
-
-> Are there any further comments on v2 patch please?
-
-Besides the stuff I wrote above: No :-)
-
-Best regards,
-Oliver
+MBR, Sergei
