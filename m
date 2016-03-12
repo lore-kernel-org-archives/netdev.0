@@ -1,84 +1,81 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 2/2] phy: fixed-phy: Allow DT description of
- an MDIO bus and PHYs.
-Date: Sat, 12 Mar 2016 01:05:28 +0100
-Message-ID: <20160312000528.GD23969@lunn.ch>
-References: <1457737726-23907-1-git-send-email-andrew@lunn.ch>
- <1457737726-23907-3-git-send-email-andrew@lunn.ch>
- <56E35530.6000009@gmail.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH v2 0/3] net/phy: Improvements to Cavium Thunder MDIO code.
+Date: Fri, 11 Mar 2016 16:08:44 -0800
+Message-ID: <56E35E0C.9040500@caviumnetworks.com>
+References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Robert Richter <rric@kernel.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	David Daney <david.daney@cavium.com>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55280 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751720AbcCLAFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Mar 2016 19:05:30 -0500
-Content-Disposition: inline
-In-Reply-To: <56E35530.6000009@gmail.com>
+Received: from mail-by2on0063.outbound.protection.outlook.com ([207.46.100.63]:2120
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751720AbcCLAIv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Mar 2016 19:08:51 -0500
+In-Reply-To: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > +Child nodes represent PHYs on this mdio bus. Standard properties for
-> > +fixed links, 'speed', 'full-duplex', 'pause', 'asym-pause',
-> > +'link-gpios', as defined above are used. Additionally a 'reg' property
-> > +is required for the address of the PHY on the bus. This should be of
-> > +value 0 to 31.
-> 
-> This is a virtual bus, the only limitation is because we re-use to the
-> maximum permission extent the real MDIO bus code, and this is putting a
-> SW constraint on something that does not have one here.
+I am going to send a new version of this set.
 
-True. I was too lazy to audit the phy and mdio code to see if it
-actually allows phy_addr >= 32. And it is easy to instantiate another
-bus if you need it.
- 
-> > +
-> > +Example
-> > +-------
-> > +
-> > +mdio {
-> > +	compatible = "linux,mdio-fixed-phy";
-> > +	#address-cells = <1>;
-> > +	#size-cells = <0>;
-> > +
-> > +	phy0: phy@0 {
-> > +		reg = <0>;
-> > +		speed = <1000>;
-> > +		pause;
-> > +		link-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
-> > +	};
-> > +
-> > +	phy1: phy@8 {
-> > +		reg = <8>;
-> > +		speed = <100>;
-> > +		full-duplex;
-> > +	};
-> 
-> The 'fixed-link' property, although it suffers from one basic issue
-> which is that it is placed on the consumer of it (e.g: an Ethernet MAC
-> Device Tree node) while being a two-headed snake (you actually describe
-> a data-pipe with a fixed-link) is not quite perfect, but this does not
-> seem to look any better.
+David Daney
 
-It is actually just the same. Not worse, not better.
 
-I see the real benefit in the drivers. They get fixed-phy for
-free. Cleanup on release just works, which most drivers don't even do
-now, so leak a fixed phy every time they are unloaded. DSA has some
-messy code, which has had a number of bugs, handling fixed phys. By
-adding this extra code, which i hope is reasonably simple to
-understand and review, we make the MAC drivers a lot simpler and less
-error prone.
- 
-> One thing that Thomas solved nicely was avoid the need for allocating an
-> address on the virtual MDIO bus, but this is coming back here, which
-> does not seem needed except for correctness wrt. how real MDIO buses.
-
-Actually Thomas's code is broken. Fixed phy addresses are allocated
-incrementally. When a fixed phy is released, its address is not
-re-used. So as soon as you have gone through 32 alloc/free cycles, all
-further allocs fail. This is however fixable.
-
-	Andrew
+On 03/11/2016 09:53 AM, David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
+>
+> Changes from v1:
+>
+>   - In 1/3 Add back check for non-OF objects in bgx_init_of_phy().  It
+>     is probably not necessary, but better safe than sorry...
+>
+> The firmware on many Cavium Thunder systems configures the MDIO bus
+> hardware to be probed as a PCI device.  In order to use the MDIO bus
+> drivers in this configuration, we must add PCI probing to the driver.
+>
+> There are two parts to this set of three patches:
+>
+>   1) Cleanup the PHY probing code in thunder_bgx.c to handle the case
+>      where there is no PHY attached to a port, as well as being more
+>      robust in the face of driver loading order by use of
+>      -EPROBE_DEFER.
+>
+>   2) Split mdio-octeon.c into two drivers, one with platform probing,
+>   and the other with PCI probing.  Common code is shared between the
+>   two.
+>
+> Tested on several different Thunder and OCTEON systems, also compile
+> tested on x86_64.
+>
+> David Daney (3):
+>    net: thunderx: Cleanup PHY probing code.
+>    phy: mdio-octeon: Refactor into two files/modules
+>    phy: mdio-thunder:  Add driver for Cavium Thunder SoC MDIO buses.
+>
+>   .../devicetree/bindings/net/cavium-mdio.txt        |  61 ++++-
+>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c  |  29 ++-
+>   drivers/net/phy/Kconfig                            |  22 +-
+>   drivers/net/phy/Makefile                           |   2 +
+>   drivers/net/phy/mdio-cavium.c                      | 149 +++++++++++
+>   drivers/net/phy/mdio-cavium.h                      | 119 +++++++++
+>   drivers/net/phy/mdio-octeon.c                      | 280 ++-------------------
+>   drivers/net/phy/mdio-thunder.c                     | 154 ++++++++++++
+>   8 files changed, 535 insertions(+), 281 deletions(-)
+>   create mode 100644 drivers/net/phy/mdio-cavium.c
+>   create mode 100644 drivers/net/phy/mdio-cavium.h
+>   create mode 100644 drivers/net/phy/mdio-thunder.c
+>
