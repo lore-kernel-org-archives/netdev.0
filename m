@@ -1,100 +1,112 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net v3.16]r8169:  Not enable/disable bus mastering when is enabled on BIOS
-Date: Sat, 12 Mar 2016 08:33:46 +0200
-Message-ID: <1457764426-6578-1-git-send-email-asd@marian1000.go.ro>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-231-11.residential.rdsnet.ro ([5.14.231.11]:34119 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750712AbcCLGeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 01:34:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth-next 2016-03-12
+Date: Sat, 12 Mar 2016 08:39:34 +0200
+Message-ID: <20160312063934.GA21940@t440s.P-661HNU-F1>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="RnlQjJ0d97Da+TV1"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
- This patch not enable/disable bus mastering when is enabled on BIOS..
- pci_disable_device function also disable bus mastering for, disable bus mastering
-  is dedicate function.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+--RnlQjJ0d97Da+TV1
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Dave,
+
+Here's the last bluetooth-next pull request for the 4.6 kernel.
+
+ - New USB ID for AR3012 in btusb
+ - New BCM2E55 ACPI ID
+ - Buffer overflow fix for the Add Advertising command
+ - Support for a new Bluetooth LE limited privacy mode
+ - Fix for firmware activation in btmrvl_sdio
+ - Cleanups to mac802154 & 6lowpan code
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
 ---
- drivers/net/ethernet/realtek/r8169.c | 29 ++++++++++++++++++++++++++---
- 1 file changed, 26 insertions(+), 3 deletions(-)
+The following changes since commit 798fee48035f0c5fc6787767ff9e27de7e1a4fbb:
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 02aec96..ec555e7 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -754,6 +754,7 @@ struct rtl8169_private {
- 	struct timer_list timer;
- 	u16 cp_cmd;
- 	bool pcie;
-+	bool bios_support;
- 
- 	u16 event_slow;
- 
-@@ -3718,13 +3719,27 @@ static void rtl8169_phy_timer(unsigned long __opaque)
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_PHY_PENDING);
- }
- 
-+static void rtl_disable_device (struct pci_dev *pdev)
-+{
-+	dev_WARN_ONCE(&pdev->dev, atomic_read(&pdev->enable_cnt) <= 0,
-+		"disabling already-disabled device");
-+
-+	if (atomic_dec_return(&pdev->enable_cnt) != 0)
-+		return;
-+}
-+
- static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
- 				  void __iomem *ioaddr)
- {
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+
- 	iounmap(ioaddr);
- 	pci_release_regions(pdev);
- 	pci_clear_mwi(pdev);
--	pci_disable_device(pdev);
-+	if (!tp->bios_support)
-+		pci_disable_device(pdev);
-+	else
-+		rtl_disable_device(pdev);
- 	free_netdev(dev);
- }
- 
-@@ -6779,7 +6794,8 @@ static void rtl_wol_shutdown_quirk(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_11:
- 	case RTL_GIGA_MAC_VER_12:
- 	case RTL_GIGA_MAC_VER_17:
--		pci_clear_master(tp->pci_dev);
-+		if (!tp->bios_support)
-+			pci_clear_master(tp->pci_dev);
- 
- 		RTL_W8(ChipCmd, CmdRxEnb);
- 		/* PCI commit */
-@@ -6996,6 +7012,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	void __iomem *ioaddr;
- 	int chipset, i;
- 	int rc;
-+	u16 cmd;
- 
- 	if (netif_msg_drv(&debug)) {
- 		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
-@@ -7103,7 +7120,13 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	rtl_ack_events(tp, 0xffff);
- 
--	pci_set_master(pdev);
-+	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
-+	if (cmd & PCI_COMMAND_MASTER)
-+		tp->bios_support = true;
-+	else {
-+		tp->bios_support = false;
-+		pci_set_master(pdev);
-+	}
- 
- 	/*
- 	 * Pretend we are using VLANs; This bypasses a nasty bug where
--- 
-2.1.4
+  Merge tag 'linux-can-next-for-4.6-20160310' of git://git.kernel.org/pub/s=
+cm/linux/kernel/git/mkl/linux-can-next (2016-03-10 12:41:33 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.gi=
+t for-upstream
+
+for you to fetch changes up to 6a0e78072c2ae7b20b14e0249d8108441ea928d2:
+
+  Bluetooth: Fix potential buffer overflow with Add Advertising (2016-03-11=
+ 16:28:43 +0100)
+
+----------------------------------------------------------------
+Alexander Aring (3):
+      mac802154: use put and get unaligned functions
+      6lowpan: debugfs: add missing static
+      6lowpan: iphc: fix SAM/DAM bit comment
+
+Dmitry Tunin (1):
+      Bluetooth: btusb: Add a new AR3012 ID 13d3:3472
+
+Johan Hedberg (6):
+      Bluetooth: Move memset closer to where it's needed
+      Bluetooth: Fix adding discoverable to adv instance flags
+      Bluetooth: Add support for limited privacy mode
+      Bluetooth: Increment management interface revision
+      Bluetooth: Fix setting correct flags in AD
+      Bluetooth: Fix potential buffer overflow with Add Advertising
+
+J=E9r=F4me de Bretagne (1):
+      Bluetooth: hci_bcm: Add BCM2E55 ACPI ID used in Lenovo ThinkPad Table=
+t 8
+
+Wei-Ning Huang (1):
+      Bluetooth: btmrvl_sdio: fix firmware activation failure
+
+ drivers/bluetooth/ath3k.c       |  2 ++
+ drivers/bluetooth/btmrvl_sdio.c |  2 +-
+ drivers/bluetooth/btusb.c       |  1 +
+ drivers/bluetooth/hci_bcm.c     |  1 +
+ include/net/bluetooth/hci.h     |  1 +
+ include/net/mac802154.h         | 10 +++----
+ net/6lowpan/debugfs.c           |  4 +--
+ net/6lowpan/iphc.c              |  4 +--
+ net/bluetooth/hci_conn.c        | 17 +++++++++---
+ net/bluetooth/hci_request.c     | 56 +++++++++++++++++++++++++++++++++++--=
+---
+ net/bluetooth/hci_request.h     |  2 +-
+ net/bluetooth/mgmt.c            | 26 ++++++++++++++++---
+ 12 files changed, 102 insertions(+), 24 deletions(-)
+
+--RnlQjJ0d97Da+TV1
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJW47mmAAoJECQj9vv5qNQSeB0P/RzjaBzgkTEfyvaXv8+pmX9E
+ceI+iMaEqraNTugCzQebMLuk0RJf6pJngmAPlV9XLzoYULWDxsWK6J1izVMYuSG8
+CLSo2M82kpWCemzwk/3/Ymm332aUr/OHLjfP7SrcSJ6J62lvVEc0QdCbICjF0iZM
+yNBO5Ikm+wB00pt3gU4NvoceUrqdonDX8XlnSg6NLGx9CxVPHeRKwF4wQKPsqE4b
+MMv39zqIJ6RLCYUeggvDY42/NGeM+3Hvta2MUqLDM7PVIXAd8lXJrucfGvmpGCjR
+dUZJjCTGqXVBzFH8xxLGlmyKrzQH6mdBW9K7dkdRxIO+hecstzonHbYEQxo8STh5
+8mr/zqJo/xRNqH2G2d8/WJom2sIi4EQHvBNQi7gmpYa9bQE7UJE8DoiLf/LAjR7r
++vlI/P5nE5aW/KTNY9KjV/x+xL/+C2CJfjewL9IFemfJgUr6KixlwxRntRlu0SJ4
+V7oMBr/4MC/kR/Hff8PEMmUItAmSxmE1axQklXemF7tXFGPlGX73BLSSygQbGtzq
+vkQGK3mO67qwuVhRtxE8OaK+JgBTjMuNRtOQqiJnk3FEneu4Cm11UhZEa83e4ut7
++wUP/GPk1CQdsupfBgEiG12wJDOaJJySqLj+Al+m0Dgvp8nehLXbx+MFvsF9EnVg
+ICGuWe1MrPG+Qk+hDvC3
+=tWko
+-----END PGP SIGNATURE-----
+
+--RnlQjJ0d97Da+TV1--
