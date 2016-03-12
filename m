@@ -1,117 +1,102 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH V7] netfilter: h323: avoid potential attack
-Date: Sat, 12 Mar 2016 13:19:02 +0100
-Message-ID: <20160312121902.GA2398@salvia>
-References: <1455984239-5807-1-git-send-email-zhouzhouyi@gmail.com>
+From: yumkam@gmail.com (Yuriy M. Kaminskiy)
+Subject: Re: userns, netns, and quick physical memory consumption by unprivileged user
+Date: Sat, 12 Mar 2016 16:35:55 +0300
+Message-ID: <m3io0riucg.fsf@gmail.com>
+References: <m3d1rclioc.fsf@gmail.com> <m3r3fhhx4c.fsf@gmail.com>
+	<20160311153406.GB6620@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fw@strlen.de,
-	gnomes@lxorguk.ukuu.org.uk, sergei.shtylyov@cogentembedded.com,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1455984239-5807-1-git-send-email-zhouzhouyi@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, containers@lists.osdl.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:52910 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752720AbcCLPeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Mar 2016 10:34:03 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1aelYG-0000A5-0a
+	for netdev@vger.kernel.org; Sat, 12 Mar 2016 16:34:00 +0100
+Received: from ppp37-190-56-84.pppoe.spdop.ru ([37.190.56.84])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 16:33:59 +0100
+Received: from yumkam by ppp37-190-56-84.pppoe.spdop.ru with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 16:33:59 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 21, 2016 at 12:03:59AM +0800, Zhouyi Zhou wrote:
-> I think hackers chould build a malicious h323 packet to overflow
-> the pointer p which will panic during the memcpy(addr, p, len)
-> For example, he may fabricate a very large taddr->ipAddress.ip in
-> function get_h225_addr.
-> 
-> To avoid above, I add buffer boundary checking both in get addr
-> functions and set addr functions.
-> 
-> Because the temporary h323 buffer is dynamiclly allocated, I remove
-> the h323 spin lock in my patch.
-> 
-> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-> ---
->  include/linux/netfilter/nf_conntrack_h323.h |  17 +-
->  net/ipv4/netfilter/nf_nat_h323.c            |  33 ++-
->  net/netfilter/nf_conntrack_h323_main.c      | 328 +++++++++++++++++-----------
->  3 files changed, 244 insertions(+), 134 deletions(-)
-> 
-> diff --git a/include/linux/netfilter/nf_conntrack_h323.h b/include/linux/netfilter/nf_conntrack_h323.h
-> index 858d9b2..6c6fea1 100644
-> --- a/include/linux/netfilter/nf_conntrack_h323.h
-> +++ b/include/linux/netfilter/nf_conntrack_h323.h
-> @@ -27,11 +27,17 @@ struct nf_ct_h323_master {
->  	};
->  };
->  
-> +struct h323_ct_state {
-> +	unsigned char *buf;
-> +	unsigned char *data;
-> +	int buflen;
-> +};
-> +
->  struct nf_conn;
->  
->  int get_h225_addr(struct nf_conn *ct, unsigned char *data,
->  		  TransportAddress *taddr, union nf_inet_addr *addr,
-> -		  __be16 *port);
-> +		  __be16 *port, struct h323_ct_state *ctstate);
->  void nf_conntrack_h245_expect(struct nf_conn *new,
->  			      struct nf_conntrack_expect *this);
->  void nf_conntrack_q931_expect(struct nf_conn *new,
-> @@ -50,12 +56,14 @@ extern int (*set_sig_addr_hook) (struct sk_buff *skb,
->  				 struct nf_conn *ct,
->  				 enum ip_conntrack_info ctinfo,
->  				 unsigned int protoff, unsigned char **data,
-> -				 TransportAddress *taddr, int count);
-> +				 TransportAddress *taddr, int count,
-> +				 struct h323_ct_state *ctstate);
->  extern int (*set_ras_addr_hook) (struct sk_buff *skb,
->  				 struct nf_conn *ct,
->  				 enum ip_conntrack_info ctinfo,
->  				 unsigned int protoff, unsigned char **data,
-> -				 TransportAddress *taddr, int count);
-> +				 TransportAddress *taddr, int count,
-> +				 struct h323_ct_state *ctstate);
->  extern int (*nat_rtp_rtcp_hook) (struct sk_buff *skb,
->  				 struct nf_conn *ct,
->  				 enum ip_conntrack_info ctinfo,
-> @@ -90,7 +98,8 @@ extern int (*nat_q931_hook) (struct sk_buff *skb, struct nf_conn *ct,
->  			     unsigned int protoff,
->  			     unsigned char **data, TransportAddress *taddr,
->  			     int idx, __be16 port,
-> -			     struct nf_conntrack_expect *exp);
-> +			     struct nf_conntrack_expect *exp,
-> +			     struct h323_ct_state *ctstate);
->  
->  #endif
->  
-> diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
-> index 574f7eb..5ed2d70 100644
-> --- a/net/ipv4/netfilter/nf_nat_h323.c
-> +++ b/net/ipv4/netfilter/nf_nat_h323.c
-> @@ -33,12 +33,20 @@ static int set_addr(struct sk_buff *skb, unsigned int protoff,
->  	} __attribute__ ((__packed__)) buf;
->  	const struct tcphdr *th;
->  	struct tcphdr _tcph;
-> +	int datalen;
-> +	struct iphdr *iph = ip_hdr(skb);
->  
->  	buf.ip = ip;
->  	buf.port = port;
->  	addroff += dataoff;
->  
->  	if (ip_hdr(skb)->protocol == IPPROTO_TCP) {
-> +		th = (void *)iph + iph->ihl * 4;
-> +		datalen = skb->len - (iph->ihl * 4 + th->doff * 4);
+On 03/11/16 18:34 , Florian Westphal wrote:
+> Yuriy M. Kaminskiy <yumkam@gmail.com> wrote:
+>> BTW, all those hash/conntrack/etc default sizes was calculated from
+>> physical memory size in assumption there will be only *one* instance of
+>> those tables. Obviously, introduction of network namespaces (and
+>> especially unprivileged user-ns) thrown this assumption in the window
+>> (and here comes that "falling back to vmalloc" message again; in pre-netns
+>> world, those tables were allocated *once* on early system startup, with
+>> typically plenty of free and unfragmented memory).
+>
+> No idea how to fix this expect by removing conntrack support in net
+> namespaces completely.
 
-You cannot trust the information that is available in the header. If
-this is bogus this check will be defeated. That's why we pass this
-protoff parameters to each function.
+Well, it is not *only* conntrack. Conntrack eats big chunks at once, but
+there are other things that eat kernel memory too: *any* iptables
+rules, 'ip address', 'ip link' (at very least, 'type dummy' and
+/dev/net/tun are available inside unprivileged userns/netns), 'ip
+tunnel', 'ip rule', 'ip route', etc.
 
-You also refer to get_h225_addr() in your description. That function
-always copies 4 or 16 bytes, so I would appreciate if you can describe
-the possible issue further.
+Just add *a lot* of them (and over several netns to avoid potential
+O(n^2) behaviour on adding), and it will be painful, regardless of
+memcg/ulimits/free swap/etc.
 
-Thanks.
+E.g. something like
+
+  unshare -rn sh -c 'setsid sleep inf & for i in 1 1024; do
+  ip li add d$i type dummy; ip li set d$i up;done'
+
+eats ~40M kernel memory each (unswappable and not curbed by memcg),
+that's way more than conntrack hashtables alone.
+
+
+At *very minimum*, all that must be limited by memcg (it is not
+currently!). And maybe by ulimits too (of process that created userns?
+well, natural choice of RLIMIT_MEMLOCK practically forbids netns, no
+chance it will fit in 64k).
+
+
+Specifically with conntrack, separate limits on hash size/entries for
+non-initns won't harm, but that's more of "flexibility to avoid
+senseless waste of memory" (in case specific container won't use many
+connection or won't use conntrack at all) than protection against abuse.
+
+
+By the way, there are unrestrained kernel memory consumption in *other*
+namespace types too. E.g., let's look at mount  namespace; it looks like
+tmpfs contents is at least curbed by memcg [but *not* curbed by
+ulimits!], however *mounts itself* are not; e.g.
+
+  unshare -rm sh -c 'while :; do seq -f /tmp/foo%g 1 1024|
+  while read d; do mkdir -p $d; mount --bind $d $d;done'
+
+is a bit slower [try with several instances?], but end result
+would be same).
+
+> I'd disallow all write accesses to skb->nfct (NAT, CONNMARK,
+> CONNSECMARK, ...) and then no longer clear skb->nfct when forwarding
+> packet from init_ns to container.
+>
+> Containers could then still test conntrack as seen from init namespace pov
+> in PREROUTING/FORWARD/INPUT (but not OUTPUT, obviously).
+>
+> [ OUTPUT *might* be doable as well by allowing NEW creation in output
+>   but skipping nat and deferring the confirmation/commit of the new
+>   entry to the table until skb leaves initns ]
+>
+> We could key conntrack entries to initns conntrack table
+> instead of adding one new table per netns, but seems like this only
+> replaces one problem with a new one (filling/blocking initns table from
+> another netns).
+>
+> Maybe we could go with a compromise and skip/disallow conntrack in
+> unpriv userns only?
