@@ -1,9 +1,9 @@
 From: Leon Romanovsky <leon@leon.nu>
-Subject: Re: [PATCH 2/3] net: hns: add Hisilicon RoCE support
-Date: Sat, 12 Mar 2016 12:43:01 +0200
-Message-ID: <20160312104301.GB15703@leon.nu>
+Subject: Re: [PATCH 1/3] infiniband: IB/hns: add Hisilicon RoCE support
+Date: Sat, 12 Mar 2016 12:39:40 +0200
+Message-ID: <20160312103940.GA15703@leon.nu>
 References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
- <1457692631-9290-3-git-send-email-oulijun@huawei.com>
+ <1457692631-9290-2-git-send-email-oulijun@huawei.com>
 Reply-To: leon@leon.nu
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -19,83 +19,176 @@ Cc: dledford@redhat.com, sean.hefty@intel.com,
 	linuxarm@huawei.com
 To: Lijun Ou <oulijun@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35995 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752702AbcCLKy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 05:54:58 -0500
-Received: by mail-wm0-f50.google.com with SMTP id n186so49226707wmn.1
-        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 02:54:56 -0800 (PST)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37537 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752369AbcCLKyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 05:54:55 -0500
+Received: by mail-wm0-f48.google.com with SMTP id p65so46632472wmp.0
+        for <netdev@vger.kernel.org>; Sat, 12 Mar 2016 02:54:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1457692631-9290-3-git-send-email-oulijun@huawei.com>
+In-Reply-To: <1457692631-9290-2-git-send-email-oulijun@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2016 at 06:37:10PM +0800, Lijun Ou wrote:
-> It added hns_dsaf_roce_reset routine for roce driver.
-> RoCE is a feature of hns.
-> In hip06 SOC, in roce reset process, it's needed to configure
-> dsaf channel reset,port and sl map info.
+On Fri, Mar 11, 2016 at 06:37:09PM +0800, Lijun Ou wrote:
+> The driver for Hisilicon RoCE is a platform driver.
+> The driver will support mulitple versions of hardware. Currently only "v1"
+> for hip06 SOC is supported.
+> The driver includes two parts: common driver and hardware-specific
+> operations. hns_roce_v1_hw.c and hns_roce_v1_hw.h are files for
+> hardware-specific operations only for v1 engine, and other files(.c and .h)
+> for common algorithm and common hardware operations
 > 
 > Signed-off-by: Lijun Ou <oulijun@huawei.com>
 > Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
-> Signed-off-by: Lisheng <lisheng011@huawei.com>
+> Signed-off-by: Znlong <zhaonenglong@huawei.com>
 > ---
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 84 ++++++++++++++++++++++
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 14 ++++
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 +++++++++++++---
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 13 ++++
->  4 files changed, 163 insertions(+), 10 deletions(-)
+>  drivers/infiniband/Kconfig                         |    2 +-
+>  drivers/infiniband/hw/Makefile                     |    1 +
+>  drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
+>  drivers/infiniband/hw/hisilicon/hns/Makefile       |    9 +
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c  |  114 +
+>  .../infiniband/hw/hisilicon/hns/hns_roce_alloc.c   |  253 ++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c |  354 +++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h |  163 ++
+>  .../infiniband/hw/hisilicon/hns/hns_roce_common.h  |  704 +++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c  |  454 +++
+>  .../infiniband/hw/hisilicon/hns/hns_roce_device.h  |  840 ++++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c  |  798 ++++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h  |  138 +
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c |  608 ++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h |  121 +
+>  .../infiniband/hw/hisilicon/hns/hns_roce_main.c    | 1124 ++++++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c  |  637 +++++
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c  |  129 +
+>  drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c  |  890 ++++++
+>  .../infiniband/hw/hisilicon/hns/hns_roce_user.h    |   31 +
+>  .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c   | 2992 ++++++++++++++++++++
+>  .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h   | 1068 +++++++
+>  22 files changed, 11439 insertions(+), 1 deletion(-)
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/Kconfig
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/Makefile
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_alloc.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_common.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_device.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_main.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_user.h
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c
+>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h
 > 
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> index 38fc5be..a0f0d4f 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-> @@ -12,6 +12,7 @@
->  #include <linux/init.h>
->  #include <linux/interrupt.h>
->  #include <linux/netdevice.h>
-> +#include <linux/of_platform.h>
->  #include <linux/platform_device.h>
->  #include <linux/of.h>
->  #include <linux/of_address.h>
-> @@ -2593,6 +2594,89 @@ static struct platform_driver g_dsaf_driver = {
->  
->  module_platform_driver(g_dsaf_driver);
->  
-> +/**
-> + * hns_dsaf_roce_reset - reset dsaf and roce
-> + * @dsaf_fwnode: Pointer to framework node for the dasf
-> + * @val: 0 - request reset , 1 - drop reset
-> + * retuen 0 - success , negative --fail
-> + */
-> +int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
-> +{
-> +	struct dsaf_device *dsaf_dev;
-> +	struct platform_device *pdev;
-> +	unsigned int mp;
-> +	unsigned int sl;
-> +	unsigned int credit;
-> +	int i;
-> +	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
-> +		{0, 0, 0},
-> +		{1, 0, 0},
-> +		{2, 1, 0},
-> +		{3, 1, 0},
-> +		{4, 2, 1},
-> +		{4, 2, 1},
-> +		{5, 3, 1},
-> +		{5, 3, 1},
-> +	};
-> +	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
-> +		{0, 0, 0},
-> +		{0, 1, 1},
-> +		{0, 0, 2},
-> +		{0, 1, 3},
-> +		{0, 0, 0},
-> +		{1, 1, 1},
-> +		{0, 0, 2},
-> +		{1, 1, 3},
-> +	};
+> diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+> index 8a8440c..c7a24bb 100644
+> --- a/drivers/infiniband/Kconfig
+> +++ b/drivers/infiniband/Kconfig
+> @@ -73,7 +73,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+>  source "drivers/infiniband/hw/nes/Kconfig"
+>  source "drivers/infiniband/hw/ocrdma/Kconfig"
+>  source "drivers/infiniband/hw/usnic/Kconfig"
+> -
 
-Do you have a plan to send a version with enums/defines for this
-numbers? Especially for _CHAN_MODE.
+No need to remove this line. It separates HW from ULPs.
+
+> +source "drivers/infiniband/hw/hisilicon/hns/Kconfig"
+>  source "drivers/infiniband/ulp/ipoib/Kconfig"
+>  
+>  source "drivers/infiniband/ulp/srp/Kconfig"
+
+<snip>
+
+> +int hns_roce_bitmap_alloc_range(
+> +					struct hns_roce_bitmap *bitmap,
+> +					int cnt, int align, u32 *obj)
+
+You have indentation issues.
+
+> +{
+> +	int i;
+> +	int ret = 0;
+> +
+> +	if (likely(cnt == 1 && align == 1))
+> +		return hns_roce_bitmap_alloc(bitmap, obj);
+> +
+> +	spin_lock(&bitmap->lock);
+> +
+> +	*obj = bitmap_find_next_zero_area(bitmap->table, bitmap->max,
+> +					  bitmap->last, cnt, align - 1);
+> +	if (*obj >= bitmap->max) {
+> +		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+> +			       & bitmap->mask;
+> +		*obj = bitmap_find_next_zero_area(bitmap->table, bitmap->max, 0,
+> +						  cnt, align - 1);
+> +	}
+> +
+> +	if (*obj < bitmap->max) {
+> +		for (i = 0; i < cnt; i++)
+> +			set_bit(*obj + i, bitmap->table);
+> +
+> +		if (*obj == bitmap->last) {
+> +			bitmap->last = (*obj + cnt);
+> +			if (bitmap->last >= bitmap->max)
+> +				bitmap->last = 0;
+> +		}
+> +		*obj |= bitmap->top;
+> +	} else {
+> +		ret = -1;
+> +	}
+> +
+> +	spin_unlock(&bitmap->lock);
+> +
+> +	return ret;
+> +}
+> +
+> +void hns_roce_bitmap_free_range(
+> +					struct hns_roce_bitmap *bitmap,
+> +					u32 obj,
+> +					int cnt)
+> +{
+> +	int i;
+> +
+> +	obj &= bitmap->max + bitmap->reserved_top - 1;
+> +
+> +	spin_lock(&bitmap->lock);
+> +	for (i = 0; i < cnt; i++)
+> +		clear_bit(obj + i, bitmap->table);
+> +
+> +	bitmap->last = min(bitmap->last, obj);
+> +	bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+> +		       & bitmap->mask;
+> +	spin_unlock(&bitmap->lock);
+> +}
+> +
+> +int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num,
+> +			       u32 mask, u32 reserved_bot,
+> +			       u32 reserved_top)
+> +{
+> +	u32 i;
+> +
+> +	if (num != roundup_pow_of_two(num))
+> +		return -EINVAL;
+> +
+> +	bitmap->last = 0;
+> +	bitmap->top  = 0;
+> +	bitmap->max  = num - reserved_top;
+> +	bitmap->mask = mask;
+> +	bitmap->reserved_top = reserved_top;
+> +	spin_lock_init(&bitmap->lock);
+> +	bitmap->table =
+> +		kzalloc(BITS_TO_LONGS(bitmap->max) * sizeof(long), GFP_KERNEL);
+
+Here and below, please consider to use kcalloc.
+
+> +	if (!bitmap->table)
+> +		return -ENOMEM;
+> +
+> +	for (i = 0; i < reserved_bot; ++i)
