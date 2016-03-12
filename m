@@ -1,46 +1,80 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 2/2] phy: fixed-phy: Allow DT description of
- an MDIO bus and PHYs.
-Date: Sat, 12 Mar 2016 18:32:44 +0100
-Message-ID: <20160312173244.GC2186@lunn.ch>
-References: <1457737726-23907-1-git-send-email-andrew@lunn.ch>
- <1457737726-23907-3-git-send-email-andrew@lunn.ch>
- <56E35530.6000009@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH net v2 1/4] net: mvneta: Fix spinlock usage
+Date: Sat, 12 Mar 2016 18:44:17 +0100
+Message-ID: <1457804660-8463-2-git-send-email-gregory.clement@free-electrons.com>
+References: <1457804660-8463-1-git-send-email-gregory.clement@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Patrick Uiterwijk <patrick@puiterwijk.org>,
+	Dimitri Epshtein <dima@marvell.com>,
+	Ofer Heifetz <oferh@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55440 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751682AbcCLRcq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Mar 2016 12:32:46 -0500
-Content-Disposition: inline
-In-Reply-To: <56E35530.6000009@gmail.com>
+Received: from down.free-electrons.com ([37.187.137.238]:54413 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751883AbcCLRoh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 12:44:37 -0500
+In-Reply-To: <1457804660-8463-1-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> One too many " here.
-> 
-> > +- #address-cells = <1>;
-> > +- #size-cells = <0>;
-> > +
-> > +Child nodes represent PHYs on this mdio bus. Standard properties for
-> > +fixed links, 'speed', 'full-duplex', 'pause', 'asym-pause',
-> > +'link-gpios', as defined above are used. Additionally a 'reg' property
-> > +is required for the address of the PHY on the bus. This should be of
-> > +value 0 to 31.
-> 
-> This is a virtual bus, the only limitation is because we re-use to the
-> maximum permission extent the real MDIO bus code, and this is putting a
-> SW constraint on something that does not have one here.
+In the previous patch, the spinlock was not initialized. While it didn't
+cause any trouble yet it could be a problem to use it uninitialized.
 
-Hi Florian
+The most annoying part was the critical section protected by the spinlock
+in mvneta_stop(). Some of the functions could sleep as pointed when
+activated CONFIG_DEBUG_ATOMIC_SLEEP. Actually, in mvneta_stop() we only
+need to protect the is_stopped flagged, indeed the code of the notifier
+for CPU online is protected by the same spinlock, so when we get the
+lock, the notifer work is done.
 
-I now took a look at the core code. PHY_MAX_ADDR is used in quite a
-few places, e.g. phy_find_first(), of_mdiobus_link_phydev(),
-__mdiobus_register(). In order to be able to use this virtual MDIO bus
-just like any other MDIO bus, we need to enforce PHY_MAX_ADDR.
-Otherwise it is not going to work.
+Reported-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-	  Andrew
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b0ae69f84493..8dc7df2edff6 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3070,17 +3070,17 @@ static int mvneta_stop(struct net_device *dev)
+ 	struct mvneta_port *pp = netdev_priv(dev);
+ 
+ 	/* Inform that we are stopping so we don't want to setup the
+-	 * driver for new CPUs in the notifiers
++	 * driver for new CPUs in the notifiers. The code of the
++	 * notifier for CPU online is protected by the same spinlock,
++	 * so when we get the lock, the notifer work is done.
+ 	 */
+ 	spin_lock(&pp->lock);
+ 	pp->is_stopped = true;
++	spin_unlock(&pp->lock);
++
+ 	mvneta_stop_dev(pp);
+ 	mvneta_mdio_remove(pp);
+ 	unregister_cpu_notifier(&pp->cpu_notifier);
+-	/* Now that the notifier are unregistered, we can release le
+-	 * lock
+-	 */
+-	spin_unlock(&pp->lock);
+ 	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(dev->irq, pp->ports);
+ 	mvneta_cleanup_rxqs(pp);
+@@ -3612,6 +3612,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	dev->ethtool_ops = &mvneta_eth_tool_ops;
+ 
+ 	pp = netdev_priv(dev);
++	spin_lock_init(&pp->lock);
+ 	pp->phy_node = phy_node;
+ 	pp->phy_interface = phy_mode;
+ 
+-- 
+2.5.0
