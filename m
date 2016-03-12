@@ -1,86 +1,104 @@
-From: =?UTF-8?Q?Toralf_F=c3=b6rster?= <toralf.foerster@gmx.de>
-Subject: SYN flooding on port 80 + DMAR:[DMA Write] faults
-Date: Sun, 13 Mar 2016 00:15:22 +0100
-Message-ID: <56E4A30A.2060800@gmx.de>
+From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
+Subject: [PATCH 1/2] mISDN: Order IPAC register defines
+Date: Sun, 13 Mar 2016 00:18:06 +0100
+Message-ID: <56E4A3AE.8050407@maciej.szmigiero.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Today my server (64 bit hardened Gentoo kernel) was faced a SYN-flood attack.
-I do wonder if the DMAR events points to an issue in the kernel ?
+It looks like IPAC/ISAC chips register defines weren't in any particular
+order.
 
+Order them by their number to make it easier to spot holes.
 
-Mar 12 21:56:51 ms-magpie kernel: [99582.831584] TCP: request_sock_TCP: Possible SYN flooding on port 80. Sending cookies.  Check SNMP counters.
-Mar 12 21:57:17 ms-magpie kernel: [99609.502567] ------------[ cut here ]------------
-Mar 12 21:57:17 ms-magpie kernel: [99609.502575] WARNING: CPU: 2 PID: 18218 at net/sched/sch_generic.c:303 dev_watchdog+0x235/0x240()
-Mar 12 21:57:17 ms-magpie kernel: [99609.502577] NETDEV WATCHDOG: enp3s0 (r8169): transmit queue 0 timed out
-Mar 12 21:57:17 ms-magpie kernel: [99609.502578] Modules linked in: af_packet nf_log_ipv6 nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables nf_log_ipv4 nf_log_common xt_LOG xt_multiport nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack iptable_filter ip_tables hmac drbg tpm_tis tpm thermal processor atkbd i2c_i801 i2c_core button x86_pkg_temp_thermal
-Mar 12 21:57:17 ms-magpie kernel: [99609.502601] CPU: 2 PID: 18218 Comm: cc1plus Not tainted 4.4.5-hardened #1
-Mar 12 21:57:17 ms-magpie kernel: [99609.502603] Hardware name: System manufacturer System Product Name/P8H77-M PRO, BIOS 0922 09/10/2012
-Mar 12 21:57:17 ms-magpie kernel: [99609.502605]  ffffffff8b20482b 0000000000000286 0000000000000000 ffff88041fa83d98
-Mar 12 21:57:17 ms-magpie kernel: [99609.502608]  ffffffff8aad5247 0000000000000007 ffff88041fa83de0 ffffffff8afb6257
-Mar 12 21:57:17 ms-magpie kernel: [99609.502611]  ffff88041fa83dd0 ffffffff8a879e8c ffffffff8afb6257 000000000000012f
-Mar 12 21:57:17 ms-magpie kernel: [99609.502614] Call Trace:
-Mar 12 21:57:17 ms-magpie kernel: [99609.502616]  <IRQ>  [<ffffffff8aad5247>] dump_stack+0x4e/0x77
-Mar 12 21:57:17 ms-magpie kernel: [99609.502625]  [<ffffffff8a879e8c>] warn_slowpath_common+0x7c/0xc0
-Mar 12 21:57:17 ms-magpie kernel: [99609.502627]  [<ffffffff8a879f2b>] warn_slowpath_fmt+0x5b/0x70
-Mar 12 21:57:17 ms-magpie kernel: [99609.502631]  [<ffffffff8a8a9293>] ? __update_cpu_load+0xe3/0x140
-Mar 12 21:57:17 ms-magpie kernel: [99609.502634]  [<ffffffff8ac85cf5>] dev_watchdog+0x235/0x240
-Mar 12 21:57:17 ms-magpie kernel: [99609.502637]  [<ffffffff8ac85ac0>] ? dev_deactivate_queue+0x70/0x70
-Mar 12 21:57:17 ms-magpie kernel: [99609.502640]  [<ffffffff8a8cfdee>] call_timer_fn.isra.24+0x2e/0x90
-Mar 12 21:57:17 ms-magpie kernel: [99609.502643]  [<ffffffff8ac85ac0>] ? dev_deactivate_queue+0x70/0x70
-Mar 12 21:57:17 ms-magpie kernel: [99609.502645]  [<ffffffff8a8d0074>] run_timer_softirq+0x224/0x3b0
-Mar 12 21:57:17 ms-magpie kernel: [99609.502649]  [<ffffffff8a8de20f>] ? clockevents_program_event+0x7f/0x120
-Mar 12 21:57:17 ms-magpie kernel: [99609.502652]  [<ffffffff8a87db3f>] __do_softirq+0xef/0x1e0
-Mar 12 21:57:17 ms-magpie kernel: [99609.502654]  [<ffffffff8a87dd60>] irq_exit+0x80/0x90
-Mar 12 21:57:17 ms-magpie kernel: [99609.502657]  [<ffffffff8a839f2f>] smp_apic_timer_interrupt+0x4f/0x70
-Mar 12 21:57:17 ms-magpie kernel: [99609.502662]  [<ffffffff8ad5732b>] apic_timer_interrupt+0x8b/0x90
-Mar 12 21:57:17 ms-magpie kernel: [99609.502663]  <EOI>
-Mar 12 21:57:17 ms-magpie kernel: [99609.502665] ---[ end trace 10603242d3d9404d ]---
-Mar 12 21:57:17 ms-magpie kernel: [99609.519275] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:57:29 ms-magpie kernel: [99621.522005] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:57:41 ms-magpie kernel: [99633.518745] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:57:53 ms-magpie kernel: [99645.514461] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:58:05 ms-magpie kernel: [99657.525221] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:58:17 ms-magpie kernel: [99669.519938] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:58:35 ms-magpie kernel: [99687.513517] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:58:47 ms-magpie kernel: [99699.518283] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 21:58:59 ms-magpie kernel: [99711.512010] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:00:41 ms-magpie kernel: [99813.511713] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:00:53 ms-magpie kernel: [99825.510459] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:01:05 ms-magpie kernel: [99837.508171] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:01:05 ms-magpie kernel: [99837.518271] DMAR: DRHD: handling fault status reg 3
-Mar 12 22:01:05 ms-magpie kernel: [99837.518277] DMAR: DMAR:[DMA Write] Request device [03:00.0] fault addr ffbfb000
-Mar 12 22:01:05 ms-magpie kernel: [99837.518277] DMAR:[fault reason 05] PTE Write access is not set
-Mar 12 22:01:05 ms-magpie kernel: [99837.523139] DMAR: DRHD: handling fault status reg 3
-Mar 12 22:01:05 ms-magpie kernel: [99837.523144] DMAR: DMAR:[DMA Write] Request device [03:00.0] fault addr ffbf8000
-Mar 12 22:01:05 ms-magpie kernel: [99837.523144] DMAR:[fault reason 05] PTE Write access is not set
-Mar 12 22:01:05 ms-magpie kernel: [99837.523213] DMAR: DRHD: handling fault status reg 3
-Mar 12 22:01:05 ms-magpie kernel: [99837.523217] DMAR: DMAR:[DMA Write] Request device [03:00.0] fault addr ffbf5000
-Mar 12 22:01:05 ms-magpie kernel: [99837.523217] DMAR:[fault reason 05] PTE Write access is not set
-Mar 12 22:01:05 ms-magpie kernel: [99837.523221] DMAR: DRHD: handling fault status reg 3
-Mar 12 22:01:05 ms-magpie kernel: [99837.523227] DMAR: DMAR:[DMA Write] Request device [03:00.0] fault addr ffbf3000
-Mar 12 22:01:05 ms-magpie kernel: [99837.523227] DMAR:[fault reason 05] PTE Write access is not set
-Mar 12 22:01:05 ms-magpie kernel: [99837.523241] DMAR: DRHD: handling fault status reg 3
-...
-Mar 12 22:01:05 ms-magpie kernel: [99837.523507] DMAR: DMAR:[DMA Write] Request device [03:00.0] fault addr ffbcf000
-Mar 12 22:01:05 ms-magpie kernel: [99837.523507] DMAR:[fault reason 05] PTE Write access is not set
-Mar 12 22:01:17 ms-magpie kernel: [99849.505904] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:01:29 ms-magpie kernel: [99861.507679] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:01:41 ms-magpie kernel: [99873.509113] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:01:53 ms-magpie kernel: [99885.507166] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:02:05 ms-magpie kernel: [99897.509888] r8169 0000:03:00.0 enp3s0: link up
-Mar 12 22:02:17 ms-magpie kernel: [99909.508613] r8169 0000:03:00.0 enp3s0: link up
-...
-Mar 13 00:00:35 ms-magpie kernel: [107007.349774] r8169 0000:03:00.0 enp3s0: link up
-Mar 13 00:01:23 ms-magpie kernel: [107055.350767] r8169 0000:03:00.0 enp3s0: link up
-<rebooted>
+Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
+---
+ drivers/isdn/hardware/mISDN/ipac.h | 40 +++++++++++++++++++-------------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
 
--- 
-Toralf
-PGP: C4EACDDE 0076E94E, OTR: 420E74C8 30246EE7
+diff --git a/drivers/isdn/hardware/mISDN/ipac.h b/drivers/isdn/hardware/mISDN/ipac.h
+index 8121e046b739..76aa6f8f298e 100644
+--- a/drivers/isdn/hardware/mISDN/ipac.h
++++ b/drivers/isdn/hardware/mISDN/ipac.h
+@@ -99,32 +99,32 @@ struct ipac_hw {
+ 
+ /* All registers original Siemens Spec  */
+ /* IPAC/ISAC registers */
+-#define ISAC_MASK		0x20
+ #define ISAC_ISTA		0x20
+-#define ISAC_STAR		0x21
++#define ISAC_MASK		0x20
+ #define ISAC_CMDR		0x21
++#define ISAC_STAR		0x21
++#define ISAC_MODE		0x22
++#define ISAC_TIMR		0x23
+ #define ISAC_EXIR		0x24
+-#define ISAC_ADF2		0x39
++#define ISAC_RBCL		0x25
++#define ISAC_RSTA		0x27
++#define ISAC_RBCH		0x2A
+ #define ISAC_SPCR		0x30
+-#define ISAC_ADF1		0x38
+ #define ISAC_CIR0		0x31
+ #define ISAC_CIX0		0x31
+-#define ISAC_CIR1		0x33
+-#define ISAC_CIX1		0x33
+-#define ISAC_STCR		0x37
+-#define ISAC_MODE		0x22
+-#define ISAC_RSTA		0x27
+-#define ISAC_RBCL		0x25
+-#define ISAC_RBCH		0x2A
+-#define ISAC_TIMR		0x23
+-#define ISAC_SQXR		0x3b
+-#define ISAC_SQRR		0x3b
+-#define ISAC_MOSR		0x3a
+-#define ISAC_MOCR		0x3a
+ #define ISAC_MOR0		0x32
+ #define ISAC_MOX0		0x32
++#define ISAC_CIR1		0x33
++#define ISAC_CIX1		0x33
+ #define ISAC_MOR1		0x34
+ #define ISAC_MOX1		0x34
++#define ISAC_STCR		0x37
++#define ISAC_ADF1		0x38
++#define ISAC_ADF2		0x39
++#define ISAC_MOCR		0x3a
++#define ISAC_MOSR		0x3a
++#define ISAC_SQRR		0x3b
++#define ISAC_SQXR		0x3b
+ 
+ #define ISAC_RBCH_XAC		0x80
+ 
+@@ -212,13 +212,13 @@ struct ipac_hw {
+ #define ISAC_CMD_DUI		0xF
+ 
+ /* ISAC/ISACX/IPAC/IPACX L1 indications */
+-#define ISAC_IND_RS		0x1
+-#define ISAC_IND_PU		0x7
+ #define ISAC_IND_DR		0x0
++#define ISAC_IND_RS		0x1
+ #define ISAC_IND_SD		0x2
+ #define ISAC_IND_DIS		0x3
+-#define ISAC_IND_EI		0x6
+ #define ISAC_IND_RSY		0x4
++#define ISAC_IND_EI		0x6
++#define ISAC_IND_PU		0x7
+ #define ISAC_IND_ARD		0x8
+ #define ISAC_IND_TI		0xA
+ #define ISAC_IND_ATI		0xB
+@@ -339,9 +339,9 @@ struct ipac_hw {
+ #define ISACX__AUX		0x08
+ #define ISACX__CIC		0x10
+ #define ISACX__ST		0x20
++#define IPACX__ON		0x2C
+ #define IPACX__ICB		0x40
+ #define IPACX__ICA		0x80
+-#define IPACX__ON		0x2C
+ 
+ /* ISACX/IPACX _CMDRD (W) */
+ #define ISACX_CMDRD_XRES	0x01
