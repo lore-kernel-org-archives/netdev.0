@@ -1,113 +1,83 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH ethtool 3/3] Documentation for IPv6 NFC
-Date: Sun, 13 Mar 2016 16:47:18 +0000
-Message-ID: <1457887638.3331.33.camel@decadent.org.uk>
-References: <56C1E73A.5090603@solarflare.com>
-	 <56C1E7FA.6050601@solarflare.com>
+Subject: Re: [ethtool PATCH v4 11/11] ethtool.c: support absence of v4
+ sockets
+Date: Sun, 13 Mar 2016 17:24:03 +0000
+Message-ID: <1457889843.3331.36.camel@decadent.org.uk>
+References: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
+	 <1457719104-39188-12-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VZtqHlImowVRstVZ+zm4"
-Cc: netdev@vger.kernel.org
-To: Edward Cree <ecree@solarflare.com>, Ben Hutchings <bwh@kernel.org>
+	protocol="application/pgp-signature"; boundary="=-kpRjA9raP9eKNEQ2rUJ8"
+Cc: Jeff Garzik <jgarzik@pobox.com>, David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>,
+	David Decotigny <decot@googlers.com>
+To: David Decotigny <ddecotig@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40861 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40966 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751434AbcCMQrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 12:47:22 -0400
-In-Reply-To: <56C1E7FA.6050601@solarflare.com>
+	by vger.kernel.org with ESMTP id S1751290AbcCMRYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 13:24:23 -0400
+In-Reply-To: <1457719104-39188-12-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-VZtqHlImowVRstVZ+zm4
+--=-kpRjA9raP9eKNEQ2rUJ8
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 
-T24gTW9uLCAyMDE2LTAyLTE1IGF0IDE1OjAwICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiBM
-ZWF2ZXMgJ3NyYy1pcCcgYW5kICdkc3QtaXAnIGRvY3VtZW50ZWQgYXMgdGFraW5nIHgueC54Lngs
-IGJlY2F1c2UgdGhlcmUncwo+IG1vcmUgbG93LWxldmVsIG5yb2ZmIGhlcmUgdGhhbiBJIGNhbiBw
-YXJzZSwgbGV0IGFsb25lIGVtaXQuCj4gCj4gU2lnbmVkLW9mZi1ieTogRWR3YXJkIENyZWUgPGVj
-cmVlQHNvbGFyZmxhcmUuY29tPgo+IC0tLQo+IMKgZXRodG9vbC44LmluIHwgMzQgKysrKysrKysr
-KysrKysrKysrKysrKysrKy0tLS0tLS0tLQo+IMKgZXRodG9vbC5jwqDCoMKgwqB8wqDCoDQgKysr
-LQo+IMKgMiBmaWxlcyBjaGFuZ2VkLCAyOCBpbnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkK
-PiAKPiBkaWZmIC0tZ2l0IGEvZXRodG9vbC44LmluIGIvZXRodG9vbC44LmluCj4gaW5kZXggZWVm
-ZmE3MC4uNWMwYTllMyAxMDA2NDQKPiAtLS0gYS9ldGh0b29sLjguaW4KPiArKysgYi9ldGh0b29s
-LjguaW4KPiBAQCAtNzQsNyArNzQsNyBAQAo+IMKgLlwiCj4gwqAuXCLCoMKgwqDCoFwoKk5DIC0g
-TmV0d29yayBDbGFzc2lmaWVyIHR5cGUgdmFsdWVzCj4gwqAuXCIKPiAtLmRzIE5DIFxmQmV0aGVy
-XGZQfFxmQmlwNFxmUHxcZkJ0Y3A0XGZQfFxmQnVkcDRcZlB8XGZCc2N0cDRcZlB8XGZCYWg0XGZQ
-fFxmQmVzcDRcZlAKPiArLmRzIE5DIFxmQmV0aGVyXGZQfFxmQmlwNFxmUHxcZkJpcDZcZlB8XGZC
-dGNwNFxmUHxcZkJ1ZHA0XGZQfFxmQnNjdHA0XGZQfFxmQmFoNFxmUHxcZkJlc3A0XGZQfFxmQnRj
-cDZcZlB8XGZCdWRwNlxmUHxcZkJhaDZcZlB8XGZCZXNwNlxmUHxcZkJzY3RwNlxmUAoKV2h5IGlz
-IGlwNiBhZGRlZCBpbiB0aGUgbWlkZGxlIG9mIHRoZSBJUHY0IGZsb3ctdHlwZXMgaGVyZS4uLgoK
-Wy4uLl0KPiBAQCAtNjc2LDExICs2NzgsMTcgQEAgbm9rZWVwOwo+IMKgbELCoMKgwqDCoMKgbC4K
-PiDCoGV0aGVywqDCoEV0aGVybmV0Cj4gwqBpcDTCoMKgwqDCoFJhdyBJUHY0Cj4gK2lwNsKgwqDC
-oMKgUmF3IElQdjYKPiDCoHRjcDTCoMKgwqBUQ1Agb3ZlciBJUHY0Cj4gwqB1ZHA0wqDCoMKgVURQ
-IG92ZXIgSVB2NAo+IMKgc2N0cDTCoMKgU0NUUCBvdmVyIElQdjQKPiDCoGFoNMKgwqDCoMKgSVBT
-RUMgQUggb3ZlciBJUHY0Cj4gwqBlc3A0wqDCoMKgSVBTRUMgRVNQIG92ZXIgSVB2NAo+ICt0Y3A2
-wqDCoMKgVENQIG92ZXIgSVB2Ngo+ICt1ZHA2wqDCoMKgVURQIG92ZXIgSVB2Ngo+ICtzY3RwNsKg
-wqBTQ1RQIG92ZXIgSVB2Ngo+ICthaDbCoMKgwqDCoElQU0VDIEFIIG92ZXIgSVB2Ngo+ICtlc3A2
-wqDCoMKgSVBTRUMgRVNQIG92ZXIgSVB2NgoKLi4uYW5kIGhlcmUuLi4KClsuLi5dCj4gLS0tIGEv
-ZXRodG9vbC5jCj4gKysrIGIvZXRodG9vbC5jCj4gQEAgLTQxMDgsMTMgKzQxMDgsMTUgQEAgc3Rh
-dGljIGNvbnN0IHN0cnVjdCBvcHRpb24gewo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgIkNvbmZpZ3Vy
-ZSBSeCBuZXR3b3JrIGZsb3cgY2xhc3NpZmljYXRpb24gb3B0aW9ucyBvciBydWxlcyIsCj4gwqDC
-oMKgwqDCoMKgwqDCoMKgwqAiwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByeC1mbG93LWhhc2gg
-dGNwNHx1ZHA0fGFoNHxlc3A0fHNjdHA0fCIKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoCJ0Y3A2fHVk
-cDZ8YWg2fGVzcDZ8c2N0cDYgbXx2fHR8c3xkfGZ8bnxyLi4uIHxcbiIKPiAtwqDCoMKgwqDCoMKg
-wqDCoMKgIsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgZmxvdy10eXBlIGV0aGVyfGlwNHx0Y3A0
-fHVkcDR8c2N0cDR8YWg0fGVzcDRcbiIKPiArwqDCoMKgwqDCoMKgwqDCoMKgIsKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgZmxvdy10eXBlIGV0aGVyfGlwNHx0Y3A0fHVkcDR8c2N0cDR8YWg0fGVz
-cDR8Igo+ICvCoMKgwqDCoMKgwqDCoMKgwqAiaXA2fHRjcDZ8dWRwNnxhaDZ8ZXNwNnxzY3RwNlxu
-IgoKLi4uYnV0IG5vdCBoZXJlPwoKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoCLCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBbIHNyYyAleDoleDoleDoleDoleDoleCBbbSAl
-eDoleDoleDoleDoleDoleF0gXVxuIgo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgIsKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFsgZHN0ICV4OiV4OiV4OiV4OiV4OiV4IFtt
-ICV4OiV4OiV4OiV4OiV4OiV4XSBdXG4iCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAiwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgWyBwcm90byAlZCBbbSAleF0gXVxuIgo+
-IMKgwqDCoMKgwqDCoMKgwqDCoMKgIsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoFsgc3JjLWlwICVkLiVkLiVkLiVkIFttICVkLiVkLiVkLiVkXSBdXG4iCj4gwqDCoMKg
-wqDCoMKgwqDCoMKgwqAiwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-WyBkc3QtaXAgJWQuJWQuJWQuJWQgW20gJWQuJWQuJWQuJWRdIF1cbiIKPiDCoMKgwqDCoMKgwqDC
-oMKgwqDCoCLCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBbIHRvcyAl
-ZCBbbSAleF0gXVxuIgo+ICvCoMKgwqDCoMKgwqDCoMKgwqAiwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgWyB0Y2xhc3MgJWQgW20gJXhdIF1cbiIKCk1pc3NpbmcgbmV4
-dGhkcj8KCkJlbi4KCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAiwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgWyBsNHByb3RvICVkIFttICV4XSBdXG4iCj4gwqDCoMKgwqDC
-oMKgwqDCoMKgwqAiwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgWyBz
-cmMtcG9ydCAlZCBbbSAleF0gXVxuIgo+IMKgwqDCoMKgwqDCoMKgwqDCoMKgIsKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoFsgZHN0LXBvcnQgJWQgW20gJXhdIF1cbiIK
-PiBUaGUgaW5mb3JtYXRpb24gY29udGFpbmVkIGluIHRoaXMgbWVzc2FnZSBpcyBjb25maWRlbnRp
-YWwgYW5kIGlzCj4gaW50ZW5kZWQgZm9yIHRoZSBhZGRyZXNzZWUocykgb25seS4gSWYgeW91IGhh
-dmUgcmVjZWl2ZWQgdGhpcyBtZXNzYWdlCj4gaW4gZXJyb3IsIHBsZWFzZSBub3RpZnkgdGhlIHNl
-bmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIHRoZQo+IG1lc3NhZ2UuIFVubGVzcyB5b3UgYXJl
-IGFuIGFkZHJlc3NlZSAob3IgYXV0aG9yaXplZCB0byByZWNlaXZlIGZvciBhbgo+IGFkZHJlc3Nl
-ZSksIHlvdSBtYXkgbm90IHVzZSwgY29weSBvciBkaXNjbG9zZSB0byBhbnlvbmUgdGhpcyBtZXNz
-YWdlCj4gb3IgYW55IGluZm9ybWF0aW9uIGNvbnRhaW5lZCBpbiB0aGlzIG1lc3NhZ2UuIFRoZSB1
-bmF1dGhvcml6ZWQgdXNlLAo+IGRpc2Nsb3N1cmUsIGNvcHlpbmcgb3IgYWx0ZXJhdGlvbiBvZiB0
-aGlzIG1lc3NhZ2UgaXMgc3RyaWN0bHkKPiBwcm9oaWJpdGVkLgotLSAKQmVuIEh1dGNoaW5ncwpJ
-ZiBhdCBmaXJzdCB5b3UgZG9uJ3Qgc3VjY2VlZCwgeW91J3JlIGRvaW5nIGFib3V0IGF2ZXJhZ2Uu
+On Fri, 2016-03-11 at 09:58 -0800, David Decotigny wrote:
+> From: David Decotigny <decot@googlers.com>
+>=20
+>=20
+> Signed-off-by: David Decotigny <decot@googlers.com>
+> ---
+> =C2=A0ethtool.c | 3 +++
+> =C2=A01 file changed, 3 insertions(+)
+>=20
+> diff --git a/ethtool.c b/ethtool.c
+> index 761252f..f9336e3 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -4615,6 +4615,9 @@ opt_found:
+> =C2=A0		/* Open control socket. */
+> =C2=A0		ctx.fd =3D socket(AF_INET, SOCK_DGRAM, 0);
+> =C2=A0		if (ctx.fd < 0) {
+> +			ctx.fd =3D socket(AF_UNIX, SOCK_DGRAM, 0);
+> +		}
 
+You still haven't answered whether this is a real problem on Linux.
 
+Ben.
 
---=-VZtqHlImowVRstVZ+zm4
+> +		if (ctx.fd < 0) {
+> =C2=A0			perror("Cannot get control socket");
+> =C2=A0			return 70;
+> =C2=A0		}
+--=20
+Ben Hutchings
+If at first you don't succeed, you're doing about average.
+--=-kpRjA9raP9eKNEQ2rUJ8
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJW5ZmWAAoJEOe/yOyVhhEJxQEP/1HAUKKRkFyJYJMvuGwPI6iv
-7xhAaMgD0PiuSCuYYK2XB3bUaP2Bv39Zwvfg6IFqP0kzdzTQXdg9yy+2DxjsBvjv
-nKJgVB66aIF93fkVm5OrA6hBzhG46ddfHyGBfTIRYZSUas0vVgAEgORFX23YkWUp
-CkXsyvT6nddYzkGgsr/rJnS9WG8fth3PHlAeHplGiLfl2Zwb9hT4CYACNU4Jw3/T
-hejajgeqPOAUad0bumX8ih1imlD2VKJ0DSazoTAmghIQSmtG+u4kCQjgRe8GPncP
-aV5CEhJIUaT7h4mh3sPKoc1YX4wjPELpDlBhMNVMX8AhpEE6ba3LnBeDq7CEhncj
-FYfgdBJyXGSLYomPkPz6/TiShFTakLJrMSUpf0fBHtYZeV2jzpp7adzCvbOqKbNk
-nt4imedEiuX2UfUgS8RlmDKQQTpx9Mc7+atYzh0keniHUyZUrWUkGQg821DIaTGP
-OIFd8ivVKZLIp8d6eplNWAjxYOrj1u/UDkRea7JdDX1lhpYI9YBEGLCP9bXh2LVY
-5kGe6J3a5bAcuVaz9lqSHVrIOHVcxJeYl36m3IsFy5ehBT8pho9iWJ8JZSF4ByNS
-rUFLLL+XgNm8++OsjqL0JE5TuMjplzY9JXrYaezbj17kTAlzb7YuhELLcNqqujGI
-zjmKJeP21gpFRQxlFCGL
-=f4St
+iQIcBAABCgAGBQJW5aI0AAoJEOe/yOyVhhEJSIcP/3ekUakmKxYJGeUh9rtxlrAL
+2T6Egz/koWatw23prynzH7M3A8irWzUpYVCKfTIcQbgQ+UNq2KklkFMCsamPFV1k
+U0NoKbTVhxPItRpwuJvj3RvvAP2XY5rDi5K9CxdXHzJHF+TAVrwneQE4WAK9tOuX
+v0P/UFNTkA+pp9bCAAEHm8AdFFCZnfQiaED7rBE2JkdCpJRo/Y2Z2X5Fy5VtOuGC
+0azIR/9/2Dz0jjYwcS0CQ/aRj66IIzCfZR5P3NC1G1S6qbA+bREmZss8+fE56oBi
+D3dCwk4FTDha0uI7AXEjAElQjNWd0ZFxBEj418iioddsLv8cy7Hl719/m9P8k16G
+mhSAQFnqtRbe9nsTr+0qUoX5eFVALZuNCyNp/k2b55YrkOA8mCnY9c9Hy6iMgTSl
+ncVTxQQOHtqEpiYvC/Kw9KJu/tjamG/DLX9xKappTAZGhAElN0jI6gkBAoH/SsFH
+6qZcGCG5kR4ZhtlObtAHb7Gs6Vt17o3mMTp3+JnvA60TVC/O2jssBiu391Cqlp8p
+jhI4SFRXZUBWyUyprfJJMlFVl2N7aE3KOdIAfvKvE04VeTwsrebCfEmmHHmBYlff
+8+Te3wLxWAQSxnEvq1ShYUJtltOUxwIg4k3WUBbL/gCsu+pBr/WtU9QNIFujry0b
+VsXBO1Cy609ttjB1wbfY
+=K2Rx
 -----END PGP SIGNATURE-----
 
---=-VZtqHlImowVRstVZ+zm4--
+--=-kpRjA9raP9eKNEQ2rUJ8--
