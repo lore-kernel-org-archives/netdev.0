@@ -1,136 +1,113 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: [PATCH 2/2] isdn: hisax: isac: fixed code style issues.
-Date: Sun, 13 Mar 2016 21:56:38 +0200
-Message-ID: <CAEnQRZCi5K5QXJwwUyeNK0=D_8vPPRvQo1V_1Of67yXyQS_GDw@mail.gmail.com>
-References: <1457896913-5406-1-git-send-email-gabrielcsmo@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: isdn@linux-pingi.de,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33982 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752821AbcCMT4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 15:56:40 -0400
-In-Reply-To: <1457896913-5406-1-git-send-email-gabrielcsmo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/3] net: dsa: refine netdev event notifier
+Date: Sun, 13 Mar 2016 16:21:34 -0400
+Message-ID: <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 13, 2016 at 9:21 PM, Cosmin-Gabriel Samoila
-<gabrielcsmo@gmail.com> wrote:
-> Fixed errors and warnings reported by checkpatch.pl.
->
+Rework the netdev event handler, similar to what the Mellanox Spectrum
+driver does, to easily welcome more events later (for example
+NETDEV_PRECHANGEUPPER) and use netdev helpers (such as
+netif_is_bridge_master).
 
-Use indicative mood in your commit message.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/slave.c | 54 ++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 30 insertions(+), 24 deletions(-)
 
-So, s/Fixed/Fix.
-
-http://chris.beams.io/posts/git-commit/
-
-> Signed-off-by: Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>
-> ---
->  drivers/isdn/hisax/isac.c | 32 ++++++++++++++++++--------------
->  1 file changed, 18 insertions(+), 14 deletions(-)
->
-> diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
-> index 7fdf78f..419abe1 100644
-> --- a/drivers/isdn/hisax/isac.c
-> +++ b/drivers/isdn/hisax/isac.c
-> @@ -24,9 +24,8 @@
->  #define DBUSY_TIMER_VALUE 80
->  #define ARCOFI_USE 1
->
-> -static char *ISACVer[] =
-> -{"2086/2186 V1.1", "2085 B1", "2085 B2",
-> - "2085 V2.3"};
-> +static char *ISACVer[] = {"2086/2186 V1.1", "2085 B1", "2085 B2",
-> +"2085 V2.3"};
->
->  void ISACVersion(struct IsdnCardState *cs, char *s)
->  {
-> @@ -215,9 +214,11 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
->                         if (count == 0)
->                                 count = 32;
->                         isac_empty_fifo(cs, count);
-> -                       if ((count = cs->rcvidx) > 0) {
-> +                       count = cs->rcvidx;
-> +                       if (count > 0) {
->                                 cs->rcvidx = 0;
-> -                               if (!(skb = alloc_skb(count, GFP_ATOMIC)))
-> +                               skb = alloc_skb(count, GFP_ATOMIC);
-> +                               if (!skb)
->                                         printk(KERN_WARNING "HiSax: D receive out of memory\n");
->                                 else {
->                                         memcpy(skb_put(skb, count), cs->rcvbuf, count);
-> @@ -251,11 +252,12 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
->                                 cs->tx_skb = NULL;
->                         }
->                 }
-> -               if ((cs->tx_skb = skb_dequeue(&cs->sq))) {
-> +               cs->tx_skb = skb_dequeue(&cs->sq);
-> +               if (cs->tx_skb) {
->                         cs->tx_cnt = 0;
->                         isac_fill_fifo(cs);
-> -               } else
-> -                       schedule_event(cs, D_XMTBUFREADY);
-> +               }
-> +               schedule_event(cs, D_XMTBUFREADY);
->         }
->  afterXPR:
->         if (val & 0x04) {       /* CISQ */
-> @@ -313,7 +315,8 @@ afterXPR:
->  #if ARCOFI_USE
->                         if (v1 & 0x08) {
->                                 if (!cs->dc.isac.mon_rx) {
-> -                                       if (!(cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
-> +                                       cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC);
-> +                                       if (!cs->dc.isac.mon_rx) {
->                                                 if (cs->debug & L1_DEB_WARN)
->                                                         debugl1(cs, "ISAC MON RX out of memory!");
->                                                 cs->dc.isac.mocr &= 0xf0;
-> @@ -340,10 +343,11 @@ afterXPR:
->                                         cs->writeisac(cs, ISAC_MOCR, cs->dc.isac.mocr);
->                                 }
->                         }
-> -               afterMONR0:
-> +afterMONR0:
->                         if (v1 & 0x80) {
->                                 if (!cs->dc.isac.mon_rx) {
-> -                                       if (!(cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
-> +                                       cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC);
-> +                                       if (!cs->dc.isac.mon_rx) {
->                                                 if (cs->debug & L1_DEB_WARN)
->                                                         debugl1(cs, "ISAC MON RX out of memory!");
->                                                 cs->dc.isac.mocr &= 0x0f;
-> @@ -368,7 +372,7 @@ afterXPR:
->                                 cs->dc.isac.mocr |= 0x40;
->                                 cs->writeisac(cs, ISAC_MOCR, cs->dc.isac.mocr);
->                         }
-> -               afterMONR1:
-> +afterMONR1:
->                         if (v1 & 0x04) {
->                                 cs->dc.isac.mocr &= 0xf0;
->                                 cs->writeisac(cs, ISAC_MOCR, cs->dc.isac.mocr);
-> @@ -405,7 +409,7 @@ afterXPR:
->                                 if (cs->debug & L1_DEB_MONITOR)
->                                         debugl1(cs, "ISAC %02x -> MOX0", cs->dc.isac.mon_tx[cs->dc.isac.mon_txp - 1]);
->                         }
-> -               AfterMOX0:
-> +AfterMOX0:
->                         if (v1 & 0x20) {
->                                 if ((!cs->dc.isac.mon_tx) || (cs->dc.isac.mon_txc &&
->                                                               (cs->dc.isac.mon_txp >= cs->dc.isac.mon_txc) &&
-> @@ -428,7 +432,7 @@ afterXPR:
->                                 if (cs->debug & L1_DEB_MONITOR)
->                                         debugl1(cs, "ISAC %02x -> MOX1", cs->dc.isac.mon_tx[cs->dc.isac.mon_txp - 1]);
->                         }
-> -               AfterMOX1:;
-> +AfterMOX1:;
->  #endif
->                 }
->         }
-> --
-> 1.9.1
->
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 54976c4..a78c2d1e 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -451,7 +451,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 	if (ds->drv->port_bridge_join)
+ 		ret = ds->drv->port_bridge_join(ds, p->port, br);
+ 
+-	return ret;
++	return ret == -EOPNOTSUPP ? 0 : ret;
+ }
+ 
+ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+@@ -1139,40 +1139,46 @@ static bool dsa_slave_dev_check(struct net_device *dev)
+ 	return dev->netdev_ops == &dsa_slave_netdev_ops;
+ }
+ 
+-static int dsa_slave_master_changed(struct net_device *dev)
++static int dsa_slave_port_upper_event(struct net_device *dev,
++				      unsigned long event, void *ptr)
+ {
+-	struct net_device *master = netdev_master_upper_dev_get(dev);
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct netdev_notifier_changeupper_info *info = ptr;
++	struct net_device *upper = info->upper_dev;
+ 	int err = 0;
+ 
+-	if (master && master->rtnl_link_ops &&
+-	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
+-		err = dsa_slave_bridge_port_join(dev, master);
+-	else if (dsa_port_is_bridged(p))
+-		dsa_slave_bridge_port_leave(dev);
++	switch (event) {
++	case NETDEV_CHANGEUPPER:
++		if (netif_is_bridge_master(upper)) {
++			if (info->linking)
++				err = dsa_slave_bridge_port_join(dev, upper);
++			else
++				dsa_slave_bridge_port_leave(dev);
++		}
+ 
+-	return err;
++		break;
++	}
++
++	return notifier_from_errno(err);
+ }
+ 
+-int dsa_slave_netdevice_event(struct notifier_block *unused,
+-			      unsigned long event, void *ptr)
++static int dsa_slave_port_event(struct net_device *dev, unsigned long event,
++				void *ptr)
+ {
+-	struct net_device *dev;
+-	int err = 0;
+-
+ 	switch (event) {
+ 	case NETDEV_CHANGEUPPER:
+-		dev = netdev_notifier_info_to_dev(ptr);
+-		if (!dsa_slave_dev_check(dev))
+-			goto out;
++		return dsa_slave_port_upper_event(dev, event, ptr);
++	}
+ 
+-		err = dsa_slave_master_changed(dev);
+-		if (err && err != -EOPNOTSUPP)
+-			netdev_warn(dev, "failed to reflect master change\n");
++	return NOTIFY_DONE;
++}
+ 
+-		break;
+-	}
++int dsa_slave_netdevice_event(struct notifier_block *unused,
++			      unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	if (dsa_slave_dev_check(dev))
++		return dsa_slave_port_event(dev, event, ptr);
+ 
+-out:
+ 	return NOTIFY_DONE;
+ }
+-- 
+2.7.2
