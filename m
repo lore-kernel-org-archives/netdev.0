@@ -1,35 +1,42 @@
-From: Caesar Wang <wxt@rock-chips.com>
-Subject: [PATCH v2 5/9] clk: rockchip: add node-id for rk3036 emac hclk
-Date: Sun, 13 Mar 2016 17:07:38 +0800
-Message-ID: <1457860062-5514-6-git-send-email-wxt@rock-chips.com>
+From: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH v2 7/9] clk: rockchip: add clock-id for rk3036 emac pll source
+ clock
+Date: Sun, 13 Mar 2016 17:07:40 +0800
+Message-ID: <1457860062-5514-8-git-send-email-wxt@rock-chips.com>
 References: <1457860062-5514-1-git-send-email-wxt@rock-chips.com>
-Cc: linux-rockchip@lists.infradead.org, keescook@google.com,
-	leozwang@google.com, sergei.shtylyov@cogentembedded.com,
-	netdev@vger.kernel.org, Xing Zheng <zhengxing@rock-chips.com>,
-	Caesar Wang <wxt@rock-chips.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Heiko Stuebner <heiko@sntech.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35387 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932484AbcCMJI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 05:08:26 -0400
-In-Reply-To: <1457860062-5514-1-git-send-email-wxt@rock-chips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+ keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, leozwang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+To: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1457860062-5514-1-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Xing Zheng <zhengxing@rock-chips.com>
+From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 
-Add the node-id for the emac hclk to the binding header.
+Suitable PLLs for the emac on the rk3036 are difficult to find
+and one of them is the (continuously changing) APLL. So in most
+cases it will be necessary to select a PLL manually.
+So add a clock-id for it.
 
-Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
-Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
 
 Changes in v2: None
@@ -38,16 +45,16 @@ Changes in v2: None
  1 file changed, 1 insertion(+)
 
 diff --git a/include/dt-bindings/clock/rk3036-cru.h b/include/dt-bindings/clock/rk3036-cru.h
-index ebc7a7b..3396591 100644
+index 3396591..de44109 100644
 --- a/include/dt-bindings/clock/rk3036-cru.h
 +++ b/include/dt-bindings/clock/rk3036-cru.h
-@@ -92,6 +92,7 @@
- #define HCLK_SDMMC		456
- #define HCLK_SDIO		457
- #define HCLK_EMMC		459
-+#define HCLK_MAC		460
- #define HCLK_I2S		462
- #define HCLK_LCDC		465
- #define HCLK_ROM		467
+@@ -54,6 +54,7 @@
+ #define SCLK_PVTM_VIDEO		125
+ #define SCLK_MAC		151
+ #define SCLK_MACREF		152
++#define SCLK_MACPLL		153
+ #define SCLK_SFC		160
+ 
+ /* aclk gates */
 -- 
 1.9.1
