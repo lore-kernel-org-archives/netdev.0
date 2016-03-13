@@ -1,72 +1,61 @@
-From: Rana Shahout <rana.shahot@gmail.com>
-Subject: Re: [net-next PATCH 3/7] net: bulk alloc and reuse of SKBs in NAPI context
-Date: Sun, 13 Mar 2016 16:06:17 +0200
-Message-ID: <CALYk33gF_qLuBpYLX4xLpekVJX9okUqaxdMnFgWpyDrRwu5e5w@mail.gmail.com>
-References: <20160304130054.32651.51776.stgit@firesoul>
-	<20160304130143.32651.33813.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	gerlitz.or@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34290 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbcCMOGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 10:06:18 -0400
-Received: by mail-oi0-f68.google.com with SMTP id m82so9384073oif.1
-        for <netdev@vger.kernel.org>; Sun, 13 Mar 2016 07:06:18 -0700 (PDT)
-In-Reply-To: <20160304130143.32651.33813.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varun Prakash <varun@chelsio.com>
+Subject: [target-pending 00/12] cxgb4 patch series for cxgbit.ko
+Date: Sun, 13 Mar 2016 19:49:22 +0530
+Message-ID: <cover.1457877852.git.varun@chelsio.com>
+Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, swise@opengridcomputing.com,
+	indranil@chelsio.com, kxie@chelsio.com, hariprasad@chelsio.com,
+	varun@chelsio.com
+To: nab@linux-iscsi.org
+Return-path: <target-devel-owner@vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 4, 2016 at 3:01 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
+Hi Nicholas,
 
->  /* build_skb() is wrapper over __build_skb(), that specifically
->   * takes care of skb->head and skb->pfmemalloc
->   * This means that if @frag_size is not zero, then @data must be backed
-> @@ -490,8 +500,8 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
->
->         len += NET_SKB_PAD + NET_IP_ALIGN;
->
-> -       if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
-> -           (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
-> +       if (unlikely((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
-> +                    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA)))) {
+   I am posting cxgb4 patch series as
+   suggested by you in following email thread
 
-Why unlikely? I know it is better for the common case where most
-likely linear SKBs are << SKB_WITH_OVERHEAD(PAGE_SIZE)), but what
-about the case of Hardware LRO,  where linear SKB is likely to be >>
-SKB_WITH_OVERHEAD(PAGE_SIZE)).
+   http://www.spinics.net/lists/target-devel/msg12437.html
 
+   This series consists of patches from
+   initial cxgb4 series without any change.
 
->                 skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
->                 if (!skb)
->                         goto skb_fail;
-> @@ -508,11 +518,20 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
->         if (unlikely(!data))
->                 return NULL;
->
-> -       skb = __build_skb(data, len);
-> -       if (unlikely(!skb)) {
-> +#define BULK_ALLOC_SIZE 8
-> +       if (!nc->skb_count) {
-> +               nc->skb_count = kmem_cache_alloc_bulk(skbuff_head_cache,
-> +                                                     gfp_mask, BULK_ALLOC_SIZE,
-> +                                                     nc->skb_cache);
-> +       }
-> +       if (likely(nc->skb_count)) {
-> +               skb = (struct sk_buff *)nc->skb_cache[--nc->skb_count];
-> +       } else {
-> +               /* alloc bulk failed */
->                 skb_free_frag(data);
->                 return NULL;
->         }
-> +       skb = ___build_skb(data, len, skb);
->
->         /* use OR instead of assignment to avoid clearing of bits in mask */
->         if (nc->page.pfmemalloc)
->
+Thanks
+Varun
+
+Varun Prakash (12):
+  cxgb4: add new ULD type CXGB4_ULD_ISCSIT
+  cxgb4: allocate resources for CXGB4_ULD_ISCSIT
+  cxgb4: large receive offload support
+  cxgb4, iw_cxgb4: move definitions to common header file
+  cxgb4, iw_cxgb4, cxgb4i: remove duplicate definitions
+  cxgb4, cxgb4i: move struct cpl_rx_data_ddp definition
+  cxgb4: add definitions for iSCSI target ULD
+  cxgb4: update struct cxgb4_lld_info definition
+  cxgb4: move VLAN_NONE macro definition
+  cxgb4, iw_cxgb4: move delayed ack macro definitions
+  cxgb4: add iSCSI DDP page pod manager
+  cxgb4: update Kconfig and Makefile
+
+ drivers/infiniband/hw/cxgb4/t4fw_ri_api.h          |  99 -----
+ drivers/net/ethernet/chelsio/Kconfig               |  11 +
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  27 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  34 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  97 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.c     | 464 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.h     | 310 ++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |  11 +
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c           |   2 -
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h           |   2 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |  13 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        | 217 ++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |   7 +
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.h                 |  17 -
+ 15 files changed, 1174 insertions(+), 138 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.h
+
+-- 
+2.0.2
