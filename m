@@ -1,118 +1,101 @@
 From: Caesar Wang <caesar.upstream@gmail.com>
-Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
-Date: Sun, 13 Mar 2016 11:57:51 +0800
-Message-ID: <56E4E53F.2060307@gmail.com>
+Subject: Re: [PATCH 0/6] arc_emac: fixes the emac issues oand cleanup emac
+ drivers
+Date: Sun, 13 Mar 2016 12:04:41 +0800
+Message-ID: <56E4E6D9.8060103@gmail.com>
 References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
- <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
- <56E30FE5.1080607@cogentembedded.com>
+ <56E2CC39.6050907@cogentembedded.com> <56E2DAC4.4020105@gmail.com>
+ <56E3126C.7000100@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Rob Herring <robh+dt@kernel.org>,
+Cc: Caesar Wang <caesar.upstream@gmail.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Heiko Stuebner <heiko@sntech.de>,
 	Alexander Kochetkov <al.kochet@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-rockchip@lists.infradead.org, keescook@google.com,
-	leozwang@google.com
+	Michael Turquette <mturquette@baylibre.com>,
+	linux-clk@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
+	zhengxing <zhengxing@rock-chips.com>,
+	linux-rockchip@lists.infradead.org,
+	Caesar Wang <wxt@rock-chips.com>, devicetree@vger.kernel.org,
+	Pawel Moll <pawel.moll@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
+	Stephen Boyd <sboyd@codeaurora.org>,
+	linux-kernel@vger.kernel.org, keescook@google.com,
+	"David S. Miller" <davem@davemloft.net>, leozwang@google.com
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E30FE5.1080607@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-clk-owner@vger.kernel.org>
+In-Reply-To: <56E3126C.7000100@cogentembedded.com>
+Sender: linux-clk-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
 
-=E5=9C=A8 2016=E5=B9=B403=E6=9C=8812=E6=97=A5 02:35, Sergei Shtylyov =E5=
+
+=E5=9C=A8 2016=E5=B9=B403=E6=9C=8812=E6=97=A5 02:46, Sergei Shtylyov =E5=
 =86=99=E9=81=93:
-> On 03/11/2016 01:55 PM, Caesar Wang wrote:
+> Hello.
 >
->> This patch adds to support the emac phy reset.
+> On 03/11/2016 05:48 PM, Caesar Wang wrote:
+>
+> [...]
+>
+>>>> Hi Rob, David:
+>>>> PATCH[1/6-2/6]: =3D=3D=3D=3D>
+>>>> net: arc_emac: make the rockchip emac document more compatible
+>>>> net: arc_emac: add phy-reset-* are optional for device tree
+>>>>
+>>>> The patches change the rockchip emac document for more compatible =
+and
+>>>> Add the phy-reset-* property for document.
+>>>>
+>>>> This patch adds the following property for arc_emac.
+>>>>
+>>>> phy-reset-* include the following:
+>>>> 1) phy-reset-gpios:
+>>>> The phy-reset-gpios is an optional property for arc emac device=20
+>>>> tree boot.
+>>>> Change the binding document to match the driver code.
+>>>>
+>>>> 2) phy-reset-duration:
+>>>> Different boards may require different phy reset duration. Add=20
+>>>> property
+>>>> phy-reset-duration for device tree probe, so that the boards that =
+need
+>>>> a longer reset duration can specify it in their device tree.
+>>>>
+>>>> 3) phy-reset-active-high:
+>>>> We need that for a custom hardware that needs the reverse reset=20
+>>>> sequence.
+>>>
+>>>    Why not infer this from the "phy-reset-gpios" prop?
 >>
->> 1) phy-reset-gpios:
->> The phy-reset-gpios is an optional property for arc emac device tree=
+>> See:
+>> https://patchwork.kernel.org/patch/8564511/
+> >
+>> phy-reset-active-high : If present then the reset sequence using the=
 =20
->> boot.
->> Change the binding document to match the driver code.
->
->    The binding document is apparently changed in another patch. Not=20
-> sure what you wanted to say here...
->
->> 2) phy-reset-duration:
->> Different boards may require different phy reset duration. Add prope=
-rty
->> phy-reset-duration for device tree probe, so that the boards that ne=
-ed
->> a longer reset duration can specify it in their device tree.
->>
->> 3) phy-reset-active-high:
->> We need that for a custom hardware that needs the reverse reset=20
->> sequence.
->
->    No, we don't really need that, "phy-reset-gpio" prop can contain=20
-> this data.
->
->> Of course, this patch will fix the issue on
->> https://patchwork.kernel.org/patch/8186801/.
->>
->> In some cases, the emac couldn't work if you don't have reset the ph=
-y.
->> Let's add it to happy work.
->>
->> Signed-off-by: Caesar Wang <wxt@rock-chips.com>
->> ---
->>
->>   drivers/net/ethernet/arc/emac_main.c | 41=20
->> ++++++++++++++++++++++++++++++++++++
->>   1 file changed, 41 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/arc/emac_main.c=20
->> b/drivers/net/ethernet/arc/emac_main.c
->> index 6446af1..42384f6a 100644
->> --- a/drivers/net/ethernet/arc/emac_main.c
->> +++ b/drivers/net/ethernet/arc/emac_main.c
->> @@ -764,6 +764,45 @@ static const struct net_device_ops=20
->> arc_emac_netdev_ops =3D {
->>   #endif
->>   };
->>
->> +#ifdef CONFIG_OF
->> +static void emac_reset_phy(struct net_device *pdev)
->> +{
->> +    int err, phy_reset;
->> +    bool active_high =3D false;
->> +    int msec =3D 10;
->> +    struct device *dev =3D pdev->dev.parent;
->> +    struct device_node *np =3D dev->of_node;
->> +
->> +    if (!np)
->> +        return;
->> +
->> +    of_property_read_u32(np, "phy-reset-duration", &msec);
->> +    /* A sane reset duration should not be longer than 1s */
->> +    if (msec > 1000)
->> +        msec =3D 1;
->> +
->> +    phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
->
->    Forgot to say that these old integer-base GPIO APIs shouldn't be=20
-> used by the new code, there's new 'struct gpio_desc' based APIs, like=
+>> GPIO
+>>   specified in the "phy-reset-gpios" property is reversed (H=3Dreset=
 =20
-> devm_gpiod_get() etc.
+>> state,
+>>   L=3Doperation state).
 >
->> +    if (!gpio_is_valid(phy_reset))
->> +        return;
->> +
->> +    active_high =3D of_property_read_bool(np, "phy-reset-active-hig=
-h");
->
->    Well, I still don't understand why this prop is needed, while the=20
-> GPIO sense is transparently handled by the gpiolib (at least when=20
-> using DT).
+>    Referring to your own suggested bindings isn't an answer. If the=20
+> driver that you're copying from here (fec) had a reason to handle the=
+=20
+> GPIO sense with the help of an extra prop (legacy code), it doesn't=20
+> mean your new driver needs to mimic this as well, AFAIU...
 
-Okay, I have to admit that reference the exist way to do...
+I know your suggestion is a fair request.
 
+Oh, that copy from the 'freescale/fec_main.c' ....
+
+So, The exist way was old and unwise in mainline. :(
 
 wxt@nb:~/kernel/drivers/net/ethernet$ ag reset-gpios
 micrel/ks8851.c
@@ -143,12 +126,22 @@ cadence/macb.c
 
 =2E..
 
-Yep, the gpiolib that can include the prop to work with the same ways.
+
+Anyway, I will update it with your suggestion.
+
+Thanks,
+
+
+Caesar
+
+
 
 
 
 >
-> [...]
+>> Thanks,
+>>
+>> Caesar
 >
 > MBR, Sergei
 >
@@ -162,3 +155,4 @@ Yep, the gpiolib that can include the prop to work with the same ways.
 --=20
 Thanks,
 Caesar
+
