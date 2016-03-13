@@ -1,94 +1,82 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH v2 4/4] ethtool: support setting default Rx flow
- indirection table
-Date: Sun, 13 Mar 2016 16:25:00 +0000
-Message-ID: <1457886300.3331.26.camel@decadent.org.uk>
-References: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
-	 <1455657758.23620.21.camel@intel.com>
+Subject: Re: [PATCH ethtool 2/3] Add IPv6 support to NFC
+Date: Sun, 13 Mar 2016 16:43:26 +0000
+Message-ID: <1457887406.3331.31.camel@decadent.org.uk>
+References: <56C1E73A.5090603@solarflare.com>
+	 <56C1E7EC.8020700@solarflare.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-pi4heS+1Y1eyBP0OdpBA"
-Cc: netdev <netdev@vger.kernel.org>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+	protocol="application/pgp-signature"; boundary="=-7NpN3j753yRUHnUvQ5Tj"
+Cc: netdev@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>, Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40800 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40845 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751441AbcCMQZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 12:25:14 -0400
-In-Reply-To: <1455657758.23620.21.camel@intel.com>
+	by vger.kernel.org with ESMTP id S1751434AbcCMQng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 12:43:36 -0400
+In-Reply-To: <56C1E7EC.8020700@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-pi4heS+1Y1eyBP0OdpBA
+--=-7NpN3j753yRUHnUvQ5Tj
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 
-On Tue, 2016-02-16 at 21:22 +0000, Keller, Jacob E wrote:
+T24gTW9uLCAyMDE2LTAyLTE1IGF0IDE0OjU5ICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiBT
+aWduZWQtb2ZmLWJ5OiBFZHdhcmQgQ3JlZSA8ZWNyZWVAc29sYXJmbGFyZS5jb20+ClsuLi5dCj4g
+QEAgLTk1MCw2ICsxMTU0LDE5IEBAIHN0YXRpYyBpbnQgcnhjbGFzc19nZXRfbWFzayhjaGFyICpz
+dHIsIHVuc2lnbmVkIGNoYXIgKnAsCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAq
+KF9fYmUzMiAqKSZwW29wdC0+bW9mZnNldF0gPSB+dmFsOwo+IMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgYnJlYWs7Cj4gwqDCoMKgwqDCoMKgwqDCoH0KPiArwqDCoMKgwqDCoMKgwqBj
+YXNlIE9QVF9JUDY6IHsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgX19iZTMyIHZh
+bFs0XTsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaW50IGk7Cj4gK8KgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoGVyciA9IHJ4Y2xhc3NfZ2V0X2lwdjYoc3RyLCB2YWwpOwo+
+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpZiAoZXJyKQo+ICvCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIC0xOwo+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqBmb3IgKGkgPSAwOyBpIDwgNDsgaSsrKSB7Cj4gK8KgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAoKF9fYmUzMiAqKSZwW29wdC0+
+b2Zmc2V0XSlbaV0gPSB2YWxbaV07Cj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqBpZiAob3B0LT5tb2Zmc2V0ID49IDApCj4gK8KgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgKChfX2JlMzIgKikm
+cFtvcHQtPm1vZmZzZXRdKVtpXSA9IH52YWxbaV07CgpUaGlzIHBvaW50ZXIgYXJpdGhtZXRpYyBs
+b29rcyB0ZXJyaWJsZS4gwqBJIHRoaW5rIG1lbWNweSgpIHdvdWxkIGJlIG11Y2gKY2xlYXJlciBo
+ZXJlLgoKWy4uLl0KPiBUaGUgaW5mb3JtYXRpb24gY29udGFpbmVkIGluIHRoaXMgbWVzc2FnZSBp
+cyBjb25maWRlbnRpYWwgYW5kIGlzCj4gaW50ZW5kZWQgZm9yIHRoZSBhZGRyZXNzZWUocykgb25s
+eS4gSWYgeW91IGhhdmUgcmVjZWl2ZWQgdGhpcyBtZXNzYWdlCj4gaW4gZXJyb3IsIHBsZWFzZSBu
+b3RpZnkgdGhlIHNlbmRlciBpbW1lZGlhdGVseSBhbmQgZGVsZXRlIHRoZQo+IG1lc3NhZ2UuIFVu
+bGVzcyB5b3UgYXJlIGFuIGFkZHJlc3NlZSAob3IgYXV0aG9yaXplZCB0byByZWNlaXZlIGZvciBh
+bgo+IGFkZHJlc3NlZSksIHlvdSBtYXkgbm90IHVzZSwgY29weSBvciBkaXNjbG9zZSB0byBhbnlv
+bmUgdGhpcyBtZXNzYWdlCj4gb3IgYW55IGluZm9ybWF0aW9uIGNvbnRhaW5lZCBpbiB0aGlzIG1l
+c3NhZ2UuIFRoZSB1bmF1dGhvcml6ZWQgdXNlLAo+IGRpc2Nsb3N1cmUsIGNvcHlpbmcgb3IgYWx0
+ZXJhdGlvbiBvZiB0aGlzIG1lc3NhZ2UgaXMgc3RyaWN0bHkKPiBwcm9oaWJpdGVkLgoKSSB3b24n
+dCBhcHBseSBwYXRjaGVzIGxhYmVsbGVkIGFzICJjb25maWRlbnRpYWwiLiDCoFlvdSBuZWVkIHRv
+IHN0b3AKaW5jbHVkaW5nIHRoaXMgbm9uc2Vuc2UgaW4geW91ciBwdWJsaWMgbWVzc2FnZXMgKEkg
+dGhvdWdodCB5b3UgZml4ZWQKdGhpcyBvbmNlIGJlZm9yZSkuCgpCZW4uCgotLSAKQmVuIEh1dGNo
+aW5ncwpJZiBhdCBmaXJzdCB5b3UgZG9uJ3Qgc3VjY2VlZCwgeW91J3JlIGRvaW5nIGFib3V0IGF2
+ZXJhZ2Uu
 
-> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> ---
->=20
-> Not sure if there is a mailing list for this, I sent this to the netdev
-> list but forgot to Cc you on the ethtool change.
 
-I haven't been keeping up with netdev for a long time, but I have
-recently set up filtering by subject so I can keep up with just the
-ethtool-related messages. =C2=A0Still, patches for the ethtool command
-should always be explicitly sent to me.
-
-> Dave applied the
-> network core patches, but they're more or less useless unless we
-> actually have the ability to request default setting using ethtool
-> (which I extended to support "default" here)
-
-The patch was mangled (word-wrapped and modified white-space) in this
-message, so I took the version in
-<http://article.gmane.org/gmane.linux.network/398404/>.
-
-[...]
-> @@ -3332,7 +3335,7 @@ static int do_srxfh(struct cmd_context *ctx)
-> =C2=A0	u32 entry_size =3D sizeof(rss_head.rss_config[0]);
-> =C2=A0	u32 num_weights =3D 0;
-> =C2=A0
-> -	if (ctx->argc < 2)
-> +	if (ctx->argc < 1)
-> =C2=A0		exit_bad_args();
-[...]
-
-This means we might continue without having the required parameter
-after "equal", "weight" or "hkey". =C2=A0But, having said that, since we're
-only checking once before running the loop, we're already failing to
-validate that properly.
-
-I've applied this, but could you please send another patch that adds
-checks on ctx->argc within the loop and test cases in test-cmdline.c?
-
-Ben.
-
---=20
-Ben Hutchings
-If at first you don't succeed, you're doing about average.
---=-pi4heS+1Y1eyBP0OdpBA
+--=-7NpN3j753yRUHnUvQ5Tj
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJW5ZRcAAoJEOe/yOyVhhEJUFUP/3WiCWFwzO0Q1neZGSfkP9kr
-liYrCIqLMgmphbDuY6VVjcxFzmp3r4lYFuIHHZ8In7/nOk+z1+dhXoQ+uLKTtKzm
-qytNbXbg3NBJsvbOb8c5HzQ+TXMD9v+CYzOfWnnVDPcVHJj3TFeKMhvOpTmu/QX2
-ipMae5GnLxhFA7q1TefscDlGjGqXK30yKISfubi4UnJAB8tMkKGnS+QzHhmSPcUb
-gA29K1tOxQ42JaCHAUiI0qoUN74hG8tc5fqO+AWbgjfxljKDcWE27/9erdzY0THG
-JxE4dtbWi+ziF5ghknmVCi62BBRo8k4OLdT6J0ZHLDkLalze/dfM590B82Ocf/hE
-qTDSEFz+3mFj1evM0Hm1gkNayl09OnDz0DKZv0d7YqFk7NBDN3p7RnIqyh1FKtcy
-89FPRc/pqfHCwehLt0N9RZe1LD8PzNEOXZuT2vsYqKfj0QZkeFJYpk8GuJu3cgKy
-4VqfVOxQ06iBiImWc3zk9GpLx7wzWqSBK/OQ1Qy4Fe0AeobJ/Ru5CK425v//BjKC
-NalPtoiJmmeNF4N0HSeLLa6x1W8Ew4bdNPgBW+5RS/1vg8axV87k1wQpmg6KHcS8
-ZWFSnW3s5tyWVb+qqStAotS1DtRnLToI+WBVg+iy2tglWsTqT/aS9oaI2T57jA2f
-z9+Ge+Zyjtn/hddgi9LG
-=VQSM
+iQIcBAABCgAGBQJW5ZiuAAoJEOe/yOyVhhEJlaMP/2pCy+Cs6vJxQHLuNwHPJKfv
+tEeB5OgGYiE6+HI2euhL0dGeMdd3Ofz+eKd7TG+65/KVWFyPk+R5wFM5c7+fqxql
+FLBnuTGiByrvGcOASbJDWl6Ynr8dk5UnRRgOvyBYGN20na5YJniR0ZsoqzOxqYYP
+eZ/hnTQSYX/82JGJLlQ7dehVGlYv1NpT9L7dvpMo++J0p9fmDNA4elKWbxGe5JG9
+fcV/QZLGtK4KBbluT5+TS8GKx002ME07iid582+L6UZFcwsOttsb9jupvfg7w2xT
+hCUovTsv1dxKUwcU1gkJaRECzzE3R0n6pyjcznORrG4/ABlUvmVQn4eWP+3kGBHZ
+jBGAY0WtmQL4ttJzZqt659rY3IR4VPjfBXz+lsWtNqC0F412WR3drc87rZ0U8DTv
+g0eI2gJyF4owxnBZwkYV97Fov+Vuogm9RBzP8f8Kd1o5DJzYz5a1eVLGS680pC/X
+0Pe/aeiKW4xX4liHdQT+1a4XvTkBkiQ+d60nrD/F6XaYEbHxqif7gkItlL+gFfFE
+VDwx0YXB3izMMPMXTx4w16Gzz7dkVuoK2dtWzr0ZZZMwW5WU2w2oBbkAqJJsfPNN
+errINZnC1VacizLXJxU6rNw1BLl2LhwWGhYpYVriV0Z6GkpcT+mx2jQHLDOdG0se
+CQCmK/K2fOJYae7x1vkZ
+=u7Vf
 -----END PGP SIGNATURE-----
 
---=-pi4heS+1Y1eyBP0OdpBA--
+--=-7NpN3j753yRUHnUvQ5Tj--
