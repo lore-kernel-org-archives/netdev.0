@@ -1,48 +1,72 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH rdma-next V3 01/10] net/core: Add support for configuring
- VF GUIDs
-Date: Sun, 13 Mar 2016 15:44:13 +0200
-Message-ID: <CAJ3xEMi2obQO3GRDJm2tNmAWkJ=b_L00pgT4a6v5MOx+kj9Vqg@mail.gmail.com>
-References: <1457729923-4526-1-git-send-email-eli@mellanox.com>
-	<1457729923-4526-2-git-send-email-eli@mellanox.com>
+From: Rana Shahout <rana.shahot@gmail.com>
+Subject: Re: [net-next PATCH 3/7] net: bulk alloc and reuse of SKBs in NAPI context
+Date: Sun, 13 Mar 2016 16:06:17 +0200
+Message-ID: <CALYk33gF_qLuBpYLX4xLpekVJX9okUqaxdMnFgWpyDrRwu5e5w@mail.gmail.com>
+References: <20160304130054.32651.51776.stgit@firesoul>
+	<20160304130143.32651.33813.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1457729923-4526-2-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	eugenia@mellanox.com, Alexander Duyck <alexander.duyck@gmail.com>,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	gerlitz.or@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34290 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124AbcCMOGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 10:06:18 -0400
+Received: by mail-oi0-f68.google.com with SMTP id m82so9384073oif.1
+        for <netdev@vger.kernel.org>; Sun, 13 Mar 2016 07:06:18 -0700 (PDT)
+In-Reply-To: <20160304130143.32651.33813.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2016 at 10:58 PM, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
-> Add two new NLAs to support configuration of Infiniband node or port
-> GUIDs. New applications can choose to use this interface to configure
-> GUIDs with iproute2 with commands such as:
+On Fri, Mar 4, 2016 at 3:01 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+
+>  /* build_skb() is wrapper over __build_skb(), that specifically
+>   * takes care of skb->head and skb->pfmemalloc
+>   * This means that if @frag_size is not zero, then @data must be backed
+> @@ -490,8 +500,8 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
 >
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
+>         len += NET_SKB_PAD + NET_IP_ALIGN;
 >
-> A new ndo, ndo_sef_vf_guid is introduced to notify the net device of the
-> request to change the GUID.
+> -       if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
+> -           (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
+> +       if (unlikely((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
+> +                    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA)))) {
 
-Hi Dave,
+Why unlikely? I know it is better for the common case where most
+likely linear SKBs are << SKB_WITH_OVERHEAD(PAGE_SIZE)), but what
+about the case of Hardware LRO,  where linear SKB is likely to be >>
+SKB_WITH_OVERHEAD(PAGE_SIZE)).
 
-I understand from your patchworks [1], that this is under your review.
-Wanted to ask
-if you are OK with the patch going upstream through Doug / the rdma
-tree along with
-the rest of the series and if you want us to see explicit ack from
-netdev/you... on this one.
 
-thanks,
-
-Or.
-
-[1] https://patchwork.ozlabs.org/patch/596492/
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>                 skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
+>                 if (!skb)
+>                         goto skb_fail;
+> @@ -508,11 +518,20 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+>         if (unlikely(!data))
+>                 return NULL;
+>
+> -       skb = __build_skb(data, len);
+> -       if (unlikely(!skb)) {
+> +#define BULK_ALLOC_SIZE 8
+> +       if (!nc->skb_count) {
+> +               nc->skb_count = kmem_cache_alloc_bulk(skbuff_head_cache,
+> +                                                     gfp_mask, BULK_ALLOC_SIZE,
+> +                                                     nc->skb_cache);
+> +       }
+> +       if (likely(nc->skb_count)) {
+> +               skb = (struct sk_buff *)nc->skb_cache[--nc->skb_count];
+> +       } else {
+> +               /* alloc bulk failed */
+>                 skb_free_frag(data);
+>                 return NULL;
+>         }
+> +       skb = ___build_skb(data, len, skb);
+>
+>         /* use OR instead of assignment to avoid clearing of bits in mask */
+>         if (nc->page.pfmemalloc)
+>
