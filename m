@@ -1,7 +1,7 @@
 From: Varun Prakash <varun@chelsio.com>
-Subject: [target-pending 12/12] cxgb4: update Kconfig and Makefile
-Date: Sun, 13 Mar 2016 19:49:34 +0530
-Message-ID: <83fada58116e37bd97e32a9fccffcb9013479923.1457877852.git.varun@chelsio.com>
+Subject: [target-pending 10/12] cxgb4, iw_cxgb4: move delayed ack macro definitions
+Date: Sun, 13 Mar 2016 19:49:32 +0530
+Message-ID: <39b60e2772f10d642a375429b42debc441caa370.1457877852.git.varun@chelsio.com>
 References: <cover.1457877852.git.varun@chelsio.com>
 Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org,
 	davem@davemloft.net, swise@opengridcomputing.com,
@@ -15,46 +15,52 @@ References: <cover.1457877852.git.varun@chelsio.com>
 Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-update Kconfig and Makefile for enabling iSCSI
-DDP page pod manager.
+move delayed ack macro definitions to common
+header file t4_msg.h.
 
 Signed-off-by: Varun Prakash <varun@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
- drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
- 2 files changed, 12 insertions(+)
+ drivers/infiniband/hw/cxgb4/t4fw_ri_api.h   | 9 ---------
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h | 9 +++++++++
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index 4d187f2..4686a85 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -96,6 +96,17 @@ config CHELSIO_T4_DCB
+diff --git a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+index 5f47e03..1e26669 100644
+--- a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
++++ b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+@@ -753,13 +753,4 @@ struct fw_ri_wr {
+ #define FW_RI_WR_P2PTYPE_G(x)	\
+ 	(((x) >> FW_RI_WR_P2PTYPE_S) & FW_RI_WR_P2PTYPE_M)
  
- 	  If unsure, say N.
+-#define RX_DACK_MODE_S    29
+-#define RX_DACK_MODE_M    0x3
+-#define RX_DACK_MODE_V(x) ((x) << RX_DACK_MODE_S)
+-#define RX_DACK_MODE_G(x) (((x) >> RX_DACK_MODE_S) & RX_DACK_MODE_M)
+-
+-#define RX_DACK_CHANGE_S    31
+-#define RX_DACK_CHANGE_V(x) ((x) << RX_DACK_CHANGE_S)
+-#define RX_DACK_CHANGE_F    RX_DACK_CHANGE_V(1U)
+-
+ #endif /* _T4FW_RI_API_H_ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 03da7a7..a5641e2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -1040,6 +1040,15 @@ struct cpl_rx_data_ack {
+ #define RX_FORCE_ACK_V(x) ((x) << RX_FORCE_ACK_S)
+ #define RX_FORCE_ACK_F    RX_FORCE_ACK_V(1U)
  
-+config CHELSIO_T4_UWIRE
-+	bool "Unified Wire Support for Chelsio T5 cards"
-+	default n
-+	depends on CHELSIO_T4
-+	---help---
-+	  Enable unified-wire offload features.
-+	  Say Y here if you want to enable unified-wire over Ethernet
-+	  in the driver.
++#define RX_DACK_MODE_S    29
++#define RX_DACK_MODE_M    0x3
++#define RX_DACK_MODE_V(x) ((x) << RX_DACK_MODE_S)
++#define RX_DACK_MODE_G(x) (((x) >> RX_DACK_MODE_S) & RX_DACK_MODE_M)
 +
-+	  If unsure, say N.
++#define RX_DACK_CHANGE_S    31
++#define RX_DACK_CHANGE_V(x) ((x) << RX_DACK_CHANGE_S)
++#define RX_DACK_CHANGE_F    RX_DACK_CHANGE_V(1U)
 +
- config CHELSIO_T4_FCOE
- 	bool "Fibre Channel over Ethernet (FCoE) Support for Chelsio T5 cards"
- 	default n
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index ace0ab9..85c9282 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -7,4 +7,5 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
-+cxgb4-$(CONFIG_CHELSIO_T4_UWIRE) +=  cxgb4_ppm.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
+ struct cpl_rx_pkt {
+ 	struct rss_header rsshdr;
+ 	u8 opcode;
 -- 
 2.0.2
