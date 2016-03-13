@@ -1,100 +1,139 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH 1/2 net v3.16]r8169:  Not enable/disable bus mastering when is enabled on BIOS
-Date: Sun, 13 Mar 2016 11:32:48 +0200
-Message-ID: <1457861569-1844-1-git-send-email-asd@marian1000.go.ro>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
+From: Caesar Wang <wxt@rock-chips.com>
+Subject: [PATCH v2.1 3/9] net: arc_emac: support the phy reset for emac driver
+Date: Sun, 13 Mar 2016 18:06:02 +0800
+Message-ID: <1457863562-12037-1-git-send-email-wxt@rock-chips.com>
+References: <1457860062-5514-1-git-send-email-wxt@rock-chips.com>
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-rockchip@lists.infradead.org,
+	Caesar Wang <wxt@rock-chips.com>
+To: heiko@sntech.de, davem@davemloft.net, robh+dt@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-231-86.residential.rdsnet.ro ([5.14.231.86]:44110 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932424AbcCMJwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 05:52:23 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34611 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752699AbcCMKGN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 06:06:13 -0400
+In-Reply-To: <1457860062-5514-1-git-send-email-wxt@rock-chips.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- This patch not enable/disable bus mastering when is enabled on BIOS..
- pci_disable_device function also disable bus mastering for, disable bus mastering
-  is dedicate function.
+This patch adds to support the emac phy reset.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+Different boards may require different phy reset duration. Add property
+phy-reset-duration for emac driver, so that the boards that need
+a longer reset duration can specify it in their device tree.
+
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+
 ---
- drivers/net/ethernet/realtek/r8169.c | 29 ++++++++++++++++++++++++++---
- 1 file changed, 26 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 02aec96..ec555e7 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -754,6 +754,7 @@ struct rtl8169_private {
- 	struct timer_list timer;
- 	u16 cp_cmd;
- 	bool pcie;
-+	bool bios_support;
+Changes in v2.1:
+- missing the include head file.
+
+Changes in v2:
+- As the pervious version, Sergei and Heiko comments on
+  https://patchwork.kernel.org/patch/8564571/.
+- Nevermind, add signed-off since Heiko the original patch,
+  refer the Heiko's test patch on
+  https://github.com/mmind/linux-rockchip/commit/a943c588783438ff1c508dfa8c79f1709aa5775e
+  :)
+
+ drivers/net/ethernet/arc/emac.h      |  6 ++++++
+ drivers/net/ethernet/arc/emac_mdio.c | 37 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+)
+
+diff --git a/drivers/net/ethernet/arc/emac.h b/drivers/net/ethernet/arc/emac.h
+index dae1ac3..1a40403 100644
+--- a/drivers/net/ethernet/arc/emac.h
++++ b/drivers/net/ethernet/arc/emac.h
+@@ -102,6 +102,11 @@ struct buffer_state {
+ 	DEFINE_DMA_UNMAP_LEN(len);
+ };
  
- 	u16 event_slow;
++struct arc_emac_mdio_bus_data {
++	struct gpio_desc *reset_gpio;
++	int msec;
++};
++
+ /**
+  * struct arc_emac_priv - Storage of EMAC's private information.
+  * @dev:	Pointer to the current device.
+@@ -131,6 +136,7 @@ struct arc_emac_priv {
+ 	struct device *dev;
+ 	struct phy_device *phy_dev;
+ 	struct mii_bus *bus;
++	struct arc_emac_mdio_bus_data bus_data;
  
-@@ -3718,13 +3719,27 @@ static void rtl8169_phy_timer(unsigned long __opaque)
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_PHY_PENDING);
+ 	void __iomem *regs;
+ 	struct clk *clk;
+diff --git a/drivers/net/ethernet/arc/emac_mdio.c b/drivers/net/ethernet/arc/emac_mdio.c
+index d5ee986..0ab62d4 100644
+--- a/drivers/net/ethernet/arc/emac_mdio.c
++++ b/drivers/net/ethernet/arc/emac_mdio.c
+@@ -7,6 +7,7 @@
+ #include <linux/delay.h>
+ #include <linux/of_mdio.h>
+ #include <linux/platform_device.h>
++#include <linux/gpio/consumer.h>
+ 
+ #include "emac.h"
+ 
+@@ -99,6 +100,25 @@ static int arc_mdio_write(struct mii_bus *bus, int phy_addr,
  }
  
-+static void rtl_disable_device (struct pci_dev *pdev)
+ /**
++ * arc_mdio_reset
++ * @bus: points to the mii_bus structure
++ * Description: reset the MII bus
++ */
++int arc_mdio_reset(struct mii_bus *bus)
 +{
-+	dev_WARN_ONCE(&pdev->dev, atomic_read(&pdev->enable_cnt) <= 0,
-+		"disabling already-disabled device");
++	struct arc_emac_priv *priv = bus->priv;
++	struct arc_emac_mdio_bus_data *data = &priv->bus_data;
 +
-+	if (atomic_dec_return(&pdev->enable_cnt) != 0)
-+		return;
++	if (data->reset_gpio) {
++		gpiod_set_value_cansleep(data->reset_gpio, 1);
++		msleep(data->msec);
++		gpiod_set_value_cansleep(data->reset_gpio, 0);
++	}
++
++	return 0;
 +}
 +
- static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
- 				  void __iomem *ioaddr)
++/**
+  * arc_mdio_probe - MDIO probe function.
+  * @priv:	Pointer to ARC EMAC private data structure.
+  *
+@@ -109,6 +129,8 @@ static int arc_mdio_write(struct mii_bus *bus, int phy_addr,
+  */
+ int arc_mdio_probe(struct arc_emac_priv *priv)
  {
-+	struct rtl8169_private *tp = netdev_priv(dev);
++	struct arc_emac_mdio_bus_data *data = &priv->bus_data;
++	struct device_node *np = priv->dev->of_node;
+ 	struct mii_bus *bus;
+ 	int error;
+ 
+@@ -122,6 +144,21 @@ int arc_mdio_probe(struct arc_emac_priv *priv)
+ 	bus->name = "Synopsys MII Bus",
+ 	bus->read = &arc_mdio_read;
+ 	bus->write = &arc_mdio_write;
++	bus->reset = &arc_mdio_reset;
 +
- 	iounmap(ioaddr);
- 	pci_release_regions(pdev);
- 	pci_clear_mwi(pdev);
--	pci_disable_device(pdev);
-+	if (!tp->bios_support)
-+		pci_disable_device(pdev);
-+	else
-+		rtl_disable_device(pdev);
- 	free_netdev(dev);
- }
- 
-@@ -6779,7 +6794,8 @@ static void rtl_wol_shutdown_quirk(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_11:
- 	case RTL_GIGA_MAC_VER_12:
- 	case RTL_GIGA_MAC_VER_17:
--		pci_clear_master(tp->pci_dev);
-+		if (!tp->bios_support)
-+			pci_clear_master(tp->pci_dev);
- 
- 		RTL_W8(ChipCmd, CmdRxEnb);
- 		/* PCI commit */
-@@ -6996,6 +7012,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	void __iomem *ioaddr;
- 	int chipset, i;
- 	int rc;
-+	u16 cmd;
- 
- 	if (netif_msg_drv(&debug)) {
- 		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
-@@ -7103,7 +7120,13 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	rtl_ack_events(tp, 0xffff);
- 
--	pci_set_master(pdev);
-+	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
-+	if (cmd & PCI_COMMAND_MASTER)
-+		tp->bios_support = true;
-+	else {
-+		tp->bios_support = false;
-+		pci_set_master(pdev);
++	/* optional reset-related properties */
++	data->reset_gpio = devm_gpiod_get_optional(priv->dev, "reset",
++						   GPIOD_OUT_LOW);
++	if (IS_ERR(data->reset_gpio)) {
++		error = PTR_ERR(data->reset_gpio);
++		dev_err(priv->dev, "Failed to request gpio: %d\n", error);
++		return error;
 +	}
++
++	of_property_read_u32(np, "phy-reset-duration", &data->msec);
++	/* A sane reset duration should not be longer than 1s */
++	if (data->msec > 1000)
++		data->msec = 1;
  
- 	/*
- 	 * Pretend we are using VLANs; This bypasses a nasty bug where
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s", bus->name);
+ 
 -- 
-2.1.4
+1.9.1
