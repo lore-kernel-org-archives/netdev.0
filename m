@@ -1,9 +1,9 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 3/3] net: dsa: refine netdev event notifier
-Date: Sun, 13 Mar 2016 21:57:04 +0100
-Message-ID: <20160313205704.GD2274@nanopsycho.orion>
+Subject: Re: [PATCH net-next 2/3] net: dsa: make port_bridge_leave return void
+Date: Sun, 13 Mar 2016 21:56:54 +0100
+Message-ID: <20160313205653.GC2274@nanopsycho.orion>
 References: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1457900494-10266-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -14,23 +14,18 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Ido Schimmel <idosch@mellanox.com>,
 	Kevin Smith <kevin.smith@elecsyscorp.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35500 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932877AbcCMU5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 16:57:07 -0400
-Received: by mail-wm0-f65.google.com with SMTP id n205so11916942wmf.2
-        for <netdev@vger.kernel.org>; Sun, 13 Mar 2016 13:57:07 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1457900494-10266-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Mar 13, 2016 at 09:21:34PM CET, vivien.didelot@savoirfairelinux.com wrote:
->Rework the netdev event handler, similar to what the Mellanox Spectrum
->driver does, to easily welcome more events later (for example
->NETDEV_PRECHANGEUPPER) and use netdev helpers (such as
->netif_is_bridge_master).
+Sun, Mar 13, 2016 at 09:21:33PM CET, vivien.didelot@savoirfairelinux.com wrote:
+>netdev_upper_dev_unlink() which notifies NETDEV_CHANGEUPPER, returns
+>void, as well as del_nbp(). So there's no advantage to catch an eventual
+>error from the port_bridge_leave routine at the DSA level.
+>
+>Make this routine void for the DSA layer and its existing drivers.
 >
 >Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
