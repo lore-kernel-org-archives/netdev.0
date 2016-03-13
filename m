@@ -1,60 +1,58 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next] bnx2x: don't wait for Tx completion on recovery
-Date: Sun, 13 Mar 2016 21:21:48 +0200
-Message-ID: <1457896908-13476-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/2] isdn: hisax: isac: fixed code style issues.
+Date: Sun, 13 Mar 2016 12:31:33 -0700
+Message-ID: <1457897493.11972.55.camel@perches.com>
+References: <1457896913-5406-1-git-send-email-gabrielcsmo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33118 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752163AbcCMTV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 15:21:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>, isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457896913-5406-1-git-send-email-gabrielcsmo@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When driver has hit a parity event, HW can no longer write to host memory.
-As a result, Tx completions cannot be written to the host SB memory, and
-waiting for Tx completions eventually timeout.
-As driver is willing to delay as much as 1-2 seconds per Tx queue for its
-draining and this delay is sequential, the time to recover might greatly 
-lengthen needlessly in case the recovery is done under multi-connection
-traffic.
+On Sun, 2016-03-13 at 21:21 +0200, Cosmin-Gabriel Samoila wrote:
+> Fixed errors and warnings reported by checkpatch.pl.
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
-Hi Dave,
+Generally it's better to send multiple patches that each
+change a specific type of style defect.
 
-Wasn't sure whether to prepare this for net/net-next; But as it wasn't
-a bug-fix by definition, I took the safer approach.
+As is, this patch changes object code.
+=46ixing style inconsistency should not do that.
 
-Please consider applying this to `net-next'.
+> diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
+[]
+> @@ -24,9 +24,8 @@
+> =A0#define DBUSY_TIMER_VALUE 80
+> =A0#define ARCOFI_USE 1
+> =A0
+> -static char *ISACVer[] =3D
+> -{"2086/2186 V1.1", "2085 B1", "2085 B2",
+> - "2085 V2.3"};
+> +static char *ISACVer[] =3D {"2086/2186 V1.1", "2085 B1", "2085 B2",
+> +"2085 V2.3"};
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Most common kernel style would use:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index a949783..0a9108c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3042,8 +3042,12 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode, bool keep_link)
- 		bnx2x_save_statistics(bp);
- 	}
- 
--	/* wait till consumers catch up with producers in all queues */
--	bnx2x_drain_tx_queues(bp);
-+	/* wait till consumers catch up with producers in all queues.
-+	 * If we're recovering, FW can't write to host so no reason
-+	 * to wait for the queues to complete all Tx.
-+	 */
-+	if (unload_mode != UNLOAD_RECOVERY)
-+		bnx2x_drain_tx_queues(bp);
- 
- 	/* if VF indicate to PF this function is going down (PF will delete sp
- 	 * elements and clear initializations
--- 
-1.9.3
+static const char *ISACVer[] =3D {
+	"2086/2186 V1.1", "2085 B1", "2085 B2", "2085 V2.3"
+};
+
+> @@ -251,11 +252,12 @@ isac_interrupt(struct IsdnCardState *cs, u_char=
+ val)
+> =A0				cs->tx_skb =3D NULL;
+> =A0			}
+> =A0		}
+> -		if ((cs->tx_skb =3D skb_dequeue(&cs->sq))) {
+> +		cs->tx_skb =3D skb_dequeue(&cs->sq);
+> +		if (cs->tx_skb) {
+> =A0			cs->tx_cnt =3D 0;
+> =A0			isac_fill_fifo(cs);
+> -		} else
+> -			schedule_event(cs, D_XMTBUFREADY);
+> +		}
+> +		schedule_event(cs, D_XMTBUFREADY);
+
+This changes object code.
