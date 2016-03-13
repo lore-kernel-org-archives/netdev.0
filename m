@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/3] net: dsa: refine netdev event notifier
-Date: Sun, 13 Mar 2016 16:21:34 -0400
-Message-ID: <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/3] net: dsa: rename port_*_bridge routines
+Date: Sun, 13 Mar 2016 16:21:32 -0400
+Message-ID: <1457900494-10266-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,98 +16,125 @@ In-Reply-To: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rework the netdev event handler, similar to what the Mellanox Spectrum
-driver does, to easily welcome more events later (for example
-NETDEV_PRECHANGEUPPER) and use netdev helpers (such as
-netif_is_bridge_master).
+Rename DSA port_join_bridge and port_leave_bridge routines to
+respectively port_bridge_join and port_bridge_leave in order to respect
+an implicit Port::Bridge namespace.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/slave.c | 54 ++++++++++++++++++++++++++++++------------------------
- 1 file changed, 30 insertions(+), 24 deletions(-)
+ Documentation/networking/dsa/dsa.txt | 4 ++--
+ drivers/net/dsa/bcm_sf2.c            | 4 ++--
+ drivers/net/dsa/mv88e6171.c          | 4 ++--
+ drivers/net/dsa/mv88e6352.c          | 4 ++--
+ include/net/dsa.h                    | 4 ++--
+ net/dsa/slave.c                      | 8 ++++----
+ 6 files changed, 14 insertions(+), 14 deletions(-)
 
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 974e9c3..3b196c3 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -521,12 +521,12 @@ See Documentation/hwmon/sysfs-interface for details.
+ Bridge layer
+ ------------
+ 
+-- port_join_bridge: bridge layer function invoked when a given switch port is
++- port_bridge_join: bridge layer function invoked when a given switch port is
+   added to a bridge, this function should be doing the necessary at the switch
+   level to permit the joining port from being added to the relevant logical
+   domain for it to ingress/egress traffic with other members of the bridge.
+ 
+-- port_leave_bridge: bridge layer function invoked when a given switch port is
++- port_bridge_leave: bridge layer function invoked when a given switch port is
+   removed from a bridge, this function should be doing the necessary at the
+   switch level to deny the leaving port from ingress/egress traffic from the
+   remaining bridge members. When the port leaves the bridge, it should be aged
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 3f62759..4bcc9eb 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1387,8 +1387,8 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.port_disable		= bcm_sf2_port_disable,
+ 	.get_eee		= bcm_sf2_sw_get_eee,
+ 	.set_eee		= bcm_sf2_sw_set_eee,
+-	.port_join_bridge	= bcm_sf2_sw_br_join,
+-	.port_leave_bridge	= bcm_sf2_sw_br_leave,
++	.port_bridge_join	= bcm_sf2_sw_br_join,
++	.port_bridge_leave	= bcm_sf2_sw_br_leave,
+ 	.port_stp_update	= bcm_sf2_sw_br_set_stp_state,
+ 	.port_fdb_prepare	= bcm_sf2_sw_fdb_prepare,
+ 	.port_fdb_add		= bcm_sf2_sw_fdb_add,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index d72ccbd..c0164b9 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -103,8 +103,8 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ #endif
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+-	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+-	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
++	.port_bridge_join	= mv88e6xxx_port_bridge_join,
++	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update        = mv88e6xxx_port_stp_update,
+ 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index a41fa50..5f528ab 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -324,8 +324,8 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.set_eeprom		= mv88e6352_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
+-	.port_join_bridge	= mv88e6xxx_port_bridge_join,
+-	.port_leave_bridge	= mv88e6xxx_port_bridge_leave,
++	.port_bridge_join	= mv88e6xxx_port_bridge_join,
++	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_update	= mv88e6xxx_port_stp_update,
+ 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
+ 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 26c0a3f..004e034 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -296,9 +296,9 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Bridge integration
+ 	 */
+-	int	(*port_join_bridge)(struct dsa_switch *ds, int port,
++	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
+ 				    struct net_device *bridge);
+-	int	(*port_leave_bridge)(struct dsa_switch *ds, int port);
++	int	(*port_bridge_leave)(struct dsa_switch *ds, int port);
+ 	int	(*port_stp_update)(struct dsa_switch *ds, int port,
+ 				   u8 state);
+ 
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 54976c4..a78c2d1e 100644
+index 27bf03d..b997ee1 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -451,7 +451,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	if (ds->drv->port_bridge_join)
- 		ret = ds->drv->port_bridge_join(ds, p->port, br);
+@@ -448,8 +448,8 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
  
--	return ret;
-+	return ret == -EOPNOTSUPP ? 0 : ret;
+ 	p->bridge_dev = br;
+ 
+-	if (ds->drv->port_join_bridge)
+-		ret = ds->drv->port_join_bridge(ds, p->port, br);
++	if (ds->drv->port_bridge_join)
++		ret = ds->drv->port_bridge_join(ds, p->port, br);
+ 
+ 	return ret;
  }
+@@ -461,8 +461,8 @@ static int dsa_slave_bridge_port_leave(struct net_device *dev)
+ 	int ret = -EOPNOTSUPP;
  
- static void dsa_slave_bridge_port_leave(struct net_device *dev)
-@@ -1139,40 +1139,46 @@ static bool dsa_slave_dev_check(struct net_device *dev)
- 	return dev->netdev_ops == &dsa_slave_netdev_ops;
- }
  
--static int dsa_slave_master_changed(struct net_device *dev)
-+static int dsa_slave_port_upper_event(struct net_device *dev,
-+				      unsigned long event, void *ptr)
- {
--	struct net_device *master = netdev_master_upper_dev_get(dev);
--	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct netdev_notifier_changeupper_info *info = ptr;
-+	struct net_device *upper = info->upper_dev;
- 	int err = 0;
+-	if (ds->drv->port_leave_bridge)
+-		ret = ds->drv->port_leave_bridge(ds, p->port);
++	if (ds->drv->port_bridge_leave)
++		ret = ds->drv->port_bridge_leave(ds, p->port);
  
--	if (master && master->rtnl_link_ops &&
--	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
--		err = dsa_slave_bridge_port_join(dev, master);
--	else if (dsa_port_is_bridged(p))
--		dsa_slave_bridge_port_leave(dev);
-+	switch (event) {
-+	case NETDEV_CHANGEUPPER:
-+		if (netif_is_bridge_master(upper)) {
-+			if (info->linking)
-+				err = dsa_slave_bridge_port_join(dev, upper);
-+			else
-+				dsa_slave_bridge_port_leave(dev);
-+		}
+ 	p->bridge_dev = NULL;
  
--	return err;
-+		break;
-+	}
-+
-+	return notifier_from_errno(err);
- }
- 
--int dsa_slave_netdevice_event(struct notifier_block *unused,
--			      unsigned long event, void *ptr)
-+static int dsa_slave_port_event(struct net_device *dev, unsigned long event,
-+				void *ptr)
- {
--	struct net_device *dev;
--	int err = 0;
--
- 	switch (event) {
- 	case NETDEV_CHANGEUPPER:
--		dev = netdev_notifier_info_to_dev(ptr);
--		if (!dsa_slave_dev_check(dev))
--			goto out;
-+		return dsa_slave_port_upper_event(dev, event, ptr);
-+	}
- 
--		err = dsa_slave_master_changed(dev);
--		if (err && err != -EOPNOTSUPP)
--			netdev_warn(dev, "failed to reflect master change\n");
-+	return NOTIFY_DONE;
-+}
- 
--		break;
--	}
-+int dsa_slave_netdevice_event(struct notifier_block *unused,
-+			      unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+
-+	if (dsa_slave_dev_check(dev))
-+		return dsa_slave_port_event(dev, event, ptr);
- 
--out:
- 	return NOTIFY_DONE;
- }
 -- 
 2.7.2
