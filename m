@@ -1,110 +1,67 @@
 From: isdn@linux-pingi.de
-Subject: Re: [PATCH 1/2] mISDN: Order IPAC register defines
-Date: Sun, 13 Mar 2016 04:13:20 +0100
-Message-ID: <56E4DAD0.3040800@linux-pingi.de>
-References: <56E4A3AE.8050407@maciej.szmigiero.name>
+Subject: Re: [PATCH 2/2] mISDN: Support DR6 indication in mISDNipac driver
+Date: Sun, 13 Mar 2016 04:13:51 +0100
+Message-ID: <56E4DAEF.80100@linux-pingi.de>
+References: <56E4A3EB.4050507@maciej.szmigiero.name>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
 To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E4A3AE.8050407@maciej.szmigiero.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.133]:59305 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753912AbcCMDOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 22:14:05 -0500
+In-Reply-To: <56E4A3EB.4050507@maciej.szmigiero.name>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Acked-by: Karsten Keil <keil@b1-systems.de>
-Am 13.03.2016 um 00:18 schrieb Maciej S. Szmigiero:
-> It looks like IPAC/ISAC chips register defines weren't in any particular
-> order.
+Am 13.03.2016 um 00:19 schrieb Maciej S. Szmigiero:
+> According to figure 39 in PEB3086 data sheet, version 1.4 this indication
+> replaces DR when layer 1 transition source state is F6.
 > 
-> Order them by their number to make it easier to spot holes.
+> This fixes mISDN layer 1 getting stuck in F6 state in TE mode on
+> Dialogic Diva 2.02 card (and possibly others) when NT deactivates it.
 > 
 > Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
 > ---
->  drivers/isdn/hardware/mISDN/ipac.h | 40 +++++++++++++++++++-------------------
->  1 file changed, 20 insertions(+), 20 deletions(-)
+>  drivers/isdn/hardware/mISDN/ipac.h      | 1 +
+>  drivers/isdn/hardware/mISDN/mISDNipac.c | 2 ++
+>  2 files changed, 3 insertions(+)
 > 
 > diff --git a/drivers/isdn/hardware/mISDN/ipac.h b/drivers/isdn/hardware/mISDN/ipac.h
-> index 8121e046b739..76aa6f8f298e 100644
+> index 76aa6f8f298e..720ee72aab6a 100644
 > --- a/drivers/isdn/hardware/mISDN/ipac.h
 > +++ b/drivers/isdn/hardware/mISDN/ipac.h
-> @@ -99,32 +99,32 @@ struct ipac_hw {
->  
->  /* All registers original Siemens Spec  */
->  /* IPAC/ISAC registers */
-> -#define ISAC_MASK		0x20
->  #define ISAC_ISTA		0x20
-> -#define ISAC_STAR		0x21
-> +#define ISAC_MASK		0x20
->  #define ISAC_CMDR		0x21
-> +#define ISAC_STAR		0x21
-> +#define ISAC_MODE		0x22
-> +#define ISAC_TIMR		0x23
->  #define ISAC_EXIR		0x24
-> -#define ISAC_ADF2		0x39
-> +#define ISAC_RBCL		0x25
-> +#define ISAC_RSTA		0x27
-> +#define ISAC_RBCH		0x2A
->  #define ISAC_SPCR		0x30
-> -#define ISAC_ADF1		0x38
->  #define ISAC_CIR0		0x31
->  #define ISAC_CIX0		0x31
-> -#define ISAC_CIR1		0x33
-> -#define ISAC_CIX1		0x33
-> -#define ISAC_STCR		0x37
-> -#define ISAC_MODE		0x22
-> -#define ISAC_RSTA		0x27
-> -#define ISAC_RBCL		0x25
-> -#define ISAC_RBCH		0x2A
-> -#define ISAC_TIMR		0x23
-> -#define ISAC_SQXR		0x3b
-> -#define ISAC_SQRR		0x3b
-> -#define ISAC_MOSR		0x3a
-> -#define ISAC_MOCR		0x3a
->  #define ISAC_MOR0		0x32
->  #define ISAC_MOX0		0x32
-> +#define ISAC_CIR1		0x33
-> +#define ISAC_CIX1		0x33
->  #define ISAC_MOR1		0x34
->  #define ISAC_MOX1		0x34
-> +#define ISAC_STCR		0x37
-> +#define ISAC_ADF1		0x38
-> +#define ISAC_ADF2		0x39
-> +#define ISAC_MOCR		0x3a
-> +#define ISAC_MOSR		0x3a
-> +#define ISAC_SQRR		0x3b
-> +#define ISAC_SQXR		0x3b
->  
->  #define ISAC_RBCH_XAC		0x80
->  
-> @@ -212,13 +212,13 @@ struct ipac_hw {
->  #define ISAC_CMD_DUI		0xF
->  
->  /* ISAC/ISACX/IPAC/IPACX L1 indications */
-> -#define ISAC_IND_RS		0x1
-> -#define ISAC_IND_PU		0x7
->  #define ISAC_IND_DR		0x0
-> +#define ISAC_IND_RS		0x1
+> @@ -217,6 +217,7 @@ struct ipac_hw {
 >  #define ISAC_IND_SD		0x2
 >  #define ISAC_IND_DIS		0x3
-> -#define ISAC_IND_EI		0x6
 >  #define ISAC_IND_RSY		0x4
-> +#define ISAC_IND_EI		0x6
-> +#define ISAC_IND_PU		0x7
+> +#define ISAC_IND_DR6		0x5
+>  #define ISAC_IND_EI		0x6
+>  #define ISAC_IND_PU		0x7
 >  #define ISAC_IND_ARD		0x8
->  #define ISAC_IND_TI		0xA
->  #define ISAC_IND_ATI		0xB
-> @@ -339,9 +339,9 @@ struct ipac_hw {
->  #define ISACX__AUX		0x08
->  #define ISACX__CIC		0x10
->  #define ISACX__ST		0x20
-> +#define IPACX__ON		0x2C
->  #define IPACX__ICB		0x40
->  #define IPACX__ICA		0x80
-> -#define IPACX__ON		0x2C
->  
->  /* ISACX/IPACX _CMDRD (W) */
->  #define ISACX_CMDRD_XRES	0x01
+> diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
+> index cb428b9ee441..aa9b6c3cadc1 100644
+> --- a/drivers/isdn/hardware/mISDN/mISDNipac.c
+> +++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
+> @@ -80,6 +80,7 @@ isac_ph_state_bh(struct dchannel *dch)
+>  		l1_event(dch->l1, HW_DEACT_CNF);
+>  		break;
+>  	case ISAC_IND_DR:
+> +	case ISAC_IND_DR6:
+>  		dch->state = 3;
+>  		l1_event(dch->l1, HW_DEACT_IND);
+>  		break;
+> @@ -660,6 +661,7 @@ isac_l1cmd(struct dchannel *dch, u32 cmd)
+>  		spin_lock_irqsave(isac->hwlock, flags);
+>  		if ((isac->state == ISAC_IND_EI) ||
+>  		    (isac->state == ISAC_IND_DR) ||
+> +		    (isac->state == ISAC_IND_DR6) ||
+>  		    (isac->state == ISAC_IND_RS))
+>  			ph_command(isac, ISAC_CMD_TIM);
+>  		else
 > 
 > 
