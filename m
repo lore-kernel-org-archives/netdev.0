@@ -1,7 +1,7 @@
 From: Varun Prakash <varun@chelsio.com>
-Subject: [target-pending 09/12] cxgb4: move VLAN_NONE macro definition
-Date: Sun, 13 Mar 2016 19:49:31 +0530
-Message-ID: <2460510ab4ada7525eceb2bc09632adc03a8356d.1457877852.git.varun@chelsio.com>
+Subject: [target-pending 12/12] cxgb4: update Kconfig and Makefile
+Date: Sun, 13 Mar 2016 19:49:34 +0530
+Message-ID: <83fada58116e37bd97e32a9fccffcb9013479923.1457877852.git.varun@chelsio.com>
 References: <cover.1457877852.git.varun@chelsio.com>
 Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org,
 	davem@davemloft.net, swise@opengridcomputing.com,
@@ -15,40 +15,46 @@ References: <cover.1457877852.git.varun@chelsio.com>
 Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-move VLAN_NONE macro definition from l2t.c
-to l2t.h
+update Kconfig and Makefile for enabling iSCSI
+DDP page pod manager.
 
 Signed-off-by: Varun Prakash <varun@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/l2t.c | 2 --
- drivers/net/ethernet/chelsio/cxgb4/l2t.h | 2 ++
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-index 5b0f3ef..60a2603 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-@@ -48,8 +48,6 @@
- #include "t4_regs.h"
- #include "t4_values.h"
+diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
+index 4d187f2..4686a85 100644
+--- a/drivers/net/ethernet/chelsio/Kconfig
++++ b/drivers/net/ethernet/chelsio/Kconfig
+@@ -96,6 +96,17 @@ config CHELSIO_T4_DCB
  
--#define VLAN_NONE 0xfff
--
- /* identifies sync vs async L2T_WRITE_REQs */
- #define SYNC_WR_S    12
- #define SYNC_WR_V(x) ((x) << SYNC_WR_S)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.h b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-index 4e2d47a..79665bd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-@@ -39,6 +39,8 @@
- #include <linux/if_ether.h>
- #include <linux/atomic.h>
+ 	  If unsure, say N.
  
-+#define VLAN_NONE 0xfff
++config CHELSIO_T4_UWIRE
++	bool "Unified Wire Support for Chelsio T5 cards"
++	default n
++	depends on CHELSIO_T4
++	---help---
++	  Enable unified-wire offload features.
++	  Say Y here if you want to enable unified-wire over Ethernet
++	  in the driver.
 +
- enum { L2T_SIZE = 4096 };     /* # of L2T entries */
- 
- enum {
++	  If unsure, say N.
++
+ config CHELSIO_T4_FCOE
+ 	bool "Fibre Channel over Ethernet (FCoE) Support for Chelsio T5 cards"
+ 	default n
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
+index ace0ab9..85c9282 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
++++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
+@@ -7,4 +7,5 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
+ cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o
+ cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
+ cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
++cxgb4-$(CONFIG_CHELSIO_T4_UWIRE) +=  cxgb4_ppm.o
+ cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
 -- 
 2.0.2
