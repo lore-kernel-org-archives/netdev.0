@@ -1,160 +1,82 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH ethtool 2/2] Refactor do_gstats() and do_gphystats() to
- avoid code duplication
-Date: Sun, 13 Mar 2016 17:12:18 +0100
-Message-ID: <20160313161218.GI9674@lunn.ch>
-References: <1450871911-19509-3-git-send-email-andrew@lunn.ch>
- <20160313160149.GC21187@decadent.org.uk>
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: Re: [PATCH] netfilter: fix race condition in ipset save and delete
+Date: Sun, 13 Mar 2016 12:25:36 -0400
+Message-ID: <56E59480.1060304@akamai.com>
+References: <20160313023317.GA14181@akamai.com>
+ <alpine.DEB.2.10.1603131254230.18557@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55745 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751441AbcCMQMU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Mar 2016 12:12:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20160313160149.GC21187@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	johunt@akamai.com, netdev@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1603131254230.18557@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 13, 2016 at 04:01:49PM +0000, Ben Hutchings wrote:
-> The new do_gphystats() function is almost exactly the same as
-> do_gstats(), which is silly.
-> 
-> * Add parameters to do_gstats() for the command number, string set
->   number and heading
-> * Introduce do_gnicstats() as a wrapper for do_gstats() that does
->   what do_gstats() used to
-> * Change do_gphystats() into a wrapper for do_gstats()
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Hi Jozsef,
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-Thanks
-	Andrew
-> ---
->  ethtool.c | 71 +++++++++++----------------------------------------------------
->  1 file changed, 12 insertions(+), 59 deletions(-)
+On 03/13/2016 08:07 AM, Jozsef Kadlecsik wrote:
+> Hi,
 > 
-> diff --git a/ethtool.c b/ethtool.c
-> index 1c988f7d8a9d..4f69a825849a 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -2937,7 +2937,8 @@ static int do_phys_id(struct cmd_context *ctx)
->  	return err;
->  }
->  
-> -static int do_gstats(struct cmd_context *ctx)
-> +static int do_gstats(struct cmd_context *ctx, int cmd, int stringset,
-> +		    const char *name)
->  {
->  	struct ethtool_gstrings *strings;
->  	struct ethtool_stats *stats;
-> @@ -2947,7 +2948,7 @@ static int do_gstats(struct cmd_context *ctx)
->  	if (ctx->argc != 0)
->  		exit_bad_args();
->  
-> -	strings = get_stringset(ctx, ETH_SS_STATS,
-> +	strings = get_stringset(ctx, stringset,
->  				offsetof(struct ethtool_drvinfo, n_stats),
->  				0);
->  	if (!strings) {
-> @@ -2971,7 +2972,7 @@ static int do_gstats(struct cmd_context *ctx)
->  		return 95;
->  	}
->  
-> -	stats->cmd = ETHTOOL_GSTATS;
-> +	stats->cmd = cmd;
->  	stats->n_stats = n_stats;
->  	err = send_ioctl(ctx, stats);
->  	if (err < 0) {
-> @@ -2982,7 +2983,7 @@ static int do_gstats(struct cmd_context *ctx)
->  	}
->  
->  	/* todo - pretty-print the strings per-driver */
-> -	fprintf(stdout, "NIC statistics:\n");
-> +	fprintf(stdout, "%s statistics:\n", name);
->  	for (i = 0; i < n_stats; i++) {
->  		fprintf(stdout, "     %.*s: %llu\n",
->  			ETH_GSTRING_LEN,
-> @@ -2995,62 +2996,14 @@ static int do_gstats(struct cmd_context *ctx)
->  	return 0;
->  }
->  
-> -static int do_gphystats(struct cmd_context *ctx)
-> +static int do_gnicstats(struct cmd_context *ctx)
->  {
-> -	struct ethtool_gstrings *strings;
-> -	struct ethtool_stats *stats;
-> -	unsigned int n_stats, sz_stats, i;
-> -	int err;
-> -
-> -	if (ctx->argc != 0)
-> -		exit_bad_args();
-> -
-> -	strings = get_stringset(ctx, ETH_SS_PHY_STATS,
-> -				offsetof(struct ethtool_drvinfo, n_stats),
-> -				0);
-> -	if (!strings) {
-> -		perror("Cannot get stats strings information");
-> -		return 96;
-> -	}
-> -
-> -	n_stats = strings->len;
-> -	if (n_stats < 1) {
-> -		fprintf(stderr, "no stats available\n");
-> -		free(strings);
-> -		return 94;
-> -	}
-> -
-> -	sz_stats = n_stats * sizeof(u64);
-> -
-> -	stats = calloc(1, sz_stats + sizeof(struct ethtool_stats));
-> -	if (!stats) {
-> -		fprintf(stderr, "no memory available\n");
-> -		free(strings);
-> -		return 95;
-> -	}
-> -
-> -	stats->cmd = ETHTOOL_GPHYSTATS;
-> -	stats->n_stats = n_stats;
-> -	err = send_ioctl(ctx, stats);
-> -	if (err < 0) {
-> -		perror("Cannot get stats information");
-> -		free(strings);
-> -		free(stats);
-> -		return 97;
-> -	}
-> -
-> -	/* todo - pretty-print the strings per-driver */
-> -	fprintf(stdout, "PHY statistics:\n");
-> -	for (i = 0; i < n_stats; i++) {
-> -		fprintf(stdout, "     %.*s: %llu\n",
-> -			ETH_GSTRING_LEN,
-> -			&strings->data[i * ETH_GSTRING_LEN],
-> -			stats->data[i]);
-> -	}
-> -	free(strings);
-> -	free(stats);
-> +	return do_gstats(ctx, ETHTOOL_GSTATS, ETH_SS_STATS, "NIC");
-> +}
->  
-> -	return 0;
-> +static int do_gphystats(struct cmd_context *ctx)
-> +{
-> +	return do_gstats(ctx, ETHTOOL_GPHYSTATS, ETH_SS_PHY_STATS, "PHY");
->  }
->  
->  static int do_srxntuple(struct cmd_context *ctx,
-> @@ -4135,7 +4088,7 @@ static const struct option {
->  	  "               [ TIME-IN-SECONDS ]\n" },
->  	{ "-t|--test", 1, do_test, "Execute adapter self test",
->  	  "               [ online | offline | external_lb ]\n" },
-> -	{ "-S|--statistics", 1, do_gstats, "Show adapter statistics" },
-> +	{ "-S|--statistics", 1, do_gnicstats, "Show adapter statistics" },
->  	{ "--phy-statistics", 1, do_gphystats,
->  	  "Show phy statistics" },
->  	{ "-n|-u|--show-nfc|--show-ntuple", 1, do_grxclass,
+> On Sat, 12 Mar 2016, Vishwanath Pai wrote:
+> 
+>> netfilter: fix race condition in ipset save and delete
+>>
+>> This fix adds a new reference counter (ref_kernel) for the struct ip_set.
+>> The other reference counter (ref) is used to track references from the
+>> userspace and we need a separate counter to keep track of in-kernel
+>> references. Using the same ref counter for both userspace and kernel
+>> references causes a race condition which can be demonstrated by the
+>> following script:
+>>
+>> #!/bin/sh
+>> ipset create hash_ip1 hash:ip family inet hashsize 1024 maxelem 500000 \
+>> counters
+>> ipset create hash_ip2 hash:ip family inet hashsize 300000 maxelem 500000 \
+>> counters
+>> ipset create hash_ip3 hash:ip family inet hashsize 1024 maxelem 500000 \
+>> counters
+>>
+>> ipset save &
+>>
+>> ipset swap hash_ip3 hash_ip2
+>> ipset destroy hash_ip3 /* will crash the machine */
+>>
+>> Swap will exchange the values of ref so destroy will see ref = 0 instead of
+>> ref = 1. With this fix in place swap will not suceed because ipset save
+>> still has ref_kernel on the set (ip_set_swap doesn't swap ref_kernel).
+>>
+>> Both delete and swap will error out if ref_kernel != 0 on the set.
+>>
+>> Note: The changes to *_head functions is because previously we would
+>> increment ref whenever we called these functions, we don't do that
+>> anymore.
+> 
+> Overall, I agree with your patch, however I disagree with the description 
+> and some details. 
+> 
+> It's a race between dump & swap and then destroy - dump and destroy are 
+> safe. The "ref" reference counter *is* kernel related: it keeps track of 
+> references from other kernel subsystems (netfilter matches/targets) and 
+> from ipset itself when a set is a member of another set. It would be 
+> misleading to call "ref" as userspace reference counter.
+> 
+> The reference counter you introduce is for netlink events (technically 
+> just for dump), so it would better be named "ref_netlink" instead of 
+> "ref_kernel" (similarly, ip_set_get|put_ref_netlink).
+> 
+> Please update the patch, the description and resubmit. Thanks!
+> 
+> Best regards,
+> Jozsef
+> 
+
+Thanks for reviewing, I will update the patch and send it again.
+
+Thanks,
+Vishwanath
+
