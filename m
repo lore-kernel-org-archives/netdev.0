@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC PATCH net-next 2/3] net: dsa: make port_bridge_leave return void
-Date: Sun, 13 Mar 2016 01:42:25 -0500
-Message-ID: <1457851346-26257-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC PATCH net-next 3/3] net: dsa: refine netdev event notifier
+Date: Sun, 13 Mar 2016 01:42:26 -0500
+Message-ID: <1457851346-26257-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1457851346-26257-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -12,169 +12,106 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:34418 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:34400 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220AbcCMGm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 01:42:59 -0500
+	with ESMTP id S1752113AbcCMGm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 01:42:56 -0500
 In-Reply-To: <1457851346-26257-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev_upper_dev_unlink() which notifies NETDEV_CHANGEUPPER, returns
-void, as well as del_nbp(). So there's no advantage to catch an eventual
-error from the port_bridge_leave routine at the DSA level.
-
-Make this routine void for the DSA layer and its existing drivers.
+Rework the netdev event handler, similar to what the Mellanox Spectrum
+driver does, to eventually welcome NETDEV_PRECHANGEUPPER actions and use
+netdev helpers, such as netif_is_bridge_master.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/bcm_sf2.c   |  4 +---
- drivers/net/dsa/mv88e6xxx.c | 28 +++++++++-------------------
- drivers/net/dsa/mv88e6xxx.h |  2 +-
- include/net/dsa.h           |  2 +-
- net/dsa/slave.c             |  9 +++------
- 5 files changed, 15 insertions(+), 30 deletions(-)
+ net/dsa/slave.c | 55 +++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 31 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 4bcc9eb..95944d5 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -516,7 +516,7 @@ static int bcm_sf2_sw_br_join(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
--static int bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port)
-+static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	struct net_device *bridge = priv->port_sts[port].bridge_dev;
-@@ -543,8 +543,6 @@ static int bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port)
- 	core_writel(priv, p_ctl, CORE_PORT_VLAN_CTL_PORT(port));
- 	priv->port_sts[port].vlan_ctl_mask = p_ctl;
- 	priv->port_sts[port].bridge_dev = NULL;
--
--	return 0;
- }
- 
- static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 5f07524..448d4ef 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2219,39 +2219,29 @@ unlock:
- 	return err;
- }
- 
--int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
-+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	struct net_device *bridge = ps->ports[port].bridge_dev;
- 	u16 fid;
--	int i, err;
-+	int i;
- 
- 	mutex_lock(&ps->smi_mutex);
- 
- 	/* Give the port a fresh Filtering Information Database */
--	err = _mv88e6xxx_fid_new(ds, &fid);
--	if (err)
--		goto unlock;
--
--	err = _mv88e6xxx_port_fid_set(ds, port, fid);
--	if (err)
--		goto unlock;
-+	if (_mv88e6xxx_fid_new(ds, &fid) ||
-+	    _mv88e6xxx_port_fid_set(ds, port, fid))
-+		netdev_warn(ds->ports[port], "failed to assign a new FID\n");
- 
- 	/* Unassign the bridge and remap each port's VLANTable */
- 	ps->ports[port].bridge_dev = NULL;
- 
--	for (i = 0; i < ps->num_ports; ++i) {
--		if (i == port || ps->ports[i].bridge_dev == bridge) {
--			err = _mv88e6xxx_port_based_vlan_map(ds, i);
--			if (err)
--				break;
--		}
--	}
-+	for (i = 0; i < ps->num_ports; ++i)
-+		if (i == port || ps->ports[i].bridge_dev == bridge)
-+			if (_mv88e6xxx_port_based_vlan_map(ds, i))
-+				netdev_warn(ds->ports[i], "failed to remap\n");
- 
--unlock:
- 	mutex_unlock(&ps->smi_mutex);
--
--	return err;
- }
- 
- static void mv88e6xxx_bridge_work(struct work_struct *work)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 3425616..afd495c 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -488,7 +488,7 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 		      struct phy_device *phydev, struct ethtool_eee *e);
- int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 			       struct net_device *bridge);
--int mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port);
-+void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port);
- int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
- int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 				  bool vlan_filtering);
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 004e034..6463bb2 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -298,7 +298,7 @@ struct dsa_switch_driver {
- 	 */
- 	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
- 				    struct net_device *bridge);
--	int	(*port_bridge_leave)(struct dsa_switch *ds, int port);
-+	void	(*port_bridge_leave)(struct dsa_switch *ds, int port);
- 	int	(*port_stp_update)(struct dsa_switch *ds, int port,
- 				   u8 state);
- 
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b997ee1..54976c4 100644
+index 54976c4..27f7886 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -454,15 +454,14 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	return ret;
- }
+@@ -451,7 +451,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 	if (ds->drv->port_bridge_join)
+ 		ret = ds->drv->port_bridge_join(ds, p->port, br);
  
--static int dsa_slave_bridge_port_leave(struct net_device *dev)
-+static void dsa_slave_bridge_port_leave(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
--	int ret = -EOPNOTSUPP;
- 
- 
- 	if (ds->drv->port_bridge_leave)
--		ret = ds->drv->port_bridge_leave(ds, p->port);
-+		ds->drv->port_bridge_leave(ds, p->port);
- 
- 	p->bridge_dev = NULL;
- 
-@@ -470,8 +469,6 @@ static int dsa_slave_bridge_port_leave(struct net_device *dev)
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
- 	 */
- 	dsa_slave_stp_update(dev, BR_STATE_FORWARDING);
--
 -	return ret;
++	return ret == -EOPNOTSUPP ? 0 : ret;
  }
  
- static int dsa_slave_port_attr_get(struct net_device *dev,
-@@ -1152,7 +1149,7 @@ static int dsa_slave_master_changed(struct net_device *dev)
- 	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
- 		err = dsa_slave_bridge_port_join(dev, master);
- 	else if (dsa_port_is_bridged(p))
--		err = dsa_slave_bridge_port_leave(dev);
-+		dsa_slave_bridge_port_leave(dev);
+ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+@@ -1139,40 +1139,47 @@ static bool dsa_slave_dev_check(struct net_device *dev)
+ 	return dev->netdev_ops == &dsa_slave_netdev_ops;
+ }
  
- 	return err;
+-static int dsa_slave_master_changed(struct net_device *dev)
++static int dsa_slave_port_upper_event(struct net_device *dev,
++				      unsigned long event, void *ptr)
+ {
+-	struct net_device *master = netdev_master_upper_dev_get(dev);
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct netdev_notifier_changeupper_info *info = ptr;
++	struct net_device *upper = info->upper_dev;
+ 	int err = 0;
+ 
+-	if (master && master->rtnl_link_ops &&
+-	    !strcmp(master->rtnl_link_ops->kind, "bridge"))
+-		err = dsa_slave_bridge_port_join(dev, master);
+-	else if (dsa_port_is_bridged(p))
+-		dsa_slave_bridge_port_leave(dev);
++	switch (event) {
++	case NETDEV_CHANGEUPPER:
++		if (netif_is_bridge_master(upper)) {
++			if (info->linking)
++				err = dsa_slave_bridge_port_join(dev, upper);
++			else
++				dsa_slave_bridge_port_leave(dev);
++		}
+ 
+-	return err;
++		break;
++	}
++
++	return notifier_from_errno(err);
+ }
+ 
+-int dsa_slave_netdevice_event(struct notifier_block *unused,
+-			      unsigned long event, void *ptr)
++static int dsa_slave_port_event(struct net_device *dev, unsigned long event,
++				void *ptr)
+ {
+-	struct net_device *dev;
+-	int err = 0;
+-
+ 	switch (event) {
++	case NETDEV_PRECHANGEUPPER:
+ 	case NETDEV_CHANGEUPPER:
+-		dev = netdev_notifier_info_to_dev(ptr);
+-		if (!dsa_slave_dev_check(dev))
+-			goto out;
++		return dsa_slave_port_upper_event(dev, event, ptr);
++	}
+ 
+-		err = dsa_slave_master_changed(dev);
+-		if (err && err != -EOPNOTSUPP)
+-			netdev_warn(dev, "failed to reflect master change\n");
++	return NOTIFY_DONE;
++}
+ 
+-		break;
+-	}
++int dsa_slave_netdevice_event(struct notifier_block *unused,
++			      unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++
++	if (dsa_slave_dev_check(dev))
++		return dsa_slave_port_event(dev, event, ptr);
+ 
+-out:
+ 	return NOTIFY_DONE;
  }
 -- 
 2.7.2
