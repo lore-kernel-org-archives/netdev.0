@@ -1,73 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 2/9] net: arc_emac: add phy reset is optional for
- device tree
-Date: Sun, 13 Mar 2016 17:30:14 +0300
-Message-ID: <56E57976.4080507@cogentembedded.com>
-References: <1457860062-5514-1-git-send-email-wxt@rock-chips.com>
- <1457860062-5514-3-git-send-email-wxt@rock-chips.com>
+From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: bad mediatek-ethernet binding docs in linux-next
+Date: Sun, 13 Mar 2016 16:01:51 +0100
+Message-ID: <56E580DF.2080406@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>, Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, leozwang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-To: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1457860062-5514-3-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi,
 
-On 3/13/2016 12:07 PM, Caesar Wang wrote:
+Dave merged the V6 of the MediaTek ethernet driver. However in
+linux-next I can see the correct devicetree binding aswell as the
+obseleted version of the binding docs from the V1 series. The following
+files should not be there.
 
-> This patch adds the following property for arc_emac.
->
-> 1) reset-gpios:
-> The phy reset-gpio is an optional property for arc emac device tree boot.
-> Change the binding document to match the driver code.
->
-> 2) phy-reset-duration:
-> Different boards may require different phy reset duration. Add property
-> phy-reset-duration for device tree probe, so that the boards that need
-> a longer reset duration can specify it in their device tree.
->
-> Anyway, we can add the above property for arc emac.
->
-> Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
->
-> Changes in v2: None
+https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt
+https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/ralink,rt2880-net.txt
+https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt
 
-    Not true -- you renamed the reset prop.
+offending commit is 88b095d1f13b707dd30e3baccc030d0511f7568f. I failed
+to figure out which tree this originates from.
 
->   Documentation/devicetree/bindings/net/arc_emac.txt | 7 +++++++
->   1 file changed, 7 insertions(+)
->
-> diff --git a/Documentation/devicetree/bindings/net/arc_emac.txt b/Documentation/devicetree/bindings/net/arc_emac.txt
-> index a1d71eb..8e84b52 100644
-> --- a/Documentation/devicetree/bindings/net/arc_emac.txt
-> +++ b/Documentation/devicetree/bindings/net/arc_emac.txt
-> @@ -7,6 +7,13 @@ Required properties:
->   - max-speed: see ethernet.txt file in the same directory.
->   - phy: see ethernet.txt file in the same directory.
->
-> +Optional properties:
-> +- reset-gpios : Should specify the gpio for phy reset
-
-    Please leave the old name, "phy-reset-gpios" was surely better.
-
-[...]
-
-MBR, Sergei
+	John
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
