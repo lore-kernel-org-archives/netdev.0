@@ -1,67 +1,164 @@
-From: isdn@linux-pingi.de
-Subject: Re: [PATCH 2/2] mISDN: Support DR6 indication in mISDNipac driver
-Date: Sun, 13 Mar 2016 04:13:51 +0100
-Message-ID: <56E4DAEF.80100@linux-pingi.de>
-References: <56E4A3EB.4050507@maciej.szmigiero.name>
+From: Caesar Wang <caesar.upstream@gmail.com>
+Subject: Re: [PATCH 3/6] net: arc_emac: support the phy reset for emac driver
+Date: Sun, 13 Mar 2016 11:57:51 +0800
+Message-ID: <56E4E53F.2060307@gmail.com>
+References: <1457693731-6966-1-git-send-email-wxt@rock-chips.com>
+ <1457693731-6966-4-git-send-email-wxt@rock-chips.com>
+ <56E30FE5.1080607@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.133]:59305 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753912AbcCMDOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Mar 2016 22:14:05 -0500
-In-Reply-To: <56E4A3EB.4050507@maciej.szmigiero.name>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Caesar Wang <wxt@rock-chips.com>, Heiko Stuebner <heiko@sntech.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Rob Herring <robh+dt@kernel.org>,
+	Alexander Kochetkov <al.kochet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-rockchip@lists.infradead.org, keescook@google.com,
+	leozwang@google.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E30FE5.1080607@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Acked-by: Karsten Keil <keil@b1-systems.de>
-Am 13.03.2016 um 00:19 schrieb Maciej S. Szmigiero:
-> According to figure 39 in PEB3086 data sheet, version 1.4 this indication
-> replaces DR when layer 1 transition source state is F6.
-> 
-> This fixes mISDN layer 1 getting stuck in F6 state in TE mode on
-> Dialogic Diva 2.02 card (and possibly others) when NT deactivates it.
-> 
-> Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
-> ---
->  drivers/isdn/hardware/mISDN/ipac.h      | 1 +
->  drivers/isdn/hardware/mISDN/mISDNipac.c | 2 ++
->  2 files changed, 3 insertions(+)
-> 
-> diff --git a/drivers/isdn/hardware/mISDN/ipac.h b/drivers/isdn/hardware/mISDN/ipac.h
-> index 76aa6f8f298e..720ee72aab6a 100644
-> --- a/drivers/isdn/hardware/mISDN/ipac.h
-> +++ b/drivers/isdn/hardware/mISDN/ipac.h
-> @@ -217,6 +217,7 @@ struct ipac_hw {
->  #define ISAC_IND_SD		0x2
->  #define ISAC_IND_DIS		0x3
->  #define ISAC_IND_RSY		0x4
-> +#define ISAC_IND_DR6		0x5
->  #define ISAC_IND_EI		0x6
->  #define ISAC_IND_PU		0x7
->  #define ISAC_IND_ARD		0x8
-> diff --git a/drivers/isdn/hardware/mISDN/mISDNipac.c b/drivers/isdn/hardware/mISDN/mISDNipac.c
-> index cb428b9ee441..aa9b6c3cadc1 100644
-> --- a/drivers/isdn/hardware/mISDN/mISDNipac.c
-> +++ b/drivers/isdn/hardware/mISDN/mISDNipac.c
-> @@ -80,6 +80,7 @@ isac_ph_state_bh(struct dchannel *dch)
->  		l1_event(dch->l1, HW_DEACT_CNF);
->  		break;
->  	case ISAC_IND_DR:
-> +	case ISAC_IND_DR6:
->  		dch->state = 3;
->  		l1_event(dch->l1, HW_DEACT_IND);
->  		break;
-> @@ -660,6 +661,7 @@ isac_l1cmd(struct dchannel *dch, u32 cmd)
->  		spin_lock_irqsave(isac->hwlock, flags);
->  		if ((isac->state == ISAC_IND_EI) ||
->  		    (isac->state == ISAC_IND_DR) ||
-> +		    (isac->state == ISAC_IND_DR6) ||
->  		    (isac->state == ISAC_IND_RS))
->  			ph_command(isac, ISAC_CMD_TIM);
->  		else
-> 
-> 
+Hi Sergei,
+
+=E5=9C=A8 2016=E5=B9=B403=E6=9C=8812=E6=97=A5 02:35, Sergei Shtylyov =E5=
+=86=99=E9=81=93:
+> On 03/11/2016 01:55 PM, Caesar Wang wrote:
+>
+>> This patch adds to support the emac phy reset.
+>>
+>> 1) phy-reset-gpios:
+>> The phy-reset-gpios is an optional property for arc emac device tree=
+=20
+>> boot.
+>> Change the binding document to match the driver code.
+>
+>    The binding document is apparently changed in another patch. Not=20
+> sure what you wanted to say here...
+>
+>> 2) phy-reset-duration:
+>> Different boards may require different phy reset duration. Add prope=
+rty
+>> phy-reset-duration for device tree probe, so that the boards that ne=
+ed
+>> a longer reset duration can specify it in their device tree.
+>>
+>> 3) phy-reset-active-high:
+>> We need that for a custom hardware that needs the reverse reset=20
+>> sequence.
+>
+>    No, we don't really need that, "phy-reset-gpio" prop can contain=20
+> this data.
+>
+>> Of course, this patch will fix the issue on
+>> https://patchwork.kernel.org/patch/8186801/.
+>>
+>> In some cases, the emac couldn't work if you don't have reset the ph=
+y.
+>> Let's add it to happy work.
+>>
+>> Signed-off-by: Caesar Wang <wxt@rock-chips.com>
+>> ---
+>>
+>>   drivers/net/ethernet/arc/emac_main.c | 41=20
+>> ++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 41 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/arc/emac_main.c=20
+>> b/drivers/net/ethernet/arc/emac_main.c
+>> index 6446af1..42384f6a 100644
+>> --- a/drivers/net/ethernet/arc/emac_main.c
+>> +++ b/drivers/net/ethernet/arc/emac_main.c
+>> @@ -764,6 +764,45 @@ static const struct net_device_ops=20
+>> arc_emac_netdev_ops =3D {
+>>   #endif
+>>   };
+>>
+>> +#ifdef CONFIG_OF
+>> +static void emac_reset_phy(struct net_device *pdev)
+>> +{
+>> +    int err, phy_reset;
+>> +    bool active_high =3D false;
+>> +    int msec =3D 10;
+>> +    struct device *dev =3D pdev->dev.parent;
+>> +    struct device_node *np =3D dev->of_node;
+>> +
+>> +    if (!np)
+>> +        return;
+>> +
+>> +    of_property_read_u32(np, "phy-reset-duration", &msec);
+>> +    /* A sane reset duration should not be longer than 1s */
+>> +    if (msec > 1000)
+>> +        msec =3D 1;
+>> +
+>> +    phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+>
+>    Forgot to say that these old integer-base GPIO APIs shouldn't be=20
+> used by the new code, there's new 'struct gpio_desc' based APIs, like=
+=20
+> devm_gpiod_get() etc.
+>
+>> +    if (!gpio_is_valid(phy_reset))
+>> +        return;
+>> +
+>> +    active_high =3D of_property_read_bool(np, "phy-reset-active-hig=
+h");
+>
+>    Well, I still don't understand why this prop is needed, while the=20
+> GPIO sense is transparently handled by the gpiolib (at least when=20
+> using DT).
+
+Okay, I have to admit that reference the exist way to do...
+
+
+wxt@nb:~/kernel/drivers/net/ethernet$ ag reset-gpios
+micrel/ks8851.c
+1427:    gpio =3D of_get_named_gpio_flags(spi->dev.of_node, "reset-gpio=
+s",
+
+arc/emac_main.c
+787:    phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+797:        dev_err(dev, "failed to get phy-reset-gpios: %d\n", err);
+
+arc/emac_main.c~
+784:    phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+794:        dev_err(dev, "failed to get phy-reset-gpios: %d\n", err);
+
+davicom/dm9000.c
+1451:    reset_gpios =3D of_get_named_gpio_flags(dev->of_node,=20
+"reset-gpios", 0,
+
+freescale/fec_main.c
+3206:    phy_reset =3D of_get_named_gpio(np, "phy-reset-gpios", 0);
+3216:        dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n",=
+=20
+err);
+
+cadence/macb.c
+2958:        int gpio =3D of_get_named_gpio(phy_node, "reset-gpios", 0)=
+;
+
+=2E..
+
+Yep, the gpiolib that can include the prop to work with the same ways.
+
+
+
+>
+> [...]
+>
+> MBR, Sergei
+>
+>
+> _______________________________________________
+> Linux-rockchip mailing list
+> Linux-rockchip@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-rockchip
+
+
+--=20
+Thanks,
+Caesar
