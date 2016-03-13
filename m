@@ -1,34 +1,25 @@
-From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: bad mediatek-ethernet binding docs in linux-next
-Date: Sun, 13 Mar 2016 16:01:51 +0100
-Message-ID: <56E580DF.2080406@openwrt.org>
+From: "Andris.parazinna" <Andris.parazinna@mixmail.com>
+Subject: Working Legally ????
+Date: Sun, 13 Mar 2016 15:49:17 +0100
+Message-ID: <20160313144941.3BFA4179D48@srvzimbra.patronatosanjose.gob.ec>
+Reply-To: andris.parazin@aim.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <Andris.parazinna@mixmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from servidor.patronatosanjose.gob.ec ([186.42.198.235]:48260 "EHLO
+	srvzimbra.patronatosanjose.gob.ec" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751030AbcCMPfp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Mar 2016 11:35:45 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-Dave merged the V6 of the MediaTek ethernet driver. However in
-linux-next I can see the correct devicetree binding aswell as the
-obseleted version of the binding docs from the V1 series. The following
-files should not be there.
+Can we work together LEGALLY FOR BENEFIT ? .If yes answer the questions below and reply to ( andris.parazin@aim.com )
 
-https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/mediatek,mt7620-gsw.txt
-https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/ralink,rt2880-net.txt
-https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/net/ralink,rt3050-esw.txt
-
-offending commit is 88b095d1f13b707dd30e3baccc030d0511f7568f. I failed
-to figure out which tree this originates from.
-
-	John
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Rdg,
+Andris
