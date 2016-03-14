@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: allow sctp_transmit_packet and others to use gfp
-Date: Sun, 13 Mar 2016 22:29:21 -0400 (EDT)
-Message-ID: <20160313.222921.1815217477750936019.davem@davemloft.net>
-References: <90a118e4ca996adb067290a6c45fca6564a77423.1457644344.git.marcelo.leitner@gmail.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next v2 0/7] Introduce l3_dev pointer for L3 processing
+Date: Sun, 13 Mar 2016 19:29:58 -0700
+Message-ID: <CAF2d9jhtvvEdmwP8OrOcUEn+P-Di0TRnjR7-RpcJrKJ3+HAN-Q@mail.gmail.com>
+References: <1457560189-12870-1-git-send-email-mahesh@bandewar.net> <20160313.215033.17951850162749485.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org
-To: marcelo.leitner@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: mahesh@bandewar.net, Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754254AbcCNC3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:29:25 -0400
-In-Reply-To: <90a118e4ca996adb067290a6c45fca6564a77423.1457644344.git.marcelo.leitner@gmail.com>
+Received: from mail-yw0-f174.google.com ([209.85.161.174]:36458 "EHLO
+	mail-yw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbcCNCaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:30:19 -0400
+Received: by mail-yw0-f174.google.com with SMTP id g3so151850435ywa.3
+        for <netdev@vger.kernel.org>; Sun, 13 Mar 2016 19:30:18 -0700 (PDT)
+In-Reply-To: <20160313.215033.17951850162749485.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Thu, 10 Mar 2016 18:33:07 -0300
+On Sun, Mar 13, 2016 at 6:50 PM, David Miller <davem@davemloft.net> wrote:
+> From: Mahesh Bandewar <mahesh@bandewar.net>
+> Date: Wed,  9 Mar 2016 13:49:49 -0800
+>
+>> This does happen as expected for egress traffic however on ingress
+>> traffic, the IPvlan packet-handler changes the skb->dev and this
+>> forces packet to be processed with the IPvlan slave and it's
+>> associated ns. This causes above mentioned problem and few other
+>> which are not yet reported / attempted. e.g.  IPsec with L3 mode or
+>> even ingress routing.
+>
+> And now your changes make it so that we can't run netfilter rules on
+> the slave's device within the slave's ns.
+>
+> If someone is doing that now you're breaking things for them.
+>
+Yes, I agree. If someone is using netfilter hooks in slave-ns, then this would
+break for them. If we do this as a separate mode (e.g. L3s) keeping the
+current mode as it is. Would that be an acceptable solution?
 
-> Currently sctp_sendmsg() triggers some calls that will allocate memory
-> with GFP_ATOMIC even when not necessary. In the case of
-> sctp_packet_transmit it will allocate a linear skb that will be used to
-> construct the packet and this may cause sends to fail due to ENOMEM more
-> often than anticipated specially with big MTUs.
-> 
-> This patch thus allows it to inherit gfp flags from upper calls so that
-> it can use GFP_KERNEL if it was triggered by a sctp_sendmsg call or
-> similar. All others, like retransmits or flushes started from BH, are
-> still allocated using GFP_ATOMIC.
-> 
-> In netperf tests this didn't result in any performance drawbacks when
-> memory is not too fragmented and made it trigger ENOMEM way less often.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> It doesn't matter whether doing so or not makes sense.
+>
+> You're going to have to find a way to do both, and also I'm concerned
+> about how you're leaking the source namespace's "stuff" into the
+> destination's.  That's very worrisome to me.
+>
+If we add a new mode (e.g. L3s) and preserve current mode as is it, then
+that should address your first concern.
 
-Applied, thanks.
+Now about leaking ns "stuff". I do not want to leak stuff across ns. In the
+current L3 mode there is an issue that Nicolas has pointed out and I'll fix
+that soon. In the new mode (L3s); right from the beginning the L2 and L3
+processing always (and consistently) will happen with master device
+(proposed skb->dev->l3_dev).
+
+> There is no way I'm applying this as-is, sorry.
