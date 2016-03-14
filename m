@@ -1,55 +1,69 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Mon, 14 Mar 2016 13:07:06 -0700
-Message-ID: <56E719EA.7040208@redhat.com>
-References: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
- <20160213.055940.1894427692019983187.davem@davemloft.net>
- <1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
- <20160314.152403.1490973796884839758.davem@davemloft.net>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH v2 0/3] net/phy: Improvements to Cavium Thunder MDIO code.
+Date: Mon, 14 Mar 2016 13:12:53 -0700
+Message-ID: <56E71B45.1010805@caviumnetworks.com>
+References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com> <20160314.152751.2108458769066613871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	labbott@fedoraproject.org
-To: David Miller <davem@davemloft.net>, imbrenda@linux.vnet.ibm.com
+Cc: <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <f.fainelli@gmail.com>,
+	<rric@kernel.org>, <sgoutham@cavium.com>, <galak@codeaurora.org>,
+	<ijc+devicetree@hellion.org.uk>, <mark.rutland@arm.com>,
+	<pawel.moll@arm.com>, <robh+dt@kernel.org>,
+	<linux-kernel@vger.kernel.org>, <rchintakuntla@cavium.com>,
+	<david.daney@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160314.152403.1490973796884839758.davem@davemloft.net>
+In-Reply-To: <20160314.152751.2108458769066613871.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/14/2016 12:24 PM, David Miller wrote:
-> From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-> Date: Fri, 11 Mar 2016 13:39:23 +0100
+On 03/14/2016 12:27 PM, David Miller wrote:
+> From: David Daney <ddaney.cavm@gmail.com>
+> Date: Fri, 11 Mar 2016 09:53:08 -0800
 >
->> I think I found a problem with the patch submitted by Laura Abbott
->> ( https://lkml.org/lkml/2016/2/4/711 ): we might miss wakeups.
->> Since the condition is not checked between the prepare_to_wait and the
->> schedule(), if a wakeup happens after the condition is checked but before
->> the sleep happens, and we miss it. ( A description of the problem can be
->> found here: http://www.makelinux.net/ldd3/chp-6-sect-2 ).
+>> Changes from v1:
 >>
->> My solution (see patch below) is to shrink the area influenced by
->> prepare_to_wait, but keeping the fragile section around the condition, and
->> keep the rest of the code in "normal" running state.  This way the sleep is
->> correct and the other functions don't need to worry.  The only caveat here
->> is that the function(s) called to verify the conditions are really not
->> allowed to sleep, so if you need synchronization in the backend of e.g.
->> vsock_stream_has_space(), you should use spinlocks and not mutexes.
+>>   - In 1/3 Add back check for non-OF objects in bgx_init_of_phy().  It
+>>     is probably not necessary, but better safe than sorry...
 >>
->> In case we want to be able to sleep while waiting for conditions, we can
->> consider this instead: https://lwn.net/Articles/628628/ .
+>> The firmware on many Cavium Thunder systems configures the MDIO bus
+>> hardware to be probed as a PCI device.  In order to use the MDIO bus
+>> drivers in this configuration, we must add PCI probing to the driver.
 >>
+>> There are two parts to this set of three patches:
 >>
->> I stumbled on this problem while working on fixing the upcoming virtio
->> backend for vsock, below is the patch I had prepared, with the original
->> message.
+>>   1) Cleanup the PHY probing code in thunder_bgx.c to handle the case
+>>      where there is no PHY attached to a port, as well as being more
+>>      robust in the face of driver loading order by use of
+>>      -EPROBE_DEFER.
+>>
+>>   2) Split mdio-octeon.c into two drivers, one with platform probing,
+>>   and the other with PCI probing.  Common code is shared between the
+>>   two.
+>>
+>> Tested on several different Thunder and OCTEON systems, also compile
+>> tested on x86_64.
 >
-> Can someone please look at this?  Who maintains this code anyways?
->
+> Series applied, thanks David.
 
-Nobody was listed in MAINTAINERS. I tried cc-ing some of the e-mail addresses
-of the original authors (vmware?) when sending the original patch and they
-all bounced.
 
-Thanks,
-Laura
+Thanks, but ... I was going to send another revision.
+
+See: https://lkml.org/lkml/2016/3/11/721
+
+There were a couple of items I wanted to fix.
+
+   1) Missing MODULE_LICENSE() in new common code source file results in 
+taint warnings.
+
+   2) Fix device reference counts for -EPROBE_DEFER case.
+
+
+At this point, I think the best path forward is for me to rebase against 
+net-next and send you a small fixup set to what was merged.
+
+What do you think?
+
+David Daney
