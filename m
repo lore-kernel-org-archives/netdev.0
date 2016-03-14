@@ -1,52 +1,87 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: Re: [PATCH] kcm: fix variable type
-Date: Mon, 14 Mar 2016 07:45:44 +0100
-Message-ID: <56E65E18.1050907@samsung.com>
-References: <1457679075-22094-1-git-send-email-a.hajda@samsung.com>
- <20160311.114442.1933815095495449507.davem@davemloft.net>
+From: oulijun <oulijun@huawei.com>
+Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver
+ code)
+Date: Mon, 14 Mar 2016 14:49:32 +0800
+Message-ID: <56E65EFC.3030109@huawei.com>
+References: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, b.zolnierkie@samsung.com,
-	m.szyprowski@samsung.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Doug Ledford <dledford@redhat.com>,
+	"Hefty, Sean" <sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
+	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+	<jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
+	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <lisheng011@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: Parav Pandit <pandit.parav@gmail.com>,
+	"Wei Hu(Xavier)" <xavier.huwei@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.w1.samsung.com ([210.118.77.12]:22322 "EHLO
-	mailout2.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751525AbcCNGqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 02:46:03 -0400
-In-reply-to: <20160311.114442.1933815095495449507.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42009 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbcCNGuO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 02:50:14 -0400
+In-Reply-To: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2016 05:44 PM, David Miller wrote:
-> From: Andrzej Hajda <a.hajda@samsung.com>
-> Date: Fri, 11 Mar 2016 07:51:15 +0100
->
->> Function skb_splice_bits can return negative values, its result should
->> be assigned to signed variable to allow correct error checking.
->>
->> The problem has been detected using patch
->> scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci.
->>
->> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
-> Since skb_splice_bits() returns an 'int', that would be a more appropriate
-> type to use here.
->
-> Thank you.
->
->
-On the other side kcm_splice_read use this local var as return variable,
-and the return type is ssize_t.
+Hi Parav Pandit, thanks your reviewing.
+On 2016/3/4 17:37, Parav Pandit wrote:
+> On Fri, Mar 4, 2016 at 2:11 PM, Wei Hu(Xavier) <xavier.huwei@huawei.com> wrote:
+>> +
+>> +int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+>> +{
+>> +       int ret;
+>> +       struct hns_roce_ib_iboe *iboe = NULL;
+>> +       struct ib_device *ib_dev = NULL;
+>> +       struct device *dev = &hr_dev->pdev->dev;
+>> +
+>> +       iboe = &hr_dev->iboe;
+>> +
+>> +       ib_dev = &hr_dev->ib_dev;
+>> +       strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
+>> +
+>> +       ib_dev->owner                   = THIS_MODULE;
+>> +       ib_dev->node_type               = RDMA_NODE_IB_CA;
+>> +       ib_dev->dma_device              = dev;
+>> +
+>> +       ib_dev->phys_port_cnt           = hr_dev->caps.num_ports;
+>> +       ib_dev->local_dma_lkey          = hr_dev->caps.reserved_lkey;
+>> +       ib_dev->num_comp_vectors        = hr_dev->caps.num_comp_vectors;
+>> +       ib_dev->uverbs_abi_ver          = 1;
+>> +       ib_dev->uverbs_cmd_mask         =
+>> +               (1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
+>> +               (1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
+>> +               (1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
+>> +               (1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
+>> +               (1ULL << IB_USER_VERBS_CMD_DEALLOC_PD) |
+>> +               (1ULL << IB_USER_VERBS_CMD_REG_MR) |
+>> +               (1ULL << IB_USER_VERBS_CMD_DEREG_MR) |
+>> +               (1ULL << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
+>> +               (1ULL << IB_USER_VERBS_CMD_CREATE_CQ) |
+>> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_CQ) |
+>> +               (1ULL << IB_USER_VERBS_CMD_CREATE_QP) |
+>> +               (1ULL << IB_USER_VERBS_CMD_MODIFY_QP) |
+>> +               (1ULL << IB_USER_VERBS_CMD_QUERY_QP) |
+>> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_QP);
+>> +
+> 
+> Since SRQ is not supported in this driver version, can you keep
+> remaining code base also to not bother about SRQ specifically
+> poll_cq_one, modify_qp, destroy_qp etc?
+> SRQ support can come as complete additional patch along with cmd_mask,
+> callbacks and rest of the code.
+> 
+> .
+Sorry, I see your review in time.
+Sure, SRQ is not supported in current roce driver. I have verified the function
+for RDMA. It is not influence. For your question, we need to analyse it scientific.
+after that, i will reply your doubt, is that ok?
 
-Digging deeper it looks like:
-ssize_t kcm_splice_read(...) returns result of
-int skb_splice_bits(...) which returns result of
-ssize_t splice_cb(...) callback.
+thanks
+Lijun Ou
 
-It looks code is somehow inconsistent, but maybe there are other reasons
-which I am not aware of.
-
-Regards
-Andrzej
+> 
