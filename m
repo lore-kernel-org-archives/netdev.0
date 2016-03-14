@@ -1,80 +1,133 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next] ethtool: Set cmd field in ETHTOOL_GLINKSETTINGS
- response to wrong nwords
-Date: Mon, 14 Mar 2016 01:05:38 +0000
-Message-ID: <20160314010537.GD21187@decadent.org.uk>
+From: "Yankejian (Hackim Yim)" <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/3] net: hns: add Hisilicon RoCE support
+Date: Mon, 14 Mar 2016 09:12:28 +0800
+Message-ID: <56E60FFC.3000007@huawei.com>
+References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
+ <1457692631-9290-3-git-send-email-oulijun@huawei.com>
+ <20160312104301.GB15703@leon.nu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="vGgW1X5XWziG23Ko"
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42503 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932513AbcCNBFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 21:05:44 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160312104301.GB15703-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---vGgW1X5XWziG23Ko
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-When the ETHTOOL_GLINKSETTINGS implementation finds that userland is
-using the wrong number of words of link mode bitmaps (or is trying to
-find out the right numbers) it sets the cmd field to 0 in the response
-structure.
+On 2016/3/12 18:43, Leon Romanovsky wrote:
+> On Fri, Mar 11, 2016 at 06:37:10PM +0800, Lijun Ou wrote:
+>> It added hns_dsaf_roce_reset routine for roce driver.
+>> RoCE is a feature of hns.
+>> In hip06 SOC, in roce reset process, it's needed to configure
+>> dsaf channel reset,port and sl map info.
+>>
+>> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Lisheng <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 84 ++++++++++++++++++++++
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 14 ++++
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 +++++++++++++---
+>>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 13 ++++
+>>  4 files changed, 163 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> index 38fc5be..a0f0d4f 100644
+>> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+>> @@ -12,6 +12,7 @@
+>>  #include <linux/init.h>
+>>  #include <linux/interrupt.h>
+>>  #include <linux/netdevice.h>
+>> +#include <linux/of_platform.h>
+>>  #include <linux/platform_device.h>
+>>  #include <linux/of.h>
+>>  #include <linux/of_address.h>
+>> @@ -2593,6 +2594,89 @@ static struct platform_driver g_dsaf_driver = {
+>>  
+>>  module_platform_driver(g_dsaf_driver);
+>>  
+>> +/**
+>> + * hns_dsaf_roce_reset - reset dsaf and roce
+>> + * @dsaf_fwnode: Pointer to framework node for the dasf
+>> + * @val: 0 - request reset , 1 - drop reset
+>> + * retuen 0 - success , negative --fail
+>> + */
+>> +int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
+>> +{
+>> +	struct dsaf_device *dsaf_dev;
+>> +	struct platform_device *pdev;
+>> +	unsigned int mp;
+>> +	unsigned int sl;
+>> +	unsigned int credit;
+>> +	int i;
+>> +	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+>> +		{0, 0, 0},
+>> +		{1, 0, 0},
+>> +		{2, 1, 0},
+>> +		{3, 1, 0},
+>> +		{4, 2, 1},
+>> +		{4, 2, 1},
+>> +		{5, 3, 1},
+>> +		{5, 3, 1},
+>> +	};
+>> +	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+>> +		{0, 0, 0},
+>> +		{0, 1, 1},
+>> +		{0, 0, 2},
+>> +		{0, 1, 3},
+>> +		{0, 0, 0},
+>> +		{1, 1, 1},
+>> +		{0, 0, 2},
+>> +		{1, 1, 3},
+>> +	};
+> Do you have a plan to send a version with enums/defines for this
+> numbers? Especially for _CHAN_MODE.
+>
+> .
 
-This is inconsistent with the implementation of every other ethtool
-command, so let's remove that inconsistency before it gets into a
-stable release.
+Hi leon,
 
-Fixes: 3f1ac7a700d03 ("net: ethtool: add new ETHTOOL_xLINKSETTINGS API")
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-David, please can you include this in changes for 4.6?
+    it seems the enums is added in hns_dsaf_main.h, as belows:
 
-Ben.
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+index 5fea226..c917b9a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+@@ -40,6 +40,16 @@ struct hns_mac_cb;
+ #define DSAF_DUMP_REGS_NUM 504
+ #define DSAF_STATIC_NUM 28
+ 
++#define DSAF_ROCE_CREDIT_CHN 8
++#define DSAF_ROCE_CHAN_MODE 3
++
++enum dsaf_roce_port_port_mode {
++	DSAF_ROCE_6PORT_MODE,
++	DSAF_ROCE_4PORT_MODE,
++	DSAF_ROCE_2PORT_MODE,
++	DSAF_ROCE_CHAN_MODE_NUM
++};
++
 
- net/core/ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+MBR, Kejian
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 2966cd0d7c93..f426c5ad6149 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -655,7 +655,7 @@ static int ethtool_get_link_ksettings(struct net_device *dev,
- 	    != link_ksettings.base.link_mode_masks_nwords) {
- 		/* wrong link mode nbits requested */
- 		memset(&link_ksettings, 0, sizeof(link_ksettings));
--		/* keep cmd field reset to 0 */
-+		link_ksettings.base.cmd = ETHTOOL_GLINKSETTINGS;
- 		/* send back number of words required as negative val */
- 		compiletime_assert(__ETHTOOL_LINK_MODE_MASK_NU32 <= S8_MAX,
- 				   "need too many bits for link modes!");
 
---vGgW1X5XWziG23Ko
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
 
-iQIVAwUBVuYOYee/yOyVhhEJAQqORxAAkRpYVvVB3SUNR2NhfaBuIvHQ67+6pS3k
-1xNyyX8e36Ah41yZXZA1WIPJmmmI9Sg/7zdBfFkkEISsbiyZsb9trr5M/UtrQ/xf
-fSyn9+4RH8EZdWO5km62uvZ1+3LCtyK01Mr0p4SvPmNKcK0qVGkjqSh8+I3mgkDP
-gSaF4BziO/xMc/TIxSIdaHVC2+9jiyM8Paiwl1H6rEqZk6MGz88DQlMTmQ+/uBJF
-F4+RgZMfxTjchGHfKxUVvtsR6jrlKINQwV5yznsPn+00qKOxiihE0YVcq30dp3Ic
-TTJnzeKdnkoqmYX0jOzylWbmR89YrX/GOhQNFaRKOnI+vsFbyQLXTm+6/tWqC6Gq
-MbU2yxE3/UG2Rg3QI0JRzwCpTUcFyNarIriP34sYX0S7s9JtG2uWwMM0m2CPc2ND
-Wa8WFRoWbuJ351rFCKffvbXKGv/88WNJ17xQgfjyaS1+Qfp7/pmuA4N4X0gGOrhu
-fhlS2kmjDmmOL63PUe6UboCNQlXhUt9DlSChtoB8GfKDRyiOua5B5qMJWVjaH7bI
-AqSnsCis2IxZ6A6Gqc/63nM+/9VejtSfbxW9UcYwi2HUy5ehd7DnxAqfhdT8mq8X
-79Yy55jlk61POzDGOcJzfI+EVHUp5QHk9MgELDAW5R8bhpAhVy8XIJL3EM9dQE7B
-tAAM/8gVRGc=
-=neyA
------END PGP SIGNATURE-----
 
---vGgW1X5XWziG23Ko--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
