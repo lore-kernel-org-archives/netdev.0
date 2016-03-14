@@ -1,9 +1,10 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v6 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
-Date: Mon, 14 Mar 2016 14:54:47 -0700
-Message-ID: <CAK6E8=eXH1HEXEWiAnUTT65i9=M=j1W1v3MQFSxvk2xF_TNLZg@mail.gmail.com>
+Subject: Re: [PATCH v6 net-next 0/2] tcp: Redundant Data Bundling (RDB)
+Date: Mon, 14 Mar 2016 14:59:07 -0700
+Message-ID: <CAK6E8=e5tVX3cfwvaXxN7LEq6XggeT5Y7T0j4KcKRsA1b-77mQ@mail.gmail.com>
 References: <1445633413-3532-1-git-send-email-bro.devel+kernel@gmail.com>
- <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com> <1457028388-18226-3-git-send-email-bro.devel+kernel@gmail.com>
+ <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+ <CAK6E8=eKu_0ReSDLYdyajxMyX2MaN=wDLHvq=u_tyNnMRS31sw@mail.gmail.com> <56E5F54F.3050507@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -19,781 +20,195 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 To: =?UTF-8?Q?Bendik_R=C3=B8nning_Opstad?= <bro.devel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:34190 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbcCNVz3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 17:55:29 -0400
-Received: by mail-wm0-f49.google.com with SMTP id p65so120042118wmp.1
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 14:55:28 -0700 (PDT)
-In-Reply-To: <1457028388-18226-3-git-send-email-bro.devel+kernel@gmail.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35847 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751734AbcCNV7s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 17:59:48 -0400
+Received: by mail-wm0-f44.google.com with SMTP id n186so127603789wmn.1
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 14:59:48 -0700 (PDT)
+In-Reply-To: <56E5F54F.3050507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2016 at 10:06 AM, Bendik R=C3=B8nning Opstad
+On Sun, Mar 13, 2016 at 4:18 PM, Bendik R=C3=B8nning Opstad
 <bro.devel@gmail.com> wrote:
+> On 03/10/2016 01:20 AM, Yuchung Cheng wrote:
+>> I read the paper. I think the underlying idea is neat. but the
+>> implementation is little heavy-weight that requires changes on fast
+>> path (tcp_write_xmit) and space in skb control blocks.
 >
-> Redundant Data Bundling (RDB) is a mechanism for TCP aimed at reducin=
-g
-> the latency for applications sending time-dependent data.
+> Yuchung, thank you for taking the time to review the patch submission
+> and read the paper.
 >
-> Latency-sensitive applications or services, such as online games,
-> remote control systems, and VoIP, produce traffic with thin-stream
-> characteristics, characterized by small packets and relatively high
-> inter-transmission times (ITT). When experiencing packet loss, such
-> latency-sensitive applications are heavily penalized by the need to
-> retransmit lost packets, which increases the latency by a minimum of
-> one RTT for the lost packet. Packets coming after a lost packet are
-> held back due to head-of-line blocking, causing increased delays for
-> all data segments until the lost packet has been retransmitted.
+> I must admit I was not particularly happy about the extra if-test on =
+the
+> fast path, and I fully understand the wish to keep the fast path as
+> simple and clean as possible.
+> However, is the performance hit that significant considering the bran=
+ch
+> prediction hint for the non-RDB path?
 >
-> RDB enables a TCP sender to bundle redundant (already sent) data with
-> TCP packets containing small segments of new data. By resending
-> un-ACKed data from the output queue in packets with new data, RDB
-> reduces the need to retransmit data segments on connections
-> experiencing sporadic packet loss. By avoiding a retransmit, RDB
-> evades the latency increase of at least one RTT for the lost packet,
-> as well as alleviating head-of-line blocking for the packets followin=
-g
-> the lost packet. This makes the TCP connection more resistant to
-> latency fluctuations, and reduces the application layer latency
-> significantly in lossy environments.
+> The extra variable needed in the SKB CB does not require increasing t=
+he
+> CB buffer size due to the "tcp: refactor struct tcp_skb_cb" patch:
+> http://patchwork.ozlabs.org/patch/510674 and uses only some of the sp=
+ace
+> made available in the outgoing SKBs' CB. Therefore I hoped the extra
+> variable would be acceptable.
 >
-> Main functionality added:
+>> ultimately this
+>> patch is meant for a small set of specific applications.
 >
->   o When a packet is scheduled for transmission, RDB builds and
->     transmits a new SKB containing both the unsent data as well as
->     data of previously sent packets from the TCP output queue.
+> Yes, the RDB mechanism is aimed at a limited set of applications,
+> specifically time-dependent applications that produce non-greedy,
+> application limited (thin) flows. However, our hope is that RDB may
+> greatly improve TCP's position as a viable alternative for applicatio=
+ns
+> transmitting latency sensitive data.
 >
->   o RDB will only be used for streams classified as thin by the
->     function tcp_stream_is_thin_dpifl(). This enforces a lower bound
->     on the ITT for streams that may benefit from RDB, controlled by
->     the sysctl variable net.ipv4.tcp_thin_dpifl_itt_lower_bound.
->
->   o Loss detection of hidden loss events: When bundling redundant dat=
-a
->     with each packet, packet loss can be hidden from the TCP engine d=
+>> In my mental model (please correct me if I am wrong), losses on thes=
+e
+>> thin streams would mostly resort to RTOs instead of fast recovery, d=
 ue
->     to lack of dupACKs. This is because the loss is "repaired" by the
->     redundant data in the packet coming after the lost packet. Based =
+>> to the bursty nature of Internet losses.
+>
+> This depends on the transmission pattern of the applications, which
+> varies to a great deal, also between the different types of
+> time-dependent applications that produce thin streams. For short flow=
+s,
+> (bursty) loss at the end will result in an RTO (if TLP does not probe=
+),
+> but the thin streams are often long lived, and the applications
+> producing them continue to write small data segments to the socket at
+> intervals of tens to hundreds of milliseconds.
+>
+> What controls if an RTO and not fast retransmit will resend the packe=
+t,
+> is the number of PIFs, which directly correlates to how often the
+> application writes data to the socket in relation to the RTT. As long=
+ as
+> the number of packets successfully completing a round trip before the
+> RTO is >=3D the dupACK threshold, they will not depend on RTOs (not
+> considering TLP). Early retransmit and the TCP_THIN_DUPACK socket opt=
+ion
+> will also affect the likelihood of RTOs vs fast retransmits.
+>
+>> The HOLB comes from RTO only
+>> retransmit the first (tiny) unacked packet while a small of new data=
+ is
+>> readily available. But since Linux congestion control is packet-base=
+d,
+>> and loss cwnd is 1, the new data needs to wait until the 1st packet =
+is
+>> acked which is for another RTT.
+>
+> If I understand you correctly, you are referring to HOLB on the sende=
+r
+> side, which is the extra delay on new data that is held back when the
+> connection is CWND-limited. In the paper, we refer to this extra dela=
+y
+> as increased sojourn times for the outgoing data segments.
+>
+> We do not include this additional sojourn time for the segments on th=
+e
+> sender side in the ACK Latency plots (Fig. 4 in the paper). This is
+> simply because the pcap traces contain the timestamps when the packet=
+s
+> are sent, and not when the segments are added to the output queue.
+>
+> When we refer to the HOLB effect in the paper as well as the thesis, =
+we
+> refer to the extra delays (sojourn times) on the receiver side where
+> segments are held back (not made available to user space) due to gaps=
+ in
+> the sequence range when packets are lost (we had no reordering).
+>
+> So, when considering the increased delays due to HOLB on the receiver
+> side, HOLB is not at all limited to RTOs. Actually, it's mostly not d=
+ue
+> to RTOs in the tests we've run, however, this also depends very much =
 on
->     incoming ACKs, such hidden loss events are detected, and CWR stat=
-e
->     is entered.
->
-> RDB can be enabled on a connection with the socket option TCP_RDB, or
-> on all new connections by setting the sysctl variable
-> net.ipv4.tcp_rdb=3D1
->
-> Cc: Andreas Petlund <apetlund@simula.no>
-> Cc: Carsten Griwodz <griff@simula.no>
-> Cc: P=C3=A5l Halvorsen <paalh@simula.no>
-> Cc: Jonas Markussen <jonassm@ifi.uio.no>
-> Cc: Kristian Evensen <kristian.evensen@gmail.com>
-> Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-> Signed-off-by: Bendik R=C3=B8nning Opstad <bro.devel+kernel@gmail.com=
->
-> ---
->  Documentation/networking/ip-sysctl.txt |  15 +++
->  include/linux/skbuff.h                 |   1 +
->  include/linux/tcp.h                    |   3 +-
->  include/net/tcp.h                      |  15 +++
->  include/uapi/linux/tcp.h               |   1 +
->  net/core/skbuff.c                      |   2 +-
->  net/ipv4/Makefile                      |   3 +-
->  net/ipv4/sysctl_net_ipv4.c             |  25 ++++
->  net/ipv4/tcp.c                         |  14 +-
->  net/ipv4/tcp_input.c                   |   3 +
->  net/ipv4/tcp_output.c                  |  48 ++++---
->  net/ipv4/tcp_rdb.c                     | 228 +++++++++++++++++++++++=
-++++++++++
->  12 files changed, 335 insertions(+), 23 deletions(-)
->  create mode 100644 net/ipv4/tcp_rdb.c
->
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/n=
-etworking/ip-sysctl.txt
-> index 6a92b15..8f3f3bf 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -716,6 +716,21 @@ tcp_thin_dpifl_itt_lower_bound - INTEGER
->         calculated, which is used to classify whether a stream is thi=
-n.
->         Default: 10000
->
-> +tcp_rdb - BOOLEAN
-> +       Enable RDB for all new TCP connections.
-  Please describe RDB briefly, perhaps with a pointer to your paper.
-   I suggest have three level of controls:
-   0: disable RDB completely
-   1: enable indiv. thin-stream conn. to use RDB via TCP_RDB socket
-options
-   2: enable RDB on all thin-stream conn. by default
+> the transmission pattern of the application as well as loss levels.
+> In general, HOLB on the receiver side will affect any flow that
+> transmits a packet with new data after a packet is lost (sender may n=
+ot
+> know yet), where the lost packet has not already been retransmitted.
+OK that makes sense.
 
-   currently it only provides mode 1 and 2. but there may be cases wher=
-e
-   the administrator wants to disallow it (e.g., broken middle-boxes).
+I left some detailed comments on the actual patches. I would encourage
+to submit an IETF draft to gather feedback from tcpm b/c the feature
+seems portable.
 
-> +       Default: 0
-> +
-> +tcp_rdb_max_bytes - INTEGER
-> +       Enable restriction on how many bytes an RDB packet can contai=
-n.
-> +       This is the total amount of payload including the new unsent =
-data.
-> +       Default: 0
-> +
-> +tcp_rdb_max_packets - INTEGER
-> +       Enable restriction on how many previous packets in the output=
- queue
-> +       RDB may include data from. A value of 1 will restrict bundlin=
-g to
-> +       only the data from the last packet that was sent.
-> +       Default: 1
- why two metrics on redundancy? It also seems better to
- allow individual socket to select the redundancy level (e.g.,
- setsockopt TCP_RDB=3D3 means <=3D3 pkts per bundle) vs a global settin=
-g.
- This requires more bits in tcp_sock but 2-3 more is suffice.
-/
-
-> +
->  tcp_limit_output_bytes - INTEGER
->         Controls TCP Small Queue limit per tcp socket.
->         TCP bulk sender tends to increase packets in flight until it
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 797cefb..0f2c9d1 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2927,6 +2927,7 @@ int zerocopy_sg_from_iter(struct sk_buff *skb, =
-struct iov_iter *frm);
->  void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
->  void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
->  int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned=
- int flags);
-> +void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)=
-;
->  int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, i=
-nt len);
->  int skb_store_bits(struct sk_buff *skb, int offset, const void *from=
-, int len);
->  __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,=
- u8 *to,
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index bcbf51d..c84de15 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -207,9 +207,10 @@ struct tcp_sock {
->         } rack;
->         u16     advmss;         /* Advertised MSS                    =
-   */
->         u8      unused;
-> -       u8      nonagle     : 4,/* Disable Nagle algorithm?          =
-   */
-> +       u8      nonagle     : 3,/* Disable Nagle algorithm?          =
-   */
->                 thin_lto    : 1,/* Use linear timeouts for thin strea=
-ms */
->                 thin_dupack : 1,/* Fast retransmit on first dupack   =
-   */
-> +               rdb         : 1,/* Redundant Data Bundling enabled   =
-   */
->                 repair      : 1,
->                 frto        : 1;/* F-RTO (RFC5682) activated in CA_Lo=
-ss */
->         u8      repair_queue;
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index d38eae9..2d42f4a 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -267,6 +267,9 @@ extern int sysctl_tcp_slow_start_after_idle;
->  extern int sysctl_tcp_thin_linear_timeouts;
->  extern int sysctl_tcp_thin_dupack;
->  extern int sysctl_tcp_thin_dpifl_itt_lower_bound;
-> +extern int sysctl_tcp_rdb;
-> +extern int sysctl_tcp_rdb_max_bytes;
-> +extern int sysctl_tcp_rdb_max_packets;
->  extern int sysctl_tcp_early_retrans;
->  extern int sysctl_tcp_limit_output_bytes;
->  extern int sysctl_tcp_challenge_ack_limit;
-> @@ -539,6 +542,8 @@ void __tcp_push_pending_frames(struct sock *sk, u=
-nsigned int cur_mss,
->  bool tcp_may_send_now(struct sock *sk);
->  int __tcp_retransmit_skb(struct sock *, struct sk_buff *);
->  int tcp_retransmit_skb(struct sock *, struct sk_buff *);
-> +int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone=
-_it,
-> +                    gfp_t gfp_mask);
->  void tcp_retransmit_timer(struct sock *sk);
->  void tcp_xmit_retransmit_queue(struct sock *);
->  void tcp_simple_retransmit(struct sock *);
-> @@ -556,6 +561,7 @@ void tcp_send_ack(struct sock *sk);
->  void tcp_send_delayed_ack(struct sock *sk);
->  void tcp_send_loss_probe(struct sock *sk);
->  bool tcp_schedule_loss_probe(struct sock *sk);
-> +void tcp_skb_append_data(struct sk_buff *from_skb, struct sk_buff *t=
-o_skb);
 >
->  /* tcp_input.c */
->  void tcp_resume_early_retransmit(struct sock *sk);
-> @@ -565,6 +571,11 @@ void tcp_reset(struct sock *sk);
->  void tcp_skb_mark_lost_uncond_verify(struct tcp_sock *tp, struct sk_=
-buff *skb);
->  void tcp_fin(struct sock *sk);
+> Consider a sender application that performs write calls every 30 ms o=
+n a
+> 150 ms RTT link. It will need a CWND that allows 5-6 PIFs to be able =
+to
+> transmit all new data segments with no extra sojourn times on the sen=
+der
+> side.
+> When one packet is lost, the next 5 packets that are sent will be hel=
+d
+> back on the receiver side due to the missing segment (HOLB). In the b=
+est
+> case scenario, the first dupACK triggers a fast retransmit around the
+> same time as the fifth packet (after the lost packet) is sent. In tha=
+t
+> case, the first segment sent after the lost segment is held back on t=
+he
+> receiver for 150 ms (the time it takes for the dupACK to reach the
+> sender, and the fast retrans to arrive at the receiver). The second i=
+s
+> held back 120 ms, the third 90 ms, the fourth 60 ms, an the fifth 30 =
+ms.
 >
-> +/* tcp_rdb.c */
-> +void tcp_rdb_ack_event(struct sock *sk, u32 flags);
-> +int tcp_transmit_rdb_skb(struct sock *sk, struct sk_buff *xmit_skb,
-> +                        unsigned int mss_now, gfp_t gfp_mask);
-> +
->  /* tcp_timer.c */
->  void tcp_init_xmit_timers(struct sock *);
->  static inline void tcp_clear_xmit_timers(struct sock *sk)
-> @@ -763,6 +774,7 @@ struct tcp_skb_cb {
->         union {
->                 struct {
->                         /* There is space for up to 20 bytes */
-> +                       __u32 rdb_start_seq; /* Start seq of rdb data=
- */
->                 } tx;   /* only used for outgoing skbs */
->                 union {
->                         struct inet_skb_parm    h4;
-> @@ -1497,6 +1509,9 @@ static inline struct sk_buff *tcp_write_queue_p=
-rev(const struct sock *sk,
->  #define tcp_for_write_queue_from_safe(skb, tmp, sk)                 =
-   \
->         skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
+> All of this extra delay is added before the sender even knows there w=
+as
+> a loss. How it decides to react to the loss signal (dupACKs) will
+> further decide how much extra delays will be added in addition to the
+> delays already inflicted on the segments by the HOLB.
 >
-> +#define tcp_for_write_queue_reverse_from_safe(skb, tmp, sk)         =
-   \
-> +       skb_queue_reverse_walk_from_safe(&(sk)->sk_write_queue, skb, =
-tmp)
-> +
->  static inline struct sk_buff *tcp_send_head(const struct sock *sk)
->  {
->         return sk->sk_send_head;
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index fe95446..6799875 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -115,6 +115,7 @@ enum {
->  #define TCP_CC_INFO            26      /* Get Congestion Control (op=
-tional) info */
->  #define TCP_SAVE_SYN           27      /* Record SYN headers for new=
- connections */
->  #define TCP_SAVED_SYN          28      /* Get SYN headers recorded f=
-or connection */
-> +#define TCP_RDB                        29      /* Enable Redundant D=
-ata Bundling mechanism */
+>> Instead what if we only perform RDB on the (first and recurring) RTO
+>> retransmission?
 >
->  struct tcp_repair_opt {
->         __u32   opt_code;
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 7af7ec6..50bc5b0 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1055,7 +1055,7 @@ static void skb_headers_offset_update(struct sk=
-_buff *skb, int off)
->         skb->inner_mac_header +=3D off;
->  }
+> That will change RDB from being a proactive mechanism, to being
+> reactive, i.e. change how the sender responds to the loss signal. The
+> problem is that by this point (when the sender has received the loss
+> signal), the HOLB on the receiver side has already caused significant
+> increases to the application layer latency.
 >
-> -static void copy_skb_header(struct sk_buff *new, const struct sk_buf=
-f *old)
-> +void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
->  {
->         __copy_skb_header(new, old);
+> The reason the RDB streams (in red) in fig. 4 in the paper get such l=
+ow
+> latencies is because there are almost no retransmissions. With 10%
+> uniform loss, the latency for 90% of the packets is not affected at a=
+ll.
+> The latency for most of the lost segments is only increased by 30 ms,
+> which is when the next RDB packet arrives at the receiver with the lo=
+st
+> segment bundled in the payload.
+> For the regular TCP streams (blue), the latency for 40% of the segmen=
+ts
+> is affected, where almost 30% of the segments have additional delays =
+of
+> 150 ms or more.
+> It is important to note that the increases to the latencies for the
+> regular TCP streams compared to the RDB streams are solely due to HOL=
+B
+> on the receiver side.
 >
-> diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-> index bfa1336..459048c 100644
-> --- a/net/ipv4/Makefile
-> +++ b/net/ipv4/Makefile
-> @@ -12,7 +12,8 @@ obj-y     :=3D route.o inetpeer.o protocol.o \
->              tcp_offload.o datagram.o raw.o udp.o udplite.o \
->              udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
->              fib_frontend.o fib_semantics.o fib_trie.o \
-> -            inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
-> +            inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o \
-> +            tcp_rdb.o
+> The longer the RTT, the greater the gains are by using RDB, consideri=
+ng
+> the best case scenario of minimum one RTT required for a retransmissi=
+on.
+> As such, RDB will reduce the latencies the most for those that also n=
+eed
+> it the most.
 >
->  obj-$(CONFIG_NET_IP_TUNNEL) +=3D ip_tunnel.o
->  obj-$(CONFIG_SYSCTL) +=3D sysctl_net_ipv4.o
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index f04320a..43b4390 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -581,6 +581,31 @@ static struct ctl_table ipv4_table[] =3D {
->                 .extra1         =3D &tcp_thin_dpifl_itt_lower_bound_m=
-in,
->         },
->         {
-> +               .procname       =3D "tcp_rdb",
-> +               .data           =3D &sysctl_tcp_rdb,
-> +               .maxlen         =3D sizeof(int),
-> +               .mode           =3D 0644,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &zero,
-> +               .extra2         =3D &one,
-> +       },
-> +       {
-> +               .procname       =3D "tcp_rdb_max_bytes",
-> +               .data           =3D &sysctl_tcp_rdb_max_bytes,
-> +               .maxlen         =3D sizeof(int),
-> +               .mode           =3D 0644,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &zero,
-> +       },
-> +       {
-> +               .procname       =3D "tcp_rdb_max_packets",
-> +               .data           =3D &sysctl_tcp_rdb_max_packets,
-> +               .maxlen         =3D sizeof(int),
-> +               .mode           =3D 0644,
-> +               .proc_handler   =3D proc_dointvec_minmax,
-> +               .extra1         =3D &zero,
-> +       },
-> +       {
->                 .procname       =3D "tcp_early_retrans",
->                 .data           =3D &sysctl_tcp_early_retrans,
->                 .maxlen         =3D sizeof(int),
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 8421f3d..b53d4cb 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -288,6 +288,8 @@ int sysctl_tcp_autocorking __read_mostly =3D 1;
+> However, even with an RTT of 20 ms, an application writing a data
+> segment every 10 ms will still get significant latency reductions sim=
+ply
+> because a retransmission will require a minimum of 20 ms, compared to
+> the 10 ms it takes for the next RDB packet to arrive at the receiver.
 >
->  int sysctl_tcp_thin_dpifl_itt_lower_bound __read_mostly =3D TCP_THIN=
-_DPIFL_ITT_LOWER_BOUND_MIN;
 >
-> +int sysctl_tcp_rdb __read_mostly;
-> +
->  struct percpu_counter tcp_orphan_count;
->  EXPORT_SYMBOL_GPL(tcp_orphan_count);
->
-> @@ -407,6 +409,7 @@ void tcp_init_sock(struct sock *sk)
->         u64_stats_init(&tp->syncp);
->
->         tp->reordering =3D sock_net(sk)->ipv4.sysctl_tcp_reordering;
-> +       tp->rdb =3D sysctl_tcp_rdb;
->         tcp_enable_early_retrans(tp);
->         tcp_assign_congestion_control(sk);
->
-> @@ -2412,6 +2415,13 @@ static int do_tcp_setsockopt(struct sock *sk, =
-int level,
->                 }
->                 break;
->
-> +       case TCP_RDB:
-> +               if (val < 0 || val > 1)
-> +                       err =3D -EINVAL;
-> +               else
-> +                       tp->rdb =3D val;
-> +               break;
-> +
->         case TCP_REPAIR:
->                 if (!tcp_can_repair_sock(sk))
->                         err =3D -EPERM;
-> @@ -2842,7 +2852,9 @@ static int do_tcp_getsockopt(struct sock *sk, i=
-nt level,
->         case TCP_THIN_DUPACK:
->                 val =3D tp->thin_dupack;
->                 break;
-> -
-> +       case TCP_RDB:
-> +               val =3D tp->rdb;
-> +               break;
->         case TCP_REPAIR:
->                 val =3D tp->repair;
->                 break;
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index e6e65f7..7b52ce4 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3537,6 +3537,9 @@ static inline void tcp_in_ack_event(struct sock=
- *sk, u32 flags)
->
->         if (icsk->icsk_ca_ops->in_ack_event)
->                 icsk->icsk_ca_ops->in_ack_event(sk, flags);
-> +
-> +       if (unlikely(tcp_sk(sk)->rdb))
-> +               tcp_rdb_ack_event(sk, flags);
->  }
->
->  /* Congestion control has updated the cwnd already. So if we're in
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 7d2c7a4..6f92fae 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -897,8 +897,8 @@ out:
->   * We are working here with either a clone of the original
->   * SKB, or a fresh unique copy made by the retransmit engine.
->   */
-> -static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, in=
-t clone_it,
-> -                           gfp_t gfp_mask)
-> +int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone=
-_it,
-> +                    gfp_t gfp_mask)
->  {
->         const struct inet_connection_sock *icsk =3D inet_csk(sk);
->         struct inet_sock *inet;
-> @@ -2110,9 +2110,12 @@ static bool tcp_write_xmit(struct sock *sk, un=
-signed int mss_now, int nonagle,
->                                 break;
->                 }
->
-> -               if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
-> +               if (unlikely(tcp_sk(sk)->rdb)) {
-> +                       if (tcp_transmit_rdb_skb(sk, skb, mss_now, gf=
-p))
-> +                               break;
-> +               } else if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)=
-)) {
->                         break;
-> -
-> +               }
->  repair:
->                 /* Advance the send_head.  This one is sent out.
->                  * This call will increment packets_out.
-> @@ -2439,15 +2442,32 @@ u32 __tcp_select_window(struct sock *sk)
->         return window;
->  }
->
-> +/**
-> + * tcp_skb_append_data() - copy the linear data from an SKB to the e=
-nd
-> + *                         of another and update end sequence number
-> + *                         and checksum
-> + * @from_skb: the SKB to copy data from
-> + * @to_skb: the SKB to copy data to
-> + */
-> +void tcp_skb_append_data(struct sk_buff *from_skb, struct sk_buff *t=
-o_skb)
-> +{
-> +       skb_copy_from_linear_data(from_skb, skb_put(to_skb, from_skb-=
->len),
-> +                                 from_skb->len);
-> +       TCP_SKB_CB(to_skb)->end_seq =3D TCP_SKB_CB(from_skb)->end_seq=
-;
-> +
-> +       if (from_skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
-> +               to_skb->ip_summed =3D CHECKSUM_PARTIAL;
-> +
-> +       if (to_skb->ip_summed !=3D CHECKSUM_PARTIAL)
-> +               to_skb->csum =3D csum_block_add(to_skb->csum, from_sk=
-b->csum,
-> +                                             to_skb->len);
-> +}
-> +
->  /* Collapses two adjacent SKB's during retransmission. */
->  static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *sk=
-b)
->  {
->         struct tcp_sock *tp =3D tcp_sk(sk);
->         struct sk_buff *next_skb =3D tcp_write_queue_next(sk, skb);
-> -       int skb_size, next_skb_size;
-> -
-> -       skb_size =3D skb->len;
-> -       next_skb_size =3D next_skb->len;
->
->         BUG_ON(tcp_skb_pcount(skb) !=3D 1 || tcp_skb_pcount(next_skb)=
- !=3D 1);
->
-> @@ -2455,17 +2475,7 @@ static void tcp_collapse_retrans(struct sock *=
-sk, struct sk_buff *skb)
->
->         tcp_unlink_write_queue(next_skb, sk);
->
-> -       skb_copy_from_linear_data(next_skb, skb_put(skb, next_skb_siz=
-e),
-> -                                 next_skb_size);
-> -
-> -       if (next_skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
-> -               skb->ip_summed =3D CHECKSUM_PARTIAL;
-> -
-> -       if (skb->ip_summed !=3D CHECKSUM_PARTIAL)
-> -               skb->csum =3D csum_block_add(skb->csum, next_skb->csu=
-m, skb_size);
-> -
-> -       /* Update sequence range on original skb. */
-> -       TCP_SKB_CB(skb)->end_seq =3D TCP_SKB_CB(next_skb)->end_seq;
-> +       tcp_skb_append_data(next_skb, skb);
->
->         /* Merge over control information. This moves PSH/FIN etc. ov=
-er */
->         TCP_SKB_CB(skb)->tcp_flags |=3D TCP_SKB_CB(next_skb)->tcp_fla=
-gs;
-> diff --git a/net/ipv4/tcp_rdb.c b/net/ipv4/tcp_rdb.c
-> new file mode 100644
-> index 0000000..2b37957
-> --- /dev/null
-> +++ b/net/ipv4/tcp_rdb.c
-> @@ -0,0 +1,228 @@
-> +#include <linux/skbuff.h>
-> +#include <net/tcp.h>
-> +
-> +int sysctl_tcp_rdb_max_bytes __read_mostly;
-> +int sysctl_tcp_rdb_max_packets __read_mostly =3D 1;
-> +
-> +/**
-> + * rdb_detect_loss() - perform RDB loss detection by analysing ACKs
-> + * @sk: socket
-> + *
-> + * Traverse the output queue and check if the ACKed packet is an RDB
-> + * packet and if the redundant data covers one or more un-ACKed SKBs=
-=2E
-> + * If the incoming ACK acknowledges multiple SKBs, we can presume
-> + * packet loss has occurred.
-> + *
-> + * We can infer packet loss this way because we can expect one ACK p=
-er
-> + * transmitted data packet, as delayed ACKs are disabled when a host
-> + * receives packets where the sequence number is not the expected
-> + * sequence number.
-> + *
-> + * Return: The number of packets that are presumed to be lost
-> + */
-> +static unsigned int rdb_detect_loss(struct sock *sk)
-> +{
-> +       struct sk_buff *skb, *tmp;
-> +       struct tcp_skb_cb *scb;
-> +       u32 seq_acked =3D tcp_sk(sk)->snd_una;
-> +       unsigned int packets_lost =3D 0;
-> +
-> +       tcp_for_write_queue(skb, sk) {
-> +               if (skb =3D=3D tcp_send_head(sk))
-> +                       break;
-> +
-> +               scb =3D TCP_SKB_CB(skb);
-> +               /* The ACK acknowledges parts of the data in this SKB=
-=2E
-> +                * Can be caused by:
-> +                * - TSO: We abort as RDB is not used on SKBs split a=
-cross
-> +                *        multiple packets on lower layers as these a=
-re greater
-> +                *        than one MSS.
-> +                * - Retrans collapse: We've had a retrans, so loss h=
-as already
-> +                *                     been detected.
-> +                */
-> +               if (after(scb->end_seq, seq_acked))
-> +                       break;
-> +               else if (scb->end_seq !=3D seq_acked)
-> +                       continue;
-> +
-> +               /* We have found the ACKed packet */
-> +
-> +               /* This packet was sent with no redundant data, or no=
- prior
-> +                * un-ACKed SKBs is in the output queue, so break her=
-e.
-> +                */
-> +               if (scb->tx.rdb_start_seq =3D=3D scb->seq ||
-> +                   skb_queue_is_first(&sk->sk_write_queue, skb))
-> +                       break;
-> +               /* Find number of prior SKBs whose data was bundled i=
-n this
-> +                * (ACKed) SKB. We presume any redundant data coverin=
-g previous
-> +                * SKB's are due to loss. (An exception would be reor=
-dering).
-> +                */
-> +               skb =3D skb->prev;
-> +               tcp_for_write_queue_reverse_from_safe(skb, tmp, sk) {
-> +                       if (before(TCP_SKB_CB(skb)->seq, scb->tx.rdb_=
-start_seq))
-> +                               break;
-> +                       packets_lost++;
-since we only care if there is packet loss or not, we can return early =
-here?
-
-> +               }
-> +               break;
-> +       }
-> +       return packets_lost;
-> +}
-> +
-> +/**
-> + * tcp_rdb_ack_event() - initiate RDB loss detection
-> + * @sk: socket
-> + * @flags: flags
-> + */
-> +void tcp_rdb_ack_event(struct sock *sk, u32 flags)
-flags are not used
-> +{
-> +       if (rdb_detect_loss(sk))
-> +               tcp_enter_cwr(sk);
-> +}
-> +
-> +/**
-> + * rdb_build_skb() - build a new RDB SKB and copy redundant + unsent
-> + *                   data to the linear page buffer
-> + * @sk: socket
-> + * @xmit_skb: the SKB processed for transmission in the output engin=
-e
-> + * @first_skb: the first SKB in the output queue to be bundled
-> + * @bytes_in_rdb_skb: the total number of data bytes for the new
-> + *                    rdb_skb (NEW + Redundant)
-> + * @gfp_mask: gfp_t allocation
-> + *
-> + * Return: A new SKB containing redundant data, or NULL if memory
-> + *         allocation failed
-> + */
-> +static struct sk_buff *rdb_build_skb(const struct sock *sk,
-> +                                    struct sk_buff *xmit_skb,
-> +                                    struct sk_buff *first_skb,
-> +                                    u32 bytes_in_rdb_skb,
-> +                                    gfp_t gfp_mask)
-> +{
-> +       struct sk_buff *rdb_skb, *tmp_skb =3D first_skb;
-> +
-> +       rdb_skb =3D sk_stream_alloc_skb((struct sock *)sk,
-> +                                     (int)bytes_in_rdb_skb,
-> +                                     gfp_mask, false);
-> +       if (!rdb_skb)
-> +               return NULL;
-> +       copy_skb_header(rdb_skb, xmit_skb);
-> +       rdb_skb->ip_summed =3D xmit_skb->ip_summed;
-> +       TCP_SKB_CB(rdb_skb)->seq =3D TCP_SKB_CB(first_skb)->seq;
-> +       TCP_SKB_CB(xmit_skb)->tx.rdb_start_seq =3D TCP_SKB_CB(rdb_skb=
-)->seq;
-> +
-> +       /* Start on first_skb and append payload from each SKB in the=
- output
-> +        * queue onto rdb_skb until we reach xmit_skb.
-> +        */
-> +       tcp_for_write_queue_from(tmp_skb, sk) {
-> +               tcp_skb_append_data(tmp_skb, rdb_skb);
-> +
-> +               /* We reached xmit_skb, containing the unsent data */
-> +               if (tmp_skb =3D=3D xmit_skb)
-> +                       break;
-> +       }
-> +       return rdb_skb;
-> +}
-> +
-> +/**
-> + * rdb_can_bundle_test() - test if redundant data can be bundled
-> + * @sk: socket
-> + * @xmit_skb: the SKB processed for transmission by the output engin=
-e
-> + * @max_payload: the maximum allowed payload bytes for the RDB SKB
-> + * @bytes_in_rdb_skb: store the total number of payload bytes in the
-> + *                    RDB SKB if bundling can be performed
-> + *
-> + * Traverse the output queue and check if any un-acked data may be
-> + * bundled.
-> + *
-> + * Return: The first SKB to be in the bundle, or NULL if no bundling
-> + */
-> +static struct sk_buff *rdb_can_bundle_test(const struct sock *sk,
-> +                                          struct sk_buff *xmit_skb,
-> +                                          unsigned int max_payload,
-> +                                          u32 *bytes_in_rdb_skb)
-> +{
-> +       struct sk_buff *first_to_bundle =3D NULL;
-> +       struct sk_buff *tmp, *skb =3D xmit_skb->prev;
-> +       u32 skbs_in_bundle_count =3D 1; /* Start on 1 to account for =
-xmit_skb */
-> +       u32 total_payload =3D xmit_skb->len;
-> +
-> +       if (sysctl_tcp_rdb_max_bytes)
-> +               max_payload =3D min_t(unsigned int, max_payload,
-> +                                   sysctl_tcp_rdb_max_bytes);
-> +
-> +       /* We start at xmit_skb->prev, and go backwards */
-> +       tcp_for_write_queue_reverse_from_safe(skb, tmp, sk) {
-> +               /* Including data from this SKB would exceed payload =
-limit */
-> +               if ((total_payload + skb->len) > max_payload)
-> +                       break;
-> +
-> +               if (sysctl_tcp_rdb_max_packets &&
-> +                   (skbs_in_bundle_count > sysctl_tcp_rdb_max_packet=
-s))
-> +                       break;
-> +
-> +               total_payload +=3D skb->len;
-> +               skbs_in_bundle_count++;
-> +               first_to_bundle =3D skb;
-> +       }
-> +       *bytes_in_rdb_skb =3D total_payload;
-> +       return first_to_bundle;
-> +}
-> +
-> +/**
-> + * tcp_transmit_rdb_skb() - try to create and send an RDB packet
-> + * @sk: socket
-> + * @xmit_skb: the SKB processed for transmission by the output engin=
-e
-> + * @mss_now: current mss value
-> + * @gfp_mask: gfp_t allocation
-> + *
-> + * If an RDB packet could not be created and sent, transmit the
-> + * original unmodified SKB (xmit_skb).
-> + *
-> + * Return: 0 if successfully sent packet, else error from
-> + *         tcp_transmit_skb
-> + */
-> +int tcp_transmit_rdb_skb(struct sock *sk, struct sk_buff *xmit_skb,
-> +                        unsigned int mss_now, gfp_t gfp_mask)
-> +{
-> +       struct sk_buff *rdb_skb =3D NULL;
-> +       struct sk_buff *first_to_bundle;
-> +       u32 bytes_in_rdb_skb =3D 0;
-> +
-> +       /* How we detect that RDB was used. When equal, no RDB data w=
-as sent */
-> +       TCP_SKB_CB(xmit_skb)->tx.rdb_start_seq =3D TCP_SKB_CB(xmit_sk=
-b)->seq;
-
-> +
-> +       if (!tcp_stream_is_thin_dpifl(tcp_sk(sk)))
-During loss recovery tcp inflight fluctuates and would like to trigger
-this check even for non-thin-stream connections. Since the loss
-already occurs, RDB can only take advantage from limited-transmit,
-which it likely does not have (b/c its a thin-stream). It might be
-checking if the state is open.
-
-> +               goto xmit_default;
-> +
-> +       /* No bundling if first in queue, or on FIN packet */
-> +       if (skb_queue_is_first(&sk->sk_write_queue, xmit_skb) ||
-> +           (TCP_SKB_CB(xmit_skb)->tcp_flags & TCPHDR_FIN))
-seems there are still benefit to bundle packets up to FIN?
-
-> +               goto xmit_default;
-> +
-> +       /* Find number of (previous) SKBs to get data from */
-> +       first_to_bundle =3D rdb_can_bundle_test(sk, xmit_skb, mss_now=
-,
-> +                                             &bytes_in_rdb_skb);
-> +       if (!first_to_bundle)
-> +               goto xmit_default;
-> +
-> +       /* Create an SKB that contains redundant data starting from
-> +        * first_to_bundle.
-> +        */
-> +       rdb_skb =3D rdb_build_skb(sk, xmit_skb, first_to_bundle,
-> +                               bytes_in_rdb_skb, gfp_mask);
-> +       if (!rdb_skb)
-> +               goto xmit_default;
-> +
-> +       /* Set skb_mstamp for the SKB in the output queue (xmit_skb) =
-containing
-> +        * the yet unsent data. Normally this would be done by
-> +        * tcp_transmit_skb(), but as we pass in rdb_skb instead, xmi=
-t_skb's
-> +        * timestamp will not be touched.
-> +        */
-> +       skb_mstamp_get(&xmit_skb->skb_mstamp);
-> +       rdb_skb->skb_mstamp =3D xmit_skb->skb_mstamp;
-> +       return tcp_transmit_skb(sk, rdb_skb, 0, gfp_mask);
-> +
-> +xmit_default:
-> +       /* Transmit the unmodified SKB from output queue */
-> +       return tcp_transmit_skb(sk, xmit_skb, 1, gfp_mask);
-> +}
-> --
-> 1.9.1
->
-
-since RDB will cause DSACKs, and we only blindly count DSACKs to
-perform CWND undo. How does RDB handle that false positives?
+> Bendik
