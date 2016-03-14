@@ -1,258 +1,28 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v6 net-next 09/10] net: add a hardware buffer management
- helper API
-Date: Mon, 14 Mar 2016 11:33:18 +0100
-Message-ID: <20160314113318.1a10a6b5@redhat.com>
-References: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
-	<1457944745-7634-10-git-send-email-gregory.clement@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	Sebastian Careba <nitroshift@yahoo.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45459 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754931AbcCNKdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 06:33:35 -0400
-In-Reply-To: <1457944745-7634-10-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH v2 0/2] net: thunderx: Performance enhancement changes
+Date: Mon, 14 Mar 2016 16:36:13 +0530
+Message-ID: <1457953578-7054-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	davem@davemloft.net, sgoutham@cavium.com,
+	robert.richter@caviumnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Sunil Goutham <sgoutham@cavium.com>
 
-I've not fully understood the hardware support part.
+Below patches attempts to improve performance by reducing
+no of atomic operations while allocating new receive buffers
+and reducing cache misses by adjusting nicvf structure elements.
 
-But I do think this generalization is very interesting work, and would
-like to cooperate. If my use-case can fit into this, where my use-case
-is in the extreme 100Gbit/s area.
+Changes from v1:
+ No changes, resubmitting a fresh as per David's suggestion.
 
-There is some potential for performance improvements, if the API from
-start is designed distinguish between being called from NAPI-context
-(BH-disabled) and outside NAPI context.
+Sunil Goutham (2):
+  net: thunderx: Set recevie buffer page usage count in bulk
+  net: thunderx: Adjust nicvf structure to reduce cache misses
 
-See: netdev_alloc_frag() vs napi_alloc_frag().
-
-Nitpicks inlined below...
-
-
-On Mon, 14 Mar 2016 09:39:04 +0100
-Gregory CLEMENT <gregory.clement@free-electrons.com> wrote:
-
-> This basic implementation allows to share code between driver using
-> hardware buffer management. As the code is hardware agnostic, there is
-> few helpers, most of the optimization brought by the an HW BM has to be
-> done at driver level.
-> 
-> Tested-by: Sebastian Careba <nitroshift@yahoo.com>
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> ---
->  include/net/hwbm.h | 28 ++++++++++++++++++
->  net/Kconfig        |  3 ++
->  net/core/Makefile  |  1 +
->  net/core/hwbm.c    | 87 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 119 insertions(+)
->  create mode 100644 include/net/hwbm.h
->  create mode 100644 net/core/hwbm.c
-> 
-> diff --git a/include/net/hwbm.h b/include/net/hwbm.h
-> new file mode 100644
-> index 000000000000..47d08662501b
-> --- /dev/null
-> +++ b/include/net/hwbm.h
-> @@ -0,0 +1,28 @@
-> +#ifndef _HWBM_H
-> +#define _HWBM_H
-> +
-> +struct hwbm_pool {
-> +	/* Capacity of the pool */
-> +	int size;
-> +	/* Size of the buffers managed */
-> +	int frag_size;
-> +	/* Number of buffers currently used by this pool */
-> +	int buf_num;
-> +	/* constructor called during alocation */
-
-alocation -> allocation
-
-> +	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
-> +	/* protect acces to the buffer counter*/
-
-acces -> access
-Space after "counter"
-
-> +	spinlock_t lock;
-> +	/* private data */
-> +	void *priv;
-> +};
-> +#ifdef CONFIG_HWBM
-> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
-> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp);
-> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp);
-> +#else
-> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf) {}
-> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp) { return 0; }
-> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
-> +{ return 0; }
-> +#endif /* CONFIG_HWBM */
-> +#endif /* _HWBM_H */
-> diff --git a/net/Kconfig b/net/Kconfig
-> index 10640d5f8bee..e13449870d06 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -253,6 +253,9 @@ config XPS
->  	depends on SMP
->  	default y
->  
-> +config HWBM
-> +       bool
-> +
->  config SOCK_CGROUP_DATA
->  	bool
->  	default n
-> diff --git a/net/core/Makefile b/net/core/Makefile
-> index 014422e2561f..d6508c2ddca5 100644
-> --- a/net/core/Makefile
-> +++ b/net/core/Makefile
-> @@ -25,4 +25,5 @@ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
->  obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
->  obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
->  obj-$(CONFIG_DST_CACHE) += dst_cache.o
-> +obj-$(CONFIG_HWBM) += hwbm.o
->  obj-$(CONFIG_NET_DEVLINK) += devlink.o
-> diff --git a/net/core/hwbm.c b/net/core/hwbm.c
-> new file mode 100644
-> index 000000000000..941c28486896
-> --- /dev/null
-> +++ b/net/core/hwbm.c
-> @@ -0,0 +1,87 @@
-> +/* Support for hardware buffer manager.
-> + *
-> + * Copyright (C) 2016 Marvell
-> + *
-> + * Gregory CLEMENT <gregory.clement@free-electrons.com>
-> + *
-> + *  This program is free software; you can redistribute it and/or modify
-> + *  it under the terms of the GNU General Public License as published by
-> + *  the Free Software Foundation; either version 2 of the License, or
-> + *  (at your option) any later version.
-> + */
-> +#include <linux/kernel.h>
-> +#include <linux/printk.h>
-> +#include <linux/skbuff.h>
-> +#include <net/hwbm.h>
-> +
-> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
-> +{
-> +	if (likely(bm_pool->frag_size <= PAGE_SIZE))
-> +		skb_free_frag(buf);
-> +	else
-> +		kfree(buf);
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_buf_free);
-> +
-> +/* Refill processing for HW buffer management */
-> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp)
-> +{
-> +	int frag_size = bm_pool->frag_size;
-> +	void *buf;
-> +
-> +	if (likely(frag_size <= PAGE_SIZE))
-> +		buf = netdev_alloc_frag(frag_size);
-
-If we know the NAPI-context, there is a performance potential in
-netdev_alloc_frag() vs napi_alloc_frag().
-
-> +	else
-> +		buf = kmalloc(frag_size, gfp);
-> +
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	if (bm_pool->construct)
-> +		if (bm_pool->construct(bm_pool, buf)) {
-> +			hwbm_buf_free(bm_pool, buf);
-> +			return -ENOMEM;
-> +		}
-
-Why don't we refill more objects? and do so with a bulk of memory
-objects?  The "refill" name just lead me to believe that the function
-might refill several objects...
-
-Maybe that is the role of hwbm_pool_add() ?
-
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_pool_refill);
-> +
-> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
-> +{
-> +	int err, i;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&bm_pool->lock, flags);
-
-This might be needed, and you take the lock for several objects. But
-the save/restore variant is the most expensive lock we have (at-least
-based on my measurements[1] for Intel).
-
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
-
-> +	if (bm_pool->buf_num == bm_pool->size) {
-> +		pr_warn("pool already filled\n");
-> +		return bm_pool->buf_num;
-> +	}
-> +
-> +	if (buf_num + bm_pool->buf_num > bm_pool->size) {
-> +		pr_warn("cannot allocate %d buffers for pool\n",
-> +			buf_num);
-> +		return 0;
-> +	}
-> +
-> +	if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
-> +		pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
-> +			buf_num,  bm_pool->buf_num);
-> +		return 0;
-> +	}
-> +
-> +	for (i = 0; i < buf_num; i++) {
-> +		err = hwbm_pool_refill(bm_pool, gfp);
-
-I'm thinking why not use some bulk allocation API here...
-
-> +		if (err < 0)
-> +			break;
-> +	}
-> +
-> +	/* Update BM driver with number of buffers added to pool */
-> +	bm_pool->buf_num += i;
-> +
-> +	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
-> +	spin_unlock_irqrestore(&bm_pool->lock, flags);
-> +
-> +	return i;
-> +}
-> +EXPORT_SYMBOL_GPL(hwbm_pool_add);
-
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+ drivers/net/ethernet/cavium/thunder/nic.h          |   51 ++++++++++++--------
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |   31 +++++++++---
+ 2 files changed, 53 insertions(+), 29 deletions(-)
