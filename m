@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Driver: Vmxnet3: Fix regression caused by cec0556
-Date: Mon, 14 Mar 2016 15:28:45 -0400 (EDT)
-Message-ID: <20160314.152845.1840060808684295471.davem@davemloft.net>
-References: <1457731784-96240-1-git-send-email-skhare@vmware.com>
+Subject: Re: [PATCH v2 0/3] of_mdio: use IS_ERR_OR_NULL() and
+ PTR_ERR_OR_ZERO()
+Date: Mon, 14 Mar 2016 15:32:21 -0400 (EDT)
+Message-ID: <20160314.153221.835659842149162060.davem@davemloft.net>
+References: <2682275.WNlbxTfNal@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gyang@vmware.com
-To: skhare@vmware.com
+Cc: grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49046 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49088 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755658AbcCNT2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 15:28:47 -0400
-In-Reply-To: <1457731784-96240-1-git-send-email-skhare@vmware.com>
+	with ESMTP id S932608AbcCNTcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 15:32:24 -0400
+In-Reply-To: <2682275.WNlbxTfNal@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shrikrishna Khare <skhare@vmware.com>
-Date: Fri, 11 Mar 2016 13:29:44 -0800
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 13 Mar 2016 00:32:13 +0300
 
-> don't pass uninitialized flags to spin_unlock_irqrestore.
-> 
-> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-> Signed-off-by: Guolin Yang <gyang@vmware.com>
+>    Here's the set of 3 patches against DaveM's 'net-next.git'
+> repo. They deal with some error checks in the device tree MDIO
+> code...
 
-Sorry, I noticed Arnd's version of this fix first and therefore applied
-his version.
+Series applied, thanks.
