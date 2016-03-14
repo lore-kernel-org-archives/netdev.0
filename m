@@ -1,40 +1,77 @@
-From: Parav Pandit <pandit.parav@gmail.com>
-Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver code)
-Date: Mon, 14 Mar 2016 23:50:25 +0530
-Message-ID: <CAG53R5UTc8xF4TdRJm3ASv6PQ-JxhW7vDgXpFtYqX2tz_58UeA@mail.gmail.com>
-References: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
-	<56E65EFC.3030109@huawei.com>
+From: Leon Romanovsky <leon-2ukJVAZIZ/Y@public.gmane.org>
+Subject: Re: [PATCH 1/5] mlx4: add missing braces in verify_qp_parameters
+Date: Mon, 14 Mar 2016 19:57:14 +0200
+Message-ID: <20160314175714.GA13848@leon.nu>
+References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
+ <1457965120-3155420-2-git-send-email-arnd@arndb.de>
+Reply-To: leon-2ukJVAZIZ/Y@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Wei Hu(Xavier)" <xavier.huwei@huawei.com>,
-	Doug Ledford <dledford@redhat.com>,
-	"Hefty, Sean" <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	gongyangming@huawei.com, xiaokun@huawei.com,
-	tangchaofei@huawei.com, haifeng.wei@huawei.com,
-	yisen.zhuang@huawei.com, yankejian@huawei.com,
-	lisheng011@huawei.com, charles.chenxin@huawei.com,
-	linuxarm@huawei.com
-To: oulijun <oulijun@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E65EFC.3030109@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1457965120-3155420-2-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->>
->> Since SRQ is not supported in this driver version, can you keep
->> remaining code base also to not bother about SRQ specifically
->> poll_cq_one, modify_qp, destroy_qp etc?
->> SRQ support can come as complete additional patch along with cmd_mask,
->> callbacks and rest of the code.
->>
->> .
-> Sorry, I see your review in time.
-> Sure, SRQ is not supported in current roce driver. I have verified the function
-> for RDMA. It is not influence. For your question, we need to analyse it scientific.
-> after that, i will reply your doubt, is that ok?
+On Mon, Mar 14, 2016 at 03:18:34PM +0100, Arnd Bergmann wrote:
+> The implementation of QP paravirtualization back in linux-3.7 included
+> some code that looks very dubious, and gcc-6 has grown smart enough
+> to warn about it:
+> 
+> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'verify_qp_parameters':
+> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3154:5: error: statement is indented as if it were guarded by... [-Werror=misleading-indentation]
+>      if (optpar & MLX4_QP_OPTPAR_ALT_ADDR_PATH) {
+>      ^~
+> drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3144:4: note: ...this 'if' clause, but it is not
+>     if (slave != mlx4_master_func_num(dev))
+> 
+> From looking at the context, I'm reasonably sure that the indentation
+> is correct but that it should have contained curly braces from the
+> start, as the update_gid() function in the same patch correctly does.
+> 
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: 54679e148287 ("mlx4: Implement QP paravirtualization and maintain phys_pkey_cache for smp_snoop")
 
-Yes. No problem.
+Thanks, looks good.
+Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+> index 25ce1b030a00..cd9b2b28df88 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+> @@ -3141,7 +3141,7 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
+>  		case QP_TRANS_RTS2RTS:
+>  		case QP_TRANS_SQD2SQD:
+>  		case QP_TRANS_SQD2RTS:
+> -			if (slave != mlx4_master_func_num(dev))
+> +			if (slave != mlx4_master_func_num(dev)) {
+>  				if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH) {
+>  					port = (qp_ctx->pri_path.sched_queue >> 6 & 1) + 1;
+>  					if (dev->caps.port_mask[port] != MLX4_PORT_TYPE_IB)
+> @@ -3160,6 +3160,7 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
+>  					if (qp_ctx->alt_path.mgid_index >= num_gids)
+>  						return -EINVAL;
+>  				}
+> +			}
+>  			break;
+>  		default:
+>  			break;
+> -- 
+> 2.7.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
