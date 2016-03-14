@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] batman-adv: Less function calls in
- batadv_is_ap_isolated() after error detection
-Date: Mon, 14 Mar 2016 15:25:02 -0400 (EDT)
-Message-ID: <20160314.152502.1823929263984045274.davem@davemloft.net>
-References: <564EFC67.7050307@users.sourceforge.net>
-	<1655341.WCvHHx7pqD@bentobox>
-	<56E2BCD8.9010200@users.sourceforge.net>
+Subject: Re: [PATCH v2 0/3] net/phy: Improvements to Cavium Thunder MDIO
+ code.
+Date: Mon, 14 Mar 2016 15:27:51 -0400 (EDT)
+Message-ID: <20160314.152751.2108458769066613871.davem@davemloft.net>
+References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	a@unstable.cc, mareklindner@neomailbox.ch, sw@simonwunderlich.de,
-	sven@narfation.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
-To: elfring@users.sourceforge.net
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <56E2BCD8.9010200@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	f.fainelli@gmail.com, rric@kernel.org, sgoutham@cavium.com,
+	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
+	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
+	linux-kernel@vger.kernel.org, rchintakuntla@cavium.com,
+	david.daney@cavium.com
+To: ddaney.cavm@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 11 Mar 2016 13:40:56 +0100
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Fri, 11 Mar 2016 09:53:08 -0800
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Fri, 11 Mar 2016 13:10:20 +0100
+> Changes from v1:
 > 
-> The variables "tt_local_entry" and "tt_global_entry" were eventually
-> checked again despite of a corresponding null pointer test before.
+>  - In 1/3 Add back check for non-OF objects in bgx_init_of_phy().  It
+>    is probably not necessary, but better safe than sorry...
 > 
-> * Avoid this double check by reordering a function call sequence
->   and the better selection of jump targets.
+> The firmware on many Cavium Thunder systems configures the MDIO bus
+> hardware to be probed as a PCI device.  In order to use the MDIO bus
+> drivers in this configuration, we must add PCI probing to the driver.
 > 
-> * Omit the initialisation for these variables at the beginning then.
+> There are two parts to this set of three patches:
 > 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>  1) Cleanup the PHY probing code in thunder_bgx.c to handle the case
+>     where there is no PHY attached to a port, as well as being more
+>     robust in the face of driver loading order by use of
+>     -EPROBE_DEFER.
+> 
+>  2) Split mdio-octeon.c into two drivers, one with platform probing,
+>  and the other with PCI probing.  Common code is shared between the
+>  two.
+> 
+> Tested on several different Thunder and OCTEON systems, also compile
+> tested on x86_64.
 
-I am assuming Antonio will take this in via his tree.
+Series applied, thanks David.
