@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: gcc-6.0 warning fixes
-Date: Mon, 14 Mar 2016 13:10:48 -0400 (EDT)
-Message-ID: <20160314.131048.1220349879118085878.davem@davemloft.net>
-References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH] vmxnet3: fix lock imbalance in vmxnet3_tq_xmit()
+Date: Mon, 14 Mar 2016 13:11:01 -0400 (EDT)
+Message-ID: <20160314.131101.1124355509776435130.davem@davemloft.net>
+References: <1457967280-4014226-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: skhare@vmware.com, pv-drivers@vmware.com, sbhatewara@vmware.com,
+	gyang@vmware.com, nhorman@tuxdriver.com, khoroshilov@ispras.ru,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbcCNRKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 13:10:51 -0400
-In-Reply-To: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457967280-4014226-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 14 Mar 2016 15:18:33 +0100
+Date: Mon, 14 Mar 2016 15:53:57 +0100
 
-> I've just installed gcc-6.0 to see what kinds of new warnings
-> we get. It turns out that it's actually really useful once I
-> disabled -Wunused-const-variable, and all of the warnings it
-> found in network drivers seem valid.
+> A recent bug fix rearranged the code in vmxnet3_tq_xmit() in a
+> way that left the error handling for oversized headers unlock
+> a lock that had not been taken yet. Gcc warns about the incorrect
+> use of the 'flags' variable because of that:
 > 
-> Sorry for the bad timing in the merge window, but I figured
-> it would be better to send the fixes as I found the bugs
-> rather than waiting for the next cycle. The first three
-> look appropriate for stable backports.
+> drivers/net/vmxnet3/vmxnet3_drv.c: In function 'vmxnet3_tq_xmit.constprop':
+> include/linux/spinlock.h:246:3: error: 'flags' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
-> The other two only fix a gcc warning about incorrect whitespace,
-> probably not worth backporting those.
+> This changes the error handling path to 'goto' the end of the function
+> beyond the lock/unlock pair.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: cec05562fb1d ("vmxnet3: avoid calling pskb_may_pull with interrupts disabled")
 
-Series applied, and patches 1, 2, and 3 queued up for -stable.
-
-Thanks.
+Applied and queued up for -stable, thanks.
