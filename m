@@ -1,7 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v6 net-next 10/10] net: mvneta: Use the new hwbm framework
-Date: Mon, 14 Mar 2016 09:39:05 +0100
-Message-ID: <1457944745-7634-11-git-send-email-gregory.clement@free-electrons.com>
+Subject: [PATCH v6 net-next 09/10] net: add a hardware buffer management helper API
+Date: Mon, 14 Mar 2016 09:39:04 +0100
+Message-ID: <1457944745-7634-10-git-send-email-gregory.clement@free-electrons.com>
 References: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -19,381 +19,177 @@ To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:47423 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754805AbcCNIjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 04:39:16 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that the hardware buffer management framework had been introduced,
-let's use it.
+This basic implementation allows to share code between driver using
+hardware buffer management. As the code is hardware agnostic, there is
+few helpers, most of the optimization brought by the an HW BM has to be
+done at driver level.
 
 Tested-by: Sebastian Careba <nitroshift@yahoo.com>
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/Kconfig     |   1 +
- drivers/net/ethernet/marvell/mvneta.c    |  18 +++--
- drivers/net/ethernet/marvell/mvneta_bm.c | 125 ++++++++-----------------------
- drivers/net/ethernet/marvell/mvneta_bm.h |  17 ++---
- 4 files changed, 49 insertions(+), 112 deletions(-)
+ include/net/hwbm.h | 28 ++++++++++++++++++
+ net/Kconfig        |  3 ++
+ net/core/Makefile  |  1 +
+ net/core/hwbm.c    | 87 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 119 insertions(+)
+ create mode 100644 include/net/hwbm.h
+ create mode 100644 net/core/hwbm.c
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index ac6605c62f46..62d80fddbe34 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -43,6 +43,7 @@ config MVMDIO
- config MVNETA_BM
- 	tristate "Marvell Armada 38x/XP network interface BM support"
- 	depends on MVNETA
-+	select HWBM
- 	---help---
- 	  This driver supports auxiliary block of the network
- 	  interface units in the Marvell ARMADA XP and ARMADA 38x SoC
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 2847c0c291de..3d8e7d357ec9 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -30,6 +30,7 @@
- #include <linux/phy.h>
- #include <linux/platform_device.h>
- #include <linux/skbuff.h>
-+#include <net/hwbm.h>
- #include "mvneta_bm.h"
- #include <net/ip.h>
- #include <net/ipv6.h>
-@@ -1026,11 +1027,12 @@ static int mvneta_bm_port_init(struct platform_device *pdev,
- static void mvneta_bm_update_mtu(struct mvneta_port *pp, int mtu)
- {
- 	struct mvneta_bm_pool *bm_pool = pp->pool_long;
-+	struct hwbm_pool *hwbm_pool = &bm_pool->hwbm_pool;
- 	int num;
+diff --git a/include/net/hwbm.h b/include/net/hwbm.h
+new file mode 100644
+index 000000000000..47d08662501b
+--- /dev/null
++++ b/include/net/hwbm.h
+@@ -0,0 +1,28 @@
++#ifndef _HWBM_H
++#define _HWBM_H
++
++struct hwbm_pool {
++	/* Capacity of the pool */
++	int size;
++	/* Size of the buffers managed */
++	int frag_size;
++	/* Number of buffers currently used by this pool */
++	int buf_num;
++	/* constructor called during alocation */
++	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
++	/* protect acces to the buffer counter*/
++	spinlock_t lock;
++	/* private data */
++	void *priv;
++};
++#ifdef CONFIG_HWBM
++void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
++int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp);
++int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp);
++#else
++void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf) {}
++int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp) { return 0; }
++int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
++{ return 0; }
++#endif /* CONFIG_HWBM */
++#endif /* _HWBM_H */
+diff --git a/net/Kconfig b/net/Kconfig
+index 10640d5f8bee..e13449870d06 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -253,6 +253,9 @@ config XPS
+ 	depends on SMP
+ 	default y
  
- 	/* Release all buffers from long pool */
- 	mvneta_bm_bufs_free(pp->bm_priv, bm_pool, 1 << pp->id);
--	if (bm_pool->buf_num) {
-+	if (hwbm_pool->buf_num) {
- 		WARN(1, "cannot free all buffers in pool %d\n",
- 		     bm_pool->id);
- 		goto bm_mtu_err;
-@@ -1038,14 +1040,14 @@ static void mvneta_bm_update_mtu(struct mvneta_port *pp, int mtu)
- 
- 	bm_pool->pkt_size = MVNETA_RX_PKT_SIZE(mtu);
- 	bm_pool->buf_size = MVNETA_RX_BUF_SIZE(bm_pool->pkt_size);
--	bm_pool->frag_size = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
--			  SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(bm_pool->pkt_size));
-+	hwbm_pool->frag_size = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+			SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(bm_pool->pkt_size));
- 
- 	/* Fill entire long pool */
--	num = mvneta_bm_bufs_add(pp->bm_priv, bm_pool, bm_pool->size);
--	if (num != bm_pool->size) {
-+	num = hwbm_pool_add(hwbm_pool, hwbm_pool->size, GFP_ATOMIC);
-+	if (num != hwbm_pool->size) {
- 		WARN(1, "pool %d: %d of %d allocated\n",
--		     bm_pool->id, num, bm_pool->size);
-+		     bm_pool->id, num, hwbm_pool->size);
- 		goto bm_mtu_err;
- 	}
- 	mvneta_bm_pool_bufsize_set(pp, bm_pool->buf_size, bm_pool->id);
-@@ -2066,14 +2068,14 @@ err_drop_frame:
- 		}
- 
- 		/* Refill processing */
--		err = mvneta_bm_pool_refill(pp->bm_priv, bm_pool);
-+		err = hwbm_pool_refill(&bm_pool->hwbm_pool, GFP_ATOMIC);
- 		if (err) {
- 			netdev_err(dev, "Linux processing - Can't refill\n");
- 			rxq->missed++;
- 			goto err_drop_frame_ret_pool;
- 		}
- 
--		frag_size = bm_pool->frag_size;
-+		frag_size = bm_pool->hwbm_pool.frag_size;
- 
- 		skb = build_skb(data, frag_size > PAGE_SIZE ? 0 : frag_size);
- 
-diff --git a/drivers/net/ethernet/marvell/mvneta_bm.c b/drivers/net/ethernet/marvell/mvneta_bm.c
-index 8c968e7d2d8f..01fccec632ec 100644
---- a/drivers/net/ethernet/marvell/mvneta_bm.c
-+++ b/drivers/net/ethernet/marvell/mvneta_bm.c
-@@ -10,16 +10,17 @@
-  * warranty of any kind, whether express or implied.
-  */
- 
--#include <linux/kernel.h>
-+#include <linux/clk.h>
- #include <linux/genalloc.h>
--#include <linux/platform_device.h>
--#include <linux/netdevice.h>
--#include <linux/skbuff.h>
-+#include <linux/io.h>
++config HWBM
++       bool
++
+ config SOCK_CGROUP_DATA
+ 	bool
+ 	default n
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 014422e2561f..d6508c2ddca5 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -25,4 +25,5 @@ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+ obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
+ obj-$(CONFIG_DST_CACHE) += dst_cache.o
++obj-$(CONFIG_HWBM) += hwbm.o
+ obj-$(CONFIG_NET_DEVLINK) += devlink.o
+diff --git a/net/core/hwbm.c b/net/core/hwbm.c
+new file mode 100644
+index 000000000000..941c28486896
+--- /dev/null
++++ b/net/core/hwbm.c
+@@ -0,0 +1,87 @@
++/* Support for hardware buffer manager.
++ *
++ * Copyright (C) 2016 Marvell
++ *
++ * Gregory CLEMENT <gregory.clement@free-electrons.com>
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ */
 +#include <linux/kernel.h>
- #include <linux/mbus.h>
- #include <linux/module.h>
--#include <linux/io.h>
-+#include <linux/netdevice.h>
- #include <linux/of.h>
--#include <linux/clk.h>
-+#include <linux/platform_device.h>
++#include <linux/printk.h>
 +#include <linux/skbuff.h>
 +#include <net/hwbm.h>
- #include "mvneta_bm.h"
- 
- #define MVNETA_BM_DRIVER_NAME "mvneta_bm"
-@@ -88,17 +89,13 @@ static void mvneta_bm_pool_target_set(struct mvneta_bm *priv, int pool_id,
- 	mvneta_bm_write(priv, MVNETA_BM_XBAR_POOL_REG(pool_id), val);
- }
- 
--/* Allocate skb for BM pool */
--void *mvneta_buf_alloc(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
--		       dma_addr_t *buf_phys_addr)
-+int mvneta_bm_construct(struct hwbm_pool *hwbm_pool, void *buf)
- {
--	void *buf;
-+	struct mvneta_bm_pool *bm_pool =
-+		(struct mvneta_bm_pool *)hwbm_pool->priv;
-+	struct mvneta_bm *priv = bm_pool->priv;
- 	dma_addr_t phys_addr;
- 
--	buf = mvneta_frag_alloc(bm_pool->frag_size);
--	if (!buf)
--		return NULL;
--
- 	/* In order to update buf_cookie field of RX descriptor properly,
- 	 * BM hardware expects buf virtual address to be placed in the
- 	 * first four bytes of mapped buffer.
-@@ -106,75 +103,13 @@ void *mvneta_buf_alloc(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
- 	*(u32 *)buf = (u32)buf;
- 	phys_addr = dma_map_single(&priv->pdev->dev, buf, bm_pool->buf_size,
- 				   DMA_FROM_DEVICE);
--	if (unlikely(dma_mapping_error(&priv->pdev->dev, phys_addr))) {
--		mvneta_frag_free(bm_pool->frag_size, buf);
--		return NULL;
--	}
--	*buf_phys_addr = phys_addr;
--
--	return buf;
--}
--
--/* Refill processing for HW buffer management */
--int mvneta_bm_pool_refill(struct mvneta_bm *priv,
--			  struct mvneta_bm_pool *bm_pool)
--{
--	dma_addr_t buf_phys_addr;
--	void *buf;
--
--	buf = mvneta_buf_alloc(priv, bm_pool, &buf_phys_addr);
--	if (!buf)
-+	if (unlikely(dma_mapping_error(&priv->pdev->dev, phys_addr)))
- 		return -ENOMEM;
- 
--	mvneta_bm_pool_put_bp(priv, bm_pool, buf_phys_addr);
--
-+	mvneta_bm_pool_put_bp(priv, bm_pool, phys_addr);
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(mvneta_bm_pool_refill);
--
--/* Allocate buffers for the pool */
--int mvneta_bm_bufs_add(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
--		       int buf_num)
--{
--	int err, i;
--
--	if (bm_pool->buf_num == bm_pool->size) {
--		dev_dbg(&priv->pdev->dev, "pool %d already filled\n",
--			bm_pool->id);
--		return bm_pool->buf_num;
--	}
--
--	if (buf_num < 0 ||
--	    (buf_num + bm_pool->buf_num > bm_pool->size)) {
--		dev_err(&priv->pdev->dev,
--			"cannot allocate %d buffers for pool %d\n",
--			buf_num, bm_pool->id);
--		return 0;
--	}
--
--	for (i = 0; i < buf_num; i++) {
--		err = mvneta_bm_pool_refill(priv, bm_pool);
--		if (err < 0)
--			break;
--	}
--
--	/* Update BM driver with number of buffers added to pool */
--	bm_pool->buf_num += i;
--
--	dev_dbg(&priv->pdev->dev,
--		"%s pool %d: pkt_size=%4d, buf_size=%4d, frag_size=%4d\n",
--		bm_pool->type == MVNETA_BM_SHORT ? "short" : "long",
--		bm_pool->id, bm_pool->pkt_size, bm_pool->buf_size,
--		bm_pool->frag_size);
--
--	dev_dbg(&priv->pdev->dev,
--		"%s pool %d: %d of %d buffers added\n",
--		bm_pool->type == MVNETA_BM_SHORT ? "short" : "long",
--		bm_pool->id, i, buf_num);
--
--	return i;
--}
--EXPORT_SYMBOL_GPL(mvneta_bm_bufs_add);
-+EXPORT_SYMBOL_GPL(mvneta_bm_construct);
- 
- /* Create pool */
- static int mvneta_bm_pool_create(struct mvneta_bm *priv,
-@@ -183,8 +118,7 @@ static int mvneta_bm_pool_create(struct mvneta_bm *priv,
- 	struct platform_device *pdev = priv->pdev;
- 	u8 target_id, attr;
- 	int size_bytes, err;
--
--	size_bytes = sizeof(u32) * bm_pool->size;
-+	size_bytes = sizeof(u32) * bm_pool->hwbm_pool.size;
- 	bm_pool->virt_addr = dma_alloc_coherent(&pdev->dev, size_bytes,
- 						&bm_pool->phys_addr,
- 						GFP_KERNEL);
-@@ -245,11 +179,16 @@ struct mvneta_bm_pool *mvneta_bm_pool_use(struct mvneta_bm *priv, u8 pool_id,
- 
- 	/* Allocate buffers in case BM pool hasn't been used yet */
- 	if (new_pool->type == MVNETA_BM_FREE) {
-+		struct hwbm_pool *hwbm_pool = &new_pool->hwbm_pool;
 +
-+		new_pool->priv = priv;
- 		new_pool->type = type;
- 		new_pool->buf_size = MVNETA_RX_BUF_SIZE(new_pool->pkt_size);
--		new_pool->frag_size =
-+		hwbm_pool->frag_size =
- 			SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(new_pool->pkt_size)) +
- 			SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+		hwbm_pool->construct = mvneta_bm_construct;
-+		hwbm_pool->priv = new_pool;
- 
- 		/* Create new pool */
- 		err = mvneta_bm_pool_create(priv, new_pool);
-@@ -260,10 +199,10 @@ struct mvneta_bm_pool *mvneta_bm_pool_use(struct mvneta_bm *priv, u8 pool_id,
- 		}
- 
- 		/* Allocate buffers for this pool */
--		num = mvneta_bm_bufs_add(priv, new_pool, new_pool->size);
--		if (num != new_pool->size) {
-+		num = hwbm_pool_add(hwbm_pool, hwbm_pool->size, GFP_ATOMIC);
-+		if (num != hwbm_pool->size) {
- 			WARN(1, "pool %d: %d of %d allocated\n",
--			     new_pool->id, num, new_pool->size);
-+			     new_pool->id, num, hwbm_pool->size);
- 			return NULL;
- 		}
- 	}
-@@ -284,7 +223,7 @@ void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
- 
- 	mvneta_bm_config_set(priv, MVNETA_BM_EMPTY_LIMIT_MASK);
- 
--	for (i = 0; i < bm_pool->buf_num; i++) {
-+	for (i = 0; i < bm_pool->hwbm_pool.buf_num; i++) {
- 		dma_addr_t buf_phys_addr;
- 		u32 *vaddr;
- 
-@@ -303,13 +242,13 @@ void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
- 
- 		dma_unmap_single(&priv->pdev->dev, buf_phys_addr,
- 				 bm_pool->buf_size, DMA_FROM_DEVICE);
--		mvneta_frag_free(bm_pool->frag_size, vaddr);
-+		hwbm_buf_free(&bm_pool->hwbm_pool, vaddr);
- 	}
- 
- 	mvneta_bm_config_clear(priv, MVNETA_BM_EMPTY_LIMIT_MASK);
- 
- 	/* Update BM driver with number of buffers removed from pool */
--	bm_pool->buf_num -= i;
-+	bm_pool->hwbm_pool.buf_num -= i;
- }
- EXPORT_SYMBOL_GPL(mvneta_bm_bufs_free);
- 
-@@ -317,6 +256,7 @@ EXPORT_SYMBOL_GPL(mvneta_bm_bufs_free);
- void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
- 			    struct mvneta_bm_pool *bm_pool, u8 port_map)
- {
-+	struct hwbm_pool *hwbm_pool = &bm_pool->hwbm_pool;
- 	bm_pool->port_map &= ~port_map;
- 	if (bm_pool->port_map)
- 		return;
-@@ -324,11 +264,12 @@ void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
- 	bm_pool->type = MVNETA_BM_FREE;
- 
- 	mvneta_bm_bufs_free(priv, bm_pool, port_map);
--	if (bm_pool->buf_num)
-+	if (hwbm_pool->buf_num)
- 		WARN(1, "cannot free all buffers in pool %d\n", bm_pool->id);
- 
- 	if (bm_pool->virt_addr) {
--		dma_free_coherent(&priv->pdev->dev, sizeof(u32) * bm_pool->size,
-+		dma_free_coherent(&priv->pdev->dev,
-+				  sizeof(u32) * hwbm_pool->size,
- 				  bm_pool->virt_addr, bm_pool->phys_addr);
- 		bm_pool->virt_addr = NULL;
- 	}
-@@ -381,10 +322,10 @@ static void mvneta_bm_pools_init(struct mvneta_bm *priv)
- 				 MVNETA_BM_POOL_CAP_ALIGN));
- 			size = ALIGN(size, MVNETA_BM_POOL_CAP_ALIGN);
- 		}
--		bm_pool->size = size;
-+		bm_pool->hwbm_pool.size = size;
- 
- 		mvneta_bm_write(priv, MVNETA_BM_POOL_SIZE_REG(i),
--				bm_pool->size);
-+				bm_pool->hwbm_pool.size);
- 
- 		/* Obtain custom pkt_size from DT */
- 		sprintf(prop, "pool%d,pkt-size", i);
-diff --git a/drivers/net/ethernet/marvell/mvneta_bm.h b/drivers/net/ethernet/marvell/mvneta_bm.h
-index db239e061ab0..e74fd44a92f7 100644
---- a/drivers/net/ethernet/marvell/mvneta_bm.h
-+++ b/drivers/net/ethernet/marvell/mvneta_bm.h
-@@ -108,20 +108,15 @@ struct mvneta_bm {
- };
- 
- struct mvneta_bm_pool {
-+	struct hwbm_pool hwbm_pool;
- 	/* Pool number in the range 0-3 */
- 	u8 id;
- 	enum mvneta_bm_type type;
- 
--	/* Buffer Pointers Pool External (BPPE) size in number of bytes */
--	int size;
--	/* Number of buffers used by this pool */
--	int buf_num;
--	/* Pool buffer size */
--	int buf_size;
- 	/* Packet size */
- 	int pkt_size;
--	/* Single frag size */
--	u32 frag_size;
-+	/* Size of the buffer acces through DMA*/
-+	u32 buf_size;
- 
- 	/* BPPE virtual base address */
- 	u32 *virt_addr;
-@@ -143,8 +138,7 @@ void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
- 			    struct mvneta_bm_pool *bm_pool, u8 port_map);
- void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
- 			 u8 port_map);
--int mvneta_bm_bufs_add(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
--		       int buf_num);
-+int mvneta_bm_construct(struct hwbm_pool *hwbm_pool, void *buf);
- int mvneta_bm_pool_refill(struct mvneta_bm *priv,
- 			  struct mvneta_bm_pool *bm_pool);
- struct mvneta_bm_pool *mvneta_bm_pool_use(struct mvneta_bm *priv, u8 pool_id,
-@@ -170,8 +164,7 @@ void mvneta_bm_pool_destroy(struct mvneta_bm *priv,
- 			    struct mvneta_bm_pool *bm_pool, u8 port_map) {}
- void mvneta_bm_bufs_free(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
- 			 u8 port_map) {}
--int mvneta_bm_bufs_add(struct mvneta_bm *priv, struct mvneta_bm_pool *bm_pool,
--		       int buf_num) { return 0; }
-+int mvneta_bm_construct(struct hwbm_pool *hwbm_pool, void *buf) { return 0; }
- int mvneta_bm_pool_refill(struct mvneta_bm *priv,
- 			  struct mvneta_bm_pool *bm_pool) {return 0; }
- struct mvneta_bm_pool *mvneta_bm_pool_use(struct mvneta_bm *priv, u8 pool_id,
++void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
++{
++	if (likely(bm_pool->frag_size <= PAGE_SIZE))
++		skb_free_frag(buf);
++	else
++		kfree(buf);
++}
++EXPORT_SYMBOL_GPL(hwbm_buf_free);
++
++/* Refill processing for HW buffer management */
++int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp)
++{
++	int frag_size = bm_pool->frag_size;
++	void *buf;
++
++	if (likely(frag_size <= PAGE_SIZE))
++		buf = netdev_alloc_frag(frag_size);
++	else
++		buf = kmalloc(frag_size, gfp);
++
++	if (!buf)
++		return -ENOMEM;
++
++	if (bm_pool->construct)
++		if (bm_pool->construct(bm_pool, buf)) {
++			hwbm_buf_free(bm_pool, buf);
++			return -ENOMEM;
++		}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(hwbm_pool_refill);
++
++int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
++{
++	int err, i;
++	unsigned long flags;
++
++	spin_lock_irqsave(&bm_pool->lock, flags);
++	if (bm_pool->buf_num == bm_pool->size) {
++		pr_warn("pool already filled\n");
++		return bm_pool->buf_num;
++	}
++
++	if (buf_num + bm_pool->buf_num > bm_pool->size) {
++		pr_warn("cannot allocate %d buffers for pool\n",
++			buf_num);
++		return 0;
++	}
++
++	if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
++		pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
++			buf_num,  bm_pool->buf_num);
++		return 0;
++	}
++
++	for (i = 0; i < buf_num; i++) {
++		err = hwbm_pool_refill(bm_pool, gfp);
++		if (err < 0)
++			break;
++	}
++
++	/* Update BM driver with number of buffers added to pool */
++	bm_pool->buf_num += i;
++
++	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
++	spin_unlock_irqrestore(&bm_pool->lock, flags);
++
++	return i;
++}
++EXPORT_SYMBOL_GPL(hwbm_pool_add);
 -- 
 2.5.0
