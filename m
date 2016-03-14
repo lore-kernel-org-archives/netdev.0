@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] r8169:Remove unnecessary phy reset for pcie nic
- when setting link spped.
-Date: Sun, 13 Mar 2016 22:33:06 -0400 (EDT)
-Message-ID: <20160313.223306.1073610379327320464.davem@davemloft.net>
-References: <1457677274-2248-1-git-send-email-hau@realtek.com>
+Subject: Re: [net-next PATCH V4 0/3] net: bulk free adjustment and two
+ driver use-cases
+Date: Sun, 13 Mar 2016 22:35:53 -0400 (EDT)
+Message-ID: <20160313.223553.1984627891818115069.davem@davemloft.net>
+References: <20160311084549.1b011723@redhat.com>
+	<20160311084245.5207.70640.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org
-To: hau@realtek.com
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	eugenia@mellanox.com, alexander.duyck@gmail.com,
+	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
+	gerlitz.or@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40613 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753266AbcCNCdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:33:09 -0400
-In-Reply-To: <1457677274-2248-1-git-send-email-hau@realtek.com>
+	with ESMTP id S1753266AbcCNCf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:35:57 -0400
+In-Reply-To: <20160311084245.5207.70640.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chunhao Lin <hau@realtek.com>
-Date: Fri, 11 Mar 2016 14:21:14 +0800
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Fri, 11 Mar 2016 09:43:48 +0100
 
-> For pcie nic, after setting link speed and there is no link driver does not need
-> to do phy reset until link up.
+> I've split out the bulk free adjustments, from the bulk alloc patches,
+> as I want the adjustment to napi_consume_skb be in same kernel cycle
+> the API was introduced.
 > 
-> For some pcie nics, to do this will also reset phy speed down counter and prevent
-> phy from auto speed down.
+> Adjustments based on discussion:
+>  Subj: "mlx4: use napi_consume_skb API to get bulk free operations"
+>  http://thread.gmane.org/gmane.linux.network/402503/focus=403386
 > 
-> This patch fix the issue reported in following link.
-> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
+> Patchset based on net-next at commit 3ebeac1d0295
 > 
-> Signed-off-by: Chunhao Lin <hau@realtek.com>
+> V4: more nitpicks from Sergei
+> V3: spelling fixes from Sergei
 
-Applied, thanks.
+Series applied, thanks Jesper.
