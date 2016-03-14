@@ -1,30 +1,40 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next 3/3] net: dsa: refine netdev event notifier
-Date: Mon, 14 Mar 2016 10:10:04 +0200
-Message-ID: <20160314081004.GB3060@colbert.mtl.com>
-References: <1457900494-10266-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: userns, netns, and quick physical memory consumption by
+ unprivileged user
+Date: Mon, 14 Mar 2016 10:14:18 +0100
+Message-ID: <20160314091417.GA11400@dhcp22.suse.cz>
+References: <m3d1rclioc.fsf@gmail.com>
+ <m3r3fhhx4c.fsf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, "Jiri Pirko" <jiri@resnulli.us>,
-	Kevin Smith <kevin.smith@elecsyscorp.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: "Yuriy M. Kaminskiy" <yumkam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36561 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017AbcCNJOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 05:14:22 -0400
 Content-Disposition: inline
-In-Reply-To: <1457900494-10266-4-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <m3r3fhhx4c.fsf@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sun, Mar 13, 2016 at 10:21:34PM IST, vivien.didelot@savoirfairelinux.com wrote:
->Rework the netdev event handler, similar to what the Mellanox Spectrum
->driver does, to easily welcome more events later (for example
->NETDEV_PRECHANGEUPPER) and use netdev helpers (such as
->netif_is_bridge_master).
->
->Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+On Fri 11-03-16 18:06:59, Yuriy M. Kaminskiy wrote:
+[...]
+> And also tried with memcg:
+>   t=/sys/fs/cgroup/memory/test1;mkdir $t;echo 0 >$t/tasks;
+>   echo 48M >$t/memory.limit_in_bytes; su testuser [...]
+> and it has not helped at all (rather opposite, it ended up with killed
+> init and kernel panic; well, later is pure (un)luck; but point is, memcg
+> apparently *CANNOT* curb net/ns allocations).
 
-Acked-by: Ido Schimmel <idosch@mellanox.com>
+It seems you were using memcg v1 here. This didn't have the kernel
+memory accounting enabled by default. With the v2 you get both user and
+kernel (well some subset of it) accounting enabled. Whether we account
+also netns related data structures sufficiently is a question. I haven't
+checked.  But it would be worth trying and fix.
+
+-- 
+Michal Hocko
+SUSE Labs
