@@ -1,68 +1,107 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next] ixgbe: Avoid unaligned access
- in ixgbe_atr() for LLC packets
-Date: Mon, 14 Mar 2016 10:12:49 -0700
-Message-ID: <CAKgT0UfWuv1sui0ZDv3Qy1YnydzBMURF1ptr1XSxz_UE_g=1Fg@mail.gmail.com>
-References: <20160314153216.GF5084@oracle.com>
+From: Scott Wood <scott.wood@nxp.com>
+Subject: Re: [v6, 5/5] mmc: sdhci-of-esdhc: fix host version for
+ T4240-R1.0-R2.0
+Date: Mon, 14 Mar 2016 17:45:43 +0000
+Message-ID: <DB5PR0401MB19286B2D23D07F5C60DB799D91880@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
+ <1457518131-11339-6-git-send-email-yangbo.lu@nxp.com>
+ <4947024.WeMycs2fID@wuerfel>
+ <HE1PR04MB0889CE4742B92461A925B9C4F8880@HE1PR04MB0889.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:35543 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752012AbcCNRMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 13:12:50 -0400
-Received: by mail-ig0-f180.google.com with SMTP id vf5so66577687igb.0
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 10:12:50 -0700 (PDT)
-In-Reply-To: <20160314153216.GF5084@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "ulf.hansson@linaro.org" <ulf.hansson@linaro.org>,
+ Zhao Qiang <qiang.zhao@freescale.com>, Russell King <linux@arm.linux.org.uk>,
+ Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Joerg Roedel <joro@8bytes.org>, Kumar Gala <galak@codeaurora.org>,
+ "linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Yang-Leo Li <leoyang.li@nxp.com>,
+ "iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>, Rob
+ Herring <robh+dt@kernel.org>,
+ "linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+ Claudiu Manoil <claudiu.manoil@freescale.com>,
+ Santosh Shilimkar <ssantosh@kernel.org>, Xiaobo Xie <xiaobo.xie@nxp.com>,
+ "linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
+ "linux-arm-kernel@lists.infradead.
+To: Yangbo Lu <yangbo.lu@nxp.com>, Arnd Bergmann <arnd@arndb.de>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 14, 2016 at 8:32 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
->
-> For LLC based protocols like lldp, stp etc., the ethernet header
-> is an 802.3 header with a h_proto that is not 0x800, 0x86dd, or
-> even 0x806.  In this world, the skb_network_header() points at
-> the DSAP/SSAP/..  and is not likely to be NET_IP_ALIGNed in
-> ixgbe_atr().
->
-> With LLC, drivers are not likely to correctly find IPVERSION,
-> or "6", at hdr.ipv4->version, but will instead just needlessly
-> trigger an unaligned access. (IPv4/IPv6 over LLC is almost never
-> implemented).
->
-> The unaligned access is thus avoidable: bail out quickly after
-> examining skb->protocol.
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 4d6223d..c3885a8 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7602,6 +7602,11 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
->  #endif /* CONFIG_IXGBE_VXLAN */
->         }
->
-> +       if (skb->protocol != htons(ETH_P_IP) &&
-> +           skb->protocol != htons(ETH_P_IPV6) &&
-> +           skb->protocol != htons(ETH_P_ARP))
-> +               return;
-> +
+On 03/14/2016 02:29 AM, Yangbo Lu wrote:
+>> -----Original Message-----
+>> From: Arnd Bergmann [mailto:arnd@arndb.de]
+>> Sent: Monday, March 14, 2016 6:26 AM
+>> To: linuxppc-dev@lists.ozlabs.org
+>> Cc: Yangbo Lu; devicetree@vger.kernel.org; linux-arm-
+>> kernel@lists.infradead.org; linux-kernel@vger.kernel.org; linux-
+>> clk@vger.kernel.org; linux-i2c@vger.kernel.org; iommu@lists.linux-
+>> foundation.org; netdev@vger.kernel.org; linux-mmc@vger.kernel.org;
+>> ulf.hansson@linaro.org; Zhao Qiang; Russell King; Bhupesh Sharma; Joerg
+>> Roedel; Santosh Shilimkar; Scott Wood; Rob Herring; Claudiu Manoil; Kumar
+>> Gala; Yang-Leo Li; Xiaobo Xie
+>> Subject: Re: [v6, 5/5] mmc: sdhci-of-esdhc: fix host version for T4240-
+>> R1.0-R2.0
+>>
+>> On Wednesday 09 March 2016 18:08:51 Yangbo Lu wrote:
+>>> @@ -567,10 +580,20 @@ static void esdhc_init(struct platform_device
+>> *pdev, struct sdhci_host *host)
+>>>         struct sdhci_pltfm_host *pltfm_host;
+>>>         struct sdhci_esdhc *esdhc;
+>>>         u16 host_ver;
+>>> +       u32 svr;
+>>>
+>>>         pltfm_host =3D sdhci_priv(host);
+>>>         esdhc =3D sdhci_pltfm_priv(pltfm_host);
+>>>
+>>> +       fsl_guts_init();
+>>> +       svr =3D fsl_guts_get_svr();
+>>> +       if (svr) {
+>>> +               esdhc->soc_ver =3D SVR_SOC_VER(svr);
+>>> +               esdhc->soc_rev =3D SVR_REV(svr);
+>>> +       } else {
+>>> +               dev_err(&pdev->dev, "Failed to get SVR value!\n");
+>>> +       }
+>>> +
+>>
+>> This makes the driver non-portable. Better identify the specific
+>> workarounds based on the compatible string for this device, or add a
+>> boolean DT property for the quirk.
+>>
+>> 	Arnd
+> =
 
-This is disabling too much as it snags VLAN along with everything
-else.  Replace skb->protocol with first->protocol and this should work
-correctly.
+> [Lu Yangbo-B47093] Hi Arnd, we did have a discussion about using DTS in v=
+1 before.
+> https://patchwork.kernel.org/patch/6834221/
+> =
 
-You may also want to move it up by several lines so that you don't
-count it as a valid ATR frame via atr_count.
+> We don=92t have a separate DTS file for each revision of an SOC and if we=
+ did, we'd constantly have people using the wrong one.
+> In addition, the device tree is stable ABI and errata are often discovere=
+d after device tree are deployed.
+> See the link for details.
+> =
 
-Thanks.
+> So we decide to read SVR from the device-config/guts MMIO block other tha=
+n using DTS.
+> Thanks.
 
-- Alex
+Also note that this driver is already only for fsl-specific hardware,
+and it will still work even if fsl_guts doesn't find anything to bind to
+-- it just wouldn't be able to detect errata based on SVR in that case.
+
+-Scott
