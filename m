@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 00/10] API set for HW Buffer management
-Date: Mon, 14 Mar 2016 12:21:44 -0400 (EDT)
-Message-ID: <20160314.122144.862523930981199820.davem@davemloft.net>
-References: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v1] tipc: make sure IPv6 header fits in skb
+ headroom
+Date: Mon, 14 Mar 2016 12:23:23 -0400 (EDT)
+Message-ID: <20160314.122323.2216969194777127991.davem@davemloft.net>
+References: <1457945032-30547-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, f.fainelli@gmail.com,
-	jason@lakedaemon.net, andrew@lunn.ch,
-	sebastian.hesselbarth@gmail.com,
-	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
-	nadavh@marvell.com, mw@semihalf.com, simon.guinot@sequanux.org,
-	linux@arm.linux.org.uk, w@1wt.eu, timork@marvell.com,
-	dima@marvell.com, nitroshift@yahoo.com
-To: gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: richard.alpe@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47125 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750815AbcCNQXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 12:23:25 -0400
+In-Reply-To: <1457945032-30547-1-git-send-email-richard.alpe@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Mon, 14 Mar 2016 09:38:55 +0100
+From: Richard Alpe <richard.alpe@ericsson.com>
+Date: Mon, 14 Mar 2016 09:43:52 +0100
 
-> This is the sixth version of the API set for HW Buffer management (that was
-> initially submitted here:
-> http://thread.gmane.org/gmane.linux.kernel/2125152).
+> Expand headroom further in order to be able to fit the larger IPv6
+> header. Prior to this patch this caused a skb under panic for certain
+> tipc packets when using IPv6 UDP bearer(s).
+> 
+> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Series applied, thanks.
+Applied.
