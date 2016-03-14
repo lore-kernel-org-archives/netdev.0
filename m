@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: pci: Implement reset done check
-Date: Sun, 13 Mar 2016 22:30:24 -0400 (EDT)
-Message-ID: <20160313.223024.1143192688898649418.davem@davemloft.net>
-References: <1457647821-2839-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net v2] r8169:Remove unnecessary phy reset for pcie nic
+ when setting link spped.
+Date: Sun, 13 Mar 2016 22:33:06 -0400 (EDT)
+Message-ID: <20160313.223306.1073610379327320464.davem@davemloft.net>
+References: <1457677274-2248-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40575 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40604 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753266AbcCNCa1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:30:27 -0400
-In-Reply-To: <1457647821-2839-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1753266AbcCNCdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:33:09 -0400
+In-Reply-To: <1457677274-2248-1-git-send-email-hau@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 10 Mar 2016 23:10:21 +0100
+From: Chunhao Lin <hau@realtek.com>
+Date: Fri, 11 Mar 2016 14:21:14 +0800
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> For pcie nic, after setting link speed and there is no link driver does not need
+> to do phy reset until link up.
 > 
-> Firmware now tells us that the reset is done by passing a magic value
-> via register. Use it to shorten the wait in case this is supported.
-> With old firmware, we still wait until the timeout is reached.
+> For some pcie nics, to do this will also reset phy speed down counter and prevent
+> phy from auto speed down.
 > 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> This patch fix the issue reported in following link.
+> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1547151
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 
-Applied.
+Applied, thanks.
