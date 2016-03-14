@@ -1,45 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Mon, 14 Mar 2016 15:24:03 -0400 (EDT)
-Message-ID: <20160314.152403.1490973796884839758.davem@davemloft.net>
-References: <1454611845-5358-1-git-send-email-labbott@fedoraproject.org>
-	<20160213.055940.1894427692019983187.davem@davemloft.net>
-	<1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
+Subject: Re: [PATCH] batman-adv: Less function calls in
+ batadv_is_ap_isolated() after error detection
+Date: Mon, 14 Mar 2016 15:25:02 -0400 (EDT)
+Message-ID: <20160314.152502.1823929263984045274.davem@davemloft.net>
+References: <564EFC67.7050307@users.sourceforge.net>
+	<1655341.WCvHHx7pqD@bentobox>
+	<56E2BCD8.9010200@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	labbott@fedoraproject.org
-To: imbrenda@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	a@unstable.cc, mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	sven@narfation.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <56E2BCD8.9010200@users.sourceforge.net>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Date: Fri, 11 Mar 2016 13:39:23 +0100
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 11 Mar 2016 13:40:56 +0100
 
-> I think I found a problem with the patch submitted by Laura Abbott
-> ( https://lkml.org/lkml/2016/2/4/711 ): we might miss wakeups.
-> Since the condition is not checked between the prepare_to_wait and the
-> schedule(), if a wakeup happens after the condition is checked but before
-> the sleep happens, and we miss it. ( A description of the problem can be
-> found here: http://www.makelinux.net/ldd3/chp-6-sect-2 ).
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 11 Mar 2016 13:10:20 +0100
 > 
-> My solution (see patch below) is to shrink the area influenced by
-> prepare_to_wait, but keeping the fragile section around the condition, and
-> keep the rest of the code in "normal" running state.  This way the sleep is
-> correct and the other functions don't need to worry.  The only caveat here
-> is that the function(s) called to verify the conditions are really not
-> allowed to sleep, so if you need synchronization in the backend of e.g. 
-> vsock_stream_has_space(), you should use spinlocks and not mutexes.
+> The variables "tt_local_entry" and "tt_global_entry" were eventually
+> checked again despite of a corresponding null pointer test before.
 > 
-> In case we want to be able to sleep while waiting for conditions, we can
-> consider this instead: https://lwn.net/Articles/628628/ .
+> * Avoid this double check by reordering a function call sequence
+>   and the better selection of jump targets.
 > 
+> * Omit the initialisation for these variables at the beginning then.
 > 
-> I stumbled on this problem while working on fixing the upcoming virtio
-> backend for vsock, below is the patch I had prepared, with the original
-> message.
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-Can someone please look at this?  Who maintains this code anyways?
+I am assuming Antonio will take this in via his tree.
