@@ -1,80 +1,66 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 2/3] of_mdio: use IS_ERR_OR_NULL()
-Date: Mon, 14 Mar 2016 21:52:00 +0300
-Message-ID: <56E70850.5020602@cogentembedded.com>
-References: <2682275.WNlbxTfNal@wasted.cogentembedded.com>
- <2638820.ej0i0xi4Er@wasted.cogentembedded.com> <4173235.nHpIx7Ti2k@wuerfel>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next] ixgbe: Avoid unaligned access in ixgbe_atr() for
+ LLC packets
+Date: Mon, 14 Mar 2016 13:46:24 -0400
+Message-ID: <20160314174624.GG5084@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com, alexander.duyck@gmail.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+To: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:34861 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbcCNSwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:52:21 -0400
-Received: by mail-lb0-f172.google.com with SMTP id bc4so251815853lbc.2
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 11:52:04 -0700 (PDT)
-In-Reply-To: <4173235.nHpIx7Ti2k@wuerfel>
+Received: from aserp1050.oracle.com ([141.146.126.70]:51211 "EHLO
+	aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752747AbcCNSzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:55:12 -0400
+Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
+	by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u2EHlbrC004303
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 17:47:37 GMT
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/14/2016 01:22 AM, Arnd Bergmann wrote:
 
->> IS_ERR_OR_NULL() is open coded in of_mdiobus_register_phy(), so just call
->> it directly...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
->>
->> ---
->> Changes in version 2:
->> - removed the of_mdiobus_register_device() hunk;
->> - added the "Reviewed-by:" tag.
->>
->>   drivers/of/of_mdio.c |    2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> Index: net-next/drivers/of/of_mdio.c
->> ===================================================================
->> --- net-next.orig/drivers/of/of_mdio.c
->> +++ net-next/drivers/of/of_mdio.c
->> @@ -56,7 +56,7 @@ static int of_mdiobus_register_phy(struc
->>                  phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
->>          else
->>                  phy = get_phy_device(mdio, addr, is_c45);
->> -       if (!phy || IS_ERR(phy))
->> +       if (IS_ERR_OR_NULL(phy))
->>                  return 1;
->>
->>          rc = irq_of_parse_and_map(child, 0);
->>
->>
->
-> IS_ERR_OR_NULL() usually indicates that the code is wrong, or that
-> an API has been misdesigned.
->
-> Can you clarify in the changelog which one it is,
+For LLC based protocols like lldp, stp etc., the ethernet header
+is an 802.3 header with a h_proto that is not 0x800, 0x86dd, or
+even 0x806.  In this world, the skb_network_header() points at
+the DSAP/SSAP/..  and is not likely to be NET_IP_ALIGNed in
+ixgbe_atr().
 
-    The second. :-)
+With LLC, drivers are not likely to correctly find IPVERSION,
+or "6", at hdr.ipv4->version, but will instead just needlessly
+trigger an unaligned access. (IPv4/IPv6 over LLC is almost never
+implemented).
 
-> or (better) change
-> it so that 'phy' in this function is either NULL or IS_ERR() in case
-> of an error but not both?
+The unaligned access is thus avoidable: bail out quickly after
+examining first->protocol.
 
-    I guess you meant to change get_phy_device() to not return NULL (and so 
-only return the error codes, not both), am I correct?
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2: Alexander Duyck comments.
 
-> I think moving the 'if (problem) return 1' into the two if/else
-> is a correct transformation that also makes it very clear what
-> is going on here.
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-    Can be done too... it's not that I have much time for that many respins 
-though. It all started with 1 little patch (this one). :-)
-
-> 	Arnd
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 4d6223d..b25e603 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7574,6 +7574,11 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 	if (!ring->atr_sample_rate)
+ 		return;
+ 
++	if (first->protocol != htons(ETH_P_IP) &&
++	    first->protocol != htons(ETH_P_IPV6) &&
++	    first->protocol != htons(ETH_P_ARP))
++		return;
++
+ 	ring->atr_count++;
+ 
+ 	/* snag network header to get L4 type and address */
+-- 
+1.7.1
