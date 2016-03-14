@@ -1,57 +1,72 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] ipv6: replace write lock with read lock in addrconf_permanent_addr
-Date: Mon, 14 Mar 2016 17:35:08 +0800
-Message-ID: <1457948108-24837-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v6 net-next 08/10] net: mvneta: bm: add support for
+ hardware buffer management
+Date: Mon, 14 Mar 2016 10:57:14 +0100
+Message-ID: <20160314105714.1e97b4c1@redhat.com>
+References: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
+	<1457944745-7634-9-git-send-email-gregory.clement@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	Sebastian Careba <nitroshift@yahoo.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51554 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139AbcCNJfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 05:35:11 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u2E9Z9bm009114
-	for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 02:35:10 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:33971 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933492AbcCNJ52 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 05:57:28 -0400
+In-Reply-To: <1457944745-7634-9-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-nothing of idev is changed, so read lock is enough
+On Mon, 14 Mar 2016 09:39:03 +0100 Gregory CLEMENT <gregory.clement@free-electrons.com> wrote:
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/addrconf.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index b0ae69f84493..2847c0c291de 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+[...]
+> -static void *mvneta_frag_alloc(const struct mvneta_port *pp)
+> +void *mvneta_frag_alloc(unsigned int frag_size)
+>  {
+> -	if (likely(pp->frag_size <= PAGE_SIZE))
+> -		return netdev_alloc_frag(pp->frag_size);
+> +	if (likely(frag_size <= PAGE_SIZE))
+> +		return netdev_alloc_frag(frag_size);
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8c0dab2..d3f0d87 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3228,21 +3228,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 	if (!idev)
- 		return;
- 
--	write_lock_bh(&idev->lock);
-+	read_lock_bh(&idev->lock);
- 
- 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
--			write_unlock_bh(&idev->lock);
-+			read_unlock_bh(&idev->lock);
- 			ipv6_del_addr(ifp);
--			write_lock_bh(&idev->lock);
-+			read_lock_bh(&idev->lock);
- 
- 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
- 					     idev->dev->name, &ifp->addr);
- 		}
- 	}
- 
--	write_unlock_bh(&idev->lock);
-+	read_unlock_bh(&idev->lock);
- }
- 
- static int addrconf_notify(struct notifier_block *this, unsigned long event,
+(I know you are modifying existing code here.)
+
+Be aware that there is a significant performance advantage of using
+napi_alloc_frag() over netdev_alloc_frag().  You obviously can only use
+the NAPI call, if you indeed are running in NAPI/BH context.
+
+>  	else
+> -		return kmalloc(pp->frag_size, GFP_ATOMIC);
+> +		return kmalloc(frag_size, GFP_ATOMIC);
+>  }
+> +EXPORT_SYMBOL_GPL(mvneta_frag_alloc);
+  
+
+
 -- 
-2.1.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
