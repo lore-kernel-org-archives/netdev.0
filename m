@@ -1,88 +1,61 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 3/5] ath9k: fix buffer overrun for ar9287
-Date: Mon, 14 Mar 2016 15:18:36 +0100
-Message-ID: <1457965120-3155420-4-git-send-email-arnd@arndb.de>
+Subject: [PATCH 2/5] farsync: fix off-by-one bug in fst_add_one
+Date: Mon, 14 Mar 2016 15:18:35 +0100
+Message-ID: <1457965120-3155420-3-git-send-email-arnd@arndb.de>
 References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	linux-kernel@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	Kalle Valo <kvalo@codeaurora.org>
+Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	Kevin Curtis <kevin.curtis@farsite.co.uk>,
+	linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
-List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
-List-Post: <mailto:ath9k-devel@lists.ath9k.org>
-List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
-List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
-	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
-Sender: ath9k-devel-bounces@lists.ath9k.org
-Errors-To: ath9k-devel-bounces@lists.ath9k.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Code that was added back in 2.6.38 has an obvious overflow
-when accessing a static array, and at the time it was added
-only a code comment was put in front of it as a reminder
-to have it reviewed properly.
+gcc-6 finds an out of bounds access in the fst_add_one function
+when calculating the end of the mmio area:
 
-This has not happened, but gcc-6 now points to the specific
-overflow:
+drivers/net/wan/farsync.c: In function 'fst_add_one':
+drivers/net/wan/farsync.c:418:53: error: index 2 denotes an offset greater than size of 'u8[2][8192] {aka unsigned char[2][8192]}' [-Werror=array-bounds]
+ #define BUF_OFFSET(X)   (BFM_BASE + offsetof(struct buf_window, X))
+                                                     ^
+include/linux/compiler-gcc.h:158:21: note: in definition of macro '__compiler_offsetof'
+  __builtin_offsetof(a, b)
+                     ^
+drivers/net/wan/farsync.c:418:37: note: in expansion of macro 'offsetof'
+ #define BUF_OFFSET(X)   (BFM_BASE + offsetof(struct buf_window, X))
+                                     ^~~~~~~~
+drivers/net/wan/farsync.c:2519:36: note: in expansion of macro 'BUF_OFFSET'
+                                  + BUF_OFFSET ( txBuffer[i][NUM_TX_BUFFER][0]);
+                                    ^~~~~~~~~~
 
-drivers/net/wireless/ath/ath9k/eeprom.c: In function 'ath9k_hw_get_gain_boundaries_pdadcs':
-drivers/net/wireless/ath/ath9k/eeprom.c:483:44: error: array subscript is above array bounds [-Werror=array-bounds]
-     maxPwrT4[i] = data_9287[idxL].pwrPdg[i][4];
-                   ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+The warning is correct, but not critical because this appears
+to be a write-only variable that is set by each WAN driver but
+never accessed afterwards.
 
-It turns out that the correct array length exists in the local
-'intercepts' variable of this function, so we can just use that
-instead of hardcoding '4', so this patch changes all three
-instances to use that variable. The other two instances were
-already correct, but it's more consistent this way.
+I'm taking the minimal fix here, using the correct pointer by
+pointing 'mem_end' to the last byte inside of the register area
+as all other WAN drivers do, rather than the first byte outside of
+it. An alternative would be to just remove the mem_end member
+entirely.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 940cd2c12ebf ("ath9k_hw: merge the ar9287 version of ath9k_hw_get_gain_boundaries_pdadcs")
 ---
- drivers/net/wireless/ath/ath9k/eeprom.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/wan/farsync.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/eeprom.c b/drivers/net/wireless/ath/ath9k/eeprom.c
-index 73fb4232f9f2..a794157a147d 100644
---- a/drivers/net/wireless/ath/ath9k/eeprom.c
-+++ b/drivers/net/wireless/ath/ath9k/eeprom.c
-@@ -477,10 +477,9 @@ void ath9k_hw_get_gain_boundaries_pdadcs(struct ath_hw *ah,
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index 44541dbc5c28..69b994f3b8c5 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -2516,7 +2516,7 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+                 dev->mem_start   = card->phys_mem
+                                  + BUF_OFFSET ( txBuffer[i][0][0]);
+                 dev->mem_end     = card->phys_mem
+-                                 + BUF_OFFSET ( txBuffer[i][NUM_TX_BUFFER][0]);
++                                 + BUF_OFFSET ( txBuffer[i][NUM_TX_BUFFER - 1][LEN_RX_BUFFER - 1]);
+                 dev->base_addr   = card->pci_conf;
+                 dev->irq         = card->irq;
  
- 	if (match) {
- 		if (AR_SREV_9287(ah)) {
--			/* FIXME: array overrun? */
- 			for (i = 0; i < numXpdGains; i++) {
- 				minPwrT4[i] = data_9287[idxL].pwrPdg[i][0];
--				maxPwrT4[i] = data_9287[idxL].pwrPdg[i][4];
-+				maxPwrT4[i] = data_9287[idxL].pwrPdg[i][intercepts - 1];
- 				ath9k_hw_fill_vpd_table(minPwrT4[i], maxPwrT4[i],
- 						data_9287[idxL].pwrPdg[i],
- 						data_9287[idxL].vpdPdg[i],
-@@ -490,7 +489,7 @@ void ath9k_hw_get_gain_boundaries_pdadcs(struct ath_hw *ah,
- 		} else if (eeprom_4k) {
- 			for (i = 0; i < numXpdGains; i++) {
- 				minPwrT4[i] = data_4k[idxL].pwrPdg[i][0];
--				maxPwrT4[i] = data_4k[idxL].pwrPdg[i][4];
-+				maxPwrT4[i] = data_4k[idxL].pwrPdg[i][intercepts - 1];
- 				ath9k_hw_fill_vpd_table(minPwrT4[i], maxPwrT4[i],
- 						data_4k[idxL].pwrPdg[i],
- 						data_4k[idxL].vpdPdg[i],
-@@ -500,7 +499,7 @@ void ath9k_hw_get_gain_boundaries_pdadcs(struct ath_hw *ah,
- 		} else {
- 			for (i = 0; i < numXpdGains; i++) {
- 				minPwrT4[i] = data_def[idxL].pwrPdg[i][0];
--				maxPwrT4[i] = data_def[idxL].pwrPdg[i][4];
-+				maxPwrT4[i] = data_def[idxL].pwrPdg[i][intercepts - 1];
- 				ath9k_hw_fill_vpd_table(minPwrT4[i], maxPwrT4[i],
- 						data_def[idxL].pwrPdg[i],
- 						data_def[idxL].vpdPdg[i],
 -- 
 2.7.0
