@@ -1,29 +1,47 @@
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Subject: Re: [PATCH net]: ipv6: drop frames with attached skb->sk in
- forwarding
-Date: Mon, 14 Mar 2016 15:32:43 -0700
-Message-ID: <20160314223243.19F7F38508B@fruggeri-Arora18.sjc.aristanetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: diag: add a scheduling point in
+ inet_diag_dump_icsk()
+Date: Mon, 14 Mar 2016 15:40:00 -0700
+Message-ID: <1457995200.31401.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: fruggeri@arista.com, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, davem@davemloft.net,
-	hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:59377 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751784AbcCNWco (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 18:32:44 -0400
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35502 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982AbcCNWkC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 18:40:02 -0400
+Received: by mail-pf0-f175.google.com with SMTP id n5so107022519pfn.2
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 15:40:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-Should 9ef2e965e554 ["ipv6: drop frames with attached skb->sk in forwarding"]
-be considered for stable?
-It did address a crash in ip6_skb_dst_mtu that I was seeing in 3.18, where
-an incoming packet found an inet_timewait_sock in tcp_v6_early_demux
-but was later ip6_forward'ed (the local address that had been used for
-the tcp connection had been moved out of the router).
+On loaded TCP servers, looking at millions of sockets can hold
+cpu for many seconds, if the lookup condition is very narrow.
 
-Thanks,
-Francesco Ruggeri
+(eg : ss dst 1.2.3.4 )
+
+Better add a cond_resched() to allow other processes to access
+the cpu.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inet_diag.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 6029157..7883473 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -879,6 +879,7 @@ next_normal:
+ 		}
+ 
+ 		spin_unlock_bh(lock);
++		cond_resched();
+ 	}
+ 
+ done:
