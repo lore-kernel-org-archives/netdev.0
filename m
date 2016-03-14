@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] net/phy: Improvements to Cavium Thunder MDIO
- code.
-Date: Mon, 14 Mar 2016 15:27:51 -0400 (EDT)
-Message-ID: <20160314.152751.2108458769066613871.davem@davemloft.net>
-References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] Driver: Vmxnet3: Fix regression caused by cec0556
+Date: Mon, 14 Mar 2016 15:28:45 -0400 (EDT)
+Message-ID: <20160314.152845.1840060808684295471.davem@davemloft.net>
+References: <1457731784-96240-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	f.fainelli@gmail.com, rric@kernel.org, sgoutham@cavium.com,
-	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
-	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
-	linux-kernel@vger.kernel.org, rchintakuntla@cavium.com,
-	david.daney@cavium.com
-To: ddaney.cavm@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gyang@vmware.com
+To: skhare@vmware.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49046 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755658AbcCNT2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 15:28:47 -0400
+In-Reply-To: <1457731784-96240-1-git-send-email-skhare@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Fri, 11 Mar 2016 09:53:08 -0800
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Fri, 11 Mar 2016 13:29:44 -0800
 
-> Changes from v1:
+> don't pass uninitialized flags to spin_unlock_irqrestore.
 > 
->  - In 1/3 Add back check for non-OF objects in bgx_init_of_phy().  It
->    is probably not necessary, but better safe than sorry...
-> 
-> The firmware on many Cavium Thunder systems configures the MDIO bus
-> hardware to be probed as a PCI device.  In order to use the MDIO bus
-> drivers in this configuration, we must add PCI probing to the driver.
-> 
-> There are two parts to this set of three patches:
-> 
->  1) Cleanup the PHY probing code in thunder_bgx.c to handle the case
->     where there is no PHY attached to a port, as well as being more
->     robust in the face of driver loading order by use of
->     -EPROBE_DEFER.
-> 
->  2) Split mdio-octeon.c into two drivers, one with platform probing,
->  and the other with PCI probing.  Common code is shared between the
->  two.
-> 
-> Tested on several different Thunder and OCTEON systems, also compile
-> tested on x86_64.
+> Reported-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed-off-by: Guolin Yang <gyang@vmware.com>
 
-Series applied, thanks David.
+Sorry, I noticed Arnd's version of this fix first and therefore applied
+his version.
