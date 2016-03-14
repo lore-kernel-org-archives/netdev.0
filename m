@@ -1,45 +1,55 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next] ixgbe: Avoid unaligned access in ixgbe_atr()
- for LLC packets
-Date: Mon, 14 Mar 2016 13:59:09 -0400
-Message-ID: <20160314175909.GH5084@oracle.com>
-References: <20160314174624.GG5084@oracle.com>
- <CAKgT0Ucnf7Yyzjp_vccimVmjx-ZbYnOfKoTt6rEEZOsOEhVboQ@mail.gmail.com>
+From: John Crispin <blogic@openwrt.org>
+Subject: Re: [PATCH 1/3] net: mediatek: use dma_addr_t correctly
+Date: Mon, 14 Mar 2016 19:01:26 +0100
+Message-ID: <56E6FC76.8010409@openwrt.org>
+References: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	shannon nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34406 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753998AbcCNR7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 13:59:44 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKgT0Ucnf7Yyzjp_vccimVmjx-ZbYnOfKoTt6rEEZOsOEhVboQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	Matthias Brugger <matthias.bgg@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (03/14/16 10:55), Alexander Duyck wrote:
+
+
+On 14/03/2016 15:07, Arnd Bergmann wrote:
+> dma_alloc_coherent() expects a dma_addr_t pointer as its argument,
+> not an 'unsigned int', and gcc correctly warns about broken
+> code in the mtk_init_fq_dma function:
 > 
-> One other thing I forgot to mention is that we don't support ARP so
-> that check could be dropped.  The ATR code only supports IPv4 or IPv6
-> with TCP.
+> drivers/net/ethernet/mediatek/mtk_eth_soc.c: In function 'mtk_init_fq_dma':
+> drivers/net/ethernet/mediatek/mtk_eth_soc.c:463:13: error: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type [-Werror=incompatible-pointer-types]
+> 
+> This changes the type of the local variable to dma_addr_t.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-I did notice that, but I left it in place because (a) it comes down
-the stack with the NET_IP_ALIGNment and (b) ARP is only sent over
-Ethernet II (there is no LLC SAP for ARP, which is a big reason
-why ipv4 is not sent over llc, despite rfc 1042).
+thanks for the fixes
 
-I figured it would not hurt to pass it down, in case we decide
-to do something clever with it in the future.
 
---Sowmini
+
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index ba3afa5d4640..3e42204adfe5 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -453,7 +453,7 @@ static inline void mtk_rx_get_desc(struct mtk_rx_dma *rxd,
+>  /* the qdma core needs scratch memory to be setup */
+>  static int mtk_init_fq_dma(struct mtk_eth *eth)
+>  {
+> -	unsigned int phy_ring_head, phy_ring_tail;
+> +	dma_addr_t phy_ring_head, phy_ring_tail;
+>  	int cnt = MTK_DMA_SIZE;
+>  	dma_addr_t dma_addr;
+>  	int i;
+> 
