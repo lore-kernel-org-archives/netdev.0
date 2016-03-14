@@ -1,327 +1,80 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: Re: [PATCHv3 (net.git) 2/2] stmmac: fix MDIO settings
-Date: Mon, 14 Mar 2016 08:50:37 +0800
-Message-ID: <56E60ADD.4080508@electromag.com.au>
-References: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com>
- <1457703196-15008-3-git-send-email-peppe.cavallaro@st.com>
- <56E2E0F2.7050506@electromag.com.au> <56E2E51D.7030103@st.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next] ethtool: Set cmd field in ETHTOOL_GLINKSETTINGS
+ response to wrong nwords
+Date: Mon, 14 Mar 2016 01:05:38 +0000
+Message-ID: <20160314010537.GD21187@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gabriel.fernandez@linaro.org, afaerber@suse.de,
-	fschaefer.oss@googlemail.com, dinh.linux@gmail.com,
-	davem@davemloft.net
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+	protocol="application/pgp-signature"; boundary="vGgW1X5XWziG23Ko"
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchovy3.45ru.net.au ([203.30.46.155]:46346 "EHLO
-	anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933115AbcCNAut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 20:50:49 -0400
-In-Reply-To: <56E2E51D.7030103@st.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42503 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932513AbcCNBFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 21:05:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-G'day Giuseppe,
 
-On 11/03/2016 11:32 PM, Giuseppe CAVALLARO wrote:
-> On 3/11/2016 4:14 PM, Phil Reid wrote:
->> G'day Giuseppe,
->>
->> I wont be able to test until Monday.
->> Concept looks ok to me except for comment below.
->>
->> On 11/03/2016 9:33 PM, Giuseppe Cavallaro wrote:
->>> Initially the phy_bus_name was added to manipulate the
->>> driver name but It was recently just used to manage the
->>> fixed-link and then to take some decision at run-time
->>> inside the main (for example to skip EEE).
->>> So the patch uses the is_pseudo_fixed_link and removes
->>> removes the phy_bus_name variable not necessary anymore.
->>>
->>> The driver can manage the mdio registration by using phy-handle,
->>> dwmac-mdio and own parameter e.g. snps,phy-addr.
->>> This patch takes care about all these possible configurations
->>> and fixes the mdio registration in case of there is a real
->>> transceiver or a switch (that needs to be managed by using
->>> fixed-link).
->>>
->>> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>> Reviewed-by: Andreas F=C3=A4rber <afaerber@suse.de>
->>> Tested-by: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
->>> Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
->>> Cc: Dinh Nguyen <dinh.linux@gmail.com>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: Phil Reid <preid@electromag.com.au>
->>> ---
->>>
->>> V2: use is_pseudo_fixed_link
->>> V3: parse device-tree driver parameters to allocate PHY resources
->>> considering
->>>      DSA case (+ fixed-link).
->>>
->>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +--
->>>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   19 +-----
->>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   77
->>> ++++++++++++++++----
->>>   include/linux/stmmac.h                             |    2 +-
->>>   4 files changed, 68 insertions(+), 41 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> index c21015b..389d7d0 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>> @@ -271,7 +271,6 @@ static void stmmac_eee_ctrl_timer(unsigned long=
- arg)
->>>    */
->>>   bool stmmac_eee_init(struct stmmac_priv *priv)
->>>   {
->>> -    char *phy_bus_name =3D priv->plat->phy_bus_name;
->>>       unsigned long flags;
->>>       bool ret =3D false;
->>>
->>> @@ -283,7 +282,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
->>>           goto out;
->>>
->>>       /* Never init EEE in case of a switch is attached */
->>> -    if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
->>> +    if (priv->phydev->is_pseudo_fixed_link)
->>>           goto out;
->>>
->>>       /* MAC core supports the EEE feature. */
->>> @@ -820,12 +819,8 @@ static int stmmac_init_phy(struct net_device *=
-dev)
->>>           phydev =3D of_phy_connect(dev, priv->plat->phy_node,
->>>                       &stmmac_adjust_link, 0, interface);
->>>       } else {
->>> -        if (priv->plat->phy_bus_name)
->>> -            snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
->>> -                 priv->plat->phy_bus_name, priv->plat->bus_id);
->>> -        else
->>> -            snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
->>> -                 priv->plat->bus_id);
->>> +        snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
->>> +             priv->plat->bus_id);
->>>
->>>           snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus=
-_id,
->>>                priv->plat->phy_addr);
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->>> index 0faf163..3f5512f 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->>> @@ -198,29 +198,12 @@ int stmmac_mdio_register(struct net_device *n=
-dev)
->>>       struct mii_bus *new_bus;
->>>       struct stmmac_priv *priv =3D netdev_priv(ndev);
->>>       struct stmmac_mdio_bus_data *mdio_bus_data =3D
->>> priv->plat->mdio_bus_data;
->>> +    struct device_node *mdio_node =3D priv->plat->mdio_node;
->>>       int addr, found;
->>> -    struct device_node *mdio_node =3D NULL;
->>> -    struct device_node *child_node =3D NULL;
->>>
->>>       if (!mdio_bus_data)
->>>           return 0;
->>>
->>> -    if (IS_ENABLED(CONFIG_OF)) {
->>> -        for_each_child_of_node(priv->device->of_node, child_node) =
-{
->>> -            if (of_device_is_compatible(child_node,
->>> -                            "snps,dwmac-mdio")) {
->>> -                mdio_node =3D child_node;
->>> -                break;
->>> -            }
->>> -        }
->>> -
->>> -        if (mdio_node) {
->>> -            netdev_dbg(ndev, "FOUND MDIO subnode\n");
->>> -        } else {
->>> -            netdev_warn(ndev, "No MDIO subnode found\n");
->>> -        }
->>> -    }
->>> -
->>>       new_bus =3D mdiobus_alloc();
->>>       if (new_bus =3D=3D NULL)
->>>           return -ENOMEM;
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> index 6a52fa1..d2322e9 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> @@ -96,6 +96,66 @@ static int dwmac1000_validate_ucast_entries(int
->>> ucast_entries)
->>>   }
->>>
->>>   /**
->>> + * stmmac_dt_phy - parse device-tree driver parameters to allocate
->>> PHY resources
->>> + * @plat: driver data platform structure
->>> + * @np: device tree node
->>> + * @dev: device pointer
->>> + * Description:
->>> + * The mdio bus will be allocated in case of a phy transceiver is =
-on
->>> board;
->>> + * it will be NULL if the fixed-link is configured.
->>> + * If there is the "snps,dwmac-mdio" sub-node the mdio will be all=
-ocated
->>> + * in any case (for DSA, mdio must be registered even if fixed-lin=
-k).
->>> + * The table below sums the supported configurations:
->>> + *    -------------------------------
->>> + *    snps,phy-addr    |     Y
->>> + *    -------------------------------
->>> + *    phy-handle    |     Y
->>> + *    -------------------------------
->>> + *    fixed-link    |     N
->>> + *    -------------------------------
->>> + *    snps,dwmac-mdio    |
->>> + *      even if    |     Y
->>> + *    fixed-link    |
->>> + *    -------------------------------
->>> + *
->>> + * It returns true in case of the mdio needs to be registered in t=
-he
->>> main.
->>> + */
->>> +static bool stmmac_dt_phy(struct plat_stmmacenet_data *plat,
->>> +              struct device_node *np, struct device *dev)
->>> +{
->>> +    bool ret =3D true;
->>> +
->>> +    /* If phy-handle property is passed from DT, use it as the PHY=
- */
->>> +    plat->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
->>> +    if (plat->phy_node)
->>> +        dev_dbg(dev, "Found phy-handle subnode\n");
->>> +
->>> +    /* If phy-handle is not specified, check if we have a fixed-ph=
-y */
->>> +    if (!plat->phy_node && of_phy_is_fixed_link(np)) {
->>> +        if ((of_phy_register_fixed_link(np) < 0))
->>> +            return -ENODEV;
->>> +
->>> +        dev_dbg(dev, "Found fixed-link subnode\n");
->>> +        plat->phy_node =3D of_node_get(np);
->>> +
->>> +        ret =3D false;
->>> +    }
->>> +
->>> +    /* If snps,dwmac-mdio is passed from DT, always register the M=
-DIO */
->>> +    for_each_child_of_node(np, plat->mdio_node) {
->>> +        if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-m=
-dio"))
->>> +            break;
->>> +    }
->>> +
->>
->> Won't this always result in plat->mdio_node being assigned to someth=
-ing
->> if np has a child.
->> Regardless of the compatible string.
->> Which is why I had the child_node temp.
->> Still learning so may be missing something.
->
-> hmm, i think so, let me know as soon as you test it so I can
-> rework the patch and send a v4.
->
+--vGgW1X5XWziG23Ko
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Tested-by: Phil Reid <preid@electromag.com.au>
+When the ETHTOOL_GLINKSETTINGS implementation finds that userland is
+using the wrong number of words of link mode bitmaps (or is trying to
+find out the right numbers) it sets the cmd field to 0 in the response
+structure.
 
-Ignore my comment above. This works fine.
-Test with / without compatible flag and it works as expected.
+This is inconsistent with the implementation of every other ethtool
+command, so let's remove that inconsistency before it gets into a
+stable release.
 
-At the end of the loop for_each_child_of_node sets the node to NULL.
+Fixes: 3f1ac7a700d03 ("net: ethtool: add new ETHTOOL_xLINKSETTINGS API")
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+David, please can you include this in changes for 4.6?
 
+Ben.
 
->
->>
->>> +    if (plat->mdio_node) {
->>> +        dev_dbg(dev, "Found MDIO subnode\n");
->>> +        ret =3D true;
->>> +    }
->>> +
->>> +    return ret;
->>> +}
->>> +
->>> +/**
->>>    * stmmac_probe_config_dt - parse device-tree driver parameters
->>>    * @pdev: platform_device structure
->>>    * @plat: driver data platform structure
->>> @@ -129,30 +189,19 @@ stmmac_probe_config_dt(struct platform_device
->>> *pdev, const char **mac)
->>>       /* Default to phy auto-detection */
->>>       plat->phy_addr =3D -1;
->>>
->>> -    /* If we find a phy-handle property, use it as the PHY */
->>> -    plat->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
->>> -
->>> -    /* If phy-handle is not specified, check if we have a fixed-ph=
-y */
->>> -    if (!plat->phy_node && of_phy_is_fixed_link(np)) {
->>> -        if ((of_phy_register_fixed_link(np) < 0))
->>> -            return ERR_PTR(-ENODEV);
->>> -
->>> -        plat->phy_node =3D of_node_get(np);
->>> -    }
->>> -
->>>       /* "snps,phy-addr" is not a standard property. Mark it as
->>> deprecated
->>>        * and warn of its use. Remove this when phy node support is =
-added.
->>>        */
->>>       if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr=
-)
->>> =3D=3D 0)
->>>           dev_warn(&pdev->dev, "snps,phy-addr property is deprecate=
-d\n");
->>>
->>> -    if ((plat->phy_node && !of_phy_is_fixed_link(np)) ||
->>> plat->phy_bus_name)
->>> -        plat->mdio_bus_data =3D NULL;
->>> -    else
->>> +    /* To Configure PHY by using all device-tree supported propert=
-ies */
->>> +    if (stmmac_dt_phy(plat, np, &pdev->dev)) {
->>>           plat->mdio_bus_data =3D
->>>               devm_kzalloc(&pdev->dev,
->>>                        sizeof(struct stmmac_mdio_bus_data),
->>>                        GFP_KERNEL);
->>> +    }
->>>
->>>       of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size=
-);
->>>
->>> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
->>> index eead8ab..8b1ff2b 100644
->>> --- a/include/linux/stmmac.h
->>> +++ b/include/linux/stmmac.h
->>> @@ -94,12 +94,12 @@ struct stmmac_dma_cfg {
->>>   };
->>>
->>>   struct plat_stmmacenet_data {
->>> -    char *phy_bus_name;
->>>       int bus_id;
->>>       int phy_addr;
->>>       int interface;
->>>       struct stmmac_mdio_bus_data *mdio_bus_data;
->>>       struct device_node *phy_node;
->>> +    struct device_node *mdio_node;
->>>       struct stmmac_dma_cfg *dma_cfg;
->>>       int clk_csr;
->>>       int has_gmac;
->>>
->>
->>
->
->
->
+ net/core/ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 2966cd0d7c93..f426c5ad6149 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -655,7 +655,7 @@ static int ethtool_get_link_ksettings(struct net_device *dev,
+ 	    != link_ksettings.base.link_mode_masks_nwords) {
+ 		/* wrong link mode nbits requested */
+ 		memset(&link_ksettings, 0, sizeof(link_ksettings));
+-		/* keep cmd field reset to 0 */
++		link_ksettings.base.cmd = ETHTOOL_GLINKSETTINGS;
+ 		/* send back number of words required as negative val */
+ 		compiletime_assert(__ETHTOOL_LINK_MODE_MASK_NU32 <= S8_MAX,
+ 				   "need too many bits for link modes!");
 
---=20
-Regards
-Phil Reid
+--vGgW1X5XWziG23Ko
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUBVuYOYee/yOyVhhEJAQqORxAAkRpYVvVB3SUNR2NhfaBuIvHQ67+6pS3k
+1xNyyX8e36Ah41yZXZA1WIPJmmmI9Sg/7zdBfFkkEISsbiyZsb9trr5M/UtrQ/xf
+fSyn9+4RH8EZdWO5km62uvZ1+3LCtyK01Mr0p4SvPmNKcK0qVGkjqSh8+I3mgkDP
+gSaF4BziO/xMc/TIxSIdaHVC2+9jiyM8Paiwl1H6rEqZk6MGz88DQlMTmQ+/uBJF
+F4+RgZMfxTjchGHfKxUVvtsR6jrlKINQwV5yznsPn+00qKOxiihE0YVcq30dp3Ic
+TTJnzeKdnkoqmYX0jOzylWbmR89YrX/GOhQNFaRKOnI+vsFbyQLXTm+6/tWqC6Gq
+MbU2yxE3/UG2Rg3QI0JRzwCpTUcFyNarIriP34sYX0S7s9JtG2uWwMM0m2CPc2ND
+Wa8WFRoWbuJ351rFCKffvbXKGv/88WNJ17xQgfjyaS1+Qfp7/pmuA4N4X0gGOrhu
+fhlS2kmjDmmOL63PUe6UboCNQlXhUt9DlSChtoB8GfKDRyiOua5B5qMJWVjaH7bI
+AqSnsCis2IxZ6A6Gqc/63nM+/9VejtSfbxW9UcYwi2HUy5ehd7DnxAqfhdT8mq8X
+79Yy55jlk61POzDGOcJzfI+EVHUp5QHk9MgELDAW5R8bhpAhVy8XIJL3EM9dQE7B
+tAAM/8gVRGc=
+=neyA
+-----END PGP SIGNATURE-----
+
+--vGgW1X5XWziG23Ko--
