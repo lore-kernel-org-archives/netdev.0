@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] ipv6: replace write lock with read lock in
- addrconf_permanent_addr
-Date: Mon, 14 Mar 2016 12:25:34 -0400 (EDT)
-Message-ID: <20160314.122534.345751583747280951.davem@davemloft.net>
-References: <1457948108-24837-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH v2 0/2] net: thunderx: Performance enhancement changes
+Date: Mon, 14 Mar 2016 12:33:55 -0400 (EDT)
+Message-ID: <20160314.123355.932808497910918919.davem@davemloft.net>
+References: <1457953578-7054-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47149 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815AbcCNQZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 12:25:37 -0400
-In-Reply-To: <1457948108-24837-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, sgoutham@cavium.com,
+	robert.richter@caviumnetworks.com
+To: sunil.kovvuri@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457953578-7054-1-git-send-email-sunil.kovvuri@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Mon, 14 Mar 2016 17:35:08 +0800
+From: sunil.kovvuri@gmail.com
+Date: Mon, 14 Mar 2016 16:36:13 +0530
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> Below patches attempts to improve performance by reducing
+> no of atomic operations while allocating new receive buffers
+> and reducing cache misses by adjusting nicvf structure elements.
 > 
-> nothing of idev is changed, so read lock is enough
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Changes from v1:
+>  No changes, resubmitting a fresh as per David's suggestion.
 
-We need it for the modifications made by fixup_permanent_addr().
+Series applied, thanks.
