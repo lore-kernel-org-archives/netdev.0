@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SOCK_SEQPACKET socketpair must get SIGPIPE in AF_UNIX
- if one end is closed
-Date: Mon, 14 Mar 2016 15:19:23 -0400 (EDT)
-Message-ID: <20160314.151923.1878027262976947807.davem@davemloft.net>
-References: <1457532623-125301-1-git-send-email-glider@google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next] ixgbe: Avoid unaligned access in ixgbe_atr()
+ for LLC packets
+Date: Mon, 14 Mar 2016 12:20:26 -0700
+Message-ID: <CAKgT0Ud9b7MaOk-O4gs3LCMgO+dApCFJ=tOrStk1kuxEE5dShw@mail.gmail.com>
+References: <20160314174624.GG5084@oracle.com>
+	<CAKgT0Ucnf7Yyzjp_vccimVmjx-ZbYnOfKoTt6rEEZOsOEhVboQ@mail.gmail.com>
+	<20160314175909.GH5084@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, rweikusat@mobileactivedefense.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457532623-125301-1-git-send-email-glider@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:32955 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932069AbcCNTU1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 15:20:27 -0400
+Received: by mail-io0-f182.google.com with SMTP id n190so235206984iof.0
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 12:20:27 -0700 (PDT)
+In-Reply-To: <20160314175909.GH5084@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Potapenko <glider@google.com>
-Date: Wed,  9 Mar 2016 15:10:23 +0100
+On Mon, Mar 14, 2016 at 10:59 AM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (03/14/16 10:55), Alexander Duyck wrote:
+>>
+>> One other thing I forgot to mention is that we don't support ARP so
+>> that check could be dropped.  The ATR code only supports IPv4 or IPv6
+>> with TCP.
+>
+> I did notice that, but I left it in place because (a) it comes down
+> the stack with the NET_IP_ALIGNment and (b) ARP is only sent over
+> Ethernet II (there is no LLC SAP for ARP, which is a big reason
+> why ipv4 is not sent over llc, despite rfc 1042).
+>
+> I figured it would not hurt to pass it down, in case we decide
+> to do something clever with it in the future.
 
-> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
-> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if the
-> socket is no longer connected.
-> 
-> Signed-off-by: Alexander Potapenko <glider@google.com>
+I figure it is better to just drop it since we don't need to be trying
+to parse ARP packets anyway.
 
-Please format your Subject line properly, the format is:
-
-	[PATCH] $SUBSYSTEM: $DESCRIPTION.
-
-In this case "af_unx: " would be a proper subsystem marker.
-
-Also,
-
-> ---
-> I used the following program to check the kernel behavior:
-
-Please include this in your commit message rather than cutting it out
-using the "---" marker, as it will help people in the future
-understand your change and how you tested it.  More information is
-always better than less information.
-
-Thanks.
+- Alex
