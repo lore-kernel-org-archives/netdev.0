@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V4 0/3] net: bulk free adjustment and two
- driver use-cases
-Date: Sun, 13 Mar 2016 22:35:53 -0400 (EDT)
-Message-ID: <20160313.223553.1984627891818115069.davem@davemloft.net>
-References: <20160311084549.1b011723@redhat.com>
-	<20160311084245.5207.70640.stgit@firesoul>
+Subject: Re: [PATCH] at803x: fix suspend/resume for SGMII link
+Date: Sun, 13 Mar 2016 22:37:22 -0400 (EDT)
+Message-ID: <20160313.223722.1488476549568744497.davem@davemloft.net>
+References: <1457706713-13779-1-git-send-email-zefir.kurtisi@neratec.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	eugenia@mellanox.com, alexander.duyck@gmail.com,
-	alexei.starovoitov@gmail.com, saeedm@mellanox.com,
-	gerlitz.or@gmail.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	chunkeey@googlemail.com
+To: zefir.kurtisi@neratec.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40613 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40632 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753266AbcCNCf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:35:57 -0400
-In-Reply-To: <20160311084245.5207.70640.stgit@firesoul>
+	with ESMTP id S932138AbcCNChY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:37:24 -0400
+In-Reply-To: <1457706713-13779-1-git-send-email-zefir.kurtisi@neratec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Fri, 11 Mar 2016 09:43:48 +0100
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Date: Fri, 11 Mar 2016 15:31:53 +0100
 
-> I've split out the bulk free adjustments, from the bulk alloc patches,
-> as I want the adjustment to napi_consume_skb be in same kernel cycle
-> the API was introduced.
+> When operating the at803x in SGMII mode, resuming the chip
+> from power down brings up the copper-side link but leaves
+> the SGMII link in unconnected state (tested with at8031
+> attached to gianfar). In effect, this caused a permanent
+> link loss once the related interface was put down.
 > 
-> Adjustments based on discussion:
->  Subj: "mlx4: use napi_consume_skb API to get bulk free operations"
->  http://thread.gmane.org/gmane.linux.network/402503/focus=403386
+> This patch ensures that power down handling in supspend()
+> and resume() is also applied to the SGMII link.
 > 
-> Patchset based on net-next at commit 3ebeac1d0295
-> 
-> V4: more nitpicks from Sergei
-> V3: spelling fixes from Sergei
+> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
 
-Series applied, thanks Jesper.
+Applied, thanks.
