@@ -1,63 +1,57 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCHv3 (net.git) 2/2] stmmac: fix MDIO settings
-Date: Mon, 14 Mar 2016 10:28:14 +0100
-Message-ID: <56E6842E.1040103@st.com>
-References: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com> <1457703196-15008-3-git-send-email-peppe.cavallaro@st.com> <CAG374jDMk3z0rn-eMfRWiw7FUvN_26yjsVc340zvQPFq=XxuLg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	=?UTF-8?B?QW5kcmVhcyBGw6RyYmVy?= <afaerber@suse.de>,
-	<fschaefer.oss@googlemail.com>, Dinh Nguyen <dinh.linux@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Phil Reid <preid@electromag.com.au>
-To: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next] ipv6: replace write lock with read lock in addrconf_permanent_addr
+Date: Mon, 14 Mar 2016 17:35:08 +0800
+Message-ID: <1457948108-24837-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:35265 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964876AbcCNJ2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 05:28:45 -0400
-In-Reply-To: <CAG374jDMk3z0rn-eMfRWiw7FUvN_26yjsVc340zvQPFq=XxuLg@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:51554 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753139AbcCNJfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 05:35:11 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u2E9Z9bm009114
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 02:35:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/14/2016 10:14 AM, Gabriel Fernandez wrote:
-> Hi Peppe,
->
-> Just one remark below
->
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> index 6a52fa1..d2322e9 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->
-> [snip]
->
->> +static bool stmmac_dt_phy(struct plat_stmmacenet_data *plat,
->> +                         struct device_node *np, struct device *dev)
->> +{
->> +       bool ret = true;
->> +
->> +       /* If phy-handle property is passed from DT, use it as the PHY */
->> +       plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
->> +       if (plat->phy_node)
->> +               dev_dbg(dev, "Found phy-handle subnode\n");
->> +
->> +       /* If phy-handle is not specified, check if we have a fixed-phy */
->> +       if (!plat->phy_node && of_phy_is_fixed_link(np)) {
->> +               if ((of_phy_register_fixed_link(np) < 0))
->> +                       return -ENODEV;
->> +
-> stmmac_dt_phy() function should return a Boolean
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Thx Gabriel, I will fix return value in V4.
+nothing of idev is changed, so read lock is enough
 
-peppe
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/addrconf.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
->
->
-> Best Regards.
->
-> Gabriel
->
->
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8c0dab2..d3f0d87 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3228,21 +3228,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 	if (!idev)
+ 		return;
+ 
+-	write_lock_bh(&idev->lock);
++	read_lock_bh(&idev->lock);
+ 
+ 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+-			write_unlock_bh(&idev->lock);
++			read_unlock_bh(&idev->lock);
+ 			ipv6_del_addr(ifp);
+-			write_lock_bh(&idev->lock);
++			read_lock_bh(&idev->lock);
+ 
+ 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
+ 					     idev->dev->name, &ifp->addr);
+ 		}
+ 	}
+ 
+-	write_unlock_bh(&idev->lock);
++	read_unlock_bh(&idev->lock);
+ }
+ 
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+-- 
+2.1.4
