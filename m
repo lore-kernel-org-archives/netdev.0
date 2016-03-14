@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ppp: ensure file->private_data can't be overridden
-Date: Mon, 14 Mar 2016 14:57:59 -0400 (EDT)
-Message-ID: <20160314.145759.727527672385295428.davem@davemloft.net>
-References: <3f04de903b6be9e1c30427830c0a1568478e0c6c.1457462784.git.g.nault@alphalink.fr>
-	<20160311.144216.676727973447663610.davem@davemloft.net>
-	<20160314175940.GB1462@alphalink.fr>
+Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
+ sndbuf/rcvbuf size of RDS-TCP socket
+Date: Mon, 14 Mar 2016 14:59:08 -0400 (EDT)
+Message-ID: <20160314.145908.253635091290932699.davem@davemloft.net>
+References: <20160312043952.GC26486@oracle.com>
+	<CALx6S37m5s+6h4v1gKiBv2e2p+Ft9Ub4g-YLREWe=A5iuZAseA@mail.gmail.com>
+	<20160314180642.GI5084@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org, alan@linux.intel.com,
-	arnd@arndb.de
-To: g.nault@alphalink.fr
+Cc: tom@herbertland.com, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48764 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48776 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753861AbcCNS6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:58:04 -0400
-In-Reply-To: <20160314175940.GB1462@alphalink.fr>
+	with ESMTP id S1752362AbcCNS7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:59:10 -0400
+In-Reply-To: <20160314180642.GI5084@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Mon, 14 Mar 2016 18:59:40 +0100
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Mon, 14 Mar 2016 14:06:42 -0400
 
-> Testing ->private_data without lock in ppp_ioctl() before calling
-> ppp_unattached_ioctl() is fine, because either ->private_data is
-> not NULL and thus is stable, or it is and ppp_unattached_ioctl()
-> takes care of not overriding ->private_data, should its value get
-> modified before taking the mutex.
+> However, it would still be nice to know exactly what distribution
+> issues come out of modparam.
 
-This is exactly the ambiguous behavior I want you to avoid.
+Module parameters mean unstable interfaces, and provide inconsistent
+ways to do the same exact thing from driver to driver and protocol to
+protocol.
 
-The decision should be atomic from ppp_ioctl()'s test all the way
-until ppp_unattached_ioctl() does it's work.
+Do not use them, ever.
