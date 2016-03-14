@@ -1,87 +1,149 @@
-From: oulijun <oulijun@huawei.com>
-Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver
- code)
-Date: Mon, 14 Mar 2016 14:49:32 +0800
-Message-ID: <56E65EFC.3030109@huawei.com>
-References: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
+From: Leon Romanovsky <leon-2ukJVAZIZ/Y@public.gmane.org>
+Subject: Re: [PATCH 2/3] net: hns: add Hisilicon RoCE support
+Date: Mon, 14 Mar 2016 08:49:21 +0200
+Message-ID: <20160314064921.GA26456@leon.nu>
+References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
+ <1457692631-9290-3-git-send-email-oulijun@huawei.com>
+ <20160312104301.GB15703@leon.nu>
+ <56E60FFC.3000007@huawei.com>
+Reply-To: leon-2ukJVAZIZ/Y@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>,
-	"Hefty, Sean" <sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
-	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-	<jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
-	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
-	<yankejian@huawei.com>, <lisheng011@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: Parav Pandit <pandit.parav@gmail.com>,
-	"Wei Hu(Xavier)" <xavier.huwei@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:42009 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbcCNGuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 02:50:14 -0400
-In-Reply-To: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: "Yankejian (Hackim Yim)" <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <56E60FFC.3000007-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Parav Pandit, thanks your reviewing.
-On 2016/3/4 17:37, Parav Pandit wrote:
-> On Fri, Mar 4, 2016 at 2:11 PM, Wei Hu(Xavier) <xavier.huwei@huawei.com> wrote:
->> +
->> +int hns_roce_register_device(struct hns_roce_dev *hr_dev)
->> +{
->> +       int ret;
->> +       struct hns_roce_ib_iboe *iboe = NULL;
->> +       struct ib_device *ib_dev = NULL;
->> +       struct device *dev = &hr_dev->pdev->dev;
->> +
->> +       iboe = &hr_dev->iboe;
->> +
->> +       ib_dev = &hr_dev->ib_dev;
->> +       strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
->> +
->> +       ib_dev->owner                   = THIS_MODULE;
->> +       ib_dev->node_type               = RDMA_NODE_IB_CA;
->> +       ib_dev->dma_device              = dev;
->> +
->> +       ib_dev->phys_port_cnt           = hr_dev->caps.num_ports;
->> +       ib_dev->local_dma_lkey          = hr_dev->caps.reserved_lkey;
->> +       ib_dev->num_comp_vectors        = hr_dev->caps.num_comp_vectors;
->> +       ib_dev->uverbs_abi_ver          = 1;
->> +       ib_dev->uverbs_cmd_mask         =
->> +               (1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
->> +               (1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
->> +               (1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
->> +               (1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
->> +               (1ULL << IB_USER_VERBS_CMD_DEALLOC_PD) |
->> +               (1ULL << IB_USER_VERBS_CMD_REG_MR) |
->> +               (1ULL << IB_USER_VERBS_CMD_DEREG_MR) |
->> +               (1ULL << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
->> +               (1ULL << IB_USER_VERBS_CMD_CREATE_CQ) |
->> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_CQ) |
->> +               (1ULL << IB_USER_VERBS_CMD_CREATE_QP) |
->> +               (1ULL << IB_USER_VERBS_CMD_MODIFY_QP) |
->> +               (1ULL << IB_USER_VERBS_CMD_QUERY_QP) |
->> +               (1ULL << IB_USER_VERBS_CMD_DESTROY_QP);
->> +
+On Mon, Mar 14, 2016 at 09:12:28AM +0800, Yankejian (Hackim Yim) wrote:
 > 
-> Since SRQ is not supported in this driver version, can you keep
-> remaining code base also to not bother about SRQ specifically
-> poll_cq_one, modify_qp, destroy_qp etc?
-> SRQ support can come as complete additional patch along with cmd_mask,
-> callbacks and rest of the code.
 > 
-> .
-Sorry, I see your review in time.
-Sure, SRQ is not supported in current roce driver. I have verified the function
-for RDMA. It is not influence. For your question, we need to analyse it scientific.
-after that, i will reply your doubt, is that ok?
+> On 2016/3/12 18:43, Leon Romanovsky wrote:
+> > On Fri, Mar 11, 2016 at 06:37:10PM +0800, Lijun Ou wrote:
+> >> It added hns_dsaf_roce_reset routine for roce driver.
+> >> RoCE is a feature of hns.
+> >> In hip06 SOC, in roce reset process, it's needed to configure
+> >> dsaf channel reset,port and sl map info.
+> >>
+> >> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >> Signed-off-by: Lisheng <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >> ---
+> >>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 84 ++++++++++++++++++++++
+> >>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 14 ++++
+> >>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 62 +++++++++++++---
+> >>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 13 ++++
+> >>  4 files changed, 163 insertions(+), 10 deletions(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+> >> index 38fc5be..a0f0d4f 100644
+> >> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+> >> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+> >> @@ -12,6 +12,7 @@
+> >>  #include <linux/init.h>
+> >>  #include <linux/interrupt.h>
+> >>  #include <linux/netdevice.h>
+> >> +#include <linux/of_platform.h>
+> >>  #include <linux/platform_device.h>
+> >>  #include <linux/of.h>
+> >>  #include <linux/of_address.h>
+> >> @@ -2593,6 +2594,89 @@ static struct platform_driver g_dsaf_driver = {
+> >>  
+> >>  module_platform_driver(g_dsaf_driver);
+> >>  
+> >> +/**
+> >> + * hns_dsaf_roce_reset - reset dsaf and roce
+> >> + * @dsaf_fwnode: Pointer to framework node for the dasf
+> >> + * @val: 0 - request reset , 1 - drop reset
+> >> + * retuen 0 - success , negative --fail
+> >> + */
+> >> +int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, u32 val)
+> >> +{
+> >> +	struct dsaf_device *dsaf_dev;
+> >> +	struct platform_device *pdev;
+> >> +	unsigned int mp;
+> >> +	unsigned int sl;
+> >> +	unsigned int credit;
+> >> +	int i;
+> >> +	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+> >> +		{0, 0, 0},
+> >> +		{1, 0, 0},
+> >> +		{2, 1, 0},
+> >> +		{3, 1, 0},
+> >> +		{4, 2, 1},
+> >> +		{4, 2, 1},
+> >> +		{5, 3, 1},
+> >> +		{5, 3, 1},
+> >> +	};
+> >> +	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE] = {
+> >> +		{0, 0, 0},
+> >> +		{0, 1, 1},
+> >> +		{0, 0, 2},
+> >> +		{0, 1, 3},
+> >> +		{0, 0, 0},
+> >> +		{1, 1, 1},
+> >> +		{0, 0, 2},
+> >> +		{1, 1, 3},
+> >> +	};
+> > Do you have a plan to send a version with enums/defines for this
+> > numbers? Especially for _CHAN_MODE.
+> >
+> > .
+> 
+> Hi leon,
+> 
+>     it seems the enums is added in hns_dsaf_main.h, as belows:
+> 
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+> index 5fea226..c917b9a 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
+> @@ -40,6 +40,16 @@ struct hns_mac_cb;
+>  #define DSAF_DUMP_REGS_NUM 504
+>  #define DSAF_STATIC_NUM 28
+>  
+> +#define DSAF_ROCE_CREDIT_CHN 8
+> +#define DSAF_ROCE_CHAN_MODE 3
+> +
+> +enum dsaf_roce_port_port_mode {
+> +	DSAF_ROCE_6PORT_MODE,
+> +	DSAF_ROCE_4PORT_MODE,
+> +	DSAF_ROCE_2PORT_MODE,
+> +	DSAF_ROCE_CHAN_MODE_NUM
+> +};
+> +
 
-thanks
-Lijun Ou
+These defines are used as an index entry into si_map and port_map arrays
+and seems as not related to the actual data.
+
+I suggest you to take this code back to drawing table, redesign it,
+clean unused functions and defines and resubmit it.
+
+Thanks.
 
 > 
+> MBR, Kejian
+> 
+> 
+> 
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
