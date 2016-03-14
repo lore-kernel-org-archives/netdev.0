@@ -1,57 +1,258 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: Generic TSO
-Date: Mon, 14 Mar 2016 10:32:30 +0000
-Message-ID: <56E6933E.3050407@solarflare.com>
-References: <20160219191806.15687.37621.stgit@localhost.localdomain>
- <CAMt9YRrOxCmJbrftixdJTXZcySZ_mARqCT6C=4-Nqv_ZJKnTwA@mail.gmail.com>
- <CAEh+42hStEh=5z8KBic0hmEZNti4tjahySjjv7kU3YUes_R4Zg@mail.gmail.com>
- <CALx6S351KYGFFLi08cX=DFCucZtGJLoMJGvFAW1_H-cRXZ0rQg@mail.gmail.com>
- <CAEh+42hEVQOFaFk7BW=wZ-gb9HCfYqbr7Q600gbm1q1Oz+yZcA@mail.gmail.com>
- <CALx6S36EyzjWKi_iK_uAVcCceFnZe3QmLcw7BBejKuB79Uo7PA@mail.gmail.com>
- <56E31A89.9020602@solarflare.com>
- <CALx6S37G5N-3GxXYf8uF9p8QNC+U_d6-Vf+8Jg6bFqEv_FpULg@mail.gmail.com>
- <56E3239B.7080009@solarflare.com>
- <CALx6S37P+gVA_O7vxBjGMxHpY69Cx2aL3E79ptvGkRW4L2x5Ug@mail.gmail.com>
- <56E32966.7090409@solarflare.com>
- <CAKgT0Ud0bj=1Baty7O_8Bi5dEU67-036EeZxLpXjvovANem=6Q@mail.gmail.com>
- <56E338A3.5070909@solarflare.com>
- <CAKgT0UeBx8NepNM2oGkYOnPV2Niy9GPd7RDZdgDMY3EcRMxNmw@mail.gmail.com>
- <CALx6S36wJdFnq=2ZkTfijqro1TM1GTqap=aLQ0+NszgWC6Sznw@mail.gmail.com>
- <CAKgT0UfffHvVZPNbfQseOSTXFXAhjtscdoaVKzYxL1t4rooNEw@mail.gmail.com>
- <56E691F1.2020605@solarflare.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v6 net-next 09/10] net: add a hardware buffer management
+ helper API
+Date: Mon, 14 Mar 2016 11:33:18 +0100
+Message-ID: <20160314113318.1a10a6b5@redhat.com>
+References: <1457944745-7634-1-git-send-email-gregory.clement@free-electrons.com>
+	<1457944745-7634-10-git-send-email-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Willy Tarreau <w@1wt.eu>, Timor Kardashov <timork@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	Sebastian Careba <nitroshift@yahoo.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:21089 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752344AbcCNKcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 06:32:39 -0400
-In-Reply-To: <56E691F1.2020605@solarflare.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45459 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754931AbcCNKdf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 06:33:35 -0400
+In-Reply-To: <1457944745-7634-10-git-send-email-gregory.clement@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/03/16 10:26, Edward Cree wrote:
-> On 12/03/16 05:40, Alexander Duyck wrote:
->> Well that is the thing.  Before we can actually start tinkering with
->> the outer header we probably need to make sure we set the DF bit and
->> that it would be honored on the outer headers for IPv4.  I don't
->> believe any of the tunnels are currently doing that so repeating the
->> IP ID would be the worst possible scenario until that is resolved
->> since VXLAN tunneled frames can be fragmented while TCP frames cannot
->> so we really shouldn't be repeating IP IDs for the outer headers.
-> So how do we progress with that?  I'm presuming it's not as simple as
-> just patching the tunnel drivers to set DF if the inner packet has it,
-> as that could break existing setups.  (I've heard that "but they're
-> already broken anyway" is not usually an acceptable argument.)  Some
-> sort of configuration option on the tunnel (like we do with udpcsum)?
-...and immediately I find out it already exists.  (I guess I should have
-looked there first!)
->From drivers/net/vxlan.c:2001:
-> else if (info->key.tun_flags & TUNNEL_DONT_FRAGMENT)
->             df = htons(IP_DF);
 
--Ed
+I've not fully understood the hardware support part.
+
+But I do think this generalization is very interesting work, and would
+like to cooperate. If my use-case can fit into this, where my use-case
+is in the extreme 100Gbit/s area.
+
+There is some potential for performance improvements, if the API from
+start is designed distinguish between being called from NAPI-context
+(BH-disabled) and outside NAPI context.
+
+See: netdev_alloc_frag() vs napi_alloc_frag().
+
+Nitpicks inlined below...
+
+
+On Mon, 14 Mar 2016 09:39:04 +0100
+Gregory CLEMENT <gregory.clement@free-electrons.com> wrote:
+
+> This basic implementation allows to share code between driver using
+> hardware buffer management. As the code is hardware agnostic, there is
+> few helpers, most of the optimization brought by the an HW BM has to be
+> done at driver level.
+> 
+> Tested-by: Sebastian Careba <nitroshift@yahoo.com>
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> ---
+>  include/net/hwbm.h | 28 ++++++++++++++++++
+>  net/Kconfig        |  3 ++
+>  net/core/Makefile  |  1 +
+>  net/core/hwbm.c    | 87 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 119 insertions(+)
+>  create mode 100644 include/net/hwbm.h
+>  create mode 100644 net/core/hwbm.c
+> 
+> diff --git a/include/net/hwbm.h b/include/net/hwbm.h
+> new file mode 100644
+> index 000000000000..47d08662501b
+> --- /dev/null
+> +++ b/include/net/hwbm.h
+> @@ -0,0 +1,28 @@
+> +#ifndef _HWBM_H
+> +#define _HWBM_H
+> +
+> +struct hwbm_pool {
+> +	/* Capacity of the pool */
+> +	int size;
+> +	/* Size of the buffers managed */
+> +	int frag_size;
+> +	/* Number of buffers currently used by this pool */
+> +	int buf_num;
+> +	/* constructor called during alocation */
+
+alocation -> allocation
+
+> +	int (*construct)(struct hwbm_pool *bm_pool, void *buf);
+> +	/* protect acces to the buffer counter*/
+
+acces -> access
+Space after "counter"
+
+> +	spinlock_t lock;
+> +	/* private data */
+> +	void *priv;
+> +};
+> +#ifdef CONFIG_HWBM
+> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf);
+> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp);
+> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp);
+> +#else
+> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf) {}
+> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp) { return 0; }
+> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
+> +{ return 0; }
+> +#endif /* CONFIG_HWBM */
+> +#endif /* _HWBM_H */
+> diff --git a/net/Kconfig b/net/Kconfig
+> index 10640d5f8bee..e13449870d06 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -253,6 +253,9 @@ config XPS
+>  	depends on SMP
+>  	default y
+>  
+> +config HWBM
+> +       bool
+> +
+>  config SOCK_CGROUP_DATA
+>  	bool
+>  	default n
+> diff --git a/net/core/Makefile b/net/core/Makefile
+> index 014422e2561f..d6508c2ddca5 100644
+> --- a/net/core/Makefile
+> +++ b/net/core/Makefile
+> @@ -25,4 +25,5 @@ obj-$(CONFIG_CGROUP_NET_PRIO) += netprio_cgroup.o
+>  obj-$(CONFIG_CGROUP_NET_CLASSID) += netclassid_cgroup.o
+>  obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
+>  obj-$(CONFIG_DST_CACHE) += dst_cache.o
+> +obj-$(CONFIG_HWBM) += hwbm.o
+>  obj-$(CONFIG_NET_DEVLINK) += devlink.o
+> diff --git a/net/core/hwbm.c b/net/core/hwbm.c
+> new file mode 100644
+> index 000000000000..941c28486896
+> --- /dev/null
+> +++ b/net/core/hwbm.c
+> @@ -0,0 +1,87 @@
+> +/* Support for hardware buffer manager.
+> + *
+> + * Copyright (C) 2016 Marvell
+> + *
+> + * Gregory CLEMENT <gregory.clement@free-electrons.com>
+> + *
+> + *  This program is free software; you can redistribute it and/or modify
+> + *  it under the terms of the GNU General Public License as published by
+> + *  the Free Software Foundation; either version 2 of the License, or
+> + *  (at your option) any later version.
+> + */
+> +#include <linux/kernel.h>
+> +#include <linux/printk.h>
+> +#include <linux/skbuff.h>
+> +#include <net/hwbm.h>
+> +
+> +void hwbm_buf_free(struct hwbm_pool *bm_pool, void *buf)
+> +{
+> +	if (likely(bm_pool->frag_size <= PAGE_SIZE))
+> +		skb_free_frag(buf);
+> +	else
+> +		kfree(buf);
+> +}
+> +EXPORT_SYMBOL_GPL(hwbm_buf_free);
+> +
+> +/* Refill processing for HW buffer management */
+> +int hwbm_pool_refill(struct hwbm_pool *bm_pool, gfp_t gfp)
+> +{
+> +	int frag_size = bm_pool->frag_size;
+> +	void *buf;
+> +
+> +	if (likely(frag_size <= PAGE_SIZE))
+> +		buf = netdev_alloc_frag(frag_size);
+
+If we know the NAPI-context, there is a performance potential in
+netdev_alloc_frag() vs napi_alloc_frag().
+
+> +	else
+> +		buf = kmalloc(frag_size, gfp);
+> +
+> +	if (!buf)
+> +		return -ENOMEM;
+> +
+> +	if (bm_pool->construct)
+> +		if (bm_pool->construct(bm_pool, buf)) {
+> +			hwbm_buf_free(bm_pool, buf);
+> +			return -ENOMEM;
+> +		}
+
+Why don't we refill more objects? and do so with a bulk of memory
+objects?  The "refill" name just lead me to believe that the function
+might refill several objects...
+
+Maybe that is the role of hwbm_pool_add() ?
+
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(hwbm_pool_refill);
+> +
+> +int hwbm_pool_add(struct hwbm_pool *bm_pool, unsigned int buf_num, gfp_t gfp)
+> +{
+> +	int err, i;
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&bm_pool->lock, flags);
+
+This might be needed, and you take the lock for several objects. But
+the save/restore variant is the most expensive lock we have (at-least
+based on my measurements[1] for Intel).
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
+
+> +	if (bm_pool->buf_num == bm_pool->size) {
+> +		pr_warn("pool already filled\n");
+> +		return bm_pool->buf_num;
+> +	}
+> +
+> +	if (buf_num + bm_pool->buf_num > bm_pool->size) {
+> +		pr_warn("cannot allocate %d buffers for pool\n",
+> +			buf_num);
+> +		return 0;
+> +	}
+> +
+> +	if ((buf_num + bm_pool->buf_num) < bm_pool->buf_num) {
+> +		pr_warn("Adding %d buffers to the %d current buffers will overflow\n",
+> +			buf_num,  bm_pool->buf_num);
+> +		return 0;
+> +	}
+> +
+> +	for (i = 0; i < buf_num; i++) {
+> +		err = hwbm_pool_refill(bm_pool, gfp);
+
+I'm thinking why not use some bulk allocation API here...
+
+> +		if (err < 0)
+> +			break;
+> +	}
+> +
+> +	/* Update BM driver with number of buffers added to pool */
+> +	bm_pool->buf_num += i;
+> +
+> +	pr_debug("hwpm pool: %d of %d buffers added\n", i, buf_num);
+> +	spin_unlock_irqrestore(&bm_pool->lock, flags);
+> +
+> +	return i;
+> +}
+> +EXPORT_SYMBOL_GPL(hwbm_pool_add);
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
