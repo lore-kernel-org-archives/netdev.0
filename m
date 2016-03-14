@@ -1,44 +1,59 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
- sndbuf/rcvbuf size of RDS-TCP socket
-Date: Mon, 14 Mar 2016 14:06:42 -0400
-Message-ID: <20160314180642.GI5084@oracle.com>
-References: <20160311182949.GG3383@oracle.com>
- <20160311110927.5c559421@xeon-e3>
- <20160312024341.GA26486@oracle.com>
- <CALx6S37+Zj-OmApDHzb2hq0jSLsbat4M9Xv6ASzB5VGP9HrQqw@mail.gmail.com>
- <20160312034421.GB26486@oracle.com>
- <CALx6S37gHYMJdz3MzfjKwLHsw0Pmg0SxvQ036sg35AjRackARQ@mail.gmail.com>
- <20160312043952.GC26486@oracle.com>
- <CALx6S37m5s+6h4v1gKiBv2e2p+Ft9Ub4g-YLREWe=A5iuZAseA@mail.gmail.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH v2 4/4] ethtool: support setting default Rx flow
+ indirection table
+Date: Mon, 14 Mar 2016 18:13:05 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB58579F1DE0@ORSMSX115.amr.corp.intel.com>
+References: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
+	 <1455657758.23620.21.camel@intel.com>
+ <1457886300.3331.26.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41720 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755884AbcCNSGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:06:52 -0400
-Content-Disposition: inline
-In-Reply-To: <CALx6S37m5s+6h4v1gKiBv2e2p+Ft9Ub4g-YLREWe=A5iuZAseA@mail.gmail.com>
+Received: from mga03.intel.com ([134.134.136.65]:33593 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932250AbcCNSNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 14:13:34 -0400
+In-Reply-To: <1457886300.3331.26.camel@decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-In any case, to wrap up this thread.
-
-I managed to set this up with sysctl. End result gives me a tunable
-per netns (which modparam would not), and thanks to the RDS reconnect
-infra, can be done dynamically at any time, not just at startup. 
-And it is more compact than a daemon-y solution.
-
-I'll send out the patches later this week after some more cleanup
-and testing. 
-
---Sowmini
-
-However, it would still be nice to know exactly what distribution
-issues come out of modparam.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogU3VuZGF5LCBNYXJjaCAxMywgMjAxNiA5
+OjI1IEFNDQo+IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4N
+Cj4gQ2M6IG5ldGRldiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4NCj4gU3ViamVjdDogUmU6IFtQ
+QVRDSCB2MiA0LzRdIGV0aHRvb2w6IHN1cHBvcnQgc2V0dGluZyBkZWZhdWx0IFJ4IGZsb3cNCj4g
+aW5kaXJlY3Rpb24gdGFibGUNCj4gDQo+IE9uIFR1ZSwgMjAxNi0wMi0xNiBhdCAyMToyMiArMDAw
+MCwgS2VsbGVyLCBKYWNvYiBFIHdyb3RlOg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5OiBKYWNvYiBL
+ZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPg0KPiA+IE5vdCBz
+dXJlIGlmIHRoZXJlIGlzIGEgbWFpbGluZyBsaXN0IGZvciB0aGlzLCBJIHNlbnQgdGhpcyB0byB0
+aGUgbmV0ZGV2DQo+ID4gbGlzdCBidXQgZm9yZ290IHRvIENjIHlvdSBvbiB0aGUgZXRodG9vbCBj
+aGFuZ2UuDQo+IA0KPiBJIGhhdmVuJ3QgYmVlbiBrZWVwaW5nIHVwIHdpdGggbmV0ZGV2IGZvciBh
+IGxvbmcgdGltZSwgYnV0IEkgaGF2ZQ0KPiByZWNlbnRseSBzZXQgdXAgZmlsdGVyaW5nIGJ5IHN1
+YmplY3Qgc28gSSBjYW4ga2VlcCB1cCB3aXRoIGp1c3QgdGhlDQo+IGV0aHRvb2wtcmVsYXRlZCBt
+ZXNzYWdlcy4gwqBTdGlsbCwgcGF0Y2hlcyBmb3IgdGhlIGV0aHRvb2wgY29tbWFuZA0KPiBzaG91
+bGQgYWx3YXlzIGJlIGV4cGxpY2l0bHkgc2VudCB0byBtZS4NCj4gDQo+ID4gRGF2ZSBhcHBsaWVk
+IHRoZQ0KPiA+IG5ldHdvcmsgY29yZSBwYXRjaGVzLCBidXQgdGhleSdyZSBtb3JlIG9yIGxlc3Mg
+dXNlbGVzcyB1bmxlc3Mgd2UNCj4gPiBhY3R1YWxseSBoYXZlIHRoZSBhYmlsaXR5IHRvIHJlcXVl
+c3QgZGVmYXVsdCBzZXR0aW5nIHVzaW5nIGV0aHRvb2wNCj4gPiAod2hpY2ggSSBleHRlbmRlZCB0
+byBzdXBwb3J0ICJkZWZhdWx0IiBoZXJlKQ0KPiANCj4gVGhlIHBhdGNoIHdhcyBtYW5nbGVkICh3
+b3JkLXdyYXBwZWQgYW5kIG1vZGlmaWVkIHdoaXRlLXNwYWNlKSBpbiB0aGlzDQo+IG1lc3NhZ2Us
+IHNvIEkgdG9vayB0aGUgdmVyc2lvbiBpbg0KPiA8aHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dt
+YW5lLmxpbnV4Lm5ldHdvcmsvMzk4NDA0Lz4uDQo+IA0KPiBbLi4uXQ0KPiA+IEBAIC0zMzMyLDcg
+KzMzMzUsNyBAQCBzdGF0aWMgaW50IGRvX3NyeGZoKHN0cnVjdCBjbWRfY29udGV4dCAqY3R4KQ0K
+PiA+IMKgCXUzMiBlbnRyeV9zaXplID0gc2l6ZW9mKHJzc19oZWFkLnJzc19jb25maWdbMF0pOw0K
+PiA+IMKgCXUzMiBudW1fd2VpZ2h0cyA9IDA7DQo+ID4NCj4gPiAtCWlmIChjdHgtPmFyZ2MgPCAy
+KQ0KPiA+ICsJaWYgKGN0eC0+YXJnYyA8IDEpDQo+ID4gwqAJCWV4aXRfYmFkX2FyZ3MoKTsNCj4g
+Wy4uLl0NCj4gDQo+IFRoaXMgbWVhbnMgd2UgbWlnaHQgY29udGludWUgd2l0aG91dCBoYXZpbmcg
+dGhlIHJlcXVpcmVkIHBhcmFtZXRlcg0KPiBhZnRlciAiZXF1YWwiLCAid2VpZ2h0IiBvciAiaGtl
+eSIuIMKgQnV0LCBoYXZpbmcgc2FpZCB0aGF0LCBzaW5jZSB3ZSdyZQ0KPiBvbmx5IGNoZWNraW5n
+IG9uY2UgYmVmb3JlIHJ1bm5pbmcgdGhlIGxvb3AsIHdlJ3JlIGFscmVhZHkgZmFpbGluZyB0bw0K
+PiB2YWxpZGF0ZSB0aGF0IHByb3Blcmx5Lg0KPiANCj4gSSd2ZSBhcHBsaWVkIHRoaXMsIGJ1dCBj
+b3VsZCB5b3UgcGxlYXNlIHNlbmQgYW5vdGhlciBwYXRjaCB0aGF0IGFkZHMNCj4gY2hlY2tzIG9u
+IGN0eC0+YXJnYyB3aXRoaW4gdGhlIGxvb3AgYW5kIHRlc3QgY2FzZXMgaW4gdGVzdC1jbWRsaW5l
+LmM/DQo+IA0KPiBCZW4uDQo+IA0KDQpZZXMuIE5vdCBzdXJlIGhvdyB0aGUgcGF0Y2ggZ290IGJy
+b2tlbiBmb3IgeW91IGhlcmUsIGFzIEkgc2VudCBpdCB1c2luZyBnaXQtc2VuZC1lbWFpbC4gSSB3
+aWxsIHNlbmQgdGhlIHByb3Bvc2VkIGZpeCBhYm92ZS4NCg0KVGhhbmtzLA0KSmFrZQ0KDQo=
