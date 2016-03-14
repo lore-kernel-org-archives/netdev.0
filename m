@@ -1,55 +1,44 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: Re: [PATCH 1/3] net: mediatek: use dma_addr_t correctly
-Date: Mon, 14 Mar 2016 19:01:26 +0100
-Message-ID: <56E6FC76.8010409@openwrt.org>
-References: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net-next] rds-tcp: Add module parameters to control
+ sndbuf/rcvbuf size of RDS-TCP socket
+Date: Mon, 14 Mar 2016 14:06:42 -0400
+Message-ID: <20160314180642.GI5084@oracle.com>
+References: <20160311182949.GG3383@oracle.com>
+ <20160311110927.5c559421@xeon-e3>
+ <20160312024341.GA26486@oracle.com>
+ <CALx6S37+Zj-OmApDHzb2hq0jSLsbat4M9Xv6ASzB5VGP9HrQqw@mail.gmail.com>
+ <20160312034421.GB26486@oracle.com>
+ <CALx6S37gHYMJdz3MzfjKwLHsw0Pmg0SxvQ036sg35AjRackARQ@mail.gmail.com>
+ <20160312043952.GC26486@oracle.com>
+ <CALx6S37m5s+6h4v1gKiBv2e2p+Ft9Ub4g-YLREWe=A5iuZAseA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:41720 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755884AbcCNSGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:06:52 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S37m5s+6h4v1gKiBv2e2p+Ft9Ub4g-YLREWe=A5iuZAseA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+In any case, to wrap up this thread.
 
-On 14/03/2016 15:07, Arnd Bergmann wrote:
-> dma_alloc_coherent() expects a dma_addr_t pointer as its argument,
-> not an 'unsigned int', and gcc correctly warns about broken
-> code in the mtk_init_fq_dma function:
-> 
-> drivers/net/ethernet/mediatek/mtk_eth_soc.c: In function 'mtk_init_fq_dma':
-> drivers/net/ethernet/mediatek/mtk_eth_soc.c:463:13: error: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type [-Werror=incompatible-pointer-types]
-> 
-> This changes the type of the local variable to dma_addr_t.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+I managed to set this up with sysctl. End result gives me a tunable
+per netns (which modparam would not), and thanks to the RDS reconnect
+infra, can be done dynamically at any time, not just at startup. 
+And it is more compact than a daemon-y solution.
 
-thanks for the fixes
+I'll send out the patches later this week after some more cleanup
+and testing. 
 
+--Sowmini
 
-
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index ba3afa5d4640..3e42204adfe5 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -453,7 +453,7 @@ static inline void mtk_rx_get_desc(struct mtk_rx_dma *rxd,
->  /* the qdma core needs scratch memory to be setup */
->  static int mtk_init_fq_dma(struct mtk_eth *eth)
->  {
-> -	unsigned int phy_ring_head, phy_ring_tail;
-> +	dma_addr_t phy_ring_head, phy_ring_tail;
->  	int cnt = MTK_DMA_SIZE;
->  	dma_addr_t dma_addr;
->  	int i;
-> 
+However, it would still be nice to know exactly what distribution
+issues come out of modparam.
