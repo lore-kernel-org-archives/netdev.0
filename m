@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next 08/13] net/mlx5e: Add fragmented memory support
  for RX multi packet WQE
-Date: Mon, 14 Mar 2016 13:26:13 -0700
-Message-ID: <1457987173.31401.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Mon, 14 Mar 2016 13:29:46 -0700
+Message-ID: <1457987386.31401.11.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
 	 <1457703594-9482-9-git-send-email-saeedm@mellanox.com>
 	 <1457706771.2663.37.camel@edumazet-ThinkPad-T530>
@@ -24,30 +24,22 @@ Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
 	Jesper Dangaard Brouer <brouer@redhat.com>
 To: achiad shochat <achiad.mellanox@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33236 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263AbcCNU0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 16:26:16 -0400
-Received: by mail-pa0-f48.google.com with SMTP id fl4so163737496pad.0
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 13:26:16 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34501 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753263AbcCNU3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 16:29:48 -0400
+Received: by mail-pf0-f169.google.com with SMTP id x3so49739392pfb.1
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 13:29:48 -0700 (PDT)
 In-Reply-To: <CAEHy93JgcwKFRK+6ZVXgee77N6h+QbBNoAhE61sd0t6-0dnE1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, 2016-03-14 at 21:16 +0200, achiad shochat wrote:
 
-> Eric, am I missing something here or the new scheme was not clear to
-> you previously?
+> I really do not see why the new scheme is more DOSable than the common
+> scheme of pre-allocating SKB using napi_alloc_skb().
 
-I simply do not want to see drivers using 
+Because sizeof(skb_shared_info) is big enough that if you allocate 128
+bytes, you end up using 512 bytes or even more.
 
-1) SKB_TRUESIZE()
-
-or 
-
-2)
-
-   skb->truesize =  some_expression
-
-
-Drivers should not assume they know better than core networking stack.
+In practice it is good enough.
