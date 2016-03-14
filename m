@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: mediatek: use dma_addr_t correctly
-Date: Mon, 14 Mar 2016 13:06:33 -0400 (EDT)
-Message-ID: <20160314.130633.1932883457156537338.davem@davemloft.net>
-References: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
+Subject: Re: net: gcc-6.0 warning fixes
+Date: Mon, 14 Mar 2016 13:10:48 -0400 (EDT)
+Message-ID: <20160314.131048.1220349879118085878.davem@davemloft.net>
+References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457964435-2945038-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47773 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbcCNRKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 13:10:51 -0400
+In-Reply-To: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 14 Mar 2016 15:07:10 +0100
+Date: Mon, 14 Mar 2016 15:18:33 +0100
 
-> dma_alloc_coherent() expects a dma_addr_t pointer as its argument,
-> not an 'unsigned int', and gcc correctly warns about broken
-> code in the mtk_init_fq_dma function:
+> I've just installed gcc-6.0 to see what kinds of new warnings
+> we get. It turns out that it's actually really useful once I
+> disabled -Wunused-const-variable, and all of the warnings it
+> found in network drivers seem valid.
 > 
-> drivers/net/ethernet/mediatek/mtk_eth_soc.c: In function 'mtk_init_fq_dma':
-> drivers/net/ethernet/mediatek/mtk_eth_soc.c:463:13: error: passing argument 3 of 'dma_alloc_coherent' from incompatible pointer type [-Werror=incompatible-pointer-types]
+> Sorry for the bad timing in the merge window, but I figured
+> it would be better to send the fixes as I found the bugs
+> rather than waiting for the next cycle. The first three
+> look appropriate for stable backports.
 > 
-> This changes the type of the local variable to dma_addr_t.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> The other two only fix a gcc warning about incorrect whitespace,
+> probably not worth backporting those.
 
-Applied.
+Series applied, and patches 1, 2, and 3 queued up for -stable.
+
+Thanks.
