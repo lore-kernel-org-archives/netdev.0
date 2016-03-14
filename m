@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [PATCH 5/5] ethtool: support per queue sub command --coalesce
-Date: Mon, 14 Mar 2016 02:30:07 -0700
-Message-ID: <1457947807-4804-5-git-send-email-kan.liang@intel.com>
+Subject: [PATCH 3/5] ethtool: introduce new ioctl for per queue setting
+Date: Mon, 14 Mar 2016 02:30:05 -0700
+Message-ID: <1457947807-4804-3-git-send-email-kan.liang@intel.com>
 References: <1457947807-4804-1-git-send-email-kan.liang@intel.com>
 Cc: davem@davemloft.net, nicolas.dichtel@6wind.com,
 	ben@decadent.org.uk, jesse.brandeburg@intel.com,
@@ -11,153 +11,191 @@ To: bwh@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:62658 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753161AbcCNQ5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 12:57:05 -0400
+	id S1752177AbcCNQ47 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 12:56:59 -0400
 In-Reply-To: <1457947807-4804-1-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-This patch uses a similar way as do_scoalesce to set coalesce per queue.
-It reads the current settings, change them, and write them back to the
-kernel for each masked queue.
+Introduce a new ioctl for per queue parameters setting.
+Users can apply commands to specific queues by setting SUB_COMMAND and
+queue_mask as following command.
 
-Example:
+ ethtool --set-perqueue-command DEVNAME [queue_mask %x] SUB_COMMAND
 
- $ sudo ./ethtool --set-perqueue-command eth5 queue_mask 0x1 --coalesce
- rx-usecs 10 tx-usecs 5
- $ sudo ./ethtool --set-perqueue-command eth5 queue_mask 0x1
- --show-coalesce
+If queue_mask is not set, the SUB_COMMAND will be applied to all queues.
 
- Queue: 0
- Adaptive RX: on  TX: on
- stats-block-usecs: 0
- sample-interval: 0
- pkt-rate-low: 0
- pkt-rate-high: 0
-
- rx-usecs: 10
- rx-frames: 0
- rx-usecs-irq: 0
- rx-frames-irq: 256
-
- tx-usecs: 5
- tx-frames: 0
- tx-usecs-irq: 0
- tx-frames-irq: 256
-
- rx-usecs-low: 0
- rx-frame-low: 0
- tx-usecs-low: 0
- tx-frame-low: 0
-
- rx-usecs-high: 0
- rx-frame-high: 0
- tx-usecs-high: 0
- tx-frame-high: 0
+The following patches will enable SUB_COMMANDs for per queue setting.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- ethtool.8.in |  2 +-
- ethtool.c    | 58 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 58 insertions(+), 2 deletions(-)
+ ethtool.8.in |  19 ++++++++++++
+ ethtool.c    | 100 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 119 insertions(+)
 
 diff --git a/ethtool.8.in b/ethtool.8.in
-index 210ec8c..0e42180 100644
+index 009711d..26d01cb 100644
 --- a/ethtool.8.in
 +++ b/ethtool.8.in
-@@ -937,7 +937,7 @@ Sets the specific queues which the sub command is applied to.
- If queue_mask is not set, the sub command will be applied to all queues.
- .TP
- .B sub_command
--Sets the sub command. The supported sub commands include --show-coalesce.
-+Sets the sub command. The supported sub commands include --show-coalesce and --coalesce.
+@@ -339,6 +339,13 @@ ethtool \- query or control network driver and hardware settings
+ .B2 tx-lpi on off
+ .BN tx-timer
+ .BN advertise
++.HP
++.B ethtool \-\-set\-perqueue\-command
++.I devname
++.RB [ queue_mask
++.IR %x ]
++.I sub_command
++.RB ...
+ .
+ .\" Adjust lines (i.e. full justification) and hyphenate.
+ .ad
+@@ -920,6 +927,18 @@ Values are as for
+ Sets the amount of time the device should stay in idle mode prior to asserting
+ its Tx LPI (in microseconds). This has meaning only when Tx LPI is enabled.
  .RE
++.TP
++.B \-\-set\-perqueue\-command
++Sets sub command to specific queues.
++.RS 4
++.TP
++.B queue_mask %x
++Sets the specific queues which the sub command is applied to.
++If queue_mask is not set, the sub command will be applied to all queues.
++.TP
++.B sub_command
++Sets the sub command.
++.RE
  .SH BUGS
  Not supported (in part or whole) on all network drivers.
+ .SH AUTHOR
 diff --git a/ethtool.c b/ethtool.c
-index a966bf8..55ba26c 100644
+index 86724a2..ba741f0 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -4222,7 +4222,7 @@ static const struct option {
- 	  "		[ tx-lpi on|off ]\n"
- 	  "		[ tx-timer %d ]\n"},
- 	{ "--set-perqueue-command", 1, do_perqueue, "Set per queue command. "
--	  "The supported sub commands include --show-coalesce",
-+	  "The supported sub commands include --show-coalesce, --coalesce",
- 	  "		[queue_mask %x] SUB_COMMAND\n"},
- 	{ "-h|--help", 0, show_usage, "Show this help" },
- 	{ "--version", 0, do_version, "Show version number" },
-@@ -4348,6 +4348,52 @@ get_per_queue_coalesce(struct cmd_context *ctx,
- 	return per_queue_opt;
+@@ -4037,6 +4037,8 @@ static int do_seee(struct cmd_context *ctx)
+ 	return 0;
  }
  
-+static void __set_per_queue_coalesce(int queue)
++static int do_perqueue(struct cmd_context *ctx);
++
+ #ifndef TEST_ETHTOOL
+ int send_ioctl(struct cmd_context *ctx, void *cmd)
+ {
+@@ -4196,6 +4198,8 @@ static const struct option {
+ 	  "		[ advertise %x ]\n"
+ 	  "		[ tx-lpi on|off ]\n"
+ 	  "		[ tx-timer %d ]\n"},
++	{ "--set-perqueue-command", 1, do_perqueue, "Set per queue command",
++	  "		[queue_mask %x] SUB_COMMAND\n"},
+ 	{ "-h|--help", 0, show_usage, "Show this help" },
+ 	{ "--version", 0, do_version, "Show version number" },
+ 	{}
+@@ -4247,6 +4251,102 @@ static int find_option(int argc, char **argp)
+ 	return -1;
+ }
+ 
++static int set_queue_mask(u32 *queue_mask, char *str)
 +{
-+	int changed = 0;
++	int len = strlen(str);
++	int index = __KERNEL_DIV_ROUND_UP(len * 4, 32);
++	char tmp[9];
++	char *end = str + len;
++	int i, num;
++	__u32 mask;
++	int n_queues = 0;
 +
-+	do_generic_set(cmdline_coalesce, ARRAY_SIZE(cmdline_coalesce),
-+		       &changed);
++	if (len > MAX_NUM_QUEUE)
++		return -EINVAL;
 +
-+	if (!changed)
-+		fprintf(stderr, "Queue %d, no coalesce parameters changed\n", queue);
-+}
++	for (i = 0; i < index; i++) {
++		num = end - str;
 +
-+static void set_per_queue_coalesce(struct cmd_context *ctx,
-+				   struct ethtool_per_queue_op *per_queue_opt)
-+{
-+	__u32 *queue_mask = per_queue_opt->queue_mask;
-+	char *addr = (char *)per_queue_opt + sizeof(*per_queue_opt);
-+	int gcoalesce_changed = 0;
-+	int i;
++		if (num >= 8) {
++			end -= 8;
++			num = 8;
++		} else {
++			end = str;
++		}
++		strncpy(tmp, end, num);
++		tmp[num] = '\0';
 +
-+	parse_generic_cmdline(ctx, &gcoalesce_changed,
-+			      cmdline_coalesce, ARRAY_SIZE(cmdline_coalesce));
++		queue_mask[i] = strtoul(tmp, NULL, 16);
 +
-+	for (i = 0; i < __KERNEL_DIV_ROUND_UP(MAX_NUM_QUEUE, 32); i++) {
-+		int queue = i * 32;
-+		__u32 mask = queue_mask[i];
-+
++		mask = queue_mask[i];
 +		while (mask > 0) {
-+			if (mask & 0x1) {
-+				memcpy(&s_ecoal, addr, sizeof(struct ethtool_coalesce));
-+				__set_per_queue_coalesce(queue);
-+				memcpy(addr, &s_ecoal, sizeof(struct ethtool_coalesce));
-+				addr += sizeof(struct ethtool_coalesce);
-+			}
++			if (mask & 0x1)
++				n_queues++;
 +			mask = mask >> 1;
-+			queue++;
 +		}
 +	}
 +
-+	per_queue_opt->cmd = ETHTOOL_PERQUEUE;
-+	per_queue_opt->sub_command = ETHTOOL_SCOALESCE;
-+
-+	if (send_ioctl(ctx, per_queue_opt))
-+		perror("Cannot set device per queue parameters");
-+
++	return n_queues;
 +}
 +
- static int do_perqueue(struct cmd_context *ctx)
- {
- 	struct ethtool_per_queue_op *per_queue_opt;
-@@ -4397,6 +4443,16 @@ static int do_perqueue(struct cmd_context *ctx)
- 		}
- 		dump_per_queue_coalesce(per_queue_opt, queue_mask);
- 		free(per_queue_opt);
-+	} else if (strstr(args[i].opts, "--coalesce") != NULL) {
-+		ctx->argc--;
-+		ctx->argp++;
-+		per_queue_opt = get_per_queue_coalesce(ctx, queue_mask, n_queues);
-+		if (per_queue_opt == NULL) {
-+			perror("Cannot get device per queue parameters");
++#define MAX(x, y) (x > y ? x : y)
++
++static int find_max_num_queues(struct cmd_context *ctx)
++{
++	struct ethtool_channels echannels;
++
++	echannels.cmd = ETHTOOL_GCHANNELS;
++	if (send_ioctl(ctx, &echannels))
++		return -1;
++
++	return MAX(MAX(echannels.rx_count, echannels.tx_count), echannels.combined_count);
++}
++
++static int do_perqueue(struct cmd_context *ctx)
++{
++	__u32 queue_mask[__KERNEL_DIV_ROUND_UP(MAX_NUM_QUEUE, 32)] = {0};
++	int i, n_queues = 0;
++
++	if (ctx->argc == 0)
++		exit_bad_args();
++
++	/*
++	 * The sub commands will be applied to
++	 * all queues if no queue_mask set
++	 */
++	if (strncmp(*ctx->argp, "queue_mask", 10)) {
++		n_queues = find_max_num_queues(ctx);
++		if (n_queues < 0) {
++			perror("Cannot get number of queues");
 +			return -EFAULT;
 +		}
-+		set_per_queue_coalesce(ctx, per_queue_opt);
-+		free(per_queue_opt);
- 	} else {
- 		perror("The subcommand is not supported yet");
- 		return -EOPNOTSUPP;
++		for (i = 0; i < n_queues / 32; i++)
++			queue_mask[i] = ~0;
++		queue_mask[i] = (1 << (n_queues - i * 32)) - 1;
++		fprintf(stdout, "The sub commands will be applied"
++				" to all %d queues\n", n_queues);
++	} else {
++		ctx->argc--;
++		ctx->argp++;
++		n_queues = set_queue_mask(queue_mask, *ctx->argp);
++		if (n_queues < 0) {
++			perror("Invalid queue mask");
++			return n_queues;
++		}
++		ctx->argc--;
++		ctx->argp++;
++
++	}
++
++	i = find_option(ctx->argc, ctx->argp);
++	if (i < 0)
++		exit_bad_args();
++
++	/* no sub_command support yet */
++
++	return 0;
++}
++
+ int main(int argc, char **argp)
+ {
+ 	int (*func)(struct cmd_context *);
 -- 
 2.5.0
