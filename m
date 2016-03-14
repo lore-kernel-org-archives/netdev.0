@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] at803x: fix suspend/resume for SGMII link
-Date: Sun, 13 Mar 2016 22:37:22 -0400 (EDT)
-Message-ID: <20160313.223722.1488476549568744497.davem@davemloft.net>
-References: <1457706713-13779-1-git-send-email-zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH net-next v2 0/3] MACsec IEEE 802.1AE implementation
+Date: Sun, 13 Mar 2016 22:41:25 -0400 (EDT)
+Message-ID: <20160313.224125.1212706098465112754.davem@davemloft.net>
+References: <cover.1457714618.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	chunkeey@googlemail.com
-To: zefir.kurtisi@neratec.com
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net,
+	hannes@stressinduktion.org, fw@strlen.de, pabeni@redhat.com,
+	stephen@networkplumber.org
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40632 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40658 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932138AbcCNChY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:37:24 -0400
-In-Reply-To: <1457706713-13779-1-git-send-email-zefir.kurtisi@neratec.com>
+	with ESMTP id S1754254AbcCNCl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:41:28 -0400
+In-Reply-To: <cover.1457714618.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Date: Fri, 11 Mar 2016 15:31:53 +0100
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri, 11 Mar 2016 18:07:30 +0100
 
-> When operating the at803x in SGMII mode, resuming the chip
-> from power down brings up the copper-side link but leaves
-> the SGMII link in unconnected state (tested with at8031
-> attached to gianfar). In effect, this caused a permanent
-> link loss once the related interface was put down.
-> 
-> This patch ensures that power down handling in supspend()
-> and resume() is also applied to the SGMII link.
-> 
-> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+> MACsec (IEEE 802.1AE [0]) is a protocol that provides security for
+> wired ethernet LANs.  MACsec offers two protection modes:
+> authentication only, or authenticated encryption.
+ ...
+> Implementation
+ ...
+> Netlink API
+ ...
+> Use cases
+ ...
 
-Applied, thanks.
+Probably one of the best cover letters for a new feature written in
+quite a while, nice work.
+
+Series applied, thanks!
