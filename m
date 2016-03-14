@@ -1,69 +1,139 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH v2 0/3] net/phy: Improvements to Cavium Thunder MDIO code.
-Date: Mon, 14 Mar 2016 13:12:53 -0700
-Message-ID: <56E71B45.1010805@caviumnetworks.com>
-References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com> <20160314.152751.2108458769066613871.davem@davemloft.net>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net v2] ppp: ensure file->private_data can't be overridden
+Date: Mon, 14 Mar 2016 21:17:16 +0100
+Message-ID: <7866074a3c03ea15640aa72ef2553987862bc8b6.1457986520.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <f.fainelli@gmail.com>,
-	<rric@kernel.org>, <sgoutham@cavium.com>, <galak@codeaurora.org>,
-	<ijc+devicetree@hellion.org.uk>, <mark.rutland@arm.com>,
-	<pawel.moll@arm.com>, <robh+dt@kernel.org>,
-	<linux-kernel@vger.kernel.org>, <rchintakuntla@cavium.com>,
-	<david.daney@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160314.152751.2108458769066613871.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>, Alan Cox <alan@linux.intel.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:37927 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932171AbcCNURV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 16:17:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/14/2016 12:27 PM, David Miller wrote:
-> From: David Daney <ddaney.cavm@gmail.com>
-> Date: Fri, 11 Mar 2016 09:53:08 -0800
->
->> Changes from v1:
->>
->>   - In 1/3 Add back check for non-OF objects in bgx_init_of_phy().  It
->>     is probably not necessary, but better safe than sorry...
->>
->> The firmware on many Cavium Thunder systems configures the MDIO bus
->> hardware to be probed as a PCI device.  In order to use the MDIO bus
->> drivers in this configuration, we must add PCI probing to the driver.
->>
->> There are two parts to this set of three patches:
->>
->>   1) Cleanup the PHY probing code in thunder_bgx.c to handle the case
->>      where there is no PHY attached to a port, as well as being more
->>      robust in the face of driver loading order by use of
->>      -EPROBE_DEFER.
->>
->>   2) Split mdio-octeon.c into two drivers, one with platform probing,
->>   and the other with PCI probing.  Common code is shared between the
->>   two.
->>
->> Tested on several different Thunder and OCTEON systems, also compile
->> tested on x86_64.
->
-> Series applied, thanks David.
+Locking ppp_mutex must be done before dereferencing file->private_data,
+otherwise it could be modified before ppp_unattached_ioctl() takes the
+lock. This could lead ppp_unattached_ioctl() to override ->private_data,
+thus leaking reference to the ppp_file previously pointed to.
 
+v2: lock all ppp_ioctl() instead of just checking private_data in
+    ppp_unattached_ioctl(), to avoid ambiguous behaviour.
 
-Thanks, but ... I was going to send another revision.
+Fixes: f3ff8a4d80e8 ("ppp: push BKL down into the driver")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ drivers/net/ppp/ppp_generic.c | 31 +++++++++++++++++--------------
+ 1 file changed, 17 insertions(+), 14 deletions(-)
 
-See: https://lkml.org/lkml/2016/3/11/721
-
-There were a couple of items I wanted to fix.
-
-   1) Missing MODULE_LICENSE() in new common code source file results in 
-taint warnings.
-
-   2) Fix device reference counts for -EPROBE_DEFER case.
-
-
-At this point, I think the best path forward is for me to rebase against 
-net-next and send you a small fixup set to what was merged.
-
-What do you think?
-
-David Daney
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index d61da9ec..8c8eedb 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -575,7 +575,7 @@ static int get_filter(void __user *arg, struct sock_filter **p)
+ 
+ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ {
+-	struct ppp_file *pf = file->private_data;
++	struct ppp_file *pf;
+ 	struct ppp *ppp;
+ 	int err = -EFAULT, val, val2, i;
+ 	struct ppp_idle idle;
+@@ -585,9 +585,14 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	void __user *argp = (void __user *)arg;
+ 	int __user *p = argp;
+ 
+-	if (!pf)
+-		return ppp_unattached_ioctl(current->nsproxy->net_ns,
+-					pf, file, cmd, arg);
++	mutex_lock(&ppp_mutex);
++
++	pf = file->private_data;
++	if (!pf) {
++		err = ppp_unattached_ioctl(current->nsproxy->net_ns,
++					   pf, file, cmd, arg);
++		goto out;
++	}
+ 
+ 	if (cmd == PPPIOCDETACH) {
+ 		/*
+@@ -602,7 +607,6 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 		 * this fd and reopening /dev/ppp.
+ 		 */
+ 		err = -EINVAL;
+-		mutex_lock(&ppp_mutex);
+ 		if (pf->kind == INTERFACE) {
+ 			ppp = PF_TO_PPP(pf);
+ 			rtnl_lock();
+@@ -616,15 +620,13 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 		} else
+ 			pr_warn("PPPIOCDETACH file->f_count=%ld\n",
+ 				atomic_long_read(&file->f_count));
+-		mutex_unlock(&ppp_mutex);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	if (pf->kind == CHANNEL) {
+ 		struct channel *pch;
+ 		struct ppp_channel *chan;
+ 
+-		mutex_lock(&ppp_mutex);
+ 		pch = PF_TO_CHANNEL(pf);
+ 
+ 		switch (cmd) {
+@@ -646,17 +648,16 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 				err = chan->ops->ioctl(chan, cmd, arg);
+ 			up_read(&pch->chan_sem);
+ 		}
+-		mutex_unlock(&ppp_mutex);
+-		return err;
++		goto out;
+ 	}
+ 
+ 	if (pf->kind != INTERFACE) {
+ 		/* can't happen */
+ 		pr_err("PPP: not interface or channel??\n");
+-		return -EINVAL;
++		err = -EINVAL;
++		goto out;
+ 	}
+ 
+-	mutex_lock(&ppp_mutex);
+ 	ppp = PF_TO_PPP(pf);
+ 	switch (cmd) {
+ 	case PPPIOCSMRU:
+@@ -831,7 +832,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	default:
+ 		err = -ENOTTY;
+ 	}
++
++out:
+ 	mutex_unlock(&ppp_mutex);
++
+ 	return err;
+ }
+ 
+@@ -844,7 +848,6 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 	struct ppp_net *pn;
+ 	int __user *p = (int __user *)arg;
+ 
+-	mutex_lock(&ppp_mutex);
+ 	switch (cmd) {
+ 	case PPPIOCNEWUNIT:
+ 		/* Create a new ppp unit */
+@@ -894,7 +897,7 @@ static int ppp_unattached_ioctl(struct net *net, struct ppp_file *pf,
+ 	default:
+ 		err = -ENOTTY;
+ 	}
+-	mutex_unlock(&ppp_mutex);
++
+ 	return err;
+ }
+ 
+-- 
+2.7.0
