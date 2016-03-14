@@ -1,59 +1,72 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH v2 4/4] ethtool: support setting default Rx flow
- indirection table
-Date: Mon, 14 Mar 2016 18:13:05 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB58579F1DE0@ORSMSX115.amr.corp.intel.com>
-References: <1454976306-23523-1-git-send-email-jacob.e.keller@intel.com>
-	 <1455657758.23620.21.camel@intel.com>
- <1457886300.3331.26.camel@decadent.org.uk>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH next v2 0/7] Introduce l3_dev pointer for L3 processing
+Date: Mon, 14 Mar 2016 11:13:35 -0700
+Message-ID: <CAM_iQpXkXub85d=oLRnLVQCfeDsyDBfmUW0xAke45o83nA5fZg@mail.gmail.com>
+References: <1457560189-12870-1-git-send-email-mahesh@bandewar.net>
+	<56E14296.5010103@6wind.com>
+	<CAM_iQpUFB4TO=nByzT-8ZESKL8ecLJKYRdCcYRPWBqQ10_Dtnw@mail.gmail.com>
+	<CAF2d9jhv3-GNqy3jWfPPUBgnFuOwpmMtrKSkm+9SVK7tPhEQeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Mahesh Bandewar <mahesh@bandewar.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:33593 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932250AbcCNSNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 14:13:34 -0400
-In-Reply-To: <1457886300.3331.26.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:33067 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932356AbcCNSNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:13:36 -0400
+Received: by mail-yw0-f173.google.com with SMTP id d65so178153172ywb.0
+        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 11:13:35 -0700 (PDT)
+In-Reply-To: <CAF2d9jhv3-GNqy3jWfPPUBgnFuOwpmMtrKSkm+9SVK7tPhEQeA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86YmVuQGRlY2FkZW50Lm9yZy51a10NCj4gU2VudDogU3VuZGF5LCBNYXJjaCAxMywgMjAxNiA5
-OjI1IEFNDQo+IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4N
-Cj4gQ2M6IG5ldGRldiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz4NCj4gU3ViamVjdDogUmU6IFtQ
-QVRDSCB2MiA0LzRdIGV0aHRvb2w6IHN1cHBvcnQgc2V0dGluZyBkZWZhdWx0IFJ4IGZsb3cNCj4g
-aW5kaXJlY3Rpb24gdGFibGUNCj4gDQo+IE9uIFR1ZSwgMjAxNi0wMi0xNiBhdCAyMToyMiArMDAw
-MCwgS2VsbGVyLCBKYWNvYiBFIHdyb3RlOg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5OiBKYWNvYiBL
-ZWxsZXIgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPg0KPiA+IE5vdCBz
-dXJlIGlmIHRoZXJlIGlzIGEgbWFpbGluZyBsaXN0IGZvciB0aGlzLCBJIHNlbnQgdGhpcyB0byB0
-aGUgbmV0ZGV2DQo+ID4gbGlzdCBidXQgZm9yZ290IHRvIENjIHlvdSBvbiB0aGUgZXRodG9vbCBj
-aGFuZ2UuDQo+IA0KPiBJIGhhdmVuJ3QgYmVlbiBrZWVwaW5nIHVwIHdpdGggbmV0ZGV2IGZvciBh
-IGxvbmcgdGltZSwgYnV0IEkgaGF2ZQ0KPiByZWNlbnRseSBzZXQgdXAgZmlsdGVyaW5nIGJ5IHN1
-YmplY3Qgc28gSSBjYW4ga2VlcCB1cCB3aXRoIGp1c3QgdGhlDQo+IGV0aHRvb2wtcmVsYXRlZCBt
-ZXNzYWdlcy4gwqBTdGlsbCwgcGF0Y2hlcyBmb3IgdGhlIGV0aHRvb2wgY29tbWFuZA0KPiBzaG91
-bGQgYWx3YXlzIGJlIGV4cGxpY2l0bHkgc2VudCB0byBtZS4NCj4gDQo+ID4gRGF2ZSBhcHBsaWVk
-IHRoZQ0KPiA+IG5ldHdvcmsgY29yZSBwYXRjaGVzLCBidXQgdGhleSdyZSBtb3JlIG9yIGxlc3Mg
-dXNlbGVzcyB1bmxlc3Mgd2UNCj4gPiBhY3R1YWxseSBoYXZlIHRoZSBhYmlsaXR5IHRvIHJlcXVl
-c3QgZGVmYXVsdCBzZXR0aW5nIHVzaW5nIGV0aHRvb2wNCj4gPiAod2hpY2ggSSBleHRlbmRlZCB0
-byBzdXBwb3J0ICJkZWZhdWx0IiBoZXJlKQ0KPiANCj4gVGhlIHBhdGNoIHdhcyBtYW5nbGVkICh3
-b3JkLXdyYXBwZWQgYW5kIG1vZGlmaWVkIHdoaXRlLXNwYWNlKSBpbiB0aGlzDQo+IG1lc3NhZ2Us
-IHNvIEkgdG9vayB0aGUgdmVyc2lvbiBpbg0KPiA8aHR0cDovL2FydGljbGUuZ21hbmUub3JnL2dt
-YW5lLmxpbnV4Lm5ldHdvcmsvMzk4NDA0Lz4uDQo+IA0KPiBbLi4uXQ0KPiA+IEBAIC0zMzMyLDcg
-KzMzMzUsNyBAQCBzdGF0aWMgaW50IGRvX3NyeGZoKHN0cnVjdCBjbWRfY29udGV4dCAqY3R4KQ0K
-PiA+IMKgCXUzMiBlbnRyeV9zaXplID0gc2l6ZW9mKHJzc19oZWFkLnJzc19jb25maWdbMF0pOw0K
-PiA+IMKgCXUzMiBudW1fd2VpZ2h0cyA9IDA7DQo+ID4NCj4gPiAtCWlmIChjdHgtPmFyZ2MgPCAy
-KQ0KPiA+ICsJaWYgKGN0eC0+YXJnYyA8IDEpDQo+ID4gwqAJCWV4aXRfYmFkX2FyZ3MoKTsNCj4g
-Wy4uLl0NCj4gDQo+IFRoaXMgbWVhbnMgd2UgbWlnaHQgY29udGludWUgd2l0aG91dCBoYXZpbmcg
-dGhlIHJlcXVpcmVkIHBhcmFtZXRlcg0KPiBhZnRlciAiZXF1YWwiLCAid2VpZ2h0IiBvciAiaGtl
-eSIuIMKgQnV0LCBoYXZpbmcgc2FpZCB0aGF0LCBzaW5jZSB3ZSdyZQ0KPiBvbmx5IGNoZWNraW5n
-IG9uY2UgYmVmb3JlIHJ1bm5pbmcgdGhlIGxvb3AsIHdlJ3JlIGFscmVhZHkgZmFpbGluZyB0bw0K
-PiB2YWxpZGF0ZSB0aGF0IHByb3Blcmx5Lg0KPiANCj4gSSd2ZSBhcHBsaWVkIHRoaXMsIGJ1dCBj
-b3VsZCB5b3UgcGxlYXNlIHNlbmQgYW5vdGhlciBwYXRjaCB0aGF0IGFkZHMNCj4gY2hlY2tzIG9u
-IGN0eC0+YXJnYyB3aXRoaW4gdGhlIGxvb3AgYW5kIHRlc3QgY2FzZXMgaW4gdGVzdC1jbWRsaW5l
-LmM/DQo+IA0KPiBCZW4uDQo+IA0KDQpZZXMuIE5vdCBzdXJlIGhvdyB0aGUgcGF0Y2ggZ290IGJy
-b2tlbiBmb3IgeW91IGhlcmUsIGFzIEkgc2VudCBpdCB1c2luZyBnaXQtc2VuZC1lbWFpbC4gSSB3
-aWxsIHNlbmQgdGhlIHByb3Bvc2VkIGZpeCBhYm92ZS4NCg0KVGhhbmtzLA0KSmFrZQ0KDQo=
+On Sun, Mar 13, 2016 at 5:01 PM, Mahesh Bandewar <maheshb@google.com> wrote:
+>>> If I understand correctly (and as Cong already said), information are
+>>> leaking
+>>> between netns during the input phase. On the tx side, skb_scrub_packet() is
+>>> called, but not on the rx side. I think it's wrong. There should be an
+>>> explicit
+>>> boundary.
+>>
+>> That is not what I am complaining about.
+>>
+>> I dislike the trick of switching skb->dev pointer with skb->dev->l3_dev.
+>> This is not how we switch netns, nor the way how netns works.
+>>
+> How it is different from what we are doing currently?
+>
+> Current: Use skb->dev for L3 processing and derive netns from skb->dev
+> Proposal: use skb->dev->l3_dev for L3 processing and derive netns from
+> skb->dev->l3_dev
+
+
+If you ever read the part you quote below, you will have the answer.
+
+
+>
+>> Look at veth pair or dev_change_net_namespace(), each time when we
+>> switch netns, we need to do a full reregistration or a full reentrance, we
+>> never just switch some pointers to switch netns. This is why I said it breaks
+>> isolation.
+
+^ You miss this part.
+
+
+>>
+>> Also, it is ugly to hide such a ipvlan-specific pointer for half of the RX code
+>> path.
+> I think I have already mentioned, I'm adding RX code now and later
+> I'll add TX code to use
+> l3_dev to make it symmetric. This way all L3 (Tx/Rx) will use this
+> device reference
+> always.
+
+You are trying to convince me by telling me you will add more ugly code??
+Seriously??
