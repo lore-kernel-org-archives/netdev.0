@@ -1,57 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] tcp: Add RFC4898
- tcpEStatsPerfDataSegsOut/In
-Date: Sun, 13 Mar 2016 22:21:17 -0400 (EDT)
-Message-ID: <20160313.222117.887937108081250108.davem@davemloft.net>
-References: <1457635582-2979568-1-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH] sctp: allow sctp_transmit_packet and others to use gfp
+Date: Sun, 13 Mar 2016 22:29:21 -0400 (EDT)
+Message-ID: <20160313.222921.1815217477750936019.davem@davemloft.net>
+References: <90a118e4ca996adb067290a6c45fca6564a77423.1457644344.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, rapier@psc.edu,
-	edumazet@google.com, mleitner@redhat.com, ncardwell@google.com,
-	ycheng@google.com
-To: kafai@fb.com
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40498 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40564 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754400AbcCNCVW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:21:22 -0400
-In-Reply-To: <1457635582-2979568-1-git-send-email-kafai@fb.com>
+	with ESMTP id S1754254AbcCNC3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:29:25 -0400
+In-Reply-To: <90a118e4ca996adb067290a6c45fca6564a77423.1457644344.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Thu, 10 Mar 2016 10:46:22 -0800
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Thu, 10 Mar 2016 18:33:07 -0300
 
-> Per RFC4898, they count segments sent/received
-> containing a positive length data segment (that includes
-> retransmission segments carrying data).  Unlike
-> tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
-> carrying no data (e.g. pure ack).
+> Currently sctp_sendmsg() triggers some calls that will allocate memory
+> with GFP_ATOMIC even when not necessary. In the case of
+> sctp_packet_transmit it will allocate a linear skb that will be used to
+> construct the packet and this may cause sends to fail due to ENOMEM more
+> often than anticipated specially with big MTUs.
 > 
-> The patch also updates the segs_in in tcp_fastopen_add_skb()
-> so that segs_in >= data_segs_in property is kept.
+> This patch thus allows it to inherit gfp flags from upper calls so that
+> it can use GFP_KERNEL if it was triggered by a sctp_sendmsg call or
+> similar. All others, like retransmits or flushes started from BH, are
+> still allocated using GFP_ATOMIC.
 > 
-> Together with retransmission data, tcpi_data_segs_out
-> gives a better signal on the rxmit rate.
+> In netperf tests this didn't result in any performance drawbacks when
+> memory is not too fragmented and made it trigger ENOMEM way less often.
 > 
-> v5: Eric pointed out that checking skb->len is still needed in
-> tcp_fastopen_add_skb() because skb can carry a FIN without data.
-> Hence, instead of open coding segs_in and data_segs_in, tcp_segs_in()
-> helper is used.  Comment is added to the fastopen case to explain why
-> segs_in has to be reset and tcp_segs_in() has to be called before
-> __skb_pull().
-> 
-> v4: Add comment to the changes in tcp_fastopen_add_skb()
-> and also add remark on this case in the commit message.
-> 
-> v3: Add const modifier to the skb parameter in tcp_segs_in()
-> 
-> v2: Rework based on recent fix by Eric:
-> commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-This doesn't apply cleanly to net-next, please respin.
-
-Thanks.
+Applied, thanks.
