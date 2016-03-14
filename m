@@ -1,382 +1,76 @@
-From: Elad Raz <eladr@mellanox.com>
-Subject: RE: [PATCH net-next 1/2] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Mon, 14 Mar 2016 15:11:29 +0000
-Message-ID: <DB5PR05MB1029A3A82E19D675570A36ACDB880@DB5PR05MB1029.eurprd05.prod.outlook.com>
-References: <1457834186-45727-2-git-send-email-roopa@cumulusnetworks.com>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: Backport patch from 4.2 to 3.18
+Date: Mon, 14 Mar 2016 12:44:09 -0400
+Message-ID: <56E6EA59.5020302@oracle.com>
+References: <56D9F2C3.3030204@telecom.by> <56D9FD6A.4060107@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Andrei Sharaev <aosharaev@telecom.by>,
+	stable <stable@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0057.outbound.protection.outlook.com ([157.56.112.57]:27232
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752516AbcCNQnx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 12:43:53 -0400
-In-Reply-To: <1457834186-45727-2-git-send-email-roopa@cumulusnetworks.com>
-Content-Language: en-US
+Received: from userp1040.oracle.com ([156.151.31.81]:51431 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298AbcCNQoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 12:44:32 -0400
+In-Reply-To: <56D9FD6A.4060107@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 03/04/2016 04:26 PM, Sasha Levin wrote:
+> On 03/04/2016 03:40 PM, Andrei Sharaev wrote:
+>> > Hi Sasha,
+>> > 
+>> > Can you backport this patch for "inet-frag-fixes" to linux kernel 3.18 LTS?
+>> > http://kernel.suse.com/cgit/kernel/commit/?h=v4.2-rc5&id=64b892ad2326348a5b8314167590d240e3bcc69e
+>> > 
+>> > I get 1-5 kernel panics in month for linux kernels 3.18.24-3.18.26 at my NAT server with big IPv4 traffic (10-15 Gbps).
+>> > My kernel panics have similar symptoms:
+>>> >> <82>general protection fault: 0000 [#1] SMP
+>>> >> <82>Modules linked in: bonding ipt_NETFLOW(O) xt_recent configfs x86_pkg_temp_thermal ixgbe(O)
+>>> >> <86>CPU: 13 PID: 29908 Comm: kworker/13:2 Tainted: G          IO   3.18.26 #1
+>>> >> <86>Hardware name: Intel Corporation S2600WT2/S2600WT2, BIOS SE5C610.86B.01.01.0005.101720141054 10/17/2014
+>>> >> <82>Workqueue: events inet_frag_worker
+>>> >> <86>task: ffff88046cdba9a0 ti: ffff880454928000 task.ti: ffff880454928000
+>>> >> <82>RIP: 0010:[<ffffffff815b91d9>]  [<ffffffff815b91d9>] inet_evict_bucket+0x109/0x160
+>>> >> <86>RSP: 0018:ffff88045492bd38  EFLAGS: 00010286
+>>> >> <86>RAX: ffff880441d0e001 RBX: dead0000001000c0 RCX: 000000018030002e
+>>> >> <86>RDX: 000000018030002f RSI: ffff880441d0e000 RDI: dead0000001000c0
+>>> >> <86>RBP: ffff88045492bd88 R08: 0000000000000000 R09: ffff88086cc88500
+>>> >> <86>R10: ffff88046fdb5c50 R11: ffffea0011074380 R12: 0000000000000002
+>>> >> <86>R13: ffffffff81e02200 R14: 0000000000000000 R15: ffff88083f0942a0
+>>> >> <86>FS:  0000000000000000(0000) GS:ffff88046fda0000(0000) knlGS:0000000000000000
+>>> >> <86>CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>> >> <86>CR2: 00007fab8f466000 CR3: 000000085f66d000 CR4: 00000000001407e0
+>>> >> <86>Stack:
+>>> >> <82> ffffffff81e05a78 ffffffff81e05a70 ffff88046cdba9a0 ffff88083f0942e0
+>>> >> <82> ffff88046f808c00 0000000000000079 ffffffff81e02200 ffffffff81e06200
+>>> >> <82> 0000000000000388 0000000000000007 ffff88045492bdf8 ffffffff815b928a
+>>> >> <86>Call Trace:
+>>> >> <82> [<ffffffff815b928a>] inet_frag_worker+0x5a/0x230
+>>> >> <82> [<ffffffff8105808d>] process_one_work+0x12d/0x330
+>>> >> <82> [<ffffffff8105892b>] worker_thread+0x4b/0x450
+>>> >> <82> [<ffffffff810588e0>] ? cancel_delayed_work_sync+0x10/0x10
+>>> >> <82> [<ffffffff8105cd34>] kthread+0xc4/0xe0
+>>> >> <82> [<ffffffff81060c59>] ? finish_task_switch+0x49/0xc0
+>>> >> <82> [<ffffffff8105cc70>] ? kthread_create_on_node+0x170/0x170
+>>> >> <82> [<ffffffff81603d88>] ret_from_fork+0x58/0x90
+>>> >> <82> [<ffffffff8105cc70>] ? kthread_create_on_node+0x170/0x170
+>>> >> <82>Code: f6 0f 85 73 ff ff ff 48 8b 45 b8 80 40 08 01 48 8b 7d c8 48 85 ff 74 23 48 83 ef 40 75 0d eb 1b 66 90 48 83 eb 40 48 89 df 74 10 <48> 8b 5f 40 41 ff 95 70 40 00 00 48 85 db 75 e7 48 83 c4 28 44
+>>> >> <22>RIP  [<ffffffff815b91d9>] inet_evict_bucket+0x109/0x160
+>>> >> <82> RSP <ffff88045492bd38>
+>> > 
+> Hey Andrei,
+> 
+> Thanks for the report.
+> 
+> Usually David Miller (Cc'ed) handles backporting network commits. In this case, I see
+> that he has elected not to backport it into 4.1 or 3.18, so I don't want to do it without
+> getting an ack from him first.
+> 
+> David, is it ok to backport these commits back to 3.18 (and probably 4.1)?
 
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Roopa Prabhu
-> Sent: Sunday, March 13, 2016 3:56 AM
-> To: netdev@vger.kernel.org
-> Cc: jhs@mojatatu.com; davem@davemloft.net
-> Subject: [PATCH net-next 1/2] rtnetlink: add new RTM_GETSTATS message to
-> dump link stats
-> 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch adds a new RTM_GETSTATS message to query link stats via
-> netlink from the kernel. RTM_NEWLINK also dumps stats today, but
-> RTM_NEWLINK returns a lot more than just stats and is expensive in some
-> cases when frequent polling for stats from userspace is a common
-> operation.
-> 
-> RTM_GETSTATS is an attempt to provide a light weight netlink message to
-> explicity query only link stats from the kernel on an interface.
-> The idea is to also keep it extensible so that new kinds of stats can be
-> added to it in the future.
-> 
-> This patch adds the following attribute for NETDEV stats:
-> struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
->         [IFLA_STATS_LINK64]  = { .len = sizeof(struct rtnl_link_stats64)
-> }, };
-> 
-> This patch also allows for af family stats (an example af stats for IPV6
-> is available with the second patch in the series).
-> 
-> Like any other rtnetlink message, RTM_GETSTATS can be used to get stats
-> of a single interface or all interfaces with NLM_F_DUMP.
-> 
-> Future possible new types of stat attributes:
-> - IFLA_MPLS_STATS  (nested. for mpls/mdev stats)
-> - IFLA_EXTENDED_STATS (nested. extended software netdev stats like
-> bridge,
->   vlan, vxlan etc)
-> - IFLA_EXTENDED_HW_STATS (nested. extended hardware stats which are
->   available via ethtool today)
-> 
-> This patch also declares a filter mask for all stat attributes.
-> User has to provide a mask of stats attributes to query. This will be
-> specified in a new hdr 'struct if_stats_msg' for stats messages.
-> 
-> Without any attributes in the filter_mask, no stats will be returned.
-> 
-> This patch has been tested with modified iproute2 ifstat.
-> 
-> Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->  include/net/rtnetlink.h        |   5 ++
->  include/uapi/linux/if_link.h   |  19 ++++
->  include/uapi/linux/rtnetlink.h |   7 ++
->  net/core/rtnetlink.c           | 200
-> +++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 231 insertions(+)
-> 
-> diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h index
-> 2f87c1b..fa68158 100644
-> --- a/include/net/rtnetlink.h
-> +++ b/include/net/rtnetlink.h
-> @@ -131,6 +131,11 @@ struct rtnl_af_ops {
->  						    const struct nlattr *attr);
->  	int			(*set_link_af)(struct net_device *dev,
->  					       const struct nlattr *attr);
-> +	size_t			(*get_link_af_stats_size)(const struct
-> net_device *dev,
-> +							  u32 filter_mask);
-> +	int			(*fill_link_af_stats)(struct sk_buff *skb,
-> +						      const struct net_device *dev,
-> +						      u32 filter_mask);
->  };
-> 
->  void __rtnl_af_unregister(struct rtnl_af_ops *ops); diff --git
-> a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h index
-> 249eef9..0840f3e 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -741,4 +741,23 @@ enum {
-> 
->  #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
-> 
-> +/* STATS section */
-> +
-> +struct if_stats_msg {
-> +	__u8  family;
-> +	__u32 ifindex;
-> +	__u32 filter_mask;
-> +};
-> +
-> +enum {
-> +	IFLA_STATS_UNSPEC,
-> +	IFLA_STATS_LINK64,
-> +	IFLA_STATS_INET6,
-> +	__IFLA_STATS_MAX,
-> +};
-> +
-> +#define IFLA_STATS_MAX (__IFLA_STATS_MAX - 1)
-> +
-> +#define IFLA_STATS_FILTER_BIT(ATTR)	(1 << (ATTR))
-> +
->  #endif /* _UAPI_LINUX_IF_LINK_H */
-> diff --git a/include/uapi/linux/rtnetlink.h
-> b/include/uapi/linux/rtnetlink.h index ca764b5..2bbb300 100644
-> --- a/include/uapi/linux/rtnetlink.h
-> +++ b/include/uapi/linux/rtnetlink.h
-> @@ -139,6 +139,13 @@ enum {
->  	RTM_GETNSID = 90,
->  #define RTM_GETNSID RTM_GETNSID
-> 
-> +	RTM_NEWSTATS = 92,
-> +#define RTM_NEWSTATS RTM_NEWSTATS
-
-I think that RTM_NEWSTATS and RTM_DELSTATS aren't good names, since user doesn't add/del statistics but only query.
-Maybe just stay with RTM_GETSTATS and the message back to user will be RTM_GETSTATS as well?
-
-> +	RTM_DELSTATS = 93,
-> +#define RTM_DELSTATS RTM_DELSTATS
-
-This is not in used
-
-> +	RTM_GETSTATS = 94,
-> +#define RTM_GETSTATS RTM_GETSTATS
-> +
->  	__RTM_MAX,
->  #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
->  };
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c index
-> d2d9e5e..d1e3d17 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -3410,6 +3410,203 @@ out:
->  	return err;
->  }
-> 
-> +static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device
-> *dev,
-> +			       int type, u32 pid, u32 seq, u32 change,
-> +			       unsigned int flags, unsigned int filter_mask) {
-> +	const struct rtnl_link_stats64 *stats;
-> +	struct rtnl_link_stats64 temp;
-> +	struct if_stats_msg *ifsm;
-> +	struct nlmsghdr *nlh;
-> +	struct rtnl_af_ops *af_ops;
-> +	struct nlattr *attr;
-> +
-> +	ASSERT_RTNL();
-> +
-> +	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifsm), flags);
-> +	if (!nlh)
-> +		return -EMSGSIZE;
-> +
-> +	ifsm = nlmsg_data(nlh);
-> +	ifsm->ifindex = dev->ifindex;
-> +	ifsm->filter_mask = filter_mask;
-> +
-> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK64)) {
-> +		attr = nla_reserve(skb, IFLA_STATS_LINK64,
-> +				   sizeof(struct rtnl_link_stats64));
-> +		if (!attr)
-> +			return -EMSGSIZE;
-> +
-> +		stats = dev_get_stats(dev, &temp);
-> +
-> +		copy_rtnl_link_stats64(nla_data(attr), stats);
-> +	}
-> +
-> +	list_for_each_entry(af_ops, &rtnl_af_ops, list) {
-> +		if (af_ops->fill_link_af_stats) {
-> +			int err;
-> +
-> +			err = af_ops->fill_link_af_stats(skb, dev, filter_mask);
-> +			if (err < 0)
-> +				goto nla_put_failure;
-> +		}
-> +	}
-> +
-> +	nlmsg_end(skb, nlh);
-> +
-> +	return 0;
-> +
-> +nla_put_failure:
-> +	nlmsg_cancel(skb, nlh);
-> +
-> +	return -EMSGSIZE;
-> +}
-> +
-> +static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] =
-> {
-> +	[IFLA_STATS_LINK64]	= { .len = sizeof(struct rtnl_link_stats64)
-> },
-> +};
-> +
-> +static size_t rtnl_link_get_af_stats_size(const struct net_device *dev,
-> +					  u32 filter_mask)
-> +{
-> +	struct rtnl_af_ops *af_ops;
-> +	size_t size = 0;
-> +
-> +	list_for_each_entry(af_ops, &rtnl_af_ops, list) {
-> +		if (af_ops->get_link_af_stats_size)
-> +			size += af_ops->get_link_af_stats_size(dev,
-> +							       filter_mask);
-> +	}
-> +
-> +	return size;
-> +}
-> +
-> +static noinline size_t if_nlmsg_stats_size(const struct net_device
-> *dev,
-> +					   u32 filter_mask)
-> +{
-> +	size_t size = 0;
-> +
-> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK64))
-> +		size += nla_total_size(sizeof(struct rtnl_link_stats64));
-> +
-> +	size += rtnl_link_get_af_stats_size(dev, filter_mask);
-> +
-> +	return size;
-> +}
-> +
-> +static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh) {
-> +	struct net *net = sock_net(skb->sk);
-> +	struct if_stats_msg *ifsm;
-> +	struct net_device *dev = NULL;
-> +	struct sk_buff *nskb;
-> +	u32 filter_mask;
-> +	int err;
-> +
-> +	ifsm = nlmsg_data(nlh);
-> +	if (ifsm->ifindex > 0)
-> +		dev = __dev_get_by_index(net, ifsm->ifindex);
-> +	else
-> +		return -EINVAL;
-> +
-> +	if (!dev)
-> +		return -ENODEV;
-> +
-> +	filter_mask = ifsm->filter_mask;
-> +	if (!filter_mask)
-> +		return -EINVAL;
-> +
-> +	nskb = nlmsg_new(if_nlmsg_stats_size(dev, filter_mask),
-> GFP_KERNEL);
-> +	if (!nskb)
-> +		return -ENOBUFS;
-> +
-> +	err = rtnl_fill_statsinfo(nskb, dev, RTM_NEWSTATS,
-> +				  NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
-> +				  0, filter_mask);
-> +	if (err < 0) {
-> +		/* -EMSGSIZE implies BUG in if_nlmsg_stats_size */
-> +		WARN_ON(err == -EMSGSIZE);
-> +		kfree_skb(nskb);
-> +	} else {
-> +		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid);
-> +	}
-> +
-> +	return err;
-> +}
-> +
-> +static u16 rtnl_stats_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
-> +{
-> +	struct net *net = sock_net(skb->sk);
-> +	struct net_device *dev;
-> +	u16 min_ifinfo_dump_size = 0;
-> +	struct if_stats_msg *ifsm;
-> +	u32 filter_mask;
-> +
-> +	ifsm = nlmsg_data(nlh);
-> +	filter_mask = ifsm->filter_mask;
-> +
-> +	/* traverse the list of net devices and compute the minimum
-> +	 * buffer size based upon the filter mask.
-> +	 */
-> +	list_for_each_entry(dev, &net->dev_base_head, dev_list) {
-> +		min_ifinfo_dump_size = max_t(u16, min_ifinfo_dump_size,
-> +					     if_nlmsg_stats_size(dev,
-> +								 filter_mask));
-> +	}
-> +
-> +	return min_ifinfo_dump_size;
-> +}
-> +
-> +static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback
-> +*cb) {
-> +	struct net *net = sock_net(skb->sk);
-> +	struct if_stats_msg *ifsm;
-> +	int h, s_h;
-> +	int idx = 0, s_idx;
-> +	struct net_device *dev;
-> +	struct hlist_head *head;
-> +	unsigned int flags = NLM_F_MULTI;
-> +	u32 filter_mask = 0;
-> +	int err;
-> +
-> +	s_h = cb->args[0];
-> +	s_idx = cb->args[1];
-> +
-> +	cb->seq = net->dev_base_seq;
-> +
-> +	ifsm = nlmsg_data(cb->nlh);
-> +	filter_mask = ifsm->filter_mask;
-> +
-> +	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
-> +		idx = 0;
-> +		head = &net->dev_index_head[h];
-> +		hlist_for_each_entry(dev, head, index_hlist) {
-> +			if (idx < s_idx)
-> +				goto cont;
-> +			err = rtnl_fill_statsinfo(skb, dev, RTM_NEWSTATS,
-> +						  NETLINK_CB(cb->skb).portid,
-> +						  cb->nlh->nlmsg_seq, 0,
-> +						  flags, filter_mask);
-> +			/* If we ran out of room on the first message,
-> +			 * we're in trouble
-> +			 */
-> +			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
-> +
-> +			if (err < 0)
-> +				goto out;
-> +
-> +			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
-> +cont:
-> +			idx++;
-> +		}
-> +	}
-> +out:
-> +	cb->args[1] = idx;
-> +	cb->args[0] = h;
-> +
-> +	return skb->len;
-> +}
-> +
->  /* Process one rtnetlink message. */
-> 
->  static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-> @@ -3559,4 +3756,7 @@ void __init rtnetlink_init(void)
->  	rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, rtnl_bridge_getlink,
-> NULL);
->  	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL,
-> NULL);
->  	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL,
-> NULL);
-> +
-> +	rtnl_register(PF_UNSPEC, RTM_GETSTATS, rtnl_stats_get,
-> rtnl_stats_dump,
-> +		      rtnl_stats_calcit);
->  }
-> --
-> 1.9.1
+Ping?
