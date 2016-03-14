@@ -1,92 +1,224 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 08/13] net/mlx5e: Add fragmented memory support
- for RX multi packet WQE
-Date: Mon, 14 Mar 2016 20:16:44 +0200
-Message-ID: <CALzJLG9rB4iBnOC0f+8NopjdS407-WJ9b7KFUPO9hjbwFCyP-A@mail.gmail.com>
-References: <1457703594-9482-1-git-send-email-saeedm@mellanox.com>
-	<1457703594-9482-9-git-send-email-saeedm@mellanox.com>
-	<1457706771.2663.37.camel@edumazet-ThinkPad-T530>
-	<CALzJLG_XU-KMp8dMqcNOpu1OxZRnJro4LFQohK=FLX+5uJKXpQ@mail.gmail.com>
-	<1457726319.2663.50.camel@edumazet-ThinkPad-T530>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next v6] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
+Date: Mon, 14 Mar 2016 10:52:15 -0700
+Message-ID: <1457977935-2018863-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>, Chris Rapier <rapier@psc.edu>,
+	Eric Dumazet <edumazet@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:33158 "EHLO
-	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754789AbcCNSQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 14:16:45 -0400
-Received: by mail-yw0-f195.google.com with SMTP id g6so12428787ywb.0
-        for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 11:16:44 -0700 (PDT)
-In-Reply-To: <1457726319.2663.50.camel@edumazet-ThinkPad-T530>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:52491 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753491AbcCNRyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 13:54:03 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u2EHioEC026084
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 10:53:19 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 21mftasrky-5
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 14 Mar 2016 10:53:18 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 7d5bf0e8ea0d11e59f550002c9521c9e-792ee420 for <netdev@vger.kernel.org>;	Mon,
+ 14 Mar 2016 10:52:16 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 11, 2016 at 9:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Per RFC4898, they count segments sent/received
+containing a positive length data segment (that includes
+retransmission segments carrying data).  Unlike
+tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
+carrying no data (e.g. pure ack).
 
->> I totally agree with this, we should have reported  skb->truesize +=
->> (consumed strides)*(stride size).
->> but again this is not as critical as you think, in the worst case
->> skb->truesize will be off by 127B at most.
->
-> Ouch. really you are completely wrong.
+The patch also updates the segs_in in tcp_fastopen_add_skb()
+so that segs_in >= data_segs_in property is kept.
 
-It it is just a matter of perspective, quoting:
-http://vger.kernel.org/~davem/skb_sk.html
-"This is the total of how large a data buffer we allocated for the
-packet, plus the size of 'struct sk_buff' itself."
+Together with retransmission data, tcpi_data_segs_out
+gives a better signal on the rxmit rate.
 
-as explained more than once, a page used in ConnectX4 MPWQE approach
-can be used for more than one packet, according to the above
-documentation and many other examples in the kernel, each packet will
-report as much data buffer as it used from that page, and we allocated
-for that packet: #strides * stridesize from that page, (common sense).
+v6: Rebase on the latest net-next
 
-it is really uncalled-for to report for each SKB, skb->truesize +=
-PAGE_SIZE for the same shared reuseable page, as we did in here and as
-other drivers already do.
+v5: Eric pointed out that checking skb->len is still needed in
+tcp_fastopen_add_skb() because skb can carry a FIN without data.
+Hence, instead of open coding segs_in and data_segs_in, tcp_segs_in()
+helper is used.  Comment is added to the fastopen case to explain why
+segs_in has to be reset and tcp_segs_in() has to be called before
+__skb_pull().
 
-It is just ridiculous to report PAGE_SIZE for SKB that used only 128B
-and the others parts of that page are being either reused by HW or
-reported back to the stack and we already did the truesize accounting
-on their parts.
+v4: Add comment to the changes in tcp_fastopen_add_skb()
+and also add remark on this case in the commit message.
 
-It seems to me that reporting PAGE_SIZE* (#SKBs pointing to that page)
-for all of those SKBs is just a big lie and it is just an abuse to the
-skb->truesize to protect against special/rare cases like OOO issue
-that I can suggest a handful of solutions (out of this thread scope)
-for them without the need of lying in device drivers of the actual
-truesize.
-Think about it, if SKBs share the same page then SUM(SKBs->truesize) =
-PAGE_SIZE.
+v3: Add const modifier to the skb parameter in tcp_segs_in()
 
-and suppose you are right, why just not  remove the truesize param
-from skb_add_rx_frag, and just explicitly do skb->true_szie +=
-PAGE_SIZE, hardcoded inside that function? or rename the truesize
-param to pageorder ?
+v2: Rework based on recent fix by Eric:
+commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
 
->
-> If one skb has a fragment of a page, and sits in a queue for a long
-> time, it really uses a full page, because the remaining part of the page
-> is not reusable. Only kmalloc(128) can deal with that idea of allowing
-> other parts of the page being 'freed and reusable'
-This concern was also true before this series for other drivers in the
-kernel, who use pages for fragmented SKBs and non of them report
-PAGE_SIZE as SKB->truesize, as their pages are reuseable.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Chris Rapier <rapier@psc.edu>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/tcp.h      |  6 ++++++
+ include/net/tcp.h        | 10 ++++++++++
+ include/uapi/linux/tcp.h |  2 ++
+ net/ipv4/tcp.c           |  2 ++
+ net/ipv4/tcp_fastopen.c  |  8 ++++++++
+ net/ipv4/tcp_ipv4.c      |  2 +-
+ net/ipv4/tcp_minisocks.c |  2 +-
+ net/ipv4/tcp_output.c    |  4 +++-
+ net/ipv6/tcp_ipv6.c      |  2 +-
+ 9 files changed, 34 insertions(+), 4 deletions(-)
 
->
-> It is trivial for an attacker to make sure the host will consume one
-> page + sk_buff + skb->head = 4096 + 256 + 512, by specially sending out
-> of order packets on TCP flows.
-we can do special accounting for ooo like issues in the stack (maybe
-count page references and sum up page sizes as you suggest), device
-drivers shouldn't have special handling/accounting to protect against
-such cases.
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index bcbf51d..7be9b12 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -158,6 +158,9 @@ struct tcp_sock {
+ 	u32	segs_in;	/* RFC4898 tcpEStatsPerfSegsIn
+ 				 * total number of segments in.
+ 				 */
++	u32	data_segs_in;	/* RFC4898 tcpEStatsPerfDataSegsIn
++				 * total number of data segments in.
++				 */
+  	u32	rcv_nxt;	/* What we want to receive next 	*/
+ 	u32	copied_seq;	/* Head of yet unread data		*/
+ 	u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
+@@ -165,6 +168,9 @@ struct tcp_sock {
+ 	u32	segs_out;	/* RFC4898 tcpEStatsPerfSegsOut
+ 				 * The total number of segments sent.
+ 				 */
++	u32	data_segs_out;	/* RFC4898 tcpEStatsPerfDataSegsOut
++				 * total number of data segments sent.
++				 */
+ 	u64	bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
+ 				 * sum(delta(snd_una)), or how many bytes
+ 				 * were acked.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0302636..c8dbd29 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1840,4 +1840,14 @@ static inline int tcp_inq(struct sock *sk)
+ 	return answ;
+ }
+ 
++static inline void tcp_segs_in(struct tcp_sock *tp, const struct sk_buff *skb)
++{
++	u16 segs_in;
++
++	segs_in = max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tp->segs_in += segs_in;
++	if (skb->len > tcp_hdrlen(skb))
++		tp->data_segs_in += segs_in;
++}
++
+ #endif	/* _TCP_H */
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index fe95446..53e8e3f 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -199,6 +199,8 @@ struct tcp_info {
+ 
+ 	__u32	tcpi_notsent_bytes;
+ 	__u32	tcpi_min_rtt;
++	__u32	tcpi_data_segs_in;	/* RFC4898 tcpEStatsDataSegsIn */
++	__u32	tcpi_data_segs_out;	/* RFC4898 tcpEStatsDataSegsOut */
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a265f00..992b310 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2715,6 +2715,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+ 	info->tcpi_notsent_bytes = max(0, notsent_bytes);
+ 
+ 	info->tcpi_min_rtt = tcp_min_rtt(tp);
++	info->tcpi_data_segs_in = tp->data_segs_in;
++	info->tcpi_data_segs_out = tp->data_segs_out;
+ }
+ EXPORT_SYMBOL_GPL(tcp_get_info);
+ 
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index fdb286d..4fc0061 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -140,6 +140,14 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 		return;
+ 
+ 	skb_dst_drop(skb);
++	/* segs_in has been initialized to 1 in tcp_create_openreq_child().
++	 * Hence, reset segs_in to 0 before calling tcp_segs_in()
++	 * to avoid double counting.  Also, tcp_segs_in() expects
++	 * skb->len to include the tcp_hdrlen.  Hence, it should
++	 * be called before __skb_pull().
++	 */
++	tp->segs_in = 0;
++	tcp_segs_in(tp, skb);
+ 	__skb_pull(skb, tcp_hdrlen(skb));
+ 	skb_set_owner_r(skb, sk);
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4c8d58d..0b02ef7 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1650,7 +1650,7 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(sk), skb);
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index ae90e4b..acb366d 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -812,7 +812,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 	int ret = 0;
+ 	int state = child->sk_state;
+ 
+-	tcp_sk(child)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(child), skb);
+ 	if (!sock_owned_by_user(child)) {
+ 		ret = tcp_rcv_state_process(child, skb);
+ 		/* Wakeup parent, send SIGIO */
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7d2c7a4..7d2dc01 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1003,8 +1003,10 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	if (likely(tcb->tcp_flags & TCPHDR_ACK))
+ 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+ 
+-	if (skb->len != tcp_header_size)
++	if (skb->len != tcp_header_size) {
+ 		tcp_event_data_sent(tp, sk);
++		tp->data_segs_out += tcp_skb_pcount(skb);
++	}
+ 
+ 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
+ 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 33f2820..9c16565 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1443,7 +1443,7 @@ process:
+ 	sk_incoming_cpu_update(sk);
+ 
+ 	bh_lock_sock_nested(sk);
+-	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
++	tcp_segs_in(tcp_sk(sk), skb);
+ 	ret = 0;
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+-- 
+2.5.1
