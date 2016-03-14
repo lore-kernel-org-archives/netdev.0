@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: fix default configuration for GMAC on AT91
-Date: Sun, 13 Mar 2016 22:20:11 -0400 (EDT)
-Message-ID: <20160313.222011.1724698990540701829.davem@davemloft.net>
-References: <1457624672-30666-1-git-send-email-nicolas.ferre@atmel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 net-next] ovs: allow nl 'flow set' to use
+ ufid without flow key
+Date: Sun, 13 Mar 2016 22:20:21 -0400 (EDT)
+Message-ID: <20160313.222021.992619751926439337.davem@davemloft.net>
+References: <CAMEOZhK0kBpdS8uOqYqzQs+6LyWh5K3MWL__CRoThmNRnBN2MQ@mail.gmail.com>
+ <1457626499-26585-1-git-send-email-samuel.gauthier@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	cyrille.pitchen@atmel.com, linux-kernel@vger.kernel.org,
-	alexandre.belloni@free-electrons.com,
-	boris.brezillon@free-electrons.com, romain.henriet@l-acoustics.com,
-	michal.simek@xilinx.com, punnaia@xilinx.com
-To: nicolas.ferre@atmel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbcCNCUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Mar 2016 22:20:16 -0400
-In-Reply-To: <1457624672-30666-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1457626499-26585-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Thu, 10 Mar 2016 16:44:32 +0100
-
-> On AT91 SoCs, the User Register (USRIO) exposes a switch to configure the
-> "Reduced" or "Traditional" version of the Media Independent Interface
-> (RMII vs. MII or RGMII vs. GMII).
-> As on the older EMAC version, on GMAC, this switch is set by default to the
-> non-reduced type of interface, so use the existing capability and extend it to
-> GMII as well. We then keep the current logic in the macb_init() function.
-> 
-> The capabilities of sama5d2, sama5d4 and sama5d3 GEM interface are updated in
-> the macb_config structure to be able to properly enable them with a traditional
-> interface (GMII or MII).
-> 
-> Reported-by: Romain HENRIET <romain.henriet@l-acoustics.com>
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-Applied.
+RnJvbTogU2FtdWVsIEdhdXRoaWVyIDxzYW11ZWwuZ2F1dGhpZXJANndpbmQuY29tPgpEYXRlOiBU
+aHUsIDEwIE1hciAyMDE2IDE3OjE0OjU5ICswMTAwCgo+IFdoZW4gd2Ugd2FudCB0byBjaGFuZ2Ug
+YSBmbG93IHVzaW5nIG5ldGxpbmssIHdlIGhhdmUgdG8gaWRlbnRpZnkgaXQgdG8KPiBiZSBhYmxl
+IHRvIHBlcmZvcm0gYSBsb29rdXAuIEJvdGggdGhlIGZsb3cga2V5IGFuZCB1bmlxdWUgZmxvdyBJ
+RAo+ICh1ZmlkKSBhcmUgdmFsaWQgaWRlbnRpZmllcnMsIGJ1dCB3ZSBhbHdheXMgaGF2ZSB0byBz
+cGVjaWZ5IHRoZSBmbG93Cj4ga2V5IGluIHRoZSBuZXRsaW5rIG1lc3NhZ2UuIFdoZW4gYm90aCBh
+dHRyaWJ1dGVzIGFyZSB0aGVyZSwgdGhlIHVmaWQKPiBpcyB1c2VkLiBUaGUgZmxvdyBrZXkgaXMg
+dXNlZCB0byB2YWxpZGF0ZSB0aGUgYWN0aW9ucyBwcm92aWRlZCBieQo+IHRoZSB1c2VybGFuZC4K
+PiAKPiBUaGlzIGNvbW1pdCBhbGxvd3MgdG8gdXNlIHRoZSB1ZmlkIHdpdGhvdXQgaGF2aW5nIHRv
+IHByb3ZpZGUgdGhlIGZsb3cKPiBrZXksIGFzIGl0IGlzIGFscmVhZHkgZG9uZSBpbiB0aGUgbmV0
+bGluayAnZmxvdyBnZXQnIGFuZCAnZmxvdyBkZWwnCj4gcGF0aC4gVGhlIGZsb3cga2V5IHJlbWFp
+bnMgbWFuZGF0b3J5IHdoZW4gYW4gYWN0aW9uIGlzIHByb3ZpZGVkLgo+IAo+IFNpZ25lZC1vZmYt
+Ynk6IFNhbXVlbCBHYXV0aGllciA8c2FtdWVsLmdhdXRoaWVyQDZ3aW5kLmNvbT4KCkFwcGxpZWQu
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
