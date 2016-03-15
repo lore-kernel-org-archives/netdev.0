@@ -1,50 +1,64 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get SIGPIPE
-Date: Tue, 15 Mar 2016 15:35:37 +0100
-Message-ID: <CAG_fn=XOvvJ2ZxJ+HGF26qPk4o3gskMTt6682CTew_ZkLdb37Q@mail.gmail.com>
-References: <1458032624-139688-1-git-send-email-glider@google.com>
-	<1458048051.31401.32.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ARC: axs10x - add Ethernet PHY description in .dts
+Date: Tue, 15 Mar 2016 17:38:30 +0300
+Message-ID: <56E81E66.6080706@cogentembedded.com>
+References: <1458034150-10766-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>,
-	rweikusat@mobileactivedefense.com,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458048051.31401.32.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh@kernel.org>, Phil Reid <preid@electromag.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, #@synopsys.com, 4.5.x@synopsys.com
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	linux-snps-arc@lists.infradead.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1458034150-10766-1-git-send-email-abrodkin@synopsys.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 15, 2016 at 2:20 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> On Tue, 2016-03-15 at 10:03 +0100, Alexander Potapenko wrote:
->> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
->> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if th=
-e
->> socket is no longer connected.
+Hello.
+
+On 3/15/2016 12:29 PM, Alexey Brodkin wrote:
+
+> Following commit broke DW GMAC functionality on AXS10x boards:
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e34d65696d2ef13dc32f2a162556c86c461ed763
 >
-> I find this sentence slightly confusing ?
+> That's what happens on eth0 up:
+> --------------------------->8------------------------
+> libphy: PHY stmmac-0:ffffffff not found
+> eth0: Could not attach to PHY
+> stmmac_open: Cannot attach to PHY (error: -19)
+> --------------------------->8------------------------
 >
-> If MSG_NOSIGNAL is set, then SIGPIPE should not be generated.
+> Simplest solution is to add PHY description in board's .dts.
+> And so we do here.
 >
-> s/with/without/ maybe ?
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+> Cc: Rob Herring <robh@kernel.org>
+> Cc: Phil Reid <preid@electromag.com.au>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: stable@vger.kernel.org # 4.5.x
+> ---
+>   arch/arc/boot/dts/axs10x_mb.dtsi | 8 ++++++++
+>   1 file changed, 8 insertions(+)
 >
-Agreed. I've rewritten this a couple of times and failed to proof-read
-it for the last time.
+> diff --git a/arch/arc/boot/dts/axs10x_mb.dtsi b/arch/arc/boot/dts/axs10x_mb.dtsi
+> index 44a578c..04b999e 100644
+> --- a/arch/arc/boot/dts/axs10x_mb.dtsi
+> +++ b/arch/arc/boot/dts/axs10x_mb.dtsi
+> @@ -47,6 +47,14 @@
+>   			clocks = <&apbclk>;
+>   			clock-names = "stmmaceth";
+>   			max-speed = <100>;
+> +			mdio0 {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				compatible = "snps,dwmac-mdio";
+> +				phy0: ethernet-phy@0 {
 
+    The naming is inconsistent with the "reg" prop specified, should be @1.
 
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicl=
-e
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+MBR, Sergei
