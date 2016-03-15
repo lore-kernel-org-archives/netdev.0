@@ -1,51 +1,49 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
- sndbuf/rcvbuf on rds-tcp socket
-Date: Tue, 15 Mar 2016 12:58:00 -0400
-Message-ID: <20160315165800.GL11063@oracle.com>
-References: <20160315151248.GJ11063@oracle.com>
- <56E83A6D.6060904@oracle.com>
+From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next repost] openvswitch: allow output of
+ MPLS packets on tunnel vports
+Date: Tue, 15 Mar 2016 10:05:25 -0700
+Message-ID: <CAEh+42h-w5Xm2i3H8auNCO4U3yYBadU7GsWFe7dwiKNcBq1dGg@mail.gmail.com>
+References: <1458010835-18555-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: santosh shilimkar <santosh.shilimkar@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38453 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933150AbcCOQ6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 12:58:07 -0400
-Content-Disposition: inline
-In-Reply-To: <56E83A6D.6060904@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1458010835-18555-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On (03/15/16 09:38), santosh shilimkar wrote:
-> >+	if (rtn->sndbuf_size > 0) {
-> So value of 1 is allowed as well. There should be some
-> minimum default or multiple of it. Of course above check
-> can remain as is as long as you validate the user input
-> in handlers.
-
-yes, just as user-space SO_SNDBUF allows ridiculous values
-for buffer size..
-
-> >@@ -309,6 +352,7 @@ static void __net_exit rds_tcp_exit_net(struct net *net)
-> >  {
-> >  	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
-> >
-> >+	unregister_net_sysctl_table(rtn->rds_tcp_sysctl);
-> >  	/* If rds_tcp_exit_net() is called as a result of netns deletion,
-> >  	 * the rds_tcp_kill_sock() device notifier would already have cleaned
-> >  	 * up the listen socket, thus there is no work to do in this function.
-> You need to unregister it on rds_tcp_listen_init() failure.
-
-Ok, good point.
-
-> >+	rtn->sndbuf_size = user_atoi(buffer, *lenp);
-> As mentioned above, you should make sure the buffer lengths are
-> legitimate.
-
-As above. We allow any values that the TCP socket itself allows.
-If the user wants to shoot themself in the foot, we dont stop them.
-
-I'll fix the nits and send out another patchset in a bit. 
+T24gTW9uLCBNYXIgMTQsIDIwMTYgYXQgODowMCBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gQ3VycmVudGx5IG91dHB1dCBvZiBNUExTIHBhY2tl
+dHMgb24gdHVubmVsIHZwb3J0cyBpcyBub3QgYWxsb3dlZCBieSBPcGVuCj4gdlN3aXRjaC4gVGhp
+cyBpcyBiZWNhdXNlIGhpc3RvcmljYWxseSBlbmNhcHN1bGF0aW9uIHdhcyBkb25lIGluIHN1Y2gg
+YSB3YXkKPiB0aGF0IHRoZSBpbm5lcl9wcm90b2NvbCBmaWVsZCBvZiB0aGUgc2tiIG5lZWRlZCB0
+byBob2xkIHRoZSBpbm5lciBwcm90b2NvbAo+IGZvciBib3RoIE1QTFMgYW5kIHR1bm5lbCBlbmNh
+cHN1bGF0aW9uIGluIG9yZGVyIGZvciBHU08gc2VnbWVudGF0aW9uIHRvIGJlCj4gcGVyZm9ybWVk
+IGNvcnJlY3RseS4KPgo+IFNpbmNlIGIyYWNkMWRjMzk0OSAoIm9wZW52c3dpdGNoOiBVc2UgcmVn
+dWxhciBHUkUgbmV0X2RldmljZSBpbnN0ZWFkIG9mCj4gdnBvcnQiKSBPcGVuIHZTd2l0Y2ggbWFr
+ZXMgdXNlIG9mIGx3dCB0byBvdXRwdXQgdG8gdHVubmVsIG5ldGRldnMgd2hpY2gKPiBwZXJmb3Jt
+IGVuY2Fwc3VsYXRpb24uIEFzIG5vIGRyaXZlcnMgZXhwb3NlIHN1cHBvcnQgZm9yIE1QTFMgb2Zm
+bG9hZHMgdGhpcwo+IG1lYW5zIHRoYXQgR1NPIHBhY2tldHMgYXJlIHNlZ21lbnRlZCBpbiBzb2Z0
+d2FyZSBieSB2YWxpZGF0ZV94bWl0X3NrYigpLAo+IHdoaWNoIGlzIGNhbGxlZCBmcm9tIF9fZGV2
+X3F1ZXVlX3htaXQoKSwgYmVmb3JlIHR1bm5lbCBlbmNhcHN1bGF0aW9uIG9jY3Vycy4KPiBUaGlz
+IG1lYW5zIHRoYXQgdGhlIGlubmVyIHByb3RvY29sIG9mIE1QTFMgaXMgbm8gbG9uZ2VyIG5lZWRl
+ZCBieSB0aGUgdGltZQo+IGVuY2Fwc3VsYXRpb24gb2NjdXJzIGFuZCB0aGUgY29udGVudGlvbiBv
+biB0aGUgaW5uZXJfcHJvdG9jb2wgZmllbGQgb2YgdGhlCj4gc2tiIG5vIGxvbmdlciBvY2N1cnMu
+Cj4KPiBUaHVzIGl0IGlzIG5vdyBzYWZlIHRvIG91dHB1dCBNUExTIHRvIHR1bm5lbCB2cG9ydHMu
+Cj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUu
+Y29tPgoKUmV2aWV3ZWQtYnk6IEplc3NlIEdyb3NzIDxqZXNzZUBrZXJuZWwub3JnPgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
+CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL2Rldgo=
