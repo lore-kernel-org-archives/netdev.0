@@ -1,64 +1,56 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Tue, 15 Mar 2016 00:02:43 -0700
-Message-ID: <56E7B393.5000400@cumulusnetworks.com>
-References: <20160314145144.GE2346@nanopsycho.orion> <56E706C3.4030808@cumulusnetworks.com> <20160314190435.GA23419@nanopsycho.orion> <20160314.155640.1574437783302725000.davem@davemloft.net>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: Re: [target-pending 00/12] cxgb4 patch series for cxgbit.ko
+Date: Tue, 15 Mar 2016 12:34:28 +0530
+Message-ID: <20160315070427.GA8122@hari-Latitude-E5550>
+References: <cover.1457877852.git.varun@chelsio.com>
+ <1458019751.15882.31.camel@haakon3.risingtidesystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, jhs@mojatatu.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33571 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755032AbcCOHCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 03:02:45 -0400
-Received: by mail-pf0-f172.google.com with SMTP id 124so16261819pfg.0
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 00:02:45 -0700 (PDT)
-In-Reply-To: <20160314.155640.1574437783302725000.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Varun Prakash <varun@chelsio.com>, target-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	swise@opengridcomputing.com, indranil@chelsio.com, kxie@chelsio.com
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <target-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1458019751.15882.31.camel@haakon3.risingtidesystems.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 3/14/16, 12:56 PM, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Mon, 14 Mar 2016 20:04:35 +0100
->
->> I believe that using *any* structs to send over netlink is a mistake.
->> Netlink is capable to transfer everything using attrs. Easy to compose,
->> easy to parse. easy to extend. Couple of more bytes in the message? So what?
->> For newly introduced things, I suggest to do this properly.
-> It is not so straight-forward.
->
-> What to put into the header is a tradeoff.
->
-> The most basic use cases should be as efficient as possible, and if we
-> can put reasonable knobs into the base commend header we should do that
-> as avoiding attribute processing makes things faster.
-yes, i have recently realized this after looking at all other message
-types and the userspace part of it. It does make the default message much simpler.
->
-> And I think in this case it is reasonable to put the mask in there.
->
-> The only problem I see with this series is the naming of the netlink
-> command (it isn't a "new" operation, and the "del" is unused).
-I just replied to the other responses on this: I did declare all three because
-rtnetlink_rcv_msg seems to expect the get message at a particular offset
- (when it derives kind from nlmsg_type). But, i can fix it accordingly.
->
-> Maybe the suggestion to use just "GET" as the name is ok.
-I am thinking RTM_NEWSTATS is ok here. Because from userspace you are looking at message per interface
-as a separate stats object. It also adheres to existing convention.
+On Mon, Mar 14, 2016 at 22:29:11 -0700, Nicholas A. Bellinger wrote:
+> Hi Varun & Co,
+> 
+> On Sun, 2016-03-13 at 19:49 +0530, Varun Prakash wrote:
+> > Hi Nicholas,
+> > 
+> >    I am posting cxgb4 patch series as
+> >    suggested by you in following email thread
+> > 
+> >    http://www.spinics.net/lists/target-devel/msg12437.html
+> > 
+> >    This series consists of patches from
+> >    initial cxgb4 series without any change.
+> > 
+> > Thanks
+> > Varun
+> > 
+> 
+> Thanks for re-posting iscsi segment offload (ISO) prerequisites as a
+> stand-alone vxgb4 network driver series.
+> 
+> This -v1 series has been in target-pending/for-next-merge for last
+> weeks, and encountered one conflict vs. net-next as reported by SFR:
+> 
+>   https://lkml.org/lkml/2016/2/29/34 
+> 
+> That said, I'm still OK to merge via target-pending to enable post v4.6
+> iscsi-target developments, as long as DaveM doesn't have an objection or
+> if he'd prefer to pick them up.
+> 
+> As-is, they still need Acked-by's from the cxgb4 driver maintainer.  
+> 
+> Hariprasad, please give your review + ack.
+> 
 
-Besides, jamals original request/suggestion also had periodic stats notification to user-space...,
-in which case it would be more appropriate to use RTM_NEWSTATS (if we implement it in the future ofcourse).
+The entire series looks good.
 
-And from userspace perspective, dumps and notifications should come in with the same msg type.
-userspace sees it as a stats message and does not care if it came as part of a dump or a notification.
-also, user space netlink caches expect this (i work with libnl a lot and it is based on this assumption).
-so, RTM_NEWSTATS seems more appropriate here.
-
-But, if you have stronger reasons for RTM_GETSTATS, sure, pls let me know.
-
-Thanks,
-Roopa
+Acked-by: Hariprasad Shenai <hariprasad@chelsio.com>
