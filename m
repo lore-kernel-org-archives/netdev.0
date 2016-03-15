@@ -1,69 +1,80 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
- sndbuf/rcvbuf on rds-tcp socket
-Date: Tue, 15 Mar 2016 14:16:29 -0400
-Message-ID: <20160315181629.GO11063@oracle.com>
-References: <20160315151248.GJ11063@oracle.com>
- <56E83A6D.6060904@oracle.com>
- <20160315165800.GL11063@oracle.com>
- <1458062294.31401.37.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160315173011.GM11063@oracle.com>
- <1458065390.31401.45.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] net: ena: Add a driver for Amazon Elastic Network
+ Adapters (ENA)
+Date: Tue, 15 Mar 2016 13:19:07 -0500
+Message-ID: <1458065947.31283.26.camel@redhat.com>
+References: <1458039006-19956-1-git-send-email-netanel@annapurnalabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: santosh shilimkar <santosh.shilimkar@oracle.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	antoine.tenart@free-electrons.com
+To: Netanel Belgazal <netanel@annapurnalabs.com>,
+	zorik@annapurnalabs.com, saeed@annapurnalabs.com,
+	alex@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30245 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932212AbcCOSQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 14:16:38 -0400
-Content-Disposition: inline
-In-Reply-To: <1458065390.31401.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53575 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965146AbcCOSTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2016 14:19:11 -0400
+In-Reply-To: <1458039006-19956-1-git-send-email-netanel@annapurnalabs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (03/15/16 11:09), Eric Dumazet wrote:
+On Tue, 2016-03-15 at 12:50 +0200, Netanel Belgazal wrote:
+> This is a driver for the Amazon ethernet ENA family.
+> The driver operates variety of ENA adapters through
+> feature negotiation with the adapter and upgradable commands set.
+> ENA driver handles PCI Physical and Virtual ENA functions.
 > 
-> You said "just as user-space SO_SNDBUF allows ridiculous values
-> for buffer size.."
+> The ENA device is not yet released to public.
+> He is expected to be released soon.
+> For the full specification of the device please refer to:
+> <SPEC-PATH>
 > 
-> So I understood you believe SOCK_MIN_SNDBUF and/or SOCK_MIN_RCVBUF are
-> ridiculous ;)
-
-No, no! I was saying that as a clueless user-space app, I can SO_SNDBUF
-to 1, and happily think that everything is fine (error == 0), when in
-reality the kernel has helpfully fixed up the value for me..
-
-> I pointed to you the actual code.
+> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 > 
-> sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
 
-yes, I'm in the process of changing rds-tcp now (doing sanity tests
-etc on it, will send out update in a short while)
+<snip>
 
-> 
-> 
-> No error is returned. kernel enforces a minimal value.
-> 
-> #define SOCK_MIN_SNDBUF         (TCP_SKB_MIN_TRUESIZE * 2)
-> #define TCP_SKB_MIN_TRUESIZE    (2048 + SKB_DATA_ALIGN(sizeof(struct
-> sk_buff)))
-> 
-> -> 2 * (2048 + 256) = 4608  given current sk_buff overhead (that might
-> change in linux 5.4 ... )
+> diff --git a/Documentation/networking/ena.txt
+> b/Documentation/networking/ena.txt
+> new file mode 100644
+> index 0000000..f10e6db
+> --- /dev/null
+> +++ b/Documentation/networking/ena.txt
+> @@ -0,0 +1,330 @@
+> +Linux kernel driver for Elastic Network Adapter (ENA) family:
+> +=============================================================
+> +
+> +Overview:
+> +=========
+> +The ENA driver provides a modern Ethernet device interface optimized
+> +for high performance and low CPU overhead.
+> +
+> +The ENA driver exposes a lightweight management interface with a
+> +minimal set of memory mapped registers and extendable command set
+> +through an Admin Queue.
+> +
+> +The driver supports a wide range of ENA devices, is link-speed
+> +independent (i.e., the same driver is used for 10GbE, 25GbE, 40GbE,
+> +etc.), and it has a negotiated and extendable feature set.
+> +
+> +Some ENA devices support SR-IOV. This driver is used for both the
+> +SR-IOV Physical Function (PF) and Virtual Function (VF) devices.
+> +
+> +ENA devices allow high speed and low overhead Ethernet traffic
+> +processing by providing a dedicated Tx/Rx queue pair per host CPU, a
+> +dedicated MSI-X interrupt vector per Tx/Rx queue pair, adaptive
+> +interrupt moderation, and CPU cacheline optimized data placement.
+> +
+> +The ENA driver supports industry standard TCP/IP offload features
+> such
+> +as checksum offload and TCP transmit segmentation offload (TSO).
+> +
+> +Receive-side scaling (RSS) is supported for multi-core scaling.
 
-Yes, I've seen the comments somewhere (in sock_setsockopt?)
+Any chance it also supports VXLAN offload?
 
-it's a bit unexpectd for someone coming from bsd/solaris because
-the value returned by getsockopt is quite unpredictable (as you
-point out, depends on the kernel version among other things).
-
-> But again if your sysctl allows to set a value below SOCK_MIN_SNDBUF,
-> that might be a problem, because stack could have a hidden bug for very
-> small values of sndbuf/rcvbuf. 
-
-sure, fixing/testing it as I write this.
-
---Sowmini
+Dan
