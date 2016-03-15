@@ -1,96 +1,151 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/18] openvswitch: Add commentary to conntrack.c
-Date: Tue, 15 Mar 2016 02:27:56 +0100
-Message-ID: <1458005282-24665-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/18] ipvs: drop first packet to redirect conntrack
+Date: Tue, 15 Mar 2016 02:27:48 +0100
+Message-ID: <1458005282-24665-5-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33224 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933278AbcCOB2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 21:28:30 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 37D35114F54
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:25 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 29D2ADA385
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:25 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 9FBEDDA38F
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:22 +0100 (CET)
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jarno@ovn.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-This makes the code easier to understand and the following patches
-more focused.
+Jiri Bohac is reporting for a problem where the attempt
+to reschedule existing connection to another real server
+needs proper redirect for the conntrack used by the IPVS
+connection. For example, when IPVS connection is created
+to NAT-ed real server we alter the reply direction of
+conntrack. If we later decide to select different real
+server we can not alter again the conntrack. And if we
+expire the old connection, the new connection is left
+without conntrack.
 
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+So, the only way to redirect both the IPVS connection and
+the Netfilter's conntrack is to drop the SYN packet that
+hits existing connection, to wait for the next jiffie
+to expire the old connection and its conntrack and to rely
+on client's retransmission to create new connection as
+usually.
+
+Jiri Bohac provided a fix that drops all SYNs on rescheduling,
+I extended his patch to do such drops only for connections
+that use conntrack. Here is the original report from Jiri Bohac:
+
+Since commit dc7b3eb900aa ("ipvs: Fix reuse connection if real server
+is dead"), new connections to dead servers are redistributed
+immediately to new servers.  The old connection is expired using
+ip_vs_conn_expire_now() which sets the connection timer to expire
+immediately.
+
+However, before the timer callback, ip_vs_conn_expire(), is run
+to clean the connection's conntrack entry, the new redistributed
+connection may already be established and its conntrack removed
+instead.
+
+Fix this by dropping the first packet of the new connection
+instead, like we do when the destination server is not available.
+The timer will have deleted the old conntrack entry long before
+the first packet of the new connection is retransmitted.
+
+Fixes: dc7b3eb900aa ("ipvs: Fix reuse connection if real server is dead")
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/openvswitch/conntrack.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+ include/net/ip_vs.h             | 17 +++++++++++++++++
+ net/netfilter/ipvs/ip_vs_core.c | 37 ++++++++++++++++++++++++++++---------
+ 2 files changed, 45 insertions(+), 9 deletions(-)
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 3045290..2c2bf07 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -152,8 +152,12 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (ct) {
- 		state = ovs_ct_get_state(ctinfo);
-+		/* All unconfirmed entries are NEW connections. */
- 		if (!nf_ct_is_confirmed(ct))
- 			state |= OVS_CS_F_NEW;
-+		/* OVS persists the related flag for the duration of the
-+		 * connection.
-+		 */
- 		if (ct->master)
- 			state |= OVS_CS_F_RELATED;
- 		zone = nf_ct_zone(ct);
-@@ -165,6 +169,9 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 	__ovs_ct_update_key(key, state, zone, ct);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 0816c87..a6cc576 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1588,6 +1588,23 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
  }
+ #endif /* CONFIG_IP_VS_NFCT */
  
-+/* This is called to initialize CT key fields possibly coming in from the local
-+ * stack.
-+ */
- void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
++/* Really using conntrack? */
++static inline bool ip_vs_conn_uses_conntrack(struct ip_vs_conn *cp,
++					     struct sk_buff *skb)
++{
++#ifdef CONFIG_IP_VS_NFCT
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
++
++	if (!(cp->flags & IP_VS_CONN_F_NFCT))
++		return false;
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && !nf_ct_is_untracked(ct))
++		return true;
++#endif
++	return false;
++}
++
+ static inline int
+ ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
  {
- 	ovs_ct_update_key(skb, NULL, key, false);
-@@ -199,7 +206,6 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	struct nf_conn *ct;
- 	u32 new_mark;
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index f57b4dc..4da5600 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1757,15 +1757,34 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
+ 	cp = pp->conn_in_get(ipvs, af, skb, &iph);
  
--
- 	/* The connection could be invalid, in which case set_mark is no-op. */
- 	ct = nf_ct_get(skb, &ctinfo);
- 	if (!ct)
-@@ -375,6 +381,11 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
- 	return true;
- }
+ 	conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
+-	if (conn_reuse_mode && !iph.fragoffs &&
+-	    is_new_conn(skb, &iph) && cp &&
+-	    ((unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
+-	      unlikely(!atomic_read(&cp->dest->weight))) ||
+-	     unlikely(is_new_conn_expected(cp, conn_reuse_mode)))) {
+-		if (!atomic_read(&cp->n_control))
+-			ip_vs_conn_expire_now(cp);
+-		__ip_vs_conn_put(cp);
+-		cp = NULL;
++	if (conn_reuse_mode && !iph.fragoffs && is_new_conn(skb, &iph) && cp) {
++		bool uses_ct = false, resched = false;
++
++		if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
++		    unlikely(!atomic_read(&cp->dest->weight))) {
++			resched = true;
++			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
++		} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
++			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
++			if (!atomic_read(&cp->n_control)) {
++				resched = true;
++			} else {
++				/* Do not reschedule controlling connection
++				 * that uses conntrack while it is still
++				 * referenced by controlled connection(s).
++				 */
++				resched = !uses_ct;
++			}
++		}
++
++		if (resched) {
++			if (!atomic_read(&cp->n_control))
++				ip_vs_conn_expire_now(cp);
++			__ip_vs_conn_put(cp);
++			if (uses_ct)
++				return NF_DROP;
++			cp = NULL;
++		}
+ 	}
  
-+/* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
-+ * not done already.  Update key with new CT state.
-+ * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
-+ * set to NULL and 0 will be returned.
-+ */
- static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 			   const struct ovs_conntrack_info *info,
- 			   struct sk_buff *skb)
-@@ -418,6 +429,13 @@ static int ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- {
- 	struct nf_conntrack_expect *exp;
- 
-+	/* If we pass an expected packet through nf_conntrack_in() the
-+	 * expectation is typically removed, but the packet could still be
-+	 * lost in upcall processing.  To prevent this from happening we
-+	 * perform an explicit expectation lookup.  Expected connections are
-+	 * always new, and will be passed through conntrack only when they are
-+	 * committed, as it is OK to remove the expectation at that time.
-+	 */
- 	exp = ovs_ct_expect_find(net, &info->zone, info->family, skb);
- 	if (exp) {
- 		u8 state;
-@@ -455,6 +473,7 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
-+	/* This is a no-op if the connection has already been confirmed. */
- 	if (nf_conntrack_confirm(skb) != NF_ACCEPT)
- 		return -EINVAL;
- 
+ 	if (unlikely(!cp)) {
 -- 
 2.1.4
-
