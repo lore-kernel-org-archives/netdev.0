@@ -1,64 +1,260 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ARC: axs10x - add Ethernet PHY description in .dts
-Date: Tue, 15 Mar 2016 17:38:30 +0300
-Message-ID: <56E81E66.6080706@cogentembedded.com>
-References: <1458034150-10766-1-git-send-email-abrodkin@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh@kernel.org>, Phil Reid <preid@electromag.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org, #@synopsys.com, 4.5.x@synopsys.com
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	linux-snps-arc@lists.infradead.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1458034150-10766-1-git-send-email-abrodkin@synopsys.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2 1/2] include: add linked list implementation from kernel
+Date: Tue, 15 Mar 2016 15:43:48 +0100
+Message-ID: <1458053029-7725-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, yishaih@mellanox.com, dledford@redhat.com,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	eugenia@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, hadarh@mellanox.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, jeffrey.t.kirsher@intel.com,
+	brouer@redhat.com, ivecera@redhat.com, rami.rosen@intel.com,
+	hannes@stressinduktion.org, gospo@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38602 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705AbcCOOnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 10:43:53 -0400
+Received: by mail-wm0-f50.google.com with SMTP id l68so29918400wml.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 07:43:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Jiri Pirko <jiri@mellanox.com>
 
-On 3/15/2016 12:29 PM, Alexey Brodkin wrote:
+Rename hlist.h to list.h while adding it to be aligned with kernel
 
-> Following commit broke DW GMAC functionality on AXS10x boards:
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e34d65696d2ef13dc32f2a162556c86c461ed763
->
-> That's what happens on eth0 up:
-> --------------------------->8------------------------
-> libphy: PHY stmmac-0:ffffffff not found
-> eth0: Could not attach to PHY
-> stmmac_open: Cannot attach to PHY (error: -19)
-> --------------------------->8------------------------
->
-> Simplest solution is to add PHY description in board's .dts.
-> And so we do here.
->
-> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
-> Cc: Rob Herring <robh@kernel.org>
-> Cc: Phil Reid <preid@electromag.com.au>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: linux-kernel@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: stable@vger.kernel.org # 4.5.x
-> ---
->   arch/arc/boot/dts/axs10x_mb.dtsi | 8 ++++++++
->   1 file changed, 8 insertions(+)
->
-> diff --git a/arch/arc/boot/dts/axs10x_mb.dtsi b/arch/arc/boot/dts/axs10x_mb.dtsi
-> index 44a578c..04b999e 100644
-> --- a/arch/arc/boot/dts/axs10x_mb.dtsi
-> +++ b/arch/arc/boot/dts/axs10x_mb.dtsi
-> @@ -47,6 +47,14 @@
->   			clocks = <&apbclk>;
->   			clock-names = "stmmaceth";
->   			max-speed = <100>;
-> +			mdio0 {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				compatible = "snps,dwmac-mdio";
-> +				phy0: ethernet-phy@0 {
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/hlist.h |  56 ----------------------------
+ include/list.h  | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ ip/ipnetns.c    |   2 +-
+ lib/ll_map.c    |   2 +-
+ tc/tc_class.c   |   2 +-
+ 5 files changed, 115 insertions(+), 59 deletions(-)
+ delete mode 100644 include/hlist.h
+ create mode 100644 include/list.h
 
-    The naming is inconsistent with the "reg" prop specified, should be @1.
-
-MBR, Sergei
+diff --git a/include/hlist.h b/include/hlist.h
+deleted file mode 100644
+index 4e8de9e..0000000
+--- a/include/hlist.h
++++ /dev/null
+@@ -1,56 +0,0 @@
+-#ifndef __HLIST_H__
+-#define __HLIST_H__ 1
+-/* Hash list stuff from kernel */
+-
+-#include <stddef.h>
+-
+-#define container_of(ptr, type, member) ({			\
+-	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+-	(type *)( (char *)__mptr - offsetof(type,member) );})
+-
+-struct hlist_head {
+-	struct hlist_node *first;
+-};
+-
+-struct hlist_node {
+-	struct hlist_node *next, **pprev;
+-};
+-
+-static inline void hlist_del(struct hlist_node *n)
+-{
+-	struct hlist_node *next = n->next;
+-	struct hlist_node **pprev = n->pprev;
+-	*pprev = next;
+-	if (next)
+-		next->pprev = pprev;
+-}
+-
+-static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
+-{
+-	struct hlist_node *first = h->first;
+-	n->next = first;
+-	if (first)
+-		first->pprev = &n->next;
+-	h->first = n;
+-	n->pprev = &h->first;
+-}
+-
+-#define hlist_for_each(pos, head) \
+-	for (pos = (head)->first; pos ; pos = pos->next)
+-
+-
+-#define hlist_for_each_safe(pos, n, head) \
+-	for (pos = (head)->first; pos && ({ n = pos->next; 1; }); \
+-	     pos = n)
+-
+-#define hlist_entry_safe(ptr, type, member) \
+-	({ typeof(ptr) ____ptr = (ptr); \
+-	   ____ptr ? hlist_entry(____ptr, type, member) : NULL; \
+-	})
+-
+-#define hlist_for_each_entry(pos, head, member)				\
+-	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);\
+-	     pos;							\
+-	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+-
+-#endif /* __HLIST_H__ */
+diff --git a/include/list.h b/include/list.h
+new file mode 100644
+index 0000000..efffd83
+--- /dev/null
++++ b/include/list.h
+@@ -0,0 +1,112 @@
++#ifndef __LIST_H__
++#define __LIST_H__ 1
++/* List and hash list stuff from kernel */
++
++#include <stddef.h>
++
++#define container_of(ptr, type, member) ({			\
++	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
++	(type *)( (char *)__mptr - offsetof(type,member) );})
++
++struct list_head {
++	struct list_head *next, *prev;
++};
++
++static inline void INIT_LIST_HEAD(struct list_head *list)
++{
++	list->next = list;
++	list->prev = list;
++}
++
++static inline void __list_add(struct list_head *new,
++			      struct list_head *prev,
++			      struct list_head *next)
++{
++	next->prev = new;
++	new->next = next;
++	new->prev = prev;
++	prev->next = new;
++}
++
++static inline void list_add(struct list_head *new, struct list_head *head)
++{
++	__list_add(new, head, head->next);
++}
++
++static inline void __list_del(struct list_head * prev, struct list_head * next)
++{
++	next->prev = prev;
++	prev->next = next;
++}
++
++static inline void list_del(struct list_head *entry)
++{
++	__list_del(entry->prev, entry->next);
++}
++
++#define list_entry(ptr, type, member) \
++	container_of(ptr, type, member)
++
++#define list_first_entry(ptr, type, member) \
++	list_entry((ptr)->next, type, member)
++
++#define list_next_entry(pos, member) \
++	list_entry((pos)->member.next, typeof(*(pos)), member)
++
++#define list_for_each_entry(pos, head, member)				\
++	for (pos = list_first_entry(head, typeof(*pos), member);	\
++	     &pos->member != (head);					\
++	     pos = list_next_entry(pos, member))
++
++#define list_for_each_entry_safe(pos, n, head, member)			\
++	for (pos = list_first_entry(head, typeof(*pos), member),	\
++		n = list_next_entry(pos, member);			\
++	     &pos->member != (head);					\
++	     pos = n, n = list_next_entry(n, member))
++
++struct hlist_head {
++	struct hlist_node *first;
++};
++
++struct hlist_node {
++	struct hlist_node *next, **pprev;
++};
++
++static inline void hlist_del(struct hlist_node *n)
++{
++	struct hlist_node *next = n->next;
++	struct hlist_node **pprev = n->pprev;
++	*pprev = next;
++	if (next)
++		next->pprev = pprev;
++}
++
++static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
++{
++	struct hlist_node *first = h->first;
++	n->next = first;
++	if (first)
++		first->pprev = &n->next;
++	h->first = n;
++	n->pprev = &h->first;
++}
++
++#define hlist_for_each(pos, head) \
++	for (pos = (head)->first; pos ; pos = pos->next)
++
++
++#define hlist_for_each_safe(pos, n, head) \
++	for (pos = (head)->first; pos && ({ n = pos->next; 1; }); \
++	     pos = n)
++
++#define hlist_entry_safe(ptr, type, member) \
++	({ typeof(ptr) ____ptr = (ptr); \
++	   ____ptr ? hlist_entry(____ptr, type, member) : NULL; \
++	})
++
++#define hlist_for_each_entry(pos, head, member)				\
++	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);\
++	     pos;							\
++	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
++
++#endif /* __LIST_H__ */
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 4ce5989..0596b2c 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -18,7 +18,7 @@
+ #include <linux/net_namespace.h>
+ 
+ #include "utils.h"
+-#include "hlist.h"
++#include "list.h"
+ #include "ip_common.h"
+ #include "namespace.h"
+ 
+diff --git a/lib/ll_map.c b/lib/ll_map.c
+index c6f7027..fa14a77 100644
+--- a/lib/ll_map.c
++++ b/lib/ll_map.c
+@@ -22,7 +22,7 @@
+ 
+ #include "libnetlink.h"
+ #include "ll_map.h"
+-#include "hlist.h"
++#include "list.h"
+ 
+ struct ll_cache {
+ 	struct hlist_node idx_hash;
+diff --git a/tc/tc_class.c b/tc/tc_class.c
+index 3acd030..7d3b009 100644
+--- a/tc/tc_class.c
++++ b/tc/tc_class.c
+@@ -24,7 +24,7 @@
+ #include "utils.h"
+ #include "tc_util.h"
+ #include "tc_common.h"
+-#include "hlist.h"
++#include "list.h"
+ 
+ struct graph_node {
+ 	struct hlist_node hlist;
+-- 
+2.5.0
