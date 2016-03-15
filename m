@@ -1,140 +1,71 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get SIGPIPE
-Date: Tue, 15 Mar 2016 10:03:44 +0100
-Message-ID: <1458032624-139688-1-git-send-email-glider@google.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: edumazet@google.com, rweikusat@mobileactivedefense.com,
-	davem@davemloft.net
+Subject: Re: [PATCH] SOCK_SEQPACKET socketpair must get SIGPIPE in AF_UNIX if
+ one end is closed
+Date: Tue, 15 Mar 2016 10:08:58 +0100
+Message-ID: <CAG_fn=UEU+CyCs-=PoujgcYwp6Oq4dkbVGqSi+4VEdOEkqEMxw@mail.gmail.com>
+References: <1457532623-125301-1-git-send-email-glider@google.com>
+	<20160314.151923.1878027262976947807.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <edumazet@google.com>,
+	rweikusat@mobileactivedefense.com,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:36683 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964798AbcCOJDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 05:03:51 -0400
-Received: by mail-wm0-f53.google.com with SMTP id l124so1997140wmf.1
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:03:49 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38798 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934395AbcCOJJA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 05:09:00 -0400
+Received: by mail-wm0-f46.google.com with SMTP id l68so16303980wml.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:08:59 -0700 (PDT)
+In-Reply-To: <20160314.151923.1878027262976947807.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
-socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if the
-socket is no longer connected.
+Done, thanks for your response!
 
-I used the following program to check the kernel behavior:
-
-/*****************/
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-void PipeHandler(int sig) {
-  fprintf(stderr, "Killed by SIGPIPE\n");
-  _exit(1);
-}
-
-int main(int argc, char *argv[]) {
-  if (argc < 2) return 0;
-  struct sigaction act;
-  act.sa_handler = PipeHandler;
-  sigaction(SIGPIPE, &act, NULL);
-  int fds[2];
-  if (strcmp(argv[1], "seqpacket") == 0) {
-    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fds) == -1) return -1;
-  } else {
-    if (strcmp(argv[1], "stream") == 0) {
-      if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) return -1;
-    } else {
-      return -1;
-    }
-  }
-  int flags = 0;
-  if ((argc > 2) && (strcmp(argv[2], "nosignal") == 0))
-    flags = MSG_NOSIGNAL;
-
-  struct msghdr msg;
-  memset(&msg, 0, sizeof(msg));
-  close(fds[0]);
-  const ssize_t r = sendmsg(fds[1], &msg, flags);
-  if (r == -1) perror("sendmsg");
-  return 0;
-}
-/*****************/
-
-Without the below patch the behavior is as follows:
-
-$ ./sock seqpacket
-sendmsg: Broken pipe
-$ ./sock stream
-Killed by SIGPIPE
-$ ./sock seqpacket nosignal
-sendmsg: Broken pipe
-$ ./sock stream nosignal
-sendmsg: Broken pipe
-
-The behavior of the patched kernel complies with POSIX:
-
-$  ./sock seqpacket
-Killed by SIGPIPE
-$ ./sock stream
-Killed by SIGPIPE
-$ ./sock seqpacket nosignal
-sendmsg: Broken pipe
-$ ./sock stream nosignal
-sendmsg: Broken pipe
+On Mon, Mar 14, 2016 at 8:19 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Alexander Potapenko <glider@google.com>
+> Date: Wed,  9 Mar 2016 15:10:23 +0100
+>
+>> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
+>> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if th=
+e
+>> socket is no longer connected.
+>>
+>> Signed-off-by: Alexander Potapenko <glider@google.com>
+>
+> Please format your Subject line properly, the format is:
+>
+>         [PATCH] $SUBSYSTEM: $DESCRIPTION.
+>
+> In this case "af_unx: " would be a proper subsystem marker.
+>
+> Also,
+>
+>> ---
+>> I used the following program to check the kernel behavior:
+>
+> Please include this in your commit message rather than cutting it out
+> using the "---" marker, as it will help people in the future
+> understand your change and how you tested it.  More information is
+> always better than less information.
+>
+> Thanks.
 
 
-Signed-off-by: Alexander Potapenko <glider@google.com>
----
- net/unix/af_unix.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 8fbe6d7..ba34c73 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1645,6 +1645,7 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 	struct sock *other = NULL;
- 	int namelen = 0; /* fake GCC */
- 	int err;
-+	bool send_sigpipe = false;
- 	unsigned int hash;
- 	struct sk_buff *skb;
- 	long timeo;
-@@ -1675,6 +1676,12 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
- 			goto out;
- 	}
- 
-+	if (sk->sk_shutdown & SEND_SHUTDOWN && sock->type == SOCK_SEQPACKET) {
-+		send_sigpipe = true;
-+		err = -EPIPE;
-+		goto out;
-+	}
-+
- 	if (test_bit(SOCK_PASSCRED, &sock->flags) && !u->addr
- 	    && (err = unix_autobind(sock)) != 0)
- 		goto out;
-@@ -1769,8 +1776,11 @@ restart_locked:
- 	}
- 
- 	err = -EPIPE;
--	if (other->sk_shutdown & RCV_SHUTDOWN)
-+	if (other->sk_shutdown & RCV_SHUTDOWN) {
-+		if (sock->type == SOCK_SEQPACKET)
-+			send_sigpipe = true;
- 		goto out_unlock;
-+	}
- 
- 	if (sk->sk_type != SOCK_SEQPACKET) {
- 		err = security_unix_may_send(sk->sk_socket, other->sk_socket);
-@@ -1837,6 +1847,8 @@ out:
- 	if (other)
- 		sock_put(other);
- 	scm_destroy(&scm);
-+	if (send_sigpipe && !(msg->msg_flags & MSG_NOSIGNAL))
-+		send_sig(SIGPIPE, current, 0);
- 	return err;
- }
- 
--- 
-2.7.0.rc3.207.g0ac5344
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicl=
+e
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
