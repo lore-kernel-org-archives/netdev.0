@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/18] ipvs: allow rescheduling after RST
-Date: Tue, 15 Mar 2016 02:27:49 +0100
-Message-ID: <1458005282-24665-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/18] netfilter: x_tables: check for size overflow
+Date: Tue, 15 Mar 2016 02:27:53 +0100
+Message-ID: <1458005282-24665-10-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,32 +10,34 @@ In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Florian Westphal <fw@strlen.de>
 
-"RFC 5961, 4.2. Mitigation" describes a mechanism to request
-client to confirm with RST the restart of TCP connection
-before resending its SYN. As result, IPVS can see SYNs for
-existing connection in CLOSE state. Add check to allow
-rescheduling in this state.
+Ben Hawkes says:
+ integer overflow in xt_alloc_table_info, which on 32-bit systems can
+ lead to small structure allocation and a copy_from_user based heap
+ corruption.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Reported-by: Ben Hawkes <hawkes@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_core.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/netfilter/x_tables.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 4da5600..b9a4082 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1089,6 +1089,7 @@ static inline bool is_new_conn_expected(const struct ip_vs_conn *cp,
- 	switch (cp->protocol) {
- 	case IPPROTO_TCP:
- 		return (cp->state == IP_VS_TCP_S_TIME_WAIT) ||
-+		       (cp->state == IP_VS_TCP_S_CLOSE) ||
- 			((conn_reuse_mode & 2) &&
- 			 (cp->state == IP_VS_TCP_S_FIN_WAIT) &&
- 			 (cp->flags & IP_VS_CONN_F_NOOUTPUT));
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index d0cd2b9..582c9cf 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -659,6 +659,9 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
+ 	struct xt_table_info *info = NULL;
+ 	size_t sz = sizeof(*info) + size;
+ 
++	if (sz < sizeof(*info))
++		return NULL;
++
+ 	/* Pedantry: prevent them from hitting BUG() in vmalloc.c --RR */
+ 	if ((SMP_ALIGN(size) >> PAGE_SHIFT) + 2 > totalram_pages)
+ 		return NULL;
 -- 
 2.1.4
 
