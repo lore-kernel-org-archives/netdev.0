@@ -1,191 +1,83 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/18] netfilter: ipset: Fix set:list type crash when flush/dump set in parallel
-Date: Tue, 15 Mar 2016 02:27:45 +0100
-Message-ID: <1458005282-24665-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/18] netfilter: Remove IP_CT_NEW_REPLY definition.
+Date: Tue, 15 Mar 2016 02:27:54 +0100
+Message-ID: <1458005282-24665-11-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33223 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933335AbcCOB2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 21:28:31 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 539A8114F5E
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:29 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 41822DA8F7
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:29 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 74D9FDA8F7
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:27 +0100 (CET)
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Jarno Rajahalme <jarno@ovn.org>
 
-Flushing/listing entries was not RCU safe, so parallel flush/dump
-could lead to kernel crash. Bug reported by Deniz Eren.
+Remove the definition of IP_CT_NEW_REPLY from the kernel as it does
+not make sense.  This allows the definition of IP_CT_NUMBER to be
+simplified as well.
 
-Fixes netfilter bugzilla id #1050.
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_core.c     |  3 ++
- net/netfilter/ipset/ip_set_list_set.c | 55 ++++++++++++++++-------------------
- 2 files changed, 28 insertions(+), 30 deletions(-)
+ include/uapi/linux/netfilter/nf_conntrack_common.h | 12 +++++++++---
+ net/openvswitch/conntrack.c                        |  2 --
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 95db43f..7e6568c 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -985,6 +985,9 @@ static int ip_set_destroy(struct net *net, struct sock *ctnl,
- 	if (unlikely(protocol_failed(attr)))
- 		return -IPSET_ERR_PROTOCOL;
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 319f471..6d074d1 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -20,9 +20,15 @@ enum ip_conntrack_info {
  
-+	/* Must wait for flush to be really finished in list:set */
-+	rcu_barrier();
+ 	IP_CT_ESTABLISHED_REPLY = IP_CT_ESTABLISHED + IP_CT_IS_REPLY,
+ 	IP_CT_RELATED_REPLY = IP_CT_RELATED + IP_CT_IS_REPLY,
+-	IP_CT_NEW_REPLY = IP_CT_NEW + IP_CT_IS_REPLY,	
+-	/* Number of distinct IP_CT types (no NEW in reply dirn). */
+-	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
++	/* No NEW in reply direction. */
 +
- 	/* Commands are serialized and references are
- 	 * protected by the ip_set_ref_lock.
- 	 * External systems (i.e. xt_set) must call
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index bbede95..24c6c19 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -30,6 +30,7 @@ MODULE_ALIAS("ip_set_list:set");
- struct set_elem {
- 	struct rcu_head rcu;
- 	struct list_head list;
-+	struct ip_set *set;	/* Sigh, in order to cleanup reference */
- 	ip_set_id_t id;
- } __aligned(__alignof__(u64));
- 
-@@ -151,30 +152,29 @@ list_set_kadt(struct ip_set *set, const struct sk_buff *skb,
- /* Userspace interfaces: we are protected by the nfnl mutex */
- 
- static void
--__list_set_del(struct ip_set *set, struct set_elem *e)
-+__list_set_del_rcu(struct rcu_head * rcu)
- {
-+	struct set_elem *e = container_of(rcu, struct set_elem, rcu);
-+	struct ip_set *set = e->set;
- 	struct list_set *map = set->data;
- 
- 	ip_set_put_byindex(map->net, e->id);
--	/* We may call it, because we don't have a to be destroyed
--	 * extension which is used by the kernel.
--	 */
- 	ip_set_ext_destroy(set, e);
--	kfree_rcu(e, rcu);
-+	kfree(e);
- }
- 
- static inline void
- list_set_del(struct ip_set *set, struct set_elem *e)
- {
- 	list_del_rcu(&e->list);
--	__list_set_del(set, e);
-+	call_rcu(&e->rcu, __list_set_del_rcu);
- }
- 
- static inline void
--list_set_replace(struct ip_set *set, struct set_elem *e, struct set_elem *old)
-+list_set_replace(struct set_elem *e, struct set_elem *old)
- {
- 	list_replace_rcu(&old->list, &e->list);
--	__list_set_del(set, old);
-+	call_rcu(&old->rcu, __list_set_del_rcu);
- }
- 
- static void
-@@ -244,9 +244,6 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 	struct set_elem *e, *n, *prev, *next;
- 	bool flag_exist = flags & IPSET_FLAG_EXIST;
- 
--	if (SET_WITH_TIMEOUT(set))
--		set_cleanup_entries(set);
--
- 	/* Find where to add the new entry */
- 	n = prev = next = NULL;
- 	list_for_each_entry(e, &map->members, list) {
-@@ -301,10 +298,11 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 	if (!e)
- 		return -ENOMEM;
- 	e->id = d->id;
-+	e->set = set;
- 	INIT_LIST_HEAD(&e->list);
- 	list_set_init_extensions(set, ext, e);
- 	if (n)
--		list_set_replace(set, e, n);
-+		list_set_replace(e, n);
- 	else if (next)
- 		list_add_tail_rcu(&e->list, &next->list);
- 	else if (prev)
-@@ -431,6 +429,7 @@ list_set_destroy(struct ip_set *set)
- 
- 	if (SET_WITH_TIMEOUT(set))
- 		del_timer_sync(&map->gc);
++	/* Number of distinct IP_CT types. */
++	IP_CT_NUMBER,
 +
- 	list_for_each_entry_safe(e, n, &map->members, list) {
- 		list_del(&e->list);
- 		ip_set_put_byindex(map->net, e->id);
-@@ -450,8 +449,10 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
- 	struct set_elem *e;
- 	u32 n = 0;
++	/* only for userspace compatibility */
++#ifndef __KERNEL__
++	IP_CT_NEW_REPLY = IP_CT_NUMBER,
++#endif
+ };
  
--	list_for_each_entry(e, &map->members, list)
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(e, &map->members, list)
- 		n++;
-+	rcu_read_unlock();
- 
- 	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
- 	if (!nested)
-@@ -483,33 +484,25 @@ list_set_list(const struct ip_set *set,
- 	atd = ipset_nest_start(skb, IPSET_ATTR_ADT);
- 	if (!atd)
- 		return -EMSGSIZE;
--	list_for_each_entry(e, &map->members, list) {
--		if (i == first)
--			break;
--		i++;
--	}
- 
- 	rcu_read_lock();
--	list_for_each_entry_from(e, &map->members, list) {
--		i++;
--		if (SET_WITH_TIMEOUT(set) &&
--		    ip_set_timeout_expired(ext_timeout(e, set)))
-+	list_for_each_entry_rcu(e, &map->members, list) {
-+		if (i < first ||
-+		    (SET_WITH_TIMEOUT(set) &&
-+		     ip_set_timeout_expired(ext_timeout(e, set)))) {
-+			i++;
- 			continue;
-+		}
- 		nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
--		if (!nested) {
--			if (i == first) {
--				nla_nest_cancel(skb, atd);
--				ret = -EMSGSIZE;
--				goto out;
--			}
-+		if (!nested)
- 			goto nla_put_failure;
--		}
- 		if (nla_put_string(skb, IPSET_ATTR_NAME,
- 				   ip_set_name_byindex(map->net, e->id)))
- 			goto nla_put_failure;
- 		if (ip_set_put_extensions(skb, set, e, true))
- 			goto nla_put_failure;
- 		ipset_nest_end(skb, nested);
-+		i++;
- 	}
- 
- 	ipset_nest_end(skb, atd);
-@@ -520,10 +513,12 @@ list_set_list(const struct ip_set *set,
- nla_put_failure:
- 	nla_nest_cancel(skb, nested);
- 	if (unlikely(i == first)) {
-+		nla_nest_cancel(skb, atd);
- 		cb->args[IPSET_CB_ARG0] = 0;
- 		ret = -EMSGSIZE;
-+	} else {
-+		cb->args[IPSET_CB_ARG0] = i;
- 	}
--	cb->args[IPSET_CB_ARG0] = i - 1;
- 	ipset_nest_end(skb, atd);
- out:
- 	rcu_read_unlock();
+ #define NF_CT_STATE_INVALID_BIT			(1 << 0)
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index ee6ff8f..3045290 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -75,7 +75,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 	switch (ctinfo) {
+ 	case IP_CT_ESTABLISHED_REPLY:
+ 	case IP_CT_RELATED_REPLY:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_REPLY_DIR;
+ 		break;
+ 	default:
+@@ -92,7 +91,6 @@ static u8 ovs_ct_get_state(enum ip_conntrack_info ctinfo)
+ 		ct_state |= OVS_CS_F_RELATED;
+ 		break;
+ 	case IP_CT_NEW:
+-	case IP_CT_NEW_REPLY:
+ 		ct_state |= OVS_CS_F_NEW;
+ 		break;
+ 	default:
 -- 
 2.1.4
-
