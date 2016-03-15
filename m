@@ -1,117 +1,66 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH] netdev: Move octeon/octeon_mgmt driver to cavium directory.
-Date: Mon, 14 Mar 2016 17:57:08 -0700
-Message-ID: <1458003428-27632-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-	David Daney <david.daney@cavium.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH v6 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
+Date: Mon, 14 Mar 2016 18:04:11 -0700
+Message-ID: <56E75F8B.7090101@hpe.com>
+References: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+ <1457028388-18226-3-git-send-email-bro.devel+kernel@gmail.com>
+ <1457990140.31401.20.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?Q?P=c3=a5l_Halvorsen?= <paalh@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Bendik_R=c3=b8nning_Opstad?= <bro.devel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34195 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754328AbcCOA5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 20:57:14 -0400
+Received: from g4t3425.houston.hp.com ([15.201.208.53]:45555 "EHLO
+	g4t3425.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754116AbcCOBEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 21:04:16 -0400
+In-Reply-To: <1457990140.31401.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On 03/14/2016 02:15 PM, Eric Dumazet wrote:
+> On Thu, 2016-03-03 at 19:06 +0100, Bendik R=C3=B8nning Opstad wrote:
+>> Redundant Data Bundling (RDB) is a mechanism for TCP aimed at reduci=
+ng
+>> the latency for applications sending time-dependent data.
+>>
+>> Latency-sensitive applications or services, such as online games,
+>> remote control systems, and VoIP, produce traffic with thin-stream
+>> characteristics, characterized by small packets and relatively high
+>> inter-transmission times (ITT). When experiencing packet loss, such
+>> latency-sensitive applications are heavily penalized by the need to
+>> retransmit lost packets, which increases the latency by a minimum of
+>> one RTT for the lost packet. Packets coming after a lost packet are
+>> held back due to head-of-line blocking, causing increased delays for
+>> all data segments until the lost packet has been retransmitted.
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+> Note that RDB probably should get some SNMP counters,
+> so that we get an idea of how many times a loss could be repaired.
 
-No code changes.  Since OCTEON is a Cavium product, move the driver to
-the vendor directory to unclutter things a bit.
+And some idea of the duplication seen by receivers, assuming there isn'=
+t=20
+already a counter for such a thing in Linux.
 
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/Kconfig                           |  1 -
- drivers/net/ethernet/Makefile                          |  1 -
- drivers/net/ethernet/cavium/Kconfig                    | 11 +++++++++++
- drivers/net/ethernet/cavium/Makefile                   |  1 +
- drivers/net/ethernet/{ => cavium}/octeon/Makefile      |  0
- drivers/net/ethernet/{ => cavium}/octeon/octeon_mgmt.c |  0
- drivers/net/ethernet/octeon/Kconfig                    | 14 --------------
- 7 files changed, 12 insertions(+), 16 deletions(-)
- rename drivers/net/ethernet/{ => cavium}/octeon/Makefile (100%)
- rename drivers/net/ethernet/{ => cavium}/octeon/octeon_mgmt.c (100%)
- delete mode 100644 drivers/net/ethernet/octeon/Kconfig
+happy benchmarking,
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index be67a19..2ffd634 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -139,7 +139,6 @@ config NET_NETX
- source "drivers/net/ethernet/nuvoton/Kconfig"
- source "drivers/net/ethernet/nvidia/Kconfig"
- source "drivers/net/ethernet/nxp/Kconfig"
--source "drivers/net/ethernet/octeon/Kconfig"
- source "drivers/net/ethernet/oki-semi/Kconfig"
- 
- config ETHOC
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 6ffcc80..1d349e9 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -59,7 +59,6 @@ obj-$(CONFIG_NET_NETX) += netx-eth.o
- obj-$(CONFIG_NET_VENDOR_NUVOTON) += nuvoton/
- obj-$(CONFIG_NET_VENDOR_NVIDIA) += nvidia/
- obj-$(CONFIG_LPC_ENET) += nxp/
--obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
- obj-$(CONFIG_NET_VENDOR_OKI) += oki-semi/
- obj-$(CONFIG_ETHOC) += ethoc.o
- obj-$(CONFIG_NET_PACKET_ENGINE) += packetengines/
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index 953aa40..0ef232d 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -53,4 +53,15 @@ config LIQUIDIO
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called liquidio.  This is recommended.
- 
-+config OCTEON_MGMT_ETHERNET
-+	tristate "Octeon Management port ethernet driver (CN5XXX, CN6XXX)"
-+	depends on CAVIUM_OCTEON_SOC
-+	select PHYLIB
-+	select MDIO_OCTEON
-+	default y
-+	help
-+	  Enable the ethernet driver for the management
-+	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
-+	  CN54XX, CN52XX, and CN6XXX chips.
-+
- endif # NET_VENDOR_CAVIUM
-diff --git a/drivers/net/ethernet/cavium/Makefile b/drivers/net/ethernet/cavium/Makefile
-index d22f886a..872da9f 100644
---- a/drivers/net/ethernet/cavium/Makefile
-+++ b/drivers/net/ethernet/cavium/Makefile
-@@ -3,3 +3,4 @@
- #
- obj-$(CONFIG_NET_VENDOR_CAVIUM) += thunder/
- obj-$(CONFIG_NET_VENDOR_CAVIUM) += liquidio/
-+obj-$(CONFIG_NET_VENDOR_CAVIUM) += octeon/
-diff --git a/drivers/net/ethernet/octeon/Makefile b/drivers/net/ethernet/cavium/octeon/Makefile
-similarity index 100%
-rename from drivers/net/ethernet/octeon/Makefile
-rename to drivers/net/ethernet/cavium/octeon/Makefile
-diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-similarity index 100%
-rename from drivers/net/ethernet/octeon/octeon_mgmt.c
-rename to drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-diff --git a/drivers/net/ethernet/octeon/Kconfig b/drivers/net/ethernet/octeon/Kconfig
-deleted file mode 100644
-index a7aa280..0000000
---- a/drivers/net/ethernet/octeon/Kconfig
-+++ /dev/null
-@@ -1,14 +0,0 @@
--#
--# Cavium network device configuration
--#
--
--config OCTEON_MGMT_ETHERNET
--	tristate "Octeon Management port ethernet driver (CN5XXX, CN6XXX)"
--	depends on CAVIUM_OCTEON_SOC
--	select PHYLIB
--	select MDIO_OCTEON
--	default y
--	---help---
--	  This option enables the ethernet driver for the management
--	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
--	  CN54XX, CN52XX, and CN6XXX chips.
--- 
-1.7.11.7
+rick jones
+
+>
+> Ideally, if the path happens to be lossless, all these pro active
+> bundles are overhead. Might be useful to make RDB conditional to
+> tp->total_retrans or something.
+>
+>
