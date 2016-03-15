@@ -1,75 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
- sndbuf/rcvbuf on rds-tcp socket
-Date: Tue, 15 Mar 2016 11:09:50 -0700
-Message-ID: <1458065390.31401.45.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160315151248.GJ11063@oracle.com>
-	 <56E83A6D.6060904@oracle.com> <20160315165800.GL11063@oracle.com>
-	 <1458062294.31401.37.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160315173011.GM11063@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v6 net-next 2/2] tcp: Add Redundant Data Bundling (RDB)
+Date: Tue, 15 Mar 2016 11:09:18 -0700
+Message-ID: <CAK6E8=cq337S_2c5SWtS0zJtd+NXMKrw5A3Y64ZHVTtpF2rcPQ@mail.gmail.com>
+References: <1457028388-18226-1-git-send-email-bro.devel+kernel@gmail.com>
+ <1457028388-18226-3-git-send-email-bro.devel+kernel@gmail.com>
+ <1457990140.31401.20.camel@edumazet-glaptop3.roam.corp.google.com> <56E75F8B.7090101@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: santosh shilimkar <santosh.shilimkar@oracle.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Bendik_R=C3=B8nning_Opstad?= <bro.devel@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	Carsten Griwodz <griff@simula.no>,
+	=?UTF-8?Q?P=C3=A5l_Halvorsen?= <paalh@simula.no>,
+	Jonas Markussen <jonassm@ifi.uio.no>,
+	Kristian Evensen <kristian.evensen@gmail.com>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34306 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932212AbcCOSJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 14:09:52 -0400
-Received: by mail-pf0-f180.google.com with SMTP id x3so38451997pfb.1
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 11:09:52 -0700 (PDT)
-In-Reply-To: <20160315173011.GM11063@oracle.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37235 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932212AbcCOSKA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 14:10:00 -0400
+Received: by mail-wm0-f46.google.com with SMTP id p65so38683525wmp.0
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 11:09:59 -0700 (PDT)
+In-Reply-To: <56E75F8B.7090101@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-15 at 13:30 -0400, Sowmini Varadhan wrote:
-> On (03/15/16 10:18), Eric Dumazet wrote:
-> > 
-> > Look at SO_SNDBUF and SO_RCVBUF implementation.
-> > 
-> > sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
-> > 
-> > sk->sk_rcvbuf = max_t(u32, val * 2, SOCK_MIN_RCVBUF);
-> > 
-> > kernel definitely has some logic here.
-> 
-> Ok, I can do the same thing (and we do this consistently across
-> all drivers?)
-> 
-> > If you believe SOCK_MIN_SNDBUF and/or SOCK_MIN_RCVBUF are wrong, please
-> > elaborate.
-> 
-> I dont recall suggesting that.
+On Mon, Mar 14, 2016 at 6:04 PM, Rick Jones <rick.jones2@hpe.com> wrote=
+:
+>
+> On 03/14/2016 02:15 PM, Eric Dumazet wrote:
+>>
+>> On Thu, 2016-03-03 at 19:06 +0100, Bendik R=C3=B8nning Opstad wrote:
+>>>
+>>> Redundant Data Bundling (RDB) is a mechanism for TCP aimed at reduc=
+ing
+>>> the latency for applications sending time-dependent data.
+>>>
+>>> Latency-sensitive applications or services, such as online games,
+>>> remote control systems, and VoIP, produce traffic with thin-stream
+>>> characteristics, characterized by small packets and relatively high
+>>> inter-transmission times (ITT). When experiencing packet loss, such
+>>> latency-sensitive applications are heavily penalized by the need to
+>>> retransmit lost packets, which increases the latency by a minimum o=
+f
+>>> one RTT for the lost packet. Packets coming after a lost packet are
+>>> held back due to head-of-line blocking, causing increased delays fo=
+r
+>>> all data segments until the lost packet has been retransmitted.
+>>
+>>
+>> Acked-by: Eric Dumazet <edumazet@google.com>
+>>
+>> Note that RDB probably should get some SNMP counters,
+>> so that we get an idea of how many times a loss could be repaired.
+>
+>
+> And some idea of the duplication seen by receivers, assuming there is=
+n't already a counter for such a thing in Linux.
 
-You said "just as user-space SO_SNDBUF allows ridiculous values
-for buffer size.."
-
-So I understood you believe SOCK_MIN_SNDBUF and/or SOCK_MIN_RCVBUF are
-ridiculous ;)
+We sort of track that in the awkwardly named LINUX_MIB_DELAYEDACKLOST
 
 
-> 
-> BTW, when I tried it, doing a SO_SNDBUF of 1 from uspace does not return
-> an error. It merely sets the buffer size to 4608 (as reported by
-> getsockopt in my env. I think the getsockopt value is impacted by
-> many factors).
 
-I pointed to you the actual code.
-
-sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
-
-
-No error is returned. kernel enforces a minimal value.
-
-#define SOCK_MIN_SNDBUF         (TCP_SKB_MIN_TRUESIZE * 2)
-#define TCP_SKB_MIN_TRUESIZE    (2048 + SKB_DATA_ALIGN(sizeof(struct
-sk_buff)))
-
--> 2 * (2048 + 256) = 4608  given current sk_buff overhead (that might
-change in linux 5.4 ... )
-
-But again if your sysctl allows to set a value below SOCK_MIN_SNDBUF,
-that might be a problem, because stack could have a hidden bug for very
-small values of sndbuf/rcvbuf. 
+>
+> happy benchmarking,
+>
+> rick jones
+>
+>
+>>
+>> Ideally, if the path happens to be lossless, all these pro active
+>> bundles are overhead. Might be useful to make RDB conditional to
+>> tp->total_retrans or something.
+>>
+>>
+>
