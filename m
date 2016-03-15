@@ -1,151 +1,146 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/18] ipvs: drop first packet to redirect conntrack
-Date: Tue, 15 Mar 2016 02:27:48 +0100
-Message-ID: <1458005282-24665-5-git-send-email-pablo@netfilter.org>
-References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 00/18] Netfilter/IPVS/OVS updates for net-next
+Date: Tue, 15 Mar 2016 02:27:44 +0100
+Message-ID: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33224 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933278AbcCOB2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 21:28:30 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 37D35114F54
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:25 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 29D2ADA385
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:25 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 9FBEDDA38F
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:22 +0100 (CET)
-In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+Hi David,
 
-Jiri Bohac is reporting for a problem where the attempt
-to reschedule existing connection to another real server
-needs proper redirect for the conntrack used by the IPVS
-connection. For example, when IPVS connection is created
-to NAT-ed real server we alter the reply direction of
-conntrack. If we later decide to select different real
-server we can not alter again the conntrack. And if we
-expire the old connection, the new connection is left
-without conntrack.
+The following patchset contains Netfilter/IPVS fixes and OVS NAT
+support, more specifically this batch is composed of:
 
-So, the only way to redirect both the IPVS connection and
-the Netfilter's conntrack is to drop the SYN packet that
-hits existing connection, to wait for the next jiffie
-to expire the old connection and its conntrack and to rely
-on client's retransmission to create new connection as
-usually.
+1) Fix a crash in ipset when performing a parallel flush/dump with
+   set:list type, from Jozsef Kadlecsik.
 
-Jiri Bohac provided a fix that drops all SYNs on rescheduling,
-I extended his patch to do such drops only for connections
-that use conntrack. Here is the original report from Jiri Bohac:
+2) Make sure NFACCT_FILTER_* netlink attributes are in place before
+   accessing them, from Phil Turnbull.
 
-Since commit dc7b3eb900aa ("ipvs: Fix reuse connection if real server
-is dead"), new connections to dead servers are redistributed
-immediately to new servers.  The old connection is expired using
-ip_vs_conn_expire_now() which sets the connection timer to expire
-immediately.
+3) Check return error code from ip_vs_fill_iph_skb_off() in IPVS SIP
+   helper, from Arnd Bergmann.
 
-However, before the timer callback, ip_vs_conn_expire(), is run
-to clean the connection's conntrack entry, the new redistributed
-connection may already be established and its conntrack removed
-instead.
+4) Add workaround to IPVS to reschedule existing connections to new
+   destination server by dropping the packet and wait for retransmission
+   of TCP syn packet, from Julian Anastasov.
 
-Fix this by dropping the first packet of the new connection
-instead, like we do when the destination server is not available.
-The timer will have deleted the old conntrack entry long before
-the first packet of the new connection is retransmitted.
+5) Allow connection rescheduling in IPVS when in CLOSE state, also
+   from Julian.
 
-Fixes: dc7b3eb900aa ("ipvs: Fix reuse connection if real server is dead")
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             | 17 +++++++++++++++++
- net/netfilter/ipvs/ip_vs_core.c | 37 ++++++++++++++++++++++++++++---------
- 2 files changed, 45 insertions(+), 9 deletions(-)
+6) Fix wrong offset of SIP Call-ID in IPVS helper, from Marco Angaroni.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 0816c87..a6cc576 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1588,6 +1588,23 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
- }
- #endif /* CONFIG_IP_VS_NFCT */
- 
-+/* Really using conntrack? */
-+static inline bool ip_vs_conn_uses_conntrack(struct ip_vs_conn *cp,
-+					     struct sk_buff *skb)
-+{
-+#ifdef CONFIG_IP_VS_NFCT
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+
-+	if (!(cp->flags & IP_VS_CONN_F_NFCT))
-+		return false;
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (ct && !nf_ct_is_untracked(ct))
-+		return true;
-+#endif
-+	return false;
-+}
-+
- static inline int
- ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
- {
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index f57b4dc..4da5600 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1757,15 +1757,34 @@ ip_vs_in(struct netns_ipvs *ipvs, unsigned int hooknum, struct sk_buff *skb, int
- 	cp = pp->conn_in_get(ipvs, af, skb, &iph);
- 
- 	conn_reuse_mode = sysctl_conn_reuse_mode(ipvs);
--	if (conn_reuse_mode && !iph.fragoffs &&
--	    is_new_conn(skb, &iph) && cp &&
--	    ((unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
--	      unlikely(!atomic_read(&cp->dest->weight))) ||
--	     unlikely(is_new_conn_expected(cp, conn_reuse_mode)))) {
--		if (!atomic_read(&cp->n_control))
--			ip_vs_conn_expire_now(cp);
--		__ip_vs_conn_put(cp);
--		cp = NULL;
-+	if (conn_reuse_mode && !iph.fragoffs && is_new_conn(skb, &iph) && cp) {
-+		bool uses_ct = false, resched = false;
-+
-+		if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp->dest &&
-+		    unlikely(!atomic_read(&cp->dest->weight))) {
-+			resched = true;
-+			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
-+		} else if (is_new_conn_expected(cp, conn_reuse_mode)) {
-+			uses_ct = ip_vs_conn_uses_conntrack(cp, skb);
-+			if (!atomic_read(&cp->n_control)) {
-+				resched = true;
-+			} else {
-+				/* Do not reschedule controlling connection
-+				 * that uses conntrack while it is still
-+				 * referenced by controlled connection(s).
-+				 */
-+				resched = !uses_ct;
-+			}
-+		}
-+
-+		if (resched) {
-+			if (!atomic_read(&cp->n_control))
-+				ip_vs_conn_expire_now(cp);
-+			__ip_vs_conn_put(cp);
-+			if (uses_ct)
-+				return NF_DROP;
-+			cp = NULL;
-+		}
- 	}
- 
- 	if (unlikely(!cp)) {
--- 
-2.1.4
+7) Validate IPSET_ATTR_ETHER netlink attribute length, from Jozsef.
+
+8) Check match/targetinfo netlink attribute size in nft_compat,
+   patch from Florian Westphal.
+
+9) Check for integer overflow on 32-bit systems in x_tables, from
+   Florian Westphal.
+
+Several patches from Jarno Rajahalme to prepare the introduction of
+NAT support to OVS based on the Netfilter infrastructure:
+
+10) Schedule IP_CT_NEW_REPLY definition for removal in
+    nf_conntrack_common.h.
+
+11) Simplify checksumming recalculation in nf_nat.
+
+12) Add comments to the openvswitch conntrack code, from Jarno.
+
+13) Update the CT state key only after successful nf_conntrack_in()
+    invocation.
+
+14) Find existing conntrack entry after upcall.
+
+15) Handle NF_REPEAT case due to templates in nf_conntrack_in().
+
+16) Call the conntrack helper functions once the conntrack has been
+    confirmed.
+
+17) And finally, add the NAT interface to OVS.
+
+The batch closes with:
+
+18) Cleanup to use spin_unlock_wait() instead of
+    spin_lock()/spin_unlock(), from Nicholas Mc Guire.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 3b8377dca1fd1974d245b2a04a708fc434761c65:
+
+  Merge branch 'variable-length-ll-headers' (2016-03-09 22:13:01 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
+
+for you to fetch changes up to e39365be031e37b229f745ea49db0b25e82436fa:
+
+  netfilter: nf_conntrack: consolidate lock/unlock into unlock_wait (2016-03-15 01:10:42 +0100)
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      ipvs: handle ip_vs_fill_iph_skb_off failure
+
+Florian Westphal (2):
+      netfilter: nft_compat: check match/targetinfo attr size
+      netfilter: x_tables: check for size overflow
+
+Jarno Rajahalme (8):
+      netfilter: Remove IP_CT_NEW_REPLY definition.
+      netfilter: Allow calling into nat helper without skb_dst.
+      openvswitch: Add commentary to conntrack.c
+      openvswitch: Update the CT state key only after nf_conntrack_in().
+      openvswitch: Find existing conntrack entry after upcall.
+      openvswitch: Handle NF_REPEAT in conntrack action.
+      openvswitch: Delay conntrack helper call for new connections.
+      openvswitch: Interface with NAT.
+
+Jozsef Kadlecsik (2):
+      netfilter: ipset: Fix set:list type crash when flush/dump set in parallel
+      netfilter: ipset: Check IPSET_ATTR_ETHER netlink attribute length
+
+Julian Anastasov (2):
+      ipvs: drop first packet to redirect conntrack
+      ipvs: allow rescheduling after RST
+
+Marco Angaroni (1):
+      ipvs: correct initial offset of Call-ID header search in SIP persistence engine
+
+Nicholas Mc Guire (1):
+      netfilter: nf_conntrack: consolidate lock/unlock into unlock_wait
+
+Pablo Neira Ayuso (2):
+      Merge branch 'master' of git://blackhole.kfki.hu/nf
+      Merge tag 'ipvs-fixes-for-v4.5' of https://git.kernel.org/.../horms/ipvs
+
+Phil Turnbull (1):
+      netfilter: nfnetlink_acct: validate NFACCT_FILTER parameters
+
+ include/net/ip_vs.h                                |  17 +
+ include/uapi/linux/netfilter/nf_conntrack_common.h |  12 +-
+ include/uapi/linux/openvswitch.h                   |  49 ++
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c           |  30 +-
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c           |  30 +-
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c          |   2 +
+ net/netfilter/ipset/ip_set_core.c                  |   3 +
+ net/netfilter/ipset/ip_set_hash_mac.c              |   3 +-
+ net/netfilter/ipset/ip_set_list_set.c              |  55 +-
+ net/netfilter/ipvs/ip_vs_core.c                    |  38 +-
+ net/netfilter/ipvs/ip_vs_pe_sip.c                  |   6 +-
+ net/netfilter/nf_conntrack_core.c                  |   6 +-
+ net/netfilter/nfnetlink_acct.c                     |   3 +
+ net/netfilter/nft_compat.c                         |   6 +
+ net/netfilter/x_tables.c                           |   3 +
+ net/openvswitch/Kconfig                            |   3 +-
+ net/openvswitch/conntrack.c                        | 660 +++++++++++++++++++--
+ net/openvswitch/conntrack.h                        |   3 +-
+ 18 files changed, 795 insertions(+), 134 deletions(-)
