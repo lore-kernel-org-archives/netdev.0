@@ -1,93 +1,56 @@
-From: Tomeu Vizoso <tomeu-XCtybt49RKsYaV1qd6yewg@public.gmane.org>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Tue, 15 Mar 2016 08:23:29 +0100
-Message-ID: <CAAObsKCdk+6HdzFYxRKZbPiaKcfMCLjbpngurat47YvyvSgH-w@mail.gmail.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
- <56DD8FBE.9010200@suse.de> <56DD99A4.5030004@st.com> <56DDA26C.3050301@suse.de>
- <56DDA3D5.3090209@st.com> <56DDB749.1020808@suse.de> <CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
- <56DE7E1D.5070508@st.com> <CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
- <CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>
- <56DFE55B.2090806@st.com> <56DFE64B.8060606@st.com> <CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com>
- <56DFF253.9050208@st.com> <56DFFA9E.7060602@st.com> <CAAObsKBUzBXcamEyup44N1bYUzGr_ZZTsYcD5x3PXb-2E00cGA@mail.gmail.com>
- <56E033C8.40506@st.com> <56E038CE.606@st.com> <CADhT+wcMpzA_Coj8Z5OQZsc3bF3a7yOmsbazQMPtcdUWkJSuCA@mail.gmail.com>
- <56E13AAB.2080900@st.com> <CADhT+wd=vcph2y_OxkGNO5EwHvN=kBy-BrfZHmNjZHww4LxmTg@mail.gmail.com>
- <56E28B5D.6000708@st.com> <CAAObsKB-tSCu5KMYk2Zi-oX9zMKEOwwT93sMkiZKiYvtexmHaQ@mail.gmail.com>
- <56E6E4B0.8060408@st.com>
+From: John Crispin <blogic@openwrt.org>
+Subject: Re: [patch 1/2 net-next] mediatek: checking for IS_ERR() instead of
+ NULL
+Date: Tue, 15 Mar 2016 08:27:47 +0100
+Message-ID: <56E7B973.4050604@openwrt.org>
+References: <20160315071849.GH13560@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
-	Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-	=?UTF-8?Q?Frank_Sch=C3=A4fer?= <fschaefer.oss-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56E6E4B0.8060408-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Matthias Brugger <matthias.bgg@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-mediatek@lists.infradead.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	Felix Fietkau <nbd@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caladan.dune.hu ([78.24.191.180]:60326 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752216AbcCOH1w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Mar 2016 03:27:52 -0400
+In-Reply-To: <20160315071849.GH13560@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14 March 2016 at 17:20, Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
-> Hi Tomeu
->
-> On 3/14/2016 12:43 PM, Tomeu Vizoso wrote:
->>
->> Hi Peppe,
->>
->> with that patch I don't see any difference at all in my setup.
->>
->> So to be clear, with these commits on top of next-20160314, I still
->> get the hang during boot:
->>
->> 209afef6f0cd ARM: dts: rockchip: Add mdio node to ethernet node
->> 2315acc6cf7f Revert "stmmac: first frame prep at the end of xmit routine"
->> b5e08e810c63 stmmac: fix tx prepare for normal desc
->> 37c15a31d850 i2c: immediately mark ourselves as registered
->> 4342eec3c5a2 Add linux-next specific files for 20160314
->>
->> [   27.521026] WARNING: CPU: 1 PID: 0 at net/sched/sch_generic.c:303
->> dev_watchdog+0x284/0x288
->> [   27.529460] NETDEV WATCHDOG: eth0 (rk_gmac-dwmac): transmit queue 0
->> timed out
->
->
-> I do not reproduce the WATCHDOG but i am continuing to look at the code
-> to understand if normal descriptor management is ok or not. I keep you
-> informed.
->
-> Just an info, did you test with 2315acc6cf7f included? Just to
-> understand if it is introducing a problem. It works in case of
-> enhanced descriptors are used instead of.
->
->>
->>
->> https://git.collabora.com/cgit/user/tomeu/linux.git/log/?h=broken-eth-on-rock2
->
->
-> thx I will take a look at this
 
-Thanks.
 
-Btw, I have rebased on top of 4.5 this morning and I have noticed that
-88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression") got in
-there, so I guess we have now a bunch of boards with broken network on
-that release :(
+On 15/03/2016 08:18, Dan Carpenter wrote:
+> of_phy_connect() returns NULL on error, it never returns error pointers.
+> 
+> Fixes: 656e705243fd ('net-next: mediatek: add support for MT7623 ethernet')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+Acked-by: John Crispin <blogic@openwrt.org>
 
-Regards,
+Thanks !
 
-Tomeu
-
-> Regards
-> Peppe
->
->
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index ba3afa5..9759fe5 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -186,9 +186,9 @@ static int mtk_phy_connect_node(struct mtk_eth *eth, struct mtk_mac *mac,
+>  
+>  	phydev = of_phy_connect(eth->netdev[mac->id], phy_node,
+>  				mtk_phy_link_adjust, 0, phy_mode);
+> -	if (IS_ERR(phydev)) {
+> +	if (!phydev) {
+>  		dev_err(eth->dev, "could not connect to PHY\n");
+> -		return PTR_ERR(phydev);
+> +		return -ENODEV;
+>  	}
+>  
+>  	dev_info(eth->dev,
+> 
+> _______________________________________________
+> Linux-mediatek mailing list
+> Linux-mediatek@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-mediatek
+> 
