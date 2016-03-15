@@ -1,152 +1,45 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Tue, 15 Mar 2016 09:53:23 +0100
-Message-ID: <87k2l4yvek.fsf@free-electrons.com>
-References: <20160315110713.49c4846e@canb.auug.org.au>
+From: Schemmel Hans-Christoph <Hans-Christoph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN
+ interface
+Date: Tue, 15 Mar 2016 09:02:09 +0000
+Message-ID: <1978E4F2CF12DD4A899FA7487323EB110108364EE7@A1GTOEMBXV004.gto.a3c.atos.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Olof Johansson <olof@lixom.net>,
-	Marcin Wojtas <mw@semihalf.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160315110713.49c4846e@canb.auug.org.au> (Stephen Rothwell's
-	message of "Tue, 15 Mar 2016 11:07:13 +1100")
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "bjorn-yOkvZcmFvRU@public.gmane.org" <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
- 
- On mar., mars 15 2016, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+Added support for Cinterion's PHxx WWAN interfaces by adding
+QMI_FIXED_INTF with Cinterion's VID and PID.
 
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got conflicts in:
->
->   arch/arm/boot/dts/armada-xp-db.dts
->   arch/arm/boot/dts/armada-xp-gp.dts
->   arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
->
-> between commit:
->
->   d7d5a43c0d16 ("ARM: mvebu: fix overlap of Crypto SRAM with PCIe memory window")
->
-> from Linus' tree and commits:
->
->   9dd7a57e2cbf ("ARM: dts: armada-xp: enable buffer manager support on Armada XP boards")
->   293fdc24fcc9 ("ARM: dts: armada-xp-openblocks-ax3-4: Add BM support")
->
-> from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+PHxx can have 2 RmNet Interfaces (PID 0x0082)
+or 1 RmNet + 1 USB Audio interface (PID 0x0083).
 
-This fix is good, thanks!
-
-Gregory
-
->
-> -- 
-> Cheers,
-> Stephen Rothwell
->
-> diff --cc arch/arm/boot/dts/armada-xp-db.dts
-> index 45813a5526c8,30657302305d..000000000000
-> --- a/arch/arm/boot/dts/armada-xp-db.dts
-> +++ b/arch/arm/boot/dts/armada-xp-db.dts
-> @@@ -76,8 -76,9 +76,9 @@@
->   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
->   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
->   			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
->  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
->  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
->  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
-> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
-> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
-> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
->   
->   		devbus-bootcs {
->   			status = "okay";
-> @@@ -229,34 -242,10 +242,38 @@@
->   					spi-max-frequency = <20000000>;
->   				};
->   			};
->  +
->  +			nand@d0000 {
->  +				status = "okay";
->  +				num-cs = <1>;
->  +				marvell,nand-keep-config;
->  +				marvell,nand-enable-arbiter;
->  +				nand-on-flash-bbt;
->  +
->  +				partitions {
->  +					compatible = "fixed-partitions";
->  +					#address-cells = <1>;
->  +					#size-cells = <1>;
->  +
->  +					partition@0 {
->  +						label = "U-Boot";
->  +						reg = <0 0x800000>;
->  +					};
->  +					partition@800000 {
->  +						label = "Linux";
->  +						reg = <0x800000 0x800000>;
->  +					};
->  +					partition@1000000 {
->  +						label = "Filesystem";
->  +						reg = <0x1000000 0x3f000000>;
->  +
->  +					};
->  +				};
->  +			};
->   		};
-> + 
-> + 		bm-bppi {
-> + 			status = "okay";
-> + 		};
->   	};
->   };
-> diff --cc arch/arm/boot/dts/armada-xp-gp.dts
-> index 5730b875c4f5,a1ded01d0c07..000000000000
-> --- a/arch/arm/boot/dts/armada-xp-gp.dts
-> +++ b/arch/arm/boot/dts/armada-xp-gp.dts
-> @@@ -95,8 -95,9 +95,9 @@@
->   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
->   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
->   			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
->  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
->  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
->  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
-> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
-> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
-> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
->   
->   		devbus-bootcs {
->   			status = "okay";
-> diff --cc arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
-> index 853bd392a4fe,3aa29a91c7b8..000000000000
-> --- a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
-> +++ b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
-> @@@ -65,9 -65,10 +65,10 @@@
->   	soc {
->   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
->   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
->  -			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000
->  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
->  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
->  +			  MBUS_ID(0x01, 0x2f) 0 0 0xe8000000 0x8000000
->  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
-> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
-> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
-> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xd1200000 0x100000>;
->   
->   		devbus-bootcs {
->   			status = "okay";
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
+---
+patch is against linux-4.5
+--- linux/drivers/net/usb/qmi_wwan.c.orig       2016-03-14 12:18:07.153497489 +0100
++++ linux/drivers/net/usb/qmi_wwan.c    2016-03-14 12:21:37.722541644 +0100
+@@ -881,6 +881,9 @@ static const struct usb_device_id produc
+        {QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},    /* Olivetti Olicard 500 */
+        {QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},    /* Cinterion PLxx */
+        {QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},    /* Cinterion PHxx,PXxx */
++       {QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},    /* Cinterion PHxx,PXxx (2 RmNet) */
++       {QMI_FIXED_INTF(0x1e2d, 0x0082, 5)},    /* Cinterion PHxx,PXxx (2 RmNet) */
++       {QMI_FIXED_INTF(0x1e2d, 0x0083, 4)},    /* Cinterion PHxx,PXxx (1 RmNet + USB Audio)*/
+        {QMI_FIXED_INTF(0x413c, 0x81a2, 8)},    /* Dell Wireless 5806 Gobi(TM) 4G LTE Mobile Broadband Card */
+        {QMI_FIXED_INTF(0x413c, 0x81a3, 8)},    /* Dell Wireless 5570 HSPA+ (42Mbps) Mobile Broadband Card */
+        {QMI_FIXED_INTF(0x413c, 0x81a4, 8)},    /* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
+________________________________
+ This message and any attachments are intended solely for the addressees and may contain confidential information. Any unauthorized use or disclosure, either whole or partial, is prohibited.
+E-mails are susceptible to alteration. Our company shall not be liable for the message if altered, changed or falsified. If you are not the intended recipient of this message, please delete it and notify the sender.
+Although all reasonable efforts have been made to keep this transmission free from viruses, the sender will not be liable for damages caused by a transmitted virus.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
