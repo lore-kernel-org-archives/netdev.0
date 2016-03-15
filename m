@@ -1,99 +1,33 @@
-From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
-Subject: Re: [PATCH v7 net-next] ravb: Add dma queue interrupt support
-Date: Wed, 16 Mar 2016 00:03:21 +0900
-Message-ID: <CAH1o70JC_OGqdUEXjGFMm1EDdVAEkGaMiJrx2JTgW+Ny1FnC3A@mail.gmail.com>
-References: <1457892712-29024-1-git-send-email-ykaneko0929@gmail.com>
-	<56E72394.5030905@cogentembedded.com>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: When will net-next merge with linux-next?
+Date: Tue, 15 Mar 2016 08:05:34 -0700
+Message-ID: <20160315150534.GB12990@kroah.com>
+References: <BLUPR03MB14106249C57CCF66717CC860BF880@BLUPR03MB1410.namprd03.prod.outlook.com>
+ <20160314162139.GA2925@kroah.com>
+ <BLUPR03MB141045D7EED478CB0A086CA1BF890@BLUPR03MB1410.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <56E72394.5030905@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:38373 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755106AbcCOPFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 11:05:35 -0400
+Content-Disposition: inline
+In-Reply-To: <BLUPR03MB141045D7EED478CB0A086CA1BF890@BLUPR03MB1410.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Mar 15, 2016 at 11:11:34AM +0000, Dexuan Cui wrote:
+> I'm wondering whether (and when) step 2 will happen in the next 2 weeks,
+> that is, before the tag 4.6-rc1 is made.
+> If not, I guess I'll miss 4.6?
 
-2016-03-15 5:48 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
->
-> On 03/13/2016 09:11 PM, Yoshihiro Kaneko wrote:
->
->> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>
->> This patch supports the following interrupts.
->>
->> - One interrupt for multiple (timestamp, error, gPTP)
->> - One interrupt for emac
->> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
->>
->> This patch improve efficiency of the interrupt handler by adding the
->> interrupt handler corresponding to each interrupt source described
->> above. Additionally, it reduces the number of times of the access to
->> EthernetAVB IF.
->> Also this patch prevent this driver depends on the whim of a boot loader.
->>
->> [ykaneko0929@gmail.com: define bit names of registers]
->> [ykaneko0929@gmail.com: add comment for gen3 only registers]
->> [ykaneko0929@gmail.com: fix coding style]
->> [ykaneko0929@gmail.com: update changelog]
->> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
->> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
->> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
->> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
->> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
->> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
->> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
->> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
->> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
->>   interrupt handler instead of dma queue interrupt handler]
->> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->
-> [...]
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
->> b/drivers/net/ethernet/renesas/ravb_main.c
->> index 8f2c4fb..8fa8ffe 100644
->> --- a/drivers/net/ethernet/renesas/ravb_main.c
->> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->
-> [...]
->>
->> @@ -757,14 +806,73 @@ static irqreturn_t ravb_interrupt(int irq, void
->> *dev_id)
->>                 result = IRQ_HANDLED;
->>         }
->>
->> -       if (iss & ISS_CGIS)
->> -               result = ravb_ptp_interrupt(ndev);
->> +       /* gPTP interrupt status summary */
->> +       if ((iss & ISS_CGIS) && ravb_ptp_interrupt(ndev) == IRQ_HANDLED)
->> +               result = IRQ_HANDLED;
->
->
->    Wait, this seems like a bug in the existing driver! Please do fix it with
-> a separate patch against net.git. Sorry about missing (or even adding) it
-> while cleaning up the driver before submission...
+You missed 4.6 as your patch was not in any of our trees a few days
+before 4.5 was released, sorry.
 
-Thanks, I will do so.
-
->
-> [...]
->
->    Looks fine otherwise, however the new features and the fixes shouldn't be
-> mixed together, so I couldn't ACK yet. I'll go test it on gen2...
-
-Thanks in advance.
-
->
-> MBR, Sergei
->
-
-Thanks,
-kaneko
+greg k-h
