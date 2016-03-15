@@ -1,80 +1,152 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 15 Mar 2016 09:24:17 +0100
-Message-ID: <20160315082417.GC2263@nanopsycho.orion>
-References: <1457834186-45727-2-git-send-email-roopa@cumulusnetworks.com>
- <20160314145144.GE2346@nanopsycho.orion>
- <56E706C3.4030808@cumulusnetworks.com>
- <20160314190435.GA23419@nanopsycho.orion>
- <56E7AA96.8030305@cumulusnetworks.com>
- <20160315072856.GA2263@nanopsycho.orion>
- <56E7BC0B.3070107@cumulusnetworks.com>
- <20160315075223.GB2263@nanopsycho.orion>
- <56E7C30C.7020009@cumulusnetworks.com>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 15 Mar 2016 09:53:23 +0100
+Message-ID: <87k2l4yvek.fsf@free-electrons.com>
+References: <20160315110713.49c4846e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36629 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933849AbcCOIYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 04:24:21 -0400
-Received: by mail-wm0-f65.google.com with SMTP id l68so2224877wml.3
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 01:24:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <56E7C30C.7020009@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Olof Johansson <olof@lixom.net>,
+	Marcin Wojtas <mw@semihalf.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160315110713.49c4846e@canb.auug.org.au> (Stephen Rothwell's
+	message of "Tue, 15 Mar 2016 11:07:13 +1100")
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Mar 15, 2016 at 09:08:44AM CET, roopa@cumulusnetworks.com wrote:
->On 3/15/16, 12:52 AM, Jiri Pirko wrote:
->> Tue, Mar 15, 2016 at 08:38:51AM CET, roopa@cumulusnetworks.com wrote:
->>>
->[snip]
->>> how does it matter if we have reached an agreement that the struct is required ?.
->>> unlike other messages, a filter_mask is an important and must attribute for
->>> stats. If you are worried about us running out of bits in u32, the netlink attribute you will
->>> define for the filter_mask will also be u32 to begin with.
->> No, you are missing the point:
+Hi Stephen,
+ 
+ On mar., mars 15 2016, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+
+> Hi all,
 >
->I understood what you meant the first time...(to which i did comment if you really wanted a u8 for every filter attribute).
+> Today's linux-next merge of the net-next tree got conflicts in:
+>
+>   arch/arm/boot/dts/armada-xp-db.dts
+>   arch/arm/boot/dts/armada-xp-gp.dts
+>   arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+>
+> between commit:
+>
+>   d7d5a43c0d16 ("ARM: mvebu: fix overlap of Crypto SRAM with PCIe memory window")
+>
+> from Linus' tree and commits:
+>
+>   9dd7a57e2cbf ("ARM: dts: armada-xp: enable buffer manager support on Armada XP boards")
+>   293fdc24fcc9 ("ARM: dts: armada-xp-openblocks-ax3-4: Add BM support")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-You mentioned "u32 attr" in last reply and that is clearly something I
-didn't suggested and wasn't talking about at all, so I had to make
-things clear.
+This fix is good, thanks!
 
+Gregory
 
 >
->>
->> enum {
->> 	IFLA_STATS_UNSPEC,
->> 	IFLA_STATS_FILTER, /* nest */
->> 	IFLA_STATS_LINK64,
->> 	IFLA_STATS_INET6,
->> 	__IFLA_STATS_MAX,
->> };
->>
->> #define IFLA_STATS_MAX (__IFLA_STATS_MAX - 1)
->>
->> enum {
->> 	IFLA_STATS_FILTER_UNSPEC,
->> 	IFLA_STATS_FILTER_LINK64, /* flag */
->> 	IFLA_STATS_FILTER_INET6, /* flag */
->> 	...
->> 	IFLA_STATS_FILTER_WHATEVER, /* flag */
->> 	__IFLA_STATS_FILTER_MAX,
->> };
->>
->> #define IFLA_STATS_FILTERMAX (__IFLA_STATS_FILTER_MAX - 1)
+> -- 
+> Cheers,
+> Stephen Rothwell
 >
->Apart from the usability concern i have described earlier, this just seems an overkill ...having to redefine every attribute.
+> diff --cc arch/arm/boot/dts/armada-xp-db.dts
+> index 45813a5526c8,30657302305d..000000000000
+> --- a/arch/arm/boot/dts/armada-xp-db.dts
+> +++ b/arch/arm/boot/dts/armada-xp-db.dts
+> @@@ -76,8 -76,9 +76,9 @@@
+>   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
+>   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+>   			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+>  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+>  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+>  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
+> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+>   
+>   		devbus-bootcs {
+>   			status = "okay";
+> @@@ -229,34 -242,10 +242,38 @@@
+>   					spi-max-frequency = <20000000>;
+>   				};
+>   			};
+>  +
+>  +			nand@d0000 {
+>  +				status = "okay";
+>  +				num-cs = <1>;
+>  +				marvell,nand-keep-config;
+>  +				marvell,nand-enable-arbiter;
+>  +				nand-on-flash-bbt;
+>  +
+>  +				partitions {
+>  +					compatible = "fixed-partitions";
+>  +					#address-cells = <1>;
+>  +					#size-cells = <1>;
+>  +
+>  +					partition@0 {
+>  +						label = "U-Boot";
+>  +						reg = <0 0x800000>;
+>  +					};
+>  +					partition@800000 {
+>  +						label = "Linux";
+>  +						reg = <0x800000 0x800000>;
+>  +					};
+>  +					partition@1000000 {
+>  +						label = "Filesystem";
+>  +						reg = <0x1000000 0x3f000000>;
+>  +
+>  +					};
+>  +				};
+>  +			};
+>   		};
+> + 
+> + 		bm-bppi {
+> + 			status = "okay";
+> + 		};
+>   	};
+>   };
+> diff --cc arch/arm/boot/dts/armada-xp-gp.dts
+> index 5730b875c4f5,a1ded01d0c07..000000000000
+> --- a/arch/arm/boot/dts/armada-xp-gp.dts
+> +++ b/arch/arm/boot/dts/armada-xp-gp.dts
+> @@@ -95,8 -95,9 +95,9 @@@
+>   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
+>   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+>   			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+>  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+>  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+>  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
+> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+>   
+>   		devbus-bootcs {
+>   			status = "okay";
+> diff --cc arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+> index 853bd392a4fe,3aa29a91c7b8..000000000000
+> --- a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+> +++ b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+> @@@ -65,9 -65,10 +65,10 @@@
+>   	soc {
+>   		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
+>   			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+>  -			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000
+>  -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+>  -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+>  +			  MBUS_ID(0x01, 0x2f) 0 0 0xe8000000 0x8000000
+>  +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+> - 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+> ++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
+> + 			  MBUS_ID(0x0c, 0x04) 0 0 0xd1200000 0x100000>;
+>   
+>   		devbus-bootcs {
+>   			status = "okay";
 
-I don't hear the usability concern. User knows how to compose/parse
-attrs, no problem there.
-
-You just add flag attr as if you add bit in u32 mask. The same thing.
-
-I don't understand why you say this is an "overkill". I believe that
-this is the correct way to do.
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
