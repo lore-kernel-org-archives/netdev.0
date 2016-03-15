@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 1/3] phy: mdio-cavium: Add missing MODULE_* annotations.
-Date: Mon, 14 Mar 2016 17:30:37 -0700
-Message-ID: <1458001839-15993-2-git-send-email-ddaney.cavm@gmail.com>
+Subject: [PATCH 2/3] net: cavium: For Kconfig THUNDER_NIC_BGX, select MDIO_THUNDER.
+Date: Mon, 14 Mar 2016 17:30:38 -0700
+Message-ID: <1458001839-15993-3-git-send-email-ddaney.cavm@gmail.com>
 References: <1458001839-15993-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
 	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
@@ -18,27 +18,26 @@ List-Id: netdev.vger.kernel.org
 
 From: David Daney <david.daney@cavium.com>
 
-When the code was factored out of mdio-octeon.c, the
-MODULE_DESCRIPTION, MODULE_AUTHOR and MODULE_LICENSE annotations were
-inadvertently omitted.  Restore them so that we don't get kernel taint
-warnings upon module loading.
+Previously we selected MDIO_OCTEON, which after creating the Thunder
+specific MDIO bus driver is much less useful.
 
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/net/phy/mdio-cavium.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/cavium/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/mdio-cavium.c b/drivers/net/phy/mdio-cavium.c
-index e796ee1..6df2fa7 100644
---- a/drivers/net/phy/mdio-cavium.c
-+++ b/drivers/net/phy/mdio-cavium.c
-@@ -147,3 +147,7 @@ int cavium_mdiobus_write(struct mii_bus *bus, int phy_id, int regnum, u16 val)
- 	return 0;
- }
- EXPORT_SYMBOL(cavium_mdiobus_write);
-+
-+MODULE_DESCRIPTION("Common code for OCTEON and Thunder MDIO bus drivers");
-+MODULE_AUTHOR("David Daney");
-+MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index 8fb84e6..953aa40 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -35,7 +35,7 @@ config	THUNDER_NIC_BGX
+ 	tristate "Thunder MAC interface driver (BGX)"
+ 	depends on 64BIT
+ 	select PHYLIB
+-	select MDIO_OCTEON
++	select MDIO_THUNDER
+ 	---help---
+ 	  This driver supports programming and controlling of MAC
+ 	  interface from NIC physical function driver.
 -- 
 1.7.11.7
