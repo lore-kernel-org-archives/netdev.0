@@ -1,19 +1,13 @@
 From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [RFC -next 2/2] virtio_net: Read and use the advised MTU
-Date: Tue, 15 Mar 2016 16:53:24 -0400
-Message-ID: <f7tio0n8nuj.fsf@redhat.com>
-References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
-	<1457620092-24170-3-git-send-email-aconole@redhat.com>
-	<56E1C372.60204@cogentembedded.com>
+Subject: [RFC v2 -next 0/2] virtio-net: Advised MTU feature
+Date: Tue, 15 Mar 2016 17:04:11 -0400
+Message-ID: <1458075853-14789-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <56E1C372.60204@cogentembedded.com> (Sergei Shtylyov's message of
-	"Thu, 10 Mar 2016 21:56:50 +0300")
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,51 +19,30 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
+The following series adds the ability for a hypervisor to set an MTU on the
+guest during feature negotiation phase. This is useful for VM orchestration
+when, for instance, tunneling is involved and the MTU of the various systems
+should be homogenous.
 
-> Hello.
+The first patch adds the feature bit as described in the proposed VFIO spec
+addition found at
+https://lists.oasis-open.org/archives/virtio-dev/201603/msg00001.html
 
-Hi Sergei,
+The second patch adds a user of the bit, and a warning when the guest changes
+the MTU from the hypervisor advised MTU. Future patches may add more thorough
+error handling.
 
-> On 03/10/2016 05:28 PM, Aaron Conole wrote:
->
->> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
->> exists, read the advised MTU and use it.
->>
->> No proper error handling is provided for the case where a user changes the
->> negotiated MTU. A future commit will add proper error handling. Instead, a
->> warning is emitted if the guest changes the device MTU after previously being
->> given advice.
->>
->> Signed-off-by: Aaron Conole <aconole@redhat.com>
->> ---
->>   drivers/net/virtio_net.c | 15 ++++++++++++++-
->>   1 file changed, 14 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 767ab11..7175563 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
-> [...]
->> @@ -1390,8 +1391,12 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->>
->>   static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->>   {
->> +	struct virtnet_info *vi = netdev_priv(dev);
->>   	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
->>   		return -EINVAL;
->> +	if (vi->negotiated_mtu == true) {
->> +		pr_warn("changing mtu from negotiated mtu.");
->> +	}
->
->    {} not needed, see Documentation/CodingStyle.
+v2:
+* Whitespace and code style cleanups from Sergei Shtylyov and Paolo Abeni
+* Additional test before printing a warning
 
-Okay, I'll make sure to fix this with v2.
+Aaron Conole (2):
+  virtio: Start feature MTU support
+  virtio_net: Read the advised MTU
 
-> [...]
->
-> MBR, Sergei
+ drivers/net/virtio_net.c        | 12 ++++++++++++
+ include/uapi/linux/virtio_net.h |  3 +++
+ 2 files changed, 15 insertions(+)
 
-Thanks so much for the review!
-
--Aaron
+-- 
+2.5.0
