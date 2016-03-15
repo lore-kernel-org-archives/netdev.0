@@ -1,94 +1,197 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get SIGPIPE
-Date: Tue, 15 Mar 2016 17:13:07 +0100
-Message-ID: <CAG_fn=Xq_OaQdDSov8vAR-Lq8tDftGo=Pmp0p3q_LzLXDCFVvw@mail.gmail.com>
-References: <1458032624-139688-1-git-send-email-glider@google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D4111FC91@AcuExch.aculab.com>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
+ sndbuf/rcvbuf on rds-tcp socket
+Date: Tue, 15 Mar 2016 09:38:05 -0700
+Message-ID: <56E83A6D.6060904@oracle.com>
+References: <20160315151248.GJ11063@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "edumazet@google.com" <edumazet@google.com>,
-	"rweikusat@mobileactivedefense.com"
-	<rweikusat@mobileactivedefense.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35216 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756240AbcCOQNI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 12:13:08 -0400
-Received: by mail-wm0-f43.google.com with SMTP id l68so157134460wml.0
-        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 09:13:08 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D4111FC91@AcuExch.aculab.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:51335 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048AbcCOQiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 12:38:24 -0400
+In-Reply-To: <20160315151248.GJ11063@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 15, 2016 at 2:46 PM, David Laight <David.Laight@aculab.com>=
- wrote:
-> From: Alexander Potapenko
->> Sent: 15 March 2016 09:04
->> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
->> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if th=
-e
->> socket is no longer connected.
-> ...
->> Without the below patch the behavior is as follows:
->>
->> $ ./sock seqpacket
->> sendmsg: Broken pipe
-> ...
->> The behavior of the patched kernel complies with POSIX:
->>
->> $  ./sock seqpacket
->> Killed by SIGPIPE
-> ...
+Hi Sowmini,
+
+$subject
+s/rds-tcp: /RDS: TCP:
+
+On 3/15/2016 8:12 AM, Sowmini Varadhan wrote:
 >
-> While POSIX might specify this behaviour, changing the behaviour
-> could easily break applications.
-> Basically this change (more or less) require every application that
-> uses SOCK_SEQPACKED to be audited to ensure that MSG_NOSIGNAL is set
-> on ever send/write to the socket.
-This is true, but the drawback of maintaining a non-standard behavior
-is that people can't write portable code.
-I couldn't find the exact place where the bug has been introduced, but
-according to http://lxr.free-electrons.com/ SOCK_SEQPACKET sockets did
-not respect MSG_NOSIGNAL from the very beginning
-(http://lxr.free-electrons.com/source/net/unix/af_unix.c?v=3D3.8#L1723,
-there was no such thing as SOCK_SEQPACKET in AF_UNIX in 2.4.37)
-Unfortunately I don't know how to estimate the number of existing
-users depending on this oddity, as well as the number of people that
-have to work around it, so leaving it up to maintainers to decide
-whether the fix is needed.
-
-> Personally I think the whole SIGPIPE on sockets should never have bee=
-n
-> allowed to get into the standard.
-> I don't remember MSG_NOSIGNAL being present in SYSV.
-I think it was not.
-
-> The only time you want a write into a pipe to generate SIGPIPE is
-> for pipes generates by the shell that feed stdout to stdin of the
-> next process in the pipeline.
-> If pipes are implemented as unix-domain socketpairs (no one does that
-> any more) then it would require the SIGPIPE for write().
+> Add per-net sysctl tunables to set the size of sndbuf and
+> rcvbuf on the kernel tcp socket.
 >
->         David
+> The tunables are added at /proc/sys/net/rds/tcp/rds_tcp_sndbuf
+> and /proc/sys/net/rds/tcp/rds_tcp_rcvbuf.
 >
+> These values must be set before accept() or connect(),
+This will be hard to achieve with RDS being reconnect protocol
+but since you have added a reset, the above no longer a
+problem.
+
+> and there may be an arbitrary number of existing rds-tcp
+> sockets when the tunable is modified. To make sure that all
+> connections in the netns pick up the same value for the tunable,
+> we reset existing rds-tcp connections in the netns, so that
+> they can reconnect with the new parameters.
 >
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> v2: use sysctl instead of module param. Tunabes are now per netns,
+>      and can be dynamically modified without restarting all namespaces.
+>
+>   net/rds/tcp.c |  139 ++++++++++++++++++++++++++++++++++++++++++++++++++++----
+>   1 files changed, 129 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/rds/tcp.c b/net/rds/tcp.c
+> index ad60299..5d62fd2 100644
+> --- a/net/rds/tcp.c
+> +++ b/net/rds/tcp.c
+> @@ -52,7 +52,27 @@ static LIST_HEAD(rds_tcp_conn_list);
+>
+>   static struct kmem_cache *rds_tcp_conn_slab;
+>
+> -#define RDS_TCP_DEFAULT_BUFSIZE (128 * 1024)
+This seems to be unrelated change and left over from the
+previous clean-up. Please do that in separate patch.
 
+> +static int sndbuf_handler(struct ctl_table *ctl, int write,
+> +			  void __user *buffer, size_t *lenp, loff_t *fpos);
+> +static int rcvbuf_handler(struct ctl_table *ctl, int write,
+> +			  void __user *buffer, size_t *lenp, loff_t *fpos);
+> +static struct ctl_table rds_tcp_sysctl_table[] = {
+> +	{
+> +		.procname       = "rds_tcp_sndbuf",
+> +		/* data is per-net pointer */
+> +		.maxlen         = sizeof(int),
+> +		.mode           = 0644,
+> +		.proc_handler   = sndbuf_handler,
+> +	},
+> +	{
+> +		.procname       = "rds_tcp_rcvbuf",
+> +		/* data is per-net pointer */
+> +		.maxlen         = sizeof(int),
+> +		.mode           = 0644,
+> +		.proc_handler   = rcvbuf_handler,
+> +	},
+> +	{ }
+> +};
+>
+>   /* doing it this way avoids calling tcp_sk() */
+>   void rds_tcp_nonagle(struct socket *sock)
+> @@ -66,15 +86,6 @@ void rds_tcp_nonagle(struct socket *sock)
+>   	set_fs(oldfs);
+>   }
+>
+> -/* All module specific customizations to the RDS-TCP socket should be done in
+> - * rds_tcp_tune() and applied after socket creation. In general these
+> - * customizations should be tunable via module_param()
+> - */
+> -void rds_tcp_tune(struct socket *sock)
+> -{
+> -	rds_tcp_nonagle(sock);
+> -}
+> -
+>   u32 rds_tcp_snd_nxt(struct rds_tcp_connection *tc)
+>   {
+>   	return tcp_sk(tc->t_sock->sk)->snd_nxt;
+> @@ -272,8 +283,33 @@ static int rds_tcp_netid;
+>   struct rds_tcp_net {
+>   	struct socket *rds_tcp_listen_sock;
+>   	struct work_struct rds_tcp_accept_w;
+> +	struct ctl_table_header *rds_tcp_sysctl;
+> +	int sndbuf_size;
+> +	int rcvbuf_size;
+>   };
+>
+> +/* All module specific customizations to the RDS-TCP socket should be done in
+> + * rds_tcp_tune() and applied after socket creation.
+> + */
+> +void rds_tcp_tune(struct socket *sock)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct net *net = sock_net(sk);
+> +	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
+> +
+> +	rds_tcp_nonagle(sock);
+> +	lock_sock(sk);
+> +	if (rtn->sndbuf_size > 0) {
+So value of 1 is allowed as well. There should be some
+minimum default or multiple of it. Of course above check
+can remain as is as long as you validate the user input
+in handlers.
 
+> @@ -296,6 +332,13 @@ static __net_init int rds_tcp_init_net(struct net *net)
+>   {
+>   	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
+>
+> +	/* 0 value for {snd, rcv}buf_size implies we let the stack
+> +	 * pick the default, and permit auto-tuning of buffer size.
+> +	 */
+> +	rtn->sndbuf_size = 0;
+> +	rtn->rcvbuf_size = 0;
+> +	rtn->rds_tcp_sysctl = register_net_sysctl(net, "net/rds/tcp",
+> +						  rds_tcp_sysctl_table);
+>   	rtn->rds_tcp_listen_sock = rds_tcp_listen_init(net);
+>   	if (!rtn->rds_tcp_listen_sock) {
+>   		pr_warn("could not set up listen sock\n");
+> @@ -309,6 +352,7 @@ static void __net_exit rds_tcp_exit_net(struct net *net)
+>   {
+>   	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
+>
+> +	unregister_net_sysctl_table(rtn->rds_tcp_sysctl);
+>   	/* If rds_tcp_exit_net() is called as a result of netns deletion,
+>   	 * the rds_tcp_kill_sock() device notifier would already have cleaned
+>   	 * up the listen socket, thus there is no work to do in this function.
+You need to unregister it on rds_tcp_listen_init() failure.
 
---=20
-Alexander Potapenko
-Software Engineer
+[...]
 
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
+> +/* when sysctl is used to modify some kernel socket parameters,this
+> + * function  resets the RDS connections in that netns  so that we can
+> + * restart with new parameters.  The assumption is that such reset
+> + * events are few and far-between.
+> + */
+> +static void rds_tcp_sysctl_reset(struct net *net)
+> +{
+> +	struct rds_tcp_connection *tc, *_tc;
+> +
+> +	spin_lock_irq(&rds_tcp_conn_lock);
+> +	list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
+> +		struct net *c_net = read_pnet(&tc->conn->c_net);
+> +
+> +		if (net != c_net || !tc->t_sock)
+> +			continue;
+a next line will be good here.
 
-Gesch=C3=A4ftsf=C3=BChrer: Matthew Scott Sucherman, Paul Terence Manicl=
-e
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+> +		rds_conn_drop(tc->conn); /* reconnect with new parameters */
+> +	}
+> +	spin_unlock_irq(&rds_tcp_conn_lock);
+> +}
+> +
+> +static int sndbuf_handler(struct ctl_table *ctl, int write,
+> +			  void __user *buffer, size_t *lenp, loff_t *fpos)
+> +{
+> +	struct net *net = current->nsproxy->net_ns;
+> +	struct rds_tcp_net *rtn = net_generic(net, rds_tcp_netid);
+> +	struct ctl_table tmp;
+> +
+> +	tmp = *ctl;
+> +	tmp.data = &rtn->sndbuf_size;
+> +	if (!write)
+> +		return proc_dointvec(&tmp, write, buffer, lenp, fpos);
+> +
+> +	rtn->sndbuf_size = user_atoi(buffer, *lenp);
+As mentioned above, you should make sure the buffer lengths are
+legitimate.
+
+Regards,
+Santosh
