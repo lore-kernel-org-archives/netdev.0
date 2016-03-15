@@ -1,57 +1,115 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
- sndbuf/rcvbuf on rds-tcp socket
-Date: Tue, 15 Mar 2016 15:57:09 -0400
-Message-ID: <20160315195709.GA16858@oracle.com>
-References: <20160315151248.GJ11063@oracle.com>
- <CALx6S35FKYvnQ4O2N+3sJonj-gKODEMTwW6yeNcj1mWG9EOeow@mail.gmail.com>
- <20160315173438.GN11063@oracle.com>
- <CALx6S35f+DFTXCQgHPrMgdkAxEZKepWgZN2BowOp_Nt4nTpLgg@mail.gmail.com>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: [RFC -next 2/2] virtio_net: Read and use the advised MTU
+Date: Tue, 15 Mar 2016 16:52:39 -0400
+Message-ID: <f7tmvpz8nvs.fsf@redhat.com>
+References: <1457620092-24170-1-git-send-email-aconole@redhat.com>
+	<1457620092-24170-3-git-send-email-aconole@redhat.com>
+	<1457621848.9753.44.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	santosh.shilimkar@oracle.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:20534 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965194AbcCOT5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 15:57:20 -0400
-Content-Disposition: inline
-In-Reply-To: <CALx6S35f+DFTXCQgHPrMgdkAxEZKepWgZN2BowOp_Nt4nTpLgg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1457621848.9753.44.camel@redhat.com> (Paolo Abeni's message of
+	"Thu, 10 Mar 2016 15:57:28 +0100")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On (03/15/16 10:47), Tom Herbert wrote:
-> Both sshd and nfsd and allow configurable listener port numbers. Any
-> listener service will allow a configurable port number. An IANA port
-> number is good as a default, but there are many reasons why people
-> want or need to use a different port number. I don't see what makes
-> RDS special in this regard.
+Paolo Abeni <pabeni@redhat.com> writes:
 
-Tom,
+> On Thu, 2016-03-10 at 09:28 -0500, Aaron Conole wrote:
+>> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
+>> exists, read the advised MTU and use it.
+>> 
+>> No proper error handling is provided for the case where a user changes the
+>> negotiated MTU. A future commit will add proper error handling. Instead, a
+>> warning is emitted if the guest changes the device MTU after previously being
+>> given advice.
+>> 
+>> Signed-off-by: Aaron Conole <aconole@redhat.com>
+>> ---
+>>  drivers/net/virtio_net.c | 15 ++++++++++++++-
+>>  1 file changed, 14 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 767ab11..7175563 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -146,6 +146,7 @@ struct virtnet_info {
+>>  	virtio_net_ctrl_ack ctrl_status;
+>>  	u8 ctrl_promisc;
+>>  	u8 ctrl_allmulti;
+>> +	bool negotiated_mtu;
+>>  };
+>>  
+>>  struct padded_vnet_hdr {
+>> @@ -1390,8 +1391,12 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>>  
+>>  static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>>  {
+>> +	struct virtnet_info *vi = netdev_priv(dev);
+>>  	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+>>  		return -EINVAL;
+>> +	if (vi->negotiated_mtu == true) {
+>
+> why don't:
+>
+> if ((vi->negotiated_mtu == true) && (dev->mtu != new_mtu))
+>
+> ?
 
-TCP is supposed to be the transparent infra for RDS-TCP.
-If the server listens at something other than the well-known port,
-the client kernel tcp socket has to know the value of the port to
-connect to.  That means you also have to push down configuration
-at each node, saying "client IP address X is to be connected at port Y"
-etc. That is a lot of configuration information to manage in a cluster.
-In addition to the volume of information that needs to be managed,
-it also makes connectivity problems hard to trouble-shoot.
+Okay, I'll put this test in.
 
-It has the danger of being a solution looking for a problem, because
-we have not seen the use-case for this so far.
+>> +		pr_warn("changing mtu from negotiated mtu.");
+>> +	}
+>>  	dev->mtu = new_mtu;
+>>  	return 0;
+>>  }
+>> @@ -1836,6 +1841,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>>  		vi->has_cvq = true;
+>>  
+>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+>> +		vi->negotiated_mtu = true;
+>> +		dev->mtu = virtio_cread16(vdev,
+>> +					  offsetof(struct virtio_net_config,
+>> +						   mtu));
+>> +	}
+>> +
+>>  	if (vi->any_header_sg)
+>>  		dev->needed_headroom = vi->hdr_len;
+>>  
+>> @@ -2017,8 +2029,9 @@ static unsigned int features[] = {
+>>  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+>>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+>>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>> -	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>> +	VIRTIO_NET_F_CTRL_MAC_ADDR, 
+>
+> Here a trailing white space slipped-in.
+>
+> Otherwise LGTM.
+>
+> Paolo
 
-Thus to repeat what I said earlier,
- *if* some such need arises
-and
- *if* there is absolutely no way to solve it with the existing infra,
-there is nothing preventing a design extension to the daemon approach
-in the future.
+D'oh! Okay, v2 will have this fixed.
 
-By itself, the sysctl support adds value and can co-exist with those
-extensions.
+>>  	VIRTIO_F_ANY_LAYOUT,
+>> +	VIRTIO_NET_F_MTU,
+>>  };
+>>  
+>>  static struct virtio_driver virtio_net_driver = {
 
---Sowmini
+Thanks so much for the review, Paolo!
+
+-Aaron
