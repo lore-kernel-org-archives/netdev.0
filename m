@@ -1,63 +1,57 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 18/18] netfilter: nf_conntrack: consolidate lock/unlock into unlock_wait
-Date: Tue, 15 Mar 2016 02:28:02 +0100
-Message-ID: <1458005282-24665-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/18] ipvs: handle ip_vs_fill_iph_skb_off failure
+Date: Tue, 15 Mar 2016 02:27:47 +0100
+Message-ID: <1458005282-24665-4-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33264 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754487AbcCOB2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 21:28:37 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 5F147114F54
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 515B7DA8F7
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:35 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 77C3FDA39B
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:33 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
+From: Arnd Bergmann <arnd@arndb.de>
 
-The spin_lock()/spin_unlock() is synchronizing on the
-nf_conntrack_locks_all_lock which is equivalent to
-spin_unlock_wait() but the later should be more efficient.
+ip_vs_fill_iph_skb_off() may not find an IP header, and gcc has
+determined that ip_vs_sip_fill_param() then incorrectly accesses
+the protocol fields:
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+net/netfilter/ipvs/ip_vs_pe_sip.c: In function 'ip_vs_sip_fill_param':
+net/netfilter/ipvs/ip_vs_pe_sip.c:76:5: error: 'iph.protocol' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  if (iph.protocol != IPPROTO_UDP)
+     ^
+net/netfilter/ipvs/ip_vs_pe_sip.c:81:10: error: 'iph.len' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  dataoff = iph.len + sizeof(struct udphdr);
+          ^
+
+This adds a check for the ip_vs_fill_iph_skb_off() return code
+before looking at the ip header data returned from it.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: b0e010c527de ("ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off")
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_core.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/netfilter/ipvs/ip_vs_pe_sip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index f60b4fd..afde5f5 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -74,8 +74,7 @@ void nf_conntrack_lock(spinlock_t *lock) __acquires(lock)
- 	spin_lock(lock);
- 	while (unlikely(nf_conntrack_locks_all)) {
- 		spin_unlock(lock);
--		spin_lock(&nf_conntrack_locks_all_lock);
--		spin_unlock(&nf_conntrack_locks_all_lock);
-+		spin_unlock_wait(&nf_conntrack_locks_all_lock);
- 		spin_lock(lock);
- 	}
- }
-@@ -121,8 +120,7 @@ static void nf_conntrack_all_lock(void)
- 	nf_conntrack_locks_all = true;
+diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
+index 1b8d594..c4e9ca0 100644
+--- a/net/netfilter/ipvs/ip_vs_pe_sip.c
++++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
+@@ -70,10 +70,10 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
+ 	const char *dptr;
+ 	int retc;
  
- 	for (i = 0; i < CONNTRACK_LOCKS; i++) {
--		spin_lock(&nf_conntrack_locks[i]);
--		spin_unlock(&nf_conntrack_locks[i]);
-+		spin_unlock_wait(&nf_conntrack_locks[i]);
- 	}
- }
+-	ip_vs_fill_iph_skb(p->af, skb, false, &iph);
++	retc = ip_vs_fill_iph_skb(p->af, skb, false, &iph);
  
+ 	/* Only useful with UDP */
+-	if (iph.protocol != IPPROTO_UDP)
++	if (!retc || iph.protocol != IPPROTO_UDP)
+ 		return -EINVAL;
+ 	/* todo: IPv6 fragments:
+ 	 *       I think this only should be done for the first fragment. /HS
 -- 
 2.1.4
+
