@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/18] ipvs: correct initial offset of Call-ID header search in SIP persistence engine
-Date: Tue, 15 Mar 2016 02:27:50 +0100
-Message-ID: <1458005282-24665-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/18] netfilter: nft_compat: check match/targetinfo attr size
+Date: Tue, 15 Mar 2016 02:27:52 +0100
+Message-ID: <1458005282-24665-9-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,54 +10,42 @@ In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-The IPVS SIP persistence engine is not able to parse the SIP header
-"Call-ID" when such header is inserted in the first positions of
-the SIP message.
+We copy according to ->target|matchsize, so check that the netlink attribute
+(which can include padding and might be larger) contains enough data.
 
-When IPVS is configured with "--pe sip" option, like for example:
-ipvsadm -A -u 1.2.3.4:5060 -s rr --pe sip -p 120 -o
-some particular messages (see below for details) do not create entries
-in the connection template table, which can be listed with:
-ipvsadm -Lcn --persistent-conn
-
-Problematic SIP messages are SIP responses having "Call-ID" header
-positioned just after message first line:
-SIP/2.0 200 OK
-[Call-ID header here]
-[rest of the headers]
-
-When "Call-ID" header is positioned down (after a few other headers)
-it is correctly recognized.
-
-This is due to the data offset used in get_callid function call inside
-ip_vs_pe_sip.c file: since dptr already points to the start of the
-SIP message, the value of dataoff should be initially 0.
-Otherwise the header is searched starting from some bytes after the
-first character of the SIP message.
-
-Fixes: 758ff0338722 ("IPVS: sip persistence engine")
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Reported-by: Julia Lawall <Julia.Lawall@lip6.fr>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_pe_sip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nft_compat.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index c4e9ca0..0a6eb5c 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -88,7 +88,7 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
+diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
+index 454841b..6228c42 100644
+--- a/net/netfilter/nft_compat.c
++++ b/net/netfilter/nft_compat.c
+@@ -660,6 +660,9 @@ nft_match_select_ops(const struct nft_ctx *ctx,
+ 	if (IS_ERR(match))
+ 		return ERR_PTR(-ENOENT);
  
--	if (get_callid(dptr, dataoff, datalen, &matchoff, &matchlen))
-+	if (get_callid(dptr, 0, datalen, &matchoff, &matchlen))
- 		return -EINVAL;
++	if (match->matchsize > nla_len(tb[NFTA_MATCH_INFO]))
++		return ERR_PTR(-EINVAL);
++
+ 	/* This is the first time we use this match, allocate operations */
+ 	nft_match = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
+ 	if (nft_match == NULL)
+@@ -740,6 +743,9 @@ nft_target_select_ops(const struct nft_ctx *ctx,
+ 	if (IS_ERR(target))
+ 		return ERR_PTR(-ENOENT);
  
- 	/* N.B: pe_data is only set on success,
++	if (target->targetsize > nla_len(tb[NFTA_TARGET_INFO]))
++		return ERR_PTR(-EINVAL);
++
+ 	/* This is the first time we use this target, allocate operations */
+ 	nft_target = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
+ 	if (nft_target == NULL)
 -- 
 2.1.4
 
