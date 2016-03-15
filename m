@@ -1,49 +1,98 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next repost] openvswitch: allow output of
- MPLS packets on tunnel vports
-Date: Tue, 15 Mar 2016 10:05:25 -0700
-Message-ID: <CAEh+42h-w5Xm2i3H8auNCO4U3yYBadU7GsWFe7dwiKNcBq1dGg@mail.gmail.com>
-References: <1458010835-18555-1-git-send-email-simon.horman@netronome.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v7 net-next] ravb: Add dma queue interrupt support
+Date: Tue, 15 Mar 2016 20:08:02 +0300
+Message-ID: <56E84172.3070508@cogentembedded.com>
+References: <1457892712-29024-1-git-send-email-ykaneko0929@gmail.com>
+ <56E72394.5030905@cogentembedded.com>
+ <CAH1o70JC_OGqdUEXjGFMm1EDdVAEkGaMiJrx2JTgW+Ny1FnC3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1458010835-18555-1-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAH1o70JC_OGqdUEXjGFMm1EDdVAEkGaMiJrx2JTgW+Ny1FnC3A@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBNYXIgMTQsIDIwMTYgYXQgODowMCBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gQ3VycmVudGx5IG91dHB1dCBvZiBNUExTIHBhY2tl
-dHMgb24gdHVubmVsIHZwb3J0cyBpcyBub3QgYWxsb3dlZCBieSBPcGVuCj4gdlN3aXRjaC4gVGhp
-cyBpcyBiZWNhdXNlIGhpc3RvcmljYWxseSBlbmNhcHN1bGF0aW9uIHdhcyBkb25lIGluIHN1Y2gg
-YSB3YXkKPiB0aGF0IHRoZSBpbm5lcl9wcm90b2NvbCBmaWVsZCBvZiB0aGUgc2tiIG5lZWRlZCB0
-byBob2xkIHRoZSBpbm5lciBwcm90b2NvbAo+IGZvciBib3RoIE1QTFMgYW5kIHR1bm5lbCBlbmNh
-cHN1bGF0aW9uIGluIG9yZGVyIGZvciBHU08gc2VnbWVudGF0aW9uIHRvIGJlCj4gcGVyZm9ybWVk
-IGNvcnJlY3RseS4KPgo+IFNpbmNlIGIyYWNkMWRjMzk0OSAoIm9wZW52c3dpdGNoOiBVc2UgcmVn
-dWxhciBHUkUgbmV0X2RldmljZSBpbnN0ZWFkIG9mCj4gdnBvcnQiKSBPcGVuIHZTd2l0Y2ggbWFr
-ZXMgdXNlIG9mIGx3dCB0byBvdXRwdXQgdG8gdHVubmVsIG5ldGRldnMgd2hpY2gKPiBwZXJmb3Jt
-IGVuY2Fwc3VsYXRpb24uIEFzIG5vIGRyaXZlcnMgZXhwb3NlIHN1cHBvcnQgZm9yIE1QTFMgb2Zm
-bG9hZHMgdGhpcwo+IG1lYW5zIHRoYXQgR1NPIHBhY2tldHMgYXJlIHNlZ21lbnRlZCBpbiBzb2Z0
-d2FyZSBieSB2YWxpZGF0ZV94bWl0X3NrYigpLAo+IHdoaWNoIGlzIGNhbGxlZCBmcm9tIF9fZGV2
-X3F1ZXVlX3htaXQoKSwgYmVmb3JlIHR1bm5lbCBlbmNhcHN1bGF0aW9uIG9jY3Vycy4KPiBUaGlz
-IG1lYW5zIHRoYXQgdGhlIGlubmVyIHByb3RvY29sIG9mIE1QTFMgaXMgbm8gbG9uZ2VyIG5lZWRl
-ZCBieSB0aGUgdGltZQo+IGVuY2Fwc3VsYXRpb24gb2NjdXJzIGFuZCB0aGUgY29udGVudGlvbiBv
-biB0aGUgaW5uZXJfcHJvdG9jb2wgZmllbGQgb2YgdGhlCj4gc2tiIG5vIGxvbmdlciBvY2N1cnMu
-Cj4KPiBUaHVzIGl0IGlzIG5vdyBzYWZlIHRvIG91dHB1dCBNUExTIHRvIHR1bm5lbCB2cG9ydHMu
-Cj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUu
-Y29tPgoKUmV2aWV3ZWQtYnk6IEplc3NlIEdyb3NzIDxqZXNzZUBrZXJuZWwub3JnPgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
-CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2Rldgo=
+Hello.
+
+On 03/15/2016 06:03 PM, Yoshihiro Kaneko wrote:
+
+>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>>
+>>> This patch supports the following interrupts.
+>>>
+>>> - One interrupt for multiple (timestamp, error, gPTP)
+>>> - One interrupt for emac
+>>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>>
+>>> This patch improve efficiency of the interrupt handler by adding the
+>>> interrupt handler corresponding to each interrupt source described
+>>> above. Additionally, it reduces the number of times of the access to
+>>> EthernetAVB IF.
+>>> Also this patch prevent this driver depends on the whim of a boot loader.
+>>>
+>>> [ykaneko0929@gmail.com: define bit names of registers]
+>>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+>>> [ykaneko0929@gmail.com: fix coding style]
+>>> [ykaneko0929@gmail.com: update changelog]
+>>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+>>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+>>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+>>> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+>>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+>>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+>>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+>>> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+>>> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>>>    interrupt handler instead of dma queue interrupt handler]
+>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>>
+>> [...]
+>>>
+>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>>> b/drivers/net/ethernet/renesas/ravb_main.c
+>>> index 8f2c4fb..8fa8ffe 100644
+>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>>
+>> [...]
+>>>
+>>> @@ -757,14 +806,73 @@ static irqreturn_t ravb_interrupt(int irq, void
+>>> *dev_id)
+>>>                  result = IRQ_HANDLED;
+>>>          }
+>>>
+>>> -       if (iss & ISS_CGIS)
+>>> -               result = ravb_ptp_interrupt(ndev);
+>>> +       /* gPTP interrupt status summary */
+>>> +       if ((iss & ISS_CGIS) && ravb_ptp_interrupt(ndev) == IRQ_HANDLED)
+>>> +               result = IRQ_HANDLED;
+>>
+>>     Wait, this seems like a bug in the existing driver! Please do fix it with
+>> a separate patch against net.git. Sorry about missing (or even adding) it
+>> while cleaning up the driver before submission...
+
+> Thanks, I will do so.
+
+    TIA.
+
+>>
+>> [...]
+>>
+>>     Looks fine otherwise, however the new features and the fixes shouldn't be
+>> mixed together, so I couldn't ACK yet. I'll go test it on gen2...
+>
+> Thanks in advance.
+
+    My testing on the modified Porter board went smooth.
+
+> Thanks,
+> kaneko
+
+MBR, Sergei
