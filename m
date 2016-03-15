@@ -1,45 +1,140 @@
-From: Schemmel Hans-Christoph <Hans-Christoph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN
- interface
-Date: Tue, 15 Mar 2016 09:02:09 +0000
-Message-ID: <1978E4F2CF12DD4A899FA7487323EB110108364EE7@A1GTOEMBXV004.gto.a3c.atos.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "bjorn-yOkvZcmFvRU@public.gmane.org" <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get SIGPIPE
+Date: Tue, 15 Mar 2016 10:03:44 +0100
+Message-ID: <1458032624-139688-1-git-send-email-glider@google.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: edumazet@google.com, rweikusat@mobileactivedefense.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36683 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964798AbcCOJDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 05:03:51 -0400
+Received: by mail-wm0-f53.google.com with SMTP id l124so1997140wmf.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:03:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Added support for Cinterion's PHxx WWAN interfaces by adding
-QMI_FIXED_INTF with Cinterion's VID and PID.
+According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
+socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if the
+socket is no longer connected.
 
-PHxx can have 2 RmNet Interfaces (PID 0x0082)
-or 1 RmNet + 1 USB Audio interface (PID 0x0083).
+I used the following program to check the kernel behavior:
 
-Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
+/*****************/
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+void PipeHandler(int sig) {
+  fprintf(stderr, "Killed by SIGPIPE\n");
+  _exit(1);
+}
+
+int main(int argc, char *argv[]) {
+  if (argc < 2) return 0;
+  struct sigaction act;
+  act.sa_handler = PipeHandler;
+  sigaction(SIGPIPE, &act, NULL);
+  int fds[2];
+  if (strcmp(argv[1], "seqpacket") == 0) {
+    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fds) == -1) return -1;
+  } else {
+    if (strcmp(argv[1], "stream") == 0) {
+      if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) return -1;
+    } else {
+      return -1;
+    }
+  }
+  int flags = 0;
+  if ((argc > 2) && (strcmp(argv[2], "nosignal") == 0))
+    flags = MSG_NOSIGNAL;
+
+  struct msghdr msg;
+  memset(&msg, 0, sizeof(msg));
+  close(fds[0]);
+  const ssize_t r = sendmsg(fds[1], &msg, flags);
+  if (r == -1) perror("sendmsg");
+  return 0;
+}
+/*****************/
+
+Without the below patch the behavior is as follows:
+
+$ ./sock seqpacket
+sendmsg: Broken pipe
+$ ./sock stream
+Killed by SIGPIPE
+$ ./sock seqpacket nosignal
+sendmsg: Broken pipe
+$ ./sock stream nosignal
+sendmsg: Broken pipe
+
+The behavior of the patched kernel complies with POSIX:
+
+$  ./sock seqpacket
+Killed by SIGPIPE
+$ ./sock stream
+Killed by SIGPIPE
+$ ./sock seqpacket nosignal
+sendmsg: Broken pipe
+$ ./sock stream nosignal
+sendmsg: Broken pipe
+
+
+Signed-off-by: Alexander Potapenko <glider@google.com>
 ---
-patch is against linux-4.5
---- linux/drivers/net/usb/qmi_wwan.c.orig       2016-03-14 12:18:07.153497489 +0100
-+++ linux/drivers/net/usb/qmi_wwan.c    2016-03-14 12:21:37.722541644 +0100
-@@ -881,6 +881,9 @@ static const struct usb_device_id produc
-        {QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},    /* Olivetti Olicard 500 */
-        {QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},    /* Cinterion PLxx */
-        {QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},    /* Cinterion PHxx,PXxx */
-+       {QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},    /* Cinterion PHxx,PXxx (2 RmNet) */
-+       {QMI_FIXED_INTF(0x1e2d, 0x0082, 5)},    /* Cinterion PHxx,PXxx (2 RmNet) */
-+       {QMI_FIXED_INTF(0x1e2d, 0x0083, 4)},    /* Cinterion PHxx,PXxx (1 RmNet + USB Audio)*/
-        {QMI_FIXED_INTF(0x413c, 0x81a2, 8)},    /* Dell Wireless 5806 Gobi(TM) 4G LTE Mobile Broadband Card */
-        {QMI_FIXED_INTF(0x413c, 0x81a3, 8)},    /* Dell Wireless 5570 HSPA+ (42Mbps) Mobile Broadband Card */
-        {QMI_FIXED_INTF(0x413c, 0x81a4, 8)},    /* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
-________________________________
- This message and any attachments are intended solely for the addressees and may contain confidential information. Any unauthorized use or disclosure, either whole or partial, is prohibited.
-E-mails are susceptible to alteration. Our company shall not be liable for the message if altered, changed or falsified. If you are not the intended recipient of this message, please delete it and notify the sender.
-Although all reasonable efforts have been made to keep this transmission free from viruses, the sender will not be liable for damages caused by a transmitted virus.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ net/unix/af_unix.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 8fbe6d7..ba34c73 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1645,6 +1645,7 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	struct sock *other = NULL;
+ 	int namelen = 0; /* fake GCC */
+ 	int err;
++	bool send_sigpipe = false;
+ 	unsigned int hash;
+ 	struct sk_buff *skb;
+ 	long timeo;
+@@ -1675,6 +1676,12 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
+ 			goto out;
+ 	}
+ 
++	if (sk->sk_shutdown & SEND_SHUTDOWN && sock->type == SOCK_SEQPACKET) {
++		send_sigpipe = true;
++		err = -EPIPE;
++		goto out;
++	}
++
+ 	if (test_bit(SOCK_PASSCRED, &sock->flags) && !u->addr
+ 	    && (err = unix_autobind(sock)) != 0)
+ 		goto out;
+@@ -1769,8 +1776,11 @@ restart_locked:
+ 	}
+ 
+ 	err = -EPIPE;
+-	if (other->sk_shutdown & RCV_SHUTDOWN)
++	if (other->sk_shutdown & RCV_SHUTDOWN) {
++		if (sock->type == SOCK_SEQPACKET)
++			send_sigpipe = true;
+ 		goto out_unlock;
++	}
+ 
+ 	if (sk->sk_type != SOCK_SEQPACKET) {
+ 		err = security_unix_may_send(sk->sk_socket, other->sk_socket);
+@@ -1837,6 +1847,8 @@ out:
+ 	if (other)
+ 		sock_put(other);
+ 	scm_destroy(&scm);
++	if (send_sigpipe && !(msg->msg_flags & MSG_NOSIGNAL))
++		send_sig(SIGPIPE, current, 0);
+ 	return err;
+ }
+ 
+-- 
+2.7.0.rc3.207.g0ac5344
