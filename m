@@ -1,51 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/18] netfilter: nft_compat: check match/targetinfo attr size
-Date: Tue, 15 Mar 2016 02:27:52 +0100
-Message-ID: <1458005282-24665-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/18] netfilter: ipset: Check IPSET_ATTR_ETHER netlink attribute length
+Date: Tue, 15 Mar 2016 02:27:51 +0100
+Message-ID: <1458005282-24665-8-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33234 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933317AbcCOB2b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 21:28:31 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id B85EB114F51
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:27 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id A8401DA391
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:27 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 33558DA38E
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:25 +0100 (CET)
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-We copy according to ->target|matchsize, so check that the netlink attribute
-(which can include padding and might be larger) contains enough data.
+Julia Lawall pointed out that IPSET_ATTR_ETHER netlink attribute length
+was not checked explicitly, just for the maximum possible size. Malicious
+netlink clients could send shorter attribute and thus resulting a kernel
+read after the buffer.
 
-Reported-by: Julia Lawall <Julia.Lawall@lip6.fr>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+The patch adds the explicit length checkings.
+
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/netfilter/nft_compat.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c | 2 ++
+ net/netfilter/ipset/ip_set_hash_mac.c     | 3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 454841b..6228c42 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -660,6 +660,9 @@ nft_match_select_ops(const struct nft_ctx *ctx,
- 	if (IS_ERR(match))
- 		return ERR_PTR(-ENOENT);
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 29dde20..9a065f6 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -267,6 +267,8 @@ bitmap_ipmac_uadt(struct ip_set *set, struct nlattr *tb[],
  
-+	if (match->matchsize > nla_len(tb[NFTA_MATCH_INFO]))
-+		return ERR_PTR(-EINVAL);
-+
- 	/* This is the first time we use this match, allocate operations */
- 	nft_match = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
- 	if (nft_match == NULL)
-@@ -740,6 +743,9 @@ nft_target_select_ops(const struct nft_ctx *ctx,
- 	if (IS_ERR(target))
- 		return ERR_PTR(-ENOENT);
+ 	e.id = ip_to_id(map, ip);
+ 	if (tb[IPSET_ATTR_ETHER]) {
++		if (nla_len(tb[IPSET_ATTR_ETHER]) != ETH_ALEN)
++			return -IPSET_ERR_PROTOCOL;
+ 		memcpy(e.ether, nla_data(tb[IPSET_ATTR_ETHER]), ETH_ALEN);
+ 		e.add_mac = 1;
+ 	}
+diff --git a/net/netfilter/ipset/ip_set_hash_mac.c b/net/netfilter/ipset/ip_set_hash_mac.c
+index f1e7d2c..8f004ed 100644
+--- a/net/netfilter/ipset/ip_set_hash_mac.c
++++ b/net/netfilter/ipset/ip_set_hash_mac.c
+@@ -110,7 +110,8 @@ hash_mac4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (tb[IPSET_ATTR_LINENO])
+ 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
  
-+	if (target->targetsize > nla_len(tb[NFTA_TARGET_INFO]))
-+		return ERR_PTR(-EINVAL);
-+
- 	/* This is the first time we use this target, allocate operations */
- 	nft_target = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
- 	if (nft_target == NULL)
+-	if (unlikely(!tb[IPSET_ATTR_ETHER]))
++	if (unlikely(!tb[IPSET_ATTR_ETHER] ||
++		     nla_len(tb[IPSET_ATTR_ETHER]) != ETH_ALEN))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	ret = ip_set_get_extensions(set, tb, &ext);
 -- 
 2.1.4
-
