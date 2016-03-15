@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/18] openvswitch: Delay conntrack helper call for new connections.
-Date: Tue, 15 Mar 2016 02:28:00 +0100
-Message-ID: <1458005282-24665-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/18] ipvs: allow rescheduling after RST
+Date: Tue, 15 Mar 2016 02:27:49 +0100
+Message-ID: <1458005282-24665-6-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,60 +10,32 @@ In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jarno@ovn.org>
+From: Julian Anastasov <ja@ssi.bg>
 
-There is no need to help connections that are not confirmed, so we can
-delay helping new connections to the time when they are confirmed.
-This change is needed for NAT support, and having this as a separate
-patch will make the following NAT patch a bit easier to review.
+"RFC 5961, 4.2. Mitigation" describes a mechanism to request
+client to confirm with RST the restart of TCP connection
+before resending its SYN. As result, IPVS can see SYNs for
+existing connection in CLOSE state. Add check to allow
+rescheduling in this state.
 
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/openvswitch/conntrack.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 85256b3..f718b72 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -483,7 +483,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 	 * actually run the packet through conntrack twice unless it's for a
- 	 * different zone.
- 	 */
--	if (!skb_nfct_cached(net, key, info, skb)) {
-+	bool cached = skb_nfct_cached(net, key, info, skb);
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+
-+	if (!cached) {
- 		struct nf_conn *tmpl = info->ct;
- 		int err;
- 
-@@ -506,11 +510,18 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 			return -ENOENT;
- 
- 		ovs_ct_update_key(skb, info, key, true);
-+	}
- 
--		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
--			WARN_ONCE(1, "helper rejected packet");
--			return -EINVAL;
--		}
-+	/* Call the helper only if:
-+	 * - nf_conntrack_in() was executed above ("!cached") for a confirmed
-+	 *   connection, or
-+	 * - When committing an unconfirmed connection.
-+	 */
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit) &&
-+	    ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
-+		WARN_ONCE(1, "helper rejected packet");
-+		return -EINVAL;
- 	}
- 
- 	return 0;
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 4da5600..b9a4082 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1089,6 +1089,7 @@ static inline bool is_new_conn_expected(const struct ip_vs_conn *cp,
+ 	switch (cp->protocol) {
+ 	case IPPROTO_TCP:
+ 		return (cp->state == IP_VS_TCP_S_TIME_WAIT) ||
++		       (cp->state == IP_VS_TCP_S_CLOSE) ||
+ 			((conn_reuse_mode & 2) &&
+ 			 (cp->state == IP_VS_TCP_S_FIN_WAIT) &&
+ 			 (cp->flags & IP_VS_CONN_F_NOOUTPUT));
 -- 
 2.1.4
 
