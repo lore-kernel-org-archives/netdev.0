@@ -1,55 +1,73 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [RFC v2 -next 0/2] virtio-net: Advised MTU feature
-Date: Tue, 15 Mar 2016 14:34:36 -0700
-Message-ID: <56E87FEC.2030600@hpe.com>
-References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-To: Aaron Conole <aconole@redhat.com>, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] cls_bpf: reset class and reuse major in da
+Date: Tue, 15 Mar 2016 22:41:22 +0100
+Message-ID: <9e700a6f163815e6f79db50e7a8f9f52696f28e7.1458075641.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:51113 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932427AbcCOVl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 17:41:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/15/2016 02:04 PM, Aaron Conole wrote:
-> The following series adds the ability for a hypervisor to set an MTU on the
-> guest during feature negotiation phase. This is useful for VM orchestration
-> when, for instance, tunneling is involved and the MTU of the various systems
-> should be homogenous.
->
-> The first patch adds the feature bit as described in the proposed VFIO spec
-> addition found at
-> https://lists.oasis-open.org/archives/virtio-dev/201603/msg00001.html
->
-> The second patch adds a user of the bit, and a warning when the guest changes
-> the MTU from the hypervisor advised MTU. Future patches may add more thorough
-> error handling.
+There are two issues with the current code. First one is that we need
+to set res->class to 0 in case we use non-default classid matching.
 
-How do you see this interacting with VMs getting MTU settings via DHCP?
+This is important for the case where cls_bpf was initially set up with
+an optional binding to a default class with tcf_bind_filter(), where
+the underlying qdisc implements bind_tcf() that fills res->class and
+tests for it later on when doing the classification. Convention for
+these cases is that after tc_classify() was called, such qdiscs (atm,
+drr, qfq, cbq, hfsc, htb) first test class, and if 0, then they lookup
+based on classid.
 
-rick jones
+Second, there's a bug with da mode, where res->classid is only assigned
+a 16 bit minor, but it needs to expand to the full 32 bit major/minor
+combination instead, therefore we need to expand with the bound major.
+This is fine as classes belonging to a classful qdisc must share the
+same major.
 
->
-> v2:
-> * Whitespace and code style cleanups from Sergei Shtylyov and Paolo Abeni
-> * Additional test before printing a warning
->
-> Aaron Conole (2):
->    virtio: Start feature MTU support
->    virtio_net: Read the advised MTU
->
->   drivers/net/virtio_net.c        | 12 ++++++++++++
->   include/uapi/linux/virtio_net.h |  3 +++
->   2 files changed, 15 insertions(+)
->
+Fixes: 045efa82ff56 ("cls_bpf: introduce integrated actions")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ net/sched/cls_bpf.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index 8dc8430..425fe6a 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -103,8 +103,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		}
+ 
+ 		if (prog->exts_integrated) {
+-			res->class = prog->res.class;
+-			res->classid = qdisc_skb_cb(skb)->tc_classid;
++			res->class   = 0;
++			res->classid = TC_H_MAJ(prog->res.classid) |
++				       qdisc_skb_cb(skb)->tc_classid;
+ 
+ 			ret = cls_bpf_exec_opcode(filter_res);
+ 			if (ret == TC_ACT_UNSPEC)
+@@ -114,10 +115,12 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 
+ 		if (filter_res == 0)
+ 			continue;
+-
+-		*res = prog->res;
+-		if (filter_res != -1)
++		if (filter_res != -1) {
++			res->class   = 0;
+ 			res->classid = filter_res;
++		} else {
++			*res = prog->res;
++		}
+ 
+ 		ret = tcf_exts_exec(skb, &prog->exts, res);
+ 		if (ret < 0)
+-- 
+1.9.3
