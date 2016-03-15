@@ -1,73 +1,53 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: When will net-next merge with linux-next?
-Date: Tue, 15 Mar 2016 11:11:34 +0000
-Message-ID: <BLUPR03MB141045D7EED478CB0A086CA1BF890@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <BLUPR03MB14106249C57CCF66717CC860BF880@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160314162139.GA2925@kroah.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net 1/1] qlge: Fix receive packets drop.
+Date: Tue, 15 Mar 2016 07:13:45 -0400
+Message-ID: <1458040425-12937-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
+	<harish.patil@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0144.outbound.protection.outlook.com ([65.55.169.144]:61312
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755265AbcCOLMJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 07:12:09 -0400
-In-Reply-To: <20160314162139.GA2925@kroah.com>
-Content-Language: en-US
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:44304 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934369AbcCOLyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 07:54:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
-> Sent: Tuesday, March 15, 2016 0:22
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: David Miller <davem@davemloft.net>; netdev@vger.kernel.org; KY
-> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>
-> Subject: Re: When will net-next merge with linux-next?
-> 
-> On Mon, Mar 14, 2016 at 06:09:41AM +0000, Dexuan Cui wrote:
-> > Hi David,
-> > I have a pending patch of the hv_sock driver, which should go into the
-> > kernel through the net-next tree:
-> >
-> https://lkml.org/lkml/2016/2/14/7
->
-> > The VMBus side's supporting patches of hv_sock have been in Greg's tree
-> > and linux-next for more than 1 month, but they haven't been in net-next
-> > yet, I suppose this is because of the releasing of 4.5.
-> >
-> > Now 4.5 is released. Will you merge with Greg's tree or linux-next?
-> 
-> linux-next is a merge of all of the maintainer's trees, and it is
-> rebased every day, it's impossible to merge that back into a maintainers
-> tree, sorry.
+When running small packets [length < 256 bytes] traffic, packets were
+being dropped due to invalid data in those packets which were
+delivered by the driver upto the stack. Using pci_dma_sync_single_for_cpu
+ensures copying latest and updated data into skb from the receive buffer.
 
-Greg, thanks for the reply!
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 9979764..b28e73e 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -1648,7 +1648,18 @@ static void ql_process_mac_rx_skb(struct ql_adapter *qdev,
+ 		return;
+ 	}
+ 	skb_reserve(new_skb, NET_IP_ALIGN);
++
++	pci_dma_sync_single_for_cpu(qdev->pdev,
++				    dma_unmap_addr(sbq_desc, mapaddr),
++				    dma_unmap_len(sbq_desc, maplen),
++				    PCI_DMA_FROMDEVICE);
++
+ 	memcpy(skb_put(new_skb, length), skb->data, length);
++
++	pci_dma_sync_single_for_device(qdev->pdev,
++				       dma_unmap_addr(sbq_desc, mapaddr),
++				       dma_unmap_len(sbq_desc, maplen),
++				       PCI_DMA_FROMDEVICE);
+ 	skb = new_skb;
  
-> > I read netdev-FAQ.txt, but still don't have a clear idea about how things
-> > work in my case.
-> 
-> Try reading Documentation/development-process/ please.  Things will get
-> merged together into Linus's tree over the next 2 weeks as we ask him to
-> pull our trees.
-> 
-> greg k-h
-
-I read the development-process documents. 
-Since 4.5 was released and Linus's merge window is open for 4.6, I guess
-what will happen next is:
-1. Linus will pull from char-misc.git and net-netx.git;
-2. David will merge with Linus's mainline tree;
-3. I can post my patch to net-next.git then.
-
-I'm wondering whether (and when) step 2 will happen in the next 2 weeks,
-that is, before the tag 4.6-rc1 is made.
-If not, I guess I'll miss 4.6?
-
-Thanks,
--- Dexuan
+ 	/* Frame error, so drop the packet. */
+-- 
+2.7.2
