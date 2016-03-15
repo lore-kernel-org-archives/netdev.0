@@ -1,63 +1,35 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [target-pending 00/12] cxgb4 patch series for cxgbit.ko
-Date: Tue, 15 Mar 2016 00:13:43 -0700
-Message-ID: <1458026023.15882.74.camel@haakon3.risingtidesystems.com>
-References: <cover.1457877852.git.varun@chelsio.com>
-	 <1458019751.15882.31.camel@haakon3.risingtidesystems.com>
-	 <20160315070427.GA8122@hari-Latitude-E5550>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch 1/2 net-next] mediatek: checking for IS_ERR() instead of NULL
+Date: Tue, 15 Mar 2016 10:18:49 +0300
+Message-ID: <20160315071849.GH13560@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Varun Prakash <varun@chelsio.com>, target-devel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	swise@opengridcomputing.com, indranil@chelsio.com, kxie@chelsio.com
-To: Hariprasad Shenai <hariprasad@chelsio.com>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <20160315070427.GA8122@hari-Latitude-E5550>
-Sender: target-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthias Brugger <matthias.bgg@gmail.com>, netdev@vger.kernel.org,
+	linux-mediatek@lists.infradead.org, kernel-janitors@vger.kernel.org
+To: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-03-15 at 12:34 +0530, Hariprasad Shenai wrote:
-> On Mon, Mar 14, 2016 at 22:29:11 -0700, Nicholas A. Bellinger wrote:
-> > Hi Varun & Co,
-> > 
-> > On Sun, 2016-03-13 at 19:49 +0530, Varun Prakash wrote:
-> > > Hi Nicholas,
-> > > 
-> > >    I am posting cxgb4 patch series as
-> > >    suggested by you in following email thread
-> > > 
-> > >    http://www.spinics.net/lists/target-devel/msg12437.html
-> > > 
-> > >    This series consists of patches from
-> > >    initial cxgb4 series without any change.
-> > > 
-> > > Thanks
-> > > Varun
-> > > 
-> > 
-> > Thanks for re-posting iscsi segment offload (ISO) prerequisites as a
-> > stand-alone vxgb4 network driver series.
-> > 
-> > This -v1 series has been in target-pending/for-next-merge for last
-> > weeks, and encountered one conflict vs. net-next as reported by SFR:
-> > 
-> >   https://lkml.org/lkml/2016/2/29/34 
-> > 
-> > That said, I'm still OK to merge via target-pending to enable post v4.6
-> > iscsi-target developments, as long as DaveM doesn't have an objection or
-> > if he'd prefer to pick them up.
-> > 
-> > As-is, they still need Acked-by's from the cxgb4 driver maintainer.  
-> > 
-> > Hariprasad, please give your review + ack.
-> > 
-> 
-> The entire series looks good.
-> 
-> Acked-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> 
+of_phy_connect() returns NULL on error, it never returns error pointers.
 
-cxgb4 driver ACKs applied to target-pending/for-next-merge.
+Fixes: 656e705243fd ('net-next: mediatek: add support for MT7623 ethernet')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Thanks Hariprasad.
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index ba3afa5..9759fe5 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -186,9 +186,9 @@ static int mtk_phy_connect_node(struct mtk_eth *eth, struct mtk_mac *mac,
+ 
+ 	phydev = of_phy_connect(eth->netdev[mac->id], phy_node,
+ 				mtk_phy_link_adjust, 0, phy_mode);
+-	if (IS_ERR(phydev)) {
++	if (!phydev) {
+ 		dev_err(eth->dev, "could not connect to PHY\n");
+-		return PTR_ERR(phydev);
++		return -ENODEV;
+ 	}
+ 
+ 	dev_info(eth->dev,
