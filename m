@@ -1,72 +1,75 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] sctp: consolidate local_bh_disable/enable +
- spin_lock/unlock to _bh variant
-Date: Tue, 15 Mar 2016 15:03:05 -0300
-Message-ID: <20160315180305.GP31743@localhost.localdomain>
-References: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] rds-tcp: Add sysctl tunables for
+ sndbuf/rcvbuf on rds-tcp socket
+Date: Tue, 15 Mar 2016 11:09:50 -0700
+Message-ID: <1458065390.31401.45.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160315151248.GJ11063@oracle.com>
+	 <56E83A6D.6060904@oracle.com> <20160315165800.GL11063@oracle.com>
+	 <1458062294.31401.37.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160315173011.GM11063@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	wangweidong <wangweidong1@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicholas Mc Guire <hofrat@osadl.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: santosh shilimkar <santosh.shilimkar@oracle.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34306 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932212AbcCOSJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 14:09:52 -0400
+Received: by mail-pf0-f180.google.com with SMTP id x3so38451997pfb.1
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 11:09:52 -0700 (PDT)
+In-Reply-To: <20160315173011.GM11063@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 13, 2016 at 11:48:24AM +0100, Nicholas Mc Guire wrote:
-> local_bh_disable() + spin_lock() is equivalent to spin_lock_bh(), same for
-> the unlock/enable case, so replace the calls by the appropriate wrappers.
+On Tue, 2016-03-15 at 13:30 -0400, Sowmini Varadhan wrote:
+> On (03/15/16 10:18), Eric Dumazet wrote:
+> > 
+> > Look at SO_SNDBUF and SO_RCVBUF implementation.
+> > 
+> > sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
+> > 
+> > sk->sk_rcvbuf = max_t(u32, val * 2, SOCK_MIN_RCVBUF);
+> > 
+> > kernel definitely has some logic here.
 > 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+> Ok, I can do the same thing (and we do this consistently across
+> all drivers?)
+> 
+> > If you believe SOCK_MIN_SNDBUF and/or SOCK_MIN_RCVBUF are wrong, please
+> > elaborate.
+> 
+> I dont recall suggesting that.
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+You said "just as user-space SO_SNDBUF allows ridiculous values
+for buffer size.."
 
-> ---
+So I understood you believe SOCK_MIN_SNDBUF and/or SOCK_MIN_RCVBUF are
+ridiculous ;)
+
+
 > 
-> net-next 3c8e43ba "sctp: remove macros sctp_spin_[un]lock" and
-> net-next 79b91130 "sctp: remove macros sctp_local_bh_{disable|enable}"
-> reverted scpt macros back to spin_lock/unlock and local_bh_disable/enable
-> which can be consolidated to spin_lock_bh/spin_unlock_bh in this case.
-> 
-> Compile tested with: x86_64_defconfig + CONFIG_IP_SCTP=m
-> 
-> Patch is against linux-next (localversion-next is next-20160311)
-> 
->  net/sctp/socket.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index b2dc8eb..f62feb0 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -7256,14 +7256,12 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
->  	/* Hook this new socket in to the bind_hash list. */
->  	head = &sctp_port_hashtable[sctp_phashfn(sock_net(oldsk),
->  						 inet_sk(oldsk)->inet_num)];
-> -	local_bh_disable();
-> -	spin_lock(&head->lock);
-> +	spin_lock_bh(&head->lock);
->  	pp = sctp_sk(oldsk)->bind_hash;
->  	sk_add_bind_node(newsk, &pp->owner);
->  	sctp_sk(newsk)->bind_hash = pp;
->  	inet_sk(newsk)->inet_num = inet_sk(oldsk)->inet_num;
-> -	spin_unlock(&head->lock);
-> -	local_bh_enable();
-> +	spin_unlock_bh(&head->lock);
->  
->  	/* Copy the bind_addr list from the original endpoint to the new
->  	 * endpoint so that we can handle restarts properly
-> -- 
-> 2.1.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> BTW, when I tried it, doing a SO_SNDBUF of 1 from uspace does not return
+> an error. It merely sets the buffer size to 4608 (as reported by
+> getsockopt in my env. I think the getsockopt value is impacted by
+> many factors).
+
+I pointed to you the actual code.
+
+sk->sk_sndbuf = max_t(u32, val * 2, SOCK_MIN_SNDBUF);
+
+
+No error is returned. kernel enforces a minimal value.
+
+#define SOCK_MIN_SNDBUF         (TCP_SKB_MIN_TRUESIZE * 2)
+#define TCP_SKB_MIN_TRUESIZE    (2048 + SKB_DATA_ALIGN(sizeof(struct
+sk_buff)))
+
+-> 2 * (2048 + 256) = 4608  given current sk_buff overhead (that might
+change in linux 5.4 ... )
+
+But again if your sysctl allows to set a value below SOCK_MIN_SNDBUF,
+that might be a problem, because stack could have a hidden bug for very
+small values of sndbuf/rcvbuf. 
