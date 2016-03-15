@@ -1,54 +1,72 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
-Date: Tue, 15 Mar 2016 23:56:58 +0100
-Message-ID: <87wpp3mjt1.fsf@belgarion.home>
-References: <20151202.235217.2201517065767030121.davem@davemloft.net>
-	<87fuzjl69l.fsf@belgarion.home> <87k2mi4ysn.fsf@belgarion.home>
-	<20160205.173021.1388372628450225378.davem@davemloft.net>
-	<87fux6439s.fsf@belgarion.home>
-	<CAE1WaKK2DqYYOTLmprbLuZVN-8--sZVyZVHgkcT4Jg7797S7HQ@mail.gmail.com>
-	<8760xjzbc5.fsf@belgarion.home>
-	<CAOMZO5DfQZrP-qNdPC5hJ_J+e-mX547SMq1wUC3NXWzyx84PMw@mail.gmail.com>
-	<87lh5zpbaw.fsf@belgarion.home>
+From: David Decotigny <ddecotig@gmail.com>
+Subject: Re: [ethtool PATCH v4 11/11] ethtool.c: support absence of v4 sockets
+Date: Tue, 15 Mar 2016 16:19:11 -0700
+Message-ID: <CAG88wWbKagbn7yUVVi2GW8t1amMWZOsCdNqmB_-mZuozXQfkVA@mail.gmail.com>
+References: <1457719104-39188-1-git-send-email-ddecotig@gmail.com>
+ <1457719104-39188-12-git-send-email-ddecotig@gmail.com> <1457889843.3331.36.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Fabio Estevam <festevam@gmail.com>,
-	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
-	Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Hitoshi Mitake <mitake.hitoshi@gmail.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87lh5zpbaw.fsf@belgarion.home> (Robert Jarzmik's message of
-	"Thu, 03 Mar 2016 21:16:07 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35382 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964832AbcCOXTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 19:19:33 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l68so168942931wml.0
+        for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 16:19:32 -0700 (PDT)
+In-Reply-To: <1457889843.3331.36.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Robert Jarzmik <robert.jarzmik@free.fr> writes:
+will send a v5 shortly without this patch: question below.
 
-> Fabio Estevam <festevam@gmail.com> writes:
->> Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
->
-> Thanks Fabio for the test.
->
-> I also tried with a different different approach.
->
-> I built the different platforms (imx v6, etc ...) :
->  - one version (a) on a vanilla v4.5-rc2
->  - one version (b) on a vaniall v4.5-rc2 + this patch
->
-> For each of the builds, I took the preprocessed output of smc911x.c, and made a
-> diff between (a) and (b). The commands used were :
->  - building in [1]
->  - diffing in [2]
->
-> The result is [3]. I conclude from [3] that the driver cannot break for non PXA
-> platforms.
->
-> With Fabio's test and this demonstration, is enough to convince you to apply
-> this patch David ?
-Hi David,
+about this patch: this is in prevision of a world where INET can be
+compiled out. So it is not something that matters today with current
+kernels.
 
-Can you consider this patch now it is tested please ?
+Now, as you mentioned in another patch, the only socket that survives
+various reasonable CONFIG_* gymnastics is netlink. So even though
+non-IPv4 kernels with IP support is not feasible today, I believe
+there is some logic to using netlink sockets for ethtool purposes,
+instead of IPv4 or IPv6 sockets. Shall I propose a patch to add
+ethtool support on AF_NETLINK sockets, and update the tool to try
+AF_INET first for backward compatibility reasons, then fallback to
+AF_NETLINK?
+
+On Sun, Mar 13, 2016 at 10:24 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Fri, 2016-03-11 at 09:58 -0800, David Decotigny wrote:
+>> From: David Decotigny <decot@googlers.com>
+>>
+>>
+>> Signed-off-by: David Decotigny <decot@googlers.com>
+>> ---
+>>  ethtool.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/ethtool.c b/ethtool.c
+>> index 761252f..f9336e3 100644
+>> --- a/ethtool.c
+>> +++ b/ethtool.c
+>> @@ -4615,6 +4615,9 @@ opt_found:
+>>               /* Open control socket. */
+>>               ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
+>>               if (ctx.fd < 0) {
+>> +                     ctx.fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+>> +             }
+>
+> You still haven't answered whether this is a real problem on Linux.
+>
+> Ben.
+>
+>> +             if (ctx.fd < 0) {
+>>                       perror("Cannot get control socket");
+>>                       return 70;
+>>               }
+> --
+> Ben Hutchings
+> If at first you don't succeed, you're doing about average.
