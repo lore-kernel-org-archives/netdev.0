@@ -1,37 +1,135 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next v10 0/8] openvswitch: NAT support
-Date: Tue, 15 Mar 2016 01:01:24 +0100
-Message-ID: <20160315000124.GA1710@salvia>
-References: <1457636063-92746-1-git-send-email-jarno@ovn.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Tue, 15 Mar 2016 11:07:13 +1100
+Message-ID: <20160315110713.49c4846e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	dev@openvswitch.org
-To: Jarno Rajahalme <jarno@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56229 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932175AbcCOABa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 20:01:30 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 8F475114F47
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 01:01:27 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 80CB8DA8FA
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 01:01:27 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A481DDA38A
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 01:01:25 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1457636063-92746-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Olof Johansson <olof@lixom.net>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>,
+	Marcin Wojtas <mw@semihalf.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2016 at 10:54:15AM -0800, Jarno Rajahalme wrote:
-> This series adds NAT support to openvswitch kernel module.  A few
-> changes are needed to the netfilter code to facilitate this (patches
-> 1-2/8).  Patches 3-7 make the openvswitch kernel module ready for the
-> patch 8 that adds the NAT support by calling into netfilter NAT code
-> from the openvswitch conntrack action.
+Hi all,
 
-Series applied, thanks Jarno.
+Today's linux-next merge of the net-next tree got conflicts in:
+
+  arch/arm/boot/dts/armada-xp-db.dts
+  arch/arm/boot/dts/armada-xp-gp.dts
+  arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+
+between commit:
+
+  d7d5a43c0d16 ("ARM: mvebu: fix overlap of Crypto SRAM with PCIe memory window")
+
+from Linus' tree and commits:
+
+  9dd7a57e2cbf ("ARM: dts: armada-xp: enable buffer manager support on Armada XP boards")
+  293fdc24fcc9 ("ARM: dts: armada-xp-openblocks-ax3-4: Add BM support")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc arch/arm/boot/dts/armada-xp-db.dts
+index 45813a5526c8,30657302305d..000000000000
+--- a/arch/arm/boot/dts/armada-xp-db.dts
++++ b/arch/arm/boot/dts/armada-xp-db.dts
+@@@ -76,8 -76,9 +76,9 @@@
+  		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
+  			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+  			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+ -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+ -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+ +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+- 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
++ 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+  
+  		devbus-bootcs {
+  			status = "okay";
+@@@ -229,34 -242,10 +242,38 @@@
+  					spi-max-frequency = <20000000>;
+  				};
+  			};
+ +
+ +			nand@d0000 {
+ +				status = "okay";
+ +				num-cs = <1>;
+ +				marvell,nand-keep-config;
+ +				marvell,nand-enable-arbiter;
+ +				nand-on-flash-bbt;
+ +
+ +				partitions {
+ +					compatible = "fixed-partitions";
+ +					#address-cells = <1>;
+ +					#size-cells = <1>;
+ +
+ +					partition@0 {
+ +						label = "U-Boot";
+ +						reg = <0 0x800000>;
+ +					};
+ +					partition@800000 {
+ +						label = "Linux";
+ +						reg = <0x800000 0x800000>;
+ +					};
+ +					partition@1000000 {
+ +						label = "Filesystem";
+ +						reg = <0x1000000 0x3f000000>;
+ +
+ +					};
+ +				};
+ +			};
+  		};
++ 
++ 		bm-bppi {
++ 			status = "okay";
++ 		};
+  	};
+  };
+diff --cc arch/arm/boot/dts/armada-xp-gp.dts
+index 5730b875c4f5,a1ded01d0c07..000000000000
+--- a/arch/arm/boot/dts/armada-xp-gp.dts
++++ b/arch/arm/boot/dts/armada-xp-gp.dts
+@@@ -95,8 -95,9 +95,9 @@@
+  		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
+  			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+  			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+ -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+ -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+ +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+- 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
++ 			  MBUS_ID(0x0c, 0x04) 0 0 0xf1200000 0x100000>;
+  
+  		devbus-bootcs {
+  			status = "okay";
+diff --cc arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+index 853bd392a4fe,3aa29a91c7b8..000000000000
+--- a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
++++ b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+@@@ -65,9 -65,10 +65,10 @@@
+  	soc {
+  		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
+  			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+ -			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000
+ -			  MBUS_ID(0x09, 0x09) 0 0 0xf8100000 0x10000
+ -			  MBUS_ID(0x09, 0x05) 0 0 0xf8110000 0x10000
+ +			  MBUS_ID(0x01, 0x2f) 0 0 0xe8000000 0x8000000
+ +			  MBUS_ID(0x09, 0x09) 0 0 0xf1100000 0x10000
+- 			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000>;
+++			  MBUS_ID(0x09, 0x05) 0 0 0xf1110000 0x10000
++ 			  MBUS_ID(0x0c, 0x04) 0 0 0xd1200000 0x100000>;
+  
+  		devbus-bootcs {
+  			status = "okay";
