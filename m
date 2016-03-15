@@ -1,76 +1,99 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH] ARC: axs10x - add Ethernet PHY description in .dts
-Date: Tue, 15 Mar 2016 14:50:02 +0000
-Message-ID: <1458053402.4174.12.camel@synopsys.com>
-References: <1458034150-10766-1-git-send-email-abrodkin@synopsys.com>
-	 <56E81E66.6080706@cogentembedded.com>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH v7 net-next] ravb: Add dma queue interrupt support
+Date: Wed, 16 Mar 2016 00:03:21 +0900
+Message-ID: <CAH1o70JC_OGqdUEXjGFMm1EDdVAEkGaMiJrx2JTgW+Ny1FnC3A@mail.gmail.com>
+References: <1457892712-29024-1-git-send-email-ykaneko0929@gmail.com>
+	<56E72394.5030905@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-7"
-Content-Transfer-Encoding: 8BIT
-Cc: "robh@kernel.org" <robh@kernel.org>,
-	"preid@electromag.com.au" <preid@electromag.com.au>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-snps-arc@lists.infradead.org"
-	<linux-snps-arc@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E81E66.6080706@cogentembedded.com>
-Content-Language: en-US
-Content-ID: <2B818A4BE41499428BBD420E400A94A9@internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <56E72394.5030905@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+Hi,
 
-On Tue, 2016-03-15 at 17:38 +-0300, Sergei Shtylyov wrote:
-+AD4- Hello.
-+AD4- 
-+AD4- On 3/15/2016 12:29 PM, Alexey Brodkin wrote:
-+AD4- 
-+AD4- +AD4- 
-+AD4- +AD4- Following commit broke DW GMAC functionality on AXS10x boards:
-+AD4- +AD4- http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id+AD0-e34d65696d2ef13dc32f2a162556c86c461ed763
-+AD4- +AD4- 
-+AD4- +AD4- That's what happens on eth0 up:
-+AD4- +AD4- ---------------------------+AD4-8------------------------
-+AD4- +AD4- libphy: PHY stmmac-0:ffffffff not found
-+AD4- +AD4- eth0: Could not attach to PHY
-+AD4- +AD4- stmmac+AF8-open: Cannot attach to PHY (error: -19)
-+AD4- +AD4- ---------------------------+AD4-8------------------------
-+AD4- +AD4- 
-+AD4- +AD4- Simplest solution is to add PHY description in board's .dts.
-+AD4- +AD4- And so we do here.
-+AD4- +AD4- 
-+AD4- +AD4- Signed-off-by: Alexey Brodkin +ADw-abrodkin+AEA-synopsys.com+AD4-
-+AD4- +AD4- Cc: Rob Herring +ADw-robh+AEA-kernel.org+AD4-
-+AD4- +AD4- Cc: Phil Reid +ADw-preid+AEA-electromag.com.au+AD4-
-+AD4- +AD4- Cc: David S. Miller +ADw-davem+AEA-davemloft.net+AD4-
-+AD4- +AD4- Cc: linux-kernel+AEA-vger.kernel.org
-+AD4- +AD4- Cc: netdev+AEA-vger.kernel.org
-+AD4- +AD4- Cc: stable+AEA-vger.kernel.org +ACM- 4.5.x
-+AD4- +AD4- ---
-+AD4- +AD4- +AKA- arch/arc/boot/dts/axs10x+AF8-mb.dtsi +AHw- 8 +-+-+-+-+-+-+-+-
-+AD4- +AD4- +AKA- 1 file changed, 8 insertions(+-)
-+AD4- +AD4- 
-+AD4- +AD4- diff --git a/arch/arc/boot/dts/axs10x+AF8-mb.dtsi b/arch/arc/boot/dts/axs10x+AF8-mb.dtsi
-+AD4- +AD4- index 44a578c..04b999e 100644
-+AD4- +AD4- --- a/arch/arc/boot/dts/axs10x+AF8-mb.dtsi
-+AD4- +AD4- +-+-+- b/arch/arc/boot/dts/axs10x+AF8-mb.dtsi
-+AD4- +AD4- +AEAAQA- -47,6 +-47,14 +AEAAQA-
-+AD4- +AD4- +AKAAoA-			clocks +AD0- +ADwAJg-apbclk+AD4AOw-
-+AD4- +AD4- +AKAAoA-			clock-names +AD0- +ACI-stmmaceth+ACIAOw-
-+AD4- +AD4- +AKAAoA-			max-speed +AD0- +ADw-100+AD4AOw-
-+AD4- +AD4- +-			mdio0 +AHs-
-+AD4- +AD4- +-				+ACM-address-cells +AD0- +ADw-1+AD4AOw-
-+AD4- +AD4- +-				+ACM-size-cells +AD0- +ADw-0+AD4AOw-
-+AD4- +AD4- +-				compatible +AD0- +ACI-snps,dwmac-mdio+ACIAOw-
-+AD4- +AD4- +-				phy0: ethernet-phy+AEA-0 +AHs-
-+AD4- +AKAAoACgAKA-The naming is inconsistent with the +ACI-reg+ACI- prop specified, should be +AEA-1.
+2016-03-15 5:48 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+>
+> On 03/13/2016 09:11 PM, Yoshihiro Kaneko wrote:
+>
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> This patch supports the following interrupts.
+>>
+>> - One interrupt for multiple (timestamp, error, gPTP)
+>> - One interrupt for emac
+>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>
+>> This patch improve efficiency of the interrupt handler by adding the
+>> interrupt handler corresponding to each interrupt source described
+>> above. Additionally, it reduces the number of times of the access to
+>> EthernetAVB IF.
+>> Also this patch prevent this driver depends on the whim of a boot loader.
+>>
+>> [ykaneko0929@gmail.com: define bit names of registers]
+>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+>> [ykaneko0929@gmail.com: fix coding style]
+>> [ykaneko0929@gmail.com: update changelog]
+>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+>> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+>> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+>> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>>   interrupt handler instead of dma queue interrupt handler]
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>
+> [...]
+>>
+>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>> b/drivers/net/ethernet/renesas/ravb_main.c
+>> index 8f2c4fb..8fa8ffe 100644
+>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>
+> [...]
+>>
+>> @@ -757,14 +806,73 @@ static irqreturn_t ravb_interrupt(int irq, void
+>> *dev_id)
+>>                 result = IRQ_HANDLED;
+>>         }
+>>
+>> -       if (iss & ISS_CGIS)
+>> -               result = ravb_ptp_interrupt(ndev);
+>> +       /* gPTP interrupt status summary */
+>> +       if ((iss & ISS_CGIS) && ravb_ptp_interrupt(ndev) == IRQ_HANDLED)
+>> +               result = IRQ_HANDLED;
+>
+>
+>    Wait, this seems like a bug in the existing driver! Please do fix it with
+> a separate patch against net.git. Sorry about missing (or even adding) it
+> while cleaning up the driver before submission...
 
-Makes sense.
-Will re-send it with mentioned fix.
+Thanks, I will do so.
 
--Alexey
+>
+> [...]
+>
+>    Looks fine otherwise, however the new features and the fixes shouldn't be
+> mixed together, so I couldn't ACK yet. I'll go test it on gen2...
+
+Thanks in advance.
+
+>
+> MBR, Sergei
+>
+
+Thanks,
+kaneko
