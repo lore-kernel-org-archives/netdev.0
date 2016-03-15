@@ -1,57 +1,73 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/18] ipvs: handle ip_vs_fill_iph_skb_off failure
-Date: Tue, 15 Mar 2016 02:27:47 +0100
-Message-ID: <1458005282-24665-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/18] openvswitch: Update the CT state key only after nf_conntrack_in().
+Date: Tue, 15 Mar 2016 02:27:57 +0100
+Message-ID: <1458005282-24665-14-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33250 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933335AbcCOB2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Mar 2016 21:28:35 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 1F696114F46
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 08D62DA8F8
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:34 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B9CA2DA8F8
+	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:29 +0100 (CET)
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Jarno Rajahalme <jarno@ovn.org>
 
-ip_vs_fill_iph_skb_off() may not find an IP header, and gcc has
-determined that ip_vs_sip_fill_param() then incorrectly accesses
-the protocol fields:
+Only a successful nf_conntrack_in() call can effect a connection state
+change, so it suffices to update the key only after the
+nf_conntrack_in() returns.
 
-net/netfilter/ipvs/ip_vs_pe_sip.c: In function 'ip_vs_sip_fill_param':
-net/netfilter/ipvs/ip_vs_pe_sip.c:76:5: error: 'iph.protocol' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-  if (iph.protocol != IPPROTO_UDP)
-     ^
-net/netfilter/ipvs/ip_vs_pe_sip.c:81:10: error: 'iph.len' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-  dataoff = iph.len + sizeof(struct udphdr);
-          ^
+This change is needed for the later NAT patches.
 
-This adds a check for the ip_vs_fill_iph_skb_off() return code
-before looking at the ip header data returned from it.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: b0e010c527de ("ipvs: replace ip_vs_fill_ip4hdr with ip_vs_fill_iph_skb_off")
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Acked-by: Joe Stringer <joe@ovn.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_pe_sip.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/conntrack.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index 1b8d594..c4e9ca0 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -70,10 +70,10 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- 	const char *dptr;
- 	int retc;
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 2c2bf07..a487bb3 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -382,7 +382,8 @@ static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
+ }
  
--	ip_vs_fill_iph_skb(p->af, skb, false, &iph);
-+	retc = ip_vs_fill_iph_skb(p->af, skb, false, &iph);
+ /* Pass 'skb' through conntrack in 'net', using zone configured in 'info', if
+- * not done already.  Update key with new CT state.
++ * not done already.  Update key with new CT state after passing the packet
++ * through conntrack.
+  * Note that if the packet is deemed invalid by conntrack, skb->nfct will be
+  * set to NULL and 0 will be returned.
+  */
+@@ -411,14 +412,14 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 				    skb) != NF_ACCEPT)
+ 			return -ENOENT;
  
- 	/* Only useful with UDP */
--	if (iph.protocol != IPPROTO_UDP)
-+	if (!retc || iph.protocol != IPPROTO_UDP)
- 		return -EINVAL;
- 	/* todo: IPv6 fragments:
- 	 *       I think this only should be done for the first fragment. /HS
++		ovs_ct_update_key(skb, info, key, true);
++
+ 		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+ 			WARN_ONCE(1, "helper rejected packet");
+ 			return -EINVAL;
+ 		}
+ 	}
+ 
+-	ovs_ct_update_key(skb, info, key, true);
+-
+ 	return 0;
+ }
+ 
 -- 
 2.1.4
-
