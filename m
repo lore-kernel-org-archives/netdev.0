@@ -1,63 +1,86 @@
-From: Daode Huang <huangdaode@hisilicon.com>
-Subject: Re: [PATCH V2 net 0/6] net: hns: hns driver updates
-Date: Tue, 15 Mar 2016 09:56:02 +0800
-Message-ID: <56E76BB2.5060203@hisilicon.com>
-References: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<linuxarm@huawei.com>, <salil.mehta@huawei.com>,
-	<kenneth-lee-2012@foxmail.com>, <xuwei5@hisilicon.com>,
-	<lisheng011@huawei.com>, <yankejian@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1457687446-109867-1-git-send-email-huangdaode@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next iproute2 v2 1/2] netconf: add support for ignore route attribute
+Date: Tue, 15 Mar 2016 02:32:11 +0000
+Message-ID: <1458009132-21621-2-git-send-email-zhangshengju@cmss.chinamobile.com>
+References: <1458009132-21621-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2875 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933379AbcCOC2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Mar 2016 22:28:11 -0400
+In-Reply-To: <1458009132-21621-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Add support for ignore route attribute, and refine the code to use
+rta_getattr_* function to get attribute value.
 
-Could you please help me to review this patch set?
-I am so sorry to send the patches in parallel to you, which increases 
-you workload,
-So next time we will pay more attention to it,  and learn more about 
-kernel patch submitting.
-Thanks.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ ip/ipnetconf.c | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
 
-MBR, Daode
-
-On 2016/3/11 17:10, Daode Huang wrote:
-> Hi Dave,
->
-> This patch series are hisilicon network driver bug fix.
-> please merge them to the net repo.
-> Thanks
->
-> Daode Huang
-> ---
-> changlog
-> v2: some minor change according to
->      MBR Sergei <sergei.shtylyov@cogentembedded.com> in
->      [patch 3/6] [patch 4/6].
->
-> v1: initial version.
->
-> Daode Huang (6):
->    net: hns: bug fix about the overflow of mss
->    net: hns: fixes the hw interrupt bug in using napi
->    net: hns: fixed portid bug in sending manage pkt
->    net: hns: adds uc match for debug port
->    net: hns: fixed service-ges setting MAC-addr bug
->    net: hns: bug fix of getting hilink status
->
->   drivers/net/ethernet/hisilicon/hns/hnae.h          |  3 ++
->   drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  1 +
->   drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 29 +++++++++++----
->   drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 41 ++++++++++++----------
->   drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  4 +++
->   drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 32 +++++++++--------
->   6 files changed, 70 insertions(+), 40 deletions(-)
->
+diff --git a/ip/ipnetconf.c b/ip/ipnetconf.c
+index eca6eee..caea63b 100644
+--- a/ip/ipnetconf.c
++++ b/ip/ipnetconf.c
+@@ -38,6 +38,11 @@ static void usage(void)
+ 	exit(-1);
+ }
+ 
++static void print_onoff(FILE *f, char *flag, __u32 val)
++{
++	fprintf(f, "%s %s ", flag, val ? "on" : "off");
++}
++
+ #define NETCONF_RTA(r)	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct netconfmsg))))
+ 
+ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+@@ -81,7 +86,7 @@ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+ 	}
+ 
+ 	if (tb[NETCONFA_IFINDEX]) {
+-		int *ifindex = (int *)RTA_DATA(tb[NETCONFA_IFINDEX]);
++		int *ifindex = (int *)rta_getattr_str(tb[NETCONFA_IFINDEX]);
+ 
+ 		switch (*ifindex) {
+ 		case NETCONFA_IFINDEX_ALL:
+@@ -97,10 +102,10 @@ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+ 	}
+ 
+ 	if (tb[NETCONFA_FORWARDING])
+-		fprintf(fp, "forwarding %s ",
+-			*(int *)RTA_DATA(tb[NETCONFA_FORWARDING])?"on":"off");
++		print_onoff(fp, "forwarding",
++				rta_getattr_u32(tb[NETCONFA_FORWARDING]));
+ 	if (tb[NETCONFA_RP_FILTER]) {
+-		int rp_filter = *(int *)RTA_DATA(tb[NETCONFA_RP_FILTER]);
++		__u32 rp_filter = rta_getattr_u32(tb[NETCONFA_RP_FILTER]);
+ 
+ 		if (rp_filter == 0)
+ 			fprintf(fp, "rp_filter off ");
+@@ -112,12 +117,16 @@ int print_netconf(const struct sockaddr_nl *who, struct rtnl_ctrl_data *ctrl,
+ 			fprintf(fp, "rp_filter unknown mode ");
+ 	}
+ 	if (tb[NETCONFA_MC_FORWARDING])
+-		fprintf(fp, "mc_forwarding %d ",
+-			*(int *)RTA_DATA(tb[NETCONFA_MC_FORWARDING]));
++		print_onoff(fp, "mc_forwarding",
++				rta_getattr_u32(tb[NETCONFA_MC_FORWARDING]));
+ 
+ 	if (tb[NETCONFA_PROXY_NEIGH])
+-		fprintf(fp, "proxy_neigh %s ",
+-			*(int *)RTA_DATA(tb[NETCONFA_PROXY_NEIGH])?"on":"off");
++		print_onoff(fp, "proxy_neigh",
++				rta_getattr_u32(tb[NETCONFA_PROXY_NEIGH]));
++
++	if (tb[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN])
++		print_onoff(fp, "ignore_routes_with_linkdown",
++		     rta_getattr_u32(tb[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN]));
+ 
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+-- 
+1.8.3.1
