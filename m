@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/18] netfilter: Allow calling into nat helper without skb_dst.
-Date: Tue, 15 Mar 2016 02:27:55 +0100
-Message-ID: <1458005282-24665-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/18] openvswitch: Delay conntrack helper call for new connections.
+Date: Tue, 15 Mar 2016 02:28:00 +0100
+Message-ID: <1458005282-24665-17-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,103 +12,58 @@ List-Id: netdev.vger.kernel.org
 
 From: Jarno Rajahalme <jarno@ovn.org>
 
-NAT checksum recalculation code assumes existence of skb_dst, which
-becomes a problem for a later patch in the series ("openvswitch:
-Interface with NAT.").  Simplify this by removing the check on
-skb_dst, as the checksum will be dealt with later in the stack.
+There is no need to help connections that are not confirmed, so we can
+delay helping new connections to the time when they are confirmed.
+This change is needed for NAT support, and having this as a separate
+patch will make the following NAT patch a bit easier to review.
 
-Suggested-by: Pravin Shelar <pshelar@nicira.com>
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Acked-by: Joe Stringer <joe@ovn.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 30 ++++++++----------------------
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 30 ++++++++----------------------
- 2 files changed, 16 insertions(+), 44 deletions(-)
+ net/openvswitch/conntrack.c | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-index 61c7cc2..f8aad03 100644
---- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-@@ -127,29 +127,15 @@ static void nf_nat_ipv4_csum_recalc(struct sk_buff *skb,
- 				    u8 proto, void *data, __sum16 *check,
- 				    int datalen, int oldlen)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	struct rtable *rt = skb_rtable(skb);
--
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--		if (!(rt->rt_flags & RTCF_LOCAL) &&
--		    (!skb->dev || skb->dev->features &
--		     (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM))) {
--			skb->ip_summed = CHECKSUM_PARTIAL;
--			skb->csum_start = skb_headroom(skb) +
--					  skb_network_offset(skb) +
--					  ip_hdrlen(skb);
--			skb->csum_offset = (void *)check - data;
--			*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
--						    datalen, proto, 0);
--		} else {
--			*check = 0;
--			*check = csum_tcpudp_magic(iph->saddr, iph->daddr,
--						   datalen, proto,
--						   csum_partial(data, datalen,
--								0));
--			if (proto == IPPROTO_UDP && !*check)
--				*check = CSUM_MANGLED_0;
--		}
-+		const struct iphdr *iph = ip_hdr(skb);
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 85256b3..f718b72 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -483,7 +483,11 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 	 * actually run the packet through conntrack twice unless it's for a
+ 	 * different zone.
+ 	 */
+-	if (!skb_nfct_cached(net, key, info, skb)) {
++	bool cached = skb_nfct_cached(net, key, info, skb);
++	enum ip_conntrack_info ctinfo;
++	struct nf_conn *ct;
 +
-+		skb->ip_summed = CHECKSUM_PARTIAL;
-+		skb->csum_start = skb_headroom(skb) + skb_network_offset(skb) +
-+			ip_hdrlen(skb);
-+		skb->csum_offset = (void *)check - data;
-+		*check = ~csum_tcpudp_magic(iph->saddr, iph->daddr, datalen,
-+					    proto, 0);
- 	} else
- 		inet_proto_csum_replace2(check, skb,
- 					 htons(oldlen), htons(datalen), true);
-diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-index 6ce3099..e0be97e 100644
---- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-@@ -131,29 +131,15 @@ static void nf_nat_ipv6_csum_recalc(struct sk_buff *skb,
- 				    u8 proto, void *data, __sum16 *check,
- 				    int datalen, int oldlen)
- {
--	const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
--	struct rt6_info *rt = (struct rt6_info *)skb_dst(skb);
--
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--		if (!(rt->rt6i_flags & RTF_LOCAL) &&
--		    (!skb->dev || skb->dev->features &
--		     (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))) {
--			skb->ip_summed = CHECKSUM_PARTIAL;
--			skb->csum_start = skb_headroom(skb) +
--					  skb_network_offset(skb) +
--					  (data - (void *)skb->data);
--			skb->csum_offset = (void *)check - data;
--			*check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
--						  datalen, proto, 0);
--		} else {
--			*check = 0;
--			*check = csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
--						 datalen, proto,
--						 csum_partial(data, datalen,
--							      0));
--			if (proto == IPPROTO_UDP && !*check)
--				*check = CSUM_MANGLED_0;
++	if (!cached) {
+ 		struct nf_conn *tmpl = info->ct;
+ 		int err;
+ 
+@@ -506,11 +510,18 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
+ 			return -ENOENT;
+ 
+ 		ovs_ct_update_key(skb, info, key, true);
++	}
+ 
+-		if (ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
+-			WARN_ONCE(1, "helper rejected packet");
+-			return -EINVAL;
 -		}
-+		const struct ipv6hdr *ipv6h = ipv6_hdr(skb);
-+
-+		skb->ip_summed = CHECKSUM_PARTIAL;
-+		skb->csum_start = skb_headroom(skb) + skb_network_offset(skb) +
-+			(data - (void *)skb->data);
-+		skb->csum_offset = (void *)check - data;
-+		*check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
-+					  datalen, proto, 0);
- 	} else
- 		inet_proto_csum_replace2(check, skb,
- 					 htons(oldlen), htons(datalen), true);
++	/* Call the helper only if:
++	 * - nf_conntrack_in() was executed above ("!cached") for a confirmed
++	 *   connection, or
++	 * - When committing an unconfirmed connection.
++	 */
++	ct = nf_ct_get(skb, &ctinfo);
++	if (ct && (nf_ct_is_confirmed(ct) ? !cached : info->commit) &&
++	    ovs_ct_helper(skb, info->family) != NF_ACCEPT) {
++		WARN_ONCE(1, "helper rejected packet");
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
 -- 
 2.1.4
 
