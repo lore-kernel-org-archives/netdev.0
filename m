@@ -1,13 +1,15 @@
 From: Aaron Conole <aconole@redhat.com>
-Subject: [RFC v2 -next 0/2] virtio-net: Advised MTU feature
-Date: Tue, 15 Mar 2016 17:04:11 -0400
-Message-ID: <1458075853-14789-1-git-send-email-aconole@redhat.com>
+Subject: [RFC v2 -next 1/2] virtio: Start feature MTU support
+Date: Tue, 15 Mar 2016 17:04:12 -0400
+Message-ID: <1458075853-14789-2-git-send-email-aconole@redhat.com>
+References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
 	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1458075853-14789-1-git-send-email-aconole@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -19,30 +21,38 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The following series adds the ability for a hypervisor to set an MTU on the
-guest during feature negotiation phase. This is useful for VM orchestration
-when, for instance, tunneling is involved and the MTU of the various systems
-should be homogenous.
+This commit adds the feature bit and associated mtu device entry for the
+virtio network device. Future commits will make use of these bits to support
+negotiated MTU.
 
-The first patch adds the feature bit as described in the proposed VFIO spec
-addition found at
-https://lists.oasis-open.org/archives/virtio-dev/201603/msg00001.html
-
-The second patch adds a user of the bit, and a warning when the guest changes
-the MTU from the hypervisor advised MTU. Future patches may add more thorough
-error handling.
-
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
+---
 v2:
-* Whitespace and code style cleanups from Sergei Shtylyov and Paolo Abeni
-* Additional test before printing a warning
+* No change
 
-Aaron Conole (2):
-  virtio: Start feature MTU support
-  virtio_net: Read the advised MTU
+ include/uapi/linux/virtio_net.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
- drivers/net/virtio_net.c        | 12 ++++++++++++
- include/uapi/linux/virtio_net.h |  3 +++
- 2 files changed, 15 insertions(+)
-
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index ec32293..41a6a01 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -55,6 +55,7 @@
+ #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+ 					 * Steering */
+ #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
++#define VIRTIO_NET_F_MTU 25	/* Device supports Default MTU Negotiation */
+ 
+ #ifndef VIRTIO_NET_NO_LEGACY
+ #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+@@ -73,6 +74,8 @@ struct virtio_net_config {
+ 	 * Legal values are between 1 and 0x8000
+ 	 */
+ 	__u16 max_virtqueue_pairs;
++	/* Default maximum transmit unit advice */
++	__u16 mtu;
+ } __attribute__((packed));
+ 
+ /*
 -- 
 2.5.0
