@@ -1,187 +1,63 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/18] openvswitch: Find existing conntrack entry after upcall.
-Date: Tue, 15 Mar 2016 02:27:58 +0100
-Message-ID: <1458005282-24665-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/18] ipvs: correct initial offset of Call-ID header search in SIP persistence engine
+Date: Tue, 15 Mar 2016 02:27:50 +0100
+Message-ID: <1458005282-24665-7-git-send-email-pablo@netfilter.org>
 References: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33263 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754479AbcCOB2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Mar 2016 21:28:37 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 52CC4114F53
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:34 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 305D5DA3A0
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:34 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 7C85DDA384
-	for <netdev@vger.kernel.org>; Tue, 15 Mar 2016 02:28:30 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1458005282-24665-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jarno@ovn.org>
+From: Marco Angaroni <marcoangaroni@gmail.com>
 
-Add a new function ovs_ct_find_existing() to find an existing
-conntrack entry for which this packet was already applied to.  This is
-only to be called when there is evidence that the packet was already
-tracked and committed, but we lost the ct reference due to an
-userspace upcall.
+The IPVS SIP persistence engine is not able to parse the SIP header
+"Call-ID" when such header is inserted in the first positions of
+the SIP message.
 
-ovs_ct_find_existing() is called from skb_nfct_cached(), which can now
-hide the fact that the ct reference may have been lost due to an
-upcall.  This allows ovs_ct_commit() to be simplified.
+When IPVS is configured with "--pe sip" option, like for example:
+ipvsadm -A -u 1.2.3.4:5060 -s rr --pe sip -p 120 -o
+some particular messages (see below for details) do not create entries
+in the connection template table, which can be listed with:
+ipvsadm -Lcn --persistent-conn
 
-This patch is needed by later "openvswitch: Interface with NAT" patch,
-as we need to be able to pass the packet through NAT using the
-original ct reference also after the reference is lost after an
-upcall.
+Problematic SIP messages are SIP responses having "Call-ID" header
+positioned just after message first line:
+SIP/2.0 200 OK
+[Call-ID header here]
+[rest of the headers]
 
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+When "Call-ID" header is positioned down (after a few other headers)
+it is correctly recognized.
+
+This is due to the data offset used in get_callid function call inside
+ip_vs_pe_sip.c file: since dptr already points to the start of the
+SIP message, the value of dataoff should be initially 0.
+Otherwise the header is searched starting from some bytes after the
+first character of the SIP message.
+
+Fixes: 758ff0338722 ("IPVS: sip persistence engine")
+Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/openvswitch/conntrack.c | 103 ++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 90 insertions(+), 13 deletions(-)
+ net/netfilter/ipvs/ip_vs_pe_sip.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index a487bb3..ae36fe2 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -356,14 +356,101 @@ ovs_ct_expect_find(struct net *net, const struct nf_conntrack_zone *zone,
- 	return __nf_ct_expect_find(net, zone, &tuple);
- }
+diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
+index c4e9ca0..0a6eb5c 100644
+--- a/net/netfilter/ipvs/ip_vs_pe_sip.c
++++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
+@@ -88,7 +88,7 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
+ 	dptr = skb->data + dataoff;
+ 	datalen = skb->len - dataoff;
  
-+/* This replicates logic from nf_conntrack_core.c that is not exported. */
-+static enum ip_conntrack_info
-+ovs_ct_get_info(const struct nf_conntrack_tuple_hash *h)
-+{
-+	const struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
-+		return IP_CT_ESTABLISHED_REPLY;
-+	/* Once we've had two way comms, always ESTABLISHED. */
-+	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status))
-+		return IP_CT_ESTABLISHED;
-+	if (test_bit(IPS_EXPECTED_BIT, &ct->status))
-+		return IP_CT_RELATED;
-+	return IP_CT_NEW;
-+}
-+
-+/* Find an existing connection which this packet belongs to without
-+ * re-attributing statistics or modifying the connection state.  This allows an
-+ * skb->nfct lost due to an upcall to be recovered during actions execution.
-+ *
-+ * Must be called with rcu_read_lock.
-+ *
-+ * On success, populates skb->nfct and skb->nfctinfo, and returns the
-+ * connection.  Returns NULL if there is no existing entry.
-+ */
-+static struct nf_conn *
-+ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
-+		     u8 l3num, struct sk_buff *skb)
-+{
-+	struct nf_conntrack_l3proto *l3proto;
-+	struct nf_conntrack_l4proto *l4proto;
-+	struct nf_conntrack_tuple tuple;
-+	struct nf_conntrack_tuple_hash *h;
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
-+	unsigned int dataoff;
-+	u8 protonum;
-+
-+	l3proto = __nf_ct_l3proto_find(l3num);
-+	if (!l3proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l3proto\n");
-+		return NULL;
-+	}
-+	if (l3proto->get_l4proto(skb, skb_network_offset(skb), &dataoff,
-+				 &protonum) <= 0) {
-+		pr_debug("ovs_ct_find_existing: Can't get protonum\n");
-+		return NULL;
-+	}
-+	l4proto = __nf_ct_l4proto_find(l3num, protonum);
-+	if (!l4proto) {
-+		pr_debug("ovs_ct_find_existing: Can't get l4proto\n");
-+		return NULL;
-+	}
-+	if (!nf_ct_get_tuple(skb, skb_network_offset(skb), dataoff, l3num,
-+			     protonum, net, &tuple, l3proto, l4proto)) {
-+		pr_debug("ovs_ct_find_existing: Can't get tuple\n");
-+		return NULL;
-+	}
-+
-+	/* look for tuple match */
-+	h = nf_conntrack_find_get(net, zone, &tuple);
-+	if (!h)
-+		return NULL;   /* Not found. */
-+
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	ctinfo = ovs_ct_get_info(h);
-+	if (ctinfo == IP_CT_NEW) {
-+		/* This should not happen. */
-+		WARN_ONCE(1, "ovs_ct_find_existing: new packet for %p\n", ct);
-+	}
-+	skb->nfct = &ct->ct_general;
-+	skb->nfctinfo = ctinfo;
-+	return ct;
-+}
-+
- /* Determine whether skb->nfct is equal to the result of conntrack lookup. */
--static bool skb_nfct_cached(const struct net *net, const struct sk_buff *skb,
--			    const struct ovs_conntrack_info *info)
-+static bool skb_nfct_cached(struct net *net,
-+			    const struct sw_flow_key *key,
-+			    const struct ovs_conntrack_info *info,
-+			    struct sk_buff *skb)
- {
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
+-	if (get_callid(dptr, dataoff, datalen, &matchoff, &matchlen))
++	if (get_callid(dptr, 0, datalen, &matchoff, &matchlen))
+ 		return -EINVAL;
  
- 	ct = nf_ct_get(skb, &ctinfo);
-+	/* If no ct, check if we have evidence that an existing conntrack entry
-+	 * might be found for this skb.  This happens when we lose a skb->nfct
-+	 * due to an upcall.  If the connection was not confirmed, it is not
-+	 * cached and needs to be run through conntrack again.
-+	 */
-+	if (!ct && key->ct.state & OVS_CS_F_TRACKED &&
-+	    !(key->ct.state & OVS_CS_F_INVALID) &&
-+	    key->ct.zone == info->zone.id)
-+		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb);
- 	if (!ct)
- 		return false;
- 	if (!net_eq(net, read_pnet(&ct->ct_net)))
-@@ -396,7 +483,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 	 * actually run the packet through conntrack twice unless it's for a
- 	 * different zone.
- 	 */
--	if (!skb_nfct_cached(net, skb, info)) {
-+	if (!skb_nfct_cached(net, key, info, skb)) {
- 		struct nf_conn *tmpl = info->ct;
- 
- 		/* Associate skb with specified zone. */
-@@ -459,18 +546,8 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 			 const struct ovs_conntrack_info *info,
- 			 struct sk_buff *skb)
- {
--	u8 state;
- 	int err;
- 
--	state = key->ct.state;
--	if (key->ct.zone == info->zone.id &&
--	    ((state & OVS_CS_F_TRACKED) && !(state & OVS_CS_F_NEW))) {
--		/* Previous lookup has shown that this connection is already
--		 * tracked and committed. Skip committing.
--		 */
--		return 0;
--	}
--
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
+ 	/* N.B: pe_data is only set on success,
 -- 
 2.1.4
+
