@@ -1,32 +1,68 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] vxlan: fix too large pskb_may_pull with remote
- checksum
-Date: Wed, 16 Mar 2016 18:13:29 +0100
-Message-ID: <20160316181329.55736b7f@griffin>
-References: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
-	<CALx6S37=BFPfFB5Jwug5VeNJG2qtmVsRxCq-sW=q1knz73ZwhA@mail.gmail.com>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: Re: ipv6 not bringing up due to qdisc_tx_is_noop failing
+Date: Wed, 16 Mar 2016 19:14:26 +0200
+Message-ID: <CAJFSNy6Kz8yYWk4J9wHqbkhBoPcjG=rZ89mTDMQ=66njaH9Wag@mail.gmail.com>
+References: <56E97BEA.4070004@kyup.com>
+	<56E992E0.1080708@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Nikolay Borisov <kernel@kyup.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	SiteGround Operations <operations@siteground.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56604 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932369AbcCPRNc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 13:13:32 -0400
-In-Reply-To: <CALx6S37=BFPfFB5Jwug5VeNJG2qtmVsRxCq-sW=q1knz73ZwhA@mail.gmail.com>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34879 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598AbcCPRO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:14:28 -0400
+Received: by mail-oi0-f52.google.com with SMTP id c203so43656102oia.2
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:14:28 -0700 (PDT)
+Received: from mail-ob0-f182.google.com (mail-ob0-f182.google.com. [209.85.214.182])
+        by smtp.gmail.com with ESMTPSA id j143sm1781557oih.24.2016.03.16.10.14.26
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 16 Mar 2016 10:14:27 -0700 (PDT)
+Received: by mail-ob0-f182.google.com with SMTP id ts10so57889711obc.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:14:26 -0700 (PDT)
+In-Reply-To: <56E992E0.1080708@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Mar 2016 10:09:38 -0700, Tom Herbert wrote:
-> On Wed, Mar 16, 2016 at 9:35 AM, Jiri Benc <jbenc@redhat.com> wrote:
-> > The vxlan header is pulled at this point, don't include it again in the
-> > calculation.
-> >
-> Hmm, I think I missing something obvious. Where was the pull of the
-> vxlan header done?
+On Wed, Mar 16, 2016 at 7:07 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello,
 
-In iptunnel_pull_header. Sorry, should have mentioned it.
+Hi,
 
- Jiri
+>
+> On 16.03.2016 16:29, Nikolay Borisov wrote:
+>>
+>> I have stack traces which do show this sequence of events, so my
+>> questions now are:
+>>
+>> 1. What's the difference between netdev_queue->qdisc and
+>> netdev_queue->qdisc_sleeping. Git blaming indicates those member haves
+>> existed even before the git history was started.
+>
+> qdisc_sleeping is the qdisc you configure before the device is brought up.
+> It should transition during carrier up to the normal qdisc.
+>
+>> 2. Shouldn't the netdev_queue->qdisc also be updated during
+>> attach_one_default_qdisc?
+>
+> Yes, do you have carrier up on your card?
+
+Actually no, the interface indeed shows no carrier yet ibping to other
+hosts on the infiniband network works and ibstats shows the link as
+being in up state. Do you have any ideas how to debug this further?
+
+>
+> Is this a regression, did this work for you and stopped working with a
+> specific kernel version?
+
+I don't think this is a regression.
+
+>
+> Thanks and bye,
+> Hannes
+>
