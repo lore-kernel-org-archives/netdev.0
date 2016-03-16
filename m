@@ -1,295 +1,68 @@
-From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
-Subject: Re: [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
-Date: Wed, 16 Mar 2016 11:47:15 +0100
-Message-ID: <56E939B3.8020604@suse.de>
-References: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com>
+From: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+Subject: Re: [PATCH (net-next.git) 2/2] stmmac: fix MDIO settings
+Date: Wed, 16 Mar 2016 12:01:06 +0100
+Message-ID: <CAG374jDJS7TUSx0Ob38x4aRYHyrA+OWeCDm+f-Ytq8YZhwkEqg@mail.gmail.com>
+References: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com> <1458121942-5537-3-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gabriel.fernandez@linaro.org,
-	fschaefer.oss@googlemail.com, dinh.linux@gmail.com,
-	davem@davemloft.net, preid@electromag.com.au
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org,
+	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
+	fschaefer.oss@googlemail.com, Dinh Nguyen <dinh.linux@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Phil Reid <preid@electromag.com.au>
 To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:34463 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966519AbcCPKrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 06:47:18 -0400
-In-Reply-To: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:37206 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966790AbcCPLBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 07:01:47 -0400
+Received: by mail-wm0-f50.google.com with SMTP id p65so66611258wmp.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 04:01:47 -0700 (PDT)
+In-Reply-To: <1458121942-5537-3-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 16.03.2016 um 10:52 schrieb Giuseppe Cavallaro:
-> These two patches are to fix the recent regressions raised
-> when test the stmmac on some platforms due to broken MDIO/PHY
-> management.
->=20
-> NOTE:
->=20
-> these are the same reviewed patches sent for net.git (version 4).
-> The patch #2 has been modified to solve a build problem on net-next;
-> inside the stmmac_init_phy where there is:
->=20
-> 869         if (priv->plat->is_fixed_link)
-> 870                 phydev->irq =3D PHY_IGNORE_INTERRUPT;
+Hi Pepe,
 
-On next-20160316 plus the other previously tested normal desc fix with
-this series I now get:
+i have a kernel crash
 
-         Starting wicked managed network interfaces...
-eth0: device MAC address e6:6f:12:1b:8f:24
-Unable to handle kernel NULL pointer dereference at virtual address 000=
-00322
-pgd =3D ffffffc074e76000
-[00000322] *pgd=3D00000000765d5003, *pud=3D00000000765d5003,
-*pmd=3D0000000000000000
-Internal error: Oops: 96000006 [#1] PREEMPT SMP
-Modules linked in:
-CPU: 5 PID: 1600 Comm: wickedd Not tainted 4.5.0-next-20160316+ #40
-Hardware name: GeekBox on Landingship (DT)
-task: ffffffc0787ce000 ti: ffffffc0765f4000 task.ti: ffffffc0765f4000
-PC is at stmmac_open+0xcc/0xc20
-LR is at stmmac_open+0x6a8/0xc20
-pc : [<ffffff800856a58c>] lr : [<ffffff800856ab68>] pstate: a0000145
-sp : ffffffc0765f7670
-x29: ffffffc0765f7670 x28: 0000000000000000
-x27: ffffff800889bb40 x26: ffffffc076610100
-x25: ffffffc077593810 x24: ffffff8008878898
-x23: 00000000fffffffe x22: 0000000000000007
-x21: ffffffc0784e4000 x20: ffffffc077e15800
-x19: ffffffc0784e4800 x18: 0000000000000002
-x17: 0000000000000007 x16: 0000000000000001
-x15: ffffffc0765f7703 x14: 0000000000000001
-x13: 0000000000000001 x12: ffffffc0770d2000
-x11: 0000000000000021 x10: 0000000000001140
-x9 : ffffff8008c60014 x8 : ffffffc077e15bb0
-x7 : ffffffc07ef8eb80 x6 : ffffffc077e15b98
-x5 : 00000000fffee416 x4 : 00000000000000f9
-x3 : 0000000000000000 x2 : 00000000000009ba
-x1 : ffffffc0765f4000 x0 : 0000000000000000
-
-Process wickedd (pid: 1600, stack limit =3D 0xffffffc0765f4020)
-Stack: (0xffffffc0765f7670 to 0xffffffc0765f8000)
-7660:                                   ffffffc0765f7710 ffffff800869bb=
-38
-7680: ffffffc0784e4000 0000000000001003 ffffff8008878898 ffffffc0784e40=
-48
-76a0: 0000000000001002 ffffff8008878898 ffffffc077593810 ffffffc0766101=
-00
-76c0: ffffff800889bb40 0000000000000000 ffffffc0765f76e0 ffffff80086936=
-10
-76e0: 302d63616d6d7473 ffffff800869ba00 ffffffc0784e4000 302d63616d6d74=
-73
-7700: ffffff800030303a ffffff80080dcb58 ffffffc0765f7750 ffffff800869bd=
-fc
-7720: ffffffc0784e4000 0000000000001003 0000000000000001 00000000000000=
-00
-7740: ffffffc0784e4000 ffffffc0784e4000 ffffffc0765f7790 ffffff800869be=
-e8
-7760: ffffffc0784e4000 0000000000000000 0000000000000000 00000000000010=
-02
-7780: ffffffc0765f7958 ffffff80080ef7fc ffffffc0765f77c0 ffffff80086abf=
-48
-77a0: 0000000000000000 0000000000000000 ffffffc0784e4000 ffffffc0765f79=
-e0
-77c0: ffffffc0765f78d0 ffffff80086aca00 0000000000000000 ffffffc0784e40=
-00
-77e0: ffffffc077593800 0000000000000000 0000000000000000 00000000000000=
-00
-7800: ffffffc0765f78d0 ffffffc077593810 ffffff800889bb40 00000000000000=
-00
-7820: ffffffc0787ce000 0000000000000000 0000000000000000 ffffffc0774b00=
-00
-7840: ffffffc0765f7880 ffffff800815b0f0 ffffff80087eb63c ffffffc07ef931=
-80
-7860: ffffffc07748bdc0 ffffffc07851bc00 ffffffc0765f78c0 ffffff80080b62=
-3c
-7880: 0000000000000004 ffffffc07748c070 ffffffc0765f78d0 ffffff80086ac6=
-e8
-78a0: ffffffc0765f78d0 ffffff80086ac72c 0000000000000000 ffffffc0784e40=
-00
-78c0: ffffffc077593800 0000000000000000 ffffffc0765f7b20 ffffff80086ab5=
-dc
-78e0: 0000000000000000 ffffffc077593800 ffffffc076610100 00000000000000=
-00
-7900: 0000000000000000 0000000000000020 0000000000000000 00000000000000=
-08
-7920: ffffff80087fb000 ffffffc0765f4000 ffffffc076610100 ffffff800889ba=
-98
-7940: ffffffc077593820 ffffff8008b71100 ffffffc0765f4000 00000000000000=
-00
-7960: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7980: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-79a0: 0000000000000000 ffffff80080daf00 ffffffc0765f7ac0 ffffff80081a8d=
-9c
-79c0: ffffffbdc1ddaa00 ffffffc0765f4000 0000000000008145 ffffffc0776aac=
-00
-79e0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7a00: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7a20: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7a40: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7a60: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7a80: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7aa0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7ac0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7ae0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7b00: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7b20: ffffffc0765f7b90 ffffff80086be524 ffffffc077593800 ffffffc0766101=
-00
-7b40: ffffff80086ab4f8 ffffffc076610100 0000000000000000 ffffffc0765f7c=
-2f
-7b60: 00000000024000c0 ffffff80086878d4 ffffffc0765f7b90 ffffff80086bba=
-04
-7b80: ffffffc077c6af90 0000000000000008 ffffffc0765f7bc0 ffffff80086ab4=
-e4
-7ba0: ffffffc076610100 ffffffc077c17800 0000000000000020 ffffff80086bdc=
-ac
-7bc0: ffffffc0765f7be0 ffffff80086bddc0 ffffffc077c6ac00 ffffffc077c178=
-00
-7be0: ffffffc0765f7c30 ffffff80086be290 ffffffc0765f7e68 00000000000000=
-00
-7c00: ffffffc076610100 ffffffc077c17800 0000000000000000 00000000ffffff=
-a6
-7c20: ffffffc076610100 7fffffffffffffff ffffffc0765f7ca0 ffffff800867d2=
-08
-7c40: ffffffc0765f7e68 0000000000000000 0000000000000000 00000000000000=
-00
-7c60: ffffffc078106300 0000000000000000 0000000000000000 ffffffc0765f7d=
-08
-7c80: ffffffc077f4b700 0000000000000000 0000000000000640 00000000000000=
-00
-7ca0: ffffffc0765f7cb0 ffffff800867f364 ffffffc0765f7e30 ffffff80086802=
-44
-7cc0: ffffffc078106300 0000007fe0a23730 0000000000000000 0000007fb07b98=
-98
-7ce0: 0000000060000000 0000000000000015 000000000000011e 00000000000000=
-d3
-7d00: 0000000000000000 00000000000000d4 ffffff80087fb000 ffffff80080949=
-64
-7d20: 0000000000000000 0000000000000000 0000000000000010 00000000000000=
-00
-7d40: 000000009200004f 0000000000000055 0000000000000002 ffffffc0777ea6=
-30
-7d60: ffffffc0776eb468 0000000000020000 ffffffc0765f7db0 0000000007fb09=
-b3
-7d80: ffffffc076f173f8 ffffffc076f17480 ffffffc0765f7dc0 ffffff80080947=
-c0
-7da0: ffffffc0765f7ed0 ffffffc0776eb400 000000002571bf40 00000000000000=
-20
-7dc0: 0000000025736bf0 0000000000000000 000000009200004f ffffff8008b146=
-f8
-7de0: 0000007fb09b3ec0 ffffffc0765f7ed0 0000000080000000 00000000000000=
-24
-7e00: ffffffc0765f7e10 ffffff800867cde0 ffffffc0765f7e30 ffffff80086802=
-24
-7e20: 0000000000000200 0000007fe0a23730 ffffffc0765f7ec0 ffffff80086802=
-98
-7e40: 0000000000000200 00000000256d2920 ffffffffffffffff ffffffc0765f7e=
-d0
-7e60: fffffff700000000 ffffffc0765f7d30 000000000000000c 00000000000000=
-01
-7e80: 0000000000000000 0000000000000000 ffffffc0765f7dc0 00000000000000=
-00
-7ea0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
-7ec0: 0000000000000000 ffffff8008084d8c 0000000000000006 0000007fe0a237=
-30
-7ee0: 0000000000000000 0000000000000001 0000007fb09e3c68 00000000000000=
-00
-7f00: 000000002571bf60 0000000200000000 00000000000000d3 00000000000000=
-04
-7f20: 0000000000000076 0000000000000030 6e65706f2e67726f 74654e2e657375=
-73
-7f40: 746e492e6b726f77 00315fd0a7af2c02 0000000000000000 0000007fb07b98=
-b0
-7f60: 0000000000000001 0000007fb0676000 00000000256d2920 00000000257209=
-10
-7f80: 00000000256a5980 0000007fe0a23730 000000002571daa0 00000000256a28=
-10
-7fa0: 00000000256a1f50 0000007fe0a239e0 0000000000000003 0000007fe0a236=
-70
-7fc0: 0000007fb06593d4 0000007fe0a23660 0000007fb07b9898 00000000600000=
-00
-7fe0: 0000000000000006 00000000000000d3 00000000004c944d 00000000000000=
-00
-Call trace:
-Exception stack(0xffffffc0765f74b0 to 0xffffffc0765f75d0)
-74a0:                                   ffffffc0784e4800 ffffffc077e158=
-00
-74c0: ffffffc0765f7670 ffffff800856a58c 0000000000000000 00000000000000=
-00
-74e0: ffffffc077593810 ffffffc076610100 ffffff800889bb40 00000000000000=
-00
-7500: ffffffc0765f7550 ffffff800810b95c ffffffc077e15bb0 00000000fffee5=
-0f
-7520: ffffff8008ae2b80 ffffffc07ef2ab80 ffffffc0765f7540 ffffff80087ef2=
-68
-7540: ffffffc0765f7550 ffffff800810b8fc 0000000000000000 ffffffc0765f40=
-00
-7560: 00000000000009ba 0000000000000000 00000000000000f9 00000000fffee4=
-16
-7580: ffffffc077e15b98 ffffffc07ef8eb80 ffffffc077e15bb0 ffffff8008c600=
-14
-75a0: 0000000000001140 0000000000000021 ffffffc0770d2000 00000000000000=
-01
-75c0: 0000000000000001 ffffffc0765f7703
-[<ffffff800856a58c>] stmmac_open+0xcc/0xc20
-[<ffffff800869bb38>] __dev_open+0xb8/0x128
-[<ffffff800869bdfc>] __dev_change_flags+0x8c/0x158
-[<ffffff800869bee8>] dev_change_flags+0x20/0x60
-[<ffffff80086abf48>] do_setlink+0x288/0x8a0
-[<ffffff80086aca00>] rtnl_newlink+0x398/0x6a8
-[<ffffff80086ab5dc>] rtnetlink_rcv_msg+0xe4/0x220
-[<ffffff80086be524>] netlink_rcv_skb+0xc4/0xf8
-[<ffffff80086ab4e4>] rtnetlink_rcv+0x2c/0x40
-[<ffffff80086bddc0>] netlink_unicast+0x160/0x238
-[<ffffff80086be290>] netlink_sendmsg+0x2f0/0x358
-[<ffffff800867d208>] sock_sendmsg+0x18/0x30
-[<ffffff800867f364>] ___sys_sendmsg+0x26c/0x280
-[<ffffff8008680244>] __sys_sendmsg+0x44/0x88
-[<ffffff8008680298>] SyS_sendmsg+0x10/0x20
-[<ffffff8008084d8c>] __sys_trace_return+0x0/0x4
-Code: f9434260 f9400c00 b4004840 f9410260 (394c8800)
----[ end trace 20896b27fa45a738 ]---
-[  OK  ] Started wicked managed network interfaces.
-
-ping did not work (no eth0 I assume) and doing `ip a` got the system
-stuck with Ctrl+C not working. Reproducible.
-
-Regards,
-Andreas
-
->=20
-> Note: still on-going for net-next a debug session to solve a recent
->       regression when use normal descriptors.
->       This will be sent in a new patch set.
->=20
-> Giuseppe Cavallaro (2):
->   Revert "stmmac: Fix 'eth0: No PHY found' regression"
->   stmmac: fix MDIO settings
->=20
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   16 +---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   10 +--
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   91 ++++++++++=
-++++------
->  include/linux/stmmac.h                             |    1 -
->  4 files changed, 72 insertions(+), 46 deletions(-)
->=20
+[    2.714097] Unable to handle kernel NULL pointer dereference at
+virtual address 000001d6
+[    2.722188] pgd = c0204000
+[    2.724886] [000001d6] *pgd=00000000
+[    2.728452] Internal error: Oops: 5 [#1] SMP ARM
+[    2.733054] Modules linked in:
+[    2.736095] CPU: 1 PID: 1 Comm: swapper/0 Not tainted
+4.5.0-rc7-01768-g3407893 #36
+[    2.743649] Hardware name: STiH415/416 SoC with Flattened Device Tree
+[    2.750074] task: ee070000 ti: ee05e000 task.ti: ee05e000
+[    2.755467] PC is at stmmac_open+0xcc/0xc40
+[    2.759641] LR is at of_phy_connect+0x44/0x5c
 
 
---=20
-SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=FCrnberg, Germany
-GF: Felix Imend=F6rffer, Jane Smithard, Graham Norton; HRB 21284 (AG N=FC=
-rnberg)
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 4c5ce98..943500b 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -278,7 +278,6 @@ static void stmmac_eee_ctrl_timer(unsigned long arg)
+>   */
+>  bool stmmac_eee_init(struct stmmac_priv *priv)
+>  {
+> -       char *phy_bus_name = priv->plat->phy_bus_name;
+>         unsigned long flags;
+>         bool ret = false;
+>
+> @@ -290,7 +289,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+>                 goto out;
+>
+>         /* Never init EEE in case of a switch is attached */
+> -       if (phy_bus_name && (!strcmp(phy_bus_name, "fixed")))
+> +       if (priv->phydev->is_pseudo_fixed_link)
+
+priv->phydev is not yet affected
+replace by if (phydev->is_pseudo_fixed_link) instead ?
+
+
+Best Regard
+
+Gabriel
