@@ -1,52 +1,61 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 10:18:33 -0700
-Message-ID: <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6 not bringing up due to qdisc_tx_is_noop failing
+Date: Wed, 16 Mar 2016 18:18:41 +0100
+Message-ID: <56E99571.8080209@stressinduktion.org>
+References: <56E97BEA.4070004@kyup.com> <56E992E0.1080708@stressinduktion.org>
+ <CAJFSNy6Kz8yYWk4J9wHqbkhBoPcjG=rZ89mTDMQ=66njaH9Wag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160316115809.61b4478e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	SiteGround Operations <operations@siteground.com>
+To: Nikolay Borisov <kernel@kyup.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:33232 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751498AbcCPRSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:18:45 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id E58A020DD6
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 13:18:44 -0400 (EDT)
+In-Reply-To: <CAJFSNy6Kz8yYWk4J9wHqbkhBoPcjG=rZ89mTDMQ=66njaH9Wag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+On 16.03.2016 18:14, Nikolay Borisov wrote:
+> On Wed, Mar 16, 2016 at 7:07 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On 16.03.2016 16:29, Nikolay Borisov wrote:
+>>>
+>>> I have stack traces which do show this sequence of events, so my
+>>> questions now are:
+>>>
+>>> 1. What's the difference between netdev_queue->qdisc and
+>>> netdev_queue->qdisc_sleeping. Git blaming indicates those member haves
+>>> existed even before the git history was started.
+>>
+>> qdisc_sleeping is the qdisc you configure before the device is brought up.
+>> It should transition during carrier up to the normal qdisc.
+>>
+>>> 2. Shouldn't the netdev_queue->qdisc also be updated during
+>>> attach_one_default_qdisc?
+>>
+>> Yes, do you have carrier up on your card?
 >
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+> Actually no, the interface indeed shows no carrier yet ibping to other
+> hosts on the infiniband network works and ibstats shows the link as
+> being in up state. Do you have any ideas how to debug this further?
 
-Side note: can you change this wording for your manual merge script?
-Last merge window (or was it the one before it?) we had confusion with
-people who thought that "no action is required" means "you can just
-ignore this entirely".
+Probably something in the driver should call netif_carrier_on if carrier 
+is connectivity is available. I don't have enough knowledge about IB how 
+carrier detection is done there.
 
-I want people who have known merge issues to at the very least
-*mention* them to me when they send the pull request, and I also think
-that trees that have merge conflicts that aren't just totally trivial
-should also make sure that they have communicated with each other
-about why the problem happened.
+>> Is this a regression, did this work for you and stopped working with a
+>> specific kernel version?
+>
+> I don't think this is a regression.
 
-This is *particularly* true for the complete effing disaster that is
-mellanox and rdma-vs-networking.
+Okay, thanks.
 
-So please don't say "no action is required". Please make it clear that
-there may not be any further action needed for linux-next itself, but
-that other action may certainly be required.
-
-Because I'm very close to not taking any rdma changes that touch
-networking any more. Ever.
-
-The Mellanox people are on my shit-list until they show that they can
-actually act like responsible people and not just monkeys throwing
-shit at the walls.
-
-"No action required" is simply not true for Mellanox.
-
-                     Linus
+Bye,
+Hannes
