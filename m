@@ -1,48 +1,68 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
-Date: Thu, 17 Mar 2016 00:05:05 +0100
-Message-ID: <20160316230505.GA18161@lunn.ch>
-References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
- <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com>
- <20160316161848.GE2393@lunn.ch>
- <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
+Date: Wed, 16 Mar 2016 19:19:24 -0400 (EDT)
+Message-ID: <20160316.191924.1375803074089875897.davem@davemloft.net>
+References: <1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
+	<20160314.152403.1490973796884839758.davem@davemloft.net>
+	<56E719EA.7040208@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shaohui ??? <shh.xie@gmail.com>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
-To: Yegor Yefremov <yegorslists@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:48972 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753137AbcCPXFL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 19:05:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: imbrenda@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, labbott@fedoraproject.org
+To: labbott@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56E719EA.7040208@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2016 at 11:23:59PM +0100, Yegor Yefremov wrote:
-> Hi Andrew,
+From: Laura Abbott <labbott@redhat.com>
+Date: Mon, 14 Mar 2016 13:07:06 -0700
+
+> On 03/14/2016 12:24 PM, David Miller wrote:
+>> From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+>> Date: Fri, 11 Mar 2016 13:39:23 +0100
+>>
+>>> I think I found a problem with the patch submitted by Laura Abbott
+>>> ( https://lkml.org/lkml/2016/2/4/711 ): we might miss wakeups.
+>>> Since the condition is not checked between the prepare_to_wait and the
+>>> schedule(), if a wakeup happens after the condition is checked but
+>>> before
+>>> the sleep happens, and we miss it. ( A description of the problem can
+>>> be
+>>> found here: http://www.makelinux.net/ldd3/chp-6-sect-2 ).
+>>>
+>>> My solution (see patch below) is to shrink the area influenced by
+>>> prepare_to_wait, but keeping the fragile section around the condition,
+>>> and
+>>> keep the rest of the code in "normal" running state.  This way the
+>>> sleep is
+>>> correct and the other functions don't need to worry.  The only caveat
+>>> here
+>>> is that the function(s) called to verify the conditions are really not
+>>> allowed to sleep, so if you need synchronization in the backend of
+>>> e.g.
+>>> vsock_stream_has_space(), you should use spinlocks and not mutexes.
+>>>
+>>> In case we want to be able to sleep while waiting for conditions, we
+>>> can
+>>> consider this instead: https://lwn.net/Articles/628628/ .
+>>>
+>>>
+>>> I stumbled on this problem while working on fixing the upcoming virtio
+>>> backend for vsock, below is the patch I had prepared, with the
+>>> original
+>>> message.
+>>
+>> Can someone please look at this?  Who maintains this code anyways?
+>>
 > 
-> On Wed, Mar 16, 2016 at 5:18 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> > On Wed, Mar 16, 2016 at 04:59:23PM +0100, Yegor Yefremov wrote:
-> >
-> >> This patch breaks my am335x based board, where one of the CPSW slaves
-> >> is connected to IP175D switch chip via RMII interface. Since this
-> >> patch packet reception is not working.
-> >
-> > Hi Yegor
-> >
-> > Which phy is causing the problem? A PHY inside the switch?
-> >
-> > Do you have two back to back PHYs between the MAC and the switch, or
-> > is the CPSW RMII connected directly to the switch?
-> 
-> CPSW RMII is connected directly to the switch.
+> Nobody was listed in MAINTAINERS. I tried cc-ing some of the e-mail
+> addresses
+> of the original authors (vmware?) when sending the original patch and
+> they
+> all bounced.
 
-So which PHY is causing you problems?
-
-   Andrew
+Ok, can you please submit this anew?  Your commit message format was
+incorrect, you put the commit message content you wanted in the change
+after the --- separater instead of beforehand.
