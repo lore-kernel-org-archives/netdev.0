@@ -1,189 +1,133 @@
-From: Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com>
-Subject: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN
- interface
-Date: Wed, 16 Mar 2016 08:31:28 +0000
-Message-ID: <1978E4F2CF12DD4A899FA7487323EB1101083683C0@A1GTOEMBXV004.gto.a3c.atos.net>
+From: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
+ 4KB regardless of system page size"
+Date: Wed, 16 Mar 2016 19:34:00 +1100
+Message-ID: <56E91A78.5000700@ozlabs.ru>
+References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
+ <CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
+ <56E8BFFE.9000803@ozlabs.ru> <20160316051021.GC66645@x-vnc01.mtx.labs.mlnx>
+ <56E8F3CC.3070203@ozlabs.ru> <20160316060947.GD66645@x-vnc01.mtx.labs.mlnx>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
-	micalg=SHA1; boundary="----=_NextPart_000_0018_01D17F66.9AF08220"
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: "bjorn@mork.no" <bjorn@mork.no>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.gemalto.com ([193.56.114.246]:47636 "EHLO
-	smtp3.gemalto.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966288AbcCPIbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 04:31:35 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-------=_NextPart_000_0018_01D17F66.9AF08220
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=koi8-r; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160316060947.GD66645-lgQlq6cFzJSjLWYaRI30zHI+JuX82XLG@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Added support for Gemalto's Cinterion PHxx WWAN interfaces 
-by adding QMI_FIXED_INTF with Cinterion's VID and PID.
+On 03/16/2016 05:09 PM, Eli Cohen wrote:
+> On Wed, Mar 16, 2016 at 04:49:00PM +1100, Alexey Kardashevskiy wrote:
+>> On 03/16/2016 04:10 PM, Eli Cohen wrote:
+>>> On Wed, Mar 16, 2016 at 01:07:58PM +1100, Alexey Kardashevskiy wrote:
+>>>>
+>>>> So with v4.5 as a host, there is no actual distro available today to
+>>>> use as a guest in the next 6 months (or whatever it takes to
+>>>> backport this partucular patch back there).
+>>>>
+>>>> You could have added a module parameter to enforce the old behavoir,
+>>>> at least...
+>>>>
+>>>> And sorry but from the original commit log I could not understand
+>>>> why exactly all existing guests need to be broken. Could you please
+>>>> point me to a piece of documentation describing all this UAR
+>>>> bisuness (what is UAR, why 128 UARs are required and for what, etc).
+>>>> Thanks.
+>>>>
+>>>
+>>> We are going to send a patch that fixes this using a module parameter.
+>>> The patch will be on top of Huy's patch.
+>>>
+>>> Some background to the problem: mlx4 supported devices require 128 UAR
+>>
+>> What does UAR stand for?
+> User Access Region. It's the way you interface with the hardware.
+>>
+>>> pages from PCI memory space defined by BAR2-3. Each UAR page can be
+>>> any power of 2 value from 4K up to 64K. Before Huy's patch the driver
+>>> chose UAR page size to be equal to system page size. Since PowerPC's
+>>> page size is 64K this means minimum requirement of UAR pages is not
+>>> met (default UAR BAR is 8MB and only half of it is really reserved for
+>>> UARs).
+>>
+>> And what was the downside? afaict the performance was good...
+>>
+>
+> It's not a performance issue. Defining 64KB for a UAR is not required
+> and wastes pci memory mapped i/o space.
+>
+>>
+>>> More details can be found in the programmer's manual.
+>>
+>> Can you please point me to this manual on the website? I tried,
+>> honestly, could not find it. Thanks.
+>>
+> It's not publically available. If you have an FAE that work with your
+> company you can ask him how to get the doc.
 
-PHxx can have 
-2 RmNet Interfaces (PID 0x0082) or
-1 RmNet + 1 USB Audio interface (PID 0x0083).
 
-Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
----
-patch is against linux-4.5
---- linux/drivers/net/usb/qmi_wwan.c.orig	2016-03-14
-12:18:07.153497489 +0100
-+++ linux/drivers/net/usb/qmi_wwan.c	2016-03-14 12:21:37.722541644 +0100
-@@ -881,6 +881,9 @@ static const struct usb_device_id produc
- 	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
- 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
- 	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
-+	{QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},	/* Cinterion PHxx,PXxx (2
-RmNet) */
-+	{QMI_FIXED_INTF(0x1e2d, 0x0082, 5)},	/* Cinterion PHxx,PXxx (2
-RmNet) */
-+	{QMI_FIXED_INTF(0x1e2d, 0x0083, 4)},	/* Cinterion PHxx,PXxx (1
-RmNet + USB Audio)*/
- 	{QMI_FIXED_INTF(0x413c, 0x81a2, 8)},	/* Dell Wireless 5806
-Gobi(TM) 4G LTE Mobile Broadband Card */
- 	{QMI_FIXED_INTF(0x413c, 0x81a3, 8)},	/* Dell Wireless 5570 HSPA+
-(42Mbps) Mobile Broadband Card */
- 	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+
-(42Mbps) Mobile Broadband Card */
+Oh. ok. It also looks like even with the reverted patch, mlx4 VF does not 
+work in a guest:
 
-------=_NextPart_000_0018_01D17F66.9AF08220
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
+root@le-dbg:~# dhclient eth0
+mlx4_en: eth0:   frag:0 - size:1518 prefix:0 stride:1536
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIYGzCCA5Iw
-ggJ6oAMCAQICEQCFvUvz2NrjafaU11/DpUQjMA0GCSqGSIb3DQEBBQUAMD0xCzAJBgNVBAYTAkZS
-MREwDwYDVQQKEwhDZXJ0cGx1czEbMBkGA1UEAxMSQ2xhc3MgMiBQcmltYXJ5IENBMB4XDTk5MDcw
-NzE3MDUwMFoXDTE5MDcwNjIzNTk1OVowPTELMAkGA1UEBhMCRlIxETAPBgNVBAoTCENlcnRwbHVz
-MRswGQYDVQQDExJDbGFzcyAyIFByaW1hcnkgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQDcUJbQEvg10gh4erZScP1v7s+5Ectdd+Hs6X4EjdbMb3NDV2CsMwpE7ANfHIAkkeWokVYS
-gvfgK/TbrmEuiRCNa2y6swK91TbFSDcj4vBaN1IzFxLi0WBNvi9BEeP2FyUMi5HAG5l7mVYNr+7S
-vEdX43lJezSJJySE3rHs6VhO/k7fWr5BrawIxRgO79JT7mzQnRIBE43cgGL3lalEiEpxTmBVntsj
-GXlWBww/YwtcsOK+fhX8lDNYQTh0xOGPi98mrB+1izu3Q1lrsCSmbZCLxHLqXTOYt8veXnvvlPEb
-PsrJIcHFmAKqovZbd5v1fpZVNBxnacDxQuNHrPwoHGZVAgMBAAGjgYwwgYkwDwYDVR0TBAgwBgEB
-/wIBCjALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFONzLd/LDigM3t2zpMp5uI676DCJMBEGCWCGSAGG
-+EIBAQQEAwIBBjA3BgNVHR8EMDAuMCygKqAohiZodHRwOi8vd3d3LmNlcnRwbHVzLmNvbS9DUkwv
-Y2xhc3MyLmNybDANBgkqhkiG9w0BAQUFAAOCAQEAp1TPiEQZy9/UfwDfVjNitfdRAZDrwz/RiETp
-JF3v5xS9ILeaPAD+bZ/bkNzX9GLWi3Bd5+UESKlofMnxQvNsf8V6fB1RiLrSCj4nXd4tUU7TE2Rp
-5C7j0+ebCZmm4JWbzhrXf748zlKzERXBDxfNA7ucJRW6onaJ/AbxGNCTSw58grel9PZf/u1App2E
-dDm53B6FFtopG4YjAMm7iX5ugIgeLxS0AySoMm8DmkcsML5WxqdCAnAb6kDYugUDcAeklv/9SDMK
-4dylgZCbTd195+eyzVzIapX4pfaNxF14CL57BtZJzxk2UCMuCOaeBU1HGNUW6bHWthDVu5e/oo60
-VDCCBkYwggUuoAMCAQICChYZlywAAQAAtDwwDQYJKoZIhvcNAQEFBQAwczELMAkGA1UEBhMCRlIx
-EDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNVBAMTEUdlbWFsdG8gUHVi
-bGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5jb20wHhcNMTQwNDEwMTA0
-NzAwWhcNMTYwNDA5MTA0NzAwWjBfMSkwJwYDVQQDEyBIYW5zLUNocmlzdG9waCBTY2hlbW1lbCAx
-MDAxNTExODEyMDAGCSqGSIb3DQEJARYjSGFucy1DaHJpc3RvcGguU2NoZW1tZWxAZ2VtYWx0by5j
-b20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDtywj0RLYz2AorMtje0czIH0BHVUTa
-LFM9g0hOgcBKKoBpES7EkZCANOoHocE9jEpFbJ+hDxGsPF0gRUBkHIVQh4rF/iKFGDWhPIYXU9W+
-hcquH5Ez5aHF/XsqVBXn5prcCepONpVXtac/VA4zOyt3qX/2tYOSbmWsowZtnV190CT3w+OzGtmw
-qEu3c+9uC6q70gXH2a9EpciySPIlV6shudkVy+au2CCiNQQVFWFaoBj70Np8/dt3S59PtoIu8p0g
-+hqB5WiRD3tqzs37r87sgZTqoxAusDynDf5QtjDiVkvJ7p61nhQNxZAVvHBK/35AoqIWsm3l+i+M
-CgR/CO6FAgMBAAGjggLuMIIC6jAfBgNVHSMEGDAWgBRCMYqnuP4YvGQ2WawGTVPtbnzSKDCCAQQG
-A1UdHwSB/DCB+TCB9qCB86CB8IaBvWxkYXA6Ly8vQ049R2VtYWx0byUyMFB1YmxpYyUyMENBLENO
-PWNyb3BraWJ3cDAyLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNl
-cyxDTj1Db25maWd1cmF0aW9uLERDPXJvb3QsREM9Y29tP2NlcnRpZmljYXRlUmV2b2NhdGlvbkxp
-c3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmlidXRpb25Qb2ludIYuaHR0cDovL3d3dy5nZW1h
-bHRvLmNvbS9wa2kvR2VtYWx0b1B1YmxpY0NBLmNybDCCAQAGCCsGAQUFBwEBBIHzMIHwMIGxBggr
-BgEFBQcwAoaBpGxkYXA6Ly8vQ049R2VtYWx0byUyMFB1YmxpYyUyMENBLENOPUFJQSxDTj1QdWJs
-aWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXJvb3Qs
-REM9Y29tP2NBQ2VydGlmaWNhdGU/YmFzZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9y
-aXR5MDoGCCsGAQUFBzAChi5odHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS9HZW1hbHRvUHVibGlj
-Q0EuY3J0MAwGA1UdEwEB/wQCMAAwCwYDVR0PBAQDAgeAMD4GCSsGAQQBgjcVBwQxMC8GJysGAQQB
-gjcVCIX+nDCCjZFJh/2NMoaygAmFw8AxgVGD1ukigtHLGAIBZAIBBDATBgNVHSUEDDAKBggrBgEF
-BQcDBDAbBgkrBgEEAYI3FQoEDjAMMAoGCCsGAQUFBwMEMC4GA1UdEQQnMCWBI0hhbnMtQ2hyaXN0
-b3BoLlNjaGVtbWVsQGdlbWFsdG8uY29tMA0GCSqGSIb3DQEBBQUAA4IBAQCJarUmp41IRkfq1S33
-whmsuSK/k7SiieUXExqHpK+bjQmqFgmKshBXSeE84OEOgTb8+Qcb//cvXh8+SEPdMrdd2kXyp1vY
-60Naq/IUV/aFx0zIxtXO6NgjofMdy9gfCfCLce8GJy4NhLRN3FRZlf85MRnIjQlg1yOUaaUoeUQf
-+rnaBHVre6V3zarhkVYZXjXygsxXCDILOyDejKcVk9pbjw1NZGRTlhIKjUfGtQu+vSz6JcLyDDQi
-/yQiUK+QtiMJbByw2dXADhB0Yp5/4p3r86M6Wpe1MiMslg622FWg9u3dOfh/ZcMXjq1M7WkCY87d
-qFDZ1fl88vl7s0+w5ngfMIIGtjCCBZ6gAwIBAgIKFhmLwwABAAC0OzANBgkqhkiG9w0BAQUFADBz
-MQswCQYDVQQGEwJGUjEQMA4GA1UEBxMHQ3JvaXNzeTEQMA4GA1UEChMHR2VtYWx0bzEaMBgGA1UE
-AxMRR2VtYWx0byBQdWJsaWMgQ0ExJDAiBgkqhkiG9w0BCQEWFWFkbWluLnBraUBnZW1hbHRvLmNv
-bTAeFw0xNDA0MTAxMDQ2NTdaFw0xNjA0MDkxMDQ2NTdaMF8xKTAnBgNVBAMTIEhhbnMtQ2hyaXN0
-b3BoIFNjaGVtbWVsIDEwMDE1MTE4MTIwMAYJKoZIhvcNAQkBFiNIYW5zLUNocmlzdG9waC5TY2hl
-bW1lbEBnZW1hbHRvLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKO9yBc5xbro
-B3B2Dk5t+oucLbM0G2kT07upADg1WhkdOazswPG4ieSOYF1/TJ3BS/fH9TkpMcS049Zin/zrqfsk
-gGV7PHM2dHUFMETK0arMWQDB9/mMKQrWeeRL4BKzo9wmuY+rQNehh+dsr/aSgzkyaXVlmDrlrHhr
-Wgoh5g5TtHS0V1ZSvzHsvQHDM2Vmz90JgPgJpQxhKsf54kq8DGsBzB+2bqyh5LfKyOCtlG8Wx5sE
-9v1Oh6KslXy1pTO2pbhzrbbJ5bqj/raIl6G5DeEPSEiNERBgqie0TDDdXaATGbTbZ99updrrhUH2
-y6nEAf/Nk98pW/qYnqDbkQ5Hf8cCAwEAAaOCA14wggNaMAsGA1UdDwQEAwIEMDBEBgkqhkiG9w0B
-CQ8ENzA1MA4GCCqGSIb3DQMCAgIAgDAOBggqhkiG9w0DBAICAIAwBwYFKw4DAgcwCgYIKoZIhvcN
-AwcwHQYDVR0OBBYEFM2PTlGPiYJKPz/r9+9pLMO6QZ1KMB8GA1UdIwQYMBaAFEIxiqe4/hi8ZDZZ
-rAZNU+1ufNIoMIIBBAYDVR0fBIH8MIH5MIH2oIHzoIHwhoG9bGRhcDovLy9DTj1HZW1hbHRvJTIw
-UHVibGljJTIwQ0EsQ049Y3JvcGtpYndwMDIsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZp
-Y2VzLENOPVNlcnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9cm9vdCxEQz1jb20/Y2VydGlmaWNh
-dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlvblBvaW50hi5o
-dHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS9HZW1hbHRvUHVibGljQ0EuY3JsMIIBAAYIKwYBBQUH
-AQEEgfMwgfAwgbEGCCsGAQUFBzAChoGkbGRhcDovLy9DTj1HZW1hbHRvJTIwUHVibGljJTIwQ0Es
-Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENOPUNvbmZpZ3Vy
-YXRpb24sREM9cm9vdCxEQz1jb20/Y0FDZXJ0aWZpY2F0ZT9iYXNlP29iamVjdENsYXNzPWNlcnRp
-ZmljYXRpb25BdXRob3JpdHkwOgYIKwYBBQUHMAKGLmh0dHA6Ly93d3cuZ2VtYWx0by5jb20vcGtp
-L0dlbWFsdG9QdWJsaWNDQS5jcnQwPQYJKwYBBAGCNxUHBDAwLgYmKwYBBAGCNxUIhf6cMIKNkUmH
-/Y0yhrKACYXDwDGBUaGUG4G/wFYCAWQCAQYwHwYDVR0lBBgwFgYIKwYBBQUHAwQGCisGAQQBgjcK
-AwQwKQYJKwYBBAGCNxUKBBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMEMC4GA1UdEQQnMCWB
-I0hhbnMtQ2hyaXN0b3BoLlNjaGVtbWVsQGdlbWFsdG8uY29tMA0GCSqGSIb3DQEBBQUAA4IBAQCQ
-zJHSxuXLIBgcQeinAJy20Qo1gzxeIn5s5+guNlbKKFOO20LCX1OjGk5opPP5IWIplFMNPw3ieeRF
-/Z6R0Pb4ByLXovXLoFsSwx/a1efP2AYEuhzEl+HHFBIWlnL9+Q2L8STFLa1Nlti2VsxR6wT9Snse
-W4wnAEtGS7NUr+/tfHc/Njt4DsjwshYdom5K2Vqyu6l+qv9LuLdaCrDdeZMtXp0B4ugNs53ylEJv
-1euAD0wZtg9H14b9scSOPJnDJfBLOdNK9ydGHpZb4gCLdjiy+/9LqohoYbmGCSdhR1/cwBtlWcpf
-ny/UjNQxZKzBIwZOnP1tpqSaOIymGiYyJBxhMIIHfTCCBmWgAwIBAgISESJfD4EL7WxBv2rcnOFP
-2Lf/MA0GCSqGSIb3DQEBBQUAMD0xCzAJBgNVBAYTAkZSMREwDwYDVQQKEwhDZXJ0cGx1czEbMBkG
-A1UEAxMSQ2xhc3MgMiBQcmltYXJ5IENBMB4XDTA5MDMyNDAwMDAwMFoXDTE2MTIzMTIzNTk1OVow
-czELMAkGA1UEBhMCRlIxEDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNV
-BAMTEUdlbWFsdG8gUHVibGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5j
-b20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDZ+/IhNAffzeLoDWb6dKhzaTUCJTBI
-t4HASXhp9wsXzG1t/2LpEIvuuUrP8b/9qis8MBPL5xPAOyrccNk3KOC/tvdTQhGTvgN0AB0n0Sks
-87BosV1BoUhGMZy+D+31pdh0OA0dnaN8QKXgSmb2nYoisQ2gnFHm03ZU+/o+eYR05nRDy7AHVuft
-G54QOK7kCEQZZwI9DK8vuDx6BziHTDHgX+c4yQyShYIuq4AMQT6LzsuS074XUP1UZL8jBxVNOuE+
-AGCd1Cb7zUl4S9Q2qIYFokRQ630q8m2qGcdn0DlnCoJWjZkMuf0hn+S46tmNGG514LSnT+VIn0Fi
-Hgk9RWI/AgMBAAGjggQ/MIIEOzAOBgNVHQ8BAf8EBAMCAQYwRgYDVR0gBD8wPTA7Bg4rBgEEAYH4
-AohMCgMBAjApMCcGCCsGAQUFBwIBFhtodHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS8wEgYDVR0T
-AQH/BAgwBgEB/wIBADCCAogGA1UdHgSCAn8wggJ7oIICRTAMggpheGFsdG8uY29tMA+CDWNpbnRl
-cmlvbi5jb20wDYILZ2VtYWx0by5jb20wDYILZ2VtcGx1cy5jb20wGYIXbXVsdG9zaW50ZXJuYXRp
-b25hbC5jb20wDYILbmV0c2l6ZS5jb20wC4IJcWlwc28ubmV0MBGCD3RsLW1vYmlsaXR5LmNvbTAS
-ghB0cnVzdGVkLWxhYnMuY29tMBOCEXRydXN0ZWQtbG9naWMuY29tMAyCCnZhbGltby5jb20wDIEK
-YXhhbHRvLmNvbTANgQsuYXhhbHRvLmNvbTAPgQ1jaW50ZXJpb24uY29tMBCBDi5jaW50ZXJpb24u
-Y29tMA2BC2dlbWFsdG8uY29tMA6BDC5nZW1hbHRvLmNvbTANgQtnZW1wbHVzLmNvbTAOgQwuZ2Vt
-cGx1cy5jb20wGYEXbXVsdG9zaW50ZXJuYXRpb25hbC5jb20wGoEYLm11bHRvc2ludGVybmF0aW9u
-YWwuY29tMA2BC25ldHNpemUuY29tMA6BDC5uZXRzaXplLmNvbTALgQlxaXBzby5uZXQwDIEKLnFp
-cHNvLm5ldDARgQ90bC1tb2JpbGl0eS5jb20wEoEQLnRsLW1vYmlsaXR5LmNvbTASgRB0cnVzdGVk
-LWxhYnMuY29tMBOBES50cnVzdGVkLWxhYnMuY29tMBOBEXRydXN0ZWQtbG9naWMuY29tMBSBEi50
-cnVzdGVkLWxvZ2ljLmNvbTAMgQp2YWxpbW8uY29tMA2BCy52YWxpbW8uY29toTAwCocIAAAAAAAA
-AAAwIocgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMgYDVR0lBCswKQYIKwYBBQUH
-AwEGCCsGAQUFBwMCBggrBgEFBQcDBAYJKwYBBAGCNxUFMDcGA1UdHwQwMC4wLKAqoCiGJmh0dHA6
-Ly93d3cuY2VydHBsdXMuY29tL0NSTC9jbGFzczIuY3JsMIGTBggrBgEFBQcBAQSBhjCBgzA2Bggr
-BgEFBQcwAYYqaHR0cDovL29jc3AuY2VydGlmaWNhdC5jb20vY2xhc3MycHJpbWFyeWNhMEkGCCsG
-AQUFBzAChj1odHRwOi8vcHVibGljYXRpb24uY2VydGlmaWNhdC5jb20vY2FjZXJ0cy9jbGFzczJw
-cmltYXJ5Y2EucDdjMB0GA1UdDgQWBBRCMYqnuP4YvGQ2WawGTVPtbnzSKDAfBgNVHSMEGDAWgBTj
-cy3fyw4oDN7ds6TKebiOu+gwiTANBgkqhkiG9w0BAQUFAAOCAQEAAprZi72jpiplYZTk/Kd0tLQ1
-BQ0PTVpg9FWB6oR9hM9OSoBg6WMJE553HLvSvpzrj1sUn+Uq8dxg9MfhBbgBNBFtfbLjmkAMt/GZ
-EdjSwLNEAS28ivsTsB+WYlTTSk5I52+r41fp8i2IurBsmQuOSpHgMKn39AfnrMN3pBpQVGP+AIX+
-rfU/wnDFdy8oSkazGyDPUveo9r8Vutye2l7E7A7eDFSJcDcfI4wnnVtLJkURIiSZRitH8/AW5fW9
-pQPIbDi+NiUZoSQ9GH2VRLqSIzw4JbV+GxcJ4yal8XcS+AyosyE2xzsLXF+c5M2JKvpfzpes/Cfz
-EMpe/ihCag+BJzGCA+QwggPgAgEBMIGBMHMxCzAJBgNVBAYTAkZSMRAwDgYDVQQHEwdDcm9pc3N5
-MRAwDgYDVQQKEwdHZW1hbHRvMRowGAYDVQQDExFHZW1hbHRvIFB1YmxpYyBDQTEkMCIGCSqGSIb3
-DQEJARYVYWRtaW4ucGtpQGdlbWFsdG8uY29tAgoWGZcsAAEAALQ8MAkGBSsOAwIaBQCgggI3MBgG
-CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MDMxNjA4MzEyM1owIwYJ
-KoZIhvcNAQkEMRYEFMpRJHms82yVNqYn58wVklBgQWurMIGSBgkrBgEEAYI3EAQxgYQwgYEwczEL
-MAkGA1UEBhMCRlIxEDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNVBAMT
-EUdlbWFsdG8gUHVibGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5jb20C
-ChYZi8MAAQAAtDswgZQGCyqGSIb3DQEJEAILMYGEoIGBMHMxCzAJBgNVBAYTAkZSMRAwDgYDVQQH
-EwdDcm9pc3N5MRAwDgYDVQQKEwdHZW1hbHRvMRowGAYDVQQDExFHZW1hbHRvIFB1YmxpYyBDQTEk
-MCIGCSqGSIb3DQEJARYVYWRtaW4ucGtpQGdlbWFsdG8uY29tAgoWGYvDAAEAALQ7MIGrBgkqhkiG
-9w0BCQ8xgZ0wgZowCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQBFjAKBggqhkiG9w0DBzALBglghkgB
-ZQMEAQIwDgYIKoZIhvcNAwICAgCAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgFAMA0GCCqGSIb3DQMC
-AgEoMAcGBSsOAwIaMAsGCWCGSAFlAwQCAzALBglghkgBZQMEAgIwCwYJYIZIAWUDBAIBMA0GCSqG
-SIb3DQEBAQUABIIBAGlBar//+1gaejb02CpxyIUu6+7xdIy9NVsIYGkEnahLvIaa/w80xrCc/Pn3
-d20zim3lRHxz5Zc8qPfrM3E5wAKkfTjrILrHPLkYLauiTQCV8T8WPuJvyKdaQE0hGV2hDhvRyMBA
-GUUwcp0yCGueiY1YoAsT10zHLBz4oa4diWkvPakncCtijge6LmmerWqxUx55iUOGjC/NRwDbmiCb
-u+ykRu8OLCT+jFl8wqTFiY0uqqXb5Vbsf8rwj8sRZ9uPqkaIj6zb8ordUUpxo6dukyLnu99QpnhV
-YGexLa5LMuxv+7F7NiSwuy7VRgfHDUmf93bnkocenTMZlZvdWUfWDjcAAAAAAAA=
+mlx4_core 0000:00:00.0: Internal error detected on the communication channel
+mlx4_core 0000:00:00.0: device is going to be reset
+mlx4_core 0000:00:00.0: VF reset is not needed
+mlx4_core 0000:00:00.0: device was reset successfully
+mlx4_en 0000:00:00.0: Internal error detected, restarting device
+mlx4_core 0000:00:00.0: command 0x5 failed: fw status = 0x1
+mlx4_core 0000:00:00.0: Failed to close slave function
+mlx4_core 0000:00:00.0: Detected virtual function - running in slave mode
+mlx4_core 0000:00:00.0: Sending reset
 
-------=_NextPart_000_0018_01D17F66.9AF08220--
+
+mlx4_core 0000:00:00.0: slave is currently in the middle of FLR - Deferring 
+probe
+mlx4_core 0000:00:00.0: mlx4_restart_one: ERROR: mlx4_load_one failed, 
+pci_name=0000:00:00.0, err=-517
+mlx4_core 0000:00:00.0: mlx4_restart_one was ended, ret=-517
+
+root@le-dbg:~# ifconfig -a
+lo        Link encap:Local Loopback
+           inet addr:127.0.0.1  Mask:255.0.0.0
+           UP LOOPBACK RUNNING  MTU:65536  Metric:1
+           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+root@le-dbg:~# lspci -v
+00:00.0 Ethernet controller: Mellanox Technologies MT27500/MT27520 Family 
+[ConnectX-3/ConnectX-3 Pro Virtual Function]
+         Subsystem: IBM Device 61b0
+         Physical Slot: C16
+         Flags: bus master, fast devsel, latency 0
+         Memory at 10120000000 (64-bit, prefetchable) [size=64M]
+         Capabilities: [60] Express Endpoint, MSI 00
+         Capabilities: [9c] MSI-X: Enable- Count=52 Masked-
+         Capabilities: [40] Power Management version 0
+         Kernel driver in use: mlx4_core
+
+
+
+-- 
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
