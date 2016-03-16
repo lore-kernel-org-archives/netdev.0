@@ -1,118 +1,53 @@
-From: Maor Gottlieb <maor.linux@gmail.com>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 16:27:28 +0200
-Message-ID: <CA+WJiLyyAVX41JgVUtPXsupmzBnqMWugZ_BCeO5s+z3Aa1MQYg@mail.gmail.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 6/6] bridge: a netlink notification should be
+ sent when those attributes are changed by ioctl
+Date: Wed, 16 Mar 2016 15:28:35 +0100
+Message-ID: <56E96D93.2040308@cumulusnetworks.com>
+References: <cover.1458134414.git.lucien.xin@gmail.com>
+ <059d608901fd86407fed374e567c46447aa8c88f.1458134414.git.lucien.xin@gmail.com>
+ <f379a033c5b7798906c57dd1bb67df89b7de02cb.1458134414.git.lucien.xin@gmail.com>
+ <45f430c026ce8a2fb358c650a41452aebff9ec36.1458134414.git.lucien.xin@gmail.com>
+ <38a10eecc6347a3c47b55c86b4783c49b6dbbc99.1458134414.git.lucien.xin@gmail.com>
+ <7c788b65786582209a3ba4bc4d4ed279f6f77568.1458134414.git.lucien.xin@gmail.com>
+ <9cadf4925a11b60a5420406b4eb164e9a2d13b50.1458134414.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160316115809.61b4478e@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37974 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934415AbcCPO2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:28:37 -0400
+Received: by mail-wm0-f44.google.com with SMTP id l68so75201256wml.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:28:37 -0700 (PDT)
+In-Reply-To: <9cadf4925a11b60a5420406b4eb164e9a2d13b50.1458134414.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2016-03-16 2:58 GMT+02:00 Stephen Rothwell <sfr@canb.auug.org.au>:
-> Hi all,
->
-> Today's linux-next merge of the rdma tree got a conflict in:
->
->   drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
->
-> between commit:
->
->   60ab4584f5bf ("net/mlx5_core: Set flow steering dest only for forward rules")
->
-> from the net-next tree and commit:
->
->   b3638e1a7664 ("net/mlx5_core: Introduce forward to next priority action")
->
-> from the rdma tree.
->
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
->
-> --
-> Cheers,
-> Stephen Rothwell
->
-> diff --cc drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> index e848d708d2b7,bf3446794bd5..000000000000
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-> @@@ -73,10 -73,13 +73,13 @@@
->   #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
->                            LEFTOVERS_MAX_FT)
->
->  -#define KERNEL_MAX_FT 2
->  -#define KERNEL_NUM_PRIOS 1
->  +#define KERNEL_MAX_FT 3
->  +#define KERNEL_NUM_PRIOS 2
->   #define KENREL_MIN_LEVEL 2
->
-> + #define ANCHOR_MAX_FT 1
-> + #define ANCHOR_NUM_PRIOS 1
-> + #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
->   struct node_caps {
->         size_t  arr_sz;
->         long    *caps;
-> @@@ -360,8 -367,13 +367,13 @@@ static void del_rule(struct fs_node *no
->         memcpy(match_value, fte->val, sizeof(fte->val));
->         fs_get_obj(ft, fg->node.parent);
->         list_del(&rule->node.list);
-> +       if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
-> +               mutex_lock(&rule->dest_attr.ft->lock);
-> +               list_del(&rule->next_ft);
-> +               mutex_unlock(&rule->dest_attr.ft->lock);
-> +       }
->  -      fte->dests_size--;
->  -      if (fte->dests_size) {
->  +      if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
->  +          --fte->dests_size) {
->                 err = mlx5_cmd_update_fte(dev, ft,
->                                           fg->id, fte);
->                 if (err)
-> @@@ -762,9 -835,9 +835,10 @@@ static struct mlx5_flow_rule *alloc_rul
->         if (!rule)
->                 return NULL;
->
-> +       INIT_LIST_HEAD(&rule->next_ft);
->         rule->node.type = FS_TYPE_FLOW_DEST;
->  -      memcpy(&rule->dest_attr, dest, sizeof(*dest));
->  +      if (dest)
->  +              memcpy(&rule->dest_attr, dest, sizeof(*dest));
->
->         return rule;
->   }
-> @@@ -783,12 -856,16 +857,17 @@@ static struct mlx5_flow_rule *add_rule_
->                 return ERR_PTR(-ENOMEM);
->
->         fs_get_obj(ft, fg->node.parent);
-> -       /* Add dest to dests list- added as first element after the head */
-> +       /* Add dest to dests list- we need flow tables to be in the
-> +        * end of the list for forward to next prio rules.
-> +        */
->         tree_init_node(&rule->node, 1, del_rule);
-> -       list_add_tail(&rule->node.list, &fte->node.children);
-> +       if (dest && dest->type != MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
-> +               list_add(&rule->node.list, &fte->node.children);
-> +       else
-> +               list_add_tail(&rule->node.list, &fte->node.children);
->  -      fte->dests_size++;
->  -      if (fte->dests_size == 1)
->  +      if (dest)
->  +              fte->dests_size++;
->  +      if (fte->dests_size == 1 || !dest)
->                 err = mlx5_cmd_create_fte(get_dev(&ft->node),
->                                           ft, fg->id, fte);
->         else
+On 03/16/2016 02:34 PM, Xin Long wrote:
+> Now when we change the attributes of bridge or br_port by netlink,
+> a relevant netlink notification will be sent, but if we change them
+> by ioctl or sysfs, no notification will be sent.
+> 
+> We should ensure that whenever those attributes change internally or from
+> sysfs/ioctl, that a netlink notification is sent out to listeners.
+> 
+> Also, NetworkManager will use this in the future to listen for out-of-band
+> bridge master attribute updates and incorporate them into the runtime
+> configuration.
+> 
+> This patch is used for ioctl.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/bridge/br_ioctl.c | 40 ++++++++++++++++++++++++----------------
+>  1 file changed, 24 insertions(+), 16 deletions(-)
+> 
 
-Hi Stephen,
+LGTM,
 
-I reveiwed your merge and it's fine.
-
-Thanks,
-Maor
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
