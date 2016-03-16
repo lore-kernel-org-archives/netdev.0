@@ -1,102 +1,52 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] openvswitch: call only into reachable nf-nat code
-Date: Wed, 16 Mar 2016 13:47:13 +0100
-Message-ID: <1458132481-318209-1-git-send-email-arnd@arndb.de>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCHv2 (net-next.git) 0/2] STMMAC: MDIO settings
+Date: Wed, 16 Mar 2016 13:56:06 +0100
+Message-ID: <1458132968-21206-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
- Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, <preid@electromag.com.au>,
+	<tomeu@tomeuvizoso.net>, <fabrice.gasnier@st.com>,
+	<alexandre.torgue@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:8491 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S934858AbcCPMvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 08:51:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIG9wZW52c3dpdGNoIGNvZGUgaGFzIGdhaW5lZCBzdXBwb3J0IGZvciBjYWxsaW5nIGludG8g
-dGhlCm5mLW5hdC1pcHY0L2lwdjYgbW9kdWxlcywgaG93ZXZlciB0aG9zZSBjYW4gYmUgbG9hZGFi
-bGUgbW9kdWxlcwppbiBhIGNvbmZpZ3VyYXRpb24gaW4gd2hpY2ggb3BlbnZzd2l0Y2ggaXMgYnVp
-bHQtaW4sIGxlYWRpbmcKdG8gbGluayBlcnJvcnM6CgpuZXQvYnVpbHQtaW4ubzogSW4gZnVuY3Rp
-b24gYF9fb3ZzX2N0X2xvb2t1cCc6CjooLnRleHQrMHgyY2MyYzgpOiB1bmRlZmluZWQgcmVmZXJl
-bmNlIHRvIGBuZl9uYXRfaWNtcF9yZXBseV90cmFuc2xhdGlvbicKOigudGV4dCsweDJjYzY2Yyk6
-IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wdjZfcmVwbHlfdHJhbnNsYXRpb24n
-CgpUaGUgZGVwZW5kZW5jeSBvbiAoIU5GX05BVCB8fCBORl9OQVQpIHdhcyBtZWFudCB0byBwcmV2
-ZW50CnRoaXMsIGJ1dCBORl9OQVQgaXMgc2V0IHRvICd5JyBpZiBhbnkgb2YgdGhlIHN5bWJvbHMg
-c2VsZWN0aW5nCml0IGFyZSBidWlsdC1pbiwgYnV0IHRoZSBsaW5rIGVycm9yIGhhcHBlbnMgd2hl
-biBhbnkgb2YgdGhlbQphcmUgbW9kdWxhci4KCkEgc2Vjb25kIGlzc3VlIGlzIHRoYXQgZXZlbiBp
-ZiBDT05GSUdfTkZfTkFUX0lQVjYgaXMgYnVpbHQtaW4sCkNPTkZJR19ORl9OQVRfSVBWNCBtaWdo
-dCBiZSBjb21wbGV0ZWx5IGRpc2FibGVkLiBUaGlzIGlzIHVubGlrZWx5CnRvIGJlIHVzZWZ1bCBp
-biBwcmFjdGljZSwgYnV0IHRoZSBkcml2ZXIgY3VycmVudGx5IG9ubHkgaGFuZGxlcwpJUHY2IGJl
-aW5nIG9wdGlvbmFsLgoKVGhpcyBwYXRjaCBpbXByb3ZlcyB0aGUgS2NvbmZpZyBkZXBlbmRlbmN5
-IHNvIHRoYXQgb3BlbnZzd2l0Y2gKY2Fubm90IGJlIGJ1aWx0LWluIGlmIGVpdGhlciBvZiB0aGUg
-dHdvIG90aGVyIHN5bWJvbHMgYXJlIHNldAp0byAnbScsIGFuZCBpdCByZXBsYWNlcyB0aGUgaW5j
-b3JyZWN0ICNpZmRlZiBpbiBvdnNfY3RfbmF0X2V4ZWN1dGUoKQp3aXRoIHR3byAiaWYgKElTX0VO
-QUJMRUQoKSkiIGNoZWNrcyB0aGF0IHNob3VsZCBjYXRjaCBhbGwgY29ybmVyCmNhc2VzIGFsc28g
-bWFrZSB0aGUgY29kZSBtb3JlIHJlYWRhYmxlLgoKVGhlIHNhbWUgI2lmZGVmIGV4aXN0cyBvdnNf
-Y3RfbmF0X3RvX2F0dHIoKSwgd2hlcmUgaXQgZG9lcyBub3QKY2F1c2UgYSBsaW5rIGVycm9yLCBi
-dXQgZm9yIGNvbnNpc3RlbmN5IEknbSBjaGFuZ2luZyBpdCB0aGUgc2FtZQp3YXkuCgpTaWduZWQt
-b2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgpGaXhlczogMDU3NTI1MjNlNTY1
-ICgib3BlbnZzd2l0Y2g6IEludGVyZmFjZSB3aXRoIE5BVC4iKQotLS0KIG5ldC9vcGVudnN3aXRj
-aC9LY29uZmlnICAgICB8ICAzICsrLQogbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jIHwgMTYg
-KysrKysrKystLS0tLS0tLQogMiBmaWxlcyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspLCA5IGRl
-bGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9LY29uZmlnIGIvbmV0L29w
-ZW52c3dpdGNoL0tjb25maWcKaW5kZXggMjM0YTczMzQ0YzZlLi45NjFmYjYwMTE1ZGYgMTAwNjQ0
-Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9LY29uZmlnCisrKyBiL25ldC9vcGVudnN3aXRjaC9LY29u
-ZmlnCkBAIC03LDcgKzcsOCBAQCBjb25maWcgT1BFTlZTV0lUQ0gKIAlkZXBlbmRzIG9uIElORVQK
-IAlkZXBlbmRzIG9uICFORl9DT05OVFJBQ0sgfHwgXAogCQkgICAoTkZfQ09OTlRSQUNLICYmICgo
-IU5GX0RFRlJBR19JUFY2IHx8IE5GX0RFRlJBR19JUFY2KSAmJiBcCi0JCQkJICAgICAoIU5GX05B
-VCB8fCBORl9OQVQpKSkKKwkJCQkgICAgICghTkZfTkFUX0lQVjQgfHwgTkZfTkFUX0lQVjQpICYm
-IFwKKwkJCQkgICAgICghTkZfTkFUX0lQVjYgfHwgTkZfTkFUX0lQVjYpKSkKIAlzZWxlY3QgTElC
-Q1JDMzJDCiAJc2VsZWN0IE1QTFMKIAlzZWxlY3QgTkVUX01QTFNfR1NPCmRpZmYgLS1naXQgYS9u
-ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMK
-aW5kZXggZGM1ZWIyOWZlN2Q2Li5mZjA0YjVkYjA0YjMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3
-aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKQEAgLTUz
-NSwxNCArNTM1LDE1IEBAIHN0YXRpYyBpbnQgb3ZzX2N0X25hdF9leGVjdXRlKHN0cnVjdCBza19i
-dWZmICpza2IsIHN0cnVjdCBuZl9jb25uICpjdCwKIAlzd2l0Y2ggKGN0aW5mbykgewogCWNhc2Ug
-SVBfQ1RfUkVMQVRFRDoKIAljYXNlIElQX0NUX1JFTEFURURfUkVQTFk6Ci0JCWlmIChza2ItPnBy
-b3RvY29sID09IGh0b25zKEVUSF9QX0lQKSAmJgorCQlpZiAoSVNfRU5BQkxFRChDT05GSUdfTkZf
-TkFUX0lQVjQpICYmCisJCSAgICBza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QX0lQKSAmJgog
-CQkgICAgaXBfaGRyKHNrYiktPnByb3RvY29sID09IElQUFJPVE9fSUNNUCkgewogCQkJaWYgKCFu
-Zl9uYXRfaWNtcF9yZXBseV90cmFuc2xhdGlvbihza2IsIGN0LCBjdGluZm8sCiAJCQkJCQkJICAg
-aG9va251bSkpCiAJCQkJZXJyID0gTkZfRFJPUDsKIAkJCWdvdG8gcHVzaDsKLSNpZiBJU19FTkFC
-TEVEKENPTkZJR19ORl9OQVRfSVBWNikKLQkJfSBlbHNlIGlmIChza2ItPnByb3RvY29sID09IGh0
-b25zKEVUSF9QX0lQVjYpKSB7CisJCX0gZWxzZSBpZiAoSVNfRU5BQkxFRChDT05GSUdfTkZfTkFU
-X0lQVjYpICYmCisJCQkgICBza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QX0lQVjYpKSB7CiAJ
-CQlfX2JlMTYgZnJhZ19vZmY7CiAJCQl1OCBuZXh0aGRyID0gaXB2Nl9oZHIoc2tiKS0+bmV4dGhk
-cjsKIAkJCWludCBoZHJsZW4gPSBpcHY2X3NraXBfZXh0aGRyKHNrYiwKQEAgLTU1Nyw3ICs1NTgs
-NiBAQCBzdGF0aWMgaW50IG92c19jdF9uYXRfZXhlY3V0ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBz
-dHJ1Y3QgbmZfY29ubiAqY3QsCiAJCQkJCWVyciA9IE5GX0RST1A7CiAJCQkJZ290byBwdXNoOwog
-CQkJfQotI2VuZGlmCiAJCX0KIAkJLyogTm9uLUlDTVAsIGZhbGwgdGhydSB0byBpbml0aWFsaXpl
-IGlmIG5lZWRlZC4gKi8KIAljYXNlIElQX0NUX05FVzoKQEAgLTEyMzgsNyArMTIzOCw4IEBAIHN0
-YXRpYyBib29sIG92c19jdF9uYXRfdG9fYXR0cihjb25zdCBzdHJ1Y3Qgb3ZzX2Nvbm50cmFja19p
-bmZvICppbmZvLAogCX0KIAogCWlmIChpbmZvLT5yYW5nZS5mbGFncyAmIE5GX05BVF9SQU5HRV9N
-QVBfSVBTKSB7Ci0JCWlmIChpbmZvLT5mYW1pbHkgPT0gTkZQUk9UT19JUFY0KSB7CisJCWlmIChJ
-U19FTkFCTEVEKENPTkZJR19ORl9OQVRfSVBWNCkgJiYKKwkJICAgIGluZm8tPmZhbWlseSA9PSBO
-RlBST1RPX0lQVjQpIHsKIAkJCWlmIChubGFfcHV0X2luX2FkZHIoc2tiLCBPVlNfTkFUX0FUVFJf
-SVBfTUlOLAogCQkJCQkgICAgaW5mby0+cmFuZ2UubWluX2FkZHIuaXApIHx8CiAJCQkgICAgKGlu
-Zm8tPnJhbmdlLm1heF9hZGRyLmlwCkBAIC0xMjQ2LDggKzEyNDcsOCBAQCBzdGF0aWMgYm9vbCBv
-dnNfY3RfbmF0X3RvX2F0dHIoY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywK
-IAkJCSAgICAgKG5sYV9wdXRfaW5fYWRkcihza2IsIE9WU19OQVRfQVRUUl9JUF9NQVgsCiAJCQkJ
-CSAgICAgIGluZm8tPnJhbmdlLm1heF9hZGRyLmlwKSkpKQogCQkJCXJldHVybiBmYWxzZTsKLSNp
-ZiBJU19FTkFCTEVEKENPTkZJR19ORl9OQVRfSVBWNikKLQkJfSBlbHNlIGlmIChpbmZvLT5mYW1p
-bHkgPT0gTkZQUk9UT19JUFY2KSB7CisJCX0gZWxzZSBpZiAoSVNfRU5BQkxFRChDT05GSUdfTkZf
-TkFUX0lQVjYpICYmCisJCQkgICBpbmZvLT5mYW1pbHkgPT0gTkZQUk9UT19JUFY2KSB7CiAJCQlp
-ZiAobmxhX3B1dF9pbjZfYWRkcihza2IsIE9WU19OQVRfQVRUUl9JUF9NSU4sCiAJCQkJCSAgICAg
-JmluZm8tPnJhbmdlLm1pbl9hZGRyLmluNikgfHwKIAkJCSAgICAobWVtY21wKCZpbmZvLT5yYW5n
-ZS5tYXhfYWRkci5pbjYsCkBAIC0xMjU2LDcgKzEyNTcsNiBAQCBzdGF0aWMgYm9vbCBvdnNfY3Rf
-bmF0X3RvX2F0dHIoY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKIAkJCSAg
-ICAgKG5sYV9wdXRfaW42X2FkZHIoc2tiLCBPVlNfTkFUX0FUVFJfSVBfTUFYLAogCQkJCQkgICAg
-ICAgJmluZm8tPnJhbmdlLm1heF9hZGRyLmluNikpKSkKIAkJCQlyZXR1cm4gZmFsc2U7Ci0jZW5k
-aWYKIAkJfSBlbHNlIHsKIAkJCXJldHVybiBmYWxzZTsKIAkJfQotLSAKMi43LjAKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
-ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
-Zm8vZGV2Cg==
+These two patches are to fix the recent regressions raised
+when test the stmmac on some platforms due to broken MDIO/PHY
+management.
+
+NOTE:
+
+these are the same reviewed patches sent for net.git (version 4).
+The patch #2 has been modified to solve a build problem on net-next;
+inside the stmmac_init_phy where there is:
+
+869         if (priv->plat->is_fixed_link)
+870                 phydev->irq = PHY_IGNORE_INTERRUPT;
+
+Note: still on-going for net-next a debug session to solve a recent
+      regression when use normal descriptors.
+      This will be sent in a new patch set.
+
+V2: fix runtime problem due to NULL pointer.
+
+Giuseppe Cavallaro (2):
+  Revert "stmmac: Fix 'eth0: No PHY found' regression"
+  stmmac: fix MDIO settings
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   16 +---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   10 +--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   91 ++++++++++++++------
+ include/linux/stmmac.h                             |    1 -
+ 4 files changed, 72 insertions(+), 46 deletions(-)
+
+-- 
+1.7.4.4
