@@ -1,66 +1,43 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] ethernet: micrel: fix some error codes
-Date: Wed, 16 Mar 2016 10:45:10 +0300
-Message-ID: <20160316074510.GF12860@mwanda>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: RE: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN interface
+Date: Wed, 16 Mar 2016 08:46:07 +0100
+Message-ID: <0DD38E99-2E98-4137-9693-47ABC91D2186@mork.no>
+References: <1978E4F2CF12DD4A899FA7487323EB110108364EE7@A1GTOEMBXV004.gto.a3c.atos.net> <871t7cq63s.fsf@nemi.mork.no> <20160315.175204.1307287970918248703.davem@davemloft.net> <1978E4F2CF12DD4A899FA7487323EB11010836833C@A1GTOEMBXV004.gto.a3c.atos.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Richard =?iso-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36213 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932395AbcCPHpZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 03:45:25 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Schemmel Hans-Christoph <Hans-Christoph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1978E4F2CF12DD4A899FA7487323EB11010836833C-uHmIn6rc3TL7XpjMj+VyizY6JsNizA6ek7cHwXyjAIw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There were two issues here:
-1) dma_mapping_error() return true/false but we want to return -ENOMEM
-2) If dmaengine_prep_slave_sg() failed then "err" wasn't set but
-   presumably that should be -ENOMEM as well.
 
-I changed the success path to "return 0;" instead of "return ret;" for
-clarity.
 
-Fixes: 94fe8c683cea ('ks8842: Support DMA when accessed via timberdale')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On March 16, 2016 8:35:26 AM CET, Schemmel Hans-Christoph <Hans-Christo=
+ph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org> :
+>
+>If I digital sign the mail it should be send unmodified/without
+>disclaimer.
+>But there will be the smime.p7s attached to the mail - like in this
+>mail.=20
+>
+>Would it be ok?
 
-diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
-index 09d2e16..cb0102d 100644
---- a/drivers/net/ethernet/micrel/ks8842.c
-+++ b/drivers/net/ethernet/micrel/ks8842.c
-@@ -561,8 +561,8 @@ static int __ks8842_start_new_rx_dma(struct net_device *netdev)
- 		sg_init_table(sg, 1);
- 		sg_dma_address(sg) = dma_map_single(adapter->dev,
- 			ctl->skb->data, DMA_BUFFER_SIZE, DMA_FROM_DEVICE);
--		err = dma_mapping_error(adapter->dev, sg_dma_address(sg));
--		if (unlikely(err)) {
-+		if (dma_mapping_error(adapter->dev, sg_dma_address(sg))) {
-+			err = -ENOMEM;
- 			sg_dma_address(sg) = 0;
- 			goto out;
- 		}
-@@ -572,8 +572,10 @@ static int __ks8842_start_new_rx_dma(struct net_device *netdev)
- 		ctl->adesc = dmaengine_prep_slave_sg(ctl->chan,
- 			sg, 1, DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
- 
--		if (!ctl->adesc)
-+		if (!ctl->adesc) {
-+			err = -ENOMEM;
- 			goto out;
-+		}
- 
- 		ctl->adesc->callback_param = netdev;
- 		ctl->adesc->callback = ks8842_dma_rx_cb;
-@@ -584,7 +586,7 @@ static int __ks8842_start_new_rx_dma(struct net_device *netdev)
- 		goto out;
- 	}
- 
--	return err;
-+	return 0;
- out:
- 	if (sg_dma_address(sg))
- 		dma_unmap_single(adapter->dev, sg_dma_address(sg),
+=46ine with me as long as it applies cleanly without having to consult =
+a lawyer :)
+
+Try it and we'll find out. If it doesn't work then please use a private=
+ account to submit. You can still set the from and sob to your work ema=
+il if that is important.=20
+
+
+Bj=C3=B8rn
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
