@@ -1,78 +1,127 @@
-From: Samuel Gauthier <samuel.gauthier@6wind.com>
-Subject: [PATCH net-next 2/2] ovs: support to refresh a flow via netlink
-Date: Wed, 16 Mar 2016 16:07:52 +0100
-Message-ID: <1458140872-22438-3-git-send-email-samuel.gauthier@6wind.com>
-References: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Samuel Gauthier <samuel.gauthier@6wind.com>
-To: Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:38666 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932331AbcCPPIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 11:08:42 -0400
-In-Reply-To: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>
+Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
+ stmmac-0:ffffffff not found (regression from rc7)
+Date: Wed, 16 Mar 2016 16:10:39 +0100
+Message-ID: <56E9776F.3070102@a20.net>
+References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com>
+ <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de>
+Reply-To: bert-phGP8mJ4Mqk@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+To: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+ Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
+Return-path: <linux-sunxi+bncBCTZ7SVI4EMBB5HOUW3QKGQER3NWZ5A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <56E95B57.1090100-l3A5Bk7waGM@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-The used parameter of a flow tells us when it was used for the last
-time. It is possible to set this parameter to 0 using the
-OVS_FLOW_ATTR_CLEAR attribute, which means 'never used'. But it is not
-possible to set this parameter to 'now'.
+On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
+> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
+>> On 16/03/16 11:39, Marc Zyngier wrote:
+>>> On 16/03/16 11:19, Bert Lindner wrote:
+>>>> Hopefully this is the correct place and way to report this.
+>
+> The main discussion is on netdev list actually, CC'ed.
+>
+>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a problem
+>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
+>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
+>>>>
+>>>> root@lime2-079f:~# ip a l eth0
+>>>> 2: eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
+>>>> default qlen 1000
+>>>>        link/ether 02:c9:05:02:07:9f brd ff:ff:ff:ff:ff:ff
+>>>>
+>>>>     Difference reported in dmesg:
+>>>>
+>>>> 4.5.0-rc7:
+>>>> [    9.379279] NET: Registered protocol family 10
+>>>> [   10.217148]  RX IPC Checksum Offload disabled
+>>>> [   10.217195]  No MAC Management Counters available
+>>>> [   10.217627] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>> [   15.206250] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
+>>>> 1Gbps/Full - flow control off
+>>>> [   15.206360] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>>>>
+>>>> 4.5.0:
+>>>> [    9.767125] NET: Registered protocol family 10
+>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
+>>>> [   10.362382] eth0: Could not attach to PHY
+>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
+>>>>
+>>>> .config is identical for both, also after make oldconfig, apart from
+>>>> comment with version number. DTB file is also identical between the tw=
+o
+>>>> versions.
+>>>>
+>>>> Kernels are compiled on the board itself. /proc/version string:
+>>>> Linux version 4.5.0-rc7 (root@lime2-079f) (gcc version 4.9.1
+>>>> (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Mon Mar 7 11:57:25 UTC 2016
+>>>> Linux version 4.5.0 (root@lime2-079f) (gcc version 4.9.1 (Ubuntu/Linar=
+o
+>>>> 4.9.1-16ubuntu6) ) #1 SMP Tue Mar 15 11:39:01 UTC 2016
+>>>>
+>>>> Please let me know if more info is needed, if I should post complete
+>>>> .config, test compile with a particular config or patch, etc. Part of
+>>>> .config below.
+>>>
+>>> Can you please try reverting 88f8b1b ("stmmac: Fix 'eth0: No PHY found'
+>>> regression") and report whether or not this changes anything? This seem=
+s
+>>> to be the only stmac patch between -rc7 and release...
+>>
+>> Sounds like the same thing as the giant ongoing discussion thread here:
+>>
+>> http://thread.gmane.org/gmane.linux.drivers.devicetree/159007/focus=3D40=
+2830
+>
+> v4 fixes for 4.5 are here:
+>
+> https://patchwork.ozlabs.org/patch/598195/ (revert)
+> https://patchwork.ozlabs.org/patch/598196/
+>
+> v2 fixes for linux-next here:
+>
+> https://patchwork.ozlabs.org/patch/598331/ (revert)
+> https://patchwork.ozlabs.org/patch/598332/
+>
+> Please let Peppe know whether they work for you guys.
 
-With this commit, adding OVS_FLOW_ATTR_USED to a 'set flow' netlink
-message refreshes the flow used time to the current time. The value in
-OVS_FLOW_ATTR_USED attribute is not used in this case.
+Hi guys - I can confirm 4.5.0 minus 88f8b1b works for me:
 
-Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
----
- net/openvswitch/datapath.c | 2 ++
- net/openvswitch/flow.c     | 6 ++++++
- net/openvswitch/flow.h     | 1 +
- 3 files changed, 9 insertions(+)
+root@lime2-079f:~# cat /proc/version
+Linux version 4.5.0-minus-88f8b1b (root@lime2-079f) (gcc version 4.9.1=20
+(Ubuntu/Linaro 4.9.1-16ubuntu6) ) #2 SMP Wed Mar 16 12:50:03 UTC 2016
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 8c6dcffe9b62..f2050af3965a 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1183,6 +1183,8 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	/* Clear stats. */
- 	if (a[OVS_FLOW_ATTR_CLEAR])
- 		ovs_flow_stats_clear(flow);
-+	if (a[OVS_FLOW_ATTR_USED])
-+		ovs_flow_refresh(flow);
- 	ovs_unlock();
- 
- 	if (reply)
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 831db351fef9..602795dd3656 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -167,6 +167,12 @@ void ovs_flow_stats_get(const struct sw_flow *flow,
- 	}
- }
- 
-+/* Must be called with rcu_read_lock or ovs_mutex. */
-+void ovs_flow_refresh(struct sw_flow *flow)
-+{
-+	ovs_flow_stats_update(flow, 0, 0, 0);
-+}
-+
- /* Called with ovs_mutex. */
- void ovs_flow_stats_clear(struct sw_flow *flow)
- {
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 51e10c4b1ce6..4b6b64c999ed 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -214,6 +214,7 @@ void ovs_flow_stats_update_skb(struct sw_flow *, __be16 tcp_flags,
- 			       const struct sk_buff *);
- void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
- 			unsigned long *used, __be16 *tcp_flags);
-+void ovs_flow_refresh(struct sw_flow *);
- void ovs_flow_stats_clear(struct sw_flow *);
- u64 ovs_flow_used_time(unsigned long flow_jiffies);
- 
--- 
-2.2.1.62.g3f15098
+ From dmesg output:
+[    9.731730] NET: Registered protocol family 10
+[   10.516893]  RX IPC Checksum Offload disabled
+[   10.516948]  No MAC Management Counters available
+[   10.517374] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   15.505548] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -=20
+1Gbps/Full - flow control off
+[   15.505660] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+
+.. and connected over ethernet.
+
+Thanks, best,
+
+	-bert
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
