@@ -1,68 +1,98 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: Re: ipv6 not bringing up due to qdisc_tx_is_noop failing
-Date: Wed, 16 Mar 2016 19:14:26 +0200
-Message-ID: <CAJFSNy6Kz8yYWk4J9wHqbkhBoPcjG=rZ89mTDMQ=66njaH9Wag@mail.gmail.com>
-References: <56E97BEA.4070004@kyup.com>
-	<56E992E0.1080708@stressinduktion.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH ethtool 2/3] Add IPv6 support to NFC
+Date: Wed, 16 Mar 2016 17:15:41 +0000
+Message-ID: <1458148541.31907.25.camel@decadent.org.uk>
+References: <56C1E73A.5090603@solarflare.com>
+	 <56C1E7EC.8020700@solarflare.com>
+	 <1457887406.3331.31.camel@decadent.org.uk>
+	 <56E97377.4030400@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nikolay Borisov <kernel@kyup.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	SiteGround Operations <operations@siteground.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yxHxzvRVNTO8oKxHLT8t"
+Cc: netdev@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:34879 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598AbcCPRO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:14:28 -0400
-Received: by mail-oi0-f52.google.com with SMTP id c203so43656102oia.2
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:14:28 -0700 (PDT)
-Received: from mail-ob0-f182.google.com (mail-ob0-f182.google.com. [209.85.214.182])
-        by smtp.gmail.com with ESMTPSA id j143sm1781557oih.24.2016.03.16.10.14.26
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 16 Mar 2016 10:14:27 -0700 (PDT)
-Received: by mail-ob0-f182.google.com with SMTP id ts10so57889711obc.1
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:14:26 -0700 (PDT)
-In-Reply-To: <56E992E0.1080708@stressinduktion.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54111 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754807AbcCPRPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:15:46 -0400
+In-Reply-To: <56E97377.4030400@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 7:07 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello,
 
-Hi,
+--=-yxHxzvRVNTO8oKxHLT8t
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
->
-> On 16.03.2016 16:29, Nikolay Borisov wrote:
->>
->> I have stack traces which do show this sequence of events, so my
->> questions now are:
->>
->> 1. What's the difference between netdev_queue->qdisc and
->> netdev_queue->qdisc_sleeping. Git blaming indicates those member haves
->> existed even before the git history was started.
->
-> qdisc_sleeping is the qdisc you configure before the device is brought up.
-> It should transition during carrier up to the normal qdisc.
->
->> 2. Shouldn't the netdev_queue->qdisc also be updated during
->> attach_one_default_qdisc?
->
-> Yes, do you have carrier up on your card?
+T24gV2VkLCAyMDE2LTAzLTE2IGF0IDE0OjUzICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiBP
+biAxMy8wMy8xNiAxNjo0MywgQmVuIEh1dGNoaW5ncyB3cm90ZToKPiA+IAo+ID4gT24gTW9uLCAy
+MDE2LTAyLTE1IGF0IDE0OjU5ICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiA+ID4gCj4gPiA+
+IFNpZ25lZC1vZmYtYnk6IEVkd2FyZCBDcmVlIDxlY3JlZUBzb2xhcmZsYXJlLmNvbT4KPiA+IFsu
+Li5dCj4gPiA+IAo+ID4gPiBAQCAtOTUwLDYgKzExNTQsMTkgQEAgc3RhdGljIGludCByeGNsYXNz
+X2dldF9tYXNrKGNoYXIgKnN0ciwgdW5zaWduZWQgY2hhciAqcCwKPiA+ID4gwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqAqKF9fYmUzMiAqKSZwW29wdC0+bW9mZnNldF0gPSB+dmFsOwo+
+ID4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJyZWFrOwo+ID4gPiDCoMKgwqDC
+oMKgwqDCoMKgfQo+ID4gPiArwqDCoMKgwqDCoMKgwqBjYXNlIE9QVF9JUDY6IHsKPiA+ID4gK8Kg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoF9fYmUzMiB2YWxbNF07Cj4gPiA+ICvCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpbnQgaTsKPiA+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoGVyciA9IHJ4Y2xhc3NfZ2V0X2lwdjYoc3RyLCB2YWwpOwo+ID4gPiArwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKGVycikKPiA+ID4gK8KgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByZXR1cm4gLTE7Cj4gPiA+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqBmb3IgKGkgPSAwOyBpIDwgNDsgaSsrKSB7Cj4gPiA+ICvCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgKChfX2JlMzIgKikmcFtv
+cHQtPm9mZnNldF0pW2ldID0gdmFsW2ldOwo+ID4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmIChvcHQtPm1vZmZzZXQgPj0gMCkKPiA+ID4gK8KgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+KChfX2JlMzIgKikmcFtvcHQtPm1vZmZzZXRdKVtpXSA9IH52YWxbaV07Cj4gPiBUaGlzIHBvaW50
+ZXIgYXJpdGhtZXRpYyBsb29rcyB0ZXJyaWJsZS7CoMKgSSB0aGluayBtZW1jcHkoKSB3b3VsZCBi
+ZSBtdWNoCj4gPiBjbGVhcmVyIGhlcmUuCj4gSSd2ZSBjaGFuZ2VkIHRoZSB2ZXJzaW9uIGluIHJ4
+Y2xhc3NfZ2V0X3ZhbCB0byB1c2UgbWVtY3B5KCkgKGFuZCBtZW1zZXQoKSB0aGUKPiBtYXNrKS7C
+oMKgVW5mb3J0dW5hdGVseSwgd2UgY2FuJ3QgZG8gdGhhdCBoZXJlLCBiZWNhdXNlIHdlIG5lZWQg
+dG8gY29tcGxlbWVudAo+IHRoZSBtYXNrIHZhbHVlYXMgd2UgZ28sIGFuZCBhZmFpayB0aGVyZSdz
+IG5vIGxpYnJhcnkgZnVuY3Rpb24gdG8gY29weS1hbmQtCj4gY29tcGxlbWVudCBhIGJ5dGUgYXJy
+YXkuCgpTb3JyeSwgSSBtaXNzZWQgdGhlIGludmVyc2lvbi4gwqBCdXQgaXQgd291bGQgc3RpbGwg
+YmUgY2xlYW5lciB0byB1c2UgYQpsb2NhbCB2YXJpYWJsZToKCgkJCV9fYmUzMiAqZmllbGQgPSAo
+X19iZTMyICopJnBbb3B0LT5vZmZzZXRdOwoKPiBHbGliYyBkb2VzLCBob3dldmVyLCBoYXZlIGEg
+ZnVuY3Rpb24gbWVtZnJvYigpLCB3aGljaCBYT1JzIGV2ZXJ5IGJ5dGUgb2YgYW4KPiBhcnJheXdp
+dGh0aGUgY29uc3RhbnQgNDIuwqDCoFVzZWZ1bCBmZWF0dXJlLCB0aGF0LgoKSXQgaXMhCgojaW5j
+bHVkZSA8c3RyaW5nLmg+CgppbnQgbWFpbih2b2lkKQp7CsKgIMKgIGNoYXIgYW5zd2VyOwrCoCDC
+oCBtZW1zZXQoJmFuc3dlciwgMCwgMSk7CsKgIMKgIG1lbWZyb2IoJmFuc3dlciwgMSk7CsKgIMKg
+IHJldHVybiBhbnN3ZXI7Cn0KCj4gT24gdGhlIG90aGVyIGhhbmQsIHRoZSBxdW90ZWQgY29kZSBp
+cyBzdGlsbCB3cm9uZyBiZWNhdXNlIGl0J3MgYWxzbyB3cml0aW5nCj4gdGhyb3VnaG9wdC0+b2Zm
+c2V0IGFuZCBjaGVja2luZyBmb3Igb3B0LT5tb2Zmc2V0Pj0gMCwgYm90aCBkYWZ0IGNvcHktYW5k
+LQo+IHBhc3RlIGVycm9ycyBvbm15cGFydC7CoMKgV2lsbCBmaXggaW4gbmV4dCB2ZXJzaW9uLgo+
+ID4gCj4gPiBJIHdvbid0IGFwcGx5IHBhdGNoZXMgbGFiZWxsZWQgYXMgImNvbmZpZGVudGlhbCIu
+wqDCoFlvdSBuZWVkIHRvIHN0b3AKPiA+IGluY2x1ZGluZyB0aGlzIG5vbnNlbnNlIGluIHlvdXIg
+cHVibGljIG1lc3NhZ2VzIChJIHRob3VnaHQgeW91IGZpeGVkCj4gPiB0aGlzIG9uY2UgYmVmb3Jl
+KS4KPiBJbiB0aGVvcnkgaXQncyBiZWVuIGZpeGVkIGhhcmRlciBub3cgLSBwbGVhc2UgbGV0IG1l
+IGtub3cgaWYgbm90LgoKTG9va3MgbGlrZSB5b3UncmUgc2VuZGluZyB0d28gY29waWVzLCBvbmUg
+d2l0aCBhbmQgb25lIHdpdGhvdXQuIMKgV2hpY2gKd29ya3MgZm9yIG1lLCB0aG91Z2ggaXQgbWln
+aHQgYW5ub3kgc29tZSByZWNpcGllbnRzLi4uCgpCZW4uCgotLSAKQmVuIEh1dGNoaW5ncwpJZiB5
+b3Ugc2VlbSB0byBrbm93IHdoYXQgeW91IGFyZSBkb2luZywgeW91J2xsIGJlIGdpdmVuIG1vcmUg
+dG8gZG8u
 
-Actually no, the interface indeed shows no carrier yet ibping to other
-hosts on the infiniband network works and ibstats shows the link as
-being in up state. Do you have any ideas how to debug this further?
 
->
-> Is this a regression, did this work for you and stopped working with a
-> specific kernel version?
+--=-yxHxzvRVNTO8oKxHLT8t
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-I don't think this is a regression.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
->
-> Thanks and bye,
-> Hannes
->
+iQIcBAABCgAGBQJW6ZS9AAoJEOe/yOyVhhEJXIYP/3t1v7PDYZC0/qXzYMlkqywt
+wkRKGN3PT9/BJtj20YEWINKGrCndfEz+Sfa1rVQ8KCbS2VE1DTUKzcOqqY357Dj9
+iFU67tTRVjbq+nC9bX756YpKtehURPRstilwUmAJVpsgIeNX3cC1hK1ujDBWVzy6
+ORV7spF7CxxGeDSXKtlLdhQMB7u6bJVy1kzDOYnGGy4nsYDz6j5gMBmUL10nYcis
+yLBxalJ872RhtT4i+9wBogV1T4J6P1K0nghgEhEP/y81YYoKQ4RXui9ZBO42OI3Z
+6oRnL5PH8Rtuy8e7GliB85PkihLxXM9VTyvJ8fogS5BJ/g2sLORfq9mZFjRrl7B1
+2nPGKcbpWXdEpWwTsXyjt24KXt87txRz3LQZPanmzmnqtmpYwoq6Pu+nbtCD9lEK
+F+YmQ1MfB2qqiC2oNXOrrWx7cEks6+KlTNghMF3/OeTJ/k9uY9r2ZyJ5q56fbqEu
+xW4s4zPmLIASIJGcJLlFohBuQaxjoHXmqsMCkZmfbhQzSsNTLSeyUnhm29VVr0VU
+ql6i8jNbTh/iHY3gEsRjG3fX7Xz1F7x2QvhPMla+f9YipkinkCqvkXzMKf3r5KB2
+qQy0fmUSUOGaQwCK///zxoE3ziWiznh6nMMdB8ZIaa92jJ2tIWpF/Ymq1Zutf2sZ
+sqsS7lIhY0ehG35TGCYF
+=Pjum
+-----END PGP SIGNATURE-----
+
+--=-yxHxzvRVNTO8oKxHLT8t--
