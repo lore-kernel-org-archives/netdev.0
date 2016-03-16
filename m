@@ -1,49 +1,34 @@
-From: =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
-Subject: [PATCH] phy: mdio-thunder: Fix some Kconfig typos
-Date: Thu, 17 Mar 2016 00:23:37 +0100
-Message-ID: <1458170617-31784-1-git-send-email-afaerber@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: don't wait for Tx completion on
+ recovery
+Date: Wed, 16 Mar 2016 19:23:49 -0400 (EDT)
+Message-ID: <20160316.192349.2127685766060437016.davem@davemloft.net>
+References: <1457896908-13476-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org,
-	=?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>,
-	David Daney <david.daney@cavium.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52324 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934990AbcCPXXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 19:23:51 -0400
+In-Reply-To: <1457896908-13476-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Drop two extra occurrences of "on" in option title and help text.
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Sun, 13 Mar 2016 21:21:48 +0200
 
-=46ixes: 379d7ac7ca31 ("phy: mdio-thunder: Add driver for Cavium Thunde=
-r SoC MDIO buses.")
-Cc: David Daney <david.daney@cavium.com>
-Signed-off-by: Andreas F=C3=A4rber <afaerber@suse.de>
----
- drivers/net/phy/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> When driver has hit a parity event, HW can no longer write to host memory.
+> As a result, Tx completions cannot be written to the host SB memory, and
+> waiting for Tx completions eventually timeout.
+> As driver is willing to delay as much as 1-2 seconds per Tx queue for its
+> draining and this delay is sequential, the time to recover might greatly 
+> lengthen needlessly in case the recovery is done under multi-connection
+> traffic.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 075a4cc175b1..6dad9a9c356c 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -197,13 +197,13 @@ config MDIO_OCTEON
- 	  drivers on some systems.
-=20
- config MDIO_THUNDER
--	tristate "Support for MDIO buses on on ThunderX SOCs"
-+	tristate "Support for MDIO buses on ThunderX SOCs"
- 	depends on 64BIT
- 	depends on PCI
- 	select MDIO_CAVIUM
- 	help
- 	  This driver supports the MDIO interfaces found on Cavium
--	  ThunderX SoCs when the MDIO bus device appears on as a PCI
-+	  ThunderX SoCs when the MDIO bus device appears as a PCI
- 	  device.
-=20
-=20
---=20
-2.6.2
+Applied.
