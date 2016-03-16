@@ -1,35 +1,61 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] net: fix a comment typo
-Date: Wed, 16 Mar 2016 09:12:46 +0000
-Message-ID: <1458119566-22304-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCHv4 (net.git) 0/2] STMMAC: fix MDIO settings
+Date: Wed, 16 Mar 2016 10:38:47 +0100
+Message-ID: <1458121129-18818-1-git-send-email-peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, <preid@electromag.com.au>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2414 "EHLO
-	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964864AbcCPJIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:08:25 -0400
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:1825 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S964779AbcCPJdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:33:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a comment typo.
+These two patches are to fix the recent regressions raised
+when test the stmmac on some platforms due to broken MDIO/PHY
+management.
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- include/uapi/linux/if.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+=========================================================================
 
-diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-index 9cf2394..f802775 100644
---- a/include/uapi/linux/if.h
-+++ b/include/uapi/linux/if.h
-@@ -37,7 +37,7 @@
-  * are shared for all types of net_devices. The sysfs entries are available
-  * via /sys/class/net/<dev>/flags. Flags which can be toggled through sysfs
-  * are annotated below, note that only a few flags can be toggled and some
-- * other flags are always always preserved from the original net_device flags
-+ * other flags are always preserved from the original net_device flags
-  * even if you try to set them via sysfs. Flags which are always preserved
-  * are kept under the flag grouping @IFF_VOLATILE. Flags which are volatile
-  * are annotated below as such.
+V2: to use is_pseudo_fixed_link
+V3: to enforce the driver to support other configurations
+  The mdio bus will be allocated in case of a phy transceiver is on board;
+  it will be NULL if the fixed-link is configured.
+  If there is the "snps,dwmac-mdio" sub-node the mdio will be allocated
+  in any case (for DSA, mdio must be registered even if fixed-link).
+  The table below sums the supported configurations:
+ 	-------------------------------
+ 	snps,phy-addr	|     Y
+ 	-------------------------------
+ 	phy-handle	|     Y
+ 	-------------------------------
+ 	fixed-link	|     N
+ 	-------------------------------
+ 	snps,dwmac-mdio	|
+ 	  even if	|     Y
+ 	fixed-link	|
+ 	-------------------------------
+
+V4: fixed some typo and the return value of the new stmmac_dt_phy
+    function.
+
+=========================================================================
+
+Giuseppe Cavallaro (2):
+  Revert "stmmac: Fix 'eth0: No PHY found' regression"
+  stmmac: fix MDIO settings
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   11 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   10 +--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   91 ++++++++++++++------
+ include/linux/stmmac.h                             |    1 -
+ 4 files changed, 70 insertions(+), 43 deletions(-)
+
 -- 
-1.8.3.1
+1.7.4.4
