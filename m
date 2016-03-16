@@ -1,59 +1,43 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/1] net: stmmac: Don't search for phys if mdio node is
- defined.
-Date: Wed, 16 Mar 2016 10:36:30 +0100
-Message-ID: <56E9291E.6010503@st.com>
-References: <1458027273-127737-1-git-send-email-preid@electromag.com.au> <1458027273-127737-2-git-send-email-preid@electromag.com.au>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
+ 4KB regardless of system page size"
+Date: Wed, 16 Mar 2016 11:45:42 +0200
+Message-ID: <CAJ3xEMgorN4r-Ls66rc3VwUBi=uhb==ih2=43ujrbPC=ts8E5g@mail.gmail.com>
+References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
+	<CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
+	<56E8BFFE.9000803@ozlabs.ru>
+	<20160316051021.GC66645@x-vnc01.mtx.labs.mlnx>
+	<56E8F3CC.3070203@ozlabs.ru>
+	<20160316060947.GD66645@x-vnc01.mtx.labs.mlnx>
+	<56E91A78.5000700@ozlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Phil Reid <preid@electromag.com.au>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:42240 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964968AbcCPJgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:36:37 -0400
-In-Reply-To: <1458027273-127737-2-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+To: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56E91A78.5000700-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/15/2016 8:34 AM, Phil Reid wrote:
-> If a dt mdio entry has been added least assume that we wont
-> search for phys attached. The DT and of_mdiobus_register already do
-> this. This stops DSA phys being found and phys created for them, as
-> this is handled by the DSA driver.
+On Wed, Mar 16, 2016 at 10:34 AM, Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org> wrote:
 
-iiuc, this doesn't conflict with the recent rework we are doing
-for the mdio/phy platform management.
+> Oh. ok. It also looks like even with the reverted patch, mlx4 VF does not
+> work in a guest:
 
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
-
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 4 ++++
->   1 file changed, 4 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> index 3f5512f..06704ca 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> @@ -235,6 +235,9 @@ int stmmac_mdio_register(struct net_device *ndev)
->   		goto bus_register_fail;
->   	}
->
-> +	if (priv->plat->phy_node || mdio_node)
-> +		goto bus_register_done;
-> +
->   	found = 0;
->   	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
->   		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
-> @@ -290,6 +293,7 @@ int stmmac_mdio_register(struct net_device *ndev)
->   		return -ENODEV;
->   	}
->
-> +bus_register_done:
->   	priv->mii = new_bus;
->
->   	return 0;
->
+So where is the breakage point for you? does 4.4 works? if not, what?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
