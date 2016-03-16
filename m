@@ -1,90 +1,116 @@
-From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
- 4KB regardless of system page size"
-Date: Wed, 16 Mar 2016 08:09:47 +0200
-Message-ID: <20160316060947.GD66645@x-vnc01.mtx.labs.mlnx>
-References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
- <CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
- <56E8BFFE.9000803@ozlabs.ru>
- <20160316051021.GC66645@x-vnc01.mtx.labs.mlnx>
- <56E8F3CC.3070203@ozlabs.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-To: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56E8F3CC.3070203-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V1 00/13] Mellanox 100G mlx5 driver receive path optimizations
+Date: Wed, 16 Mar 2016 08:41:08 +0200
+Message-ID: <1458110481-18080-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:38270 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932126AbcCPGmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 02:42:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 04:49:00PM +1100, Alexey Kardashevskiy wrote:
-> On 03/16/2016 04:10 PM, Eli Cohen wrote:
-> >On Wed, Mar 16, 2016 at 01:07:58PM +1100, Alexey Kardashevskiy wrote:
-> >>
-> >>So with v4.5 as a host, there is no actual distro available today to
-> >>use as a guest in the next 6 months (or whatever it takes to
-> >>backport this partucular patch back there).
-> >>
-> >>You could have added a module parameter to enforce the old behavoir,
-> >>at least...
-> >>
-> >>And sorry but from the original commit log I could not understand
-> >>why exactly all existing guests need to be broken. Could you please
-> >>point me to a piece of documentation describing all this UAR
-> >>bisuness (what is UAR, why 128 UARs are required and for what, etc).
-> >>Thanks.
-> >>
-> >
-> >We are going to send a patch that fixes this using a module parameter.
-> >The patch will be on top of Huy's patch.
-> >
-> >Some background to the problem: mlx4 supported devices require 128 UAR
-> 
-> What does UAR stand for?
-User Access Region. It's the way you interface with the hardware.
-> 
-> >pages from PCI memory space defined by BAR2-3. Each UAR page can be
-> >any power of 2 value from 4K up to 64K. Before Huy's patch the driver
-> >chose UAR page size to be equal to system page size. Since PowerPC's
-> >page size is 64K this means minimum requirement of UAR pages is not
-> >met (default UAR BAR is 8MB and only half of it is really reserved for
-> >UARs).
-> 
-> And what was the downside? afaict the performance was good...
->
+Hello Dave,
 
-It's not a performance issue. Defining 64KB for a UAR is not required
-and wastes pci memory mapped i/o space.
+Changes from V0:
+	- Fixed a typo in commit message reported by Sergei
+	- Align SKB fragments truesize to stride size
+	- Use skb_add_rx_frag and remove the use of SKB_TRUESIZE
+	- Fix: # MTTs alignment on Power PC
+	- Fix: Free original (unaligned) pointer of MTT array
+	- Use dev_alloc_pages and dev_alloc_page
+	- Extend the stats.buff_alloc_err counter
+	- Reform the copying of packet header into skb linear data
+	- Add compiler hints for conditional statements
+	- Prefetch skd->data prior to copying packet header into it
+	- Rework: mlx5e_complete_rx_fragmented_mpwqe
+	- Handle SKB fragments before linear data
+	- Dropped ("net/mlx5e: Prefetch next RX CQE") for now 
+	- Added a small patch that Adds ConnectX-5 devices to the list of supported devices
+	- Rebased to 1cdba5505555 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next")
 
-> 
-> >More details can be found in the programmer's manual.
-> 
-> Can you please point me to this manual on the website? I tried,
-> honestly, could not find it. Thanks.
->
-It's not publically available. If you have an FAE that work with your
-company you can ask him how to get the doc.
-> 
-> -- 
-> Alexey
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This series includes Some RX modifications and optimizations for
+the mlx5 Ethernet driver. 
+
+>From Rana, we have one patch that adds the support for Connectx-4
+queue counters.
+
+>From Tariq, several patches that are centralized around improving
+RX path message rate, CPU and Memory utilization, in each patch
+commit message you will find the performance improvements numbers
+related to that specific patch.
+
+In the 3rd patch we used a queue counter to report "out of buffer" 
+dropped packet count, "Dropped packets due to lack of software resources"
+
+4th patch modifies the driver's to RSS default value to be spread along the
+close NUMA node cores only for better out of the box experience.
+
+In the 5th and 6th patches we utilized the use of RX multi-packet WQE
+(Striding RQ) for better memory utilization especially in case of hardware
+LRO is enabled and for better message rate for small packets.
+
+In the 7th and 8th patches we added a fallback mechanism to use fragmented
+memory when allocating large WQE strides fails, using UMR
+(User Memory Registration) and ICO (Internal Control Operations) SQs.
+
+In 9th patch To reduce the interrupt count we change the RX moderation
+period to be based on the last generated CQE rather than the last generated
+interrupt.
+
+In the 10th to 13th patches we did some small modification which show some small
+extra improvements.
+
+Note: The patch from Matan "net/mlx5: Refactor mlx5_core_mr to mkey"
+included in this series is already submitted and applied into Doug Ledford's 
+rdma tree a606b0f6691d ("net/mlx5: Refactor mlx5_core_mr to mkey").
+
+Thanks,
+Saeed
+
+Majd Dibbiny (1):
+  net/mlx5_core: Add ConnectX-5 to list of supported devices
+
+Matan Barak (1):
+  net/mlx5: Refactor mlx5_core_mr to mkey
+
+Rana Shahout (1):
+  net/mlx5e: Allocate set of queue counters per netdev
+
+Tariq Toukan (10):
+  net/mlx5: Introduce device queue counters
+  net/mlx5e: Use only close NUMA node for default RSS
+  net/mlx5e: Use function pointers for RX data path handling
+  net/mlx5e: Support RX multi-packet WQE (Striding RQ)
+  net/mlx5e: Added ICO SQs
+  net/mlx5e: Add fragmented memory support for RX multi packet WQE
+  net/mlx5e: Change RX moderation period to be based on CQE
+  net/mlx5e: Use napi_alloc_skb for RX SKB allocations
+  net/mlx5e: Remove redundant barrier
+  net/mlx5e: Add ethtool counter for RX buffer allocation failures
+
+ drivers/infiniband/hw/mlx5/cq.c                    |   16 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |   50 +-
+ drivers/infiniband/hw/mlx5/odp.c                   |   10 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  197 +++++++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   28 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  386 +++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  496 ++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   59 +++-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |    8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mr.c       |   54 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   68 +++
+ include/linux/mlx5/device.h                        |   39 ++-
+ include/linux/mlx5/driver.h                        |   24 +-
+ include/linux/mlx5/mlx5_ifc.h                      |   32 +-
+ include/linux/mlx5/qp.h                            |   10 +-
+ 17 files changed, 1265 insertions(+), 224 deletions(-)
