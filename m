@@ -1,36 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 22:15:03 +0100
-Message-ID: <20160316211503.GA16382@lunn.ch>
-References: <20160316115809.61b4478e@canb.auug.org.au>
- <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
- <20160317075246.39a08e61@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160317075246.39a08e61@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 0/4] tc: pedit: further fixes
+Date: Wed, 16 Mar 2016 22:48:31 +0100
+Message-ID: <1458164915-31802-1-git-send-email-phil@nwl.cc>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:40574 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750953AbcCPVst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 17:48:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen
+The following series was created after testing pedit on a big-endian
+system. It starts with a patch fixing coding style in tc/p_ip.c, then the
+actual big-endian fixup, a fix for raw op discovered when writing the
+pedit test for testsuite and finally the actual testsuite addon.
 
-> How about "This is now fixed as far as linux-next is concerned, but any
-> non trivial conflicts should be mentioned to your upstream maintainer
-> when your tree is submitted for merging.  You may want also want to
+Phil Sutter (4):
+  tc/p_ip.c: Lint through checkpatch.pl
+  tc: pedit: Fix for big-endian systems
+  tc: pedit: Fix raw op
+  testsuite: add a test for tc pedit action
 
-Only the second want is required.
+ tc/m_pedit.c               |  23 ++---
+ tc/p_ip.c                  |  38 ++++----
+ testsuite/tests/tc/pedit.t | 217 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 250 insertions(+), 28 deletions(-)
+ create mode 100755 testsuite/tests/tc/pedit.t
 
-> consider cooperate with the maintainer of the conflicting tree to
-
-cooperating
-
-	Andrew
+-- 
+2.7.2
