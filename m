@@ -1,38 +1,52 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: am335x: no multicast reception over VLAN
-Date: Wed, 16 Mar 2016 16:05:24 +0100
-Message-ID: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com,
-	grygorii.strashko@ti.com
-To: netdev <netdev@vger.kernel.org>
+From: Samuel Gauthier <samuel.gauthier@6wind.com>
+Subject: [PATCH net-next 0/2] ovs: refresh a flow via netlink
+Date: Wed, 16 Mar 2016 16:07:50 +0100
+Message-ID: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Samuel Gauthier <samuel.gauthier@6wind.com>
+To: Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:35788 "EHLO
-	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966832AbcCPPFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 11:05:45 -0400
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:38656 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932331AbcCPPIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 11:08:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have an am335x based board using CPSW in Dual EMAC mode. Without
-VLAN IDs I can receive and send multicast packets [1]. When I create
-VLAN ID:
+This patchset adds a netlink api to refresh an existing flow in
+openvswitch.
 
-ip link add link eth1 name eth1.100 type vlan id 100
-ip addr add 192.168.100.2/24 brd 192.168.100.255 dev eth1.100
-route add -net 224.0.0.0 netmask 224.0.0.0 eth1.100
+When a packet is sent in the openvswitch kernel datapath and no
+flow is found, the packet is sent to the ovs-vswitchd daemon,
+which will process the packet, and ask the kernel to create a new
+flow. The next packets for this flow will be processed by the
+kernel datapath. If a flow is not used for a (configurable)
+period of time, ovs-vswitchd removes the flow from the kernel.
 
-I can successfully send multicast packets, but not receive them. On
-the other side of the Ethernet cable I've used Pandaboard. Pandaboard
-could both receive and send multicast packets via VLAN.
+As a result, it can be tricky to test the kernel datapath against
+packets, as the first packets of each flow will have to go
+through the ovs-vswitchd daemon. For instance, to do a zeroloss
+performance test, you establish the flows, and then you have to
+perform your zeroloss test before the flow is removed by
+ovs-vswitchd.
 
-This setup was tested with both 3.18.21 and 4.5 kernels.
+It is possible to configure a flow timeout in ovs-vswitchd (using
+other_config:max-idle option), but it changes the behavior for
+all the flows, which is not always what you want.
 
-Any idea?
+I tested this with a patch for the openvswitch tree of the
+ovs-dpctl mod-flow command, which adds a --refresh flag. I will
+submit the patch if this patchset is accepted.
 
-[1] https://pymotw.com/2/socket/multicast.html
+Samuel Gauthier (2):
+  ovs: split ovs_flow_stats_update into skb and stats
+  ovs: support to refresh a flow via netlink
 
-Regards,
-Yegor
+ net/openvswitch/datapath.c |  4 +++-
+ net/openvswitch/flow.c     | 23 ++++++++++++++++++-----
+ net/openvswitch/flow.h     |  5 +++--
+ 3 files changed, 24 insertions(+), 8 deletions(-)
+
+-- 
+2.2.1.62.g3f15098
