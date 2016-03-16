@@ -1,136 +1,65 @@
-From: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
- stmmac-0:ffffffff not found (regression from rc7)
-Date: Wed, 16 Mar 2016 17:42:36 +0000
-Message-ID: <56E99B0C.2070609@arm.com>
-References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com>
- <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de>
- <56E9776F.3070102@a20.net>
-Reply-To: marc.zyngier-5wv7dgnIgG8@public.gmane.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
+Date: Wed, 16 Mar 2016 10:44:34 -0700
+Message-ID: <CA+55aFyi31eRO6nO1-kz=-kq4XqyyA=VagbsiaO4ZPu1aLmnuA@mail.gmail.com>
+References: <20160316115809.61b4478e@canb.auug.org.au>
+	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+	<56E99960.5000604@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-To: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>, =?UTF-8?Q?Andreas_F=c3=a4rber?=
- <afaerber-l3A5Bk7waGM@public.gmane.org>, Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCPZR5X4TYBBBENWU23QKGQEKQGVXSY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <56E9776F.3070102-phGP8mJ4Mqk@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-next <linux-next@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <56E99960.5000604@redhat.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16/03/16 15:10, Bert Lindner wrote:
-> On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
->> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
->>> On 16/03/16 11:39, Marc Zyngier wrote:
->>>> On 16/03/16 11:19, Bert Lindner wrote:
->>>>> Hopefully this is the correct place and way to report this.
->>
->> The main discussion is on netdev list actually, CC'ed.
->>
->>>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a problem
->>>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
->>>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
->>>>>
->>>>> root@lime2-079f:~# ip a l eth0
->>>>> 2: eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
->>>>> default qlen 1000
->>>>>        link/ether 02:c9:05:02:07:9f brd ff:ff:ff:ff:ff:ff
->>>>>
->>>>>     Difference reported in dmesg:
->>>>>
->>>>> 4.5.0-rc7:
->>>>> [    9.379279] NET: Registered protocol family 10
->>>>> [   10.217148]  RX IPC Checksum Offload disabled
->>>>> [   10.217195]  No MAC Management Counters available
->>>>> [   10.217627] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
->>>>> [   15.206250] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
->>>>> 1Gbps/Full - flow control off
->>>>> [   15.206360] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes read=
-y
->>>>>
->>>>> 4.5.0:
->>>>> [    9.767125] NET: Registered protocol family 10
->>>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
->>>>> [   10.362382] eth0: Could not attach to PHY
->>>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
->>>>>
->>>>> .config is identical for both, also after make oldconfig, apart from
->>>>> comment with version number. DTB file is also identical between the t=
-wo
->>>>> versions.
->>>>>
->>>>> Kernels are compiled on the board itself. /proc/version string:
->>>>> Linux version 4.5.0-rc7 (root@lime2-079f) (gcc version 4.9.1
->>>>> (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Mon Mar 7 11:57:25 UTC 2016
->>>>> Linux version 4.5.0 (root@lime2-079f) (gcc version 4.9.1 (Ubuntu/Lina=
-ro
->>>>> 4.9.1-16ubuntu6) ) #1 SMP Tue Mar 15 11:39:01 UTC 2016
->>>>>
->>>>> Please let me know if more info is needed, if I should post complete
->>>>> .config, test compile with a particular config or patch, etc. Part of
->>>>> .config below.
->>>>
->>>> Can you please try reverting 88f8b1b ("stmmac: Fix 'eth0: No PHY found=
-'
->>>> regression") and report whether or not this changes anything? This see=
-ms
->>>> to be the only stmac patch between -rc7 and release...
+On Wed, Mar 16, 2016 at 10:35 AM, Doug Ledford <dledford@redhat.com> wrote:
+> On 3/16/2016 1:18 PM, Linus Torvalds wrote:
+>> On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 >>>
->>> Sounds like the same thing as the giant ongoing discussion thread here:
->>>
->>> http://thread.gmane.org/gmane.linux.drivers.devicetree/159007/focus=3D4=
-02830
+>>> I fixed it up (see below) and can carry the fix as necessary (no action
+>>> is required).
 >>
->> v4 fixes for 4.5 are here:
->>
->> https://patchwork.ozlabs.org/patch/598195/ (revert)
->> https://patchwork.ozlabs.org/patch/598196/
->>
->> v2 fixes for linux-next here:
->>
->> https://patchwork.ozlabs.org/patch/598331/ (revert)
->> https://patchwork.ozlabs.org/patch/598332/
->>
->> Please let Peppe know whether they work for you guys.
->=20
-> Hi guys - I can confirm 4.5.0 minus 88f8b1b works for me:
->=20
-> root@lime2-079f:~# cat /proc/version
-> Linux version 4.5.0-minus-88f8b1b (root@lime2-079f) (gcc version 4.9.1=20
-> (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #2 SMP Wed Mar 16 12:50:03 UTC 2016
->=20
->  From dmesg output:
-> [    9.731730] NET: Registered protocol family 10
-> [   10.516893]  RX IPC Checksum Offload disabled
-> [   10.516948]  No MAC Management Counters available
-> [   10.517374] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> [   15.505548] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -=20
-> 1Gbps/Full - flow control off
-> [   15.505660] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
->=20
-> .. and connected over ethernet.
+>> Side note: can you change this wording for your manual merge script?
+>> Last merge window (or was it the one before it?) we had confusion with
+>> people who thought that "no action is required" means "you can just
+>> ignore this entirely".
+>
+> I certainly didn't take it that way regardless of the wording.
 
-Good to know, thanks. Could you also give the potential fix a go (as
-mentioned by Andreas)? Just to make sure that whatever gets merged next
-will actually fix the issue.
+It was Or Gerlitz. You were cc'd, since it was the whole rdma Mellanox
+mess. I quote from that thread:
 
-Thanks,
+ "> However, the fact that it got resolved in linux-next is purely
+  > informational. It doesn't "fix" the conflict - it just means that both
+  > sides should have gotten informed about it. That doesn't mean that the
+  > conflict goes away or becomes better.
 
-	M.
---=20
-Jazz is not dead. It just smells funny...
+  That's news to me. When such things happen and caught by Stephen, we
+  are getting an email saying something like
 
---=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+  "Today's linux-next merge of the infiniband tree got a conflict
+  between commit X from net-next tree and commit Y from the infiniband
+  tree. I fixed it up (see below) and can carry the fix as necessary (no
+  action is required)."
+
+  Also asked around a bit and got to learn on Stephen using git rerere,
+  so all (no action needed note + seeing git rerere in action...) that
+  leaded me to think that indeed no action is required from our side,
+  but after reading your email (twice, so far), I realized that this was
+  wrong conclusion."
+
+So that whole "no action is required" wording very much has caused
+confusion before in the rdma camp.
+
+Let's fix the wording. I'm indeed hopeful that the rdma camp is now
+keenly aware of the issues, but that doesn't change the fact that the
+wording has been problematic.
+
+                  Linus
