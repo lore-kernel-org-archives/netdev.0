@@ -1,60 +1,74 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: When will net-next merge with linux-next?
-Date: Wed, 16 Mar 2016 01:58:50 +0000
-Message-ID: <BLUPR03MB14104FD16924FB8327BD9AA8BF8A0@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <BLUPR03MB14106249C57CCF66717CC860BF880@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160314162139.GA2925@kroah.com>
- <BLUPR03MB141045D7EED478CB0A086CA1BF890@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160315150534.GB12990@kroah.com>
+From: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
+ 4KB regardless of system page size"
+Date: Wed, 16 Mar 2016 13:07:58 +1100
+Message-ID: <56E8BFFE.9000803@ozlabs.ru>
+References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
+ <CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0115.outbound.protection.outlook.com ([65.55.169.115]:56160
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751033AbcCPB6z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 21:58:55 -0400
-In-Reply-To: <20160315150534.GB12990@kroah.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
-> Sent: Tuesday, March 15, 2016 23:06
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: David Miller <davem@davemloft.net>; netdev@vger.kernel.org; KY
-> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>
-> Subject: Re: When will net-next merge with linux-next?
-> 
-> On Tue, Mar 15, 2016 at 11:11:34AM +0000, Dexuan Cui wrote:
-> > I'm wondering whether (and when) step 2 will happen in the next 2 weeks,
-> > that is, before the tag 4.6-rc1 is made.
-> > If not, I guess I'll miss 4.6?
-> 
-> You missed 4.6 as your patch was not in any of our trees a few days
-> before 4.5 was released, sorry.
-> 
-> greg k-h
-Hi Greg,
-Thanks for the reply!
+On 03/15/2016 09:40 PM, Or Gerlitz wrote:
+> On Tue, Mar 15, 2016 at 12:19 PM, Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org> wrote:
+>> This reverts commit 85743f1eb34548ba4b056d2f184a3d107a3b8917.
+>>
+>> Without this revert, POWER "pseries" KVM guests with a VF passed to a guest
+>> using VFIO fail to bring the driver up:
+>>
+>> mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
+>> mlx4_core: Initializing 0000:00:00.0
+>> mlx4_core 0000:00:00.0: enabling device (0000 -> 0002)
+>> mlx4_core 0000:00:00.0: Detected virtual function - running in slave mode
+>> mlx4_core 0000:00:00.0: Sending reset
+>> mlx4_core 0000:00:00.0: Sending vhcr0
+>> mlx4_core 0000:00:00.0: HCA minimum page size:512
+>> mlx4_core 0000:00:00.0: UAR size:4096 != kernel PAGE_SIZE of 65536
+>> mlx4_core 0000:00:00.0: Failed to obtain slave caps
+>
+>> Both host and guest use 64K system pages.
+>>
+>> How to fix this properly? Thanks.
+>
+> The commit message says:
+>
+> "[..] Regarding backward compatibility in SR-IOV, if hypervisor has
+> this new code, the virtual OS must be updated. [...]"
 
-My patch has to go in net-next first, but even today's mainline and net-next
-haven't had the supporting patches in the VMBus driver, so I can't post my
-patch to net-next even today  -- it seems it's doomed to need 2 major
-release cycles to push a feature that makes changes to 2 subsystems? :-(
 
-I guess Greg will send a pull request to Linus within the next 1~2 weeks, so
-the supporting VMBus patches will be in the mainline after that.
+So with v4.5 as a host, there is no actual distro available today to use as 
+a guest in the next 6 months (or whatever it takes to backport this 
+partucular patch back there).
 
-Hi David,
-May I know when you'll merge with the mainline kernel and how
-frequently do you usually do it?
+You could have added a module parameter to enforce the old behavoir, at 
+least...
 
-Thanks,
--- Dexuan
+And sorry but from the original commit log I could not understand why 
+exactly all existing guests need to be broken. Could you please point me to 
+a piece of documentation describing all this UAR bisuness (what is UAR, why 
+128 UARs are required and for what, etc). Thanks.
+
+
+-- 
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
