@@ -1,14 +1,14 @@
 From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 Subject: Re: [PATCH 1/3] infiniband: IB/hns: add Hisilicon RoCE support
-Date: Wed, 16 Mar 2016 18:23:10 +0800
-Message-ID: <56E9340E.3040207@huawei.com>
+Date: Wed, 16 Mar 2016 18:26:28 +0800
+Message-ID: <56E934D4.2070100@huawei.com>
 References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
  <1457692631-9290-2-git-send-email-oulijun@huawei.com>
- <20160311104239.GD3931@nanopsycho.orion>
+ <20160312103940.GA15703@leon.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
@@ -18,17 +18,21 @@ Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEA
 	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
 	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
 	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160311104239.GD3931-6KJVSR23iU488b5SBfVpbw@public.gmane.org>
+In-Reply-To: <20160312103940.GA15703-2ukJVAZIZ/Y@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jiri Pirko, thanks your reviewing.
-sorry, I will send a new patch according to your reviews.
+Hi dledford, thanks for reviewing.
 
-On 2016/3/11 18:42, Jiri Pirko wrote:
-> Fri, Mar 11, 2016 at 11:37:09AM CET, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org wrote:
+I have modified according to your reivews. I will send a new patch
+at soon.
+
+thanks
+Lijun Ou
+
+On 2016/3/12 18:39, Leon Romanovsky wrote:
+> On Fri, Mar 11, 2016 at 06:37:09PM +0800, Lijun Ou wrote:
 >> The driver for Hisilicon RoCE is a platform driver.
 >> The driver will support mulitple versions of hardware. Currently only "v1"
 >> for hip06 SOC is supported.
@@ -40,21 +44,67 @@ On 2016/3/11 18:42, Jiri Pirko wrote:
 >> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 >> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 >> Signed-off-by: Znlong <zhaonenglong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
+>>  drivers/infiniband/Kconfig                         |    2 +-
+>>  drivers/infiniband/hw/Makefile                     |    1 +
+>>  drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
+>>  drivers/infiniband/hw/hisilicon/hns/Makefile       |    9 +
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c  |  114 +
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_alloc.c   |  253 ++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c |  354 +++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h |  163 ++
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_common.h  |  704 +++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c  |  454 +++
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_device.h  |  840 ++++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c  |  798 ++++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h  |  138 +
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c |  608 ++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h |  121 +
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_main.c    | 1124 ++++++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c  |  637 +++++
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c  |  129 +
+>>  drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c  |  890 ++++++
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_user.h    |   31 +
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c   | 2992 ++++++++++++++++++++
+>>  .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h   | 1068 +++++++
+>>  22 files changed, 11439 insertions(+), 1 deletion(-)
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/Kconfig
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/Makefile
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_alloc.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_common.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_device.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_main.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_user.h
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c
+>>  create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h
+>>
+>> diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+>> index 8a8440c..c7a24bb 100644
+>> --- a/drivers/infiniband/Kconfig
+>> +++ b/drivers/infiniband/Kconfig
+>> @@ -73,7 +73,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+>>  source "drivers/infiniband/hw/nes/Kconfig"
+>>  source "drivers/infiniband/hw/ocrdma/Kconfig"
+>>  source "drivers/infiniband/hw/usnic/Kconfig"
+>> -
 > 
-> <snip>
+> No need to remove this line. It separates HW from ULPs.
 > 
-> I'm sorry to be nitpicking, but you still have style issues in your
-> code. I believe that for newly submitted code, this should be avoided. I
-> already pointed that out as a comment to your last version, but you
-> ignored it. So again, couple of examples:
-> 
->> +struct ib_ah *hns_roce_create_ah(struct ib_pd *ibpd,
->> +					struct ib_ah_attr *ah_attr)
-> 
-> <snip>	
-> 	
->> +	ret = ib_get_cached_gid(ibpd->device, ah_attr->port_num,
->> +			ah_attr->grh.sgid_index, &sgid, &gid_attr);
+>> +source "drivers/infiniband/hw/hisilicon/hns/Kconfig"
+>>  source "drivers/infiniband/ulp/ipoib/Kconfig"
+>>  
+>>  source "drivers/infiniband/ulp/srp/Kconfig"
 > 
 > <snip>
 > 
@@ -62,70 +112,88 @@ On 2016/3/11 18:42, Jiri Pirko wrote:
 >> +					struct hns_roce_bitmap *bitmap,
 >> +					int cnt, int align, u32 *obj)
 > 
-> <snip>
+> You have indentation issues.
 > 
->> +			pages =
->> +				kmalloc(sizeof(*pages) * buf->nbufs,
->> +					GFP_KERNEL);
-> 
-In v2, I consider that it will violate checkpatch if write as follows
-	pages = kmalloc(sizeof(*pages) * buf->nbufs,
-			GFP_KERNEL);
-so, I continue to have it.
-Now, I have used kmalloc_array instead of it. I will send new patch at soon.
-Again, i am sorry for my incorrect plan.
-
-> <snip>
-> 
->> +		dev_err(dev,
->> +			"CQ alloc.Failed to find cq buf addr.\n");
-> 
-> <snip>
-> 
->> +	resp.qp_tab_size      = hr_dev->caps.num_qps;
-> 
-> <snip>
-> 
->> +		buddy->bits[i] =
->> +			kmalloc(s * sizeof(long), GFP_KERNEL);
-> 
-> 
-> and many, many others similar to this. Please fix this.
-> 
-> 
-> Also, I don't understand why you have "_" prefix for labels:
-> 
+>> +{
+>> +	int i;
+>> +	int ret = 0;
 >> +
->> +_error_failed_register_device:
->> +	hns_roce_engine_uninit(hr_dev);
+>> +	if (likely(cnt == 1 && align == 1))
+>> +		return hns_roce_bitmap_alloc(bitmap, obj);
 >> +
->> +_error_failed_engine_init:
->> +	hns_roce_cleanup_bitmap(hr_dev);
+>> +	spin_lock(&bitmap->lock);
 >> +
->> +_error_failed_setup_hca:
->> +	hns_roce_cleanup_icm(hr_dev);
+>> +	*obj = bitmap_find_next_zero_area(bitmap->table, bitmap->max,
+>> +					  bitmap->last, cnt, align - 1);
+>> +	if (*obj >= bitmap->max) {
+>> +		bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+>> +			       & bitmap->mask;
+>> +		*obj = bitmap_find_next_zero_area(bitmap->table, bitmap->max, 0,
+>> +						  cnt, align - 1);
+>> +	}
 >> +
->> +_error_failed_init_icm:
->> +	if (hr_dev->cmd_mod)
->> +		hns_roce_cmd_use_polling(hr_dev);
+>> +	if (*obj < bitmap->max) {
+>> +		for (i = 0; i < cnt; i++)
+>> +			set_bit(*obj + i, bitmap->table);
 >> +
->> +_error_failed_use_event:
->> +	hns_roce_cleanup_eq_table(hr_dev);
+>> +		if (*obj == bitmap->last) {
+>> +			bitmap->last = (*obj + cnt);
+>> +			if (bitmap->last >= bitmap->max)
+>> +				bitmap->last = 0;
+>> +		}
+>> +		*obj |= bitmap->top;
+>> +	} else {
+>> +		ret = -1;
+>> +	}
 >> +
->> +_error_failed_eq_tabel:
->> +	hns_roce_cmd_cleanup(hr_dev);
->> +
->> +_error_failed_cmd_init:
->> +	(void)hns_roce_engine_reset(hr_dev, 0);
->> +
->> +_error_failed_reset_engine:
->> +	hns_roce_free_cfg(hr_dev);
->> +
->> +_error_failed_get_cfg:
->> +	ib_dealloc_device(&hr_dev->ib_dev);
+>> +	spin_unlock(&bitmap->lock);
 >> +
 >> +	return ret;
 >> +}
+>> +
+>> +void hns_roce_bitmap_free_range(
+>> +					struct hns_roce_bitmap *bitmap,
+>> +					u32 obj,
+>> +					int cnt)
+>> +{
+>> +	int i;
+>> +
+>> +	obj &= bitmap->max + bitmap->reserved_top - 1;
+>> +
+>> +	spin_lock(&bitmap->lock);
+>> +	for (i = 0; i < cnt; i++)
+>> +		clear_bit(obj + i, bitmap->table);
+>> +
+>> +	bitmap->last = min(bitmap->last, obj);
+>> +	bitmap->top = (bitmap->top + bitmap->max + bitmap->reserved_top)
+>> +		       & bitmap->mask;
+>> +	spin_unlock(&bitmap->lock);
+>> +}
+>> +
+>> +int hns_roce_bitmap_init(struct hns_roce_bitmap *bitmap, u32 num,
+>> +			       u32 mask, u32 reserved_bot,
+>> +			       u32 reserved_top)
+>> +{
+>> +	u32 i;
+>> +
+>> +	if (num != roundup_pow_of_two(num))
+>> +		return -EINVAL;
+>> +
+>> +	bitmap->last = 0;
+>> +	bitmap->top  = 0;
+>> +	bitmap->max  = num - reserved_top;
+>> +	bitmap->mask = mask;
+>> +	bitmap->reserved_top = reserved_top;
+>> +	spin_lock_init(&bitmap->lock);
+>> +	bitmap->table =
+>> +		kzalloc(BITS_TO_LONGS(bitmap->max) * sizeof(long), GFP_KERNEL);
+> 
+> Here and below, please consider to use kcalloc.
+> 
+>> +	if (!bitmap->table)
+>> +		return -ENOMEM;
+>> +
+>> +	for (i = 0; i < reserved_bot; ++i)
 > 
 > .
 > 
