@@ -1,457 +1,80 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v2 4/4] vxlan: implement GPE
-Date: Wed, 16 Mar 2016 17:51:12 +0100
-Message-ID: <dfd48851882518164e289feaf43930d9a9e038b3.1458146189.git.jbenc@redhat.com>
-References: <cover.1458146189.git.jbenc@redhat.com>
-Cc: Tom Herbert <tom@herbertland.com>, Jesse Gross <jesse@kernel.org>
-To: netdev@vger.kernel.org
+From: Luca Lemmo <luca@linux.com>
+Subject: [PATCH 1/3] tc: f_u32: add missing spaces around operators
+Date: Wed, 16 Mar 2016 17:56:12 +0100
+Message-ID: <1458147374-8899-1-git-send-email-luca@linux.com>
+Cc: netdev@vger.kernel.org, Luca Lemmo <luca@linux.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47922 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934178AbcCPQv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 12:51:28 -0400
-In-Reply-To: <cover.1458146189.git.jbenc@redhat.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52180 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752890AbcCPQ4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 12:56:55 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 32ACC209CE
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 12:56:54 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement VXLAN-GPE. Only COLLECT_METADATA is supported for now (it is
-possible to support static configuration, too, if there is demand for it).
-
-The GPE header parsing has to be moved before iptunnel_pull_header, as we
-need to know the protocol.
-
-v2: Removed what was called "L2 mode" in v1 of the patchset. Only "L3 mode"
-    (now called "raw mode") is added by this patch. This mode does not allow
-    Ethernet header to be encapsulated in VXLAN-GPE when using ip route to
-    specify the encapsulation, IP header is encapsulated instead. The patch
-    does support Ethernet to be encapsulated, though, using ETH_P_TEB in
-    skb->protocol. This will be utilized by other COLLECT_METADATA users
-    (openvswitch in particular).
-
-    If there is ever demand for Ethernet encapsulation with VXLAN-GPE using
-    ip route, it's easy to add a new flag switching the interface to
-    "Ethernet mode" (called "L2 mode" in v1 of this patchset). For now,
-    leave this out, it seems we don't need it.
-
-    Disallowed more flag combinations, especially RCO with GPE.
-    Added comment explaining that GBP and GPE cannot be set together.
-
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Luca Lemmo <luca@linux.com>
 ---
- drivers/net/vxlan.c          | 170 ++++++++++++++++++++++++++++++++++++++-----
- include/net/vxlan.h          |  68 +++++++++++++++++
- include/uapi/linux/if_link.h |   1 +
- 3 files changed, 222 insertions(+), 17 deletions(-)
+ tc/f_u32.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f75786c4bd40..419e155c7153 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1192,6 +1192,45 @@ out:
- 	unparsed->vx_flags &= ~VXLAN_GBP_USED_BITS;
- }
+diff --git a/tc/f_u32.c b/tc/f_u32.c
+index 0b97678..2a6c971 100644
+--- a/tc/f_u32.c
++++ b/tc/f_u32.c
+@@ -47,7 +47,7 @@ static void explain(void)
  
-+static bool vxlan_parse_gpe_hdr(struct vxlanhdr *unparsed,
-+				__be32 *protocol,
-+				struct sk_buff *skb, u32 vxflags)
-+{
-+	struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)unparsed;
-+
-+	/* Need to have Next Protocol set for interfaces in GPE mode. */
-+	if (!gpe->np_applied)
-+		return false;
-+	/* "The initial version is 0. If a receiver does not support the
-+	 * version indicated it MUST drop the packet.
-+	 */
-+	if (gpe->version != 0)
-+		return false;
-+	/* "When the O bit is set to 1, the packet is an OAM packet and OAM
-+	 * processing MUST occur." However, we don't implement OAM
-+	 * processing, thus drop the packet.
-+	 */
-+	if (gpe->oam_flag)
-+		return false;
-+
-+	switch (gpe->next_protocol) {
-+	case VXLAN_GPE_NP_IPV4:
-+		*protocol = htons(ETH_P_IP);
-+		break;
-+	case VXLAN_GPE_NP_IPV6:
-+		*protocol = htons(ETH_P_IPV6);
-+		break;
-+	case VXLAN_GPE_NP_ETHERNET:
-+		*protocol = htons(ETH_P_TEB);
-+		break;
-+	default:
-+		return false;
-+	}
-+
-+	unparsed->vx_flags &= ~VXLAN_GPE_USED_BITS;
-+	return true;
-+}
-+
- static bool vxlan_set_mac(struct vxlan_dev *vxlan,
- 			  struct vxlan_sock *vs,
- 			  struct sk_buff *skb)
-@@ -1257,9 +1296,11 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 	struct vxlanhdr unparsed;
- 	struct vxlan_metadata _md;
- 	struct vxlan_metadata *md = &_md;
-+	__be32 protocol = htons(ETH_P_TEB);
-+	bool raw_proto = false;
- 	void *oiph;
+ static int get_u32_handle(__u32 *handle, const char *str)
+ {
+-	__u32 htid=0, hash=0, nodeid=0;
++	__u32 htid = 0, hash = 0, nodeid = 0;
+ 	char *tmp = strchr(str, ':');
  
--	/* Need Vxlan and inner Ethernet header to be present */
-+	/* Need UDP and VXLAN header to be present */
- 	if (!pskb_may_pull(skb, VXLAN_HLEN))
- 		return 1;
- 
-@@ -1283,9 +1324,18 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 	if (!vxlan)
- 		goto drop;
- 
--	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB),
--				 !net_eq(vxlan->net, dev_net(vxlan->dev))))
--		goto drop;
-+	/* For backwards compatibility, only allow reserved fields to be
-+	 * used by VXLAN extensions if explicitly requested.
-+	 */
-+	if (vs->flags & VXLAN_F_GPE) {
-+		if (!vxlan_parse_gpe_hdr(&unparsed, &protocol, skb, vs->flags))
-+			goto drop;
-+		raw_proto = true;
-+	}
-+
-+	if (__iptunnel_pull_header(skb, VXLAN_HLEN, protocol, raw_proto,
-+				   !net_eq(vxlan->net, dev_net(vxlan->dev))))
-+			goto drop;
- 
- 	if (vxlan_collect_metadata(vs)) {
- 		__be32 vni = vxlan_vni(vxlan_hdr(skb)->vx_vni);
-@@ -1304,14 +1354,14 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		memset(md, 0, sizeof(*md));
+ 	if (tmp == NULL) {
+@@ -58,21 +58,21 @@ static int get_u32_handle(__u32 *handle, const char *str)
+ 	htid = strtoul(str, &tmp, 16);
+ 	if (tmp == str && *str != ':' && *str != 0)
+ 		return -1;
+-	if (htid>=0x1000)
++	if (htid >= 0x1000)
+ 		return -1;
+ 	if (*tmp) {
+ 		str = tmp + 1;
+ 		hash = strtoul(str, &tmp, 16);
+ 		if (tmp == str && *str != ':' && *str != 0)
+ 			return -1;
+-		if (hash>=0x100)
++		if (hash >= 0x100)
+ 			return -1;
+ 		if (*tmp) {
+ 			str = tmp + 1;
+ 			nodeid = strtoul(str, &tmp, 16);
+ 			if (tmp == str && *str != 0)
+ 				return -1;
+-			if (nodeid>=0x1000)
++			if (nodeid >= 0x1000)
+ 				return -1;
+ 		}
  	}
+@@ -122,7 +122,7 @@ static int pack_key(struct tc_u32_sel *sel, __u32 key, __u32 mask,
  
--	/* For backwards compatibility, only allow reserved fields to be
--	 * used by VXLAN extensions if explicitly requested.
--	 */
- 	if (vs->flags & VXLAN_F_REMCSUM_RX)
- 		if (!vxlan_remcsum(&unparsed, skb, vs->flags))
- 			goto drop;
- 	if (vs->flags & VXLAN_F_GBP)
- 		vxlan_parse_gbp_hdr(&unparsed, skb, vs->flags, md);
-+	/* Note that GBP and GPE can never be active together. This is
-+	 * ensured in vxlan_dev_configure.
-+	 */
+ 	key &= mask;
  
- 	if (unparsed.vx_flags || unparsed.vx_vni) {
- 		/* If there are any unprocessed flags remaining treat
-@@ -1325,8 +1375,13 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		goto drop;
- 	}
+-	for (i=0; i<hwm; i++) {
++	for (i = 0; i < hwm; i++) {
+ 		if (sel->keys[i].off == off && sel->keys[i].offmask == offmask) {
+ 			__u32 intersect = mask & sel->keys[i].mask;
  
--	if (!vxlan_set_mac(vxlan, vs, skb))
--		goto drop;
-+	if (!raw_proto) {
-+		if (!vxlan_set_mac(vxlan, vs, skb))
-+			goto drop;
-+	} else {
-+		skb->dev = vxlan->dev;
-+		skb->pkt_type = PACKET_HOST;
-+	}
- 
- 	oiph = skb_network_header(skb);
- 	skb_reset_network_header(skb);
-@@ -1685,6 +1740,27 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
- 	gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
- }
- 
-+static int vxlan_build_gpe_hdr(struct vxlanhdr *vxh, u32 vxflags,
-+			       __be16 protocol)
-+{
-+	struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)vxh;
-+
-+	gpe->np_applied = 1;
-+
-+	switch (protocol) {
-+	case htons(ETH_P_IP):
-+		gpe->next_protocol = VXLAN_GPE_NP_IPV4;
-+		return 0;
-+	case htons(ETH_P_IPV6):
-+		gpe->next_protocol = VXLAN_GPE_NP_IPV6;
-+		return 0;
-+	case htons(ETH_P_TEB):
-+		gpe->next_protocol = VXLAN_GPE_NP_ETHERNET;
-+		return 0;
-+	}
-+	return -EPFNOSUPPORT;
-+}
-+
- static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- 			   int iphdr_len, __be32 vni,
- 			   struct vxlan_metadata *md, u32 vxflags,
-@@ -1694,6 +1770,7 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- 	int min_headroom;
- 	int err;
- 	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
-+	__be16 inner_protocol = htons(ETH_P_TEB);
- 
- 	if ((vxflags & VXLAN_F_REMCSUM_TX) &&
- 	    skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -1712,10 +1789,8 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- 
- 	/* Need space for new headers (invalidates iph ptr) */
- 	err = skb_cow_head(skb, min_headroom);
--	if (unlikely(err)) {
--		kfree_skb(skb);
--		return err;
--	}
-+	if (unlikely(err))
-+		goto out_free;
- 
- 	skb = vlan_hwaccel_push_inside(skb);
- 	if (WARN_ON(!skb))
-@@ -1744,9 +1819,19 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- 
- 	if (vxflags & VXLAN_F_GBP)
- 		vxlan_build_gbp_hdr(vxh, vxflags, md);
-+	if (vxflags & VXLAN_F_GPE) {
-+		err = vxlan_build_gpe_hdr(vxh, vxflags, skb->protocol);
-+		if (err < 0)
-+			goto out_free;
-+		inner_protocol = skb->protocol;
-+	}
- 
--	skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-+	skb_set_inner_protocol(skb, inner_protocol);
- 	return 0;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return err;
- }
- 
- static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
-@@ -2422,6 +2507,17 @@ static const struct net_device_ops vxlan_netdev_ether_ops = {
- 	.ndo_fill_metadata_dst	= vxlan_fill_metadata_dst,
- };
- 
-+static const struct net_device_ops vxlan_netdev_raw_ops = {
-+	.ndo_init		= vxlan_init,
-+	.ndo_uninit		= vxlan_uninit,
-+	.ndo_open		= vxlan_open,
-+	.ndo_stop		= vxlan_stop,
-+	.ndo_start_xmit		= vxlan_xmit,
-+	.ndo_get_stats64	= ip_tunnel_get_stats64,
-+	.ndo_change_mtu		= vxlan_change_mtu,
-+	.ndo_fill_metadata_dst	= vxlan_fill_metadata_dst,
-+};
-+
- /* Info for udev, that this is a virtual tunnel endpoint */
- static struct device_type vxlan_type = {
- 	.name = "vxlan",
-@@ -2501,6 +2597,17 @@ static void vxlan_ether_setup(struct net_device *dev)
- 	dev->netdev_ops = &vxlan_netdev_ether_ops;
- }
- 
-+static void vxlan_raw_setup(struct net_device *dev)
-+{
-+	dev->type = ARPHRD_NONE;
-+	dev->hard_header_len = 0;
-+	dev->addr_len = 0;
-+	dev->mtu = ETH_DATA_LEN;
-+	dev->tx_queue_len = 1000;
-+	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-+	dev->netdev_ops = &vxlan_netdev_raw_ops;
-+}
-+
- static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_ID]		= { .type = NLA_U32 },
- 	[IFLA_VXLAN_GROUP]	= { .len = FIELD_SIZEOF(struct iphdr, daddr) },
-@@ -2527,6 +2634,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_REMCSUM_TX]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_REMCSUM_RX]	= { .type = NLA_U8 },
- 	[IFLA_VXLAN_GBP]	= { .type = NLA_FLAG, },
-+	[IFLA_VXLAN_GPE]	= { .type = NLA_FLAG, },
- 	[IFLA_VXLAN_REMCSUM_NOPARTIAL]	= { .type = NLA_FLAG },
- };
- 
-@@ -2727,7 +2835,20 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 	__be16 default_port = vxlan->cfg.dst_port;
- 	struct net_device *lowerdev = NULL;
- 
--	vxlan_ether_setup(dev);
-+	if (conf->flags & VXLAN_F_GPE) {
-+		if (conf->flags & ~VXLAN_F_ALLOWED_GPE)
-+			return -EINVAL;
-+		/* For now, allow GPE only together with COLLECT_METADATA.
-+		 * This can be relaxed later; in such case, the other side
-+		 * of the PtP link will have to be provided.
-+		 */
-+		if (!(conf->flags & VXLAN_F_COLLECT_METADATA))
-+			return -EINVAL;
-+
-+		vxlan_raw_setup(dev);
-+	} else {
-+		vxlan_ether_setup(dev);
-+	}
- 
- 	vxlan->net = src_net;
- 
-@@ -2790,8 +2911,12 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
- 	dev->needed_headroom = needed_headroom;
- 
- 	memcpy(&vxlan->cfg, conf, sizeof(*conf));
--	if (!vxlan->cfg.dst_port)
--		vxlan->cfg.dst_port = default_port;
-+	if (!vxlan->cfg.dst_port) {
-+		if (conf->flags & VXLAN_F_GPE)
-+			vxlan->cfg.dst_port = 4790; /* IANA assigned VXLAN-GPE port */
-+		else
-+			vxlan->cfg.dst_port = default_port;
-+	}
- 	vxlan->flags |= conf->flags;
- 
- 	if (!vxlan->cfg.age_interval)
-@@ -2962,6 +3087,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_GBP])
- 		conf.flags |= VXLAN_F_GBP;
- 
-+	if (data[IFLA_VXLAN_GPE])
-+		conf.flags |= VXLAN_F_GPE;
-+
- 	if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
- 		conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
- 
-@@ -2978,6 +3106,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	case -EEXIST:
- 		pr_info("duplicate VNI %u\n", be32_to_cpu(conf.vni));
- 		break;
-+
-+	case -EINVAL:
-+		pr_info("unsupported combination of extensions\n");
-+		break;
- 	}
- 
- 	return err;
-@@ -3105,6 +3237,10 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_flag(skb, IFLA_VXLAN_GBP))
- 		goto nla_put_failure;
- 
-+	if (vxlan->flags & VXLAN_F_GPE &&
-+	    nla_put_flag(skb, IFLA_VXLAN_GPE))
-+		goto nla_put_failure;
-+
- 	if (vxlan->flags & VXLAN_F_REMCSUM_NOPARTIAL &&
- 	    nla_put_flag(skb, IFLA_VXLAN_REMCSUM_NOPARTIAL))
- 		goto nla_put_failure;
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index a763c96ecde4..8aabee2b078e 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -119,6 +119,64 @@ struct vxlanhdr_gbp {
- #define VXLAN_GBP_POLICY_APPLIED	(BIT(3) << 16)
- #define VXLAN_GBP_ID_MASK		(0xFFFF)
- 
-+/*
-+ * VXLAN Generic Protocol Extension (VXLAN_F_GPE):
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |R|R|Ver|I|P|R|O|       Reserved                |Next Protocol  |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ * |                VXLAN Network Identifier (VNI) |   Reserved    |
-+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * Ver = Version. Indicates VXLAN GPE protocol version.
-+ *
-+ * P = Next Protocol Bit. The P bit is set to indicate that the
-+ *     Next Protocol field is present.
-+ *
-+ * O = OAM Flag Bit. The O bit is set to indicate that the packet
-+ *     is an OAM packet.
-+ *
-+ * Next Protocol = This 8 bit field indicates the protocol header
-+ * immediately following the VXLAN GPE header.
-+ *
-+ * https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-01
-+ */
-+
-+struct vxlanhdr_gpe {
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	u8	oam_flag:1,
-+		reserved_flags1:1,
-+		np_applied:1,
-+		instance_applied:1,
-+		version:2,
-+reserved_flags2:2;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	u8	reserved_flags2:2,
-+		version:2,
-+		instance_applied:1,
-+		np_applied:1,
-+		reserved_flags1:1,
-+		oam_flag:1;
-+#endif
-+	u8	reserved_flags3;
-+	u8	reserved_flags4;
-+	u8	next_protocol;
-+	__be32	vx_vni;
-+};
-+
-+/* VXLAN-GPE header flags. */
-+#define VXLAN_HF_VER	cpu_to_be32(BIT(29) | BIT(28))
-+#define VXLAN_HF_NP	cpu_to_be32(BIT(26))
-+#define VXLAN_HF_OAM	cpu_to_be32(BIT(24))
-+
-+#define VXLAN_GPE_USED_BITS (VXLAN_HF_VER | VXLAN_HF_NP | VXLAN_HF_OAM | \
-+			     cpu_to_be32(0xff))
-+
-+/* VXLAN-GPE header Next Protocol. */
-+#define VXLAN_GPE_NP_IPV4      0x01
-+#define VXLAN_GPE_NP_IPV6      0x02
-+#define VXLAN_GPE_NP_ETHERNET  0x03
-+#define VXLAN_GPE_NP_NSH       0x04
-+
- struct vxlan_metadata {
- 	u32		gbp;
- };
-@@ -206,16 +264,26 @@ struct vxlan_dev {
- #define VXLAN_F_GBP			0x800
- #define VXLAN_F_REMCSUM_NOPARTIAL	0x1000
- #define VXLAN_F_COLLECT_METADATA	0x2000
-+#define VXLAN_F_GPE			0x4000
- 
- /* Flags that are used in the receive path. These flags must match in
-  * order for a socket to be shareable
-  */
- #define VXLAN_F_RCV_FLAGS		(VXLAN_F_GBP |			\
-+					 VXLAN_F_GPE |			\
- 					 VXLAN_F_UDP_ZERO_CSUM6_RX |	\
- 					 VXLAN_F_REMCSUM_RX |		\
- 					 VXLAN_F_REMCSUM_NOPARTIAL |	\
- 					 VXLAN_F_COLLECT_METADATA)
- 
-+/* Flags that can be set together with VXLAN_F_GPE. */
-+#define VXLAN_F_ALLOWED_GPE		(VXLAN_F_GPE |			\
-+					 VXLAN_F_IPV6 |			\
-+					 VXLAN_F_UDP_ZERO_CSUM_TX |	\
-+					 VXLAN_F_UDP_ZERO_CSUM6_TX |	\
-+					 VXLAN_F_UDP_ZERO_CSUM6_RX |	\
-+					 VXLAN_F_COLLECT_METADATA)
-+
- struct net_device *vxlan_dev_create(struct net *net, const char *name,
- 				    u8 name_assign_type, struct vxlan_config *conf);
- 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 8e3f88fa5b59..9c9d09c01f6f 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -486,6 +486,7 @@ enum {
- 	IFLA_VXLAN_REMCSUM_NOPARTIAL,
- 	IFLA_VXLAN_COLLECT_METADATA,
- 	IFLA_VXLAN_LABEL,
-+	IFLA_VXLAN_GPE,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+@@ -1244,7 +1244,7 @@ static int u32_print_opt(struct filter_util *qu, FILE *f, struct rtattr *opt,
+ 	if (sel) {
+ 		if (sel->nkeys) {
+ 			int i;
+-			for (i=0; i<sel->nkeys; i++) {
++			for (i = 0; i < sel->nkeys; i++) {
+ 				show_keys(f, sel->keys + i);
+ 				if (show_stats && NULL != pf)
+ 					fprintf(f, " (success %llu ) ",
 -- 
-1.8.3.1
+2.7.3
