@@ -1,126 +1,263 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: net/ppp: use-after-free in ppp_unregister_channel
-Date: Wed, 16 Mar 2016 23:14:42 +0800
-Message-ID: <56e97869.6afe420a.80cd8.ffffde3d@mx.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: Micrel Phy - Is there a way to configure the Phy not to do 802.3x
+ flow control?
+Date: Wed, 16 Mar 2016 11:16:25 -0400
+Message-ID: <56E978C9.4080000@ti.com>
+References: <56D8B83E.7000303@ti.com> <56D8D3D7.6070900@gmail.com>
+ <56E1A55F.3090906@ti.com> <56E1B75F.9070100@gmail.com>
+ <56E1CD4D.20405@ti.com> <56E30EE5.4050904@ti.com>
+ <56E321DE.9030408@gmail.com> <56E976DE.9040000@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, <johan@kernel.org>,
+	"open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	"Kwok, WingMan" <w-kwok2@ti.com>, Andrew Lunn <andrew@lunnc.ch>,
+	<opendmb@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:57179 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964860AbcCPPQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 11:16:24 -0400
+In-Reply-To: <56E976DE.9040000@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear all,
-I've got the following use-after-free report while running syzkaller
-fuzzer. Unfortunately no reproducer. It was found in the Linux kernel
-version(4.4, on commit 9638685e32af961943b679fcb72d4ddd458eb18f).
+On 03/16/2016 11:08 AM, Murali Karicheri wrote:
+> On 03/11/2016 02:51 PM, Florian Fainelli wrote:
+>> On 11/03/16 10:31, Murali Karicheri wrote:
+>>> On 03/10/2016 02:38 PM, Murali Karicheri wrote:
+>>>> On 03/10/2016 01:05 PM, Florian Fainelli wrote:
+>>>>> On 10/03/16 08:48, Murali Karicheri wrote:
+>>>>>> On 03/03/2016 07:16 PM, Florian Fainelli wrote:
+>>>>>>> On 03/03/16 14:18, Murali Karicheri wrote:
+>>>>>>>> Hi,
+>>>>>>>>
+>>>>>>>> We are using Micrel Phy in one of our board and wondering if we can force the
+>>>>>>>> Phy to disable flow control at start. I have a 1G ethernet switch connected
+>>>>>>>> to Phy and the phy always enable flow control. I would like to configure the
+>>>>>>>> phy not to flow control. Is that possible and if yes, what should I do in the
+>>>>>>>> my Ethernet driver to tell the Phy not to enable flow control?
+>>>>>>>
+>>>>>>> The PHY is not doing flow control per-se, your pseudo Ethernet MAC in
+>>>>>>> the switch is doing, along with the link partner advertising support for
+>>>>>>> it. You would want to make sure that your PHY device interface (provided
+>>>>>>> that you are using the PHY library) is not starting with Pause
+>>>>>>> advertised, but it could be supported.
+>>>>>>
+>>>>>> Understood that Phy is just advertise FC. The Micrel phy for 9031 advertise
+>>>>>> by default FC supported. After negotiation, I see that Phylib provide the 
+>>>>>> link status with parameter pause = 1, asym_pause = 1. How do I tell the Phy not
+>>>>>> to advertise?
+>>>>>>
+>>>>>> I call following sequence in the Ethernet driver.
+>>>>>>
+>>>>>> of_phy_connect(x,y,hndlr,a,z);
+>>>>>
+>>>>> Here you should be able to change phydev->advertising and
+>>>>> phydev->supported to mask the ADVERTISED_Pause | ADVERTISED_AsymPause
+>>>>> bits and have phy_start() restart with that which should disable pause
+>>>>> and asym_pause as seen by your adjust_link handler.
+>>>>>
+>>>> Ok. Good point. I will try this. Thanks for your suggestion.
+>>>>
+>>> I had to make following changes to the phy_device.c to allow the phy device
+>>> report maximum common flow control capability to Ethernet driver through
+>>> handler. My driver code looks like this.
+>>>
+>>>                 slave->phy = of_phy_connect(gbe_intf->ndev,
+>>>                                             slave->phy_node,
+>>>                                             hndlr, 0,
+>>>                                             phy_mode);
+>>>                 if (!slave->phy) {
+>>>                         dev_err(priv->dev, "phy not found on slave %d\n",
+>>>                                 slave->slave_num);
+>>>                         return -ENODEV;
+>>>                 }
+>>>                 dev_dbg(priv->dev, "phy found: id is: 0x%s\n",
+>>>                         dev_name(&slave->phy->dev));
+>>>
+>>>                 slave->phy->supported &=
+>>>                                 ~(SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+>>>                 slave->phy->advertising = slave->phy->supported;
+>>>                 phy_start(slave->phy);
+>>>                 phy_read_status(slave->phy);
+>>>
+>>> And then in the phy_device.c, I did to get flow control off reported in
+>>> handler for link status update.
+>>
+>>
+>>
+>>>
+>>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>>> index d551df6..55412ad 100644
+>>> --- a/drivers/net/phy/phy_device.c
+>>> +++ b/drivers/net/phy/phy_device.c
+>>> @@ -1021,8 +1021,8 @@ int genphy_read_status(struct phy_device *phydev)
+>>>                                 phydev->duplex = DUPLEX_FULL;
+>>>  
+>>>                 if (phydev->duplex == DUPLEX_FULL) {
+>>> -                       phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
+>>> -                       phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
+>>> +                       phydev->pause = adv & lpa & LPA_PAUSE_CAP ? 1 : 0;
+>>> +                       phydev->asym_pause = adv & lpa & LPA_PAUSE_ASYM ? 1 : 0;
+>>
+>> What it means before your patch is that flow control is reported to the
+>> PHY device if the link partner advertises that, with your patch applied,
+>> it is reported only if the link partner and yourself advertise flow control.
+>>
+>> You seem to be willing to have phydev->pause and phydev->asym_pause
+>> reflect the resolved pause capability, as opposed to the link partner's
+>> pause capability, which I am not convinced is correct here, because we
+>> need to take into account the user-configured pause configuration as
+>> well. Your adjust_link function should be the one deciding whether pause
+>> frame advertising and enabling is appropriate based on: locally
+>> configured pause settings (enabled, disabled, autoneg) and the link
+>> partner's pause capability.
+>>
+>> I do agree that the two fields are confusing and poorly documented, and
+>> we should probably be consolidating the pause frame behavior in PHYLIB
+>> as opposed to letting drivers deal with like e.g: gianfar, bcm63xx_enet,
+>> tg3 etc.
+>>
+>>>  
+>>> Could you explain, why the common maximum capability is not reported to the
+>>> driver as per standard?? Or Am I understood it wrong?
+>>
+>> I do not understand the question, what is "maximum capability" in that
+>> context and what standard are you refering to?
+>>
+> I assume the Phylib is responsible for deciding what is the flow
+> control pause and asym pause status to the driver through adjust_link.
+> When driver starts the phy, it also tells its capabilities (for example
+> it can reset some of the capabilities available in the Phy driver. In this
+> particular case, Pause is a feature supported by Micrel phy. I have reset
+> this feature in my driver by resetting this feature bit in the phy_device
+> as suggested earlier in this discussion). So phylib has all knowledge
+> available to disable flow control in this scenario even if LP is capable
+> of flow control. Wondering why every driver has to take this decision
+> again to enable or disable flow control instead of telling the driver
+> what to do. 
+What I meant is if driver tells phy not advertise, then adjust_link should
+reflect the same. i.e both pause and asym_pause should be off.
 
-==================================================================
-BUG: KASAN: use-after-free in ppp_unregister_channel+0x372/0x3a0 at
-addr ffff880064e217e0
-Read of size 8 by task syz-executor/11581
-=============================================================================
-BUG net_namespace (Not tainted): kasan: bad access detected
------------------------------------------------------------------------------
+Murali
+> 
+> Looks like Marvel driver (reproduced below) does this logic. I think the
+> 802.3x flow control states, but I don't have access to the standard documentation.
+> However I find the documentation at 
+> http://www.studioreti.it/slide/08_SwFlowContr_E_A.pdf.
+> 
+> Page 17 states the behavior based on Local device & Link partner's 
+> capabilities. Probably adjust_link() should tell the outcome in pause
+> and asym_pause so that driver can enable/disable fc. Also user's action
+> to be taken into account as well so that fc can be disabled if desired.
+> 
+> Code from drivers/net/phy/marvel.c
+> 
+> static int marvell_read_status(struct phy_device *phydev)
+> {
+> 
+>         int adv;
+>         int err;
+>         int lpa;
+>         int lpagb;
+>         int status = 0;
+> 
+>         /* Update the link, but return if there
+>          * was an error */
+>         err = genphy_update_link(phydev);
+>         if (err)
+>                 return err;
+> 
+>         if (AUTONEG_ENABLE == phydev->autoneg) {
+>                 status = phy_read(phydev, MII_M1011_PHY_STATUS);
+>                 if (status < 0)
+>                         return status;
+> 
+>                 lpa = phy_read(phydev, MII_LPA);
+>                 if (lpa < 0)
+>                         return lpa;
+> 
+>                 lpagb = phy_read(phydev, MII_STAT1000);
+>                 if (lpagb < 0)
+>                         return lpagb;
+> 
+>                 adv = phy_read(phydev, MII_ADVERTISE);
+>                 if (adv < 0)
+>                         return adv;
+> 
+>                 phydev->lp_advertising = mii_stat1000_to_ethtool_lpa_t(lpagb) |
+>                                          mii_lpa_to_ethtool_lpa_t(lpa);
+> 
+>                 lpa &= adv;
+> 
+>                 if (status & MII_M1011_PHY_STATUS_FULLDUPLEX        int adv;
+>         int err;
+>         int lpa;
+>         int lpagb;
+>         int status = 0;
+> 
+>         /* Update the link, but return if there
+>          * was an error */
+>         err = genphy_update_link(phydev);
+>         if (err)
+>                 return err;
+> )
+>                         phydev->duplex = DUPLEX_FULL;
+>                 else
+>                         phydev->duplex = DUPLEX_HALF;
+> 
+>                 status = status & MII_M1011_PHY_STATUS_SPD_MASK;
+>                 phydev->pause = phydev->asym_pause = 0;
+> 
+>                 switch (status) {
+>                 case MII_M1011_PHY_STATUS_1000:
+>                         phydev->speed = SPEED_1000;
+>                         break;
+> 
+>                 case MII_M1011_PHY_STATUS_100:
+>                         phydev->speed = SPEED_100;
+>                         break;
+> 
+>                 default:
+>                         phydev->speed = SPEED_10;
+> 
+>                         break;
+>                 }
+> 
+>                 if (phydev->duplex == DUPLEX_FULL) {
+>                         phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
+>                         phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
+>                 }
+>         } else {
+>                 int bmcr = phy_read(phydev, MII_BMCR);
+> 
+>                 if (bmcr < 0)
+>                         return bmcr;
+> 
+>                 if (bmcr & BMCR_FULLDPLX)
+>                         phydev->duplex = DUPLEX_FULL;
+>                 else
+>                         phydev->duplex = DUPLEX_HALF;
+> 
+>                 if (bmcr & BMCR_SPEED1000)
+>                         phydev->speed = SPEED_1000;
+>                 else if (bmcr & BMCR_SPEED100)
+>                         phydev->speed = SPEED_100;
+>                 else
+>                         phydev->speed = SPEED_10;
+> 
+>                 phydev->pause = phydev->asym_pause = 0;
+>                 phydev->lp_advertising = 0;
+>         }
+> 
+>         return 0;
+> }
+> 
+> 
 
-Disabling lock debugging due to kernel taint
-INFO: Allocated in copy_net_ns+0x6b/0x1a0 age=92569 cpu=3 pid=6906
-[<      none      >] ___slab_alloc+0x4c7/0x500 kernel/mm/slub.c:2440
-[<      none      >] __slab_alloc+0x4c/0x90 kernel/mm/slub.c:2469
-[<     inline     >] slab_alloc_node kernel/mm/slub.c:2532
-[<     inline     >] slab_alloc kernel/mm/slub.c:2574
-[<      none      >] kmem_cache_alloc+0x23a/0x2b0 kernel/mm/slub.c:2579
-[<     inline     >] kmem_cache_zalloc kernel/include/linux/slab.h:597
-[<     inline     >] net_alloc kernel/net/core/net_namespace.c:325
-[<      none      >] copy_net_ns+0x6b/0x1a0 kernel/net/core/net_namespace.c:360
-[<      none      >] create_new_namespaces+0x2f6/0x610 kernel/kernel/nsproxy.c:95
-[<      none      >] copy_namespaces+0x297/0x320 kernel/kernel/nsproxy.c:150
-[<      none      >] copy_process.part.35+0x1bf4/0x5760 kernel/kernel/fork.c:1451
-[<     inline     >] copy_process kernel/kernel/fork.c:1274
-[<      none      >] _do_fork+0x1bc/0xcb0 kernel/kernel/fork.c:1723
-[<     inline     >] SYSC_clone kernel/kernel/fork.c:1832
-[<      none      >] SyS_clone+0x37/0x50 kernel/kernel/fork.c:1826
-[<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a kernel/arch/x86/entry/entry_64.S:185
 
-INFO: Freed in net_drop_ns+0x67/0x80 age=575 cpu=2 pid=2631
-[<      none      >] __slab_free+0x1fc/0x320 kernel/mm/slub.c:2650
-[<     inline     >] slab_free kernel/mm/slub.c:2805
-[<      none      >] kmem_cache_free+0x2a0/0x330 kernel/mm/slub.c:2814
-[<     inline     >] net_free kernel/net/core/net_namespace.c:341
-[<      none      >] net_drop_ns+0x67/0x80 kernel/net/core/net_namespace.c:348
-[<      none      >] cleanup_net+0x4e5/0x600 kernel/net/core/net_namespace.c:448
-[<      none      >] process_one_work+0x794/0x1440 kernel/kernel/workqueue.c:2036
-[<      none      >] worker_thread+0xdb/0xfc0 kernel/kernel/workqueue.c:2170
-[<      none      >] kthread+0x23f/0x2d0 kernel/drivers/block/aoe/aoecmd.c:1303
-[<      none      >] ret_from_fork+0x3f/0x70 kernel/arch/x86/entry/entry_64.S:468
-INFO: Slab 0xffffea0001938800 objects=3 used=0 fp=0xffff880064e20000
-flags=0x5fffc0000004080
-INFO: Object 0xffff880064e20000 @offset=0 fp=0xffff880064e24200
-
-CPU: 1 PID: 11581 Comm: syz-executor Tainted: G    B           4.4.0+
-#5
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
-rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
- 00000000ffffffff ffff8800662c7790 ffffffff8292049d ffff88003e36a300
- ffff880064e20000 ffff880064e20000 ffff8800662c77c0 ffffffff816f2054
- ffff88003e36a300 ffffea0001938800 ffff880064e20000 0000000000000000
-Call Trace:
- [<     inline     >] __dump_stack kernel/lib/dump_stack.c:15
- [<ffffffff8292049d>] dump_stack+0x6f/0xa2 kernel/lib/dump_stack.c:50
- [<ffffffff816f2054>] print_trailer+0xf4/0x150 kernel/mm/slub.c:654
- [<ffffffff816f875f>] object_err+0x2f/0x40 kernel/mm/slub.c:661
- [<     inline     >] print_address_description kernel/mm/kasan/report.c:138
- [<ffffffff816fb0c5>] kasan_report_error+0x215/0x530 kernel/mm/kasan/report.c:236
- [<     inline     >] kasan_report kernel/mm/kasan/report.c:259
- [<ffffffff816fb4de>] __asan_report_load8_noabort+0x3e/0x40 kernel/mm/kasan/report.c:280
- [<     inline     >] ? ppp_pernet kernel/include/linux/compiler.h:218
- [<ffffffff83ad71b2>] ? ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
- [<     inline     >] ppp_pernet kernel/include/linux/compiler.h:218
- [<ffffffff83ad71b2>] ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
- [<     inline     >] ? ppp_pernet kernel/drivers/net/ppp/ppp_generic.c:293
- [<ffffffff83ad6f26>] ? ppp_unregister_channel+0xe6/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
- [<ffffffff83ae18f3>] ppp_asynctty_close+0xa3/0x130 kernel/drivers/net/ppp/ppp_async.c:241
- [<ffffffff83ae1850>] ? async_lcp_peek+0x5b0/0x5b0 kernel/drivers/net/ppp/ppp_async.c:1000
- [<ffffffff82c33239>] tty_ldisc_close.isra.1+0x99/0xe0 kernel/drivers/tty/tty_ldisc.c:478
- [<ffffffff82c332c0>] tty_ldisc_kill+0x40/0x170 kernel/drivers/tty/tty_ldisc.c:744
- [<ffffffff82c34943>] tty_ldisc_release+0x1b3/0x260 kernel/drivers/tty/tty_ldisc.c:772
- [<ffffffff82c1ef21>] tty_release+0xac1/0x13e0 kernel/drivers/tty/tty_io.c:1901
- [<ffffffff82c1e460>] ? release_tty+0x320/0x320 kernel/drivers/tty/tty_io.c:1688
- [<ffffffff8174de36>] __fput+0x236/0x780 kernel/fs/file_table.c:208
- [<ffffffff8174e405>] ____fput+0x15/0x20 kernel/fs/file_table.c:244
- [<ffffffff813595ab>] task_work_run+0x16b/0x200 kernel/kernel/task_work.c:115
- [<     inline     >] exit_task_work kernel/include/linux/task_work.h:21
- [<ffffffff81307105>] do_exit+0x8b5/0x2c60 kernel/kernel/exit.c:750
- [<ffffffff813fdd20>] ? debug_check_no_locks_freed+0x290/0x290 kernel/kernel/locking/lockdep.c:4123
- [<ffffffff81306850>] ? mm_update_next_owner+0x6f0/0x6f0 kernel/kernel/exit.c:357
- [<ffffffff813215e6>] ? __dequeue_signal+0x136/0x470 kernel/kernel/signal.c:550
- [<ffffffff8132067b>] ? recalc_sigpending_tsk+0x13b/0x180 kernel/kernel/signal.c:145
- [<ffffffff81309628>] do_group_exit+0x108/0x330 kernel/kernel/exit.c:880
- [<ffffffff8132b9d4>] get_signal+0x5e4/0x14f0 kernel/kernel/signal.c:2307
- [<     inline     >] ? kretprobe_table_lock kernel/kernel/kprobes.c:1113
- [<ffffffff8151d355>] ? kprobe_flush_task+0xb5/0x450 kernel/kernel/kprobes.c:1158
- [<ffffffff8115f7d3>] do_signal+0x83/0x1c90 kernel/arch/x86/kernel/signal.c:712
- [<ffffffff8151d2a0>] ? recycle_rp_inst+0x310/0x310 kernel/include/linux/list.h:655
- [<ffffffff8115f750>] ? setup_sigcontext+0x780/0x780 kernel/arch/x86/kernel/signal.c:165
- [<ffffffff81380864>] ? finish_task_switch+0x424/0x5f0 kernel/kernel/sched/core.c:2692
- [<     inline     >] ? finish_lock_switch kernel/kernel/sched/sched.h:1099
- [<ffffffff81380560>] ? finish_task_switch+0x120/0x5f0 kernel/kernel/sched/core.c:2678
- [<     inline     >] ? context_switch kernel/kernel/sched/core.c:2807
- [<ffffffff85d794e9>] ? __schedule+0x919/0x1bd0 kernel/kernel/sched/core.c:3283
- [<ffffffff81003901>] exit_to_usermode_loop+0xf1/0x1a0 kernel/arch/x86/entry/common.c:247
- [<     inline     >] prepare_exit_to_usermode kernel/arch/x86/entry/common.c:282
- [<ffffffff810062ef>] syscall_return_slowpath+0x19f/0x210 kernel/arch/x86/entry/common.c:344
- [<ffffffff85d88022>] int_ret_from_sys_call+0x25/0x9f kernel/arch/x86/entry/entry_64.S:281
-Memory state around the buggy address:
- ffff880064e21680: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff880064e21700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff880064e21780: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-                                                       ^
- ffff880064e21800: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff880064e21880: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-==================================================================
-
-Best Regards,
-
-Baozeng Ding
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
