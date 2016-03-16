@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/3] bpf: make skb->tc_classid also readable
-Date: Wed, 16 Mar 2016 01:42:49 +0100
-Message-ID: <73735195991a70e7b8177e9571d676f4b4a734b1.1458085814.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 2/3] bpf, dst: add and use dst_tclassid helper
+Date: Wed, 16 Mar 2016 01:42:50 +0100
+Message-ID: <27b04002c41af19d7532a627a7497b109b6d2e24.1458085814.git.daniel@iogearbox.net>
 References: <cover.1458085814.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38431 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:38428 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753122AbcCPAnG (ORCPT
+	with ESMTP id S1753090AbcCPAnG (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 20:43:06 -0400
 In-Reply-To: <cover.1458085814.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1458085814.git.daniel@iogearbox.net>
@@ -17,52 +17,58 @@ References: <cover.1458085814.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the tc_classid from eBPF skb context is write-only, but there's
-no good reason for tc programs to limit it to write-only. For example,
-it can be used to transfer its state via tail calls where the resulting
-tc_classid gets filled gradually.
+We can just add a small helper dst_tclassid() for retrieving the
+dst->tclassid value. It makes the code a bit better in that we can
+get rid of the ifdef from filter.c by moving this into the header.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/net/dst.h | 12 ++++++++++++
+ net/core/filter.c |  9 +--------
+ 2 files changed, 13 insertions(+), 8 deletions(-)
 
+diff --git a/include/net/dst.h b/include/net/dst.h
+index c7329dc..5c98443 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -398,6 +398,18 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
+ 	__skb_tunnel_rx(skb, dev, net);
+ }
+ 
++static inline u32 dst_tclassid(const struct sk_buff *skb)
++{
++#ifdef CONFIG_IP_ROUTE_CLASSID
++	const struct dst_entry *dst;
++
++	dst = skb_dst(skb);
++	if (dst)
++		return dst->tclassid;
++#endif
++	return 0;
++}
++
+ int dst_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb);
+ static inline int dst_discard(struct sk_buff *skb)
+ {
 diff --git a/net/core/filter.c b/net/core/filter.c
-index 6fc3893..69c7b2f 100644
+index 69c7b2f..4c35d83 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -2069,16 +2069,14 @@ static bool sk_filter_is_valid_access(int off, int size,
- static bool tc_cls_act_is_valid_access(int off, int size,
- 				       enum bpf_access_type type)
- {
--	if (off == offsetof(struct __sk_buff, tc_classid))
--		return type == BPF_WRITE ? true : false;
--
- 	if (type == BPF_WRITE) {
- 		switch (off) {
- 		case offsetof(struct __sk_buff, mark):
- 		case offsetof(struct __sk_buff, tc_index):
- 		case offsetof(struct __sk_buff, priority):
- 		case offsetof(struct __sk_buff, cb[0]) ...
--			offsetof(struct __sk_buff, cb[4]):
-+		     offsetof(struct __sk_buff, cb[4]):
-+		case offsetof(struct __sk_buff, tc_classid):
- 			break;
- 		default:
- 			return false;
-@@ -2195,8 +2193,10 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 		ctx_off -= offsetof(struct __sk_buff, tc_classid);
- 		ctx_off += offsetof(struct sk_buff, cb);
- 		ctx_off += offsetof(struct qdisc_skb_cb, tc_classid);
--		WARN_ON(type != BPF_WRITE);
--		*insn++ = BPF_STX_MEM(BPF_H, dst_reg, src_reg, ctx_off);
-+		if (type == BPF_WRITE)
-+			*insn++ = BPF_STX_MEM(BPF_H, dst_reg, src_reg, ctx_off);
-+		else
-+			*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg, ctx_off);
- 		break;
+@@ -1682,14 +1682,7 @@ static const struct bpf_func_proto bpf_get_cgroup_classid_proto = {
  
- 	case offsetof(struct __sk_buff, tc_index):
+ static u64 bpf_get_route_realm(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ {
+-#ifdef CONFIG_IP_ROUTE_CLASSID
+-	const struct dst_entry *dst;
+-
+-	dst = skb_dst((struct sk_buff *) (unsigned long) r1);
+-	if (dst)
+-		return dst->tclassid;
+-#endif
+-	return 0;
++	return dst_tclassid((struct sk_buff *) (unsigned long) r1);
+ }
+ 
+ static const struct bpf_func_proto bpf_get_route_realm_proto = {
 -- 
 1.9.3
