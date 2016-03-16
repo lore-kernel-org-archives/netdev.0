@@ -1,45 +1,48 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
-Date: Wed, 16 Mar 2016 23:23:59 +0100
-Message-ID: <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
-References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
- <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com> <20160316161848.GE2393@lunn.ch>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next
+ tree
+Date: Thu, 17 Mar 2016 09:35:31 +1100
+Message-ID: <20160317093531.4894f078@canb.auug.org.au>
+References: <20160316115809.61b4478e@canb.auug.org.au>
+	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+	<20160317075246.39a08e61@canb.auug.org.au>
+	<20160316211503.GA16382@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?c2hhb2h1aSDosKI=?= <shh.xie@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Doug Ledford <dledford@redhat.com>,
 	David Miller <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
+	Network Development <netdev@vger.kernel.org>,
+	linux-next <linux-next@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:33589 "EHLO
-	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967095AbcCPWYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 18:24:20 -0400
-Received: by mail-vk0-f46.google.com with SMTP id k1so80659591vkb.0
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 15:24:20 -0700 (PDT)
-In-Reply-To: <20160316161848.GE2393@lunn.ch>
+Received: from ozlabs.org ([103.22.144.67]:59556 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750955AbcCPWfe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 18:35:34 -0400
+In-Reply-To: <20160316211503.GA16382@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi Andrew,
 
-On Wed, Mar 16, 2016 at 5:18 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Wed, Mar 16, 2016 at 04:59:23PM +0100, Yegor Yefremov wrote:
+On Wed, 16 Mar 2016 22:15:03 +0100 Andrew Lunn <andrew@lunn.ch> wrote:
 >
->> This patch breaks my am335x based board, where one of the CPSW slaves
->> is connected to IP175D switch chip via RMII interface. Since this
->> patch packet reception is not working.
->
-> Hi Yegor
->
-> Which phy is causing the problem? A PHY inside the switch?
->
-> Do you have two back to back PHYs between the MAC and the switch, or
-> is the CPSW RMII connected directly to the switch?
+> > How about "This is now fixed as far as linux-next is concerned, but any
+> > non trivial conflicts should be mentioned to your upstream maintainer
+> > when your tree is submitted for merging.  You may want also want to  
+> 
+> Only the second want is required.
+> 
+> > consider cooperate with the maintainer of the conflicting tree to  
+> 
+> cooperating
 
-CPSW RMII is connected directly to the switch.
+Thanks.  Breakfast is not the best time to compose prose :-)
 
-Yegor
+-- 
+Cheers,
+Stephen Rothwell
