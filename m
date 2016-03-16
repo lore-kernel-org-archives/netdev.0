@@ -1,42 +1,106 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 0/8] Follow-up to my action man pages series
-Date: Wed, 16 Mar 2016 22:56:16 +0100
-Message-ID: <1458165384-900-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 8/8] man: tc-vlan.8: Describe CONTROL option
+Date: Wed, 16 Mar 2016 22:56:24 +0100
+Message-ID: <1458165384-900-9-git-send-email-phil@nwl.cc>
+References: <1458165384-900-1-git-send-email-phil@nwl.cc>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:59316 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:39380 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755656AbcCPV4z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 17:56:55 -0400
+	id S1755656AbcCPV4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 17:56:49 -0400
+In-Reply-To: <1458165384-900-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following patch series aims at addressing feedback provided by Jamal
-and Alexei. Thanks a lot for your input!
+This should be made generic and part of a common tc-actions man page.
+Though leave it here for now to not confuse readers of the example which
+uses it.
 
-Phil Sutter (8):
-  doc/tc-filters.tex: Drop overly subjective paragraphs
-  tc: connmark, pedit: Rename BRANCH to CONTROL
-  man: tc-csum.8: Add an example
-  man: tc-mirred.8: Reword man page a bit, add generic mirror example
-  man: tc-police.8: Emphasize on the two rate control mechanisms
-  man: tc-skbedit.8: Elaborate a bit on TX queues
-  tc/m_vlan.c: mention CONTROL option in help text
-  man: tc-vlan.8: Describe CONTROL option
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/tc-vlan.8 | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 55 insertions(+), 1 deletion(-)
 
- doc/tc-filters.tex     | 23 ++++-----------------
- man/man8/tc-connmark.8 |  6 +++---
- man/man8/tc-csum.8     | 15 ++++++++++++++
- man/man8/tc-mirred.8   | 26 ++++++++++++++++-------
- man/man8/tc-pedit.8    |  6 +++---
- man/man8/tc-police.8   | 29 ++++++++++++++++++++++----
- man/man8/tc-skbedit.8  | 14 +++++++++++++
- man/man8/tc-vlan.8     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++-
- tc/m_connmark.c        |  4 ++--
- tc/m_pedit.c           |  4 ++--
- tc/m_vlan.c            |  3 ++-
- 11 files changed, 144 insertions(+), 42 deletions(-)
-
+diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
+index e650b72d3b395..4bfd72b129aaf 100644
+--- a/man/man8/tc-vlan.8
++++ b/man/man8/tc-vlan.8
+@@ -6,13 +6,17 @@ vlan - vlan manipulation module
+ .in +8
+ .ti -8
+ .BR tc " ... " "action vlan" " { " pop " |"
+-.IR PUSH " }"
++.IR PUSH " } [ " CONTROL " ]"
+ 
+ .ti -8
+ .IR PUSH " := "
+ .BR push " [ " protocol
+ .IR VLANPROTO " ]"
+ .BI id " VLANID"
++
++.ti -8
++.IR CONTROL " := { "
++.BR reclassify " | " pipe " | " drop " | " continue " | " pass " }"
+ .SH DESCRIPTION
+ The
+ .B vlan
+@@ -50,5 +54,55 @@ for hexadecimal interpretation, etc.).
+ .BI protocol " VLANPROTO"
+ Choose the VLAN protocol to use. At the time of writing, the kernel accepts only
+ .BR 802.1Q " or " 802.1ad .
++.TP
++.I CONTROL
++How to continue after executing this action.
++.RS
++.TP
++.B reclassify
++Restarts classification by jumping back to the first filter attached to this
++action's parent.
++.TP
++.B pipe
++Continue with the next action, this is the default.
++.TP
++.B drop
++Packet will be dropped without running further actions.
++.TP
++.B continue
++Continue classification with next filter in line.
++.TP
++.B pass
++Return to calling qdisc for packet processing. This ends the classification
++process.
++.RE
++.SH EXAMPLES
++The following example encapsulates incoming ICMP packets on eth0 from 10.0.0.2
++into VLAN ID 123:
++
++.RS
++.EX
++#tc qdisc add dev eth0 handle ffff: ingress
++#tc filter add dev eth0 parent ffff: pref 11 protocol ip \\
++	u32 match ip protocol 1 0xff flowid 1:1 \\
++	u32 match ip src 10.0.0.2 flowid 1:1 \\
++	action vlan push id 123
++.EE
++.RE
++
++Here is an example of the
++.B pop
++function: Incoming VLAN packets on eth0 are decapsulated and the classification
++process then restarted for the plain packet:
++
++.RS
++.EX
++#tc qdisc add dev eth0 handle ffff: ingress
++#tc filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \\
++	u32 match u32 0 0 flowid 1:1 \\
++	action vlan pop reclassify
++.EE
++.RE
++
+ .SH SEE ALSO
+ .BR tc (8)
 -- 
 2.7.2
