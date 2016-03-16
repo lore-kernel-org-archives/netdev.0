@@ -1,141 +1,76 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: [RFCv2 2/3] ath10k: report per-station tx/rate rates to
-	mac80211
-Date: Wed, 16 Mar 2016 11:17:57 +0100
-Message-ID: <1458123478-1795-3-git-send-email-michal.kazior@tieto.com>
-References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: =?UTF-8?q?=5BPATCH=20=28net-next=2Egit=29=5D=20stmmac=3A=20fix=20TX=20normal=20DESC?=
+Date: Wed, 16 Mar 2016 11:21:49 +0100
+Message-ID: <1458123709-19692-2-git-send-email-peppe.cavallaro@st.com>
+References: <1458123709-19692-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: nbd@openwrt.org, emmanuel.grumbach@intel.com, netdev@vger.kernel.org,
- ath10k@lists.infradead.org, codel@lists.bufferbloat.net,
- make-wifi-fast@lists.bufferbloat.net, johannes@sipsolutions.net,
- Tim Shepard <shep@alum.mit.edu>
-To: linux-wireless@vger.kernel.org
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, <preid@electromag.com.au>,
+	<tomeu@tomeuvizoso.net>, <fabrice.gasnier@st.com>,
+	<alexandre.torgue@st.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60634 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S966153AbcCPKQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 06:16:49 -0400
+In-Reply-To: <1458123709-19692-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIHJhdGUgY29udHJvbCBpcyBvZmZsb2FkZWQgYnkgZmlybXdhcmUgc28gaXQncwpjaGFsbGFu
-Z2luZyB0byBwcm92aWRlIGV4cGVjdGVkIHRocm91Z2hwdXQgdmFsdWUKZm9yIGdpdmVuIHN0YXRp
-b24uCgpUaGlzIGFwcHJvYWNoIGlzIG5haXZlIGFzIGl0IHJlcG9ydHMgbGFzdCB0eCByYXRlCnVz
-ZWQgZm9yIGdpdmVuIHN0YXRpb24gYXMgcHJvdmlkZWQgYnkgZmlybXdhcmUKc3RhdCBldmVudC4K
-ClRoaXMgc2hvdWxkIGJlIHN1ZmZpY2llbnQgZm9yIGFpcnRpbWUgZXN0aW1hdGlvbgp1c2VkIGZv
-ciBmcS1jb2RlbC1pbi1tYWM4MDIxMSB0eCBzY2hlZHVsaW5nCnB1cnBvc2VzIG5vdy4KClRoaXMg
-cGF0Y2ggdXNlcyBhIHZlcnkgaGFja3kgd2F5IHRvIGdldCB0aGUgc3RhdHMuClRoaXMgaXMgc3Vm
-ZmljaWVudCBmb3IgcHJvb2Ytb2YtY29uY2VwdCBidXQgbXVzdApiZSBjbGVhbmVkIHVwIHByb3Bl
-cmx5IGV2ZW50dWFsbHkuCgpTaWduZWQtb2ZmLWJ5OiBNaWNoYWwgS2F6aW9yIDxtaWNoYWwua2F6
-aW9yQHRpZXRvLmNvbT4KLS0tCiBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL2NvcmUu
-aCAgfCAgNSArKysKIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvZGVidWcuYyB8IDYx
-ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLQogZHJpdmVycy9uZXQvd2lyZWxlc3Mv
-YXRoL2F0aDEway9tYWMuYyAgIHwgMjYgKysrKysrKystLS0tLS0KIGRyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2F0aC9hdGgxMGsvd21pLmggICB8ICAyICstCiA0IGZpbGVzIGNoYW5nZWQsIDc2IGluc2Vy
-dGlvbnMoKyksIDE4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2F0aC9hdGgxMGsvY29yZS5oIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9j
-b3JlLmgKaW5kZXggMjNiYTAzZmI3YTVmLi4zZjc2NjY5ZDQ0Y2YgMTAwNjQ0Ci0tLSBhL2RyaXZl
-cnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5oCisrKyBiL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2F0aC9hdGgxMGsvY29yZS5oCkBAIC0zMzEsNiArMzMxLDkgQEAgc3RydWN0IGF0aDEwa19z
-dGEgewogCS8qIHByb3RlY3RlZCBieSBjb25mX211dGV4ICovCiAJYm9vbCBhZ2dyX21vZGU7CiAJ
-dTY0IHJ4X2R1cmF0aW9uOworCisJdTMyIHR4X3JhdGVfa2JwczsKKwl1MzIgcnhfcmF0ZV9rYnBz
-OwogI2VuZGlmCiB9OwogCkBAIC0zNzIsNiArMzc1LDggQEAgc3RydWN0IGF0aDEwa192aWYgewog
-CXM4IGRlZl93ZXBfa2V5X2lkeDsKIAogCXUxNiB0eF9zZXFfbm87CisJdTMyIHR4X3JhdGVfa2Jw
-czsKKwl1MzIgcnhfcmF0ZV9rYnBzOwogCiAJdW5pb24gewogCQlzdHJ1Y3QgewpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9kZWJ1Zy5jIGIvZHJpdmVycy9uZXQv
-d2lyZWxlc3MvYXRoL2F0aDEway9kZWJ1Zy5jCmluZGV4IDA3NmQyOWI1M2RkZi4uY2M3ZWJmMDRh
-ZTAwIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL2RlYnVnLmMK
-KysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9kZWJ1Zy5jCkBAIC0zMTYsNiAr
-MzE2LDU4IEBAIHN0YXRpYyB2b2lkIGF0aDEwa19kZWJ1Z19md19zdGF0c19yZXNldChzdHJ1Y3Qg
-YXRoMTBrICphcikKIAlzcGluX3VubG9ja19iaCgmYXItPmRhdGFfbG9jayk7CiB9CiAKK3N0YXRp
-YyB2b2lkIGF0aDEwa19tYWNfdXBkYXRlX3R4cnhfcmF0ZV9pdGVyKHZvaWQgKmRhdGEsCisJCQkJ
-CSAgICAgdTggKm1hYywKKwkJCQkJICAgICBzdHJ1Y3QgaWVlZTgwMjExX3ZpZiAqdmlmKQorewor
-CXN0cnVjdCBhdGgxMGtfZndfc3RhdHNfcGVlciAqcGVlciA9IGRhdGE7CisJc3RydWN0IGF0aDEw
-a192aWYgKmFydmlmOworCisJaWYgKG1lbWNtcCh2aWYtPmFkZHIsIHBlZXItPnBlZXJfbWFjYWRk
-ciwgRVRIX0FMRU4pKQorCQlyZXR1cm47CisKKwlhcnZpZiA9ICh2b2lkICopdmlmLT5kcnZfcHJp
-djsKKwlhcnZpZi0+dHhfcmF0ZV9rYnBzID0gcGVlci0+cGVlcl90eF9yYXRlOworCWFydmlmLT5y
-eF9yYXRlX2ticHMgPSBwZWVyLT5wZWVyX3J4X3JhdGU7Cit9CisKK3N0YXRpYyB2b2lkIGF0aDEw
-a19tYWNfdXBkYXRlX3R4cnhfcmF0ZShzdHJ1Y3QgYXRoMTBrICphciwKKwkJCQkJc3RydWN0IGF0
-aDEwa19md19zdGF0cyAqc3RhdHMpCit7CisJc3RydWN0IGllZWU4MDIxMV9odyAqaHcgPSBhci0+
-aHc7CisJc3RydWN0IGF0aDEwa19md19zdGF0c19wZWVyICpwZWVyOworCXN0cnVjdCBhdGgxMGtf
-c3RhICphcnN0YTsKKwlzdHJ1Y3QgaWVlZTgwMjExX3N0YSAqc3RhOworCWNvbnN0IHU4ICpsb2Nh
-bGFkZHIgPSBOVUxMOworCisJcmN1X3JlYWRfbG9jaygpOworCisJbGlzdF9mb3JfZWFjaF9lbnRy
-eShwZWVyLCAmc3RhdHMtPnBlZXJzLCBsaXN0KSB7CisJCS8qIFRoaXMgZG9lc24ndCBhY2NvdW50
-IGZvciBtdWx0aXBsZSBTVEEgY29ubmVjdGVkIG9uIGRpZmZlcmVudAorCQkgKiB2aWZzLiBVbmZv
-cnR1bmF0ZWx5IHRoZXJlJ3Mgbm8gd2F5IHRvIGRlcml2ZSB0aGF0IGZyb20gdGhlIGF2YWlsYWJs
-ZQorCQkgKiBpbmZvcm1hdGlvbi4KKwkJICovCisJCXN0YSA9IGllZWU4MDIxMV9maW5kX3N0YV9i
-eV9pZmFkZHIoaHcsCisJCQkJCQkgICBwZWVyLT5wZWVyX21hY2FkZHIsCisJCQkJCQkgICBsb2Nh
-bGFkZHIpOworCQlpZiAoIXN0YSkgeworCQkJLyogVGhpcyB0cmllcyB0byB1cGRhdGUgbXVsdGlj
-YXN0IHJhdGVzICovCisJCQlpZWVlODAyMTFfaXRlcmF0ZV9hY3RpdmVfaW50ZXJmYWNlc19hdG9t
-aWMoCisJCQkJCWh3LAorCQkJCQlJRUVFODAyMTFfSUZBQ0VfSVRFUl9OT1JNQUwsCisJCQkJCWF0
-aDEwa19tYWNfdXBkYXRlX3R4cnhfcmF0ZV9pdGVyLAorCQkJCQlwZWVyKTsKKwkJCWNvbnRpbnVl
-OworCQl9CisKKwkJYXJzdGEgPSAodm9pZCAqKXN0YS0+ZHJ2X3ByaXY7CisJCWFyc3RhLT50eF9y
-YXRlX2ticHMgPSBwZWVyLT5wZWVyX3R4X3JhdGU7CisJCWFyc3RhLT5yeF9yYXRlX2ticHMgPSBw
-ZWVyLT5wZWVyX3J4X3JhdGU7CisJfQorCisJcmN1X3JlYWRfdW5sb2NrKCk7Cit9CisKIHZvaWQg
-YXRoMTBrX2RlYnVnX2Z3X3N0YXRzX3Byb2Nlc3Moc3RydWN0IGF0aDEwayAqYXIsIHN0cnVjdCBz
-a19idWZmICpza2IpCiB7CiAJc3RydWN0IGF0aDEwa19md19zdGF0cyBzdGF0cyA9IHt9OwpAQCAt
-MzM1LDYgKzM4Nyw4IEBAIHZvaWQgYXRoMTBrX2RlYnVnX2Z3X3N0YXRzX3Byb2Nlc3Moc3RydWN0
-IGF0aDEwayAqYXIsIHN0cnVjdCBza19idWZmICpza2IpCiAJCWdvdG8gZnJlZTsKIAl9CiAKKwlh
-dGgxMGtfbWFjX3VwZGF0ZV90eHJ4X3JhdGUoYXIsICZzdGF0cyk7CisKIAkvKiBTdGF0IGRhdGEg
-bWF5IGV4Y2VlZCBodGMtd21pIGJ1ZmZlciBsaW1pdC4gSW4gc3VjaCBjYXNlIGZpcm13YXJlCiAJ
-ICogc3BsaXRzIHRoZSBzdGF0cyBkYXRhIGFuZCBkZWxpdmVycyBpdCBpbiBhIHBpbmctcG9uZyBm
-YXNoaW9uIG9mCiAJICogcmVxdWVzdCBjbWQtdXBkYXRlIGV2ZW50LgpAQCAtMzUxLDEzICs0MDUs
-NiBAQCB2b2lkIGF0aDEwa19kZWJ1Z19md19zdGF0c19wcm9jZXNzKHN0cnVjdCBhdGgxMGsgKmFy
-LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCWlmIChwZWVyX3N0YXRzX3N2YykKIAkJYXRoMTBrX3N0
-YV91cGRhdGVfcnhfZHVyYXRpb24oYXIsICZzdGF0cy5wZWVycyk7CiAKLQlpZiAoYXItPmRlYnVn
-LmZ3X3N0YXRzX2RvbmUpIHsKLQkJaWYgKCFwZWVyX3N0YXRzX3N2YykKLQkJCWF0aDEwa193YXJu
-KGFyLCAicmVjZWl2ZWQgdW5zb2xpY2l0ZWQgc3RhdHMgdXBkYXRlIGV2ZW50XG4iKTsKLQotCQln
-b3RvIGZyZWU7Ci0JfQotCiAJbnVtX3BlZXJzID0gYXRoMTBrX3dtaV9md19zdGF0c19udW1fcGVl
-cnMoJmFyLT5kZWJ1Zy5md19zdGF0cy5wZWVycyk7CiAJbnVtX3ZkZXZzID0gYXRoMTBrX3dtaV9m
-d19zdGF0c19udW1fdmRldnMoJmFyLT5kZWJ1Zy5md19zdGF0cy52ZGV2cyk7CiAJaXNfc3RhcnQg
-PSAobGlzdF9lbXB0eSgmYXItPmRlYnVnLmZ3X3N0YXRzLnBkZXZzKSAmJgpkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9tYWMuYyBiL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL2F0aC9hdGgxMGsvbWFjLmMKaW5kZXggZWJmZjljMGEwNzg0Li5hZGRlZjkxNzlkYmUgMTAw
-NjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvbWFjLmMKKysrIGIvZHJp
-dmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9tYWMuYwpAQCAtNDQyNywxNiArNDQyNywxNCBA
-QCBzdGF0aWMgaW50IGF0aDEwa19zdGFydChzdHJ1Y3QgaWVlZTgwMjExX2h3ICpodykKIAogCWFy
-LT5hbmlfZW5hYmxlZCA9IHRydWU7CiAKLQlpZiAodGVzdF9iaXQoV01JX1NFUlZJQ0VfUEVFUl9T
-VEFUUywgYXItPndtaS5zdmNfbWFwKSkgewotCQlwYXJhbSA9IGFyLT53bWkucGRldl9wYXJhbS0+
-cGVlcl9zdGF0c191cGRhdGVfcGVyaW9kOwotCQlyZXQgPSBhdGgxMGtfd21pX3BkZXZfc2V0X3Bh
-cmFtKGFyLCBwYXJhbSwKLQkJCQkJCVBFRVJfREVGQVVMVF9TVEFUU19VUERBVEVfUEVSSU9EKTsK
-LQkJaWYgKHJldCkgewotCQkJYXRoMTBrX3dhcm4oYXIsCi0JCQkJICAgICJmYWlsZWQgdG8gc2V0
-IHBlZXIgc3RhdHMgcGVyaW9kIDogJWRcbiIsCi0JCQkJICAgIHJldCk7Ci0JCQlnb3RvIGVycl9j
-b3JlX3N0b3A7Ci0JCX0KKwlwYXJhbSA9IGFyLT53bWkucGRldl9wYXJhbS0+cGVlcl9zdGF0c191
-cGRhdGVfcGVyaW9kOworCXJldCA9IGF0aDEwa193bWlfcGRldl9zZXRfcGFyYW0oYXIsIHBhcmFt
-LAorCQkJCQlQRUVSX0RFRkFVTFRfU1RBVFNfVVBEQVRFX1BFUklPRCk7CisJaWYgKHJldCkgewor
-CQlhdGgxMGtfd2FybihhciwKKwkJCSAgICAiZmFpbGVkIHRvIHNldCBwZWVyIHN0YXRzIHBlcmlv
-ZCA6ICVkXG4iLAorCQkJICAgIHJldCk7CisJCWdvdG8gZXJyX2NvcmVfc3RvcDsKIAl9CiAKIAlh
-ci0+bnVtX3N0YXJ0ZWRfdmRldnMgPSAwOwpAQCAtNzIxNSw2ICs3MjEzLDEzIEBAIGF0aDEwa19t
-YWNfb3Bfc3dpdGNoX3ZpZl9jaGFuY3R4KHN0cnVjdCBpZWVlODAyMTFfaHcgKmh3LAogCXJldHVy
-biAwOwogfQogCitzdGF0aWMgdTMyCithdGgxMGtfbWFjX29wX2dldF9leHBlY3RlZF90aHJvdWdo
-cHV0KHN0cnVjdCBpZWVlODAyMTFfc3RhICpzdGEpCit7CisJc3RydWN0IGF0aDEwa19zdGEgKmFy
-c3RhID0gKHN0cnVjdCBhdGgxMGtfc3RhICopc3RhLT5kcnZfcHJpdjsKKwlyZXR1cm4gYXJzdGEt
-PnR4X3JhdGVfa2JwczsKK30KKwogc3RhdGljIGNvbnN0IHN0cnVjdCBpZWVlODAyMTFfb3BzIGF0
-aDEwa19vcHMgPSB7CiAJLnR4CQkJCT0gYXRoMTBrX21hY19vcF90eCwKIAkud2FrZV90eF9xdWV1
-ZQkJCT0gYXRoMTBrX21hY19vcF93YWtlX3R4X3F1ZXVlLApAQCAtNzI1NCw2ICs3MjU5LDcgQEAg
-c3RhdGljIGNvbnN0IHN0cnVjdCBpZWVlODAyMTFfb3BzIGF0aDEwa19vcHMgPSB7CiAJLmFzc2ln
-bl92aWZfY2hhbmN0eAkJPSBhdGgxMGtfbWFjX29wX2Fzc2lnbl92aWZfY2hhbmN0eCwKIAkudW5h
-c3NpZ25fdmlmX2NoYW5jdHgJCT0gYXRoMTBrX21hY19vcF91bmFzc2lnbl92aWZfY2hhbmN0eCwK
-IAkuc3dpdGNoX3ZpZl9jaGFuY3R4CQk9IGF0aDEwa19tYWNfb3Bfc3dpdGNoX3ZpZl9jaGFuY3R4
-LAorCS5nZXRfZXhwZWN0ZWRfdGhyb3VnaHB1dAk9IGF0aDEwa19tYWNfb3BfZ2V0X2V4cGVjdGVk
-X3Rocm91Z2hwdXQsCiAKIAlDRkc4MDIxMV9URVNUTU9ERV9DTUQoYXRoMTBrX3RtX2NtZCkKIApk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway93bWkuaCBiL2RyaXZl
-cnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvd21pLmgKaW5kZXggNGQzY2JjNDRmY2QyLi4yODc3
-YTNhMjdiOTUgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvd21p
-LmgKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway93bWkuaApAQCAtMzI5Niw3
-ICszMjk2LDcgQEAgc3RydWN0IHdtaV9jc2FfZXZlbnQgewogLyogdGhlIGRlZmluaXRpb24gb2Yg
-ZGlmZmVyZW50IFBERVYgcGFyYW1ldGVycyAqLwogI2RlZmluZSBQREVWX0RFRkFVTFRfU1RBVFNf
-VVBEQVRFX1BFUklPRCAgICA1MDAKICNkZWZpbmUgVkRFVl9ERUZBVUxUX1NUQVRTX1VQREFURV9Q
-RVJJT0QgICAgNTAwCi0jZGVmaW5lIFBFRVJfREVGQVVMVF9TVEFUU19VUERBVEVfUEVSSU9EICAg
-IDUwMAorI2RlZmluZSBQRUVSX0RFRkFVTFRfU1RBVFNfVVBEQVRFX1BFUklPRCAgICAxMDAKIAog
-c3RydWN0IHdtaV9wZGV2X3BhcmFtX21hcCB7CiAJdTMyIHR4X2NoYWluX21hc2s7Ci0tIAoyLjEu
-NAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29kZWwg
-bWFpbGluZyBsaXN0CkNvZGVsQGxpc3RzLmJ1ZmZlcmJsb2F0Lm5ldApodHRwczovL2xpc3RzLmJ1
-ZmZlcmJsb2F0Lm5ldC9saXN0aW5mby9jb2RlbAo=
+This patch fixs a regression raised when test on chips that use
+the normal descriptor layout. In fact, no len bits were set for
+the TDES1 and no OWN bit inside the TDES0.
+
+Signed-off-by: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Tested-by: Andreas F=C3=A4rber <afaerber@suse.de>
+Cc: Fabrice Gasnier <fabrice.gasnier@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c |   16 ++++++++-------=
+-
+ 1 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/=
+net/ethernet/stmicro/stmmac/norm_desc.c
+index e13228f..011386f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -199,11 +199,6 @@ static void ndesc_prepare_tx_desc(struct dma_desc =
+*p, int is_fs, int len,
+ {
+ 	unsigned int tdes1 =3D p->des1;
+=20
+-	if (mode =3D=3D STMMAC_CHAIN_MODE)
+-		norm_set_tx_desc_len_on_chain(p, len);
+-	else
+-		norm_set_tx_desc_len_on_ring(p, len);
+-
+ 	if (is_fs)
+ 		tdes1 |=3D TDES1_FIRST_SEGMENT;
+ 	else
+@@ -217,10 +212,15 @@ static void ndesc_prepare_tx_desc(struct dma_desc=
+ *p, int is_fs, int len,
+ 	if (ls)
+ 		tdes1 |=3D TDES1_LAST_SEGMENT;
+=20
+-	if (tx_own)
+-		tdes1 |=3D TDES0_OWN;
+-
+ 	p->des1 =3D tdes1;
++
++	if (mode =3D=3D STMMAC_CHAIN_MODE)
++		norm_set_tx_desc_len_on_chain(p, len);
++	else
++		norm_set_tx_desc_len_on_ring(p, len);
++
++	if (tx_own)
++		p->des0 |=3D TDES0_OWN;
+ }
+=20
+ static void ndesc_set_tx_ic(struct dma_desc *p)
+--=20
+1.7.4.4
