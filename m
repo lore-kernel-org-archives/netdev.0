@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: consolidate local_bh_disable/enable +
- spin_lock/unlock to _bh variant
-Date: Wed, 16 Mar 2016 19:21:09 -0400 (EDT)
-Message-ID: <20160316.192109.340706734153471879.davem@davemloft.net>
-References: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
+From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next 0/2] ovs: refresh a flow via netlink
+Date: Wed, 16 Mar 2016 16:23:38 -0700
+Message-ID: <CAEh+42jMSpPr8yUmmO355D=auKa-cGTwOZu0CSf-0=rczu4zwg@mail.gmail.com>
+References: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, wangweidong1@huawei.com,
-	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52299 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966308AbcCPXVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 19:21:11 -0400
-In-Reply-To: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1458140872-22438-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Sun, 13 Mar 2016 11:48:24 +0100
-
-> local_bh_disable() + spin_lock() is equivalent to spin_lock_bh(), same for
-> the unlock/enable case, so replace the calls by the appropriate wrappers.
-> 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-
-Applied.
+T24gV2VkLCBNYXIgMTYsIDIwMTYgYXQgODowNyBBTSwgU2FtdWVsIEdhdXRoaWVyCjxzYW11ZWwu
+Z2F1dGhpZXJANndpbmQuY29tPiB3cm90ZToKPiBUaGlzIHBhdGNoc2V0IGFkZHMgYSBuZXRsaW5r
+IGFwaSB0byByZWZyZXNoIGFuIGV4aXN0aW5nIGZsb3cgaW4KPiBvcGVudnN3aXRjaC4KPgo+IFdo
+ZW4gYSBwYWNrZXQgaXMgc2VudCBpbiB0aGUgb3BlbnZzd2l0Y2gga2VybmVsIGRhdGFwYXRoIGFu
+ZCBubwo+IGZsb3cgaXMgZm91bmQsIHRoZSBwYWNrZXQgaXMgc2VudCB0byB0aGUgb3ZzLXZzd2l0
+Y2hkIGRhZW1vbiwKPiB3aGljaCB3aWxsIHByb2Nlc3MgdGhlIHBhY2tldCwgYW5kIGFzayB0aGUg
+a2VybmVsIHRvIGNyZWF0ZSBhIG5ldwo+IGZsb3cuIFRoZSBuZXh0IHBhY2tldHMgZm9yIHRoaXMg
+ZmxvdyB3aWxsIGJlIHByb2Nlc3NlZCBieSB0aGUKPiBrZXJuZWwgZGF0YXBhdGguIElmIGEgZmxv
+dyBpcyBub3QgdXNlZCBmb3IgYSAoY29uZmlndXJhYmxlKQo+IHBlcmlvZCBvZiB0aW1lLCBvdnMt
+dnN3aXRjaGQgcmVtb3ZlcyB0aGUgZmxvdyBmcm9tIHRoZSBrZXJuZWwuCj4KPiBBcyBhIHJlc3Vs
+dCwgaXQgY2FuIGJlIHRyaWNreSB0byB0ZXN0IHRoZSBrZXJuZWwgZGF0YXBhdGggYWdhaW5zdAo+
+IHBhY2tldHMsIGFzIHRoZSBmaXJzdCBwYWNrZXRzIG9mIGVhY2ggZmxvdyB3aWxsIGhhdmUgdG8g
+Z28KPiB0aHJvdWdoIHRoZSBvdnMtdnN3aXRjaGQgZGFlbW9uLiBGb3IgaW5zdGFuY2UsIHRvIGRv
+IGEgemVyb2xvc3MKPiBwZXJmb3JtYW5jZSB0ZXN0LCB5b3UgZXN0YWJsaXNoIHRoZSBmbG93cywg
+YW5kIHRoZW4geW91IGhhdmUgdG8KPiBwZXJmb3JtIHlvdXIgemVyb2xvc3MgdGVzdCBiZWZvcmUg
+dGhlIGZsb3cgaXMgcmVtb3ZlZCBieQo+IG92cy12c3dpdGNoZC4KPgo+IEl0IGlzIHBvc3NpYmxl
+IHRvIGNvbmZpZ3VyZSBhIGZsb3cgdGltZW91dCBpbiBvdnMtdnN3aXRjaGQgKHVzaW5nCj4gb3Ro
+ZXJfY29uZmlnOm1heC1pZGxlIG9wdGlvbiksIGJ1dCBpdCBjaGFuZ2VzIHRoZSBiZWhhdmlvciBm
+b3IKPiBhbGwgdGhlIGZsb3dzLCB3aGljaCBpcyBub3QgYWx3YXlzIHdoYXQgeW91IHdhbnQuCgpJ
+dCBzZWVtcyB0byBtZSB0aGF0IGl0IHdvdWxkIGJlIHByZWZlcmFibGUgdG8gaW1wbGVtZW50IHRo
+ZSBuZWNlc3NhcnkKYmVoYXZpb3IgaW4gdXNlcnNwYWNlIHRvIGhhbmRsZSB0aGlzIGRpcmVjdGx5
+LiBUaGUgbG9naWMgdGhhdCBpcwpyZW1vdmluZyB0aGUgZmxvdyBpcyBpbiB1c2Vyc3BhY2UsIHNv
+IHJhdGhlciB0aGFuIGFza2luZyB0aGUga2VybmVsIHRvCmxpZSBhYm91dCB0aGUgY3VycmVudCBz
+dGF0ZSBvZiB0aGluZ3MsIHdlIGNhbiBqdXN0IG1vZGlmeSB0aGUgbG9naWMgdG8KaGFuZGxlIHRo
+aXMgY2FzZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
