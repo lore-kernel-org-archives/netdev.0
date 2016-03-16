@@ -1,44 +1,52 @@
-From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: Re: [PATCH 0/5] net: macb: Checkpatch cleanups
-Date: Wed, 16 Mar 2016 09:30:16 -0700
-Message-ID: <CAAtXAHdxen+h+i6BPMp3kqGd-wjaV3YHDrdPP-4u2QciQREFww@mail.gmail.com>
-References: <1457896247-25934-1-git-send-email-moritz.fischer@ettus.com>
-	<56E96225.2040508@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Simek <michal.simek@xilinx.com>, joe@perches.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	moritz.fischer.private@gmail.com
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E96225.2040508@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next] vxlan: fix too large pskb_may_pull with remote checksum
+Date: Wed, 16 Mar 2016 17:35:47 +0100
+Message-ID: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
+Cc: Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44210 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755316AbcCPQgG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 12:36:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nicolas,
+The vxlan header is pulled at this point, don't include it again in the
+calculation.
 
-On Wed, Mar 16, 2016 at 6:39 AM, Nicolas Ferre <nicolas.ferre@atmel.com=
-> wrote:
-> Le 13/03/2016 20:10, Moritz Fischer a =C3=A9crit :
->> Hi all,
->>
->> I backed out the variable scope changes and made a separate
->> patch for the ether_addr_copy change.
->>
->> Changes from v1:
->
-> As it's v2, it's better to add it in each subject of the patch series=
- like:
-> "[PATCH v2 0/5] net: macb: Checkpatch cleanups"
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+This was previously part of the VXLAN-GPE patchset but it's not really
+related (especially not after the discussion that RCO should not be allowed
+together with GPE). I'm sending it separately.
+---
+ drivers/net/vxlan.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-Yeah, I fat-fingered that.  Figured it is less annoying than resending
-the series immediately.
-Do you want me to resend the series as v3 with Acked-bys and fixed patc=
-h 5?
-Through which tree will this go?
-
-Merci,
-
-Moritz
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 800106a7246c..1eb8347f440c 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1143,7 +1143,7 @@ static int vxlan_igmp_leave(struct vxlan_dev *vxlan)
+ static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+ 			  struct sk_buff *skb, u32 vxflags)
+ {
+-	size_t start, offset, plen;
++	size_t start, offset;
+ 
+ 	if (!(unparsed->vx_flags & VXLAN_HF_RCO) || skb->remcsum_offload)
+ 		goto out;
+@@ -1151,9 +1151,7 @@ static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+ 	start = vxlan_rco_start(unparsed->vx_vni);
+ 	offset = start + vxlan_rco_offset(unparsed->vx_vni);
+ 
+-	plen = sizeof(struct vxlanhdr) + offset + sizeof(u16);
+-
+-	if (!pskb_may_pull(skb, plen))
++	if (!pskb_may_pull(skb, offset + sizeof(u16)))
+ 		return false;
+ 
+ 	skb_remcsum_process(skb, (void *)(vxlan_hdr(skb) + 1), start, offset,
+-- 
+1.8.3.1
