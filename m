@@ -1,93 +1,106 @@
-From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
-Subject: Re: [PATCHv3 (net.git) 2/2] stmmac: fix MDIO settings
-Date: Wed, 16 Mar 2016 10:47:27 +0100
-Message-ID: <56E92BAF.3020001@suse.de>
-References: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com>
- <1457703196-15008-3-git-send-email-peppe.cavallaro@st.com>
- <56E75D36.2030201@suse.de> <56E82FF3.5010402@st.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net-next v2 3/3] macsec: introduce IEEE 802.1AE driver
+Date: Wed, 16 Mar 2016 10:50:39 +0100
+Message-ID: <20160316095039.GA22528@bistromath>
+References: <cover.1457714618.git.sd@queasysnail.net>
+ <3d7ef45fa74b3bde47dabee3f23c8b8d04b546aa.1457714618.git.sd@queasysnail.net>
+ <1458050611.2871.11.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gabriel.fernandez@linaro.org,
-	fschaefer.oss@googlemail.com, dinh.linux@gmail.com,
-	davem@davemloft.net, preid@electromag.com.au,
-	Tomeu Vizoso <tomeu@tomeuvizoso.net>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Paolo Abeni <pabeni@redhat.com>, stephen@networkplumber.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:54370 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:59727 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753912AbcCPJrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 05:47:32 -0400
-In-Reply-To: <56E82FF3.5010402@st.com>
+	id S1753680AbcCPJup (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 05:50:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1458050611.2871.11.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peppe,
+Hello,
 
-Am 15.03.2016 um 16:53 schrieb Giuseppe CAVALLARO:
-> On 3/15/2016 1:54 AM, Andreas F=C3=A4rber wrote:
->> The connectivity issue still remains. Kernel log snippet:
->>
->> [  +0.001117] rk_gmac-dwmac ff290000.ethernet: Looking up phy-supply
->> from device tree
->> [  +0.000028] rk808 0-001b: Looking up vcc12-supply from device tree
->> [  +0.000014] vcc_lan: supplied by vcc_io
->> [  +0.000101] rk_gmac-dwmac ff290000.ethernet: clock input or output=
-?
->> (input).
->> [  +0.000009] rk_gmac-dwmac ff290000.ethernet: TX delay(0x30).
->> [  +0.000008] rk_gmac-dwmac ff290000.ethernet: RX delay(0x10).
->> [  +0.000014] rk_gmac-dwmac ff290000.ethernet: init for RGMII
->> [  +0.000104] rk_gmac-dwmac ff290000.ethernet: clock input from PHY
->> [  +0.005063] rk_gmac-dwmac ff290000.ethernet: no reset control foun=
-d
->> [  +0.000007] stmmac - user ID: 0x10, Synopsys ID: 0x35
->> [  +0.000002]  Ring mode enabled
->> [  +0.000006]  DMA HW capability register supported
->> [  +0.000000]  Normal descriptors
+2016-03-15, 15:03:31 +0100, Johannes Berg wrote:
+> Hi,
 >=20
->                  ^^^^^^^^^^^^^^^^^^
+> > +struct macsec_rx_sa_stats {
+> > +	__u32 InPktsOK;
+> > +	__u32 InPktsInvalid;
+> > +	__u32 InPktsNotValid;
+> > +	__u32 InPktsNotUsingSA;
+> > +	__u32 InPktsUnusedSA;
+> > +};
+> > +
+> > +struct macsec_tx_sa_stats {
+> > +	__u32 OutPktsProtected;
+> > +	__u32 OutPktsEncrypted;
+> > +};
 >=20
->> [  +0.000003]  RX Checksum Offload Engine supported (type 2)
->> [  +0.000002]  TX Checksum insertion supported
->> [  +0.000002]  Wake-Up On Lan supported
->> [  +0.000053]  Enable RX Mitigation via HW Watchdog Timer
->> [  +0.000771] of_get_named_gpiod_flags: can't parse 'snps,reset-gpio=
-'
->> property of node '/ethernet@ff290000[0]'
->> [  +0.004250] libphy: stmmac: probed
->> [  +0.000009] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) acti=
-ve
->> [  +0.000005] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
->>
->> As before, reverting "stmmac: first frame prep at the end of xmit
->> routine" fixes it. My test cases are `ping 192.168.1.1` and `zypper =
-up`.
->=20
-> so on your side, this revert fixes the issue and you do not see any
-> tx watchdog as Tomeu's raised.
+> Just noticed this: is there a particular reason for using only __u32
+> here? The others all seem to use __u64.
 
-Confirmed, the system ran stable over night. I don't use NFS on that
-system myself, having GMAC working only since v2.
+The standard defines them this way (Counter32 for the SA stats,
+Counter64 for the SC/SecY stats).
 
-> I have fixed some problems on top of
-> "stmmac: first frame prep at the end of xmit ..." please
-> see patch attached for net-next.
+
+> > +static int macsec_dump_txsc(struct sk_buff *skb, struct
+> > netlink_callback *cb)
+> > +{
+> > +	struct net *net =3D sock_net(skb->sk);
+> > +	struct net_device *dev;
+> > +	int dev_idx, d;
+> > +
+> > +	dev_idx =3D cb->args[0];
+> > +
+> > +	d =3D 0;
+> > +	for_each_netdev(net, dev) {
+> > +		struct macsec_secy *secy;
+> > +
+> > +		if (d < dev_idx)
+> > +			goto next;
+> > +
+> > +		if (!netif_is_macsec(dev))
+> > +			goto next;
+> > +
+> > +		secy =3D &macsec_priv(dev)->secy;
+> > +		if (dump_secy(secy, dev, skb, cb) < 0)
+> > +			goto done;
+> > +next:
+> > +		d++;
+> > +	}
+> > +
+> > +done:
+> > +	cb->args[0] =3D d;
+> > +	return skb->len;
+> > +}
 >=20
-> Indeed, the normal tx descriptors are well filled w/o
-> "stmmac: first frame prep at the end of xmit ..."
+> Maybe you should consider adding=C2=A0genl_dump_check_consistent() su=
+pport
+> here, so userspace can figure out if the dump was really consistent, =
+if
+> necessary.
 >=20
-> I wonder if you could try the attachment in order to understand if we
-> have to  actually revert the patch (I ask you to not revert the
-> patch "stmmac: first frame...").
+> To do this, you have to keep a global generation counter that changes
+> whenever this list changes (adding/removing macsec interfaces, I thin=
+k)
+> and then set
+>=20
+> 	cb->seq =3D macsec_generation_counter;
+>=20
+> at the beginning of this function, and call
+> genl_dump_check_consistent() for each message in the loop.
 
-Works great on top of next-20160314 with i2c plus this series, please
-add my Tested-by. Thanks a lot for investigating!
+Thanks, I'll have a look at this.
 
-Cheers,
-Andreas
+
+> Btw, aren't you missing locking here for=C2=A0for_each_netdev()?
+
+Oops, yeah.
 
 --=20
-SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg, Germany
-GF: Felix Imend=C3=B6rffer, Jane Smithard, Graham Norton; HRB 21284 (AG=
- N=C3=BCrnberg)
+Sabrina
