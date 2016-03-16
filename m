@@ -1,220 +1,66 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH v2] netfilter: fix race condition in ipset save, swap
- and delete
-Date: Wed, 16 Mar 2016 21:35:53 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1603162134000.7414@blackhole.kfki.hu>
-References: <20160314195446.GA3642@akamai.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next
+ tree
+Date: Thu, 17 Mar 2016 07:52:46 +1100
+Message-ID: <20160317075246.39a08e61@canb.auug.org.au>
+References: <20160316115809.61b4478e@canb.auug.org.au>
+	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: pablo@netfilter.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	johunt@akamai.com, netdev@vger.kernel.org
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160314195446.GA3642@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-next <linux-next@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:47072 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756133AbcCPUwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 16:52:49 -0400
+In-Reply-To: <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Linus,
 
-On Mon, 14 Mar 2016, Vishwanath Pai wrote:
+On Wed, 16 Mar 2016 10:18:33 -0700 Linus Torvalds <torvalds@linux-foundation.org> wrote:
+>
+> On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> >
+> > I fixed it up (see below) and can carry the fix as necessary (no action
+> > is required).  
+> 
+> Side note: can you change this wording for your manual merge script?
+> Last merge window (or was it the one before it?) we had confusion with
+> people who thought that "no action is required" means "you can just
+> ignore this entirely".
+> 
+> I want people who have known merge issues to at the very least
+> *mention* them to me when they send the pull request, and I also think
+> that trees that have merge conflicts that aren't just totally trivial
+> should also make sure that they have communicated with each other
+> about why the problem happened.
+> 
+> This is *particularly* true for the complete effing disaster that is
+> mellanox and rdma-vs-networking.
+> 
+> So please don't say "no action is required". Please make it clear that
+> there may not be any further action needed for linux-next itself, but
+> that other action may certainly be required.
 
-> I have updated the patch according to comments by Jozsef. Renamed
-> ref_kernel to ref_netlink, renamed _put/_get functions and updated the
-> description in commit log.
+Yeah, I can see your point.  The "no action required" was a reaction to
+people going off and rebasing their tree or dropping patches at any
+sign of a conflict at all.
 
-Patch is applied to the ipset git tree - you use some older kernel tree 
-and I had to apply it manually. I'll send the patch for kernel inclusion.
+How about "This is now fixed as far as linux-next is concerned, but any
+non trivial conflicts should be mentioned to your upstream maintainer
+when your tree is submitted for merging.  You may want also want to
+consider cooperate with the maintainer of the conflicting tree to
+minimise any particularly complex conflicts."
 
-Best regards,
-Jozsef
-
-> --
-> 
-> netfilter: fix race condition in ipset save, swap and delete
-> 
-> This fix adds a new reference counter (ref_netlink) for the struct ip_set.
-> The other reference counter (ref) can be swapped out by ip_set_swap and we
-> need a separate counter to keep track of references for netlink events
-> like dump. Using the same ref counter for dump causes a race condition
-> which can be demonstrated by the following script:
-> 
-> #!/bin/sh
-> ipset create hash_ip1 hash:ip family inet hashsize 1024 maxelem 500000 \
-> counters
-> ipset create hash_ip2 hash:ip family inet hashsize 300000 maxelem 500000 \
-> counters
-> ipset create hash_ip3 hash:ip family inet hashsize 1024 maxelem 500000 \
-> counters
-> 
-> ipset save &
-> 
-> ipset swap hash_ip3 hash_ip2
-> ipset destroy hash_ip3 /* will crash the machine */
-> 
-> Swap will exchange the values of ref so destroy will see ref = 0 instead of
-> ref = 1. With this fix in place swap will not succeed because ipset save
-> still has ref_netlink on the set (ip_set_swap doesn't swap ref_netlink).
-> 
-> Both delete and swap will error out if ref_netlink != 0 on the set.
-> 
-> Note: The changes to *_head functions is because previously we would
-> increment ref whenever we called these functions, we don't do that
-> anymore.
-> 
-> Reviewed-by: Joshua Hunt <johunt@akamai.com>
-> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-> 
-> --
-> 
-> diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-> index 0e1f433..f48b8a6 100644
-> --- a/include/linux/netfilter/ipset/ip_set.h
-> +++ b/include/linux/netfilter/ipset/ip_set.h
-> @@ -234,6 +234,10 @@ struct ip_set {
->  	spinlock_t lock;
->  	/* References to the set */
->  	u32 ref;
-> +	/* References to the set for netlink events like dump,
-> +	 * ref can be swapped out by ip_set_swap
-> +	 */
-> +	u32 ref_netlink;
->  	/* The core set type */
->  	struct ip_set_type *type;
->  	/* The type variant doing the real job */
-> diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-> index b0bc475..2e8e7e5 100644
-> --- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-> +++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-> @@ -95,7 +95,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
->  	if (!nested)
->  		goto nla_put_failure;
->  	if (mtype_do_head(skb, map) ||
-> -	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
-> +	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
->  	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)))
->  		goto nla_put_failure;
->  	if (unlikely(ip_set_put_flags(skb, set)))
-> diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-> index 95db43f..a558075 100644
-> --- a/net/netfilter/ipset/ip_set_core.c
-> +++ b/net/netfilter/ipset/ip_set_core.c
-> @@ -497,6 +497,26 @@ __ip_set_put(struct ip_set *set)
->  	write_unlock_bh(&ip_set_ref_lock);
->  }
->  
-> +/* set->ref can be swapped out by ip_set_swap, netlink events (like dump) need
-> + * a separate reference counter
-> + */
-> +static inline void
-> +__ip_set_get_netlink(struct ip_set *set)
-> +{
-> +	write_lock_bh(&ip_set_ref_lock);
-> +	set->ref_netlink++;
-> +	write_unlock_bh(&ip_set_ref_lock);
-> +}
-> +
-> +static inline void
-> +__ip_set_put_netlink(struct ip_set *set)
-> +{
-> +	write_lock_bh(&ip_set_ref_lock);
-> +	BUG_ON(set->ref_netlink == 0);
-> +	set->ref_netlink--;
-> +	write_unlock_bh(&ip_set_ref_lock);
-> +}
-> +
->  /* Add, del and test set entries from kernel.
->   *
->   * The set behind the index must exist and must be referenced
-> @@ -999,7 +1019,7 @@ static int ip_set_destroy(struct net *net, struct sock *ctnl,
->  	if (!attr[IPSET_ATTR_SETNAME]) {
->  		for (i = 0; i < inst->ip_set_max; i++) {
->  			s = ip_set(inst, i);
-> -			if (s && s->ref) {
-> +			if (s && (s->ref || s->ref_netlink)) {
->  				ret = -IPSET_ERR_BUSY;
->  				goto out;
->  			}
-> @@ -1021,7 +1041,7 @@ static int ip_set_destroy(struct net *net, struct sock *ctnl,
->  		if (!s) {
->  			ret = -ENOENT;
->  			goto out;
-> -		} else if (s->ref) {
-> +		} else if (s->ref || s->ref_netlink) {
->  			ret = -IPSET_ERR_BUSY;
->  			goto out;
->  		}
-> @@ -1168,6 +1188,9 @@ static int ip_set_swap(struct net *net, struct sock *ctnl, struct sk_buff *skb,
->  	      from->family == to->family))
->  		return -IPSET_ERR_TYPE_MISMATCH;
->  
-> +	if (from->ref_netlink || to->ref_netlink)
-> +		return -EBUSY;
-> +
->  	strncpy(from_name, from->name, IPSET_MAXNAMELEN);
->  	strncpy(from->name, to->name, IPSET_MAXNAMELEN);
->  	strncpy(to->name, from_name, IPSET_MAXNAMELEN);
-> @@ -1203,7 +1226,7 @@ ip_set_dump_done(struct netlink_callback *cb)
->  		if (set->variant->uref)
->  			set->variant->uref(set, cb, false);
->  		pr_debug("release set %s\n", set->name);
-> -		__ip_set_put_byindex(inst, index);
-> +		__ip_set_put_netlink(set);
->  	}
->  	return 0;
->  }
-> @@ -1325,7 +1348,7 @@ dump_last:
->  		if (!cb->args[IPSET_CB_ARG0]) {
->  			/* Start listing: make sure set won't be destroyed */
->  			pr_debug("reference set\n");
-> -			set->ref++;
-> +			set->ref_netlink++;
->  		}
->  		write_unlock_bh(&ip_set_ref_lock);
->  		nlh = start_msg(skb, NETLINK_CB(cb->skb).portid,
-> @@ -1393,7 +1416,7 @@ release_refcount:
->  		if (set->variant->uref)
->  			set->variant->uref(set, cb, false);
->  		pr_debug("release set %s\n", set->name);
-> -		__ip_set_put_byindex(inst, index);
-> +		__ip_set_put_netlink(set);
->  		cb->args[IPSET_CB_ARG0] = 0;
->  	}
->  out:
-> diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-> index e5336ab..d32fd6b 100644
-> --- a/net/netfilter/ipset/ip_set_hash_gen.h
-> +++ b/net/netfilter/ipset/ip_set_hash_gen.h
-> @@ -1082,7 +1082,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
->  	if (nla_put_u32(skb, IPSET_ATTR_MARKMASK, h->markmask))
->  		goto nla_put_failure;
->  #endif
-> -	if (nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
-> +	if (nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
->  	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)))
->  		goto nla_put_failure;
->  	if (unlikely(ip_set_put_flags(skb, set)))
-> diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-> index bbede95..00f92ae 100644
-> --- a/net/netfilter/ipset/ip_set_list_set.c
-> +++ b/net/netfilter/ipset/ip_set_list_set.c
-> @@ -457,7 +457,7 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
->  	if (!nested)
->  		goto nla_put_failure;
->  	if (nla_put_net32(skb, IPSET_ATTR_SIZE, htonl(map->size)) ||
-> -	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
-> +	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
->  	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
->  			  htonl(sizeof(*map) + n * set->dsize)))
->  		goto nla_put_failure;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+-- 
+Cheers,
+Stephen Rothwell
