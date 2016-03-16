@@ -1,98 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH ethtool 2/3] Add IPv6 support to NFC
-Date: Wed, 16 Mar 2016 17:15:41 +0000
-Message-ID: <1458148541.31907.25.camel@decadent.org.uk>
-References: <56C1E73A.5090603@solarflare.com>
-	 <56C1E7EC.8020700@solarflare.com>
-	 <1457887406.3331.31.camel@decadent.org.uk>
-	 <56E97377.4030400@solarflare.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
+Date: Wed, 16 Mar 2016 10:18:33 -0700
+Message-ID: <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+References: <20160316115809.61b4478e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yxHxzvRVNTO8oKxHLT8t"
-Cc: netdev@vger.kernel.org
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54111 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754807AbcCPRPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:15:46 -0400
-In-Reply-To: <56E97377.4030400@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-next <linux-next@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160316115809.61b4478e@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
---=-yxHxzvRVNTO8oKxHLT8t
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Side note: can you change this wording for your manual merge script?
+Last merge window (or was it the one before it?) we had confusion with
+people who thought that "no action is required" means "you can just
+ignore this entirely".
 
-T24gV2VkLCAyMDE2LTAzLTE2IGF0IDE0OjUzICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiBP
-biAxMy8wMy8xNiAxNjo0MywgQmVuIEh1dGNoaW5ncyB3cm90ZToKPiA+IAo+ID4gT24gTW9uLCAy
-MDE2LTAyLTE1IGF0IDE0OjU5ICswMDAwLCBFZHdhcmQgQ3JlZSB3cm90ZToKPiA+ID4gCj4gPiA+
-IFNpZ25lZC1vZmYtYnk6IEVkd2FyZCBDcmVlIDxlY3JlZUBzb2xhcmZsYXJlLmNvbT4KPiA+IFsu
-Li5dCj4gPiA+IAo+ID4gPiBAQCAtOTUwLDYgKzExNTQsMTkgQEAgc3RhdGljIGludCByeGNsYXNz
-X2dldF9tYXNrKGNoYXIgKnN0ciwgdW5zaWduZWQgY2hhciAqcCwKPiA+ID4gwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqAqKF9fYmUzMiAqKSZwW29wdC0+bW9mZnNldF0gPSB+dmFsOwo+
-ID4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGJyZWFrOwo+ID4gPiDCoMKgwqDC
-oMKgwqDCoMKgfQo+ID4gPiArwqDCoMKgwqDCoMKgwqBjYXNlIE9QVF9JUDY6IHsKPiA+ID4gK8Kg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoF9fYmUzMiB2YWxbNF07Cj4gPiA+ICvCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBpbnQgaTsKPiA+ID4gK8KgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoGVyciA9IHJ4Y2xhc3NfZ2V0X2lwdjYoc3RyLCB2YWwpOwo+ID4gPiArwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKGVycikKPiA+ID4gK8KgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByZXR1cm4gLTE7Cj4gPiA+ICvCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqBmb3IgKGkgPSAwOyBpIDwgNDsgaSsrKSB7Cj4gPiA+ICvCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgKChfX2JlMzIgKikmcFtv
-cHQtPm9mZnNldF0pW2ldID0gdmFsW2ldOwo+ID4gPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmIChvcHQtPm1vZmZzZXQgPj0gMCkKPiA+ID4gK8KgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-KChfX2JlMzIgKikmcFtvcHQtPm1vZmZzZXRdKVtpXSA9IH52YWxbaV07Cj4gPiBUaGlzIHBvaW50
-ZXIgYXJpdGhtZXRpYyBsb29rcyB0ZXJyaWJsZS7CoMKgSSB0aGluayBtZW1jcHkoKSB3b3VsZCBi
-ZSBtdWNoCj4gPiBjbGVhcmVyIGhlcmUuCj4gSSd2ZSBjaGFuZ2VkIHRoZSB2ZXJzaW9uIGluIHJ4
-Y2xhc3NfZ2V0X3ZhbCB0byB1c2UgbWVtY3B5KCkgKGFuZCBtZW1zZXQoKSB0aGUKPiBtYXNrKS7C
-oMKgVW5mb3J0dW5hdGVseSwgd2UgY2FuJ3QgZG8gdGhhdCBoZXJlLCBiZWNhdXNlIHdlIG5lZWQg
-dG8gY29tcGxlbWVudAo+IHRoZSBtYXNrIHZhbHVlYXMgd2UgZ28sIGFuZCBhZmFpayB0aGVyZSdz
-IG5vIGxpYnJhcnkgZnVuY3Rpb24gdG8gY29weS1hbmQtCj4gY29tcGxlbWVudCBhIGJ5dGUgYXJy
-YXkuCgpTb3JyeSwgSSBtaXNzZWQgdGhlIGludmVyc2lvbi4gwqBCdXQgaXQgd291bGQgc3RpbGwg
-YmUgY2xlYW5lciB0byB1c2UgYQpsb2NhbCB2YXJpYWJsZToKCgkJCV9fYmUzMiAqZmllbGQgPSAo
-X19iZTMyICopJnBbb3B0LT5vZmZzZXRdOwoKPiBHbGliYyBkb2VzLCBob3dldmVyLCBoYXZlIGEg
-ZnVuY3Rpb24gbWVtZnJvYigpLCB3aGljaCBYT1JzIGV2ZXJ5IGJ5dGUgb2YgYW4KPiBhcnJheXdp
-dGh0aGUgY29uc3RhbnQgNDIuwqDCoFVzZWZ1bCBmZWF0dXJlLCB0aGF0LgoKSXQgaXMhCgojaW5j
-bHVkZSA8c3RyaW5nLmg+CgppbnQgbWFpbih2b2lkKQp7CsKgIMKgIGNoYXIgYW5zd2VyOwrCoCDC
-oCBtZW1zZXQoJmFuc3dlciwgMCwgMSk7CsKgIMKgIG1lbWZyb2IoJmFuc3dlciwgMSk7CsKgIMKg
-IHJldHVybiBhbnN3ZXI7Cn0KCj4gT24gdGhlIG90aGVyIGhhbmQsIHRoZSBxdW90ZWQgY29kZSBp
-cyBzdGlsbCB3cm9uZyBiZWNhdXNlIGl0J3MgYWxzbyB3cml0aW5nCj4gdGhyb3VnaG9wdC0+b2Zm
-c2V0IGFuZCBjaGVja2luZyBmb3Igb3B0LT5tb2Zmc2V0Pj0gMCwgYm90aCBkYWZ0IGNvcHktYW5k
-LQo+IHBhc3RlIGVycm9ycyBvbm15cGFydC7CoMKgV2lsbCBmaXggaW4gbmV4dCB2ZXJzaW9uLgo+
-ID4gCj4gPiBJIHdvbid0IGFwcGx5IHBhdGNoZXMgbGFiZWxsZWQgYXMgImNvbmZpZGVudGlhbCIu
-wqDCoFlvdSBuZWVkIHRvIHN0b3AKPiA+IGluY2x1ZGluZyB0aGlzIG5vbnNlbnNlIGluIHlvdXIg
-cHVibGljIG1lc3NhZ2VzIChJIHRob3VnaHQgeW91IGZpeGVkCj4gPiB0aGlzIG9uY2UgYmVmb3Jl
-KS4KPiBJbiB0aGVvcnkgaXQncyBiZWVuIGZpeGVkIGhhcmRlciBub3cgLSBwbGVhc2UgbGV0IG1l
-IGtub3cgaWYgbm90LgoKTG9va3MgbGlrZSB5b3UncmUgc2VuZGluZyB0d28gY29waWVzLCBvbmUg
-d2l0aCBhbmQgb25lIHdpdGhvdXQuIMKgV2hpY2gKd29ya3MgZm9yIG1lLCB0aG91Z2ggaXQgbWln
-aHQgYW5ub3kgc29tZSByZWNpcGllbnRzLi4uCgpCZW4uCgotLSAKQmVuIEh1dGNoaW5ncwpJZiB5
-b3Ugc2VlbSB0byBrbm93IHdoYXQgeW91IGFyZSBkb2luZywgeW91J2xsIGJlIGdpdmVuIG1vcmUg
-dG8gZG8u
+I want people who have known merge issues to at the very least
+*mention* them to me when they send the pull request, and I also think
+that trees that have merge conflicts that aren't just totally trivial
+should also make sure that they have communicated with each other
+about why the problem happened.
 
+This is *particularly* true for the complete effing disaster that is
+mellanox and rdma-vs-networking.
 
---=-yxHxzvRVNTO8oKxHLT8t
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+So please don't say "no action is required". Please make it clear that
+there may not be any further action needed for linux-next itself, but
+that other action may certainly be required.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Because I'm very close to not taking any rdma changes that touch
+networking any more. Ever.
 
-iQIcBAABCgAGBQJW6ZS9AAoJEOe/yOyVhhEJXIYP/3t1v7PDYZC0/qXzYMlkqywt
-wkRKGN3PT9/BJtj20YEWINKGrCndfEz+Sfa1rVQ8KCbS2VE1DTUKzcOqqY357Dj9
-iFU67tTRVjbq+nC9bX756YpKtehURPRstilwUmAJVpsgIeNX3cC1hK1ujDBWVzy6
-ORV7spF7CxxGeDSXKtlLdhQMB7u6bJVy1kzDOYnGGy4nsYDz6j5gMBmUL10nYcis
-yLBxalJ872RhtT4i+9wBogV1T4J6P1K0nghgEhEP/y81YYoKQ4RXui9ZBO42OI3Z
-6oRnL5PH8Rtuy8e7GliB85PkihLxXM9VTyvJ8fogS5BJ/g2sLORfq9mZFjRrl7B1
-2nPGKcbpWXdEpWwTsXyjt24KXt87txRz3LQZPanmzmnqtmpYwoq6Pu+nbtCD9lEK
-F+YmQ1MfB2qqiC2oNXOrrWx7cEks6+KlTNghMF3/OeTJ/k9uY9r2ZyJ5q56fbqEu
-xW4s4zPmLIASIJGcJLlFohBuQaxjoHXmqsMCkZmfbhQzSsNTLSeyUnhm29VVr0VU
-ql6i8jNbTh/iHY3gEsRjG3fX7Xz1F7x2QvhPMla+f9YipkinkCqvkXzMKf3r5KB2
-qQy0fmUSUOGaQwCK///zxoE3ziWiznh6nMMdB8ZIaa92jJ2tIWpF/Ymq1Zutf2sZ
-sqsS7lIhY0ehG35TGCYF
-=Pjum
------END PGP SIGNATURE-----
+The Mellanox people are on my shit-list until they show that they can
+actually act like responsible people and not just monkeys throwing
+shit at the walls.
 
---=-yxHxzvRVNTO8oKxHLT8t--
+"No action required" is simply not true for Mellanox.
+
+                     Linus
