@@ -1,65 +1,61 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 10:44:34 -0700
-Message-ID: <CA+55aFyi31eRO6nO1-kz=-kq4XqyyA=VagbsiaO4ZPu1aLmnuA@mail.gmail.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
-	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-	<56E99960.5000604@redhat.com>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: [PATCH] net: phy: at803x: don't depend on GPIOLIB
+Date: Wed, 16 Mar 2016 18:25:59 +0100
+Message-ID: <56E99727.9040702@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <56E99960.5000604@redhat.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>
+To: =?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpoutz28.laposte.net ([194.117.213.103]:52394 "EHLO
+	smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933085AbcCPRuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:50:32 -0400
+Received: from smtp.laposte.net (localhost [127.0.0.1])
+	by lpn-prd-vrout016 (Postfix) with ESMTP id 39337110D48
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 18:26:00 +0100 (CET)
+Received: from lpn-prd-vrin004 (lpn-prd-vrin004.laposte [10.128.63.5])
+	by lpn-prd-vrout016 (Postfix) with ESMTP id 360E4110D1B
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 18:26:00 +0100 (CET)
+Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
+	by lpn-prd-vrin004 (Postfix) with ESMTP id 228E870E274
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 18:26:00 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 10:35 AM, Doug Ledford <dledford@redhat.com> wrote:
-> On 3/16/2016 1:18 PM, Linus Torvalds wrote:
->> On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->>>
->>> I fixed it up (see below) and can carry the fix as necessary (no action
->>> is required).
->>
->> Side note: can you change this wording for your manual merge script?
->> Last merge window (or was it the one before it?) we had confusion with
->> people who thought that "no action is required" means "you can just
->> ignore this entirely".
->
-> I certainly didn't take it that way regardless of the wording.
+Commit 687908c2b649 ("net: phy: at803x: simplify using
+devm_gpiod_get_optional and its 4th argument") introduced a dependency
+on GPIOLIB that was not there before.
 
-It was Or Gerlitz. You were cc'd, since it was the whole rdma Mellanox
-mess. I quote from that thread:
+This commit removes such dependency by checking the return code and
+comparing it against ENOSYS which is returned when GPIOLIB is not
+selected.
 
- "> However, the fact that it got resolved in linux-next is purely
-  > informational. It doesn't "fix" the conflict - it just means that both
-  > sides should have gotten informed about it. That doesn't mean that the
-  > conflict goes away or becomes better.
+Fixes: 687908c2b649 ("net: phy: at803x: simplify using
+devm_gpiod_get_optional and its 4th argument")
 
-  That's news to me. When such things happen and caught by Stephen, we
-  are getting an email saying something like
+Signed-off-by: Sebastian Frias <sf84@laposte.net>
+---
+ drivers/net/phy/at803x.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-  "Today's linux-next merge of the infiniband tree got a conflict
-  between commit X from net-next tree and commit Y from the infiniband
-  tree. I fixed it up (see below) and can carry the fix as necessary (no
-  action is required)."
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index 2174ec9..88b7ff3 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -252,7 +252,9 @@ static int at803x_probe(struct phy_device *phydev)
+ 		return -ENOMEM;
 
-  Also asked around a bit and got to learn on Stephen using git rerere,
-  so all (no action needed note + seeing git rerere in action...) that
-  leaded me to think that indeed no action is required from our side,
-  but after reading your email (twice, so far), I realized that this was
-  wrong conclusion."
+ 	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+-	if (IS_ERR(gpiod_reset))
++	if (PTR_ERR(gpiod_reset) == -ENOSYS)
++		gpiod_reset = NULL;
++	else if (IS_ERR(gpiod_reset))
+ 		return PTR_ERR(gpiod_reset);
 
-So that whole "no action is required" wording very much has caused
-confusion before in the rdma camp.
-
-Let's fix the wording. I'm indeed hopeful that the rdma camp is now
-keenly aware of the issues, but that doesn't change the fact that the
-wording has been problematic.
-
-                  Linus
+ 	priv->gpiod_reset = gpiod_reset;
+-- 
+2.1.4
