@@ -1,108 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 11:58:09 +1100
-Message-ID: <20160316115809.61b4478e@canb.auug.org.au>
+From: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
+ 4KB regardless of system page size"
+Date: Wed, 16 Mar 2016 12:52:31 +1100
+Message-ID: <56E8BC5F.5050306@ozlabs.ru>
+References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
+ <CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
+ <20160315121832.GA4741@infradead.org>
+ <CAJ3xEMg5fq3Z2VH_qDjsFmTzhCibAGiXT9oEddEKbwktvSYSQQ@mail.gmail.com>
+ <20160315152911.GA21139@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=koi8-r; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Daniel Jurgens <danielj-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160315152911.GA21139-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 03/16/2016 02:29 AM, Christoph Hellwig wrote:
+> On Tue, Mar 15, 2016 at 04:23:33PM +0200, Or Gerlitz wrote:
+>> Let us check. I was under (the maybe wrong) impression, that before this
+>> patch both PF/VF drivers were not operative on some systems, so on those
+>> systems it's fair to require the VF driver to be patched too.
+>
+> To me it sounds like the system worked before. Alexey, can you confirm?
 
-Today's linux-next merge of the rdma tree got a conflict in:
+It worked just fine for year(s), this is definitely regression.
 
-  drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-
-between commit:
-
-  60ab4584f5bf ("net/mlx5_core: Set flow steering dest only for forward rules")
-
-from the net-next tree and commit:
-
-  b3638e1a7664 ("net/mlx5_core: Introduce forward to next priority action")
-
-from the rdma tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
 
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index e848d708d2b7,bf3446794bd5..000000000000
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@@ -73,10 -73,13 +73,13 @@@
-  #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
-  			   LEFTOVERS_MAX_FT)
-  
- -#define KERNEL_MAX_FT 2
- -#define KERNEL_NUM_PRIOS 1
- +#define KERNEL_MAX_FT 3
- +#define KERNEL_NUM_PRIOS 2
-  #define KENREL_MIN_LEVEL 2
-  
-+ #define ANCHOR_MAX_FT 1
-+ #define ANCHOR_NUM_PRIOS 1
-+ #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
-  struct node_caps {
-  	size_t	arr_sz;
-  	long	*caps;
-@@@ -360,8 -367,13 +367,13 @@@ static void del_rule(struct fs_node *no
-  	memcpy(match_value, fte->val, sizeof(fte->val));
-  	fs_get_obj(ft, fg->node.parent);
-  	list_del(&rule->node.list);
-+ 	if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
-+ 		mutex_lock(&rule->dest_attr.ft->lock);
-+ 		list_del(&rule->next_ft);
-+ 		mutex_unlock(&rule->dest_attr.ft->lock);
-+ 	}
- -	fte->dests_size--;
- -	if (fte->dests_size) {
- +	if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
- +	    --fte->dests_size) {
-  		err = mlx5_cmd_update_fte(dev, ft,
-  					  fg->id, fte);
-  		if (err)
-@@@ -762,9 -835,9 +835,10 @@@ static struct mlx5_flow_rule *alloc_rul
-  	if (!rule)
-  		return NULL;
-  
-+ 	INIT_LIST_HEAD(&rule->next_ft);
-  	rule->node.type = FS_TYPE_FLOW_DEST;
- -	memcpy(&rule->dest_attr, dest, sizeof(*dest));
- +	if (dest)
- +		memcpy(&rule->dest_attr, dest, sizeof(*dest));
-  
-  	return rule;
-  }
-@@@ -783,12 -856,16 +857,17 @@@ static struct mlx5_flow_rule *add_rule_
-  		return ERR_PTR(-ENOMEM);
-  
-  	fs_get_obj(ft, fg->node.parent);
-- 	/* Add dest to dests list- added as first element after the head */
-+ 	/* Add dest to dests list- we need flow tables to be in the
-+ 	 * end of the list for forward to next prio rules.
-+ 	 */
-  	tree_init_node(&rule->node, 1, del_rule);
-- 	list_add_tail(&rule->node.list, &fte->node.children);
-+ 	if (dest && dest->type != MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
-+ 		list_add(&rule->node.list, &fte->node.children);
-+ 	else
-+ 		list_add_tail(&rule->node.list, &fte->node.children);
- -	fte->dests_size++;
- -	if (fte->dests_size == 1)
- +	if (dest)
- +		fte->dests_size++;
- +	if (fte->dests_size == 1 || !dest)
-  		err = mlx5_cmd_create_fte(get_dev(&ft->node),
-  					  ft, fg->id, fte);
-  	else
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
