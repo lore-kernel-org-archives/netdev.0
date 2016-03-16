@@ -1,29 +1,45 @@
-From: <Woojung.Huh@microchip.com>
-Subject: [PATCH v2 net-next 0/2] lan78xx: patch series
-Date: Wed, 16 Mar 2016 22:10:39 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D404C94B1@CHN-SV-EXMX02.mchp-main.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Wed, 16 Mar 2016 23:23:59 +0100
+Message-ID: <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
+References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+ <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com> <20160316161848.GE2393@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?c2hhb2h1aSDosKI=?= <shh.xie@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exsmtp03.microchip.com ([198.175.253.49]:37066 "EHLO
-	email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751578AbcCPWKl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 18:10:41 -0400
-Content-Language: en-US
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:33589 "EHLO
+	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967095AbcCPWYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 18:24:20 -0400
+Received: by mail-vk0-f46.google.com with SMTP id k1so80659591vkb.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 15:24:20 -0700 (PDT)
+In-Reply-To: <20160316161848.GE2393@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Woojung Huh <woojung.huh@microchip.com>
+Hi Andrew,
 
-Woojung Huh (2):
-  lan78xx: handle statistics counter rollover
-  lan78xx: add ndo_get_stats64
+On Wed, Mar 16, 2016 at 5:18 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Wed, Mar 16, 2016 at 04:59:23PM +0100, Yegor Yefremov wrote:
+>
+>> This patch breaks my am335x based board, where one of the CPSW slaves
+>> is connected to IP175D switch chip via RMII interface. Since this
+>> patch packet reception is not working.
+>
+> Hi Yegor
+>
+> Which phy is causing the problem? A PHY inside the switch?
+>
+> Do you have two back to back PHYs between the MAC and the switch, or
+> is the CPSW RMII connected directly to the switch?
 
- drivers/net/usb/lan78xx.c | 301 ++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 288 insertions(+), 13 deletions(-)
+CPSW RMII is connected directly to the switch.
 
--- 
-2.7.0
+Yegor
