@@ -1,80 +1,74 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
-Date: Wed, 16 Mar 2016 16:59:23 +0100
-Message-ID: <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com>
-References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: [PATCH] xfrm: don't segment UFO packets
+Date: Wed, 16 Mar 2016 17:00:26 +0100
+Message-ID: <20160316160026.GB19258@midget.suse.cz>
+References: <20160129234424.GC7907@midget.suse.cz>
+ <20160130042102.GA22809@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Shaohui Xie <Shaohui.Xie@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
-To: shh.xie@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:35898 "EHLO
-	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbcCPP7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 11:59:44 -0400
-Received: by mail-vk0-f42.google.com with SMTP id c3so67374636vkb.3
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 08:59:43 -0700 (PDT)
-In-Reply-To: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:58064 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919AbcCPQAa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 12:00:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20160130042102.GA22809@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 14, 2015 at 6:23 AM,  <shh.xie@gmail.com> wrote:
-> From: Shaohui Xie <Shaohui.Xie@freescale.com>
->
-> Currently, if phy state is PHY_RUNNING, we always register a CHANGE
-> when phy works in polling or interrupt ignored, this will make the
-> adjust_link being called even the phy link did Not changed.
->
-> checking the phy link to make sure the link did changed before we
-> register a CHANGE, if link did not changed, we do nothing.
->
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
->  drivers/net/phy/phy.c | 16 ++++++++++++----
->  1 file changed, 12 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 84b1fba..d972851 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -814,6 +814,7 @@ void phy_state_machine(struct work_struct *work)
->         bool needs_aneg = false, do_suspend = false;
->         enum phy_state old_state;
->         int err = 0;
-> +       int old_link;
->
->         mutex_lock(&phydev->lock);
->
-> @@ -899,11 +900,18 @@ void phy_state_machine(struct work_struct *work)
->                 phydev->adjust_link(phydev->attached_dev);
->                 break;
->         case PHY_RUNNING:
-> -               /* Only register a CHANGE if we are
-> -                * polling or ignoring interrupts
-> +               /* Only register a CHANGE if we are polling or ignoring
-> +                * interrupts and link changed since latest checking.
->                  */
-> -               if (!phy_interrupt_is_valid(phydev))
-> -                       phydev->state = PHY_CHANGELINK;
-> +               if (!phy_interrupt_is_valid(phydev)) {
-> +                       old_link = phydev->link;
-> +                       err = phy_read_status(phydev);
-> +                       if (err)
-> +                               break;
-> +
-> +                       if (old_link != phydev->link)
-> +                               phydev->state = PHY_CHANGELINK;
-> +               }
->                 break;
->         case PHY_CHANGELINK:
->                 err = phy_read_status(phydev);
+xfrm_output() will segment GSO packets, including UDP (UFO) packets.
+this is wrong per RFC4303, section 3.3.4.  Fragmentation:
 
-This patch breaks my am335x based board, where one of the CPSW slaves
-is connected to IP175D switch chip via RMII interface. Since this
-patch packet reception is not working.
+   If necessary, fragmentation is performed after ESP
+   processing within an IPsec implementation.  Thus,
+   transport mode ESP is applied only to whole IP
+   datagrams (not to IP fragments).
 
-Yegor
+Prevent xfrm_output() from segmenting UFO packets so that they will be
+fragmented after the xfrm transforms.
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 4355129..6f3e814 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3501,6 +3501,12 @@ static inline bool skb_is_gso_v6(const struct sk_buff *skb)
+ 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
+ }
+ 
++/* Note: Should be called only if skb_is_gso(skb) is true */
++static inline bool skb_is_ufo(const struct sk_buff *skb)
++{
++	return skb_shinfo(skb)->gso_type & SKB_GSO_UDP;
++}
++
+ void __skb_warn_lro_forwarding(const struct sk_buff *skb);
+ 
+ static inline bool skb_warn_if_lro(const struct sk_buff *skb)
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index cc3676e..c52cc8b 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -197,8 +197,12 @@ int xfrm_output(struct sock *sk, struct sk_buff *skb)
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+ 	int err;
+ 
+-	if (skb_is_gso(skb))
+-		return xfrm_output_gso(net, sk, skb);
++	if (skb_is_gso(skb)) {
++		if (skb_is_ufo(skb))
++			return xfrm_output2(net, sk, skb);
++		else
++			return xfrm_output_gso(net, sk, skb);
++	}
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		err = skb_checksum_help(skb);
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
