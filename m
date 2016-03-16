@@ -1,48 +1,101 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V1 13/13] net/mlx5_core: Add ConnectX-5 to list of supported devices
-Date: Wed, 16 Mar 2016 08:41:21 +0200
-Message-ID: <1458110481-18080-14-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V1 04/13] net/mlx5e: Use only close NUMA node for default RSS
+Date: Wed, 16 Mar 2016 08:41:12 +0200
+Message-ID: <1458110481-18080-5-git-send-email-saeedm@mellanox.com>
 References: <1458110481-18080-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Majd Dibbiny <majd@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:38373 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:38281 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S965175AbcCPGmo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 02:42:44 -0400
+	id S933496AbcCPGmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 02:42:10 -0400
 In-Reply-To: <1458110481-18080-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Majd Dibbiny <majd@mellanox.com>
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Add the upcoming ConnectX-5 device to the list of supported devices by
-mlx5 driver.
+Distribute default RSS table uniformly over the rings of the
+close NUMA node, instead of all available channels.
+This way we enforce the preference of close rings over far ones.
 
-Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |    3 ++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   15 +++++++++++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 72a94e7..aa8b702 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1453,6 +1453,8 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
- 	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
- 	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
- 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
-+	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5 */
-+	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
- 	{ 0, }
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index c4ddbe8..7f19644 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -671,7 +671,8 @@ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
  
+ int mlx5e_open_locked(struct net_device *netdev);
+ int mlx5e_close_locked(struct net_device *netdev);
+-void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
++				   u32 *indirection_rqt, int len,
+ 				   int num_channels);
+ 
+ static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 39c1902..6f40ba4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -397,7 +397,7 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 		mlx5e_close_locked(dev);
+ 
+ 	priv->params.num_channels = count;
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(priv->mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, count);
+ 
+ 	if (was_opened)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 7fbe1ba..9b58ef6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2297,11 +2297,22 @@ static void mlx5e_ets_init(struct mlx5e_priv *priv)
+ }
+ #endif
+ 
+-void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
++				   u32 *indirection_rqt, int len,
+ 				   int num_channels)
+ {
++	int node = mdev->priv.numa_node;
++	int node_num_of_cores;
+ 	int i;
+ 
++	if (node == -1)
++		node = first_online_node;
++
++	node_num_of_cores = cpumask_weight(cpumask_of_node(node));
++
++	if (node_num_of_cores)
++		num_channels = min_t(int, num_channels, node_num_of_cores);
++
+ 	for (i = 0; i < len; i++)
+ 		indirection_rqt[i] = i % num_channels;
+ }
+@@ -2333,7 +2344,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	netdev_rss_key_fill(priv->params.toeplitz_hash_key,
+ 			    sizeof(priv->params.toeplitz_hash_key));
+ 
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, num_channels);
+ 
+ 	priv->params.lro_wqe_sz            =
 -- 
 1.7.1
