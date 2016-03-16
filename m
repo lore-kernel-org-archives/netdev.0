@@ -1,101 +1,118 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC v2 -next 2/2] virtio_net: Read the advised MTU
-Date: Wed, 16 Mar 2016 16:24:46 +0200
-Message-ID: <20160316142446.GA4446@redhat.com>
-References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-	<1458075853-14789-3-git-send-email-aconole@redhat.com>
+From: Maor Gottlieb <maor.linux@gmail.com>
+Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
+Date: Wed, 16 Mar 2016 16:27:28 +0200
+Message-ID: <CA+WJiLyyAVX41JgVUtPXsupmzBnqMWugZ_BCeO5s+z3Aa1MQYg@mail.gmail.com>
+References: <20160316115809.61b4478e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Aaron Conole <aconole@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1458075853-14789-3-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160316115809.61b4478e@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 15, 2016 at 05:04:13PM -0400, Aaron Conole wrote:
-> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
-> exists, read the advised MTU and use it.
-> 
-> No proper error handling is provided for the case where a user changes the
-> negotiated MTU. A future commit will add proper error handling. Instead, a
-> warning is emitted if the guest changes the device MTU after previously
-> being given advice.
+2016-03-16 2:58 GMT+02:00 Stephen Rothwell <sfr@canb.auug.org.au>:
+> Hi all,
+>
+> Today's linux-next merge of the rdma tree got a conflict in:
+>
+>   drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+>
+> between commit:
+>
+>   60ab4584f5bf ("net/mlx5_core: Set flow steering dest only for forward rules")
+>
+> from the net-next tree and commit:
+>
+>   b3638e1a7664 ("net/mlx5_core: Introduce forward to next priority action")
+>
+> from the rdma tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
+>
+> --
+> Cheers,
+> Stephen Rothwell
+>
+> diff --cc drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> index e848d708d2b7,bf3446794bd5..000000000000
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+> @@@ -73,10 -73,13 +73,13 @@@
+>   #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
+>                            LEFTOVERS_MAX_FT)
+>
+>  -#define KERNEL_MAX_FT 2
+>  -#define KERNEL_NUM_PRIOS 1
+>  +#define KERNEL_MAX_FT 3
+>  +#define KERNEL_NUM_PRIOS 2
+>   #define KENREL_MIN_LEVEL 2
+>
+> + #define ANCHOR_MAX_FT 1
+> + #define ANCHOR_NUM_PRIOS 1
+> + #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
+>   struct node_caps {
+>         size_t  arr_sz;
+>         long    *caps;
+> @@@ -360,8 -367,13 +367,13 @@@ static void del_rule(struct fs_node *no
+>         memcpy(match_value, fte->val, sizeof(fte->val));
+>         fs_get_obj(ft, fg->node.parent);
+>         list_del(&rule->node.list);
+> +       if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
+> +               mutex_lock(&rule->dest_attr.ft->lock);
+> +               list_del(&rule->next_ft);
+> +               mutex_unlock(&rule->dest_attr.ft->lock);
+> +       }
+>  -      fte->dests_size--;
+>  -      if (fte->dests_size) {
+>  +      if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
+>  +          --fte->dests_size) {
+>                 err = mlx5_cmd_update_fte(dev, ft,
+>                                           fg->id, fte);
+>                 if (err)
+> @@@ -762,9 -835,9 +835,10 @@@ static struct mlx5_flow_rule *alloc_rul
+>         if (!rule)
+>                 return NULL;
+>
+> +       INIT_LIST_HEAD(&rule->next_ft);
+>         rule->node.type = FS_TYPE_FLOW_DEST;
+>  -      memcpy(&rule->dest_attr, dest, sizeof(*dest));
+>  +      if (dest)
+>  +              memcpy(&rule->dest_attr, dest, sizeof(*dest));
+>
+>         return rule;
+>   }
+> @@@ -783,12 -856,16 +857,17 @@@ static struct mlx5_flow_rule *add_rule_
+>                 return ERR_PTR(-ENOMEM);
+>
+>         fs_get_obj(ft, fg->node.parent);
+> -       /* Add dest to dests list- added as first element after the head */
+> +       /* Add dest to dests list- we need flow tables to be in the
+> +        * end of the list for forward to next prio rules.
+> +        */
+>         tree_init_node(&rule->node, 1, del_rule);
+> -       list_add_tail(&rule->node.list, &fte->node.children);
+> +       if (dest && dest->type != MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
+> +               list_add(&rule->node.list, &fte->node.children);
+> +       else
+> +               list_add_tail(&rule->node.list, &fte->node.children);
+>  -      fte->dests_size++;
+>  -      if (fte->dests_size == 1)
+>  +      if (dest)
+>  +              fte->dests_size++;
+>  +      if (fte->dests_size == 1 || !dest)
+>                 err = mlx5_cmd_create_fte(get_dev(&ft->node),
+>                                           ft, fg->id, fte);
+>         else
 
-I don't see this as an error. Device might at best give a hint,
-user/network admin always knows best.
+Hi Stephen,
 
-> 
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> ---
-> v2:
-> * Whitespace cleanup in the last hunk
-> * Code style change around the pr_warn
-> * Additional test for mtu change before printing warning
-> 
->  drivers/net/virtio_net.c | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 767ab11..429fe01 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -146,6 +146,7 @@ struct virtnet_info {
->  	virtio_net_ctrl_ack ctrl_status;
->  	u8 ctrl_promisc;
->  	u8 ctrl_allmulti;
-> +	bool negotiated_mtu;
->  };
->  
->  struct padded_vnet_hdr {
-> @@ -1390,8 +1391,11 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->  
->  static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->  {
-> +	struct virtnet_info *vi = netdev_priv(dev);
->  	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
->  		return -EINVAL;
-> +	if ((vi->negotiated_mtu) && (dev->mtu != new_mtu))
-> +		pr_warn("changing mtu while the advised mtu bit exists.");
+I reveiwed your merge and it's fine.
 
-I don't really see why are we warning here. Just drop this chunk,
-as well as the flag in struct virtnet_info.
-
->  	dev->mtu = new_mtu;
->  	return 0;
->  }
-> @@ -1836,6 +1840,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
->  
-> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-> +		vi->negotiated_mtu = true;
-> +		dev->mtu = virtio_cread16(vdev,
-> +					  offsetof(struct virtio_net_config,
-> +						   mtu));
-> +	}
-> +
->  	if (vi->any_header_sg)
->  		dev->needed_headroom = vi->hdr_len;
->  
-> @@ -2019,6 +2030,7 @@ static unsigned int features[] = {
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
->  	VIRTIO_NET_F_CTRL_MAC_ADDR,
->  	VIRTIO_F_ANY_LAYOUT,
-> +	VIRTIO_NET_F_MTU,
->  };
->  
->  static struct virtio_driver virtio_net_driver = {
-> -- 
-> 2.5.0
+Thanks,
+Maor
