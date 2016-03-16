@@ -1,82 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] lan78xx: add ndo_get_stats64
-Date: Wed, 16 Mar 2016 17:16:30 +0300
-Message-ID: <56E96ABE.1010206@cogentembedded.com>
-References: <9235D6609DB808459E95D78E17F2E43D404C906A@CHN-SV-EXMX02.mchp-main.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG] bcmgenet tx path
+Date: Wed, 16 Mar 2016 07:18:01 -0700
+Message-ID: <1458137881.7353.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: UNGLinuxDriver@microchip.com
-To: Woojung.Huh@microchip.com, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33653 "EHLO
-	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966265AbcCPOQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:16:33 -0400
-Received: by mail-lf0-f48.google.com with SMTP id h198so20263287lfh.0
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:16:32 -0700 (PDT)
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404C906A@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33299 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934415AbcCPOSG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:18:06 -0400
+Received: by mail-qk0-f171.google.com with SMTP id s5so21325372qkd.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:18:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi Florian
 
-On 3/16/2016 1:52 AM, Woojung.Huh@microchip.com wrote:
+I was looking at drivers/net/ethernet/broadcom/genet/bcmgenet.c
+and found TX completion (__bcmgenet_tx_reclaim()) was freeing skb before
+frags were actually dma unmapped.
 
-> From: Woojung Huh <woojung.huh@microchip.com>
->
-> Add lan78xx_get_stats64 of ndo_get_stats64 to report
-> all statistics counters including errors from HW statistics.
->
-> Read from HW when auto suspend is disabled, use saved counter when
-> auto suspend is enabled because periodic call to ndo_get_stats64
-> prevents USB auto suspend.
->
-> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
-> ---
->   drivers/net/usb/lan78xx.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 49 insertions(+)
->
-> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-> index f20890e..f4a9708f 100644
-> --- a/drivers/net/usb/lan78xx.c
-> +++ b/drivers/net/usb/lan78xx.c
-> @@ -3261,6 +3261,54 @@ void lan78xx_tx_timeout(struct net_device *net)
->   	tasklet_schedule(&dev->bh);
->   }
->
-> +struct rtnl_link_stats64 *lan78xx_get_stats64(struct net_device *netdev,
-> +					      struct rtnl_link_stats64 *storage)
-> +{
-[...]
-> +	storage->rx_length_errors = (stats.rx_undersize_frame_errors +
-> +				     stats.rx_oversize_frame_errors);
 
-    Parens not needed.
+Are you sure this is OK ? bnx2 and bnx2x actually do the reverse (unmap
+all frags before freeing skb)
 
-> +	storage->rx_crc_errors = stats.rx_fcs_errors;
-> +	storage->rx_frame_errors = stats.rx_alignment_errors;
-> +	storage->rx_fifo_errors = stats.rx_dropped_frames;
-> +	storage->rx_over_errors = stats.rx_oversize_frame_errors;
-> +	storage->rx_errors = (stats.rx_fcs_errors +
-> +			      stats.rx_alignment_errors +
-> +			      stats.rx_fragment_errors +
-> +			      stats.rx_jabber_errors +
-> +			      stats.rx_undersize_frame_errors +
-> +			      stats.rx_oversize_frame_errors +
-> +			      stats.rx_dropped_frames);
+A second problem is the dma_unmap_single() uses tx_cb_ptr->skb->len for
+the length, while it really should be the same thing that was used in
+bcmgenet_xmit_single()
 
-    Neither here.
+skb_len = skb_headlen(skb) < ETH_ZLEN ? ETH_ZLEN : skb_headlen(skb);
 
-> +
-> +	storage->tx_carrier_errors = stats.tx_carrier_errors;
-> +	storage->tx_errors = (stats.tx_fcs_errors +
-> +			      stats.tx_excess_deferral_errors +
-> +			      stats.tx_carrier_errors);
+So maybe something like :
 
-    And here.
-
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index d7e01a7..9211b9c7 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1197,7 +1197,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
+ 			dma_unmap_single(&dev->dev,
+ 					 dma_unmap_addr(tx_cb_ptr, dma_addr),
+-					 tx_cb_ptr->skb->len,
++					 dma_unmap_len(tx_cb_ptr, dma_len),
+ 					 DMA_TO_DEVICE);
+ 			bcmgenet_free_cb(tx_cb_ptr);
+ 		} else if (dma_unmap_addr(tx_cb_ptr, dma_addr)) {
+@@ -1308,7 +1308,7 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+ 	}
+ 
+ 	dma_unmap_addr_set(tx_cb_ptr, dma_addr, mapping);
+-	dma_unmap_len_set(tx_cb_ptr, dma_len, skb->len);
++	dma_unmap_len_set(tx_cb_ptr, dma_len, skb_len);
+ 	length_status = (skb_len << DMA_BUFLENGTH_SHIFT) | dma_desc_flags |
+ 			(priv->hw_params->qtag_mask << DMA_TX_QTAG_SHIFT) |
+ 			DMA_TX_APPEND_CRC;
