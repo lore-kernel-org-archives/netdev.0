@@ -1,47 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv6 not bringing up due to qdisc_tx_is_noop failing
-Date: Wed, 16 Mar 2016 18:07:44 +0100
-Message-ID: <56E992E0.1080708@stressinduktion.org>
-References: <56E97BEA.4070004@kyup.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] vxlan: fix too large pskb_may_pull with remote checksum
+Date: Wed, 16 Mar 2016 10:09:38 -0700
+Message-ID: <CALx6S37=BFPfFB5Jwug5VeNJG2qtmVsRxCq-sW=q1knz73ZwhA@mail.gmail.com>
+References: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	SiteGround Operations <operations@siteground.com>
-To: Nikolay Borisov <kernel@kyup.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46552 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932322AbcCPRHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:07:47 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id 4C24B20D4B
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 13:07:46 -0400 (EDT)
-In-Reply-To: <56E97BEA.4070004@kyup.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34000 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598AbcCPRJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:09:39 -0400
+Received: by mail-io0-f173.google.com with SMTP id m184so67270178iof.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:09:39 -0700 (PDT)
+In-Reply-To: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On 16.03.2016 16:29, Nikolay Borisov wrote:
-> I have stack traces which do show this sequence of events, so my
-> questions now are:
+On Wed, Mar 16, 2016 at 9:35 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> The vxlan header is pulled at this point, don't include it again in the
+> calculation.
 >
-> 1. What's the difference between netdev_queue->qdisc and
-> netdev_queue->qdisc_sleeping. Git blaming indicates those member haves
-> existed even before the git history was started.
+Hmm, I think I missing something obvious. Where was the pull of the
+vxlan header done?
 
-qdisc_sleeping is the qdisc you configure before the device is brought 
-up. It should transition during carrier up to the normal qdisc.
+Thanks,
+Tom
 
-> 2. Shouldn't the netdev_queue->qdisc also be updated during
-> attach_one_default_qdisc?
-
-Yes, do you have carrier up on your card?
-
-Is this a regression, did this work for you and stopped working with a 
-specific kernel version?
-
-Thanks and bye,
-Hannes
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> This was previously part of the VXLAN-GPE patchset but it's not really
+> related (especially not after the discussion that RCO should not be allowed
+> together with GPE). I'm sending it separately.
+> ---
+>  drivers/net/vxlan.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 800106a7246c..1eb8347f440c 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1143,7 +1143,7 @@ static int vxlan_igmp_leave(struct vxlan_dev *vxlan)
+>  static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+>                           struct sk_buff *skb, u32 vxflags)
+>  {
+> -       size_t start, offset, plen;
+> +       size_t start, offset;
+>
+>         if (!(unparsed->vx_flags & VXLAN_HF_RCO) || skb->remcsum_offload)
+>                 goto out;
+> @@ -1151,9 +1151,7 @@ static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+>         start = vxlan_rco_start(unparsed->vx_vni);
+>         offset = start + vxlan_rco_offset(unparsed->vx_vni);
+>
+> -       plen = sizeof(struct vxlanhdr) + offset + sizeof(u16);
+> -
+> -       if (!pskb_may_pull(skb, plen))
+> +       if (!pskb_may_pull(skb, offset + sizeof(u16)))
+>                 return false;
+>
+>         skb_remcsum_process(skb, (void *)(vxlan_hdr(skb) + 1), start, offset,
+> --
+> 1.8.3.1
+>
