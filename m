@@ -1,74 +1,35 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/3] bpf, dst: add and use dst_tclassid helper
-Date: Wed, 16 Mar 2016 01:42:50 +0100
-Message-ID: <27b04002c41af19d7532a627a7497b109b6d2e24.1458085814.git.daniel@iogearbox.net>
-References: <cover.1458085814.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 0/3] Minor BPF follow-ups
+Date: Wed, 16 Mar 2016 01:42:48 +0100
+Message-ID: <cover.1458085814.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38428 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:38423 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090AbcCPAnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 20:43:06 -0400
-In-Reply-To: <cover.1458085814.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1458085814.git.daniel@iogearbox.net>
-References: <cover.1458085814.git.daniel@iogearbox.net>
+	with ESMTP id S1751239AbcCPAnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 20:43:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can just add a small helper dst_tclassid() for retrieving the
-dst->tclassid value. It makes the code a bit better in that we can
-get rid of the ifdef from filter.c by moving this into the header.
+Some minor last follow-ups I still had in my queue. The first one adds
+readability support for __sk_buff's tc_classid member, the remaining
+two are some minor cleanups. For details please see individual patches.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/net/dst.h | 12 ++++++++++++
- net/core/filter.c |  9 +--------
- 2 files changed, 13 insertions(+), 8 deletions(-)
+Thanks!
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index c7329dc..5c98443 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -398,6 +398,18 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
- 	__skb_tunnel_rx(skb, dev, net);
- }
- 
-+static inline u32 dst_tclassid(const struct sk_buff *skb)
-+{
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	const struct dst_entry *dst;
-+
-+	dst = skb_dst(skb);
-+	if (dst)
-+		return dst->tclassid;
-+#endif
-+	return 0;
-+}
-+
- int dst_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb);
- static inline int dst_discard(struct sk_buff *skb)
- {
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 69c7b2f..4c35d83 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1682,14 +1682,7 @@ static const struct bpf_func_proto bpf_get_cgroup_classid_proto = {
- 
- static u64 bpf_get_route_realm(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
--#ifdef CONFIG_IP_ROUTE_CLASSID
--	const struct dst_entry *dst;
--
--	dst = skb_dst((struct sk_buff *) (unsigned long) r1);
--	if (dst)
--		return dst->tclassid;
--#endif
--	return 0;
-+	return dst_tclassid((struct sk_buff *) (unsigned long) r1);
- }
- 
- static const struct bpf_func_proto bpf_get_route_realm_proto = {
+Daniel Borkmann (3):
+  bpf: make skb->tc_classid also readable
+  bpf, dst: add and use dst_tclassid helper
+  ip_tunnels, bpf: define IP_TUNNEL_OPTS_MAX and use it
+
+ include/net/dst.h         | 12 ++++++++++++
+ include/net/ip_tunnels.h  |  7 +++++++
+ net/core/filter.c         | 30 +++++++++---------------------
+ net/ipv4/ip_tunnel_core.c |  6 ++++++
+ net/openvswitch/flow.h    |  2 +-
+ 5 files changed, 35 insertions(+), 22 deletions(-)
+
 -- 
 1.9.3
