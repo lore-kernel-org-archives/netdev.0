@@ -1,52 +1,49 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 0/2] ovs: refresh a flow via netlink
-Date: Wed, 16 Mar 2016 16:23:38 -0700
-Message-ID: <CAEh+42jMSpPr8yUmmO355D=auKa-cGTwOZu0CSf-0=rczu4zwg@mail.gmail.com>
-References: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
+From: =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
+Subject: [PATCH] phy: mdio-thunder: Fix some Kconfig typos
+Date: Thu, 17 Mar 2016 00:23:37 +0100
+Message-ID: <1458170617-31784-1-git-send-email-afaerber@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1458140872-22438-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arm-kernel@lists.infradead.org,
+	=?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>,
+	David Daney <david.daney@cavium.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBNYXIgMTYsIDIwMTYgYXQgODowNyBBTSwgU2FtdWVsIEdhdXRoaWVyCjxzYW11ZWwu
-Z2F1dGhpZXJANndpbmQuY29tPiB3cm90ZToKPiBUaGlzIHBhdGNoc2V0IGFkZHMgYSBuZXRsaW5r
-IGFwaSB0byByZWZyZXNoIGFuIGV4aXN0aW5nIGZsb3cgaW4KPiBvcGVudnN3aXRjaC4KPgo+IFdo
-ZW4gYSBwYWNrZXQgaXMgc2VudCBpbiB0aGUgb3BlbnZzd2l0Y2gga2VybmVsIGRhdGFwYXRoIGFu
-ZCBubwo+IGZsb3cgaXMgZm91bmQsIHRoZSBwYWNrZXQgaXMgc2VudCB0byB0aGUgb3ZzLXZzd2l0
-Y2hkIGRhZW1vbiwKPiB3aGljaCB3aWxsIHByb2Nlc3MgdGhlIHBhY2tldCwgYW5kIGFzayB0aGUg
-a2VybmVsIHRvIGNyZWF0ZSBhIG5ldwo+IGZsb3cuIFRoZSBuZXh0IHBhY2tldHMgZm9yIHRoaXMg
-ZmxvdyB3aWxsIGJlIHByb2Nlc3NlZCBieSB0aGUKPiBrZXJuZWwgZGF0YXBhdGguIElmIGEgZmxv
-dyBpcyBub3QgdXNlZCBmb3IgYSAoY29uZmlndXJhYmxlKQo+IHBlcmlvZCBvZiB0aW1lLCBvdnMt
-dnN3aXRjaGQgcmVtb3ZlcyB0aGUgZmxvdyBmcm9tIHRoZSBrZXJuZWwuCj4KPiBBcyBhIHJlc3Vs
-dCwgaXQgY2FuIGJlIHRyaWNreSB0byB0ZXN0IHRoZSBrZXJuZWwgZGF0YXBhdGggYWdhaW5zdAo+
-IHBhY2tldHMsIGFzIHRoZSBmaXJzdCBwYWNrZXRzIG9mIGVhY2ggZmxvdyB3aWxsIGhhdmUgdG8g
-Z28KPiB0aHJvdWdoIHRoZSBvdnMtdnN3aXRjaGQgZGFlbW9uLiBGb3IgaW5zdGFuY2UsIHRvIGRv
-IGEgemVyb2xvc3MKPiBwZXJmb3JtYW5jZSB0ZXN0LCB5b3UgZXN0YWJsaXNoIHRoZSBmbG93cywg
-YW5kIHRoZW4geW91IGhhdmUgdG8KPiBwZXJmb3JtIHlvdXIgemVyb2xvc3MgdGVzdCBiZWZvcmUg
-dGhlIGZsb3cgaXMgcmVtb3ZlZCBieQo+IG92cy12c3dpdGNoZC4KPgo+IEl0IGlzIHBvc3NpYmxl
-IHRvIGNvbmZpZ3VyZSBhIGZsb3cgdGltZW91dCBpbiBvdnMtdnN3aXRjaGQgKHVzaW5nCj4gb3Ro
-ZXJfY29uZmlnOm1heC1pZGxlIG9wdGlvbiksIGJ1dCBpdCBjaGFuZ2VzIHRoZSBiZWhhdmlvciBm
-b3IKPiBhbGwgdGhlIGZsb3dzLCB3aGljaCBpcyBub3QgYWx3YXlzIHdoYXQgeW91IHdhbnQuCgpJ
-dCBzZWVtcyB0byBtZSB0aGF0IGl0IHdvdWxkIGJlIHByZWZlcmFibGUgdG8gaW1wbGVtZW50IHRo
-ZSBuZWNlc3NhcnkKYmVoYXZpb3IgaW4gdXNlcnNwYWNlIHRvIGhhbmRsZSB0aGlzIGRpcmVjdGx5
-LiBUaGUgbG9naWMgdGhhdCBpcwpyZW1vdmluZyB0aGUgZmxvdyBpcyBpbiB1c2Vyc3BhY2UsIHNv
-IHJhdGhlciB0aGFuIGFza2luZyB0aGUga2VybmVsIHRvCmxpZSBhYm91dCB0aGUgY3VycmVudCBz
-dGF0ZSBvZiB0aGluZ3MsIHdlIGNhbiBqdXN0IG1vZGlmeSB0aGUgbG9naWMgdG8KaGFuZGxlIHRo
-aXMgY2FzZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
-cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Drop two extra occurrences of "on" in option title and help text.
+
+=46ixes: 379d7ac7ca31 ("phy: mdio-thunder: Add driver for Cavium Thunde=
+r SoC MDIO buses.")
+Cc: David Daney <david.daney@cavium.com>
+Signed-off-by: Andreas F=C3=A4rber <afaerber@suse.de>
+---
+ drivers/net/phy/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 075a4cc175b1..6dad9a9c356c 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -197,13 +197,13 @@ config MDIO_OCTEON
+ 	  drivers on some systems.
+=20
+ config MDIO_THUNDER
+-	tristate "Support for MDIO buses on on ThunderX SOCs"
++	tristate "Support for MDIO buses on ThunderX SOCs"
+ 	depends on 64BIT
+ 	depends on PCI
+ 	select MDIO_CAVIUM
+ 	help
+ 	  This driver supports the MDIO interfaces found on Cavium
+-	  ThunderX SoCs when the MDIO bus device appears on as a PCI
++	  ThunderX SoCs when the MDIO bus device appears as a PCI
+ 	  device.
+=20
+=20
+--=20
+2.6.2
