@@ -1,65 +1,53 @@
 From: Luca Lemmo <luca@linux.com>
-Subject: [PATCH 2/3] tc: f_u32: trivial coding style cleanups
-Date: Wed, 16 Mar 2016 17:56:13 +0100
-Message-ID: <1458147374-8899-2-git-send-email-luca@linux.com>
+Subject: [PATCH 3/3] tc: q_{codel,fq_codel}: add missing space in help text
+Date: Wed, 16 Mar 2016 17:56:14 +0100
+Message-ID: <1458147374-8899-3-git-send-email-luca@linux.com>
 References: <1458147374-8899-1-git-send-email-luca@linux.com>
 Cc: netdev@vger.kernel.org, Luca Lemmo <luca@linux.com>
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:43135 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:56054 "EHLO
 	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933379AbcCPQ5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 12:57:18 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id BA6AE20A45
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 12:57:17 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S932079AbcCPQ5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 12:57:42 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 489C620A29
+	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 12:57:41 -0400 (EDT)
 In-Reply-To: <1458147374-8899-1-git-send-email-luca@linux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Luca Lemmo <luca@linux.com>
 ---
- tc/f_u32.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ tc/q_codel.c    | 2 +-
+ tc/q_fq_codel.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 2a6c971..5ca60c8 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -80,7 +80,7 @@ static int get_u32_handle(__u32 *handle, const char *str)
- 	return 0;
- }
+diff --git a/tc/q_codel.c b/tc/q_codel.c
+index c24246c..cff609e 100644
+--- a/tc/q_codel.c
++++ b/tc/q_codel.c
+@@ -53,7 +53,7 @@
  
--static char * sprint_u32_handle(__u32 handle, char *buf)
-+static char *sprint_u32_handle(__u32 handle, char *buf)
+ static void explain(void)
  {
- 	int bsize = SPRINT_BSIZE-1;
- 	__u32 htid = TC_U32_HTID(handle);
-@@ -382,7 +382,7 @@ static int parse_ip6_addr(int *argc_p, char ***argv_p,
- 
- 	plen = addr.bitlen;
- 	for (i = 0; i < plen; i += 32) {
--//		if (((i + 31) & ~0x1F) <= plen) {
-+		/* if (((i + 31) & ~0x1F) <= plen) { */
- 		if (i + 31 <= plen) {
- 			res = pack_key(sel, addr.data[i / 32],
- 				       0xFFFFFFFF, off + 4 * (i / 32), offmask);
-@@ -1109,14 +1109,14 @@ static int u32_parse_opt(struct filter_util *qu, char *handle,
- 			continue;
- 		} else if (strcmp(*argv, "indev") == 0) {
- 			char ind[IFNAMSIZ + 1];
--			memset(ind, 0, sizeof (ind));
-+			memset(ind, 0, sizeof(ind));
- 			argc--;
- 			argv++;
- 			if (argc < 1) {
- 				fprintf(stderr, "Illegal indev\n");
- 				return -1;
- 			}
--			strncpy(ind, *argv, sizeof (ind) - 1);
-+			strncpy(ind, *argv, sizeof(ind) - 1);
- 			addattr_l(n, MAX_MSG, TCA_U32_INDEV, ind, strlen(ind) + 1);
- 
- 		} else if (matches(*argv, "action") == 0) {
+-	fprintf(stderr, "Usage: ... codel [ limit PACKETS ] [ target TIME]\n");
++	fprintf(stderr, "Usage: ... codel [ limit PACKETS ] [ target TIME ]\n");
+ 	fprintf(stderr, "                 [ interval TIME ] [ ecn | noecn ]\n");
+ 	fprintf(stderr, "                 [ ce_threshold TIME ]\n");
+ }
+diff --git a/tc/q_fq_codel.c b/tc/q_fq_codel.c
+index 4f747eb..0392c64 100644
+--- a/tc/q_fq_codel.c
++++ b/tc/q_fq_codel.c
+@@ -51,7 +51,7 @@
+ static void explain(void)
+ {
+ 	fprintf(stderr, "Usage: ... fq_codel [ limit PACKETS ] [ flows NUMBER ]\n");
+-	fprintf(stderr, "                    [ target TIME] [ interval TIME ]\n");
++	fprintf(stderr, "                    [ target TIME ] [ interval TIME ]\n");
+ 	fprintf(stderr, "                    [ quantum BYTES ] [ [no]ecn ]\n");
+ 	fprintf(stderr, "                    [ ce_threshold TIME ]\n");
+ }
 -- 
 2.7.3
