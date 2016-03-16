@@ -1,41 +1,48 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH V3 net-next] ixgbe: Avoid unaligned access in ixgbe_atr()
- for LLC packets
-Date: Wed, 16 Mar 2016 19:01:57 -0400
-Message-ID: <20160316230157.GK21307@oracle.com>
-References: <20160314194716.GM5084@oracle.com>
- <1458169132.2878.25.camel@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Thu, 17 Mar 2016 00:05:05 +0100
+Message-ID: <20160316230505.GA18161@lunn.ch>
+References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+ <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com>
+ <20160316161848.GE2393@lunn.ch>
+ <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	alexander.duyck@gmail.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shaohui ??? <shh.xie@gmail.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:27098 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932632AbcCPXCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 19:02:19 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:48972 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753137AbcCPXFL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 19:05:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1458169132.2878.25.camel@intel.com>
+In-Reply-To: <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (03/16/16 15:58), Jeff Kirsher wrote:
->=20
-> This does not apply since Alex Duyck beat you to the fix. =A0Here is =
-the
-> patch he submitted on 3/15 which corrects the issue. =A0So I am dropp=
-ing
-> your patch from the queue.
->=20
+On Wed, Mar 16, 2016 at 11:23:59PM +0100, Yegor Yefremov wrote:
+> Hi Andrew,
+> 
+> On Wed, Mar 16, 2016 at 5:18 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> > On Wed, Mar 16, 2016 at 04:59:23PM +0100, Yegor Yefremov wrote:
+> >
+> >> This patch breaks my am335x based board, where one of the CPSW slaves
+> >> is connected to IP175D switch chip via RMII interface. Since this
+> >> patch packet reception is not working.
+> >
+> > Hi Yegor
+> >
+> > Which phy is causing the problem? A PHY inside the switch?
+> >
+> > Do you have two back to back PHYs between the MAC and the switch, or
+> > is the CPSW RMII connected directly to the switch?
+> 
+> CPSW RMII is connected directly to the switch.
 
-That's weird because Alexander was reviewing my fix on the various
-lists yesterday, so he could have just told me about this.
+So which PHY is causing you problems?
 
-But, whatever.
-
---sowmini
+   Andrew
