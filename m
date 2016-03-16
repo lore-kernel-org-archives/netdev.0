@@ -1,48 +1,69 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next
- tree
-Date: Thu, 17 Mar 2016 09:35:31 +1100
-Message-ID: <20160317093531.4894f078@canb.auug.org.au>
-References: <20160316115809.61b4478e@canb.auug.org.au>
-	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-	<20160317075246.39a08e61@canb.auug.org.au>
-	<20160316211503.GA16382@lunn.ch>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
+Subject: Re: [PATCH v2 3/3] phy: mdio-thunder: Add driver for Cavium Thunder
+ SoC MDIO buses.
+Date: Wed, 16 Mar 2016 23:50:43 +0100
+Message-ID: <56E9E343.3080207@suse.de>
+References: <1457718791-6505-1-git-send-email-ddaney.cavm@gmail.com>
+ <1457718791-6505-4-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Doug Ledford <dledford@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:59556 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750955AbcCPWfe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 18:35:34 -0400
-In-Reply-To: <20160316211503.GA16382@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Robert Richter <rric@kernel.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Radha Mohan Chintakuntla <rchintakuntla@cavium.com>,
+	linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1457718791-6505-4-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Hi,
 
-On Wed, 16 Mar 2016 22:15:03 +0100 Andrew Lunn <andrew@lunn.ch> wrote:
->
-> > How about "This is now fixed as far as linux-next is concerned, but any
-> > non trivial conflicts should be mentioned to your upstream maintainer
-> > when your tree is submitted for merging.  You may want also want to  
-> 
-> Only the second want is required.
-> 
-> > consider cooperate with the maintainer of the conflicting tree to  
-> 
-> cooperating
+Am 11.03.2016 um 18:53 schrieb David Daney:
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 40faec9..075a4cc 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -196,6 +196,17 @@ config MDIO_OCTEON
+>  	  buses. It is required by the Octeon and ThunderX ethernet device
+>  	  drivers on some systems.
+> =20
+> +config MDIO_THUNDER
+> +	tristate "Support for MDIO buses on on ThunderX SOCs"
 
-Thanks.  Breakfast is not the best time to compose prose :-)
+Double "on", spotted in next-20160316.
 
--- 
-Cheers,
-Stephen Rothwell
+> +	depends on 64BIT
+> +	depends on PCI
+> +	select MDIO_CAVIUM
+> +	help
+> +	  This driver supports the MDIO interfaces found on Cavium
+> +	  ThunderX SoCs when the MDIO bus device appears on as a PCI
+> +	  device.
+
+While at it, this sentence sounds weird. Did you mean s/as/is/? Or is
+there another verb missing in there?
+
+Regards,
+Andreas
+
+> +
+> +
+>  config MDIO_SUN4I
+>  	tristate "Allwinner sun4i MDIO interface support"
+>  	depends on ARCH_SUNXI
+[snip]
+
+--=20
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=FCrnberg, Germany
+GF: Felix Imend=F6rffer, Jane Smithard, Graham Norton; HRB 21284 (AG N=FC=
+rnberg)
