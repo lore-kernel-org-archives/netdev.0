@@ -1,58 +1,52 @@
-From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Subject: Re: When will net-next merge with linux-next?
-Date: Tue, 15 Mar 2016 19:40:58 -0700
-Message-ID: <20160316024058.GA29922@kroah.com>
-References: <BLUPR03MB14106249C57CCF66717CC860BF880@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160314162139.GA2925@kroah.com>
- <BLUPR03MB141045D7EED478CB0A086CA1BF890@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160315150534.GB12990@kroah.com>
- <BLUPR03MB14104FD16924FB8327BD9AA8BF8A0@BLUPR03MB1410.namprd03.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: smc911x: convert pxa dma to dmaengine
+Date: Tue, 15 Mar 2016 22:57:09 -0400 (EDT)
+Message-ID: <20160315.225709.1732687324535302348.davem@davemloft.net>
+References: <CAOMZO5DfQZrP-qNdPC5hJ_J+e-mX547SMq1wUC3NXWzyx84PMw@mail.gmail.com>
+	<87lh5zpbaw.fsf@belgarion.home>
+	<87wpp3mjt1.fsf@belgarion.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:43638 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752480AbcCPClA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 22:41:00 -0400
-Content-Disposition: inline
-In-Reply-To: <BLUPR03MB14104FD16924FB8327BD9AA8BF8A0@BLUPR03MB1410.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: festevam@gmail.com, g.liakhovetski@gmx.de,
+	mitake@dcl.info.waseda.ac.jp, fabio.estevam@freescale.com,
+	mitake.hitoshi@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87wpp3mjt1.fsf@belgarion.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2016 at 01:58:50AM +0000, Dexuan Cui wrote:
-> > From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
-> > Sent: Tuesday, March 15, 2016 23:06
-> > To: Dexuan Cui <decui@microsoft.com>
-> > Cc: David Miller <davem@davemloft.net>; netdev@vger.kernel.org; KY
-> > Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>
-> > Subject: Re: When will net-next merge with linux-next?
-> > 
-> > On Tue, Mar 15, 2016 at 11:11:34AM +0000, Dexuan Cui wrote:
-> > > I'm wondering whether (and when) step 2 will happen in the next 2 weeks,
-> > > that is, before the tag 4.6-rc1 is made.
-> > > If not, I guess I'll miss 4.6?
-> > 
-> > You missed 4.6 as your patch was not in any of our trees a few days
-> > before 4.5 was released, sorry.
-> > 
-> > greg k-h
-> Hi Greg,
-> Thanks for the reply!
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Tue, 15 Mar 2016 23:56:58 +0100
+
+> Robert Jarzmik <robert.jarzmik@free.fr> writes:
 > 
-> My patch has to go in net-next first, but even today's mainline and net-next
-> haven't had the supporting patches in the VMBus driver, so I can't post my
-> patch to net-next even today  -- it seems it's doomed to need 2 major
-> release cycles to push a feature that makes changes to 2 subsystems? :-(
+>> Fabio Estevam <festevam@gmail.com> writes:
+>>> Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
+>>
+>> Thanks Fabio for the test.
+>>
+>> I also tried with a different different approach.
+>>
+>> I built the different platforms (imx v6, etc ...) :
+>>  - one version (a) on a vanilla v4.5-rc2
+>>  - one version (b) on a vaniall v4.5-rc2 + this patch
+>>
+>> For each of the builds, I took the preprocessed output of smc911x.c, and made a
+>> diff between (a) and (b). The commands used were :
+>>  - building in [1]
+>>  - diffing in [2]
+>>
+>> The result is [3]. I conclude from [3] that the driver cannot break for non PXA
+>> platforms.
+>>
+>> With Fabio's test and this demonstration, is enough to convince you to apply
+>> this patch David ?
+> Hi David,
+> 
+> Can you consider this patch now it is tested please ?
 
-Usually, yes, unless you talk to us ahead of time so we can coordinate,
-or have one of the patches go through a different tree (i.e. all in one
-tree.).
-
-Just wait until 4.6-rc1 is out and all will be fine.
-
-greg k-h
+Please resubmit the patch fresh with the appropriate Tested-by: tags
+added, thanks.
