@@ -1,36 +1,35 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN interface
-Date: Wed, 16 Mar 2016 09:37:49 +0100
-Message-ID: <87lh5iq0ma.fsf@nemi.mork.no>
-References: <1978E4F2CF12DD4A899FA7487323EB1101083683C0@A1GTOEMBXV004.gto.a3c.atos.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] net: fix a comment typo
+Date: Wed, 16 Mar 2016 09:12:46 +0000
+Message-ID: <1458119566-22304-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:36155 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934980AbcCPIiV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 04:38:21 -0400
-In-Reply-To: <1978E4F2CF12DD4A899FA7487323EB1101083683C0@A1GTOEMBXV004.gto.a3c.atos.net>
-	(Schemmel Hans-Christoph's message of "Wed, 16 Mar 2016 08:31:28
-	+0000")
+Received: from cmccmta2.chinamobile.com ([221.176.66.80]:2414 "EHLO
+	cmccmta2.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964864AbcCPJIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:08:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com> writes:
+Fix a comment typo.
 
-> +	{QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},	/* Cinterion PHxx,PXxx (2
-> RmNet) */
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ include/uapi/linux/if.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-That's broken.  Sorry.  You'll have to figure out some way submit this
-in a form that can be applied using "git am".
-
-There are some hints in
-https://www.kernel.org/doc/Documentation/email-clients.txt
-
-
-
-Bj=C3=B8rn
+diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+index 9cf2394..f802775 100644
+--- a/include/uapi/linux/if.h
++++ b/include/uapi/linux/if.h
+@@ -37,7 +37,7 @@
+  * are shared for all types of net_devices. The sysfs entries are available
+  * via /sys/class/net/<dev>/flags. Flags which can be toggled through sysfs
+  * are annotated below, note that only a few flags can be toggled and some
+- * other flags are always always preserved from the original net_device flags
++ * other flags are always preserved from the original net_device flags
+  * even if you try to set them via sysfs. Flags which are always preserved
+  * are kept under the flag grouping @IFF_VOLATILE. Flags which are volatile
+  * are annotated below as such.
+-- 
+1.8.3.1
