@@ -1,51 +1,82 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 4/6] bridge: a netlink notification should be
- sent when those attributes are changed by br_sysfs_br
-Date: Wed, 16 Mar 2016 15:14:19 +0100
-Message-ID: <56E96A3B.1030907@cumulusnetworks.com>
-References: <cover.1458134414.git.lucien.xin@gmail.com>
- <059d608901fd86407fed374e567c46447aa8c88f.1458134414.git.lucien.xin@gmail.com>
- <f379a033c5b7798906c57dd1bb67df89b7de02cb.1458134414.git.lucien.xin@gmail.com>
- <45f430c026ce8a2fb358c650a41452aebff9ec36.1458134414.git.lucien.xin@gmail.com>
- <38a10eecc6347a3c47b55c86b4783c49b6dbbc99.1458134414.git.lucien.xin@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] lan78xx: add ndo_get_stats64
+Date: Wed, 16 Mar 2016 17:16:30 +0300
+Message-ID: <56E96ABE.1010206@cogentembedded.com>
+References: <9235D6609DB808459E95D78E17F2E43D404C906A@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>
+Cc: UNGLinuxDriver@microchip.com
+To: Woojung.Huh@microchip.com, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36598 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964964AbcCPOOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:14:22 -0400
-Received: by mail-wm0-f45.google.com with SMTP id l124so50392850wmf.1
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:14:22 -0700 (PDT)
-In-Reply-To: <38a10eecc6347a3c47b55c86b4783c49b6dbbc99.1458134414.git.lucien.xin@gmail.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33653 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966265AbcCPOQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:16:33 -0400
+Received: by mail-lf0-f48.google.com with SMTP id h198so20263287lfh.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:16:32 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404C906A@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/16/2016 02:34 PM, Xin Long wrote:
-> Now when we change the attributes of bridge or br_port by netlink,
-> a relevant netlink notification will be sent, but if we change them
-> by ioctl or sysfs, no notification will be sent.
-> 
-> We should ensure that whenever those attributes change internally or from
-> sysfs/ioctl, that a netlink notification is sent out to listeners.
-> 
-> Also, NetworkManager will use this in the future to listen for out-of-band
-> bridge master attribute updates and incorporate them into the runtime
-> configuration.
-> 
-> This patch is used for br_sysfs_br. and we also need to remove some
-> rtnl_trylock in old functions so that we can call it in a common one.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_sysfs_br.c | 17 ++++++++---------
->  net/bridge/br_vlan.c     | 30 +++++-------------------------
->  2 files changed, 13 insertions(+), 34 deletions(-)
-> 
+Hello.
 
-What about the group_addr option ? Changing it will not generate a notification.
+On 3/16/2016 1:52 AM, Woojung.Huh@microchip.com wrote:
+
+> From: Woojung Huh <woojung.huh@microchip.com>
+>
+> Add lan78xx_get_stats64 of ndo_get_stats64 to report
+> all statistics counters including errors from HW statistics.
+>
+> Read from HW when auto suspend is disabled, use saved counter when
+> auto suspend is enabled because periodic call to ndo_get_stats64
+> prevents USB auto suspend.
+>
+> Signed-off-by: Woojung Huh <woojung.huh@microchip.com>
+> ---
+>   drivers/net/usb/lan78xx.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 49 insertions(+)
+>
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index f20890e..f4a9708f 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -3261,6 +3261,54 @@ void lan78xx_tx_timeout(struct net_device *net)
+>   	tasklet_schedule(&dev->bh);
+>   }
+>
+> +struct rtnl_link_stats64 *lan78xx_get_stats64(struct net_device *netdev,
+> +					      struct rtnl_link_stats64 *storage)
+> +{
+[...]
+> +	storage->rx_length_errors = (stats.rx_undersize_frame_errors +
+> +				     stats.rx_oversize_frame_errors);
+
+    Parens not needed.
+
+> +	storage->rx_crc_errors = stats.rx_fcs_errors;
+> +	storage->rx_frame_errors = stats.rx_alignment_errors;
+> +	storage->rx_fifo_errors = stats.rx_dropped_frames;
+> +	storage->rx_over_errors = stats.rx_oversize_frame_errors;
+> +	storage->rx_errors = (stats.rx_fcs_errors +
+> +			      stats.rx_alignment_errors +
+> +			      stats.rx_fragment_errors +
+> +			      stats.rx_jabber_errors +
+> +			      stats.rx_undersize_frame_errors +
+> +			      stats.rx_oversize_frame_errors +
+> +			      stats.rx_dropped_frames);
+
+    Neither here.
+
+> +
+> +	storage->tx_carrier_errors = stats.tx_carrier_errors;
+> +	storage->tx_errors = (stats.tx_fcs_errors +
+> +			      stats.tx_excess_deferral_errors +
+> +			      stats.tx_carrier_errors);
+
+    And here.
+
+[...]
+
+MBR, Sergei
