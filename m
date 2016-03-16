@@ -1,98 +1,66 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat code
-Date: Wed, 16 Mar 2016 14:25:36 +0100
-Message-ID: <20160316132536.GA29550@salvia>
-References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Joe Stringer <joestringer@nicira.com>,
-	Paolo Abeni <pabeni@redhat.com>,
-	Jarno Rajahalme <jarno@ovn.org>, netdev@vger.kernel.org,
-	dev@openvswitch.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next 0/6] bridge: support sending rntl info when we set attributes through sysfs/ioctl
+Date: Wed, 16 Mar 2016 21:34:43 +0800
+Message-ID: <cover.1458134414.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	nikolay@cumulusnetworks.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58685 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965943AbcCPNZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Mar 2016 09:25:42 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id E6BD9C1266
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 14:25:39 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D633DDA380
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 14:25:39 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id C9581DA390
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 14:25:37 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1458132481-318209-1-git-send-email-arnd@arndb.de>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34104 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754853AbcCPNez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 09:34:55 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n5so6720326pfn.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 06:34:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 01:47:13PM +0100, Arnd Bergmann wrote:
-> The openvswitch code has gained support for calling into the
-> nf-nat-ipv4/ipv6 modules, however those can be loadable modules
-> in a configuration in which openvswitch is built-in, leading
-> to link errors:
-> 
-> net/built-in.o: In function `__ovs_ct_lookup':
-> :(.text+0x2cc2c8): undefined reference to `nf_nat_icmp_reply_translation'
-> :(.text+0x2cc66c): undefined reference to `nf_nat_icmpv6_reply_translation'
-> 
-> The dependency on (!NF_NAT || NF_NAT) was meant to prevent
-> this, but NF_NAT is set to 'y' if any of the symbols selecting
-> it are built-in, but the link error happens when any of them
-> are modular.
-> 
-> A second issue is that even if CONFIG_NF_NAT_IPV6 is built-in,
-> CONFIG_NF_NAT_IPV4 might be completely disabled. This is unlikely
-> to be useful in practice, but the driver currently only handles
-> IPv6 being optional.
-> 
-> This patch improves the Kconfig dependency so that openvswitch
-> cannot be built-in if either of the two other symbols are set
-> to 'm', and it replaces the incorrect #ifdef in ovs_ct_nat_execute()
-> with two "if (IS_ENABLED())" checks that should catch all corner
-> cases also make the code more readable.
-> 
-> The same #ifdef exists ovs_ct_nat_to_attr(), where it does not
-> cause a link error, but for consistency I'm changing it the same
-> way.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 05752523e565 ("openvswitch: Interface with NAT.")
-> ---
->  net/openvswitch/Kconfig     |  3 ++-
->  net/openvswitch/conntrack.c | 16 ++++++++--------
->  2 files changed, 10 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-> index 234a73344c6e..961fb60115df 100644
-> --- a/net/openvswitch/Kconfig
-> +++ b/net/openvswitch/Kconfig
-> @@ -7,7 +7,8 @@ config OPENVSWITCH
->  	depends on INET
->  	depends on !NF_CONNTRACK || \
->  		   (NF_CONNTRACK && ((!NF_DEFRAG_IPV6 || NF_DEFRAG_IPV6) && \
-> -				     (!NF_NAT || NF_NAT)))
-> +				     (!NF_NAT_IPV4 || NF_NAT_IPV4) && \
-> +				     (!NF_NAT_IPV6 || NF_NAT_IPV6)))
+This patchset is used to support sending rntl info to user in some places,
+and ensure that whenever those attributes change internally or from sysfs,
+that a netlink notification is sent out to listeners.
 
-Not related with this patch, just a side note/recommendation.
+It also make some adjustment in bridge sysfs so that we can implement this
+easily.
 
-I understand this code just got into tree, and that this needs a bit
-work/iterations but this thing above is ugly, I wonder if there is a
-better way to avoid this.
+I've done some tests on this patchset, like:
+[br_sysfs]
+  1. change all the attribute values of br or brif:
+  $ echo $value > /sys/class/net/br0/bridge/{*}
+  $ echo $value > /sys/class/net/br0/brif/eth1/{*}
 
-Probably with some modularization of the openvswitch code this will
-look better, I mean:
+  2. meanwhile, on another terminal to observe the msg:
+  $ bridge monitor
 
-1) adding Kconfig switches to enable conntrack and NAT support to
-   net/openvswitch/Kconfig.
+[br_ioctl]
+  1. in bridge-utils package, do some changes in br_set, let brctl command
+  use ioctl to set attribute:
+         if ((ret = set_sysfs(path, value)) < 0) { -->
+         if (1) {
 
-2) Move the NAT code to the corresponding openvswitch/nat.c file.
+  $ brctl set*
 
-Just my two cents.
+  2. meanwhile, on another terminal to observe the msg:
+  $ bridge monitor
+
+This test covers all the attributes that brctl and sysfs support to set.
+
+Xin Long (6):
+  bridge: add rtnl_lock in fdb_flush in br_sysfs_br.c
+  bridge: simplify the forward_delay_store by calling store_bridge_parm
+  bridge: simplify the stp_state_store by calling store_bridge_parm
+  bridge: a netlink notification should be sent when those attributes
+    are changed by br_sysfs_br
+  bridge: a netlink notification should be sent when those attributes
+    are changed by br_sysfs_if
+  bridge: a netlink notification should be sent when those attributes
+    are changed by ioctl
+
+ net/bridge/br_ioctl.c    | 40 +++++++++++++++-----------
+ net/bridge/br_sysfs_br.c | 73 ++++++++++++++++++++----------------------------
+ net/bridge/br_sysfs_if.c |  5 ++--
+ net/bridge/br_vlan.c     | 30 ++++----------------
+ 4 files changed, 62 insertions(+), 86 deletions(-)
+
+-- 
+2.1.0
