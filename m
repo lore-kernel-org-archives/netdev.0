@@ -1,121 +1,93 @@
-From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Subject: =?UTF-8?q?=5BPATCH=20=28net-next=2Egit=29=201/2=5D=20Revert=20=22stmmac=3A=20Fix=20=27eth0=3A=20No=20PHY=20found=27=20regression=22?=
-Date: Wed, 16 Mar 2016 10:52:21 +0100
-Message-ID: <1458121942-5537-2-git-send-email-peppe.cavallaro@st.com>
-References: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com>
+From: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber@suse.de>
+Subject: Re: [PATCHv3 (net.git) 2/2] stmmac: fix MDIO settings
+Date: Wed, 16 Mar 2016 10:47:27 +0100
+Message-ID: <56E92BAF.3020001@suse.de>
+References: <1457703196-15008-1-git-send-email-peppe.cavallaro@st.com>
+ <1457703196-15008-3-git-send-email-peppe.cavallaro@st.com>
+ <56E75D36.2030201@suse.de> <56E82FF3.5010402@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
-	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
-	<davem@davemloft.net>, <preid@electromag.com.au>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, gabriel.fernandez@linaro.org,
+	fschaefer.oss@googlemail.com, dinh.linux@gmail.com,
+	davem@davemloft.net, preid@electromag.com.au,
+	Tomeu Vizoso <tomeu@tomeuvizoso.net>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:19985 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934534AbcCPJrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:47:17 -0400
-In-Reply-To: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mx2.suse.de ([195.135.220.15]:54370 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753912AbcCPJrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 05:47:32 -0400
+In-Reply-To: <56E82FF3.5010402@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 88f8b1bb41c6208f81b6a480244533ded7b59493.
-due to problems on GeekBox and Banana Pi M1 board when
-connected to a real transceiver instead of a switch via
-fixed-link.
+Hi Peppe,
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-Cc: Andreas F=C3=A4rber <afaerber@suse.de>
-Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
-Cc: Dinh Nguyen <dinh.linux@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   11 ++++++++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    9 +--------
- include/linux/stmmac.h                             |    1 -
- 3 files changed, 11 insertions(+), 10 deletions(-)
+Am 15.03.2016 um 16:53 schrieb Giuseppe CAVALLARO:
+> On 3/15/2016 1:54 AM, Andreas F=C3=A4rber wrote:
+>> The connectivity issue still remains. Kernel log snippet:
+>>
+>> [  +0.001117] rk_gmac-dwmac ff290000.ethernet: Looking up phy-supply
+>> from device tree
+>> [  +0.000028] rk808 0-001b: Looking up vcc12-supply from device tree
+>> [  +0.000014] vcc_lan: supplied by vcc_io
+>> [  +0.000101] rk_gmac-dwmac ff290000.ethernet: clock input or output=
+?
+>> (input).
+>> [  +0.000009] rk_gmac-dwmac ff290000.ethernet: TX delay(0x30).
+>> [  +0.000008] rk_gmac-dwmac ff290000.ethernet: RX delay(0x10).
+>> [  +0.000014] rk_gmac-dwmac ff290000.ethernet: init for RGMII
+>> [  +0.000104] rk_gmac-dwmac ff290000.ethernet: clock input from PHY
+>> [  +0.005063] rk_gmac-dwmac ff290000.ethernet: no reset control foun=
+d
+>> [  +0.000007] stmmac - user ID: 0x10, Synopsys ID: 0x35
+>> [  +0.000002]  Ring mode enabled
+>> [  +0.000006]  DMA HW capability register supported
+>> [  +0.000000]  Normal descriptors
+>=20
+>                  ^^^^^^^^^^^^^^^^^^
+>=20
+>> [  +0.000003]  RX Checksum Offload Engine supported (type 2)
+>> [  +0.000002]  TX Checksum insertion supported
+>> [  +0.000002]  Wake-Up On Lan supported
+>> [  +0.000053]  Enable RX Mitigation via HW Watchdog Timer
+>> [  +0.000771] of_get_named_gpiod_flags: can't parse 'snps,reset-gpio=
+'
+>> property of node '/ethernet@ff290000[0]'
+>> [  +0.004250] libphy: stmmac: probed
+>> [  +0.000009] eth0: PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) acti=
+ve
+>> [  +0.000005] eth0: PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
+>>
+>> As before, reverting "stmmac: first frame prep at the end of xmit
+>> routine" fixes it. My test cases are `ping 192.168.1.1` and `zypper =
+up`.
+>=20
+> so on your side, this revert fixes the issue and you do not see any
+> tx watchdog as Tomeu's raised.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/driver=
-s/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index efb54f3..0faf163 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -199,12 +199,21 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	struct stmmac_priv *priv =3D netdev_priv(ndev);
- 	struct stmmac_mdio_bus_data *mdio_bus_data =3D priv->plat->mdio_bus_d=
-ata;
- 	int addr, found;
--	struct device_node *mdio_node =3D priv->plat->mdio_node;
-+	struct device_node *mdio_node =3D NULL;
-+	struct device_node *child_node =3D NULL;
-=20
- 	if (!mdio_bus_data)
- 		return 0;
-=20
- 	if (IS_ENABLED(CONFIG_OF)) {
-+		for_each_child_of_node(priv->device->of_node, child_node) {
-+			if (of_device_is_compatible(child_node,
-+						    "snps,dwmac-mdio")) {
-+				mdio_node =3D child_node;
-+				break;
-+			}
-+		}
-+
- 		if (mdio_node) {
- 			netdev_dbg(ndev, "FOUND MDIO subnode\n");
- 		} else {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/dr=
-ivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index dcbd2a1..9cf181f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -146,7 +146,6 @@ stmmac_probe_config_dt(struct platform_device *pdev=
-, const char **mac)
- 	struct device_node *np =3D pdev->dev.of_node;
- 	struct plat_stmmacenet_data *plat;
- 	struct stmmac_dma_cfg *dma_cfg;
--	struct device_node *child_node =3D NULL;
-=20
- 	plat =3D devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
- 	if (!plat)
-@@ -177,19 +176,13 @@ stmmac_probe_config_dt(struct platform_device *pd=
-ev, const char **mac)
- 		plat->phy_node =3D of_node_get(np);
- 	}
-=20
--	for_each_child_of_node(np, child_node)
--		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
--			plat->mdio_node =3D child_node;
--			break;
--		}
--
- 	/* "snps,phy-addr" is not a standard property. Mark it as deprecated
- 	 * and warn of its use. Remove this when phy node support is added.
- 	 */
- 	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D=
- 0)
- 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
-=20
--	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node=
-)
-+	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_na=
-me)
- 		plat->mdio_bus_data =3D NULL;
- 	else
- 		plat->mdio_bus_data =3D
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 4bcf5a6..6e53fa8 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -114,7 +114,6 @@ struct plat_stmmacenet_data {
- 	int interface;
- 	struct stmmac_mdio_bus_data *mdio_bus_data;
- 	struct device_node *phy_node;
--	struct device_node *mdio_node;
- 	struct stmmac_dma_cfg *dma_cfg;
- 	int clk_csr;
- 	int has_gmac;
+Confirmed, the system ran stable over night. I don't use NFS on that
+system myself, having GMAC working only since v2.
+
+> I have fixed some problems on top of
+> "stmmac: first frame prep at the end of xmit ..." please
+> see patch attached for net-next.
+>=20
+> Indeed, the normal tx descriptors are well filled w/o
+> "stmmac: first frame prep at the end of xmit ..."
+>=20
+> I wonder if you could try the attachment in order to understand if we
+> have to  actually revert the patch (I ask you to not revert the
+> patch "stmmac: first frame...").
+
+Works great on top of next-20160314 with i2c plus this series, please
+add my Tested-by. Thanks a lot for investigating!
+
+Cheers,
+Andreas
+
 --=20
-1.7.4.4
+SUSE Linux GmbH, Maxfeldstr. 5, 90409 N=C3=BCrnberg, Germany
+GF: Felix Imend=C3=B6rffer, Jane Smithard, Graham Norton; HRB 21284 (AG=
+ N=C3=BCrnberg)
