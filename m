@@ -1,94 +1,41 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 16 Mar 2016 13:35:28 -0400
-Message-ID: <56E99960.5000604@redhat.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
- <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v2 4/4] vxlan: implement GPE
+Date: Wed, 16 Mar 2016 18:38:10 +0100
+Message-ID: <20160316183810.43eb3f3b@griffin>
+References: <cover.1458146189.git.jbenc@redhat.com>
+	<dfd48851882518164e289feaf43930d9a9e038b3.1458146189.git.jbenc@redhat.com>
+	<CALx6S37n=4-VUTOx7cZuAaVOFa4=wtGgd7iBwAk8pMNmpt_vcA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="A3qb41lanua6qe9x5Hqr6ab2BW3mhKr7u"
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41997 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933580AbcCPRiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Mar 2016 13:38:13 -0400
+In-Reply-To: <CALx6S37n=4-VUTOx7cZuAaVOFa4=wtGgd7iBwAk8pMNmpt_vcA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---A3qb41lanua6qe9x5Hqr6ab2BW3mhKr7u
-Content-Type: multipart/mixed; boundary="vfRDudjreIlOs2ODGMwQHemSFjla1XhAs"
-From: Doug Ledford <dledford@redhat.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
- Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: David Miller <davem@davemloft.net>,
- Network Development <netdev@vger.kernel.org>,
- linux-next <linux-next@vger.kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
-Message-ID: <56E99960.5000604@redhat.com>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-References: <20160316115809.61b4478e@canb.auug.org.au>
- <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-In-Reply-To: <CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
+On Wed, 16 Mar 2016 10:31:10 -0700, Tom Herbert wrote:
+> Sorry, I still don't like this. For VXLAN-GPE packets the above two
+> conditionals are a complete waste of time and I shouldn't have to go
+> pawing through configuration to determine what protocol has actually
+> be implemented.  Please, at least move these into the else block of
+> "if (vs->flags & VXLAN_F_GPE) {" above. This saves two conditionals in
+> the data path, makes the parsing code more readable, and you don't
+> need to reference configuration to figure things out.
 
---vfRDudjreIlOs2ODGMwQHemSFjla1XhAs
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+As I already wrote, this is not possible. GPE parsing needs to occur
+before iptunnel_pull_header (because we need to know the protocol), GBP
+parsing needs to happen after it (after udp_tun_rx_dst specifically).
 
-On 3/16/2016 1:18 PM, Linus Torvalds wrote:
-> On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au=
-> wrote:
->>
->> I fixed it up (see below) and can carry the fix as necessary (no actio=
-n
->> is required).
->=20
-> Side note: can you change this wording for your manual merge script?
-> Last merge window (or was it the one before it?) we had confusion with
-> people who thought that "no action is required" means "you can just
-> ignore this entirely".
+Believe me, I would do it that way if it was possible.
 
-I certainly didn't take it that way regardless of the wording.  I'm
-keenly aware of the short leash you have Mellanox (and by extension
-myself) on.  I reviewed the merge in detail, enough to satisfy myself
-that it was easy, correct, and that the code itself made the merge
-obvious (such as the comment that flow table entries need to be last in
-the lists in order to support priority transitions, which fairly handily
-explained what needed to happen in the merge).
+I also considered splitting rx path for GPE and non-GPE case and the
+result was much uglier and longer code.
 
-
-
-
---vfRDudjreIlOs2ODGMwQHemSFjla1XhAs--
-
---A3qb41lanua6qe9x5Hqr6ab2BW3mhKr7u
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJW6ZlgAAoJELgmozMOVy/dMgEQAMSpmIMm1IrQawsxD1jCx1W+
-AIlvuTjpeKhClLpDNQ83xL3Zphl4Un+HSbjld/FezS8Lko/ncPqQzkPF2k+1h3NS
-P2ZVTAln4W3OuvpQ1QCTzULa0Y+dITwG4OmM1cMeKlgfZgLZproVHkhuh/e4CXfc
-g1rn44c9A6QtOkxe1MVSXPA4lf1NO40tnHlBIUPSHL8zFtG+G86vobBiutEhUyo/
-FgHZT3vq8vvZB0iGs45S9mSRBzZ4OzdaXylkT4ywl0K7YGULSUqCsT41kQ/4OxIU
-afGkudm0QFobKFwrxL33bXcc4L4yeB0NaJamq0cDmoyjviE1iXPxSVxZ3XAvcC5q
-HnMsGBldfz08manW9quBXitxmknsY/3F7hA+VUH1ofnt1wo7RKc4l5QLOfXTt6cz
-d2Mb0qV7lyHUunovKTL2TLYz2IqZxp2/kPaXmYAP7MLwj6dPivT1yJCfcw1B3rz7
-qtbRfqnNRsPI8L7qeVl3L2wv4/4mK2OKYi2XTzfjAnvXdSpYdJhWyDmBTcnC5+W/
-ZVT/bnIp+z7Cts7xFaBdBW/j8ZG/mvSptgpINXzB91QpzGyAsDUi8LPUjoqMQx8D
-HxbF2AQP9SW9zHBRBCOnINDx3r0zSrOmqoWmM6orYEJm1rA4JTthUzbfCXfHetUR
-W7V1EUW5qLNs1xGx3nYU
-=aZjP
------END PGP SIGNATURE-----
-
---A3qb41lanua6qe9x5Hqr6ab2BW3mhKr7u--
+ Jiri
