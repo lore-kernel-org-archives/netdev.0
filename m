@@ -1,73 +1,108 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 3/6] bridge: simplify the stp_state_store by calling store_bridge_parm
-Date: Wed, 16 Mar 2016 21:34:46 +0800
-Message-ID: <45f430c026ce8a2fb358c650a41452aebff9ec36.1458134414.git.lucien.xin@gmail.com>
-References: <cover.1458134414.git.lucien.xin@gmail.com>
- <059d608901fd86407fed374e567c46447aa8c88f.1458134414.git.lucien.xin@gmail.com>
- <f379a033c5b7798906c57dd1bb67df89b7de02cb.1458134414.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	nikolay@cumulusnetworks.com
-To: network dev <netdev@vger.kernel.org>
+From: Gilberto Bertin <gilberto.bertin@gmail.com>
+Subject: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Wed, 16 Mar 2016 13:19:05 +0000
+Message-ID: <1458134349-2454-1-git-send-email-gilberto.bertin@gmail.com>
+Cc: Gilberto Bertin <gilberto.bertin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34230 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966327AbcCPNfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 09:35:10 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n5so6721049pfn.1
-        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 06:35:09 -0700 (PDT)
-In-Reply-To: <f379a033c5b7798906c57dd1bb67df89b7de02cb.1458134414.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1458134414.git.lucien.xin@gmail.com>
-References: <cover.1458134414.git.lucien.xin@gmail.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37800 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933804AbcCPNiN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 09:38:13 -0400
+Received: by mail-wm0-f54.google.com with SMTP id p65so72992613wmp.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 06:38:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some repetitive codes in stp_state_store, we can remove
-them by calling store_bridge_parm.
+This is my second attempt to submit an RFC for this patch.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/bridge/br_sysfs_br.c | 24 +++++++-----------------
- 1 file changed, 7 insertions(+), 17 deletions(-)
+Some arguments for and against it since the first submission:
+* SO_BINDTOSUBNET is an arbitrary option and can be seens as nother use
+* case of the SO_REUSEPORT BPF patch
+* but at the same time using BPF requires more work/code on the server
+  and since the bind to subnet use case could potentially become a
+  common one maybe there is some value in having it as an option instead
+  of having to code (either manually or with clang) an eBPF program that
+  would do the same
+* it may probably possible to archive the same results using VRF. This
+  would require to create a VRF device, configure the device routing
+  table and make each bind each process to a different VRF device (but
+  I'm not sure how this would work/interfere with an existing iptables
+  setup for example)
 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index c846bf9..5d9fee2 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -128,27 +128,17 @@ static ssize_t stp_state_show(struct device *d,
- }
- 
- 
-+static int set_stp_state(struct net_bridge *br, unsigned long val)
-+{
-+	br_stp_set_enabled(br, val);
-+	return 0;
-+}
-+
- static ssize_t stp_state_store(struct device *d,
- 			       struct device_attribute *attr, const char *buf,
- 			       size_t len)
- {
--	struct net_bridge *br = to_bridge(d);
--	char *endp;
--	unsigned long val;
--
--	if (!ns_capable(dev_net(br->dev)->user_ns, CAP_NET_ADMIN))
--		return -EPERM;
--
--	val = simple_strtoul(buf, &endp, 0);
--	if (endp == buf)
--		return -EINVAL;
--
--	if (!rtnl_trylock())
--		return restart_syscall();
--	br_stp_set_enabled(br, val);
--	rtnl_unlock();
--
--	return len;
-+	return store_bridge_parm(d, buf, len, set_stp_state);
- }
- static DEVICE_ATTR_RW(stp_state);
- 
+-----------------------------------------------------------------------------
+
+This series introduces support for the SO_BINDTOSUBNET socket option, which
+allows a listener socket to bind to a subnet instead of * or a single address.
+
+Motivation:
+consider a set of servers, each one with thousands and thousands of IP
+addresses. Since assigning /32 or /128 IP individual addresses would be
+inefficient, one solution can be assigning subnets using local routes
+(with 'ip route add local').
+
+This allows a listener to listen and terminate connections going to any
+of the IP addresses of these subnets without explicitly configuring all
+the IP addresses of the subnet range.
+This is very efficient.
+
+Unfortunately there may be the need to use different subnets for
+different purposes.
+One can imagine port 80 being served by one HTTP server for some IP
+subnet, while another server used for another subnet.
+Right now Linux does not allow this.
+It is either possible to bind to *, indicating ALL traffic going to
+given port, or to individual IP addresses.
+The first only allows to accept connections from all the subnets.
+The latter does not scale well with lots of IP addresses.
+
+Using bindtosubnet would solve this problem: just by adding a local
+route rule and setting the SO_BINDTOSUBNET option for a socket it would
+be possible to easily partition traffic by subnets.
+
+API:
+the subnet is specified (as argument of the setsockopt syscall) by the
+address of the network, and the prefix length of the netmask.
+
+IPv4:
+	struct ipv4_subnet {
+		__be32 net;
+		u_char plen;
+	};
+
+and IPv6:
+	struct ipv6_subnet {
+		struct in6_addr net;
+		u_char plen;
+	};
+
+Bind conflicts:
+two sockets with the bindtosubnet option enabled generate a bind
+conflict if their network addresses masked with the shortest of their
+prefix are equal.
+The bindtosubnet option can be combined with soreuseport so that two
+listener can bind on the same subnet.
+
+Any questions/feedback appreciated.
+
+Thanks,
+ Gilberto
+
+Gilberto Bertin (4):
+  bindtosubnet: infrastructure
+  bindtosubnet: TCP/IPv4 implementation
+  bindtosubnet: TCP/IPv6 implementation
+  bindtosubnet: UPD implementation
+
+ include/net/sock.h                |  20 +++++++
+ include/uapi/asm-generic/socket.h |   1 +
+ net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
+ net/ipv4/inet_connection_sock.c   |  20 ++++++-
+ net/ipv4/inet_hashtables.c        |   9 ++++
+ net/ipv4/udp.c                    |  36 +++++++++++++
+ net/ipv6/inet6_connection_sock.c  |  17 +++++-
+ net/ipv6/inet6_hashtables.c       |   6 +++
+ 8 files changed, 218 insertions(+), 2 deletions(-)
+
 -- 
-2.1.0
+2.7.2
