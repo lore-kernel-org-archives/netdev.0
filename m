@@ -1,43 +1,53 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat
-	code
-Date: Wed, 16 Mar 2016 14:56:51 +0100
-Message-ID: <2159518.ilphXU8bxQ@wuerfel>
-References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
- <20160316132536.GA29550@salvia>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v3 2/9] net: arc_emac: add phy reset is optional for
+ device tree
+Date: Wed, 16 Mar 2016 16:57:42 +0300
+Message-ID: <56E96656.5000101@cogentembedded.com>
+References: <1457942520-12859-1-git-send-email-wxt@rock-chips.com>
+ <1457942520-12859-3-git-send-email-wxt@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160316132536.GA29550@salvia>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, keescook-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	leozwang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457942520-12859-3-git-send-email-wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkbmVzZGF5IDE2IE1hcmNoIDIwMTYgMTQ6MjU6MzYgUGFibG8gTmVpcmEgQXl1c28gd3Jv
-dGU6Cj4gTm90IHJlbGF0ZWQgd2l0aCB0aGlzIHBhdGNoLCBqdXN0IGEgc2lkZSBub3RlL3JlY29t
-bWVuZGF0aW9uLgo+IAo+IEkgdW5kZXJzdGFuZCB0aGlzIGNvZGUganVzdCBnb3QgaW50byB0cmVl
-LCBhbmQgdGhhdCB0aGlzIG5lZWRzIGEgYml0Cj4gd29yay9pdGVyYXRpb25zIGJ1dCB0aGlzIHRo
-aW5nIGFib3ZlIGlzIHVnbHksIEkgd29uZGVyIGlmIHRoZXJlIGlzIGEKPiBiZXR0ZXIgd2F5IHRv
-IGF2b2lkIHRoaXMuCj4gCj4gUHJvYmFibHkgd2l0aCBzb21lIG1vZHVsYXJpemF0aW9uIG9mIHRo
-ZSBvcGVudnN3aXRjaCBjb2RlIHRoaXMgd2lsbAo+IGxvb2sgYmV0dGVyLCBJIG1lYW46Cj4gCj4g
-MSkgYWRkaW5nIEtjb25maWcgc3dpdGNoZXMgdG8gZW5hYmxlIGNvbm50cmFjayBhbmQgTkFUIHN1
-cHBvcnQgdG8KPiAgICBuZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZy4KPiAKPiAyKSBNb3ZlIHRoZSBO
-QVQgY29kZSB0byB0aGUgY29ycmVzcG9uZGluZyBvcGVudnN3aXRjaC9uYXQuYyBmaWxlLgo+IAo+
-IEp1c3QgbXkgdHdvIGNlbnRzLgoKWWVzLCBJIHRoaW5rIHRoYXQgd291bGQgYmUgZ29vZCB0b28u
-IEkgYWxzbyBmb3VuZCB0aGF0IHRoZSBkcml2ZXIKdXNlZCB0byBsb29rIGxpa2UgdGhhdCBidXQg
-aXQgd2FzIGNoYW5nZWQgYXMgcGFydCBvZiBmODhmNjlkZDE3ZjEKKCJvcGVudnN3aXRjaDogUmVt
-b3ZlIGNvbm50cmFjayBLY29uZmlnIG9wdGlvbi4iKS4KCglBcm5kCgpfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVu
-dnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Hello.
+
+On 3/14/2016 11:01 AM, Caesar Wang wrote:
+
+> This patch adds the following property for arc_emac.
+>
+> 1) phy-reset-gpios:
+> The phy-reset-gpio is an optional property for arc emac device tree boot.
+> Change the binding document to match the driver code.
+>
+> 2) phy-reset-duration:
+> Different boards may require different phy reset duration. Add property
+> phy-reset-duration for device tree probe, so that the boards that need
+> a longer reset duration can specify it in their device tree.
+>
+> Anyway, we can add the above property for arc emac.
+>
+> Signed-off-by: Caesar Wang <wxt-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+
+   Could you have a look at drivers/net/ethernet/cadence/macb/? It seems to be 
+the only driver which places the PHY's "reset-gpios" prop correctly, into the 
+PHY subnode? I'm currently working on adding support of this prop into phylib...
+
+MBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
