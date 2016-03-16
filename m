@@ -1,43 +1,48 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
- 4KB regardless of system page size"
-Date: Wed, 16 Mar 2016 11:45:42 +0200
-Message-ID: <CAJ3xEMgorN4r-Ls66rc3VwUBi=uhb==ih2=43ujrbPC=ts8E5g@mail.gmail.com>
-References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
-	<CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
-	<56E8BFFE.9000803@ozlabs.ru>
-	<20160316051021.GC66645@x-vnc01.mtx.labs.mlnx>
-	<56E8F3CC.3070203@ozlabs.ru>
-	<20160316060947.GD66645@x-vnc01.mtx.labs.mlnx>
-	<56E91A78.5000700@ozlabs.ru>
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Subject: [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
+Date: Wed, 16 Mar 2016 10:52:20 +0100
+Message-ID: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-To: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56E91A78.5000700-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <gabriel.fernandez@linaro.org>, <afaerber@suse.de>,
+	<fschaefer.oss@googlemail.com>, <dinh.linux@gmail.com>,
+	<davem@davemloft.net>, <preid@electromag.com.au>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:32557 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934460AbcCPJrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 05:47:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 10:34 AM, Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org> wrote:
+These two patches are to fix the recent regressions raised
+when test the stmmac on some platforms due to broken MDIO/PHY
+management.
 
-> Oh. ok. It also looks like even with the reverted patch, mlx4 VF does not
-> work in a guest:
+NOTE:
 
-So where is the breakage point for you? does 4.4 works? if not, what?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+these are the same reviewed patches sent for net.git (version 4).
+The patch #2 has been modified to solve a build problem on net-next;
+inside the stmmac_init_phy where there is:
+
+869         if (priv->plat->is_fixed_link)
+870                 phydev->irq = PHY_IGNORE_INTERRUPT;
+
+Note: still on-going for net-next a debug session to solve a recent
+      regression when use normal descriptors.
+      This will be sent in a new patch set.
+
+Giuseppe Cavallaro (2):
+  Revert "stmmac: Fix 'eth0: No PHY found' regression"
+  stmmac: fix MDIO settings
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   16 +---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   10 +--
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   91 ++++++++++++++------
+ include/linux/stmmac.h                             |    1 -
+ 4 files changed, 72 insertions(+), 46 deletions(-)
+
+-- 
+1.7.4.4
