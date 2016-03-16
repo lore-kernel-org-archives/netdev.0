@@ -1,66 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC v2 -next 2/2] virtio_net: Read the advised MTU
-Date: Wed, 16 Mar 2016 17:11:38 +0300
-Message-ID: <56E9699A.9030908@cogentembedded.com>
-References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-	<1458075853-14789-3-git-send-email-aconole@redhat.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 4/6] bridge: a netlink notification should be
+ sent when those attributes are changed by br_sysfs_br
+Date: Wed, 16 Mar 2016 15:14:19 +0100
+Message-ID: <56E96A3B.1030907@cumulusnetworks.com>
+References: <cover.1458134414.git.lucien.xin@gmail.com>
+ <059d608901fd86407fed374e567c46447aa8c88f.1458134414.git.lucien.xin@gmail.com>
+ <f379a033c5b7798906c57dd1bb67df89b7de02cb.1458134414.git.lucien.xin@gmail.com>
+ <45f430c026ce8a2fb358c650a41452aebff9ec36.1458134414.git.lucien.xin@gmail.com>
+ <38a10eecc6347a3c47b55c86b4783c49b6dbbc99.1458134414.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Aaron Conole <aconole@redhat.com>, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1458075853-14789-3-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36598 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964964AbcCPOOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 10:14:22 -0400
+Received: by mail-wm0-f45.google.com with SMTP id l124so50392850wmf.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 07:14:22 -0700 (PDT)
+In-Reply-To: <38a10eecc6347a3c47b55c86b4783c49b6dbbc99.1458134414.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 3/16/2016 12:04 AM, Aaron Conole wrote:
-
-> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
-> exists, read the advised MTU and use it.
->
-> No proper error handling is provided for the case where a user changes the
-> negotiated MTU. A future commit will add proper error handling. Instead, a
-> warning is emitted if the guest changes the device MTU after previously
-> being given advice.
->
-> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+On 03/16/2016 02:34 PM, Xin Long wrote:
+> Now when we change the attributes of bridge or br_port by netlink,
+> a relevant netlink notification will be sent, but if we change them
+> by ioctl or sysfs, no notification will be sent.
+> 
+> We should ensure that whenever those attributes change internally or from
+> sysfs/ioctl, that a netlink notification is sent out to listeners.
+> 
+> Also, NetworkManager will use this in the future to listen for out-of-band
+> bridge master attribute updates and incorporate them into the runtime
+> configuration.
+> 
+> This patch is used for br_sysfs_br. and we also need to remove some
+> rtnl_trylock in old functions so that we can call it in a common one.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > ---
-> v2:
-> * Whitespace cleanup in the last hunk
-> * Code style change around the pr_warn
-> * Additional test for mtu change before printing warning
->
->   drivers/net/virtio_net.c | 12 ++++++++++++
->   1 file changed, 12 insertions(+)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 767ab11..429fe01 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-[...]
-> @@ -1390,8 +1391,11 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->
->   static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->   {
-> +	struct virtnet_info *vi = netdev_priv(dev);
->   	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
->   		return -EINVAL;
-> +	if ((vi->negotiated_mtu) && (dev->mtu != new_mtu))
+>  net/bridge/br_sysfs_br.c | 17 ++++++++---------
+>  net/bridge/br_vlan.c     | 30 +++++-------------------------
+>  2 files changed, 13 insertions(+), 34 deletions(-)
+> 
 
-    Inner parens not needed, please be consistent with the code above.
-
-[...]
-
-MBR, Sergei
+What about the group_addr option ? Changing it will not generate a notification.
