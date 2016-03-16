@@ -1,127 +1,126 @@
-From: Bert Lindner <bert-phGP8mJ4Mqk@public.gmane.org>
-Subject: Re: 4.5.0 on sun7i-a20-olinuxino-lime2: libphy: PHY
- stmmac-0:ffffffff not found (regression from rc7)
-Date: Wed, 16 Mar 2016 16:10:39 +0100
-Message-ID: <56E9776F.3070102@a20.net>
-References: <56E9413D.9010902@a20.net> <56E945FF.6080005@arm.com>
- <56E94CF4.2060607@arm.com> <56E95B57.1090100@suse.de>
-Reply-To: bert-phGP8mJ4Mqk@public.gmane.org
+From: Baozeng Ding <sploving1@gmail.com>
+Subject: net/ppp: use-after-free in ppp_unregister_channel
+Date: Wed, 16 Mar 2016 23:14:42 +0800
+Message-ID: <56e97869.6afe420a.80cd8.ffffde3d@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>,
- Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-To: =?UTF-8?Q?Andreas_F=c3=a4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
- Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
-Return-path: <linux-sunxi+bncBCTZ7SVI4EMBB5HOUW3QKGQER3NWZ5A-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <56E95B57.1090100-l3A5Bk7waGM@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2016-03-16 14:10, Andreas F=C3=A4rber wrote:
-> Am 16.03.2016 um 13:09 schrieb Robin Murphy:
->> On 16/03/16 11:39, Marc Zyngier wrote:
->>> On 16/03/16 11:19, Bert Lindner wrote:
->>>> Hopefully this is the correct place and way to report this.
->
-> The main discussion is on netdev list actually, CC'ed.
->
->>>> For the board sun7i-a20-olinuxino-lime2, there seems to be a problem
->>>> with the eth0 PHY in mainline kernel 4.5.0 that developed since
->>>> 4.5.0-rc7. Ethernet does not work, although eth0 is reported:
->>>>
->>>> root@lime2-079f:~# ip a l eth0
->>>> 2: eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
->>>> default qlen 1000
->>>>        link/ether 02:c9:05:02:07:9f brd ff:ff:ff:ff:ff:ff
->>>>
->>>>     Difference reported in dmesg:
->>>>
->>>> 4.5.0-rc7:
->>>> [    9.379279] NET: Registered protocol family 10
->>>> [   10.217148]  RX IPC Checksum Offload disabled
->>>> [   10.217195]  No MAC Management Counters available
->>>> [   10.217627] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
->>>> [   15.206250] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -
->>>> 1Gbps/Full - flow control off
->>>> [   15.206360] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
->>>>
->>>> 4.5.0:
->>>> [    9.767125] NET: Registered protocol family 10
->>>> [   10.357405] libphy: PHY stmmac-0:ffffffff not found
->>>> [   10.362382] eth0: Could not attach to PHY
->>>> [   10.366557] stmmac_open: Cannot attach to PHY (error: -19)
->>>>
->>>> .config is identical for both, also after make oldconfig, apart from
->>>> comment with version number. DTB file is also identical between the tw=
-o
->>>> versions.
->>>>
->>>> Kernels are compiled on the board itself. /proc/version string:
->>>> Linux version 4.5.0-rc7 (root@lime2-079f) (gcc version 4.9.1
->>>> (Ubuntu/Linaro 4.9.1-16ubuntu6) ) #1 SMP Mon Mar 7 11:57:25 UTC 2016
->>>> Linux version 4.5.0 (root@lime2-079f) (gcc version 4.9.1 (Ubuntu/Linar=
-o
->>>> 4.9.1-16ubuntu6) ) #1 SMP Tue Mar 15 11:39:01 UTC 2016
->>>>
->>>> Please let me know if more info is needed, if I should post complete
->>>> .config, test compile with a particular config or patch, etc. Part of
->>>> .config below.
->>>
->>> Can you please try reverting 88f8b1b ("stmmac: Fix 'eth0: No PHY found'
->>> regression") and report whether or not this changes anything? This seem=
-s
->>> to be the only stmac patch between -rc7 and release...
->>
->> Sounds like the same thing as the giant ongoing discussion thread here:
->>
->> http://thread.gmane.org/gmane.linux.drivers.devicetree/159007/focus=3D40=
-2830
->
-> v4 fixes for 4.5 are here:
->
-> https://patchwork.ozlabs.org/patch/598195/ (revert)
-> https://patchwork.ozlabs.org/patch/598196/
->
-> v2 fixes for linux-next here:
->
-> https://patchwork.ozlabs.org/patch/598331/ (revert)
-> https://patchwork.ozlabs.org/patch/598332/
->
-> Please let Peppe know whether they work for you guys.
+Dear all,
+I've got the following use-after-free report while running syzkaller
+fuzzer. Unfortunately no reproducer. It was found in the Linux kernel
+version(4.4, on commit 9638685e32af961943b679fcb72d4ddd458eb18f).
 
-Hi guys - I can confirm 4.5.0 minus 88f8b1b works for me:
+==================================================================
+BUG: KASAN: use-after-free in ppp_unregister_channel+0x372/0x3a0 at
+addr ffff880064e217e0
+Read of size 8 by task syz-executor/11581
+=============================================================================
+BUG net_namespace (Not tainted): kasan: bad access detected
+-----------------------------------------------------------------------------
 
-root@lime2-079f:~# cat /proc/version
-Linux version 4.5.0-minus-88f8b1b (root@lime2-079f) (gcc version 4.9.1=20
-(Ubuntu/Linaro 4.9.1-16ubuntu6) ) #2 SMP Wed Mar 16 12:50:03 UTC 2016
+Disabling lock debugging due to kernel taint
+INFO: Allocated in copy_net_ns+0x6b/0x1a0 age=92569 cpu=3 pid=6906
+[<      none      >] ___slab_alloc+0x4c7/0x500 kernel/mm/slub.c:2440
+[<      none      >] __slab_alloc+0x4c/0x90 kernel/mm/slub.c:2469
+[<     inline     >] slab_alloc_node kernel/mm/slub.c:2532
+[<     inline     >] slab_alloc kernel/mm/slub.c:2574
+[<      none      >] kmem_cache_alloc+0x23a/0x2b0 kernel/mm/slub.c:2579
+[<     inline     >] kmem_cache_zalloc kernel/include/linux/slab.h:597
+[<     inline     >] net_alloc kernel/net/core/net_namespace.c:325
+[<      none      >] copy_net_ns+0x6b/0x1a0 kernel/net/core/net_namespace.c:360
+[<      none      >] create_new_namespaces+0x2f6/0x610 kernel/kernel/nsproxy.c:95
+[<      none      >] copy_namespaces+0x297/0x320 kernel/kernel/nsproxy.c:150
+[<      none      >] copy_process.part.35+0x1bf4/0x5760 kernel/kernel/fork.c:1451
+[<     inline     >] copy_process kernel/kernel/fork.c:1274
+[<      none      >] _do_fork+0x1bc/0xcb0 kernel/kernel/fork.c:1723
+[<     inline     >] SYSC_clone kernel/kernel/fork.c:1832
+[<      none      >] SyS_clone+0x37/0x50 kernel/kernel/fork.c:1826
+[<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a kernel/arch/x86/entry/entry_64.S:185
 
- From dmesg output:
-[    9.731730] NET: Registered protocol family 10
-[   10.516893]  RX IPC Checksum Offload disabled
-[   10.516948]  No MAC Management Counters available
-[   10.517374] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-[   15.505548] sun7i-dwmac 1c50000.ethernet eth0: Link is Up -=20
-1Gbps/Full - flow control off
-[   15.505660] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+INFO: Freed in net_drop_ns+0x67/0x80 age=575 cpu=2 pid=2631
+[<      none      >] __slab_free+0x1fc/0x320 kernel/mm/slub.c:2650
+[<     inline     >] slab_free kernel/mm/slub.c:2805
+[<      none      >] kmem_cache_free+0x2a0/0x330 kernel/mm/slub.c:2814
+[<     inline     >] net_free kernel/net/core/net_namespace.c:341
+[<      none      >] net_drop_ns+0x67/0x80 kernel/net/core/net_namespace.c:348
+[<      none      >] cleanup_net+0x4e5/0x600 kernel/net/core/net_namespace.c:448
+[<      none      >] process_one_work+0x794/0x1440 kernel/kernel/workqueue.c:2036
+[<      none      >] worker_thread+0xdb/0xfc0 kernel/kernel/workqueue.c:2170
+[<      none      >] kthread+0x23f/0x2d0 kernel/drivers/block/aoe/aoecmd.c:1303
+[<      none      >] ret_from_fork+0x3f/0x70 kernel/arch/x86/entry/entry_64.S:468
+INFO: Slab 0xffffea0001938800 objects=3 used=0 fp=0xffff880064e20000
+flags=0x5fffc0000004080
+INFO: Object 0xffff880064e20000 @offset=0 fp=0xffff880064e24200
 
-.. and connected over ethernet.
+CPU: 1 PID: 11581 Comm: syz-executor Tainted: G    B           4.4.0+
+#5
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
+rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+ 00000000ffffffff ffff8800662c7790 ffffffff8292049d ffff88003e36a300
+ ffff880064e20000 ffff880064e20000 ffff8800662c77c0 ffffffff816f2054
+ ffff88003e36a300 ffffea0001938800 ffff880064e20000 0000000000000000
+Call Trace:
+ [<     inline     >] __dump_stack kernel/lib/dump_stack.c:15
+ [<ffffffff8292049d>] dump_stack+0x6f/0xa2 kernel/lib/dump_stack.c:50
+ [<ffffffff816f2054>] print_trailer+0xf4/0x150 kernel/mm/slub.c:654
+ [<ffffffff816f875f>] object_err+0x2f/0x40 kernel/mm/slub.c:661
+ [<     inline     >] print_address_description kernel/mm/kasan/report.c:138
+ [<ffffffff816fb0c5>] kasan_report_error+0x215/0x530 kernel/mm/kasan/report.c:236
+ [<     inline     >] kasan_report kernel/mm/kasan/report.c:259
+ [<ffffffff816fb4de>] __asan_report_load8_noabort+0x3e/0x40 kernel/mm/kasan/report.c:280
+ [<     inline     >] ? ppp_pernet kernel/include/linux/compiler.h:218
+ [<ffffffff83ad71b2>] ? ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<     inline     >] ppp_pernet kernel/include/linux/compiler.h:218
+ [<ffffffff83ad71b2>] ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<     inline     >] ? ppp_pernet kernel/drivers/net/ppp/ppp_generic.c:293
+ [<ffffffff83ad6f26>] ? ppp_unregister_channel+0xe6/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<ffffffff83ae18f3>] ppp_asynctty_close+0xa3/0x130 kernel/drivers/net/ppp/ppp_async.c:241
+ [<ffffffff83ae1850>] ? async_lcp_peek+0x5b0/0x5b0 kernel/drivers/net/ppp/ppp_async.c:1000
+ [<ffffffff82c33239>] tty_ldisc_close.isra.1+0x99/0xe0 kernel/drivers/tty/tty_ldisc.c:478
+ [<ffffffff82c332c0>] tty_ldisc_kill+0x40/0x170 kernel/drivers/tty/tty_ldisc.c:744
+ [<ffffffff82c34943>] tty_ldisc_release+0x1b3/0x260 kernel/drivers/tty/tty_ldisc.c:772
+ [<ffffffff82c1ef21>] tty_release+0xac1/0x13e0 kernel/drivers/tty/tty_io.c:1901
+ [<ffffffff82c1e460>] ? release_tty+0x320/0x320 kernel/drivers/tty/tty_io.c:1688
+ [<ffffffff8174de36>] __fput+0x236/0x780 kernel/fs/file_table.c:208
+ [<ffffffff8174e405>] ____fput+0x15/0x20 kernel/fs/file_table.c:244
+ [<ffffffff813595ab>] task_work_run+0x16b/0x200 kernel/kernel/task_work.c:115
+ [<     inline     >] exit_task_work kernel/include/linux/task_work.h:21
+ [<ffffffff81307105>] do_exit+0x8b5/0x2c60 kernel/kernel/exit.c:750
+ [<ffffffff813fdd20>] ? debug_check_no_locks_freed+0x290/0x290 kernel/kernel/locking/lockdep.c:4123
+ [<ffffffff81306850>] ? mm_update_next_owner+0x6f0/0x6f0 kernel/kernel/exit.c:357
+ [<ffffffff813215e6>] ? __dequeue_signal+0x136/0x470 kernel/kernel/signal.c:550
+ [<ffffffff8132067b>] ? recalc_sigpending_tsk+0x13b/0x180 kernel/kernel/signal.c:145
+ [<ffffffff81309628>] do_group_exit+0x108/0x330 kernel/kernel/exit.c:880
+ [<ffffffff8132b9d4>] get_signal+0x5e4/0x14f0 kernel/kernel/signal.c:2307
+ [<     inline     >] ? kretprobe_table_lock kernel/kernel/kprobes.c:1113
+ [<ffffffff8151d355>] ? kprobe_flush_task+0xb5/0x450 kernel/kernel/kprobes.c:1158
+ [<ffffffff8115f7d3>] do_signal+0x83/0x1c90 kernel/arch/x86/kernel/signal.c:712
+ [<ffffffff8151d2a0>] ? recycle_rp_inst+0x310/0x310 kernel/include/linux/list.h:655
+ [<ffffffff8115f750>] ? setup_sigcontext+0x780/0x780 kernel/arch/x86/kernel/signal.c:165
+ [<ffffffff81380864>] ? finish_task_switch+0x424/0x5f0 kernel/kernel/sched/core.c:2692
+ [<     inline     >] ? finish_lock_switch kernel/kernel/sched/sched.h:1099
+ [<ffffffff81380560>] ? finish_task_switch+0x120/0x5f0 kernel/kernel/sched/core.c:2678
+ [<     inline     >] ? context_switch kernel/kernel/sched/core.c:2807
+ [<ffffffff85d794e9>] ? __schedule+0x919/0x1bd0 kernel/kernel/sched/core.c:3283
+ [<ffffffff81003901>] exit_to_usermode_loop+0xf1/0x1a0 kernel/arch/x86/entry/common.c:247
+ [<     inline     >] prepare_exit_to_usermode kernel/arch/x86/entry/common.c:282
+ [<ffffffff810062ef>] syscall_return_slowpath+0x19f/0x210 kernel/arch/x86/entry/common.c:344
+ [<ffffffff85d88022>] int_ret_from_sys_call+0x25/0x9f kernel/arch/x86/entry/entry_64.S:281
+Memory state around the buggy address:
+ ffff880064e21680: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880064e21700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff880064e21780: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                                       ^
+ ffff880064e21800: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880064e21880: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
 
-Thanks, best,
+Best Regards,
 
-	-bert
-
---=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+Baozeng Ding
