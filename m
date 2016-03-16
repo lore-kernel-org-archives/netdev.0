@@ -1,68 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] vsock: Fix blocking ops call in prepare_to_wait
-Date: Wed, 16 Mar 2016 19:19:24 -0400 (EDT)
-Message-ID: <20160316.191924.1375803074089875897.davem@davemloft.net>
-References: <1457699963-27694-1-git-send-email-imbrenda@linux.vnet.ibm.com>
-	<20160314.152403.1490973796884839758.davem@davemloft.net>
-	<56E719EA.7040208@redhat.com>
+Subject: Re: [PATCH] sctp: consolidate local_bh_disable/enable +
+ spin_lock/unlock to _bh variant
+Date: Wed, 16 Mar 2016 19:21:09 -0400 (EDT)
+Message-ID: <20160316.192109.340706734153471879.davem@davemloft.net>
+References: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: imbrenda@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, labbott@fedoraproject.org
-To: labbott@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56E719EA.7040208@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, wangweidong1@huawei.com,
+	nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hofrat@osadl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52299 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966308AbcCPXVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 19:21:11 -0400
+In-Reply-To: <1457866104-24342-1-git-send-email-hofrat@osadl.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Laura Abbott <labbott@redhat.com>
-Date: Mon, 14 Mar 2016 13:07:06 -0700
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Date: Sun, 13 Mar 2016 11:48:24 +0100
 
-> On 03/14/2016 12:24 PM, David Miller wrote:
->> From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
->> Date: Fri, 11 Mar 2016 13:39:23 +0100
->>
->>> I think I found a problem with the patch submitted by Laura Abbott
->>> ( https://lkml.org/lkml/2016/2/4/711 ): we might miss wakeups.
->>> Since the condition is not checked between the prepare_to_wait and the
->>> schedule(), if a wakeup happens after the condition is checked but
->>> before
->>> the sleep happens, and we miss it. ( A description of the problem can
->>> be
->>> found here: http://www.makelinux.net/ldd3/chp-6-sect-2 ).
->>>
->>> My solution (see patch below) is to shrink the area influenced by
->>> prepare_to_wait, but keeping the fragile section around the condition,
->>> and
->>> keep the rest of the code in "normal" running state.  This way the
->>> sleep is
->>> correct and the other functions don't need to worry.  The only caveat
->>> here
->>> is that the function(s) called to verify the conditions are really not
->>> allowed to sleep, so if you need synchronization in the backend of
->>> e.g.
->>> vsock_stream_has_space(), you should use spinlocks and not mutexes.
->>>
->>> In case we want to be able to sleep while waiting for conditions, we
->>> can
->>> consider this instead: https://lwn.net/Articles/628628/ .
->>>
->>>
->>> I stumbled on this problem while working on fixing the upcoming virtio
->>> backend for vsock, below is the patch I had prepared, with the
->>> original
->>> message.
->>
->> Can someone please look at this?  Who maintains this code anyways?
->>
+> local_bh_disable() + spin_lock() is equivalent to spin_lock_bh(), same for
+> the unlock/enable case, so replace the calls by the appropriate wrappers.
 > 
-> Nobody was listed in MAINTAINERS. I tried cc-ing some of the e-mail
-> addresses
-> of the original authors (vmware?) when sending the original patch and
-> they
-> all bounced.
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
 
-Ok, can you please submit this anew?  Your commit message format was
-incorrect, you put the commit message content you wanted in the change
-after the --- separater instead of beforehand.
+Applied.
