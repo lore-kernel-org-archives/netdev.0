@@ -1,71 +1,36 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: Regression: netlink fail (triggered by iw) removes extra wlan
- (phy) interface
-Date: Wed, 16 Mar 2016 13:00:51 +0100
-Message-ID: <CACna6rx84_StJWYKekxw=SD=ReaEyTDFJLGLGeXshU6QVRrPPw@mail.gmail.com>
-References: <CACna6rzz4f-urvD7uvVKuvYMOWhW+JYWkVW8MK9mJTPw0OiWxA@mail.gmail.com>
+From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
+Subject: Re: [net-next 1/2] bonding: remove duplicate set of flag IFF_MULTICAST
+Date: Wed, 16 Mar 2016 20:30:14 +0800
+Message-ID: <000b01d17f7f$986e61c0$c94b2540$@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <cwang@twopensource.com>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>, kafai@fb.com,
-	kernel-team <kernel-team@fb.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Thomas Graf <tgraf@suug.ch>, Scott Feldman <sfeldma@gmail.com>
-To: Network Development <netdev@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6rzz4f-urvD7uvVKuvYMOWhW+JYWkVW8MK9mJTPw0OiWxA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <gospo@cumulusnetworks.com>,
+	"'Veaceslav Falico'" <vfalico@gmail.com>, <davem@davemloft.net>,
+	<j.vosburgh@gmail.com>, <jiri@resnulli.us>
+To: "'Nikolay Aleksandrov'" <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:8343 "EHLO
+	cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbcCPMa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 08:30:27 -0400
+Content-Language: en-us
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25 February 2016 at 14:22, Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com=
-> wrote:
-> After updating kernel in OpenWrt from 4.1.6 to 4.1.10 I noticed that
-> if "iw" command fails (which happens very rarely) my wlan0-1 interfac=
-e
-> disappears. To trigger this problem easily I'm using this trivial
-> script:
-> while [ 1 ]
-> do
->         iw phy phy0 interface add mon0 type monitor
->         ifconfig mon0 up
->         iw dev mon0 del
-> done
->
-> Whenever it goes wrong I see:
-> Failed to connect to generic netlink.
-> kern.info kernel: [ 1933.114338] br-lan: port 3(wlan0-1) entered disa=
-bled state
-> kern.info kernel: [ 1933.335568] device wlan0-1 left promiscuous mode
-> kern.info kernel: [ 1933.340385] br-lan: port 3(wlan0-1) entered disa=
-bled state
-> daemon.notice netifd: Network device 'wlan0-1' link is down
-> command failed: Too many open files in system (-23)
->
-> This regression is caused by commit:
-> 4e27762 netlink: Fix autobind race condition that leads to zero port =
-ID
-> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/=
-commit/?id=3D4e27762417669cb459971635be550eb7b5598286
-> that is a backport of upstream:
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commi=
-t/?id=3D1f770c0a09da855a2b51af6d19de97fb955eca85
->
-> This still happens with kernel 4.4.
->
-> My hardware is Linksys WRT160NL (Atheros AR9130 SoC) and I'm using tw=
-o
-> __ap interfaces on phy0 (wlan0 and wlan0-1).
->
-> Could you take a look at this?
-> Is there some additional info I could provide to help fixing this?
+> On 03/16/2016 10:59 AM, Zhang Shengju wrote:
+> > Remove unnecessary set of flag IFF_MULTICAST, since ether_setup
+> > already does this.
+> >
+> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> > ---
+> >  drivers/net/bonding/bond_main.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> 
+> There're a few more bonding maintainers, I've added them to the CC list.
+> 
+> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Ping?
-
---=20
-Rafa=C5=82
+Thanks, Nikolay.
