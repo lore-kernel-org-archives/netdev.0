@@ -1,35 +1,108 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/3] Minor BPF follow-ups
-Date: Wed, 16 Mar 2016 01:42:48 +0100
-Message-ID: <cover.1458085814.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38423 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbcCPAnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Mar 2016 20:43:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the rdma tree with the net-next tree
+Date: Wed, 16 Mar 2016 11:58:09 +1100
+Message-ID: <20160316115809.61b4478e@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Amir Vadai <amir@vadai.me>, Maor Gottlieb <maorg@mellanox.com>
+To: Doug Ledford <dledford@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some minor last follow-ups I still had in my queue. The first one adds
-readability support for __sk_buff's tc_classid member, the remaining
-two are some minor cleanups. For details please see individual patches.
+Hi all,
 
-Thanks!
+Today's linux-next merge of the rdma tree got a conflict in:
 
-Daniel Borkmann (3):
-  bpf: make skb->tc_classid also readable
-  bpf, dst: add and use dst_tclassid helper
-  ip_tunnels, bpf: define IP_TUNNEL_OPTS_MAX and use it
+  drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 
- include/net/dst.h         | 12 ++++++++++++
- include/net/ip_tunnels.h  |  7 +++++++
- net/core/filter.c         | 30 +++++++++---------------------
- net/ipv4/ip_tunnel_core.c |  6 ++++++
- net/openvswitch/flow.h    |  2 +-
- 5 files changed, 35 insertions(+), 22 deletions(-)
+between commit:
+
+  60ab4584f5bf ("net/mlx5_core: Set flow steering dest only for forward rules")
+
+from the net-next tree and commit:
+
+  b3638e1a7664 ("net/mlx5_core: Introduce forward to next priority action")
+
+from the rdma tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
 -- 
-1.9.3
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index e848d708d2b7,bf3446794bd5..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@@ -73,10 -73,13 +73,13 @@@
+  #define BY_PASS_MIN_LEVEL (KENREL_MIN_LEVEL + MLX5_BY_PASS_NUM_PRIOS +\
+  			   LEFTOVERS_MAX_FT)
+  
+ -#define KERNEL_MAX_FT 2
+ -#define KERNEL_NUM_PRIOS 1
+ +#define KERNEL_MAX_FT 3
+ +#define KERNEL_NUM_PRIOS 2
+  #define KENREL_MIN_LEVEL 2
+  
++ #define ANCHOR_MAX_FT 1
++ #define ANCHOR_NUM_PRIOS 1
++ #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
+  struct node_caps {
+  	size_t	arr_sz;
+  	long	*caps;
+@@@ -360,8 -367,13 +367,13 @@@ static void del_rule(struct fs_node *no
+  	memcpy(match_value, fte->val, sizeof(fte->val));
+  	fs_get_obj(ft, fg->node.parent);
+  	list_del(&rule->node.list);
++ 	if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
++ 		mutex_lock(&rule->dest_attr.ft->lock);
++ 		list_del(&rule->next_ft);
++ 		mutex_unlock(&rule->dest_attr.ft->lock);
++ 	}
+ -	fte->dests_size--;
+ -	if (fte->dests_size) {
+ +	if ((fte->action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) &&
+ +	    --fte->dests_size) {
+  		err = mlx5_cmd_update_fte(dev, ft,
+  					  fg->id, fte);
+  		if (err)
+@@@ -762,9 -835,9 +835,10 @@@ static struct mlx5_flow_rule *alloc_rul
+  	if (!rule)
+  		return NULL;
+  
++ 	INIT_LIST_HEAD(&rule->next_ft);
+  	rule->node.type = FS_TYPE_FLOW_DEST;
+ -	memcpy(&rule->dest_attr, dest, sizeof(*dest));
+ +	if (dest)
+ +		memcpy(&rule->dest_attr, dest, sizeof(*dest));
+  
+  	return rule;
+  }
+@@@ -783,12 -856,16 +857,17 @@@ static struct mlx5_flow_rule *add_rule_
+  		return ERR_PTR(-ENOMEM);
+  
+  	fs_get_obj(ft, fg->node.parent);
+- 	/* Add dest to dests list- added as first element after the head */
++ 	/* Add dest to dests list- we need flow tables to be in the
++ 	 * end of the list for forward to next prio rules.
++ 	 */
+  	tree_init_node(&rule->node, 1, del_rule);
+- 	list_add_tail(&rule->node.list, &fte->node.children);
++ 	if (dest && dest->type != MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE)
++ 		list_add(&rule->node.list, &fte->node.children);
++ 	else
++ 		list_add_tail(&rule->node.list, &fte->node.children);
+ -	fte->dests_size++;
+ -	if (fte->dests_size == 1)
+ +	if (dest)
+ +		fte->dests_size++;
+ +	if (fte->dests_size == 1 || !dest)
+  		err = mlx5_cmd_create_fte(get_dev(&ft->node),
+  					  ft, fg->id, fte);
+  	else
