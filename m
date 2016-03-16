@@ -1,309 +1,476 @@
-From: Robert Jarzmik <robert.jarzmik@free.fr>
-Subject: [PATCH v2] net: smc911x: convert pxa dma to dmaengine
-Date: Wed, 16 Mar 2016 18:26:02 +0100
-Message-ID: <1458149162-11469-1-git-send-email-robert.jarzmik@free.fr>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@nxp.com>,
-	Robert Jarzmik <robert.jarzmik@free.fr>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next v2 4/4] vxlan: implement GPE
+Date: Wed, 16 Mar 2016 10:31:10 -0700
+Message-ID: <CALx6S37n=4-VUTOx7cZuAaVOFa4=wtGgd7iBwAk8pMNmpt_vcA@mail.gmail.com>
+References: <cover.1458146189.git.jbenc@redhat.com>
+	<dfd48851882518164e289feaf43930d9a9e038b3.1458146189.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@kernel.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:35286 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753870AbcCPRbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 13:31:12 -0400
+Received: by mail-ig0-f176.google.com with SMTP id vf5so122736145igb.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 10:31:12 -0700 (PDT)
+In-Reply-To: <dfd48851882518164e289feaf43930d9a9e038b3.1458146189.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
-slave driver. This makes this driver a bit more PXA agnostic.
+On Wed, Mar 16, 2016 at 9:51 AM, Jiri Benc <jbenc@redhat.com> wrote:
+> Implement VXLAN-GPE. Only COLLECT_METADATA is supported for now (it is
+> possible to support static configuration, too, if there is demand for it).
+>
+> The GPE header parsing has to be moved before iptunnel_pull_header, as we
+> need to know the protocol.
+>
+> v2: Removed what was called "L2 mode" in v1 of the patchset. Only "L3 mode"
+>     (now called "raw mode") is added by this patch. This mode does not allow
+>     Ethernet header to be encapsulated in VXLAN-GPE when using ip route to
+>     specify the encapsulation, IP header is encapsulated instead. The patch
+>     does support Ethernet to be encapsulated, though, using ETH_P_TEB in
+>     skb->protocol. This will be utilized by other COLLECT_METADATA users
+>     (openvswitch in particular).
+>
+>     If there is ever demand for Ethernet encapsulation with VXLAN-GPE using
+>     ip route, it's easy to add a new flag switching the interface to
+>     "Ethernet mode" (called "L2 mode" in v1 of this patchset). For now,
+>     leave this out, it seems we don't need it.
+>
+>     Disallowed more flag combinations, especially RCO with GPE.
+>     Added comment explaining that GBP and GPE cannot be set together.
+>
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+>  drivers/net/vxlan.c          | 170 ++++++++++++++++++++++++++++++++++++++-----
+>  include/net/vxlan.h          |  68 +++++++++++++++++
+>  include/uapi/linux/if_link.h |   1 +
+>  3 files changed, 222 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index f75786c4bd40..419e155c7153 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1192,6 +1192,45 @@ out:
+>         unparsed->vx_flags &= ~VXLAN_GBP_USED_BITS;
+>  }
+>
+> +static bool vxlan_parse_gpe_hdr(struct vxlanhdr *unparsed,
+> +                               __be32 *protocol,
+> +                               struct sk_buff *skb, u32 vxflags)
+> +{
+> +       struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)unparsed;
+> +
+> +       /* Need to have Next Protocol set for interfaces in GPE mode. */
+> +       if (!gpe->np_applied)
+> +               return false;
+> +       /* "The initial version is 0. If a receiver does not support the
+> +        * version indicated it MUST drop the packet.
+> +        */
+> +       if (gpe->version != 0)
+> +               return false;
+> +       /* "When the O bit is set to 1, the packet is an OAM packet and OAM
+> +        * processing MUST occur." However, we don't implement OAM
+> +        * processing, thus drop the packet.
+> +        */
+> +       if (gpe->oam_flag)
+> +               return false;
+> +
+> +       switch (gpe->next_protocol) {
+> +       case VXLAN_GPE_NP_IPV4:
+> +               *protocol = htons(ETH_P_IP);
+> +               break;
+> +       case VXLAN_GPE_NP_IPV6:
+> +               *protocol = htons(ETH_P_IPV6);
+> +               break;
+> +       case VXLAN_GPE_NP_ETHERNET:
+> +               *protocol = htons(ETH_P_TEB);
+> +               break;
+> +       default:
+> +               return false;
+> +       }
+> +
+> +       unparsed->vx_flags &= ~VXLAN_GPE_USED_BITS;
+> +       return true;
+> +}
+> +
+>  static bool vxlan_set_mac(struct vxlan_dev *vxlan,
+>                           struct vxlan_sock *vs,
+>                           struct sk_buff *skb)
+> @@ -1257,9 +1296,11 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+>         struct vxlanhdr unparsed;
+>         struct vxlan_metadata _md;
+>         struct vxlan_metadata *md = &_md;
+> +       __be32 protocol = htons(ETH_P_TEB);
+> +       bool raw_proto = false;
+>         void *oiph;
+>
+> -       /* Need Vxlan and inner Ethernet header to be present */
+> +       /* Need UDP and VXLAN header to be present */
+>         if (!pskb_may_pull(skb, VXLAN_HLEN))
+>                 return 1;
+>
+> @@ -1283,9 +1324,18 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+>         if (!vxlan)
+>                 goto drop;
+>
+> -       if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB),
+> -                                !net_eq(vxlan->net, dev_net(vxlan->dev))))
+> -               goto drop;
+> +       /* For backwards compatibility, only allow reserved fields to be
+> +        * used by VXLAN extensions if explicitly requested.
+> +        */
+> +       if (vs->flags & VXLAN_F_GPE) {
+> +               if (!vxlan_parse_gpe_hdr(&unparsed, &protocol, skb, vs->flags))
+> +                       goto drop;
+> +               raw_proto = true;
+> +       }
+> +
+> +       if (__iptunnel_pull_header(skb, VXLAN_HLEN, protocol, raw_proto,
+> +                                  !net_eq(vxlan->net, dev_net(vxlan->dev))))
+> +                       goto drop;
+>
+>         if (vxlan_collect_metadata(vs)) {
+>                 __be32 vni = vxlan_vni(vxlan_hdr(skb)->vx_vni);
+> @@ -1304,14 +1354,14 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+>                 memset(md, 0, sizeof(*md));
+>         }
+>
+> -       /* For backwards compatibility, only allow reserved fields to be
+> -        * used by VXLAN extensions if explicitly requested.
+> -        */
+>         if (vs->flags & VXLAN_F_REMCSUM_RX)
+>                 if (!vxlan_remcsum(&unparsed, skb, vs->flags))
+>                         goto drop;
+>         if (vs->flags & VXLAN_F_GBP)
+>                 vxlan_parse_gbp_hdr(&unparsed, skb, vs->flags, md);
+> +       /* Note that GBP and GPE can never be active together. This is
+> +        * ensured in vxlan_dev_configure.
+> +        */
 
-The driver was only compile tested. The risk is quite small as no
-current PXA platform I'm aware of is using smc911x driver.
+Sorry, I still don't like this. For VXLAN-GPE packets the above two
+conditionals are a complete waste of time and I shouldn't have to go
+pawing through configuration to determine what protocol has actually
+be implemented.  Please, at least move these into the else block of
+"if (vs->flags & VXLAN_F_GPE) {" above. This saves two conditionals in
+the data path, makes the parsing code more readable, and you don't
+need to reference configuration to figure things out.
 
-Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
-Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
----
-Since v1: added Fabio's Tested-by
----
- drivers/net/ethernet/smsc/smc911x.c | 85 ++++++++++++++++++++++++-------------
- drivers/net/ethernet/smsc/smc911x.h | 63 ++++++++++++---------------
- 2 files changed, 82 insertions(+), 66 deletions(-)
+Tom
 
-diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
-index bd64eb982e52..3f5711061432 100644
---- a/drivers/net/ethernet/smsc/smc911x.c
-+++ b/drivers/net/ethernet/smsc/smc911x.c
-@@ -73,6 +73,9 @@ static const char version[] =
- #include <linux/etherdevice.h>
- #include <linux/skbuff.h>
- 
-+#include <linux/dmaengine.h>
-+#include <linux/dma/pxa-dma.h>
-+
- #include <asm/io.h>
- 
- #include "smc911x.h"
-@@ -1174,18 +1177,16 @@ static irqreturn_t smc911x_interrupt(int irq, void *dev_id)
- 
- #ifdef SMC_USE_DMA
- static void
--smc911x_tx_dma_irq(int dma, void *data)
-+smc911x_tx_dma_irq(void *data)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct smc911x_local *lp = netdev_priv(dev);
-+	struct smc911x_local *lp = data;
-+	struct net_device *dev = lp->netdev;
- 	struct sk_buff *skb = lp->current_tx_skb;
- 	unsigned long flags;
- 
- 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
- 
- 	DBG(SMC_DEBUG_TX | SMC_DEBUG_DMA, dev, "TX DMA irq handler\n");
--	/* Clear the DMA interrupt sources */
--	SMC_DMA_ACK_IRQ(dev, dma);
- 	BUG_ON(skb == NULL);
- 	dma_unmap_single(NULL, tx_dmabuf, tx_dmalen, DMA_TO_DEVICE);
- 	dev->trans_start = jiffies;
-@@ -1208,18 +1209,16 @@ smc911x_tx_dma_irq(int dma, void *data)
- 	    "TX DMA irq completed\n");
- }
- static void
--smc911x_rx_dma_irq(int dma, void *data)
-+smc911x_rx_dma_irq(void *data)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct smc911x_local *lp = netdev_priv(dev);
-+	struct smc911x_local *lp = data;
-+	struct net_device *dev = lp->netdev;
- 	struct sk_buff *skb = lp->current_rx_skb;
- 	unsigned long flags;
- 	unsigned int pkts;
- 
- 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
- 	DBG(SMC_DEBUG_RX | SMC_DEBUG_DMA, dev, "RX DMA irq handler\n");
--	/* Clear the DMA interrupt sources */
--	SMC_DMA_ACK_IRQ(dev, dma);
- 	dma_unmap_single(NULL, rx_dmabuf, rx_dmalen, DMA_FROM_DEVICE);
- 	BUG_ON(skb == NULL);
- 	lp->current_rx_skb = NULL;
-@@ -1792,6 +1791,9 @@ static int smc911x_probe(struct net_device *dev)
- 	unsigned int val, chip_id, revision;
- 	const char *version_string;
- 	unsigned long irq_flags;
-+	struct dma_slave_config	config;
-+	dma_cap_mask_t mask;
-+	struct pxad_param param;
- 
- 	DBG(SMC_DEBUG_FUNC, dev, "--> %s\n", __func__);
- 
-@@ -1963,11 +1965,40 @@ static int smc911x_probe(struct net_device *dev)
- 		goto err_out;
- 
- #ifdef SMC_USE_DMA
--	lp->rxdma = SMC_DMA_REQUEST(dev, smc911x_rx_dma_irq);
--	lp->txdma = SMC_DMA_REQUEST(dev, smc911x_tx_dma_irq);
-+
-+	dma_cap_zero(mask);
-+	dma_cap_set(DMA_SLAVE, mask);
-+	param.prio = PXAD_PRIO_LOWEST;
-+	param.drcmr = -1UL;
-+
-+	lp->rxdma =
-+		dma_request_slave_channel_compat(mask, pxad_filter_fn,
-+						 &param, &dev->dev, "rx");
-+	lp->txdma =
-+		dma_request_slave_channel_compat(mask, pxad_filter_fn,
-+						 &param, &dev->dev, "tx");
- 	lp->rxdma_active = 0;
- 	lp->txdma_active = 0;
--	dev->dma = lp->rxdma;
-+
-+	memset(&config, 0, sizeof(config));
-+	config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-+	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-+	config.src_addr = lp->physaddr + RX_DATA_FIFO;
-+	config.dst_addr = lp->physaddr + TX_DATA_FIFO;
-+	config.src_maxburst = 32;
-+	config.dst_maxburst = 32;
-+	retval = dmaengine_slave_config(lp->rxdma, &config);
-+	if (retval) {
-+		dev_err(lp->dev, "dma rx channel configuration failed: %d\n",
-+			retval);
-+		goto err_out;
-+	}
-+	retval = dmaengine_slave_config(lp->txdma, &config);
-+	if (retval) {
-+		dev_err(lp->dev, "dma tx channel configuration failed: %d\n",
-+			retval);
-+		goto err_out;
-+	}
- #endif
- 
- 	retval = register_netdev(dev);
-@@ -1978,11 +2009,11 @@ static int smc911x_probe(struct net_device *dev)
- 			    dev->base_addr, dev->irq);
- 
- #ifdef SMC_USE_DMA
--		if (lp->rxdma != -1)
--			pr_cont(" RXDMA %d", lp->rxdma);
-+		if (lp->rxdma)
-+			pr_cont(" RXDMA %p", lp->rxdma);
- 
--		if (lp->txdma != -1)
--			pr_cont(" TXDMA %d", lp->txdma);
-+		if (lp->txdma)
-+			pr_cont(" TXDMA %p", lp->txdma);
- #endif
- 		pr_cont("\n");
- 		if (!is_valid_ether_addr(dev->dev_addr)) {
-@@ -2005,12 +2036,10 @@ static int smc911x_probe(struct net_device *dev)
- err_out:
- #ifdef SMC_USE_DMA
- 	if (retval) {
--		if (lp->rxdma != -1) {
--			SMC_DMA_FREE(dev, lp->rxdma);
--		}
--		if (lp->txdma != -1) {
--			SMC_DMA_FREE(dev, lp->txdma);
--		}
-+		if (lp->rxdma)
-+			dma_release_channel(lp->rxdma);
-+		if (lp->txdma)
-+			dma_release_channel(lp->txdma);
- 	}
- #endif
- 	return retval;
-@@ -2112,12 +2141,10 @@ static int smc911x_drv_remove(struct platform_device *pdev)
- 
- #ifdef SMC_USE_DMA
- 	{
--		if (lp->rxdma != -1) {
--			SMC_DMA_FREE(dev, lp->rxdma);
--		}
--		if (lp->txdma != -1) {
--			SMC_DMA_FREE(dev, lp->txdma);
--		}
-+		if (lp->rxdma)
-+			dma_release_channel(lp->rxdma);
-+		if (lp->txdma)
-+			dma_release_channel(lp->txdma);
- 	}
- #endif
- 	iounmap(lp->base);
-diff --git a/drivers/net/ethernet/smsc/smc911x.h b/drivers/net/ethernet/smsc/smc911x.h
-index 04b35f55df97..fa528ea0ea51 100644
---- a/drivers/net/ethernet/smsc/smc911x.h
-+++ b/drivers/net/ethernet/smsc/smc911x.h
-@@ -101,8 +101,8 @@ struct smc911x_local {
- #ifdef SMC_USE_DMA
- 	/* DMA needs the physical address of the chip */
- 	u_long physaddr;
--	int rxdma;
--	int txdma;
-+	struct dma_chan *rxdma;
-+	struct dma_chan *txdma;
- 	int rxdma_active;
- 	int txdma_active;
- 	struct sk_buff *current_rx_skb;
-@@ -210,27 +210,6 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
- 
- #ifdef SMC_USE_PXA_DMA
- 
--#include <mach/dma.h>
--
--/*
-- * Define the request and free functions
-- * These are unfortunately architecture specific as no generic allocation
-- * mechanism exits
-- */
--#define SMC_DMA_REQUEST(dev, handler) \
--	 pxa_request_dma(dev->name, DMA_PRIO_LOW, handler, dev)
--
--#define SMC_DMA_FREE(dev, dma) \
--	 pxa_free_dma(dma)
--
--#define SMC_DMA_ACK_IRQ(dev, dma)					\
--{									\
--	if (DCSR(dma) & DCSR_BUSERR) {					\
--		netdev_err(dev, "DMA %d bus error!\n", dma);		\
--	}								\
--	DCSR(dma) = DCSR_STARTINTR|DCSR_ENDINTR|DCSR_BUSERR;		\
--}
--
- /*
-  * Use a DMA for RX and TX packets.
-  */
-@@ -238,6 +217,8 @@ static inline void SMC_outsl(struct smc911x_local *lp, int reg,
- 
- static dma_addr_t rx_dmabuf, tx_dmabuf;
- static int rx_dmalen, tx_dmalen;
-+static void smc911x_rx_dma_irq(void *data);
-+static void smc911x_tx_dma_irq(void *data);
- 
- #ifdef SMC_insl
- #undef SMC_insl
-@@ -246,8 +227,10 @@ static int rx_dmalen, tx_dmalen;
- 
- static inline void
- smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
--		int reg, int dma, u_char *buf, int len)
-+		int reg, struct dma_chan *dma, u_char *buf, int len)
- {
-+	struct dma_async_tx_descriptor *tx;
-+
- 	/* 64 bit alignment is required for memory to memory DMA */
- 	if ((long)buf & 4) {
- 		*((u32 *)buf) = SMC_inl(lp, reg);
-@@ -258,12 +241,14 @@ smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
- 	len *= 4;
- 	rx_dmabuf = dma_map_single(lp->dev, buf, len, DMA_FROM_DEVICE);
- 	rx_dmalen = len;
--	DCSR(dma) = DCSR_NODESC;
--	DTADR(dma) = rx_dmabuf;
--	DSADR(dma) = physaddr + reg;
--	DCMD(dma) = (DCMD_INCTRGADDR | DCMD_BURST32 |
--		DCMD_WIDTH4 | DCMD_ENDIRQEN | (DCMD_LENGTH & rx_dmalen));
--	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
-+	tx = dmaengine_prep_slave_single(dma, rx_dmabuf, rx_dmalen,
-+					 DMA_DEV_TO_MEM, 0);
-+	if (tx) {
-+		tx->callback = smc911x_rx_dma_irq;
-+		tx->callback_param = lp;
-+		dmaengine_submit(tx);
-+		dma_async_issue_pending(dma);
-+	}
- }
- #endif
- 
-@@ -274,8 +259,10 @@ smc_pxa_dma_insl(struct smc911x_local *lp, u_long physaddr,
- 
- static inline void
- smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
--		int reg, int dma, u_char *buf, int len)
-+		int reg, struct dma_chan *dma, u_char *buf, int len)
- {
-+	struct dma_async_tx_descriptor *tx;
-+
- 	/* 64 bit alignment is required for memory to memory DMA */
- 	if ((long)buf & 4) {
- 		SMC_outl(*((u32 *)buf), lp, reg);
-@@ -286,12 +273,14 @@ smc_pxa_dma_outsl(struct smc911x_local *lp, u_long physaddr,
- 	len *= 4;
- 	tx_dmabuf = dma_map_single(lp->dev, buf, len, DMA_TO_DEVICE);
- 	tx_dmalen = len;
--	DCSR(dma) = DCSR_NODESC;
--	DSADR(dma) = tx_dmabuf;
--	DTADR(dma) = physaddr + reg;
--	DCMD(dma) = (DCMD_INCSRCADDR | DCMD_BURST32 |
--		DCMD_WIDTH4 | DCMD_ENDIRQEN | (DCMD_LENGTH & tx_dmalen));
--	DCSR(dma) = DCSR_NODESC | DCSR_RUN;
-+	tx = dmaengine_prep_slave_single(dma, tx_dmabuf, tx_dmalen,
-+					 DMA_DEV_TO_MEM, 0);
-+	if (tx) {
-+		tx->callback = smc911x_tx_dma_irq;
-+		tx->callback_param = lp;
-+		dmaengine_submit(tx);
-+		dma_async_issue_pending(dma);
-+	}
- }
- #endif
- #endif	 /* SMC_USE_PXA_DMA */
--- 
-2.1.4
+>
+>         if (unparsed.vx_flags || unparsed.vx_vni) {
+>                 /* If there are any unprocessed flags remaining treat
+> @@ -1325,8 +1375,13 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+>                 goto drop;
+>         }
+>
+> -       if (!vxlan_set_mac(vxlan, vs, skb))
+> -               goto drop;
+> +       if (!raw_proto) {
+> +               if (!vxlan_set_mac(vxlan, vs, skb))
+> +                       goto drop;
+> +       } else {
+> +               skb->dev = vxlan->dev;
+> +               skb->pkt_type = PACKET_HOST;
+> +       }
+>
+>         oiph = skb_network_header(skb);
+>         skb_reset_network_header(skb);
+> @@ -1685,6 +1740,27 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
+>         gbp->policy_id = htons(md->gbp & VXLAN_GBP_ID_MASK);
+>  }
+>
+> +static int vxlan_build_gpe_hdr(struct vxlanhdr *vxh, u32 vxflags,
+> +                              __be16 protocol)
+> +{
+> +       struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)vxh;
+> +
+> +       gpe->np_applied = 1;
+> +
+> +       switch (protocol) {
+> +       case htons(ETH_P_IP):
+> +               gpe->next_protocol = VXLAN_GPE_NP_IPV4;
+> +               return 0;
+> +       case htons(ETH_P_IPV6):
+> +               gpe->next_protocol = VXLAN_GPE_NP_IPV6;
+> +               return 0;
+> +       case htons(ETH_P_TEB):
+> +               gpe->next_protocol = VXLAN_GPE_NP_ETHERNET;
+> +               return 0;
+> +       }
+> +       return -EPFNOSUPPORT;
+> +}
+> +
+>  static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>                            int iphdr_len, __be32 vni,
+>                            struct vxlan_metadata *md, u32 vxflags,
+> @@ -1694,6 +1770,7 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>         int min_headroom;
+>         int err;
+>         int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+> +       __be16 inner_protocol = htons(ETH_P_TEB);
+>
+>         if ((vxflags & VXLAN_F_REMCSUM_TX) &&
+>             skb->ip_summed == CHECKSUM_PARTIAL) {
+> @@ -1712,10 +1789,8 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>
+>         /* Need space for new headers (invalidates iph ptr) */
+>         err = skb_cow_head(skb, min_headroom);
+> -       if (unlikely(err)) {
+> -               kfree_skb(skb);
+> -               return err;
+> -       }
+> +       if (unlikely(err))
+> +               goto out_free;
+>
+>         skb = vlan_hwaccel_push_inside(skb);
+>         if (WARN_ON(!skb))
+> @@ -1744,9 +1819,19 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+>
+>         if (vxflags & VXLAN_F_GBP)
+>                 vxlan_build_gbp_hdr(vxh, vxflags, md);
+> +       if (vxflags & VXLAN_F_GPE) {
+> +               err = vxlan_build_gpe_hdr(vxh, vxflags, skb->protocol);
+> +               if (err < 0)
+> +                       goto out_free;
+> +               inner_protocol = skb->protocol;
+> +       }
+>
+> -       skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+> +       skb_set_inner_protocol(skb, inner_protocol);
+>         return 0;
+> +
+> +out_free:
+> +       kfree_skb(skb);
+> +       return err;
+>  }
+>
+>  static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan,
+> @@ -2422,6 +2507,17 @@ static const struct net_device_ops vxlan_netdev_ether_ops = {
+>         .ndo_fill_metadata_dst  = vxlan_fill_metadata_dst,
+>  };
+>
+> +static const struct net_device_ops vxlan_netdev_raw_ops = {
+> +       .ndo_init               = vxlan_init,
+> +       .ndo_uninit             = vxlan_uninit,
+> +       .ndo_open               = vxlan_open,
+> +       .ndo_stop               = vxlan_stop,
+> +       .ndo_start_xmit         = vxlan_xmit,
+> +       .ndo_get_stats64        = ip_tunnel_get_stats64,
+> +       .ndo_change_mtu         = vxlan_change_mtu,
+> +       .ndo_fill_metadata_dst  = vxlan_fill_metadata_dst,
+> +};
+> +
+>  /* Info for udev, that this is a virtual tunnel endpoint */
+>  static struct device_type vxlan_type = {
+>         .name = "vxlan",
+> @@ -2501,6 +2597,17 @@ static void vxlan_ether_setup(struct net_device *dev)
+>         dev->netdev_ops = &vxlan_netdev_ether_ops;
+>  }
+>
+> +static void vxlan_raw_setup(struct net_device *dev)
+> +{
+> +       dev->type = ARPHRD_NONE;
+> +       dev->hard_header_len = 0;
+> +       dev->addr_len = 0;
+> +       dev->mtu = ETH_DATA_LEN;
+> +       dev->tx_queue_len = 1000;
+> +       dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+> +       dev->netdev_ops = &vxlan_netdev_raw_ops;
+> +}
+> +
+>  static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+>         [IFLA_VXLAN_ID]         = { .type = NLA_U32 },
+>         [IFLA_VXLAN_GROUP]      = { .len = FIELD_SIZEOF(struct iphdr, daddr) },
+> @@ -2527,6 +2634,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+>         [IFLA_VXLAN_REMCSUM_TX] = { .type = NLA_U8 },
+>         [IFLA_VXLAN_REMCSUM_RX] = { .type = NLA_U8 },
+>         [IFLA_VXLAN_GBP]        = { .type = NLA_FLAG, },
+> +       [IFLA_VXLAN_GPE]        = { .type = NLA_FLAG, },
+>         [IFLA_VXLAN_REMCSUM_NOPARTIAL]  = { .type = NLA_FLAG },
+>  };
+>
+> @@ -2727,7 +2835,20 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+>         __be16 default_port = vxlan->cfg.dst_port;
+>         struct net_device *lowerdev = NULL;
+>
+> -       vxlan_ether_setup(dev);
+> +       if (conf->flags & VXLAN_F_GPE) {
+> +               if (conf->flags & ~VXLAN_F_ALLOWED_GPE)
+> +                       return -EINVAL;
+> +               /* For now, allow GPE only together with COLLECT_METADATA.
+> +                * This can be relaxed later; in such case, the other side
+> +                * of the PtP link will have to be provided.
+> +                */
+> +               if (!(conf->flags & VXLAN_F_COLLECT_METADATA))
+> +                       return -EINVAL;
+> +
+> +               vxlan_raw_setup(dev);
+> +       } else {
+> +               vxlan_ether_setup(dev);
+> +       }
+>
+>         vxlan->net = src_net;
+>
+> @@ -2790,8 +2911,12 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
+>         dev->needed_headroom = needed_headroom;
+>
+>         memcpy(&vxlan->cfg, conf, sizeof(*conf));
+> -       if (!vxlan->cfg.dst_port)
+> -               vxlan->cfg.dst_port = default_port;
+> +       if (!vxlan->cfg.dst_port) {
+> +               if (conf->flags & VXLAN_F_GPE)
+> +                       vxlan->cfg.dst_port = 4790; /* IANA assigned VXLAN-GPE port */
+> +               else
+> +                       vxlan->cfg.dst_port = default_port;
+> +       }
+>         vxlan->flags |= conf->flags;
+>
+>         if (!vxlan->cfg.age_interval)
+> @@ -2962,6 +3087,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+>         if (data[IFLA_VXLAN_GBP])
+>                 conf.flags |= VXLAN_F_GBP;
+>
+> +       if (data[IFLA_VXLAN_GPE])
+> +               conf.flags |= VXLAN_F_GPE;
+> +
+>         if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
+>                 conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
+>
+> @@ -2978,6 +3106,10 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
+>         case -EEXIST:
+>                 pr_info("duplicate VNI %u\n", be32_to_cpu(conf.vni));
+>                 break;
+> +
+> +       case -EINVAL:
+> +               pr_info("unsupported combination of extensions\n");
+> +               break;
+>         }
+>
+>         return err;
+> @@ -3105,6 +3237,10 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+>             nla_put_flag(skb, IFLA_VXLAN_GBP))
+>                 goto nla_put_failure;
+>
+> +       if (vxlan->flags & VXLAN_F_GPE &&
+> +           nla_put_flag(skb, IFLA_VXLAN_GPE))
+> +               goto nla_put_failure;
+> +
+>         if (vxlan->flags & VXLAN_F_REMCSUM_NOPARTIAL &&
+>             nla_put_flag(skb, IFLA_VXLAN_REMCSUM_NOPARTIAL))
+>                 goto nla_put_failure;
+> diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+> index a763c96ecde4..8aabee2b078e 100644
+> --- a/include/net/vxlan.h
+> +++ b/include/net/vxlan.h
+> @@ -119,6 +119,64 @@ struct vxlanhdr_gbp {
+>  #define VXLAN_GBP_POLICY_APPLIED       (BIT(3) << 16)
+>  #define VXLAN_GBP_ID_MASK              (0xFFFF)
+>
+> +/*
+> + * VXLAN Generic Protocol Extension (VXLAN_F_GPE):
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |R|R|Ver|I|P|R|O|       Reserved                |Next Protocol  |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + * |                VXLAN Network Identifier (VNI) |   Reserved    |
+> + * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+> + *
+> + * Ver = Version. Indicates VXLAN GPE protocol version.
+> + *
+> + * P = Next Protocol Bit. The P bit is set to indicate that the
+> + *     Next Protocol field is present.
+> + *
+> + * O = OAM Flag Bit. The O bit is set to indicate that the packet
+> + *     is an OAM packet.
+> + *
+> + * Next Protocol = This 8 bit field indicates the protocol header
+> + * immediately following the VXLAN GPE header.
+> + *
+> + * https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-01
+> + */
+> +
+> +struct vxlanhdr_gpe {
+> +#if defined(__LITTLE_ENDIAN_BITFIELD)
+> +       u8      oam_flag:1,
+> +               reserved_flags1:1,
+> +               np_applied:1,
+> +               instance_applied:1,
+> +               version:2,
+> +reserved_flags2:2;
+> +#elif defined(__BIG_ENDIAN_BITFIELD)
+> +       u8      reserved_flags2:2,
+> +               version:2,
+> +               instance_applied:1,
+> +               np_applied:1,
+> +               reserved_flags1:1,
+> +               oam_flag:1;
+> +#endif
+> +       u8      reserved_flags3;
+> +       u8      reserved_flags4;
+> +       u8      next_protocol;
+> +       __be32  vx_vni;
+> +};
+> +
+> +/* VXLAN-GPE header flags. */
+> +#define VXLAN_HF_VER   cpu_to_be32(BIT(29) | BIT(28))
+> +#define VXLAN_HF_NP    cpu_to_be32(BIT(26))
+> +#define VXLAN_HF_OAM   cpu_to_be32(BIT(24))
+> +
+> +#define VXLAN_GPE_USED_BITS (VXLAN_HF_VER | VXLAN_HF_NP | VXLAN_HF_OAM | \
+> +                            cpu_to_be32(0xff))
+> +
+> +/* VXLAN-GPE header Next Protocol. */
+> +#define VXLAN_GPE_NP_IPV4      0x01
+> +#define VXLAN_GPE_NP_IPV6      0x02
+> +#define VXLAN_GPE_NP_ETHERNET  0x03
+> +#define VXLAN_GPE_NP_NSH       0x04
+> +
+>  struct vxlan_metadata {
+>         u32             gbp;
+>  };
+> @@ -206,16 +264,26 @@ struct vxlan_dev {
+>  #define VXLAN_F_GBP                    0x800
+>  #define VXLAN_F_REMCSUM_NOPARTIAL      0x1000
+>  #define VXLAN_F_COLLECT_METADATA       0x2000
+> +#define VXLAN_F_GPE                    0x4000
+>
+>  /* Flags that are used in the receive path. These flags must match in
+>   * order for a socket to be shareable
+>   */
+>  #define VXLAN_F_RCV_FLAGS              (VXLAN_F_GBP |                  \
+> +                                        VXLAN_F_GPE |                  \
+>                                          VXLAN_F_UDP_ZERO_CSUM6_RX |    \
+>                                          VXLAN_F_REMCSUM_RX |           \
+>                                          VXLAN_F_REMCSUM_NOPARTIAL |    \
+>                                          VXLAN_F_COLLECT_METADATA)
+>
+> +/* Flags that can be set together with VXLAN_F_GPE. */
+> +#define VXLAN_F_ALLOWED_GPE            (VXLAN_F_GPE |                  \
+> +                                        VXLAN_F_IPV6 |                 \
+> +                                        VXLAN_F_UDP_ZERO_CSUM_TX |     \
+> +                                        VXLAN_F_UDP_ZERO_CSUM6_TX |    \
+> +                                        VXLAN_F_UDP_ZERO_CSUM6_RX |    \
+> +                                        VXLAN_F_COLLECT_METADATA)
+> +
+>  struct net_device *vxlan_dev_create(struct net *net, const char *name,
+>                                     u8 name_assign_type, struct vxlan_config *conf);
+>
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 8e3f88fa5b59..9c9d09c01f6f 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -486,6 +486,7 @@ enum {
+>         IFLA_VXLAN_REMCSUM_NOPARTIAL,
+>         IFLA_VXLAN_COLLECT_METADATA,
+>         IFLA_VXLAN_LABEL,
+> +       IFLA_VXLAN_GPE,
+>         __IFLA_VXLAN_MAX
+>  };
+>  #define IFLA_VXLAN_MAX (__IFLA_VXLAN_MAX - 1)
+> --
+> 1.8.3.1
+>
