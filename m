@@ -1,44 +1,49 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
-Date: Thu, 17 Mar 2016 14:10:17 +0100
-Message-ID: <56EAACB9.40803@st.com>
-References: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com> <20160316.180905.1210684680763742658.davem@davemloft.net>
+From: "tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] iwlwifi: dvm: convert create_singlethread_workqueue() to
+ alloc_workqueue()
+Date: Thu, 17 Mar 2016 06:18:11 -0700
+Message-ID: <20160317131811.GO21104@mtj.duckdns.org>
+References: <1458218246-18807-1-git-send-email-eraretuya@gmail.com>
+ <0BA3FCBA62E2DC44AF3030971E174FB32EA7C435@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <gabriel.fernandez@linaro.org>,
-	<afaerber@suse.de>, <fschaefer.oss@googlemail.com>,
-	<dinh.linux@gmail.com>, <preid@electromag.com.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:57099 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966826AbcCQNKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 09:10:41 -0400
-In-Reply-To: <20160316.180905.1210684680763742658.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eva Rachel Retuya <eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"outreachy-kernel-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org"
+	<outreachy-kernel-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB32EA7C435-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 3/16/2016 11:09 PM, David Miller wrote:
->
-> Don't _ever_ send the same two sets of patches targetting net and
-> net-next at the same time.
+Hello,
 
-cover-letter reports the difference between the two patches for
-net and next.
+On Thu, Mar 17, 2016 at 12:43:35PM +0000, Grumbach, Emmanuel wrote:
+> > 
+> > Use alloc_workqueue() to allocate the workqueue instead of
+> > create_singlethread_workqueue() since the latter is deprecated and is
+> > scheduled
+> > for removal.
+> 
+> I can't see any indication of that in the code of workqueue.
+> Can you share details about that?
 
-> Especially right now, as 'net' is basically frozen, and 'net-next' is
-> closed for new features and is only for last minute bug fixes before I
-> send a merge window pull request to Linus.
+create*_workqueue()'s have been deprecated and replaced by
+alloc*_workqueue()'s for some years now.  I probably should note that
+in the header file.
 
-I do think that:
+Thanks.
 
-     [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
-     [PATCH (net-next.git)] stmmac: fix TX normal DESC
-
-are last minute bug fixes for net-next.
-
-Peppe
-
->
-> I'm tossing both of these series, figure it how to do this properly.
+-- 
+tejun
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
