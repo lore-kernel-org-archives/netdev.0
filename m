@@ -1,31 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
-Date: Wed, 16 Mar 2016 22:38:03 -0400 (EDT)
-Message-ID: <20160316.223803.240230703927987310.davem@davemloft.net>
-References: <1457989187-92851-1-git-send-email-tracywwnj@gmail.com>
-	<20160316.195341.68257764618999441.davem@davemloft.net>
-	<1458174127.7353.11.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat
+	code
+Date: Thu, 17 Mar 2016 15:54:34 +1300
+Message-ID: <CAPWQB7EOv5qPNO_LMvywhxQ8_=sht=6rtBSGThjO8VdnMhdE4Q@mail.gmail.com>
+References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
+ <20160316132536.GA29550@salvia> <2159518.ilphXU8bxQ@wuerfel>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: weiwan@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53842 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965811AbcCQCiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 22:38:07 -0400
-In-Reply-To: <1458174127.7353.11.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <2159518.ilphXU8bxQ@wuerfel>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Mar 2016 17:22:07 -0700
-
-> One of the issue is that IPV6_MTU getsockopt() will not check the dst,
-> but simply use __sk_dst_get() : It will then report old mtu.
-
-That's a bug.
-
-ipv4 does it right with a proper sk_dst_get() and so should
-ipv6.
+T24gMTcgTWFyY2ggMjAxNiBhdCAwMjo1NiwgQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4g
+d3JvdGU6Cj4gT24gV2VkbmVzZGF5IDE2IE1hcmNoIDIwMTYgMTQ6MjU6MzYgUGFibG8gTmVpcmEg
+QXl1c28gd3JvdGU6Cj4+IE5vdCByZWxhdGVkIHdpdGggdGhpcyBwYXRjaCwganVzdCBhIHNpZGUg
+bm90ZS9yZWNvbW1lbmRhdGlvbi4KPj4KPj4gSSB1bmRlcnN0YW5kIHRoaXMgY29kZSBqdXN0IGdv
+dCBpbnRvIHRyZWUsIGFuZCB0aGF0IHRoaXMgbmVlZHMgYSBiaXQKPj4gd29yay9pdGVyYXRpb25z
+IGJ1dCB0aGlzIHRoaW5nIGFib3ZlIGlzIHVnbHksIEkgd29uZGVyIGlmIHRoZXJlIGlzIGEKPj4g
+YmV0dGVyIHdheSB0byBhdm9pZCB0aGlzLgo+Pgo+PiBQcm9iYWJseSB3aXRoIHNvbWUgbW9kdWxh
+cml6YXRpb24gb2YgdGhlIG9wZW52c3dpdGNoIGNvZGUgdGhpcyB3aWxsCj4+IGxvb2sgYmV0dGVy
+LCBJIG1lYW46Cj4+Cj4+IDEpIGFkZGluZyBLY29uZmlnIHN3aXRjaGVzIHRvIGVuYWJsZSBjb25u
+dHJhY2sgYW5kIE5BVCBzdXBwb3J0IHRvCj4+ICAgIG5ldC9vcGVudnN3aXRjaC9LY29uZmlnLgo+
+Pgo+PiAyKSBNb3ZlIHRoZSBOQVQgY29kZSB0byB0aGUgY29ycmVzcG9uZGluZyBvcGVudnN3aXRj
+aC9uYXQuYyBmaWxlLgo+Pgo+PiBKdXN0IG15IHR3byBjZW50cy4KPgo+IFllcywgSSB0aGluayB0
+aGF0IHdvdWxkIGJlIGdvb2QgdG9vLiBJIGFsc28gZm91bmQgdGhhdCB0aGUgZHJpdmVyCj4gdXNl
+ZCB0byBsb29rIGxpa2UgdGhhdCBidXQgaXQgd2FzIGNoYW5nZWQgYXMgcGFydCBvZiBmODhmNjlk
+ZDE3ZjEKPiAoIm9wZW52c3dpdGNoOiBSZW1vdmUgY29ubnRyYWNrIEtjb25maWcgb3B0aW9uLiIp
+LgoKSSBkb24ndCBzZWUgaG93IGl0IGhlbHBzIHRvIHNlcGFyYXRlIHRoZSBjb25udHJhY2ssIG5h
+dCBwaWVjZXMgaW50bwpkaWZmZXJlbnQgS2NvbmZpZyBzd2l0Y2hlcyB1bmxlc3MgeW91J3JlIHNw
+bGl0dGluZyB0aGVpciBjb2RlCmNvbXBsZXRlbHkgb3V0IG9mIHRoZSBvcGVudnN3aXRjaCBtb2R1
+bGUuCgpQcmlvciB0byBmODhmNjlkZDE3ZjEsIE9QRU5WU1dJVENIIEtjb25maWcgb3B0aW9uIGhh
+ZCBubyBkZXBlbmRlbmN5IG9uCk5GX0NPTk5UUkFDSy4gT1BFTlZTV0lUQ0hfQ09OTlRSQUNLIHdh
+cyBhIHN3aXRjaCB0byBidWlsZCB0aG9zZSBwaWVjZXMKaW50byB0aGUgT1BFTlZTV0lUQ0ggbW9k
+dWxlIChpZSwKIm9wZW52c3dpdGNoLSQoQ09ORklHX09QRU5WU1dJVENIX0NPTk5UUkFDSykgKz0g
+Y29ubnRyYWNrLm8iKS4gSWYgeW91CmNvbmZpZ3VyZWQgTkZfQ09OTlRSQUNLPW0sIE9QRU5WU1dJ
+VENIPXksIE9QRU5WU1dJVENIX0NPTk5UUkFDSz15IHRoZW4KaXQgd291bGQgYnJlYWsgaW4gdGhl
+IHNhbWUga2luZCBvZiB3YXkgYXMgdGhlIGJ1ZyB0aGF0IEFybmQgaXMKcmVwb3J0aW5nLiBTbywg
+dGhhdCBwYXRjaCB3YXMgaW50cm9kdWNlZCB0byBzaGlmdCB0aGUgZGVwZW5kZW5jeSB1cCB0bwp0
+aGUgT1BFTlZTV0lUQ0gga2NvbmZpZyBvcHRpb24uIEF0IHRoYXQgcG9pbnQsIHRoZXJlIHdhcyBu
+byBzdHJvbmcKYmVuZWZpdCB0byBrZWVwaW5nIHRoZSBjb25udHJhY2sgc2VwYXJhdGVseSBjb25m
+aWd1cmFibGUsIHNvIHRoYXQgd2FzCnJlbW92ZWQuIEZ1cnRoZXIgc3BsaXR0aW5nIHRoZSBjb2Rl
+IG91dCBpbiBzb21lIHdheSAoZWcgbmV3IG1vZHVsZXMpCnNlZW1lZCB3YXkgb3ZlcmtpbGwgdG8g
+dGlkeSB1cCBzb21lIHVnbHktbG9va2luZyBkZXBlbmRlbmN5IGxvZ2ljLgoKTWF5YmUgc29tZW9u
+ZSB3aXRoIGJldHRlciBLY29uZmlnLWZ1IHRoYW4gbWUgY2FuIHBvaW50IG91dCBhIGJldHRlciB3
+YXkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBt
+YWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21h
+aWxtYW4vbGlzdGluZm8vZGV2Cg==
