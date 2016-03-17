@@ -1,72 +1,78 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [v6, 3/5] dt: move guts devicetree doc out of powerpc directory
-Date: Thu, 17 Mar 2016 12:06:40 -0500
-Message-ID: <20160317170640.GB21009@rob-hp-laptop>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [v6,
+	5/5] mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+Date: Thu, 17 Mar 2016 18:06:09 +0100
+Message-ID: <3706958.XeRFmKM0K5@wuerfel>
 References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
- <1457518131-11339-4-git-send-email-yangbo.lu@nxp.com>
+	<DB5PR0401MB19286B2D23D07F5C60DB799D91880@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+	<20160317170101.GA21009@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-clk@vger.kernel.org, linux-i2c@vger.kernel.org,
-	iommu@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-mmc@vger.kernel.org, scott.wood@nxp.com,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	ulf.hansson@linaro.org,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Zhao Qiang <qiang.zhao@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
-	xiaobo.xie@nxp.com
-To: Yangbo Lu <yangbo.lu@nxp.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1457518131-11339-4-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-mmc-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20160317170101.GA21009@rob-hp-laptop>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 09, 2016 at 06:08:49PM +0800, Yangbo Lu wrote:
-> Move guts devicetree doc to Documentation/devicetree/bindings/soc/fsl/
-> since it's used by not only PowerPC but also ARM. And add a specification
-> for 'little-endian' property.
-> 
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
-> ---
-> Changes for v2:
-> 	- None
-> Changes for v3:
-> 	- None
-> Changes for v4:
-> 	- Added this patch
-> Changes for v5:
-> 	- Modified the description for little-endian property
-> Changes for v6:
-> 	- None
-> ---
->  Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt | 3 +++
->  1 file changed, 3 insertions(+)
->  rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
-> 
-> diff --git a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt b/Documentation/devicetree/bindings/soc/fsl/guts.txt
-> similarity index 91%
-> rename from Documentation/devicetree/bindings/powerpc/fsl/guts.txt
-> rename to Documentation/devicetree/bindings/soc/fsl/guts.txt
-> index b71b203..07adca9 100644
-> --- a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt
-> +++ b/Documentation/devicetree/bindings/soc/fsl/guts.txt
-> @@ -25,6 +25,9 @@ Recommended properties:
->   - fsl,liodn-bits : Indicates the number of defined bits in the LIODN
->     registers, for those SOCs that have a PAMU device.
->  
-> + - little-endian : Indicates that the global utilities block is little
-> +   endian. The default is big endian.
-
-The default is "the native endianness of the system". So absence on an 
-ARM system would be LE. This property is valid for any simple-bus 
-device, so it isn't really required to document per device. You can, but 
-your description had better match the documented behaviour.
-
-Rob
+T24gVGh1cnNkYXkgMTcgTWFyY2ggMjAxNiAxMjowMTowMSBSb2IgSGVycmluZyB3cm90ZToKPiBP
+biBNb24sIE1hciAxNCwgMjAxNiBhdCAwNTo0NTo0M1BNICswMDAwLCBTY290dCBXb29kIHdyb3Rl
+OgoKPiA+ID4+IFRoaXMgbWFrZXMgdGhlIGRyaXZlciBub24tcG9ydGFibGUuIEJldHRlciBpZGVu
+dGlmeSB0aGUgc3BlY2lmaWMKPiA+ID4+IHdvcmthcm91bmRzIGJhc2VkIG9uIHRoZSBjb21wYXRp
+YmxlIHN0cmluZyBmb3IgdGhpcyBkZXZpY2UsIG9yIGFkZCBhCj4gPiA+PiBib29sZWFuIERUIHBy
+b3BlcnR5IGZvciB0aGUgcXVpcmsuCj4gPiA+Pgo+ID4gPj4gICAgQXJuZAo+ID4gPiAKPiA+ID4g
+W0x1IFlhbmdiby1CNDcwOTNdIEhpIEFybmQsIHdlIGRpZCBoYXZlIGEgZGlzY3Vzc2lvbiBhYm91
+dCB1c2luZyBEVFMgaW4gdjEgYmVmb3JlLgo+ID4gPiBodHRwczovL3BhdGNod29yay5rZXJuZWwu
+b3JnL3BhdGNoLzY4MzQyMjEvCj4gPiA+IAo+ID4gPiBXZSBkb27igJl0IGhhdmUgYSBzZXBhcmF0
+ZSBEVFMgZmlsZSBmb3IgZWFjaCByZXZpc2lvbiBvZiBhbiBTT0MgYW5kIGlmIHdlIGRpZCwgd2Un
+ZCBjb25zdGFudGx5IGhhdmUgcGVvcGxlIHVzaW5nIHRoZSB3cm9uZyBvbmUuCj4gPiA+IEluIGFk
+ZGl0aW9uLCB0aGUgZGV2aWNlIHRyZWUgaXMgc3RhYmxlIEFCSSBhbmQgZXJyYXRhIGFyZSBvZnRl
+biBkaXNjb3ZlcmVkIGFmdGVyIGRldmljZSB0cmVlIGFyZSBkZXBsb3llZC4KPiA+ID4gU2VlIHRo
+ZSBsaW5rIGZvciBkZXRhaWxzLgo+ID4gPiAKPiA+ID4gU28gd2UgZGVjaWRlIHRvIHJlYWQgU1ZS
+IGZyb20gdGhlIGRldmljZS1jb25maWcvZ3V0cyBNTUlPIGJsb2NrIG90aGVyIHRoYW4gdXNpbmcg
+RFRTLgo+ID4gPiBUaGFua3MuCj4gPiAKPiA+IEFsc28gbm90ZSB0aGF0IHRoaXMgZHJpdmVyIGlz
+IGFscmVhZHkgb25seSBmb3IgZnNsLXNwZWNpZmljIGhhcmR3YXJlLAo+ID4gYW5kIGl0IHdpbGwg
+c3RpbGwgd29yayBldmVuIGlmIGZzbF9ndXRzIGRvZXNuJ3QgZmluZCBhbnl0aGluZyB0byBiaW5k
+IHRvCj4gPiAtLSBpdCBqdXN0IHdvdWxkbid0IGJlIGFibGUgdG8gZGV0ZWN0IGVycmF0YSBiYXNl
+ZCBvbiBTVlIgaW4gdGhhdCBjYXNlLgo+IAo+IElJUkMsIGl0IGlzIHRoZSBzYW1lIElQIGJsb2Nr
+IGFzIGkuTVggYW5kIEFybmQncyBwb2ludCBpcyB0aGlzIHdvbid0IAo+IGV2ZW4gY29tcGlsZSBv
+biAhUFBDLiBJdCBpcyB0aGluZ3MgbGlrZSB0aGlzIHRoYXQgcHJldmVudCBzaGFyaW5nIHRoZSAK
+PiBkcml2ZXIuCgpJIHRoaW5rIHRoZSBmaXJzdCBmb3VyIHBhdGNoZXMgdGFrZSBjYXJlIG9mIGJ1
+aWxkaW5nIGZvciBBUk0sCmJ1dCB0aGUgcHJvYmxlbSByZW1haW5zIGlmIHlvdSB3YW50IHRvIGVu
+YWJsZSBDT01QSUxFX1RFU1QgYXMKd2UgbmVlZCBmb3IgY2VydGFpbiBhdXRvbWF0ZWQgY2hlY2tp
+bmcuCgo+IERlYWxpbmcgd2l0aCBTaSByZXZzIGlzIGEgY29tbW9uIHByb2JsZW0uIFdlIHNob3Vs
+ZCBoYXZlIGEgCj4gY29tbW9uIHNvbHV0aW9uLiBUaGVyZSBpcyBzb2NfZGV2aWNlIGZvciB0aGlz
+IHB1cnBvc2UuCgpFeGFjdGx5LiBUaGUgbGFzdCB0aW1lIHRoaXMgY2FtZSB1cCwgSSB0aGluayB3
+ZSBhZ3JlZWQgdG8gaW1wbGVtZW50IGEKaGVscGVyIHVzaW5nIGdsb2JfbWF0Y2goKSBvbiB0aGUg
+c29jX2RldmljZSBzdHJpbmdzLiBVbmZvcnR1bmF0ZWx5CnRoaXMgaGFzbid0IGhhcHBlbmVkIHRo
+ZW4sIGJ1dCBJJ2Qgc3RpbGwgcHJlZmVyIHRoYXQgb3ZlciB5ZXQgYW5vdGhlcgp2ZW5kb3Itc3Bl
+Y2lmaWMgd2F5IG9mIGRlYWxpbmcgd2l0aCB0aGUgZ2VuZXJpYyBpc3N1ZS4KCglBcm5kCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvbW11IG1haWxpbmcg
+bGlzdAppb21tdUBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4
+Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
