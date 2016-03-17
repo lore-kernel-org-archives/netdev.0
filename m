@@ -1,165 +1,99 @@
-From: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
-Date: Thu, 17 Mar 2016 10:00:06 -0700
-Message-ID: <CAA93jw7TuBLVi9k-+2=J27j-Qs+sS3UNaQNTMF9D2MQ13fQY9A@mail.gmail.com>
-References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
-	<CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
-	<CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
-	<CAA93jw6tDdiYuginPbUY1DFJLiDxofHMFN6j2BvQPabPmBtuRw@mail.gmail.com>
-	<20160316185531.GA1771@localhost>
-	<CAGyitvMDEUiNx7HD=XKjXNHnFvZ_gxD_BbQx3AP-57_+dBeD4A@mail.gmail.com>
-	<CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [v6, 5/5] mmc: sdhci-of-esdhc: fix host version for
+	T4240-R1.0-R2.0
+Date: Thu, 17 Mar 2016 12:01:01 -0500
+Message-ID: <20160317170101.GA21009@rob-hp-laptop>
+References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
+	<1457518131-11339-6-git-send-email-yangbo.lu@nxp.com>
+	<4947024.WeMycs2fID@wuerfel>
+	<HE1PR04MB0889CE4742B92461A925B9C4F8880@HE1PR04MB0889.eurprd04.prod.outlook.com>
+	<DB5PR0401MB19286B2D23D07F5C60DB799D91880@DB5PR0401MB1928.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jasmine Strong <jas-K/XR6QsbQD0@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org" <codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	make-wifi-fast-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
-To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev@li
+To: Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <DB5PR0401MB19286B2D23D07F5C60DB799D91880-GXldUsIPo7Z/SeJcUcAJq43W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 17, 2016 at 1:55 AM, Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org=
-> wrote:
-
-> I suspect the BK/BE latency difference has to do with the fact that
-> there's bulk traffic going on BE queues (this isn't reflected
-> explicitly in the plots). The `bursts` flent test includes short
-> bursts of traffic on tid0 (BE) which is shared with ICMP and BE UDP_R=
-R
-> (seen as green and blue lines on the plot). Due to (intended) limited
-> outflow (6mbps) BE queues build up and don't drain for the duration o=
-f
-> the entire test creating more opportunities for aggregating BE traffi=
-c
-> while other queues are near-empty and very short (time wise as well).
-
-I agree with your explanation. Access to the media and queue length
-are the two variables at play here.
-
-I just committed a new flent test that should exercise the vo,vi,be,
-and bk queues, "bursts_11e". I dropped the conventional ping from it
-and just rely on netperf's udp_rr for each queue. It seems to "do the
-right thing" on the ath9k....
-
-And while I'm all in favor of getting 802.11e's behaviors more right,
-and this seems like a good way to get there...
-
-netperf's udp_rr is not how much traffic conventionally behaves. It
-doesn't do tcp slow start or congestion control in particular...
-
-In the case of the VO queue, for example, the (2004) intended behavior
-was 1 isochronous packet per 10ms per voice sending station and one
-from the ap, not a "ping". And at the time, VI was intended to be
-unicast video. TCP was an afterthought. (wifi's original (1993) mac
-was actually designed for ipx/spx!)
-
-I long for regular "rrul" and "rrul_be" tests against the new stuff to
-blow it up thoroughly as references along the way.
-(tcp_upload, tcp_download, (and several of the rtt_fair tests also
-between stations)). Will get formal about it here as soon as we end up
-on the same kernel trees....
-
-=46urthermore 802.11e is not widely used - in particular, not much
-internet bound/sourced traffic falls into more than BE and BK,
-presently. and in some cases weirder - comcast remarks a very large
-percentage of to the home inbound traffic as CS1 (BK), btw, and
-stations tend to use CS0. Data comes in on BK, acks go out on BE.
-
-I/we will try to come up with intermediate tests between the burst
-tests and the rrul tests as we go along the way.
-
-> If you consider Wi-Fi is half-duplex and latency in the entire stack
-
-In the context of this test regime...
-
-<pedantry>
-Saying wifi is "half"-duplex is a misleading way to think about it in
-many respects. it is a shared medium more like early, non-switched
-ethernet, with a weird mac that governs what sort of packets get
-access to (a txop) the medium first, across all stations co-operating
-within EDCA.
-
-Half or full duplex is something that mostly applied to p2p serial
-connections (or p2p wifi), not P2MP. Additionally characteristics like
-exponential backoff make no sense were wifi any form of duplex, full
-or half.
-
-Certainly much stuff within a txop (block acks for example) can be
-considered half duplex in a microcosmic context.
-
-I wish we actually had words that accurately described wifi's actual be=
-havior.
-</pedantry>
-
-> (for processing ICMP and UDP_RR) is greater than 11e contention windo=
-w
-> timings you can get your BE flow responses with extra delay (since
-> other queues might have responses ready quicker).
-
-yes. always having a request pending for each of the 802.11e queues is
-actually not the best idea, it is better to take advantage of better
-aggregation afforded by 802.11n/ac, to only have one or two of the
-queues in use against any given station and promote or demote traffic
-into a more-right queue.
-
-simple example of the damage having all 4 queues always contending is
-exemplified by running the rrul and rrul_be tests against nearly any
-given AP.
-
->
-> I've modified traffic-gen and re-run tests with bursts on all tested
-> tids/ACs (tid0, tid1, tid5). I'm attaching the results.
->
-> With bursts on all tids you can clearly see BK has much higher latenc=
-y than BE.
-
-The long term goal here, of course, is for BK (or the other queues) to
-not have seconds of queuing latency but something more bounded to 2x
-media access time...
-
-> (Note, I've changed my AP to QCA988X with oldie firmware 10.1.467 for
-> this test; it doesn't have the weird hiccups I was seeing on QCA99X0
-> and newer QCA988X firmware reports bogus expected throughput which is
-> most likely a result of my sloppy proof-of-concept change in ath10k).
-
-So I should avoid ben greer's firmware for now?
-
->
->
-> Micha=C5=82
->
-> On 16 March 2016 at 20:48, Jasmine Strong <jas-K/XR6QsbQD0@public.gmane.org> wrote:
->> BK usually has 0 txop, so it doesn't do aggregation.
->>
->> On Wed, Mar 16, 2016 at 11:55 AM, Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org> =
-wrote:
->>>
->>> On Wed, Mar 16, 2016 at 11:36:31AM -0700, Dave Taht wrote:
->>> > That is the sanest 802.11e queue behavior I have ever seen!  (at =
-both
->>> > 6 and 300mbit! in the ath10k patched mac test)
->>>
->>> Out of curiosity, why does BE have larger latency than BK in that c=
-hart?
->>> I'd have expected the opposite.
->>>
->>> --
->>> Bob Copeland %% http://bobcopeland.com/
->>>
->>> _______________________________________________
->>> ath10k mailing list
->>> ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
->>> http://lists.infradead.org/mailman/listinfo/ath10k
->>
->>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gTW9uLCBNYXIgMTQsIDIwMTYgYXQgMDU6NDU6NDNQTSArMDAwMCwgU2NvdHQgV29vZCB3cm90
+ZToKPiBPbiAwMy8xNC8yMDE2IDAyOjI5IEFNLCBZYW5nYm8gTHUgd3JvdGU6Cj4gPj4gLS0tLS1P
+cmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+PiBGcm9tOiBBcm5kIEJlcmdtYW5uIFttYWlsdG86YXJu
+ZEBhcm5kYi5kZV0KPiA+PiBTZW50OiBNb25kYXksIE1hcmNoIDE0LCAyMDE2IDY6MjYgQU0KPiA+
+PiBUbzogbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKPiA+PiBDYzogWWFuZ2JvIEx1OyBk
+ZXZpY2V0cmVlQHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQo+ID4+IGtlcm5lbEBsaXN0cy5p
+bmZyYWRlYWQub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC0KPiA+PiBj
+bGtAdmdlci5rZXJuZWwub3JnOyBsaW51eC1pMmNAdmdlci5rZXJuZWwub3JnOyBpb21tdUBsaXN0
+cy5saW51eC0KPiA+PiBmb3VuZGF0aW9uLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGlu
+dXgtbW1jQHZnZXIua2VybmVsLm9yZzsKPiA+PiB1bGYuaGFuc3NvbkBsaW5hcm8ub3JnOyBaaGFv
+IFFpYW5nOyBSdXNzZWxsIEtpbmc7IEJodXBlc2ggU2hhcm1hOyBKb2VyZwo+ID4+IFJvZWRlbDsg
+U2FudG9zaCBTaGlsaW1rYXI7IFNjb3R0IFdvb2Q7IFJvYiBIZXJyaW5nOyBDbGF1ZGl1IE1hbm9p
+bDsgS3VtYXIKPiA+PiBHYWxhOyBZYW5nLUxlbyBMaTsgWGlhb2JvIFhpZQo+ID4+IFN1YmplY3Q6
+IFJlOiBbdjYsIDUvNV0gbW1jOiBzZGhjaS1vZi1lc2RoYzogZml4IGhvc3QgdmVyc2lvbiBmb3Ig
+VDQyNDAtCj4gPj4gUjEuMC1SMi4wCj4gPj4KPiA+PiBPbiBXZWRuZXNkYXkgMDkgTWFyY2ggMjAx
+NiAxODowODo1MSBZYW5nYm8gTHUgd3JvdGU6Cj4gPj4+IEBAIC01NjcsMTAgKzU4MCwyMCBAQCBz
+dGF0aWMgdm9pZCBlc2RoY19pbml0KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UKPiA+PiAqcGRldiwg
+c3RydWN0IHNkaGNpX2hvc3QgKmhvc3QpCj4gPj4+ICAgICAgICAgc3RydWN0IHNkaGNpX3BsdGZt
+X2hvc3QgKnBsdGZtX2hvc3Q7Cj4gPj4+ICAgICAgICAgc3RydWN0IHNkaGNpX2VzZGhjICplc2Ro
+YzsKPiA+Pj4gICAgICAgICB1MTYgaG9zdF92ZXI7Cj4gPj4+ICsgICAgICAgdTMyIHN2cjsKPiA+
+Pj4KPiA+Pj4gICAgICAgICBwbHRmbV9ob3N0ID0gc2RoY2lfcHJpdihob3N0KTsKPiA+Pj4gICAg
+ICAgICBlc2RoYyA9IHNkaGNpX3BsdGZtX3ByaXYocGx0Zm1faG9zdCk7Cj4gPj4+Cj4gPj4+ICsg
+ICAgICAgZnNsX2d1dHNfaW5pdCgpOwo+ID4+PiArICAgICAgIHN2ciA9IGZzbF9ndXRzX2dldF9z
+dnIoKTsKPiA+Pj4gKyAgICAgICBpZiAoc3ZyKSB7Cj4gPj4+ICsgICAgICAgICAgICAgICBlc2Ro
+Yy0+c29jX3ZlciA9IFNWUl9TT0NfVkVSKHN2cik7Cj4gPj4+ICsgICAgICAgICAgICAgICBlc2Ro
+Yy0+c29jX3JldiA9IFNWUl9SRVYoc3ZyKTsKPiA+Pj4gKyAgICAgICB9IGVsc2Ugewo+ID4+PiAr
+ICAgICAgICAgICAgICAgZGV2X2VycigmcGRldi0+ZGV2LCAiRmFpbGVkIHRvIGdldCBTVlIgdmFs
+dWUhXG4iKTsKPiA+Pj4gKyAgICAgICB9Cj4gPj4+ICsKPiA+Pgo+ID4+IFRoaXMgbWFrZXMgdGhl
+IGRyaXZlciBub24tcG9ydGFibGUuIEJldHRlciBpZGVudGlmeSB0aGUgc3BlY2lmaWMKPiA+PiB3
+b3JrYXJvdW5kcyBiYXNlZCBvbiB0aGUgY29tcGF0aWJsZSBzdHJpbmcgZm9yIHRoaXMgZGV2aWNl
+LCBvciBhZGQgYQo+ID4+IGJvb2xlYW4gRFQgcHJvcGVydHkgZm9yIHRoZSBxdWlyay4KPiA+Pgo+
+ID4+IAlBcm5kCj4gPiAKPiA+IFtMdSBZYW5nYm8tQjQ3MDkzXSBIaSBBcm5kLCB3ZSBkaWQgaGF2
+ZSBhIGRpc2N1c3Npb24gYWJvdXQgdXNpbmcgRFRTIGluIHYxIGJlZm9yZS4KPiA+IGh0dHBzOi8v
+cGF0Y2h3b3JrLmtlcm5lbC5vcmcvcGF0Y2gvNjgzNDIyMS8KPiA+IAo+ID4gV2UgZG9u4oCZdCBo
+YXZlIGEgc2VwYXJhdGUgRFRTIGZpbGUgZm9yIGVhY2ggcmV2aXNpb24gb2YgYW4gU09DIGFuZCBp
+ZiB3ZSBkaWQsIHdlJ2QgY29uc3RhbnRseSBoYXZlIHBlb3BsZSB1c2luZyB0aGUgd3Jvbmcgb25l
+Lgo+ID4gSW4gYWRkaXRpb24sIHRoZSBkZXZpY2UgdHJlZSBpcyBzdGFibGUgQUJJIGFuZCBlcnJh
+dGEgYXJlIG9mdGVuIGRpc2NvdmVyZWQgYWZ0ZXIgZGV2aWNlIHRyZWUgYXJlIGRlcGxveWVkLgo+
+ID4gU2VlIHRoZSBsaW5rIGZvciBkZXRhaWxzLgo+ID4gCj4gPiBTbyB3ZSBkZWNpZGUgdG8gcmVh
+ZCBTVlIgZnJvbSB0aGUgZGV2aWNlLWNvbmZpZy9ndXRzIE1NSU8gYmxvY2sgb3RoZXIgdGhhbiB1
+c2luZyBEVFMuCj4gPiBUaGFua3MuCj4gCj4gQWxzbyBub3RlIHRoYXQgdGhpcyBkcml2ZXIgaXMg
+YWxyZWFkeSBvbmx5IGZvciBmc2wtc3BlY2lmaWMgaGFyZHdhcmUsCj4gYW5kIGl0IHdpbGwgc3Rp
+bGwgd29yayBldmVuIGlmIGZzbF9ndXRzIGRvZXNuJ3QgZmluZCBhbnl0aGluZyB0byBiaW5kIHRv
+Cj4gLS0gaXQganVzdCB3b3VsZG4ndCBiZSBhYmxlIHRvIGRldGVjdCBlcnJhdGEgYmFzZWQgb24g
+U1ZSIGluIHRoYXQgY2FzZS4KCklJUkMsIGl0IGlzIHRoZSBzYW1lIElQIGJsb2NrIGFzIGkuTVgg
+YW5kIEFybmQncyBwb2ludCBpcyB0aGlzIHdvbid0IApldmVuIGNvbXBpbGUgb24gIVBQQy4gSXQg
+aXMgdGhpbmdzIGxpa2UgdGhpcyB0aGF0IHByZXZlbnQgc2hhcmluZyB0aGUgCmRyaXZlci4gRGVh
+bGluZyB3aXRoIFNpIHJldnMgaXMgYSBjb21tb24gcHJvYmxlbS4gV2Ugc2hvdWxkIGhhdmUgYSAK
+Y29tbW9uIHNvbHV0aW9uLiBUaGVyZSBpcyBzb2NfZGV2aWNlIGZvciB0aGlzIHB1cnBvc2UuCgpP
+VE9ILCB0aGUgaW50ZWdyYXRpb24gZGlmZmVyZW5jZXMgbWF5IGJlIGVub3VnaCB0aGF0IHRyeWlu
+ZyB0byBoYXZlIGEgCmNvbW1vbiBkcml2ZXIgd2l0aCBpLk1YIHdvdWxkIG5vdCBiZSB3b3J0aCBp
+dC4KClJvYgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpp
+b21tdSBtYWlsaW5nIGxpc3QKaW9tbXVAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6
+Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vaW9tbXU=
