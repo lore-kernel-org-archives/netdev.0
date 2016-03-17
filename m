@@ -1,80 +1,44 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: [PATCH] iwlwifi: dvm: convert create_singlethread_workqueue()
- to alloc_workqueue()
-Date: Thu, 17 Mar 2016 12:43:35 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB32EA7C435@hasmsx107.ger.corp.intel.com>
-References: <1458218246-18807-1-git-send-email-eraretuya@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
+Date: Thu, 17 Mar 2016 14:10:17 +0100
+Message-ID: <56EAACB9.40803@st.com>
+References: <1458121942-5537-1-git-send-email-peppe.cavallaro@st.com> <20160316.180905.1210684680763742658.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-	linuxwifi <linuxwifi@intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"tj@kernel.org" <tj@kernel.org>
-To: Eva Rachel Retuya <eraretuya@gmail.com>,
-	"outreachy-kernel@googlegroups.com"
-	<outreachy-kernel@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458218246-18807-1-git-send-email-eraretuya@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <gabriel.fernandez@linaro.org>,
+	<afaerber@suse.de>, <fschaefer.oss@googlemail.com>,
+	<dinh.linux@gmail.com>, <preid@electromag.com.au>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:57099 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S966826AbcCQNKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 09:10:41 -0400
+In-Reply-To: <20160316.180905.1210684680763742658.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> Use alloc_workqueue() to allocate the workqueue instead of
-> create_singlethread_workqueue() since the latter is deprecated and is
-> scheduled
-> for removal.
+On 3/16/2016 11:09 PM, David Miller wrote:
+>
+> Don't _ever_ send the same two sets of patches targetting net and
+> net-next at the same time.
 
-I can't see any indication of that in the code of workqueue.
-Can you share details about that?
+cover-letter reports the difference between the two patches for
+net and next.
 
+> Especially right now, as 'net' is basically frozen, and 'net-next' is
+> closed for new features and is only for last minute bug fixes before I
+> send a merge window pull request to Linus.
 
-> 
-> There are work items doing related operations that shouldn't be swapped
-> when
-> queued in a certain order hence preserve the strict execution ordering of a
-> single threaded (ST) workqueue by setting max_active to 1 and adding the
-> WQ_UNBOUND flag.
-> 
-> In addition, there are work items dealing with temperature throttling
-> (tt_work,
-> ct_enter, ct_exit). Adding the WQ_HIGHPRI flag would place the work items
-> in a
-> high priority workqueue.
-> 
-> Lastly, guarantee forward progress for work items depended upon during
-> memory
-> reclaim by the addition of the WQ_MEM_RECLAIM flag.
-> 
-> Signed-off-by: Eva Rachel Retuya <eraretuya@gmail.com>
-> ---
-> To the maintainers:
-> Just to confirm, are work items depended upon during memory reclaim? If
-> not, the WQ_MEM_RECLAIM flag will be dropped. I added it just in case since
-> create_singlethread_workqueue() also sets this flag.
-> 
->  drivers/net/wireless/intel/iwlwifi/dvm/main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/intel/iwlwifi/dvm/main.c
-> b/drivers/net/wireless/intel/iwlwifi/dvm/main.c
-> index f62c2d7..37fa11c 100644
-> --- a/drivers/net/wireless/intel/iwlwifi/dvm/main.c
-> +++ b/drivers/net/wireless/intel/iwlwifi/dvm/main.c
-> @@ -1071,7 +1071,8 @@ static void iwl_bg_restart(struct work_struct *data)
-> 
->  static void iwl_setup_deferred_work(struct iwl_priv *priv)
->  {
-> -	priv->workqueue = create_singlethread_workqueue(DRV_NAME);
-> +	priv->workqueue = alloc_workqueue(DRV_NAME, WQ_HIGHPRI |
-> WQ_UNBOUND |
-> +					  WQ_MEM_RECLAIM, 1);
-> 
->  	INIT_WORK(&priv->restart, iwl_bg_restart);
->  	INIT_WORK(&priv->beacon_update, iwl_bg_beacon_update);
-> --
-> 1.9.1
+I do think that:
+
+     [PATCH (net-next.git) 0/2] STMMAC: MDIO settings
+     [PATCH (net-next.git)] stmmac: fix TX normal DESC
+
+are last minute bug fixes for net-next.
+
+Peppe
+
+>
+> I'm tossing both of these series, figure it how to do this properly.
