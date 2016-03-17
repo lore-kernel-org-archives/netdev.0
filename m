@@ -1,184 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 08/13] mlxsw: core: Add devlink shared buffer callbacks
-Date: Thu, 17 Mar 2016 18:13:48 +0100
-Message-ID: <1458234833-25836-9-git-send-email-jiri@resnulli.us>
-References: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com, stephen@networkplumber.org,
-	sfeldma@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34339 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031747AbcCQROG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:14:06 -0400
-Received: by mail-wm0-f66.google.com with SMTP id p65so489672wmp.1
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:14:06 -0700 (PDT)
-In-Reply-To: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
+Subject: Re: [Codel] [RFCv2 0/3] mac80211: implement fq codel
+Date: Thu, 17 Mar 2016 10:24:47 -0700
+Message-ID: <56EAE85F.3010407@hpe.com>
+References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
+ <CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
+ <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
+ <CAA93jw6tDdiYuginPbUY1DFJLiDxofHMFN6j2BvQPabPmBtuRw@mail.gmail.com>
+ <20160316185531.GA1771@localhost>
+ <CAGyitvMDEUiNx7HD=XKjXNHnFvZ_gxD_BbQx3AP-57_+dBeD4A@mail.gmail.com>
+ <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
+ <CAA93jw7TuBLVi9k-+2=J27j-Qs+sS3UNaQNTMF9D2MQ13fQY9A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Jasmine Strong <jas-K/XR6QsbQD0@public.gmane.org>,
+	"codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org" <codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
+	make-wifi-fast-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAA93jw7TuBLVi9k-+2=J27j-Qs+sS3UNaQNTMF9D2MQ13fQY9A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 03/17/2016 10:00 AM, Dave Taht wrote:
+> netperf's udp_rr is not how much traffic conventionally behaves. It
+> doesn't do tcp slow start or congestion control in particular...
 
-Add middle layer in mlxsw core code to forward shared buffer calls
-into specific ASIC drivers.
+Nor would one expect it to need to, unless one were using "burst mode" 
+to have more than one transaction inflight at one time.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/core.c | 105 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/core.h |  20 ++++++
- 2 files changed, 123 insertions(+), 2 deletions(-)
+And unless one uses the test-specific -e option to provide a very crude 
+retransmission mechanism based on a socket read timeout, neither does 
+UDP_RR recover from lost datagrams.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 3958195..1278260 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -816,9 +816,110 @@ static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
- 	return mlxsw_core->driver->port_unsplit(mlxsw_core, port_index);
- }
- 
-+static int
-+mlxsw_devlink_sb_pool_get(struct devlink *devlink,
-+			  unsigned int sb_index, u16 pool_index,
-+			  struct devlink_sb_pool_info *pool_info)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_pool_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_pool_get(mlxsw_core, sb_index,
-+					 pool_index, pool_info);
-+}
-+
-+static int
-+mlxsw_devlink_sb_pool_set(struct devlink *devlink,
-+			  unsigned int sb_index, u16 pool_index, u32 size,
-+			  enum devlink_sb_threshold_type threshold_type)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_pool_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_pool_set(mlxsw_core, sb_index,
-+					 pool_index, size, threshold_type);
-+}
-+
-+static void *__dl_port(struct devlink_port *devlink_port)
-+{
-+	return container_of(devlink_port, struct mlxsw_core_port, devlink_port);
-+}
-+
-+static int mlxsw_devlink_sb_port_pool_get(struct devlink_port *devlink_port,
-+					  unsigned int sb_index, u16 pool_index,
-+					  u32 *p_threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_port_pool_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_port_pool_get(mlxsw_core_port, sb_index,
-+					      pool_index, p_threshold);
-+}
-+
-+static int mlxsw_devlink_sb_port_pool_set(struct devlink_port *devlink_port,
-+					  unsigned int sb_index, u16 pool_index,
-+					  u32 threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_port_pool_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_port_pool_set(mlxsw_core_port, sb_index,
-+					      pool_index, threshold);
-+}
-+
-+static int
-+mlxsw_devlink_sb_tc_pool_bind_get(struct devlink_port *devlink_port,
-+				  unsigned int sb_index, u16 tc_index,
-+				  enum devlink_sb_pool_type pool_type,
-+				  u16 *p_pool_index, u32 *p_threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_tc_pool_bind_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_tc_pool_bind_get(mlxsw_core_port, sb_index,
-+						 tc_index, pool_type,
-+						 p_pool_index, p_threshold);
-+}
-+
-+static int
-+mlxsw_devlink_sb_tc_pool_bind_set(struct devlink_port *devlink_port,
-+				  unsigned int sb_index, u16 tc_index,
-+				  enum devlink_sb_pool_type pool_type,
-+				  u16 pool_index, u32 threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_tc_pool_bind_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_tc_pool_bind_set(mlxsw_core_port, sb_index,
-+						 tc_index, pool_type,
-+						 pool_index, threshold);
-+}
-+
- static const struct devlink_ops mlxsw_devlink_ops = {
--	.port_split	= mlxsw_devlink_port_split,
--	.port_unsplit	= mlxsw_devlink_port_unsplit,
-+	.port_split		= mlxsw_devlink_port_split,
-+	.port_unsplit		= mlxsw_devlink_port_unsplit,
-+	.sb_pool_get		= mlxsw_devlink_sb_pool_get,
-+	.sb_pool_set		= mlxsw_devlink_sb_pool_set,
-+	.sb_port_pool_get	= mlxsw_devlink_sb_port_pool_get,
-+	.sb_port_pool_set	= mlxsw_devlink_sb_port_pool_set,
-+	.sb_tc_pool_bind_get	= mlxsw_devlink_sb_tc_pool_bind_get,
-+	.sb_tc_pool_bind_set	= mlxsw_devlink_sb_tc_pool_bind_set,
- };
- 
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 85ded38..2ba72e1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -209,6 +209,26 @@ struct mlxsw_driver {
- 	int (*port_split)(struct mlxsw_core *mlxsw_core, u8 local_port,
- 			  unsigned int count);
- 	int (*port_unsplit)(struct mlxsw_core *mlxsw_core, u8 local_port);
-+	int (*sb_pool_get)(struct mlxsw_core *mlxsw_core,
-+			   unsigned int sb_index, u16 pool_index,
-+			   struct devlink_sb_pool_info *pool_info);
-+	int (*sb_pool_set)(struct mlxsw_core *mlxsw_core,
-+			   unsigned int sb_index, u16 pool_index, u32 size,
-+			   enum devlink_sb_threshold_type threshold_type);
-+	int (*sb_port_pool_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				unsigned int sb_index, u16 pool_index,
-+				u32 *p_threshold);
-+	int (*sb_port_pool_set)(struct mlxsw_core_port *mlxsw_core_port,
-+				unsigned int sb_index,u16 pool_index,
-+				u32 threshold);
-+	int (*sb_tc_pool_bind_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				   unsigned int sb_index, u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 *p_pool_index, u32 *p_threshold);
-+	int (*sb_tc_pool_bind_set)(struct mlxsw_core_port *mlxsw_core_port,
-+				   unsigned int sb_index, u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 pool_index, u32 threshold);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
--- 
-2.5.0
+happy benchmarking,
+
+rick jones
+http://www.netperf.org/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
