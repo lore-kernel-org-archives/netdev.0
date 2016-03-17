@@ -1,66 +1,65 @@
-From: Aaron Conole <aconole@redhat.com>
-Subject: Re: [RFC v2 -next 1/2] virtio: Start feature MTU support
-Date: Thu, 17 Mar 2016 17:10:55 -0400
-Message-ID: <f7tfuvox128.fsf@redhat.com>
-References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-	<1458075853-14789-2-git-send-email-aconole@redhat.com>
-	<20160316112314.4510d386@samsung9>
+From: Patrick Boutilier <boutilpj@ednet.ns.ca>
+Subject: Re: Extreme slowness in IPIP tunnel when routing through kernel 3.18
+ and later
+Date: Thu, 17 Mar 2016 18:13:23 -0300
+Message-ID: <56EB1DF3.5000606@ednet.ns.ca>
+References: <56EAB8F3.7060802@ednet.ns.ca>
+ <CAEh+42h0hdNSQDZyHDWHE0qx8bf4AzP0ooaBxPXsj=bf-L5hFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed;
+ boundary="------------090905020102050904020005"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from staff.ednet.ns.ca ([142.227.51.33]:45478 "EHLO
+	staff.ednet.ns.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030395AbcCQVNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 17:13:25 -0400
+In-Reply-To: <CAEh+42h0hdNSQDZyHDWHE0qx8bf4AzP0ooaBxPXsj=bf-L5hFQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------090905020102050904020005
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160316112314.4510d386@samsung9> (Stephen Hemminger's message
-	of "Wed, 16 Mar 2016 11:23:14 -0700")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-
-> On Tue, 15 Mar 2016 17:04:12 -0400
-> Aaron Conole <aconole@redhat.com> wrote:
+On 03/17/2016 03:27 PM, Jesse Gross wrote:
+> On Thu, Mar 17, 2016 at 7:02 AM, Patrick Boutilier <boutilpj@ednet.ns.ca> wrote:
+>> I have an IPIP tunnel setup between two hosts in different buildings. The
+>> Linux router they route through causes extreme slowness in the tunnel when
+>> running kernels from 3.18 on . tcpdump shows many cksum errors which don't
+>> show up in the 3.17 and earlier kernels. Speed goes back to normal when
+>> rx-checksumming and tx-checksumming are turned off using ethtool on the
+>> Linux router . Would this be an effect of bulk network packet transmission
+>> that was introduced in 3.18 or some other issue?
 >
->> --- a/include/uapi/linux/virtio_net.h
->> +++ b/include/uapi/linux/virtio_net.h
->> @@ -55,6 +55,7 @@
->>  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
->>  					 * Steering */
->>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
->> +#define VIRTIO_NET_F_MTU 25	/* Device supports Default MTU Negotiation */
->>  
->>  #ifndef VIRTIO_NET_NO_LEGACY
->>  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
->> @@ -73,6 +74,8 @@ struct virtio_net_config {
->>  	 * Legal values are between 1 and 0x8000
->>  	 */
->>  	__u16 max_virtqueue_pairs;
->> +	/* Default maximum transmit unit advice */
->> +	__u16 mtu;
->>  } __attribute__((packed));
->>  
->>  /*
+> I just sent out a likely fix, would you mind testing it?
+> https://patchwork.ozlabs.org/patch/599213/
 >
-> You can't change user visible headers without breaking ABI.
-> This structure might be used by other user code. Also how can this
-> work if host is using old size of structure.
 
-How else can this field be added and remain compliant with the spec? The
-spec requires that mtu be passed in the virtio_net_config field.
+Yes, that patch fixes the problem.
 
-As for old sizeof, I think the absence of the VIRTIO_NET_F_MTU bit being
-asserted is confirmation that mtu is not valid (at least, it is implied
-in the spec).
+Thanks.
 
-Thanks so much for the review, Stephen!
+--------------090905020102050904020005
+Content-Type: text/x-vcard; charset=utf-8;
+ name="boutilpj.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="boutilpj.vcf"
 
--Aaron
+begin:vcard
+fn:Patrick Boutilier
+n:Boutilier;Patrick
+org:;Nova Scotia Department of Education
+adr:;;2021 Brunswick Street;Halifax;NS;B3K 2Y5;Canada
+email;internet:boutilpj@ednet.ns.ca
+title:WAN Communications Specialist
+tel;work:902-424-6800
+tel;fax:902-424-0874
+version:2.1
+end:vcard
+
+
+--------------090905020102050904020005--
