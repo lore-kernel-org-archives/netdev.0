@@ -1,54 +1,54 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [PATCH] xfrm: don't segment UFO packets
-Date: Thu, 17 Mar 2016 18:08:55 +0100
-Message-ID: <20160317170855.GA21145@midget.suse.cz>
-References: <20160129234424.GC7907@midget.suse.cz>
- <20160130042102.GA22809@gondor.apana.org.au>
- <20160316160026.GB19258@midget.suse.cz>
- <20160317050359.GA3840@gondor.apana.org.au>
- <20160317094115.GA11706@midget.suse.cz>
- <20160317102459.GG3347@gauss.secunet.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v6, 3/5] dt: move guts devicetree doc out of powerpc directory
+Date: Thu, 17 Mar 2016 18:11:57 +0100
+Message-ID: <4107975.rId64mooHz@wuerfel>
+References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com> <1457518131-11339-4-git-send-email-yangbo.lu@nxp.com> <20160317170640.GB21009@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:49562 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030300AbcCQRI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 13:08:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20160317102459.GG3347@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Yangbo Lu <yangbo.lu@nxp.com>, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-clk@vger.kernel.org,
+	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
+	scott.wood@nxp.com, Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	ulf.hansson@linaro.org,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Zhao Qiang <qiang.zhao@freescale.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-clk-owner@vger.kernel.org>
+In-Reply-To: <20160317170640.GB21009@rob-hp-laptop>
+Sender: linux-clk-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 17, 2016 at 11:24:59AM +0100, Steffen Klassert wrote:
-> In IPv6 this check is missing, so this could be the
-> problem if this is IPv6.
+On Thursday 17 March 2016 12:06:40 Rob Herring wrote:
+> > diff --git a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+> > similarity index 91%
+> > rename from Documentation/devicetree/bindings/powerpc/fsl/guts.txt
+> > rename to Documentation/devicetree/bindings/soc/fsl/guts.txt
+> > index b71b203..07adca9 100644
+> > --- a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt
+> > +++ b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+> > @@ -25,6 +25,9 @@ Recommended properties:
+> >   - fsl,liodn-bits : Indicates the number of defined bits in the LIODN
+> >     registers, for those SOCs that have a PAMU device.
+> >  
+> > + - little-endian : Indicates that the global utilities block is little
+> > +   endian. The default is big endian.
+> 
+> The default is "the native endianness of the system".
 
-indeed, this patch also fixes my problem:
+This may be what is currently documented, but not what we are doing
+in practice, as there is no "native endianess" for either PowerPC or
+ARM -- both allow running big-endian or little-endian kernels and the
+device registers are fixed.
 
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1353,6 +1353,7 @@ emsgsize:
- 	     (skb && skb_is_gso(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) &&
-+	    !rt->dst.header_len &&
- 	    (sk->sk_type == SOCK_DGRAM)) {
- 		err = ip6_ufo_append_data(sk, queue, getfrag, from, length,
- 					  hh_len, fragheaderlen,
+I think the property here is fine.
 
-I can't say which is better. Herbert originally seemed to like
-the fix inside xfrm_output().
-
-The IPv4 part is fixed by commit
-c146066ab80267c3305de5dda6a4083f06df9265 (ipv4: Don't use ufo
-handling on later transformed packets)
-
-Thanks,
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+	Arnd
