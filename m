@@ -1,60 +1,67 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH kernel] Revert "net/mlx4_core: Set UAR page size to
- 4KB regardless of system page size"
-Date: Thu, 17 Mar 2016 07:05:12 +0200
-Message-ID: <CAJ3xEMhmkpat8BS0qDn0L1ByPi9-14KUZ+5vYAt6BQfJHgOTwA@mail.gmail.com>
-References: <1458037148-4475-1-git-send-email-aik@ozlabs.ru>
-	<CAJ3xEMhxUuQj+E00fa-tEKz+dVzDqFspC80Z=k7UPZpOP30H3g@mail.gmail.com>
-	<56E8BFFE.9000803@ozlabs.ru>
-	<20160316051021.GC66645@x-vnc01.mtx.labs.mlnx>
-	<56E8F3CC.3070203@ozlabs.ru>
-	<20160316060947.GD66645@x-vnc01.mtx.labs.mlnx>
-	<56E91A78.5000700@ozlabs.ru>
-	<CAJ3xEMgorN4r-Ls66rc3VwUBi=uhb==ih2=43ujrbPC=ts8E5g@mail.gmail.com>
-	<56EA0B12.3070901@ozlabs.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp/dccp: remove obsolete WARN_ON() in icmp handlers
+Date: Wed, 16 Mar 2016 22:52:15 -0700
+Message-ID: <1458193935.7353.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Huy Nguyen <huyn-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eugenia Emantayev <eugenia-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Carol L Soto <clsoto-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Yevgeny Petrilin <yevgenyp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Brian J King <bjking1-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-To: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56EA0B12.3070901-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Ben Lazarus <blazarus@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34375 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751564AbcCQFwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 01:52:18 -0400
+Received: by mail-pf0-f172.google.com with SMTP id x3so105717458pfb.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 22:52:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 17, 2016 at 3:40 AM, Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org> wrote:
-> On 03/16/2016 08:45 PM, Or Gerlitz wrote:
->> On Wed, Mar 16, 2016 at 10:34 AM, Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
->> wrote:
->>
->>> Oh. ok. It also looks like even with the reverted patch, mlx4 VF does not
->>> work in a guest:
->>
->>
->> So where is the breakage point for you? does 4.4 works? if not, what?
+From: Eric Dumazet <edumazet@google.com>
 
-> Ah, my bad. It is unrelated to the kernel version.
-> I tried passing a PF to a guest while its VFs are already passed to another
-> guest and see how exactly it blows up (AER/EEH were thrown but the host
-> recovered => good) but this left the device in a weird state when I could
-> not use VF in a guest anymore but it seemed to keep working on the host.
+Now SYN_RECV request sockets are installed in ehash table, an ICMP
+handler can find a request socket while another cpu handles an incoming
+packet transforming this SYN_RECV request socket into an ESTABLISHED
+socket.
 
-> It seems like the actual adapter does not reset completely when the machine
-> is rebooted, I had unplug/replug power cables to fix this.
+We need to remove the now obsolete WARN_ON(req->sk), since req->sk
+is set when a new child is created and added into listener accept queue.
 
-So to make sure, now things works fine with the patch reverted?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If this race happens, the ICMP will do nothing special.
+
+Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Ben Lazarus <blazarus@google.com>
+Reported-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/dccp/ipv4.c     |    2 --
+ net/ipv4/tcp_ipv4.c |    2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index b5672e5fe649..9c67a961ba53 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -204,8 +204,6 @@ void dccp_req_err(struct sock *sk, u64 seq)
+ 	 * ICMPs are not backlogged, hence we cannot get an established
+ 	 * socket here.
+ 	 */
+-	WARN_ON(req->sk);
+-
+ 	if (!between48(seq, dccp_rsk(req)->dreq_iss, dccp_rsk(req)->dreq_gss)) {
+ 		NET_INC_STATS_BH(net, LINUX_MIB_OUTOFWINDOWICMPS);
+ 	} else {
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 0b02ef773705..e7528b101e68 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -319,8 +319,6 @@ void tcp_req_err(struct sock *sk, u32 seq, bool abort)
+ 	/* ICMPs are not backlogged, hence we cannot get
+ 	 * an established socket here.
+ 	 */
+-	WARN_ON(req->sk);
+-
+ 	if (seq != tcp_rsk(req)->snt_isn) {
+ 		NET_INC_STATS_BH(net, LINUX_MIB_OUTOFWINDOWICMPS);
+ 	} else if (abort) {
