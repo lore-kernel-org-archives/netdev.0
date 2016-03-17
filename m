@@ -1,176 +1,151 @@
 From: Jesse Gross <jesse@kernel.org>
-Subject: [PATCH net 2/3] tunnels: Don't apply GRO to multiple layers of encapsulation.
-Date: Thu, 17 Mar 2016 11:25:35 -0700
-Message-ID: <1458239136-37814-2-git-send-email-jesse@kernel.org>
+Subject: [PATCH net 3/3] tunnels: Remove encapsulation offloads on decap.
+Date: Thu, 17 Mar 2016 11:25:36 -0700
+Message-ID: <1458239136-37814-3-git-send-email-jesse@kernel.org>
 References: <1458239136-37814-1-git-send-email-jesse@kernel.org>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:45680 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.136]:45696 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932644AbcCQSZy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 14:25:54 -0400
+	id S935589AbcCQSZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2016 14:25:58 -0400
 In-Reply-To: <1458239136-37814-1-git-send-email-jesse@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When drivers express support for TSO of encapsulated packets, they
-only mean that they can do it for one layer of encapsulation.
-Supporting additional levels would mean updating, at a minimum,
-more IP length fields and they are unaware of this.
+If a packet is either locally encapsulated or processed through GRO
+it is marked with the offloads that it requires. However, when it is
+decapsulated these tunnel offload indications are not removed. This
+means that if we receive an encapsulated TCP packet, aggregate it with
+GRO, decapsulate, and retransmit the resulting frame on a NIC that does
+not support encapsulation, we won't be able to take advantage of hardware
+offloads even though it is just a simple TCP packet at this point.
 
-No encapsulation device expresses support for handling offloaded
-encapsulated packets, so we won't generate these types of frames
-in the transmit path. However, GRO doesn't have a check for
-multiple levels of encapsulation and will attempt to build them.
+This fixes the problem by stripping off encapsulation offload indications
+when packets are decapsulated.
 
-UDP tunnel GRO actually does prevent this situation but it only
-handles multiple UDP tunnels stacked on top of each other. This
-generalizes that solution to prevent any kind of tunnel stacking
-that would cause problems.
-
-Fixes: bf5a755f ("net-gre-gro: Add GRE support to the GRO stack")
+Reported-by: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
+Fixes: 68c33163 ("v4 GRE: Add TCP segmentation offload for GRE")
 Signed-off-by: Jesse Gross <jesse@kernel.org>
 ---
- include/linux/netdevice.h |  4 ++--
- net/core/dev.c            |  2 +-
- net/ipv4/af_inet.c        | 15 ++++++++++++++-
- net/ipv4/gre_offload.c    |  5 +++++
- net/ipv4/udp_offload.c    |  6 +++---
- net/ipv6/ip6_offload.c    | 15 ++++++++++++++-
- 6 files changed, 39 insertions(+), 8 deletions(-)
+ include/net/ip_tunnels.h  | 16 ++++++++++++++++
+ net/ipv4/fou.c            | 13 +++++++++++--
+ net/ipv4/ip_tunnel_core.c |  3 ++-
+ net/ipv6/sit.c            |  6 ++++--
+ 4 files changed, 33 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index be693b3..f9eebd5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2096,8 +2096,8 @@ struct napi_gro_cb {
- 	/* This is non-zero if the packet may be of the same flow. */
- 	u8	same_flow:1;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 5dc2e45..7ac8e4b 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -298,6 +298,22 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
  
--	/* Used in udp_gro_receive */
--	u8	udp_mark:1;
-+	/* Used in tunnel GRO receive */
-+	u8	encap_mark:1;
+ struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, int gso_type_mask);
  
- 	/* GRO checksum is valid */
- 	u8	csum_valid:1;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index edb7179..43c74ca 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4438,7 +4438,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		NAPI_GRO_CB(skb)->same_flow = 0;
- 		NAPI_GRO_CB(skb)->flush = 0;
- 		NAPI_GRO_CB(skb)->free = 0;
--		NAPI_GRO_CB(skb)->udp_mark = 0;
-+		NAPI_GRO_CB(skb)->encap_mark = 0;
- 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
- 
- 		/* Setup for GRO checksum validation */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9659233..0fefba6 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1380,6 +1380,19 @@ out:
- 	return pp;
- }
- 
-+static struct sk_buff **ipip_gro_receive(struct sk_buff **head,
-+					 struct sk_buff *skb)
++static inline int iptunnel_pull_offloads(struct sk_buff *skb)
 +{
-+	if (NAPI_GRO_CB(skb)->encap_mark) {
-+		NAPI_GRO_CB(skb)->flush = 1;
-+		return NULL;
++	if (skb_is_gso(skb)) {
++		int err;
++
++		err = skb_unclone(skb, GFP_ATOMIC);
++		if (unlikely(err))
++			return err;
++		skb_shinfo(skb)->gso_type &= ~(NETIF_F_GSO_ENCAP_ALL >>
++					       NETIF_F_GSO_SHIFT);
 +	}
 +
-+	NAPI_GRO_CB(skb)->encap_mark = 1;
-+
-+	return inet_gro_receive(head, skb);
++	skb->encapsulation = 0;
++	return 0;
 +}
 +
- #define SECONDS_PER_DAY	86400
- 
- /* inet_current_timestamp - Return IP network timestamp
-@@ -1682,7 +1695,7 @@ static struct packet_offload ip_packet_offload __read_mostly = {
- static const struct net_offload ipip_offload = {
- 	.callbacks = {
- 		.gso_segment	= inet_gso_segment,
--		.gro_receive	= inet_gro_receive,
-+		.gro_receive	= ipip_gro_receive,
- 		.gro_complete	= ipip_gro_complete,
- 	},
- };
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 540866d..dd03161 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -126,6 +126,11 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 	struct packet_offload *ptype;
- 	__be16 type;
- 
-+	if (NAPI_GRO_CB(skb)->encap_mark)
-+		goto out;
-+
-+	NAPI_GRO_CB(skb)->encap_mark = 1;
-+
- 	off = skb_gro_offset(skb);
- 	hlen = off + sizeof(*greh);
- 	greh = skb_gro_header_fast(skb, off);
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 8a3405a..8007f73 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -311,14 +311,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
- 	unsigned int off = skb_gro_offset(skb);
- 	int flush = 1;
- 
--	if (NAPI_GRO_CB(skb)->udp_mark ||
-+	if (NAPI_GRO_CB(skb)->encap_mark ||
- 	    (skb->ip_summed != CHECKSUM_PARTIAL &&
- 	     NAPI_GRO_CB(skb)->csum_cnt == 0 &&
- 	     !NAPI_GRO_CB(skb)->csum_valid))
- 		goto out;
- 
--	/* mark that this skb passed once through the udp gro layer */
--	NAPI_GRO_CB(skb)->udp_mark = 1;
-+	/* mark that this skb passed once through the tunnel gro layer */
-+	NAPI_GRO_CB(skb)->encap_mark = 1;
- 
- 	rcu_read_lock();
- 	uo_priv = rcu_dereference(udp_offload_base);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index eeca943..82e9f30 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -258,6 +258,19 @@ out:
- 	return pp;
- }
- 
-+static struct sk_buff **sit_gro_receive(struct sk_buff **head,
-+					struct sk_buff *skb)
-+{
-+	if (NAPI_GRO_CB(skb)->encap_mark) {
-+		NAPI_GRO_CB(skb)->flush = 1;
-+		return NULL;
-+	}
-+
-+	NAPI_GRO_CB(skb)->encap_mark = 1;
-+
-+	return ipv6_gro_receive(head, skb);
-+}
-+
- static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
+ static inline void iptunnel_xmit_stats(struct net_device *dev, int pkt_len)
  {
- 	const struct net_offload *ops;
-@@ -302,7 +315,7 @@ static struct packet_offload ipv6_packet_offload __read_mostly = {
- static const struct net_offload sit_offload = {
- 	.callbacks = {
- 		.gso_segment	= ipv6_gso_segment,
--		.gro_receive    = ipv6_gro_receive,
-+		.gro_receive    = sit_gro_receive,
- 		.gro_complete   = sit_gro_complete,
- 	},
- };
+ 	if (pkt_len > 0) {
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 7804842..a0586b4 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -48,7 +48,7 @@ static inline struct fou *fou_from_sock(struct sock *sk)
+ 	return sk->sk_user_data;
+ }
+ 
+-static void fou_recv_pull(struct sk_buff *skb, size_t len)
++static int fou_recv_pull(struct sk_buff *skb, size_t len)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+ 
+@@ -59,6 +59,7 @@ static void fou_recv_pull(struct sk_buff *skb, size_t len)
+ 	__skb_pull(skb, len);
+ 	skb_postpull_rcsum(skb, udp_hdr(skb), len);
+ 	skb_reset_transport_header(skb);
++	return iptunnel_pull_offloads(skb);
+ }
+ 
+ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
+@@ -68,9 +69,14 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 	if (!fou)
+ 		return 1;
+ 
+-	fou_recv_pull(skb, sizeof(struct udphdr));
++	if (fou_recv_pull(skb, sizeof(struct udphdr)))
++		goto drop;
+ 
+ 	return -fou->protocol;
++
++drop:
++	kfree_skb(skb);
++	return 0;
+ }
+ 
+ static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
+@@ -170,6 +176,9 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 	__skb_pull(skb, sizeof(struct udphdr) + hdrlen);
+ 	skb_reset_transport_header(skb);
+ 
++	if (iptunnel_pull_offloads(skb))
++		goto drop;
++
+ 	return -guehdr->proto_ctype;
+ 
+ drop:
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index eaca244..ee4827e 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -114,7 +114,8 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto,
+ 	skb->vlan_tci = 0;
+ 	skb_set_queue_mapping(skb, 0);
+ 	skb_scrub_packet(skb, xnet);
+-	return 0;
++
++	return iptunnel_pull_offloads(skb);
+ }
+ EXPORT_SYMBOL_GPL(iptunnel_pull_header);
+ 
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index f45b8ff..8338430 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -681,14 +681,16 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 		skb->mac_header = skb->network_header;
+ 		skb_reset_network_header(skb);
+ 		IPCB(skb)->flags = 0;
+-		skb->protocol = htons(ETH_P_IPV6);
++		skb->dev = tunnel->dev;
+ 
+ 		if (packet_is_spoofed(skb, iph, tunnel)) {
+ 			tunnel->dev->stats.rx_errors++;
+ 			goto out;
+ 		}
+ 
+-		__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
++		if (iptunnel_pull_header(skb, 0, htons(ETH_P_IPV6),
++		    !net_eq(tunnel->net, dev_net(tunnel->dev))))
++			goto out;
+ 
+ 		err = IP_ECN_decapsulate(iph, skb);
+ 		if (unlikely(err)) {
 -- 
 2.5.0
