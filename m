@@ -1,55 +1,112 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: Extreme slowness in IPIP tunnel when routing through kernel 3.18
- and later
-Date: Thu, 17 Mar 2016 14:18:17 -0700
-Message-ID: <CAEh+42idouenP259LX1TDbEnV6vOGRW7XO4bCtLDeR0SAFwxZw@mail.gmail.com>
-References: <56EAB8F3.7060802@ednet.ns.ca> <CAEh+42h0hdNSQDZyHDWHE0qx8bf4AzP0ooaBxPXsj=bf-L5hFQ@mail.gmail.com>
- <56EB1DF3.5000606@ednet.ns.ca>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: [RFC v2 -next 2/2] virtio_net: Read the advised MTU
+Date: Thu, 17 Mar 2016 17:20:05 -0400
+Message-ID: <f7t7fh0x0my.fsf@redhat.com>
+References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
+	<1458075853-14789-3-git-send-email-aconole@redhat.com>
+	<20160316142446.GA4446@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Patrick Boutilier <boutilpj@ednet.ns.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:54523 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756513AbcCQVSf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 17:18:35 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id DAFB620306
-	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 21:18:33 +0000 (UTC)
-Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id F3A8C2022A
-	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 21:18:32 +0000 (UTC)
-Received: by mail-qg0-f49.google.com with SMTP id w104so83873430qge.1
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 14:18:32 -0700 (PDT)
-In-Reply-To: <56EB1DF3.5000606@ednet.ns.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160316142446.GA4446@redhat.com> (Michael S. Tsirkin's message
+	of "Wed, 16 Mar 2016 16:24:46 +0200")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 17, 2016 at 2:13 PM, Patrick Boutilier <boutilpj@ednet.ns.ca> wrote:
-> On 03/17/2016 03:27 PM, Jesse Gross wrote:
->>
->> On Thu, Mar 17, 2016 at 7:02 AM, Patrick Boutilier <boutilpj@ednet.ns.ca>
->> wrote:
->>>
->>> I have an IPIP tunnel setup between two hosts in different buildings. The
->>> Linux router they route through causes extreme slowness in the tunnel
->>> when
->>> running kernels from 3.18 on . tcpdump shows many cksum errors which
->>> don't
->>> show up in the 3.17 and earlier kernels. Speed goes back to normal when
->>> rx-checksumming and tx-checksumming are turned off using ethtool on the
->>> Linux router . Would this be an effect of bulk network packet
->>> transmission
->>> that was introduced in 3.18 or some other issue?
->>
->>
->> I just sent out a likely fix, would you mind testing it?
->> https://patchwork.ozlabs.org/patch/599213/
->>
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+
+> On Tue, Mar 15, 2016 at 05:04:13PM -0400, Aaron Conole wrote:
+>> This patch checks the feature bit for the VIRTIO_NET_F_MTU feature. If it
+>> exists, read the advised MTU and use it.
+>> 
+>> No proper error handling is provided for the case where a user changes the
+>> negotiated MTU. A future commit will add proper error handling. Instead, a
+>> warning is emitted if the guest changes the device MTU after previously
+>> being given advice.
 >
-> Yes, that patch fixes the problem.
+> I don't see this as an error. Device might at best give a hint,
+> user/network admin always knows best.
+>
+>> 
+>> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+>> ---
+>> v2:
+>> * Whitespace cleanup in the last hunk
+>> * Code style change around the pr_warn
+>> * Additional test for mtu change before printing warning
+>> 
+>>  drivers/net/virtio_net.c | 12 ++++++++++++
+>>  1 file changed, 12 insertions(+)
+>> 
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 767ab11..429fe01 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -146,6 +146,7 @@ struct virtnet_info {
+>>  	virtio_net_ctrl_ack ctrl_status;
+>>  	u8 ctrl_promisc;
+>>  	u8 ctrl_allmulti;
+>> +	bool negotiated_mtu;
+>>  };
+>>  
+>>  struct padded_vnet_hdr {
+>> @@ -1390,8 +1391,11 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>>  
+>>  static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>>  {
+>> +	struct virtnet_info *vi = netdev_priv(dev);
+>>  	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU)
+>>  		return -EINVAL;
+>> +	if ((vi->negotiated_mtu) && (dev->mtu != new_mtu))
+>> +		pr_warn("changing mtu while the advised mtu bit exists.");
+>
+> I don't really see why are we warning here. Just drop this chunk,
+> as well as the flag in struct virtnet_info.
 
-Great, thanks a lot for testing.
+Okay. I was warning because the user is changing this after telling to
+use something different - but if you don't think it's an error, I will
+drop it.
+
+Thanks so much for the review, Michael!
+
+-Aaron
+
+>>  	dev->mtu = new_mtu;
+>>  	return 0;
+>>  }
+>> @@ -1836,6 +1840,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>>  		vi->has_cvq = true;
+>>  
+>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+>> +		vi->negotiated_mtu = true;
+>> +		dev->mtu = virtio_cread16(vdev,
+>> +					  offsetof(struct virtio_net_config,
+>> +						   mtu));
+>> +	}
+>> +
+>>  	if (vi->any_header_sg)
+>>  		dev->needed_headroom = vi->hdr_len;
+>>  
+>> @@ -2019,6 +2030,7 @@ static unsigned int features[] = {
+>>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>>  	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>>  	VIRTIO_F_ANY_LAYOUT,
+>> +	VIRTIO_NET_F_MTU,
+>>  };
+>>  
+>>  static struct virtio_driver virtio_net_driver = {
+>> -- 
+>> 2.5.0
