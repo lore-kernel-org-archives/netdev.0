@@ -1,53 +1,182 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] rtlwifi: fix gcc-6 indentation warning
-Date: Thu, 17 Mar 2016 11:03:50 +0100
-Message-ID: <1458209066-3979295-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com>
+Subject: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN
+ interface
+Date: Thu, 17 Mar 2016 10:07:56 +0000
+Message-ID: <1978E4F2CF12DD4A899FA7487323EB11010836882A@A1GTOEMBXV004.gto.a3c.atos.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
+	micalg=SHA1; boundary="----=_NextPart_000_0073_01D1803D.407CB4D0"
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: "bjorn@mork.no" <bjorn@mork.no>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.gemalto.com ([193.56.114.247]:56610 "EHLO
+	smtp4.gemalto.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935433AbcCQKIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 06:08:05 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The rtl8821ae_dm_txpower_tracking_callback_thermalmeter function
-contains a call to RT_TRACE() that is indented in a misleading
-way, as pointed out by a gcc-6 warning:
+------=_NextPart_000_0073_01D1803D.407CB4D0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 
-drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c: In function 'rtl8821ae_dm_txpower_tracking_callback_thermalmeter':
-drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c:2491:4: error: statement is indented as if it were guarded by...
-    RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
-    ^~~~~~~~
-drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c:2488:3: note: ...this 'for' clause, but it is not
-   for (p = RF90_PATH_A; p < MAX_PATH_NUM_8821A; p++)
-   ^~~
+Added support for Gemalto's Cinterion PHxx WWAN interfaces 
+by adding QMI_FIXED_INTF with Cinterion's VID and PID.
 
-It is clear from the context that the call was not meant to be
-part of the loop and only the indentation is wrong, so this
-removes the extra tabs.
+PHxx can have:
+2 RmNet Interfaces (PID 0x0082) or
+1 RmNet + 1 USB Audio interface (PID 0x0083).
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+patch is against linux-4.5
+--- linux/drivers/net/usb/qmi_wwan.c.orig	2016-03-14 12:18:07.153497489 +0100
++++ linux/drivers/net/usb/qmi_wwan.c	2016-03-14 12:21:37.722541644 +0100
+@@ -881,6 +881,9 @@ static const struct usb_device_id produc
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
++	{QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},	/* Cinterion PHxx,PXxx (2 RmNet) */
++	{QMI_FIXED_INTF(0x1e2d, 0x0082, 5)},	/* Cinterion PHxx,PXxx (2 RmNet) */
++	{QMI_FIXED_INTF(0x1e2d, 0x0083, 4)},	/* Cinterion PHxx,PXxx (1 RmNet + USB Audio)*/
+ 	{QMI_FIXED_INTF(0x413c, 0x81a2, 8)},	/* Dell Wireless 5806 Gobi(TM) 4G LTE Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81a3, 8)},	/* Dell Wireless 5570 HSPA+ (42Mbps) Mobile Broadband Card */
+ 	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card */
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c
-index 95dcbff4673b..6a8245c4ea48 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c
-@@ -2488,9 +2488,9 @@ void rtl8821ae_dm_txpower_tracking_callback_thermalmeter(
- 		for (p = RF90_PATH_A; p < MAX_PATH_NUM_8821A; p++)
- 			rtldm->swing_idx_ofdm_base[p] = rtldm->swing_idx_ofdm[p];
- 
--			RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
--				 "pDM_Odm->RFCalibrateInfo.ThermalValue = %d ThermalValue= %d\n",
--				 rtldm->thermalvalue, thermal_value);
-+		RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
-+			 "pDM_Odm->RFCalibrateInfo.ThermalValue = %d ThermalValue= %d\n",
-+			 rtldm->thermalvalue, thermal_value);
- 		/*Record last Power Tracking Thermal Value*/
- 		rtldm->thermalvalue = thermal_value;
- 	}
--- 
-2.7.0
+------=_NextPart_000_0073_01D1803D.407CB4D0
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIYGzCCA5Iw
+ggJ6oAMCAQICEQCFvUvz2NrjafaU11/DpUQjMA0GCSqGSIb3DQEBBQUAMD0xCzAJBgNVBAYTAkZS
+MREwDwYDVQQKEwhDZXJ0cGx1czEbMBkGA1UEAxMSQ2xhc3MgMiBQcmltYXJ5IENBMB4XDTk5MDcw
+NzE3MDUwMFoXDTE5MDcwNjIzNTk1OVowPTELMAkGA1UEBhMCRlIxETAPBgNVBAoTCENlcnRwbHVz
+MRswGQYDVQQDExJDbGFzcyAyIFByaW1hcnkgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+AoIBAQDcUJbQEvg10gh4erZScP1v7s+5Ectdd+Hs6X4EjdbMb3NDV2CsMwpE7ANfHIAkkeWokVYS
+gvfgK/TbrmEuiRCNa2y6swK91TbFSDcj4vBaN1IzFxLi0WBNvi9BEeP2FyUMi5HAG5l7mVYNr+7S
+vEdX43lJezSJJySE3rHs6VhO/k7fWr5BrawIxRgO79JT7mzQnRIBE43cgGL3lalEiEpxTmBVntsj
+GXlWBww/YwtcsOK+fhX8lDNYQTh0xOGPi98mrB+1izu3Q1lrsCSmbZCLxHLqXTOYt8veXnvvlPEb
+PsrJIcHFmAKqovZbd5v1fpZVNBxnacDxQuNHrPwoHGZVAgMBAAGjgYwwgYkwDwYDVR0TBAgwBgEB
+/wIBCjALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFONzLd/LDigM3t2zpMp5uI676DCJMBEGCWCGSAGG
++EIBAQQEAwIBBjA3BgNVHR8EMDAuMCygKqAohiZodHRwOi8vd3d3LmNlcnRwbHVzLmNvbS9DUkwv
+Y2xhc3MyLmNybDANBgkqhkiG9w0BAQUFAAOCAQEAp1TPiEQZy9/UfwDfVjNitfdRAZDrwz/RiETp
+JF3v5xS9ILeaPAD+bZ/bkNzX9GLWi3Bd5+UESKlofMnxQvNsf8V6fB1RiLrSCj4nXd4tUU7TE2Rp
+5C7j0+ebCZmm4JWbzhrXf748zlKzERXBDxfNA7ucJRW6onaJ/AbxGNCTSw58grel9PZf/u1App2E
+dDm53B6FFtopG4YjAMm7iX5ugIgeLxS0AySoMm8DmkcsML5WxqdCAnAb6kDYugUDcAeklv/9SDMK
+4dylgZCbTd195+eyzVzIapX4pfaNxF14CL57BtZJzxk2UCMuCOaeBU1HGNUW6bHWthDVu5e/oo60
+VDCCBkYwggUuoAMCAQICChYZlywAAQAAtDwwDQYJKoZIhvcNAQEFBQAwczELMAkGA1UEBhMCRlIx
+EDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNVBAMTEUdlbWFsdG8gUHVi
+bGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5jb20wHhcNMTQwNDEwMTA0
+NzAwWhcNMTYwNDA5MTA0NzAwWjBfMSkwJwYDVQQDEyBIYW5zLUNocmlzdG9waCBTY2hlbW1lbCAx
+MDAxNTExODEyMDAGCSqGSIb3DQEJARYjSGFucy1DaHJpc3RvcGguU2NoZW1tZWxAZ2VtYWx0by5j
+b20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDtywj0RLYz2AorMtje0czIH0BHVUTa
+LFM9g0hOgcBKKoBpES7EkZCANOoHocE9jEpFbJ+hDxGsPF0gRUBkHIVQh4rF/iKFGDWhPIYXU9W+
+hcquH5Ez5aHF/XsqVBXn5prcCepONpVXtac/VA4zOyt3qX/2tYOSbmWsowZtnV190CT3w+OzGtmw
+qEu3c+9uC6q70gXH2a9EpciySPIlV6shudkVy+au2CCiNQQVFWFaoBj70Np8/dt3S59PtoIu8p0g
++hqB5WiRD3tqzs37r87sgZTqoxAusDynDf5QtjDiVkvJ7p61nhQNxZAVvHBK/35AoqIWsm3l+i+M
+CgR/CO6FAgMBAAGjggLuMIIC6jAfBgNVHSMEGDAWgBRCMYqnuP4YvGQ2WawGTVPtbnzSKDCCAQQG
+A1UdHwSB/DCB+TCB9qCB86CB8IaBvWxkYXA6Ly8vQ049R2VtYWx0byUyMFB1YmxpYyUyMENBLENO
+PWNyb3BraWJ3cDAyLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNl
+cyxDTj1Db25maWd1cmF0aW9uLERDPXJvb3QsREM9Y29tP2NlcnRpZmljYXRlUmV2b2NhdGlvbkxp
+c3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmlidXRpb25Qb2ludIYuaHR0cDovL3d3dy5nZW1h
+bHRvLmNvbS9wa2kvR2VtYWx0b1B1YmxpY0NBLmNybDCCAQAGCCsGAQUFBwEBBIHzMIHwMIGxBggr
+BgEFBQcwAoaBpGxkYXA6Ly8vQ049R2VtYWx0byUyMFB1YmxpYyUyMENBLENOPUFJQSxDTj1QdWJs
+aWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPXJvb3Qs
+REM9Y29tP2NBQ2VydGlmaWNhdGU/YmFzZT9vYmplY3RDbGFzcz1jZXJ0aWZpY2F0aW9uQXV0aG9y
+aXR5MDoGCCsGAQUFBzAChi5odHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS9HZW1hbHRvUHVibGlj
+Q0EuY3J0MAwGA1UdEwEB/wQCMAAwCwYDVR0PBAQDAgeAMD4GCSsGAQQBgjcVBwQxMC8GJysGAQQB
+gjcVCIX+nDCCjZFJh/2NMoaygAmFw8AxgVGD1ukigtHLGAIBZAIBBDATBgNVHSUEDDAKBggrBgEF
+BQcDBDAbBgkrBgEEAYI3FQoEDjAMMAoGCCsGAQUFBwMEMC4GA1UdEQQnMCWBI0hhbnMtQ2hyaXN0
+b3BoLlNjaGVtbWVsQGdlbWFsdG8uY29tMA0GCSqGSIb3DQEBBQUAA4IBAQCJarUmp41IRkfq1S33
+whmsuSK/k7SiieUXExqHpK+bjQmqFgmKshBXSeE84OEOgTb8+Qcb//cvXh8+SEPdMrdd2kXyp1vY
+60Naq/IUV/aFx0zIxtXO6NgjofMdy9gfCfCLce8GJy4NhLRN3FRZlf85MRnIjQlg1yOUaaUoeUQf
++rnaBHVre6V3zarhkVYZXjXygsxXCDILOyDejKcVk9pbjw1NZGRTlhIKjUfGtQu+vSz6JcLyDDQi
+/yQiUK+QtiMJbByw2dXADhB0Yp5/4p3r86M6Wpe1MiMslg622FWg9u3dOfh/ZcMXjq1M7WkCY87d
+qFDZ1fl88vl7s0+w5ngfMIIGtjCCBZ6gAwIBAgIKFhmLwwABAAC0OzANBgkqhkiG9w0BAQUFADBz
+MQswCQYDVQQGEwJGUjEQMA4GA1UEBxMHQ3JvaXNzeTEQMA4GA1UEChMHR2VtYWx0bzEaMBgGA1UE
+AxMRR2VtYWx0byBQdWJsaWMgQ0ExJDAiBgkqhkiG9w0BCQEWFWFkbWluLnBraUBnZW1hbHRvLmNv
+bTAeFw0xNDA0MTAxMDQ2NTdaFw0xNjA0MDkxMDQ2NTdaMF8xKTAnBgNVBAMTIEhhbnMtQ2hyaXN0
+b3BoIFNjaGVtbWVsIDEwMDE1MTE4MTIwMAYJKoZIhvcNAQkBFiNIYW5zLUNocmlzdG9waC5TY2hl
+bW1lbEBnZW1hbHRvLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKO9yBc5xbro
+B3B2Dk5t+oucLbM0G2kT07upADg1WhkdOazswPG4ieSOYF1/TJ3BS/fH9TkpMcS049Zin/zrqfsk
+gGV7PHM2dHUFMETK0arMWQDB9/mMKQrWeeRL4BKzo9wmuY+rQNehh+dsr/aSgzkyaXVlmDrlrHhr
+Wgoh5g5TtHS0V1ZSvzHsvQHDM2Vmz90JgPgJpQxhKsf54kq8DGsBzB+2bqyh5LfKyOCtlG8Wx5sE
+9v1Oh6KslXy1pTO2pbhzrbbJ5bqj/raIl6G5DeEPSEiNERBgqie0TDDdXaATGbTbZ99updrrhUH2
+y6nEAf/Nk98pW/qYnqDbkQ5Hf8cCAwEAAaOCA14wggNaMAsGA1UdDwQEAwIEMDBEBgkqhkiG9w0B
+CQ8ENzA1MA4GCCqGSIb3DQMCAgIAgDAOBggqhkiG9w0DBAICAIAwBwYFKw4DAgcwCgYIKoZIhvcN
+AwcwHQYDVR0OBBYEFM2PTlGPiYJKPz/r9+9pLMO6QZ1KMB8GA1UdIwQYMBaAFEIxiqe4/hi8ZDZZ
+rAZNU+1ufNIoMIIBBAYDVR0fBIH8MIH5MIH2oIHzoIHwhoG9bGRhcDovLy9DTj1HZW1hbHRvJTIw
+UHVibGljJTIwQ0EsQ049Y3JvcGtpYndwMDIsQ049Q0RQLENOPVB1YmxpYyUyMEtleSUyMFNlcnZp
+Y2VzLENOPVNlcnZpY2VzLENOPUNvbmZpZ3VyYXRpb24sREM9cm9vdCxEQz1jb20/Y2VydGlmaWNh
+dGVSZXZvY2F0aW9uTGlzdD9iYXNlP29iamVjdENsYXNzPWNSTERpc3RyaWJ1dGlvblBvaW50hi5o
+dHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS9HZW1hbHRvUHVibGljQ0EuY3JsMIIBAAYIKwYBBQUH
+AQEEgfMwgfAwgbEGCCsGAQUFBzAChoGkbGRhcDovLy9DTj1HZW1hbHRvJTIwUHVibGljJTIwQ0Es
+Q049QUlBLENOPVB1YmxpYyUyMEtleSUyMFNlcnZpY2VzLENOPVNlcnZpY2VzLENOPUNvbmZpZ3Vy
+YXRpb24sREM9cm9vdCxEQz1jb20/Y0FDZXJ0aWZpY2F0ZT9iYXNlP29iamVjdENsYXNzPWNlcnRp
+ZmljYXRpb25BdXRob3JpdHkwOgYIKwYBBQUHMAKGLmh0dHA6Ly93d3cuZ2VtYWx0by5jb20vcGtp
+L0dlbWFsdG9QdWJsaWNDQS5jcnQwPQYJKwYBBAGCNxUHBDAwLgYmKwYBBAGCNxUIhf6cMIKNkUmH
+/Y0yhrKACYXDwDGBUaGUG4G/wFYCAWQCAQYwHwYDVR0lBBgwFgYIKwYBBQUHAwQGCisGAQQBgjcK
+AwQwKQYJKwYBBAGCNxUKBBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMEMC4GA1UdEQQnMCWB
+I0hhbnMtQ2hyaXN0b3BoLlNjaGVtbWVsQGdlbWFsdG8uY29tMA0GCSqGSIb3DQEBBQUAA4IBAQCQ
+zJHSxuXLIBgcQeinAJy20Qo1gzxeIn5s5+guNlbKKFOO20LCX1OjGk5opPP5IWIplFMNPw3ieeRF
+/Z6R0Pb4ByLXovXLoFsSwx/a1efP2AYEuhzEl+HHFBIWlnL9+Q2L8STFLa1Nlti2VsxR6wT9Snse
+W4wnAEtGS7NUr+/tfHc/Njt4DsjwshYdom5K2Vqyu6l+qv9LuLdaCrDdeZMtXp0B4ugNs53ylEJv
+1euAD0wZtg9H14b9scSOPJnDJfBLOdNK9ydGHpZb4gCLdjiy+/9LqohoYbmGCSdhR1/cwBtlWcpf
+ny/UjNQxZKzBIwZOnP1tpqSaOIymGiYyJBxhMIIHfTCCBmWgAwIBAgISESJfD4EL7WxBv2rcnOFP
+2Lf/MA0GCSqGSIb3DQEBBQUAMD0xCzAJBgNVBAYTAkZSMREwDwYDVQQKEwhDZXJ0cGx1czEbMBkG
+A1UEAxMSQ2xhc3MgMiBQcmltYXJ5IENBMB4XDTA5MDMyNDAwMDAwMFoXDTE2MTIzMTIzNTk1OVow
+czELMAkGA1UEBhMCRlIxEDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNV
+BAMTEUdlbWFsdG8gUHVibGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5j
+b20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDZ+/IhNAffzeLoDWb6dKhzaTUCJTBI
+t4HASXhp9wsXzG1t/2LpEIvuuUrP8b/9qis8MBPL5xPAOyrccNk3KOC/tvdTQhGTvgN0AB0n0Sks
+87BosV1BoUhGMZy+D+31pdh0OA0dnaN8QKXgSmb2nYoisQ2gnFHm03ZU+/o+eYR05nRDy7AHVuft
+G54QOK7kCEQZZwI9DK8vuDx6BziHTDHgX+c4yQyShYIuq4AMQT6LzsuS074XUP1UZL8jBxVNOuE+
+AGCd1Cb7zUl4S9Q2qIYFokRQ630q8m2qGcdn0DlnCoJWjZkMuf0hn+S46tmNGG514LSnT+VIn0Fi
+Hgk9RWI/AgMBAAGjggQ/MIIEOzAOBgNVHQ8BAf8EBAMCAQYwRgYDVR0gBD8wPTA7Bg4rBgEEAYH4
+AohMCgMBAjApMCcGCCsGAQUFBwIBFhtodHRwOi8vd3d3LmdlbWFsdG8uY29tL3BraS8wEgYDVR0T
+AQH/BAgwBgEB/wIBADCCAogGA1UdHgSCAn8wggJ7oIICRTAMggpheGFsdG8uY29tMA+CDWNpbnRl
+cmlvbi5jb20wDYILZ2VtYWx0by5jb20wDYILZ2VtcGx1cy5jb20wGYIXbXVsdG9zaW50ZXJuYXRp
+b25hbC5jb20wDYILbmV0c2l6ZS5jb20wC4IJcWlwc28ubmV0MBGCD3RsLW1vYmlsaXR5LmNvbTAS
+ghB0cnVzdGVkLWxhYnMuY29tMBOCEXRydXN0ZWQtbG9naWMuY29tMAyCCnZhbGltby5jb20wDIEK
+YXhhbHRvLmNvbTANgQsuYXhhbHRvLmNvbTAPgQ1jaW50ZXJpb24uY29tMBCBDi5jaW50ZXJpb24u
+Y29tMA2BC2dlbWFsdG8uY29tMA6BDC5nZW1hbHRvLmNvbTANgQtnZW1wbHVzLmNvbTAOgQwuZ2Vt
+cGx1cy5jb20wGYEXbXVsdG9zaW50ZXJuYXRpb25hbC5jb20wGoEYLm11bHRvc2ludGVybmF0aW9u
+YWwuY29tMA2BC25ldHNpemUuY29tMA6BDC5uZXRzaXplLmNvbTALgQlxaXBzby5uZXQwDIEKLnFp
+cHNvLm5ldDARgQ90bC1tb2JpbGl0eS5jb20wEoEQLnRsLW1vYmlsaXR5LmNvbTASgRB0cnVzdGVk
+LWxhYnMuY29tMBOBES50cnVzdGVkLWxhYnMuY29tMBOBEXRydXN0ZWQtbG9naWMuY29tMBSBEi50
+cnVzdGVkLWxvZ2ljLmNvbTAMgQp2YWxpbW8uY29tMA2BCy52YWxpbW8uY29toTAwCocIAAAAAAAA
+AAAwIocgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwMgYDVR0lBCswKQYIKwYBBQUH
+AwEGCCsGAQUFBwMCBggrBgEFBQcDBAYJKwYBBAGCNxUFMDcGA1UdHwQwMC4wLKAqoCiGJmh0dHA6
+Ly93d3cuY2VydHBsdXMuY29tL0NSTC9jbGFzczIuY3JsMIGTBggrBgEFBQcBAQSBhjCBgzA2Bggr
+BgEFBQcwAYYqaHR0cDovL29jc3AuY2VydGlmaWNhdC5jb20vY2xhc3MycHJpbWFyeWNhMEkGCCsG
+AQUFBzAChj1odHRwOi8vcHVibGljYXRpb24uY2VydGlmaWNhdC5jb20vY2FjZXJ0cy9jbGFzczJw
+cmltYXJ5Y2EucDdjMB0GA1UdDgQWBBRCMYqnuP4YvGQ2WawGTVPtbnzSKDAfBgNVHSMEGDAWgBTj
+cy3fyw4oDN7ds6TKebiOu+gwiTANBgkqhkiG9w0BAQUFAAOCAQEAAprZi72jpiplYZTk/Kd0tLQ1
+BQ0PTVpg9FWB6oR9hM9OSoBg6WMJE553HLvSvpzrj1sUn+Uq8dxg9MfhBbgBNBFtfbLjmkAMt/GZ
+EdjSwLNEAS28ivsTsB+WYlTTSk5I52+r41fp8i2IurBsmQuOSpHgMKn39AfnrMN3pBpQVGP+AIX+
+rfU/wnDFdy8oSkazGyDPUveo9r8Vutye2l7E7A7eDFSJcDcfI4wnnVtLJkURIiSZRitH8/AW5fW9
+pQPIbDi+NiUZoSQ9GH2VRLqSIzw4JbV+GxcJ4yal8XcS+AyosyE2xzsLXF+c5M2JKvpfzpes/Cfz
+EMpe/ihCag+BJzGCA+QwggPgAgEBMIGBMHMxCzAJBgNVBAYTAkZSMRAwDgYDVQQHEwdDcm9pc3N5
+MRAwDgYDVQQKEwdHZW1hbHRvMRowGAYDVQQDExFHZW1hbHRvIFB1YmxpYyBDQTEkMCIGCSqGSIb3
+DQEJARYVYWRtaW4ucGtpQGdlbWFsdG8uY29tAgoWGZcsAAEAALQ8MAkGBSsOAwIaBQCgggI3MBgG
+CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MDMxNzEwMDc1M1owIwYJ
+KoZIhvcNAQkEMRYEFDqjAuqIzBSJZgzz/IoTrsBahgp9MIGSBgkrBgEEAYI3EAQxgYQwgYEwczEL
+MAkGA1UEBhMCRlIxEDAOBgNVBAcTB0Nyb2lzc3kxEDAOBgNVBAoTB0dlbWFsdG8xGjAYBgNVBAMT
+EUdlbWFsdG8gUHVibGljIENBMSQwIgYJKoZIhvcNAQkBFhVhZG1pbi5wa2lAZ2VtYWx0by5jb20C
+ChYZi8MAAQAAtDswgZQGCyqGSIb3DQEJEAILMYGEoIGBMHMxCzAJBgNVBAYTAkZSMRAwDgYDVQQH
+EwdDcm9pc3N5MRAwDgYDVQQKEwdHZW1hbHRvMRowGAYDVQQDExFHZW1hbHRvIFB1YmxpYyBDQTEk
+MCIGCSqGSIb3DQEJARYVYWRtaW4ucGtpQGdlbWFsdG8uY29tAgoWGYvDAAEAALQ7MIGrBgkqhkiG
+9w0BCQ8xgZ0wgZowCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQBFjAKBggqhkiG9w0DBzALBglghkgB
+ZQMEAQIwDgYIKoZIhvcNAwICAgCAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgFAMA0GCCqGSIb3DQMC
+AgEoMAcGBSsOAwIaMAsGCWCGSAFlAwQCAzALBglghkgBZQMEAgIwCwYJYIZIAWUDBAIBMA0GCSqG
+SIb3DQEBAQUABIIBADEIV/PHuljYNRcpPltEAilBAnu5cNw6Vo1ThjOnd1OLTanF9LY1WNk+UiD5
+7/3fryM9Kb2Q+gEkEGtSiail2w+LZ1ABfx9ATpKvSqsOCufNq6cRqwHhIUtduQuctq90JDwnBXy0
+63SR0DjEeJQg7Oavqygda9mGZeorHGgMmJew5giE7SxTf9r0KirtPE8O1RD4K2EP3CYkf8QrxUfU
+PXhR4y5Rmo1neadQ3dmibLKBDoycpjYntictJ1yVTVxTaCT0ol2vGE+WF6yQ90sbW71+zb5T2Huj
+98rivH2bJPfwWpVaT5XUBaP4DT61PSOEIHSQnv1rKIFzhdeCYQt9aTEAAAAAAAA=
+
+------=_NextPart_000_0073_01D1803D.407CB4D0--
