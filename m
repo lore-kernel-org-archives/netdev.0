@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 00/13] devlink: add support for configuration of shared buffers
-Date: Thu, 17 Mar 2016 18:13:40 +0100
-Message-ID: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next RFC 01/13] devlink: share user_ptr pointer for for both devlink and devlink_port
+Date: Thu, 17 Mar 2016 18:13:41 +0100
+Message-ID: <1458234833-25836-2-git-send-email-jiri@resnulli.us>
+References: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
@@ -10,156 +11,106 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37291 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934357AbcCQRN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:13:57 -0400
-Received: by mail-wm0-f49.google.com with SMTP id p65so3271840wmp.0
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:13:56 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:35838 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935671AbcCQRN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:13:58 -0400
+Received: by mail-wm0-f52.google.com with SMTP id l68so2763866wml.0
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:13:57 -0700 (PDT)
+In-Reply-To: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This RFC implements support for configuring ASIC shared buffers.
+Ptr to devlink structure can be easily obtained from
+devlink_port->devlink. So share user_ptr[0] pointer for both and leave
+user_ptr[1] free for other users.
 
-ASICs implement shared buffer for packet forwarding purposes and enable
-flexible partitioning of the shared buffer for different flows and ports,
-enabling non-blocking progress of different flows as well as separation
-of lossy traffic from loss-less traffic when using Per-Priority Flow
-Control (PFC). The shared buffer optimizes the buffer utilization for better
-absorption of packet bursts.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/core/devlink.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-This patchset implements API which is based on the model SAI uses. That is
-aligned with multiple ASIC vendors so this API should be vendor neutral.
-
-Userspace counterpart patch for devlink iproute2 tool can be found here:
-https://github.com/jpirko/iproute2_mlxsw/tree/devlink_sb_rfc
-
-Couple of examples of usage:
-$ devlink sb help
-Usage: devlink sb show [ DEV [ sb SB_INDEX ] ]
-       devlink sb pool show [ DEV [ sb SB_INDEX ] pool POOL_INDEX ]
-       devlink sb pool set DEV [ sb SB_INDEX ] pool POOL_INDEX
-                           size POOL_SIZE thtype { static | dynamic }
-       devlink sb port pool show [ DEV/PORT_INDEX [ sb SB_INDEX ]
-                                   pool POOL_INDEX ]
-       devlink sb port pool set DEV/PORT_INDEX [ sb SB_INDEX ]
-                                pool POOL_INDEX th THRESHOLD
-       devlink sb tc bind show [ DEV/PORT_INDEX [ sb SB_INDEX ] tc TC_INDEX ]
-       devlink sb tc bind set DEV/PORT_INDEX [ sb SB_INDEX ] tc TC_INDEX
-                              type { ingress | egress } pool POOL_INDEX
-                              th THRESHOLD
-
-$ devlink sb show
-pci/0000:03:00.0: sb 0 size 16777216 ingress_pools 4 egress_pools 4 tcs 8
-
-$ devlink sb pool show
-pci/0000:03:00.0: sb 0 pool 0 type ingress size 12399936 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 1 type ingress size 0 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 2 type ingress size 0 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 3 type ingress size 0 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 4 type egress size 13219968 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 5 type egress size 0 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 6 type egress size 0 thtype dynamic
-pci/0000:03:00.0: sb 0 pool 7 type egress size 13219968 thtype dynamic
-
-$ devlink sb port pool show
-pci/0000:03:00.0/1: sb 0 pool 0 threshold 255
-pci/0000:03:00.0/1: sb 0 pool 1 threshold 0
-pci/0000:03:00.0/1: sb 0 pool 2 threshold 0
-pci/0000:03:00.0/1: sb 0 pool 3 threshold 0
-pci/0000:03:00.0/1: sb 0 pool 4 threshold 7
-pci/0000:03:00.0/1: sb 0 pool 5 threshold 0
-pci/0000:03:00.0/1: sb 0 pool 6 threshold 0
-pci/0000:03:00.0/1: sb 0 pool 7 threshold 0
-...
-pci/0000:03:00.0/63: sb 0 pool 0 threshold 255
-pci/0000:03:00.0/63: sb 0 pool 1 threshold 0
-pci/0000:03:00.0/63: sb 0 pool 2 threshold 0
-pci/0000:03:00.0/63: sb 0 pool 3 threshold 0
-pci/0000:03:00.0/63: sb 0 pool 4 threshold 7
-pci/0000:03:00.0/63: sb 0 pool 5 threshold 0
-pci/0000:03:00.0/63: sb 0 pool 6 threshold 0
-pci/0000:03:00.0/63: sb 0 pool 7 threshold 0
-
-$ devlink sb tc bind show
-pci/0000:03:00.0/1: sb 0 tc 0 type ingress pool 0 threshold 8
-pci/0000:03:00.0/1: sb 0 tc 0 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 1 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 1 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 2 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 2 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 3 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 3 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 4 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 4 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 5 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 5 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 6 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 6 type egress pool 4 threshold 9
-pci/0000:03:00.0/1: sb 0 tc 7 type ingress pool 0 threshold 0
-pci/0000:03:00.0/1: sb 0 tc 7 type egress pool 4 threshold 9
-...
-pci/0000:03:00.0/63: sb 0 tc 0 type ingress pool 0 threshold 8
-pci/0000:03:00.0/63: sb 0 tc 0 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 1 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 1 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 2 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 2 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 3 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 3 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 4 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 4 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 5 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 5 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 6 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 6 type egress pool 4 threshold 9
-pci/0000:03:00.0/63: sb 0 tc 7 type ingress pool 0 threshold 0
-pci/0000:03:00.0/63: sb 0 tc 7 type egress pool 4 threshold 9
-
-$ sudo devlink sb pool set pci/0000:03:00.0 pool 1 size 40000 thtype static
-
-$ devlink sb pool show pci/0000:03:00.0 pool 1
-pci/0000:03:00.0: sb 0 pool 1 type ingress size 40032 thtype static
-
-$ sudo devlink sb port pool set pci/0000:03:00.0/1 pool 1 th 20000
-
-$ devlink sb port pool show pci/0000:03:00.0/1 pool 1
-pci/0000:03:00.0/1: sb 0 pool 1 threshold 20064
-
-$ sudo devlink sb tc bind set pci/0000:03:00.0/1 tc 1 type ingress pool 1 th 10000
-
-$ devlink sb tc bind show pci/0000:03:00.0/1 tc 1 type ingress
-pci/0000:03:00.0/1: sb 0 tc 1 type ingress pool 1 threshold 10080
-
-Jiri Pirko (13):
-  devlink: share user_ptr pointer for for both devlink and devlink_port
-  devlink: add shared buffer configuration
-  mlxsw: Move devlink port registration into common core code
-  mlxsw: Pass mlxsw_core as a param of mlxsw_core_skb_transmit*
-  mlxsw: Do not pass around driver_priv directly
-  mlxsw: reg: Share direction enum between SBPR, SBCM, SBPM
-  mlxsw: reg: Fix SBPM register name
-  mlxsw: core: Add devlink shared buffer callbacks
-  mlxsw: spectrum_buffers: Push out shared buffer register writes
-  mlxsw: spectrum_buffers: Push out indexes and direction out of SB
-    structs
-  mlxsw: spectrum_buffers: Rename "pool" to "pr" in initialization
-  mlxsw: spectrum_buffers: Cache shared buffer configuration
-  mlxsw: spectrum: Implement shared buffer configuration
-
- drivers/net/ethernet/mellanox/mlxsw/core.c         | 161 +++-
- drivers/net/ethernet/mellanox/mlxsw/core.h         |  55 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |  27 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  60 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  52 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 698 ++++++++++-----
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c     |  42 +-
- include/net/devlink.h                              |  46 +
- include/uapi/linux/devlink.h                       |  41 +
- net/core/devlink.c                                 | 932 ++++++++++++++++++++-
- 10 files changed, 1773 insertions(+), 341 deletions(-)
-
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 590fa56..5f1cdf9 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -119,7 +119,8 @@ static struct devlink_port *devlink_port_get_from_info(struct devlink *devlink,
+ 	return devlink_port_get_from_attrs(devlink, info->attrs);
+ }
+ 
+-#define DEVLINK_NL_FLAG_NEED_PORT	BIT(0)
++#define DEVLINK_NL_FLAG_NEED_DEVLINK	BIT(0)
++#define DEVLINK_NL_FLAG_NEED_PORT	BIT(1)
+ 
+ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 			       struct sk_buff *skb, struct genl_info *info)
+@@ -132,8 +133,9 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 		mutex_unlock(&devlink_mutex);
+ 		return PTR_ERR(devlink);
+ 	}
+-	info->user_ptr[0] = devlink;
+-	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
++	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_DEVLINK) {
++		info->user_ptr[0] = devlink;
++	} else if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
+ 		struct devlink_port *devlink_port;
+ 
+ 		mutex_lock(&devlink_port_mutex);
+@@ -143,7 +145,7 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 			mutex_unlock(&devlink_mutex);
+ 			return PTR_ERR(devlink_port);
+ 		}
+-		info->user_ptr[1] = devlink_port;
++		info->user_ptr[0] = devlink_port;
+ 	}
+ 	return 0;
+ }
+@@ -356,8 +358,8 @@ out:
+ static int devlink_nl_cmd_port_get_doit(struct sk_buff *skb,
+ 					struct genl_info *info)
+ {
+-	struct devlink *devlink = info->user_ptr[0];
+-	struct devlink_port *devlink_port = info->user_ptr[1];
++	struct devlink_port *devlink_port = info->user_ptr[0];
++	struct devlink *devlink = devlink_port->devlink;
+ 	struct sk_buff *msg;
+ 	int err;
+ 
+@@ -436,8 +438,8 @@ static int devlink_port_type_set(struct devlink *devlink,
+ static int devlink_nl_cmd_port_set_doit(struct sk_buff *skb,
+ 					struct genl_info *info)
+ {
+-	struct devlink *devlink = info->user_ptr[0];
+-	struct devlink_port *devlink_port = info->user_ptr[1];
++	struct devlink_port *devlink_port = info->user_ptr[0];
++	struct devlink *devlink = devlink_port->devlink;
+ 	int err;
+ 
+ 	if (info->attrs[DEVLINK_ATTR_PORT_TYPE]) {
+@@ -511,6 +513,7 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.doit = devlink_nl_cmd_get_doit,
+ 		.dumpit = devlink_nl_cmd_get_dumpit,
+ 		.policy = devlink_nl_policy,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 		/* can be retrieved by unprivileged users */
+ 	},
+ 	{
+@@ -533,12 +536,14 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.doit = devlink_nl_cmd_port_split_doit,
+ 		.policy = devlink_nl_policy,
+ 		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 	},
+ 	{
+ 		.cmd = DEVLINK_CMD_PORT_UNSPLIT,
+ 		.doit = devlink_nl_cmd_port_unsplit_doit,
+ 		.policy = devlink_nl_policy,
+ 		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 	},
+ };
+ 
 -- 
 2.5.0
