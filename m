@@ -1,68 +1,84 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC v2 -next 1/2] virtio: Start feature MTU support
-Date: Thu, 17 Mar 2016 15:04:59 -0700
-Message-ID: <20160317150459.49bf5c9b@samsung9>
-References: <1458075853-14789-1-git-send-email-aconole@redhat.com>
-	<1458075853-14789-2-git-send-email-aconole@redhat.com>
-	<20160316112314.4510d386@samsung9> <f7tfuvox128.fsf@redhat.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal
+ tables
+Date: Thu, 17 Mar 2016 23:53:14 +0200
+Message-ID: <20160317215314.GA4925@colbert.idosch.org>
+References: <CAE4R7bAwuZkoOqO1eA9pWQ35UPiSs7-Fm+AaedVU1wwiRZ=Jwg@mail.gmail.com>
+ <20150818181930.GK4381@lunn.ch>
+ <CAE4R7bA621-ySQuOJ_kLTSju7ZwD3Ur4oSAS0JCE4EjzEsRr7Q@mail.gmail.com>
+ <20150818.134720.1520233036019988872.davem@davemloft.net>
+ <56EB0F37.9090908@ti.com>
+ <20160317202519.GA30210@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Aaron Conole <aconole@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <f7tfuvox128.fsf@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Murali Karicheri <m-karicheri2@ti.com>,
+	David Miller <davem@davemloft.net>, <sfeldma@gmail.com>,
+	<netdev@vger.kernel.org>, <jiri@resnulli.us>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0059.outbound.protection.outlook.com ([157.56.112.59]:7072
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1031070AbcCQWJo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2016 18:09:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20160317202519.GA30210@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Mar 2016 17:10:55 -0400
-Aaron Conole <aconole@redhat.com> wrote:
+Thu, Mar 17, 2016 at 10:25:19PM IST, andrew@lunn.ch wrote:
+>On Thu, Mar 17, 2016 at 04:10:31PM -0400, Murali Karicheri wrote:
+>> David,
+>> 
+>> On 08/18/2015 04:47 PM, David Miller wrote:
+>> > I see some drivers where the foo_debugfs.c file is larger than the rest
+>> > of the driver.  Once people start using it, it's like crack, and they
+>> > dump every single debugging widget they found useful at some point into
+>> > there.
+>> > 
+>> > This is not what we want.  Most things I see in debugfs support was
+>> > probably useful for debugging one particular bug but then it was never
+>> > really useful again in the future.  Those kinds of things can be done
+>> > locally in someone's tree.
+>> > 
+>> > I often see various kinds of "statistics" ending up in these things,
+>> > or register dumps, both of which are 'ethtool' or similar material.
+>> Very late to this discussion, but I need to port some of the internal code
+>> to display the content of a ALE (Address Learning Engine) table maintained
+>> in hardwareat L2 layer. Currently I have a sysfs implementation that dumps
+>> information like below.
+>> 
+>> root@k2e-evm:~# cat /sys/devices/platform/soc/2620110.netcp/ale_table
+>> index 0, raw: 000007fc d000ffff ffffffff, type: addr(1), addr: ff:ff:ff:ff:ff:ff, mcstate: f(3), port mask: 1ff, no super
+>> index 1, raw: 00000000 10000800 28329a1c, type: addr(1), addr: 08:00:28:32:9a:1c, uctype: persistent(0), port: 0
+>> index 2, raw: 000007fc d0000100 5e000001, type: addr(1), addr: 01:00:5e:00:00:01, mcstate: f(3), port mask: 1ff, no super
+>> index 19, raw: 00000004 d000d4be d93db6c1, type: addr(1), addr: d4:be:d9:3d:b6:c1, uctype: touched(3), port: 1
+>> 
+>> What is the available interface in kernel to expose this information
+>> to user space as debugfs is not suggested based on this thread?
+>
+>This looks a lot like what the mv88e6xxx_port_fdb_dump() callback
+>returns to DSA when SWITCHDEV_OBJ_ID_PORT_FDB is passed to
+>switchdev_port_obj_dump() in the switchdev ops.
 
-> Stephen Hemminger <stephen@networkplumber.org> writes:
-> 
-> > On Tue, 15 Mar 2016 17:04:12 -0400
-> > Aaron Conole <aconole@redhat.com> wrote:
-> >
-> >> --- a/include/uapi/linux/virtio_net.h
-> >> +++ b/include/uapi/linux/virtio_net.h
-> >> @@ -55,6 +55,7 @@
-> >>  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
-> >>  					 * Steering */
-> >>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
-> >> +#define VIRTIO_NET_F_MTU 25	/* Device supports Default MTU Negotiation */
-> >>  
-> >>  #ifndef VIRTIO_NET_NO_LEGACY
-> >>  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
-> >> @@ -73,6 +74,8 @@ struct virtio_net_config {
-> >>  	 * Legal values are between 1 and 0x8000
-> >>  	 */
-> >>  	__u16 max_virtqueue_pairs;
-> >> +	/* Default maximum transmit unit advice */
-> >> +	__u16 mtu;
-> >>  } __attribute__((packed));
-> >>  
-> >>  /*
-> >
-> > You can't change user visible headers without breaking ABI.
-> > This structure might be used by other user code. Also how can this
-> > work if host is using old size of structure.
-> 
-> How else can this field be added and remain compliant with the spec? The
-> spec requires that mtu be passed in the virtio_net_config field.
-> 
-> As for old sizeof, I think the absence of the VIRTIO_NET_F_MTU bit being
-> asserted is confirmation that mtu is not valid (at least, it is implied
-> in the spec).
++1
 
-Michael is right as long as the code checks for MTU flag before
-referencing the mtu field, everything is fine.  Actually, the structure
-is never used directly only by fetching fields with offsetof
+Also, Murali, using standard interfaces instead of debugfs will allow
+you to:
+
+1) Upstream your code
+2) Use existing tests for your code. In particular, the following
+(which is used for mlxsw testing):
+
+https://github.com/jpirko/lnst/blob/master/recipes/switchdev/l2-002-bridge_fdb.py
+
+There are a bunch of others there which you'll probably find useful.
+
+BTW, are you familiar with the following document?
+https://www.kernel.org/doc/Documentation/networking/switchdev.txt
+I believe it answers your question.
+
+Good luck!
+
+>
+>	  Andrew
