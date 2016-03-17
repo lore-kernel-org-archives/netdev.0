@@ -1,47 +1,53 @@
-From: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
-Subject: Re: [Codel] [RFCv2 0/3] mac80211: implement fq codel
-Date: Thu, 17 Mar 2016 10:24:47 -0700
-Message-ID: <56EAE85F.3010407@hpe.com>
-References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
- <CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
- <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
- <CAA93jw6tDdiYuginPbUY1DFJLiDxofHMFN6j2BvQPabPmBtuRw@mail.gmail.com>
- <20160316185531.GA1771@localhost>
- <CAGyitvMDEUiNx7HD=XKjXNHnFvZ_gxD_BbQx3AP-57_+dBeD4A@mail.gmail.com>
- <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
- <CAA93jw7TuBLVi9k-+2=J27j-Qs+sS3UNaQNTMF9D2MQ13fQY9A@mail.gmail.com>
+From: Vishal Thanki <vishalthanki@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: Add support to control PHY LEDs
+Date: Thu, 17 Mar 2016 18:32:55 +0100
+Message-ID: <CAC3a_SD=chB8pPpdRm8scztJ4592J26_PmhbUkLmbE3=DCmX-w@mail.gmail.com>
+References: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
+ <1458223147-16142-2-git-send-email-vishalthanki@gmail.com>
+ <20160317145032.GB26019@lunn.ch> <56EAE277.4050109@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Jasmine Strong <jas-K/XR6QsbQD0@public.gmane.org>,
-	"codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org" <codel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>,
-	make-wifi-fast-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
-To: Dave Taht <dave.taht-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA93jw7TuBLVi9k-+2=J27j-Qs+sS3UNaQNTMF9D2MQ13fQY9A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, Matus Ujhelyi <ujhelyi.m@gmail.com>,
+	netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:36270 "EHLO
+	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030207AbcCQRdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:33:16 -0400
+Received: by mail-lf0-f54.google.com with SMTP id d82so1500913lfe.3
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:33:15 -0700 (PDT)
+In-Reply-To: <56EAE277.4050109@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/17/2016 10:00 AM, Dave Taht wrote:
-> netperf's udp_rr is not how much traffic conventionally behaves. It
-> doesn't do tcp slow start or congestion control in particular...
+On Thu, Mar 17, 2016 at 5:59 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 17/03/16 07:50, Andrew Lunn wrote:
+>> On Thu, Mar 17, 2016 at 02:59:07PM +0100, Vishal Thanki wrote:
+>>> The LEDs can be turned on and off by a sysfs interface
+>>> now. Write 0 to "led_enable" file to turn off the LEDs
+>>> and write 1 to turn on. The support is experimental
+>>> and can be enabled by kernel configuration option.
+>>>
+>>> Signed-off-by: Vishal Thanki <vishalthanki@gmail.com>
+>>> ---
+>>>  drivers/net/phy/Kconfig  |  7 +++++
+>>>  drivers/net/phy/at803x.c | 71 ++++++++++++++++++++++++++++++++++++++++++++++++
+>>
+>> Hi Vishal
+>>
+>> This solution seems specific to the at803. You should be thinking of a
+>> generic solution that all PHYs can use. eg add a new callback function
+>> to phy_driver, and put the sysfs handling code in phylib.
+>
+> Indeed, maybe we should be considering using the existing LEDS subsystem
+> (drivers/leds/*) to expose the PHY LEDs to user-space in a standard way?
+> --
 
-Nor would one expect it to need to, unless one were using "burst mode" 
-to have more than one transaction inflight at one time.
+I agree with the idea of making a generic callback in phy_driver so
+that other PHYs
+can use it. However I think these LEDs are tightly coupled with PHYs and it
+would not make much sense to expose them via LED subsystem as they
+cannot be controlled individually IMHO.
 
-And unless one uses the test-specific -e option to provide a very crude 
-retransmission mechanism based on a socket read timeout, neither does 
-UDP_RR recover from lost datagrams.
-
-happy benchmarking,
-
-rick jones
-http://www.netperf.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Florian
