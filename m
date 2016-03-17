@@ -1,26 +1,126 @@
 From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Subject: [PATCH v2 0/2] AF_VSOCK: Shrink the area influenced by prepare_to_wait
-Date: Thu, 17 Mar 2016 17:12:34 +0100
-Message-ID: <1458231156-18845-1-git-send-email-imbrenda@linux.vnet.ibm.com>
+Subject: [PATCH v2 1/2] Revert "vsock: Fix blocking ops call in prepare_to_wait"
+Date: Thu, 17 Mar 2016 17:12:35 +0100
+Message-ID: <1458231156-18845-2-git-send-email-imbrenda@linux.vnet.ibm.com>
+References: <1458231156-18845-1-git-send-email-imbrenda@linux.vnet.ibm.com>
 Cc: labbott@fedoraproject.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp08.uk.ibm.com ([195.75.94.104]:59216 "EHLO
+	e06smtp08.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030619AbcCQQMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 12:12:47 -0400
+Received: from localhost
+	by e06smtp08.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <imbrenda@linux.vnet.ibm.com>;
+	Thu, 17 Mar 2016 16:12:44 -0000
+In-Reply-To: <1458231156-18845-1-git-send-email-imbrenda@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm resending as requested.
-This patchset applies on net-next.
+This reverts commit 5988818008257ca42010d6b43a3e0e48afec9898 ("vsock: Fix
+blocking ops call in prepare_to_wait")
 
-And sorry for the mis-formatting of the previous message.
+Signed-off-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+---
+ net/vmw_vsock/af_vsock.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-
-Claudio Imbrenda (2):
-  Revert "vsock: Fix blocking ops call in prepare_to_wait"
-  AF_VSOCK: Shrink the area influenced by prepare_to_wait
-
- net/vmw_vsock/af_vsock.c | 155 ++++++++++++++++++++++++++---------------------
- 1 file changed, 87 insertions(+), 68 deletions(-)
-
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index bbe65dc..7fd1220 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1557,6 +1557,8 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	if (err < 0)
+ 		goto out;
+ 
++	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
++
+ 	while (total_written < len) {
+ 		ssize_t written;
+ 
+@@ -1576,9 +1578,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 
+ 			release_sock(sk);
+-			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 			timeout = schedule_timeout(timeout);
+-			finish_wait(sk_sleep(sk), &wait);
+ 			lock_sock(sk);
+ 			if (signal_pending(current)) {
+ 				err = sock_intr_errno(timeout);
+@@ -1588,6 +1588,8 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				goto out_wait;
+ 			}
+ 
++			prepare_to_wait(sk_sleep(sk), &wait,
++					TASK_INTERRUPTIBLE);
+ 		}
+ 
+ 		/* These checks occur both as part of and after the loop
+@@ -1633,6 +1635,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+ out_wait:
+ 	if (total_written > 0)
+ 		err = total_written;
++	finish_wait(sk_sleep(sk), &wait);
+ out:
+ 	release_sock(sk);
+ 	return err;
+@@ -1713,6 +1716,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	if (err < 0)
+ 		goto out;
+ 
++	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 
+ 	while (1) {
+ 		s64 ready = vsock_stream_has_data(vsk);
+@@ -1723,7 +1727,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 			 */
+ 
+ 			err = -ENOMEM;
+-			goto out;
++			goto out_wait;
+ 		} else if (ready > 0) {
+ 			ssize_t read;
+ 
+@@ -1746,7 +1750,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 					vsk, target, read,
+ 					!(flags & MSG_PEEK), &recv_data);
+ 			if (err < 0)
+-				goto out;
++				goto out_wait;
+ 
+ 			if (read >= target || flags & MSG_PEEK)
+ 				break;
+@@ -1769,9 +1773,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 				break;
+ 
+ 			release_sock(sk);
+-			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 			timeout = schedule_timeout(timeout);
+-			finish_wait(sk_sleep(sk), &wait);
+ 			lock_sock(sk);
+ 
+ 			if (signal_pending(current)) {
+@@ -1781,6 +1783,9 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 				err = -EAGAIN;
+ 				break;
+ 			}
++
++			prepare_to_wait(sk_sleep(sk), &wait,
++					TASK_INTERRUPTIBLE);
+ 		}
+ 	}
+ 
+@@ -1811,6 +1816,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 		err = copied;
+ 	}
+ 
++out_wait:
++	finish_wait(sk_sleep(sk), &wait);
+ out:
+ 	release_sock(sk);
+ 	return err;
 -- 
 1.9.1
