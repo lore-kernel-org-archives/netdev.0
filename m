@@ -1,74 +1,42 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 0/2] ovs: refresh a flow via netlink
-Date: Thu, 17 Mar 2016 15:54:01 -0700
-Message-ID: <CAEh+42jF4yM1VxtY0AL74S0rAMq6AKwM3=KCwizahF+9Hu2yvA@mail.gmail.com>
-References: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
- <CAEh+42jMSpPr8yUmmO355D=auKa-cGTwOZu0CSf-0=rczu4zwg@mail.gmail.com>
- <CAMEOZh+TR3S+30e+u9yVH04XN2Z26WEnhNK=t7DFq8YaBmjFyA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: bcmgenet: fix dma api length mismatch
+Date: Thu, 17 Mar 2016 16:16:48 -0700
+Message-ID: <56EB3AE0.5030604@gmail.com>
+References: <1458137881.7353.9.camel@edumazet-glaptop3.roam.corp.google.com>
+ <56EAE2A8.5000206@gmail.com>
+ <1458241026.7353.62.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAMEOZh+TR3S+30e+u9yVH04XN2Z26WEnhNK=t7DFq8YaBmjFyA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, opendmb@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35458 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031459AbcCQXS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 19:18:28 -0400
+Received: by mail-pf0-f170.google.com with SMTP id n5so140079883pfn.2
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 16:18:27 -0700 (PDT)
+In-Reply-To: <1458241026.7353.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCBNYXIgMTcsIDIwMTYgYXQgOToyNCBBTSwgU2FtdWVsIEdhdXRoaWVyCjxzYW11ZWwu
-Z2F1dGhpZXJANndpbmQuY29tPiB3cm90ZToKPiAyMDE2LTAzLTE3IDA6MjMgR01UKzAxOjAwIEpl
-c3NlIEdyb3NzIDxqZXNzZUBrZXJuZWwub3JnPjoKPj4gT24gV2VkLCBNYXIgMTYsIDIwMTYgYXQg
-ODowNyBBTSwgU2FtdWVsIEdhdXRoaWVyCj4+IDxzYW11ZWwuZ2F1dGhpZXJANndpbmQuY29tPiB3
-cm90ZToKPj4+IFRoaXMgcGF0Y2hzZXQgYWRkcyBhIG5ldGxpbmsgYXBpIHRvIHJlZnJlc2ggYW4g
-ZXhpc3RpbmcgZmxvdyBpbgo+Pj4gb3BlbnZzd2l0Y2guCj4+Pgo+Pj4gV2hlbiBhIHBhY2tldCBp
-cyBzZW50IGluIHRoZSBvcGVudnN3aXRjaCBrZXJuZWwgZGF0YXBhdGggYW5kIG5vCj4+PiBmbG93
-IGlzIGZvdW5kLCB0aGUgcGFja2V0IGlzIHNlbnQgdG8gdGhlIG92cy12c3dpdGNoZCBkYWVtb24s
-Cj4+PiB3aGljaCB3aWxsIHByb2Nlc3MgdGhlIHBhY2tldCwgYW5kIGFzayB0aGUga2VybmVsIHRv
-IGNyZWF0ZSBhIG5ldwo+Pj4gZmxvdy4gVGhlIG5leHQgcGFja2V0cyBmb3IgdGhpcyBmbG93IHdp
-bGwgYmUgcHJvY2Vzc2VkIGJ5IHRoZQo+Pj4ga2VybmVsIGRhdGFwYXRoLiBJZiBhIGZsb3cgaXMg
-bm90IHVzZWQgZm9yIGEgKGNvbmZpZ3VyYWJsZSkKPj4+IHBlcmlvZCBvZiB0aW1lLCBvdnMtdnN3
-aXRjaGQgcmVtb3ZlcyB0aGUgZmxvdyBmcm9tIHRoZSBrZXJuZWwuCj4+Pgo+Pj4gQXMgYSByZXN1
-bHQsIGl0IGNhbiBiZSB0cmlja3kgdG8gdGVzdCB0aGUga2VybmVsIGRhdGFwYXRoIGFnYWluc3QK
-Pj4+IHBhY2tldHMsIGFzIHRoZSBmaXJzdCBwYWNrZXRzIG9mIGVhY2ggZmxvdyB3aWxsIGhhdmUg
-dG8gZ28KPj4+IHRocm91Z2ggdGhlIG92cy12c3dpdGNoZCBkYWVtb24uIEZvciBpbnN0YW5jZSwg
-dG8gZG8gYSB6ZXJvbG9zcwo+Pj4gcGVyZm9ybWFuY2UgdGVzdCwgeW91IGVzdGFibGlzaCB0aGUg
-Zmxvd3MsIGFuZCB0aGVuIHlvdSBoYXZlIHRvCj4+PiBwZXJmb3JtIHlvdXIgemVyb2xvc3MgdGVz
-dCBiZWZvcmUgdGhlIGZsb3cgaXMgcmVtb3ZlZCBieQo+Pj4gb3ZzLXZzd2l0Y2hkLgo+Pj4KPj4+
-IEl0IGlzIHBvc3NpYmxlIHRvIGNvbmZpZ3VyZSBhIGZsb3cgdGltZW91dCBpbiBvdnMtdnN3aXRj
-aGQgKHVzaW5nCj4+PiBvdGhlcl9jb25maWc6bWF4LWlkbGUgb3B0aW9uKSwgYnV0IGl0IGNoYW5n
-ZXMgdGhlIGJlaGF2aW9yIGZvcgo+Pj4gYWxsIHRoZSBmbG93cywgd2hpY2ggaXMgbm90IGFsd2F5
-cyB3aGF0IHlvdSB3YW50Lgo+Pgo+PiBJdCBzZWVtcyB0byBtZSB0aGF0IGl0IHdvdWxkIGJlIHBy
-ZWZlcmFibGUgdG8gaW1wbGVtZW50IHRoZSBuZWNlc3NhcnkKPj4gYmVoYXZpb3IgaW4gdXNlcnNw
-YWNlIHRvIGhhbmRsZSB0aGlzIGRpcmVjdGx5LiBUaGUgbG9naWMgdGhhdCBpcwo+PiByZW1vdmlu
-ZyB0aGUgZmxvdyBpcyBpbiB1c2Vyc3BhY2UsIHNvIHJhdGhlciB0aGFuIGFza2luZyB0aGUga2Vy
-bmVsIHRvCj4+IGxpZSBhYm91dCB0aGUgY3VycmVudCBzdGF0ZSBvZiB0aGluZ3MsIHdlIGNhbiBq
-dXN0IG1vZGlmeSB0aGUgbG9naWMgdG8KPj4gaGFuZGxlIHRoaXMgY2FzZS4KPgo+IEl0IHNlZW1l
-ZCBsaWtlIGEgcHJvYmxlbSBsaW1pdGVkIHRvIHRoZSBrZXJuZWwgZGF0YXBhdGggKGkuZS46IG5v
-dCB0bwo+IHRoZSBvdGhlciBvdnMgZGF0YXBhdGhzKSwgc28gaXQgbWFkZSBzZW5zZSB0byBtZSB0
-byBmaXggaXQgYnkgYQo+IG5ldGxpbmsgQVBJLgoKSSBkb24ndCB0aGluayB0aGF0IGlzIHRydWUg
-LSB0aGUgZmxvdyBldmljdGlvbiBsb2dpYyBpcyBpbiB1c2Vyc3BhY2UsCnNvIGl0IHNob3VsZCBi
-ZSBjb21tb24gdG8gYWxsIGRhdGFwYXRocy4gV2hhdCB0aGUga2VybmVsIGlzIHByb3ZpZGluZwpp
-cyByZWFsbHkgdmVyeSBzaW1wbGUsIGp1c3QgdGhlIGxhc3QgdXNlZCB0aW1lLgoKPiBUaGUgaWRl
-YSB3YXMgdG8gZG8gc29tZXRoaW5nIHNpbWlsYXIgdG8gdGhlIE9WU19GTE9XX0FUVFJfQ0xFQVIK
-PiBhdHRyaWJ1dGUgKHdoaWNoIHNldHMgdGhlIGZsb3cgc3RhdGlzdGljcyBhbmQgdXNlZCBmaWVs
-ZCB0byAwKS4KPgo+IFRoaXMgc2FpZCwgSSBjb3VsZCBoYXZlIGEgbG9vayB0byBhIHB1cmUgdXNl
-cmxhbmQgc29sdXRpb24sIGJ1dCBJIGFtCj4gbm90IHN1cmUgaG93IHRvIGRvIGl0LiBDb3VsZCB5
-b3UgZWxhYm9yYXRlIHdoYXQgeW91IGhhdmUgaW4gbWluZD8KCldlbGwsIHRydXRoZnVsbHksIEkg
-d291bGQganVzdCB1c2UgdGhlIGV4aXN0aW5nIG1heC1pZGxlIG9wdGlvbiB0aGF0CnlvdSBtZW50
-aW9uZWQuIEknbSBub3QgZW50aXJlbHkgc3VyZSB3aGF0IHRoZSBpc3N1ZSBpcyB3aXRoIGl0CmFw
-cGx5aW5nIHRvIGFsbCBmbG93cywgaG93ZXZlciwgcHJlc3VtYWJseSBpdCBjb3VsZCBiZSBtb2Rp
-ZmllZCB0bwpvbmx5IGFwcGx5IHRvIGEgc3Vic2V0IGlmIG5lY2Vzc2FyeS4gbWF4LWlkbGUgaXMg
-aW1wbGVtZW50ZWQgcHVyZWx5IGluCnVzZXJzcGFjZSwgc28gSSB3b3VsZCBzdGFydCBieSBsb29r
-aW5nIGF0IHRoYXQgYW5kIHNlZSBob3cgdG8gdGFpbG9yCml0LgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
-aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 17/03/16 11:57, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When un-mapping skb->data in __bcmgenet_tx_reclaim(),
+> we must use the length that was used in original dma_map_single(),
+> instead of skb->len that might be bigger (includes the frags)
+> 
+> We simply can store skb_len into tx_cb_ptr->dma_len and use it
+> at unmap time.
+> 
+> Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Good catch, thanks!
+-- 
+Florian
