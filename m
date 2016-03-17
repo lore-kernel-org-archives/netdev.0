@@ -1,49 +1,72 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: at803x: Add support to control PHY LEDs
-Date: Thu, 17 Mar 2016 18:51:52 +0100
-Message-ID: <20160317175152.GG26019@lunn.ch>
-References: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
- <1458223147-16142-2-git-send-email-vishalthanki@gmail.com>
- <20160317145032.GB26019@lunn.ch>
- <56EAE277.4050109@gmail.com>
- <CAC3a_SD=chB8pPpdRm8scztJ4592J26_PmhbUkLmbE3=DCmX-w@mail.gmail.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [v6, 3/5] dt: move guts devicetree doc out of powerpc directory
+Date: Thu, 17 Mar 2016 12:57:49 -0500
+Message-ID: <CAL_JsqL8NkEQx2NoVHSUGYhtNsybCo-yfBCde+_OuMmfwbhYEw@mail.gmail.com>
+References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
+ <1457518131-11339-4-git-send-email-yangbo.lu@nxp.com> <20160317170640.GB21009@rob-hp-laptop>
+ <4107975.rId64mooHz@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>, netdev@vger.kernel.org
-To: Vishal Thanki <vishalthanki@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49599 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933022AbcCQRvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 13:51:54 -0400
-Content-Disposition: inline
-In-Reply-To: <CAC3a_SD=chB8pPpdRm8scztJ4592J26_PmhbUkLmbE3=DCmX-w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Yangbo Lu <yangbo.lu@nxp.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	linux-clk <linux-clk@vger.kernel.org>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	Linux IOMMU <iommu@lists.linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	scott.wood@nxp.com, Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Ulf Hansson <ulf.hansson@linaro.org>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Zhao Qiang <qiang.zhao@freescale.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@ker
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <4107975.rId64mooHz@wuerfel>
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I agree with the idea of making a generic callback in phy_driver so
-> that other PHYs
-> can use it. However I think these LEDs are tightly coupled with PHYs and it
-> would not make much sense to expose them via LED subsystem as they
-> cannot be controlled individually IMHO.
+On Thu, Mar 17, 2016 at 12:11 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Thursday 17 March 2016 12:06:40 Rob Herring wrote:
+>> > diff --git a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+>> > similarity index 91%
+>> > rename from Documentation/devicetree/bindings/powerpc/fsl/guts.txt
+>> > rename to Documentation/devicetree/bindings/soc/fsl/guts.txt
+>> > index b71b203..07adca9 100644
+>> > --- a/Documentation/devicetree/bindings/powerpc/fsl/guts.txt
+>> > +++ b/Documentation/devicetree/bindings/soc/fsl/guts.txt
+>> > @@ -25,6 +25,9 @@ Recommended properties:
+>> >   - fsl,liodn-bits : Indicates the number of defined bits in the LIODN
+>> >     registers, for those SOCs that have a PAMU device.
+>> >
+>> > + - little-endian : Indicates that the global utilities block is little
+>> > +   endian. The default is big endian.
+>>
+>> The default is "the native endianness of the system".
+>
+> This may be what is currently documented, but not what we are doing
+> in practice, as there is no "native endianess" for either PowerPC or
+> ARM -- both allow running big-endian or little-endian kernels and the
+> device registers are fixed.
 
-They might not be on/off controllable individually, but you can often
-set them to show Packet RX, Packet TX, Link, speed, etc, in a
-reasonably flexible way. So you could have LED triggers mapping to
-these functionalities. The user can then pick the trigger for the LED.
+Notice I said system, not architecture. The way the device registers
+are fixed is what I mean by native endianness.
 
-Actually, the data sheet says:
+If the purpose of adding this property now is to support GUTS on the
+ARM SoCs, then I'd argue using this property is probably wrong. If the
+PPC systems are designed with BE device registers and ARM systems with
+LE, then this property is not needed.
 
-2.3.4 LED Interface
+> I think the property here is fine.
 
-The LED interface can either be controlled by the PHY or controlled
-manually, independent of the state of the PHY. Two status LEDs are
-available. These can be used to indicate operation speed, and link
-status. The LEDs can be programmed to different status functions from
-their default value. They can also be controlled directly from the MII
-register interface.
+Unless you have studied the FSL ARM based SoCs, then there is not
+enough information here to tell.
 
-So maybe you can control the on/off state.
-
-   Andrew
+Rob
