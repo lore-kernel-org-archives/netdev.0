@@ -1,70 +1,44 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
-Date: Thu, 17 Mar 2016 10:03:45 +0100
-Message-ID: <CA+BoTQn539Wmn0hfS+0mxjdrqXTr+tT1HQ0u_OU8_xq5xBdFhg@mail.gmail.com>
-References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
- <CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
- <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH] xfrm: don't segment UFO packets
+Date: Thu, 17 Mar 2016 10:41:15 +0100
+Message-ID: <20160317094115.GA11706@midget.suse.cz>
+References: <20160129234424.GC7907@midget.suse.cz>
+ <20160130042102.GA22809@gondor.apana.org.au>
+ <20160316160026.GB19258@midget.suse.cz>
+ <20160317050359.GA3840@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Felix Fietkau <nbd@openwrt.org>,
- Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
- Network Development <netdev@vger.kernel.org>,
- linux-wireless <linux-wireless@vger.kernel.org>,
- "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
- "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
- make-wifi-fast@lists.bufferbloat.net,
- Johannes Berg <johannes@sipsolutions.net>, Tim Shepard <shep@alum.mit.edu>
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:36493 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933165AbcCQJlU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2016 05:41:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20160317050359.GA3840@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTYgTWFyY2ggMjAxNiBhdCAxNjozNywgRGF2ZSBUYWh0IDxkYXZlLnRhaHRAZ21haWwuY29t
-PiB3cm90ZToKPiBpdCBpcyBoZWxwZnVsIHRvIG5hbWUgdGhlIHRlc3QgZmlsZXMgY29oZXJlbnRs
-eSBpbiB0aGUgZmxlbnQgdGVzdHMsIGluCj4gYWRkaXRpb24gdG8gdXNpbmcgYSBkaXJlY3Rvcnkg
-c3RydWN0dXJlIGFuZCB0aW1lc3RhbXAuIEl0IG1ha2VzIGRvaW5nCj4gY29tcGFyaXNvbiBwbG90
-cyBpbiBkYXRhLT5hZGQtb3RoZXItb3Blbi1kYXRhLWZpbGVzIHNpbXBsZXIuICItdAo+IHBhdGNo
-ZWQtbWFjLTMwMG1icHMiLCBmb3IgZXhhbXBsZS4KClNvcnJ5LiBJJ20gc3RpbGwgdHJ5aW5nIHRv
-IGZpZ3VyZSBvdXQgd2hhdCB2YXJpYWJsZXMgYXJlIHdvcnRoCmNvbnNpZGVyaW5nIGZvciBjb21w
-YXJpc29uIHB1cnBvc2VzLgoKCj4gQWxzbyBuZXRwZXJmIGZyb20gc3ZuIChtYXliZSAyLjcsIGRv
-bid0IHJlbWVtYmVyKSB3aWxsIHJlc3RhcnQgdWRwX3JyCj4gYWZ0ZXIgYSBwYWNrZXQgbG9zcyBp
-biAyNTBtcy4gU2VlaW5nIGEgbG9zcyBvbiBVRFBfUlIgYW5kIGl0IHN0b3AgZm9yCj4gYSB3aGls
-ZSBpcyAib2siLgoKSSdtIHVzaW5nIDIuNiBzdHJhaWdodCBvdXQgb2YgZGViaWFuIHJlcG9zIHNv
-IHllYWguIEkgZ3Vlc3MgSSdsbCB0cnkKdXNpbmcgbW9yZSByZWNlbnQgbmV0cGVyZiBpZiBJIGNh
-bid0IGZpZ3VyZSBvdXQgdGhlIGhpY2N1cHMuCgoKTWljaGHFggoKCj4gRGF2ZSBUw6RodAo+IExl
-dCdzIGdvIG1ha2UgaG9tZSByb3V0ZXJzIGFuZCB3aWZpIGZhc3RlciEgV2l0aCBiZXR0ZXIgc29m
-dHdhcmUhCj4gaHR0cHM6Ly93d3cuZ29mdW5kbWUuY29tL3NhdmV3aWZpCj4KPgo+IE9uIFdlZCwg
-TWFyIDE2LCAyMDE2IGF0IDM6MjYgQU0sIE1pY2hhbCBLYXppb3IgPG1pY2hhbC5rYXppb3JAdGll
-dG8uY29tPiB3cm90ZToKPj4gT24gMTYgTWFyY2ggMjAxNiBhdCAxMToxNywgTWljaGFsIEthemlv
-ciA8bWljaGFsLmthemlvckB0aWV0by5jb20+IHdyb3RlOgo+Pj4gSGksCj4+Pgo+Pj4gTW9zdCBu
-b3RhYmxlIGNoYW5nZXM6Cj4+IFsuLi5dCj4+PiAgKiBhdGgxMGsgcHJvb2Ytb2YtY29uY2VwdCB0
-aGF0IHVzZXMgdGhlIG5ldyB0eAo+Pj4gICAgc2NoZWR1bGluZyAod2lsbCBwb3N0IHJlc3VsdHMg
-aW4gc2VwYXJhdGUKPj4+ICAgIGVtYWlsKQo+Pgo+PiBJJ20gYXR0YWNoaW5nIGEgYnVuY2ggb2Yg
-dGVzdHMgSSd2ZSBkb25lIHVzaW5nIGZsZW50LiBUaGV5IGFyZSBhbGwKPj4gImJ1cnN0IiB0ZXN0
-cyB3aXRoIGJ1cnN0LXBvcnRzPTEgYW5kIGJ1cnN0LWxlbmd0aD0yLiBUaGUgdGVzdGluZwo+PiB0
-b3BvbG9neSBpczoKPj4KPj4gICAgICAgICAgICAgICAgICAgIEFQIC0tLS0+IFNUQQo+PiAgICAg
-ICAgICAgICAgICAgICAgQVAgKSkgKCggU1RBCj4+ICBbdmV0aF0tLVticl0tLVt3bGFuXSApKSAo
-KCBbd2xhbl0KPj4KPj4gWW91IGNhbiBub3RpY2UgdGhhdCBpbiBzb21lIHRlc3RzIHBsb3QgZGF0
-YSBnZXRzIGN1dC1vZmYuIFRoZXJlIGFyZSAyCj4+IHByb2JsZW1zIEkndmUgaWRlbnRpZmllZDoK
-Pj4gIC0gZXhjZXNzIGRyb3BzIChub3QgYSBwcm9ibGVtIHdpdGggdGhlIHBhdGNoc2V0IGFuZCBj
-YW4gYmUgc2VlbiB3aGVuCj4+IHRoZXJlJ3Mgbm8gY29kZWwtaW4tbWFjIG9yIHNjaGVkdWxpbmcg
-aXNuJ3QgdXNlZCkKPj4gIC0gVURQX1JSIGhhbmdzIChhcHBhcmVudGx5IFFDQTk5WDAgSSBoYXZl
-IGhhbmdzIGZvciBhIGZldyBodW5kcmVkIG1zCj4+IHNvbWV0aW1lcyBhdCB0aW1lcyBhbmQgZG9l
-c24ndCBSeCBmcmFtZXMgY2F1c2luZyBVRFBfUlIgdG8gc3RvcAo+PiBtaWQtd2F5OyBjb25maXJt
-ZWQgd2l0aCBsb2dzIGFuZCBzbmlmZmVyOyBJIGhhdmVuJ3QgZmlndXJlZCBvdXQgKndoeSoKPj4g
-ZXhhY3RseSwgY291bGQgYmUgc29tZSBody9mdyBxdWlyaykKPj4KPj4gTGV0IG1lIGtub3cgaWYg
-eW91IGhhdmUgcXVlc3Rpb25zIG9yIGNvbW1lbnRzIHJlZ2FyZGluZyBteSB0ZXN0aW5nL3Jlc3Vs
-dHMuCj4+Cj4+Cj4+IE1pY2hhxYIKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KQ29kZWwgbWFpbGluZyBsaXN0CkNvZGVsQGxpc3RzLmJ1ZmZlcmJsb2F0Lm5l
-dApodHRwczovL2xpc3RzLmJ1ZmZlcmJsb2F0Lm5ldC9saXN0aW5mby9jb2RlbAo=
+On Thu, Mar 17, 2016 at 01:03:59PM +0800, Herbert Xu wrote:
+> On Wed, Mar 16, 2016 at 05:00:26PM +0100, Jiri Bohac wrote:
+> > Prevent xfrm_output() from segmenting UFO packets so that they will be
+> > fragmented after the xfrm transforms.
+> 
+> Fair enough.  But I wonder if this is enough.  Wouldn't UDP notice
+> that we're doing IPsec and prefragment the packet anyway? So I think
+> this check may also be needed in the UDP output path.
+
+Fixes my broken case. Ftracing a sendmsg call that sends ~8k of
+data over the UDP socket, I see a single 8k skb travel through the
+stack all the way to xfrm_output(). MTU is 1500.
+That's the whole poing of fragmentation offloading, to pass all
+the data at once as far as we can, isn't it? What UDP code did
+you think would "notice and prefragment"?
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
