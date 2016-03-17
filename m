@@ -1,199 +1,47 @@
-From: Patrick Boutilier <boutilpj@ednet.ns.ca>
-Subject: Extreme slowness in IPIP tunnel when routing through kernel 3.18 and
- later
-Date: Thu, 17 Mar 2016 11:02:27 -0300
-Message-ID: <56EAB8F3.7060802@ednet.ns.ca>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] virtio_net: replace netdev_alloc_skb_ip_align() with
+	napi_alloc_skb()
+Date: Thu, 17 Mar 2016 15:44:00 +0100
+Message-ID: <b436c3eb5d4c19e92184c27d89ec8118d6fd3f81.1458224603.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050308090403010403060006"
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from staff.ednet.ns.ca ([142.227.51.33]:54225 "EHLO
-	staff.ednet.ns.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935530AbcCQOU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 10:20:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------050308090403010403060006
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-
-I have an IPIP tunnel setup between two hosts in different buildings. 
-The Linux router they route through causes extreme slowness in the 
-tunnel when running kernels from 3.18 on . tcpdump shows many cksum 
-errors which don't show up in the 3.17 and earlier kernels. Speed goes 
-back to normal when rx-checksumming and tx-checksumming are turned off 
-using ethtool on the Linux router . Would this be an effect of bulk 
-network packet transmission that was introduced in 3.18 or some other issue?
-
-
-eth2
-driver: igb
-version: 5.2.15-k
-firmware-version: 1.5.1
-bus-info: 0000:06:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
-
-
-eth6
-driver: ixgbe
-version: 3.19.1-k
-firmware-version: 0x80000389
-bus-info: 0000:41:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
-
-
-
-
-
-Example of cksum from tcpdump:
-
-Flags [.], cksum 0x2237 (incorrect -> 0xbb02), seq 424119200:424120648, 
-ack 1, win 115, options [nop,nop,TS val 303173784 ecr 3971495454], 
-length 1448
-
-
-
-
-
-Results of nuttcp test with rx-checksumming and tx-checksumming on:
-
-
-Testing upload inside tunnel
-
-
-
-     0.0625 MB /   5.00 sec =    0.1048 Mbps    79 retrans
-     0.0625 MB /   5.00 sec =    0.1048 Mbps    59 retrans
-     0.0625 MB /   5.00 sec =    0.1049 Mbps    27 retrans
-
-     0.2096 MB /  16.11 sec =    0.1092 Mbps 0 %TX 0 %RX 186 retrans 
-0.47 msRTT
-
-
-
-Testing download inside tunnel
-
-
-
-     0.5000 MB /   5.00 sec =    0.8389 Mbps   112 retrans
-     2.6250 MB /   5.00 sec =    4.4040 Mbps   412 retrans
-     0.8750 MB /   5.00 sec =    1.4680 Mbps   156 retrans
-
-     4.0243 MB /  15.48 sec =    2.1809 Mbps 0 %TX 0 %RX 705 retrans 
-0.47 msRTT
-
-
-Testing upload outside tunnel
-
-
-
-   423.0000 MB /   5.00 sec =  709.4949 Mbps   275 retrans
-   442.0625 MB /   5.00 sec =  741.7008 Mbps    53 retrans
-   418.5625 MB /   5.00 sec =  702.1329 Mbps   133 retrans
-
-  1287.0080 MB /  15.08 sec =  715.9252 Mbps 1 %TX 30 %RX 461 retrans 
-0.43 msRTT
-
-
-
-Testing download outside tunnel
-
-
-
-   552.4375 MB /   5.00 sec =  926.8347 Mbps    26 retrans
-   555.1875 MB /   5.00 sec =  931.4499 Mbps    17 retrans
-   553.0000 MB /   5.00 sec =  927.7802 Mbps    16 retrans
-
-  1664.2149 MB /  15.03 sec =  928.6737 Mbps 9 %TX 5 %RX 60 retrans 0.46 
-msRTT
-
-
-
-
-
-
-Results of nuttcp test with rx-checksumming and tx-checksumming off:
-
-
-
-Testing upload inside tunnel
-
-
-
-   440.0000 MB /   5.00 sec =  738.0112 Mbps   117 retrans
-   433.0000 MB /   5.00 sec =  726.4892 Mbps   135 retrans
-   447.9375 MB /   5.00 sec =  751.5714 Mbps   112 retrans
-
-  1321.0069 MB /  15.04 sec =  736.7213 Mbps 3 %TX 21 %RX 364 retrans 
-0.51 msRTT
-
-
-
-Testing download inside tunnel
-
-
-
-   494.0625 MB /   5.00 sec =  828.8973 Mbps   335 retrans
-   471.0000 MB /   5.00 sec =  790.2050 Mbps   219 retrans
-   469.8750 MB /   5.00 sec =  788.3174 Mbps   220 retrans
-
-  1435.1875 MB /  15.00 sec =  802.4203 Mbps 89 %TX 12 %RX 774 retrans 
-0.46 msRTT
-
-
-Testing upload outside tunnel
-
-
-
-   431.2500 MB /   5.00 sec =  723.2808 Mbps    33 retrans
-   446.3750 MB /   5.00 sec =  748.9268 Mbps    10 retrans
-   475.4375 MB /   5.00 sec =  797.7044 Mbps     0 retrans
-
-  1355.0834 MB /  15.06 sec =  754.6438 Mbps 1 %TX 33 %RX 43 retrans 
-0.53 msRTT
-
-
-
-Testing download outside tunnel
-
-
-
-   424.8125 MB /   5.00 sec =  712.7061 Mbps   102 retrans
-   456.5625 MB /   5.00 sec =  765.9872 Mbps    80 retrans
-   454.0000 MB /   5.00 sec =  761.6935 Mbps   116 retrans
-
-  1335.7823 MB /  15.01 sec =  746.6959 Mbps 4 %TX 5 %RX 298 retrans 
-0.55 msRTT
-
---------------050308090403010403060006
-Content-Type: text/x-vcard; charset=utf-8;
- name="boutilpj.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="boutilpj.vcf"
-
-begin:vcard
-fn:Patrick Boutilier
-n:Boutilier;Patrick
-org:;Nova Scotia Department of Education
-adr:;;2021 Brunswick Street;Halifax;NS;B3K 2Y5;Canada
-email;internet:boutilpj@ednet.ns.ca
-title:WAN Communications Specialist
-tel;work:902-424-6800
-tel;fax:902-424-0874
-version:2.1
-end:vcard
-
-
---------------050308090403010403060006--
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
+
+This gives small but noticeable rx performance improvement (2-3%)
+and will allow exploiting future napi improvement.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ drivers/net/virtio_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index fb0eae4..49d84e5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -260,7 +260,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	p = page_address(page) + offset;
+ 
+ 	/* copy small packet so we can reuse these pages for small data */
+-	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
++	skb = napi_alloc_skb(&rq->napi, GOOD_COPY_LEN);
+ 	if (unlikely(!skb))
+ 		return NULL;
+ 
+-- 
+1.8.3.1
