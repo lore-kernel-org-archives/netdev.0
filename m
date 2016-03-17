@@ -1,42 +1,41 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
-Date: Thu, 17 Mar 2016 07:12:48 -0400
-Message-ID: <20160317111248.GC1238@localhost>
-References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
- <CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
- <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
- <CAA93jw6tDdiYuginPbUY1DFJLiDxofHMFN6j2BvQPabPmBtuRw@mail.gmail.com>
- <20160316185531.GA1771@localhost>
- <CAGyitvMDEUiNx7HD=XKjXNHnFvZ_gxD_BbQx3AP-57_+dBeD4A@mail.gmail.com>
- <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH v2] ARC: axs10x - add Ethernet PHY description in .dts
+Date: Thu, 17 Mar 2016 11:13:50 +0000
+Message-ID: <C2D7FE5348E1B147BCA15975FBA23075F4E903A3@us01wembx1.internal.synopsys.com>
+References: <1458207712-29435-1-git-send-email-abrodkin@synopsys.com>
+ <56EA8DCC.8070308@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jasmine Strong <jas@eero.com>, Dave Taht <dave.taht@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-	"codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
-	make-wifi-fast@lists.bufferbloat.net
-To: Michal Kazior <michal.kazior@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:34593 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030339AbcCQLM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 07:12:59 -0400
-Received: by mail-qk0-f172.google.com with SMTP id x1so33393713qkc.1
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 04:12:57 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Rob Herring <robh@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"4.5.x@synopsys.com" <4.5.x@synopsys.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	Phil Reid <preid@electromag.com.au>,
+	"#@synopsys.com" <#@synopsys.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	"linux-snps-arc@lists.infradead.org"
+	<linux-snps-arc@lists.infradead.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 17, 2016 at 09:55:03AM +0100, Michal Kazior wrote:
-> If you consider Wi-Fi is half-duplex and latency in the entire stack
-> (for processing ICMP and UDP_RR) is greater than 11e contention window
-> timings you can get your BE flow responses with extra delay (since
-> other queues might have responses ready quicker).
+On Thursday 17 March 2016 04:28 PM, Sergei Shtylyov wrote:
+> On 3/17/2016 12:41 PM, Alexey Brodkin wrote:
+>
+>> > Following commit broke DW GMAC functionality on AXS10x boards:
+>> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e34d65696d2ef13dc32f2a162556c86c461ed763
+>     Note that scripts/checkpatch.pl now enforces certain format for citing 
+> commits: commit <12-digit SHA1> ("<commit summary>").
+>
+> [...]
+>
+> MBR, Sergei
 
-Got it, that makes sense.  Thanks for the explanation!
+Indeed - I've fixed this up and added to arc for-curr !
 
--- 
-Bob Copeland %% http://bobcopeland.com/
+-Vineet
