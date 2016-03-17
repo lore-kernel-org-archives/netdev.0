@@ -1,31 +1,61 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] Add support to control PHY LEDs
-Date: Thu, 17 Mar 2016 15:54:29 +0100
-Message-ID: <20160317145429.GC26019@lunn.ch>
-References: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
+Subject: Re: [PATCH] net: phy: fix PHY_RUNNING in phy_state_machine
+Date: Thu, 17 Mar 2016 16:12:40 +0100
+Message-ID: <20160317151240.GD26019@lunn.ch>
+References: <1439526220-31458-1-git-send-email-shh.xie@gmail.com>
+ <CAGm1_kufFr0SsVwVcABXkL0ABJahiwz4EZ70=ywrtC9Bffbfng@mail.gmail.com>
+ <20160316161848.GE2393@lunn.ch>
+ <CAGm1_kuMQrECdb6_NpZ83Nm4RFSn6sQMhMK6392PLyaFFxCs1A@mail.gmail.com>
+ <20160316230505.GA18161@lunn.ch>
+ <CAGm1_kv7eia4LPWT5TxUJp1NV+eFZj6gBQc-pHwxbygoF03EYg@mail.gmail.com>
+ <20160317134134.GA24913@lunn.ch>
+ <CAGm1_kvJn0Pq38iqOmOcyNpe62EEUmq_s5G2_HXps4Gx+xB_=Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ujhelyi.m@gmail.com, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: Vishal Thanki <vishalthanki@gmail.com>
+Cc: shaohui ??? <shh.xie@gmail.com>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Shaohui Xie <Shaohui.Xie@freescale.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>, drivshin@allworx.com
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49377 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:49386 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030201AbcCQOya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 10:54:30 -0400
+	id S932614AbcCQPMp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2016 11:12:45 -0400
 Content-Disposition: inline
-In-Reply-To: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
+In-Reply-To: <CAGm1_kvJn0Pq38iqOmOcyNpe62EEUmq_s5G2_HXps4Gx+xB_=Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 17, 2016 at 02:59:06PM +0100, Vishal Thanki wrote:
-> Hi all,
+> After changing cpsw_emac0 entry to:
 > 
-> We had a requirement to disable the PHY link LEDs during system
-> standby mode without turning off the ethernet module. To achieve that,
-> I have prepared the sysfs interface turn on/off the PHY link LEDs.
+> &cpsw_emac0 {
+>         phy-mode = "rmii";
+>         dual_emac_res_vlan = <1>;
+>         fixed-link {
+>                 speed = <100>;
+>                 full-duplex;
+>         };
+> };
+> 
+> I've got packets running in both directions.
 
-Hi Vishal
+Great.
+ 
+> Now I have another problem: I cannot disable ICPlus IP175D ports via
+> SIOCSMIIREG as I could do previously. I get not ioctl errors [1], but
+> the ports are always on.
+> 
+> [1] https://github.com/visionsystemsgmbh/libonrisc/blob/master/src/onrisc.c#L83
 
-Could you implement this in at803x_suspend()?
+The MDIO bus is now logically not connected to eth0. Instead you have
+the fixed-link mdio device connected to eth0. So SIOCSMIIREG calls on
+eth0 now try to manipulate the fixed link phys.
 
-      Andrew
+However, i think you can still access the MDIO bus, just use eth1 in
+your ioctl call.
+
+You should however consider writing a DSA driver for the switch.
+
+    Andrew
