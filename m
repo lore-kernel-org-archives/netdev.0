@@ -1,57 +1,21 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat
-	code
-Date: Thu, 17 Mar 2016 16:09:18 +1300
-Message-ID: <CAPWQB7EJhtYAEAmeiSN=mq785TTg+AFJnTS3-a+6qAt2u07-Kg@mail.gmail.com>
-References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: 8:25 arriving 9:07, if I catch it....
+Date: Wed, 16 Mar 2016 20:24:20 -0700
+Message-ID: <CAA93jw6hVx7j-RJmiKveSV=YqJn3OnsWNOFJvwO3Tbhn_WSZ7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1458132481-318209-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:34409 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752693AbcCQDYV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 23:24:21 -0400
+Received: by mail-ob0-f177.google.com with SMTP id ts10so71429275obc.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 20:24:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTcgTWFyY2ggMjAxNiBhdCAwMTo0NywgQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4g
-d3JvdGU6Cj4gVGhlIG9wZW52c3dpdGNoIGNvZGUgaGFzIGdhaW5lZCBzdXBwb3J0IGZvciBjYWxs
-aW5nIGludG8gdGhlCj4gbmYtbmF0LWlwdjQvaXB2NiBtb2R1bGVzLCBob3dldmVyIHRob3NlIGNh
-biBiZSBsb2FkYWJsZSBtb2R1bGVzCj4gaW4gYSBjb25maWd1cmF0aW9uIGluIHdoaWNoIG9wZW52
-c3dpdGNoIGlzIGJ1aWx0LWluLCBsZWFkaW5nCj4gdG8gbGluayBlcnJvcnM6Cj4KPiBuZXQvYnVp
-bHQtaW4ubzogSW4gZnVuY3Rpb24gYF9fb3ZzX2N0X2xvb2t1cCc6Cj4gOigudGV4dCsweDJjYzJj
-OCk6IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wX3JlcGx5X3RyYW5zbGF0aW9u
-Jwo+IDooLnRleHQrMHgyY2M2NmMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9uYXRfaWNt
-cHY2X3JlcGx5X3RyYW5zbGF0aW9uJwo+Cj4gVGhlIGRlcGVuZGVuY3kgb24gKCFORl9OQVQgfHwg
-TkZfTkFUKSB3YXMgbWVhbnQgdG8gcHJldmVudAo+IHRoaXMsIGJ1dCBORl9OQVQgaXMgc2V0IHRv
-ICd5JyBpZiBhbnkgb2YgdGhlIHN5bWJvbHMgc2VsZWN0aW5nCj4gaXQgYXJlIGJ1aWx0LWluLCBi
-dXQgdGhlIGxpbmsgZXJyb3IgaGFwcGVucyB3aGVuIGFueSBvZiB0aGVtCj4gYXJlIG1vZHVsYXIu
-Cj4KPiBBIHNlY29uZCBpc3N1ZSBpcyB0aGF0IGV2ZW4gaWYgQ09ORklHX05GX05BVF9JUFY2IGlz
-IGJ1aWx0LWluLAo+IENPTkZJR19ORl9OQVRfSVBWNCBtaWdodCBiZSBjb21wbGV0ZWx5IGRpc2Fi
-bGVkLiBUaGlzIGlzIHVubGlrZWx5Cj4gdG8gYmUgdXNlZnVsIGluIHByYWN0aWNlLCBidXQgdGhl
-IGRyaXZlciBjdXJyZW50bHkgb25seSBoYW5kbGVzCj4gSVB2NiBiZWluZyBvcHRpb25hbC4KPgo+
-IFRoaXMgcGF0Y2ggaW1wcm92ZXMgdGhlIEtjb25maWcgZGVwZW5kZW5jeSBzbyB0aGF0IG9wZW52
-c3dpdGNoCj4gY2Fubm90IGJlIGJ1aWx0LWluIGlmIGVpdGhlciBvZiB0aGUgdHdvIG90aGVyIHN5
-bWJvbHMgYXJlIHNldAo+IHRvICdtJywgYW5kIGl0IHJlcGxhY2VzIHRoZSBpbmNvcnJlY3QgI2lm
-ZGVmIGluIG92c19jdF9uYXRfZXhlY3V0ZSgpCj4gd2l0aCB0d28gImlmIChJU19FTkFCTEVEKCkp
-IiBjaGVja3MgdGhhdCBzaG91bGQgY2F0Y2ggYWxsIGNvcm5lcgo+IGNhc2VzIGFsc28gbWFrZSB0
-aGUgY29kZSBtb3JlIHJlYWRhYmxlLgo+Cj4gVGhlIHNhbWUgI2lmZGVmIGV4aXN0cyBvdnNfY3Rf
-bmF0X3RvX2F0dHIoKSwgd2hlcmUgaXQgZG9lcyBub3QKPiBjYXVzZSBhIGxpbmsgZXJyb3IsIGJ1
-dCBmb3IgY29uc2lzdGVuY3kgSSdtIGNoYW5naW5nIGl0IHRoZSBzYW1lCj4gd2F5Lgo+Cj4gU2ln
-bmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KPiBGaXhlczogMDU3NTI1
-MjNlNTY1ICgib3BlbnZzd2l0Y2g6IEludGVyZmFjZSB3aXRoIE5BVC4iKQoKVGhhbmtzIGZvciB0
-aGUgZml4LCBMR1RNLgoKQWNrZWQtYnk6IEpvZSBTdHJpbmdlciA8am9lQG92bi5vcmc+Cl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
-c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
-dGluZm8vZGV2Cg==
+Dave T=C3=A4ht
+Let's go make home routers and wifi faster! With better software!
+https://www.gofundme.com/savewifi
