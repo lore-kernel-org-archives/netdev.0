@@ -1,151 +1,40 @@
 From: Jesse Gross <jesse@kernel.org>
-Subject: [PATCH net 3/3] tunnels: Remove encapsulation offloads on decap.
-Date: Thu, 17 Mar 2016 11:25:36 -0700
-Message-ID: <1458239136-37814-3-git-send-email-jesse@kernel.org>
-References: <1458239136-37814-1-git-send-email-jesse@kernel.org>
-Cc: netdev@vger.kernel.org,
-	Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+Subject: Re: Extreme slowness in IPIP tunnel when routing through kernel 3.18
+ and later
+Date: Thu, 17 Mar 2016 11:27:55 -0700
+Message-ID: <CAEh+42h0hdNSQDZyHDWHE0qx8bf4AzP0ooaBxPXsj=bf-L5hFQ@mail.gmail.com>
+References: <56EAB8F3.7060802@ednet.ns.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Patrick Boutilier <boutilpj@ednet.ns.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:45696 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.136]:45930 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935589AbcCQSZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 14:25:58 -0400
-In-Reply-To: <1458239136-37814-1-git-send-email-jesse@kernel.org>
+	id S935988AbcCQS2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Mar 2016 14:28:13 -0400
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id D901F201BB
+	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 18:28:11 +0000 (UTC)
+Received: from mail-qg0-f41.google.com (mail-qg0-f41.google.com [209.85.192.41])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id D870320142
+	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 18:28:10 +0000 (UTC)
+Received: by mail-qg0-f41.google.com with SMTP id a36so47895349qge.0
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 11:28:10 -0700 (PDT)
+In-Reply-To: <56EAB8F3.7060802@ednet.ns.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a packet is either locally encapsulated or processed through GRO
-it is marked with the offloads that it requires. However, when it is
-decapsulated these tunnel offload indications are not removed. This
-means that if we receive an encapsulated TCP packet, aggregate it with
-GRO, decapsulate, and retransmit the resulting frame on a NIC that does
-not support encapsulation, we won't be able to take advantage of hardware
-offloads even though it is just a simple TCP packet at this point.
+On Thu, Mar 17, 2016 at 7:02 AM, Patrick Boutilier <boutilpj@ednet.ns.ca> wrote:
+> I have an IPIP tunnel setup between two hosts in different buildings. The
+> Linux router they route through causes extreme slowness in the tunnel when
+> running kernels from 3.18 on . tcpdump shows many cksum errors which don't
+> show up in the 3.17 and earlier kernels. Speed goes back to normal when
+> rx-checksumming and tx-checksumming are turned off using ethtool on the
+> Linux router . Would this be an effect of bulk network packet transmission
+> that was introduced in 3.18 or some other issue?
 
-This fixes the problem by stripping off encapsulation offload indications
-when packets are decapsulated.
-
-Reported-by: Ramu Ramamurthy <sramamur@linux.vnet.ibm.com>
-Fixes: 68c33163 ("v4 GRE: Add TCP segmentation offload for GRE")
-Signed-off-by: Jesse Gross <jesse@kernel.org>
----
- include/net/ip_tunnels.h  | 16 ++++++++++++++++
- net/ipv4/fou.c            | 13 +++++++++++--
- net/ipv4/ip_tunnel_core.c |  3 ++-
- net/ipv6/sit.c            |  6 ++++--
- 4 files changed, 33 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 5dc2e45..7ac8e4b 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -298,6 +298,22 @@ struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
- 
- struct sk_buff *iptunnel_handle_offloads(struct sk_buff *skb, int gso_type_mask);
- 
-+static inline int iptunnel_pull_offloads(struct sk_buff *skb)
-+{
-+	if (skb_is_gso(skb)) {
-+		int err;
-+
-+		err = skb_unclone(skb, GFP_ATOMIC);
-+		if (unlikely(err))
-+			return err;
-+		skb_shinfo(skb)->gso_type &= ~(NETIF_F_GSO_ENCAP_ALL >>
-+					       NETIF_F_GSO_SHIFT);
-+	}
-+
-+	skb->encapsulation = 0;
-+	return 0;
-+}
-+
- static inline void iptunnel_xmit_stats(struct net_device *dev, int pkt_len)
- {
- 	if (pkt_len > 0) {
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 7804842..a0586b4 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -48,7 +48,7 @@ static inline struct fou *fou_from_sock(struct sock *sk)
- 	return sk->sk_user_data;
- }
- 
--static void fou_recv_pull(struct sk_buff *skb, size_t len)
-+static int fou_recv_pull(struct sk_buff *skb, size_t len)
- {
- 	struct iphdr *iph = ip_hdr(skb);
- 
-@@ -59,6 +59,7 @@ static void fou_recv_pull(struct sk_buff *skb, size_t len)
- 	__skb_pull(skb, len);
- 	skb_postpull_rcsum(skb, udp_hdr(skb), len);
- 	skb_reset_transport_header(skb);
-+	return iptunnel_pull_offloads(skb);
- }
- 
- static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
-@@ -68,9 +69,14 @@ static int fou_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!fou)
- 		return 1;
- 
--	fou_recv_pull(skb, sizeof(struct udphdr));
-+	if (fou_recv_pull(skb, sizeof(struct udphdr)))
-+		goto drop;
- 
- 	return -fou->protocol;
-+
-+drop:
-+	kfree_skb(skb);
-+	return 0;
- }
- 
- static struct guehdr *gue_remcsum(struct sk_buff *skb, struct guehdr *guehdr,
-@@ -170,6 +176,9 @@ static int gue_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	__skb_pull(skb, sizeof(struct udphdr) + hdrlen);
- 	skb_reset_transport_header(skb);
- 
-+	if (iptunnel_pull_offloads(skb))
-+		goto drop;
-+
- 	return -guehdr->proto_ctype;
- 
- drop:
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index eaca244..ee4827e 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -114,7 +114,8 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto,
- 	skb->vlan_tci = 0;
- 	skb_set_queue_mapping(skb, 0);
- 	skb_scrub_packet(skb, xnet);
--	return 0;
-+
-+	return iptunnel_pull_offloads(skb);
- }
- EXPORT_SYMBOL_GPL(iptunnel_pull_header);
- 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index f45b8ff..8338430 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -681,14 +681,16 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		skb->mac_header = skb->network_header;
- 		skb_reset_network_header(skb);
- 		IPCB(skb)->flags = 0;
--		skb->protocol = htons(ETH_P_IPV6);
-+		skb->dev = tunnel->dev;
- 
- 		if (packet_is_spoofed(skb, iph, tunnel)) {
- 			tunnel->dev->stats.rx_errors++;
- 			goto out;
- 		}
- 
--		__skb_tunnel_rx(skb, tunnel->dev, tunnel->net);
-+		if (iptunnel_pull_header(skb, 0, htons(ETH_P_IPV6),
-+		    !net_eq(tunnel->net, dev_net(tunnel->dev))))
-+			goto out;
- 
- 		err = IP_ECN_decapsulate(iph, skb);
- 		if (unlikely(err)) {
--- 
-2.5.0
+I just sent out a likely fix, would you mind testing it?
+https://patchwork.ozlabs.org/patch/599213/
