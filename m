@@ -1,40 +1,135 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: Extreme slowness in IPIP tunnel when routing through kernel 3.18
- and later
-Date: Thu, 17 Mar 2016 11:27:55 -0700
-Message-ID: <CAEh+42h0hdNSQDZyHDWHE0qx8bf4AzP0ooaBxPXsj=bf-L5hFQ@mail.gmail.com>
-References: <56EAB8F3.7060802@ednet.ns.ca>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: net/ppp: use-after-free in ppp_unregister_channel
+Date: Thu, 17 Mar 2016 19:30:39 +0100
+Message-ID: <20160317183039.GA1313@alphalink.fr>
+References: <56e97869.6afe420a.80cd8.ffffde3d@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Patrick Boutilier <boutilpj@ednet.ns.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, paulus@samba.org,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Baozeng Ding <sploving1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:45930 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935988AbcCQS2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 14:28:13 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id D901F201BB
-	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 18:28:11 +0000 (UTC)
-Received: from mail-qg0-f41.google.com (mail-qg0-f41.google.com [209.85.192.41])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id D870320142
-	for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 18:28:10 +0000 (UTC)
-Received: by mail-qg0-f41.google.com with SMTP id a36so47895349qge.0
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 11:28:10 -0700 (PDT)
-In-Reply-To: <56EAB8F3.7060802@ednet.ns.ca>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:52016 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967236AbcCQSat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 14:30:49 -0400
+Content-Disposition: inline
+In-Reply-To: <56e97869.6afe420a.80cd8.ffffde3d@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 17, 2016 at 7:02 AM, Patrick Boutilier <boutilpj@ednet.ns.ca> wrote:
-> I have an IPIP tunnel setup between two hosts in different buildings. The
-> Linux router they route through causes extreme slowness in the tunnel when
-> running kernels from 3.18 on . tcpdump shows many cksum errors which don't
-> show up in the 3.17 and earlier kernels. Speed goes back to normal when
-> rx-checksumming and tx-checksumming are turned off using ethtool on the
-> Linux router . Would this be an effect of bulk network packet transmission
-> that was introduced in 3.18 or some other issue?
+On Wed, Mar 16, 2016 at 11:14:42PM +0800, Baozeng Ding wrote:
+> Dear all,
+> I've got the following use-after-free report while running syzkaller
+> fuzzer. Unfortunately no reproducer. It was found in the Linux kernel
+> version(4.4, on commit 9638685e32af961943b679fcb72d4ddd458eb18f).
+> 
+> ==================================================================
+> BUG: KASAN: use-after-free in ppp_unregister_channel+0x372/0x3a0 at
+> addr ffff880064e217e0
+> Read of size 8 by task syz-executor/11581
+> =============================================================================
+> BUG net_namespace (Not tainted): kasan: bad access detected
+> -----------------------------------------------------------------------------
+> 
+> Disabling lock debugging due to kernel taint
+> INFO: Allocated in copy_net_ns+0x6b/0x1a0 age=92569 cpu=3 pid=6906
+> [<      none      >] ___slab_alloc+0x4c7/0x500 kernel/mm/slub.c:2440
+> [<      none      >] __slab_alloc+0x4c/0x90 kernel/mm/slub.c:2469
+> [<     inline     >] slab_alloc_node kernel/mm/slub.c:2532
+> [<     inline     >] slab_alloc kernel/mm/slub.c:2574
+> [<      none      >] kmem_cache_alloc+0x23a/0x2b0 kernel/mm/slub.c:2579
+> [<     inline     >] kmem_cache_zalloc kernel/include/linux/slab.h:597
+> [<     inline     >] net_alloc kernel/net/core/net_namespace.c:325
+> [<      none      >] copy_net_ns+0x6b/0x1a0 kernel/net/core/net_namespace.c:360
+> [<      none      >] create_new_namespaces+0x2f6/0x610 kernel/kernel/nsproxy.c:95
+> [<      none      >] copy_namespaces+0x297/0x320 kernel/kernel/nsproxy.c:150
+> [<      none      >] copy_process.part.35+0x1bf4/0x5760 kernel/kernel/fork.c:1451
+> [<     inline     >] copy_process kernel/kernel/fork.c:1274
+> [<      none      >] _do_fork+0x1bc/0xcb0 kernel/kernel/fork.c:1723
+> [<     inline     >] SYSC_clone kernel/kernel/fork.c:1832
+> [<      none      >] SyS_clone+0x37/0x50 kernel/kernel/fork.c:1826
+> [<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a kernel/arch/x86/entry/entry_64.S:185
+> 
+> INFO: Freed in net_drop_ns+0x67/0x80 age=575 cpu=2 pid=2631
+> [<      none      >] __slab_free+0x1fc/0x320 kernel/mm/slub.c:2650
+> [<     inline     >] slab_free kernel/mm/slub.c:2805
+> [<      none      >] kmem_cache_free+0x2a0/0x330 kernel/mm/slub.c:2814
+> [<     inline     >] net_free kernel/net/core/net_namespace.c:341
+> [<      none      >] net_drop_ns+0x67/0x80 kernel/net/core/net_namespace.c:348
+> [<      none      >] cleanup_net+0x4e5/0x600 kernel/net/core/net_namespace.c:448
+> [<      none      >] process_one_work+0x794/0x1440 kernel/kernel/workqueue.c:2036
+> [<      none      >] worker_thread+0xdb/0xfc0 kernel/kernel/workqueue.c:2170
+> [<      none      >] kthread+0x23f/0x2d0 kernel/drivers/block/aoe/aoecmd.c:1303
+> [<      none      >] ret_from_fork+0x3f/0x70 kernel/arch/x86/entry/entry_64.S:468
+> INFO: Slab 0xffffea0001938800 objects=3 used=0 fp=0xffff880064e20000
+> flags=0x5fffc0000004080
+> INFO: Object 0xffff880064e20000 @offset=0 fp=0xffff880064e24200
+> 
+> CPU: 1 PID: 11581 Comm: syz-executor Tainted: G    B           4.4.0+
+> #5
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
+> rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+>  00000000ffffffff ffff8800662c7790 ffffffff8292049d ffff88003e36a300
+>  ffff880064e20000 ffff880064e20000 ffff8800662c77c0 ffffffff816f2054
+>  ffff88003e36a300 ffffea0001938800 ffff880064e20000 0000000000000000
+> Call Trace:
+>  [<     inline     >] __dump_stack kernel/lib/dump_stack.c:15
+>  [<ffffffff8292049d>] dump_stack+0x6f/0xa2 kernel/lib/dump_stack.c:50
+>  [<ffffffff816f2054>] print_trailer+0xf4/0x150 kernel/mm/slub.c:654
+>  [<ffffffff816f875f>] object_err+0x2f/0x40 kernel/mm/slub.c:661
+>  [<     inline     >] print_address_description kernel/mm/kasan/report.c:138
+>  [<ffffffff816fb0c5>] kasan_report_error+0x215/0x530 kernel/mm/kasan/report.c:236
+>  [<     inline     >] kasan_report kernel/mm/kasan/report.c:259
+>  [<ffffffff816fb4de>] __asan_report_load8_noabort+0x3e/0x40 kernel/mm/kasan/report.c:280
+>  [<     inline     >] ? ppp_pernet kernel/include/linux/compiler.h:218
+>  [<ffffffff83ad71b2>] ? ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+>  [<     inline     >] ppp_pernet kernel/include/linux/compiler.h:218
+>  [<ffffffff83ad71b2>] ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+>  [<     inline     >] ? ppp_pernet kernel/drivers/net/ppp/ppp_generic.c:293
+>  [<ffffffff83ad6f26>] ? ppp_unregister_channel+0xe6/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+>  [<ffffffff83ae18f3>] ppp_asynctty_close+0xa3/0x130 kernel/drivers/net/ppp/ppp_async.c:241
+>  [<ffffffff83ae1850>] ? async_lcp_peek+0x5b0/0x5b0 kernel/drivers/net/ppp/ppp_async.c:1000
+>  [<ffffffff82c33239>] tty_ldisc_close.isra.1+0x99/0xe0 kernel/drivers/tty/tty_ldisc.c:478
+>  [<ffffffff82c332c0>] tty_ldisc_kill+0x40/0x170 kernel/drivers/tty/tty_ldisc.c:744
+>  [<ffffffff82c34943>] tty_ldisc_release+0x1b3/0x260 kernel/drivers/tty/tty_ldisc.c:772
+>  [<ffffffff82c1ef21>] tty_release+0xac1/0x13e0 kernel/drivers/tty/tty_io.c:1901
+>  [<ffffffff82c1e460>] ? release_tty+0x320/0x320 kernel/drivers/tty/tty_io.c:1688
+>  [<ffffffff8174de36>] __fput+0x236/0x780 kernel/fs/file_table.c:208
+>  [<ffffffff8174e405>] ____fput+0x15/0x20 kernel/fs/file_table.c:244
+>  [<ffffffff813595ab>] task_work_run+0x16b/0x200 kernel/kernel/task_work.c:115
+>  [<     inline     >] exit_task_work kernel/include/linux/task_work.h:21
+>  [<ffffffff81307105>] do_exit+0x8b5/0x2c60 kernel/kernel/exit.c:750
+>  [<ffffffff813fdd20>] ? debug_check_no_locks_freed+0x290/0x290 kernel/kernel/locking/lockdep.c:4123
+>  [<ffffffff81306850>] ? mm_update_next_owner+0x6f0/0x6f0 kernel/kernel/exit.c:357
+>  [<ffffffff813215e6>] ? __dequeue_signal+0x136/0x470 kernel/kernel/signal.c:550
+>  [<ffffffff8132067b>] ? recalc_sigpending_tsk+0x13b/0x180 kernel/kernel/signal.c:145
+>  [<ffffffff81309628>] do_group_exit+0x108/0x330 kernel/kernel/exit.c:880
+>  [<ffffffff8132b9d4>] get_signal+0x5e4/0x14f0 kernel/kernel/signal.c:2307
+>  [<     inline     >] ? kretprobe_table_lock kernel/kernel/kprobes.c:1113
+>  [<ffffffff8151d355>] ? kprobe_flush_task+0xb5/0x450 kernel/kernel/kprobes.c:1158
+>  [<ffffffff8115f7d3>] do_signal+0x83/0x1c90 kernel/arch/x86/kernel/signal.c:712
+>  [<ffffffff8151d2a0>] ? recycle_rp_inst+0x310/0x310 kernel/include/linux/list.h:655
+>  [<ffffffff8115f750>] ? setup_sigcontext+0x780/0x780 kernel/arch/x86/kernel/signal.c:165
+>  [<ffffffff81380864>] ? finish_task_switch+0x424/0x5f0 kernel/kernel/sched/core.c:2692
+>  [<     inline     >] ? finish_lock_switch kernel/kernel/sched/sched.h:1099
+>  [<ffffffff81380560>] ? finish_task_switch+0x120/0x5f0 kernel/kernel/sched/core.c:2678
+>  [<     inline     >] ? context_switch kernel/kernel/sched/core.c:2807
+>  [<ffffffff85d794e9>] ? __schedule+0x919/0x1bd0 kernel/kernel/sched/core.c:3283
+>  [<ffffffff81003901>] exit_to_usermode_loop+0xf1/0x1a0 kernel/arch/x86/entry/common.c:247
+>  [<     inline     >] prepare_exit_to_usermode kernel/arch/x86/entry/common.c:282
+>  [<ffffffff810062ef>] syscall_return_slowpath+0x19f/0x210 kernel/arch/x86/entry/common.c:344
+>  [<ffffffff85d88022>] int_ret_from_sys_call+0x25/0x9f kernel/arch/x86/entry/entry_64.S:281
 
-I just sent out a likely fix, would you mind testing it?
-https://patchwork.ozlabs.org/patch/599213/
+A network namespace has been removed while a ppp_async channel was
+still registered in it. Then, unregistering this channel triggered the
+bug because ppp_unregister_channel() tried to access its per-netns data
+in the defunct namespace.
+
+This scenario can happen at least with ppp_async and ppp_synctty, where
+the userspace program and the PPP channel it handles can leave in
+separate namespaces.
+
+Thanks for the report, I can reproduce the bug and will work on a fix.
+
+Guillaume
