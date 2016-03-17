@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 05/13] mlxsw: Do not pass around driver_priv directly
-Date: Thu, 17 Mar 2016 18:13:45 +0100
-Message-ID: <1458234833-25836-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next RFC 04/13] mlxsw: Pass mlxsw_core as a param of mlxsw_core_skb_transmit*
+Date: Thu, 17 Mar 2016 18:13:44 +0100
+Message-ID: <1458234833-25836-5-git-send-email-jiri@resnulli.us>
 References: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,11 +11,11 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33375 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031754AbcCQROD (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34121 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031753AbcCQROD (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:14:03 -0400
-Received: by mail-wm0-f68.google.com with SMTP id x188so457992wmg.0
+Received: by mail-wm0-f66.google.com with SMTP id p65so488561wmp.1
         for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:14:02 -0700 (PDT)
 In-Reply-To: <1458234833-25836-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
@@ -23,194 +23,119 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Instead of that, pass mlxsw_core and use a helper to get driver priv
-from driver code. Looks much cleaner that way.
+Instead of passing around driver priv, pass struct mlxsw_core *
+directly.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c     | 19 +++++++++++--------
- drivers/net/ethernet/mellanox/mlxsw/core.h     | 11 +++++++----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 17 +++++++++--------
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  8 ++++----
- 4 files changed, 31 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/core.c     | 15 +++------------
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |  5 ++---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  4 ++--
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  4 ++--
+ 4 files changed, 9 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 39161fb..3958195 100644
+index 004fb8b..39161fb 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/core.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -114,6 +114,12 @@ struct mlxsw_core {
- 	/* driver_priv has to be always the last item */
- };
+@@ -381,7 +381,7 @@ static int __mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
  
-+void *mlxsw_core_driver_priv(struct mlxsw_core *mlxsw_core)
-+{
-+	return mlxsw_core->driver_priv;
-+}
-+EXPORT_SYMBOL(mlxsw_core_driver_priv);
-+
- struct mlxsw_rx_listener_item {
- 	struct list_head list;
- 	struct mlxsw_rx_listener rxl;
-@@ -795,8 +801,7 @@ static int mlxsw_devlink_port_split(struct devlink *devlink,
- 		return -EINVAL;
- 	if (!mlxsw_core->driver->port_split)
- 		return -EOPNOTSUPP;
--	return mlxsw_core->driver->port_split(mlxsw_core->driver_priv,
--					      port_index, count);
-+	return mlxsw_core->driver->port_split(mlxsw_core, port_index, count);
+ 	mlxsw_core->emad.trans_active = true;
+ 
+-	err = mlxsw_core_skb_transmit(mlxsw_core->driver_priv, skb, tx_info);
++	err = mlxsw_core_skb_transmit(mlxsw_core, skb, tx_info);
+ 	if (err) {
+ 		dev_err(mlxsw_core->bus_info->dev, "Failed to transmit EMAD (tid=%llx)\n",
+ 			mlxsw_core->emad.tid);
+@@ -929,26 +929,17 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
  }
+ EXPORT_SYMBOL(mlxsw_core_bus_device_unregister);
  
- static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
-@@ -808,8 +813,7 @@ static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
- 		return -EINVAL;
- 	if (!mlxsw_core->driver->port_unsplit)
- 		return -EOPNOTSUPP;
--	return mlxsw_core->driver->port_unsplit(mlxsw_core->driver_priv,
--						port_index);
-+	return mlxsw_core->driver->port_unsplit(mlxsw_core, port_index);
+-static struct mlxsw_core *__mlxsw_core_get(void *driver_priv)
+-{
+-	return container_of(driver_priv, struct mlxsw_core, driver_priv);
+-}
+-
+-bool mlxsw_core_skb_transmit_busy(void *driver_priv,
++bool mlxsw_core_skb_transmit_busy(struct mlxsw_core *mlxsw_core,
+ 				  const struct mlxsw_tx_info *tx_info)
+ {
+-	struct mlxsw_core *mlxsw_core = __mlxsw_core_get(driver_priv);
+-
+ 	return mlxsw_core->bus->skb_transmit_busy(mlxsw_core->bus_priv,
+ 						  tx_info);
  }
+ EXPORT_SYMBOL(mlxsw_core_skb_transmit_busy);
  
- static const struct devlink_ops mlxsw_devlink_ops = {
-@@ -880,8 +884,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_devlink_register;
- 
--	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
--				 mlxsw_bus_info);
-+	err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
- 	if (err)
- 		goto err_driver_init;
- 
-@@ -892,7 +895,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	return 0;
- 
- err_debugfs_init:
--	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_core->driver->fini(mlxsw_core);
- err_driver_init:
- 	devlink_unregister(devlink);
- err_devlink_register:
-@@ -918,7 +921,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 	struct devlink *devlink = priv_to_devlink(mlxsw_core);
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
--	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_core->driver->fini(mlxsw_core);
- 	devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
+-int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
++int mlxsw_core_skb_transmit(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
+ 			    const struct mlxsw_tx_info *tx_info)
+ {
+-	struct mlxsw_core *mlxsw_core = __mlxsw_core_get(driver_priv);
+-
+ 	return mlxsw_core->bus->skb_transmit(mlxsw_core->bus_priv, skb,
+ 					     tx_info);
+ }
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index f8054a7..85ded38 100644
+index cc8fceb..f8054a7 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/core.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -62,6 +62,8 @@ struct mlxsw_driver;
- struct mlxsw_bus;
- struct mlxsw_bus_info;
+@@ -75,10 +75,9 @@ struct mlxsw_tx_info {
+ 	bool is_emad;
+ };
  
-+void *mlxsw_core_driver_priv(struct mlxsw_core *mlxsw_core);
-+
- int mlxsw_core_driver_register(struct mlxsw_driver *mlxsw_driver);
- void mlxsw_core_driver_unregister(struct mlxsw_driver *mlxsw_driver);
+-bool mlxsw_core_skb_transmit_busy(void *driver_priv,
++bool mlxsw_core_skb_transmit_busy(struct mlxsw_core *mlxsw_core,
+ 				  const struct mlxsw_tx_info *tx_info);
+-
+-int mlxsw_core_skb_transmit(void *driver_priv, struct sk_buff *skb,
++int mlxsw_core_skb_transmit(struct mlxsw_core *mlxsw_core, struct sk_buff *skb,
+ 			    const struct mlxsw_tx_info *tx_info);
  
-@@ -201,11 +203,12 @@ struct mlxsw_driver {
- 	const char *kind;
- 	struct module *owner;
- 	size_t priv_size;
--	int (*init)(void *driver_priv, struct mlxsw_core *mlxsw_core,
-+	int (*init)(struct mlxsw_core *mlxsw_core,
- 		    const struct mlxsw_bus_info *mlxsw_bus_info);
--	void (*fini)(void *driver_priv);
--	int (*port_split)(void *driver_priv, u8 local_port, unsigned int count);
--	int (*port_unsplit)(void *driver_priv, u8 local_port);
-+	void (*fini)(struct mlxsw_core *mlxsw_core);
-+	int (*port_split)(struct mlxsw_core *mlxsw_core, u8 local_port,
-+			  unsigned int count);
-+	int (*port_unsplit)(struct mlxsw_core *mlxsw_core, u8 local_port);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
+ struct mlxsw_rx_listener {
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1e4dc5e..324848d 100644
+index 22bba32..1e4dc5e 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1650,9 +1650,10 @@ static u8 mlxsw_sp_cluster_base_port_get(u8 local_port)
- 	return local_port - offset;
- }
- 
--static int mlxsw_sp_port_split(void *priv, u8 local_port, unsigned int count)
-+static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
-+			       unsigned int count)
- {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	u8 width = MLXSW_PORT_MODULE_MAX_WIDTH / count;
- 	u8 module, cur_width, base_port;
-@@ -1724,9 +1725,9 @@ err_port_create:
- 	return err;
- }
- 
--static int mlxsw_sp_port_unsplit(void *priv, u8 local_port)
-+static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
- {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	u8 module, cur_width, base_port;
- 	unsigned int count;
-@@ -2071,10 +2072,10 @@ static int mlxsw_sp_lag_init(struct mlxsw_sp *mlxsw_sp)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcr), slcr_pl);
- }
- 
--static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
-+static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
- {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+@@ -378,7 +378,7 @@ static netdev_tx_t mlxsw_sp_port_xmit(struct sk_buff *skb,
+ 	u64 len;
  	int err;
  
- 	mlxsw_sp->core = mlxsw_core;
-@@ -2145,9 +2146,9 @@ err_event_register:
- 	return err;
- }
+-	if (mlxsw_core_skb_transmit_busy(mlxsw_sp, &tx_info))
++	if (mlxsw_core_skb_transmit_busy(mlxsw_sp->core, &tx_info))
+ 		return NETDEV_TX_BUSY;
  
--static void mlxsw_sp_fini(void *priv)
-+static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+ 	if (unlikely(skb_headroom(skb) < MLXSW_TXHDR_LEN)) {
+@@ -402,7 +402,7 @@ static netdev_tx_t mlxsw_sp_port_xmit(struct sk_buff *skb,
+ 	/* Due to a race we might fail here because of a full queue. In that
+ 	 * unlikely case we simply drop the packet.
+ 	 */
+-	err = mlxsw_core_skb_transmit(mlxsw_sp, skb, &tx_info);
++	err = mlxsw_core_skb_transmit(mlxsw_sp->core, skb, &tx_info);
  
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
+ 	if (!err) {
+ 		pcpu_stats = this_cpu_ptr(mlxsw_sp_port->pcpu_stats);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 087c094..c18a43a 100644
+index f4f2a9d..087c094 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1446,10 +1446,10 @@ static int mlxsw_sx_flood_init(struct mlxsw_sx *mlxsw_sx)
- 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(sgcr), sgcr_pl);
- }
- 
--static int mlxsw_sx_init(void *priv, struct mlxsw_core *mlxsw_core,
-+static int mlxsw_sx_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
- {
--	struct mlxsw_sx *mlxsw_sx = priv;
-+	struct mlxsw_sx *mlxsw_sx = mlxsw_core_driver_priv(mlxsw_core);
+@@ -302,7 +302,7 @@ static netdev_tx_t mlxsw_sx_port_xmit(struct sk_buff *skb,
+ 	u64 len;
  	int err;
  
- 	mlxsw_sx->core = mlxsw_core;
-@@ -1496,9 +1496,9 @@ err_event_register:
- 	return err;
- }
+-	if (mlxsw_core_skb_transmit_busy(mlxsw_sx, &tx_info))
++	if (mlxsw_core_skb_transmit_busy(mlxsw_sx->core, &tx_info))
+ 		return NETDEV_TX_BUSY;
  
--static void mlxsw_sx_fini(void *priv)
-+static void mlxsw_sx_fini(struct mlxsw_core *mlxsw_core)
- {
--	struct mlxsw_sx *mlxsw_sx = priv;
-+	struct mlxsw_sx *mlxsw_sx = mlxsw_core_driver_priv(mlxsw_core);
+ 	if (unlikely(skb_headroom(skb) < MLXSW_TXHDR_LEN)) {
+@@ -320,7 +320,7 @@ static netdev_tx_t mlxsw_sx_port_xmit(struct sk_buff *skb,
+ 	/* Due to a race we might fail here because of a full queue. In that
+ 	 * unlikely case we simply drop the packet.
+ 	 */
+-	err = mlxsw_core_skb_transmit(mlxsw_sx, skb, &tx_info);
++	err = mlxsw_core_skb_transmit(mlxsw_sx->core, skb, &tx_info);
  
- 	mlxsw_sx_traps_fini(mlxsw_sx);
- 	mlxsw_sx_event_unregister(mlxsw_sx, MLXSW_TRAP_ID_PUDE);
+ 	if (!err) {
+ 		pcpu_stats = this_cpu_ptr(mlxsw_sx_port->pcpu_stats);
 -- 
 2.5.0
