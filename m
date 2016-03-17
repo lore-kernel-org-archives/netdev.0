@@ -1,109 +1,59 @@
-From: "Subash Abhinov Kasiviswanathan" <subashab@codeaurora.org>
-Subject: [PATCH net] esp: Fix crash observed during device unregistration and decryption
-Date: Wed, 16 Mar 2016 18:25:26 -0600
-Message-ID: <008d01d17fe3$81c2b520$85481f60$@codeaurora.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH V3 net-next] ixgbe: Avoid unaligned access in ixgbe_atr()
+ for LLC packets
+Date: Wed, 16 Mar 2016 18:31:42 -0700
+Message-ID: <CAKgT0Uds_==AZrM-5JsoCDYDQas3JVcXK6Z5B7-PYG+b=wyBnQ@mail.gmail.com>
+References: <20160314194716.GM5084@oracle.com>
+	<1458169132.2878.25.camel@intel.com>
+	<20160316230157.GK21307@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
-	"'Steffen Klassert'" <steffen.klassert@secunet.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46097 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752552AbcCQAZ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 20:25:29 -0400
-Content-Language: en-us
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:35128 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753444AbcCQBbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 21:31:43 -0400
+Received: by mail-ig0-f175.google.com with SMTP id vf5so131577434igb.0
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 18:31:42 -0700 (PDT)
+In-Reply-To: <20160316230157.GK21307@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A crash is observed when a decrypted packet is processed in receive path.
-get_rps_cpus() tries to dereference the skb->dev fields but it appears
-that the device is freed from the poison pattern.
+On Wed, Mar 16, 2016 at 4:01 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (03/16/16 15:58), Jeff Kirsher wrote:
+>>
+>> This does not apply since Alex Duyck beat you to the fix.  Here is the
+>> patch he submitted on 3/15 which corrects the issue.  So I am dropping
+>> your patch from the queue.
+>>
+>
+> That's weird because Alexander was reviewing my fix on the various
+> lists yesterday, so he could have just told me about this.
+>
+> But, whatever.
 
-[<ffffffc000af58ec>] get_rps_cpu+0x94/0x2f0
-[<ffffffc000af5f94>] netif_rx_internal+0x140/0x1cc
-[<ffffffc000af6094>] netif_rx+0x74/0x94
-[<ffffffc000bc0b6c>] xfrm_input+0x754/0x7d0
-[<ffffffc000bc0bf8>] xfrm_input_resume+0x10/0x1c
-[<ffffffc000ba6eb8>] esp_input_done+0x20/0x30
-[<ffffffc0000b64c8>] process_one_work+0x244/0x3fc
-[<ffffffc0000b7324>] worker_thread+0x2f8/0x418
-[<ffffffc0000bb40c>] kthread+0xe0/0xec
+Sowmini,
 
--013|get_rps_cpu(
-     |    dev = 0xFFFFFFC08B688000,
-     |    skb = 0xFFFFFFC0C76AAC00 -> (
-     |      dev = 0xFFFFFFC08B688000 -> (
-     |        name =
-"......................................................
-     |        name_hlist = (next = 0xAAAAAAAAAAAAAAAA, pprev =
-0xAAAAAAAAAAA
+Just for the record I didn't submit it on March 15 I submitted it on
+January 26th as per the log in patchwork,
+http://patchwork.ozlabs.org/patch/573058/.
 
-Following are the sequence of events observed -
+Sorry I didn't realize the patch was not against the next-queue.  Back
+when I made that fix I was focused on the IPv6 portion of it so that
+piece of it had slipped my mind.  If it is any consolation at least my
+patch is 7+ weeks ahead in the queue so hopefully the fix will make it
+into net-next as soon as the merge window opens.
 
-- Encrypted packet in receive path from netdevice is queued
-- Encrypted packet queued for decryption (asynchronous)
-- Netdevice brought down and freed
-- Packet is decrypted and returned through callback in esp_input_done
-- Packet is queued again for process in network stack using netif_rx
-
-Since the device appears to have been freed, the dereference of skb->dev in
-get_rps_cpus() leads to an unhandled page fault exception.
-
-Fix this by holding on to device reference when queueing packets
-asynchronously and releasing the reference on call back return.
-
-Suggested-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv4/esp4.c | 2 ++
- net/ipv6/esp6.c | 2 ++
- 2 files changed, 4 insertions(+)
-
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 4779374..d482a96 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -380,6 +380,7 @@ static void esp_input_done(struct crypto_async_request
-*base, int err)
- {
- 	struct sk_buff *skb = base->data;
- 
-+	dev_put(skb->dev);
- 	xfrm_input_resume(skb, esp_input_done2(skb, err));
- }
- 
-@@ -454,6 +455,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff
-*skb)
- 
- 	esph = (struct ip_esp_hdr *)skb->data;
- 
-+	dev_hold(skb->dev);
- 	aead_request_set_callback(req, 0, esp_input_done, skb);
- 
- 	/* For ESN we move the header forward by 4 bytes to
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 060a60b..12c491a 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -334,6 +334,7 @@ static void esp_input_done(struct crypto_async_request
-*base, int err)
- {
- 	struct sk_buff *skb = base->data;
- 
-+	dev_put(skb->dev);
- 	xfrm_input_resume(skb, esp_input_done2(skb, err));
- }
- 
-@@ -408,6 +409,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff
-*skb)
- 
- 	esph = (struct ip_esp_hdr *)skb->data;
- 
-+	dev_hold(skb->dev);
- 	aead_request_set_callback(req, 0, esp_input_done, skb);
- 
- 	/* For ESN we move the header forward by 4 bytes to
--- 
+- Alex
