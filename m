@@ -1,222 +1,73 @@
-From: Patrick Boutilier <boutilpj@ednet.ns.ca>
-Subject: Re: Extreme slowness in IPIP tunnel when routing through kernel 3.18
- and later
-Date: Thu, 17 Mar 2016 17:30:02 -0300
-Message-ID: <56EB13CA.4040007@ednet.ns.ca>
-References: <56EAB8F3.7060802@ednet.ns.ca>
- <CALx6S34YOS=q2-sjK8ZkkRWZ152Y8SBWEP=oxJNM8HTQ-1MhRw@mail.gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal
+ tables
+Date: Thu, 17 Mar 2016 16:48:33 -0400
+Message-ID: <56EB1821.4050902@ti.com>
+References: <CAE4R7bAwuZkoOqO1eA9pWQ35UPiSs7-Fm+AaedVU1wwiRZ=Jwg@mail.gmail.com>
+ <20150818181930.GK4381@lunn.ch>
+ <CAE4R7bA621-ySQuOJ_kLTSju7ZwD3Ur4oSAS0JCE4EjzEsRr7Q@mail.gmail.com>
+ <20150818.134720.1520233036019988872.davem@davemloft.net>
+ <56EB0F37.9090908@ti.com> <20160317202519.GA30210@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080807060300010701020105"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <sfeldma@gmail.com>,
+	<netdev@vger.kernel.org>, <jiri@resnulli.us>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from staff.ednet.ns.ca ([142.227.51.33]:43422 "EHLO
-	staff.ednet.ns.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935820AbcCQUaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 16:30:04 -0400
-In-Reply-To: <CALx6S34YOS=q2-sjK8ZkkRWZ152Y8SBWEP=oxJNM8HTQ-1MhRw@mail.gmail.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:41321 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932832AbcCQUsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 16:48:42 -0400
+In-Reply-To: <20160317202519.GA30210@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------080807060300010701020105
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On 03/17/2016 04:25 PM, Andrew Lunn wrote:
+> On Thu, Mar 17, 2016 at 04:10:31PM -0400, Murali Karicheri wrote:
+>> David,
+>>
+>> On 08/18/2015 04:47 PM, David Miller wrote:
+>>> I see some drivers where the foo_debugfs.c file is larger than the rest
+>>> of the driver.  Once people start using it, it's like crack, and they
+>>> dump every single debugging widget they found useful at some point into
+>>> there.
+>>>
+>>> This is not what we want.  Most things I see in debugfs support was
+>>> probably useful for debugging one particular bug but then it was never
+>>> really useful again in the future.  Those kinds of things can be done
+>>> locally in someone's tree.
+>>>
+>>> I often see various kinds of "statistics" ending up in these things,
+>>> or register dumps, both of which are 'ethtool' or similar material.
+>> Very late to this discussion, but I need to port some of the internal code
+>> to display the content of a ALE (Address Learning Engine) table maintained
+>> in hardwareat L2 layer. Currently I have a sysfs implementation that dumps
+>> information like below.
+>>
+>> root@k2e-evm:~# cat /sys/devices/platform/soc/2620110.netcp/ale_table
+>> index 0, raw: 000007fc d000ffff ffffffff, type: addr(1), addr: ff:ff:ff:ff:ff:ff, mcstate: f(3), port mask: 1ff, no super
+>> index 1, raw: 00000000 10000800 28329a1c, type: addr(1), addr: 08:00:28:32:9a:1c, uctype: persistent(0), port: 0
+>> index 2, raw: 000007fc d0000100 5e000001, type: addr(1), addr: 01:00:5e:00:00:01, mcstate: f(3), port mask: 1ff, no super
+>> index 19, raw: 00000004 d000d4be d93db6c1, type: addr(1), addr: d4:be:d9:3d:b6:c1, uctype: touched(3), port: 1
+>>
+>> What is the available interface in kernel to expose this information
+>> to user space as debugfs is not suggested based on this thread?
+> 
+> This looks a lot like what the mv88e6xxx_port_fdb_dump() callback
+> returns to DSA when SWITCHDEV_OBJ_ID_PORT_FDB is passed to
+> switchdev_port_obj_dump() in the switchdev ops.
+> 
+Andrew,
 
-On 03/17/2016 01:47 PM, Tom Herbert wrote:
-> On Thu, Mar 17, 2016 at 7:02 AM, Patrick Boutilier <boutilpj@ednet.ns.ca> wrote:
->> I have an IPIP tunnel setup between two hosts in different buildings. The
->> Linux router they route through causes extreme slowness in the tunnel when
->> running kernels from 3.18 on . tcpdump shows many cksum errors which don't
->> show up in the 3.17 and earlier kernels. Speed goes back to normal when
->> rx-checksumming and tx-checksumming are turned off using ethtool on the
->> Linux router . Would this be an effect of bulk network packet transmission
->> that was introduced in 3.18 or some other issue?
->>
-> If this is happening on a router then the only case where checksums
-> are pertinent should be if GSO/GRO is enabled. Please try disabling
-> these. Also, are these showing up as checksum errors on the receiver
-> (netstat -s).
+Which tool user has to use to get this dump once implemented?
 
+Murali
 
-Yes, turning off GSO/GRO also fixes the issue.
-
-Not sure which value of netstat I am looking for.
-
-Compiling a new kernel now with Jesse's patch to test. Will report back 
-in a bit.
-
-
-
->
->
->>
->> eth2
->> driver: igb
->> version: 5.2.15-k
->> firmware-version: 1.5.1
->> bus-info: 0000:06:00.0
->> supports-statistics: yes
->> supports-test: yes
->> supports-eeprom-access: yes
->> supports-register-dump: yes
->> supports-priv-flags: no
->>
->>
->> eth6
->> driver: ixgbe
->> version: 3.19.1-k
->> firmware-version: 0x80000389
->> bus-info: 0000:41:00.0
->> supports-statistics: yes
->> supports-test: yes
->> supports-eeprom-access: yes
->> supports-register-dump: yes
->> supports-priv-flags: no
->>
->>
->>
->>
->>
->> Example of cksum from tcpdump:
->>
->> Flags [.], cksum 0x2237 (incorrect -> 0xbb02), seq 424119200:424120648, ack
->> 1, win 115, options [nop,nop,TS val 303173784 ecr 3971495454], length 1448
->>
->>
->>
->>
->>
->> Results of nuttcp test with rx-checksumming and tx-checksumming on:
->>
->>
->> Testing upload inside tunnel
->>
->>
->>
->>      0.0625 MB /   5.00 sec =    0.1048 Mbps    79 retrans
->>      0.0625 MB /   5.00 sec =    0.1048 Mbps    59 retrans
->>      0.0625 MB /   5.00 sec =    0.1049 Mbps    27 retrans
->>
->>      0.2096 MB /  16.11 sec =    0.1092 Mbps 0 %TX 0 %RX 186 retrans 0.47
->> msRTT
->>
->>
->>
->> Testing download inside tunnel
->>
->>
->>
->>      0.5000 MB /   5.00 sec =    0.8389 Mbps   112 retrans
->>      2.6250 MB /   5.00 sec =    4.4040 Mbps   412 retrans
->>      0.8750 MB /   5.00 sec =    1.4680 Mbps   156 retrans
->>
->>      4.0243 MB /  15.48 sec =    2.1809 Mbps 0 %TX 0 %RX 705 retrans 0.47
->> msRTT
->>
->>
->> Testing upload outside tunnel
->>
->>
->>
->>    423.0000 MB /   5.00 sec =  709.4949 Mbps   275 retrans
->>    442.0625 MB /   5.00 sec =  741.7008 Mbps    53 retrans
->>    418.5625 MB /   5.00 sec =  702.1329 Mbps   133 retrans
->>
->>   1287.0080 MB /  15.08 sec =  715.9252 Mbps 1 %TX 30 %RX 461 retrans 0.43
->> msRTT
->>
->>
->>
->> Testing download outside tunnel
->>
->>
->>
->>    552.4375 MB /   5.00 sec =  926.8347 Mbps    26 retrans
->>    555.1875 MB /   5.00 sec =  931.4499 Mbps    17 retrans
->>    553.0000 MB /   5.00 sec =  927.7802 Mbps    16 retrans
->>
->>   1664.2149 MB /  15.03 sec =  928.6737 Mbps 9 %TX 5 %RX 60 retrans 0.46
->> msRTT
->>
->>
->>
->>
->>
->>
->> Results of nuttcp test with rx-checksumming and tx-checksumming off:
->>
->>
->>
->> Testing upload inside tunnel
->>
->>
->>
->>    440.0000 MB /   5.00 sec =  738.0112 Mbps   117 retrans
->>    433.0000 MB /   5.00 sec =  726.4892 Mbps   135 retrans
->>    447.9375 MB /   5.00 sec =  751.5714 Mbps   112 retrans
->>
->>   1321.0069 MB /  15.04 sec =  736.7213 Mbps 3 %TX 21 %RX 364 retrans 0.51
->> msRTT
->>
->>
->>
->> Testing download inside tunnel
->>
->>
->>
->>    494.0625 MB /   5.00 sec =  828.8973 Mbps   335 retrans
->>    471.0000 MB /   5.00 sec =  790.2050 Mbps   219 retrans
->>    469.8750 MB /   5.00 sec =  788.3174 Mbps   220 retrans
->>
->>   1435.1875 MB /  15.00 sec =  802.4203 Mbps 89 %TX 12 %RX 774 retrans 0.46
->> msRTT
->>
->>
->> Testing upload outside tunnel
->>
->>
->>
->>    431.2500 MB /   5.00 sec =  723.2808 Mbps    33 retrans
->>    446.3750 MB /   5.00 sec =  748.9268 Mbps    10 retrans
->>    475.4375 MB /   5.00 sec =  797.7044 Mbps     0 retrans
->>
->>   1355.0834 MB /  15.06 sec =  754.6438 Mbps 1 %TX 33 %RX 43 retrans 0.53
->> msRTT
->>
->>
->>
->> Testing download outside tunnel
->>
->>
->>
->>    424.8125 MB /   5.00 sec =  712.7061 Mbps   102 retrans
->>    456.5625 MB /   5.00 sec =  765.9872 Mbps    80 retrans
->>    454.0000 MB /   5.00 sec =  761.6935 Mbps   116 retrans
->>
->>   1335.7823 MB /  15.01 sec =  746.6959 Mbps 4 %TX 5 %RX 298 retrans 0.55
->> msRTT
+> 	  Andrew
+> 
 
 
---------------080807060300010701020105
-Content-Type: text/x-vcard; charset=utf-8;
- name="boutilpj.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="boutilpj.vcf"
-
-begin:vcard
-fn:Patrick Boutilier
-n:Boutilier;Patrick
-org:;Nova Scotia Department of Education
-adr:;;2021 Brunswick Street;Halifax;NS;B3K 2Y5;Canada
-email;internet:boutilpj@ednet.ns.ca
-title:WAN Communications Specialist
-tel;work:902-424-6800
-tel;fax:902-424-0874
-version:2.1
-end:vcard
-
-
---------------080807060300010701020105--
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
