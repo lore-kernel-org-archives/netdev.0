@@ -1,99 +1,46 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [v6, 5/5] mmc: sdhci-of-esdhc: fix host version for
-	T4240-R1.0-R2.0
-Date: Thu, 17 Mar 2016 12:01:01 -0500
-Message-ID: <20160317170101.GA21009@rob-hp-laptop>
-References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
-	<1457518131-11339-6-git-send-email-yangbo.lu@nxp.com>
-	<4947024.WeMycs2fID@wuerfel>
-	<HE1PR04MB0889CE4742B92461A925B9C4F8880@HE1PR04MB0889.eurprd04.prod.outlook.com>
-	<DB5PR0401MB19286B2D23D07F5C60DB799D91880@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: at803x: Add support to control PHY LEDs
+Date: Thu, 17 Mar 2016 09:59:35 -0700
+Message-ID: <56EAE277.4050109@gmail.com>
+References: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
+ <1458223147-16142-2-git-send-email-vishalthanki@gmail.com>
+ <20160317145032.GB26019@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev@li
-To: Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <DB5PR0401MB19286B2D23D07F5C60DB799D91880-GXldUsIPo7Z/SeJcUcAJq43W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: ujhelyi.m@gmail.com, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+	Vishal Thanki <vishalthanki@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:32912 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031681AbcCQRBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 13:01:17 -0400
+Received: by mail-pf0-f172.google.com with SMTP id 124so128686537pfg.0
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 10:01:17 -0700 (PDT)
+In-Reply-To: <20160317145032.GB26019@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBNYXIgMTQsIDIwMTYgYXQgMDU6NDU6NDNQTSArMDAwMCwgU2NvdHQgV29vZCB3cm90
-ZToKPiBPbiAwMy8xNC8yMDE2IDAyOjI5IEFNLCBZYW5nYm8gTHUgd3JvdGU6Cj4gPj4gLS0tLS1P
-cmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+PiBGcm9tOiBBcm5kIEJlcmdtYW5uIFttYWlsdG86YXJu
-ZEBhcm5kYi5kZV0KPiA+PiBTZW50OiBNb25kYXksIE1hcmNoIDE0LCAyMDE2IDY6MjYgQU0KPiA+
-PiBUbzogbGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKPiA+PiBDYzogWWFuZ2JvIEx1OyBk
-ZXZpY2V0cmVlQHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQo+ID4+IGtlcm5lbEBsaXN0cy5p
-bmZyYWRlYWQub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC0KPiA+PiBj
-bGtAdmdlci5rZXJuZWwub3JnOyBsaW51eC1pMmNAdmdlci5rZXJuZWwub3JnOyBpb21tdUBsaXN0
-cy5saW51eC0KPiA+PiBmb3VuZGF0aW9uLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGlu
-dXgtbW1jQHZnZXIua2VybmVsLm9yZzsKPiA+PiB1bGYuaGFuc3NvbkBsaW5hcm8ub3JnOyBaaGFv
-IFFpYW5nOyBSdXNzZWxsIEtpbmc7IEJodXBlc2ggU2hhcm1hOyBKb2VyZwo+ID4+IFJvZWRlbDsg
-U2FudG9zaCBTaGlsaW1rYXI7IFNjb3R0IFdvb2Q7IFJvYiBIZXJyaW5nOyBDbGF1ZGl1IE1hbm9p
-bDsgS3VtYXIKPiA+PiBHYWxhOyBZYW5nLUxlbyBMaTsgWGlhb2JvIFhpZQo+ID4+IFN1YmplY3Q6
-IFJlOiBbdjYsIDUvNV0gbW1jOiBzZGhjaS1vZi1lc2RoYzogZml4IGhvc3QgdmVyc2lvbiBmb3Ig
-VDQyNDAtCj4gPj4gUjEuMC1SMi4wCj4gPj4KPiA+PiBPbiBXZWRuZXNkYXkgMDkgTWFyY2ggMjAx
-NiAxODowODo1MSBZYW5nYm8gTHUgd3JvdGU6Cj4gPj4+IEBAIC01NjcsMTAgKzU4MCwyMCBAQCBz
-dGF0aWMgdm9pZCBlc2RoY19pbml0KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UKPiA+PiAqcGRldiwg
-c3RydWN0IHNkaGNpX2hvc3QgKmhvc3QpCj4gPj4+ICAgICAgICAgc3RydWN0IHNkaGNpX3BsdGZt
-X2hvc3QgKnBsdGZtX2hvc3Q7Cj4gPj4+ICAgICAgICAgc3RydWN0IHNkaGNpX2VzZGhjICplc2Ro
-YzsKPiA+Pj4gICAgICAgICB1MTYgaG9zdF92ZXI7Cj4gPj4+ICsgICAgICAgdTMyIHN2cjsKPiA+
-Pj4KPiA+Pj4gICAgICAgICBwbHRmbV9ob3N0ID0gc2RoY2lfcHJpdihob3N0KTsKPiA+Pj4gICAg
-ICAgICBlc2RoYyA9IHNkaGNpX3BsdGZtX3ByaXYocGx0Zm1faG9zdCk7Cj4gPj4+Cj4gPj4+ICsg
-ICAgICAgZnNsX2d1dHNfaW5pdCgpOwo+ID4+PiArICAgICAgIHN2ciA9IGZzbF9ndXRzX2dldF9z
-dnIoKTsKPiA+Pj4gKyAgICAgICBpZiAoc3ZyKSB7Cj4gPj4+ICsgICAgICAgICAgICAgICBlc2Ro
-Yy0+c29jX3ZlciA9IFNWUl9TT0NfVkVSKHN2cik7Cj4gPj4+ICsgICAgICAgICAgICAgICBlc2Ro
-Yy0+c29jX3JldiA9IFNWUl9SRVYoc3ZyKTsKPiA+Pj4gKyAgICAgICB9IGVsc2Ugewo+ID4+PiAr
-ICAgICAgICAgICAgICAgZGV2X2VycigmcGRldi0+ZGV2LCAiRmFpbGVkIHRvIGdldCBTVlIgdmFs
-dWUhXG4iKTsKPiA+Pj4gKyAgICAgICB9Cj4gPj4+ICsKPiA+Pgo+ID4+IFRoaXMgbWFrZXMgdGhl
-IGRyaXZlciBub24tcG9ydGFibGUuIEJldHRlciBpZGVudGlmeSB0aGUgc3BlY2lmaWMKPiA+PiB3
-b3JrYXJvdW5kcyBiYXNlZCBvbiB0aGUgY29tcGF0aWJsZSBzdHJpbmcgZm9yIHRoaXMgZGV2aWNl
-LCBvciBhZGQgYQo+ID4+IGJvb2xlYW4gRFQgcHJvcGVydHkgZm9yIHRoZSBxdWlyay4KPiA+Pgo+
-ID4+IAlBcm5kCj4gPiAKPiA+IFtMdSBZYW5nYm8tQjQ3MDkzXSBIaSBBcm5kLCB3ZSBkaWQgaGF2
-ZSBhIGRpc2N1c3Npb24gYWJvdXQgdXNpbmcgRFRTIGluIHYxIGJlZm9yZS4KPiA+IGh0dHBzOi8v
-cGF0Y2h3b3JrLmtlcm5lbC5vcmcvcGF0Y2gvNjgzNDIyMS8KPiA+IAo+ID4gV2UgZG9u4oCZdCBo
-YXZlIGEgc2VwYXJhdGUgRFRTIGZpbGUgZm9yIGVhY2ggcmV2aXNpb24gb2YgYW4gU09DIGFuZCBp
-ZiB3ZSBkaWQsIHdlJ2QgY29uc3RhbnRseSBoYXZlIHBlb3BsZSB1c2luZyB0aGUgd3Jvbmcgb25l
-Lgo+ID4gSW4gYWRkaXRpb24sIHRoZSBkZXZpY2UgdHJlZSBpcyBzdGFibGUgQUJJIGFuZCBlcnJh
-dGEgYXJlIG9mdGVuIGRpc2NvdmVyZWQgYWZ0ZXIgZGV2aWNlIHRyZWUgYXJlIGRlcGxveWVkLgo+
-ID4gU2VlIHRoZSBsaW5rIGZvciBkZXRhaWxzLgo+ID4gCj4gPiBTbyB3ZSBkZWNpZGUgdG8gcmVh
-ZCBTVlIgZnJvbSB0aGUgZGV2aWNlLWNvbmZpZy9ndXRzIE1NSU8gYmxvY2sgb3RoZXIgdGhhbiB1
-c2luZyBEVFMuCj4gPiBUaGFua3MuCj4gCj4gQWxzbyBub3RlIHRoYXQgdGhpcyBkcml2ZXIgaXMg
-YWxyZWFkeSBvbmx5IGZvciBmc2wtc3BlY2lmaWMgaGFyZHdhcmUsCj4gYW5kIGl0IHdpbGwgc3Rp
-bGwgd29yayBldmVuIGlmIGZzbF9ndXRzIGRvZXNuJ3QgZmluZCBhbnl0aGluZyB0byBiaW5kIHRv
-Cj4gLS0gaXQganVzdCB3b3VsZG4ndCBiZSBhYmxlIHRvIGRldGVjdCBlcnJhdGEgYmFzZWQgb24g
-U1ZSIGluIHRoYXQgY2FzZS4KCklJUkMsIGl0IGlzIHRoZSBzYW1lIElQIGJsb2NrIGFzIGkuTVgg
-YW5kIEFybmQncyBwb2ludCBpcyB0aGlzIHdvbid0IApldmVuIGNvbXBpbGUgb24gIVBQQy4gSXQg
-aXMgdGhpbmdzIGxpa2UgdGhpcyB0aGF0IHByZXZlbnQgc2hhcmluZyB0aGUgCmRyaXZlci4gRGVh
-bGluZyB3aXRoIFNpIHJldnMgaXMgYSBjb21tb24gcHJvYmxlbS4gV2Ugc2hvdWxkIGhhdmUgYSAK
-Y29tbW9uIHNvbHV0aW9uLiBUaGVyZSBpcyBzb2NfZGV2aWNlIGZvciB0aGlzIHB1cnBvc2UuCgpP
-VE9ILCB0aGUgaW50ZWdyYXRpb24gZGlmZmVyZW5jZXMgbWF5IGJlIGVub3VnaCB0aGF0IHRyeWlu
-ZyB0byBoYXZlIGEgCmNvbW1vbiBkcml2ZXIgd2l0aCBpLk1YIHdvdWxkIG5vdCBiZSB3b3J0aCBp
-dC4KClJvYgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpp
-b21tdSBtYWlsaW5nIGxpc3QKaW9tbXVAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6
-Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vaW9tbXU=
+On 17/03/16 07:50, Andrew Lunn wrote:
+> On Thu, Mar 17, 2016 at 02:59:07PM +0100, Vishal Thanki wrote:
+>> The LEDs can be turned on and off by a sysfs interface
+>> now. Write 0 to "led_enable" file to turn off the LEDs
+>> and write 1 to turn on. The support is experimental
+>> and can be enabled by kernel configuration option.
+>>
+>> Signed-off-by: Vishal Thanki <vishalthanki@gmail.com>
+>> ---
+>>  drivers/net/phy/Kconfig  |  7 +++++
+>>  drivers/net/phy/at803x.c | 71 ++++++++++++++++++++++++++++++++++++++++++++++++
+> 
+> Hi Vishal
+> 
+> This solution seems specific to the at803. You should be thinking of a
+> generic solution that all PHYs can use. eg add a new callback function
+> to phy_driver, and put the sysfs handling code in phylib.
+
+Indeed, maybe we should be considering using the existing LEDS subsystem
+(drivers/leds/*) to expose the PHY LEDs to user-space in a standard way?
+-- 
+Florian
