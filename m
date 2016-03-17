@@ -1,50 +1,42 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: don't segment UFO packets
-Date: Thu, 17 Mar 2016 12:01:31 +0100
-Message-ID: <20160317110131.GH3347@gauss.secunet.com>
-References: <20160129234424.GC7907@midget.suse.cz>
- <20160130042102.GA22809@gondor.apana.org.au>
- <20160316160026.GB19258@midget.suse.cz>
- <20160317050359.GA3840@gondor.apana.org.au>
- <20160317094115.GA11706@midget.suse.cz>
- <20160317102459.GG3347@gauss.secunet.com>
- <20160317104953.GB11706@midget.suse.cz>
+From: Bob Copeland <me@bobcopeland.com>
+Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
+Date: Thu, 17 Mar 2016 07:12:48 -0400
+Message-ID: <20160317111248.GC1238@localhost>
+References: <1458123478-1795-1-git-send-email-michal.kazior@tieto.com>
+ <CA+BoTQ=65mHN5iLnZjTE+tyEG7nfmCx4NZNbGRF6+VpRaNmOYw@mail.gmail.com>
+ <CAA93jw5cUaj_qM+CYHHoRaghLDLC+BUgF4AjT=Oec+SB-zb74g@mail.gmail.com>
+ <CAA93jw6tDdiYuginPbUY1DFJLiDxofHMFN6j2BvQPabPmBtuRw@mail.gmail.com>
+ <20160316185531.GA1771@localhost>
+ <CAGyitvMDEUiNx7HD=XKjXNHnFvZ_gxD_BbQx3AP-57_+dBeD4A@mail.gmail.com>
+ <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jasmine Strong <jas@eero.com>, Dave Taht <dave.taht@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+	"codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
+	make-wifi-fast@lists.bufferbloat.net
+To: Michal Kazior <michal.kazior@tieto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:35912 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935530AbcCQLBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Mar 2016 07:01:34 -0400
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:34593 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030339AbcCQLM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 07:12:59 -0400
+Received: by mail-qk0-f172.google.com with SMTP id x1so33393713qkc.1
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 04:12:57 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160317104953.GB11706@midget.suse.cz>
+In-Reply-To: <CA+BoTQnFN6VANn=5EUvHc0Dbfh4Zv0HraOto2ySN3_HdOpD7Sg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 17, 2016 at 11:49:53AM +0100, Jiri Bohac wrote:
-> On Thu, Mar 17, 2016 at 11:24:59AM +0100, Steffen Klassert wrote:
-> > > > On Wed, Mar 16, 2016 at 05:00:26PM +0100, Jiri Bohac wrote:
-> > > Fixes my broken case. 
-> > 
-> > Is this IPv4 or IPv6? IPv4 should not create a GSO skb
-> > if IPsec is done. It checks for rt->dst.header_len
-> > in __ip_append_data() and does a fallback to the
-> > standard case if rt->dst.header_len is non zero.
-> 
-> It's IPv6.
-> 
-> > In IPv6 this check is missing, so this could be the
-> > problem if this is IPv6.
-> 
-> Doesn't the check do exactly the opposite of what the RFC says?
-> The RFC wants ESP to be performed first and fragmentation after
-> that. UDPv4 currently seems to be doing the opposite. 
+On Thu, Mar 17, 2016 at 09:55:03AM +0100, Michal Kazior wrote:
+> If you consider Wi-Fi is half-duplex and latency in the entire stack
+> (for processing ICMP and UDP_RR) is greater than 11e contention window
+> timings you can get your BE flow responses with extra delay (since
+> other queues might have responses ready quicker).
 
-No, __ip_append_data() only prepares the packets for fragmentation
-and enqueues them. Then __ip_make_skb() dequeues and builds
-one skb with a fraglist. Then the xfrm layer is called, so
-esp linearizes (unfortunately) the skb and applies the
-transformation. Fragmentation happens after that.
+Got it, that makes sense.  Thanks for the explanation!
+
+-- 
+Bob Copeland %% http://bobcopeland.com/
