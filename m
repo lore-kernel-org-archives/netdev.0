@@ -1,59 +1,64 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx WWAN interface
-Date: Thu, 17 Mar 2016 17:23:21 +0100
-Message-ID: <87egb9nkee.fsf@nemi.mork.no>
-References: <1978E4F2CF12DD4A899FA7487323EB11010836882A@A1GTOEMBXV004.gto.a3c.atos.net>
+From: Samuel Gauthier <samuel.gauthier@6wind.com>
+Subject: Re: [PATCH net-next 0/2] ovs: refresh a flow via netlink
+Date: Thu, 17 Mar 2016 17:24:57 +0100
+Message-ID: <CAMEOZh+TR3S+30e+u9yVH04XN2Z26WEnhNK=t7DFq8YaBmjFyA@mail.gmail.com>
+References: <1458140872-22438-1-git-send-email-samuel.gauthier@6wind.com>
+	<CAEh+42jMSpPr8yUmmO355D=auKa-cGTwOZu0CSf-0=rczu4zwg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:40562 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932295AbcCQQXg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 12:23:36 -0400
-In-Reply-To: <1978E4F2CF12DD4A899FA7487323EB11010836882A@A1GTOEMBXV004.gto.a3c.atos.net>
-	(Schemmel Hans-Christoph's message of "Thu, 17 Mar 2016 10:07:56
-	+0000")
+Received: from mail-io0-f178.google.com ([209.85.223.178]:36293 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933971AbcCQQY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 12:24:59 -0400
+Received: by mail-io0-f178.google.com with SMTP id g184so48172119ioa.3
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 09:24:58 -0700 (PDT)
+In-Reply-To: <CAEh+42jMSpPr8yUmmO355D=auKa-cGTwOZu0CSf-0=rczu4zwg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com> writes:
-
-> Added support for Gemalto's Cinterion PHxx WWAN interfaces=20
-> by adding QMI_FIXED_INTF with Cinterion's VID and PID.
+2016-03-17 0:23 GMT+01:00 Jesse Gross <jesse@kernel.org>:
+> On Wed, Mar 16, 2016 at 8:07 AM, Samuel Gauthier
+> <samuel.gauthier@6wind.com> wrote:
+>> This patchset adds a netlink api to refresh an existing flow in
+>> openvswitch.
+>>
+>> When a packet is sent in the openvswitch kernel datapath and no
+>> flow is found, the packet is sent to the ovs-vswitchd daemon,
+>> which will process the packet, and ask the kernel to create a new
+>> flow. The next packets for this flow will be processed by the
+>> kernel datapath. If a flow is not used for a (configurable)
+>> period of time, ovs-vswitchd removes the flow from the kernel.
+>>
+>> As a result, it can be tricky to test the kernel datapath against
+>> packets, as the first packets of each flow will have to go
+>> through the ovs-vswitchd daemon. For instance, to do a zeroloss
+>> performance test, you establish the flows, and then you have to
+>> perform your zeroloss test before the flow is removed by
+>> ovs-vswitchd.
+>>
+>> It is possible to configure a flow timeout in ovs-vswitchd (using
+>> other_config:max-idle option), but it changes the behavior for
+>> all the flows, which is not always what you want.
 >
-> PHxx can have:
-> 2 RmNet Interfaces (PID 0x0082) or
-> 1 RmNet + 1 USB Audio interface (PID 0x0083).
->
-> Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gemal=
-to.com>
-> ---
-> patch is against linux-4.5
-> --- linux/drivers/net/usb/qmi_wwan.c.orig	2016-03-14 12:18:07.1534974=
-89 +0100
-> +++ linux/drivers/net/usb/qmi_wwan.c	2016-03-14 12:21:37.722541644 +0=
-100
-> @@ -881,6 +881,9 @@ static const struct usb_device_id produc
->  	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
->  	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
->  	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
-> +	{QMI_FIXED_INTF(0x1e2d, 0x0082, 4)},	/* Cinterion PHxx,PXxx (2 RmNe=
-t) */
-> +	{QMI_FIXED_INTF(0x1e2d, 0x0082, 5)},	/* Cinterion PHxx,PXxx (2 RmNe=
-t) */
-> +	{QMI_FIXED_INTF(0x1e2d, 0x0083, 4)},	/* Cinterion PHxx,PXxx (1 RmNe=
-t + USB Audio)*/
->  	{QMI_FIXED_INTF(0x413c, 0x81a2, 8)},	/* Dell Wireless 5806 Gobi(TM)=
- 4G LTE Mobile Broadband Card */
->  	{QMI_FIXED_INTF(0x413c, 0x81a3, 8)},	/* Dell Wireless 5570 HSPA+ (4=
-2Mbps) Mobile Broadband Card */
->  	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (=
-42Mbps) Mobile Broadband Card */
+> It seems to me that it would be preferable to implement the necessary
+> behavior in userspace to handle this directly. The logic that is
+> removing the flow is in userspace, so rather than asking the kernel to
+> lie about the current state of things, we can just modify the logic to
+> handle this case.
 
-Perfect.  Thanks.
+It seemed like a problem limited to the kernel datapath (i.e.: not to
+the other ovs datapaths), so it made sense to me to fix it by a
+netlink API.
+The idea was to do something similar to the OVS_FLOW_ATTR_CLEAR
+attribute (which sets the flow statistics and used field to 0).
 
-Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+This said, I could have a look to a pure userland solution, but I am
+not sure how to do it. Could you elaborate what you have in mind?
+
+Thanks.
