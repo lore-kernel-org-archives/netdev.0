@@ -1,54 +1,138 @@
-From: Vishal Thanki <vishalthanki@gmail.com>
-Subject: Re: [PATCH] net: phy: at803x: Add support to control PHY LEDs
-Date: Thu, 17 Mar 2016 19:07:12 +0100
-Message-ID: <20160317180710.GA22685@c50.bag.software>
-References: <1458223147-16142-1-git-send-email-vishalthanki@gmail.com>
- <1458223147-16142-2-git-send-email-vishalthanki@gmail.com>
- <20160317145032.GB26019@lunn.ch>
- <56EAE277.4050109@gmail.com>
- <CAC3a_SD=chB8pPpdRm8scztJ4592J26_PmhbUkLmbE3=DCmX-w@mail.gmail.com>
- <20160317175152.GG26019@lunn.ch>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [PATCH v2 1/2] Revert "vsock: Fix blocking ops call in
+ prepare_to_wait"
+Date: Thu, 17 Mar 2016 11:07:14 -0700
+Message-ID: <56EAF252.6000003@redhat.com>
+References: <1458231156-18845-1-git-send-email-imbrenda@linux.vnet.ibm.com>
+ <1458231156-18845-2-git-send-email-imbrenda@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: labbott@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:34231 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936184AbcCQSHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 14:07:16 -0400
-Received: by mail-wm0-f46.google.com with SMTP id p65so37630376wmp.1
-        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 11:07:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160317175152.GG26019@lunn.ch>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:34274 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936205AbcCQSHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 14:07:17 -0400
+Received: by mail-pf0-f173.google.com with SMTP id x3so130521749pfb.1
+        for <netdev@vger.kernel.org>; Thu, 17 Mar 2016 11:07:17 -0700 (PDT)
+In-Reply-To: <1458231156-18845-2-git-send-email-imbrenda@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> They might not be on/off controllable individually, but you can often
-> set them to show Packet RX, Packet TX, Link, speed, etc, in a
-> reasonably flexible way. So you could have LED triggers mapping to
-> these functionalities. The user can then pick the trigger for the LED.
-> 
-> Actually, the data sheet says:
-> 
-> 2.3.4 LED Interface
-> 
-> The LED interface can either be controlled by the PHY or controlled
-> manually, independent of the state of the PHY. Two status LEDs are
-> available. These can be used to indicate operation speed, and link
-> status. The LEDs can be programmed to different status functions from
-> their default value. They can also be controlled directly from the MII
-> register interface.
-> 
-> So maybe you can control the on/off state.
-> 
+On 03/17/2016 09:12 AM, Claudio Imbrenda wrote:
+> This reverts commit 5988818008257ca42010d6b43a3e0e48afec9898 ("vsock: Fix
+> blocking ops call in prepare_to_wait")
+>
 
-I need to explore more on LED subsystem. Thank you for your suggestions
-and input.
+I don't think having this as a separate patch does a lot of good. You
+can probably fold this into the next patch with a note saying that
+you are removing this broken behavior. If you really want this to
+be separate, please add a description of why this is being reverted.
 
 Thanks,
-Vishal
+Laura
 
->    Andrew
+> Signed-off-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+> ---
+>   net/vmw_vsock/af_vsock.c | 19 +++++++++++++------
+>   1 file changed, 13 insertions(+), 6 deletions(-)
+>
+> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+> index bbe65dc..7fd1220 100644
+> --- a/net/vmw_vsock/af_vsock.c
+> +++ b/net/vmw_vsock/af_vsock.c
+> @@ -1557,6 +1557,8 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>   	if (err < 0)
+>   		goto out;
+>
+> +	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+> +
+>   	while (total_written < len) {
+>   		ssize_t written;
+>
+> @@ -1576,9 +1578,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>   				goto out_wait;
+>
+>   			release_sock(sk);
+> -			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+>   			timeout = schedule_timeout(timeout);
+> -			finish_wait(sk_sleep(sk), &wait);
+>   			lock_sock(sk);
+>   			if (signal_pending(current)) {
+>   				err = sock_intr_errno(timeout);
+> @@ -1588,6 +1588,8 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>   				goto out_wait;
+>   			}
+>
+> +			prepare_to_wait(sk_sleep(sk), &wait,
+> +					TASK_INTERRUPTIBLE);
+>   		}
+>
+>   		/* These checks occur both as part of and after the loop
+> @@ -1633,6 +1635,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
+>   out_wait:
+>   	if (total_written > 0)
+>   		err = total_written;
+> +	finish_wait(sk_sleep(sk), &wait);
+>   out:
+>   	release_sock(sk);
+>   	return err;
+> @@ -1713,6 +1716,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   	if (err < 0)
+>   		goto out;
+>
+> +	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+>
+>   	while (1) {
+>   		s64 ready = vsock_stream_has_data(vsk);
+> @@ -1723,7 +1727,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   			 */
+>
+>   			err = -ENOMEM;
+> -			goto out;
+> +			goto out_wait;
+>   		} else if (ready > 0) {
+>   			ssize_t read;
+>
+> @@ -1746,7 +1750,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   					vsk, target, read,
+>   					!(flags & MSG_PEEK), &recv_data);
+>   			if (err < 0)
+> -				goto out;
+> +				goto out_wait;
+>
+>   			if (read >= target || flags & MSG_PEEK)
+>   				break;
+> @@ -1769,9 +1773,7 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   				break;
+>
+>   			release_sock(sk);
+> -			prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+>   			timeout = schedule_timeout(timeout);
+> -			finish_wait(sk_sleep(sk), &wait);
+>   			lock_sock(sk);
+>
+>   			if (signal_pending(current)) {
+> @@ -1781,6 +1783,9 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   				err = -EAGAIN;
+>   				break;
+>   			}
+> +
+> +			prepare_to_wait(sk_sleep(sk), &wait,
+> +					TASK_INTERRUPTIBLE);
+>   		}
+>   	}
+>
+> @@ -1811,6 +1816,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+>   		err = copied;
+>   	}
+>
+> +out_wait:
+> +	finish_wait(sk_sleep(sk), &wait);
+>   out:
+>   	release_sock(sk);
+>   	return err;
+>
