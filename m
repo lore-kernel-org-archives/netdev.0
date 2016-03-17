@@ -1,104 +1,96 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] ipv6: rework the lock in addrconf_permanent_addr
-Date: Thu, 17 Mar 2016 11:39:15 +0800
-Message-ID: <1458185955-7173-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] vlan: propagate gso_max_segs
+Date: Wed, 16 Mar 2016 21:59:49 -0700
+Message-ID: <1458190789.7353.33.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:51275 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754035AbcCQDjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Mar 2016 23:39:17 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u2H3dGjl010088
-	for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 20:39:16 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34538 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678AbcCQE7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 00:59:50 -0400
+Received: by mail-pf0-f176.google.com with SMTP id x3so103960531pfb.1
+        for <netdev@vger.kernel.org>; Wed, 16 Mar 2016 21:59:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+From: Eric Dumazet <edumazet@google.com>
 
-1. nothing of idev is changed, so read lock is enough
-2. ifp is changed, so used ifp->lock or cmpxchg to protect it
+vlan drivers lack proper propagation of gso_max_segs from
+lower device.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv6/addrconf.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+ drivers/net/ipvlan/ipvlan_main.c |    2 ++
+ drivers/net/macvlan.c            |    2 ++
+ net/8021q/vlan.c                 |    1 +
+ net/8021q/vlan_dev.c             |    1 +
+ 4 files changed, 6 insertions(+)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8c0dab2..08a9ee9 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3178,14 +3178,21 @@ static void addrconf_gre_config(struct net_device *dev)
- static void l3mdev_check_host_rt(struct inet6_dev *idev,
- 				  struct inet6_ifaddr *ifp)
- {
-+	struct rt6_info *rt = NULL;
-+
-+	spin_lock(&ifp->lock);
- 	if (ifp->rt) {
- 		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 5802b90..57941d3 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -119,6 +119,7 @@ static int ipvlan_init(struct net_device *dev)
+ 	dev->features = phy_dev->features & IPVLAN_FEATURES;
+ 	dev->features |= NETIF_F_LLTX;
+ 	dev->gso_max_size = phy_dev->gso_max_size;
++	dev->gso_max_segs = phy_dev->gso_max_segs;
+ 	dev->hard_header_len = phy_dev->hard_header_len;
  
- 		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
--			ip6_del_rt(ifp->rt);
-+			rt = ifp->rt;
- 			ifp->rt = NULL;
+ 	ipvlan_set_lockdep_class(dev);
+@@ -592,6 +593,7 @@ static int ipvlan_device_event(struct notifier_block *unused,
+ 		list_for_each_entry(ipvlan, &port->ipvlans, pnode) {
+ 			ipvlan->dev->features = dev->features & IPVLAN_FEATURES;
+ 			ipvlan->dev->gso_max_size = dev->gso_max_size;
++			ipvlan->dev->gso_max_segs = dev->gso_max_segs;
+ 			netdev_features_change(ipvlan->dev);
  		}
- 	}
-+	spin_unlock(&ifp->lock);
-+
-+	if (rt)
-+		ip6_del_rt(rt);
- }
- #else
- static void l3mdev_check_host_rt(struct inet6_dev *idev,
-@@ -3197,6 +3204,8 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
- static int fixup_permanent_addr(struct inet6_dev *idev,
- 				struct inet6_ifaddr *ifp)
- {
-+	struct rt6_info *prev;
-+
- 	l3mdev_check_host_rt(idev, ifp);
+ 		break;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 6e953e3..2bcf1f3 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -803,6 +803,7 @@ static int macvlan_init(struct net_device *dev)
+ 	dev->hw_features	|= NETIF_F_LRO;
+ 	dev->vlan_features	= lowerdev->vlan_features & MACVLAN_FEATURES;
+ 	dev->gso_max_size	= lowerdev->gso_max_size;
++	dev->gso_max_segs	= lowerdev->gso_max_segs;
+ 	dev->hard_header_len	= lowerdev->hard_header_len;
  
- 	if (!ifp->rt) {
-@@ -3206,7 +3215,12 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
- 		if (unlikely(IS_ERR(rt)))
- 			return PTR_ERR(rt);
- 
--		ifp->rt = rt;
-+		prev = cmpxchg(&ifp->rt, NULL, rt);
-+
-+		/*if cmpxchg failed*/
-+		if (prev) {
-+			ip6_rt_put(rt);
-+		}
- 	}
- 
- 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
-@@ -3228,21 +3242,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 	if (!idev)
- 		return;
- 
--	write_lock_bh(&idev->lock);
-+	read_lock_bh(&idev->lock);
- 
- 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
--			write_unlock_bh(&idev->lock);
-+			read_unlock_bh(&idev->lock);
- 			ipv6_del_addr(ifp);
--			write_lock_bh(&idev->lock);
-+			read_lock_bh(&idev->lock);
- 
- 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
- 					     idev->dev->name, &ifp->addr);
+ 	macvlan_set_lockdep_class(dev);
+@@ -1532,6 +1533,7 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 	case NETDEV_FEAT_CHANGE:
+ 		list_for_each_entry(vlan, &port->vlans, list) {
+ 			vlan->dev->gso_max_size = dev->gso_max_size;
++			vlan->dev->gso_max_segs = dev->gso_max_segs;
+ 			netdev_update_features(vlan->dev);
  		}
- 	}
+ 		break;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 69929c0..a1e273a 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -311,6 +311,7 @@ static void vlan_transfer_features(struct net_device *dev,
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
  
--	write_unlock_bh(&idev->lock);
-+	read_unlock_bh(&idev->lock);
- }
+ 	vlandev->gso_max_size = dev->gso_max_size;
++	vlandev->gso_max_segs = dev->gso_max_segs;
  
- static int addrconf_notify(struct notifier_block *this, unsigned long event,
--- 
-2.1.4
+ 	if (vlan_hw_offload_capable(dev->features, vlan->vlan_proto))
+ 		vlandev->hard_header_len = dev->hard_header_len;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index e416a40..e7e6257 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -551,6 +551,7 @@ static int vlan_dev_init(struct net_device *dev)
+ 	dev->features |= real_dev->vlan_features | NETIF_F_LLTX |
+ 			 NETIF_F_GSO_SOFTWARE;
+ 	dev->gso_max_size = real_dev->gso_max_size;
++	dev->gso_max_segs = real_dev->gso_max_segs;
+ 	if (dev->features & NETIF_F_VLAN_FEATURES)
+ 		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
+ 
