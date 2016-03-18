@@ -1,65 +1,100 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: net/bluetooth: workqueue destruction WARNING in
- hci_unregister_dev
-Date: Fri, 18 Mar 2016 16:52:31 -0400
-Message-ID: <20160318205231.GO20028@mtj.duckdns.org>
-References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
- <56C5CE85.6090808@suse.cz>
- <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
- <20160218174427.GG13177@mtj.duckdns.org>
- <56C6EC62.8080107@suse.cz>
- <56C70618.3010902@suse.cz>
- <20160302154507.GC4282@mtj.duckdns.org>
- <56D7FFE1.90900@suse.cz>
- <20160311171205.GB24046@htj.duckdns.org>
- <56EA9C4D.2080803@suse.cz>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v3] can: rcar_canfd: Add Renesas R-Car CAN FD driver
+Date: Fri, 18 Mar 2016 16:07:29 -0500
+Message-ID: <20160318210729.GA30163@rob-hp-laptop>
+References: <1457019515-21158-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+ <1458035294-8150-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
-	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>
-To: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: mkl@pengutronix.de, wg@grandegger.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, corbet@lwn.net,
+	linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, geert+renesas@glider.be,
+	chris.paterson2@renesas.com
+To: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <56EA9C4D.2080803-AlSwsSmVLrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1458035294-8150-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Jiri.
-
-On Thu, Mar 17, 2016 at 01:00:13PM +0100, Jiri Slaby wrote:
-> >> I have not done that yet, but today, I see:
-> >> destroy_workqueue: name='req_hci0' pwq=ffff88002f590300
-> >> wq->dfl_pwq=ffff88002f591e00 pwq->refcnt=2 pwq->nr_active=0 delayed_works:
-> >>    pwq 12: cpus=0-1 node=0 flags=0x4 nice=-20 active=0/1
-> >>      in-flight: 18568:wq_barrier_func
-> > 
-> > So, this means that there's flush_work() racing against workqueue
-> > destruction, which can't be safe. :(
+On Tue, Mar 15, 2016 at 09:48:14AM +0000, Ramesh Shanmugasundaram wrote:
+> This patch adds support for the CAN FD controller found in Renesas R-Car
+> SoCs. The controller operates in CAN FD only mode by default.
 > 
-> But I cannot trigger the WARN_ONs in the attached patch, so I am
-> confused how this can happen :(. (While I am still seeing the destroy
-> WARNINGs.)
+> CAN FD mode supports both Classical CAN & CAN FD frame formats. The
+> controller supports ISO 11898-1:2015 CAN FD format only.
+> 
+> This controller supports two channels and the driver can enable either
+> or both of the channels.
+> 
+> Driver uses Rx FIFOs (one per channel) for reception & Common FIFOs (one
+> per channel) for transmission. Rx filter rules are configured to the
+> minimum (one per channel) and it accepts Standard, Extended, Data &
+> Remote Frame combinations.
+> 
+> Note: There are few documentation errors in R-Car Gen3 Hardware User
+> Manual v0.5E with respect to CAN FD controller. They are listed below:
+> 
+> 1. CAN FD interrupt numbers 29 & 30 are listed as per channel
+> interrupts. However, they are common to both channels (i.e.) they are
+> global and channel interrupts respectively.
+> 
+> 2. CANFD clock is derived from PLL1. This is not documented.
+> 
+> 3. CANFD clock is further divided by (1/2) within the CAN FD controller.
+> This is not documented.
+> 
+> 4. The minimum value of NTSEG1 in RSCFDnCFDCmNCFG register is 2 Tq. It
+> is specified 4 Tq in the manual.
+> 
+> 5. The maximum number of message RAM area the controller can use is 3584
+> bytes. It is specified 10752 bytes in the manual.
+> 
+> Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+> ---
+> Hi All,
+> 
+>    Thanks for the review comments.
+> 
+>    This updated patch is based on linux-can-next tag (linux-can-next-for-4.6-20160310).
+> 
+>    This patch depends on
+> 
+>    [RFC] [PATCH v3] can: fix handling of unmodifiable configuration options
+>    (http://comments.gmane.org/gmane.linux.can/9126)
+> 
+> Changes since v2:
+> 	* Rebased to latest tag (linux-can-next-for-4.6-20160310)
+> 	* Cleaned up leftover debugfs code (Thanks Oliver H)
+> 	* Revised devicetree documentation text (as suggested by Rob H)
+> 	  (https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01597.html)
+> 	* Used new can subsystem api to set static configuration & removed check in rcar_canfd_start (as suggested by Oliver H)
+> 	  (Refer: http://comments.gmane.org/gmane.linux.can/9126 &
+> 	   https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01867.html)
+> 	* Clubbed Renesas controller drivers to driver/net/can/rcar dir (as suggested by Oliver H)
+> 	* Updated commit message
+> 
+> Changes since v1:
+> 	* Removed testmodes & debugfs code (suggested by Oliver H)
+> 	* Fixed tx path race issue by introducing lock (suggested by Marc K)
+> 	* Removed __maybe_unused attribute of rcar_canfd_of_table
+> ---
+>  .../devicetree/bindings/net/can/rcar_canfd.txt     |   89 ++
 
-So, no operations should be in progress when destroy_workqueue() is
-called.  If somebody was flushing a work item, the flush call must
-have returned before destroy_workqueue() was invoked, which doesn't
-seem to be the case here.  Can you trigger BUG_ON() or sysrq-t when
-the above triggers?  There must be a task which is flushing a work
-item there and it shouldn't be difficult to pinpoint what's going on
-from it.
+Acked-by: Rob Herring <robh@kernel.org>
 
-Thanks.
-
--- 
-tejun
+>  drivers/net/can/Kconfig                            |   11 +-
+>  drivers/net/can/Makefile                           |    2 +-
+>  drivers/net/can/rcar/Kconfig                       |   19 +
+>  drivers/net/can/rcar/Makefile                      |    6 +
+>  drivers/net/can/{ => rcar}/rcar_can.c              |    0
+>  drivers/net/can/rcar/rcar_canfd.c                  | 1614 ++++++++++++++++++++
+>  7 files changed, 1730 insertions(+), 11 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+>  create mode 100644 drivers/net/can/rcar/Kconfig
+>  create mode 100644 drivers/net/can/rcar/Makefile
+>  rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
+>  create mode 100644 drivers/net/can/rcar/rcar_canfd.c
