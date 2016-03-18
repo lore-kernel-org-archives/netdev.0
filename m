@@ -1,96 +1,101 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] openvswitch: reduce padding in struct sw_flow_key
-Date: Fri, 18 Mar 2016 14:34:28 +0100
-Message-ID: <1458308084-268272-1-git-send-email-arnd@arndb.de>
+From: Tomeu Vizoso <tomeu@tomeuvizoso.net>
+Subject: Re: [PATCH (net-next.git)] stmmac: fix TX normal DESC
+Date: Fri, 18 Mar 2016 15:07:26 +0100
+Message-ID: <CAAObsKAB81s-2NS3ZGQsJ7RDnKAhgQApmD2Jnk1nNfzucMvTpw@mail.gmail.com>
+References: <1458123709-19692-1-git-send-email-peppe.cavallaro@st.com> <1458123709-19692-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber@suse.de>,
+	=?UTF-8?Q?Frank_Sch=C3=A4fer?= <fschaefer.oss@googlemail.com>,
+	Dinh Nguyen <dinh.linux@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, preid@electromag.com.au,
+	Fabrice GASNIER <fabrice.gasnier@st.com>,
+	Alexandre TORGUE <alexandre.torgue@st.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:36797 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756775AbcCROHs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 10:07:48 -0400
+Received: by mail-wm0-f48.google.com with SMTP id l124so32613398wmf.1
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 07:07:47 -0700 (PDT)
+Received: from mail-wm0-f46.google.com (mail-wm0-f46.google.com. [74.125.82.46])
+        by smtp.gmail.com with ESMTPSA id av3sm12396252wjc.44.2016.03.18.07.07.46
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 18 Mar 2016 07:07:46 -0700 (PDT)
+Received: by mail-wm0-f46.google.com with SMTP id p65so70585596wmp.1
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 07:07:46 -0700 (PDT)
+In-Reply-To: <1458123709-19692-2-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SXQncyBiZWVuIGEgd2hpbGUgc2luY2UgdGhlIGxhc3QgdGltZSBzd19mbG93X2tleSB3YXMgbWFk
-ZSBzbWFsbGVyIGluCjExMzllMjQxZWM0MyAoIm9wZW52c3dpdGNoOiBDb21wYWN0IHN3X2Zsb3df
-a2V5LiIpLCBhbmQgaXQgaGFzIHNlZW4gZml2ZQpwYXRjaGVzIGFkZGluZyBuZXcgbWVtYmVycyBz
-aW5jZSB0aGVuLgoKV2l0aCB0aGUgY3VycmVudCBsaW51eC1uZXh0IGtlcm5lbCBhbmQgZ2NjLTYu
-MCBvbiBBUk0sIHRoaXMgaGFzIHRpcHBlZAp1cyBzbGlnaHRseSBvdmVyIHRoZSBzdGFjayBmcmFt
-ZSB3YXJuaW5nIGxpbWl0IG9mIDEwMjQgYnl0ZXM6CgpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGgu
-YzogSW4gZnVuY3Rpb24gJ292c19mbG93X2NtZF9zZXQnOgpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBh
-dGguYzoxMjAyOjE6IGVycm9yOiB0aGUgZnJhbWUgc2l6ZSBvZiAxMDMyIGJ5dGVzIGlzIGxhcmdl
-ciB0aGFuIDEwMjQgYnl0ZXMgWy1XZXJyb3I9ZnJhbWUtbGFyZ2VyLXRoYW49XQoKVGhpcyBzbGln
-aHRseSByZWFycmFuZ2VzIHRoZSBtZW1iZXJzIGluIHN0cnVjdCBzd19mbG93X2tleSB0byBtaW5p
-bWl6ZQp0aGUgYW1vdW50IG9mIHBhZGRpbmcgd2UgaGF2ZSBiZXR3ZWVuIHRoZW0sIGJyaW5naW5n
-IHVzIGFnYWluIHNsaWdodGx5CmJlbG93IHRoZSB3YXJuaW5nIGxpbWl0IChjaGVja2luZyBhbGwg
-ZmlsZXMgYWdhaW5zdCAxMjggYnl0ZXMgbGltaXQpOgoKZGF0YXBhdGguYzogSW4gZnVuY3Rpb24g
-J2dldF9mbG93X2FjdGlvbnMuY29uc3Rwcm9wJzoKZGF0YXBhdGguYzoxMDgzOjE6IHdhcm5pbmc6
-IHRoZSBmcmFtZSBzaXplIG9mIDQ2NCBieXRlcyBpcyBsYXJnZXIgdGhhbiAxMjggYnl0ZXMKZGF0
-YXBhdGguYzogSW4gZnVuY3Rpb24gJ292c19mbG93X2NtZF9uZXcnOgpkYXRhcGF0aC5jOjEwNjE6
-MTogd2FybmluZzogdGhlIGZyYW1lIHNpemUgb2YgOTg0IGJ5dGVzIGlzIGxhcmdlciB0aGFuIDEy
-OCBieXRlcwpkYXRhcGF0aC5jOiBJbiBmdW5jdGlvbiAnb3ZzX2Zsb3dfY21kX2RlbCc6CmRhdGFw
-YXRoLmM6MTMzNjoxOiB3YXJuaW5nOiB0aGUgZnJhbWUgc2l6ZSBvZiA1MjggYnl0ZXMgaXMgbGFy
-Z2VyIHRoYW4gMTI4IGJ5dGVzCmRhdGFwYXRoLmM6IEluIGZ1bmN0aW9uICdvdnNfZmxvd19jbWRf
-Z2V0JzoKZGF0YXBhdGguYzoxMjYxOjE6IHdhcm5pbmc6IHRoZSBmcmFtZSBzaXplIG9mIDUwNCBi
-eXRlcyBpcyBsYXJnZXIgdGhhbiAxMjggYnl0ZXMKZGF0YXBhdGguYzogSW4gZnVuY3Rpb24gJ292
-c19mbG93X2NtZF9zZXQnOgpkYXRhcGF0aC5jOjEyMDI6MTogd2FybmluZzogdGhlIGZyYW1lIHNp
-emUgb2YgMTAxNiBieXRlcyBpcyBsYXJnZXIgdGhhbiAxMjggYnl0ZXMKZGF0YXBhdGguYzogSW4g
-ZnVuY3Rpb24gJ3F1ZXVlX2dzb19wYWNrZXRzJzoKZGF0YXBhdGguYzozNzk6MTogd2FybmluZzog
-dGhlIGZyYW1lIHNpemUgb2YgNDcyIGJ5dGVzIGlzIGxhcmdlciB0aGFuIDEyOCBieXRlcwpmbG93
-X3RhYmxlLmM6IEluIGZ1bmN0aW9uICdtYXNrZWRfZmxvd19sb29rdXAnOgpmbG93X3RhYmxlLmM6
-NDg5OjE6IHdhcm5pbmc6IHRoZSBmcmFtZSBzaXplIG9mIDQ4OCBieXRlcyBpcyBsYXJnZXIgdGhh
-biAxMjggYnl0ZXMKZmxvd19uZXRsaW5rLmM6IEluIGZ1bmN0aW9uICd2YWxpZGF0ZV9hbmRfY29w
-eV9zZXRfdHVuJzoKZmxvd19uZXRsaW5rLmM6MTk5NDoxOiB3YXJuaW5nOiB0aGUgZnJhbWUgc2l6
-ZSBvZiA1MTIgYnl0ZXMgaXMgbGFyZ2VyIHRoYW4gMTI4IGJ5dGVzCgpUaGlzIG1lYW5zIGl0J3Mg
-c3RpbGwgdG9vIGxhcmdlIHJlYWxseSwgd2UganVzdCBkb24ndCB3YXJuIGFib3V0IGl0IGFueSBt
-b3JlLAphbmQgd2lsbCBnZXQgdGhlIHdhcm5pbmcgYWdhaW4gb25jZSBhbm90aGVyIG1lbWJlciBp
-cyBhZGRlZC4gTXkgcGF0Y2ggaXMgYQpiYW5kLWFpZCBhdCBiZXN0LCBidXQgbW9yZSB3b3JrIGlz
-IG5lZWRlZCBoZXJlLiBPbmUgcHJvYmxlbSBpcyB0aGF0Cm92c19mbG93X2NtZF9uZXcgYW5kIG92
-c19mbG93X2NtZF9zZXQgaGF2ZSB0d28gY29waWVzIG9mIHN0cnVjdCBzd19mbG93X2tleSBvbgp0
-aGUgc3RhY2ssIG9uZSBvZiB0aGVtIG5lc3RlZCB3aXRoaW4gc3dfZmxvd19tYXNrLiBJZiB3ZSBj
-b3VsZCByZWR1Y2UgdGhhdCB0bwphIHNpbmdsZSBpbnN0YW5jZSwgdGhlIHN0YWNrIHVzYWdlIHdv
-dWxkIGJlIGN1dCBpbiBoYWxmIGhlcmUuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxh
-cm5kQGFybmRiLmRlPgpGaXhlczogMDBhOTNiYWJkMDZhICgib3BlbnZzd2l0Y2g6IGFkZCB0dW5u
-ZWwgcHJvdG9jb2wgdG8gc3dfZmxvd19rZXkiKQpGaXhlczogYzJhYzY2NzM1ODcwICgib3BlbnZz
-d2l0Y2g6IEFsbG93IG1hdGNoaW5nIG9uIGNvbm50cmFjayBsYWJlbCIpCkZpeGVzOiAxODJlMzA0
-MmUxNWQgKCJvcGVudnN3aXRjaDogQWxsb3cgbWF0Y2hpbmcgb24gY29ubnRyYWNrIG1hcmsiKQpG
-aXhlczogN2Y4YTQzNmVhYTJjICgib3BlbnZzd2l0Y2g6IEFkZCBjb25udHJhY2sgYWN0aW9uIikK
-Rml4ZXM6IDk3MTQyN2YzNTNmMyAoIm9wZW52c3dpdGNoOiBBZGQgcmVjaXJjIGFuZCBoYXNoIGFj
-dGlvbi4iKQotLS0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmggfCAxNCArKysrKysrLS0tLS0tLQog
-MSBmaWxlIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1n
-aXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuaAppbmRl
-eCAxZDA1NWM1NTllYWYuLjQxZDE1YzUwYTQzZiAxMDA2NDQKLS0tIGEvbmV0L29wZW52c3dpdGNo
-L2Zsb3cuaAorKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oCkBAIC02Myw3ICs2MywxMSBAQCBz
-dHJ1Y3Qgc3dfZmxvd19rZXkgewogCQl1MzIJc2tiX21hcms7CS8qIFNLQiBtYXJrLiAqLwogCQl1
-MTYJaW5fcG9ydDsJLyogSW5wdXQgc3dpdGNoIHBvcnQgKG9yIERQX01BWF9QT1JUUykuICovCiAJ
-fSBfX3BhY2tlZCBwaHk7IC8qIFNhZmUgd2hlbiByaWdodCBhZnRlciAndHVuX2tleScuICovCi0J
-dTggdHVuX3Byb3RvOwkJCS8qIFByb3RvY29sIG9mIGVuY2Fwc3VsYXRpbmcgdHVubmVsLiAqLwor
-CXN0cnVjdCB7CisJCV9fYmUxNiBzcmM7CQkvKiBUQ1AvVURQL1NDVFAgc291cmNlIHBvcnQuICov
-CisJCV9fYmUxNiBkc3Q7CQkvKiBUQ1AvVURQL1NDVFAgZGVzdGluYXRpb24gcG9ydC4gKi8KKwkJ
-X19iZTE2IGZsYWdzOwkJLyogVENQIGZsYWdzLiAqLworCX0gdHA7CiAJdTMyIG92c19mbG93X2hh
-c2g7CQkvKiBEYXRhcGF0aCBjb21wdXRlZCBoYXNoIHZhbHVlLiAgKi8KIAl1MzIgcmVjaXJjX2lk
-OwkJCS8qIFJlY2lyY3VsYXRpb24gSUQuICAqLwogCXN0cnVjdCB7CkBAIC04MywxMSArODcsNiBA
-QCBzdHJ1Y3Qgc3dfZmxvd19rZXkgewogCQkJdTggICAgIGZyYWc7CS8qIE9uZSBvZiBPVlNfRlJB
-R19UWVBFXyouICovCiAJCX0gaXA7CiAJfTsKLQlzdHJ1Y3QgewotCQlfX2JlMTYgc3JjOwkJLyog
-VENQL1VEUC9TQ1RQIHNvdXJjZSBwb3J0LiAqLwotCQlfX2JlMTYgZHN0OwkJLyogVENQL1VEUC9T
-Q1RQIGRlc3RpbmF0aW9uIHBvcnQuICovCi0JCV9fYmUxNiBmbGFnczsJCS8qIFRDUCBmbGFncy4g
-Ki8KLQl9IHRwOwogCXVuaW9uIHsKIAkJc3RydWN0IHsKIAkJCXN0cnVjdCB7CkBAIC0xMTQsMTEg
-KzExMywxMiBAQCBzdHJ1Y3Qgc3dfZmxvd19rZXkgewogCX07CiAJc3RydWN0IHsKIAkJLyogQ29u
-bmVjdGlvbiB0cmFja2luZyBmaWVsZHMuICovCi0JCXUxNiB6b25lOwogCQl1MzIgbWFyazsKKwkJ
-dTE2IHpvbmU7CiAJCXU4IHN0YXRlOwogCQlzdHJ1Y3Qgb3ZzX2tleV9jdF9sYWJlbHMgbGFiZWxz
-OwogCX0gY3Q7CisJdTggdHVuX3Byb3RvOwkJCS8qIFByb3RvY29sIG9mIGVuY2Fwc3VsYXRpbmcg
-dHVubmVsLiAqLwogCiB9IF9fYWxpZ25lZChCSVRTX1BFUl9MT05HLzgpOyAvKiBFbnN1cmUgdGhh
-dCB3ZSBjYW4gZG8gY29tcGFyaXNvbnMgYXMgbG9uZ3MuICovCiAKLS0gCjIuNy4wCgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0
-CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2Rldgo=
+On 16 March 2016 at 11:21, Giuseppe Cavallaro <peppe.cavallaro@st.com> =
+wrote:
+> This patch fixs a regression raised when test on chips that use
+> the normal descriptor layout. In fact, no len bits were set for
+> the TDES1 and no OWN bit inside the TDES0.
+>
+> Signed-off-by: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+> Tested-by: Andreas F=C3=A4rber <afaerber@suse.de>
+> Cc: Fabrice Gasnier <fabrice.gasnier@st.com>
+
+Hi,
+
+with this patch, I have eth working reliably on the Rock2 again.
+
+Tested-by: Tomeu Vizoso <tomeu.vizoso@collabora.com>
+
+Thanks,
+
+Tomeu
+
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/norm_desc.c |   16 ++++++++-----=
+---
+>  1 files changed, 8 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/driver=
+s/net/ethernet/stmicro/stmmac/norm_desc.c
+> index e13228f..011386f 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+> @@ -199,11 +199,6 @@ static void ndesc_prepare_tx_desc(struct dma_des=
+c *p, int is_fs, int len,
+>  {
+>         unsigned int tdes1 =3D p->des1;
+>
+> -       if (mode =3D=3D STMMAC_CHAIN_MODE)
+> -               norm_set_tx_desc_len_on_chain(p, len);
+> -       else
+> -               norm_set_tx_desc_len_on_ring(p, len);
+> -
+>         if (is_fs)
+>                 tdes1 |=3D TDES1_FIRST_SEGMENT;
+>         else
+> @@ -217,10 +212,15 @@ static void ndesc_prepare_tx_desc(struct dma_de=
+sc *p, int is_fs, int len,
+>         if (ls)
+>                 tdes1 |=3D TDES1_LAST_SEGMENT;
+>
+> -       if (tx_own)
+> -               tdes1 |=3D TDES0_OWN;
+> -
+>         p->des1 =3D tdes1;
+> +
+> +       if (mode =3D=3D STMMAC_CHAIN_MODE)
+> +               norm_set_tx_desc_len_on_chain(p, len);
+> +       else
+> +               norm_set_tx_desc_len_on_ring(p, len);
+> +
+> +       if (tx_own)
+> +               p->des0 |=3D TDES0_OWN;
+>  }
+>
+>  static void ndesc_set_tx_ic(struct dma_desc *p)
+> --
+> 1.7.4.4
+>
