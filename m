@@ -1,7 +1,7 @@
 From: "Evgeny Cherkashin" <Eugene.Crosser@ru.ibm.com>
 Subject: Re: [PATCH] qeth: Default to allow promiscuous mode
 Date: Fri, 18 Mar 2016 13:07:34 +0000
-Message-ID: <201603181207.u2IC7muq030383@d06av10.portsmouth.uk.ibm.com>
+Message-ID: <201603181207.u2IC7ns9030434@d06av10.portsmouth.uk.ibm.com>
 References: <56EBCC28.5090500@suse.de>,<1458234085-217667-1-git-send-email-agraf@suse.de>
  <201603171752.u2HHq7hM025196@d06av11.portsmouth.uk.ibm.com>
 Mime-Version: 1.0
@@ -13,10 +13,39 @@ Cc: linux-s390@vger.kernel.org, linux-kernel@vger.kernel.org,
 	mt@suse.com, pwieczorkiewicz@suse.de,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Alexander Graf <agraf@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:50193 "EHLO
+	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754108AbcCRNHz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 09:07:55 -0400
+Received: from localhost
+	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
+	Fri, 18 Mar 2016 13:07:53 -0000
+Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
+	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 92DA7414019D
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 13:07:30 +0000 (GMT)
+Received: from d06av10.portsmouth.uk.ibm.com (d06av10.portsmouth.uk.ibm.com [9.149.37.251])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u2ID7mvQ1376658
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 13:07:48 GMT
+Received: from d06av10.portsmouth.uk.ibm.com (localhost [127.0.0.1])
+	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u2IC7o6i030490
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 06:07:50 -0600
+Received: from d50lp02.ny.us.ibm.com (d50lp02.pok.ibm.com [146.89.104.208])
+	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u2IC7ns9030434
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 06:07:50 -0600
+Received: from localhost
+	by d50lp02.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
+	Fri, 18 Mar 2016 09:07:47 -0400
+Received: from /spool/local
+	by smtp.notes.na.collabserv.com with smtp.notes.na.collabserv.com ESMTP
+	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
+	Fri, 18 Mar 2016 13:07:38 -0000
 In-Reply-To: <56EBCC28.5090500@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello Alexander,
 
