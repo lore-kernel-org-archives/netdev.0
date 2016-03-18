@@ -1,99 +1,58 @@
-From: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH net-next] net/mlx4_core: Fix backward compatibility on VFs
-Date: Fri, 18 Mar 2016 20:45:19 +1100
-Message-ID: <56EBCE2F.40902@ozlabs.ru>
-References: <1458233382-12871-1-git-send-email-eli@mellanox.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bonding: fix bond_get_stats()
+Date: Fri, 18 Mar 2016 12:26:44 +0100
+Message-ID: <56EBE5F4.6020003@cumulusnetworks.com>
+References: <1458260616.31963.14.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1458233382-12871-1-git-send-email-eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36607 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019AbcCRL0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 07:26:47 -0400
+Received: by mail-wm0-f53.google.com with SMTP id l124so27081394wmf.1
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 04:26:47 -0700 (PDT)
+In-Reply-To: <1458260616.31963.14.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/18/2016 03:49 AM, Eli Cohen wrote:
-> Commit 85743f1eb345 ("net/mlx4_core: Set UAR page size to 4KB regardless
-> of system page size") introduced dependency where old VF drivers without
-> this fix fail to load if the PF driver runs with this commit.
->
-> To resolve this add a module parameter which disables that functionality
-> by default.  If both the PF and VFs are running with a driver with that
-> commit the administrator may set the module param to true.
->
-> The module parameter is called enable_4k_uar.
->
-> Fixes: 85743f1eb345 ('net/mlx4_core: Set UAR page size to 4KB ...')
-> Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-
-Thanks!
-
-
-Tested-by: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
-
-
-
-
+On 03/18/2016 01:23 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> bond_get_stats() can be called from rtnetlink (with RTNL held)
+> or from /proc/net/dev seq handler (with RCU held)
+> 
+> The logic added in commit 5f0c5f73e5ef ("bonding: make global bonding
+> stats more reliable") kind of assumed only one cpu could run there.
+> 
+> If multiple threads are reading /proc/net/dev, stats can be really
+> messed up after a while.
+> 
+> A second problem is that some fields are 32bit, so we need to properly
+> handle the wrap around problem.
+> 
+> Given that RTNL is not always held, we need to use
+> bond_for_each_slave_rcu().
+> 
+> Fixes: 5f0c5f73e5ef ("bonding: make global bonding stats more reliable")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Cc: Jay Vosburgh <j.vosburgh@gmail.com>
+> Cc: Veaceslav Falico <vfalico@gmail.com>
 > ---
->   drivers/net/ethernet/mellanox/mlx4/main.c | 24 ++++++++++++++++++------
->   1 file changed, 18 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index 503ec23e84cc..358f7230da58 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -105,6 +105,11 @@ module_param(enable_64b_cqe_eqe, bool, 0444);
->   MODULE_PARM_DESC(enable_64b_cqe_eqe,
->   		 "Enable 64 byte CQEs/EQEs when the FW supports this (default: True)");
->
-> +static bool enable_4k_uar;
-> +module_param(enable_4k_uar, bool, 0444);
-> +MODULE_PARM_DESC(enable_4k_uar,
-> +		 "Enable using 4K UAR. Should not be enabled if have VFs which do not support 4K UARs (default: false)");
-> +
->   #define PF_CONTEXT_BEHAVIOUR_MASK	(MLX4_FUNC_CAP_64B_EQE_CQE | \
->   					 MLX4_FUNC_CAP_EQE_CQE_STRIDE | \
->   					 MLX4_FUNC_CAP_DMFS_A0_STATIC)
-> @@ -423,7 +428,11 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
->   		/* Virtual PCI function needs to determine UAR page size from
->   		 * firmware. Only master PCI function can set the uar page size
->   		 */
-> -		dev->uar_page_shift = DEFAULT_UAR_PAGE_SHIFT;
-> +		if (enable_4k_uar)
-> +			dev->uar_page_shift = DEFAULT_UAR_PAGE_SHIFT;
-> +		else
-> +			dev->uar_page_shift = PAGE_SHIFT;
-> +
->   		mlx4_set_num_reserved_uars(dev, dev_cap);
->   	}
->
-> @@ -2233,11 +2242,14 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
->
->   		dev->caps.max_fmr_maps = (1 << (32 - ilog2(dev->caps.num_mpts))) - 1;
->
-> -		/* Always set UAR page size 4KB, set log_uar_sz accordingly */
-> -		init_hca.log_uar_sz = ilog2(dev->caps.num_uars) +
-> -				      PAGE_SHIFT -
-> -				      DEFAULT_UAR_PAGE_SHIFT;
-> -		init_hca.uar_page_sz = DEFAULT_UAR_PAGE_SHIFT - 12;
-> +		if (enable_4k_uar) {
-> +			init_hca.log_uar_sz = ilog2(dev->caps.num_uars) +
-> +						    PAGE_SHIFT - DEFAULT_UAR_PAGE_SHIFT;
-> +			init_hca.uar_page_sz = DEFAULT_UAR_PAGE_SHIFT - 12;
-> +		} else {
-> +			init_hca.log_uar_sz = ilog2(dev->caps.num_uars);
-> +			init_hca.uar_page_sz = PAGE_SHIFT - 12;
-> +		}
->
->   		init_hca.mw_enabled = 0;
->   		if (dev->caps.flags & MLX4_DEV_CAP_FLAG_MEM_WINDOW ||
->
+>  drivers/net/bonding/bond_main.c |   66 +++++++++++++++---------------
+>  include/net/bonding.h           |    1 
+>  2 files changed, 36 insertions(+), 31 deletions(-)
+> 
 
+Good catches! And the dev_get_stats() in bond_enslave is fine because the slave
+is not yet linked thus can't collide with reading/updating the stats via procfs.
 
--- 
-Alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
