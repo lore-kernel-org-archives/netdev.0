@@ -1,62 +1,69 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Fri, 18 Mar 2016 21:44:21 +0100
-Message-ID: <56EC68A5.3050901@free.fr>
-References: <56E99727.9040702@laposte.net>
- <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
- <20160318191242.GQ4292@pengutronix.de> <56EC5788.3030509@free.fr>
- <20160318201153.GR4292@pengutronix.de>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFD] workqueue: WQ_MEM_RECLAIM usage in network drivers
+Date: Fri, 18 Mar 2016 16:46:23 -0400
+Message-ID: <20160318204623.GM20028@mtj.duckdns.org>
+References: <20160317164546.GT21104@mtj.duckdns.org>
+ <20160317213216.731d1fcc@synchrony.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sebastian Frias <sf84@laposte.net>,
-	Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Uwe Kleine-Koenig <u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:5076 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754911AbcCRUor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2016 16:44:47 -0400
-In-Reply-To: <20160318201153.GR4292@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Amitoj Kaur Chawla <amitoj1606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	kernel-team-b10kYP2dOMg@public.gmane.org, Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Eva Rachel Retuya <eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160317213216.731d1fcc-08S845evdOaAjSkqwZiSMmfYqLom42DlXqFh9Ls21Oc@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 18/03/2016 21:11, Uwe Kleine-K=F6nig wrote:
+Hello, Jeff.
 
-> Hello,
->=20
-> On Fri, Mar 18, 2016 at 08:31:20PM +0100, Mason wrote:
->
->> On 18/03/2016 20:12, Uwe Kleine-K=F6nig wrote:
->>
->>> On Fri, Mar 18, 2016 at 04:56:21PM +0100, Sebastian Frias wrote:
->>>
->>>> What would you think of making at803x_link_change_notify() print a
->>>> message every time it should do a reset but does not has a way to =
-do it?
->>>
->>> Then this question is obsolete because the device doesn't probe.
->>
->> I don't understand this statement.
->>
->> What does it mean for a question to be obsolete?
->=20
-> If the driver doesn't probe because it cannot control the reset line,
-> you don't need to think about how it should behave in
-> at803x_link_change_notify without control of the reset line, because
-> this code isn't reached then.
+On Thu, Mar 17, 2016 at 09:32:16PM -0400, Jeff Layton wrote:
+> > * Are network devices expected to be able to serve as a part of
+> >   storage stack which is depended upon for memory reclamation?
+> 
+> I think they should be. Cached NFS pages can consume a lot of memory,
+> and flushing them generally takes network device access.
 
-If I understand correctly, it is possible to soft-reset the PHY
-by writing to a specific register. The GPIO pin is useful only to
-force a hardware-reset when the PHY is wedged by some random event.
+But does that actually work?  It's pointless to add WQ_MEM_RECLAIM to
+workqueues unless all other things are also guaranteed to make forward
+progress regardless of memory pressure.
 
-(Or am I completely off the mark?)
+> > * If so, are all the pieces in place for that to work for all (or at
+> >   least most) network devices?  If it's only for a subset of NICs, how
+> >   can one tell whether a given driver needs forward progress guarantee
+> >   or not?
+> > 
+> > * I assume that wireless drivers aren't and can't be used in this
+> >   fashion.  Is that a correction assumption?
+> > 
+> 
+> People do mount NFS over wireless interfaces. It's not terribly common
+> though, in my experience.
 
-Regards.
+Ditto, I'm very skeptical that this actually works in practice and
+people expect and depend on it.  I don't follow wireless development
+closely but haven't heard anyone talking about reserving memory pools
+or people complaining about wireless being the cause of OOM.
+
+So, I really want to avoid spraying WQ_MEM_RECLAIM if it doesn't serve
+actual purposes.  It's wasteful, sets bad precedences and confuses
+future readers.
+
+Thanks.
+
+-- 
+tejun
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
