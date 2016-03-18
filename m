@@ -1,40 +1,62 @@
-From: kbuild test robot <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC PATCH linux-next] ovs: internal_set_rx_headroom()
-	can be static
-Date: Sat, 19 Mar 2016 00:54:50 +0800
-Message-ID: <20160318165450.GA16372@cairo>
-References: <201603190023.RJCVrbEg%fengguang.wu@intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
+Date: Fri, 18 Mar 2016 10:19:31 -0700
+Message-ID: <CAM_iQpWG-Pd-qE05B8ETwBMnVGuxVCES-zrL=wyxKAfZwnbwyQ@mail.gmail.com>
+References: <1457989187-92851-1-git-send-email-tracywwnj@gmail.com>
+	<20160316.195341.68257764618999441.davem@davemloft.net>
+	<1458174127.7353.11.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160316.223803.240230703927987310.davem@davemloft.net>
+	<1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kbuild-all-JC7UmRfGjtg@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <201603190023.RJCVrbEg%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, weiwan@google.com,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:36667 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752287AbcCRRTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 13:19:33 -0400
+Received: by mail-yw0-f182.google.com with SMTP id g3so147327170ywa.3
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 10:19:32 -0700 (PDT)
+In-Reply-To: <1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ClNpZ25lZC1vZmYtYnk6IEZlbmdndWFuZyBXdSA8ZmVuZ2d1YW5nLnd1QGludGVsLmNvbT4KLS0t
-CiB2cG9ydC1pbnRlcm5hbF9kZXYuYyB8ICAgIDIgKy0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
-dGlvbigrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9y
-dC1pbnRlcm5hbF9kZXYuYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYwpp
-bmRleCA4M2E1NTM0Li43YzhiOTBiIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQt
-aW50ZXJuYWxfZGV2LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LWludGVybmFsX2Rldi5j
-CkBAIC0xMzgsNyArMTM4LDcgQEAgaW50ZXJuYWxfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXYsIHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCAqc3RhdHMpCiAJcmV0dXJuIHN0YXRzOwog
-fQogCi12b2lkIGludGVybmFsX3NldF9yeF9oZWFkcm9vbShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-LCBpbnQgbmV3X2hyKQorc3RhdGljIHZvaWQgaW50ZXJuYWxfc2V0X3J4X2hlYWRyb29tKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYsIGludCBuZXdfaHIpCiB7CiAJZGV2LT5uZWVkZWRfaGVhZHJvb20g
-PSBuZXdfaHI7CiB9Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
-Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Wed, Mar 16, 2016 at 8:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2016-03-16 at 22:38 -0400, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Wed, 16 Mar 2016 17:22:07 -0700
+>>
+>> > One of the issue is that IPV6_MTU getsockopt() will not check the dst,
+>> > but simply use __sk_dst_get() : It will then report old mtu.
+>>
+>> That's a bug.
+>>
+>> ipv4 does it right with a proper sk_dst_get() and so should
+>> ipv6.
+>
+> Using rcu + __sk_dst_get() (in IPv6) is absolutely equivalent to
+> sk_dst_get() + dst_release() (in IPv4), modulo atomic ops on dst
+> refcnt...
+>
+> Presumably IPv6 implementation using rcu is slightly better if this
+> getsockopt() is badly needed, but apparently nobody cares.
+>
+> sk_dst_check() is a different beast.
+>
+> The problem is that dst_mtu(dst) is not able to perform a route lookup
+> by itself.
+>
+> Do we really want to use ip6_sk_dst_lookup_flow() and its associated
+> setup for this IP6_MTU thing, and maybe other points we might use an
+> obsolete dst ?
+>
+> Looking at the complexity of udpv6_sendmsg() and rawv6_sendmsg() I
+> really wonder if it is worth extracting the route logic.
+
+I think the reason why IPv4 does this correctly is ipv4_sk_update_pmtu()
+takes care of the sk cached dst, while the similar part for IPv6,
+ip6_sk_update_pmtu() does not that. As Martin already points it out
+in the previous version.
