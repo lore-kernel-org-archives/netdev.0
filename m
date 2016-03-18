@@ -1,69 +1,48 @@
 From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFD] workqueue: WQ_MEM_RECLAIM usage in network drivers
-Date: Fri, 18 Mar 2016 16:46:23 -0400
-Message-ID: <20160318204623.GM20028@mtj.duckdns.org>
-References: <20160317164546.GT21104@mtj.duckdns.org>
- <20160317213216.731d1fcc@synchrony.poochiereds.net>
+Subject: Re: [Outreachy kernel] [PATCH v2] iwlwifi: dvm: use
+ alloc_ordered_workqueue()
+Date: Fri, 18 Mar 2016 16:47:44 -0400
+Message-ID: <20160318204744.GN20028@mtj.duckdns.org>
+References: <1458231561-13184-1-git-send-email-eraretuya@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Amitoj Kaur Chawla <amitoj1606-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	kernel-team-b10kYP2dOMg@public.gmane.org, Johannes Weiner <hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Eva Rachel Retuya <eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: outreachy-kernel-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eva Rachel Retuya <eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20160317213216.731d1fcc-08S845evdOaAjSkqwZiSMmfYqLom42DlXqFh9Ls21Oc@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1458231561-13184-1-git-send-email-eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Jeff.
-
-On Thu, Mar 17, 2016 at 09:32:16PM -0400, Jeff Layton wrote:
-> > * Are network devices expected to be able to serve as a part of
-> >   storage stack which is depended upon for memory reclamation?
+On Fri, Mar 18, 2016 at 12:19:21AM +0800, Eva Rachel Retuya wrote:
+> Use alloc_ordered_workqueue() to allocate the workqueue instead of
+> create_singlethread_workqueue() since the latter is deprecated and is scheduled
+> for removal.
 > 
-> I think they should be. Cached NFS pages can consume a lot of memory,
-> and flushing them generally takes network device access.
-
-But does that actually work?  It's pointless to add WQ_MEM_RECLAIM to
-workqueues unless all other things are also guaranteed to make forward
-progress regardless of memory pressure.
-
-> > * If so, are all the pieces in place for that to work for all (or at
-> >   least most) network devices?  If it's only for a subset of NICs, how
-> >   can one tell whether a given driver needs forward progress guarantee
-> >   or not?
-> > 
-> > * I assume that wireless drivers aren't and can't be used in this
-> >   fashion.  Is that a correction assumption?
-> > 
+> There are work items doing related operations that shouldn't be swapped when
+> queued in a certain order hence preserve the strict execution ordering of a
+> single threaded (ST) workqueue by switching to alloc_ordered_workqueue().
 > 
-> People do mount NFS over wireless interfaces. It's not terribly common
-> though, in my experience.
+> WQ_MEM_RECLAIM flag is not needed since the worker is not supposed to free
+> memory.
 
-Ditto, I'm very skeptical that this actually works in practice and
-people expect and depend on it.  I don't follow wireless development
-closely but haven't heard anyone talking about reserving memory pools
-or people complaining about wireless being the cause of OOM.
+I think "not depended during memory reclaim" probalby is a better way
+to describe it.
 
-So, I really want to avoid spraying WQ_MEM_RECLAIM if it doesn't serve
-actual purposes.  It's wasteful, sets bad precedences and confuses
-future readers.
+> Signed-off-by: Eva Rachel Retuya <eraretuya-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+But other than that,
+
+ Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
 Thanks.
 
 -- 
 tejun
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
