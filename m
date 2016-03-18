@@ -1,86 +1,106 @@
-From: "Evgeny Cherkashin" <Eugene.Crosser@ru.ibm.com>
-Subject: Re: [PATCH] qeth: Default to allow promiscuous mode
-Date: Fri, 18 Mar 2016 13:07:34 +0000
-Message-ID: <201603181207.u2IC7ns9030434@d06av10.portsmouth.uk.ibm.com>
-References: <56EBCC28.5090500@suse.de>,<1458234085-217667-1-git-send-email-agraf@suse.de>
- <201603171752.u2HHq7hM025196@d06av11.portsmouth.uk.ibm.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH v2] openvswitch: call only into reachable nf-nat
+	code
+Date: Fri, 18 Mar 2016 14:33:45 +0100
+Message-ID: <1458308044-246105-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-s390@vger.kernel.org, linux-kernel@vger.kernel.org,
-	heicars2@linux.vnet.ibm.com, mschwid2@linux.vnet.ibm.com,
-	Ursula Braun <ubraun@linux.vnet.ibm.com>, ihno@suse.de,
-	mt@suse.com, pwieczorkiewicz@suse.de,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Graf <agraf@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp15.uk.ibm.com ([195.75.94.111]:50193 "EHLO
-	e06smtp15.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754108AbcCRNHz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 09:07:55 -0400
-Received: from localhost
-	by e06smtp15.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Fri, 18 Mar 2016 13:07:53 -0000
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 92DA7414019D
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 13:07:30 +0000 (GMT)
-Received: from d06av10.portsmouth.uk.ibm.com (d06av10.portsmouth.uk.ibm.com [9.149.37.251])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u2ID7mvQ1376658
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 13:07:48 GMT
-Received: from d06av10.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u2IC7o6i030490
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 06:07:50 -0600
-Received: from d50lp02.ny.us.ibm.com (d50lp02.pok.ibm.com [146.89.104.208])
-	by d06av10.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id u2IC7ns9030434
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 06:07:50 -0600
-Received: from localhost
-	by d50lp02.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Fri, 18 Mar 2016 09:07:47 -0400
-Received: from /spool/local
-	by smtp.notes.na.collabserv.com with smtp.notes.na.collabserv.com ESMTP
-	for <netdev@vger.kernel.org> from <eugene.crosser@ru.ibm.com>;
-	Fri, 18 Mar 2016 13:07:38 -0000
-In-Reply-To: <56EBCC28.5090500@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
+ "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+To: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hello Alexander,
-
------Alexander Graf <agraf@suse.de> wrote: -----
-
-send it explicitly if that makes it move obvious, sure.
->
->> 3. The patch should probably go via the -networking maillist.
->
->Ah, get_maintainers.pl didn't list it. You may want to send a patch
->for
->the MAINTAINERS file here :).
-
-My mistake, you've sent it to the right place.
-
-About the nature of the patch:
-
-- Enabling bridgeport on adaptors on which bridgeport is already used b=
-y somebody else will break somebody else's operation.
-
-- Therefore, system administrator must only enable bridgeport on adapto=
-rs on which nobody else tries to use it (without coordinating with them=
-).
-
-- Making bridge_reflect_promisc enabled by default makes it impossible.
-
-- Therefore, bridge_reflect_promisc must not be enabled by default.
-
-(Those who enable bridge_reflect_promisc blindly on all adaptors will b=
-reak their users' setup, and will have to deal with the consequences.)
-
-Regards,
-
-Evgeny Cherkashin / =D0=95=D0=B2=D0=B3=D0=B5=D0=BD=D0=B8=D0=B9 =D0=A7=D0=
-=B5=D1=80=D0=BA=D0=B0=D1=88=D0=B8=D0=BD / Eugene Crosser (preferred)
-Software Engineer, IBM Science and Technology Center, Linux on z-System=
-s Development
-tel. +7 495 775 8800 ext.1103, Moscow 123317, Presnenskaya emb. 10
+VGhlIG9wZW52c3dpdGNoIGNvZGUgaGFzIGdhaW5lZCBzdXBwb3J0IGZvciBjYWxsaW5nIGludG8g
+dGhlCm5mLW5hdC1pcHY0L2lwdjYgbW9kdWxlcywgaG93ZXZlciB0aG9zZSBjYW4gYmUgbG9hZGFi
+bGUgbW9kdWxlcwppbiBhIGNvbmZpZ3VyYXRpb24gaW4gd2hpY2ggb3BlbnZzd2l0Y2ggaXMgYnVp
+bHQtaW4sIGxlYWRpbmcKdG8gbGluayBlcnJvcnM6CgpuZXQvYnVpbHQtaW4ubzogSW4gZnVuY3Rp
+b24gYF9fb3ZzX2N0X2xvb2t1cCc6CjooLnRleHQrMHgyY2MyYzgpOiB1bmRlZmluZWQgcmVmZXJl
+bmNlIHRvIGBuZl9uYXRfaWNtcF9yZXBseV90cmFuc2xhdGlvbicKOigudGV4dCsweDJjYzY2Yyk6
+IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wdjZfcmVwbHlfdHJhbnNsYXRpb24n
+CgpUaGUgZGVwZW5kZW5jeSBvbiAoIU5GX05BVCB8fCBORl9OQVQpIHByZXZlbnRzIHNpbWlsYXIg
+aXNzdWVzLApidXQgTkZfTkFUIGlzIHNldCB0byAneScgaWYgYW55IG9mIHRoZSBzeW1ib2xzIHNl
+bGVjdGluZwppdCBhcmUgYnVpbHQtaW4sIGJ1dCB0aGUgbGluayBlcnJvciBoYXBwZW5zIHdoZW4g
+YW55IG9mIHRoZW0KYXJlIG1vZHVsYXIuCgpBIHNlY29uZCBpc3N1ZSBpcyB0aGF0IGV2ZW4gaWYg
+Q09ORklHX05GX05BVF9JUFY2IGlzIGJ1aWx0LWluLApDT05GSUdfTkZfTkFUX0lQVjQgbWlnaHQg
+YmUgY29tcGxldGVseSBkaXNhYmxlZC4gVGhpcyBpcyB1bmxpa2VseQp0byBiZSB1c2VmdWwgaW4g
+cHJhY3RpY2UsIGJ1dCB0aGUgZHJpdmVyIGN1cnJlbnRseSBvbmx5IGhhbmRsZXMKSVB2NiBiZWlu
+ZyBvcHRpb25hbC4KClRoaXMgcGF0Y2ggaW1wcm92ZXMgdGhlIEtjb25maWcgZGVwZW5kZW5jeSBz
+byB0aGF0IG9wZW52c3dpdGNoCmNhbm5vdCBiZSBidWlsdC1pbiBpZiBlaXRoZXIgb2YgdGhlIHR3
+byBvdGhlciBzeW1ib2xzIGFyZSBzZXQKdG8gJ20nLCBhbmQgaXQgcmVwbGFjZXMgdGhlIGluY29y
+cmVjdCAjaWZkZWYgaW4gb3ZzX2N0X25hdF9leGVjdXRlKCkKd2l0aCB0d28gImlmIChJU19FTkFC
+TEVEKCkpIiBjaGVja3MgdGhhdCBzaG91bGQgY2F0Y2ggYWxsIGNvcm5lcgpjYXNlcyBhbHNvIG1h
+a2UgdGhlIGNvZGUgbW9yZSByZWFkYWJsZS4KClRoZSBzYW1lICNpZmRlZiBleGlzdHMgb3ZzX2N0
+X25hdF90b19hdHRyKCksIHdoZXJlIGl0IGRvZXMgbm90CmNhdXNlIGEgbGluayBlcnJvciwgYnV0
+IGZvciBjb25zaXN0ZW5jeSBJJ20gY2hhbmdpbmcgaXQgdGhlIHNhbWUKd2F5LgoKU2lnbmVkLW9m
+Zi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KRml4ZXM6IDA1NzUyNTIzZTU2NSAo
+Im9wZW52c3dpdGNoOiBJbnRlcmZhY2Ugd2l0aCBOQVQuIikKQWNrZWQtYnk6IEpvZSBTdHJpbmdl
+ciA8am9lQG92bi5vcmc+Ci0tLQp2MjogbGVhdmUgKCFORl9OQVQgfHwgTkZfTkFUKSBkZXBlbmRl
+bmN5IGluIHRoZXJlLCB3ZSBhbHNvIG5lZWQgdGhhdAoKIG5ldC9vcGVudnN3aXRjaC9LY29uZmln
+ICAgICB8ICA0ICsrKy0KIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYyB8IDE2ICsrKysrKysr
+LS0tLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgOSBkZWxldGlvbnMo
+LSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZyBiL25ldC9vcGVudnN3aXRj
+aC9LY29uZmlnCmluZGV4IDIzNGE3MzM0NGM2ZS4uY2U5NDcyOTJhZTc3IDEwMDY0NAotLS0gYS9u
+ZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZworKysgYi9uZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZwpAQCAt
+Nyw3ICs3LDkgQEAgY29uZmlnIE9QRU5WU1dJVENICiAJZGVwZW5kcyBvbiBJTkVUCiAJZGVwZW5k
+cyBvbiAhTkZfQ09OTlRSQUNLIHx8IFwKIAkJICAgKE5GX0NPTk5UUkFDSyAmJiAoKCFORl9ERUZS
+QUdfSVBWNiB8fCBORl9ERUZSQUdfSVBWNikgJiYgXAotCQkJCSAgICAgKCFORl9OQVQgfHwgTkZf
+TkFUKSkpCisJCQkJICAgICAoIU5GX05BVCB8fCBORl9OQVQpICYmIFwKKwkJCQkgICAgICghTkZf
+TkFUX0lQVjQgfHwgTkZfTkFUX0lQVjQpICYmIFwKKwkJCQkgICAgICghTkZfTkFUX0lQVjYgfHwg
+TkZfTkFUX0lQVjYpKSkKIAlzZWxlY3QgTElCQ1JDMzJDCiAJc2VsZWN0IE1QTFMKIAlzZWxlY3Qg
+TkVUX01QTFNfR1NPCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9u
+ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKaW5kZXggZGM1ZWIyOWZlN2Q2Li5mZjA0YjVkYjA0
+YjMgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3Bl
+bnZzd2l0Y2gvY29ubnRyYWNrLmMKQEAgLTUzNSwxNCArNTM1LDE1IEBAIHN0YXRpYyBpbnQgb3Zz
+X2N0X25hdF9leGVjdXRlKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZl9jb25uICpjdCwK
+IAlzd2l0Y2ggKGN0aW5mbykgewogCWNhc2UgSVBfQ1RfUkVMQVRFRDoKIAljYXNlIElQX0NUX1JF
+TEFURURfUkVQTFk6Ci0JCWlmIChza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QX0lQKSAmJgor
+CQlpZiAoSVNfRU5BQkxFRChDT05GSUdfTkZfTkFUX0lQVjQpICYmCisJCSAgICBza2ItPnByb3Rv
+Y29sID09IGh0b25zKEVUSF9QX0lQKSAmJgogCQkgICAgaXBfaGRyKHNrYiktPnByb3RvY29sID09
+IElQUFJPVE9fSUNNUCkgewogCQkJaWYgKCFuZl9uYXRfaWNtcF9yZXBseV90cmFuc2xhdGlvbihz
+a2IsIGN0LCBjdGluZm8sCiAJCQkJCQkJICAgaG9va251bSkpCiAJCQkJZXJyID0gTkZfRFJPUDsK
+IAkJCWdvdG8gcHVzaDsKLSNpZiBJU19FTkFCTEVEKENPTkZJR19ORl9OQVRfSVBWNikKLQkJfSBl
+bHNlIGlmIChza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QX0lQVjYpKSB7CisJCX0gZWxzZSBp
+ZiAoSVNfRU5BQkxFRChDT05GSUdfTkZfTkFUX0lQVjYpICYmCisJCQkgICBza2ItPnByb3RvY29s
+ID09IGh0b25zKEVUSF9QX0lQVjYpKSB7CiAJCQlfX2JlMTYgZnJhZ19vZmY7CiAJCQl1OCBuZXh0
+aGRyID0gaXB2Nl9oZHIoc2tiKS0+bmV4dGhkcjsKIAkJCWludCBoZHJsZW4gPSBpcHY2X3NraXBf
+ZXh0aGRyKHNrYiwKQEAgLTU1Nyw3ICs1NTgsNiBAQCBzdGF0aWMgaW50IG92c19jdF9uYXRfZXhl
+Y3V0ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmZfY29ubiAqY3QsCiAJCQkJCWVyciA9
+IE5GX0RST1A7CiAJCQkJZ290byBwdXNoOwogCQkJfQotI2VuZGlmCiAJCX0KIAkJLyogTm9uLUlD
+TVAsIGZhbGwgdGhydSB0byBpbml0aWFsaXplIGlmIG5lZWRlZC4gKi8KIAljYXNlIElQX0NUX05F
+VzoKQEAgLTEyMzgsNyArMTIzOCw4IEBAIHN0YXRpYyBib29sIG92c19jdF9uYXRfdG9fYXR0cihj
+b25zdCBzdHJ1Y3Qgb3ZzX2Nvbm50cmFja19pbmZvICppbmZvLAogCX0KIAogCWlmIChpbmZvLT5y
+YW5nZS5mbGFncyAmIE5GX05BVF9SQU5HRV9NQVBfSVBTKSB7Ci0JCWlmIChpbmZvLT5mYW1pbHkg
+PT0gTkZQUk9UT19JUFY0KSB7CisJCWlmIChJU19FTkFCTEVEKENPTkZJR19ORl9OQVRfSVBWNCkg
+JiYKKwkJICAgIGluZm8tPmZhbWlseSA9PSBORlBST1RPX0lQVjQpIHsKIAkJCWlmIChubGFfcHV0
+X2luX2FkZHIoc2tiLCBPVlNfTkFUX0FUVFJfSVBfTUlOLAogCQkJCQkgICAgaW5mby0+cmFuZ2Uu
+bWluX2FkZHIuaXApIHx8CiAJCQkgICAgKGluZm8tPnJhbmdlLm1heF9hZGRyLmlwCkBAIC0xMjQ2
+LDggKzEyNDcsOCBAQCBzdGF0aWMgYm9vbCBvdnNfY3RfbmF0X3RvX2F0dHIoY29uc3Qgc3RydWN0
+IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKIAkJCSAgICAgKG5sYV9wdXRfaW5fYWRkcihza2Is
+IE9WU19OQVRfQVRUUl9JUF9NQVgsCiAJCQkJCSAgICAgIGluZm8tPnJhbmdlLm1heF9hZGRyLmlw
+KSkpKQogCQkJCXJldHVybiBmYWxzZTsKLSNpZiBJU19FTkFCTEVEKENPTkZJR19ORl9OQVRfSVBW
+NikKLQkJfSBlbHNlIGlmIChpbmZvLT5mYW1pbHkgPT0gTkZQUk9UT19JUFY2KSB7CisJCX0gZWxz
+ZSBpZiAoSVNfRU5BQkxFRChDT05GSUdfTkZfTkFUX0lQVjYpICYmCisJCQkgICBpbmZvLT5mYW1p
+bHkgPT0gTkZQUk9UT19JUFY2KSB7CiAJCQlpZiAobmxhX3B1dF9pbjZfYWRkcihza2IsIE9WU19O
+QVRfQVRUUl9JUF9NSU4sCiAJCQkJCSAgICAgJmluZm8tPnJhbmdlLm1pbl9hZGRyLmluNikgfHwK
+IAkJCSAgICAobWVtY21wKCZpbmZvLT5yYW5nZS5tYXhfYWRkci5pbjYsCkBAIC0xMjU2LDcgKzEy
+NTcsNiBAQCBzdGF0aWMgYm9vbCBvdnNfY3RfbmF0X3RvX2F0dHIoY29uc3Qgc3RydWN0IG92c19j
+b25udHJhY2tfaW5mbyAqaW5mbywKIAkJCSAgICAgKG5sYV9wdXRfaW42X2FkZHIoc2tiLCBPVlNf
+TkFUX0FUVFJfSVBfTUFYLAogCQkJCQkgICAgICAgJmluZm8tPnJhbmdlLm1heF9hZGRyLmluNikp
+KSkKIAkJCQlyZXR1cm4gZmFsc2U7Ci0jZW5kaWYKIAkJfSBlbHNlIHsKIAkJCXJldHVybiBmYWxz
+ZTsKIAkJfQotLSAKMi43LjAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
+bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
