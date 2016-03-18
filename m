@@ -1,65 +1,74 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: Re: [PATCH] mac80211: add doc for RX_FLAG_DUP_VALIDATED flag
-Date: Fri, 18 Mar 2016 18:54:34 +0000
-Message-ID: <56EC4EEA.8040201@osg.samsung.com>
-References: <1458317369-28185-1-git-send-email-luisbg@osg.samsung.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
+Date: Fri, 18 Mar 2016 20:12:42 +0100
+Message-ID: <20160318191242.GQ4292@pengutronix.de>
+References: <56E99727.9040702@laposte.net>
+ <20160318125455.GN4292@pengutronix.de>
+ <56EC2525.8000706@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, davem@davemloft.net,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mans Rullgard <mans@mansr.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sebastian Frias <sf84@laposte.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:54713 "EHLO lists.s-osg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752170AbcCRSyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2016 14:54:39 -0400
-In-Reply-To: <1458317369-28185-1-git-send-email-luisbg@osg.samsung.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58584 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751661AbcCRTMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 15:12:55 -0400
+Content-Disposition: inline
+In-Reply-To: <56EC2525.8000706@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/03/16 16:09, Luis de Bethencourt wrote:
-> Add documentation for the flag for duplication check.
-> 
-> Fixes the following warning when running make htmldocs:
-> warning: Enum value 'RX_FLAG_DUP_VALIDATED' not described in enum 'mac80211_rx_flags'
-> 
-> Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
-> ---
-> Hi,
-> 
-> While running make htmldocs I noticed a warning about RX_FLAG_DUP_VALIDATED
-> missing a description. This patch fixes this.
-> 
-> I have noticed the order of the descriptions of the mac80211_rx_flags doesn't
-> match the order in the enum. I am happy to fix this if it would be of interest.
-> 
-> Thanks,
-> Luis
-> 
->  include/net/mac80211.h | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-> index a53333c..42c8cde 100644
-> --- a/include/net/mac80211.h
-> +++ b/include/net/mac80211.h
-> @@ -1001,6 +1001,8 @@ ieee80211_tx_info_clear_status(struct ieee80211_tx_info *info)
->   *	flag indicates that the PN was verified for replay protection.
->   *	Note that this flag is also currently only supported when a frame
->   *	is also decrypted (ie. @RX_FLAG_DECRYPTED must be set)
-> + * @RX_FLAG_DUP_VALIDATED: Set this flag for the driver to check for packet
-> + *	duplication by itself.
->   * @RX_FLAG_FAILED_FCS_CRC: Set this flag if the FCS check failed on
->   *	the frame.
->   * @RX_FLAG_FAILED_PLCP_CRC: Set this flag if the PCLP check failed on
-> 
+Hello Sebastian,
 
-Please ignore the second patch I replied to this one. It is wrong due to my
-misunderstanding.
+On Fri, Mar 18, 2016 at 04:56:21PM +0100, Sebastian Frias wrote:
+> On 03/18/2016 01:54 PM, Uwe Kleine-K=F6nig wrote:
+> > From a driver perspecitive, it would be nice if devm_gpiod_get_opti=
+onal
+> > returned NULL iff the respective gpio isn't specified even with
+> > GPIOLIB=3Dn, but this isn't sensible either because it would result=
+ in
+> > quite some gpiolib code to not being conditionally compiled on
+> > CONFIG_GPIOLIB any more.
+>=20
+> Let's say that was the case, what would the PHY code do?
 
-This above patch adding RX_FLAG_DUP_VALIDATED is correct and I believe it to be
-valid.
+With reset gpios it might not be that critical, but consider an optiona=
+l
+enable gpio. (Optional in the sense, that some device have it and other=
+s
+don't, e.g. because the pin is pulled into active level by hardware.)
 
-Thanks for the reviews,
-Luis
+Now you do:
+
+	gpiod =3D gpiod_get_optional("enable");
+
+and if gpiod now is an error pointer, you must assume that you cannot
+operate the device. And even with GPIOLIB=3Dn (and gpiod =3D ERR_PTR(-E=
+NOSYS))
+you cannot ignore the error. For consistency I'd recommend to do the
+same for reset even though there is a chance to get a working device.
+
+> What would you think of making at803x_link_change_notify() print a
+> message every time it should do a reset but does not has a way to do =
+it?
+
+Then this question is obsolete because the device doesn't probe.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
