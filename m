@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: consolidate lock/unlock into unlock_wait
-Date: Fri, 18 Mar 2016 17:37:02 -0400 (EDT)
-Message-ID: <20160318.173702.788700055531273267.davem@davemloft.net>
-References: <1458293525-16842-1-git-send-email-hofrat@osadl.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hofrat@osadl.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458293525-16842-1-git-send-email-hofrat@osadl.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH] sctp: keep fragmentation point aligned to word size
+Date: Fri, 18 Mar 2016 18:39:17 -0300
+Message-ID: <1458337159-22792-2-git-send-email-marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48174 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932510AbcCRVjw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2016 17:39:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Date: Fri, 18 Mar 2016 10:32:05 +0100
+If the user supply a different fragmentation point or if there is a
+network header that cause it to not be aligned, force it to be aligned.
 
-> The spin_lock()/spin_unlock() is synchronizing on the adapter->work_lock
-> as the comment also suggests, which is equivalent to spin_unlock_wait()
-> but the later should be more efficient.
-> 
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+Fragmentation point at a value that is not aligned is not optimal.  It
+causes extra padding to be used and has just no pros.
 
-There really is no justification for this change.
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ include/net/sctp/sctp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This is an optimization in a slow-path of the driver.
-
-The device is a rarely used older piece of hardware.
-
-The amount of testers of this driver is probably approximating zero.
-
-So there is only risk of breakage from this change, and absolutely
-zero upside.
-
-Therefore, I'm not applying this patch, and I'd kindly like to ask
-you to please consider such issues in the future for these kinds of
-transformations.
-
-Thanks.
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 835aa2ed987092634a4242314e9eabb51d1e4e35..f27d38113c7926783a9bf2863e14e963ed0ad5d6 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -426,7 +426,7 @@ static inline int sctp_frag_point(const struct sctp_association *asoc, int pmtu)
+ 	if (asoc->user_frag)
+ 		frag = min_t(int, frag, asoc->user_frag);
+ 
+-	frag = min_t(int, frag, SCTP_MAX_CHUNK_LEN);
++	frag = min_t(int, frag, SCTP_MAX_CHUNK_LEN) & ~3;
+ 
+ 	return frag;
+ }
+-- 
+2.5.0
