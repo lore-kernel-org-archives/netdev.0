@@ -1,156 +1,72 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Fri, 18 Mar 2016 16:56:21 +0100
-Message-ID: <56EC2525.8000706@laposte.net>
-References: <56E99727.9040702@laposte.net> <20160318125455.GN4292@pengutronix.de>
+From: Venkatesh Srinivas <venkateshs@google.com>
+Subject: Re: [net-next v2] virtio_net: replace netdev_alloc_skb_ip_align()
+ with napi_alloc_skb()
+Date: Fri, 18 Mar 2016 08:58:32 -0700
+Message-ID: <CAHdzE--a0pMLZiavb621yRcdh+UcSQPwYV=wC9+smbNHBYaWOQ@mail.gmail.com>
+References: <98c94ca899603eb4212c44aa1a658825198ed49a.1458290241.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: =?windows-1252?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, Daniel Mack <daniel@zonque.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutz25.laposte.net ([194.117.213.100]:46443 "EHLO
-	smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933569AbcCRP42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 11:56:28 -0400
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-	by lpn-prd-vrout013 (Postfix) with ESMTP id 699FF10409E
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 16:56:23 +0100 (CET)
-Received: from lpn-prd-vrin004 (lpn-prd-vrin004.prosodie [10.128.63.5])
-	by lpn-prd-vrout013 (Postfix) with ESMTP id 13B7E103F5F
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 16:56:23 +0100 (CET)
-Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
-	by lpn-prd-vrin004 (Postfix) with ESMTP id BA19F70E268
-	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 16:56:22 +0100 (CET)
-In-Reply-To: <20160318125455.GN4292@pengutronix.de>
+Received: from mail-yw0-f178.google.com ([209.85.161.178]:34281 "EHLO
+	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933160AbcCRP6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 11:58:33 -0400
+Received: by mail-yw0-f178.google.com with SMTP id h129so144255299ywb.1
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 08:58:33 -0700 (PDT)
+In-Reply-To: <98c94ca899603eb4212c44aa1a658825198ed49a.1458290241.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Uwe, Daniel,
+On Fri, Mar 18, 2016 at 8:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> This gives small but noticeable rx performance improvement (2-3%)
+> and will allow exploiting future napi improvement.
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+>
+> --
+>  v2: replace also netdev_alloc_skb_ip_align() invocation in
+>         add_recvbuf_small(), suggested by Venkatesh Srinivas
+> ---
+>  drivers/net/virtio_net.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index fb0eae4..100e039 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -260,7 +260,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>         p = page_address(page) + offset;
+>
+>         /* copy small packet so we can reuse these pages for small data */
+> -       skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
+> +       skb = napi_alloc_skb(&rq->napi, GOOD_COPY_LEN);
+>         if (unlikely(!skb))
+>                 return NULL;
+>
+> @@ -541,7 +541,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+>         struct virtio_net_hdr_mrg_rxbuf *hdr;
+>         int err;
+>
+> -       skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
+> +       skb = __napi_alloc_skb(&rq->napi, GOOD_PACKET_LEN, gfp);
+>         if (unlikely(!skb))
+>                 return -ENOMEM;
 
-On 03/18/2016 01:54 PM, Uwe Kleine-K=F6nig wrote:
-> [expand cc a bit more]
->=20
-> Hello,
->=20
-> On Wed, Mar 16, 2016 at 06:25:59PM +0100, Sebastian Frias wrote:
->> Commit 687908c2b649 ("net: phy: at803x: simplify using
->> devm_gpiod_get_optional and its 4th argument") introduced a dependen=
-cy
->> on GPIOLIB that was not there before.
->>
->> This commit removes such dependency by checking the return code and
->> comparing it against ENOSYS which is returned when GPIOLIB is not
->> selected.
->>
->> Fixes: 687908c2b649 ("net: phy: at803x: simplify using devm_gpiod_ge=
-t_optional and its 4th argument")
->>
->> Signed-off-by: Sebastian Frias <sf84@laposte.net>
->> ---
->>  drivers/net/phy/at803x.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
->> index 2174ec9..88b7ff3 100644
->> --- a/drivers/net/phy/at803x.c
->> +++ b/drivers/net/phy/at803x.c
->> @@ -252,7 +252,9 @@ static int at803x_probe(struct phy_device *phyde=
-v)
->>  		return -ENOMEM;
->>
->>  	gpiod_reset =3D devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HI=
-GH);
->> -	if (IS_ERR(gpiod_reset))
->> +	if (PTR_ERR(gpiod_reset) =3D=3D -ENOSYS)
->> +		gpiod_reset =3D NULL;
->> +	else if (IS_ERR(gpiod_reset))
->=20
-> this isn't better either (IMHO it's worse, but maybe this is debatabl=
-e
-> and also depends on your POV).
+Sorry, I should've mentioned more in my first reply --
+add_recvbuf_small is called from try_fill_recv in both
+NAPI and non-NAPI context (NAPI: via virtnet_receive from
+virtnet_poll; non-NAPI: via scheduled work,
+via virtnet_probe, and via virtnet_restore).
 
-Well, from the code, the reset hack is only required when the PHY is
-ATH8030_PHY_ID, right?
-However, such change was introduced by Daniel Mack on commit 13a56b4493=
-25.
-Hopefully he can chime in and give his opinion on this.
+I don't believe you can use __napi_alloc_skb() for the non-NAPI paths,
+it'd be a bit more work to plumb
+the context as an argument if you think its worth doing here.
 
-Daniel, while on the subject, I have a question for you:
+Looking forward to bulk skb allocation either way.
 
-Change 2b8f2a28eac1 introduced "link_status_notify" callback which is
-called systematically on the PHY state machine.
-Any reason to make the call systematic as opposed to let say:
-
-	if (phydev->state !=3D old_state) {
-		if (phydev->drv->link_change_notify)
-			phydev->drv->link_change_notify(phydev);
-	}
-
-(it does means that the callback would be called after the state machin=
-e
-processing though)
-
->=20
-> With 687908c2b649 I made kernels without GPIOLIB fail to bind this
-> device. I admit this is not maximally nice.
-
-I see, that was not clear from the commit message, sorry.
-
->=20
-> Your change makes the driver bind in this case again and then the res=
-et
-> gpio isn't handled at all which might result in a later and harder to
-> debug error.
->=20
-> The better approach to fix your problem is: make the driver depend (o=
-r
-> force) on GPIOLIB.=20
-
-It was one of the solutions I had in mind, but:
-- since the dependency on GPIOLIB was not included on the patch
-- and given that the previous code had provision to work without GPIO
-I thought it was an overlook.
-
->Or alternatively, drop reset-handling from the
-> driver.
->=20
-> From a driver perspecitive, it would be nice if devm_gpiod_get_option=
-al
-> returned NULL iff the respective gpio isn't specified even with
-> GPIOLIB=3Dn, but this isn't sensible either because it would result i=
-n
-> quite some gpiolib code to not being conditionally compiled on
-> CONFIG_GPIOLIB any more.
-
-Let's say that was the case, what would the PHY code do?
-
-I mean, it did not get a GPIO, whether it was because GPIOLIB=3Dn or
-because there's no 'reset' GPIO attached
-Shall it fail? Shall it continue in a sort of degraded mode? Shall it w=
-arn?
-Because that's the real question here.
-
-What would you think of making at803x_link_change_notify() print a
-message every time it should do a reset but does not has a way to do it=
-?
-I can make such change to my patch if everybody agrees on it.
-By the way, in that case, can somebody suggest a way to print such warn=
-ing?
-Would printk() be ok or should I use dev_dbg() ?
-
-Best regards,
-
-Sebastian
-
->=20
-> Best regards
-> Uwe
->=20
+HTH,
+-- vs;
