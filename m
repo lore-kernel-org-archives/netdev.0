@@ -1,62 +1,96 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
-Date: Fri, 18 Mar 2016 10:19:31 -0700
-Message-ID: <CAM_iQpWG-Pd-qE05B8ETwBMnVGuxVCES-zrL=wyxKAfZwnbwyQ@mail.gmail.com>
-References: <1457989187-92851-1-git-send-email-tracywwnj@gmail.com>
-	<20160316.195341.68257764618999441.davem@davemloft.net>
-	<1458174127.7353.11.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160316.223803.240230703927987310.davem@davemloft.net>
-	<1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v3] rocker: add debugfs support to dump internal
+ tables
+Date: Fri, 18 Mar 2016 13:25:34 -0400
+Message-ID: <56EC3A0E.9040906@ti.com>
+References: <CAE4R7bAwuZkoOqO1eA9pWQ35UPiSs7-Fm+AaedVU1wwiRZ=Jwg@mail.gmail.com>
+ <20150818181930.GK4381@lunn.ch>
+ <CAE4R7bA621-ySQuOJ_kLTSju7ZwD3Ur4oSAS0JCE4EjzEsRr7Q@mail.gmail.com>
+ <20150818.134720.1520233036019988872.davem@davemloft.net>
+ <56EB0F37.9090908@ti.com> <20160317202519.GA30210@lunn.ch>
+ <20160317215314.GA4925@colbert.idosch.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, weiwan@google.com,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <sfeldma@gmail.com>,
+	<netdev@vger.kernel.org>, <jiri@resnulli.us>
+To: Ido Schimmel <idosch@mellanox.com>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.161.182]:36667 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbcCRRTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 13:19:33 -0400
-Received: by mail-yw0-f182.google.com with SMTP id g3so147327170ywa.3
-        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 10:19:32 -0700 (PDT)
-In-Reply-To: <1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:44061 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757426AbcCRRZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2016 13:25:43 -0400
+In-Reply-To: <20160317215314.GA4925@colbert.idosch.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 16, 2016 at 8:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2016-03-16 at 22:38 -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Wed, 16 Mar 2016 17:22:07 -0700
+On 03/17/2016 05:53 PM, Ido Schimmel wrote:
+> Thu, Mar 17, 2016 at 10:25:19PM IST, andrew@lunn.ch wrote:
+>> On Thu, Mar 17, 2016 at 04:10:31PM -0400, Murali Karicheri wrote:
+>>> David,
+>>>
+>>> On 08/18/2015 04:47 PM, David Miller wrote:
+>>>> I see some drivers where the foo_debugfs.c file is larger than the rest
+>>>> of the driver.  Once people start using it, it's like crack, and they
+>>>> dump every single debugging widget they found useful at some point into
+>>>> there.
+>>>>
+>>>> This is not what we want.  Most things I see in debugfs support was
+>>>> probably useful for debugging one particular bug but then it was never
+>>>> really useful again in the future.  Those kinds of things can be done
+>>>> locally in someone's tree.
+>>>>
+>>>> I often see various kinds of "statistics" ending up in these things,
+>>>> or register dumps, both of which are 'ethtool' or similar material.
+>>> Very late to this discussion, but I need to port some of the internal code
+>>> to display the content of a ALE (Address Learning Engine) table maintained
+>>> in hardwareat L2 layer. Currently I have a sysfs implementation that dumps
+>>> information like below.
+>>>
+>>> root@k2e-evm:~# cat /sys/devices/platform/soc/2620110.netcp/ale_table
+>>> index 0, raw: 000007fc d000ffff ffffffff, type: addr(1), addr: ff:ff:ff:ff:ff:ff, mcstate: f(3), port mask: 1ff, no super
+>>> index 1, raw: 00000000 10000800 28329a1c, type: addr(1), addr: 08:00:28:32:9a:1c, uctype: persistent(0), port: 0
+>>> index 2, raw: 000007fc d0000100 5e000001, type: addr(1), addr: 01:00:5e:00:00:01, mcstate: f(3), port mask: 1ff, no super
+>>> index 19, raw: 00000004 d000d4be d93db6c1, type: addr(1), addr: d4:be:d9:3d:b6:c1, uctype: touched(3), port: 1
+>>>
+>>> What is the available interface in kernel to expose this information
+>>> to user space as debugfs is not suggested based on this thread?
 >>
->> > One of the issue is that IPV6_MTU getsockopt() will not check the dst,
->> > but simply use __sk_dst_get() : It will then report old mtu.
->>
->> That's a bug.
->>
->> ipv4 does it right with a proper sk_dst_get() and so should
->> ipv6.
->
-> Using rcu + __sk_dst_get() (in IPv6) is absolutely equivalent to
-> sk_dst_get() + dst_release() (in IPv4), modulo atomic ops on dst
-> refcnt...
->
-> Presumably IPv6 implementation using rcu is slightly better if this
-> getsockopt() is badly needed, but apparently nobody cares.
->
-> sk_dst_check() is a different beast.
->
-> The problem is that dst_mtu(dst) is not able to perform a route lookup
-> by itself.
->
-> Do we really want to use ip6_sk_dst_lookup_flow() and its associated
-> setup for this IP6_MTU thing, and maybe other points we might use an
-> obsolete dst ?
->
-> Looking at the complexity of udpv6_sendmsg() and rawv6_sendmsg() I
-> really wonder if it is worth extracting the route logic.
+>> This looks a lot like what the mv88e6xxx_port_fdb_dump() callback
+>> returns to DSA when SWITCHDEV_OBJ_ID_PORT_FDB is passed to
+>> switchdev_port_obj_dump() in the switchdev ops.
+> 
+> +1
+> 
+> Also, Murali, using standard interfaces instead of debugfs will allow
+> you to:
+> 
+> 1) Upstream your code
+> 2) Use existing tests for your code. In particular, the following
+> (which is used for mlxsw testing):
+> 
+> https://github.com/jpirko/lnst/blob/master/recipes/switchdev/l2-002-bridge_fdb.py
+> 
+> There are a bunch of others there which you'll probably find useful.
+> 
+> BTW, are you familiar with the following document?
+> https://www.kernel.org/doc/Documentation/networking/switchdev.txt
+> I believe it answers your question.
 
-I think the reason why IPv4 does this correctly is ipv4_sk_update_pmtu()
-takes care of the sk cached dst, while the similar part for IPv6,
-ip6_sk_update_pmtu() does not that. As Martin already points it out
-in the previous version.
+Yes. I have support for DSA and switchdev for netcp driver in my TODO list.
+Will post more questions on this once I start work on this.
+
+Thanks
+
+Murali
+> 
+> Good luck!
+> 
+>>
+>> 	  Andrew
+> 
+
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
