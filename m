@@ -1,7 +1,7 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 2/9] gre: Enforce IP ID verification on outer headers
-Date: Fri, 18 Mar 2016 16:24:51 -0700
-Message-ID: <20160318232451.14955.10778.stgit@localhost.localdomain>
+Subject: [RFC PATCH 3/9] geneve: Enforce IP ID verification on outer headers
+Date: Fri, 18 Mar 2016 16:24:57 -0700
+Message-ID: <20160318232457.14955.18775.stgit@localhost.localdomain>
 References: <20160318230945.14955.63211.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,12 +9,12 @@ Content-Transfer-Encoding: 7bit
 To: ecree@solarflare.com, netdev@vger.kernel.org, davem@davemloft.net,
 	alexander.duyck@gmail.com, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34956 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753125AbcCRXYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 19:24:53 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n5so186135382pfn.2
-        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 16:24:52 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35067 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753125AbcCRXY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 19:24:59 -0400
+Received: by mail-pf0-f181.google.com with SMTP id n5so186138046pfn.2
+        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 16:24:59 -0700 (PDT)
 In-Reply-To: <20160318230945.14955.63211.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,16 +26,16 @@ flow.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- net/ipv4/gre_offload.c |   14 ++++++++++++++
+ drivers/net/geneve.c |   14 ++++++++++++++
  1 file changed, 14 insertions(+)
 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 540866dbd27d..7ea14ced9222 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -203,6 +203,20 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 				continue;
- 			}
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 192631a345df..2dac5496c965 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -473,6 +473,20 @@ static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
+ 			NAPI_GRO_CB(p)->same_flow = 0;
+ 			continue;
  		}
 +
 +		/* Include the IP ID check from the outer IP hdr */
@@ -53,4 +53,4 @@ index 540866dbd27d..7ea14ced9222 100644
 +					 NAPI_GRO_CB(p)->flush_id;
  	}
  
- 	skb_gro_pull(skb, grehlen);
+ 	type = gh->proto_type;
