@@ -1,56 +1,32 @@
-From: Jesse Gross <jesse-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: reduce padding in struct
-	sw_flow_key
-Date: Fri, 18 Mar 2016 15:22:50 -0700
-Message-ID: <CAEh+42gush2ouc286W=O_76ZNLO-BYSW_uiaPrbkJz22bJRt_g@mail.gmail.com>
-References: <1458308084-268272-1-git-send-email-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netdev: Move octeon/octeon_mgmt driver to cavium
+ directory.
+Date: Fri, 18 Mar 2016 18:25:50 -0400 (EDT)
+Message-ID: <20160318.182550.1326216108383007578.davem@davemloft.net>
+References: <1458003428-27632-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1458308084-268272-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mips@linux-mips.org, david.daney@cavium.com
+To: ddaney.cavm@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55537 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751207AbcCRWZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 18:25:55 -0400
+In-Reply-To: <1458003428-27632-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBNYXIgMTgsIDIwMTYgYXQgNjozNCBBTSwgQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5k
-Yi5kZT4gd3JvdGU6Cj4gVGhpcyBtZWFucyBpdCdzIHN0aWxsIHRvbyBsYXJnZSByZWFsbHksIHdl
-IGp1c3QgZG9uJ3Qgd2FybiBhYm91dCBpdCBhbnkgbW9yZSwKPiBhbmQgd2lsbCBnZXQgdGhlIHdh
-cm5pbmcgYWdhaW4gb25jZSBhbm90aGVyIG1lbWJlciBpcyBhZGRlZC4gTXkgcGF0Y2ggaXMgYQo+
-IGJhbmQtYWlkIGF0IGJlc3QsIGJ1dCBtb3JlIHdvcmsgaXMgbmVlZGVkIGhlcmUuIE9uZSBwcm9i
-bGVtIGlzIHRoYXQKPiBvdnNfZmxvd19jbWRfbmV3IGFuZCBvdnNfZmxvd19jbWRfc2V0IGhhdmUg
-dHdvIGNvcGllcyBvZiBzdHJ1Y3Qgc3dfZmxvd19rZXkgb24KPiB0aGUgc3RhY2ssIG9uZSBvZiB0
-aGVtIG5lc3RlZCB3aXRoaW4gc3dfZmxvd19tYXNrLiBJZiB3ZSBjb3VsZCByZWR1Y2UgdGhhdCB0
-bwo+IGEgc2luZ2xlIGluc3RhbmNlLCB0aGUgc3RhY2sgdXNhZ2Ugd291bGQgYmUgY3V0IGluIGhh
-bGYgaGVyZS4KCkkgdGhpbmsgaXQgc2hvdWxkIGJlIHBvc3NpYmxlIHRvIHJlZHVjZSB0aG9zZSB0
-d28gZnVuY3Rpb25zIHRvIG9ubHkKdXNlIGEgc2luZ2xlIGluc3RhbmNlIG9mIHRoZSBzdHJ1Y3R1
-cmUuCgpGb3IgbmV3IGZsb3dzLCB3ZSdyZSBhbHJlYWR5IGFsbG9jYXRpbmcgdGhlIGtleSBzdHJ1
-Y3R1cmUgb24gdGhlIGhlYXAsCml0IHNlZW1zIGxpa2Ugd2UgY291bGQganVzdCB0cmFuc2xhdGUg
-dGhlIGtleSBpbnRvIHRoYXQgcmF0aGVyIHRoYW4gdG8KaW50ZXJtZWRpYXRlIGxvY2F0aW9uIG9u
-IHRoZSBzdGFjay4gQW5kIHdoZW4gc2V0dGluZyBmbG93cywgSSdtIG5vdApzdXJlIHRoYXQgd2Ug
-cmVhbGx5IG5lZWQgdGhlIG1hc2sgYXQgYWxsIC0gd2UgZG9uJ3QgZG8gYW55dGhpbmcgd2l0aApp
-dCBvdGhlciB0aGFuIGNoZWNrIGl0IGFnYWluc3QgdGhlIGFjdGlvbnMgYnV0IHdlIHJlYWxseSBz
-aG91bGQgYmUKdXNpbmcgdGhlIG9yaWdpbmFsIG1hc2sgZm9yIHRoYXQgcmF0aGVyIHRoYW4gdGhl
-IG5ldyBvbmUuCgpJdCBzZWVtcyBsaWtlIGl0IHdvdWxkIGJlIHByZWZlcmFibGUgdG8gZ28gZG93
-biB0aGF0IHJvdXRlIHJhdGhlciB0aGFuCnRoaXMgcGF0Y2gsIHNpbmNlIGFzIHlvdSBzYXksIHRo
-aXMgcGF0Y2ggaXMgcmVhbGx5IG9ubHkgc3VwcHJlc3NpbmcKdGhlIHdhcm5pbmcgYW5kIGRvZXNu
-J3QgaGF2ZSBhIHNpZ25pZmljYW50IGltcGFjdCBvbiB0aGUgYWN0dWFsIHN0YWNrCmNvbnN1bXB0
-aW9uLiBQbHVzLCB0aGUgb3JkZXJpbmcgb2YgdGhlIGZsb3cgbGF5b3V0IGFmZmVjdHMgaG93IG11
-Y2gKZGF0YSBuZWVkcyB0byBiZSBjb21wYXJlZCBkdXJpbmcgcGFja2V0IGxvb2t1cCwgc28gdGhp
-cyBjaGFuZ2Ugd2lsbApsaWtlbHkgYmUgYmFkIGZvciBmb3J3YXJkaW5nIHBlcmZvcm1hbmNlLgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
-ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL2Rldgo=
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Mon, 14 Mar 2016 17:57:08 -0700
+
+> From: David Daney <david.daney@cavium.com>
+> 
+> No code changes.  Since OCTEON is a Cavium product, move the driver to
+> the vendor directory to unclutter things a bit.
+> 
+> Signed-off-by: David Daney <david.daney@cavium.com>
+
+Applied, thanks.
