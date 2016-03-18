@@ -1,62 +1,39 @@
 From: Alexandre TORGUE <alexandre.torgue@gmail.com>
-Subject: [PATCH v5 0/4] Add Ethernet support on STM32F429
-Date: Fri, 18 Mar 2016 16:37:04 +0100
-Message-ID: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+Subject: [PATCH v5 3/4] net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+Date: Fri, 18 Mar 2016 16:37:07 +0100
+Message-ID: <1458315428-10081-4-git-send-email-alexandre.torgue@gmail.com>
+References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
 Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
 	devicetree@vger.kernel.org, robh@kernel.org, manabian@gmail.com
 To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34796 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933243AbcCRPhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 11:37:18 -0400
+In-Reply-To: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
-This series:
- -enhance current stmmac driver to control it (code already
-available) and adds basic glue for STM32F429 chip.
- -Enable basic Net config in kernel.
+Adds support of Synopsys 3.50a MAC IP in stmmac driver.
 
-Note that DT patches are not present because STM32 pinctrl code is not
-yet avalaible.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Tested-by: Maxime Coquelin <maxime.coquelin@st.com>
+Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
 
-Changes since v4:
- -Fix dirty copy/past in bindings documentation patch.
-
-Changes since v3:
- -Fix "tx-clk" and "rx-clk" as required clocks. Driver and bindings are
-modified.
-
-Changes since v2:
- -Fix alphabetic order in Kconfig and Makefile.
- -Improve code according to Joachim review.
- -Binding: remove useless entry.
-
-Changes since v1:
- -Fix Kbuild issue in Kconfig.
- -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
-driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
- -Take into account Joachim review.
-
-Regards.
-
-Alexandre.
-
-Alexandre TORGUE (4):
-  net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
-  Documentation: Bindings: Add STM32 DWMAC glue
-  net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
-  ARM: STM32: Enable Ethernet in stm32_defconfig
-
- .../devicetree/bindings/net/stm32-dwmac.txt        |  32 ++++
- arch/arm/configs/stm32_defconfig                   |   9 +
- drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 193 +++++++++++++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
- 6 files changed, 248 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 6a52fa1..6cca626 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -178,6 +178,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 	 * once needed on other platforms.
+ 	 */
+ 	if (of_device_is_compatible(np, "st,spear600-gmac") ||
++		of_device_is_compatible(np, "snps,dwmac-3.50a") ||
+ 		of_device_is_compatible(np, "snps,dwmac-3.70a") ||
+ 		of_device_is_compatible(np, "snps,dwmac")) {
+ 		/* Note that the max-frame-size parameter as defined in the
 -- 
 1.9.1
