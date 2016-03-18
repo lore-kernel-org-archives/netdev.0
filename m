@@ -1,96 +1,78 @@
-From: Andy Zhou <azhou-LZ6Gd1LRuIk@public.gmane.org>
-Subject: [net] openvswitch: Allow deferred action fifo to expand
-	during run time
-Date: Thu, 17 Mar 2016 21:32:13 -0700
-Message-ID: <1458275533-2896-1-git-send-email-azhou@ovn.org>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
+Date: Fri, 18 Mar 2016 00:17:21 -0700
+Message-ID: <20160318071721.GA9052@tessaserdar-mba.local.DHCP.thefacebook.com>
+References: <1457989187-92851-1-git-send-email-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>
+To: Wei Wang <weiwan@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:31871 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753110AbcCRHRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 03:17:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1457989187-92851-1-git-send-email-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Q3VycmVudCBvcGVudnN3aXRjaCBpbXBsZW1lbnRhdGlvbiBhbGxvd3MgdXAgdG8gMTAgcmVjaXJj
-dWxhdGlvbiBhY3Rpb25zCmZvciBlYWNoIHBhY2tldC4gVGhpcyBsaW1pdCB3YXMgc3VmZmljaWVu
-dCBmb3IgbW9zdCB1c2UgY2FzZXMgaW4gdGhlCnBhc3QsIGJ1dCB3aXRoIG1vcmUgbmV3IGZlYXR1
-cmVzLCBzdWNoIGFzIHN1cHBvcnRpbmcgY29ubmVjdGlvbgp0cmFja2luZywgYW5kIHRlc3Rpbmcg
-aW4gbGFyZ2VyIHNjYWxlIG5ldHdvcmsgZW52aXJvbm1lbnQsClRoaXMgbGltaXQgbWF5IGJlIHRv
-byByZXN0cmljdGl2ZS4KCkFuIG9idmlvdXMgZGVzaWduIGNob2ljZSBpcyB0byBpbmNyZWFzZSB0
-aGUgaGFyZCBjb2RlZCBsaW1pdApmcm9tIDEwIHRvIGEgbGFyZ2VyIG51bWJlci4gIEhvd2V2ZXIs
-IHRoZXJlIGFyZSB0d28gZHJhdyBiYWNrcyB0byB0aGlzCmFwcHJvYWNoLiBGaXJzdCwgaXQgaXMg
-bm90IG9idmlvdXMgd2hhdCB0aGUgdXBwZXIgbGltaXQgc2hvdWxkIGJlLgpTZWNvbmQsIHRoZSBm
-aWZvcyBhcmUgYWxsb2NhdGVkIHBlciBDUFUgY29yZS4gU3RhdGljYWxseSBhbGxvY2F0ZWQKbGFy
-Z2UgYnVmZmVycyB3aWxsIGJlIG92ZXIga2lsbCBmb3IgbW9zdCBwYWNrZXQgZXhlY3V0aW9uLCBh
-bmQgd2lsbAppbmNyZWFzZSB0aGUgbW9kdWxlJ3MgbWVtb3J5IGZvb3RwcmludCB1bm5lY2Vzc2Fy
-aWx5IGZvciBzb21lCnNtYWxsZXIgc2NhbGUgYXBwbGljYXRpb25zLgoKVGhpcyBwYXRjaCBtYWtl
-cyBhIGRpZmZlcmVudCBkZXNpZ24gY2hvaWNlIHRoYXQgYWNjb21tb2RhdGVzIHBhY2tldHMKdGhh
-dCByZXF1aXJlIG1vcmUgdGhhbiAxMCByZWNpcmN1bGF0aW9uIGFjdGlvbnMgd2l0aG91dCBzaWdu
-aWZpY2FudGx5CmluY3JlYXNlIG1vZHVsZSdzIG1lbW9yeSBmb290cHJpbnQuICBrbWFsbG9jKCkg
-aXMgdXNlZCB0byBleHBhbmQKZGVmZXJyZWQgYWN0aW9uIGZpZm8gYXQgcnVuIHRpbWUgd2hlbmV2
-ZXIgYSBwYWNrZXQncyBhY3Rpb24gY29udGFpbnMKbW9yZSB0aGFuIDEwIHJlY2lyY3VsYXRpb24g
-YWN0aW9ucy4gVGhlIGR5bmFtaWNhbGx5IGFsbG9jYXRlZCBmaWZvcyBhcmUKZnJlZWQgYXMgc29v
-biBhcyB0aGUgcGFja2V0J3MgYWN0aW9ucyBleGVjdXRpb24gYXJlIGNvbXBsZXRlZC4KClJlcG9y
-dGVkLWFuZC10ZXN0ZWQtYnk6IFJhbXUgUmFtYW11cnRoeSA8c3JhbWFtdXJAbGludXgudm5ldC5p
-Ym0uY29tPgpSZXBvcnRlZC1hdDogaHR0cDovL29wZW52c3dpdGNoLm9yZy9waXBlcm1haWwvZGV2
-LzIwMTYtTWFyY2gvMDY3NjcyLmh0bWwKU2lnbmVkLW9mZi1ieTogQW5keSBaaG91IDxhemhvdUBv
-dm4ub3JnPgotLS0KIG5ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgfCA0NSArKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA0MCBpbnNl
-cnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9h
-Y3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCmluZGV4IDJkNTlkZjUuLmViMDY4
-YzcgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKKysrIGIvbmV0L29wZW52
-c3dpdGNoL2FjdGlvbnMuYwpAQCAtNzAsMTIgKzcwLDE0IEBAIHN0cnVjdCBvdnNfZnJhZ19kYXRh
-IHsKIAogc3RhdGljIERFRklORV9QRVJfQ1BVKHN0cnVjdCBvdnNfZnJhZ19kYXRhLCBvdnNfZnJh
-Z19kYXRhX3N0b3JhZ2UpOwogCi0jZGVmaW5lIERFRkVSUkVEX0FDVElPTl9GSUZPX1NJWkUgMTAK
-KyNkZWZpbmUgREVGRVJSRURfQUNUSU9OX0ZJRk9fSU5JVF9TSVpFIDEwCiBzdHJ1Y3QgYWN0aW9u
-X2ZpZm8gewogCWludCBoZWFkOwogCWludCB0YWlsOwogCS8qIERlZmVycmVkIGFjdGlvbiBmaWZv
-IHF1ZXVlIHN0b3JhZ2UuICovCi0Jc3RydWN0IGRlZmVycmVkX2FjdGlvbiBmaWZvW0RFRkVSUkVE
-X0FDVElPTl9GSUZPX1NJWkVdOworCXN0cnVjdCBkZWZlcnJlZF9hY3Rpb24gKmZpZm87CisJc2l6
-ZV90IHNpemU7ICAgICAvKiBDdXJyZW50IHNpemUgb2YgdGhlIGZpZm8gaW4gYnl0ZXMgKi8KKwlz
-dHJ1Y3QgZGVmZXJyZWRfYWN0aW9uIGluaXRpYWxfZmlmb1tERUZFUlJFRF9BQ1RJT05fRklGT19J
-TklUX1NJWkVdOwogfTsKIAogc3RhdGljIHN0cnVjdCBhY3Rpb25fZmlmbyBfX3BlcmNwdSAqYWN0
-aW9uX2ZpZm9zOwpAQCAtODUsNiArODcsMTYgQEAgc3RhdGljIHZvaWQgYWN0aW9uX2ZpZm9faW5p
-dChzdHJ1Y3QgYWN0aW9uX2ZpZm8gKmZpZm8pCiB7CiAJZmlmby0+aGVhZCA9IDA7CiAJZmlmby0+
-dGFpbCA9IDA7CisJZmlmby0+ZmlmbyA9IGZpZm8tPmluaXRpYWxfZmlmbzsKKwlmaWZvLT5zaXpl
-ID0gc2l6ZW9mKCpmaWZvLT5maWZvKSAqIERFRkVSUkVEX0FDVElPTl9GSUZPX0lOSVRfU0laRTsK
-K30KKworc3RhdGljIHZvaWQgYWN0aW9uX2ZpZm9fY2xlYXIoc3RydWN0IGFjdGlvbl9maWZvICpm
-aWZvKQoreworCWlmIChmaWZvLT5maWZvICE9IGZpZm8tPmluaXRpYWxfZmlmbykKKwkJa2ZyZWUo
-Zmlmby0+Zmlmbyk7CisKKwlhY3Rpb25fZmlmb19pbml0KGZpZm8pOwogfQogCiBzdGF0aWMgYm9v
-bCBhY3Rpb25fZmlmb19pc19lbXB0eShjb25zdCBzdHJ1Y3QgYWN0aW9uX2ZpZm8gKmZpZm8pCkBA
-IC0xMDIsOCArMTE0LDIyIEBAIHN0YXRpYyBzdHJ1Y3QgZGVmZXJyZWRfYWN0aW9uICphY3Rpb25f
-Zmlmb19nZXQoc3RydWN0IGFjdGlvbl9maWZvICpmaWZvKQogCiBzdGF0aWMgc3RydWN0IGRlZmVy
-cmVkX2FjdGlvbiAqYWN0aW9uX2ZpZm9fcHV0KHN0cnVjdCBhY3Rpb25fZmlmbyAqZmlmbykKIHsK
-LQlpZiAoZmlmby0+aGVhZCA+PSBERUZFUlJFRF9BQ1RJT05fRklGT19TSVpFIC0gMSkKLQkJcmV0
-dXJuIE5VTEw7CisJaWYgKGZpZm8tPmhlYWQgPj0gZmlmby0+c2l6ZSAvIHNpemVvZigqZmlmby0+
-ZmlmbykgLSAxKSB7CisJCS8qIG91dCBvZiBmaWZvIGJ1ZmZlciBzcGFjZSwgdHJ5IHRvIGFsbG9j
-YXRlIGEgbmV3IGZpZm8KKwkJICogYnVmZmVyLiAqLworCQlzdHJ1Y3QgZGVmZXJyZWRfYWN0aW9u
-ICpuZXdfZmlmbzsKKwkJaW50IG5ld19zaXplID0gZmlmby0+c2l6ZSAqIDI7CisKKwkJbmV3X2Zp
-Zm8gPSBrbWFsbG9jKG5ld19zaXplLCBHRlBfQVRPTUlDKTsKKwkJaWYgKG5ld19maWZvKSB7CisJ
-CQltZW1jcHkobmV3X2ZpZm8sIGZpZm8tPmZpZm8sIGZpZm8tPnNpemUpOworCQkJaWYgKGZpZm8t
-PmZpZm8gIT0gZmlmby0+aW5pdGlhbF9maWZvKQorCQkJCWtmcmVlKGZpZm8tPmZpZm8pOworCQkJ
-Zmlmby0+ZmlmbyA9IG5ld19maWZvOworCQkJZmlmby0+c2l6ZSA9IG5ld19zaXplOworCQl9IGVs
-c2UKKwkJCXJldHVybiBOVUxMOworCX0KIAogCXJldHVybiAmZmlmby0+Zmlmb1tmaWZvLT5oZWFk
-KytdOwogfQpAQCAtMTE1Miw3ICsxMTc4LDcgQEAgc3RhdGljIHZvaWQgcHJvY2Vzc19kZWZlcnJl
-ZF9hY3Rpb25zKHN0cnVjdCBkYXRhcGF0aCAqZHApCiAJfSB3aGlsZSAoIWFjdGlvbl9maWZvX2lz
-X2VtcHR5KGZpZm8pKTsKIAogCS8qIFJlc2V0IEZJRk8gZm9yIHRoZSBuZXh0IHBhY2tldC4gICov
-Ci0JYWN0aW9uX2ZpZm9faW5pdChmaWZvKTsKKwlhY3Rpb25fZmlmb19jbGVhcihmaWZvKTsKIH0K
-IAogLyogRXhlY3V0ZSBhIGxpc3Qgb2YgYWN0aW9ucyBhZ2FpbnN0ICdza2InLiAqLwpAQCAtMTE4
-NSwxMCArMTIxMSwxOSBAQCBvdXQ6CiAKIGludCBhY3Rpb25fZmlmb3NfaW5pdCh2b2lkKQogewor
-CWludCBpOworCiAJYWN0aW9uX2ZpZm9zID0gYWxsb2NfcGVyY3B1KHN0cnVjdCBhY3Rpb25fZmlm
-byk7CiAJaWYgKCFhY3Rpb25fZmlmb3MpCiAJCXJldHVybiAtRU5PTUVNOwogCisJLyogVXNlIHBy
-ZSBhbGxvY2F0ZWQgZmlmby4gKi8KKwlmb3JfZWFjaF9wb3NzaWJsZV9jcHUoaSkgeworCQlzdHJ1
-Y3QgYWN0aW9uX2ZpZm8gKmFjdGlvbl9maWZvOworCisJCWFjdGlvbl9maWZvID0gcGVyX2NwdV9w
-dHIoYWN0aW9uX2ZpZm9zLCBpKTsKKwkJYWN0aW9uX2ZpZm9faW5pdChhY3Rpb25fZmlmbyk7CisJ
-fQogCXJldHVybiAwOwogfQogCi0tIAoxLjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On Mon, Mar 14, 2016 at 01:59:47PM -0700, Wei Wang wrote:
+> From: Wei Wang <weiwan@google.com>
+>
+> When ICMPV6_PKT_TOOBIG message is received by a connected UDP socket,
+> the new mtu value is not properly updated in the dst_entry associated
+> with the socket.
+A nit picking, the new mtu value cannot always be set directly
+to the current dst_entry associated with the socket (i.e. sk->sk_dst_cache).
+In this case, a RTF_CACHE clone has to be created.
+
+The problem could be better understood if the commit message was like:
+"After creating the RTF_CACHE clone (with the new mtu value),
+sk->sk_dst_cache is not _immediately_ set to this RTF_CACHE clone.
+getsockopt(IPV6_MTU) does not do a dst_check() first.  Hence,
+if there was no outgoing message to trigger the dst_check() invalidation
+logic, it may return the stale mtu value."
+
+> -void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu, int oif,
+> -		     u32 mark);
+> +void ip6_update_pmtu(struct net *net, struct sock *sk, struct sk_buff *skb,
+> +		     __be32 mtu, int oif, u32 mark);
+>  void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu);
+This change seems to make the API a bit confusing.  The none _sk_ version
+is also taking a sk param now.
+
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1346,7 +1346,7 @@ static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
+>  		(rt->rt6i_flags & RTF_PCPU || rt->rt6i_node);
+>  }
+>
+> -static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+> +static void __ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+>  				 const struct ipv6hdr *iph, u32 mtu)
+>  {
+>  	struct rt6_info *rt6 = (struct rt6_info *)dst;
+> @@ -1377,12 +1377,8 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+>  		nrt6 = ip6_rt_cache_alloc(rt6, daddr, saddr);
+>  		if (nrt6) {
+>  			rt6_do_update_pmtu(nrt6, mtu);
+> -
+> -			/* ip6_ins_rt(nrt6) will bump the
+> -			 * rt6->rt6i_node->fn_sernum
+> -			 * which will fail the next rt6_check() and
+> -			 * invalidate the sk->sk_dst_cache.
+> -			 */
+> +			if (sk)
+> +				ip6_dst_store(sk, &nrt6->dst, daddr, saddr);
+daddr/saddr could be from iph which is from skb.  Considering skb could be
+gone, are they suitable to be set in np->daddr_cache and np->saddr_cache?
+
+After looking at this patch, I like your last patch more because this
+problem seems to be limited to the connected udp socket only (?) and
+udp knows better on what to pass to ip6_dst_store().  Feeling bad
+now about steering you to this direction :(
+
+Thanks,
+-- Martin
