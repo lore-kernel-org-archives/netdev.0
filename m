@@ -1,94 +1,78 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Fri, 18 Mar 2016 13:54:55 +0100
-Message-ID: <20160318125455.GN4292@pengutronix.de>
-References: <56E99727.9040702@laposte.net>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat
+	code
+Date: Fri, 18 Mar 2016 13:57:46 +0100
+Message-ID: <33274216.3RTMPYvo6W@wuerfel>
+References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Daniel Mack <daniel@zonque.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sebastian Frias <sf84@laposte.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:34869 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752439AbcCRMzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 08:55:05 -0400
-Content-Disposition: inline
-In-Reply-To: <56E99727.9040702@laposte.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1458132481-318209-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-[expand cc a bit more]
-
-Hello,
-
-On Wed, Mar 16, 2016 at 06:25:59PM +0100, Sebastian Frias wrote:
-> Commit 687908c2b649 ("net: phy: at803x: simplify using
-> devm_gpiod_get_optional and its 4th argument") introduced a dependenc=
-y
-> on GPIOLIB that was not there before.
->=20
-> This commit removes such dependency by checking the return code and
-> comparing it against ENOSYS which is returned when GPIOLIB is not
-> selected.
->=20
-> Fixes: 687908c2b649 ("net: phy: at803x: simplify using devm_gpiod_get=
-_optional and its 4th argument")
->=20
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
-> ---
->  drivers/net/phy/at803x.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-> index 2174ec9..88b7ff3 100644
-> --- a/drivers/net/phy/at803x.c
-> +++ b/drivers/net/phy/at803x.c
-> @@ -252,7 +252,9 @@ static int at803x_probe(struct phy_device *phydev=
-)
->  		return -ENOMEM;
->=20
->  	gpiod_reset =3D devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIG=
-H);
-> -	if (IS_ERR(gpiod_reset))
-> +	if (PTR_ERR(gpiod_reset) =3D=3D -ENOSYS)
-> +		gpiod_reset =3D NULL;
-> +	else if (IS_ERR(gpiod_reset))
-
-this isn't better either (IMHO it's worse, but maybe this is debatable
-and also depends on your POV).
-
-With 687908c2b649 I made kernels without GPIOLIB fail to bind this
-device. I admit this is not maximally nice.
-
-Your change makes the driver bind in this case again and then the reset
-gpio isn't handled at all which might result in a later and harder to
-debug error.
-
-The better approach to fix your problem is: make the driver depend (or
-force) on GPIOLIB. Or alternatively, drop reset-handling from the
-driver.
-
-=46rom a driver perspecitive, it would be nice if devm_gpiod_get_option=
-al
-returned NULL iff the respective gpio isn't specified even with
-GPIOLIB=3Dn, but this isn't sensible either because it would result in
-quite some gpiolib code to not being conditionally compiled on
-CONFIG_GPIOLIB any more.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+T24gV2VkbmVzZGF5IDE2IE1hcmNoIDIwMTYgMTM6NDc6MTMgQXJuZCBCZXJnbWFubiB3cm90ZToK
+PiBUaGUgb3BlbnZzd2l0Y2ggY29kZSBoYXMgZ2FpbmVkIHN1cHBvcnQgZm9yIGNhbGxpbmcgaW50
+byB0aGUKPiBuZi1uYXQtaXB2NC9pcHY2IG1vZHVsZXMsIGhvd2V2ZXIgdGhvc2UgY2FuIGJlIGxv
+YWRhYmxlIG1vZHVsZXMKPiBpbiBhIGNvbmZpZ3VyYXRpb24gaW4gd2hpY2ggb3BlbnZzd2l0Y2gg
+aXMgYnVpbHQtaW4sIGxlYWRpbmcKPiB0byBsaW5rIGVycm9yczoKPiAKPiBuZXQvYnVpbHQtaW4u
+bzogSW4gZnVuY3Rpb24gYF9fb3ZzX2N0X2xvb2t1cCc6Cj4gOigudGV4dCsweDJjYzJjOCk6IHVu
+ZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wX3JlcGx5X3RyYW5zbGF0aW9uJwo+IDoo
+LnRleHQrMHgyY2M2NmMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9uYXRfaWNtcHY2X3Jl
+cGx5X3RyYW5zbGF0aW9uJwo+IAo+IFRoZSBkZXBlbmRlbmN5IG9uICghTkZfTkFUIHx8IE5GX05B
+VCkgd2FzIG1lYW50IHRvIHByZXZlbnQKPiB0aGlzLCBidXQgTkZfTkFUIGlzIHNldCB0byAneScg
+aWYgYW55IG9mIHRoZSBzeW1ib2xzIHNlbGVjdGluZwo+IGl0IGFyZSBidWlsdC1pbiwgYnV0IHRo
+ZSBsaW5rIGVycm9yIGhhcHBlbnMgd2hlbiBhbnkgb2YgdGhlbQo+IGFyZSBtb2R1bGFyLgo+IAo+
+IEEgc2Vjb25kIGlzc3VlIGlzIHRoYXQgZXZlbiBpZiBDT05GSUdfTkZfTkFUX0lQVjYgaXMgYnVp
+bHQtaW4sCj4gQ09ORklHX05GX05BVF9JUFY0IG1pZ2h0IGJlIGNvbXBsZXRlbHkgZGlzYWJsZWQu
+IFRoaXMgaXMgdW5saWtlbHkKPiB0byBiZSB1c2VmdWwgaW4gcHJhY3RpY2UsIGJ1dCB0aGUgZHJp
+dmVyIGN1cnJlbnRseSBvbmx5IGhhbmRsZXMKPiBJUHY2IGJlaW5nIG9wdGlvbmFsLgo+IAo+IFRo
+aXMgcGF0Y2ggaW1wcm92ZXMgdGhlIEtjb25maWcgZGVwZW5kZW5jeSBzbyB0aGF0IG9wZW52c3dp
+dGNoCj4gY2Fubm90IGJlIGJ1aWx0LWluIGlmIGVpdGhlciBvZiB0aGUgdHdvIG90aGVyIHN5bWJv
+bHMgYXJlIHNldAo+IHRvICdtJywgYW5kIGl0IHJlcGxhY2VzIHRoZSBpbmNvcnJlY3QgI2lmZGVm
+IGluIG92c19jdF9uYXRfZXhlY3V0ZSgpCj4gd2l0aCB0d28gImlmIChJU19FTkFCTEVEKCkpIiBj
+aGVja3MgdGhhdCBzaG91bGQgY2F0Y2ggYWxsIGNvcm5lcgo+IGNhc2VzIGFsc28gbWFrZSB0aGUg
+Y29kZSBtb3JlIHJlYWRhYmxlLgo+IAo+IFRoZSBzYW1lICNpZmRlZiBleGlzdHMgb3ZzX2N0X25h
+dF90b19hdHRyKCksIHdoZXJlIGl0IGRvZXMgbm90Cj4gY2F1c2UgYSBsaW5rIGVycm9yLCBidXQg
+Zm9yIGNvbnNpc3RlbmN5IEknbSBjaGFuZ2luZyBpdCB0aGUgc2FtZQo+IHdheS4KPiAKPiBTaWdu
+ZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgo+IEZpeGVzOiAwNTc1MjUy
+M2U1NjUgKCJvcGVudnN3aXRjaDogSW50ZXJmYWNlIHdpdGggTkFULiIpCj4gLS0tCj4gIG5ldC9v
+cGVudnN3aXRjaC9LY29uZmlnICAgICB8ICAzICsrLQo+ICBuZXQvb3BlbnZzd2l0Y2gvY29ubnRy
+YWNrLmMgfCAxNiArKysrKysrKy0tLS0tLS0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMTAgaW5zZXJ0
+aW9ucygrKSwgOSBkZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNo
+L0tjb25maWcgYi9uZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZwo+IGluZGV4IDIzNGE3MzM0NGM2ZS4u
+OTYxZmI2MDExNWRmIDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9LY29uZmlnCj4gKysr
+IGIvbmV0L29wZW52c3dpdGNoL0tjb25maWcKPiBAQCAtNyw3ICs3LDggQEAgY29uZmlnIE9QRU5W
+U1dJVENICj4gIAlkZXBlbmRzIG9uIElORVQKPiAgCWRlcGVuZHMgb24gIU5GX0NPTk5UUkFDSyB8
+fCBcCj4gIAkJICAgKE5GX0NPTk5UUkFDSyAmJiAoKCFORl9ERUZSQUdfSVBWNiB8fCBORl9ERUZS
+QUdfSVBWNikgJiYgXAo+IC0JCQkJICAgICAoIU5GX05BVCB8fCBORl9OQVQpKSkKPiArCQkJCSAg
+ICAgKCFORl9OQVRfSVBWNCB8fCBORl9OQVRfSVBWNCkgJiYgXAo+ICsJCQkJICAgICAoIU5GX05B
+VF9JUFY2IHx8IE5GX05BVF9JUFY2KSkpCj4gIAlzZWxlY3QgTElCQ1JDMzJDCj4gIAlzZWxlY3Qg
+TVBMUwo+ICAJc2VsZWN0IE5FVF9NUExTX0dTTwoKSSd2ZSBub3cgc2VlbiBhIG5ldyByZWdyZXNz
+aW9uOgoKbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBfX292c19jdF9sb29rdXAnOgpzd2l0
+Y2hkZXYuYzooLnRleHQrMHgxMzZlOGMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9jdF9u
+YXRfZXh0X2FkZCcKc3dpdGNoZGV2LmM6KC50ZXh0KzB4MTM2ZjM4KTogdW5kZWZpbmVkIHJlZmVy
+ZW5jZSB0byBgbmZfbmF0X3BhY2tldCcKc3dpdGNoZGV2LmM6KC50ZXh0KzB4MTM2ZjgwKTogdW5k
+ZWZpbmVkIHJlZmVyZW5jZSB0byBgbmZfbmF0X3NldHVwX2luZm8nCnN3aXRjaGRldi5jOigudGV4
+dCsweDEzNmY5OCk6IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9hbGxvY19udWxsX2Jp
+bmRpbmcnCgpBcHBhcmVudGx5LCB0aGUgKCFORl9OQVQgfHwgTkZfTkFUKSBzdGF0ZW1lbnQgaXMg
+YWxzbyBuZWVkZWQgaW4gYWRkaXRpb24gdG8KdGhlIG90aGVyIHR3by4gSSdtIHJlc2VuZGluZyB0
+aGUgZml4ZWQgcGF0Y2gsIGFzIGl0IGRvZXNuJ3Qgc2VlbSB0byBoYXZlCmJlZW4gbWVyZ2VkIHll
+dC4KCklmIGl0J3MgaW4gc29tZSBvdGhlciB0cmVlIGFscmVhZHkgYW5kIHlvdSdkIHJhdGhlciBo
+YXZlIGEgcGF0Y2ggb24gdG9wLApJIGNhbiBzZW5kIHRoYXQgdG9vLgoKCUFybmQKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
+ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9kZXYK
