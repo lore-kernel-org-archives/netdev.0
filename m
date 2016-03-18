@@ -1,38 +1,41 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: btcoexist: Convert BTC_PRINTK to btc_<foo>_dbg
-Date: Sat, 19 Mar 2016 11:09:50 +0200
-Message-ID: <87pouqhm01.fsf@kamboji.qca.qualcomm.com>
-References: <4672f9efb37df545ae504d51ca626bf34237fa63.1458258337.git.joe@perches.com>
-	<56EB6DD9.3000300@lwfinger.net> <1458272258.9556.46.camel@perches.com>
+From: zen@zenhancer.net
+Subject: SEC Filing
+Date: Fri, 18 Mar 2016 21:22:29 +0530
+Message-ID: <56ec243d.lC4nRmhgAVTJjhXg%zen@zenhancer.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1458272258.9556.46.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> (Joe Perches's message of
-	"Thu, 17 Mar 2016 20:37:38 -0700")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.zenhancer.net ([103.248.117.244]:56162 "EHLO
+	server.zenhancer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377AbcCSJkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2016 05:40:53 -0400
+Received: from server.zenhancer.net (localhost [127.0.0.1])
+	by server.zenhancer.net (Postfix) with ESMTP id A0D5C1047BBFB
+	for <netdev@vger.kernel.org>; Sat, 19 Mar 2016 15:01:54 +0530 (IST)
+Received: from server.zenhancer.net ([127.0.0.1])
+	by server.zenhancer.net (server.zenhancer.net [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id 6trrc8JIgS13 for <netdev@vger.kernel.org>;
+	Sat, 19 Mar 2016 15:01:31 +0530 (IST)
+Received: from server.zenhancer.net (localhost [127.0.0.1])
+	by server.zenhancer.net (Postfix) with ESMTPSA id C0A14105DF9E3
+	for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 21:22:29 +0530 (IST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
+SEC XBRL Filings (www.secxbrlfilings.com) is offering new clients FIRST FILING FREE for a limited period of time and for a limited number of companies.
 
-> On Thu, 2016-03-17 at 21:54 -0500, Larry Finger wrote:
->> On 03/17/2016 07:00 PM, Joe Perches wrote:
->> > Use a more common logging style.
->
-> [ 300K+ quote without comment ]
+In addition, will guarantee that we save you at least 20% ongoing versus any competitor in the industry. We have dedicated 24/7 Project management and round the clock production for all our services.
 
-Yeah, please try to avoid that. For example this makes the patchwork
-page for the patch really hard to read:
+If you are looking to improve the process, get supreme quality EDGAR and XBRL, save time and money then consider SEC XBRL Filings as a solution. It is worth calling to find out more (347) 480-4275.
 
-https://patchwork.kernel.org/patch/8615131/
+What's more, we will also update or create your INVESTOR RELATIONS(XBRL Web posting) page for FREE!!!
 
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+
+Paul Smith
+SEC XBRL Filings
+E: info@secxbrlfilings.com
+T: (347) 480-4275
+www.secxbrlfilings.com
