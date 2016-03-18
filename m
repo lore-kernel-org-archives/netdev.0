@@ -1,35 +1,62 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [linux-next:master 4720/12950] net/core/dst_cache.c:31:6: sparse:
- symbol 'dst_cache_per_cpu_dst_set' was not declared. Should it be static?
-Date: Fri, 18 Mar 2016 23:27:28 +0800
-Message-ID: <201603182348.v699gI0M%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+From: Alexandre TORGUE <alexandre.torgue@gmail.com>
+Subject: [PATCH v5 0/4] Add Ethernet support on STM32F429
+Date: Fri, 18 Mar 2016 16:37:04 +0100
+Message-ID: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, robh@kernel.org, manabian@gmail.com
+To: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git master
-head:   5e3497cca281616e7930b74a0076b7324dcc2057
-commit: 607f725f6f7d5ec3759fbc16224afb60e2152a5b [4720/12950] net: replace dst_cache ip6_tunnel implementation with the generic one
-reproduce:
-        # apt-get install sparse
-        git checkout 607f725f6f7d5ec3759fbc16224afb60e2152a5b
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+STM32F429 Chip embeds a Synopsys 3.50a MAC IP.
+This series:
+ -enhance current stmmac driver to control it (code already
+available) and adds basic glue for STM32F429 chip.
+ -Enable basic Net config in kernel.
 
+Note that DT patches are not present because STM32 pinctrl code is not
+yet avalaible.
 
-sparse warnings: (new ones prefixed by >>)
+Changes since v4:
+ -Fix dirty copy/past in bindings documentation patch.
 
->> net/core/dst_cache.c:31:6: sparse: symbol 'dst_cache_per_cpu_dst_set' was not declared. Should it be static?
->> net/core/dst_cache.c:42:18: sparse: symbol 'dst_cache_per_cpu_get' was not declared. Should it be static?
+Changes since v3:
+ -Fix "tx-clk" and "rx-clk" as required clocks. Driver and bindings are
+modified.
 
-Please review and possibly fold the followup patch.
+Changes since v2:
+ -Fix alphabetic order in Kconfig and Makefile.
+ -Improve code according to Joachim review.
+ -Binding: remove useless entry.
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Changes since v1:
+ -Fix Kbuild issue in Kconfig.
+ -Remove init/exit callbacks. Suspend/Resume and remove driver is no more
+driven in stmmac_pltfr but directly in dwmac-stm32 glue driver.
+ -Take into account Joachim review.
+
+Regards.
+
+Alexandre.
+
+Alexandre TORGUE (4):
+  net: ethernet: dwmac: add Ethernet glue logic for stm32 chip
+  Documentation: Bindings: Add STM32 DWMAC glue
+  net: ethernet: stmmac: add support of Synopsys 3.50a MAC IP
+  ARM: STM32: Enable Ethernet in stm32_defconfig
+
+ .../devicetree/bindings/net/stm32-dwmac.txt        |  32 ++++
+ arch/arm/configs/stm32_defconfig                   |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |  12 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c  | 193 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   1 +
+ 6 files changed, 248 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/stm32-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-stm32.c
+
+-- 
+1.9.1
