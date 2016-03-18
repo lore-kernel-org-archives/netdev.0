@@ -1,74 +1,46 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Fri, 18 Mar 2016 20:12:42 +0100
-Message-ID: <20160318191242.GQ4292@pengutronix.de>
-References: <56E99727.9040702@laposte.net>
- <20160318125455.GN4292@pengutronix.de>
- <56EC2525.8000706@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sebastian Frias <sf84@laposte.net>
+From: Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] mac80211: remove description of dropped member
+Date: Fri, 18 Mar 2016 19:23:18 +0000
+Message-ID: <1458328998-14021-1-git-send-email-luisbg@osg.samsung.com>
+Cc: johannes@sipsolutions.net, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Luis de Bethencourt <luisbg@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58584 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751661AbcCRTMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 15:12:55 -0400
-Content-Disposition: inline
-In-Reply-To: <56EC2525.8000706@laposte.net>
+Received: from lists.s-osg.org ([54.187.51.154]:54723 "EHLO lists.s-osg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752038AbcCRTX0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2016 15:23:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Sebastian,
+Commit 976bd9efdae6 ("mac80211: move beacon_loss_count into ifmgd")
+removed the member from the sta_info struct but the description stayed
+lingering. Remove it.
 
-On Fri, Mar 18, 2016 at 04:56:21PM +0100, Sebastian Frias wrote:
-> On 03/18/2016 01:54 PM, Uwe Kleine-K=F6nig wrote:
-> > From a driver perspecitive, it would be nice if devm_gpiod_get_opti=
-onal
-> > returned NULL iff the respective gpio isn't specified even with
-> > GPIOLIB=3Dn, but this isn't sensible either because it would result=
- in
-> > quite some gpiolib code to not being conditionally compiled on
-> > CONFIG_GPIOLIB any more.
->=20
-> Let's say that was the case, what would the PHY code do?
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
+Hi,
 
-With reset gpios it might not be that critical, but consider an optiona=
-l
-enable gpio. (Optional in the sense, that some device have it and other=
-s
-don't, e.g. because the pin is pulled into active level by hardware.)
+A second patch fixing a warning in make htmldocs.
 
-Now you do:
+Thanks :)
+Luis
 
-	gpiod =3D gpiod_get_optional("enable");
+ net/mac80211/sta_info.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-and if gpiod now is an error pointer, you must assume that you cannot
-operate the device. And even with GPIOLIB=3Dn (and gpiod =3D ERR_PTR(-E=
-NOSYS))
-you cannot ignore the error. For consistency I'd recommend to do the
-same for reset even though there is a chance to get a working device.
-
-> What would you think of making at803x_link_change_notify() print a
-> message every time it should do a reset but does not has a way to do =
-it?
-
-Then this question is obsolete because the device doesn't probe.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
+index 053f5c4..62193f4 100644
+--- a/net/mac80211/sta_info.h
++++ b/net/mac80211/sta_info.h
+@@ -377,7 +377,6 @@ DECLARE_EWMA(signal, 1024, 8)
+  * @uploaded: set to true when sta is uploaded to the driver
+  * @sta: station information we share with the driver
+  * @sta_state: duplicates information about station state (for debug)
+- * @beacon_loss_count: number of times beacon loss has triggered
+  * @rcu_head: RCU head used for freeing this station struct
+  * @cur_max_bandwidth: maximum bandwidth to use for TX to the station,
+  *	taken from HT/VHT capabilities or VHT operating mode notification
+-- 
+2.5.1
