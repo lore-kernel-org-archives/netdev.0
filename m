@@ -1,41 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp/dccp: remove obsolete WARN_ON() in icmp
- handlers
-Date: Thu, 17 Mar 2016 21:07:15 -0400 (EDT)
-Message-ID: <20160317.210715.1891529884014626450.davem@davemloft.net>
-References: <1458193935.7353.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] qmi_wwan: Added support for Gemalto's Cinterion PHxx
+ WWAN interface
+Date: Thu, 17 Mar 2016 21:10:04 -0400 (EDT)
+Message-ID: <20160317.211004.825764782261738579.davem@davemloft.net>
+References: <1978E4F2CF12DD4A899FA7487323EB11010836882A@A1GTOEMBXV004.gto.a3c.atos.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, blazarus@google.com, ncardwell@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39874 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030AbcCRBHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Mar 2016 21:07:17 -0400
-In-Reply-To: <1458193935.7353.44.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bjorn-yOkvZcmFvRU@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Hans-Christoph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1978E4F2CF12DD4A899FA7487323EB11010836882A-uHmIn6rc3TL7XpjMj+VyizY6JsNizA6ek7cHwXyjAIw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Mar 2016 22:52:15 -0700
+From: Schemmel Hans-Christoph <Hans-Christoph.Schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
+Date: Thu, 17 Mar 2016 10:07:56 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> Added support for Gemalto's Cinterion PHxx WWAN interfaces 
+> by adding QMI_FIXED_INTF with Cinterion's VID and PID.
 > 
-> Now SYN_RECV request sockets are installed in ehash table, an ICMP
-> handler can find a request socket while another cpu handles an incoming
-> packet transforming this SYN_RECV request socket into an ESTABLISHED
-> socket.
+> PHxx can have:
+> 2 RmNet Interfaces (PID 0x0082) or
+> 1 RmNet + 1 USB Audio interface (PID 0x0083).
 > 
-> We need to remove the now obsolete WARN_ON(req->sk), since req->sk
-> is set when a new child is created and added into listener accept queue.
-> 
-> If this race happens, the ICMP will do nothing special.
-> 
-> Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Ben Lazarus <blazarus@google.com>
-> Reported-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel-av01+Y74gORBDgjK7y7TUQ@public.gmane.org>
 
-Applied and queued up for -stable, thanks Eric.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
