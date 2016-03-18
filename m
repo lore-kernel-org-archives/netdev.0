@@ -1,60 +1,44 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: replace
-	netdev_alloc_skb_ip_align() with napi_alloc_skb()
-Date: Fri, 18 Mar 2016 09:21:41 +0100
-Message-ID: <1458289301.5314.11.camel@redhat.com>
-References: <b436c3eb5d4c19e92184c27d89ec8118d6fd3f81.1458224603.git.pabeni@redhat.com>
-	<CAHdzE-_u35Kg1zck1KKCYhu5epx4vNtzE7UX41Bi85vsJ55ROw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	virtualization@lists.linux-foundation.org
-To: Venkatesh Srinivas <venkateshs@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAHdzE-_u35Kg1zck1KKCYhu5epx4vNtzE7UX41Bi85vsJ55ROw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] net: consolidate lock/unlock into unlock_wait
+Date: Fri, 18 Mar 2016 10:32:05 +0100
+Message-ID: <1458293525-16842-1-git-send-email-hofrat@osadl.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-03-17 at 18:01 -0700, Venkatesh Srinivas wrote:
-> On Thu, Mar 17, 2016 at 7:44 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> >
-> > This gives small but noticeable rx performance improvement (2-3%)
-> > and will allow exploiting future napi improvement.
-> >
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> 
-> Worked in my tests, though the performance win was in the noise (+0.6%
-> - +1% bandwidth).
-> What tests did you see a 2-3% win on?
+The spin_lock()/spin_unlock() is synchronizing on the adapter->work_lock
+as the comment also suggests, which is equivalent to spin_unlock_wait()
+but the later should be more efficient.
 
-I'm doing net2VM tests (i.e. the traffic generator is on a different
-host) with guest tuned a bit for performance. i.e. cpu pinning, no
-iptables, no dhclient (yes, that makes a big difference:
-http://lists.openwall.net/netdev/2013/10/29/5)
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-> Do you think its worth modifying add_recvbuf_small() to use
-> napi_alloc_skb() when called from
-> Rx NAPI (virtnet_receive)?
+Problem located by coccinelle spatch
 
-Oops, I missed that invocation. Probably that path is not hit in my
-test. I think it should be really worthy.
+Patch was compile tested with: x86_64_defconfig + CONFIG_CHELSIO_T1=m
 
-I'll send a v2.
+Patch is against linux-next (localversion-next is next-20160318)
 
-The important thing, more than the current improvement, is allowing the
-virtio_net driver to leverage future napi allocation improvement (i.e.
-bulk alloc: http://www.spinics.net/lists/netdev/msg367568.html) which
-should be a real win.
+ drivers/net/ethernet/chelsio/cxgb/cxgb2.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Paolo
+diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+index f5f1b0b..c5a38dc 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
++++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+@@ -282,8 +282,8 @@ static int cxgb_close(struct net_device *dev)
+ 	    !(adapter->open_device_map & PORT_MASK)) {
+ 		/* Stop statistics accumulation. */
+ 		smp_mb__after_atomic();
+-		spin_lock(&adapter->work_lock);   /* sync with update task */
+-		spin_unlock(&adapter->work_lock);
++		/* sync with update task */
++		spin_unlock_wait(&adapter->work_lock);
+ 		cancel_mac_stats_update(adapter);
+ 	}
+ 
+-- 
+2.1.4
