@@ -1,78 +1,57 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: call only into reachable nf-nat
-	code
-Date: Fri, 18 Mar 2016 13:57:46 +0100
-Message-ID: <33274216.3RTMPYvo6W@wuerfel>
-References: <1458132481-318209-1-git-send-email-arnd@arndb.de>
+From: "Evgeny Cherkashin" <Eugene.Crosser@ru.ibm.com>
+Subject: Re: [PATCH] qeth: Default to allow promiscuous mode
+Date: Fri, 18 Mar 2016 13:07:34 +0000
+Message-ID: <201603181207.u2IC7muq030383@d06av10.portsmouth.uk.ibm.com>
+References: <56EBCC28.5090500@suse.de>,<1458234085-217667-1-git-send-email-agraf@suse.de>
+ <201603171752.u2HHq7hM025196@d06av11.portsmouth.uk.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1458132481-318209-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-s390@vger.kernel.org, linux-kernel@vger.kernel.org,
+	heicars2@linux.vnet.ibm.com, mschwid2@linux.vnet.ibm.com,
+	Ursula Braun <ubraun@linux.vnet.ibm.com>, ihno@suse.de,
+	mt@suse.com, pwieczorkiewicz@suse.de,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Graf <agraf@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56EBCC28.5090500@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkbmVzZGF5IDE2IE1hcmNoIDIwMTYgMTM6NDc6MTMgQXJuZCBCZXJnbWFubiB3cm90ZToK
-PiBUaGUgb3BlbnZzd2l0Y2ggY29kZSBoYXMgZ2FpbmVkIHN1cHBvcnQgZm9yIGNhbGxpbmcgaW50
-byB0aGUKPiBuZi1uYXQtaXB2NC9pcHY2IG1vZHVsZXMsIGhvd2V2ZXIgdGhvc2UgY2FuIGJlIGxv
-YWRhYmxlIG1vZHVsZXMKPiBpbiBhIGNvbmZpZ3VyYXRpb24gaW4gd2hpY2ggb3BlbnZzd2l0Y2gg
-aXMgYnVpbHQtaW4sIGxlYWRpbmcKPiB0byBsaW5rIGVycm9yczoKPiAKPiBuZXQvYnVpbHQtaW4u
-bzogSW4gZnVuY3Rpb24gYF9fb3ZzX2N0X2xvb2t1cCc6Cj4gOigudGV4dCsweDJjYzJjOCk6IHVu
-ZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wX3JlcGx5X3RyYW5zbGF0aW9uJwo+IDoo
-LnRleHQrMHgyY2M2NmMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9uYXRfaWNtcHY2X3Jl
-cGx5X3RyYW5zbGF0aW9uJwo+IAo+IFRoZSBkZXBlbmRlbmN5IG9uICghTkZfTkFUIHx8IE5GX05B
-VCkgd2FzIG1lYW50IHRvIHByZXZlbnQKPiB0aGlzLCBidXQgTkZfTkFUIGlzIHNldCB0byAneScg
-aWYgYW55IG9mIHRoZSBzeW1ib2xzIHNlbGVjdGluZwo+IGl0IGFyZSBidWlsdC1pbiwgYnV0IHRo
-ZSBsaW5rIGVycm9yIGhhcHBlbnMgd2hlbiBhbnkgb2YgdGhlbQo+IGFyZSBtb2R1bGFyLgo+IAo+
-IEEgc2Vjb25kIGlzc3VlIGlzIHRoYXQgZXZlbiBpZiBDT05GSUdfTkZfTkFUX0lQVjYgaXMgYnVp
-bHQtaW4sCj4gQ09ORklHX05GX05BVF9JUFY0IG1pZ2h0IGJlIGNvbXBsZXRlbHkgZGlzYWJsZWQu
-IFRoaXMgaXMgdW5saWtlbHkKPiB0byBiZSB1c2VmdWwgaW4gcHJhY3RpY2UsIGJ1dCB0aGUgZHJp
-dmVyIGN1cnJlbnRseSBvbmx5IGhhbmRsZXMKPiBJUHY2IGJlaW5nIG9wdGlvbmFsLgo+IAo+IFRo
-aXMgcGF0Y2ggaW1wcm92ZXMgdGhlIEtjb25maWcgZGVwZW5kZW5jeSBzbyB0aGF0IG9wZW52c3dp
-dGNoCj4gY2Fubm90IGJlIGJ1aWx0LWluIGlmIGVpdGhlciBvZiB0aGUgdHdvIG90aGVyIHN5bWJv
-bHMgYXJlIHNldAo+IHRvICdtJywgYW5kIGl0IHJlcGxhY2VzIHRoZSBpbmNvcnJlY3QgI2lmZGVm
-IGluIG92c19jdF9uYXRfZXhlY3V0ZSgpCj4gd2l0aCB0d28gImlmIChJU19FTkFCTEVEKCkpIiBj
-aGVja3MgdGhhdCBzaG91bGQgY2F0Y2ggYWxsIGNvcm5lcgo+IGNhc2VzIGFsc28gbWFrZSB0aGUg
-Y29kZSBtb3JlIHJlYWRhYmxlLgo+IAo+IFRoZSBzYW1lICNpZmRlZiBleGlzdHMgb3ZzX2N0X25h
-dF90b19hdHRyKCksIHdoZXJlIGl0IGRvZXMgbm90Cj4gY2F1c2UgYSBsaW5rIGVycm9yLCBidXQg
-Zm9yIGNvbnNpc3RlbmN5IEknbSBjaGFuZ2luZyBpdCB0aGUgc2FtZQo+IHdheS4KPiAKPiBTaWdu
-ZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgo+IEZpeGVzOiAwNTc1MjUy
-M2U1NjUgKCJvcGVudnN3aXRjaDogSW50ZXJmYWNlIHdpdGggTkFULiIpCj4gLS0tCj4gIG5ldC9v
-cGVudnN3aXRjaC9LY29uZmlnICAgICB8ICAzICsrLQo+ICBuZXQvb3BlbnZzd2l0Y2gvY29ubnRy
-YWNrLmMgfCAxNiArKysrKysrKy0tLS0tLS0tCj4gIDIgZmlsZXMgY2hhbmdlZCwgMTAgaW5zZXJ0
-aW9ucygrKSwgOSBkZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNo
-L0tjb25maWcgYi9uZXQvb3BlbnZzd2l0Y2gvS2NvbmZpZwo+IGluZGV4IDIzNGE3MzM0NGM2ZS4u
-OTYxZmI2MDExNWRmIDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC9LY29uZmlnCj4gKysr
-IGIvbmV0L29wZW52c3dpdGNoL0tjb25maWcKPiBAQCAtNyw3ICs3LDggQEAgY29uZmlnIE9QRU5W
-U1dJVENICj4gIAlkZXBlbmRzIG9uIElORVQKPiAgCWRlcGVuZHMgb24gIU5GX0NPTk5UUkFDSyB8
-fCBcCj4gIAkJICAgKE5GX0NPTk5UUkFDSyAmJiAoKCFORl9ERUZSQUdfSVBWNiB8fCBORl9ERUZS
-QUdfSVBWNikgJiYgXAo+IC0JCQkJICAgICAoIU5GX05BVCB8fCBORl9OQVQpKSkKPiArCQkJCSAg
-ICAgKCFORl9OQVRfSVBWNCB8fCBORl9OQVRfSVBWNCkgJiYgXAo+ICsJCQkJICAgICAoIU5GX05B
-VF9JUFY2IHx8IE5GX05BVF9JUFY2KSkpCj4gIAlzZWxlY3QgTElCQ1JDMzJDCj4gIAlzZWxlY3Qg
-TVBMUwo+ICAJc2VsZWN0IE5FVF9NUExTX0dTTwoKSSd2ZSBub3cgc2VlbiBhIG5ldyByZWdyZXNz
-aW9uOgoKbmV0L2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBfX292c19jdF9sb29rdXAnOgpzd2l0
-Y2hkZXYuYzooLnRleHQrMHgxMzZlOGMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9jdF9u
-YXRfZXh0X2FkZCcKc3dpdGNoZGV2LmM6KC50ZXh0KzB4MTM2ZjM4KTogdW5kZWZpbmVkIHJlZmVy
-ZW5jZSB0byBgbmZfbmF0X3BhY2tldCcKc3dpdGNoZGV2LmM6KC50ZXh0KzB4MTM2ZjgwKTogdW5k
-ZWZpbmVkIHJlZmVyZW5jZSB0byBgbmZfbmF0X3NldHVwX2luZm8nCnN3aXRjaGRldi5jOigudGV4
-dCsweDEzNmY5OCk6IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9hbGxvY19udWxsX2Jp
-bmRpbmcnCgpBcHBhcmVudGx5LCB0aGUgKCFORl9OQVQgfHwgTkZfTkFUKSBzdGF0ZW1lbnQgaXMg
-YWxzbyBuZWVkZWQgaW4gYWRkaXRpb24gdG8KdGhlIG90aGVyIHR3by4gSSdtIHJlc2VuZGluZyB0
-aGUgZml4ZWQgcGF0Y2gsIGFzIGl0IGRvZXNuJ3Qgc2VlbSB0byBoYXZlCmJlZW4gbWVyZ2VkIHll
-dC4KCklmIGl0J3MgaW4gc29tZSBvdGhlciB0cmVlIGFscmVhZHkgYW5kIHlvdSdkIHJhdGhlciBo
-YXZlIGEgcGF0Y2ggb24gdG9wLApJIGNhbiBzZW5kIHRoYXQgdG9vLgoKCUFybmQKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApk
-ZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5m
-by9kZXYK
+Hello Alexander,
+
+-----Alexander Graf <agraf@suse.de> wrote: -----
+
+send it explicitly if that makes it move obvious, sure.
+>
+>> 3. The patch should probably go via the -networking maillist.
+>
+>Ah, get_maintainers.pl didn't list it. You may want to send a patch
+>for
+>the MAINTAINERS file here :).
+
+My mistake, you've sent it to the right place.
+
+About the nature of the patch:
+
+- Enabling bridgeport on adaptors on which bridgeport is already used b=
+y somebody else will break somebody else's operation.
+
+- Therefore, system administrator must only enable bridgeport on adapto=
+rs on which nobody else tries to use it (without coordinating with them=
+).
+
+- Making bridge_reflect_promisc enabled by default makes it impossible.
+
+- Therefore, bridge_reflect_promisc must not be enabled by default.
+
+(Those who enable bridge_reflect_promisc blindly on all adaptors will b=
+reak their users' setup, and will have to deal with the consequences.)
+
+Regards,
+
+Evgeny Cherkashin / =D0=95=D0=B2=D0=B3=D0=B5=D0=BD=D0=B8=D0=B9 =D0=A7=D0=
+=B5=D1=80=D0=BA=D0=B0=D1=88=D0=B8=D0=BD / Eugene Crosser (preferred)
+Software Engineer, IBM Science and Technology Center, Linux on z-System=
+s Development
+tel. +7 495 775 8800 ext.1103, Moscow 123317, Presnenskaya emb. 10
