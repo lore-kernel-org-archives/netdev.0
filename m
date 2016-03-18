@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: stmmac: Don't search for phys if mdio node is
- defined.
-Date: Fri, 18 Mar 2016 18:31:24 -0400 (EDT)
-Message-ID: <20160318.183124.2299925497256914953.davem@davemloft.net>
-References: <1458027273-127737-1-git-send-email-preid@electromag.com.au>
-	<1458027273-127737-2-git-send-email-preid@electromag.com.au>
+Subject: Re: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get
+ SIGPIPE
+Date: Fri, 18 Mar 2016 18:32:30 -0400 (EDT)
+Message-ID: <20160318.183230.1601751551897264970.davem@davemloft.net>
+References: <1458032624-139688-1-git-send-email-glider@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: preid@electromag.com.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55612 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbcCRWb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 18:31:27 -0400
-In-Reply-To: <1458027273-127737-2-git-send-email-preid@electromag.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: edumazet@google.com, rweikusat@mobileactivedefense.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: glider@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458032624-139688-1-git-send-email-glider@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Reid <preid@electromag.com.au>
-Date: Tue, 15 Mar 2016 15:34:33 +0800
+From: Alexander Potapenko <glider@google.com>
+Date: Tue, 15 Mar 2016 10:03:44 +0100
 
-> If a dt mdio entry has been added least assume that we wont
-> search for phys attached. The DT and of_mdiobus_register already do
-> this. This stops DSA phys being found and phys created for them, as
-> this is handled by the DSA driver.
+> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
+> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if the
+> socket is no longer connected.
 > 
-> Signed-off-by: Phil Reid <preid@electromag.com.au>
+> I used the following program to check the kernel behavior:
+ ...
+> Signed-off-by: Alexander Potapenko <glider@google.com>
 
-Applied.
+In the final analysis I don't think we can do this.
+
+Properly working programs will start to mysteriously receive
+signals in this situation and fail.
+
+I'm sorry but I think we're stuck with this behavior.
