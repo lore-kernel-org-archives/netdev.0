@@ -1,34 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: closed SOCK_SEQPACKET socketpair must get
- SIGPIPE
-Date: Fri, 18 Mar 2016 18:32:30 -0400 (EDT)
-Message-ID: <20160318.183230.1601751551897264970.davem@davemloft.net>
-References: <1458032624-139688-1-git-send-email-glider@google.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] sctp: align MTU to a word
+Date: Fri, 18 Mar 2016 19:33:46 -0300
+Message-ID: <20160318223346.GC3387@mrl.redhat.com>
+References: <1458337159-22792-1-git-send-email-marcelo.leitner@gmail.com>
+ <1458338974.31963.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, rweikusat@mobileactivedefense.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: glider@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458032624-139688-1-git-send-email-glider@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55458 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751350AbcCRWdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2016 18:33:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1458338974.31963.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Potapenko <glider@google.com>
-Date: Tue, 15 Mar 2016 10:03:44 +0100
-
-> According to IEEE Std 1003.1, 2013, sending data to a SOCK_SEQPACKET
-> socketpair with MSG_NOSIGNAL flag set must result in a SIGPIPE if the
-> socket is no longer connected.
+On Fri, Mar 18, 2016 at 03:09:34PM -0700, Eric Dumazet wrote:
+> On Fri, 2016-03-18 at 18:39 -0300, Marcelo Ricardo Leitner wrote:
 > 
-> I used the following program to check the kernel behavior:
- ...
-> Signed-off-by: Alexander Potapenko <glider@google.com>
+> > -		transport->pathmtu = dst_mtu(transport->dst);
+> > +		transport->pathmtu = dst_mtu(transport->dst) & ~3;
+> 
+> 
+> Well, surely a helper doing this would be better than spreading & ~3 all
+> over the places ;)
 
-In the final analysis I don't think we can do this.
-
-Properly working programs will start to mysteriously receive
-signals in this situation and fail.
-
-I'm sorry but I think we're stuck with this behavior.
+Heh.. agreed
+for this and the other patch too, will post a v2
+Thanks
