@@ -1,70 +1,80 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 6/9] ethtool: Add support for toggling any of the GSO offloads
-Date: Fri, 18 Mar 2016 17:30:25 -0700
-Message-ID: <CAKgT0UfTVCfTFgVTtA2sq1fZKVatAk=ciFG-dBtfU-oZmsAyiQ@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain>
-	<20160318232516.14955.2907.stgit@localhost.localdomain>
-	<1458346684.2953.16.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:33601 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbcCSAa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 20:30:26 -0400
-Received: by mail-io0-f175.google.com with SMTP id v123so45210889ioe.0
-        for <netdev@vger.kernel.org>; Fri, 18 Mar 2016 17:30:26 -0700 (PDT)
-In-Reply-To: <1458346684.2953.16.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [RFC net-next 0/2] Create ancient subdirectories for old hardware
+Date: Fri, 18 Mar 2016 17:33:29 -0700
+Message-ID: <cover.1458347329.git.joe@perches.com>
+References: <1458340518.26915.30.camel@perches.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458340518.26915.30.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 18, 2016 at 5:18 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Fri, 2016-03-18 at 16:25 -0700, Alexander Duyck wrote:
->
->> The strings were missing for several of the GSO offloads that are
->> available.  This patch provides the missing strings so that we can toggle
->> or query any of them via the ethtool command.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>  net/core/ethtool.c |    3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
->> index 2966cd0d7c93..b3c39d531469 100644
->> --- a/net/core/ethtool.c
->> +++ b/net/core/ethtool.c
->> @@ -82,9 +82,12 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
->>       [NETIF_F_TSO6_BIT] =             "tx-tcp6-segmentation",
->>       [NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
->>       [NETIF_F_GSO_GRE_BIT] =          "tx-gre-segmentation",
->> +     [NETIF_F_GSO_GRE_CSUM_BIT] =     "tx-gre-csum-segmentation",
->
-> All of the existing checksum offload names include the word "checksum"
-> in full, so I think the new names should do the same.
+Maybe something like this:
 
-It isn't a checksum offload though, it is a segmentation offload for a
-tunnel that has an outer checksum.  I was hoping to avoid using the
-word checksum as that might make it confusing as it is a segmentation
-offload, not a checksum offload.
+Old, rare, and unsupported hardware should be exposed as ancient.
 
->>       [NETIF_F_GSO_IPIP_BIT] =         "tx-ipip-segmentation",
->>       [NETIF_F_GSO_SIT_BIT] =          "tx-sit-segmentation",
->>       [NETIF_F_GSO_UDP_TUNNEL_BIT] =   "tx-udp_tnl-segmentation",
->> +     [NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
->> +     [NETIF_F_GSO_TUNNEL_REMCSUM_BIT] = "tx-remcsum-segmentation",
->
-> I think this should be "tx-tunnel-remote-checksum-segmentation", though
-> that is getting quite unwieldy.
+The drivers for these ancient hardwares are generally untested with
+current kernels.
 
-Right.  As it is I think we might be coming up on the 32 character
-limit for the strings.  Replacing csum with checksum would probably
-push us over.
+Joe Perches (2):
+  drivers/net: Create an ANCIENT_NETDEVICES symbol
+  chelsio: Move original cxgb driver into ancient subdirectory
 
-- Alex
+ drivers/net/Kconfig                                   | 19 +++++++++++++++++++
+ drivers/net/ethernet/chelsio/Kconfig                  |  2 +-
+ drivers/net/ethernet/chelsio/Makefile                 |  2 +-
+ drivers/net/ethernet/chelsio/ancient/Makefile         |  1 +
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/Makefile  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/common.h  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/cphy.h    |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/cpl5_cmd.h    |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/cxgb2.c   |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/elmer0.h  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/espi.c    |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/espi.h    |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/fpga_defs.h   |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/gmac.h    |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/mv88e1xxx.c   |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/mv88e1xxx.h   |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/mv88x201x.c   |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/my3126.c  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/pm3393.c  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/regs.h    |  0
+ drivers/net/ethernet/chelsio/{ => ancient}/cxgb/sge.c |  0
+ drivers/net/ethernet/chelsio/{ => ancient}/cxgb/sge.h |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/subr.c    |  0
+ .../chelsio/{ => ancient}/cxgb/suni1x10gexp_regs.h    |  0
+ drivers/net/ethernet/chelsio/{ => ancient}/cxgb/tp.c  |  0
+ drivers/net/ethernet/chelsio/{ => ancient}/cxgb/tp.h  |  0
+ .../net/ethernet/chelsio/{ => ancient}/cxgb/vsc7326.c |  0
+ .../ethernet/chelsio/{ => ancient}/cxgb/vsc7326_reg.h |  0
+ 28 files changed, 22 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/ancient/Makefile
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/Makefile (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/common.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/cphy.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/cpl5_cmd.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/cxgb2.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/elmer0.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/espi.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/espi.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/fpga_defs.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/gmac.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/mv88e1xxx.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/mv88e1xxx.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/mv88x201x.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/my3126.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/pm3393.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/regs.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/sge.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/sge.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/subr.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/suni1x10gexp_regs.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/tp.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/tp.h (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/vsc7326.c (100%)
+ rename drivers/net/ethernet/chelsio/{ => ancient}/cxgb/vsc7326_reg.h (100%)
+
+-- 
+2.6.3.368.gf34be46
