@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: removes duplicate skb_mark_napi_id() calls.
-Date: Fri, 18 Mar 2016 22:21:50 -0400 (EDT)
-Message-ID: <20160318.222150.1424324448492389739.davem@davemloft.net>
-References: <20160316170450.GA30365@jwg>
+Subject: Re: [PATCH v2] net: smc911x: convert pxa dma to dmaengine
+Date: Fri, 18 Mar 2016 22:25:03 -0400 (EDT)
+Message-ID: <20160318.222503.1989588105611694828.davem@davemloft.net>
+References: <1458149162-11469-1-git-send-email-robert.jarzmik@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: weongyo.linux@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58601 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbcCSCVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 22:21:52 -0400
-In-Reply-To: <20160316170450.GA30365@jwg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	fabio.estevam@nxp.com
+To: robert.jarzmik@free.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458149162-11469-1-git-send-email-robert.jarzmik@free.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Weongyo Jeong <weongyo.linux@gmail.com>
-Date: Wed, 16 Mar 2016 10:04:53 -0700
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Date: Wed, 16 Mar 2016 18:26:02 +0100
 
-> Because napi_gro_receive() function calls skb_mark_napi_id() function,
-> it doesn't need to set it twice.
+> Convert the dma transfers to be dmaengine based, now pxa has a dmaengine
+> slave driver. This makes this driver a bit more PXA agnostic.
 > 
-> Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
+> The driver was only compile tested. The risk is quite small as no
+> current PXA platform I'm aware of is using smc911x driver.
+> 
+> Signed-off-by: Robert Jarzmik <robert.jarzmik@free.fr>
+> Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
+> ---
+> Since v1: added Fabio's Tested-by
 
-Unless you can show a significant performance argument, or other
-significant improvement resulting from this patch, I am not applying
-it.
+Applied, thanks.
