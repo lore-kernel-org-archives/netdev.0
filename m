@@ -1,54 +1,77 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: [PATCH] net: sched: Add description for cpu_bstats argument
-Date: Sat, 19 Mar 2016 21:31:38 +0000
-Message-ID: <1458423098-3399-1-git-send-email-luisbg@osg.samsung.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
-	ast@plumgrid.com, Luis de Bethencourt <luisbg@osg.samsung.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: AP firmware for TI wl1251 wifi chip (wl1251-fw-ap.bin)
+Date: Sun, 20 Mar 2016 00:40:25 +0100
+Message-ID: <201603200040.26045@pali>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart1977734.JuGmrhgnZ2";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: David Woodhouse <dwmw2@infradead.org>, Pavel Machek <pavel@ucw.cz>,
+	Aaro Koskinen <aaro.koskinen@iki.fi>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Gnedt <david.gnedt@platinumzone24.at>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+	Sebastian Reichel <sre@kernel.org>,
+	Tony Lindgren <tony@atomide.com>, Nishanth Menon <nm@ti.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Luciano Coelho <coelho@ti.com>, Felipe Balbi <balbi@ti.com>,
+	kev@ti.com, Shahar Levi <shahar_levi@ti.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"Andrew F. Davis" <afd@ti.com>, Guy Mishol <guym@ti.com>,
+	Yaniv Machani <yanivma@ti.com>, Arik Nemtsov <arik@wizery.com>,
+	Gery Kahn <geryk@ti.com>, Felipe Balbi <balbi@kernel.org>,
+	Luciano Coelho <luca@coelho.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:36193 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932426AbcCSXka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2016 19:40:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 22e0f8b9322c ("net: sched: make bstats per cpu and estimator RCU safe")
-added the argument cpu_bstats to functions gen_new_estimator and
-gen_replace_estimator and now the descriptions of these are missing for the
-documentation. Adding them.
+--nextPart1977734.JuGmrhgnZ2
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
----
-Hi,
+Hi!
 
-Noticed these missing descriptions when running make htmldocs.
+In linux-firmware repository [1] is missing AP firmware for TI wl1251=20
+chip. There is only STA firmware wl1251-fw.bin which supports managed=20
+and ad-hoc modes.
 
-Got the following warnings:
-.//net/core/gen_estimator.c:212: warning: No description found for parameter 'cpu_bstats'
-.//net/core/gen_estimator.c:303: warning: No description found for parameter 'cpu_bstats'
+=46or other TI wilink chips there are <CHIP>-ap.bin firmware files=20
+(wl1271-fw-ap.bin and wl128x-fw-ap.bin) which support AP mode. But for=20
+wl1251 firmware file with guessed name "wl1251-fw-ap.bin" is missing.
 
-Thanks :)
-Luis
+Do you have any idea what happened with AP firmware for ti wilink4=20
+wl1251 wifi chip? Or where can be found? Guys from TI, can you help?
 
- net/core/gen_estimator.c | 2 ++
- 1 file changed, 2 insertions(+)
+I see that STA firmware was added into linux-firmware tree in year 2013=20
+by this pull request [2].
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 92d886f..4573d81 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -191,6 +191,7 @@ struct gen_estimator *gen_find_node(const struct gnet_stats_basic_packed *bstats
- /**
-  * gen_new_estimator - create a new rate estimator
-  * @bstats: basic statistics
-+ * @cpu_bstats: bstats per cpu
-  * @rate_est: rate estimator statistics
-  * @stats_lock: statistics lock
-  * @opt: rate estimator configuration TLV
-@@ -287,6 +288,7 @@ EXPORT_SYMBOL(gen_kill_estimator);
- /**
-  * gen_replace_estimator - replace rate estimator configuration
-  * @bstats: basic statistics
-+ * @cpu_bstats: bstats per cpu
-  * @rate_est: rate estimator statistics
-  * @stats_lock: statistics lock
-  * @opt: rate estimator configuration TLV
--- 
-2.5.1
+[1] - https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.=
+git/tree/ti-connectivity
+
+[2] - http://thread.gmane.org/gmane.linux.kernel/1566500/focus=3D1571382
+
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
+
+--nextPart1977734.JuGmrhgnZ2
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEABECAAYFAlbt42oACgkQi/DJPQPkQ1Kk8QCeNLTf1zNnP5r+0dw3BSShI4M6
+3kIAn3a7na+8hx/8oVYIs+AIpeaG/mH6
+=BVc0
+-----END PGP SIGNATURE-----
+
+--nextPart1977734.JuGmrhgnZ2--
