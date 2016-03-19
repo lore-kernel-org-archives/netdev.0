@@ -1,65 +1,102 @@
-From: oulijun <oulijun@huawei.com>
-Subject: Re: [PATCH 0/3] infiniband: IB/hns: Hisilicon RoCE support
-Date: Sat, 19 Mar 2016 19:13:59 +0800
-Message-ID: <56ED3477.2050307@huawei.com>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 3/3] infiniband: IB/hns: add Hisilicon RoCE support with
+ bindings
+Date: Sat, 19 Mar 2016 19:14:34 +0800
+Message-ID: <56ED349A.8060806@huawei.com>
 References: <1457692631-9290-1-git-send-email-oulijun@huawei.com>
- <20160312102051.GC11383@leon.nu>
+ <1457692631-9290-4-git-send-email-oulijun@huawei.com>
+ <56E2CA90.9020401@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>, <linux-rdma@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<gongyangming@huawei.com>, <xiaokun@huawei.com>,
-	<tangchaofei@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<lisheng011@huawei.com>, <charles.chenxin@huawei.com>,
-	<linuxarm@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160312102051.GC11383@leon.nu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	<dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56E2CA90.9020401-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/3/12 18:20, Leon Romanovsky wrote:
-> On Fri, Mar 11, 2016 at 06:37:08PM +0800, Lijun Ou wrote:
+On 2016/3/11 21:39, Sergei Shtylyov wrote:
+> Hello.
 > 
-> 1) It is redundant to write "infiniband" and "IB" in one title to mention
-> relevant subsystem, since it is the same.
+> On 3/11/2016 1:37 PM, Lijun Ou wrote:
 > 
-> Please take a look on the other submissions here on the list and use
-> similar construction.
+>> This submit add binding file and dts file.
 > 
-> 2) Please use version number in the titles [PATCH vXXX]
+>    I see no .dts file.
 > 
-Hi dledford, thanks for reviewing
-
-    I have modified it, I will send a new patch at soon
-
-thanks
-Lijun Ou
->> The Hisilicon Network Substem(hns) is a long term evolution IP which is
->> supposed to be used in Hisilicon ICT SoC. RoCE is a feature of hns.
->> The driver for Hisilicon RoCE engine is a platform driver.
->> The driver will support mulitple versions of hns. Currently only "v1"
->> for hip06 SOC is supported.
 >>
+>> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Wei Hu(Xavier) <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
+>>   .../bindings/infiniband/hisilicon-hns-roce.txt     | 68 ++++++++++++++++++++++
+>>   1 file changed, 68 insertions(+)
+>>   create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
 >>
->> Changes v1 -> v2:
->> 1. adjust the formats of roce driver code by the experts reviewing
->> 2. modify the bindings file with roce dts. add the attribute named 
->> interrput-names.
->> 3. modify the way of defining port mode in hns_dsaf_main.c
->> 4. move the Kconfig file into the hns directory and send it with roce
->> driver code file together.
->>
->>
->> Lijun Ou (3):
->>   infiniband: IB/hns: add Hisilicon RoCE support
->>   net: hns: add Hisilicon RoCE support
->>   infiniband: IB/hns: add Hisilicon RoCE support with bindings
->>
+>> diff --git a/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+>> new file mode 100644
+>> index 0000000..8004641
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+>> @@ -0,0 +1,68 @@
+>> +HiSilicon RoCE DT description
+>> +
+>> +HiSilicon RoCE engine is a part of network subsystem.
+>> +It works depending on other part of network wubsytem, such as, gmac and
+> 
+>    Subsystem.
+> 
+>> +dsa fabric.
+>> +
+>> +Additional properties are described here:
+>> +
+>> +Required properties:
+>> +- compatible: Should contain "hisilicon,hns-roce-v1".
+>> +- reg: Physical base address of the roce driver and
+>> +length of memory mapped region.
+>> +- eth-handle: phandle, specifies a reference to a node
+>> +representing a ethernet device.
+>> +- dsaf-handle: phandle, specifies a reference to a node
+>> +representing a dsaf device.
+>> +- #address-cells: must be 2
+>> +- #size-cells: must be 2
+>> +Optional properties:
+>> +- dma-coherent: Present if DMA operations are coherent.
+>> +- interrupt-parent: the interrupt parent of this device.
+>> +- interrupts: should contain 32 completion event irq,1 async event irq
+>> +and 1 event overflow irq.
+> 
+>    The "interrupt-names" prop is strongly desired with some many IRQs.
+> 
+>> +Example:
+>> +    rocee@0xc4000000 {
+> 
+>    The node names should be generic, not implementation specific.
+> 
+> [...]
+> 
+> MBR, Sergei
+> 
 > 
 > .
 > 
+Hi Sergei Shtylyov , thanks for reviewing
+
+I have modified it, I will send a new patch at soon
+
+thanks
+Lijun Ou
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
