@@ -1,62 +1,61 @@
-From: Parav Pandit <pandit.parav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/4] infiniband: hns: add Hisilicon RoCE support(driver code)
-Date: Sat, 19 Mar 2016 19:54:57 +0530
-Message-ID: <CAG53R5WnJvqTO9=V15gMeN9vbOeP9Gv2JOWb11AEk+pnHjktsg@mail.gmail.com>
-References: <CAG53R5WfQR1jJUOi1fjY=oEgsK_EAxkA9SiDPV_KHLHsmqg0BQ@mail.gmail.com>
-	<56E65EFC.3030109@huawei.com>
-	<CAG53R5UTc8xF4TdRJm3ASv6PQ-JxhW7vDgXpFtYqX2tz_58UeA@mail.gmail.com>
-	<56ED37C0.6090907@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Wei Hu(Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56ED37C0.6090907-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net-next v31.16]r8169:  Consolided dev->features bedore adding netdev ethtool operations
+Date: Sat, 19 Mar 2016 17:16:41 +0200
+Message-ID: <1458400601-1666-1-git-send-email-asd@marian1000.go.ro>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 5-14-53-82.residential.rdsnet.ro ([5.14.53.82]:36304 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754118AbcCSPRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2016 11:17:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 19, 2016 at 4:58 PM, oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org> wrote:
-> On 2016/3/15 2:20, Parav Pandit wrote:
->>>>
->>>> Since SRQ is not supported in this driver version, can you keep
->>>> remaining code base also to not bother about SRQ specifically
->>>> poll_cq_one, modify_qp, destroy_qp etc?
->>>> SRQ support can come as complete additional patch along with cmd_mask,
->>>> callbacks and rest of the code.
->>>>
->>>> .
->>> Sorry, I see your review in time.
->>> Sure, SRQ is not supported in current roce driver. I have verified the function
->>> for RDMA. It is not influence. For your question, we need to analyse it scientific.
->>> after that, i will reply your doubt, is that ok?
->>
->> Yes. No problem.
->>
->> .
->>
-> Hi, Parav Pandit
->     I have analyse and discuss with your reviewing. I considered that the srq is only the
-> condition branch in verbs and without independent function, so reserved it.I have delete the relative
-> function with srq independently.
->     if delete the branch operation with srq, it feel be inconvenient to understand
->
+ Consolide dev->features before adding netdev, ethtool operations
+ on  driver-private
 
-o.k. If I understand correctly, new patch will be without srq functionality.
-If thats the case, that makes review and maintainability easier.
-Thanks.
-Parav
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+---
+ drivers/net/ethernet/realtek/r8169.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index c798349..a57b650 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3757,6 +3757,7 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ 		dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+ 		RTL_W8(0x82, 0x01);
+ 	}
++
+ 	if (!tp->pci_dev->pcie_cap)
+ 		pci_write_config_byte(tp->pci_dev, PCI_LATENCY_TIMER, 0x40);
+ 
+@@ -7151,17 +7152,18 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+ 
++        /* don't enable SG, IP_CSUM and TSO by default - it might not work
++         * properly for all devices */
++        dev->features |= NETIF_F_RXCSUM |
++                NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
++
++
+ 	dev->netdev_ops = &rtl_netdev_ops;
+ 	dev->ethtool_ops = &rtl8169_ethtool_ops;
+ 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+ 
+ 	netif_napi_add(dev, &tp->napi, rtl8169_poll, R8169_NAPI_WEIGHT);
+ 
+-	/* don't enable SG, IP_CSUM and TSO by default - it might not work
+-	 * properly for all devices */
+-	dev->features |= NETIF_F_RXCSUM |
+-		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+-
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_TX |
+ 		NETIF_F_HW_VLAN_CTAG_RX;
+-- 
+2.1.4
