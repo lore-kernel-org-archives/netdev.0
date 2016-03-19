@@ -1,53 +1,38 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH] net: consolidate lock/unlock into unlock_wait
-Date: Sat, 19 Mar 2016 07:24:25 +0000
-Message-ID: <20160319072425.GB9761@osadl.at>
-References: <1458293525-16842-1-git-send-email-hofrat@osadl.org>
- <20160318.173702.788700055531273267.davem@davemloft.net>
- <1458340518.26915.30.camel@perches.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: btcoexist: Convert BTC_PRINTK to btc_<foo>_dbg
+Date: Sat, 19 Mar 2016 11:09:50 +0200
+Message-ID: <87pouqhm01.fsf@kamboji.qca.qualcomm.com>
+References: <4672f9efb37df545ae504d51ca626bf34237fa63.1458258337.git.joe@perches.com>
+	<56EB6DD9.3000300@lwfinger.net> <1458272258.9556.46.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hofrat@osadl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1458340518.26915.30.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458272258.9556.46.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> (Joe Perches's message of
+	"Thu, 17 Mar 2016 20:37:38 -0700")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 18, 2016 at 03:35:18PM -0700, Joe Perches wrote:
-> On Fri, 2016-03-18 at 17:37 -0400, David Miller wrote:
-> > From: Nicholas Mc Guire <hofrat@osadl.org>
-> > > The spin_lock()/spin_unlock() is synchronizing on the adapter->work_lock
-> > > as the comment also suggests, which is equivalent to spin_unlock_wait()
-> > > but the later should be more efficient.
-> []
-> > There really is no justification for this change.
-> > This is an optimization in a slow-path of the driver.
-> > The device is a rarely used older piece of hardware.
-> 
-> It really might be nice to take some of the ancient
-> hardware drivers in drivers/net and move them into
-> some separate subdirectory like:
-> 
-> 	drivers/net/ancient
-> or
-> 	drivers/net/antiques
-> or
-> 	drivers/net/archaic
-> etc...
-> 
-> so there's some clear designation that these crufty
-> old drivers don't need to be touched anymore except
-> for maybe when kernel wide changes occur.
+Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> writes:
+
+> On Thu, 2016-03-17 at 21:54 -0500, Larry Finger wrote:
+>> On 03/17/2016 07:00 PM, Joe Perches wrote:
+>> > Use a more common logging style.
 >
-actually thats just the problem - some of those did not
-perform such kernel wide changes lock/unlock -> unlock_wait
-being one of them. But having a distinction as proposed to
-keep people like me from scanning them, sounds like a good idea.
+> [ 300K+ quote without comment ]
 
-Will add an "age of code" check before submitting API cleanups.
+Yeah, please try to avoid that. For example this makes the patchwork
+page for the patch really hard to read:
 
-thx!
-hofrat
+https://patchwork.kernel.org/patch/8615131/
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
