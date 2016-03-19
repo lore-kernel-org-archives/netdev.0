@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: fix too large pskb_may_pull with
- remote checksum
-Date: Fri, 18 Mar 2016 22:19:51 -0400 (EDT)
-Message-ID: <20160318.221951.56003771293284906.davem@davemloft.net>
-References: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
+Subject: Re: [PATCH] net: removes duplicate skb_mark_napi_id() calls.
+Date: Fri, 18 Mar 2016 22:21:50 -0400 (EDT)
+Message-ID: <20160318.222150.1424324448492389739.davem@davemloft.net>
+References: <20160316170450.GA30365@jwg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com
-To: jbenc@redhat.com
+Cc: netdev@vger.kernel.org
+To: weongyo.linux@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58571 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58601 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbcCSCTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 22:19:54 -0400
-In-Reply-To: <fcf7ae744d2ab9fa8e560c37f50fc3f80ff20aa8.1458146074.git.jbenc@redhat.com>
+	with ESMTP id S1752040AbcCSCVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 22:21:52 -0400
+In-Reply-To: <20160316170450.GA30365@jwg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 16 Mar 2016 17:35:47 +0100
+From: Weongyo Jeong <weongyo.linux@gmail.com>
+Date: Wed, 16 Mar 2016 10:04:53 -0700
 
-> The vxlan header is pulled at this point, don't include it again in the
-> calculation.
+> Because napi_gro_receive() function calls skb_mark_napi_id() function,
+> it doesn't need to set it twice.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
 
-Please update the commit log message to explain where that pull
-happens.
-
-Thanks.
+Unless you can show a significant performance argument, or other
+significant improvement resulting from this patch, I am not applying
+it.
