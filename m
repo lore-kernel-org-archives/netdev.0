@@ -1,44 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: fix bond_get_stats()
-Date: Fri, 18 Mar 2016 23:15:06 -0400 (EDT)
-Message-ID: <20160318.231506.825745828255522925.davem@davemloft.net>
-References: <1458260616.31963.14.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [RFC net-next 0/2] Create ancient subdirectories for old
+ hardware
+Date: Fri, 18 Mar 2016 23:16:26 -0400 (EDT)
+Message-ID: <20160318.231626.670272515350508280.davem@davemloft.net>
+References: <cover.1458347329.git.joe@perches.com>
+	<20160318.221153.997255526626920777.davem@davemloft.net>
+	<1458354482.26915.35.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@cumulusnetworks.com,
-	j.vosburgh@gmail.com, vfalico@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59119 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59126 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754481AbcCSDPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 23:15:08 -0400
-In-Reply-To: <1458260616.31963.14.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1751734AbcCSDQ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 23:16:28 -0400
+In-Reply-To: <1458354482.26915.35.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 17 Mar 2016 17:23:36 -0700
+=46rom: Joe Perches <joe@perches.com>
+Date: Fri, 18 Mar 2016 19:28:02 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> bond_get_stats() can be called from rtnetlink (with RTNL held)
-> or from /proc/net/dev seq handler (with RCU held)
-> 
-> The logic added in commit 5f0c5f73e5ef ("bonding: make global bonding
-> stats more reliable") kind of assumed only one cpu could run there.
-> 
-> If multiple threads are reading /proc/net/dev, stats can be really
-> messed up after a while.
-> 
-> A second problem is that some fields are 32bit, so we need to properly
-> handle the wrap around problem.
-> 
-> Given that RTNL is not always held, we need to use
-> bond_for_each_slave_rcu().
-> 
-> Fixes: 5f0c5f73e5ef ("bonding: make global bonding stats more reliable")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> On Fri, 2016-03-18 at 22:11 -0400, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> Date: Fri, 18 Mar 2016 17:33:29 -0700
+>>=20
+>> > Maybe something like this:
+>> >=A0
+>> > Old, rare, and unsupported hardware should be exposed as ancient.
+>> >=A0
+>> > The drivers for these ancient hardwares are generally untested wit=
+h
+>> > current kernels.
+>>=20
+>> Moving drivers has a long term maintainence cost.
+>>=20
+>> If they've moved into drivers/net proper, we have to maintain
+>> them there forever.
+>=20
+> I don't doubt that.
+>=20
+> All files are still in drivers/net, just possibly in
+> separate subdirectories for easier visibility to
+> determine if changes like what were proposed for cxgb
+> should actually be done or not.
 
-Applied and queued up for -stable, thanks Eric.
+You don't understand my concern, backporting patches to -stable
+releases is more painful if you move the driver anywhere other
+than where it has been for years.
+
+I'm not entertaining this idea, sorry Joe.
