@@ -1,45 +1,54 @@
 From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: [PATCH] gen_stats.c: Add description for cpu argument
-Date: Sat, 19 Mar 2016 21:19:55 +0000
-Message-ID: <1458422395-895-1-git-send-email-luisbg@osg.samsung.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] net: sched: Add description for cpu_bstats argument
+Date: Sat, 19 Mar 2016 21:31:38 +0000
+Message-ID: <1458423098-3399-1-git-send-email-luisbg@osg.samsung.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
+	ast@plumgrid.com, Luis de Bethencourt <luisbg@osg.samsung.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:54908 "EHLO lists.s-osg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932222AbcCSVUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Mar 2016 17:20:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Function gnet_stats_copy_basic is missing the description of the cpu
-argument in the documentation. Adding it.
+Commit 22e0f8b9322c ("net: sched: make bstats per cpu and estimator RCU safe")
+added the argument cpu_bstats to functions gen_new_estimator and
+gen_replace_estimator and now the descriptions of these are missing for the
+documentation. Adding them.
 
 Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
 ---
 Hi,
 
-Noticed this issue when running make htmldocs. I got the following warning:
-.//net/core/gen_stats.c:155: warning: No description found for parameter 'cpu'
+Noticed these missing descriptions when running make htmldocs.
 
-Thanks,
+Got the following warnings:
+.//net/core/gen_estimator.c:212: warning: No description found for parameter 'cpu_bstats'
+.//net/core/gen_estimator.c:303: warning: No description found for parameter 'cpu_bstats'
+
+Thanks :)
 Luis
 
- net/core/gen_stats.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/core/gen_estimator.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index 1e2f46a..e640462 100644
---- a/net/core/gen_stats.c
-+++ b/net/core/gen_stats.c
-@@ -140,6 +140,7 @@ EXPORT_SYMBOL(__gnet_stats_copy_basic);
+diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
+index 92d886f..4573d81 100644
+--- a/net/core/gen_estimator.c
++++ b/net/core/gen_estimator.c
+@@ -191,6 +191,7 @@ struct gen_estimator *gen_find_node(const struct gnet_stats_basic_packed *bstats
  /**
-  * gnet_stats_copy_basic - copy basic statistics into statistic TLV
-  * @d: dumping handle
-+ * @cpu: copy statistic per cpu
-  * @b: basic statistics
-  *
-  * Appends the basic statistics to the top level TLV created by
+  * gen_new_estimator - create a new rate estimator
+  * @bstats: basic statistics
++ * @cpu_bstats: bstats per cpu
+  * @rate_est: rate estimator statistics
+  * @stats_lock: statistics lock
+  * @opt: rate estimator configuration TLV
+@@ -287,6 +288,7 @@ EXPORT_SYMBOL(gen_kill_estimator);
+ /**
+  * gen_replace_estimator - replace rate estimator configuration
+  * @bstats: basic statistics
++ * @cpu_bstats: bstats per cpu
+  * @rate_est: rate estimator statistics
+  * @stats_lock: statistics lock
+  * @opt: rate estimator configuration TLV
 -- 
 2.5.1
