@@ -1,73 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC net-next 0/2] Create ancient subdirectories for old
- hardware
-Date: Sat, 19 Mar 2016 08:36:32 -0700
-Message-ID: <1458401792.26915.65.camel@perches.com>
-References: <cover.1458347329.git.joe@perches.com>
-	 <20160318.221153.997255526626920777.davem@davemloft.net>
-	 <1458354482.26915.35.camel@perches.com>
-	 <20160318.231626.670272515350508280.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Jesse Gross <jesse@kernel.org>
+Subject: [PATCH net v2 0/3] Tunneling fixes
+Date: Sat, 19 Mar 2016 09:31:59 -0700
+Message-ID: <1458405122-12565-1-git-send-email-jesse@kernel.org>
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160318.231626.670272515350508280.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:55626 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754586AbcCSQcf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Mar 2016 12:32:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-03-18 at 23:16 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>=A0Date: Fri, 18 Mar 2016 19:28:02=
- -0700
-> > On Fri, 2016-03-18 at 22:11 -0400, David Miller wrote:
-> >> From: Joe Perches <joe@perches.com> Date: Fri, 18 Mar 2016 17:33:2=
-9 -0700
-> >> > Maybe something like this:=A0
-> >> > Old, rare, and unsupported hardware should be exposed as ancient=
-=2E
-> >> >=A0
-> >> > The drivers for these ancient hardwares are generally untested w=
-ith
-> >> > current kernels.
-> >>=A0
-> >> Moving drivers has a long term maintainence cost.
-> >>=A0
-> >> If they've moved into drivers/net proper, we have to maintain
-> >> them there forever.
-> >=A0
-> > I don't doubt that.
+This series fixes a problem that was reported where encapsulated packets
+do not have their encapsulation offload markers stripped off when being
+decapsulated. This causes a significant performance drop if the packets
+are later retransmitted.
 
-Actually I rather do kind of doubt that.
+Fixing this revealed two other bugs which are also addressed as prerequisites:
+ * GRO can aggregate packets for multiple layers of encapsulation which the
+   stack cannot properly handle.
+ * IPIP packets which are combined by GRO are not marked properly with their
+   GSO type.
 
-Look for instance at what's proposed now for drivers/isdn
-which realistically, could have been in drivers/net.
+Note that this is based off the net-next tree as the current target for
+bug fixes.
 
-Also, various bits of hardware support have already been
-dropped from drivers/net. =A0The 3c503, ni52 and others=A0
-come to mind. Token Ring support too.
+v2: No code changes, just additional information in commit messages and
+    a new cover letter.
 
-Today, I expect there aren't many Packet Engines devices,
-either hamachi or yellowfin, still being used, especially
-with kernel versions > 4.
+Jesse Gross (3):
+  ipip: Properly mark ipip GRO packets as encapsulated.
+  tunnels: Don't apply GRO to multiple layers of encapsulation.
+  tunnels: Remove encapsulation offloads on decap.
 
-> > All files are still in drivers/net, just possibly in
-> > separate subdirectories for easier visibility to
-> > determine if changes like what were proposed for cxgb
-> > should actually be done or not.
->=20
-> You don't understand my concern, backporting patches to -stable
-> releases is more painful if you move the driver anywhere other
-> than where it has been for years.
->=20
-> I'm not entertaining this idea, sorry Joe.
+ include/linux/netdevice.h |  4 ++--
+ include/net/ip_tunnels.h  | 16 ++++++++++++++++
+ net/core/dev.c            |  2 +-
+ net/ipv4/af_inet.c        | 24 ++++++++++++++++++++++--
+ net/ipv4/fou.c            | 13 +++++++++++--
+ net/ipv4/gre_offload.c    |  5 +++++
+ net/ipv4/ip_tunnel_core.c |  3 ++-
+ net/ipv4/udp_offload.c    |  6 +++---
+ net/ipv6/ip6_offload.c    | 15 ++++++++++++++-
+ net/ipv6/sit.c            |  6 ++++--
+ 10 files changed, 80 insertions(+), 14 deletions(-)
 
-I do understand your concern. =A0Backporting patches to obsolete
-hardware shouldn't much be necessary as obsolete hardware,
-as you wrote yourself, simply doens't get much testing.
-
-Archaic stuff should eventually get sifted out altogether.
-
-Marking drivers as archaic at least allows people that use
-use the older devices to object and maybe actually step up
-to maintain them too.
+-- 
+2.5.0
