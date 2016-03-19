@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC net-next 0/2] Create ancient subdirectories for old
- hardware
-Date: Fri, 18 Mar 2016 22:11:53 -0400 (EDT)
-Message-ID: <20160318.221153.997255526626920777.davem@davemloft.net>
-References: <1458340518.26915.30.camel@perches.com>
-	<cover.1458347329.git.joe@perches.com>
+Subject: Re: [net-next 0/2] remove duplicate set of flag IFF_MULTICAST
+Date: Fri, 18 Mar 2016 22:15:29 -0400 (EDT)
+Message-ID: <20160318.221529.1338277193699776978.davem@davemloft.net>
+References: <1458122356-25021-1-git-send-email-zhangshengju@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1458347329.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: j.vosburgh@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
+To: zhangshengju@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425AbcCSCPc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 22:15:32 -0400
+In-Reply-To: <1458122356-25021-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 18 Mar 2016 17:33:29 -0700
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Date: Wed, 16 Mar 2016 09:59:14 +0000
 
-> Maybe something like this:
-> 
-> Old, rare, and unsupported hardware should be exposed as ancient.
-> 
-> The drivers for these ancient hardwares are generally untested with
-> current kernels.
+> This patch series remove duplicate set of flag IFF_MULTICAST.
 
-Moving drivers has a long term maintainence cost.
-
-If they've moved into drivers/net proper, we have to maintain
-them there forever.
+Series applied, thanks.
