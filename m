@@ -1,114 +1,111 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: [PATCH iproute2 2/2] geneve: Add support for configuring UDP checksums.
-Date: Fri, 18 Mar 2016 17:51:09 -0700
-Message-ID: <1458348669-48437-2-git-send-email-jesse@kernel.org>
-References: <1458348669-48437-1-git-send-email-jesse@kernel.org>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 386/609] include/net/vxlan.h:302:17: sparse: cast
+ to restricted __be64
+Date: Sat, 19 Mar 2016 08:57:53 +0800
+Message-ID: <201603190849.15c8JxPc%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:37314 "EHLO mail.kernel.org"
+Received: from mga09.intel.com ([134.134.136.24]:15301 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753526AbcCSAvN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2016 20:51:13 -0400
-In-Reply-To: <1458348669-48437-1-git-send-email-jesse@kernel.org>
+	id S1751538AbcCSA60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Mar 2016 20:58:26 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enable support for configuring outer UDP checksums on Geneve tunnels:
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   93e68cd6115f67d8363c94dae8206af36f6d3b00
+commit: 07dabf20d9867710b90b91108b2adcd448773e25 [386/609] vxlan: tun_id is 64bit, not 32bit
+reproduce:
+        # apt-get install sparse
+        git checkout 07dabf20d9867710b90b91108b2adcd448773e25
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
 
-ip link add type geneve id 10 remote 10.0.0.2 udpcsum
 
-Signed-off-by: Jesse Gross <jesse@kernel.org>
+sparse warnings: (new ones prefixed by >>)
+
+   include/net/checksum.h:177:43: sparse: incorrect type in argument 2 (different base types)
+   include/net/checksum.h:177:43:    expected restricted __wsum [usertype] addend
+   include/net/checksum.h:177:43:    got restricted __sum16 [usertype] <noident>
+   include/net/inet_ecn.h:131:58: sparse: incorrect type in argument 2 (different base types)
+   include/net/inet_ecn.h:131:58:    expected restricted __wsum [usertype] addend
+   include/net/inet_ecn.h:131:58:    got restricted __be32 [assigned] [usertype] from
+   include/net/inet_ecn.h:131:65: sparse: incorrect type in argument 2 (different base types)
+   include/net/inet_ecn.h:131:65:    expected restricted __wsum [usertype] addend
+   include/net/inet_ecn.h:131:65:    got restricted __be32 [assigned] [usertype] to
+   include/net/inet_ecn.h:131:58: sparse: incorrect type in argument 2 (different base types)
+   include/net/inet_ecn.h:131:58:    expected restricted __wsum [usertype] addend
+   include/net/inet_ecn.h:131:58:    got restricted __be32 [assigned] [usertype] from
+   include/net/inet_ecn.h:131:65: sparse: incorrect type in argument 2 (different base types)
+   include/net/inet_ecn.h:131:65:    expected restricted __wsum [usertype] addend
+   include/net/inet_ecn.h:131:65:    got restricted __be32 [assigned] [usertype] to
+   include/net/vxlan.h:275:27: sparse: restricted __be32 degrades to integer
+   include/net/vxlan.h:275:45: sparse: incorrect type in return expression (different base types)
+   include/net/vxlan.h:275:45:    expected restricted __be32
+   include/net/vxlan.h:275:45:    got unsigned int
+>> include/net/vxlan.h:302:17: sparse: cast to restricted __be64
+>> include/net/vxlan.h:302:17: sparse: cast from restricted __be32
+   include/net/vxlan.h:302:17: sparse: restricted __be64 degrades to integer
+>> include/net/vxlan.h:302:28: sparse: incorrect type in return expression (different base types)
+   include/net/vxlan.h:302:28:    expected restricted __be64
+   include/net/vxlan.h:302:28:    got unsigned long long
+   include/net/vxlan.h:275:27: sparse: restricted __be32 degrades to integer
+   include/net/vxlan.h:275:45: sparse: incorrect type in return expression (different base types)
+   include/net/vxlan.h:275:45:    expected restricted __be32
+   include/net/vxlan.h:275:45:    got unsigned int
+   include/net/vxlan.h:284:16: sparse: restricted __be32 degrades to integer
+   include/net/vxlan.h:284:20: sparse: incorrect type in return expression (different base types)
+   include/net/vxlan.h:284:20:    expected restricted __be32
+   include/net/vxlan.h:284:20:    got unsigned int
+   include/net/vxlan.h:293:16: sparse: restricted __be64 degrades to integer
+   include/net/vxlan.h:293:23: sparse: incorrect type in return expression (different base types)
+   include/net/vxlan.h:293:23:    expected restricted __be32
+   include/net/vxlan.h:293:23:    got unsigned long long
+
+vim +302 include/net/vxlan.h
+
+   269	
+   270	static inline __be32 vxlan_vni(__be32 vni_field)
+   271	{
+   272	#if defined(__BIG_ENDIAN)
+   273		return vni_field >> 8;
+   274	#else
+ > 275		return (vni_field & VXLAN_VNI_MASK) << 8;
+   276	#endif
+   277	}
+   278	
+   279	static inline __be32 vxlan_vni_field(__be32 vni)
+   280	{
+   281	#if defined(__BIG_ENDIAN)
+   282		return vni << 8;
+   283	#else
+   284		return vni >> 8;
+   285	#endif
+   286	}
+   287	
+   288	static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
+   289	{
+   290	#if defined(__BIG_ENDIAN)
+   291		return tun_id;
+   292	#else
+   293		return tun_id >> 32;
+   294	#endif
+   295	}
+   296	
+   297	static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
+   298	{
+   299	#if defined(__BIG_ENDIAN)
+   300		return (__be64)vni;
+   301	#else
+ > 302		return (__be64)vni << 32;
+   303	#endif
+   304	}
+   305	
+
 ---
- ip/iplink_geneve.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
-
-diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
-index 30b16b9..13a6d80 100644
---- a/ip/iplink_geneve.c
-+++ b/ip/iplink_geneve.c
-@@ -20,6 +20,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "Usage: ... geneve id VNI remote ADDR\n");
- 	fprintf(f, "                 [ ttl TTL ] [ tos TOS ]\n");
- 	fprintf(f, "                 [ dstport PORT ] [ [no]external ]\n");
-+	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI  := 0-16777215\n");
- 	fprintf(f, "       ADDR := IP_ADDRESS\n");
-@@ -43,6 +44,12 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 tos = 0;
- 	__u16 dstport = 0;
- 	bool metadata = 0;
-+	__u8 udpcsum = 0;
-+	bool udpcsum_set = false;
-+	__u8 udp6zerocsumtx = 0;
-+	bool udp6zerocsumtx_set = false;
-+	__u8 udp6zerocsumrx = 0;
-+	bool udp6zerocsumrx_set = false;
- 
- 	while (argc > 0) {
- 		if (!matches(*argv, "id") ||
-@@ -91,6 +98,24 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
- 			metadata = true;
- 		} else if (!matches(*argv, "noexternal")) {
- 			metadata = false;
-+		} else if (!matches(*argv, "udpcsum")) {
-+			udpcsum = 1;
-+			udpcsum_set = true;
-+		} else if (!matches(*argv, "noudpcsum")) {
-+			udpcsum = 0;
-+			udpcsum_set = true;
-+		} else if (!matches(*argv, "udp6zerocsumtx")) {
-+			udp6zerocsumtx = 1;
-+			udp6zerocsumtx_set = true;
-+		} else if (!matches(*argv, "noudp6zerocsumtx")) {
-+			udp6zerocsumtx = 0;
-+			udp6zerocsumtx_set = true;
-+		} else if (!matches(*argv, "udp6zerocsumrx")) {
-+			udp6zerocsumrx = 1;
-+			udp6zerocsumrx_set = true;
-+		} else if (!matches(*argv, "noudp6zerocsumrx")) {
-+			udp6zerocsumrx = 0;
-+			udp6zerocsumrx_set = true;
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -131,6 +156,12 @@ static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
- 		addattr16(n, 1024, IFLA_GENEVE_PORT, htons(dstport));
- 	if (metadata)
- 		addattr(n, 1024, IFLA_GENEVE_COLLECT_METADATA);
-+	if (udpcsum_set)
-+		addattr8(n, 1024, IFLA_GENEVE_UDP_CSUM, udpcsum);
-+	if (udp6zerocsumtx_set)
-+		addattr8(n, 1024, IFLA_GENEVE_UDP_ZERO_CSUM6_TX, udp6zerocsumtx);
-+	if (udp6zerocsumrx_set)
-+		addattr8(n, 1024, IFLA_GENEVE_UDP_ZERO_CSUM6_RX, udp6zerocsumrx);
- 
- 	return 0;
- }
-@@ -187,6 +218,23 @@ static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_GENEVE_COLLECT_METADATA])
- 		fputs("external ", f);
- 
-+	if (tb[IFLA_GENEVE_UDP_CSUM]) {
-+		if (!rta_getattr_u8(tb[IFLA_GENEVE_UDP_CSUM]))
-+			fputs("no", f);
-+		fputs("udpcsum ", f);
-+	}
-+
-+	if (tb[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]) {
-+		if (!rta_getattr_u8(tb[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]))
-+			fputs("no", f);
-+		fputs("udp6zerocsumtx ", f);
-+	}
-+
-+	if (tb[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]) {
-+		if (!rta_getattr_u8(tb[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
-+			fputs("no", f);
-+		fputs("udp6zerocsumrx ", f);
-+	}
- }
- 
- static void geneve_print_help(struct link_util *lu, int argc, char **argv,
--- 
-2.5.0
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
