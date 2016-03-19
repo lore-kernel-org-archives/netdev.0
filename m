@@ -1,70 +1,107 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Sat, 19 Mar 2016 10:01:44 +0000
-Message-ID: <yw1xfuvm3hx3.fsf@unicorn.mansr.com>
-References: <56E99727.9040702@laposte.net>
-	<20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
-	<20160318191242.GQ4292@pengutronix.de> <56EC5788.3030509@free.fr>
-	<20160318201153.GR4292@pengutronix.de> <56EC68A5.3050901@free.fr>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Sat, 19 Mar 2016 11:27:25 +0100
+Message-ID: <56ED298D.4020100@imap.cc>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+ <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+ <56D7F62E.6050502@linux-pingi.de> <1659125.tHp8H942OG@wuerfel>
+ <87lh5udbcv.fsf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Uwe Kleine-Koenig <u.kleine-koenig@pengutronix.de>,
-	Sebastian Frias <sf84@laposte.net>,
-	Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from unicorn.mansr.com ([81.2.72.234]:42217 "EHLO unicorn.mansr.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752186AbcCSKBu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Mar 2016 06:01:50 -0400
-In-Reply-To: <56EC68A5.3050901@free.fr> (Mason's message of "Fri, 18 Mar 2016
-	21:44:21 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============1484029732722887663=="
+Cc: devel@driverdev.osuosl.org, isdn@linux-pingi.de, linux-doc@vger.kernel.org,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org
+To: Holger Schurig <holgerschurig@gmail.com>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87lh5udbcv.fsf@gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Mason <slash.tmp@free.fr> writes:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--===============1484029732722887663==
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="K8rjar1FO5fiqSQTBUN7CHNdsTk8iUKv2"
 
-> On 18/03/2016 21:11, Uwe Kleine-K=F6nig wrote:
->
->> Hello,
->>=20
->> On Fri, Mar 18, 2016 at 08:31:20PM +0100, Mason wrote:
->>
->>> On 18/03/2016 20:12, Uwe Kleine-K=F6nig wrote:
->>>
->>>> On Fri, Mar 18, 2016 at 04:56:21PM +0100, Sebastian Frias wrote:
->>>>
->>>>> What would you think of making at803x_link_change_notify() print =
-a
->>>>> message every time it should do a reset but does not has a way to=
- do it?
->>>>
->>>> Then this question is obsolete because the device doesn't probe.
->>>
->>> I don't understand this statement.
->>>
->>> What does it mean for a question to be obsolete?
->>=20
->> If the driver doesn't probe because it cannot control the reset line=
-,
->> you don't need to think about how it should behave in
->> at803x_link_change_notify without control of the reset line, because
->> this code isn't reached then.
->
-> If I understand correctly, it is possible to soft-reset the PHY
-> by writing to a specific register. The GPIO pin is useful only to
-> force a hardware-reset when the PHY is wedged by some random event.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--K8rjar1FO5fiqSQTBUN7CHNdsTk8iUKv2
+Content-Type: multipart/mixed; boundary="3861iW5jqANmv9F5FSXCDA68tPiPDhbfS"
+From: Tilman Schmidt <tilman@imap.cc>
+To: Holger Schurig <holgerschurig@gmail.com>, Arnd Bergmann <arnd@arndb.de>
+Cc: linux-arm-kernel@lists.infradead.org, devel@driverdev.osuosl.org,
+ isdn@linux-pingi.de, Jonathan Corbet <corbet@lwn.net>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-doc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>
+Message-ID: <56ED298D.4020100@imap.cc>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+ <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+ <56D7F62E.6050502@linux-pingi.de> <1659125.tHp8H942OG@wuerfel>
+ <87lh5udbcv.fsf@gmail.com>
+In-Reply-To: <87lh5udbcv.fsf@gmail.com>
 
-Yes, and some variants of this phy are broken and require a hard reset
-in certain situations.  At least that's what the comment in the code
-says.
+--3861iW5jqANmv9F5FSXCDA68tPiPDhbfS
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
+
+Am 07.03.2016 um 07:57 schrieb Holger Schurig:
+> I know that in Germany a good amount of land-line telephone line are
+> still using ISDN. [...]
+> Especially company line are using ISDN still, and there are some Linux
+> programs that act on then, e.g. Asterisk and derived PBX software has
+> ISDN support which is actively used.
+
+AFAIK none of these uses I4L anymore. Asterisk dropped I4L support with
+version 2 if my memory is correct and nowadays uses CAPI, mISDN or its
+own DAHDI interface.
 
 --=20
-M=E5ns Rullg=E5rd
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Nous, on a des fleurs et des bougies pour nous prot=E9ger.
+
+
+--3861iW5jqANmv9F5FSXCDA68tPiPDhbfS--
+
+--K8rjar1FO5fiqSQTBUN7CHNdsTk8iUKv2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJW7SmWAAoJEFPuqx0v+F+qRtEIAKMN2ufDtGcC/GzQ1yI6Vmcl
+PpG7RtBfTBKxZKgPN4f1Jb6L+OsFhL+5m5UdDqzoSaszGYLmSm8qA0AFuJg2WGa+
+bqrIP5R8NGU7Gn936ZF3eNQCU3uJkWfPqB4t/GEF07BrQCmnAjMsVSReKSy2wjwQ
+W23IIHstmj5WekyOv438zC42H2rYp1yNLFCIYqt3nnw74WiIs20R2BiNQ+EPztft
+wo6qJUQc5M7L0f4Vf7aPzr2Nd2aRXnBokirw09Cyy5Tpl8OLdFu57BJj9wcBGyF+
+xuebNdmT3tr+3DzIgdExsQnPJI5rS6rGYj1yaEDUkP9LIl5DYqPDb0i5TrYj61Y=
+=xPva
+-----END PGP SIGNATURE-----
+
+--K8rjar1FO5fiqSQTBUN7CHNdsTk8iUKv2--
+
+--===============1484029732722887663==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--===============1484029732722887663==--
