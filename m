@@ -1,111 +1,129 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 386/609] include/net/vxlan.h:302:17: sparse: cast
- to restricted __be64
-Date: Sat, 19 Mar 2016 08:57:53 +0800
-Message-ID: <201603190849.15c8JxPc%fengguang.wu@intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC PATCH 6/9] ethtool: Add support for toggling any of the
+ GSO offloads
+Date: Sat, 19 Mar 2016 01:42:51 +0000
+Message-ID: <1458351771.2953.22.camel@decadent.org.uk>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+	 <20160318232516.14955.2907.stgit@localhost.localdomain>
+	 <1458346684.2953.16.camel@decadent.org.uk>
+	 <CAKgT0UfTVCfTFgVTtA2sq1fZKVatAk=ciFG-dBtfU-oZmsAyiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-h9MCHJT04B6xz53kaYaD"
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15301 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751538AbcCSA60 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Mar 2016 20:58:26 -0400
-Content-Disposition: inline
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35621 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753879AbcCSBnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Mar 2016 21:43:03 -0400
+In-Reply-To: <CAKgT0UfTVCfTFgVTtA2sq1fZKVatAk=ciFG-dBtfU-oZmsAyiQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   93e68cd6115f67d8363c94dae8206af36f6d3b00
-commit: 07dabf20d9867710b90b91108b2adcd448773e25 [386/609] vxlan: tun_id is 64bit, not 32bit
-reproduce:
-        # apt-get install sparse
-        git checkout 07dabf20d9867710b90b91108b2adcd448773e25
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
 
+--=-h9MCHJT04B6xz53kaYaD
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-sparse warnings: (new ones prefixed by >>)
+On Fri, 2016-03-18 at 17:30 -0700, Alexander Duyck wrote:
+> On Fri, Mar 18, 2016 at 5:18 PM, Ben Hutchings <ben@decadent.org.uk> wrot=
+e:
+> >=20
+> > On Fri, 2016-03-18 at 16:25 -0700, Alexander Duyck wrote:
+> >=20
+> > >=20
+> > > The strings were missing for several of the GSO offloads that are
+> > > available.=C2=A0=C2=A0This patch provides the missing strings so that=
+ we can toggle
+> > > or query any of them via the ethtool command.
+> > >=20
+> > > Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> > > ---
+> > > =C2=A0net/core/ethtool.c |=C2=A0=C2=A0=C2=A0=C2=A03 +++
+> > > =C2=A01 file changed, 3 insertions(+)
+> > >=20
+> > > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> > > index 2966cd0d7c93..b3c39d531469 100644
+> > > --- a/net/core/ethtool.c
+> > > +++ b/net/core/ethtool.c
+> > > @@ -82,9 +82,12 @@ static const char netdev_features_strings[NETDEV_F=
+EATURE_COUNT][ETH_GSTRING_LEN]
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_TSO6_BIT] =3D=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0"tx-tc=
+p6-segmentation",
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_FSO_BIT] =3D=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0"tx=
+-fcoe-segmentation",
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_GRE_BIT] =3D=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0"tx-gre-segmentation"=
+,
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_GRE_CSUM_BIT] =3D=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0"tx-gre-csum-segmentation",
+> > All of the existing checksum offload names include the word "checksum"
+> > in full, so I think the new names should do the same.
+> It isn't a checksum offload though, it is a segmentation offload for a
+> tunnel that has an outer checksum.=C2=A0=C2=A0I was hoping to avoid using=
+ the
+> word checksum as that might make it confusing as it is a segmentation
+> offload, not a checksum offload.
 
-   include/net/checksum.h:177:43: sparse: incorrect type in argument 2 (different base types)
-   include/net/checksum.h:177:43:    expected restricted __wsum [usertype] addend
-   include/net/checksum.h:177:43:    got restricted __sum16 [usertype] <noident>
-   include/net/inet_ecn.h:131:58: sparse: incorrect type in argument 2 (different base types)
-   include/net/inet_ecn.h:131:58:    expected restricted __wsum [usertype] addend
-   include/net/inet_ecn.h:131:58:    got restricted __be32 [assigned] [usertype] from
-   include/net/inet_ecn.h:131:65: sparse: incorrect type in argument 2 (different base types)
-   include/net/inet_ecn.h:131:65:    expected restricted __wsum [usertype] addend
-   include/net/inet_ecn.h:131:65:    got restricted __be32 [assigned] [usertype] to
-   include/net/inet_ecn.h:131:58: sparse: incorrect type in argument 2 (different base types)
-   include/net/inet_ecn.h:131:58:    expected restricted __wsum [usertype] addend
-   include/net/inet_ecn.h:131:58:    got restricted __be32 [assigned] [usertype] from
-   include/net/inet_ecn.h:131:65: sparse: incorrect type in argument 2 (different base types)
-   include/net/inet_ecn.h:131:65:    expected restricted __wsum [usertype] addend
-   include/net/inet_ecn.h:131:65:    got restricted __be32 [assigned] [usertype] to
-   include/net/vxlan.h:275:27: sparse: restricted __be32 degrades to integer
-   include/net/vxlan.h:275:45: sparse: incorrect type in return expression (different base types)
-   include/net/vxlan.h:275:45:    expected restricted __be32
-   include/net/vxlan.h:275:45:    got unsigned int
->> include/net/vxlan.h:302:17: sparse: cast to restricted __be64
->> include/net/vxlan.h:302:17: sparse: cast from restricted __be32
-   include/net/vxlan.h:302:17: sparse: restricted __be64 degrades to integer
->> include/net/vxlan.h:302:28: sparse: incorrect type in return expression (different base types)
-   include/net/vxlan.h:302:28:    expected restricted __be64
-   include/net/vxlan.h:302:28:    got unsigned long long
-   include/net/vxlan.h:275:27: sparse: restricted __be32 degrades to integer
-   include/net/vxlan.h:275:45: sparse: incorrect type in return expression (different base types)
-   include/net/vxlan.h:275:45:    expected restricted __be32
-   include/net/vxlan.h:275:45:    got unsigned int
-   include/net/vxlan.h:284:16: sparse: restricted __be32 degrades to integer
-   include/net/vxlan.h:284:20: sparse: incorrect type in return expression (different base types)
-   include/net/vxlan.h:284:20:    expected restricted __be32
-   include/net/vxlan.h:284:20:    got unsigned int
-   include/net/vxlan.h:293:16: sparse: restricted __be64 degrades to integer
-   include/net/vxlan.h:293:23: sparse: incorrect type in return expression (different base types)
-   include/net/vxlan.h:293:23:    expected restricted __be32
-   include/net/vxlan.h:293:23:    got unsigned long long
+Yes, but my point is that we haven't used the abbreviation "csum".
 
-vim +302 include/net/vxlan.h
+> > >=20
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_IPIP_BIT] =3D=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0"tx-ipip-segmentation",
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_SIT_BIT] =3D=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0"tx-sit-segmentation"=
+,
+> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_UDP_TUNNEL_BIT] =3D=
+=C2=A0=C2=A0=C2=A0"tx-udp_tnl-segmentation",
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] =3D =
+"tx-udp_tnl-csum-segmentation",
+> > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0[NETIF_F_GSO_TUNNEL_REMCSUM_BIT] =3D "=
+tx-remcsum-segmentation",
+> > I think this should be "tx-tunnel-remote-checksum-segmentation", though
+> > that is getting quite unwieldy.
+> Right.=C2=A0=C2=A0As it is I think we might be coming up on the 32 charac=
+ter
+> limit for the strings.=C2=A0=C2=A0Replacing csum with checksum would prob=
+ably
+> push us over.
 
-   269	
-   270	static inline __be32 vxlan_vni(__be32 vni_field)
-   271	{
-   272	#if defined(__BIG_ENDIAN)
-   273		return vni_field >> 8;
-   274	#else
- > 275		return (vni_field & VXLAN_VNI_MASK) << 8;
-   276	#endif
-   277	}
-   278	
-   279	static inline __be32 vxlan_vni_field(__be32 vni)
-   280	{
-   281	#if defined(__BIG_ENDIAN)
-   282		return vni << 8;
-   283	#else
-   284		return vni >> 8;
-   285	#endif
-   286	}
-   287	
-   288	static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
-   289	{
-   290	#if defined(__BIG_ENDIAN)
-   291		return tun_id;
-   292	#else
-   293		return tun_id >> 32;
-   294	#endif
-   295	}
-   296	
-   297	static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
-   298	{
-   299	#if defined(__BIG_ENDIAN)
-   300		return (__be64)vni;
-   301	#else
- > 302		return (__be64)vni << 32;
-   303	#endif
-   304	}
-   305	
+Right, I wasn't even thinking about the static limit! =C2=A0That does weigh
+rather heavily in favour of abbreviation here.
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Please do at least hyphenate "remcsum" though.
+
+Ben.
+
+--=20
+Ben Hutchings
+To err is human; to really foul things up requires a computer.
+--=-h9MCHJT04B6xz53kaYaD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJW7K6bAAoJEOe/yOyVhhEJE9YQAIFmNWTb0PYufg47V8eykFAO
+Lz4Het/TP6rs9rS+5jL5iZf8y55LOyW/jqRgjNIavWZPUK43Rq50c6FtD64+VgCq
+BDDVigTNXBH2ElukCgSna5mH0+/d8BfbXYVF9i8/xnr4J34li7SKz9FE2jr1bwTK
+3yoClN3WnuVL15VCGKSCIUgRbUrm1vaorDQKdF6FzSJ/d/3RT9YAihEVS/LWBc5S
+xCAmSbpf52LcbU0x49r+be236mqhawMsR3Pm4X9Pi/GmyprKezOGFgJtEPXPiKds
+WVElERHqcb+7g8NNYnDhinhLj8h5G8udpI4nCbnocUAsv0C1whRoLUFLy8HBig+8
+zcsMvX0fa+E+XgVmn2czBOcjH+D4gTZTF08Yl+YQ0gzN5zzJ9e1vguRBubz2+gSS
+xjSD6SCrHmA6sKfG92MHADBBCoa1BObQCTOlw5hor40R7rIKzfzrKwyVnl/itfWY
+hmcrCU61jS5JqLCtgdG1+c4J8j6O02oJInNdThV/aquFTyCAXYaiwQXByR0Gho9m
+U/cmBGQr8fDaXG77wUegCN9R2D4r7U2xaqbvP6JVfGydIaH+QTU7YDTneSEyAvpI
+2ju0BuLSxaqVjpUGsi5RdAj0tt4hUiuaCXPTrkkMDna/wq5vzrOj+AIBuxw4xa2U
+2z8LoztMGJH96NLZ4GW9
+=W1v1
+-----END PGP SIGNATURE-----
+
+--=-h9MCHJT04B6xz53kaYaD--
