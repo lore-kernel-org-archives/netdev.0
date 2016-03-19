@@ -1,52 +1,45 @@
-From: "Robin H. Johnson" <robbat2@gentoo.org>
-Subject: ip-token: unable to remove a token & multi-token handling &
- concurrent use w/ EUI64/privacy
-Date: Sat, 19 Mar 2016 18:53:24 +0000
-Message-ID: <robbat2-20160319T175636-156562343Z@orbis-terrarum.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, daniel@iogearbox.net
+From: Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] gen_stats.c: Add description for cpu argument
+Date: Sat, 19 Mar 2016 21:19:55 +0000
+Message-ID: <1458422395-895-1-git-send-email-luisbg@osg.samsung.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Luis de Bethencourt <luisbg@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:33462 "EHLO smtp.gentoo.org"
+Received: from lists.s-osg.org ([54.187.51.154]:54908 "EHLO lists.s-osg.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751870AbcCSSxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Mar 2016 14:53:25 -0400
-Received: from grubbs.orbis-terrarum.net (localhost [127.0.0.1])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp.gentoo.org (Postfix) with ESMTPS id A7395340ACE
-	for <netdev@vger.kernel.org>; Sat, 19 Mar 2016 18:53:24 +0000 (UTC)
-Content-Disposition: inline
+	id S932222AbcCSVUD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Mar 2016 17:20:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Function gnet_stats_copy_basic is missing the description of the cpu
+argument in the documentation. Adding it.
+
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
 Hi,
 
-Playing around with IPv6 tokens, I ran into a problem:
-Once you have a token set on an interface, it's impossible to remove it!
+Noticed this issue when running make htmldocs. I got the following warning:
+.//net/core/gen_stats.c:155: warning: No description found for parameter 'cpu'
 
-# ip token set :: dev eth0
-RTNETLINK answers: Invalid argument
+Thanks,
+Luis
 
-This is a side-effect of rejecting ipv6_addr_any in inet6_set_iftoken.
+ net/core/gen_stats.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-While this gets fixed, I have two related feature requests for this:
-- Please make it possible to configure multiple tokens on an interface:
-  Use case: Deploying local services on well-known addresses inside a
-  network without explicit prefix configuration.
-- Adding a token causes other address generation methods to be disabled,
-  this is problematic if you wish to prefer privacy addresses for
-  outbound connections.
-
-Design suggestion:
-Convert from using a single token to using a list of tokens, with an
-explicit default IPv6-any-addr (::) in the list, to represent that
-other address generation should ALSO take place (EUI64/privacy).
-Deletion of the any-addr from the list should disable EUI64/privacy
-addresses.
-
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 1e2f46a..e640462 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -140,6 +140,7 @@ EXPORT_SYMBOL(__gnet_stats_copy_basic);
+ /**
+  * gnet_stats_copy_basic - copy basic statistics into statistic TLV
+  * @d: dumping handle
++ * @cpu: copy statistic per cpu
+  * @b: basic statistics
+  *
+  * Appends the basic statistics to the top level TLV created by
 -- 
-Robin Hugh Johnson
-Gentoo Linux: Developer, Infrastructure Lead, Foundation Trustee
-E-Mail     : robbat2@gentoo.org
-GnuPG FP   : 11ACBA4F 4778E3F6 E4EDF38E B27B944E 34884E85
+2.5.1
