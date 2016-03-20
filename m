@@ -1,47 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: remove a dubious unlikely() clause
-Date: Sun, 20 Mar 2016 11:27:47 -0700
-Message-ID: <1458498467.10868.14.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [RFD] workqueue: WQ_MEM_RECLAIM usage in network drivers
+Date: Sun, 20 Mar 2016 14:55:07 -0400
+Message-ID: <20160320185507.GT20028@mtj.duckdns.org>
+References: <20160317164546.GT21104@mtj.duckdns.org>
+ <20160317213216.731d1fcc@synchrony.poochiereds.net>
+ <20160318204623.GM20028@mtj.duckdns.org>
+ <20160318212405.GA5192@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33853 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913AbcCTS1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 14:27:50 -0400
-Received: by mail-pf0-f174.google.com with SMTP id x3so237206268pfb.1
-        for <netdev@vger.kernel.org>; Sun, 20 Mar 2016 11:27:49 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton@poochiereds.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org,
+	Amitoj Kaur Chawla <amitoj1606@gmail.com>,
+	kernel-team@fb.com, Johannes Weiner <hannes@cmpxchg.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Eva Rachel Retuya <eraretuya@gmail.com>,
+	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
+	linux-wireless@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160318212405.GA5192@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Hello,
 
-TCP protocol is still used these days, and TCP uses
-clones in its transmit path. We can not optimize linux
-stack assuming it is mostly used in routers, or that TCP
-is dead.
+On Fri, Mar 18, 2016 at 05:24:05PM -0400, J. Bruce Fields wrote:
+> > But does that actually work?  It's pointless to add WQ_MEM_RECLAIM to
+> > workqueues unless all other things are also guaranteed to make forward
+> > progress regardless of memory pressure.
+> 
+> It's supposed to work.
+> 
+> Also note there was a bunch of work done to allow swap on NFS: see
+> a564b8f0 "nfs: enable swap on NFS".
 
-Fixes: 795bb1c00d ("net: bulk free infrastructure for NAPI context, use napi_consume_skb")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
----
- net/core/skbuff.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Alright, WQ_MEM_RECLAIM for ethernet devices, then.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f044f97..d04c2d1 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -815,7 +815,7 @@ void napi_consume_skb(struct sk_buff *skb, int budget)
- 	trace_consume_skb(skb);
- 
- 	/* if SKB is a clone, don't handle this case */
--	if (unlikely(skb->fclone != SKB_FCLONE_UNAVAILABLE)) {
-+	if (skb->fclone != SKB_FCLONE_UNAVAILABLE) {
- 		__kfree_skb(skb);
- 		return;
- 	}
+> I use NFS mounts over wifi at home.  I may just be odd.  I seem to
+> recall some bug reports about suspend vs. NFS--were those also on
+> laptops using NFS?
+> 
+> I wonder if home media centers might do writes over wifi to network
+> storage?
+> 
+> Googling for "nfs wifi" turns up lots of individuals doing this.
+> 
+> My first impulse is to say that it's probably not perfect but that we
+> shouldn't make it worse.
+
+If everything else is working, I'd be happy to throw in WQ_MEM_RECLAIM
+but I really don't want to add it if it doesn't actually achieve the
+goal.  Can a wireless person chime in here?
+
+Thanks.
+
+-- 
+tejun
