@@ -1,65 +1,63 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
-Date: Sun, 20 Mar 2016 11:43:56 +0100
-Message-ID: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next v2] virtio_net: replace netdev_alloc_skb_ip_align()
+ with napi_alloc_skb()
+Date: Sun, 20 Mar 2016 14:28:23 +0200
+Message-ID: <20160320142551-mutt-send-email-mst@redhat.com>
+References: <98c94ca899603eb4212c44aa1a658825198ed49a.1458290241.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Woojung Huh <woojung.huh@microchip.com>,
-	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-pm-owner@vger.kernel.org>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Venkatesh Srinivas <venkateshs@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51539 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755227AbcCTM21 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Mar 2016 08:28:27 -0400
+Content-Disposition: inline
+In-Reply-To: <98c94ca899603eb4212c44aa1a658825198ed49a.1458290241.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If CONFIG_PM=3Dn:
+On Fri, Mar 18, 2016 at 04:42:48PM +0100, Paolo Abeni wrote:
+> This gives small but noticeable rx performance improvement (2-3%)
+> and will allow exploiting future napi improvement.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-    drivers/net/usb/lan78xx.c: In function =E2=80=98lan78xx_get_stats64=
-=E2=80=99:
-    drivers/net/usb/lan78xx.c:3274: error: =E2=80=98struct dev_pm_info=E2=
-=80=99 has no member named =E2=80=98runtime_auto=E2=80=99
+I am not sure this is necessarily worth doing for this dumb hardware.
+I queued v1 in vhost tree for now, let's see some performance
+numbers before we start changing about other paths.
 
-If PM is disabled, the runtime_auto flag is not available, but auto
-suspend is not enabled anyway.  Hence protect the check for runtime_aut=
-o
-by #ifdef CONFIG_PM to fix this.
-
-=46ixes: a59f8c5b048dc938 ("lan78xx: add ndo_get_stats64")
-Reported-by: Guenter Roeck <linux@roeck-us.net>
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Alternatively, we can add a dev_pm_runtime_auto_is_enabled() wrapper to
-include/linux/pm.h, which always return false if CONFIG_PM is disabled.
-
-The only other user in non-core code (drivers/usb/core/sysfs.c) has a
-big #ifdef CONFIG_PM check around all PM-related code.
-
-Thoughts?
----
- drivers/net/usb/lan78xx.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index d36d5ebf37f355f2..7b9ac47b2ecf9905 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -3271,7 +3271,9 @@ struct rtnl_link_stats64 *lan78xx_get_stats64(str=
-uct net_device *netdev,
- 	 * periodic reading from HW will prevent from entering USB auto suspe=
-nd.
- 	 * if autosuspend is disabled, read from HW.
- 	 */
-+#ifdef CONFIG_PM
- 	if (!dev->udev->dev.power.runtime_auto)
-+#endif
- 		lan78xx_update_stats(dev);
-=20
- 	mutex_lock(&dev->stats.access_lock);
---=20
-1.9.1
-
+> --
+>  v2: replace also netdev_alloc_skb_ip_align() invocation in
+> 	add_recvbuf_small(), suggested by Venkatesh Srinivas
+> ---
+>  drivers/net/virtio_net.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index fb0eae4..100e039 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -260,7 +260,7 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>  	p = page_address(page) + offset;
+>  
+>  	/* copy small packet so we can reuse these pages for small data */
+> -	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
+> +	skb = napi_alloc_skb(&rq->napi, GOOD_COPY_LEN);
+>  	if (unlikely(!skb))
+>  		return NULL;
+>  
+> @@ -541,7 +541,7 @@ static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+>  	struct virtio_net_hdr_mrg_rxbuf *hdr;
+>  	int err;
+>  
+> -	skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
+> +	skb = __napi_alloc_skb(&rq->napi, GOOD_PACKET_LEN, gfp);
+>  	if (unlikely(!skb))
+>  		return -ENOMEM;
+>  
+> -- 
+> 1.8.3.1
