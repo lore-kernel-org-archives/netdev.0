@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: remove a dubious unlikely() clause
-Date: Sun, 20 Mar 2016 16:32:19 -0400 (EDT)
-Message-ID: <20160320.163219.2048951134824961876.davem@davemloft.net>
-References: <1458498467.10868.14.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net v2 0/3] Tunneling fixes
+Date: Sun, 20 Mar 2016 16:33:58 -0400 (EDT)
+Message-ID: <20160320.163358.86760909016669242.davem@davemloft.net>
+References: <1458405122-12565-1-git-send-email-jesse@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: jesse@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60100 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60115 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbcCTUcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 16:32:21 -0400
-In-Reply-To: <1458498467.10868.14.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1751149AbcCTUd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 16:33:59 -0400
+In-Reply-To: <1458405122-12565-1-git-send-email-jesse@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 20 Mar 2016 11:27:47 -0700
+From: Jesse Gross <jesse@kernel.org>
+Date: Sat, 19 Mar 2016 09:31:59 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> This series fixes a problem that was reported where encapsulated packets
+> do not have their encapsulation offload markers stripped off when being
+> decapsulated. This causes a significant performance drop if the packets
+> are later retransmitted.
 > 
-> TCP protocol is still used these days, and TCP uses
-> clones in its transmit path. We can not optimize linux
-> stack assuming it is mostly used in routers, or that TCP
-> is dead.
+> Fixing this revealed two other bugs which are also addressed as prerequisites:
+>  * GRO can aggregate packets for multiple layers of encapsulation which the
+>    stack cannot properly handle.
+>  * IPIP packets which are combined by GRO are not marked properly with their
+>    GSO type.
 > 
-> Fixes: 795bb1c00d ("net: bulk free infrastructure for NAPI context, use napi_consume_skb")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+> Note that this is based off the net-next tree as the current target for
+> bug fixes.
+> 
+> v2: No code changes, just additional information in commit messages and
+>     a new cover letter.
 
-Applied.
+Applied, thanks for respinning this Jesse.
