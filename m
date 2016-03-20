@@ -1,40 +1,39 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] net/mlx4: remove unused array zero_gid[]
-Date: Sun, 20 Mar 2016 17:44:56 +0000
-Message-ID: <1458495896-18074-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] flowi6_tos fixes
+Date: Sun, 20 Mar 2016 13:44:51 -0400 (EDT)
+Message-ID: <20160320.134451.139038163148437212.davem@davemloft.net>
+References: <cover.1458320940.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbenc@redhat.com, linville@tuxdriver.com, jesse@kernel.org,
+	dsa@cumulusnetworks.com, alexei.starovoitov@gmail.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58281 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbcCTRox (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 13:44:53 -0400
+In-Reply-To: <cover.1458320940.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 18 Mar 2016 18:37:56 +0100
 
-zero_gid is not used, so remove this redundant array.
+> This set is a follow-up to address Jiri's recent feedback [1] on
+> the flowi6_tos issue, that it is not used for IPv6 route lookups.
+> The three patches fix all current users of flowi6_tos and remove
+> the define to avoid any future confusion on this. Tested the vxlan
+> and geneve ones with IPv6 routing rules. For details, please see
+> individual patches.
+> 
+> [ As fixes are currently applied against net-next tree, I've rebased
+>   it against that. ]
+> 
+> Thanks!
+> 
+>   [1] http://patchwork.ozlabs.org/patch/592055/
 
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 42d8de8..6aa7397 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -39,8 +39,6 @@
- 
- #include "mlx4.h"
- 
--static const u8 zero_gid[16];	/* automatically initialized to 0 */
--
- int mlx4_get_mgm_entry_size(struct mlx4_dev *dev)
- {
- 	return 1 << dev->oper_log_mgm_entry_size;
--- 
-2.7.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Daniel.
