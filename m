@@ -1,31 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: do not update a_rwnd if we are not issuing a sack
-Date: Sun, 20 Mar 2016 16:31:45 -0400 (EDT)
-Message-ID: <20160320.163145.1907195712733416950.davem@davemloft.net>
-References: <1458337159-22792-3-git-send-email-marcelo.leitner@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/mlx4: remove unused array zero_gid[]
+Date: Sun, 20 Mar 2016 16:32:14 -0400 (EDT)
+Message-ID: <20160320.163214.168052493200697316.davem@davemloft.net>
+References: <1458495896-18074-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60078 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751277AbcCTUbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 16:31:47 -0400
-In-Reply-To: <1458337159-22792-3-git-send-email-marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458495896-18074-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri, 18 Mar 2016 18:39:18 -0300
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Sun, 20 Mar 2016 17:44:56 +0000
 
-> The SACK can be lost pretty much elsewhere, but if its allocation fail,
-> we know we are not sending it, so it is better to revert a_rwnd to its
-> previous value as this may give it a chance to issue a window update
-> later.
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> zero_gid is not used, so remove this redundant array.
+> 
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
