@@ -1,63 +1,35 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFD] workqueue: WQ_MEM_RECLAIM usage in network drivers
-Date: Sun, 20 Mar 2016 14:55:07 -0400
-Message-ID: <20160320185507.GT20028@mtj.duckdns.org>
-References: <20160317164546.GT21104@mtj.duckdns.org>
- <20160317213216.731d1fcc@synchrony.poochiereds.net>
- <20160318204623.GM20028@mtj.duckdns.org>
- <20160318212405.GA5192@fieldses.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: do not leak chunks that are sent to unconfirmed
+ paths
+Date: Sun, 20 Mar 2016 16:31:31 -0400 (EDT)
+Message-ID: <20160320.163131.1842856580709650450.davem@davemloft.net>
+References: <1458337159-22792-4-git-send-email-marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@poochiereds.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org,
-	Amitoj Kaur Chawla <amitoj1606@gmail.com>,
-	kernel-team@fb.com, Johannes Weiner <hannes@cmpxchg.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Eva Rachel Retuya <eraretuya@gmail.com>,
-	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-	linux-wireless@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160318212405.GA5192@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60059 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbcCTUbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 16:31:39 -0400
+In-Reply-To: <1458337159-22792-4-git-send-email-marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Fri, 18 Mar 2016 18:39:19 -0300
 
-On Fri, Mar 18, 2016 at 05:24:05PM -0400, J. Bruce Fields wrote:
-> > But does that actually work?  It's pointless to add WQ_MEM_RECLAIM to
-> > workqueues unless all other things are also guaranteed to make forward
-> > progress regardless of memory pressure.
+> Currently, if a chunk is scheduled to be sent through a transport that
+> is currently unconfirmed, it will be leaked as it is dequeued from outq
+> and is not re-queued nor freed.
 > 
-> It's supposed to work.
+> As I'm not aware of any situation that may lead to this situation, I'm
+> fixing this by freeing the chunk and also logging a trace so that we can
+> fix the other bug if it ever happens.
 > 
-> Also note there was a bunch of work done to allow swap on NFS: see
-> a564b8f0 "nfs: enable swap on NFS".
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Alright, WQ_MEM_RECLAIM for ethernet devices, then.
-
-> I use NFS mounts over wifi at home.  I may just be odd.  I seem to
-> recall some bug reports about suspend vs. NFS--were those also on
-> laptops using NFS?
-> 
-> I wonder if home media centers might do writes over wifi to network
-> storage?
-> 
-> Googling for "nfs wifi" turns up lots of individuals doing this.
-> 
-> My first impulse is to say that it's probably not perfect but that we
-> shouldn't make it worse.
-
-If everything else is working, I'd be happy to throw in WQ_MEM_RECLAIM
-but I really don't want to add it if it doesn't actually achieve the
-goal.  Can a wireless person chime in here?
-
-Thanks.
-
--- 
-tejun
+Applied.
