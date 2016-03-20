@@ -1,123 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] virtio/vhost: new features, performance improvements, cleanups
-Date: Sun, 20 Mar 2016 15:58:48 +0200
-Message-ID: <20160320155848-mutt-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Sun, 20 Mar 2016 09:35:52 -0700
+Message-ID: <1458491752.10868.4.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pmladek@suse.com, kvm@vger.kernel.org, geliangtang@163.com,
-	netdev@vger.kernel.org, mst@redhat.com,
-	sebott@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
-	pmladek@suse.cz, virtualization@lists.linux-foundation.org,
-	borntraeger@de.ibm.com, luto@kernel.org, pbonzini@redhat.com,
-	pabeni@redhat.com, schwidefsky@de.ibm.com, gkurz@linux.vnet.ibm.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Woojung Huh <woojung.huh@microchip.com>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35808 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159AbcCTQfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 12:35:55 -0400
+In-Reply-To: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit e1f33be9186363da7955bcb5f0b03e6685544c50:
+On Sun, 2016-03-20 at 11:43 +0100, Geert Uytterhoeven wrote:
+> If CONFIG_PM=3Dn:
+>=20
+>     drivers/net/usb/lan78xx.c: In function =E2=80=98lan78xx_get_stats=
+64=E2=80=99:
+>     drivers/net/usb/lan78xx.c:3274: error: =E2=80=98struct dev_pm_inf=
+o=E2=80=99 has no member named =E2=80=98runtime_auto=E2=80=99
+>=20
+> If PM is disabled, the runtime_auto flag is not available, but auto
+> suspend is not enabled anyway.  Hence protect the check for runtime_a=
+uto
+> by #ifdef CONFIG_PM to fix this.
+>=20
+> Fixes: a59f8c5b048dc938 ("lan78xx: add ndo_get_stats64")
+> Reported-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> ---
+> Alternatively, we can add a dev_pm_runtime_auto_is_enabled() wrapper =
+to
+> include/linux/pm.h, which always return false if CONFIG_PM is disable=
+d.
+>=20
+> The only other user in non-core code (drivers/usb/core/sysfs.c) has a
+> big #ifdef CONFIG_PM check around all PM-related code.
+>=20
+> Thoughts?
+> ---
+>  drivers/net/usb/lan78xx.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>=20
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index d36d5ebf37f355f2..7b9ac47b2ecf9905 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -3271,7 +3271,9 @@ struct rtnl_link_stats64 *lan78xx_get_stats64(s=
+truct net_device *netdev,
+>  	 * periodic reading from HW will prevent from entering USB auto sus=
+pend.
+>  	 * if autosuspend is disabled, read from HW.
+>  	 */
+> +#ifdef CONFIG_PM
+>  	if (!dev->udev->dev.power.runtime_auto)
+> +#endif
+>  		lan78xx_update_stats(dev);
+> =20
+>  	mutex_lock(&dev->stats.access_lock);
 
-  vhost: fix error path in vhost_init_used() (2016-03-02 17:01:49 +0200)
+Note that a ndo_get_stat64() handler is not allowed to sleep,
+so the mutex_lock() is not wise...
 
-are available in the git repository at:
+Historically /proc/net/dev handler but also bonding ndo_get_stats() use=
+d
+RCU or a rwlock or a spinlock.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to c67f5db82027ba6d2ea4ac9176bc45996a03ae6a:
-
-  virtio_net: replace netdev_alloc_skb_ip_align() with napi_alloc_skb() (2016-03-17 17:42:00 +0200)
-
-----------------------------------------------------------------
-virtio/vhost: new features, performance improvements, cleanups
-
-This adds basic polling support for vhost.
-Reworks virtio to optionally use DMA API, fixing it on Xen.
-Balloon stats gained a new entry.
-Using the new napi_alloc_skb speeds up virtio net.
-virtio blk stats can now be read while another VCPU
-us busy inflating or deflating the balloon.
-Plus misc cleanups in various places.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Andy Lutomirski (6):
-      vring: Introduce vring_use_dma_api()
-      virtio_ring: Support DMA APIs
-      virtio: Add improved queue allocation API
-      virtio_mmio: Use the DMA API if enabled
-      virtio_pci: Use the DMA API if enabled
-      vring: Use the DMA API on Xen
-
-Christian Borntraeger (3):
-      dma: Provide simple noop dma ops
-      alpha/dma: use common noop dma ops
-      s390/dma: Allow per device dma ops
-
-Cornelia Huck (1):
-      virtio/s390: size of SET_IND payload
-
-Geliang Tang (1):
-      virtio/s390: use dev_to_virtio
-
-Greg Kurz (2):
-      vhost: rename cross-endian helpers
-      vhost: rename vhost_init_used()
-
-Jason Wang (3):
-      vhost: introduce vhost_has_work()
-      vhost: introduce vhost_vq_avail_empty()
-      vhost_net: basic polling support
-
-Michael S. Tsirkin (1):
-      virtio_blk: VIRTIO_BLK_F_WCE->VIRTIO_BLK_F_FLUSH
-
-Paolo Abeni (1):
-      virtio_net: replace netdev_alloc_skb_ip_align() with napi_alloc_skb()
-
-Petr Mladek (2):
-      virtio_balloon: Use a workqueue instead of "vballoon" kthread
-      virtio_balloon: Allow to resize and update the balloon stats in parallel
-
- arch/s390/include/asm/device.h      |   6 +-
- arch/s390/include/asm/dma-mapping.h |   6 +-
- drivers/vhost/vhost.h               |   5 +-
- drivers/virtio/virtio_pci_common.h  |   6 -
- include/linux/dma-mapping.h         |   2 +
- include/linux/virtio.h              |  23 +-
- include/linux/virtio_ring.h         |  35 +++
- include/uapi/linux/vhost.h          |   6 +
- include/uapi/linux/virtio_blk.h     |   6 +-
- tools/virtio/linux/dma-mapping.h    |  17 ++
- arch/alpha/kernel/pci-noop.c        |  46 +---
- arch/s390/pci/pci.c                 |   1 +
- arch/s390/pci/pci_dma.c             |   4 +-
- drivers/block/virtio_blk.c          |  11 +-
- drivers/net/virtio_net.c            |   2 +-
- drivers/s390/virtio/virtio_ccw.c    |  15 +-
- drivers/vhost/net.c                 |  80 ++++++-
- drivers/vhost/scsi.c                |   2 +-
- drivers/vhost/test.c                |   2 +-
- drivers/vhost/vhost.c               |  69 +++++-
- drivers/virtio/virtio_balloon.c     | 122 +++++-----
- drivers/virtio/virtio_mmio.c        |  67 ++----
- drivers/virtio/virtio_pci_legacy.c  |  42 ++--
- drivers/virtio/virtio_pci_modern.c  |  61 ++---
- drivers/virtio/virtio_ring.c        | 439 +++++++++++++++++++++++++++++++-----
- lib/dma-noop.c                      |  75 ++++++
- arch/s390/Kconfig                   |   5 +-
- drivers/virtio/Kconfig              |   2 +-
- lib/Makefile                        |   1 +
- 29 files changed, 823 insertions(+), 335 deletions(-)
- create mode 100644 tools/virtio/linux/dma-mapping.h
- create mode 100644 lib/dma-noop.c
+So a complete fix would need to get rid of this mutex as well.
