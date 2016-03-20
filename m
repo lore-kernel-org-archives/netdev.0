@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 0/2] basic ioctl support for netlink sockets
-Date: Sun, 20 Mar 2016 13:31:22 -0400 (EDT)
-Message-ID: <20160320.133122.908035685889835834.davem@davemloft.net>
-References: <1458259436-85275-1-git-send-email-ddecotig@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nikolay@cumulusnetworks.com, mst@redhat.com, ben@decadent.org.uk,
-	jeffrey.t.kirsher@intel.com, decot@googlers.com,
-	nicolas.dichtel@6wind.com, andrew@lunn.ch, hadarh@mellanox.com,
-	ecree@solarflare.com, john.r.fastabend@intel.com,
-	herbert@gondor.apana.org.au, tgraf@suug.ch, daniel@iogearbox.net,
-	chamaken@gmail.com, fw@strlen.de, dh.herrmann@gmail.com
-To: ddecotig@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458259436-85275-1-git-send-email-ddecotig@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] brcmfmac: sdio: remove unused variable retry_limit
+Date: Sun, 20 Mar 2016 17:34:52 +0000
+Message-ID: <1458495292-17701-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:33519 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751767AbcCTRe5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 13:34:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <ddecotig@gmail.com>
-Date: Thu, 17 Mar 2016 17:03:54 -0700
+From: Colin Ian King <colin.king@canonical.com>
 
-> This removes the requirement that ethtool be tied to the support
-> of a specific L3 protocol, also updates a comment.
+retry_limit has never been used during the life of this driver, so
+we may as well remove it as it is redundant.
 
-You're adding an ioctl handler to netlink sockets, and it is not
-at all apparent to me how this influences ethtool handling at all.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Therefore you have to explain this here and in your commit message.
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+index 43fd3f4..cd92ba7 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
+@@ -535,9 +535,6 @@ static int qcount[NUMPRIO];
+ 
+ #define RETRYCHAN(chan) ((chan) == SDPCM_EVENT_CHANNEL)
+ 
+-/* Retry count for register access failures */
+-static const uint retry_limit = 2;
+-
+ /* Limit on rounding up frames */
+ static const uint max_roundup = 512;
+ 
+-- 
+2.7.3
