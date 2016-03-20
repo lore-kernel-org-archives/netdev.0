@@ -1,62 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
-Date: Sun, 20 Mar 2016 16:52:51 -0400 (EDT)
-Message-ID: <20160320.165251.836830192768797071.davem@davemloft.net>
-References: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
-	<1458491752.10868.4.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Adam Seering <adam@seering.org>
+Subject: Re: [PATCH] appletalk: Pass IP-over-DDP packets through when
+ 'ipddp0' interface is not present
+Date: Sun, 20 Mar 2016 17:19:52 -0400
+Message-ID: <1458508792.3317.16.camel@seering.org>
+References: <1456237153.4577.35.camel@seering.org>
+	 <20160225.143353.284231681606348501.davem@davemloft.net>
+	 <1456447597.4577.49.camel@seering.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: geert@linux-m68k.org, woojung.huh@microchip.com,
-	UNGLinuxDriver@microchip.com, linux@roeck-us.net,
-	rjw@rjwysocki.net, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1458491752.10868.4.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comomta-po-01v.sys.comcast.net ([96.114.154.250]:55211 "EHLO
+	comomta-po-01v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751454AbcCTVUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Mar 2016 17:20:17 -0400
+In-Reply-To: <1456447597.4577.49.camel@seering.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogU3VuLCAy
-MCBNYXIgMjAxNiAwOTozNTo1MiAtMDcwMA0KDQo+IE9uIFN1biwgMjAxNi0wMy0yMCBhdCAxMTo0
-MyArMDEwMCwgR2VlcnQgVXl0dGVyaG9ldmVuIHdyb3RlOg0KPj4gSWYgQ09ORklHX1BNPW46DQo+
-PiANCj4+ICAgICBkcml2ZXJzL25ldC91c2IvbGFuNzh4eC5jOiBJbiBmdW5jdGlvbiChbGFuNzh4
-eF9nZXRfc3RhdHM2NKI6DQo+PiAgICAgZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguYzozMjc0OiBl
-cnJvcjogoXN0cnVjdCBkZXZfcG1faW5mb6IgaGFzIG5vIG1lbWJlciBuYW1lZCChcnVudGltZV9h
-dXRvog0KPj4gDQo+PiBJZiBQTSBpcyBkaXNhYmxlZCwgdGhlIHJ1bnRpbWVfYXV0byBmbGFnIGlz
-IG5vdCBhdmFpbGFibGUsIGJ1dCBhdXRvDQo+PiBzdXNwZW5kIGlzIG5vdCBlbmFibGVkIGFueXdh
-eS4gIEhlbmNlIHByb3RlY3QgdGhlIGNoZWNrIGZvciBydW50aW1lX2F1dG8NCj4+IGJ5ICNpZmRl
-ZiBDT05GSUdfUE0gdG8gZml4IHRoaXMuDQo+PiANCj4+IEZpeGVzOiBhNTlmOGM1YjA0OGRjOTM4
-ICgibGFuNzh4eDogYWRkIG5kb19nZXRfc3RhdHM2NCIpDQo+PiBSZXBvcnRlZC1ieTogR3VlbnRl
-ciBSb2VjayA8bGludXhAcm9lY2stdXMubmV0Pg0KPj4gU2lnbmVkLW9mZi1ieTogR2VlcnQgVXl0
-dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCj4+IC0tLQ0KPj4gQWx0ZXJuYXRpdmVs
-eSwgd2UgY2FuIGFkZCBhIGRldl9wbV9ydW50aW1lX2F1dG9faXNfZW5hYmxlZCgpIHdyYXBwZXIg
-dG8NCj4+IGluY2x1ZGUvbGludXgvcG0uaCwgd2hpY2ggYWx3YXlzIHJldHVybiBmYWxzZSBpZiBD
-T05GSUdfUE0gaXMgZGlzYWJsZWQuDQo+PiANCj4+IFRoZSBvbmx5IG90aGVyIHVzZXIgaW4gbm9u
-LWNvcmUgY29kZSAoZHJpdmVycy91c2IvY29yZS9zeXNmcy5jKSBoYXMgYQ0KPj4gYmlnICNpZmRl
-ZiBDT05GSUdfUE0gY2hlY2sgYXJvdW5kIGFsbCBQTS1yZWxhdGVkIGNvZGUuDQo+PiANCj4+IFRo
-b3VnaHRzPw0KPj4gLS0tDQo+PiAgZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguYyB8IDIgKysNCj4+
-ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspDQo+PiANCj4+IGRpZmYgLS1naXQgYS9k
-cml2ZXJzL25ldC91c2IvbGFuNzh4eC5jIGIvZHJpdmVycy9uZXQvdXNiL2xhbjc4eHguYw0KPj4g
-aW5kZXggZDM2ZDVlYmYzN2YzNTVmMi4uN2I5YWM0N2IyZWNmOTkwNSAxMDA2NDQNCj4+IC0tLSBh
-L2RyaXZlcnMvbmV0L3VzYi9sYW43OHh4LmMNCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3VzYi9sYW43
-OHh4LmMNCj4+IEBAIC0zMjcxLDcgKzMyNzEsOSBAQCBzdHJ1Y3QgcnRubF9saW5rX3N0YXRzNjQg
-Kmxhbjc4eHhfZ2V0X3N0YXRzNjQoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4+ICAJICog
-cGVyaW9kaWMgcmVhZGluZyBmcm9tIEhXIHdpbGwgcHJldmVudCBmcm9tIGVudGVyaW5nIFVTQiBh
-dXRvIHN1c3BlbmQuDQo+PiAgCSAqIGlmIGF1dG9zdXNwZW5kIGlzIGRpc2FibGVkLCByZWFkIGZy
-b20gSFcuDQo+PiAgCSAqLw0KPj4gKyNpZmRlZiBDT05GSUdfUE0NCj4+ICAJaWYgKCFkZXYtPnVk
-ZXYtPmRldi5wb3dlci5ydW50aW1lX2F1dG8pDQo+PiArI2VuZGlmDQo+PiAgCQlsYW43OHh4X3Vw
-ZGF0ZV9zdGF0cyhkZXYpOw0KPj4gIA0KPj4gIAltdXRleF9sb2NrKCZkZXYtPnN0YXRzLmFjY2Vz
-c19sb2NrKTsNCj4gDQo+IE5vdGUgdGhhdCBhIG5kb19nZXRfc3RhdDY0KCkgaGFuZGxlciBpcyBu
-b3QgYWxsb3dlZCB0byBzbGVlcCwNCj4gc28gdGhlIG11dGV4X2xvY2soKSBpcyBub3Qgd2lzZS4u
-Lg0KPiANCj4gSGlzdG9yaWNhbGx5IC9wcm9jL25ldC9kZXYgaGFuZGxlciBidXQgYWxzbyBib25k
-aW5nIG5kb19nZXRfc3RhdHMoKSB1c2VkDQo+IFJDVSBvciBhIHJ3bG9jayBvciBhIHNwaW5sb2Nr
-Lg0KPiANCj4gU28gYSBjb21wbGV0ZSBmaXggd291bGQgbmVlZCB0byBnZXQgcmlkIG9mIHRoaXMg
-bXV0ZXggYXMgd2VsbC4NCg0KVGhpcyBmdW5jdGlvbiBpcyBhbHNvIGJ1Z2d5IGZvciBhbm90aGVy
-IHJlYXNvbi4gIFRoZSBkcml2ZXIgbmVlZHMgdG8NCmNhcHR1cmUgdGhlIHN0YXRpc3RpY3Mgd2hl
-biB0aGUgcnVudGltZSBzdXNwZW5kIGhhcHBlbnMuDQoNClNpbmNlIGl0J3MgbXVjaCBlYXNpZXIg
-dG8gZmluZCB0aGluZ3Mgd3JvbmcgcmF0aGVyIHRoYW4gcmlnaHQgd2l0aA0KdGhpcyBuZXcgY29k
-ZSwgSSd2ZSBkZWNpZGVkIHRvIGNvbXBsZXRlbHkgcmV2ZXJ0IHRoZSBjb21taXQgdGhhdCBhZGRl
-ZA0KbGFuNzh4eF9nZXRfc3RhdHM2NCgpLg0KDQpPbmNlIGEgY29ycmVjdCB2ZXJzaW9uIGlzIGlt
-cGxlbWVudGVkIHdlIGNhbiBhZGQgaXQgYmFjay4NCg0KVGhhbmtzLg0K
+On Thu, 2016-02-25 at 19:46 -0500, Adam Seering wrote:
+> On Thu, 2016-02-25 at 14:33 -0500, David Miller wrote:
+> > From: Adam Seering <adam@seering.org>
+> > Date: Tue, 23 Feb 2016 09:19:13 -0500
+> > 
+> > > Let userspace programs transmit and receive raw IP-over-DDP
+> > > packets
+> > > with a kernel where "ipddp" was compiled as a module but is not
+> > loaded
+> > > (so no "ipddp0" network interface is exposed).  This makes the
+> > "module
+> > > is not loaded" behavior match the "module was never compiled"
+> > behavior.
+> > > 
+> > > Signed-off-by: Adam Seering <adam@seering.org>
+> > 
+> > I think a better approache is to somehow autoload the module.
+> 
+> Could you elaborate?  Specifically: the kernel currently suppresses
+> packets on behalf of the module even after the module is unloaded. 
+>  How
+> would autoloading the module help with that?
+> 
+
+I realize and appreciate that I'm not supposed to nag you folks for
+feedback.  But I don't know how to proceed.  So, rather than nag you,
+I've filed a bug:
+
+https://bugzilla.kernel.org/show_bug.cgi?id=115031
+
+I've tested my patch; I believe it to be the simplest change that
+resolves this bug.  I'm happy to write something else if it would be
+cleaner and/or help others, but I would need a more-detailed
+explanation of what you're looking for.
+
+I've also filed a ticket downstream:  Red Hat appears to not build the
+ipddp module with their stock kernel release, so their users don't hit
+this bug.  But Ubuntu does build/ship ipddp; if they likewise didn't,
+that would also solve my problem:
+
+https://bugs.launchpad.net/ubuntu/+source/linux-lts-wily/+bug/1559772
+
+Adam
