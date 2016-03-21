@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net: add the AF_KCM entries to family
- name tables
-Date: Mon, 21 Mar 2016 11:27:42 -0400 (EDT)
-Message-ID: <20160321.112742.1737417108964275737.davem@davemloft.net>
-References: <1458553869-26756-1-git-send-email-decui@microsoft.com>
+Subject: Re: [PATCH] net: smc911x: avoid unused variable warnings
+Date: Mon, 21 Mar 2016 11:27:58 -0400 (EDT)
+Message-ID: <20160321.112758.1927638633680684905.davem@davemloft.net>
+References: <1458549072-1914517-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, gregkh@linuxfoundation.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org, apw@canonical.com,
- devel@linuxdriverproject.org, haiyangz@microsoft.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1458553869-26756-1-git-send-email-decui@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, robert.jarzmik@free.fr,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46018 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756107AbcCUP2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 11:28:00 -0400
+In-Reply-To: <1458549072-1914517-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 21 Mar 2016 09:30:59 +0100
 
-Two things wrong with this submission:
+> The change to use the generic DMA engine API in the smc911x
+> driver has led to a harmless warning about unused local variables:
+> 
+> smsc/smc911x.c: In function 'smc911x_probe':
+> smsc/smc911x.c:1796:20: error: unused variable 'param'
+> smsc/smc911x.c:1795:17: error: unused variable 'mask'
+> smsc/smc911x.c:1794:26: error: unused variable 'config'
+> 
+> This puts the variable declarations inside of the same #ifdef
+> that protects their use.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 79d3b59a93ba ("net: smc911x: convert pxa dma to dmaengine")
 
-1) You need to provide an initial "[PATCH net-next 0/3] ..." header posting
-   explaining at a high level what this patch series is about and how it is
-   implemented and why.
-
-2) The net-next tree is closed at this time because we are in the merge window,
-   therefore no new feature patches should be submitted to the netdev mailing
-   list at this time.  Please wait until some (reasonable) amount of time after
-   the merge window closes to resubmit this.
-
-Thanks.
+Applied.
