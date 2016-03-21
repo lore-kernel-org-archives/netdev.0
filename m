@@ -1,38 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 03/10] net: hns: add uc match for debug ports
-Date: Mon, 21 Mar 2016 11:40:55 -0400 (EDT)
-Message-ID: <20160321.114055.845640249977716034.davem@davemloft.net>
-References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
-	<1458558401-190165-4-git-send-email-Yisen.Zhuang@huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yankejian@huawei.com, huangdaode@hisilicon.com,
-	salil.mehta@huawei.com, lisheng011@huawei.com,
-	lipeng321@huawei.com, liguozhu@huawei.com, arnd@arndb.de,
-	xieqianqian@huawei.com, andrew@lunn.ch, ivecera@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxarm@huawei.com
-To: Yisen.Zhuang@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458558401-190165-4-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ipv4: fix broadcast packets reception
+Date: Mon, 21 Mar 2016 16:42:11 +0100
+Message-ID: <b2a74da9e3b01065d0244088c2038c8b6ec1d334.1458574841.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51353 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756004AbcCUPme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2016 11:42:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Date: Mon, 21 Mar 2016 19:06:34 +0800
+Currently, ingress ipv4 broadcast datagrams are dropped if the
+ingress interface lacks an ipv4 address. This is caused by
+multiple issues:
 
-> +	(void)hns_mac_set_promisc(mac_cb, (u8)!!en);
+- in udp_v4_early_demux() ip_check_mc_rcu is invoked even on
+  bcast packets
 
-This cast to void is unnecssary.
+- ip_route_input_slow() always try to validate the source
 
-> +static void hns_gmac_set_uc_match(void *mac_drv, u16 en)
-> +{
-> +	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+This patch tries to address both issues, invoking ip_check_mc_rcu()
+only for mcast packets and calling fib_validate_source() only
+if the in_device has an address, at least.
 
-Casts from void pointers are unnecessary.
+Fixes: 6e5403093261 ("ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/route.c |  6 +++++-
+ net/ipv4/udp.c   | 12 ++++++++----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
-> +{
-> +	struct mac_driver *drv = (struct mac_driver *)mac_drv;
-
-Likewise.
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 02c6229..e86d33d 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1867,7 +1867,11 @@ brd_input:
+ 	if (skb->protocol != htons(ETH_P_IP))
+ 		goto e_inval;
+ 
+-	if (!ipv4_is_zeronet(saddr)) {
++	/* Do not validate the source if this device not not have an
++	 * IPv4 address yet and the destination is the broadcast address.
++	 */
++	if (!ipv4_is_zeronet(saddr) && (in_dev->ifa_list ||
++					!ipv4_is_lbcast(daddr))) {
+ 		err = fib_validate_source(skb, saddr, 0, tos, 0, dev,
+ 					  in_dev, &itag);
+ 		if (err < 0)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 836abe5..08eed5e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2070,10 +2070,14 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 		if (!in_dev)
+ 			return;
+ 
+-		ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
+-				       iph->protocol);
+-		if (!ours)
+-			return;
++		/* we are supposed to accept bcast packets */
++		if (skb->pkt_type == PACKET_MULTICAST) {
++			ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
++					       iph->protocol);
++			if (!ours)
++				return;
++		}
++
+ 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
+ 						   uh->source, iph->saddr, dif);
+ 	} else if (skb->pkt_type == PACKET_HOST) {
+-- 
+1.8.3.1
