@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] vxlan: fix too large pskb_may_pull with remote
- checksum
-Date: Mon, 21 Mar 2016 13:32:40 -0400 (EDT)
-Message-ID: <20160321.133240.1118095343751751289.davem@davemloft.net>
-References: <ea0a247890814c5546b6b4490eab79478df34124.1458578979.git.jbenc@redhat.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Mon, 21 Mar 2016 18:34:30 +0100
+Message-ID: <1458581670.9609.5.camel@suse.com>
+References: <Pine.LNX.4.44L0.1603211049050.1708-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com
-To: jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48831 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756670AbcCURcn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:32:43 -0400
-In-Reply-To: <ea0a247890814c5546b6b4490eab79478df34124.1458578979.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Woojung Huh <woojung.huh@microchip.com>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1603211049050.1708-100000@iolanthe.rowland.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Mon, 21 Mar 2016 17:50:05 +0100
+On Mon, 2016-03-21 at 10:57 -0400, Alan Stern wrote:
 
-> vxlan_remcsum is called after iptunnel_pull_header and thus the skb has
-> vxlan header already pulled. Don't include vxlan header again in the
-> calculation.
+> One possible solution is to export a sysfs parameter to prevent 
+> statistics collection (or more generally, to change the interval at 
+> which it occurs).
+
+Surely, not performing a task can hardly be beaten in terms of power
+consumption. That is not meant to be flippant, but I think these
+issues are orthogonal. The question of how much to do doesn't
+solve the question of doing efficiently what we do.
+
+> But checking the runtime_auto flag is probably not a great idea.  Even
+> if it isn't set, collecting statistics is likely to wait up a device
+> that otherwise would have remained suspended.
 > 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> Perhaps the best solution is to collect the statistics only when the 
+> device is not suspended or is about to suspend.
 
-Applied, thanks.
+If we know when the next activity will come, why not pass this
+information down?
+
+	Regards
+		Oliver
