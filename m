@@ -1,58 +1,95 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: AP firmware for TI wl1251 wifi chip (wl1251-fw-ap.bin)
-Date: Mon, 21 Mar 2016 12:35:32 +0200
-Message-ID: <878u1cglu3.fsf@kamboji.qca.qualcomm.com>
-References: <201603200040.26045@pali>
+From: Alexandre Torgue <alexandre.torgue@gmail.com>
+Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Mon, 21 Mar 2016 11:45:12 +0100
+Message-ID: <CAJgp7zxyQGrSSvNszawBQfS+omgKi1i35uW-eDyLdW-jP7oRjg@mail.gmail.com>
+References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+	<1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
+	<CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>, Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	kev-l0cyMroinI0@public.gmane.org, Shahar Levi <shahar_levi-l0cyMroinI0@public.gmane.org>,
-	"Andrew F. Davis" <afd-l0cyMroinI0@public.gmane.org>, Guy Mishol <guym-l0cyMroinI0@public.gmane.org>,
-	Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>, Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	Gery Kahn <geryk-l0cyMroinI0@public.gmane.org>, Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
-	Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	David Gnedt <david.gnedt-KfBRzk3UKwrZI3uBz1zZ2F6hYfS7NtTn@public.gmane.org>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201603200040.26045@pali> ("Pali =?utf-8?Q?Roh=C3=A1r=22's?=
- message of "Sun, 20 Mar
-	2016 00:40:25 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev <netdev@vger.kernel.org>,
+	devicetree <devicetree@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Chen-Yu Tsai <wens@csie.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:35253 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753332AbcCUKpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:45:13 -0400
+In-Reply-To: <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+Hi,
 
-> In linux-firmware repository [1] is missing AP firmware for TI wl1251=
-=20
-> chip. There is only STA firmware wl1251-fw.bin which supports managed=
-=20
-> and ad-hoc modes.
+2016-03-18 17:00 GMT+01:00 Chen-Yu Tsai <wens@csie.org>:
+> Hi,
 >
-> For other TI wilink chips there are <CHIP>-ap.bin firmware files=20
-> (wl1271-fw-ap.bin and wl128x-fw-ap.bin) which support AP mode. But fo=
-r=20
-> wl1251 firmware file with guessed name "wl1251-fw-ap.bin" is missing.
+> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
+> <alexandre.torgue@gmail.com> wrote:
+>> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>> new file mode 100644
+>> index 0000000..ada2aa4
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+>> @@ -0,0 +1,32 @@
+>> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
+>> +
+>> +This file documents platform glue layer for stmmac.
+>> +Please see stmmac.txt for the other unchanged properties.
+>> +
+>> +The device node has following properties.
+>> +
+>> +Required properties:
+>> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
+>> +              "snps,dwmac-3.50a" to select IP vesrion.
 >
-> Do you have any idea what happened with AP firmware for ti wilink4=20
-> wl1251 wifi chip? Or where can be found? Guys from TI, can you help?
+> If you need have sort of hardware glue, then it is not compatible.
+>
 
-It's a long time ago but IIRC wl1251 has not ever supported AP mode and
-wl1271 was the first one to support it. But I might be wrong of course.
+We could have the case where the glue is set by a bootloader.
+In this case, we will select IP version in compatible and we will use
+generic dwmac glue to probe stmmac driver.
 
---=20
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+
+Alex.
+
+> ChenYu
+>
+>> +- clocks: Must contain a phandle for each entry in clock-names.
+>> +- clock-names: Should be "stmmaceth" for the host clock.
+>> +              Should be "tx-clk" for the MAC TX clock.
+>> +              Should be "rx-clk" for the MAC RX clock.
+>> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
+>> +             encompases the glue register, and the offset of the control register.
+>> +Example:
+>> +
+>> +               ethernet0: dwmac@40028000 {
+>> +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
+>> +                       status = "disabled";
+>> +                       reg = <0x40028000 0x8000>;
+>> +                       reg-names = "stmmaceth";
+>> +                       interrupts = <0 61 0>, <0 62 0>;
+>> +                       interrupt-names = "macirq", "eth_wake_irq";
+>> +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
+>> +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
+>> +                       st,syscon = <&syscfg 0x4>;
+>> +                       snps,pbl = <8>;
+>> +                       snps,mixed-burst;
+>> +                       dma-ranges;
+>> +               };
+>> --
+>> 1.9.1
+>>
+>>
+>> _______________________________________________
+>> linux-arm-kernel mailing list
+>> linux-arm-kernel@lists.infradead.org
+>> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
