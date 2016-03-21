@@ -1,49 +1,34 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 4/5] ath9k: fix misleading indentation
-Date: Mon, 21 Mar 2016 16:24:31 +0200
-Message-ID: <87h9fzhpsw.fsf@purkki.adurom.net>
-References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
-	<1457965120-3155420-5-git-send-email-arnd@arndb.de>
+From: <Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+Subject: RE: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Mon, 21 Mar 2016 14:41:03 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D404CBFC0@CHN-SV-EXMX02.mchp-main.com>
+References: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
+ <1458549361.2299.1.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57525 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755409AbcCUOYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 10:24:36 -0400
-In-Reply-To: <1457965120-3155420-5-git-send-email-arnd@arndb.de> (Arnd
-	Bergmann's message of "Mon, 14 Mar 2016 15:18:37 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <oneukum-IBi9RG/b67k@public.gmane.org>, <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458549361.2299.1.camel-IBi9RG/b67k@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
-
-> A cleanup patch in linux-3.18 moved around some code in the ath9k
-> driver and left some code to be indented in a misleading way,
-> made worse by the addition of some new code for p2p mode, as
-> discovered by a new gcc-6 warning:
->
-> drivers/net/wireless/ath/ath9k/init.c: In function 'ath9k_set_hw_capab':
-> drivers/net/wireless/ath/ath9k/init.c:851:4: warning: statement is indented as if it were guarded by... [-Wmisleading-indentation]
->     hw->wiphy->iface_combinations = if_comb;
->     ^~
-> drivers/net/wireless/ath/ath9k/init.c:847:3: note: ...this 'if' clause, but it is not
->    if (ath9k_is_chanctx_enabled())
->    ^~
->
-> The code is in fact correct, but the indentation is not, so I'm
-> reformatting it as it should have been after the original cleanup.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 499afaccf6f3 ("ath9k: Isolate ath9k_use_chanctx module parameter")
-> Fixes: eb61f9f623f7 ("ath9k: advertise p2p dev support when chanctx")
-
-Dave already applied this so I can skip this.
-
--- 
-Kalle Valo
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBPbGl2ZXIgTmV1a3VtIFttYWls
+dG86b25ldWt1bUBzdXNlLmNvbV0NCj4gU2VudDogTW9uZGF5LCBNYXJjaCAyMSwgMjAxNiA0OjM2
+IEFNDQo+IFRvOiBHZWVydCBVeXR0ZXJob2V2ZW4NCj4gQ2M6IFdvb2p1bmcgSHVoIC0gQzIxNjk5
+OyBVTkdMaW51eERyaXZlcjsgRGF2aWQgUy4gTWlsbGVyOyBHdWVudGVyIFJvZWNrOw0KPiBSYWZh
+ZWwgSi4gV3lzb2NraTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtdXNiQHZnZXIua2Vy
+bmVsLm9yZzsNCj4gbGludXgtcG1Admdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5r
+ZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGxhbjc4eHg6IFByb3RlY3QgcnVudGlt
+ZV9hdXRvIGNoZWNrIGJ5ICNpZmRlZg0KPiBDT05GSUdfUE0NCg0KVGhhbmtzIGZvciBhbGwgY29t
+bWVudHMuDQpXaWxsIGxvb2sgaW50byBpdCBhbmQgc3VibWl0IG5ldyBwYXRjaC4NCg0KLSBXb29q
+dW5nDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
