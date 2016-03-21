@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 01/10] net: hns: bug fix about ping6
-Date: Mon, 21 Mar 2016 19:06:32 +0800
-Message-ID: <1458558401-190165-2-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 10/10] net: hns: bug fix about the overflow of mss
+Date: Mon, 21 Mar 2016 19:06:41 +0800
+Message-ID: <1458558401-190165-11-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,49 +12,74 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linuxarm@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:51848 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753825AbcCUKsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:47 -0400
 In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Daode Huang <huangdaode@hisilicon.com>
 
-The current upstreaming code fails to ping other IPv6 net device, because
-the enet receives the multicast packets with the src mac addr whick is the
-same as its mac addr. These packets need to be dropped.
+When set MTU to the minimum value 68, there are increasing number
+of error packets occur, which is caused by the overflowed value of
+mss. This patch fix the bug.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3f77ff7..9ad5da4 100644
+index 8aa325e..a192691 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -564,6 +564,7 @@ static int hns_nic_poll_rx_skb(struct hns_nic_ring_data *ring_data,
+@@ -48,7 +48,6 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	struct iphdr *iphdr;
+ 	struct ipv6hdr *ipv6hdr;
  	struct sk_buff *skb;
- 	struct hnae_desc *desc;
- 	struct hnae_desc_cb *desc_cb;
-+	struct ethhdr *eh;
- 	unsigned char *va;
- 	int bnum, length, i;
- 	int pull_len;
-@@ -670,6 +671,14 @@ out_bnum_err:
- 		return -EFAULT;
- 	}
+-	int skb_tmp_len;
+ 	__be16 protocol;
+ 	u8 bn_pid = 0;
+ 	u8 rrcfv = 0;
+@@ -94,13 +93,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
  
-+	/* filter out multicast pkt with the same src mac as this port */
-+	eh = (struct ethhdr *)skb->data;
-+	if (unlikely(is_multicast_ether_addr(eh->h_dest) &&
-+		     ether_addr_equal(ndev->dev_addr, eh->h_source))) {
-+		dev_kfree_skb_any(skb);
-+		return -EFAULT;
-+	}
-+
- 	ring->stats.rx_pkts++;
- 	ring->stats.rx_bytes += skb->len;
+ 				/* check for tcp/udp header */
+-				if (iphdr->protocol == IPPROTO_TCP) {
++				if (iphdr->protocol == IPPROTO_TCP &&
++				    skb_is_gso(skb)) {
+ 					hnae_set_bit(tvsvsn,
+ 						     HNSV2_TXD_TSE_B, 1);
+-					skb_tmp_len = SKB_TMP_LEN(skb);
+ 					l4_len = tcp_hdrlen(skb);
+-					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
+-					paylen = skb->len - skb_tmp_len;
++					mss = skb_shinfo(skb)->gso_size;
++					paylen = skb->len - SKB_TMP_LEN(skb);
+ 				}
+ 			} else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 				hnae_set_bit(tvsvsn, HNSV2_TXD_IPV6_B, 1);
+@@ -108,13 +107,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
  
+ 				/* check for tcp/udp header */
+-				if (ipv6hdr->nexthdr == IPPROTO_TCP) {
++				if (ipv6hdr->nexthdr == IPPROTO_TCP &&
++				    skb_is_gso(skb) && skb_is_gso_v6(skb)) {
+ 					hnae_set_bit(tvsvsn,
+ 						     HNSV2_TXD_TSE_B, 1);
+-					skb_tmp_len = SKB_TMP_LEN(skb);
+ 					l4_len = tcp_hdrlen(skb);
+-					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
+-					paylen = skb->len - skb_tmp_len;
++					mss = skb_shinfo(skb)->gso_size;
++					paylen = skb->len - SKB_TMP_LEN(skb);
+ 				}
+ 			}
+ 			desc->tx.ip_offset = ip_offset;
 -- 
 1.9.1
