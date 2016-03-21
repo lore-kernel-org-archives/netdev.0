@@ -1,95 +1,96 @@
-From: Alexandre Torgue <alexandre.torgue@gmail.com>
-Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
-Date: Mon, 21 Mar 2016 11:45:12 +0100
-Message-ID: <CAJgp7zxyQGrSSvNszawBQfS+omgKi1i35uW-eDyLdW-jP7oRjg@mail.gmail.com>
-References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
-	<1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
-	<CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 02/10] net: hns: fixed portid bug in sending manage pkt
+Date: Mon, 21 Mar 2016 19:06:33 +0800
+Message-ID: <1458558401-190165-3-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev <netdev@vger.kernel.org>,
-	devicetree <devicetree@vger.kernel.org>,
-	Joachim Eastwood <manabian@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Chen-Yu Tsai <wens@csie.org>
+Content-Type: text/plain
+Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
+	<salil.mehta@huawei.com>, <lisheng011@huawei.com>,
+	<lipeng321@huawei.com>, <liguozhu@huawei.com>, <arnd@arndb.de>,
+	<xieqianqian@huawei.com>, <andrew@lunn.ch>, <ivecera@redhat.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:35253 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753332AbcCUKpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:45:13 -0400
-In-Reply-To: <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:20312 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753609AbcCUKsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:22 -0400
+In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Sheng Li <lisheng011@huawei.com>
 
-2016-03-18 17:00 GMT+01:00 Chen-Yu Tsai <wens@csie.org>:
-> Hi,
->
-> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
-> <alexandre.torgue@gmail.com> wrote:
->> Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
->>
->> diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
->> new file mode 100644
->> index 0000000..ada2aa4
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
->> @@ -0,0 +1,32 @@
->> +STMicroelectronics STM32 / MCU DWMAC glue layer controller
->> +
->> +This file documents platform glue layer for stmmac.
->> +Please see stmmac.txt for the other unchanged properties.
->> +
->> +The device node has following properties.
->> +
->> +Required properties:
->> +- compatible:  Should be "st,stm32-dwmac" to select glue, and
->> +              "snps,dwmac-3.50a" to select IP vesrion.
->
-> If you need have sort of hardware glue, then it is not compatible.
->
+In chip V2, the default value of port id in tx BD is Zero. If it is not
+configurated to the other value, all management packets will be sent out
+from port0. So port_id in the tx BD needs to be updated when sending a
+management packet.
 
-We could have the case where the glue is set by a bootloader.
-In this case, we will select IP version in compatible and we will use
-generic dwmac glue to probe stmmac driver.
+In V2 chip, when sending mamagement packets, the driver should
+config the port id to BD descs.
 
-Regards
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 6 +++++-
+ 3 files changed, 9 insertions(+), 1 deletion(-)
 
-Alex.
-
-> ChenYu
->
->> +- clocks: Must contain a phandle for each entry in clock-names.
->> +- clock-names: Should be "stmmaceth" for the host clock.
->> +              Should be "tx-clk" for the MAC TX clock.
->> +              Should be "rx-clk" for the MAC RX clock.
->> +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
->> +             encompases the glue register, and the offset of the control register.
->> +Example:
->> +
->> +               ethernet0: dwmac@40028000 {
->> +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
->> +                       status = "disabled";
->> +                       reg = <0x40028000 0x8000>;
->> +                       reg-names = "stmmaceth";
->> +                       interrupts = <0 61 0>, <0 62 0>;
->> +                       interrupt-names = "macirq", "eth_wake_irq";
->> +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
->> +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
->> +                       st,syscon = <&syscfg 0x4>;
->> +                       snps,pbl = <8>;
->> +                       snps,mixed-burst;
->> +                       dma-ranges;
->> +               };
->> --
->> 1.9.1
->>
->>
->> _______________________________________________
->> linux-arm-kernel mailing list
->> linux-arm-kernel@lists.infradead.org
->> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 1cbcb9f..37d0cce 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -147,6 +147,8 @@ enum hnae_led_state {
+ 
+ #define HNSV2_TXD_BUFNUM_S 0
+ #define HNSV2_TXD_BUFNUM_M (0x7 << HNSV2_TXD_BUFNUM_S)
++#define HNSV2_TXD_PORTID_S	4
++#define HNSV2_TXD_PORTID_M	(0X7 << HNSV2_TXD_PORTID_S)
+ #define HNSV2_TXD_RI_B   1
+ #define HNSV2_TXD_L4CS_B   2
+ #define HNSV2_TXD_L3CS_B   3
+@@ -516,6 +518,7 @@ struct hnae_handle {
+ 	int q_num;
+ 	int vf_id;
+ 	u32 eport_id;
++	u32 dport_id;	/* v2 tx bd should fill the dport_id */
+ 	enum hnae_port_type port_type;
+ 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
+ 	struct hnae_buf_ops *bops; /* operation for the buffer */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index d4f92ed..90352d6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -175,6 +175,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
++	ae_handle->dport_id = port_idx;
+ 
+ 	return ae_handle;
+ vf_id_err:
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 9ad5da4..8aa325e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -66,10 +66,14 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	desc->addr = cpu_to_le64(dma);
+ 	desc->tx.send_size = cpu_to_le16((u16)size);
+ 
+-	/*config bd buffer end */
++	/* config bd buffer end */
+ 	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
+ 	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
+ 
++	/* fill port_id in the tx bd for sending management pkts */
++	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
++		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
++
+ 	if (type == DESC_TYPE_SKB) {
+ 		skb = (struct sk_buff *)priv;
+ 
+-- 
+1.9.1
