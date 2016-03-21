@@ -1,25 +1,44 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [patch] mdio-sun4i: oops in error handling in probe
-Date: Mon, 21 Mar 2016 18:11:07 +0800
-Message-ID: <CAGb2v66zC4os_bo2iTZiftcD5X5vVc5s6Mn_KJsUN5pirEUBLA@mail.gmail.com>
-References: <20160321090231.GA31670@mwanda>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] mwifiex: advertise low priority scan feature
+Date: Mon, 21 Mar 2016 12:28:59 +0200
+Message-ID: <87d1qogm50.fsf@kamboji.qca.qualcomm.com>
+References: <1458547622-1632-1-git-send-email-wnhuang@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Chen-Yu Tsai <wens@csie.org>, netdev <netdev@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160321090231.GA31670@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+	djkurtz-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458547622-1632-1-git-send-email-wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> (Wei-Ning
+	Huang's message of "Mon, 21 Mar 2016 16:07:02 +0800")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 21, 2016 at 5:02 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> We could end up dereferencing an error pointer when we call
-> regulator_disable().
->
-> Fixes: 4bdcb1dd9feb ('net: Add MDIO bus driver for the Allwinner EMAC')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> writes:
 
-Acked-by: Chen-Yu Tsai <wens@csie.org>
+> From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+>
+> Low priority scan handling code which delays or aborts scan
+> operation based on Tx traffic is removed recently. The reason
+> is firmware already takes care of it in our new feature scan
+> channel gap. Hence we should advertise low priority scan
+> support to cfg80211.
+>
+> This patch fixes a problem in which OBSS scan request from
+> wpa_supplicant was being rejected by cfg80211.
+>
+> Signed-off-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+
+The From line states that this is written by Amitkumar but there's no
+Signed-off-By line from him. I can't take this without that, please
+resend.
+
+(Wei-Ning's s-o-b line is correct, I just need also Amitkumar's line.)
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
