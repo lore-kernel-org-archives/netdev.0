@@ -1,71 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
-Date: Mon, 21 Mar 2016 23:15:13 +0300
-Message-ID: <56F05651.3030706@cogentembedded.com>
-References: <56E99727.9040702@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>
-To: Sebastian Frias <sf84@laposte.net>,
-	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:35788 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756587AbcCUUPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 16:15:19 -0400
-Received: by mail-lb0-f177.google.com with SMTP id bc4so134753042lbc.2
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 13:15:18 -0700 (PDT)
-In-Reply-To: <56E99727.9040702@laposte.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] net: add missing descriptions in net_device_priv_flags
+Date: Mon, 21 Mar 2016 20:20:08 +0000
+Message-ID: <1458591608-1088-1-git-send-email-luisbg@osg.samsung.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Luis de Bethencourt <luisbg@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+The flags IFF_XMIT_DST_RELEASE_PERM, IFF_IPVLAN_MASTER and
+IFF_IPVLAN_SLAVE are missing descriptions for the Documentation. Adding
+them.
 
-On 03/16/2016 08:25 PM, Sebastian Frias wrote:
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
+Hi,
 
-> Commit 687908c2b649 ("net: phy: at803x: simplify using
-> devm_gpiod_get_optional and its 4th argument") introduced a dependency
-> on GPIOLIB that was not there before.
->
-> This commit removes such dependency by checking the return code and
-> comparing it against ENOSYS which is returned when GPIOLIB is not
-> selected.
->
-> Fixes: 687908c2b649 ("net: phy: at803x: simplify using
-> devm_gpiod_get_optional and its 4th argument")
->
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+I also noticed this issue when running make htmldocs. Having better
+documentation is great :)
 
-    Do you have the PHY that requires the GPIO reset workaround?
-Askinjg because I have the patch adding the "reset-gpios" prop handling to 
-phylib and your patch made me aware that I'll have to modify this driver in 
-order to do that...
+Thanks,
+Luis
 
-> ---
->   drivers/net/phy/at803x.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-> index 2174ec9..88b7ff3 100644
-> --- a/drivers/net/phy/at803x.c
-> +++ b/drivers/net/phy/at803x.c
-> @@ -252,7 +252,9 @@ static int at803x_probe(struct phy_device *phydev)
->   		return -ENOMEM;
->
->   	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
-> -	if (IS_ERR(gpiod_reset))
-> +	if (PTR_ERR(gpiod_reset) == -ENOSYS)
-> +		gpiod_reset = NULL;
-> +	else if (IS_ERR(gpiod_reset))
-    		return PTR_ERR(gpiod_reset);
+ include/linux/netdevice.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-    My patch basically gets rid of all this code. The thing that worries me is 
-that the driver assumes that the reset singal is active low, despite what the 
-GPIO specifier in the device tree has for the GPIO polarity. In fact, it will 
-only work correctly if the specified has GPIO_ACTIVE_HIGH -- which is wrong 
-because the reset signal is active low!
-    Can you point me to an actual device tree using this erratic PHY?
-
-WBR, Sergei
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index be693b3..db9ffe4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1320,6 +1320,9 @@ struct net_device_ops {
+  * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
+  *	change when it's running
+  * @IFF_MACVLAN: Macvlan device
++ * @IFF_XMIT_DST_RELEASE_PERM: permanent IFF_XMIT_DST_RELEASE
++ * @IFF_IPVLAN_MASTER: IPvlan master device
++ * @IFF_IPVLAN_SLAVE: IPvlan slave device
+  * @IFF_L3MDEV_MASTER: device is an L3 master device
+  * @IFF_NO_QUEUE: device can run without qdisc attached
+  * @IFF_OPENVSWITCH: device is a Open vSwitch master
+-- 
+2.5.1
