@@ -1,44 +1,105 @@
-From: Benjamin Poirier <bpoirier-IBi9RG/b67k@public.gmane.org>
-Subject: [PATCH] ip.7: Fix incorrect sockopt name
-Date: Mon, 21 Mar 2016 13:28:44 -0700
-Message-ID: <1458592124-6208-1-git-send-email-bpoirier@suse.com>
-Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Radek Pazdera <rpazdera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
+Date: Mon, 21 Mar 2016 21:41:11 +0100
+Message-ID: <20160321204111.GB6191@pengutronix.de>
+References: <56E99727.9040702@laposte.net>
+ <56F05651.3030706@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sebastian Frias <sf84@laposte.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Daniel Mack <zonque@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:56796 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754635AbcCUUlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 16:41:16 -0400
+Content-Disposition: inline
+In-Reply-To: <56F05651.3030706@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"IP_LEAVE_GROUP" does not exist. It was perhaps a confusion with
-MCAST_LEAVE_GROUP. Change the text to IP_DROP_MEMBERSHIP which has the same
-function as MCAST_LEAVE_GROUP and is documented in the ip.7 man page.
+Hello Sergei,
 
-Reference:
-Linux kernel net/ipv4/ip_sockglue.c do_ip_setsockopt()
+On Mon, Mar 21, 2016 at 11:15:13PM +0300, Sergei Shtylyov wrote:
+> On 03/16/2016 08:25 PM, Sebastian Frias wrote:
+>=20
+> >Commit 687908c2b649 ("net: phy: at803x: simplify using
+> >devm_gpiod_get_optional and its 4th argument") introduced a dependen=
+cy
+> >on GPIOLIB that was not there before.
+> >
+> >This commit removes such dependency by checking the return code and
+> >comparing it against ENOSYS which is returned when GPIOLIB is not
+> >selected.
+> >
+> >Fixes: 687908c2b649 ("net: phy: at803x: simplify using
+> >devm_gpiod_get_optional and its 4th argument")
+> >
+> >Signed-off-by: Sebastian Frias <sf84@laposte.net>
+>=20
+>    Do you have the PHY that requires the GPIO reset workaround?
+> Askinjg because I have the patch adding the "reset-gpios" prop handli=
+ng to
+> phylib and your patch made me aware that I'll have to modify this dri=
+ver in
+> order to do that...
+>=20
+> >---
+> >  drivers/net/phy/at803x.c | 4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
+> >
+> >diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> >index 2174ec9..88b7ff3 100644
+> >--- a/drivers/net/phy/at803x.c
+> >+++ b/drivers/net/phy/at803x.c
+> >@@ -252,7 +252,9 @@ static int at803x_probe(struct phy_device *phyde=
+v)
+> >  		return -ENOMEM;
+> >
+> >  	gpiod_reset =3D devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_H=
+IGH);
+> >-	if (IS_ERR(gpiod_reset))
+> >+	if (PTR_ERR(gpiod_reset) =3D=3D -ENOSYS)
+> >+		gpiod_reset =3D NULL;
+> >+	else if (IS_ERR(gpiod_reset))
+>    		return PTR_ERR(gpiod_reset);
+>=20
+>    My patch basically gets rid of all this code. The thing that worri=
+es me
+> is that the driver assumes that the reset singal is active low, despi=
+te what
+> the GPIO specifier in the device tree has for the GPIO polarity. In f=
+act, it
+> will only work correctly if the specified has GPIO_ACTIVE_HIGH -- whi=
+ch is
+> wrong because the reset signal is active low!
 
-Cc: Radek Pazdera <rpazdera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Benjamin Poirier <bpoirier-IBi9RG/b67k@public.gmane.org>
----
- man7/ip.7 | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Note that gpio descriptors handle the polarity just fine (i.e. the pin
+is set to 0 after doing gpiod_set_value(1) if the gpio is active low).
 
-diff --git a/man7/ip.7 b/man7/ip.7
-index 3905573..37e2c86 100644
---- a/man7/ip.7
-+++ b/man7/ip.7
-@@ -376,7 +376,7 @@ a given multicast group that come from a given source.
- If the application has subscribed to multiple sources within
- the same group, data from the remaining sources will still be delivered.
- To stop receiving data from all sources at once, use
--.BR IP_LEAVE_GROUP .
-+.BR IP_DROP_MEMBERSHIP .
- .IP
- Argument is an
- .I ip_mreq_source
--- 
-2.7.2
+But having said that, the driver gets it wrong.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The right sequence to reset a device using a gpio is:
+
+	gpiod_set_value(priv->gpiod_reset, 1);
+	msleep(some_time);
+	gpiod_set_value(priv->gpiod_reset, 0);
+
+and if the gpio is active low, this should be specified in the device
+tree. This was done wrong in 13a56b449325 (net: phy: at803x: Add suppor=
+t
+for hardware reset).
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
