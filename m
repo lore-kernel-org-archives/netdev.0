@@ -1,35 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] rtnetlink.7: add missing RTA_* attributes
-Date: Mon, 21 Mar 2016 12:04:49 -0700
-Message-ID: <20160321120449.42cd6f50@xeon-e3>
-References: <1458043587-5115-1-git-send-email-mq@ucw.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 0/9] RFC6864 compliant GRO and GSO partial offload
+Date: Mon, 21 Mar 2016 14:50:14 -0400 (EDT)
+Message-ID: <20160321.145014.2053938894183716531.davem@davemloft.net>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com,
-	"Eric W . Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
-	linux-man@vger.kernel.org
-To: Jan Moskyto Matejka <mq@ucw.cz>
+Cc: ecree@solarflare.com, netdev@vger.kernel.org,
+	alexander.duyck@gmail.com, tom@herbertland.com
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35850 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757814AbcCUT2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 15:28:20 -0400
-Received: by mail-pf0-f172.google.com with SMTP id u190so277190347pfb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 12:28:19 -0700 (PDT)
-In-Reply-To: <1458043587-5115-1-git-send-email-mq@ucw.cz>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50772 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756517AbcCUT3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 15:29:46 -0400
+In-Reply-To: <20160318230945.14955.63211.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Mar 2016 13:06:27 +0100
-Jan Moskyto Matejka <mq@ucw.cz> wrote:
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Fri, 18 Mar 2016 16:24:38 -0700
 
-> Used Bird's source code, kernel source code, iproute2 source code and
-> iproute2 manpages to find meanings of these new attributes.
+> This patch series addresses two things.
 > 
-> Signed-off-by: Jan Moskyto Matejka <mq@ucw.cz>
+> First it enables what I am calling RFC6864 compliant GRO.  Basically what
+> I am doing is allowing one of two patterns for incoming frames.  Either the
+> IP ID will increment, or if the DF bit is set it can either increment or
+> stay the same value.  This allows us to perform GRO if the IP ID is forced
+> to stay at a static value as may occur if we are replicating an IP header
+> instead of actually having it offloaded.
+> 
+> The last 3 patches introduce what I am calling GSO partial.  The best way
+> to describe it is that it is a GSO offload in which the portion pointed to
+> by csum_start must be handled by the hardware, and the region before that
+> can be optionally handled.  So for example with i40e the only pieces it was
+> missing from the full offload was the checksum so this is computed in
+> software and the hardware will update inner and outer IP headers.  In the
+> example for ixgbe the hardware will only update the outer IP header.  The
+> outer UDP or GRE header and inner IP header are unmodified.
 
-This is patch against linux man pages (not iproute2)
+Conceptually I am completely fine with these changes.
+
+> The one concern here is that if the outer IP header does not have
+> the DF bit set and does not update the IP ID field we run the risk
+> of causing all sorts of problems if the packet is fragmented in
+> flight.
+
+I think we absolutely cannot let such a packet be output from our
+stack.
