@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 08/10] net: hns: fix the bug about mtu setting
-Date: Mon, 21 Mar 2016 19:06:39 +0800
-Message-ID: <1458558401-190165-9-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 07/10] net: hns: fixes a bug of RSS
+Date: Mon, 21 Mar 2016 19:06:38 +0800
+Message-ID: <1458558401-190165-8-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,79 +12,89 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linuxarm@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:51852 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754650AbcCUKsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:45 -0400
 In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kejian Yan <yankejian@huawei.com>
 
-In chip V1, the maximum mtu value is 9600. But in chip V2, it is 9728.
-And it is always configurates as 9600 before this patch.
+If trying to get receive flow hash indirection table by ethtool, it needs
+to call .get_rxnfc to get ring number first. So this patch implements the
+.get_rxnfc of ethtool. And the data type of rss_indir_table is u32, it has
+to be multiply by the width of data type when using memcpy.
 
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 4 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h | 1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 3 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h | 2 ++
- 4 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  6 ++++--
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 18 ++++++++++++++++++
+ 2 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 5f35418..3f96e3d 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -467,8 +467,10 @@ int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
- 	struct mac_driver *drv = hns_mac_get_drv(mac_cb);
- 	u32 buf_size = mac_cb->dsaf_dev->buf_size;
- 	u32 new_frm = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
-+			MAC_MAX_MTU : MAC_MAX_MTU_V2;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 1d0da87..d2cca60 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -791,7 +791,8 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
+ 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
  
--	if ((new_mtu < MAC_MIN_MTU) || (new_frm > MAC_MAX_MTU) ||
-+	if ((new_mtu < MAC_MIN_MTU) || (new_frm > max_frm) ||
- 	    (new_frm > HNS_RCB_RING_MAX_BD_PER_PKT * buf_size))
- 		return -EINVAL;
+ 	/* update the current hash->queue mappings from the shadow RSS table */
+-	memcpy(indir, ppe_cb->rss_indir_table, HNS_PPEV2_RSS_IND_TBL_SIZE);
++	memcpy(indir, ppe_cb->rss_indir_table,
++	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
  
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 68b01fe..a69c8af 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -26,6 +26,7 @@ struct dsaf_device;
+ 	return 0;
+ }
+@@ -806,7 +807,8 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+ 		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
  
- #define MAC_DEFAULT_MTU	(ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN + ETH_DATA_LEN)
- #define MAC_MAX_MTU		9600
-+#define MAC_MAX_MTU_V2		9728
- #define MAC_MIN_MTU		68
+ 	/* update the shadow RSS table with user specified qids */
+-	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
++	memcpy(ppe_cb->rss_indir_table, indir,
++	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
  
- #define MAC_DEFAULT_PAUSE_TIME 0xff
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 811ef35..f2a7b8a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -343,6 +343,9 @@ static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
- 	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
- 		hns_ppe_set_vlan_strip(ppe_cb, 0);
+ 	/* now update the hardware */
+ 	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index f3a5e05..02e9fa2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -1245,6 +1245,23 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
+ 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
+ }
  
-+		dsaf_write_dev(ppe_cb, PPE_CFG_MAX_FRAME_LEN_REG,
-+			       HNS_PPEV2_MAX_FRAME_LEN);
++static int hns_get_rxnfc(struct net_device *netdev,
++			 struct ethtool_rxnfc *cmd,
++			 u32 *rule_locs)
++{
++	struct hns_nic_priv *priv = netdev_priv(netdev);
 +
- 		/* set default RSS key in h/w */
- 		hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-index 0f5cb69..e9c0ec2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-@@ -30,6 +30,8 @@
- #define HNS_PPEV2_RSS_KEY_SIZE 40 /* in bytes or 320 bits */
- #define HNS_PPEV2_RSS_KEY_NUM (HNS_PPEV2_RSS_KEY_SIZE / sizeof(u32))
- 
-+#define HNS_PPEV2_MAX_FRAME_LEN 0X980
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXRINGS:
++		cmd->data = priv->ae_handle->q_num;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
 +
- enum ppe_qid_mode {
- 	PPE_QID_MODE0 = 0, /* fixed queue id mode */
- 	PPE_QID_MODE1,	   /* switch:128VM non switch:6Port/4VM/4TC */
++	return 0;
++}
++
+ static struct ethtool_ops hns_ethtool_ops = {
+ 	.get_drvinfo = hns_nic_get_drvinfo,
+ 	.get_link  = hns_nic_get_link,
+@@ -1268,6 +1285,7 @@ static struct ethtool_ops hns_ethtool_ops = {
+ 	.get_rxfh_indir_size = hns_get_rss_indir_size,
+ 	.get_rxfh = hns_get_rss,
+ 	.set_rxfh = hns_set_rss,
++	.get_rxnfc = hns_get_rxnfc,
+ };
+ 
+ void hns_ethtool_set_ops(struct net_device *ndev)
 -- 
 1.9.1
