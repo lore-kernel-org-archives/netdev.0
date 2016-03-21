@@ -1,35 +1,61 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: [PATCH] ipv6: remove unused in6_addr struct
-Date: Mon, 21 Mar 2016 17:37:28 +0000
-Message-ID: <1458581848-844-1-git-send-email-luisbg@osg.samsung.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	javier@osg.samsung.com,
-	Luis de Bethencourt <luisbg@osg.samsung.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Decotigny <ddecotig@gmail.com>
+Subject: [ethtool PATCH v6 0/2] add support for new ETHTOOL_xLINKSETTINGS ioctls
+Date: Mon, 21 Mar 2016 10:39:07 -0700
+Message-ID: <1458581949-125924-1-git-send-email-ddecotig@gmail.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@redhat.com>,
+	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	Joe Perches <joe@perches.com>,
+	David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36152 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932128AbcCURjV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:39:21 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q129so31673185pfb.3
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 10:39:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-struct in6_addr isn't used anymore in inet6_connection_sock.h, removing
-the forward declaration.
+From: David Decotigny <decot@googlers.com>
 
-Fixes: 1b33bc3e9e90 ("ipv6: remove obsolete inet6 functions")
-Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
----
- include/net/inet6_connection_sock.h | 1 -
- 1 file changed, 1 deletion(-)
+History:
+  v6
+    re-added last patch, to use AF_NETLINK when AF_INET not available
+  v5
+    rebased main patch, removed last patch "use AF_LOCAL when AF_INET
+    not available"
+  v4
+    review Ben Hutchings:
+      using AF_UNIX instead of INET6 in the absence of v4 sockets
+      use stdbool.h
+      do_seeprom always fails when offset/length out of bounds
+      sync to latest ethtool.h + kernel.h from net-next
+      __SANE_USERSPACE_TYPES__ always defined
+      cosmetic updates for var == const tests
+      cosmetic updates for associativity in tests
+  v3
+    TRUE/FALSE obvious-ification
+  v2
+    added do_seeprom patch
+    added netdev <at>  as recipient
+  v1
+    initial submission
 
-diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
-index 064cfbe..954ad6b 100644
---- a/include/net/inet6_connection_sock.h
-+++ b/include/net/inet6_connection_sock.h
-@@ -15,7 +15,6 @@
- 
- #include <linux/types.h>
- 
--struct in6_addr;
- struct inet_bind_bucket;
- struct request_sock;
- struct sk_buff;
+############################################
+# Patch Set Summary:
+
+David Decotigny (2):
+  ethtool.c: add support for ETHTOOL_xLINKSETTINGS ioctls
+  ethtool: use netlink socket when AF_INET not available
+
+ configure.ac   |   2 +-
+ ethtool.c      | 688 ++++++++++++++++++++++++++++++++++++++++++++-------------
+ internal.h     |  67 ++++++
+ test-cmdline.c |  13 ++
+ 4 files changed, 611 insertions(+), 159 deletions(-)
+
 -- 
-2.6.4
+2.8.0.rc3.226.g39d4020
