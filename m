@@ -1,69 +1,68 @@
-From: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] mwifiex: advertise low priority scan feature
-Date: Mon, 21 Mar 2016 16:09:39 +0800
-Message-ID: <CABicQ-UBhk9pdY1EsT1wp6+ZqabbBv47wsciCFbPzzPuOzOFbg@mail.gmail.com>
-References: <1458547622-1632-1-git-send-email-wnhuang@google.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH net-next 1/3] net: add the AF_KCM entries to family name tables
+Date: Mon, 21 Mar 2016 02:51:09 -0700
+Message-ID: <1458553869-26756-1-git-send-email-decui@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Daniel Kurtz <djkurtz-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1458547622-1632-1-git-send-email-wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: gregkh@linuxfoundation.org, davem@davemloft.net, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org, olaf@aepfle.de,
+ apw@canonical.com, jasowang@redhat.com, kys@microsoft.com,
+ haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Tested-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+This is for the recent kcm driver, which introduces AF_KCM(41) in
+b7ac4eb(kcm: Kernel Connection Multiplexor module).
 
-On Mon, Mar 21, 2016 at 4:07 PM, Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> =
-wrote:
-> From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
->
-> Low priority scan handling code which delays or aborts scan
-> operation based on Tx traffic is removed recently. The reason
-> is firmware already takes care of it in our new feature scan
-> channel gap. Hence we should advertise low priority scan
-> support to cfg80211.
->
-> This patch fixes a problem in which OBSS scan request from
-> wpa_supplicant was being rejected by cfg80211.
->
-> Signed-off-by: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> ---
->  drivers/net/wireless/marvell/mwifiex/cfg80211.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/driver=
-s/net/wireless/marvell/mwifiex/cfg80211.c
-> index bb7235e..7dafc5b 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> @@ -4086,6 +4086,7 @@ int mwifiex_register_cfg80211(struct mwifiex_ad=
-apter *adapter)
->
->         wiphy->features |=3D NL80211_FEATURE_HT_IBSS |
->                            NL80211_FEATURE_INACTIVITY_TIMER |
-> +                          NL80211_FEATURE_LOW_PRIORITY_SCAN |
->                            NL80211_FEATURE_NEED_OBSS_SCAN;
->
->         if (ISSUPP_TDLS_ENABLED(adapter->fw_cap_info))
-> --
-> 2.8.0.rc3.226.g39d4020
->
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ net/core/sock.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-
-
---=20
-Wei-Ning Huang, =E9=BB=83=E5=81=89=E5=AF=A7 | Software Engineer, Google=
- Inc., Taiwan |
-wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org | Cell: +886 910-380678
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b67b9ae..7e73c26 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -221,7 +221,8 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
+-  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
++  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_KCM"      ,
++  "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -237,7 +238,8 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
+-  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
++  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_KCM"       ,
++  "slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -253,7 +255,8 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
+-  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
++  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_KCM"      ,
++  "clock-AF_MAX"
+ };
+ 
+ /*
+-- 
+2.1.0
