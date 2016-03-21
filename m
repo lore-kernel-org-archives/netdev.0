@@ -1,7 +1,7 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v2 1/2] ethtool: minor doc update
-Date: Mon, 21 Mar 2016 10:15:34 -0700
-Message-ID: <1458580535-112916-2-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 2/2] netlink: add support for NIC driver ioctls
+Date: Mon, 21 Mar 2016 10:15:35 -0700
+Message-ID: <1458580535-112916-3-git-send-email-ddecotig@gmail.com>
 References: <1458580535-112916-1-git-send-email-ddecotig@gmail.com>
 Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
@@ -21,41 +21,54 @@ Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
 	David Herrmann <dh.herrmann@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34550 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbcCURPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:15:53 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1458580535-112916-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: David Decotigny <decot@googlers.com>
 
-Updates: commit 793cf87de9d1 ("ethtool: Set cmd field in
-         ETHTOOL_GLINKSETTINGS response to wrong nwords")
+By returning -ENOIOCTLCMD, sock_do_ioctl() falls back to calling
+dev_ioctl(), which provides support for NIC driver ioctls, which
+includes ethtool support. This is similar to the way ioctls are handled
+in udp.c or tcp.c.
+
+This removes the requirement that ethtool for example be tied to the
+support of a specific L3 protocol (ethtool uses an AF_INET socket
+today).
 
 Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- include/uapi/linux/ethtool.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netlink/af_netlink.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 2835b07..9222db8 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1648,9 +1648,9 @@ enum ethtool_reset_flags {
-  *	%ETHTOOL_GLINKSETTINGS: on entry, number of words passed by user
-  *	(>= 0); on return, if handshake in progress, negative if
-  *	request size unsupported by kernel: absolute value indicates
-- *	kernel recommended size and cmd field is 0, as well as all the
-- *	other fields; otherwise (handshake completed), strictly
-- *	positive to indicate size used by kernel and cmd field is
-+ *	kernel expected size and all the other fields but cmd
-+ *	are 0; otherwise (handshake completed), strictly positive
-+ *	to indicate size used by kernel and cmd field stays
-  *	%ETHTOOL_GLINKSETTINGS, all other fields populated by driver. For
-  *	%ETHTOOL_SLINKSETTINGS: must be valid on entry, ie. a positive
-  *	value returned previously by %ETHTOOL_GLINKSETTINGS, otherwise
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index c841679..215fc08 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1033,6 +1033,14 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr,
+ 	return 0;
+ }
+ 
++static int netlink_ioctl(struct socket *sock, unsigned int cmd,
++			 unsigned long arg)
++{
++	/* try to hand this ioctl down to the NIC drivers.
++	 */
++	return -ENOIOCTLCMD;
++}
++
+ static struct sock *netlink_getsockbyportid(struct sock *ssk, u32 portid)
+ {
+ 	struct sock *sock;
+@@ -2494,7 +2502,7 @@ static const struct proto_ops netlink_ops = {
+ 	.accept =	sock_no_accept,
+ 	.getname =	netlink_getname,
+ 	.poll =		datagram_poll,
+-	.ioctl =	sock_no_ioctl,
++	.ioctl =	netlink_ioctl,
+ 	.listen =	sock_no_listen,
+ 	.shutdown =	sock_no_shutdown,
+ 	.setsockopt =	netlink_setsockopt,
 -- 
 2.8.0.rc3.226.g39d4020
