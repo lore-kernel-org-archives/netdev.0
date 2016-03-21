@@ -1,103 +1,38 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: [PATCH 2/2] can: rcar_can: Move Renesas CAN driver to rcar dir
-Date: Mon, 21 Mar 2016 16:45:56 +0000
-Message-ID: <1458578756-42898-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-References: <1458035294-8150-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1458578756-42898-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Cc: linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	chris.paterson2@renesas.com,
-	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-To: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net 0/2] net: propagate max_gso_segs and max_gso_size
+Date: Mon, 21 Mar 2016 09:55:09 -0700
+Message-ID: <1458579311-17699-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Petri Gynther <pgynther@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor4.renesas.com ([210.160.252.174]:9770 "EHLO
-	relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756828AbcCUQvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 12:51:07 -0400
-In-Reply-To: <1458578756-42898-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35429 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756915AbcCUQzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 12:55:15 -0400
+Received: by mail-pf0-f178.google.com with SMTP id n5so270924370pfn.2
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 09:55:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch clubs the Renesas controller drivers in one rcar dir.
+bridge code does not properly update max_gso_segs and max_gso_size.
 
-Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
----
- drivers/net/can/Kconfig               | 10 ----------
- drivers/net/can/Makefile              |  1 -
- drivers/net/can/rcar/Kconfig          | 10 ++++++++++
- drivers/net/can/rcar/Makefile         |  3 ++-
- drivers/net/can/{ => rcar}/rcar_can.c |  0
- 5 files changed, 12 insertions(+), 12 deletions(-)
- rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
+Since this was not really obvious, first patch adds two new rtnetlink
+attributes to help debugging this kind of issues (ip -d link)
 
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 13003a9..22570ea 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -104,16 +104,6 @@ config CAN_JANZ_ICAN3
- 	  This driver can also be built as a module. If so, the module will be
- 	  called janz-ican3.ko.
- 
--config CAN_RCAR
--	tristate "Renesas R-Car CAN controller"
--	depends on ARCH_RENESAS || ARM
--	---help---
--	  Say Y here if you want to use CAN controller found on Renesas R-Car
--	  SoCs.
--
--	  To compile this driver as a module, choose M here: the module will
--	  be called rcar_can.
--
- config CAN_SUN4I
- 	tristate "Allwinner A10 CAN controller"
- 	depends on MACH_SUN4I || MACH_SUN7I || COMPILE_TEST
-diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-index 226d5b5..26ba4b7 100644
---- a/drivers/net/can/Makefile
-+++ b/drivers/net/can/Makefile
-@@ -25,7 +25,6 @@ obj-$(CONFIG_CAN_IFI_CANFD)	+= ifi_canfd/
- obj-$(CONFIG_CAN_JANZ_ICAN3)	+= janz-ican3.o
- obj-$(CONFIG_CAN_MSCAN)		+= mscan/
- obj-$(CONFIG_CAN_M_CAN)		+= m_can/
--obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
- obj-$(CONFIG_CAN_SUN4I)		+= sun4i_can.o
- obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
-diff --git a/drivers/net/can/rcar/Kconfig b/drivers/net/can/rcar/Kconfig
-index 6ea64d1..7b03a3a 100644
---- a/drivers/net/can/rcar/Kconfig
-+++ b/drivers/net/can/rcar/Kconfig
-@@ -1,3 +1,13 @@
-+config CAN_RCAR
-+	tristate "Renesas R-Car CAN controller"
-+	depends on ARCH_RENESAS || ARM
-+	---help---
-+	  Say Y here if you want to use CAN controller found on Renesas R-Car
-+	  SoCs.
-+
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called rcar_can.
-+
- config CAN_RCAR_CANFD
- 	tristate "Renesas R-Car CAN FD controller"
- 	depends on ARCH_RENESAS || ARM
-diff --git a/drivers/net/can/rcar/Makefile b/drivers/net/can/rcar/Makefile
-index cbaf498e..08de36a 100644
---- a/drivers/net/can/rcar/Makefile
-+++ b/drivers/net/can/rcar/Makefile
-@@ -1,5 +1,6 @@
- #
--#  Makefile for the Renesas R-Car CAN FD controller driver
-+#  Makefile for the Renesas R-Car CAN & CAN FD controller drivers
- #
- 
-+obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_RCAR_CANFD)	+= rcar_canfd.o
-diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar/rcar_can.c
-similarity index 100%
-rename from drivers/net/can/rcar_can.c
-rename to drivers/net/can/rcar/rcar_can.c
+Second patch fixes bridge code.
+
+Eric Dumazet (2):
+  net/rtnetlink: add IFLA_GSO_MAX_SEGS and IFLA_GSO_MAX_SIZE attributes
+  bridge: update max_gso_segs and max_gso_size
+
+ include/uapi/linux/if_link.h |  2 ++
+ net/bridge/br_if.c           | 16 ++++++++++++++++
+ net/core/rtnetlink.c         |  4 ++++
+ 3 files changed, 22 insertions(+)
+
 -- 
-1.9.1
+2.8.0.rc3.226.g39d4020
