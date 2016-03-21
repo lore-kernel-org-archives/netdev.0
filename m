@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: fix sparse warnings
-Date: Mon, 21 Mar 2016 13:30:24 -0400 (EDT)
-Message-ID: <20160321.133024.783333130148685527.davem@davemloft.net>
-References: <c100b5ed75967714ab32287f37d250b729753282.1458578309.git.jbenc@redhat.com>
+Subject: Re: [PATCH net v2] vxlan: fix too large pskb_may_pull with remote
+ checksum
+Date: Mon, 21 Mar 2016 13:32:40 -0400 (EDT)
+Message-ID: <20160321.133240.1118095343751751289.davem@davemloft.net>
+References: <ea0a247890814c5546b6b4490eab79478df34124.1458578979.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com
 To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48719 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48831 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756703AbcCURaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:30:25 -0400
-In-Reply-To: <c100b5ed75967714ab32287f37d250b729753282.1458578309.git.jbenc@redhat.com>
+	with ESMTP id S1756670AbcCURcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:32:43 -0400
+In-Reply-To: <ea0a247890814c5546b6b4490eab79478df34124.1458578979.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Benc <jbenc@redhat.com>
-Date: Mon, 21 Mar 2016 17:39:18 +0100
+Date: Mon, 21 Mar 2016 17:50:05 +0100
 
-> Sparse reports false positives for the header manipulation inlines. Annotate
-> them correctly.
+> vxlan_remcsum is called after iptunnel_pull_header and thus the skb has
+> vxlan header already pulled. Don't include vxlan header again in the
+> calculation.
 > 
-> Tested by sparse on a little endian and big endian machine.
-> 
-> Fixes: 54bfd872bf16d ("vxlan: keep flags and vni in network byte order")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
 > Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Applied, thanks Jiri.
-
-> As a side note, I tried to simplify all of these functions by using nested
-> be32_to_cpu(cpu_to_be32()) calls but GCC seems not to be clever enough to
-> optimize the byteswaps out.
-
-Ok, thanks for the note, thanks again.
+Applied, thanks.
