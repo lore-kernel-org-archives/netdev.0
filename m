@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 09/10] net: hns: adds limitation for debug port mtu
-Date: Mon, 21 Mar 2016 19:06:40 +0800
-Message-ID: <1458558401-190165-10-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 05/10] net: hns: set xge statistic reg as read only
+Date: Mon, 21 Mar 2016 19:06:36 +0800
+Message-ID: <1458558401-190165-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,51 +13,42 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:51777 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:51775 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754567AbcCUKsc (ORCPT
+	with ESMTP id S1754564AbcCUKsc (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:32 -0400
 In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Qianqian Xie <xieqianqian@huawei.com>
 
-If mtu for debug port is set more than 1500, it may cause that packets
-are dropped by ppe. So maximum value for debug port should be 1500.
+As the user manual of HNS V2 describs, XGE_DFX_CTRL_CFG.xge_dfx_ctrl_cfg
+should be configed as zero if we want xge statistic reg to be read only.
+But HNS V1 gets the other meanings. It needs to be identified the process
+and then config it rightly.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 3 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h | 1 +
- 2 files changed, 4 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 3f96e3d..cfb8fc5 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -470,6 +470,9 @@ int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
- 	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
- 			MAC_MAX_MTU : MAC_MAX_MTU_V2;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 38fc5be..5c1ac9b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -748,8 +748,9 @@ static void hns_dsaf_tbl_stat_en(struct dsaf_device *dsaf_dev)
+  */
+ static void hns_dsaf_rocee_bp_en(struct dsaf_device *dsaf_dev)
+ {
+-	dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
+-			 DSAF_FC_XGE_TX_PAUSE_S, 1);
++	if (AE_IS_VER1(dsaf_dev->dsaf_ver))
++		dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
++				 DSAF_FC_XGE_TX_PAUSE_S, 1);
+ }
  
-+	if (mac_cb->mac_type == HNAE_PORT_DEBUG)
-+		max_frm = MAC_MAX_MTU_DBG;
-+
- 	if ((new_mtu < MAC_MIN_MTU) || (new_frm > max_frm) ||
- 	    (new_frm > HNS_RCB_RING_MAX_BD_PER_PKT * buf_size))
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index a69c8af..a68efd6 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -28,6 +28,7 @@ struct dsaf_device;
- #define MAC_MAX_MTU		9600
- #define MAC_MAX_MTU_V2		9728
- #define MAC_MIN_MTU		68
-+#define MAC_MAX_MTU_DBG         MAC_DEFAULT_MTU
- 
- #define MAC_DEFAULT_PAUSE_TIME 0xff
- 
+ /* set msk for dsaf exception irq*/
 -- 
 1.9.1
