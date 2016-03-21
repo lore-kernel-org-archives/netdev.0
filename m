@@ -1,72 +1,45 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v6 2/2] ethtool: use netlink socket when AF_INET not available
-Date: Mon, 21 Mar 2016 10:39:09 -0700
-Message-ID: <1458581949-125924-3-git-send-email-ddecotig@gmail.com>
-References: <1458581949-125924-1-git-send-email-ddecotig@gmail.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>,
+Subject: Re: [PATCH v1 0/2] basic ioctl support for netlink sockets
+Date: Mon, 21 Mar 2016 10:43:58 -0700
+Message-ID: <CAG88wWYSzNFPe=9HGy9YUJFcDyk_ZNndoxyz=+=texYmV22_Yg@mail.gmail.com>
+References: <1458259436-85275-1-git-send-email-ddecotig@gmail.com> <20160320.133122.908035685889835834.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nikolay@cumulusnetworks.com, "Michael S. Tsirkin" <mst@redhat.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	Joe Perches <joe@perches.com>,
-	David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	nicolas.dichtel@6wind.com, andrew@lunn.ch, hadarh@mellanox.com,
+	ecree@solarflare.com, john.r.fastabend@intel.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, tgraf@suug.ch,
+	daniel@iogearbox.net, chamaken@gmail.com, fw@strlen.de,
+	dh.herrmann@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36255 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932238AbcCURj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:39:27 -0400
-Received: by mail-pf0-f194.google.com with SMTP id q129so31673746pfb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 10:39:27 -0700 (PDT)
-In-Reply-To: <1458581949-125924-1-git-send-email-ddecotig@gmail.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35621 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757539AbcCURok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:44:40 -0400
+Received: by mail-wm0-f44.google.com with SMTP id l68so120257298wml.0
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 10:44:39 -0700 (PDT)
+In-Reply-To: <20160320.133122.908035685889835834.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
+sent updated version. commit description should have the details. what
+we are doing there is mimic what some others are doing, such as udp.c:
+when returning -ENOIOCTLCMD, net/core would fallback to dev_ioctl,
+which implements the NIC driver ioctls, which include ethtool ioctl.
 
-
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- configure.ac | 2 +-
- ethtool.c    | 7 +++++++
- 2 files changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/configure.ac b/configure.ac
-index 3105415..47d2a0f 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -15,7 +15,7 @@ AM_PROG_CC_C_O
- dnl Checks for libraries.
- 
- dnl Checks for header files.
--AC_CHECK_HEADERS(sys/ioctl.h)
-+AC_CHECK_HEADERS(sys/ioctl.h linux/netlink.h)
- 
- dnl Checks for typedefs, structures, and compiler characteristics.
- AC_MSG_CHECKING([whether <linux/types.h> defines big-endian types])
-diff --git a/ethtool.c b/ethtool.c
-index cb3d971..314b1b8 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -42,6 +42,9 @@
- #include <arpa/inet.h>
- 
- #include <linux/sockios.h>
-+#ifdef HAVE_LINUX_NETLINK_H
-+# include <linux/netlink.h>
-+#endif
- 
- #ifndef MAX_ADDR_LEN
- #define MAX_ADDR_LEN	32
-@@ -4645,6 +4648,10 @@ opt_found:
- 
- 		/* Open control socket. */
- 		ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
-+#ifdef HAVE_LINUX_NETLINK_H
-+		if (ctx.fd < 0)
-+			ctx.fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_GENERIC);
-+#endif
- 		if (ctx.fd < 0) {
- 			perror("Cannot get control socket");
- 			return 70;
--- 
-2.8.0.rc3.226.g39d4020
+On Sun, Mar 20, 2016 at 10:31 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Decotigny <ddecotig@gmail.com>
+> Date: Thu, 17 Mar 2016 17:03:54 -0700
+>
+>> This removes the requirement that ethtool be tied to the support
+>> of a specific L3 protocol, also updates a comment.
+>
+> You're adding an ioctl handler to netlink sockets, and it is not
+> at all apparent to me how this influences ethtool handling at all.
+>
+> Therefore you have to explain this here and in your commit message.
