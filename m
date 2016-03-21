@@ -1,108 +1,104 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next] change nfqueue failopen to apply also to
- receive message buffer in addition to queue size
-Date: Mon, 21 Mar 2016 13:22:36 +0100
-Message-ID: <20160321122236.GB29493@breakpoint.cc>
-References: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Mon, 21 Mar 2016 07:40:43 -0500
+Message-ID: <20160321124043.GA26873@rob-hp-laptop>
+References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+ <1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
+ <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"Florian Westphal (fw@strlen.de)" <fw@strlen.de>,
-	stephen@networkplumber.org
-To: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+	Maxime Coquelin <mcoquelin.stm32@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev <netdev@vger.kernel.org>,
+	devicetree <devicetree@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Chen-Yu Tsai <wens@csie.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yigal Reiss (yreiss) <yreiss@cisco.com> wrote:
-
-[ CC shemminger ]
-
-This is the place where the commit message should go.
-
-The Subject: line alone isn't enough for a large patch like this.
-
-> Signed-off-by: Yigal Reiss <yreiss@cisco.com>
-> ---
+On Sat, Mar 19, 2016 at 12:00:22AM +0800, Chen-Yu Tsai wrote:
+> Hi,
 > 
-> NOTE: this is a re-send after being bounced by the test robot for a compiler warning. I hope I'm doing the right thing in resubmitting rather than replying to the original message. Recompiled w/o warnings and re-tested. 
-
-Resubmit is ok.
-
-> This is follow-up on http://marc.info/?l=netfilter-devel&m=145765526817347&w=2 
-
-Perhaps you could summarize the discussion in the commit message.
-
-> Existing fail-open mechanism for nfqueue only applies for message that cannot be sent due to queue size (queue_maxlen). It does not apply when the failure is due to socket receive buffer size. This seems to be quite arbitrary since different packet sizes for the same queue and buffer sizes yield failure for different reasons.
+> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
+> <alexandre.torgue@gmail.com> wrote:
+> > Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
+> >
+> > diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> > new file mode 100644
+> > index 0000000..ada2aa4
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
+> > @@ -0,0 +1,32 @@
+> > +STMicroelectronics STM32 / MCU DWMAC glue layer controller
+> > +
+> > +This file documents platform glue layer for stmmac.
+> > +Please see stmmac.txt for the other unchanged properties.
+> > +
+> > +The device node has following properties.
+> > +
+> > +Required properties:
+> > +- compatible:  Should be "st,stm32-dwmac" to select glue, and
+> > +              "snps,dwmac-3.50a" to select IP vesrion.
 > 
-> This patch makes both behave the same. 
+> If you need have sort of hardware glue, then it is not compatible.
 
-This should go into the commit log, not here.
+Hence, the more specific compatible. Having the generic one is still 
+useful.
 
-> There is also a change in the proc file (/proc/net/netfilter/nfnetlink_queue) to account for the fail-opened packets.
- 
-> One change to existing behavior which I would like to stress is in the function netlink_unicast (now in netlink_unicast_nofree). In case where a call to sk_filter() returned non-zero value, netlink_unicast would set its returned error value to skb->len. I don't see how this ever made sense and I couldn't find anyone looking at this value. I changed this in order to have a consistent (err<0) return value on errors which was required for my changes. If anyone sees a problem with this change I'd like to know.
+> 
+> ChenYu
+> 
+> > +- clocks: Must contain a phandle for each entry in clock-names.
+> > +- clock-names: Should be "stmmaceth" for the host clock.
 
-Should be done in a separate change.
+This doesn't sound like the clock input signal name...
 
-It looks like a bug -- AFAICS if a sk filter is active on the nfnetlink
-sk we will believe sk got queued and will put the (free'd) skb ptr on
-the reinject list.
+> > +              Should be "tx-clk" for the MAC TX clock.
+> > +              Should be "rx-clk" for the MAC RX clock.
 
-Added here:
-   commit b1153f29ee07dc1a788964409255a4b4fae50b98
-   Author: Stephen Hemminger <shemminger@vyatta.com>
-   netlink: make socket filters work on netlink
+How can other DWMAC blocks not have these clocks? The glue can't really 
+add these clocks. It could combine them into one or a new version of 
+DWMAC could have a different number of clock inputs. So if there is 
+variation here, then some of the bindings are probably wrong. I guess 
+the only change I'm suggesting is possibly moving these into common 
+binding doc.
 
-It looks like the intent is to hide the error from writes happening
-on netlink sk, but doing so also hides it from nfnetlink_queue which
-relies on skb having been attached to the sk when we don't see an error.
+> > +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
+> > +             encompases the glue register, and the offset of the control register.
+> > +Example:
+> > +
+> > +               ethernet0: dwmac@40028000 {
 
-Maybe Stephen remembers details?
-Is the error masking intentional/needed?
+ethernet@...
 
-If so it seems we will need to refactor this a bit to
-differentiate between kernel-internal caller and "called
-on behalf of userspace"....
-
-> -
-> +        unsigned int queue_failopened;
-> +        unsigned int nobuf_failopened;
-
-Is this useful...?
-
-Userspace already should get -ENOBUFS errors on netlink overrun.
-
-> -	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n",
-> +	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %5u %5u %2d\n",
-
-Problematic since it changes layout of a file we unfortunately have to
-view as uapi.
-
-I would prefer if we could leave the proc file alone and not
-add any new stats counters for this, unless there is a good argument
-for doing so.
-
-> +			     long *timeo, struct sock *ssk)
-> +{
-> +    int ret = netlink_attachskb_nofree(sk, skb, timeo, ssk);
-> +    if (ret < 0)
-> +	kfree_skb(skb);
-> +    return ret;
-> +}
-
-Seems this patch is whitespace damaged.
-Please send a patch to yourself and make sure it applies cleanly via git-am.
-
-> @@ -1752,7 +1760,6 @@ int netlink_attachskb(struct sock *sk, struct sk_buff *skb,
->  		sock_put(sk);
->  
->  		if (signal_pending(current)) {
-> -			kfree_skb(skb);
->  			return sock_intr_errno(*timeo);
->  		}
-
-This would make the {} unneded so these should be zapped too.
+> > +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
+> > +                       status = "disabled";
+> > +                       reg = <0x40028000 0x8000>;
+> > +                       reg-names = "stmmaceth";
+> > +                       interrupts = <0 61 0>, <0 62 0>;
+> > +                       interrupt-names = "macirq", "eth_wake_irq";
+> > +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
+> > +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
+> > +                       st,syscon = <&syscfg 0x4>;
+> > +                       snps,pbl = <8>;
+> > +                       snps,mixed-burst;
+> > +                       dma-ranges;
+> > +               };
+> > --
+> > 1.9.1
+> >
+> >
+> > _______________________________________________
+> > linux-arm-kernel mailing list
+> > linux-arm-kernel@lists.infradead.org
+> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
