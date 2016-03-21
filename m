@@ -1,68 +1,51 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH] mwifiex: advertise low priority scan feature
-Date: Mon, 21 Mar 2016 08:26:36 +0000
-Message-ID: <f865159f1eca4200aed1c4e4f272ae57@SC-EXCH04.marvell.com>
-References: <1458547622-1632-1-git-send-email-wnhuang@google.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Mon, 21 Mar 2016 09:36:01 +0100
+Message-ID: <1458549361.2299.1.camel@suse.com>
+References: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"djkurtz@chromium.org" <djkurtz@chromium.org>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei-Ning Huang <wnhuang@chromium.org>,
-	Linux Wireless <linux-wireless@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:6327 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751861AbcCUI0m convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2016 04:26:42 -0400
-In-Reply-To: <1458547622-1632-1-git-send-email-wnhuang@google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Woojung Huh <woojung.huh@microchip.com>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1458470636-18986-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: linux-wireless-owner@vger.kernel.org [mailto:linux-wireless-
-> owner@vger.kernel.org] On Behalf Of Wei-Ning Huang
-> Sent: Monday, March 21, 2016 1:37 PM
-> To: Linux Wireless
-> Cc: LKML; Amitkumar Karwar; djkurtz@chromium.org; Wei-Ning Huang;
-> Nishant Sarmukadam; kvalo@codeaurora.org; netdev@vger.kernel.org
-> Subject: [PATCH] mwifiex: advertise low priority scan feature
-> 
-> From: Amitkumar Karwar <akarwar@marvell.com>
-> 
-> Low priority scan handling code which delays or aborts scan operation
-> based on Tx traffic is removed recently. The reason is firmware already
-> takes care of it in our new feature scan channel gap. Hence we should
-> advertise low priority scan support to cfg80211.
-> 
-> This patch fixes a problem in which OBSS scan request from
-> wpa_supplicant was being rejected by cfg80211.
-> 
-> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+On Sun, 2016-03-20 at 11:43 +0100, Geert Uytterhoeven wrote:
+> If CONFIG_PM=3Dn:
+>=20
+>     drivers/net/usb/lan78xx.c: In function =E2=80=98lan78xx_get_stats=
+64=E2=80=99:
+>     drivers/net/usb/lan78xx.c:3274: error: =E2=80=98struct dev_pm_inf=
+o=E2=80=99 has no
+> member named =E2=80=98runtime_auto=E2=80=99
+>=20
+> If PM is disabled, the runtime_auto flag is not available, but auto
+> suspend is not enabled anyway.  Hence protect the check for
+> runtime_auto
+> by #ifdef CONFIG_PM to fix this.
+>=20
+> Fixes: a59f8c5b048dc938 ("lan78xx: add ndo_get_stats64")
+> Reported-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 > ---
->  drivers/net/wireless/marvell/mwifiex/cfg80211.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> index bb7235e..7dafc5b 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-> @@ -4086,6 +4086,7 @@ int mwifiex_register_cfg80211(struct
-> mwifiex_adapter *adapter)
-> 
->  	wiphy->features |= NL80211_FEATURE_HT_IBSS |
->  			   NL80211_FEATURE_INACTIVITY_TIMER |
-> +			   NL80211_FEATURE_LOW_PRIORITY_SCAN |
->  			   NL80211_FEATURE_NEED_OBSS_SCAN;
-> 
->  	if (ISSUPP_TDLS_ENABLED(adapter->fw_cap_info))
+> Alternatively, we can add a dev_pm_runtime_auto_is_enabled() wrapper
+> to
+> include/linux/pm.h, which always return false if CONFIG_PM is
+> disabled.
 
-Acked-by: Amitkumar Karwar <akarwar@marvell.com>
+That is what we do for almost everything else in include/pm_runtime.h
+So it is the best solution to add the stub.
 
-Regards,
-Amitkumar
+	Regards
+		Oliver
+
+
