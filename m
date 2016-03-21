@@ -1,58 +1,49 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] ipv4: fix broadcast packets reception
-Date: Mon, 21 Mar 2016 17:12:40 +0100
-Message-ID: <1458576760.4542.45.camel@redhat.com>
-References: <b2a74da9e3b01065d0244088c2038c8b6ec1d334.1458574841.git.pabeni@redhat.com>
-	 <20160321.115009.1222014596215287583.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	sbohrer@rgmadvisors.com, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+From: Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] net: add description for len argument of dev_get_phys_port_name
+Date: Mon, 21 Mar 2016 16:31:14 +0000
+Message-ID: <1458577874-28384-1-git-send-email-luisbg@osg.samsung.com>
+Cc: davem@davemloft.net, edumazet@google.com, jiri@mellanox.com,
+	ast@plumgrid.com, daniel@iogearbox.net, jarod@redhat.com,
+	tom@herbertland.com, makita.toshiaki@lab.ntt.co.jp, ja@ssi.bg,
+	netdev@vger.kernel.org,
+	Luis de Bethencourt <luisbg@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59208 "EHLO mx1.redhat.com"
+Received: from lists.s-osg.org ([54.187.51.154]:55188 "EHLO lists.s-osg.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756670AbcCUQMp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2016 12:12:45 -0400
-In-Reply-To: <20160321.115009.1222014596215287583.davem@davemloft.net>
+	id S1751113AbcCUQbi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2016 12:31:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-03-21 at 11:50 -0400, David Miller wrote:
-> From: Paolo Abeni <pabeni@redhat.com>
-> Date: Mon, 21 Mar 2016 16:42:11 +0100
-> 
-> > Currently, ingress ipv4 broadcast datagrams are dropped if the
-> > ingress interface lacks an ipv4 address. This is caused by
-> > multiple issues:
-> > 
-> > - in udp_v4_early_demux() ip_check_mc_rcu is invoked even on
-> >   bcast packets
-> > 
-> > - ip_route_input_slow() always try to validate the source
-> > 
-> > This patch tries to address both issues, invoking ip_check_mc_rcu()
-> > only for mcast packets and calling fib_validate_source() only
-> > if the in_device has an address, at least.
-> > 
-> > Fixes: 6e5403093261 ("ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()")
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> 
-> I'm extremely weary to change the routing lookup code wrt. broadcast, multicast,
-> etc. policies, ever.  The checks in there have multiple decades of precedence
-> and therefore are extremely dangerous to modify.
-> 
-> The UDP change in question didn't touch the generic routing code, therfore you
-> must fix this bug without modifying it either.
+When the function dev_get_phys_port_name was added it missed a description
+for it's len argument. Adding it.
 
-ok, I'll try to find something less intrusive. I'm not sure if it will
-be possible.
+Fixes: db24a9044ee1 ("net: add support for phys_port_name")
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
+Hi,
 
-Just a little addendum: the current issue is not caused only by the
-commit 6e5403093261, but also by some less trivial/older change into the
-routing lookup code I was unable to track exactly.
+Noticed this when running make htmldocs. It gives the following warning:
+.//net/core/dev.c:6453: warning: No description found for parameter 'len'
 
-Cheers,
+Thanks,
+Luis
 
-Paolo 
+ net/core/dev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 43c74ca..b9bcbe7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6445,6 +6445,7 @@ EXPORT_SYMBOL(dev_get_phys_port_id);
+  *	dev_get_phys_port_name - Get device physical port name
+  *	@dev: device
+  *	@name: port name
++ *	@len: limit of bytes to copy to name
+  *
+  *	Get device physical port name
+  */
+-- 
+2.6.4
