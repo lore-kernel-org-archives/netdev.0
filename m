@@ -1,7 +1,8 @@
 From: David Decotigny <ddecotig@gmail.com>
-Subject: [PATCH net-next v2 0/2] basic ioctl support for netlink sockets
-Date: Mon, 21 Mar 2016 10:15:33 -0700
-Message-ID: <1458580535-112916-1-git-send-email-ddecotig@gmail.com>
+Subject: [PATCH net-next v2 1/2] ethtool: minor doc update
+Date: Mon, 21 Mar 2016 10:15:34 -0700
+Message-ID: <1458580535-112916-2-git-send-email-ddecotig@gmail.com>
+References: <1458580535-112916-1-git-send-email-ddecotig@gmail.com>
 Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
 	"Michael S. Tsirkin" <mst@redhat.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
@@ -21,34 +22,40 @@ Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
 To: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36165 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34550 "EHLO
 	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756160AbcCURPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:15:42 -0400
+	with ESMTP id S1752150AbcCURPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 13:15:53 -0400
+In-Reply-To: <1458580535-112916-1-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Decotigny <decot@googlers.com>
 
-This removes the requirement that ethtool be tied to the support
-of a specific L3 protocol, also updates a comment.
+Updates: commit 793cf87de9d1 ("ethtool: Set cmd field in
+         ETHTOOL_GLINKSETTINGS response to wrong nwords")
 
-History:
-  v2
-    updated commit description for the netlink ioctl patch
-  v1
-    initial submission
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ include/uapi/linux/ethtool.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-############################################
-# Patch Set Summary:
-
-David Decotigny (2):
-  ethtool: minor doc update
-  netlink: add support for NIC driver ioctls
-
- include/uapi/linux/ethtool.h |  6 +++---
- net/netlink/af_netlink.c     | 10 +++++++++-
- 2 files changed, 12 insertions(+), 4 deletions(-)
-
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 2835b07..9222db8 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1648,9 +1648,9 @@ enum ethtool_reset_flags {
+  *	%ETHTOOL_GLINKSETTINGS: on entry, number of words passed by user
+  *	(>= 0); on return, if handshake in progress, negative if
+  *	request size unsupported by kernel: absolute value indicates
+- *	kernel recommended size and cmd field is 0, as well as all the
+- *	other fields; otherwise (handshake completed), strictly
+- *	positive to indicate size used by kernel and cmd field is
++ *	kernel expected size and all the other fields but cmd
++ *	are 0; otherwise (handshake completed), strictly positive
++ *	to indicate size used by kernel and cmd field stays
+  *	%ETHTOOL_GLINKSETTINGS, all other fields populated by driver. For
+  *	%ETHTOOL_SLINKSETTINGS: must be valid on entry, ie. a positive
+  *	value returned previously by %ETHTOOL_GLINKSETTINGS, otherwise
 -- 
 2.8.0.rc3.226.g39d4020
