@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 02/10] net: hns: fixed portid bug in sending manage pkt
-Date: Mon, 21 Mar 2016 19:06:33 +0800
-Message-ID: <1458558401-190165-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 09/10] net: hns: adds limitation for debug port mtu
+Date: Mon, 21 Mar 2016 19:06:40 +0800
+Message-ID: <1458558401-190165-10-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,84 +13,51 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:20312 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753609AbcCUKsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:22 -0400
+Received: from szxga02-in.huawei.com ([119.145.14.65]:51777 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754567AbcCUKsc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:32 -0400
 In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sheng Li <lisheng011@huawei.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-In chip V2, the default value of port id in tx BD is Zero. If it is not
-configurated to the other value, all management packets will be sent out
-from port0. So port_id in the tx BD needs to be updated when sending a
-management packet.
+If mtu for debug port is set more than 1500, it may cause that packets
+are dropped by ppe. So maximum value for debug port should be 1500.
 
-In V2 chip, when sending mamagement packets, the driver should
-config the port id to BD descs.
-
-Signed-off-by: Sheng Li <lisheng011@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 6 +++++-
- 3 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h | 1 +
+ 2 files changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
-index 1cbcb9f..37d0cce 100644
---- a/drivers/net/ethernet/hisilicon/hns/hnae.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
-@@ -147,6 +147,8 @@ enum hnae_led_state {
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index 3f96e3d..cfb8fc5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -470,6 +470,9 @@ int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
+ 	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
+ 			MAC_MAX_MTU : MAC_MAX_MTU_V2;
  
- #define HNSV2_TXD_BUFNUM_S 0
- #define HNSV2_TXD_BUFNUM_M (0x7 << HNSV2_TXD_BUFNUM_S)
-+#define HNSV2_TXD_PORTID_S	4
-+#define HNSV2_TXD_PORTID_M	(0X7 << HNSV2_TXD_PORTID_S)
- #define HNSV2_TXD_RI_B   1
- #define HNSV2_TXD_L4CS_B   2
- #define HNSV2_TXD_L3CS_B   3
-@@ -516,6 +518,7 @@ struct hnae_handle {
- 	int q_num;
- 	int vf_id;
- 	u32 eport_id;
-+	u32 dport_id;	/* v2 tx bd should fill the dport_id */
- 	enum hnae_port_type port_type;
- 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
- 	struct hnae_buf_ops *bops; /* operation for the buffer */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index d4f92ed..90352d6 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -175,6 +175,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
- 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
- 	ae_handle->if_support = vf_cb->mac_cb->if_support;
- 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
-+	ae_handle->dport_id = port_idx;
- 
- 	return ae_handle;
- vf_id_err:
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 9ad5da4..8aa325e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -66,10 +66,14 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
- 	desc->addr = cpu_to_le64(dma);
- 	desc->tx.send_size = cpu_to_le16((u16)size);
- 
--	/*config bd buffer end */
-+	/* config bd buffer end */
- 	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
- 	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
- 
-+	/* fill port_id in the tx bd for sending management pkts */
-+	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
-+		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
++	if (mac_cb->mac_type == HNAE_PORT_DEBUG)
++		max_frm = MAC_MAX_MTU_DBG;
 +
- 	if (type == DESC_TYPE_SKB) {
- 		skb = (struct sk_buff *)priv;
+ 	if ((new_mtu < MAC_MIN_MTU) || (new_frm > max_frm) ||
+ 	    (new_frm > HNS_RCB_RING_MAX_BD_PER_PKT * buf_size))
+ 		return -EINVAL;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index a69c8af..a68efd6 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -28,6 +28,7 @@ struct dsaf_device;
+ #define MAC_MAX_MTU		9600
+ #define MAC_MAX_MTU_V2		9728
+ #define MAC_MIN_MTU		68
++#define MAC_MAX_MTU_DBG         MAC_DEFAULT_MTU
+ 
+ #define MAC_DEFAULT_PAUSE_TIME 0xff
  
 -- 
 1.9.1
