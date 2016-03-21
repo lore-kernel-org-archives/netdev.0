@@ -1,54 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 09/10] net: hns: adds limitation for debug port mtu
-Date: Mon, 21 Mar 2016 17:17:49 +0300
-Message-ID: <56F0028D.4070500@cogentembedded.com>
-References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1458558401-190165-10-git-send-email-Yisen.Zhuang@huawei.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 3/5] ath9k: fix buffer overrun for ar9287
+Date: Mon, 21 Mar 2016 16:23:59 +0200
+Message-ID: <87lh5bhpts.fsf@purkki.adurom.net>
+References: <1457965120-3155420-1-git-send-email-arnd@arndb.de>
+	<1457965120-3155420-4-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: yankejian@huawei.com, huangdaode@hisilicon.com,
-	salil.mehta@huawei.com, lisheng011@huawei.com,
-	lipeng321@huawei.com, liguozhu@huawei.com, arnd@arndb.de,
-	xieqianqian@huawei.com, andrew@lunn.ch, ivecera@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxarm@huawei.com
-To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33504 "EHLO
-	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755289AbcCUORy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 10:17:54 -0400
-Received: by mail-lf0-f49.google.com with SMTP id h198so108984429lfh.0
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 07:17:53 -0700 (PDT)
-In-Reply-To: <1458558401-190165-10-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1457965120-3155420-4-git-send-email-arnd-r2nGTMty4D4@public.gmane.org> (Arnd
+	Bergmann's message of "Mon, 14 Mar 2016 15:18:36 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
 
-On 03/21/2016 02:06 PM, Yisen Zhuang wrote:
-
-> From: Kejian Yan <yankejian@huawei.com>
+> Code that was added back in 2.6.38 has an obvious overflow
+> when accessing a static array, and at the time it was added
+> only a code comment was put in front of it as a reminder
+> to have it reviewed properly.
 >
-> If mtu for debug port is set more than 1500, it may cause that packets
-> are dropped by ppe. So maximum value for debug port should be 1500.
+> This has not happened, but gcc-6 now points to the specific
+> overflow:
 >
-> Signed-off-by: Kejian Yan <yankejian@huawei.com>
-> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-[...]
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-> index a69c8af..a68efd6 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-> @@ -28,6 +28,7 @@ struct dsaf_device;
->   #define MAC_MAX_MTU		9600
->   #define MAC_MAX_MTU_V2		9728
->   #define MAC_MIN_MTU		68
-> +#define MAC_MAX_MTU_DBG         MAC_DEFAULT_MTU
+> drivers/net/wireless/ath/ath9k/eeprom.c: In function 'ath9k_hw_get_gain_boundaries_pdadcs':
+> drivers/net/wireless/ath/ath9k/eeprom.c:483:44: error: array subscript is above array bounds [-Werror=array-bounds]
+>      maxPwrT4[i] = data_9287[idxL].pwrPdg[i][4];
+>                    ~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+>
+> It turns out that the correct array length exists in the local
+> 'intercepts' variable of this function, so we can just use that
+> instead of hardcoding '4', so this patch changes all three
+> instances to use that variable. The other two instances were
+> already correct, but it's more consistent this way.
+>
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: 940cd2c12ebf ("ath9k_hw: merge the ar9287 version of ath9k_hw_get_gain_boundaries_pdadcs")
 
-    Please use tabs, not spaces to indent the value, like above
+Dave already applies this so I can skip this.
 
-[...]
-
-MBR, Sergei
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
