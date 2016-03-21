@@ -1,81 +1,52 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] vxlan: fix sparse warnings
-Date: Mon, 21 Mar 2016 17:39:18 +0100
-Message-ID: <c100b5ed75967714ab32287f37d250b729753282.1458578309.git.jbenc@redhat.com>
-Cc: kbuild test robot <fengguang.wu@intel.com>
+Subject: [PATCH net v2] vxlan: fix too large pskb_may_pull with remote checksum
+Date: Mon, 21 Mar 2016 17:50:05 +0100
+Message-ID: <ea0a247890814c5546b6b4490eab79478df34124.1458578979.git.jbenc@redhat.com>
+Cc: Tom Herbert <tom@herbertland.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37058 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43210 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755825AbcCUQjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2016 12:39:33 -0400
+	id S1756767AbcCUQuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2016 12:50:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sparse reports false positives for the header manipulation inlines. Annotate
-them correctly.
+vxlan_remcsum is called after iptunnel_pull_header and thus the skb has
+vxlan header already pulled. Don't include vxlan header again in the
+calculation.
 
-Tested by sparse on a little endian and big endian machine.
-
-Fixes: 54bfd872bf16d ("vxlan: keep flags and vni in network byte order")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
-As a side note, I tried to simplify all of these functions by using nested
-be32_to_cpu(cpu_to_be32()) calls but GCC seems not to be clever enough to
-optimize the byteswaps out.
+v2: Changed wording of the patch description to explain where the header is
+    pulled.
 ---
- include/net/vxlan.h | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/vxlan.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index a763c96ecde4..73ed2e951c02 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -271,36 +271,36 @@ static inline struct vxlanhdr *vxlan_hdr(struct sk_buff *skb)
- static inline __be32 vxlan_vni(__be32 vni_field)
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 7bfcb9a62a5d..1c0fa364323e 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1143,7 +1143,7 @@ static int vxlan_igmp_leave(struct vxlan_dev *vxlan)
+ static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+ 			  struct sk_buff *skb, u32 vxflags)
  {
- #if defined(__BIG_ENDIAN)
--	return vni_field >> 8;
-+	return (__force __be32)((__force u32)vni_field >> 8);
- #else
--	return (vni_field & VXLAN_VNI_MASK) << 8;
-+	return (__force __be32)((__force u32)(vni_field & VXLAN_VNI_MASK) << 8);
- #endif
- }
+-	size_t start, offset, plen;
++	size_t start, offset;
  
- static inline __be32 vxlan_vni_field(__be32 vni)
- {
- #if defined(__BIG_ENDIAN)
--	return vni << 8;
-+	return (__force __be32)((__force u32)vni << 8);
- #else
--	return vni >> 8;
-+	return (__force __be32)((__force u32)vni >> 8);
- #endif
- }
+ 	if (!(unparsed->vx_flags & VXLAN_HF_RCO) || skb->remcsum_offload)
+ 		goto out;
+@@ -1151,9 +1151,7 @@ static bool vxlan_remcsum(struct vxlanhdr *unparsed,
+ 	start = vxlan_rco_start(unparsed->vx_vni);
+ 	offset = start + vxlan_rco_offset(unparsed->vx_vni);
  
- static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
- {
- #if defined(__BIG_ENDIAN)
--	return tun_id;
-+	return (__force __be32)tun_id;
- #else
--	return tun_id >> 32;
-+	return (__force __be32)((__force u64)tun_id >> 32);
- #endif
- }
+-	plen = sizeof(struct vxlanhdr) + offset + sizeof(u16);
+-
+-	if (!pskb_may_pull(skb, plen))
++	if (!pskb_may_pull(skb, offset + sizeof(u16)))
+ 		return false;
  
- static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
- {
- #if defined(__BIG_ENDIAN)
--	return (__be64)vni;
-+	return (__force __be64)vni;
- #else
--	return (__be64)vni << 32;
-+	return (__force __be64)((u64)(__force u32)vni << 32);
- #endif
- }
- 
+ 	skb_remcsum_process(skb, (void *)(vxlan_hdr(skb) + 1), start, offset,
 -- 
 1.8.3.1
