@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 04/10] net: hns: fixed the bug about GMACs mac setting
-Date: Mon, 21 Mar 2016 19:06:35 +0800
-Message-ID: <1458558401-190165-5-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 08/10] net: hns: fix the bug about mtu setting
+Date: Mon, 21 Mar 2016 19:06:39 +0800
+Message-ID: <1458558401-190165-9-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,51 +17,74 @@ In-Reply-To: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sheng Li <lisheng011@huawei.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-When sending a pause frame out from GMACs, the packets' source MAC address
-does not match the GMACs' MAC address. It causes by the condition before
-the mac address setting routine for GMACs, the mac address cannot be set
-into loacal mac table for service ports. It obviously the condition needs
-to be deleted.
+In chip V1, the maximum mtu value is 9600. But in chip V2, it is 9728.
+And it is always configurates as 9600 before this patch.
 
-Signed-off-by: Sheng Li <lisheng011@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 4 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h | 1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h | 2 ++
+ 4 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 5881405..a99ee00 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -424,19 +424,17 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
- {
- 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index 5f35418..3f96e3d 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -467,8 +467,10 @@ int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
+ 	struct mac_driver *drv = hns_mac_get_drv(mac_cb);
+ 	u32 buf_size = mac_cb->dsaf_dev->buf_size;
+ 	u32 new_frm = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
++	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
++			MAC_MAX_MTU : MAC_MAX_MTU_V2;
  
--	if (drv->mac_id >= DSAF_SERVICE_NW_NUM) {
--		u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
-+	u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
+-	if ((new_mtu < MAC_MIN_MTU) || (new_frm > MAC_MAX_MTU) ||
++	if ((new_mtu < MAC_MIN_MTU) || (new_frm > max_frm) ||
+ 	    (new_frm > HNS_RCB_RING_MAX_BD_PER_PKT * buf_size))
+ 		return -EINVAL;
  
--		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
--			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
-+	u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
-+		| (mac_addr[3] << 16) | (mac_addr[2] << 24);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index 68b01fe..a69c8af 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -26,6 +26,7 @@ struct dsaf_device;
  
--		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
--		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
-+	u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
-+	u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+ #define MAC_DEFAULT_MTU	(ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN + ETH_DATA_LEN)
+ #define MAC_MAX_MTU		9600
++#define MAC_MAX_MTU_V2		9728
+ #define MAC_MIN_MTU		68
  
--		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
--		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
--			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
--	}
-+	dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
-+	dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
-+		       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
- }
+ #define MAC_DEFAULT_PAUSE_TIME 0xff
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+index 811ef35..f2a7b8a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
+@@ -343,6 +343,9 @@ static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
+ 	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
+ 		hns_ppe_set_vlan_strip(ppe_cb, 0);
  
- static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
++		dsaf_write_dev(ppe_cb, PPE_CFG_MAX_FRAME_LEN_REG,
++			       HNS_PPEV2_MAX_FRAME_LEN);
++
+ 		/* set default RSS key in h/w */
+ 		hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
+index 0f5cb69..e9c0ec2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
+@@ -30,6 +30,8 @@
+ #define HNS_PPEV2_RSS_KEY_SIZE 40 /* in bytes or 320 bits */
+ #define HNS_PPEV2_RSS_KEY_NUM (HNS_PPEV2_RSS_KEY_SIZE / sizeof(u32))
+ 
++#define HNS_PPEV2_MAX_FRAME_LEN 0X980
++
+ enum ppe_qid_mode {
+ 	PPE_QID_MODE0 = 0, /* fixed queue id mode */
+ 	PPE_QID_MODE1,	   /* switch:128VM non switch:6Port/4VM/4TC */
 -- 
 1.9.1
