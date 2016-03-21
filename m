@@ -1,50 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/9] RFC6864 compliant GRO and GSO partial offload
-Date: Mon, 21 Mar 2016 14:50:14 -0400 (EDT)
-Message-ID: <20160321.145014.2053938894183716531.davem@davemloft.net>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Mon, 21 Mar 2016 15:30:56 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1603211527570.1708-100000@iolanthe.rowland.org>
+References: <1458586269.9609.14.camel@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ecree@solarflare.com, netdev@vger.kernel.org,
-	alexander.duyck@gmail.com, tom@herbertland.com
-To: aduyck@mirantis.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50772 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756517AbcCUT3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 15:29:46 -0400
-In-Reply-To: <20160318230945.14955.63211.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	Woojung Huh <woojung.huh@microchip.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	<linux-kernel@vger.kernel.org>, <linux-pm@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458586269.9609.14.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Fri, 18 Mar 2016 16:24:38 -0700
+On Mon, 21 Mar 2016, Oliver Neukum wrote:
 
-> This patch series addresses two things.
+> On Mon, 2016-03-21 at 14:24 -0400, Alan Stern wrote:
+> > On Mon, 21 Mar 2016, Oliver Neukum wrote:
+> > 
+> > > On Mon, 2016-03-21 at 10:57 -0400, Alan Stern wrote:
+> > > 
+> > > > One possible solution is to export a sysfs parameter to prevent 
+> > > > statistics collection (or more generally, to change the interval at 
+> > > > which it occurs).
+> > > 
+> > > Surely, not performing a task can hardly be beaten in terms of power
+> > > consumption. That is not meant to be flippant, but I think these
+> > > issues are orthogonal. The question of how much to do doesn't
+> > > solve the question of doing efficiently what we do.
+> > 
+> > In other words, what's the best way to collect the statistics without 
+> > interfering with runtime PM, right?
 > 
-> First it enables what I am calling RFC6864 compliant GRO.  Basically what
-> I am doing is allowing one of two patterns for incoming frames.  Either the
-> IP ID will increment, or if the DF bit is set it can either increment or
-> stay the same value.  This allows us to perform GRO if the IP ID is forced
-> to stay at a static value as may occur if we are replicating an IP header
-> instead of actually having it offloaded.
+> Yes.
 > 
-> The last 3 patches introduce what I am calling GSO partial.  The best way
-> to describe it is that it is a GSO offload in which the portion pointed to
-> by csum_start must be handled by the hardware, and the region before that
-> can be optionally handled.  So for example with i40e the only pieces it was
-> missing from the full offload was the checksum so this is computed in
-> software and the hardware will update inner and outer IP headers.  In the
-> example for ixgbe the hardware will only update the outer IP header.  The
-> outer UDP or GRE header and inner IP header are unmodified.
+> > If the device is suspended, presumably we know there's nothing to
+> > collect -- especially if we already collected the statistics at the
+> > time the device got suspended.  Hence my suggestion to avoid querying 
+> > the device while it is suspended.
+> 
+> That is perfectly alright if we just collect statistics.
+> As a generic mechanism it is bad. Think about the polling
+> for media detection.
 
-Conceptually I am completely fine with these changes.
+True.  Here I'm talking specifically about collecting statistics.  
+Media detection has its own requirements.
 
-> The one concern here is that if the outer IP header does not have
-> the DF bit set and does not update the IP ID field we run the risk
-> of causing all sorts of problems if the packet is fragmented in
-> flight.
+> > But this leaves open the issue that querying the device too often will 
+> > prevent it from going into autosuspend.  It seems to me that the best 
+> > way to deal with this is to make sure that the autosuspend timeout is 
+> > shorter than the interal between queries, not to make the querying 
+> > conditional on !runtime_auto.
+> [..]
+> > > If we know when the next activity will come, why not pass this
+> > > information down?
+> 
+> We have an autosuspend timeout because we think that IO, if it will
+> come at all, is likeliest to come soon. If, however, the IO is
+> periodic that heuristics is false.
+> To save most power the driver must either decide that the interval
+> is too short or suspend immediately. So if we are lucky enough
+> to have the frequency in the kernel, we should use that information.
 
-I think we absolutely cannot let such a packet be output from our
-stack.
+The autosuspend timeout is set by userspace.  The kernel may assign a 
+default value, but the user can always override it.  Given this, I 
+don't see how the kernel can use frequency information (and I'm not 
+sure where that information would come from in the first place).
+
+Alan Stern
