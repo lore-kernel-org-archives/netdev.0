@@ -1,70 +1,70 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 00/10] net: hns: bugs fixed for hns
-Date: Mon, 21 Mar 2016 19:06:31 +0800
-Message-ID: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: AP firmware for TI wl1251 wifi chip (wl1251-fw-ap.bin)
+Date: Mon, 21 Mar 2016 12:01:13 +0100
+Message-ID: <20160321110113.GG8413@pali>
+References: <201603200040.26045@pali>
+ <878u1cglu3.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
-	<salil.mehta@huawei.com>, <lisheng011@huawei.com>,
-	<lipeng321@huawei.com>, <liguozhu@huawei.com>, <arnd@arndb.de>,
-	<xieqianqian@huawei.com>, <andrew@lunn.ch>, <ivecera@redhat.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:20314 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753757AbcCUKsX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 06:48:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kev-l0cyMroinI0@public.gmane.org, "Andrew F. Davis" <afd-l0cyMroinI0@public.gmane.org>,
+	Guy Mishol <guym-l0cyMroinI0@public.gmane.org>, Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>,
+	Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	David Gnedt <david.gnedt-KfBRzk3UKwrZI3uBz1zZ2F6hYfS7NtTn@public.gmane.org>,
+	Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <878u1cglu3.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This series includes some bug fixes and updates for hns driver.
+On Monday 21 March 2016 12:35:32 Kalle Valo wrote:
+> Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>=20
+> > In linux-firmware repository [1] is missing AP firmware for TI wl12=
+51=20
+> > chip. There is only STA firmware wl1251-fw.bin which supports manag=
+ed=20
+> > and ad-hoc modes.
+> >
+> > For other TI wilink chips there are <CHIP>-ap.bin firmware files=20
+> > (wl1271-fw-ap.bin and wl128x-fw-ap.bin) which support AP mode. But =
+for=20
+> > wl1251 firmware file with guessed name "wl1251-fw-ap.bin" is missin=
+g.
+> >
+> > Do you have any idea what happened with AP firmware for ti wilink4=20
+> > wl1251 wifi chip? Or where can be found? Guys from TI, can you help=
+?
+>=20
+> It's a long time ago but IIRC wl1251 has not ever supported AP mode a=
+nd
+> wl1271 was the first one to support it. But I might be wrong of cours=
+e.
 
->from Daode, one fix about mss.
+Support for AP mode in current kernel driver wl1251.ko is missing, but =
+I
+could try to write it if there will be firmware for it.
 
->from Kejian, one fix about ping6 issue, one fix about mac address setting,
-two fix for RSS setting, two fix about mtu setting.
+According to some TI whitepaper about TI wilink4 devices (wl1251 and
+wl1253) those devices have support for some Soft-AP mode.
 
->from qianqian, fixed HNS v2 xge statistic reg issue.
-
->from Sheng, one fix about manage packets sending, one fix about GMACs mac
-setting.
-
-For more details, please see individual patches.
-
-Thanks a lot!
-
-Daode Huang (1):
-  net: hns: bug fix about the overflow of mss
-
-Kejian Yan (6):
-  net: hns: bug fix about ping6
-  net: hns: add uc match for debug ports
-  net: hns: fix return value of the function about rss
-  net: hns: fixes a bug of RSS
-  net: hns: fix the bug about mtu setting
-  net: hns: adds limitation for debug port mtu
-
-Qianqian Xie (1):
-  net: hns: set xge statistic reg as read only
-
-Sheng Li (2):
-  net: hns: fixed portid bug in sending manage pkt
-  net: hns: fixed the bug about GMACs mac setting
-
- drivers/net/ethernet/hisilicon/hns/hnae.h          |  3 ++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 12 +++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 40 +++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 18 +++++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  4 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  5 +--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  5 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 32 +++++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 42 ++++++++++++----------
- 11 files changed, 123 insertions(+), 42 deletions(-)
-
--- 
-1.9.1
+--=20
+Pali Roh=C3=A1r
+pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
