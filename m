@@ -1,76 +1,48 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: Re: [PATCH] net: add missing descriptions in net_device_priv_flags
-Date: Mon, 21 Mar 2016 21:01:34 +0000
-Message-ID: <56F0612E.20607@osg.samsung.com>
-References: <1458591608-1088-1-git-send-email-luisbg@osg.samsung.com> <20160321204158.GA6454@f1.synalogic.ca>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: RE: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Mon, 21 Mar 2016 17:02:30 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1603211701190.1708-100000@iolanthe.rowland.org>
+References: <9235D6609DB808459E95D78E17F2E43D404CC1EF@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160321204158.GA6454@f1.synalogic.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: oneukum-IBi9RG/b67k@public.gmane.org, <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	<UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404CC1EF-8fD0d2gESGrABDY0R+s2SH2Vsf1/G1/XQQ4Iyu8u01E@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 21/03/16 20:41, Benjamin Poirier wrote:
-> On 2016/03/21 20:20, Luis de Bethencourt wrote:
->> The flags IFF_XMIT_DST_RELEASE_PERM, IFF_IPVLAN_MASTER and
->> IFF_IPVLAN_SLAVE are missing descriptions for the Documentation. Adding
->> them.
->>
->> Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
->> ---
->> Hi,
->>
->> I also noticed this issue when running make htmldocs. Having better
->> documentation is great :)
->>
->> Thanks,
->> Luis
->>
->>  include/linux/netdevice.h | 3 +++
->>  1 file changed, 3 insertions(+)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index be693b3..db9ffe4 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -1320,6 +1320,9 @@ struct net_device_ops {
->>   * @IFF_LIVE_ADDR_CHANGE: device supports hardware address
->>   *	change when it's running
->>   * @IFF_MACVLAN: Macvlan device
->> + * @IFF_XMIT_DST_RELEASE_PERM: permanent IFF_XMIT_DST_RELEASE
-> 
-> I also noticed these kernel-doc warnings and had some patches queued for
-> them. May I suggest the following in this case:
-> 
->  * @IFF_XMIT_DST_RELEASE_PERM: IFF_XMIT_DST_RELEASE not taking into account
->  * 	underlying stacked devices
-> 
-> I presume that a patch for netdev ptype lists is forthcoming. Here's
-> what I had:
-> 
->  *	@ptype_all:     Device-specific packet handlers for all protocols
->  *	@ptype_specific: Device-specific, protocol-specific packet handlers
->
+On Mon, 21 Mar 2016 Woojung.Huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org wrote:
 
-Hi Benjamin,
+> > > > But this leaves open the issue that querying the device too often will
+> > > > prevent it from going into autosuspend.  It seems to me that the best
+> > > > way to deal with this is to make sure that the autosuspend timeout is
+> > > > shorter than the interal between queries, not to make the querying
+> > > > conditional on !runtime_auto.
+> > >
+> > > Short autosuspend timeout can affect performance. For instance our
+> > experiments showed that
+> > > shorter than 10sec timeout made Ethernet performance degrade because
+> > of wakeup delays.
+> > > So, just putting shorter timeout may have some side effects.
+> > 
+> > Sure.  This just means that you need a long statistics interval --
+> > longer than the autosuspend timeout.  That's why I suggested making the
+> > interval adjustable.
+> 
+> What do you mean statistics interval?
+> Interval calling ndo_get_stats64 or another thread/timer or else getting statistics?
 
-I was going to submit the fix for ptype_all and ptype_specific next, but your
-descriptions are better. You should do it instead or if you want me to, I can
-do it but amending you as the Author of the commit. Attribution where it is
-deserved.
+The time between calls to ndo_get_stats64, since that's the routine 
+which queries the device.
 
-Thanks for looking into this,
-Luis
- 
->> + * @IFF_IPVLAN_MASTER: IPvlan master device
->> + * @IFF_IPVLAN_SLAVE: IPvlan slave device
->>   * @IFF_L3MDEV_MASTER: device is an L3 master device
->>   * @IFF_NO_QUEUE: device can run without qdisc attached
->>   * @IFF_OPENVSWITCH: device is a Open vSwitch master
->> -- 
->> 2.5.1
->>
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
