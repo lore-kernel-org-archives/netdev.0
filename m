@@ -1,40 +1,35 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: RE: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
-Date: Mon, 21 Mar 2016 15:27:00 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1603211523370.1708-100000@iolanthe.rowland.org>
-References: <9235D6609DB808459E95D78E17F2E43D404CC166@CHN-SV-EXMX02.mchp-main.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] rtnetlink.7: add missing RTA_* attributes
+Date: Mon, 21 Mar 2016 12:04:49 -0700
+Message-ID: <20160321120449.42cd6f50@xeon-e3>
+References: <1458043587-5115-1-git-send-email-mq@ucw.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: oneukum@suse.com, <geert@linux-m68k.org>,
-	<UNGLinuxDriver@microchip.com>, <davem@davemloft.net>,
-	<linux@roeck-us.net>, <rjw@rjwysocki.net>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<linux-pm@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Woojung.Huh@microchip.com
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D404CC166@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages@gmail.com,
+	"Eric W . Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
+	linux-man@vger.kernel.org
+To: Jan Moskyto Matejka <mq@ucw.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35850 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757814AbcCUT2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 15:28:20 -0400
+Received: by mail-pf0-f172.google.com with SMTP id u190so277190347pfb.3
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 12:28:19 -0700 (PDT)
+In-Reply-To: <1458043587-5115-1-git-send-email-mq@ucw.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Mar 2016 Woojung.Huh@microchip.com wrote:
+On Tue, 15 Mar 2016 13:06:27 +0100
+Jan Moskyto Matejka <mq@ucw.cz> wrote:
 
-> > But this leaves open the issue that querying the device too often will
-> > prevent it from going into autosuspend.  It seems to me that the best
-> > way to deal with this is to make sure that the autosuspend timeout is
-> > shorter than the interal between queries, not to make the querying
-> > conditional on !runtime_auto.
+> Used Bird's source code, kernel source code, iproute2 source code and
+> iproute2 manpages to find meanings of these new attributes.
 > 
-> Short autosuspend timeout can affect performance. For instance our experiments showed that
-> shorter than 10sec timeout made Ethernet performance degrade because of wakeup delays.
-> So, just putting shorter timeout may have some side effects.
+> Signed-off-by: Jan Moskyto Matejka <mq@ucw.cz>
 
-Sure.  This just means that you need a long statistics interval --
-longer than the autosuspend timeout.  That's why I suggested making the
-interval adjustable.
-
-Alternatively, you could automatically set the statistics interval to
-the autosuspend timeout (or 0 if autosuspend is disabled) plus some
-fixed value.
-
-Alan Stern
-
+This is patch against linux man pages (not iproute2)
