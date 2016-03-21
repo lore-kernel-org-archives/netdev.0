@@ -1,104 +1,122 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
-Date: Mon, 21 Mar 2016 07:40:43 -0500
-Message-ID: <20160321124043.GA26873@rob-hp-laptop>
-References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
- <1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
- <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+From: Sebastian Frias <sf84@laposte.net>
+Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
+Date: Mon, 21 Mar 2016 13:48:45 +0100
+Message-ID: <56EFEDAD.9030903@laposte.net>
+References: <56E99727.9040702@laposte.net> <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net> <20160318191242.GQ4292@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-	Maxime Coquelin <mcoquelin.stm32@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev <netdev@vger.kernel.org>,
-	devicetree <devicetree@vger.kernel.org>,
-	Joachim Eastwood <manabian@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Chen-Yu Tsai <wens@csie.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mans Rullgard <mans@mansr.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: =?windows-1252?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, Daniel Mack <daniel@zonque.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+In-Reply-To: <20160318191242.GQ4292@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 19, 2016 at 12:00:22AM +0800, Chen-Yu Tsai wrote:
-> Hi,
-> 
-> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
-> <alexandre.torgue@gmail.com> wrote:
-> > Signed-off-by: Alexandre TORGUE <alexandre.torgue@gmail.com>
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/stm32-dwmac.txt b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
-> > new file mode 100644
-> > index 0000000..ada2aa4
-> > --- /dev/null
-> > +++ b/Documentation/devicetree/bindings/net/stm32-dwmac.txt
-> > @@ -0,0 +1,32 @@
-> > +STMicroelectronics STM32 / MCU DWMAC glue layer controller
-> > +
-> > +This file documents platform glue layer for stmmac.
-> > +Please see stmmac.txt for the other unchanged properties.
-> > +
-> > +The device node has following properties.
-> > +
-> > +Required properties:
-> > +- compatible:  Should be "st,stm32-dwmac" to select glue, and
-> > +              "snps,dwmac-3.50a" to select IP vesrion.
-> 
-> If you need have sort of hardware glue, then it is not compatible.
+Hi Uwe,
 
-Hence, the more specific compatible. Having the generic one is still 
-useful.
+On 03/18/2016 08:12 PM, Uwe Kleine-K=F6nig wrote:
+> Hello Sebastian,
+>=20
+> On Fri, Mar 18, 2016 at 04:56:21PM +0100, Sebastian Frias wrote:
+>> On 03/18/2016 01:54 PM, Uwe Kleine-K=F6nig wrote:
+>>> From a driver perspecitive, it would be nice if devm_gpiod_get_opti=
+onal
+>>> returned NULL iff the respective gpio isn't specified even with
+>>> GPIOLIB=3Dn, but this isn't sensible either because it would result=
+ in
+>>> quite some gpiolib code to not being conditionally compiled on
+>>> CONFIG_GPIOLIB any more.
+>>
+>> Let's say that was the case, what would the PHY code do?
+>=20
+> With reset gpios it might not be that critical, but consider an optio=
+nal
+> enable gpio. (Optional in the sense, that some device have it and oth=
+ers
+> don't, e.g. because the pin is pulled into active level by hardware.)
+>=20
+> Now you do:
+>=20
+> 	gpiod =3D gpiod_get_optional("enable");
+>=20
+> and if gpiod now is an error pointer, you must assume that you cannot
+> operate the device. And even with GPIOLIB=3Dn (and gpiod =3D ERR_PTR(=
+-ENOSYS))
+> you cannot ignore the error.=20
 
-> 
-> ChenYu
-> 
-> > +- clocks: Must contain a phandle for each entry in clock-names.
-> > +- clock-names: Should be "stmmaceth" for the host clock.
+Two things:
+- I suppose that in such hypothetical case the dependency on GPIOLIB
+would be required and thus be there
+- We'd also need to check that 'gpiod' is not NULL
 
-This doesn't sound like the clock input signal name...
+In the scenario at hand only some devices require a hack and
+gpiod_reset=3DNULL is valid (ie: device will not fail probing)
 
-> > +              Should be "tx-clk" for the MAC TX clock.
-> > +              Should be "rx-clk" for the MAC RX clock.
+>For consistency I'd recommend to do the
+> same for reset even though there is a chance to get a working device.
 
-How can other DWMAC blocks not have these clocks? The glue can't really 
-add these clocks. It could combine them into one or a new version of 
-DWMAC could have a different number of clock inputs. So if there is 
-variation here, then some of the bindings are probably wrong. I guess 
-the only change I'm suggesting is possibly moving these into common 
-binding doc.
+I'm not so sure, because then information would be lost, handling both
+("enable" and "reset") the same way aliases different intents and
+requirements.
+Indeed, only "enable" would be really mandatory, "reset" is essentially
+optional (only 1 of 3 devices of the family require the hack).
 
-> > +- st,syscon : Should be phandle/offset pair. The phandle to the syscon node which
-> > +             encompases the glue register, and the offset of the control register.
-> > +Example:
-> > +
-> > +               ethernet0: dwmac@40028000 {
+Besides, if "reset" was really mandatory, we would also fail the probe
+if the pointer for the reset GPIO is NULL.
+Indeed, even with GPIOLIB=3Dy the pointer can be NULL if the "reset" (o=
+r
+"enable" in your scenario) is not present.
+=46rom a functionality perspective, a NULL pointer for "reset" will res=
+ult
+in the same behaviour as GPIOLIB=3Dn, ie: not being able to reset the P=
+HY.
 
-ethernet@...
+So, the current code (your commit) and previous code (Daniel's commit)
+clearly points to "reset" being optional.
 
-> > +                       compatible = "st,stm32-dwmac", "snps,dwmac-3.50a";
-> > +                       status = "disabled";
-> > +                       reg = <0x40028000 0x8000>;
-> > +                       reg-names = "stmmaceth";
-> > +                       interrupts = <0 61 0>, <0 62 0>;
-> > +                       interrupt-names = "macirq", "eth_wake_irq";
-> > +                       clock-names = "stmmaceth", "tx-clk", "rx-clk";
-> > +                       clocks = <&rcc 0 25>, <&rcc 0 26>, <&rcc 0 27>;
-> > +                       st,syscon = <&syscfg 0x4>;
-> > +                       snps,pbl = <8>;
-> > +                       snps,mixed-burst;
-> > +                       dma-ranges;
-> > +               };
-> > --
-> > 1.9.1
-> >
-> >
-> > _______________________________________________
-> > linux-arm-kernel mailing list
-> > linux-arm-kernel@lists.infradead.org
-> > http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=46urthermore, I think we should not even register the
+"link_change_notify" callback when dealing with AT803x PHYs that do not
+require the hack.
+Another solution (considering the callback is statically registered in
+the "phy_driver" structs for all AT803x PHYs) would be for the callback
+to disable itself.
+Once it detects that the PHY does not require the hack, it could just
+perform:
+
+    phydev->drv->link_change_notify =3D NULL;
+
+or call a new generic function to do the same if encapsulation is requi=
+red.
+
+If everybody agrees I can make such change as well, but I really think
+Daniel should give his opinion first.
+
+>=20
+>> What would you think of making at803x_link_change_notify() print a
+>> message every time it should do a reset but does not has a way to do=
+ it?
+>=20
+> Then this question is obsolete because the device doesn't probe.
+
+I think you assume that "reset" is mandatory for all AT803x devices, bu=
+t
+that's not what the code says.
+
+As such, my proposal was to:
+- keep my proposed patch
+- make another patch to print a warning when gpiod_reset is NULL (which
+can happen, even without my patch)
+
+What do you think?
+
+Best regards,
+
+Sebastian
