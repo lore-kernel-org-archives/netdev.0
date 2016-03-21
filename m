@@ -1,49 +1,81 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: [PATCH] net: add description for len argument of dev_get_phys_port_name
-Date: Mon, 21 Mar 2016 16:31:14 +0000
-Message-ID: <1458577874-28384-1-git-send-email-luisbg@osg.samsung.com>
-Cc: davem@davemloft.net, edumazet@google.com, jiri@mellanox.com,
-	ast@plumgrid.com, daniel@iogearbox.net, jarod@redhat.com,
-	tom@herbertland.com, makita.toshiaki@lab.ntt.co.jp, ja@ssi.bg,
-	netdev@vger.kernel.org,
-	Luis de Bethencourt <luisbg@osg.samsung.com>
-To: linux-kernel@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net] vxlan: fix sparse warnings
+Date: Mon, 21 Mar 2016 17:39:18 +0100
+Message-ID: <c100b5ed75967714ab32287f37d250b729753282.1458578309.git.jbenc@redhat.com>
+Cc: kbuild test robot <fengguang.wu@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:55188 "EHLO lists.s-osg.org"
+Received: from mx1.redhat.com ([209.132.183.28]:37058 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751113AbcCUQbi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Mar 2016 12:31:38 -0400
+	id S1755825AbcCUQjd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Mar 2016 12:39:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the function dev_get_phys_port_name was added it missed a description
-for it's len argument. Adding it.
+Sparse reports false positives for the header manipulation inlines. Annotate
+them correctly.
 
-Fixes: db24a9044ee1 ("net: add support for phys_port_name")
-Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+Tested by sparse on a little endian and big endian machine.
+
+Fixes: 54bfd872bf16d ("vxlan: keep flags and vni in network byte order")
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
-Hi,
+As a side note, I tried to simplify all of these functions by using nested
+be32_to_cpu(cpu_to_be32()) calls but GCC seems not to be clever enough to
+optimize the byteswaps out.
+---
+ include/net/vxlan.h | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Noticed this when running make htmldocs. It gives the following warning:
-.//net/core/dev.c:6453: warning: No description found for parameter 'len'
-
-Thanks,
-Luis
-
- net/core/dev.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 43c74ca..b9bcbe7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6445,6 +6445,7 @@ EXPORT_SYMBOL(dev_get_phys_port_id);
-  *	dev_get_phys_port_name - Get device physical port name
-  *	@dev: device
-  *	@name: port name
-+ *	@len: limit of bytes to copy to name
-  *
-  *	Get device physical port name
-  */
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index a763c96ecde4..73ed2e951c02 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -271,36 +271,36 @@ static inline struct vxlanhdr *vxlan_hdr(struct sk_buff *skb)
+ static inline __be32 vxlan_vni(__be32 vni_field)
+ {
+ #if defined(__BIG_ENDIAN)
+-	return vni_field >> 8;
++	return (__force __be32)((__force u32)vni_field >> 8);
+ #else
+-	return (vni_field & VXLAN_VNI_MASK) << 8;
++	return (__force __be32)((__force u32)(vni_field & VXLAN_VNI_MASK) << 8);
+ #endif
+ }
+ 
+ static inline __be32 vxlan_vni_field(__be32 vni)
+ {
+ #if defined(__BIG_ENDIAN)
+-	return vni << 8;
++	return (__force __be32)((__force u32)vni << 8);
+ #else
+-	return vni >> 8;
++	return (__force __be32)((__force u32)vni >> 8);
+ #endif
+ }
+ 
+ static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
+ {
+ #if defined(__BIG_ENDIAN)
+-	return tun_id;
++	return (__force __be32)tun_id;
+ #else
+-	return tun_id >> 32;
++	return (__force __be32)((__force u64)tun_id >> 32);
+ #endif
+ }
+ 
+ static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
+ {
+ #if defined(__BIG_ENDIAN)
+-	return (__be64)vni;
++	return (__force __be64)vni;
+ #else
+-	return (__be64)vni << 32;
++	return (__force __be64)((u64)(__force u32)vni << 32);
+ #endif
+ }
+ 
 -- 
-2.6.4
+1.8.3.1
