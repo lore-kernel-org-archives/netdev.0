@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 07/10] net: hns: fixes a bug of RSS
-Date: Tue, 22 Mar 2016 16:06:28 +0800
-Message-ID: <1458633991-64313-8-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH V2 net 04/10] net: hns: fixed the bug about GMACs mac setting
+Date: Tue, 22 Mar 2016 16:06:25 +0800
+Message-ID: <1458633991-64313-5-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,80 +17,51 @@ In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Sheng Li <lisheng011@huawei.com>
 
-If trying to get receive flow hash indirection table by ethtool, it needs
-to call .get_rxnfc to get ring number first. So this patch implements the
-.get_rxnfc of ethtool. And the data type of rss_indir_table is u32, it has
-to be multiply by the width of data type when using memcpy.
+When sending a pause frame out from GMACs, the packets' source MAC address
+does not match the GMACs' MAC address. It causes by the condition before
+the mac address setting routine for GMACs, the mac address cannot be set
+into loacal mac table for service ports. It obviously the condition needs
+to be deleted.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  6 ++++--
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 18 ++++++++++++++++++
- 2 files changed, 22 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index 648b31a..285c893 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -791,7 +791,8 @@ static int hns_ae_get_rss(struct hnae_handle *handle, u32 *indir, u8 *key,
- 		memcpy(key, ppe_cb->rss_key, HNS_PPEV2_RSS_KEY_SIZE);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+index b8cf0e4..6e2b76e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+@@ -422,19 +422,17 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
+ {
+ 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
  
- 	/* update the current hash->queue mappings from the shadow RSS table */
--	memcpy(indir, ppe_cb->rss_indir_table, HNS_PPEV2_RSS_IND_TBL_SIZE);
-+	memcpy(indir, ppe_cb->rss_indir_table,
-+	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
+-	if (drv->mac_id >= DSAF_SERVICE_NW_NUM) {
+-		u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
++	u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
  
- 	return 0;
+-		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
+-			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
++	u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
++		| (mac_addr[3] << 16) | (mac_addr[2] << 24);
+ 
+-		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
+-		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
++	u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
++	u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
+ 
+-		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
+-		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
+-			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
+-	}
++	dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
++	dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
++		       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
  }
-@@ -806,7 +807,8 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
- 		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
  
- 	/* update the shadow RSS table with user specified qids */
--	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
-+	memcpy(ppe_cb->rss_indir_table, indir,
-+	       HNS_PPEV2_RSS_IND_TBL_SIZE * sizeof(*indir));
- 
- 	/* now update the hardware */
- 	hns_ppe_set_indir_table(ppe_cb, ppe_cb->rss_indir_table);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 2229905..9c3ba65 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1245,6 +1245,23 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- 	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
- }
- 
-+static int hns_get_rxnfc(struct net_device *netdev,
-+			 struct ethtool_rxnfc *cmd,
-+			 u32 *rule_locs)
-+{
-+	struct hns_nic_priv *priv = netdev_priv(netdev);
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = priv->ae_handle->q_num;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
- static struct ethtool_ops hns_ethtool_ops = {
- 	.get_drvinfo = hns_nic_get_drvinfo,
- 	.get_link  = hns_nic_get_link,
-@@ -1268,6 +1285,7 @@ static struct ethtool_ops hns_ethtool_ops = {
- 	.get_rxfh_indir_size = hns_get_rss_indir_size,
- 	.get_rxfh = hns_get_rss,
- 	.set_rxfh = hns_set_rss,
-+	.get_rxnfc = hns_get_rxnfc,
- };
- 
- void hns_ethtool_set_ops(struct net_device *ndev)
+ static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
 -- 
 1.9.1
