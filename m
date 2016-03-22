@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 03/10] net: hns: add uc match for debug ports
-Date: Tue, 22 Mar 2016 16:06:24 +0800
-Message-ID: <1458633991-64313-4-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH V2 net 02/10] net: hns: fixed portid bug in sending manage pkt
+Date: Tue, 22 Mar 2016 16:06:23 +0800
+Message-ID: <1458633991-64313-3-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,161 +17,76 @@ In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Sheng Li <lisheng011@huawei.com>
 
-Debug ports receives lots of packets with dest mac addr does not match
-local mac addr, because the filter is close, and it does not drop the
-useless packets. This patch adds ON/OFF switch of filtering the packets
-whose dest mac addr do not match the local addr in  mac table. And the
-switch is ON in initialization.
+In chip V2, the default value of port id in tx BD is Zero. If it is not
+configurated to the other value, all management packets will be sent out
+from port0. So port_id in the tx BD needs to be updated when sending a
+management packet.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Signed-off-by: Peng Li <lipeng321@huawei.com>
+In V2 chip, when sending mamagement packets, the driver should
+config the port id to BD descs.
+
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
-change log:
- PATCH v2:
-  - fix the comments like unnecessary casts
+ drivers/net/ethernet/hisilicon/hns/hnae.h         | 3 +++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c | 1 +
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c     | 6 +++++-
+ 3 files changed, 9 insertions(+), 1 deletion(-)
 
- PATCH v1:
-  - first submit
-
-  Link: https://lkml.org/lkml/2016/3/21/224
----
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  3 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 28 +++++++++++++++++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  8 +++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  4 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
- 5 files changed, 43 insertions(+), 2 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 1cbcb9f..37d0cce 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -147,6 +147,8 @@ enum hnae_led_state {
+ 
+ #define HNSV2_TXD_BUFNUM_S 0
+ #define HNSV2_TXD_BUFNUM_M (0x7 << HNSV2_TXD_BUFNUM_S)
++#define HNSV2_TXD_PORTID_S	4
++#define HNSV2_TXD_PORTID_M	(0X7 << HNSV2_TXD_PORTID_S)
+ #define HNSV2_TXD_RI_B   1
+ #define HNSV2_TXD_L4CS_B   2
+ #define HNSV2_TXD_L3CS_B   3
+@@ -516,6 +518,7 @@ struct hnae_handle {
+ 	int q_num;
+ 	int vf_id;
+ 	u32 eport_id;
++	u32 dport_id;	/* v2 tx bd should fill the dport_id */
+ 	enum hnae_port_type port_type;
+ 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
+ 	struct hnae_buf_ops *bops; /* operation for the buffer */
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index 90352d6..a7427b8 100644
+index d4f92ed..90352d6 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -420,7 +420,10 @@ static int hns_ae_set_autoneg(struct hnae_handle *handle, u8 enable)
+@@ -175,6 +175,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
++	ae_handle->dport_id = port_idx;
  
- static void hns_ae_set_promisc_mode(struct hnae_handle *handle, u32 en)
- {
-+	struct hns_mac_cb *mac_cb = hns_get_mac_cb(handle);
-+
- 	hns_dsaf_set_promisc_mode(hns_ae_get_dsaf_dev(handle->dev), en);
-+	hns_mac_set_promisc(mac_cb, (u8)!!en);
- }
+ 	return ae_handle;
+ vf_id_err:
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index ef84bd7..ef517af 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -66,10 +66,14 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	desc->addr = cpu_to_le64(dma);
+ 	desc->tx.send_size = cpu_to_le16((u16)size);
  
- static int hns_ae_get_autoneg(struct hnae_handle *handle)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index b8517b0..b8cf0e4 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -290,6 +290,24 @@ static int hns_gmac_adjust_link(void *mac_drv, enum mac_speed speed,
- 	return 0;
- }
+-	/*config bd buffer end */
++	/* config bd buffer end */
+ 	hnae_set_bit(rrcfv, HNSV2_TXD_VLD_B, 1);
+ 	hnae_set_field(bn_pid, HNSV2_TXD_BUFNUM_M, 0, buf_num - 1);
  
-+static void hns_gmac_set_uc_match(void *mac_drv, u16 en)
-+{
-+	struct mac_driver *drv = mac_drv;
++	/* fill port_id in the tx bd for sending management pkts */
++	hnae_set_field(bn_pid, HNSV2_TXD_PORTID_M,
++		       HNSV2_TXD_PORTID_S, ring->q->handle->dport_id);
 +
-+	dsaf_set_dev_bit(drv, GMAC_REC_FILT_CONTROL_REG,
-+			 GMAC_UC_MATCH_EN_B, !en);
-+	dsaf_set_dev_bit(drv, GMAC_STATION_ADDR_HIGH_2_REG,
-+			 GMAC_ADDR_EN_B, !en);
-+}
-+
-+static void hns_gmac_set_promisc(void *mac_drv, u8 en)
-+{
-+	struct mac_driver *drv = mac_drv;
-+
-+	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
-+		hns_gmac_set_uc_match(mac_drv, en);
-+}
-+
- static void hns_gmac_init(void *mac_drv)
- {
- 	u32 port;
-@@ -305,6 +323,8 @@ static void hns_gmac_init(void *mac_drv)
- 	mdelay(10);
- 	hns_gmac_disable(mac_drv, MAC_COMM_MODE_RX_AND_TX);
- 	hns_gmac_tx_loop_pkt_dis(mac_drv);
-+	if (drv->mac_cb->mac_type == HNAE_PORT_DEBUG)
-+		hns_gmac_set_uc_match(mac_drv, 0);
- }
+ 	if (type == DESC_TYPE_SKB) {
+ 		skb = (struct sk_buff *)priv;
  
- void hns_gmac_update_stats(void *mac_drv)
-@@ -407,8 +427,13 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
- 
- 		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
- 			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
-+
-+		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
-+		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
-+
- 		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
--		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG, high_val);
-+		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
-+			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
- 	}
- }
- 
-@@ -699,6 +724,7 @@ void *hns_gmac_config(struct hns_mac_cb *mac_cb, struct mac_params *mac_param)
- 	mac_drv->get_sset_count = hns_gmac_get_sset_count;
- 	mac_drv->get_strings = hns_gmac_get_strings;
- 	mac_drv->update_stats = hns_gmac_update_stats;
-+	mac_drv->set_promiscuous = hns_gmac_set_promisc;
- 
- 	return (void *)mac_drv;
- }
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 5ef0e96..138737d 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -861,6 +861,14 @@ int hns_mac_get_sset_count(struct hns_mac_cb *mac_cb, int stringset)
- 	return mac_ctrl_drv->get_sset_count(stringset);
- }
- 
-+void hns_mac_set_promisc(struct hns_mac_cb *mac_cb, u8 en)
-+{
-+	struct mac_driver *mac_ctrl_drv = hns_mac_get_drv(mac_cb);
-+
-+	if (mac_ctrl_drv->set_promiscuous)
-+		mac_ctrl_drv->set_promiscuous(mac_ctrl_drv, en);
-+}
-+
- int hns_mac_get_regs_count(struct hns_mac_cb *mac_cb)
- {
- 	struct mac_driver *mac_ctrl_drv = hns_mac_get_drv(mac_cb);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 0b05219..0f60968 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -365,7 +365,7 @@ struct mac_driver {
- 	/*config rx pause enable*/
- 	void (*set_rx_ignore_pause_frames)(void *mac_drv, u32 enable);
- 	/* config rx mode for promiscuous*/
--	int (*set_promiscuous)(void *mac_drv, u8 enable);
-+	void (*set_promiscuous)(void *mac_drv, u8 enable);
- 	/* get mac id */
- 	void (*mac_get_id)(void *mac_drv, u8 *mac_id);
- 	void (*mac_pausefrm_cfg)(void *mac_drv, u32 rx_en, u32 tx_en);
-@@ -453,4 +453,6 @@ int hns_mac_get_regs_count(struct hns_mac_cb *mac_cb);
- void hns_set_led_opt(struct hns_mac_cb *mac_cb);
- int hns_cpld_led_set_id(struct hns_mac_cb *mac_cb,
- 			enum hnae_led_state status);
-+void hns_mac_set_promisc(struct hns_mac_cb *mac_cb, u8 en);
-+
- #endif /* _HNS_DSAF_MAC_H */
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 60d695d..bf62687 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -922,6 +922,8 @@
- #define GMAC_LP_REG_CF2MI_LP_EN_B	2
- 
- #define GMAC_MODE_CHANGE_EB_B	0
-+#define GMAC_UC_MATCH_EN_B	0
-+#define GMAC_ADDR_EN_B		16
- 
- #define GMAC_RECV_CTRL_STRIP_PAD_EN_B	3
- #define GMAC_RECV_CTRL_RUNT_PKT_EN_B	4
 -- 
 1.9.1
