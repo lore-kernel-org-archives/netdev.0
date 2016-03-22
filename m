@@ -1,167 +1,76 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/7] color: introduce color helpers and COLOR_CLEAR
-Date: Tue, 22 Mar 2016 19:35:13 +0100
-Message-ID: <1458671719-14361-2-git-send-email-phil@nwl.cc>
-References: <1458671719-14361-1-git-send-email-phil@nwl.cc>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling
+ fib_lookup()
+Date: Tue, 22 Mar 2016 14:41:48 -0400 (EDT)
+Message-ID: <950377980.72657238.1458672108040.JavaMail.zimbra@redhat.com>
+References: <1458660679-7279-1-git-send-email-lrichard@redhat.com> <56F18EEE.4070000@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53853 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751364AbcCVSgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 14:36:16 -0400
-In-Reply-To: <1458671719-14361-1-git-send-email-phil@nwl.cc>
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:53449 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750728AbcCVSlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 14:41:50 -0400
+In-Reply-To: <56F18EEE.4070000@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds two helper functions which map a given data field to a color,
-so color_fprintf() statements don't have to be duplicated with only a
-different color value depending on that data field's value. In order for
-this to work in a generic way, COLOR_CLEAR has been added to serve as a
-fallback default of uncolored output.
+----- Original Message -----
+> From: "David Ahern" <dsa@cumulusnetworks.com>
+> To: "Lance Richardson" <lrichard@redhat.com>, netdev@vger.kernel.org
+> Sent: Tuesday, March 22, 2016 2:29:02 PM
+> Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling fib_lookup()
+> 
+> On 3/22/16 9:31 AM, Lance Richardson wrote:
+> > Field fl4.flowi4_flags is not initialized in fib_compute_spec_dst()
+> > before calling fib_lookup(), which means fib_table_lookup() is
+> > using non-deterministic data at this line:
+> >
+> > 	if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
+> >
+> > Fix by initializing fl4.flowi4_flags to zero.
+> >
+> > Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> > ---
+> >   net/ipv4/fib_frontend.c | 1 +
+> >   1 file changed, 1 insertion(+)
+> >
+> > diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> > index 21add55..896844a 100644
+> > --- a/net/ipv4/fib_frontend.c
+> > +++ b/net/ipv4/fib_frontend.c
+> > @@ -304,6 +304,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
+> >   		fl4.flowi4_scope = scope;
+> >   		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
+> >   		fl4.flowi4_tun_key.tun_id = 0;
+> > +		fl4.flowi4_flags = 0;
+> >   		if (!fib_lookup(net, &fl4, &res, 0))
+> >   			return FIB_RES_PREFSRC(net, res);
+> >   	} else {
+> >
+> 
+> Fixes: 58189ca7b2741 ("net: Fix vti use case with oif in dst lookups")
+> 
+> I think a more robust solution is to move fl4 to this if case and init
+> when it is declared:
+> 
+> 	struct flowi4 fl4 = {
+> 		.flowi4_iif = LOOPBACK_IFINDEX,
+> 		.daddr = ip_hdr(skb)->saddr,
+> 		.flowi4_tos = RT_TOS(ip_hdr(skb)->tos),
+> 		.flowi4_scope = scope,
+> 		.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0,
+> 	};
+> 
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- include/color.h |  5 ++++-
- ip/ipaddress.c  | 47 +++++++++++++----------------------------------
- lib/color.c     | 30 +++++++++++++++++++++++++++++-
- 3 files changed, 46 insertions(+), 36 deletions(-)
+Agreed... I actually debated doing something similar but opted for the
+smaller delta.
 
-diff --git a/include/color.h b/include/color.h
-index b85003aed19f8..c1c29831159af 100644
---- a/include/color.h
-+++ b/include/color.h
-@@ -7,10 +7,13 @@ enum color_attr {
- 	COLOR_INET,
- 	COLOR_INET6,
- 	COLOR_OPERSTATE_UP,
--	COLOR_OPERSTATE_DOWN
-+	COLOR_OPERSTATE_DOWN,
-+	COLOR_CLEAR
- };
- 
- void enable_color(void);
- int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...);
-+enum color_attr ifa_family_color(__u8 ifa_family);
-+enum color_attr oper_state_color(__u8 state);
- 
- #endif
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index f8c5029400949..7aab8e781eae8 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -135,25 +135,15 @@ static const char *oper_states[] = {
- 
- static void print_operstate(FILE *f, __u8 state)
- {
--	if (state >= ARRAY_SIZE(oper_states))
-+	if (state >= ARRAY_SIZE(oper_states)) {
- 		fprintf(f, "state %#x ", state);
--	else {
--		if (brief) {
--			if (strcmp(oper_states[state], "UP") == 0)
--				color_fprintf(f, COLOR_OPERSTATE_UP, "%-14s ", oper_states[state]);
--			else if (strcmp(oper_states[state], "DOWN") == 0)
--				color_fprintf(f, COLOR_OPERSTATE_DOWN, "%-14s ", oper_states[state]);
--			else
--				fprintf(f, "%-14s ", oper_states[state]);
--		} else {
--			fprintf(f, "state ");
--			if (strcmp(oper_states[state], "UP") == 0)
--				color_fprintf(f, COLOR_OPERSTATE_UP, "%s ", oper_states[state]);
--			else if (strcmp(oper_states[state], "DOWN") == 0)
--				color_fprintf(f, COLOR_OPERSTATE_DOWN, "%s ", oper_states[state]);
--			else
--				fprintf(f, "%s ", oper_states[state]);
--		}
-+	} else if (brief) {
-+		color_fprintf(f, oper_state_color(state),
-+		              "%-14s ", oper_states[state]);
-+	} else {
-+		fprintf(f, "state ");
-+		color_fprintf(f, oper_state_color(state),
-+		              "%s ", oper_states[state]);
- 	}
- }
- 
-@@ -1067,22 +1057,11 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 	}
- 
- 	if (rta_tb[IFA_LOCAL]) {
--		if (ifa->ifa_family == AF_INET)
--			color_fprintf(fp, COLOR_INET, "%s", format_host(ifa->ifa_family,
--						RTA_PAYLOAD(rta_tb[IFA_LOCAL]),
--						RTA_DATA(rta_tb[IFA_LOCAL]),
--						abuf, sizeof(abuf)));
--		else if (ifa->ifa_family == AF_INET6)
--			color_fprintf(fp, COLOR_INET6, "%s", format_host(ifa->ifa_family,
--						RTA_PAYLOAD(rta_tb[IFA_LOCAL]),
--						RTA_DATA(rta_tb[IFA_LOCAL]),
--						abuf, sizeof(abuf)));
--		else
--			fprintf(fp, "%s", format_host(ifa->ifa_family,
--						RTA_PAYLOAD(rta_tb[IFA_LOCAL]),
--						RTA_DATA(rta_tb[IFA_LOCAL]),
--						abuf, sizeof(abuf)));
--
-+		color_fprintf(fp, ifa_family_color(ifa->ifa_family), "%s",
-+		              format_host(ifa->ifa_family,
-+		                          RTA_PAYLOAD(rta_tb[IFA_LOCAL]),
-+		                          RTA_DATA(rta_tb[IFA_LOCAL]),
-+		                          abuf, sizeof(abuf)));
- 		if (rta_tb[IFA_ADDRESS] == NULL ||
- 		    memcmp(RTA_DATA(rta_tb[IFA_ADDRESS]), RTA_DATA(rta_tb[IFA_LOCAL]),
- 			   ifa->ifa_family == AF_INET ? 4 : 16) == 0) {
-diff --git a/lib/color.c b/lib/color.c
-index 8c9a48ba702bf..95596be236a05 100644
---- a/lib/color.c
-+++ b/lib/color.c
-@@ -1,5 +1,8 @@
- #include <stdio.h>
- #include <stdarg.h>
-+#include <sys/socket.h>
-+#include <sys/types.h>
-+#include <linux/if.h>
- 
- #include "color.h"
- 
-@@ -32,7 +35,8 @@ static enum color attr_colors[] = {
- 	C_MAGENTA,
- 	C_BLUE,
- 	C_GREEN,
--	C_RED
-+	C_RED,
-+	C_CLEAR
- };
- 
- static int color_is_enabled;
-@@ -62,3 +66,27 @@ end:
- 	va_end(args);
- 	return ret;
- }
-+
-+enum color_attr ifa_family_color(__u8 ifa_family)
-+{
-+	switch (ifa_family) {
-+	case AF_INET:
-+		return COLOR_INET;
-+	case AF_INET6:
-+		return COLOR_INET6;
-+	default:
-+		return COLOR_CLEAR;
-+	}
-+}
-+
-+enum color_attr oper_state_color(__u8 state)
-+{
-+	switch (state) {
-+	case IF_OPER_UP:
-+		return COLOR_OPERSTATE_UP;
-+	case IF_OPER_DOWN:
-+		return COLOR_OPERSTATE_DOWN;
-+	default:
-+		return COLOR_CLEAR;
-+	}
-+}
--- 
-2.7.2
+v2 coming up.
+
+Thanks for the review,
+
+   Lance
