@@ -1,68 +1,66 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 4/8] man: tc-mirred.8: Reword man page a bit, add generic mirror example
-Date: Tue, 22 Mar 2016 15:48:35 +0100
-Message-ID: <1458658119-25881-5-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 1/8] doc/tc-filters.tex: Drop overly subjective paragraphs
+Date: Tue, 22 Mar 2016 15:48:32 +0100
+Message-ID: <1458658119-25881-2-git-send-email-phil@nwl.cc>
 References: <1458658119-25881-1-git-send-email-phil@nwl.cc>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:38664 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:60478 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758872AbcCVOtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:49:23 -0400
+	id S1752213AbcCVOtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 10:49:35 -0400
 In-Reply-To: <1458658119-25881-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-mirred.8 | 26 +++++++++++++++++++-------
- 1 file changed, 19 insertions(+), 7 deletions(-)
+ doc/tc-filters.tex | 23 ++++-------------------
+ 1 file changed, 4 insertions(+), 19 deletions(-)
 
-diff --git a/man/man8/tc-mirred.8 b/man/man8/tc-mirred.8
-index 52d98bc416563..bba96e0e5d8c0 100644
---- a/man/man8/tc-mirred.8
-+++ b/man/man8/tc-mirred.8
-@@ -21,11 +21,9 @@ mirred - mirror/redirect action
- .SH DESCRIPTION
- The
- .B mirred
--action allows to redirect or mirror packets to another network interface on the
--same system. It is typically used in combination with the
--.B ifb
--pseudo device to create a shrared instance where QoS happens, but serves well
--for debugging or monitoring purposes, too.
-+action allows packet mirroring (copying) or redirecting (stealing) the packet it
-+receives. Mirroring is what is sometimes referred to as Switch Port Analyzer
-+(SPAN) and is commonly used to analyze and/or debug flows.
- .SH OPTIONS
- .TP
- .B ingress
-@@ -67,9 +65,23 @@ debugging purposes:
- .EE
- .RE
+diff --git a/doc/tc-filters.tex b/doc/tc-filters.tex
+index 59127d6672ed7..54cc0c9920ce2 100644
+--- a/doc/tc-filters.tex
++++ b/doc/tc-filters.tex
+@@ -18,10 +18,6 @@
+ \date{January 2016}
+ \maketitle
  
--Use an
-+Mirror all incoming ICMP packets on eth0 to a dummy interface for examination
-+with e.g. tcpdump:
-+
-+.RS
-+.EX
-+# ip link add dummy0 type dummy
-+# ip link set dummy0 up
-+# tc qdisc add dev eth0 handle ffff: ingress
-+# tc filter add dev eth0 parent ffff: protocol ip \\
-+	u32 match ip protocol 1 0xff \\
-+	action mirred egress mirror dev dummy0
-+.EE
-+.RE
-+
-+Using an
- .B ifb
--interface to send ingress traffic on eth0 through an instance of
-+interface, it is possible to send ingress traffic through an instance of
- .BR sfq :
+-TC, the Traffic Control utility, has been there for a very long time - forever
+-in my humble perception. It is still (and has ever been if I'm not mistaken) the
+-only tool to configure QoS in Linux.
+-
+ Standard practice when transmitting packets over a medium which may block (due
+ to congestion, e.g.) is to use a queue which temporarily holds these packets. In
+ Linux, this queueing approach is where QoS happens: A Queueing Discipline
+@@ -496,21 +492,10 @@ kernel itself doesn't.
  
- .RS
+ \section*{Conclusion}
+ 
+-My personal impression is that although the \cmd{tc} utility is an absolute
+-necessity for anyone aiming at doing QoS in Linux professionally, there are way
+-too many loose ends and trip wires present in it's environment. Contributing to
+-this is the fact, that much of the non-essential functionality is redundantly
+-available in netfilter. Another problem which adds weight to the first one is a
+-general lack of documentation. Of course, there are many HOWTOs and guides in
+-the internet, but since it's often not clear how up to date these are, I prefer
+-the usual resources such as man or info pages. Surely nothing one couldn't fix
+-in hindsight, but quality certainly suffers if the original author of the code
+-does not or can not contribute to that.
+-
+-All that being said, once the steep learning curve has been mastered, the
+-conglomerate of (classful) qdiscs, filters and actions provides a highly
+-sophisticated and flexible infrastructure to perform QoS, which plays nicely
+-along with routing and firewalling setups.
++Once the steep learning curve has been mastered, the conglomerate of (classful)
++qdiscs, filters and actions provides a highly sophisticated and flexible
++infrastructure to perform QoS, which plays nicely along with routing and
++firewalling setups.
+ 
+ 
+ \section*{Further Reading}
 -- 
 2.7.2
