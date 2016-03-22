@@ -1,65 +1,49 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH net-next 1/3] net: add the AF_KCM entries to family name
- tables
-Date: Tue, 22 Mar 2016 01:39:26 +0000
-Message-ID: <BLUPR03MB1410742BFEB22EA3EE2E013EBF800@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <1458553869-26756-1-git-send-email-decui@microsoft.com>
- <20160321.112742.1737417108964275737.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND] net: ipv4: Fix truncated timestamp returned by
+ inet_current_timestamp()
+Date: Mon, 21 Mar 2016 22:57:49 -0400 (EDT)
+Message-ID: <20160321.225749.1021493391392469038.davem@davemloft.net>
+References: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"vkuznets@redhat.com" <vkuznets@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
+	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	kaber@trash.net, arnd@arndb.de
+To: deepa.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0130.outbound.protection.outlook.com ([65.55.169.130]:40378
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758147AbcCVBj3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 21:39:29 -0400
-In-Reply-To: <20160321.112742.1737417108964275737.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:57187 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757947AbcCVC54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 22:57:56 -0400
+In-Reply-To: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, March 21, 2016 23:28
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com; KY Srinivasan
-> <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
-> vkuznets@redhat.com
-> Subject: Re: [PATCH net-next 1/3] net: add the AF_KCM entries to family
-> name tables
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Date: Mon, 21 Mar 2016 18:21:26 -0700
+
+> The millisecond timestamps returned by the function is
+> converted to network byte order by making a call to htons().
+> htons() only returns __be16 while __be32 is required here.
 > 
+> This was identified by the sparse warning from the buildbot:
+> net/ipv4/af_inet.c:1405:16: sparse: incorrect type in return
+> 			    expression (different base types)
+> net/ipv4/af_inet.c:1405:16: expected restricted __be32
+> net/ipv4/af_inet.c:1405:16: got restricted __be16 [usertype] <noident>
 > 
-> Two things wrong with this submission:
+> Change the function to use htonl() to return the correct __be32 type
+> instead so that the millisecond value doesn't get truncated.
 > 
-> 1) You need to provide an initial "[PATCH net-next 0/3] ..." header posting
->    explaining at a high level what this patch series is about and how it is
->    implemented and why.
+> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 822c868532ca ("net: ipv4: Convert IP network timestamps to be y2038 safe")
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
 
-Hi David,
-Thanks for the reply! I'll fix this.
-
-> 2) The net-next tree is closed at this time because we are in the merge
-> window,
->    therefore no new feature patches should be submitted to the netdev
-> mailing
->    list at this time.  Please wait until some (reasonable) amount of time after
->    the merge window closes to resubmit this.
-
-OK.  I'll repost it when the merge window is open -- I suppose that would happen
-in 1~2 weeks, according to my reading the documentation.
-
-Thanks,
--- Dexuan
+Applied and queued up for -stable.
