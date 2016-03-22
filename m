@@ -1,349 +1,85 @@
-From: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Subject: [PATCH v3 2/2] AF_VSOCK: Shrink the area influenced by prepare_to_wait
-Date: Tue, 22 Mar 2016 17:05:52 +0100
-Message-ID: <1458662752-2415-3-git-send-email-imbrenda@linux.vnet.ibm.com>
-References: <1458662752-2415-1-git-send-email-imbrenda@linux.vnet.ibm.com>
-Cc: labbott@fedoraproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:55658 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758164AbcCVQF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 12:05:57 -0400
-Received: from localhost
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <imbrenda@linux.vnet.ibm.com>;
-	Tue, 22 Mar 2016 16:05:55 -0000
-In-Reply-To: <1458662752-2415-1-git-send-email-imbrenda@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Tue, 22 Mar 2016 17:11:33 +0100
+Message-ID: <CAJgp7zxfFRhfNjcE23n+DKD0ffrvH4_sowPjK_-DZAS4ecH5dg@mail.gmail.com>
+References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+	<1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
+	<CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+	<20160321124043.GA26873@rob-hp-laptop>
+	<CAGhQ9VwS=YwgfeUuK+LzGjy3f9btVGV7bN=TATGHwQs+JW+iGA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGhQ9VwS=YwgfeUuK+LzGjy3f9btVGV7bN=TATGHwQs+JW+iGA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When a thread is prepared for waiting by calling prepare_to_wait, sleeping
-is not allowed until either the wait has taken place or finish_wait has
-been called.  The existing code in af_vsock imposed unnecessary no-sleep
-assumptions to a broad list of backend functions.
-This patch shrinks the influence of prepare_to_wait to the area where it
-is strictly needed, therefore relaxing the no-sleep restriction there.
+Hi guys,
 
-Signed-off-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
----
- net/vmw_vsock/af_vsock.c | 158 +++++++++++++++++++++++++----------------------
- 1 file changed, 85 insertions(+), 73 deletions(-)
+I will fix typo issues (s/vesrion/version and ethernet @).
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 7fd1220..3dce53e 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1209,10 +1209,14 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
- 
- 		if (signal_pending(current)) {
- 			err = sock_intr_errno(timeout);
--			goto out_wait_error;
-+			sk->sk_state = SS_UNCONNECTED;
-+			sock->state = SS_UNCONNECTED;
-+			goto out_wait;
- 		} else if (timeout == 0) {
- 			err = -ETIMEDOUT;
--			goto out_wait_error;
-+			sk->sk_state = SS_UNCONNECTED;
-+			sock->state = SS_UNCONNECTED;
-+			goto out_wait;
- 		}
- 
- 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-@@ -1220,20 +1224,17 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
- 
- 	if (sk->sk_err) {
- 		err = -sk->sk_err;
--		goto out_wait_error;
--	} else
-+		sk->sk_state = SS_UNCONNECTED;
-+		sock->state = SS_UNCONNECTED;
-+	} else {
- 		err = 0;
-+	}
- 
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
--
--out_wait_error:
--	sk->sk_state = SS_UNCONNECTED;
--	sock->state = SS_UNCONNECTED;
--	goto out_wait;
- }
- 
- static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
-@@ -1270,18 +1271,20 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
- 	       listener->sk_err == 0) {
- 		release_sock(listener);
- 		timeout = schedule_timeout(timeout);
-+		finish_wait(sk_sleep(listener), &wait);
- 		lock_sock(listener);
- 
- 		if (signal_pending(current)) {
- 			err = sock_intr_errno(timeout);
--			goto out_wait;
-+			goto out;
- 		} else if (timeout == 0) {
- 			err = -EAGAIN;
--			goto out_wait;
-+			goto out;
- 		}
- 
- 		prepare_to_wait(sk_sleep(listener), &wait, TASK_INTERRUPTIBLE);
- 	}
-+	finish_wait(sk_sleep(listener), &wait);
- 
- 	if (listener->sk_err)
- 		err = -listener->sk_err;
-@@ -1301,19 +1304,15 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
- 		 */
- 		if (err) {
- 			vconnected->rejected = true;
--			release_sock(connected);
--			sock_put(connected);
--			goto out_wait;
-+		} else {
-+			newsock->state = SS_CONNECTED;
-+			sock_graft(connected, newsock);
- 		}
- 
--		newsock->state = SS_CONNECTED;
--		sock_graft(connected, newsock);
- 		release_sock(connected);
- 		sock_put(connected);
- 	}
- 
--out_wait:
--	finish_wait(sk_sleep(listener), &wait);
- out:
- 	release_sock(listener);
- 	return err;
-@@ -1557,11 +1556,11 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
- 	while (total_written < len) {
- 		ssize_t written;
- 
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 		while (vsock_stream_has_space(vsk) == 0 &&
- 		       sk->sk_err == 0 &&
- 		       !(sk->sk_shutdown & SEND_SHUTDOWN) &&
-@@ -1570,27 +1569,33 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 			/* Don't wait for non-blocking sockets. */
- 			if (timeout == 0) {
- 				err = -EAGAIN;
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			}
- 
- 			err = transport->notify_send_pre_block(vsk, &send_data);
--			if (err < 0)
--				goto out_wait;
-+			if (err < 0) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
-+			}
- 
- 			release_sock(sk);
- 			timeout = schedule_timeout(timeout);
- 			lock_sock(sk);
- 			if (signal_pending(current)) {
- 				err = sock_intr_errno(timeout);
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			} else if (timeout == 0) {
- 				err = -EAGAIN;
--				goto out_wait;
-+				finish_wait(sk_sleep(sk), &wait);
-+				goto out_err;
- 			}
- 
- 			prepare_to_wait(sk_sleep(sk), &wait,
- 					TASK_INTERRUPTIBLE);
- 		}
-+		finish_wait(sk_sleep(sk), &wait);
- 
- 		/* These checks occur both as part of and after the loop
- 		 * conditional since we need to check before and after
-@@ -1598,16 +1603,16 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 		 */
- 		if (sk->sk_err) {
- 			err = -sk->sk_err;
--			goto out_wait;
-+			goto out_err;
- 		} else if ((sk->sk_shutdown & SEND_SHUTDOWN) ||
- 			   (vsk->peer_shutdown & RCV_SHUTDOWN)) {
- 			err = -EPIPE;
--			goto out_wait;
-+			goto out_err;
- 		}
- 
- 		err = transport->notify_send_pre_enqueue(vsk, &send_data);
- 		if (err < 0)
--			goto out_wait;
-+			goto out_err;
- 
- 		/* Note that enqueue will only write as many bytes as are free
- 		 * in the produce queue, so we don't need to ensure len is
-@@ -1620,7 +1625,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 				len - total_written);
- 		if (written < 0) {
- 			err = -ENOMEM;
--			goto out_wait;
-+			goto out_err;
- 		}
- 
- 		total_written += written;
-@@ -1628,14 +1633,13 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
- 		err = transport->notify_send_post_enqueue(
- 				vsk, written, &send_data);
- 		if (err < 0)
--			goto out_wait;
-+			goto out_err;
- 
- 	}
- 
--out_wait:
-+out_err:
- 	if (total_written > 0)
- 		err = total_written;
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
-@@ -1716,21 +1720,61 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	if (err < 0)
- 		goto out;
- 
--	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
- 
- 	while (1) {
--		s64 ready = vsock_stream_has_data(vsk);
-+		s64 ready;
- 
--		if (ready < 0) {
--			/* Invalid queue pair content. XXX This should be
--			 * changed to a connection reset in a later change.
--			 */
-+		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
-+		ready = vsock_stream_has_data(vsk);
- 
--			err = -ENOMEM;
--			goto out_wait;
--		} else if (ready > 0) {
-+		if (ready == 0) {
-+			if (sk->sk_err != 0 ||
-+			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
-+			    (vsk->peer_shutdown & SEND_SHUTDOWN)) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+			/* Don't wait for non-blocking sockets. */
-+			if (timeout == 0) {
-+				err = -EAGAIN;
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+
-+			err = transport->notify_recv_pre_block(
-+					vsk, target, &recv_data);
-+			if (err < 0) {
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+			release_sock(sk);
-+			timeout = schedule_timeout(timeout);
-+			lock_sock(sk);
-+
-+			if (signal_pending(current)) {
-+				err = sock_intr_errno(timeout);
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			} else if (timeout == 0) {
-+				err = -EAGAIN;
-+				finish_wait(sk_sleep(sk), &wait);
-+				break;
-+			}
-+		} else {
- 			ssize_t read;
- 
-+			finish_wait(sk_sleep(sk), &wait);
-+
-+			if (ready < 0) {
-+				/* Invalid queue pair content. XXX This should
-+				* be changed to a connection reset in a later
-+				* change.
-+				*/
-+
-+				err = -ENOMEM;
-+				goto out;
-+			}
-+
- 			err = transport->notify_recv_pre_dequeue(
- 					vsk, target, &recv_data);
- 			if (err < 0)
-@@ -1750,42 +1794,12 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 					vsk, target, read,
- 					!(flags & MSG_PEEK), &recv_data);
- 			if (err < 0)
--				goto out_wait;
-+				goto out;
- 
- 			if (read >= target || flags & MSG_PEEK)
- 				break;
- 
- 			target -= read;
--		} else {
--			if (sk->sk_err != 0 || (sk->sk_shutdown & RCV_SHUTDOWN)
--			    || (vsk->peer_shutdown & SEND_SHUTDOWN)) {
--				break;
--			}
--			/* Don't wait for non-blocking sockets. */
--			if (timeout == 0) {
--				err = -EAGAIN;
--				break;
--			}
--
--			err = transport->notify_recv_pre_block(
--					vsk, target, &recv_data);
--			if (err < 0)
--				break;
--
--			release_sock(sk);
--			timeout = schedule_timeout(timeout);
--			lock_sock(sk);
--
--			if (signal_pending(current)) {
--				err = sock_intr_errno(timeout);
--				break;
--			} else if (timeout == 0) {
--				err = -EAGAIN;
--				break;
--			}
--
--			prepare_to_wait(sk_sleep(sk), &wait,
--					TASK_INTERRUPTIBLE);
- 		}
- 	}
- 
-@@ -1816,8 +1830,6 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 		err = copied;
- 	}
- 
--out_wait:
--	finish_wait(sk_sleep(sk), &wait);
- out:
- 	release_sock(sk);
- 	return err;
--- 
-1.9.1
+Concerning compatible string. For sure "snps,dwmac-3.50a" string is
+not used inside glue driver.
+I perfere to keep it for information but if you really want that I
+remove it I will not block ;)
+
+2016-03-21 16:36 GMT+01:00 Joachim  Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> On 21 March 2016 at 13:40, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>> On Sat, Mar 19, 2016 at 12:00:22AM +0800, Chen-Yu Tsai wrote:
+>>> Hi,
+>>>
+>>> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
+>>> <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> > +- clocks: Must contain a phandle for each entry in clock-names.
+>>> > +- clock-names: Should be "stmmaceth" for the host clock.
+>>
+We can remove host clock (stmmac eth) entry here and refer to
+stmmac.txt binding for common entry
+
+>> This doesn't sound like the clock input signal name...
+>>
+>>> > +              Should be "tx-clk" for the MAC TX clock.
+>>> > +              Should be "rx-clk" for the MAC RX clock.
+>>
+>> How can other DWMAC blocks not have these clocks? The glue can't really
+>> add these clocks. It could combine them into one or a new version of
+>> DWMAC could have a different number of clock inputs. So if there is
+>> variation here, then some of the bindings are probably wrong. I guess
+>> the only change I'm suggesting is possibly moving these into common
+>> binding doc.
+>
+> The LPC18xx implementation probably have these clocks as well but the
+> LPC1850 user manual only documents the main clock. Someone with access
+> to the IP block doc from Synopsys should be able to check which clocks
+> the MAC really needs.
+>
+> Rockchip bindings have two clocks named "mac_clk_rx" and "mac_clk_tx".
+> These are probably the same as stm32 needs so maybe use these names
+> and move them into the main doc and update the rockchip binding.
+>
+I think we can use same name. But I have a doubt on moving it in a
+common bindings (maybe I don't well understood). When you say "common
+binding file" is it "stmmac.txt" binding ? If yes does it mean that we
+have to control it inside stmmac driver (no more in glue) ? In this
+case those clocks will become "required" for stm32 and rockship but
+not for others chip. It could create confusion?
+
+Best regards
+
+Alex
+
+>
+> regards,
+> Joachim Eastwood
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
