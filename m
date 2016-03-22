@@ -1,36 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling
- fib_lookup()
-Date: Tue, 22 Mar 2016 13:15:51 -0700
-Message-ID: <1458677751.10868.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1458673017-3528-1-git-send-email-lrichard@redhat.com>
-	 <56F19660.4040502@cumulusnetworks.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
+Date: Tue, 22 Mar 2016 16:17:01 -0400 (EDT)
+Message-ID: <20160322.161701.1538082255367614747.davem@redhat.com>
+References: <CAKgT0Ud9uPG+9AdT47Q1VygLBnjygyY29sRf=y4Pqe=f2e+bkw@mail.gmail.com>
+	<56F19FAA.3090005@solarflare.com>
+	<CAEh+42jq1byHx0yuZgUCLqfk3G3eGfhoA1oq4Wwn5SmefCbNnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Lance Richardson <lrichard@redhat.com>, netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: ecree@solarflare.com, alexander.duyck@gmail.com,
+	aduyck@mirantis.com, netdev@vger.kernel.org, tom@herbertland.com
+To: jesse@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34227 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894AbcCVUPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 16:15:53 -0400
-Received: by mail-pf0-f177.google.com with SMTP id x3so324769152pfb.1
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 13:15:53 -0700 (PDT)
-In-Reply-To: <56F19660.4040502@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751541AbcCVURC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 16:17:02 -0400
+In-Reply-To: <CAEh+42jq1byHx0yuZgUCLqfk3G3eGfhoA1oq4Wwn5SmefCbNnQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-22 at 13:00 -0600, David Ahern wrote:
-> On 3/22/16 12:56 PM, Lance Richardson wrote:
+From: Jesse Gross <jesse@kernel.org>
+Date: Tue, 22 Mar 2016 13:11:21 -0700
 
-> >
-> > Fixes: 58189ca7b2741 ("net: Fix vti use case with oif in dst lookups")
+> Features that have been designed this way in the past are usually
+> pretty fragile. Not only would you have to track changes in the
+> routing table but you could have bridges, tc, vlan devices, etc. all
+> of which might change the path of the packet and would have to somehow
+> propagate this information. It's much more robust to resolve the
+> device capabilities just before you hand the packet to that device.
+> Plus, anything along the path of the packet (iptables, for example)
+> that looks at the headers might potentially need to be aware of this
+> optimization.
 
-> DaveM: this should go into stable releases back to v4.3.
-> 
+Indeed, this is a major fundamental issue in our stack right now.  I
+keep being reminded of that ugly change we had to make to accomodate
+scatter-gather limitations for Infiniband devices, exactly because
+properties don't propagate properly through all of the layers right
+now.
 
-The 'Fixes' tag tells this already ;)
+But we have to solve this somehow, the packetizer has to know certain
+basic properties of the ultimate device in order to function properly.
 
-$ git describe --contains 58189ca7b2741
-v4.3-rc3~13^2~63
+This requirement is unavoidable.
