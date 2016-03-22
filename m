@@ -1,34 +1,85 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] macb: fix PHY reset
-Date: Tue, 22 Mar 2016 22:34:05 +0300
-Message-ID: <56F19E2D.8000700@cogentembedded.com>
-References: <3349780.3Prc3uV314@wasted.cogentembedded.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] net: phy: at803x: don't depend on GPIOLIB
+Date: Tue, 22 Mar 2016 20:42:24 +0100
+Message-ID: <20160322194224.GF6191@pengutronix.de>
+References: <56E99727.9040702@laposte.net>
+ <20160318125455.GN4292@pengutronix.de>
+ <56EC2525.8000706@laposte.net>
+ <20160318191242.GQ4292@pengutronix.de>
+ <56EFEDAD.9030903@laposte.net>
+ <20160321135457.GX4292@pengutronix.de>
+ <56F0150F.8080804@laposte.net>
+ <20160321201229.GA6191@pengutronix.de>
+ <56F157EF.5080307@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, nicolas.ferre@atmel.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mans Rullgard <mans@mansr.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sebastian Frias <sf84@laposte.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:32769 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751742AbcCVTeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 15:34:09 -0400
-Received: by mail-lb0-f182.google.com with SMTP id oe12so172588969lbc.0
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 12:34:08 -0700 (PDT)
-In-Reply-To: <3349780.3Prc3uV314@wasted.cogentembedded.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58108 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751352AbcCVTmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 15:42:33 -0400
+Content-Disposition: inline
+In-Reply-To: <56F157EF.5080307@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/22/2016 10:27 PM, Sergei Shtylyov wrote:
+Hello Sebastian,
 
-> The driver calls gpiod_set_value() with GPIOD_OUT_* instead of 0 and 1, as
-> a result the PHY isn't really  put back into reset state in macb_remove().
-> Moreover, the driver assumes that something else has set the GPIO direction
-> to output, so if  it has not, the PHY wouldn't be taken out of reset in
+On Tue, Mar 22, 2016 at 03:34:23PM +0100, Sebastian Frias wrote:
+> I think we are in a deadlock :-)
+> I'm going to reply inline below, but I will also send a different ema=
+il
+> to Daniel with a small recap.
+> I think he should share the intent of the "reset" mechanism he
+> introduced, in particular if it is mandatory.
 
-    s/wouldn't/may not/, sorry. Do I need to resend?
+The things I said in my mail are valid in general, not only for the
+at803x phy.
 
-> macb_probe() either...
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Let me repeat them once more:
 
-MBR, Sergei
+Preconditions:
+ - Some of the devices a given driver handles have a reset line and
+   others don't.
+ - A non-empty subset (maybe all) of the devices that have a reset line
+   require that this reset line is used.
+
+Then the way to handle this in the driver should be done as follows:
+
+  unless reset_handling_not_necessary():
+    gpio =3D gpiod_get_optional("reset")
+    if IS_ERR(gpio):
+      return PTR_ERR(gpio)
+
+Checking for -ENOSYS or GPIOLIB=3Dn is not allowed because the device
+you're currently handling might need the GPIO, so you must not continue
+without the ability to control the line.
+
+So the options you have (as you have a phy that doesn't need the reset
+handling):
+
+ - enable GPIOLIB (either in your .config or introduce a Kconfig
+   dependency)
+ - improve reset_handling_not_necessary() to return true for your case
+
+There is nothing else.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
