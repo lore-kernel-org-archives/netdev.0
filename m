@@ -1,29 +1,38 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling
- fib_lookup()
-Date: Tue, 22 Mar 2016 16:03:54 -0400 (EDT)
-Message-ID: <20160322.160354.71451748339737444.davem@redhat.com>
-References: <1458673017-3528-1-git-send-email-lrichard@redhat.com>
-	<688989936.72666829.1458673139415.JavaMail.zimbra@redhat.com>
+Subject: Re: [PATCH] macb: fix PHY reset
+Date: Tue, 22 Mar 2016 16:07:38 -0400 (EDT)
+Message-ID: <20160322.160738.145737905213296810.davem@redhat.com>
+References: <3349780.3Prc3uV314@wasted.cogentembedded.com>
+	<56F19E2D.8000700@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: lrichard@redhat.com
+Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33160 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37167 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750696AbcCVUD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 16:03:56 -0400
-In-Reply-To: <688989936.72666829.1458673139415.JavaMail.zimbra@redhat.com>
+	id S1751286AbcCVUHk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 16:07:40 -0400
+In-Reply-To: <56F19E2D.8000700@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lance Richardson <lrichard@redhat.com>
-Date: Tue, 22 Mar 2016 14:58:59 -0400 (EDT)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 22 Mar 2016 22:34:05 +0300
 
-> Apologies, that should have been [PATCH v2 net].
+> On 03/22/2016 10:27 PM, Sergei Shtylyov wrote:
+> 
+>> The driver calls gpiod_set_value() with GPIOD_OUT_* instead of 0 and
+>> 1, as
+>> a result the PHY isn't really put back into reset state in
+>> macb_remove().
+>> Moreover, the driver assumes that something else has set the GPIO
+>> direction
+>> to output, so if it has not, the PHY wouldn't be taken out of reset in
+> 
+>    s/wouldn't/may not/, sorry. Do I need to resend?
 
-No worries.
+No need, I fixed it up by hand.
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
