@@ -1,80 +1,65 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH 3/3] libceph: use KMEM_CACHE macro
-Date: Tue, 22 Mar 2016 17:58:00 +0100
-Message-ID: <CAOi1vP9UOwDKJG7hkpCxgCxXP6t3FO5z5PMSeZ8gKrf=w+_ddw@mail.gmail.com>
-References: <9242267d62daeec8a0de5a1230f750ca486d62cd.1457853190.git.geliangtang@163.com>
-	<a9c3e96ba6bf321ca13d9445d2770781fb7033cd.1457853190.git.geliangtang@163.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
+Date: Tue, 22 Mar 2016 17:00:03 +0000
+Message-ID: <56F17A13.8090701@solarflare.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+ <20160318232522.14955.13475.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@163.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Alexander Duyck <aduyck@mirantis.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <alexander.duyck@gmail.com>,
+	<tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:33764 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbcCVQ6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 12:58:03 -0400
-In-Reply-To: <a9c3e96ba6bf321ca13d9445d2770781fb7033cd.1457853190.git.geliangtang@163.com>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:61938 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753134AbcCVRAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 13:00:17 -0400
+In-Reply-To: <20160318232522.14955.13475.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 13, 2016 at 8:18 AM, Geliang Tang <geliangtang@163.com> wrote:
-> Use KMEM_CACHE() instead of kmem_cache_create() to simplify the code.
+On 18/03/16 23:25, Alexander Duyck wrote:
+> This patch adds support for something I am referring to as GSO partial.
+> The basic idea is that we can support a broader range of devices for
+> segmentation if we use fixed outer headers and have the hardware only
+> really deal with segmenting the inner header.  The idea behind the naming
+> is due to the fact that everything before csum_start will be fixed headers,
+> and everything after will be the region that is handled by hardware.
 >
-> Signed-off-by: Geliang Tang <geliangtang@163.com>
+> With the current implementation it allows us to add support for the
+> following GSO types with an inner TSO or TSO6 offload:
+> NETIF_F_GSO_GRE
+> NETIF_F_GSO_GRE_CSUM
+> NETIF_F_UDP_TUNNEL
+> NETIF_F_UDP_TUNNEL_CSUM
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 > ---
->  net/ceph/messenger.c  | 10 ++--------
->  net/ceph/osd_client.c |  5 +----
->  2 files changed, 3 insertions(+), 12 deletions(-)
->
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index 9382619..32c997e 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -235,18 +235,12 @@ static struct workqueue_struct *ceph_msgr_wq;
->  static int ceph_msgr_slab_init(void)
->  {
->         BUG_ON(ceph_msg_cache);
-> -       ceph_msg_cache = kmem_cache_create("ceph_msg",
-> -                                       sizeof (struct ceph_msg),
-> -                                       __alignof__(struct ceph_msg), 0, NULL);
-> -
-> +       ceph_msg_cache = KMEM_CACHE(ceph_msg, 0);
->         if (!ceph_msg_cache)
->                 return -ENOMEM;
->
->         BUG_ON(ceph_msg_data_cache);
-> -       ceph_msg_data_cache = kmem_cache_create("ceph_msg_data",
-> -                                       sizeof (struct ceph_msg_data),
-> -                                       __alignof__(struct ceph_msg_data),
-> -                                       0, NULL);
-> +       ceph_msg_data_cache = KMEM_CACHE(ceph_msg_data, 0);
->         if (ceph_msg_data_cache)
->                 return 0;
->
-> diff --git a/net/ceph/osd_client.c b/net/ceph/osd_client.c
-> index 5bc0537..7558855 100644
-> --- a/net/ceph/osd_client.c
-> +++ b/net/ceph/osd_client.c
-> @@ -2783,10 +2783,7 @@ EXPORT_SYMBOL(ceph_osdc_writepages);
->  int ceph_osdc_setup(void)
->  {
->         BUG_ON(ceph_osd_request_cache);
-> -       ceph_osd_request_cache = kmem_cache_create("ceph_osd_request",
-> -                                       sizeof (struct ceph_osd_request),
-> -                                       __alignof__(struct ceph_osd_request),
-> -                                       0, NULL);
-> +       ceph_osd_request_cache = KMEM_CACHE(ceph_osd_request, 0);
->
->         return ceph_osd_request_cache ? 0 : -ENOMEM;
->  }
-
-Applied, with osd_client.c hunk dropped.  ceph_osd_request cache
-objects are not longer sizeof(struct ceph_osd_request).
-
-Thanks,
-
-                Ilya
+If I'm correctly understanding what you're doing, you're building a large
+TCP segment, feeding it through the encapsulation drivers as normal, then
+at GSO time you're fixing up length fields, checksums etc. in the headers.
+I think we can do this more simply, by making it so that at the time when
+we _generate_ the TCP segment, we give it headers saying it's one MSS big,
+but have several MSS of data.  Similarly when adding the encap headers,
+they all need to get their lengths from what the layer below tells them,
+rather than the current length of data in the SKB.  Then at GSO time all
+the headers already have the right things in, and you don't need to call
+any per-protocol GSO callbacks for them.
+Any protocol that noticed it was putting something non-copyable in its
+headers (e.g. GRE with the Counter field, or an outer IP layer without DF
+set needing real IPIDs) would set a flag in the SKB to indicate that we
+really do need to call through the per-protocol GSO stuff.  (Ideally, if
+we had a separate skb->gso_start field rather than piggybacking on
+csum_start, we could reset it to point just before us, so that any further
+headers outside us still can be copied rather than taking callbacks.  But
+I'm not sure whether that's worth using up sk_buff real estate for.)
+(It might still be necessary to put the true length in the TCP header, if
+hardware is using that as an input to segmentation.  I think sfc hardware
+just uses 'total length of all payload DMA descriptors', but others might
+behave differently.)
+However, I haven't yet had the time to attempt to implement this, so there
+might be some obvious reason I'm missing why this is impossible.
+Also, it's possible that I've completely misunderstood your patch and it's
+orthogonal to and can coexist with what I'm suggesting.
+-Ed
