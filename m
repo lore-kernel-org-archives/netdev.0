@@ -1,45 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling
- fib_lookup()
-Date: Tue, 22 Mar 2016 15:02:56 -0600
-Message-ID: <56F1B300.8070209@cumulusnetworks.com>
-References: <1458660679-7279-1-git-send-email-lrichard@redhat.com>
- <56F18EEE.4070000@cumulusnetworks.com>
- <CAM_iQpV6srT84xa4y0WHrKG0mbO2xs=rnKKCx1XB9FtWusxCgw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] macb: fix PHY reset
+Date: Wed, 23 Mar 2016 00:04:53 +0300
+Message-ID: <56F1B375.7040502@cogentembedded.com>
+References: <3349780.3Prc3uV314@wasted.cogentembedded.com>
+ <56F19E2D.8000700@cogentembedded.com>
+ <20160322.160738.145737905213296810.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Lance Richardson <lrichard@redhat.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com
+To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:33319 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbcCVVC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 17:02:59 -0400
-Received: by mail-io0-f176.google.com with SMTP id c63so77786039iof.0
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 14:02:59 -0700 (PDT)
-In-Reply-To: <CAM_iQpV6srT84xa4y0WHrKG0mbO2xs=rnKKCx1XB9FtWusxCgw@mail.gmail.com>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:33553 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753096AbcCVVE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 17:04:59 -0400
+Received: by mail-lf0-f51.google.com with SMTP id o73so5692558lfe.0
+        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 14:04:58 -0700 (PDT)
+In-Reply-To: <20160322.160738.145737905213296810.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/22/16 2:45 PM, Cong Wang wrote:
-> @@ -1426,7 +1426,7 @@ int fib_table_lookup(struct fib_table *tb, const
-> struct flowi4 *flp,
->                              nh->nh_flags & RTNH_F_LINKDOWN &&
->                              !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
->                                  continue;
-> -                       if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
-> +                       if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
->                                  if (flp->flowi4_oif &&
->                                      flp->flowi4_oif != nh->nh_oif)
->                                          continue;
->
-> For me, it looks the bug was introduce by commit 35ebf65e851c6d9731abc6362b1.
->
+On 03/22/2016 11:07 PM, David Miller wrote:
 
-Arguably yes since it added the function without initializing flags.
+>>> The driver calls gpiod_set_value() with GPIOD_OUT_* instead of 0 and
+>>> 1, as
+>>> a result the PHY isn't really put back into reset state in
+>>> macb_remove().
+>>> Moreover, the driver assumes that something else has set the GPIO
+>>> direction
+>>> to output, so if it has not, the PHY wouldn't be taken out of reset in
+>>
+>>     s/wouldn't/may not/, sorry. Do I need to resend?
+>
+> No need, I fixed it up by hand.
+>
+> Applied, thanks.
 
-The commit I referenced (and even the VRF predecessor both of which 
-originated in the v4.3) is the one introducing use of flow flags to the 
-lookup. From a stable perspective going back to v4.3 is what matters.
+    Thank you! gpio_request() or smth of that sort wouldn't hurt too (the pin 
+won't be switched to the GPIO mode on the pin function controller that I have 
+here...
+    Anyway, this code is doomed if my phylib reset GPIO patch (to be posted 
+yet) is accepted ...
+
+MBR, Sergei
