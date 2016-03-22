@@ -1,69 +1,64 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH net 09/10] net: hns: adds limitation for debug port mtu
-Date: Tue, 22 Mar 2016 09:19:52 +0800
-Message-ID: <56F09DB8.5010908@huawei.com>
-References: <1458558401-190165-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1458558401-190165-10-git-send-email-Yisen.Zhuang@huawei.com>
- <56F0028D.4070500@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <salil.mehta@huawei.com>,
-	<lisheng011@huawei.com>, <lipeng321@huawei.com>,
-	<liguozhu@huawei.com>, <arnd@arndb.de>, <xieqianqian@huawei.com>,
-	<andrew@lunn.ch>, <ivecera@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Subject: [PATCH RESEND] net: ipv4: Fix truncated timestamp returned by inet_current_timestamp()
+Date: Mon, 21 Mar 2016 18:21:26 -0700
+Message-ID: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Arnd Bergmann <arnd@arndb.de>
+To: netdev@vger.kernel.org, y2038@lists.linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:26456 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbcCVBUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 21:20:42 -0400
-In-Reply-To: <56F0028D.4070500@cogentembedded.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36768 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758026AbcCVBVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 21:21:42 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q129so33447156pfb.3
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 18:21:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The millisecond timestamps returned by the function is
+converted to network byte order by making a call to htons().
+htons() only returns __be16 while __be32 is required here.
 
+This was identified by the sparse warning from the buildbot:
+net/ipv4/af_inet.c:1405:16: sparse: incorrect type in return
+			    expression (different base types)
+net/ipv4/af_inet.c:1405:16: expected restricted __be32
+net/ipv4/af_inet.c:1405:16: got restricted __be16 [usertype] <noident>
 
-=E5=9C=A8 2016/3/21 22:17, Sergei Shtylyov =E5=86=99=E9=81=93:
-> Hello.
->=20
-> On 03/21/2016 02:06 PM, Yisen Zhuang wrote:
->=20
->> From: Kejian Yan <yankejian@huawei.com>
->>
->> If mtu for debug port is set more than 1500, it may cause that packe=
-ts
->> are dropped by ppe. So maximum value for debug port should be 1500.
->>
->> Signed-off-by: Kejian Yan <yankejian@huawei.com>
->> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-> [...]
->> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/dri=
-vers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
->> index a69c8af..a68efd6 100644
->> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
->> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
->> @@ -28,6 +28,7 @@ struct dsaf_device;
->>   #define MAC_MAX_MTU        9600
->>   #define MAC_MAX_MTU_V2        9728
->>   #define MAC_MIN_MTU        68
->> +#define MAC_MAX_MTU_DBG         MAC_DEFAULT_MTU
->=20
->    Please use tabs, not spaces to indent the value, like above
+Change the function to use htonl() to return the correct __be32 type
+instead so that the millisecond value doesn't get truncated.
 
-Will fix it in next version.
+Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: James Morris <jmorris@namei.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Fixes: 822c868532ca ("net: ipv4: Convert IP network timestamps to be y2038 safe")
+Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+---
+Fixed the y2038 list email address.
 
-Thanks,
+ net/ipv4/af_inet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yisen
-
->=20
-> [...]
->=20
-> MBR, Sergei
->=20
->=20
-> .
->=20
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 0cc923f..5fab7e3 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1402,7 +1402,7 @@ __be32 inet_current_timestamp(void)
+ 	msecs += (u32)ts.tv_nsec / NSEC_PER_MSEC;
+ 
+ 	/* Convert to network byte order. */
+-	return htons(msecs);
++	return htonl(msecs);
+ }
+ EXPORT_SYMBOL(inet_current_timestamp);
+ 
+-- 
+1.9.1
