@@ -1,56 +1,59 @@
-From: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
-Subject: Re: [PATCH v2] openvswitch: call only into reachable
-	nf-nat code
-Date: Tue, 22 Mar 2016 09:10:09 +0100
-Message-ID: <20160322081009.GA1470@salvia>
-References: <1458308044-246105-1-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
- "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1458308044-246105-1-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net v2] ipv4: fix broadcast packets reception
+Date: Tue, 22 Mar 2016 09:19:38 +0100
+Message-ID: <c8ad97bbb6f1c9ec8c523209c1203d1982faab6f.1458634653.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50915 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757845AbcCVIVA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 04:21:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBNYXIgMTgsIDIwMTYgYXQgMDI6MzM6NDVQTSArMDEwMCwgQXJuZCBCZXJnbWFubiB3
-cm90ZToKPiBUaGUgb3BlbnZzd2l0Y2ggY29kZSBoYXMgZ2FpbmVkIHN1cHBvcnQgZm9yIGNhbGxp
-bmcgaW50byB0aGUKPiBuZi1uYXQtaXB2NC9pcHY2IG1vZHVsZXMsIGhvd2V2ZXIgdGhvc2UgY2Fu
-IGJlIGxvYWRhYmxlIG1vZHVsZXMKPiBpbiBhIGNvbmZpZ3VyYXRpb24gaW4gd2hpY2ggb3BlbnZz
-d2l0Y2ggaXMgYnVpbHQtaW4sIGxlYWRpbmcKPiB0byBsaW5rIGVycm9yczoKPiAKPiBuZXQvYnVp
-bHQtaW4ubzogSW4gZnVuY3Rpb24gYF9fb3ZzX2N0X2xvb2t1cCc6Cj4gOigudGV4dCsweDJjYzJj
-OCk6IHVuZGVmaW5lZCByZWZlcmVuY2UgdG8gYG5mX25hdF9pY21wX3JlcGx5X3RyYW5zbGF0aW9u
-Jwo+IDooLnRleHQrMHgyY2M2NmMpOiB1bmRlZmluZWQgcmVmZXJlbmNlIHRvIGBuZl9uYXRfaWNt
-cHY2X3JlcGx5X3RyYW5zbGF0aW9uJwo+IAo+IFRoZSBkZXBlbmRlbmN5IG9uICghTkZfTkFUIHx8
-IE5GX05BVCkgcHJldmVudHMgc2ltaWxhciBpc3N1ZXMsCj4gYnV0IE5GX05BVCBpcyBzZXQgdG8g
-J3knIGlmIGFueSBvZiB0aGUgc3ltYm9scyBzZWxlY3RpbmcKPiBpdCBhcmUgYnVpbHQtaW4sIGJ1
-dCB0aGUgbGluayBlcnJvciBoYXBwZW5zIHdoZW4gYW55IG9mIHRoZW0KPiBhcmUgbW9kdWxhci4K
-PiAKPiBBIHNlY29uZCBpc3N1ZSBpcyB0aGF0IGV2ZW4gaWYgQ09ORklHX05GX05BVF9JUFY2IGlz
-IGJ1aWx0LWluLAo+IENPTkZJR19ORl9OQVRfSVBWNCBtaWdodCBiZSBjb21wbGV0ZWx5IGRpc2Fi
-bGVkLiBUaGlzIGlzIHVubGlrZWx5Cj4gdG8gYmUgdXNlZnVsIGluIHByYWN0aWNlLCBidXQgdGhl
-IGRyaXZlciBjdXJyZW50bHkgb25seSBoYW5kbGVzCj4gSVB2NiBiZWluZyBvcHRpb25hbC4KPiAK
-PiBUaGlzIHBhdGNoIGltcHJvdmVzIHRoZSBLY29uZmlnIGRlcGVuZGVuY3kgc28gdGhhdCBvcGVu
-dnN3aXRjaAo+IGNhbm5vdCBiZSBidWlsdC1pbiBpZiBlaXRoZXIgb2YgdGhlIHR3byBvdGhlciBz
-eW1ib2xzIGFyZSBzZXQKPiB0byAnbScsIGFuZCBpdCByZXBsYWNlcyB0aGUgaW5jb3JyZWN0ICNp
-ZmRlZiBpbiBvdnNfY3RfbmF0X2V4ZWN1dGUoKQo+IHdpdGggdHdvICJpZiAoSVNfRU5BQkxFRCgp
-KSIgY2hlY2tzIHRoYXQgc2hvdWxkIGNhdGNoIGFsbCBjb3JuZXIKPiBjYXNlcyBhbHNvIG1ha2Ug
-dGhlIGNvZGUgbW9yZSByZWFkYWJsZS4KPiAKPiBUaGUgc2FtZSAjaWZkZWYgZXhpc3RzIG92c19j
-dF9uYXRfdG9fYXR0cigpLCB3aGVyZSBpdCBkb2VzIG5vdAo+IGNhdXNlIGEgbGluayBlcnJvciwg
-YnV0IGZvciBjb25zaXN0ZW5jeSBJJ20gY2hhbmdpbmcgaXQgdGhlIHNhbWUKPiB3YXkuCgpBcHBs
-aWVkLCB0aGFua3MgQXJuZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
-dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Currently, ingress ipv4 broadcast datagrams are dropped since,
+in udp_v4_early_demux(), ip_check_mc_rcu() is invoked even on
+bcast packets.
+
+This patch addresses the issue, invoking ip_check_mc_rcu()
+only for mcast packets.
+
+Fixes: 6e5403093261 ("ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+
+--
+ v1 -> v2 droped the route related bits, the fib_validate_source()
+  failures are triggered by the in_device configuration
+---
+ net/ipv4/udp.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 836abe5..08eed5e 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2070,10 +2070,14 @@ void udp_v4_early_demux(struct sk_buff *skb)
+ 		if (!in_dev)
+ 			return;
+ 
+-		ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
+-				       iph->protocol);
+-		if (!ours)
+-			return;
++		/* we are supposed to accept bcast packets */
++		if (skb->pkt_type == PACKET_MULTICAST) {
++			ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
++					       iph->protocol);
++			if (!ours)
++				return;
++		}
++
+ 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
+ 						   uh->source, iph->saddr, dif);
+ 	} else if (skb->pkt_type == PACKET_HOST) {
+-- 
+1.8.3.1
