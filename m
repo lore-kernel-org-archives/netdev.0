@@ -1,255 +1,96 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 4/4] testsuite: add a test for tc pedit action
-Date: Tue, 22 Mar 2016 15:16:24 +0100
-Message-ID: <1458656184-22154-5-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 2/4] tc: pedit: Fix for big-endian systems
+Date: Tue, 22 Mar 2016 15:16:22 +0100
+Message-ID: <1458656184-22154-3-git-send-email-phil@nwl.cc>
 References: <1458656184-22154-1-git-send-email-phil@nwl.cc>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41049 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:43530 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758612AbcCVOQn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:16:43 -0400
+	id S1758612AbcCVOQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 10:16:49 -0400
 In-Reply-To: <1458656184-22154-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is not a full test, since kernel functionality is not actually
-tested. It only compares that the kernel returned values when listing
-the action are what one expects them to be.
-
-Since this test succeeded on both a little-endian and a big-endian
-system, it shows that any endianness issues have been resolved in
-tc/p_ip.c at least.
+This was tricky to get right:
+- The 'stride' value used for 8 and 16 bit values must behave inverse to
+  the value's intra word offset to work correctly with big-endian data
+  act_pedit is editing.
+- The 'm' array's values are in host byte order, so they have to be
+  converted as well (and the ordering was just inverse, for some
+  reason).
+- The only sane way of getting this right is to manipulate value/mask in
+  host byte order and convert the output.
+- TIPV4 (i.e. 'munge ip src/dst') had it's own pitfall: the address
+  parser converts to network byte order automatically. This patch fixes
+  this by converting it back before calling pack_key32, which is a hack
+  but at least does not require to implement a completely separate code
+  flow.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- testsuite/tests/tc/pedit.t | 217 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 217 insertions(+)
- create mode 100755 testsuite/tests/tc/pedit.t
+ tc/m_pedit.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
-diff --git a/testsuite/tests/tc/pedit.t b/testsuite/tests/tc/pedit.t
-new file mode 100755
-index 0000000000000..e9b6c333accbe
---- /dev/null
-+++ b/testsuite/tests/tc/pedit.t
-@@ -0,0 +1,217 @@
-+#!/bin/sh
+diff --git a/tc/m_pedit.c b/tc/m_pedit.c
+index ca78a83dd9d9d..30a6f3673e896 100644
+--- a/tc/m_pedit.c
++++ b/tc/m_pedit.c
+@@ -156,7 +156,7 @@ int
+ pack_key16(__u32 retain, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
+ {
+ 	int ind, stride;
+-	__u32 m[4] = {0xFFFF0000, 0xFF0000FF, 0x0000FFFF};
++	__u32 m[4] = {0x0000FFFF, 0xFF0000FF, 0xFFFF0000};
+ 
+ 	if (tkey->val > 0xFFFF || tkey->mask > 0xFFFF) {
+ 		fprintf(stderr, "pack_key16 bad value\n");
+@@ -170,9 +170,9 @@ pack_key16(__u32 retain, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
+ 		return -1;
+ 	}
+ 
+-	stride = 8 * ind;
+-	tkey->val = htons(tkey->val & retain) << stride;
+-	tkey->mask = (htons(tkey->mask | ~retain) << stride) | m[ind];
++	stride = 8 * (2 - ind);
++	tkey->val = htonl((tkey->val & retain) << stride);
++	tkey->mask = htonl(((tkey->mask | ~retain) << stride) | m[ind]);
+ 
+ 	tkey->off &= ~3;
+ 
+@@ -186,7 +186,7 @@ int
+ pack_key8(__u32 retain, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
+ {
+ 	int ind, stride;
+-	__u32 m[4] = {0xFFFFFF00, 0xFFFF00FF, 0xFF00FFFF, 0x00FFFFFF};
++	__u32 m[4] = {0x00FFFFFF, 0xFF00FFFF, 0xFFFF00FF, 0xFFFFFF00};
+ 
+ 	if (tkey->val > 0xFF || tkey->mask > 0xFF) {
+ 		fprintf(stderr, "pack_key8 bad value (val %x mask %x\n", tkey->val, tkey->mask);
+@@ -195,9 +195,9 @@ pack_key8(__u32 retain, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
+ 
+ 	ind = tkey->off & 3;
+ 
+-	stride = 8 * ind;
+-	tkey->val = (tkey->val & retain) << stride;
+-	tkey->mask = ((tkey->mask | ~retain) << stride) | m[ind];
++	stride = 8 * (3 - ind);
++	tkey->val = htonl((tkey->val & retain) << stride);
++	tkey->mask = htonl(((tkey->mask | ~retain) << stride) | m[ind]);
+ 
+ 	tkey->off &= ~3;
+ 
+@@ -283,6 +283,9 @@ parse_cmd(int *argc_p, char ***argv_p, __u32 len, int type, __u32 retain, struct
+ 	tkey->val = val;
+ 	tkey->mask = mask;
+ 
++	if (type == TIPV4)
++		tkey->val = ntohl(tkey->val);
 +
-+source lib/generic.sh
-+
-+DEV="$(rand_dev)"
-+ts_ip "$0" "Add $DEV dummy interface" link add dev $DEV type dummy
-+ts_ip "$0" "Enable $DEV" link set $DEV up
-+ts_tc "pedit" "Add ingress qdisc" qdisc add dev $DEV ingress
-+
-+
-+do_pedit() {
-+	ts_tc "pedit" "Drop ingress qdisc" \
-+		qdisc del dev $DEV ingress
-+	ts_tc "pedit" "Add ingress qdisc" \
-+		qdisc add dev $DEV ingress
-+	ts_tc "pedit" "Add pedit action $*" \
-+		filter add dev $DEV parent ffff: \
-+		u32 match u32 0 0 \
-+		action pedit munge $@
-+	ts_tc "pedit" "Show ingress filters" \
-+		filter show dev $DEV parent ffff:
-+}
-+
-+do_pedit offset 12 u32 set 0x12345678
-+test_on "key #0  at 12: val 12345678 mask 00000000"
-+do_pedit offset 12 u16 set 0x1234
-+test_on "key #0  at 12: val 12340000 mask 0000ffff"
-+do_pedit offset 14 u16 set 0x1234
-+test_on "key #0  at 12: val 00001234 mask ffff0000"
-+do_pedit offset 12 u8 set 0x23
-+test_on "key #0  at 12: val 23000000 mask 00ffffff"
-+do_pedit offset 13 u8 set 0x23
-+test_on "key #0  at 12: val 00230000 mask ff00ffff"
-+do_pedit offset 14 u8 set 0x23
-+test_on "key #0  at 12: val 00002300 mask ffff00ff"
-+do_pedit offset 15 u8 set 0x23
-+test_on "key #0  at 12: val 00000023 mask ffffff00"
-+
-+do_pedit offset 13 u8 invert
-+test_on "key #0  at 12: val 00ff0000 mask ffffffff"
-+do_pedit offset 13 u8 clear
-+test_on "key #0  at 12: val 00000000 mask ff00ffff"
-+do_pedit offset 13 u8 preserve
-+test_on "key #0  at 12: val 00000000 mask ffffffff"
-+
-+# the following set of tests has been auto-generated by running this little
-+# shell script:
-+#
-+# do_it() {
-+#	echo "do_pedit $@"
-+#	tc qd del dev veth0 ingress >/dev/null 2>&1
-+#	tc qd add dev veth0 ingress >/dev/null 2>&1
-+#	tc filter add dev veth0 parent ffff: u32 \
-+#		match u32 0 0 \
-+#		action pedit munge $@ >/dev/null 2>&1
-+#	tc filter show dev veth0 parent ffff: | \
-+#		sed -n 's/^[\t ]*\(key #0.*\)/test_on "\1"/p'
-+# }
-+#
-+# do_it_all() { # (field, val1 [, val2, ...])
-+#	local field=$1
-+#	shift
-+#	for val in $@; do
-+#		do_it ip $field set $val
-+#	done
-+#	for i in preserve invert clear; do
-+#		do_it ip $field $i
-+#	done
-+# }
-+#
-+# do_it_all ihl 0x04 0x40
-+# do_it_all src 1.2.3.4
-+# do_it_all dst 1.2.3.4
-+# do_it_all tos 0x1 0x10
-+# do_it_all protocol 0x23
-+# do_it_all nofrag 0x23 0xf4
-+# do_it_all firstfrag 0x03 0xfa
-+# do_it_all ce 0x23 0x04 0xf3
-+# do_it_all df 0x23 0x04 0xf3
-+# do_it_all mf 0x23 0x04 0xf3
-+# do_it_all dport 0x1234
-+# do_it_all sport 0x1234
-+# do_it_all icmp_type 0x23
-+# do_it_all icmp_code 0x23
-+
-+do_pedit ip ihl set 0x04
-+test_on "key #0  at 0: val 04000000 mask f0ffffff"
-+do_pedit ip ihl set 0x40
-+test_on "key #0  at 0: val 00000000 mask f0ffffff"
-+do_pedit ip ihl preserve
-+test_on "key #0  at 0: val 00000000 mask ffffffff"
-+do_pedit ip ihl invert
-+test_on "key #0  at 0: val 0f000000 mask ffffffff"
-+do_pedit ip ihl clear
-+test_on "key #0  at 0: val 00000000 mask f0ffffff"
-+do_pedit ip src set 1.2.3.4
-+test_on "key #0  at 12: val 01020304 mask 00000000"
-+do_pedit ip src preserve
-+test_on "key #0  at 12: val 00000000 mask ffffffff"
-+do_pedit ip src invert
-+test_on "key #0  at 12: val ffffffff mask ffffffff"
-+do_pedit ip src clear
-+test_on "key #0  at 12: val 00000000 mask 00000000"
-+do_pedit ip dst set 1.2.3.4
-+test_on "key #0  at 16: val 01020304 mask 00000000"
-+do_pedit ip dst preserve
-+test_on "key #0  at 16: val 00000000 mask ffffffff"
-+do_pedit ip dst invert
-+test_on "key #0  at 16: val ffffffff mask ffffffff"
-+do_pedit ip dst clear
-+test_on "key #0  at 16: val 00000000 mask 00000000"
-+do_pedit ip tos set 0x1
-+test_on "key #0  at 0: val 00010000 mask ff00ffff"
-+do_pedit ip tos set 0x10
-+test_on "key #0  at 0: val 00100000 mask ff00ffff"
-+do_pedit ip tos preserve
-+test_on "key #0  at 0: val 00000000 mask ffffffff"
-+do_pedit ip tos invert
-+test_on "key #0  at 0: val 00ff0000 mask ffffffff"
-+do_pedit ip tos clear
-+test_on "key #0  at 0: val 00000000 mask ff00ffff"
-+do_pedit ip protocol set 0x23
-+test_on "key #0  at 8: val 00230000 mask ff00ffff"
-+do_pedit ip protocol preserve
-+test_on "key #0  at 8: val 00000000 mask ffffffff"
-+do_pedit ip protocol invert
-+test_on "key #0  at 8: val 00ff0000 mask ffffffff"
-+do_pedit ip protocol clear
-+test_on "key #0  at 8: val 00000000 mask ff00ffff"
-+do_pedit ip nofrag set 0x23
-+test_on "key #0  at 4: val 00002300 mask ffffc0ff"
-+do_pedit ip nofrag set 0xf4
-+test_on "key #0  at 4: val 00003400 mask ffffc0ff"
-+do_pedit ip nofrag preserve
-+test_on "key #0  at 4: val 00000000 mask ffffffff"
-+do_pedit ip nofrag invert
-+test_on "key #0  at 4: val 00003f00 mask ffffffff"
-+do_pedit ip nofrag clear
-+test_on "key #0  at 4: val 00000000 mask ffffc0ff"
-+do_pedit ip firstfrag set 0x03
-+test_on "key #0  at 4: val 00000300 mask ffffe0ff"
-+do_pedit ip firstfrag set 0xfa
-+test_on "key #0  at 4: val 00001a00 mask ffffe0ff"
-+do_pedit ip firstfrag preserve
-+test_on "key #0  at 4: val 00000000 mask ffffffff"
-+do_pedit ip firstfrag invert
-+test_on "key #0  at 4: val 00001f00 mask ffffffff"
-+do_pedit ip firstfrag clear
-+test_on "key #0  at 4: val 00000000 mask ffffe0ff"
-+do_pedit ip ce set 0x23
-+test_on "key #0  at 4: val 00000000 mask ffff7fff"
-+do_pedit ip ce set 0x04
-+test_on "key #0  at 4: val 00000000 mask ffff7fff"
-+do_pedit ip ce set 0xf3
-+test_on "key #0  at 4: val 00008000 mask ffff7fff"
-+do_pedit ip ce preserve
-+test_on "key #0  at 4: val 00000000 mask ffffffff"
-+do_pedit ip ce invert
-+test_on "key #0  at 4: val 00008000 mask ffffffff"
-+do_pedit ip ce clear
-+test_on "key #0  at 4: val 00000000 mask ffff7fff"
-+do_pedit ip df set 0x23
-+test_on "key #0  at 4: val 00000000 mask ffffbfff"
-+do_pedit ip df set 0x04
-+test_on "key #0  at 4: val 00000000 mask ffffbfff"
-+do_pedit ip df set 0xf3
-+test_on "key #0  at 4: val 00004000 mask ffffbfff"
-+do_pedit ip df preserve
-+test_on "key #0  at 4: val 00000000 mask ffffffff"
-+do_pedit ip df invert
-+test_on "key #0  at 4: val 00004000 mask ffffffff"
-+do_pedit ip df clear
-+test_on "key #0  at 4: val 00000000 mask ffffbfff"
-+do_pedit ip mf set 0x23
-+test_on "key #0  at 4: val 00002000 mask ffffdfff"
-+do_pedit ip mf set 0x04
-+test_on "key #0  at 4: val 00000000 mask ffffdfff"
-+do_pedit ip mf set 0xf3
-+test_on "key #0  at 4: val 00002000 mask ffffdfff"
-+do_pedit ip mf preserve
-+test_on "key #0  at 4: val 00000000 mask ffffffff"
-+do_pedit ip mf invert
-+test_on "key #0  at 4: val 00002000 mask ffffffff"
-+do_pedit ip mf clear
-+test_on "key #0  at 4: val 00000000 mask ffffdfff"
-+do_pedit ip dport set 0x1234
-+test_on "key #0  at 20: val 00001234 mask ffff0000"
-+do_pedit ip dport preserve
-+test_on "key #0  at 20: val 00000000 mask ffffffff"
-+do_pedit ip dport invert
-+test_on "key #0  at 20: val 0000ffff mask ffffffff"
-+do_pedit ip dport clear
-+test_on "key #0  at 20: val 00000000 mask ffff0000"
-+do_pedit ip sport set 0x1234
-+test_on "key #0  at 20: val 12340000 mask 0000ffff"
-+do_pedit ip sport preserve
-+test_on "key #0  at 20: val 00000000 mask ffffffff"
-+do_pedit ip sport invert
-+test_on "key #0  at 20: val ffff0000 mask ffffffff"
-+do_pedit ip sport clear
-+test_on "key #0  at 20: val 00000000 mask 0000ffff"
-+do_pedit ip icmp_type set 0x23
-+test_on "key #0  at 20: val 23000000 mask 00ffffff"
-+do_pedit ip icmp_type preserve
-+test_on "key #0  at 20: val 00000000 mask ffffffff"
-+do_pedit ip icmp_type invert
-+test_on "key #0  at 20: val ff000000 mask ffffffff"
-+do_pedit ip icmp_type clear
-+test_on "key #0  at 20: val 00000000 mask 00ffffff"
-+do_pedit ip icmp_code set 0x23
-+test_on "key #0  at 20: val 23000000 mask 00ffffff"
-+do_pedit ip icmp_code preserve
-+test_on "key #0  at 20: val 00000000 mask ffffffff"
-+do_pedit ip icmp_code invert
-+test_on "key #0  at 20: val ff000000 mask ffffffff"
-+do_pedit ip icmp_code clear
-+test_on "key #0  at 20: val 00000000 mask 00ffffff"
+ 	if (len == 1) {
+ 		res = pack_key8(retain, sel, tkey);
+ 		goto done;
 -- 
 2.7.2
