@@ -1,36 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net v2] ipv4: fix broadcast packets reception
-Date: Tue, 22 Mar 2016 11:27:40 +0100
-Message-ID: <56F11E1C.2030100@stressinduktion.org>
-References: <c8ad97bbb6f1c9ec8c523209c1203d1982faab6f.1458634653.git.pabeni@redhat.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [Y2038] [PATCH] prism54: isl_38xx: Replace 'struct timeval'
+Date: Tue, 22 Mar 2016 12:51:11 +0100
+Message-ID: <4052607.z5Cu6oJFz8@wuerfel>
+References: <20160322095522.GA35392@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:42022 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756959AbcCVK1o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 06:27:44 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 935532094D
-	for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 06:27:43 -0400 (EDT)
-In-Reply-To: <c8ad97bbb6f1c9ec8c523209c1203d1982faab6f.1458634653.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Tina Ruchandani <ruchandani.tina-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: y2038-cunTk1MwBs8s++Sfvej+rw@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160322095522.GA35392@localhost>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 22.03.2016 09:19, Paolo Abeni wrote:
-> Currently, ingress ipv4 broadcast datagrams are dropped since,
-> in udp_v4_early_demux(), ip_check_mc_rcu() is invoked even on
-> bcast packets.
->
-> This patch addresses the issue, invoking ip_check_mc_rcu()
-> only for mcast packets.
->
-> Fixes: 6e5403093261 ("ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+On Tuesday 22 March 2016 02:55:22 Tina Ruchandani wrote:
+> Truly fixing this would 
+> require changing the debug print to print more than 8 digits and using 
+> a different specifier from %li.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Why not just change it to %lli, and a cast to s64? I don't think the
+format string or the number of digits is important here because it's just
+debug output that is normally disabled.
+
+I also see an existing bug in the format string: "%08li.%08li" means we
+end up printing a six digit microsecond value with two leading zeros,
+which is rather confusing. I think using "%lld.%06ld" would be best
+here, or possibly "%lld.%09ld" to print the whole nanoseconds so we
+can skip the division.
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
