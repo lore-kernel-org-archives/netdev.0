@@ -1,66 +1,46 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 1/8] doc/tc-filters.tex: Drop overly subjective paragraphs
-Date: Tue, 22 Mar 2016 15:48:32 +0100
-Message-ID: <1458658119-25881-2-git-send-email-phil@nwl.cc>
-References: <1458658119-25881-1-git-send-email-phil@nwl.cc>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: [iproute PATCH v2 0/8] Follow-up to my action man pages series
+Date: Tue, 22 Mar 2016 15:48:31 +0100
+Message-ID: <1458658119-25881-1-git-send-email-phil@nwl.cc>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:60478 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:52105 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752213AbcCVOtf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:49:35 -0400
-In-Reply-To: <1458658119-25881-1-git-send-email-phil@nwl.cc>
+	id S1759235AbcCVOtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 10:49:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- doc/tc-filters.tex | 23 ++++-------------------
- 1 file changed, 4 insertions(+), 19 deletions(-)
+The following patch series aims at addressing feedback provided by Jamal
+and Alexei. Thanks a lot for your input!
 
-diff --git a/doc/tc-filters.tex b/doc/tc-filters.tex
-index 59127d6672ed7..54cc0c9920ce2 100644
---- a/doc/tc-filters.tex
-+++ b/doc/tc-filters.tex
-@@ -18,10 +18,6 @@
- \date{January 2016}
- \maketitle
- 
--TC, the Traffic Control utility, has been there for a very long time - forever
--in my humble perception. It is still (and has ever been if I'm not mistaken) the
--only tool to configure QoS in Linux.
--
- Standard practice when transmitting packets over a medium which may block (due
- to congestion, e.g.) is to use a queue which temporarily holds these packets. In
- Linux, this queueing approach is where QoS happens: A Queueing Discipline
-@@ -496,21 +492,10 @@ kernel itself doesn't.
- 
- \section*{Conclusion}
- 
--My personal impression is that although the \cmd{tc} utility is an absolute
--necessity for anyone aiming at doing QoS in Linux professionally, there are way
--too many loose ends and trip wires present in it's environment. Contributing to
--this is the fact, that much of the non-essential functionality is redundantly
--available in netfilter. Another problem which adds weight to the first one is a
--general lack of documentation. Of course, there are many HOWTOs and guides in
--the internet, but since it's often not clear how up to date these are, I prefer
--the usual resources such as man or info pages. Surely nothing one couldn't fix
--in hindsight, but quality certainly suffers if the original author of the code
--does not or can not contribute to that.
--
--All that being said, once the steep learning curve has been mastered, the
--conglomerate of (classful) qdiscs, filters and actions provides a highly
--sophisticated and flexible infrastructure to perform QoS, which plays nicely
--along with routing and firewalling setups.
-+Once the steep learning curve has been mastered, the conglomerate of (classful)
-+qdiscs, filters and actions provides a highly sophisticated and flexible
-+infrastructure to perform QoS, which plays nicely along with routing and
-+firewalling setups.
- 
- 
- \section*{Further Reading}
+Changes since v1:
+- Rebased onto current master.
+- Dropped some leftover TODO note from tc-skbedit.8
+
+Phil Sutter (8):
+  doc/tc-filters.tex: Drop overly subjective paragraphs
+  tc: connmark, pedit: Rename BRANCH to CONTROL
+  man: tc-csum.8: Add an example
+  man: tc-mirred.8: Reword man page a bit, add generic mirror example
+  man: tc-police.8: Emphasize on the two rate control mechanisms
+  man: tc-skbedit.8: Elaborate a bit on TX queues
+  tc/m_vlan.c: mention CONTROL option in help text
+  man: tc-vlan.8: Describe CONTROL option
+
+ doc/tc-filters.tex     | 23 ++++-----------------
+ man/man8/tc-connmark.8 |  6 +++---
+ man/man8/tc-csum.8     | 15 ++++++++++++++
+ man/man8/tc-mirred.8   | 26 ++++++++++++++++-------
+ man/man8/tc-pedit.8    |  6 +++---
+ man/man8/tc-police.8   | 29 ++++++++++++++++++++++----
+ man/man8/tc-skbedit.8  | 12 +++++++++++
+ man/man8/tc-vlan.8     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ tc/m_connmark.c        |  4 ++--
+ tc/m_pedit.c           |  4 ++--
+ tc/m_vlan.c            |  3 ++-
+ 11 files changed, 142 insertions(+), 42 deletions(-)
+
 -- 
 2.7.2
