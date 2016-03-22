@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 06/10] net: hns: fix return value of the function about rss
-Date: Tue, 22 Mar 2016 16:06:27 +0800
-Message-ID: <1458633991-64313-7-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH V2 net 10/10] net: hns: bug fix about the overflow of mss
+Date: Tue, 22 Mar 2016 16:06:31 +0800
+Message-ID: <1458633991-64313-11-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,149 +13,73 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:31779 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:31778 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752386AbcCVHsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:48:24 -0400
+	with ESMTP id S1754127AbcCVHs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:48:26 -0400
 In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Daode Huang <huangdaode@hisilicon.com>
 
-Both .get_rxfh and .set_rxfh are always return 0, it should return result
-from hardware when getting or setting rss. And the rss function should
-return the correct data type.
+When set MTU to the minimum value 68, there are increasing number
+of error packets occur, which is caused by the overflowed value of
+mss. This patch fix the bug.
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
-change log:
- PATCH V2:
-  - fix the wrong casts:
-    1) .get_rxfh_key_size and .get_rxfh_indir_size should return zero if
-       not supported
-    2) .get_rxfh and .set_rxfh should return negative error if not support
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
- PATCH V1:
-  - first submit
-
- Link: https://lkml.org/lkml/2016/3/21/222
----
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 24 ++++++-----------------
- 3 files changed, 8 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index a7427b8..648b31a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -803,7 +803,7 @@ static int hns_ae_set_rss(struct hnae_handle *handle, const u32 *indir,
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index ef517af..71aa37b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -48,7 +48,6 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 	struct iphdr *iphdr;
+ 	struct ipv6hdr *ipv6hdr;
+ 	struct sk_buff *skb;
+-	int skb_tmp_len;
+ 	__be16 protocol;
+ 	u8 bn_pid = 0;
+ 	u8 rrcfv = 0;
+@@ -94,13 +93,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
  
- 	/* set the RSS Hash Key if specififed by the user */
- 	if (key)
--		hns_ppe_set_rss_key(ppe_cb, (int *)key);
-+		hns_ppe_set_rss_key(ppe_cb, (u32 *)key);
+ 				/* check for tcp/udp header */
+-				if (iphdr->protocol == IPPROTO_TCP) {
++				if (iphdr->protocol == IPPROTO_TCP &&
++				    skb_is_gso(skb)) {
+ 					hnae_set_bit(tvsvsn,
+ 						     HNSV2_TXD_TSE_B, 1);
+-					skb_tmp_len = SKB_TMP_LEN(skb);
+ 					l4_len = tcp_hdrlen(skb);
+-					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
+-					paylen = skb->len - skb_tmp_len;
++					mss = skb_shinfo(skb)->gso_size;
++					paylen = skb->len - SKB_TMP_LEN(skb);
+ 				}
+ 			} else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 				hnae_set_bit(tvsvsn, HNSV2_TXD_IPV6_B, 1);
+@@ -108,13 +107,13 @@ static void fill_v2_desc(struct hnae_ring *ring, void *priv,
+ 				hnae_set_bit(rrcfv, HNSV2_TXD_L4CS_B, 1);
  
- 	/* update the shadow RSS table with user specified qids */
- 	memcpy(ppe_cb->rss_indir_table, indir, HNS_PPEV2_RSS_IND_TBL_SIZE);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index f302ef9..06422c2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -27,7 +27,7 @@ void hns_ppe_set_tso_enable(struct hns_ppe_cb *ppe_cb, u32 value)
- void hns_ppe_set_rss_key(struct hns_ppe_cb *ppe_cb,
- 			 const u32 rss_key[HNS_PPEV2_RSS_KEY_NUM])
- {
--	int key_item = 0;
-+	u32 key_item;
- 
- 	for (key_item = 0; key_item < HNS_PPEV2_RSS_KEY_NUM; key_item++)
- 		dsaf_write_dev(ppe_cb, PPEV2_RSS_KEY_REG + key_item * 0x4,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-index 3c4a3bc..2229905 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
-@@ -1173,18 +1173,15 @@ hns_get_rss_key_size(struct net_device *netdev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	u32 ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
- 			   "RSS feature is not supported on this hardware\n");
--		return -EOPNOTSUPP;
-+		return 0;
- 	}
- 
- 	ops = priv->ae_handle->dev->ops;
--	ret = ops->get_rss_key_size(priv->ae_handle);
--
--	return ret;
-+	return ops->get_rss_key_size(priv->ae_handle);
- }
- 
- static u32
-@@ -1192,18 +1189,15 @@ hns_get_rss_indir_size(struct net_device *netdev)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	u32 ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
- 			   "RSS feature is not supported on this hardware\n");
--		return -EOPNOTSUPP;
-+		return 0;
- 	}
- 
- 	ops = priv->ae_handle->dev->ops;
--	ret = ops->get_rss_indir_size(priv->ae_handle);
--
--	return ret;
-+	return ops->get_rss_indir_size(priv->ae_handle);
- }
- 
- static int
-@@ -1211,7 +1205,6 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	int ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
-@@ -1224,9 +1217,7 @@ hns_get_rss(struct net_device *netdev, u32 *indir, u8 *key, u8 *hfunc)
- 	if (!indir)
- 		return 0;
- 
--	ret = ops->get_rss(priv->ae_handle, indir, key, hfunc);
--
--	return 0;
-+	return ops->get_rss(priv->ae_handle, indir, key, hfunc);
- }
- 
- static int
-@@ -1235,7 +1226,6 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- {
- 	struct hns_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae_ae_ops *ops;
--	int ret;
- 
- 	if (AE_IS_VER1(priv->enet_ver)) {
- 		netdev_err(netdev,
-@@ -1252,9 +1242,7 @@ hns_set_rss(struct net_device *netdev, const u32 *indir, const u8 *key,
- 	if (!indir)
- 		return 0;
- 
--	ret = ops->set_rss(priv->ae_handle, indir, key, hfunc);
--
--	return 0;
-+	return ops->set_rss(priv->ae_handle, indir, key, hfunc);
- }
- 
- static struct ethtool_ops hns_ethtool_ops = {
+ 				/* check for tcp/udp header */
+-				if (ipv6hdr->nexthdr == IPPROTO_TCP) {
++				if (ipv6hdr->nexthdr == IPPROTO_TCP &&
++				    skb_is_gso(skb) && skb_is_gso_v6(skb)) {
+ 					hnae_set_bit(tvsvsn,
+ 						     HNSV2_TXD_TSE_B, 1);
+-					skb_tmp_len = SKB_TMP_LEN(skb);
+ 					l4_len = tcp_hdrlen(skb);
+-					mss = mtu - skb_tmp_len - ETH_FCS_LEN;
+-					paylen = skb->len - skb_tmp_len;
++					mss = skb_shinfo(skb)->gso_size;
++					paylen = skb->len - SKB_TMP_LEN(skb);
+ 				}
+ 			}
+ 			desc->tx.ip_offset = ip_offset;
 -- 
 1.9.1
