@@ -1,166 +1,39 @@
-From: <igal.liberman@freescale.com>
-Subject: [PATCH] fsl/fman: Workaround for Errata A-007273
-Date: Mon, 21 Mar 2016 23:08:11 +0200
-Message-ID: <1458594492-15529-1-git-send-email-igal.liberman@freescale.com>
-Reply-To: <igal.liberman@freescale.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Tue, 22 Mar 2016 15:28:23 +0100
+Message-ID: <1458656903.1990.12.camel@suse.com>
+References: <Pine.LNX.4.44L0.1603221014500.1793-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <scottwood@freescale.com>, <madalin.bucur@freescale.com>,
-	Igal Liberman <igal.liberman@freescale.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0119.outbound.protection.outlook.com ([207.46.100.119]:18409
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758397AbcCVOXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:23:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	Woojung Huh <woojung.huh@microchip.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1603221014500.1793-100000@iolanthe.rowland.org>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Igal Liberman <igal.liberman@freescale.com>
+On Tue, 2016-03-22 at 10:21 -0400, Alan Stern wrote:
+> I don't see any point in resuming the device just in order to collect 
+> operating statistics.  If it was already suspended then it wasn't 
+> operating, so there will be no statistics to collect.
 
-Errata A-007273 (For FMan V3 devices only):
-FMan soft reset is not finished properly if one
-of the Ethernet MAC clocks is disabled
+Indeed. In that case the point is moot. But it is correct to ask
+the core whether the device is autosuspended at that point rather
+than keep a private flag if you can.
 
-Workaround:
-Re-enable all disabled MAC clocks through the DCFG_CCSR_DEVDISR2
-register prior to issuing an FMAN soft reset.
-Re-disable the MAC clocks after the FMAN soft reset is done.
+All that is relevant only if the upper layers ask for information
+that the driver cannot provide without resuming the device.
+Those are fundamentally different issues.
 
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
----
- drivers/net/ethernet/freescale/fman/fman.c |  104 +++++++++++++++++++++++-----
- 1 file changed, 88 insertions(+), 16 deletions(-)
+	Regards
+		Oliver
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index 79a210a..ea83712 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -35,6 +35,7 @@
- #include "fman.h"
- #include "fman_muram.h"
- 
-+#include <linux/fsl/guts.h>
- #include <linux/slab.h>
- #include <linux/delay.h>
- #include <linux/module.h>
-@@ -1871,6 +1872,90 @@ err_fm_state:
- 	return -EINVAL;
- }
- 
-+static int fman_reset(struct fman *fman)
-+{
-+	u32 count;
-+	int err = 0;
-+
-+	if (fman->state->rev_info.major < 6) {
-+		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
-+		/* Wait for reset completion */
-+		count = 100;
-+		do {
-+			udelay(1);
-+		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
-+			 FPM_RSTC_FM_RESET) && --count);
-+		if (count == 0)
-+			err = -EBUSY;
-+
-+		goto _return;
-+	} else {
-+		struct device_node *guts_node;
-+		struct ccsr_guts __iomem *guts_regs;
-+		u32 devdisr2, reg;
-+
-+		/* Errata A007273 */
-+		guts_node =
-+			of_find_compatible_node(NULL, NULL,
-+						"fsl,qoriq-device-config-2.0");
-+		if (!guts_node) {
-+			dev_err(fman->dev, "%s: Couldn't find guts node\n",
-+				__func__);
-+			goto guts_node;
-+		}
-+
-+		guts_regs = of_iomap(guts_node, 0);
-+		if (!guts_regs) {
-+			dev_err(fman->dev, "%s: Couldn't map %s regs\n",
-+				__func__, guts_node->full_name);
-+			goto guts_regs;
-+		}
-+#define FMAN1_ALL_MACS_MASK	0xFCC00000
-+#define FMAN2_ALL_MACS_MASK	0x000FCC00
-+		/* Read current state */
-+		devdisr2 = ioread32be(&guts_regs->devdisr2);
-+		if (fman->dts_params.id == 0)
-+			reg = devdisr2 & ~FMAN1_ALL_MACS_MASK;
-+		else
-+			reg = devdisr2 & ~FMAN2_ALL_MACS_MASK;
-+
-+		/* Enable all MACs */
-+		iowrite32be(reg, &guts_regs->devdisr2);
-+
-+		/* Perform FMan reset */
-+		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
-+
-+		/* Wait for reset completion */
-+		count = 100;
-+		do {
-+			udelay(1);
-+		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
-+			 FPM_RSTC_FM_RESET) && --count);
-+		if (count == 0) {
-+			iounmap(guts_regs);
-+			of_node_put(guts_node);
-+			err = -EBUSY;
-+			goto _return;
-+		}
-+
-+		/* Restore devdisr2 value */
-+		iowrite32be(devdisr2, &guts_regs->devdisr2);
-+
-+		iounmap(guts_regs);
-+		of_node_put(guts_node);
-+
-+		goto _return;
-+
-+guts_regs:
-+		of_node_put(guts_node);
-+guts_node:
-+		dev_dbg(fman->dev, "%s: Didn't perform FManV3 reset due to Errata A007273!\n",
-+			__func__);
-+	}
-+_return:
-+	return err;
-+}
-+
- static int fman_init(struct fman *fman)
- {
- 	struct fman_cfg *cfg = NULL;
-@@ -1914,22 +1999,9 @@ static int fman_init(struct fman *fman)
- 		fman->liodn_base[i] = liodn_base;
- 	}
- 
--	/* FMan Reset (supported only for FMan V2) */
--	if (fman->state->rev_info.major >= 6) {
--		/* Errata A007273 */
--		dev_dbg(fman->dev, "%s: FManV3 reset is not supported!\n",
--			__func__);
--	} else {
--		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
--		/* Wait for reset completion */
--		count = 100;
--		do {
--			udelay(1);
--		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
--			 FPM_RSTC_FM_RESET) && --count);
--		if (count == 0)
--			return -EBUSY;
--	}
-+	err = fman_reset(fman);
-+	if (err)
-+		return err;
- 
- 	if (ioread32be(&fman->qmi_regs->fmqm_gs) & QMI_GS_HALT_NOT_BUSY) {
- 		resume(fman->fpm_regs);
--- 
-1.7.9.5
+
