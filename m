@@ -1,85 +1,49 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 5/8] man: tc-police.8: Emphasize on the two rate control mechanisms
-Date: Tue, 22 Mar 2016 15:48:36 +0100
-Message-ID: <1458658119-25881-6-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 3/8] man: tc-csum.8: Add an example
+Date: Tue, 22 Mar 2016 15:48:34 +0100
+Message-ID: <1458658119-25881-4-git-send-email-phil@nwl.cc>
 References: <1458658119-25881-1-git-send-email-phil@nwl.cc>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43413 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:55796 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777AbcCVOsx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:48:53 -0400
+	id S932616AbcCVOs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 10:48:58 -0400
 In-Reply-To: <1458658119-25881-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As Jamal pointed out, there are two different approaches to bandwidth
-measurement. Try to make this clear by separating them in synopsis and
-also documenting the way to fine-tune avrate.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-police.8 | 29 +++++++++++++++++++++++++----
- 1 file changed, 25 insertions(+), 4 deletions(-)
+ man/man8/tc-csum.8 | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/man/man8/tc-police.8 b/man/man8/tc-police.8
-index 2b1537ec52875..5c5a632335dc9 100644
---- a/man/man8/tc-police.8
-+++ b/man/man8/tc-police.8
-@@ -12,13 +12,21 @@ police - policing action
- .IR BYTES [\fB/ BYTES "] ] ["
- .BI peakrate " RATE"
- ] [
--.BI avrate " RATE"
--] [
- .BI overhead " BYTES"
- ] [
- .BI linklayer " TYPE"
- ] [
--.BI conform-exceed " EXCEEDACT\fR[\fB/\fIEXCEEDACT\fR]"
-+.IR CONTROL " ]"
-+
-+.ti -8
-+.BR tc " ... " filter " ... [ " estimator
-+.IR "SAMPLE AVERAGE " ]
-+.BR "action police avrate"
-+.IR RATE " [ " CONTROL " ]"
-+
-+.ti -8
-+.IR CONTROL " :="
-+.BI conform-exceed " EXCEEDACT\fR[\fB/\fIEXCEEDACT"
- 
- .ti -8
- .IR EXCEEDACT " := { "
-@@ -27,7 +35,14 @@ police - policing action
- The
- .B police
- action allows to limit bandwidth of traffic matched by the filter it is
--attached to.
-+attached to. Basically there are two different algorithms available to measure
-+the packet rate: The first one uses an internal dual token bucket and is
-+configured using the
-+.BR rate ", " burst ", " mtu ", " peakrate ", " overhead " and " linklayer
-+parameters. The second one uses an in-kernel sampling mechanism. It can be
-+fine-tuned using the
-+.B estimator
-+filter parameter.
- .SH OPTIONS
+diff --git a/man/man8/tc-csum.8 b/man/man8/tc-csum.8
+index 9d00aae346af0..3a64c82f09ba8 100644
+--- a/man/man8/tc-csum.8
++++ b/man/man8/tc-csum.8
+@@ -49,6 +49,21 @@ UDPLite header
  .TP
- .BI rate " RATE"
-@@ -73,6 +88,12 @@ cell sizes, for
- .B ethernet
- no action is taken.
- .TP
-+.BI estimator " SAMPLE AVERAGE"
-+Fine-tune the in-kernel packet rate estimator.
-+.IR SAMPLE " and " AVERAGE
-+are time values and control the frequency in which samples are taken and over
-+what timespan an average is built.
-+.TP
- .BI conform-exceed " EXCEEDACT\fR[\fB/\fIEXCEEDACT\fR]"
- Define how to handle packets which exceed (and, if the second
- .I EXCEEDACT
+ .B SWEETS
+ These are merely syntactic sugar and ignored internally.
++.SH EXAMPLES
++The following performs stateless NAT for incoming packets from 192.168.1.100 to
++new destination 18.52.86.120 (0x12345678 in hex). Assuming these are UDP
++packets, both IP and UDP checksums have to be recalculated:
++
++.RS
++.EX
++# tc qdisc add dev eth0 ingress handle ffff:
++# tc filter add eth0 prio 1 protocol ip parent ffff: \\
++	u32 match ip src 192.168.1.100/32 flowid :1 \\
++	action pedit munge ip dst set 0x12345678 pipe \\
++	csum ip and udp
++.EE
++.RE
++
+ .SH SEE ALSO
+ .BR tc (8),
+ .BR tc-pedit (8)
 -- 
 2.7.2
