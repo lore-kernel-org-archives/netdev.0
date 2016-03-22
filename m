@@ -1,26 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] igmp: Document sysctl_igmp_max_msf
-Date: Mon, 21 Mar 2016 22:58:51 -0400 (EDT)
-Message-ID: <20160321.225851.812309646398105279.davem@davemloft.net>
-References: <1458591700-5547-1-git-send-email-bpoirier@suse.com>
-	<1458591700-5547-2-git-send-email-bpoirier@suse.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, corbet@lwn.net
-To: bpoirier@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57219 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758228AbcCVC6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 22:58:53 -0400
-In-Reply-To: <1458591700-5547-2-git-send-email-bpoirier@suse.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei-Ning Huang <wnhuang@chromium.org>
+Subject: [PATCH v2] mwifiex: advertise low priority scan feature
+Date: Tue, 22 Mar 2016 12:09:56 +0800
+Message-ID: <1458619796-7694-1-git-send-email-wnhuang@chromium.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, akarwar@marvell.com,
+	djkurtz@chromium.org, Wei-Ning Huang <wnhuang@chromium.org>,
+	nishants@marvell.com, kvalo@codeaurora.org, netdev@vger.kernel.org
+To: Linux Wireless <linux-wireless@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Mon, 21 Mar 2016 13:21:40 -0700
+From: Amitkumar Karwar <akarwar@marvell.com>
 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Low priority scan handling code which delays or aborts scan
+operation based on Tx traffic is removed recently. The reason
+is firmware already takes care of it in our new feature scan
+channel gap. Hence we should advertise low priority scan
+support to cfg80211.
 
-Applied.
+This patch fixes a problem in which OBSS scan request from
+wpa_supplicant was being rejected by cfg80211.
+
+Signed-off-by: Amitkumar Karwar <akarwar@marvell.com>
+Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+---
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+index bb7235e..7dafc5b 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+@@ -4086,6 +4086,7 @@ int mwifiex_register_cfg80211(struct mwifiex_adapter *adapter)
+ 
+ 	wiphy->features |= NL80211_FEATURE_HT_IBSS |
+ 			   NL80211_FEATURE_INACTIVITY_TIMER |
++			   NL80211_FEATURE_LOW_PRIORITY_SCAN |
+ 			   NL80211_FEATURE_NEED_OBSS_SCAN;
+ 
+ 	if (ISSUPP_TDLS_ENABLED(adapter->fw_cap_info))
+-- 
+2.8.0.rc3.226.g39d4020
