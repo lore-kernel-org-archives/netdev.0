@@ -1,7 +1,8 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 00/10] net: hns: bugs fixed for hns
-Date: Tue, 22 Mar 2016 16:06:21 +0800
-Message-ID: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH V2 net 05/10] net: hns: set xge statistic reg as read only
+Date: Tue, 22 Mar 2016 16:06:26 +0800
+Message-ID: <1458633991-64313-6-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
@@ -12,71 +13,42 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:34678 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34668 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755609AbcCVHvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:51:38 -0400
+	with ESMTP id S1752085AbcCVHvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:51:45 -0400
+In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series includes some bug fixes and updates for hns driver.
+From: Qianqian Xie <xieqianqian@huawei.com>
 
->from Daode, one fix about mss.
+As the user manual of HNS V2 describs, XGE_DFX_CTRL_CFG.xge_dfx_ctrl_cfg
+should be configed as zero if we want xge statistic reg to be read only.
+But HNS V1 gets the other meanings. It needs to be identified the process
+and then config it rightly.
 
->from Kejian, one fix about ping6 issue, one fix about mac address setting,
-two fix for RSS setting, two fix about mtu setting.
-
->from qianqian, fixed HNS v2 xge statistic reg issue.
-
->from Sheng, one fix about manage packets sending, one fix about GMACs mac
-setting.
-
-For more details, please see individual patches.
-
-Thanks a lot!
-
+Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
-change log:
- Series V2:
-  - fix the comments as below:
-    1) modifies the wrong charator "whick" to "which" in commit log
-    2) use the "eth_hdr()" help to get source mac of packets
-    3) fix the wrong cast
-    4) use tabs instead of spaces to indent the value
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
- Series V1:
-  - first submit
-
-Daode Huang (1):
-  net: hns: bug fix about the overflow of mss
-
-Kejian Yan (6):
-  net: hns: bug fix about ping6
-  net: hns: add uc match for debug ports
-  net: hns: fix return value of the function about rss
-  net: hns: fixes a bug of RSS
-  net: hns: fix the bug about mtu setting
-  net: hns: adds limitation for debug port mtu
-
-Qianqian Xie (1):
-  net: hns: set xge statistic reg as read only
-
-Sheng Li (2):
-  net: hns: fixed portid bug in sending manage pkt
-  net: hns: fixed the bug about GMACs mac setting
-
- drivers/net/ethernet/hisilicon/hns/hnae.h          |  3 ++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 12 +++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 38 ++++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 15 ++++++++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  6 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  5 +--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  5 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 32 ++++++++++++------
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 38 +++++++++++++---------
- 11 files changed, 117 insertions(+), 41 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 38fc5be..5c1ac9b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -748,8 +748,9 @@ static void hns_dsaf_tbl_stat_en(struct dsaf_device *dsaf_dev)
+  */
+ static void hns_dsaf_rocee_bp_en(struct dsaf_device *dsaf_dev)
+ {
+-	dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
+-			 DSAF_FC_XGE_TX_PAUSE_S, 1);
++	if (AE_IS_VER1(dsaf_dev->dsaf_ver))
++		dsaf_set_dev_bit(dsaf_dev, DSAF_XGE_CTRL_SIG_CFG_0_REG,
++				 DSAF_FC_XGE_TX_PAUSE_S, 1);
+ }
+ 
+ /* set msk for dsaf exception irq*/
 -- 
 1.9.1
