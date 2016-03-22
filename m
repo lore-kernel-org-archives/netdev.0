@@ -1,8 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 04/10] net: hns: fixed the bug about GMACs mac setting
-Date: Tue, 22 Mar 2016 16:06:25 +0800
-Message-ID: <1458633991-64313-5-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH V2 net 00/10] net: hns: bugs fixed for hns
+Date: Tue, 22 Mar 2016 16:06:21 +0800
+Message-ID: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
@@ -12,56 +11,72 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<andrew@lunn.ch>, <ivecera@redhat.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34678 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755609AbcCVHvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:51:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sheng Li <lisheng011@huawei.com>
+This series includes some bug fixes and updates for hns driver.
 
-When sending a pause frame out from GMACs, the packets' source MAC address
-does not match the GMACs' MAC address. It causes by the condition before
-the mac address setting routine for GMACs, the mac address cannot be set
-into loacal mac table for service ports. It obviously the condition needs
-to be deleted.
+>from Daode, one fix about mss.
 
-Signed-off-by: Sheng Li <lisheng011@huawei.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+>from Kejian, one fix about ping6 issue, one fix about mac address setting,
+two fix for RSS setting, two fix about mtu setting.
+
+>from qianqian, fixed HNS v2 xge statistic reg issue.
+
+>from Sheng, one fix about manage packets sending, one fix about GMACs mac
+setting.
+
+For more details, please see individual patches.
+
+Thanks a lot!
+
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+change log:
+ Series V2:
+  - fix the comments as below:
+    1) modifies the wrong charator "whick" to "which" in commit log
+    2) use the "eth_hdr()" help to get source mac of packets
+    3) fix the wrong cast
+    4) use tabs instead of spaces to indent the value
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index b8cf0e4..6e2b76e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -422,19 +422,17 @@ static void hns_gmac_set_mac_addr(void *mac_drv, char *mac_addr)
- {
- 	struct mac_driver *drv = (struct mac_driver *)mac_drv;
- 
--	if (drv->mac_id >= DSAF_SERVICE_NW_NUM) {
--		u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
-+	u32 high_val = mac_addr[1] | (mac_addr[0] << 8);
- 
--		u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
--			| (mac_addr[3] << 16) | (mac_addr[2] << 24);
-+	u32 low_val = mac_addr[5] | (mac_addr[4] << 8)
-+		| (mac_addr[3] << 16) | (mac_addr[2] << 24);
- 
--		u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
--		u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
-+	u32 val = dsaf_read_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG);
-+	u32 sta_addr_en = dsaf_get_bit(val, GMAC_ADDR_EN_B);
- 
--		dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
--		dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
--			       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
--	}
-+	dsaf_write_dev(drv, GMAC_STATION_ADDR_LOW_2_REG, low_val);
-+	dsaf_write_dev(drv, GMAC_STATION_ADDR_HIGH_2_REG,
-+		       high_val | (sta_addr_en << GMAC_ADDR_EN_B));
- }
- 
- static int hns_gmac_config_loopback(void *mac_drv, enum hnae_loop loop_mode,
+ Series V1:
+  - first submit
+
+Daode Huang (1):
+  net: hns: bug fix about the overflow of mss
+
+Kejian Yan (6):
+  net: hns: bug fix about ping6
+  net: hns: add uc match for debug ports
+  net: hns: fix return value of the function about rss
+  net: hns: fixes a bug of RSS
+  net: hns: fix the bug about mtu setting
+  net: hns: adds limitation for debug port mtu
+
+Qianqian Xie (1):
+  net: hns: set xge statistic reg as read only
+
+Sheng Li (2):
+  net: hns: fixed portid bug in sending manage pkt
+  net: hns: fixed the bug about GMACs mac setting
+
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  3 ++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 12 +++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 38 ++++++++++++++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 15 ++++++++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  6 +++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  5 +--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |  5 ++-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |  2 ++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 32 ++++++++++++------
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 38 +++++++++++++---------
+ 11 files changed, 117 insertions(+), 41 deletions(-)
+
 -- 
 1.9.1
