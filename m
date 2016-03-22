@@ -1,39 +1,73 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 0/4] tc: pedit: further fixes
-Date: Tue, 22 Mar 2016 15:16:20 +0100
-Message-ID: <1458656184-22154-1-git-send-email-phil@nwl.cc>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:45118 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758750AbcCVOQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:16:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Tue, 22 Mar 2016 10:21:44 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1603221014500.1793-100000@iolanthe.rowland.org>
+References: <1458640209.1990.8.camel@suse.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+	Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+	Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+	Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458640209.1990.8.camel-IBi9RG/b67k@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The following series was created after testing pedit on a big-endian
-system. It starts with a minor patch fixing coding style in tc/p_ip.c,
-then the actual big-endian fixup, a fix for raw op discovered when
-writing the pedit test for testsuite and finally a testsuite addon to
-verify pedit functionality.
+On Tue, 22 Mar 2016, Oliver Neukum wrote:
 
-Changes since v1:
-- Rebased whole series onto current master branch.
-- Replaced patch 1/4 with a smaller one containing only the rebase
-  leftovers.
+> On Mon, 2016-03-21 at 15:30 -0400, Alan Stern wrote:
+> > On Mon, 21 Mar 2016, Oliver Neukum wrote:
+> > 
+> 
+> > > We have an autosuspend timeout because we think that IO, if it will
+> > > come at all, is likeliest to come soon. If, however, the IO is
+> > > periodic that heuristics is false.
+> > > To save most power the driver must either decide that the interval
+> > > is too short or suspend immediately. So if we are lucky enough
+> > > to have the frequency in the kernel, we should use that information.
+> > 
+> > The autosuspend timeout is set by userspace.  The kernel may assign a
+> 
+> Thus it should apply to all IO originating in user space.
+> But only to that IO.
 
-Phil Sutter (4):
-  tc/p_ip.c: Minor coding style cleanup
-  tc: pedit: Fix for big-endian systems
-  tc: pedit: Fix raw op
-  testsuite: add a test for tc pedit action
+Fair enough.
 
- tc/m_pedit.c               |  23 ++---
- tc/p_ip.c                  |   8 +-
- testsuite/tests/tc/pedit.t | 217 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 235 insertions(+), 13 deletions(-)
- create mode 100755 testsuite/tests/tc/pedit.t
+> > default value, but the user can always override it.  Given this, I 
+> > don't see how the kernel can use frequency information (and I'm not 
+> > sure where that information would come from in the first place).
+> 
+> It can ignore internal IO for the purpose of the timeout.
+> If such IO is performed while the device is active, don't
+> alter the timer.
 
--- 
-2.7.2
+Come to think of it, we don't.  If pm_runtime_get_sync() and then
+pm_runtime_put() are called while the device is already at full power, 
+the PM core doesn't update the last_busy time.  So if the driver 
+doesn't update it either, the statistics collection won't interfere 
+with autosuspend (except when it races with the autosuspend timer 
+expiration).
+
+> Otherwise resume the device and look at
+> the provided hint and suspend again immediately if the period is long
+> enough.
+
+I don't see any point in resuming the device just in order to collect 
+operating statistics.  If it was already suspended then it wasn't 
+operating, so there will be no statistics to collect.
+
+> If IO is generated periodically in the kernel, the kernel must know that
+> period.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
