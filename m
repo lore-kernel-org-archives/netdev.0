@@ -1,49 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] net: ipv4: Fix truncated timestamp returned by
- inet_current_timestamp()
-Date: Mon, 21 Mar 2016 22:57:49 -0400 (EDT)
-Message-ID: <20160321.225749.1021493391392469038.davem@davemloft.net>
-References: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
+Subject: Re: Make DST_CACHE a silent config option
+Date: Mon, 21 Mar 2016 22:58:05 -0400 (EDT)
+Message-ID: <20160321.225805.145364101319690021.davem@davemloft.net>
+References: <20160321223722.GA26702@codemonkey.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, y2038@lists.linaro.org,
-	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	kaber@trash.net, arnd@arndb.de
-To: deepa.kernel@gmail.com
+Cc: netdev@vger.kernel.org
+To: davej@codemonkey.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57187 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57197 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757947AbcCVC54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 22:57:56 -0400
-In-Reply-To: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
+	with ESMTP id S1751947AbcCVC6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 22:58:07 -0400
+In-Reply-To: <20160321223722.GA26702@codemonkey.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Date: Mon, 21 Mar 2016 18:21:26 -0700
+From: Dave Jones <davej@codemonkey.org.uk>
+Date: Mon, 21 Mar 2016 18:37:22 -0400
 
-> The millisecond timestamps returned by the function is
-> converted to network byte order by making a call to htons().
-> htons() only returns __be16 while __be32 is required here.
+> commit 911362c70d ("net: add dst_cache support") added a new
+> kconfig option that gets selected by other networking options.
+> It seems the intent wasn't to offer this as a user-selectable
+> option given the lack of help text, so this patch converts it
+> to a silent option.
 > 
-> This was identified by the sparse warning from the buildbot:
-> net/ipv4/af_inet.c:1405:16: sparse: incorrect type in return
-> 			    expression (different base types)
-> net/ipv4/af_inet.c:1405:16: expected restricted __be32
-> net/ipv4/af_inet.c:1405:16: got restricted __be16 [usertype] <noident>
-> 
-> Change the function to use htonl() to return the correct __be32 type
-> instead so that the millisecond value doesn't get truncated.
-> 
-> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 822c868532ca ("net: ipv4: Convert IP network timestamps to be y2038 safe")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+> Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
 
-Applied and queued up for -stable.
+That indeed is the intention, applied, thanks Dave.
