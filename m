@@ -1,55 +1,42 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: Re: [PATCH 4/5] net: sxgbe: fix error paths in sxgbe_platform_probe()
-Date: Tue, 22 Mar 2016 20:47:02 +0100
-Message-ID: <877fgue1mx.fsf@rasmusvillemoes.dk>
-References: <1455048677-19882-1-git-send-email-linux@rasmusvillemoes.dk>
-	<1455048677-19882-5-git-send-email-linux@rasmusvillemoes.dk>
-	<8737s0d7iz.fsf@rasmusvillemoes.dk>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH V2 net 00/10] net: hns: bugs fixed for hns
+Date: Tue, 22 Mar 2016 15:50:44 -0400 (EDT)
+Message-ID: <20160322.155044.433616962632865722.davem@redhat.com>
+References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Girish K S <ks.giri@samsung.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8737s0d7iz.fsf@rasmusvillemoes.dk> (Rasmus Villemoes's message
-	of "Tue, 08 Mar 2016 21:44:20 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yankejian@huawei.com, huangdaode@hisilicon.com,
+	salil.mehta@huawei.com, lisheng011@huawei.com,
+	lipeng321@huawei.com, liguozhu@huawei.com, arnd@arndb.de,
+	sergei.shtylyov@cogentembedded.com, xieqianqian@huawei.com,
+	andrew@lunn.ch, ivecera@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: Yisen.Zhuang@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48902 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750856AbcCVTut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 15:50:49 -0400
+In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ping^2
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Date: Tue, 22 Mar 2016 16:06:21 +0800
 
-On Tue, Mar 08 2016, Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
+> This series includes some bug fixes and updates for hns driver.
+> 
+>>from Daode, one fix about mss.
+> 
+>>from Kejian, one fix about ping6 issue, one fix about mac address setting,
+> two fix for RSS setting, two fix about mtu setting.
+> 
+>>from qianqian, fixed HNS v2 xge statistic reg issue.
+> 
+>>from Sheng, one fix about manage packets sending, one fix about GMACs mac
+> setting.
+> 
+> For more details, please see individual patches.
 
-> ping
->
-> On Tue, Feb 09 2016, Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
->
->> We need to use post-decrement to ensure that irq_dispose_mapping is
->> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
->> loops failed already at i==0 (so we reach one of these labels with
->> that value of i), we'll enter an essentially infinite loop of
->> out-of-bounds accesses.
->>
->> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
->> ---
->>  drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
->> index b02eed12bfc5..73427e29df2a 100644
->> --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
->> +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_platform.c
->> @@ -155,11 +155,11 @@ static int sxgbe_platform_probe(struct platform_device *pdev)
->>  	return 0;
->>  
->>  err_rx_irq_unmap:
->> -	while (--i)
->> +	while (i--)
->>  		irq_dispose_mapping(priv->rxq[i]->irq_no);
->>  	i = SXGBE_TX_QUEUES;
->>  err_tx_irq_unmap:
->> -	while (--i)
->> +	while (i--)
->>  		irq_dispose_mapping(priv->txq[i]->irq_no);
->>  	irq_dispose_mapping(priv->irq);
->>  err_drv_remove:
+Series applied, thanks.
