@@ -1,76 +1,37 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling
- fib_lookup()
-Date: Tue, 22 Mar 2016 14:41:48 -0400 (EDT)
-Message-ID: <950377980.72657238.1458672108040.JavaMail.zimbra@redhat.com>
-References: <1458660679-7279-1-git-send-email-lrichard@redhat.com> <56F18EEE.4070000@cumulusnetworks.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH v4 2/3] IB/hns: Add HiSilicon RoCE driver support
+Date: Tue, 22 Mar 2016 11:54:12 -0700
+Message-ID: <20160322185412.GA6262@infradead.org>
+References: <1458655621-3618-1-git-send-email-oulijun@huawei.com>
+ <1458655621-3618-3-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:53449 "EHLO
-	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbcCVSlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 14:41:50 -0400
-In-Reply-To: <56F18EEE.4070000@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1458655621-3618-3-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
------ Original Message -----
-> From: "David Ahern" <dsa@cumulusnetworks.com>
-> To: "Lance Richardson" <lrichard@redhat.com>, netdev@vger.kernel.org
-> Sent: Tuesday, March 22, 2016 2:29:02 PM
-> Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling fib_lookup()
-> 
-> On 3/22/16 9:31 AM, Lance Richardson wrote:
-> > Field fl4.flowi4_flags is not initialized in fib_compute_spec_dst()
-> > before calling fib_lookup(), which means fib_table_lookup() is
-> > using non-deterministic data at this line:
-> >
-> > 	if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
-> >
-> > Fix by initializing fl4.flowi4_flags to zero.
-> >
-> > Signed-off-by: Lance Richardson <lrichard@redhat.com>
-> > ---
-> >   net/ipv4/fib_frontend.c | 1 +
-> >   1 file changed, 1 insertion(+)
-> >
-> > diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> > index 21add55..896844a 100644
-> > --- a/net/ipv4/fib_frontend.c
-> > +++ b/net/ipv4/fib_frontend.c
-> > @@ -304,6 +304,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
-> >   		fl4.flowi4_scope = scope;
-> >   		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
-> >   		fl4.flowi4_tun_key.tun_id = 0;
-> > +		fl4.flowi4_flags = 0;
-> >   		if (!fib_lookup(net, &fl4, &res, 0))
-> >   			return FIB_RES_PREFSRC(net, res);
-> >   	} else {
-> >
-> 
-> Fixes: 58189ca7b2741 ("net: Fix vti use case with oif in dst lookups")
-> 
-> I think a more robust solution is to move fl4 to this if case and init
-> when it is declared:
-> 
-> 	struct flowi4 fl4 = {
-> 		.flowi4_iif = LOOPBACK_IFINDEX,
-> 		.daddr = ip_hdr(skb)->saddr,
-> 		.flowi4_tos = RT_TOS(ip_hdr(skb)->tos),
-> 		.flowi4_scope = scope,
-> 		.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0,
-> 	};
-> 
+>  drivers/infiniband/Kconfig                         |    1 +
+>  drivers/infiniband/hw/Makefile                     |    1 +
+>  drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
 
-Agreed... I actually debated doing something similar but opted for the
-smaller delta.
+To fit in with the other drivers drop the hisilicon level
+of the directory hierarchy.
 
-v2 coming up.
-
-Thanks for the review,
-
-   Lance
+Haven't had time to look at the actual driver yet so far, though.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
