@@ -1,43 +1,70 @@
-From: Wei-Ning Huang <wnhuang@chromium.org>
-Subject: [PATCH v2] mwifiex: advertise low priority scan feature
-Date: Tue, 22 Mar 2016 12:09:56 +0800
-Message-ID: <1458619796-7694-1-git-send-email-wnhuang@chromium.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, akarwar@marvell.com,
-	djkurtz@chromium.org, Wei-Ning Huang <wnhuang@chromium.org>,
-	nishants@marvell.com, kvalo@codeaurora.org, netdev@vger.kernel.org
-To: Linux Wireless <linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei-Ning Huang <wnhuang@google.com>
+Subject: Re: [PATCH] mwifiex: advertise low priority scan feature
+Date: Tue, 22 Mar 2016 12:12:29 +0800
+Message-ID: <CABicQ-WPZ39iBc_JVUU-vm2NNCq50rhEKXk6KmqQ7s3-uYgbkQ@mail.gmail.com>
+References: <1458547622-1632-1-git-send-email-wnhuang@google.com>
+	<87d1qogm50.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Wireless <linux-wireless@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Daniel Kurtz <djkurtz@chromium.org>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:34135 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbcCVEMa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 00:12:30 -0400
+Received: by mail-oi0-f44.google.com with SMTP id l76so71138815oig.1
+        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 21:12:29 -0700 (PDT)
+In-Reply-To: <87d1qogm50.fsf@kamboji.qca.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitkumar Karwar <akarwar@marvell.com>
+Hi Kalle,
 
-Low priority scan handling code which delays or aborts scan
-operation based on Tx traffic is removed recently. The reason
-is firmware already takes care of it in our new feature scan
-channel gap. Hence we should advertise low priority scan
-support to cfg80211.
+Thanks for the review. I accidentally removed the s-o-b line from
+akarwar in this version.
+The original patch can be found at:
+https://chromium-review.googlesource.com/#/c/246052/
+I've resent a new one.
 
-This patch fixes a problem in which OBSS scan request from
-wpa_supplicant was being rejected by cfg80211.
+Wei-Ning
 
-Signed-off-by: Amitkumar Karwar <akarwar@marvell.com>
-Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
----
- drivers/net/wireless/marvell/mwifiex/cfg80211.c | 1 +
- 1 file changed, 1 insertion(+)
+On Mon, Mar 21, 2016 at 6:28 PM, Kalle Valo <kvalo@codeaurora.org> wrot=
+e:
+> Wei-Ning Huang <wnhuang@chromium.org> writes:
+>
+>> From: Amitkumar Karwar <akarwar@marvell.com>
+>>
+>> Low priority scan handling code which delays or aborts scan
+>> operation based on Tx traffic is removed recently. The reason
+>> is firmware already takes care of it in our new feature scan
+>> channel gap. Hence we should advertise low priority scan
+>> support to cfg80211.
+>>
+>> This patch fixes a problem in which OBSS scan request from
+>> wpa_supplicant was being rejected by cfg80211.
+>>
+>> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+>
+> The From line states that this is written by Amitkumar but there's no
+> Signed-off-By line from him. I can't take this without that, please
+> resend.
+>
+> (Wei-Ning's s-o-b line is correct, I just need also Amitkumar's line.=
+)
+>
+> --
+> Kalle Valo
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-index bb7235e..7dafc5b 100644
---- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
-@@ -4086,6 +4086,7 @@ int mwifiex_register_cfg80211(struct mwifiex_adapter *adapter)
- 
- 	wiphy->features |= NL80211_FEATURE_HT_IBSS |
- 			   NL80211_FEATURE_INACTIVITY_TIMER |
-+			   NL80211_FEATURE_LOW_PRIORITY_SCAN |
- 			   NL80211_FEATURE_NEED_OBSS_SCAN;
- 
- 	if (ISSUPP_TDLS_ENABLED(adapter->fw_cap_info))
--- 
-2.8.0.rc3.226.g39d4020
+
+
+--=20
+Wei-Ning Huang, =E9=BB=83=E5=81=89=E5=AF=A7 | Software Engineer, Google=
+ Inc., Taiwan |
+wnhuang@google.com | Cell: +886 910-380678
