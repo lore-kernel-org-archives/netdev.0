@@ -1,106 +1,68 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 8/8] man: tc-vlan.8: Describe CONTROL option
-Date: Tue, 22 Mar 2016 15:48:39 +0100
-Message-ID: <1458658119-25881-9-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 4/8] man: tc-mirred.8: Reword man page a bit, add generic mirror example
+Date: Tue, 22 Mar 2016 15:48:35 +0100
+Message-ID: <1458658119-25881-5-git-send-email-phil@nwl.cc>
 References: <1458658119-25881-1-git-send-email-phil@nwl.cc>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51551 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:38664 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932827AbcCVOtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 10:49:11 -0400
+	id S1758872AbcCVOtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Mar 2016 10:49:23 -0400
 In-Reply-To: <1458658119-25881-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should be made generic and part of a common tc-actions man page.
-Though leave it here for now to not confuse readers of the example which
-uses it.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- man/man8/tc-vlan.8 | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 55 insertions(+), 1 deletion(-)
+ man/man8/tc-mirred.8 | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
 
-diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
-index e650b72d3b395..4bfd72b129aaf 100644
---- a/man/man8/tc-vlan.8
-+++ b/man/man8/tc-vlan.8
-@@ -6,13 +6,17 @@ vlan - vlan manipulation module
- .in +8
- .ti -8
- .BR tc " ... " "action vlan" " { " pop " |"
--.IR PUSH " }"
-+.IR PUSH " } [ " CONTROL " ]"
- 
- .ti -8
- .IR PUSH " := "
- .BR push " [ " protocol
- .IR VLANPROTO " ]"
- .BI id " VLANID"
-+
-+.ti -8
-+.IR CONTROL " := { "
-+.BR reclassify " | " pipe " | " drop " | " continue " | " pass " }"
+diff --git a/man/man8/tc-mirred.8 b/man/man8/tc-mirred.8
+index 52d98bc416563..bba96e0e5d8c0 100644
+--- a/man/man8/tc-mirred.8
++++ b/man/man8/tc-mirred.8
+@@ -21,11 +21,9 @@ mirred - mirror/redirect action
  .SH DESCRIPTION
  The
- .B vlan
-@@ -50,5 +54,55 @@ for hexadecimal interpretation, etc.).
- .BI protocol " VLANPROTO"
- Choose the VLAN protocol to use. At the time of writing, the kernel accepts only
- .BR 802.1Q " or " 802.1ad .
-+.TP
-+.I CONTROL
-+How to continue after executing this action.
-+.RS
-+.TP
-+.B reclassify
-+Restarts classification by jumping back to the first filter attached to this
-+action's parent.
-+.TP
-+.B pipe
-+Continue with the next action, this is the default.
-+.TP
-+.B drop
-+Packet will be dropped without running further actions.
-+.TP
-+.B continue
-+Continue classification with next filter in line.
-+.TP
-+.B pass
-+Return to calling qdisc for packet processing. This ends the classification
-+process.
-+.RE
-+.SH EXAMPLES
-+The following example encapsulates incoming ICMP packets on eth0 from 10.0.0.2
-+into VLAN ID 123:
+ .B mirred
+-action allows to redirect or mirror packets to another network interface on the
+-same system. It is typically used in combination with the
+-.B ifb
+-pseudo device to create a shrared instance where QoS happens, but serves well
+-for debugging or monitoring purposes, too.
++action allows packet mirroring (copying) or redirecting (stealing) the packet it
++receives. Mirroring is what is sometimes referred to as Switch Port Analyzer
++(SPAN) and is commonly used to analyze and/or debug flows.
+ .SH OPTIONS
+ .TP
+ .B ingress
+@@ -67,9 +65,23 @@ debugging purposes:
+ .EE
+ .RE
+ 
+-Use an
++Mirror all incoming ICMP packets on eth0 to a dummy interface for examination
++with e.g. tcpdump:
 +
 +.RS
 +.EX
-+#tc qdisc add dev eth0 handle ffff: ingress
-+#tc filter add dev eth0 parent ffff: pref 11 protocol ip \\
-+	u32 match ip protocol 1 0xff flowid 1:1 \\
-+	u32 match ip src 10.0.0.2 flowid 1:1 \\
-+	action vlan push id 123
++# ip link add dummy0 type dummy
++# ip link set dummy0 up
++# tc qdisc add dev eth0 handle ffff: ingress
++# tc filter add dev eth0 parent ffff: protocol ip \\
++	u32 match ip protocol 1 0xff \\
++	action mirred egress mirror dev dummy0
 +.EE
 +.RE
 +
-+Here is an example of the
-+.B pop
-+function: Incoming VLAN packets on eth0 are decapsulated and the classification
-+process then restarted for the plain packet:
-+
-+.RS
-+.EX
-+#tc qdisc add dev eth0 handle ffff: ingress
-+#tc filter add dev $ETH parent ffff: pref 1 protocol 802.1Q \\
-+	u32 match u32 0 0 flowid 1:1 \\
-+	action vlan pop reclassify
-+.EE
-+.RE
-+
- .SH SEE ALSO
- .BR tc (8)
++Using an
+ .B ifb
+-interface to send ingress traffic on eth0 through an instance of
++interface, it is possible to send ingress traffic through an instance of
+ .BR sfq :
+ 
+ .RS
 -- 
 2.7.2
