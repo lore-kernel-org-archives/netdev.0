@@ -1,95 +1,119 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
-Date: Tue, 22 Mar 2016 13:11:21 -0700
-Message-ID: <CAEh+42jq1byHx0yuZgUCLqfk3G3eGfhoA1oq4Wwn5SmefCbNnQ@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain>
- <20160318232522.14955.13475.stgit@localhost.localdomain> <56F17A13.8090701@solarflare.com>
- <CAKgT0Ud9uPG+9AdT47Q1VygLBnjygyY29sRf=y4Pqe=f2e+bkw@mail.gmail.com> <56F19FAA.3090005@solarflare.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
+Date: Tue, 22 Mar 2016 13:13:11 -0700
+Message-ID: <CAM_iQpU7JeLuAVPqtzjvJ7qvMYTDZSR8xc7Vfw--uQDxW-WaHQ@mail.gmail.com>
+References: <20160316.223803.240230703927987310.davem@davemloft.net>
+	<1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAM_iQpWG-Pd-qE05B8ETwBMnVGuxVCES-zrL=wyxKAfZwnbwyQ@mail.gmail.com>
+	<CAEA6p_CfDYYLf-s0pUy7VNFH+46PDZSXNzUExXRAM_xv2w8tcw@mail.gmail.com>
+	<CAM_iQpXgHHr=h=3VeMdYfOnzTdeBeODGVKmwBi7AFW485_WRAg@mail.gmail.com>
+	<CAC15z3hhXxTQ+_Y6DaZcd-XVfCdDO9ZcQD6doNNKt-wHjTXAQw@mail.gmail.com>
+	<CAM_iQpWvKUyTmvH=08FbeyGWKfV_WaM_L1MgOQ-9r9hjfvzPyA@mail.gmail.com>
+	<CAC15z3ikqBc3CcgNaUJkaD1ZiBbwqZFkjEsgR7_F9Q1dvZ2Zvw@mail.gmail.com>
+	<20160322060220.GA50824@kafai-mba.local>
+	<CAM_iQpVfofoThoUS8UYkh-2KR_Co42tfxz00mCXx+JMWpwgg8A@mail.gmail.com>
+	<20160322173939.GA53936@kafai-mba.local>
+	<CAC15z3jDRvJR4uZ97mC+beaMaPQvAvTHB9OLKCdQ4hcwRu07vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
+Content-Type: multipart/mixed; boundary=001a1149313caee882052ea8d789
+Cc: Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
-To: Edward Cree <ecree@solarflare.com>
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Wei Wang <tracywwnj@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:56611 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750772AbcCVULj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 16:11:39 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 294FC2039D
-	for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 20:11:38 +0000 (UTC)
-Received: from mail-qg0-f45.google.com (mail-qg0-f45.google.com [209.85.192.45])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 66FDF2038A
-	for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 20:11:36 +0000 (UTC)
-Received: by mail-qg0-f45.google.com with SMTP id y89so188857812qge.2
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 13:11:36 -0700 (PDT)
-In-Reply-To: <56F19FAA.3090005@solarflare.com>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:36520 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750855AbcCVUNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 16:13:12 -0400
+Received: by mail-yw0-f173.google.com with SMTP id g3so269261268ywa.3
+        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 13:13:12 -0700 (PDT)
+In-Reply-To: <CAC15z3jDRvJR4uZ97mC+beaMaPQvAvTHB9OLKCdQ4hcwRu07vw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2016 at 12:40 PM, Edward Cree <ecree@solarflare.com> wrote:
-> On 22/03/16 17:47, Alexander Duyck wrote:
->> On Tue, Mar 22, 2016 at 10:00 AM, Edward Cree <ecree@solarflare.com> wrote:
->>> On 18/03/16 23:25, Alexander Duyck wrote:
->>>> This patch adds support for something I am referring to as GSO partial.
->>>> The basic idea is that we can support a broader range of devices for
->>>> segmentation if we use fixed outer headers and have the hardware only
->>>> really deal with segmenting the inner header.  The idea behind the naming
->>>> is due to the fact that everything before csum_start will be fixed headers,
->>>> and everything after will be the region that is handled by hardware.
->>>>
->>>> With the current implementation it allows us to add support for the
->>>> following GSO types with an inner TSO or TSO6 offload:
->>>> NETIF_F_GSO_GRE
->>>> NETIF_F_GSO_GRE_CSUM
->>>> NETIF_F_UDP_TUNNEL
->>>> NETIF_F_UDP_TUNNEL_CSUM
->>>>
->>>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->>>> ---
->>> If I'm correctly understanding what you're doing, you're building a large
->>> TCP segment, feeding it through the encapsulation drivers as normal, then
->>> at GSO time you're fixing up length fields, checksums etc. in the headers.
->>> I think we can do this more simply, by making it so that at the time when
->>> we _generate_ the TCP segment, we give it headers saying it's one MSS big,
->>> but have several MSS of data.  Similarly when adding the encap headers,
->>> they all need to get their lengths from what the layer below tells them,
->>> rather than the current length of data in the SKB.  Then at GSO time all
->>> the headers already have the right things in, and you don't need to call
->>> any per-protocol GSO callbacks for them.
->> One issue I have to deal with here is that we have no way of knowing
->> what the underlying hardware can support at the time of segment being
->> created.  You have to keep in mind that what we have access to is the
->> tunnel dev in many cases, not the underlying dev so we don't know if
->> things can be offloaded to hardware or not.  By pushing this logic
->> into the GSO code we can actually implement it without much overhead
->> since we either segment it into an MSS multiple, or into single MSS
->> sized chunks.  This way we defer the decision until the very last
->> moment when we actually know if we can offload some portion of this in
->> hardware or not.
-> But won't the tunnel dev have the feature flag for GSO_PARTIAL depending
-> on what the underlying dev advertises?  (Or, at least, could we make it
-> bethatway?)
+--001a1149313caee882052ea8d789
+Content-Type: text/plain; charset=UTF-8
 
-Features that have been designed this way in the past are usually
-pretty fragile. Not only would you have to track changes in the
-routing table but you could have bridges, tc, vlan devices, etc. all
-of which might change the path of the packet and would have to somehow
-propagate this information. It's much more robust to resolve the
-device capabilities just before you hand the packet to that device.
-Plus, anything along the path of the packet (iptables, for example)
-that looks at the headers might potentially need to be aware of this
-optimization.
+On Tue, Mar 22, 2016 at 11:03 AM, Wei Wang <tracywwnj@gmail.com> wrote:
+> Thanks Martin and Cong.
+>
+> I guess then we are going with the following fix in ip6_sk_update_pmtu():
+> 1. call ip6_upate_pmtu() as it is
+> 2. do a dst_check()
+> 3. re-lookup() if it is invalid
+> 4. and then do a ip6_dst_store()/dst_set
 
-You're also assuming that the generating TCP stack is resident on the
-same machine as the device that does the offloads. That's not
-necessarily true in the case of VMs or remote senders whose packets
-have been GRO'ed.
+Exactly, please try the attached patch. Note I did nothing more than a
+compile test.
 
-Keeping the core stack consistent and just handling this at the
-GRO/driver layer as Alex has here seems preferable to me.
+Does it make sense to you now?
+
+--001a1149313caee882052ea8d789
+Content-Type: text/plain; charset=US-ASCII; name="ipv6-route-pmtu.diff"
+Content-Disposition: attachment; filename="ipv6-route-pmtu.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_im3uy85w0
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY2L3JvdXRlLmMgYi9uZXQvaXB2Ni9yb3V0ZS5jCmluZGV4IGVk
+NDQ2NjMuLmZjZWEwNWUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY2L3JvdXRlLmMKKysrIGIvbmV0L2lw
+djYvcm91dGUuYwpAQCAtMTM0NiwxOCArMTM0NiwyMCBAQCBzdGF0aWMgYm9vbCBydDZfY2FjaGVf
+YWxsb3dlZF9mb3JfcG10dShjb25zdCBzdHJ1Y3QgcnQ2X2luZm8gKnJ0KQogCQkocnQtPnJ0Nmlf
+ZmxhZ3MgJiBSVEZfUENQVSB8fCBydC0+cnQ2aV9ub2RlKTsKIH0KIAotc3RhdGljIHZvaWQgX19p
+cDZfcnRfdXBkYXRlX3BtdHUoc3RydWN0IGRzdF9lbnRyeSAqZHN0LCBjb25zdCBzdHJ1Y3Qgc29j
+ayAqc2ssCi0JCQkJIGNvbnN0IHN0cnVjdCBpcHY2aGRyICppcGgsIHUzMiBtdHUpCitzdGF0aWMg
+c3RydWN0IGRzdF9lbnRyeSogX19pcDZfcnRfdXBkYXRlX3BtdHUoc3RydWN0IGRzdF9lbnRyeSAq
+ZHN0LAorCQkJCQkgICAgICBjb25zdCBzdHJ1Y3Qgc29jayAqc2ssCisJCQkJCSAgICAgIGNvbnN0
+IHN0cnVjdCBpcHY2aGRyICppcGgsCisJCQkJCSAgICAgIHUzMiBtdHUsIGJvb2wgaG9sZCkKIHsK
+IAlzdHJ1Y3QgcnQ2X2luZm8gKnJ0NiA9IChzdHJ1Y3QgcnQ2X2luZm8gKilkc3Q7CiAKIAlpZiAo
+cnQ2LT5ydDZpX2ZsYWdzICYgUlRGX0xPQ0FMKQotCQlyZXR1cm47CisJCXJldHVybiBkc3Q7CiAK
+IAlkc3RfY29uZmlybShkc3QpOwogCW10dSA9IG1heF90KHUzMiwgbXR1LCBJUFY2X01JTl9NVFUp
+OwogCWlmIChtdHUgPj0gZHN0X210dShkc3QpKQotCQlyZXR1cm47CisJCXJldHVybiBkc3Q7CiAK
+IAlpZiAoIXJ0Nl9jYWNoZV9hbGxvd2VkX2Zvcl9wbXR1KHJ0NikpIHsKIAkJcnQ2X2RvX3VwZGF0
+ZV9wbXR1KHJ0NiwgbXR1KTsKQEAgLTEzNzIsMTEgKzEzNzQsMTMgQEAgc3RhdGljIHZvaWQgX19p
+cDZfcnRfdXBkYXRlX3BtdHUoc3RydWN0IGRzdF9lbnRyeSAqZHN0LCBjb25zdCBzdHJ1Y3Qgc29j
+ayAqc2ssCiAJCQlkYWRkciA9ICZzay0+c2tfdjZfZGFkZHI7CiAJCQlzYWRkciA9ICZpbmV0Nl9z
+ayhzayktPnNhZGRyOwogCQl9IGVsc2UgewotCQkJcmV0dXJuOworCQkJcmV0dXJuIGRzdDsKIAkJ
+fQogCQlucnQ2ID0gaXA2X3J0X2NhY2hlX2FsbG9jKHJ0NiwgZGFkZHIsIHNhZGRyKTsKIAkJaWYg
+KG5ydDYpIHsKIAkJCXJ0Nl9kb191cGRhdGVfcG10dShucnQ2LCBtdHUpOworCQkJaWYgKGhvbGQp
+CisJCQkJZHN0X2hvbGQoJm5ydDYtPmRzdCk7CiAKIAkJCS8qIGlwNl9pbnNfcnQobnJ0Nikgd2ls
+bCBidW1wIHRoZQogCQkJICogcnQ2LT5ydDZpX25vZGUtPmZuX3Nlcm51bQpAQCAtMTM4NCwxNCAr
+MTM4OCwxNyBAQCBzdGF0aWMgdm9pZCBfX2lwNl9ydF91cGRhdGVfcG10dShzdHJ1Y3QgZHN0X2Vu
+dHJ5ICpkc3QsIGNvbnN0IHN0cnVjdCBzb2NrICpzaywKIAkJCSAqIGludmFsaWRhdGUgdGhlIHNr
+LT5za19kc3RfY2FjaGUuCiAJCQkgKi8KIAkJCWlwNl9pbnNfcnQobnJ0Nik7CisJCQlyZXR1cm4g
+Jm5ydDYtPmRzdDsKIAkJfQogCX0KKworCXJldHVybiBkc3Q7CiB9CiAKIHN0YXRpYyB2b2lkIGlw
+Nl9ydF91cGRhdGVfcG10dShzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QsIHN0cnVjdCBzb2NrICpzaywK
+IAkJCSAgICAgICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCB1MzIgbXR1KQogewotCV9faXA2X3J0X3Vw
+ZGF0ZV9wbXR1KGRzdCwgc2ssIHNrYiA/IGlwdjZfaGRyKHNrYikgOiBOVUxMLCBtdHUpOworCV9f
+aXA2X3J0X3VwZGF0ZV9wbXR1KGRzdCwgc2ssIHNrYiA/IGlwdjZfaGRyKHNrYikgOiBOVUxMLCBt
+dHUsIGZhbHNlKTsKIH0KIAogdm9pZCBpcDZfdXBkYXRlX3BtdHUoc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IG5ldCAqbmV0LCBfX2JlMzIgbXR1LApAQCAtMTQxMCwxNSArMTQxNyw1MiBAQCB2
+b2lkIGlwNl91cGRhdGVfcG10dShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0ICpuZXQs
+IF9fYmUzMiBtdHUsCiAKIAlkc3QgPSBpcDZfcm91dGVfb3V0cHV0KG5ldCwgTlVMTCwgJmZsNik7
+CiAJaWYgKCFkc3QtPmVycm9yKQotCQlfX2lwNl9ydF91cGRhdGVfcG10dShkc3QsIE5VTEwsIGlw
+aCwgbnRvaGwobXR1KSk7CisJCV9faXA2X3J0X3VwZGF0ZV9wbXR1KGRzdCwgTlVMTCwgaXBoLCBu
+dG9obChtdHUpLCBmYWxzZSk7CiAJZHN0X3JlbGVhc2UoZHN0KTsKIH0KIEVYUE9SVF9TWU1CT0xf
+R1BMKGlwNl91cGRhdGVfcG10dSk7CiAKIHZvaWQgaXA2X3NrX3VwZGF0ZV9wbXR1KHN0cnVjdCBz
+a19idWZmICpza2IsIHN0cnVjdCBzb2NrICpzaywgX19iZTMyIG10dSkKIHsKLQlpcDZfdXBkYXRl
+X3BtdHUoc2tiLCBzb2NrX25ldChzayksIG10dSwKLQkJCXNrLT5za19ib3VuZF9kZXZfaWYsIHNr
+LT5za19tYXJrKTsKKwljb25zdCBzdHJ1Y3QgaXB2NmhkciAqaXBoID0gKHN0cnVjdCBpcHY2aGRy
+ICopIHNrYi0+ZGF0YTsKKwlzdHJ1Y3QgbmV0ICpuZXQgPSBzb2NrX25ldChzayk7CisJc3RydWN0
+IGRzdF9lbnRyeSAqbmRzdCwgKmRzdDsKKwlzdHJ1Y3QgZmxvd2k2IGZsNjsKKworCW1lbXNldCgm
+Zmw2LCAwLCBzaXplb2YoZmw2KSk7CisKKwliaF9sb2NrX3NvY2soc2spOworCisJZmw2LmZsb3dp
+Nl9vaWYgPSBzay0+c2tfYm91bmRfZGV2X2lmOworCWZsNi5mbG93aTZfbWFyayA9IHNrLT5za19t
+YXJrID8gOiBJUDZfUkVQTFlfTUFSSyhuZXQsIHNrYi0+bWFyayk7CisJZmw2LmRhZGRyID0gaXBo
+LT5kYWRkcjsKKwlmbDYuc2FkZHIgPSBpcGgtPnNhZGRyOworCWZsNi5mbG93bGFiZWwgPSBpcDZf
+Zmxvd2luZm8oaXBoKTsKKworCWRzdCA9IHNrX2RzdF9nZXQoc2spOworCWlmIChzb2NrX293bmVk
+X2J5X3VzZXIoc2spIHx8ICFkc3QpIHsKKwkJaXA2X3VwZGF0ZV9wbXR1KHNrYiwgbmV0LCBtdHUs
+IGZsNi5mbG93aTZfb2lmLCBmbDYuZmxvd2k2X21hcmspOworCQlnb3RvIG91dDsKKwl9CisKKwlp
+ZiAoZHN0LT5vYnNvbGV0ZSAmJiAhZHN0LT5vcHMtPmNoZWNrKGRzdCwgMCkpIHsKKwkJZHN0X3Jl
+bGVhc2UoZHN0KTsKKwkJZHN0ID0gaXA2X3JvdXRlX291dHB1dChuZXQsIHNrLCAmZmw2KTsKKwkJ
+aWYgKGRzdC0+ZXJyb3IpCisJCQlnb3RvIG91dDsKKwl9CisKKwluZHN0ID0gX19pcDZfcnRfdXBk
+YXRlX3BtdHUoZHN0LCBzaywgaXBoLCBudG9obChtdHUpLCB0cnVlKTsKKwlpZiAobmRzdCAhPSBk
+c3QpIHsKKwkJZHN0X3JlbGVhc2UoZHN0KTsKKwkJZHN0ID0gbmRzdDsKKwl9CisKKwlpZiAoc2st
+PnNrX3N0YXRlID09IFRDUF9FU1RBQkxJU0hFRCkKKwkJaXA2X2RzdF9zdG9yZShzaywgZHN0LCAm
+aXBoLT5kYWRkciwgJmlwaC0+c2FkZHIpOworb3V0OgorCWJoX3VubG9ja19zb2NrKHNrKTsKKwlk
+c3RfcmVsZWFzZShkc3QpOwogfQogRVhQT1JUX1NZTUJPTF9HUEwoaXA2X3NrX3VwZGF0ZV9wbXR1
+KTsKIAo=
+--001a1149313caee882052ea8d789--
