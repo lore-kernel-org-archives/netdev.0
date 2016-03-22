@@ -1,94 +1,70 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH V2 net 08/10] net: hns: fix the bug about mtu setting
-Date: Tue, 22 Mar 2016 16:06:29 +0800
-Message-ID: <1458633991-64313-9-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
+Date: Tue, 22 Mar 2016 09:05:32 +0100
+Message-ID: <CA+BoTQ=hgkm2AwMb=kinx+Ezf3vjduCKNH4LNRcV_goDWH4_Vg@mail.gmail.com>
+References: <CAA93jw5AAWua23TbQHZX47XcFLEqU6T=NpxuLqa6FiffBf91Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
-	<salil.mehta@huawei.com>, <lisheng011@huawei.com>,
-	<lipeng321@huawei.com>, <liguozhu@huawei.com>, <arnd@arndb.de>,
-	<sergei.shtylyov@cogentembedded.com>, <xieqianqian@huawei.com>,
-	<andrew@lunn.ch>, <ivecera@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:34691 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755926AbcCVHvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 03:51:38 -0400
-In-Reply-To: <1458633991-64313-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+ linux-wireless <linux-wireless@vger.kernel.org>,
+ "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+ Jasmine Strong <jas@eero.com>,
+ "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
+ make-wifi-fast@lists.bufferbloat.net
+To: Dave Taht <dave.taht@gmail.com>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <CAA93jw5AAWua23TbQHZX47XcFLEqU6T=NpxuLqa6FiffBf91Fw@mail.gmail.com>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+ <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Errors-To: codel-bounces@lists.bufferbloat.net
+Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
+List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
-
-In chip V1, the maximum mtu value is 9600. But in chip V2, it is 9728.
-And it is always configurates as 9600 before this patch.
-
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 4 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h | 1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 3 +++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h | 2 ++
- 4 files changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 138737d..50237fb 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -467,8 +467,10 @@ int hns_mac_set_mtu(struct hns_mac_cb *mac_cb, u32 new_mtu)
- 	struct mac_driver *drv = hns_mac_get_drv(mac_cb);
- 	u32 buf_size = mac_cb->dsaf_dev->buf_size;
- 	u32 new_frm = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
-+	u32 max_frm = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver) ?
-+			MAC_MAX_MTU : MAC_MAX_MTU_V2;
- 
--	if ((new_mtu < MAC_MIN_MTU) || (new_frm > MAC_MAX_MTU) ||
-+	if ((new_mtu < MAC_MIN_MTU) || (new_frm > max_frm) ||
- 	    (new_frm > HNS_RCB_RING_MAX_BD_PER_PKT * buf_size))
- 		return -EINVAL;
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 0f60968..7b47701 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -26,6 +26,7 @@ struct dsaf_device;
- 
- #define MAC_DEFAULT_MTU	(ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN + ETH_DATA_LEN)
- #define MAC_MAX_MTU		9600
-+#define MAC_MAX_MTU_V2		9728
- #define MAC_MIN_MTU		68
- 
- #define MAC_DEFAULT_PAUSE_TIME 0xff
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index 06422c2..5b7ae5f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -343,6 +343,9 @@ static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
- 	if (!AE_IS_VER1(dsaf_dev->dsaf_ver)) {
- 		hns_ppe_set_vlan_strip(ppe_cb, 0);
- 
-+		dsaf_write_dev(ppe_cb, PPE_CFG_MAX_FRAME_LEN_REG,
-+			       HNS_PPEV2_MAX_FRAME_LEN);
-+
- 		/* set default RSS key in h/w */
- 		hns_ppe_set_rss_key(ppe_cb, ppe_cb->rss_key);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-index 0f5cb69..e9c0ec2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h
-@@ -30,6 +30,8 @@
- #define HNS_PPEV2_RSS_KEY_SIZE 40 /* in bytes or 320 bits */
- #define HNS_PPEV2_RSS_KEY_NUM (HNS_PPEV2_RSS_KEY_SIZE / sizeof(u32))
- 
-+#define HNS_PPEV2_MAX_FRAME_LEN 0X980
-+
- enum ppe_qid_mode {
- 	PPE_QID_MODE0 = 0, /* fixed queue id mode */
- 	PPE_QID_MODE1,	   /* switch:128VM non switch:6Port/4VM/4TC */
--- 
-1.9.1
+T24gMjEgTWFyY2ggMjAxNiBhdCAxODoxMCwgRGF2ZSBUYWh0IDxkYXZlLnRhaHRAZ21haWwuY29t
+PiB3cm90ZToKPiB0aHguCj4KPiBhIGxvdCB0byBkaWdlc3QuCj4KPiBBKSBxdWljayBub3RlcyBv
+biAiZmxlbnQtZ3VpIGJ1cnN0c18xMWUtMjAxNi0wMy0yMVQwOSouZ3oiCj4KPiAxKSB0aGUgbmV3
+IGJ1cnN0c18xMWUgdGVzdCAqc2hvdWxkKiBoYXZlIHN0dWNrIHN0dWZmIGluIHRoZSBWSSBhbmQg
+Vk8KPiBxdWV1ZXMsIGFuZCB0aGVyZSAqc2hvdWxkKiBoYXZlIGJlZW4gc29tZSBzb3J0IG9mIGRp
+ZmZlcmVuY2Ugc2hvd24gb24KPiB0aGUgcGxvdHMgd2l0aCBpdC4gVGhlcmUgd2Fzbid0LgoKdHJh
+ZmZpYy1nZW4gZ2VuZXJhdGVzIG9ubHkgQkUgdHJhZmZpYy4gRXZlcnl0aGluZyBlbHNlIHJ1bnMg
+VURQX1JSCndoaWNoIGRvZXNuJ3QgZ2VuZXJhdGUgYSBsb3Qgb2YgdHJhZmZpYy4KCgo+IEZvciBk
+aWZmc2VydiBtYXJraW5ncyBJIHVzZWQgQkU9Q1MwLCBCSz1DUzEsIFZJPUNTNSwgYW5kIFZPPUVG
+Lgo+IENTNi9DUzcgc2hvdWxkIGFsc28gbGFuZCBpbiBWTyAoYXQgbGVhc3Qgd2l0aCB0aGUgc29m
+dCBtYWMgaGFuZGxlcgo+IGxhc3QgSSBsb29rZWQpLiBJcyB0aGVyZSBhIHdheSB0byBjaGVjayBp
+ZiB5b3UgYXJlIGluZGVlZCBleGVyY2lzaW5nCj4gYWxsIGZvdXIgODAyLjExZSBoYXJkd2FyZSBx
+dWV1ZXMgaW4gdGhpcyB0ZXN0PyBpbiBhdGg5ayBpdCBpcyB0aGUKPiAieG1pdCIgc3lzZnMgdmFy
+Li4uLgoKSG1tLi4gdGhlcmUgYXJlIG5vIHR4cSBzdGF0cy4gSSBndWVzcyBpdCBtYWtlcyBzZW5z
+ZSB0byBoYXZlIHRoZW0/CgpUaGVyZSBpcyAvc3lzL2tlcm5lbC9kZWJ1Zy9pZWVlODAyMTEvcGh5
+Ki9mcSB3aGljaCBkdW1wcyBzdGF0ZSBvZiBhbGwKcXVldWVzIHdoaWNoIHdpbGwgYmUgbW9zdGx5
+IGVtcHR5IHdpdGggVURQX1JSLiBZb3UgY2FuIHJ1biBuZXRwZXJmIFVEUApzdHJlYW0gd2l0aCBk
+aWZmc2VydiBtYXJraW5nIHRvIHNlZSBvbnRvIHdoaWNoIHRpZCB0aGV5IGFyZSBtYXBwZWQuCllv
+dSBjYW4gc2VlIHRpZC1BQyBtYXBwaW5ncyBoZXJlOgpodHRwczovL3dpcmVsZXNzLndpa2kua2Vy
+bmVsLm9yZy9lbi9kZXZlbG9wZXJzL2RvY3VtZW50YXRpb24vbWFjODAyMTEvcXVldWVzCgpJIGp1
+c3QgY2hlY2tlZCBhbmQgRUYgZW5kcyB1cCBhcyB0aWQ1IHdoaWNoIGlzIFZJLiBJdCdzIGFjdHVh
+bGx5IHRoZQpzYW1lIGFzIENTNS4gWW91IGNhbiB1c2UgQ1M3IHRvIHJ1biBvbiB0aWQ3IHdoaWNo
+IGlzIFZPLgoKCj4gMikgSW4gYWxsIHRoZSBvbGQgY2FzZXMgdGhlIEJFIFVEUF9SUiBmbG93IGRp
+ZWQgb24gdGhlIGZpcnN0IGJ1cnN0Cj4gKHdoeT8pLCBhbmQgdGhlIGZ1bGxwYXRjaCBwcmVzZXJ2
+ZWQgaXQuCgpJIHRoaW5rIGl0J3MgcmVsYXRlZCB0byBteSBzZXR1cCB3aGljaCBpbnZvbHZlcyB2
+ZXRoIHBhaXJzLiBJIHVzZSB0aGVtCnRvIHNpbXVsYXRlIGJyaWRnaW5nL0FQIGJlaGF2aW9yIGJ1
+dCBtYXliZSBpdCdzIG5vdCBkb2luZyB0aGUgam9iCnJpZ2h0LCBobW0uLgoKCj4gKEkgd291bGQg
+aGF2ZSBraW5kIG9mIGhvcGVkIHRvCj4gaGF2ZSBzZWVuIHRoZSBCSyBmbG93IGRpZSwgYWN0dWFs
+bHksIGluIHRoZSBmdWxscGF0Y2gpCgpUaGVyZSdzIG5vIGV4dHJhIHdlaWdodCBwcmlvcml0eSB0
+byBCSy4gVGhlIGRpZmZlcmVuY2UgYmV0d2VlbiBCRSBhbmQKQksgaW4gODAyLjExIGlzIGNvbnRl
+bnRpb24gd2luZG93IGFjY2VzcyB0aW1lIHNvIEJLIGdldHMgbGVzcyB0eG9wcwpzdGF0aXN0aWNh
+bGx5LiBCb3RoIHNoYXJlIHRoZSBzYW1lIHR4b3AsIHdoaWNoIGlzIDUuNDg0bXMgaW4gbW9zdApj
+YXNlcy4KCgo+IDMpIEkgYW0gYWxzbyBjb25mdXNlZCBvbiA4MDIuMTFhYyAtIGNhbiBWTyBhZ2dy
+ZWdhdGU/ICggY2FuJ3QgaW4gaW4gODAyLjExbikuCgpZZXMsIGl0IHNob3VsZCBiZSBhbGJlaXQg
+VkkgYW5kIFZPIGhhdmUgc2hvcnRlciB0eG9wIGNvbXBhcmVkIHRvCkJFL0JLOiAzLjAwOG1zIGFu
+ZCAxLjUwNG1zIHJlc3BlY3RpdmVseS4KClVEUF9SUiBkb2Vzbid0IHJlYWxseSBjcmVhdGUgYSBs
+b3Qgb2Ygb3Bwb3J0dW5pdGllcyBmb3IgYWdncmVnYXRpb24uCklmIHlvdSB3YW50IHRvIHNlZSBo
+b3cgZGlmZmVyZW50IHF1ZXVlcyBiZWhhdmUgd2hlbiBsb2FkZWQgeW91J2xsIG5lZWQKdG8gbW9k
+aWZ5IHRyYWZmaWMtZ2VuIGFuZCBhZGQgYnVyc3RzIGFjcm9zcyBkaWZmZXJlbnQgQUNzIGluIHRo
+ZQpidXJzdHNfMTFlIHRlc3QuCgoKTWljaGHFggpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpDb2RlbCBtYWlsaW5nIGxpc3QKQ29kZWxAbGlzdHMuYnVmZmVy
+YmxvYXQubmV0Cmh0dHBzOi8vbGlzdHMuYnVmZmVyYmxvYXQubmV0L2xpc3RpbmZvL2NvZGVsCg==
