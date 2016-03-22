@@ -1,46 +1,34 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCH net] ipv4: initialize flowi4_flags before calling fib_lookup()
-Date: Tue, 22 Mar 2016 11:31:19 -0400
-Message-ID: <1458660679-7279-1-git-send-email-lrichard@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56954 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751493AbcCVPb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 11:31:26 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (Postfix) with ESMTPS id 6A6F7804FC
-	for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 15:31:26 +0000 (UTC)
-Received: from localhost.localdomain.com (vpn1-6-251.ams2.redhat.com [10.36.6.251])
-	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id u2MFVNh3018533
-	for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 11:31:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] lan78xx: Protect runtime_auto check by #ifdef CONFIG_PM
+Date: Tue, 22 Mar 2016 16:29:12 +0100
+Message-ID: <1458660552.1990.13.camel@suse.com>
+References: <Pine.LNX.4.44L0.1603221111040.1793-100000@iolanthe.rowland.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+	Woojung Huh <woojung.huh@microchip.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1603221111040.1793-100000@iolanthe.rowland.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Field fl4.flowi4_flags is not initialized in fib_compute_spec_dst()
-before calling fib_lookup(), which means fib_table_lookup() is
-using non-deterministic data at this line:
+On Tue, 2016-03-22 at 11:13 -0400, Alan Stern wrote:
+> > Indeed. In that case the point is moot. But it is correct to ask
+> > the core whether the device is autosuspended at that point rather
+> > than keep a private flag if you can.
+> 
+> That's why we have pm_runtime_status_suspended().
 
-	if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
+I guess we are in violent agreement though we were unaware of being
+in that state.
 
-Fix by initializing fl4.flowi4_flags to zero.
-
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- net/ipv4/fib_frontend.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 21add55..896844a 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -304,6 +304,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
- 		fl4.flowi4_scope = scope;
- 		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
- 		fl4.flowi4_tun_key.tun_id = 0;
-+		fl4.flowi4_flags = 0;
- 		if (!fib_lookup(net, &fl4, &res, 0))
- 			return FIB_RES_PREFSRC(net, res);
- 	} else {
--- 
-2.5.0
+	Regards
+		Oliver
