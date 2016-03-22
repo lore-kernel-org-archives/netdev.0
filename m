@@ -1,197 +1,126 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: Fix remote checksum offload with GUE
-Date: Tue, 22 Mar 2016 15:09:47 -0700
-Message-ID: <CALx6S35waJuT4WrVnCVh03E8XfPQh64jXWTwWa2Ezd-wNwsRfA@mail.gmail.com>
-References: <1458674365-3944200-1-git-send-email-tom@herbertland.com>
-	<CAKgT0UfNrmmG3var3OQ04fPK08nNkip=ZC3EAKXc6PsFeYjFbA@mail.gmail.com>
-	<CALx6S37yTDJL7aY66uOHH0jz1oyvJNS8fRMe-H-D9dKpiPVURw@mail.gmail.com>
-	<CAKgT0UeAiYHX7n4Y8S0QqXSExuzpQCQJvBCNWOtF-uLn8Qnc0g@mail.gmail.com>
+From: Tina Ruchandani <ruchandani.tina@gmail.com>
+Subject: [PATCH v2] prism54: isl_38xx: Replace 'struct timeval'
+Date: Tue, 22 Mar 2016 15:16:15 -0700
+Message-ID: <20160322221615.GA55727@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
-	Alex Duyck <aduyck@mirantis.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	arnd@arndb.de, linux-kernel@vger.kernel.org,
+	Kalle Valo <kvalo@codeaurora.org>
+To: y2038@lists.linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:34783 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964AbcCVWJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 18:09:49 -0400
-Received: by mail-lb0-f174.google.com with SMTP id k12so174337618lbb.1
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 15:09:48 -0700 (PDT)
-In-Reply-To: <CAKgT0UeAiYHX7n4Y8S0QqXSExuzpQCQJvBCNWOtF-uLn8Qnc0g@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33165 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752059AbcCVWQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 18:16:19 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2016 at 2:45 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Tue, Mar 22, 2016 at 2:10 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Tue, Mar 22, 2016 at 1:20 PM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->>> On Tue, Mar 22, 2016 at 12:19 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>> In skb_segment the check of whether or not to perform the checksum on
->>>> host was changed to not consider rather remote checksum offload is
->>>> in use. In the case that can_checksum_protocol fails the checksum
->>>> is computed regardless. __skb_udp_tunnel_segment was modified in a
->>>> related patch to add NETIF_F_HW_CSUM into features when grabbing
->>>> the enc_features and remote checksum offload is being done. The
->>>> problem is that this bit can be cleared in lower GSO layers that
->>>> are also doing tunneling (e.g. ipip, GRE when used with GUE),
->>>> so when we get to skb_segment that intent has been lost and
->>>> can_checksum_protocol fails.
->>>
->>> So what you are describing sounds like a tunnel in tunnel scenario.
->>> It might work better to just skip masking the features if
->>> skb->remcsum_offload is set rather than trying to change how we
->>> perform the offload.
->>>
->> To be clear, my patch is restoring the old behavior not implementing a new one.
->
-> Yes, but the old behavior could lead to kernel panics under certain
-> circumstances.
->
->>> I'm pretty sure this will cause data corruption and maybe a kernel
->>> panic if Tx checksum offload is disabled.
->>>
->> Nope, working fine for me.
->
-> What are the options you used to create the tunnel?  Did you enable
-> both remcsum and udpcsum?
->
-modprobe fou
-./ip fou add port 6080 gue
-./ip link add name tun1 type ipip remote 10.1.1.2 local 10.1.1.2 ttl
-225 encap gue encap-sport auto encap-dport 6080 encap-csum
-encap-remcsum
-ifconfig tun1 192.168.1.1
-ip route add 192.168.1.0/24 dev tun1
+'struct timeval' uses a 32-bit seconds field which will overflow in
+year 2038 and beyond. This patch is part of a larger effort to remove
+all instances of 'struct timeval' from the kernel and replace them
+with 64-bit timekeeping variables.
+The correctness of the code isn't affected by this patch - the seconds
+value being printed would earlier be wrong due to overflow in timeval,
+and now it gets truncated to 32-bit due to the 'long' cast used on
+tv.sec field to prevent compiler warnings. Truly fixing this would
+require changing the debug print to print more than 8 digits and
+use a different specifier from %li.
+The patch was build-tested / debugged by removing the
+"if VERBOSE > SHOW_ERROR_MESSAGES" guards.
 
-Thanks,
-Tom
+Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+Suggested-by: Arnd Bergmann <arnd@arndb.de>
+--
+Changes in v2:
+- Changed printf specifier as suggested by Arnd Bergmann to
+avoid truncation.
+---
+ drivers/net/wireless/intersil/prism54/isl_38xx.c | 35 ++++++++++++------------
+ 1 file changed, 18 insertions(+), 17 deletions(-)
 
->> The outer checksum would be computed in
->>>> This patch:
->>>>
->>>> - Restores the check in skb_segment to look at remote checksum offload.
->>>> - Removes the code in __skb_udp_tunnel_segment to force the
->>>>   NETIF_F_HW_CSUM feature since this is no longer useful with above
->>>>   change.
->>>> - Removes check for remote checksum offload in gso_reset_checksum.
->>>>   A special case should not be needed here.
->>>>
->>>> Tested: Single netperf STREAM over GUE-ipip
->>>>
->>>> Before fix:
->>>>    5625 Mbps
->>>> After fix:
->>>>    6410 Mbps
->>>>
->>>> Fixes: 76443456227097179c1482 ("net: Move GSO csum into SKB_GSO_CB")
->>>> Signed-off-by: Tom Herbert <tom@herbertland.com>
->>>> ---
->>>>  include/linux/skbuff.h |  4 ----
->>>>  net/core/skbuff.c      |  5 ++---
->>>>  net/ipv4/udp_offload.c | 10 ----------
->>>>  3 files changed, 2 insertions(+), 17 deletions(-)
->>>>
->>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->>>> index 15d0df9..f6fe8a5 100644
->>>> --- a/include/linux/skbuff.h
->>>> +++ b/include/linux/skbuff.h
->>>> @@ -3615,10 +3615,6 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
->>>>
->>>>  static inline void gso_reset_checksum(struct sk_buff *skb, __wsum res)
->>>>  {
->>>> -       /* Do not update partial checksums if remote checksum is enabled. */
->>>> -       if (skb->remcsum_offload)
->>>> -               return;
->>>> -
->>>>         SKB_GSO_CB(skb)->csum = res;
->>>>         SKB_GSO_CB(skb)->csum_start = skb_checksum_start(skb) - skb->head;
->>>>  }
->>>
->>> I'm pretty sure this part here will break things when you don't have
->>> an outer offload enabled.  What NIC did you test this on?  Did you try
->>> disabling the Tx checksum support in the hardware to see what would
->>> happen?
->>>
->> Mellanox.
->>
->> When TX checksum is disabled the outer checksum is computed in
->> __skb_udp_tunnel_segment.
->
-> Yes, but that uses gso_make_checksum which requires the csum and
-> csum_start fields be initialized in the SKB_GSO_CB().
->
->>>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->>>> index f044f97..e4eb78d 100644
->>>> --- a/net/core/skbuff.c
->>>> +++ b/net/core/skbuff.c
->>>> @@ -3259,14 +3259,13 @@ skip_fraglist:
->>>>                 nskb->truesize += nskb->data_len;
->>>>
->>>>  perform_csum_check:
->>>> -               if (!csum) {
->>>> +               if (!csum && !nskb->remcsum_offload) {
->>>>                         if (skb_has_shared_frag(nskb)) {
->>>>                                 err = __skb_linearize(nskb);
->>>>                                 if (err)
->>>>                                         goto err;
->>>>                         }
->>>> -                       if (!nskb->remcsum_offload)
->>>> -                               nskb->ip_summed = CHECKSUM_NONE;
->>>> +                       nskb->ip_summed = CHECKSUM_NONE;
->>>>                         SKB_GSO_CB(nskb)->csum =
->>>>                                 skb_checksum(nskb, doffset,
->>>>                                              nskb->len - doffset, 0);
->>>
->>> I'm pretty sure this is going to cause a huge mess if you are
->>> requesting remote checksum but cannot perform an outer checksum.  One
->>> of the reasons I merged these features together the way I did was
->>> because we needed to perform the initial checksum to avoid causing a
->>> kernel panic later on.  Otherwise we don't have the SKB_GSO_CB()->csum
->>> and SKB_GSO_CB()->csum_start fields populated.
->>>
->> Nope, if we can't perform outer checksum it is done in the host. I'm
->> not seeing any problem.
->
-> Are you running remcsum with udpcsum set or is udpcsum not set?  If
-> you don't set udpcsum it doesn't actually compute an outer checksum
-> value.
->
->>>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->>>> index 8a3405a..f86f1e1 100644
->>>> --- a/net/ipv4/udp_offload.c
->>>> +++ b/net/ipv4/udp_offload.c
->>>> @@ -78,16 +78,6 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
->>>>
->>>>         features &= skb->dev->hw_enc_features;
->>>>
->>>> -       /* The only checksum offload we care about from here on out is the
->>>> -        * outer one so strip the existing checksum feature flags and
->>>> -        * instead set the flag based on our outer checksum offload value.
->>>> -        */
->>>> -       if (remcsum || ufo) {
->>>> -               features &= ~NETIF_F_CSUM_MASK;
->>>> -               if (!need_csum || offload_csum)
->>>> -                       features |= NETIF_F_HW_CSUM;
->>>> -       }
->>>> -
->>>>         /* segment inner packet. */
->>>>         segs = gso_inner_segment(skb, features);
->>>>         if (IS_ERR_OR_NULL(segs)) {
->>>
->>> This part breaks UDP fragmentation I am pretty sure.  We need this bit
->>> for UFO to avoid having to perform a checksum over the data twice if
->>> we are offloading the outer UDP checksum.
->>
->> The maybe leave this for ufo if it is a problem (please test your
->> suppositions!), but this is not good for remcsum offload.
->
-> I suspect we are supposed to be setting encap_level to 0 when we set
-> skb->encapsulation to 0 before processing inner headers in the case of
-> UDP and GRE tunnel offloads.  I'll try to test and submit something in
-> the next hour or two.
->
-> - Alex
+diff --git a/drivers/net/wireless/intersil/prism54/isl_38xx.c b/drivers/net/wireless/intersil/prism54/isl_38xx.c
+index 333c1a2..6700387 100644
+--- a/drivers/net/wireless/intersil/prism54/isl_38xx.c
++++ b/drivers/net/wireless/intersil/prism54/isl_38xx.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/delay.h>
++#include <linux/ktime.h>
+
+ #include <asm/uaccess.h>
+ #include <asm/io.h>
+@@ -113,7 +114,7 @@ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+ 	u32 counter = 0;
+-	struct timeval current_time;
++	struct timespec64 current_ts64;
+ 	DEBUG(SHOW_FUNCTION_CALLS, "isl38xx trigger device\n");
+ #endif
+
+@@ -121,22 +122,22 @@ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+ 	if (asleep) {
+ 		/* device is in powersave, trigger the device for wakeup */
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+-		do_gettimeofday(&current_time);
+-		DEBUG(SHOW_TRACING, "%08li.%08li Device wakeup triggered\n",
+-		      current_time.tv_sec, (long)current_time.tv_usec);
++		ktime_get_real_ts64(&current_ts64);
++		DEBUG(SHOW_TRACING, "%lld.%09ld Device wakeup triggered\n",
++		      (s64)current_ts64.tv_sec, current_ts64.tv_nsec);
+
+-		DEBUG(SHOW_TRACING, "%08li.%08li Device register read %08x\n",
+-		      current_time.tv_sec, (long)current_time.tv_usec,
++		DEBUG(SHOW_TRACING, "%lld.%09ld Device register read %08x\n",
++		      (s64)current_ts64.tv_sec, current_ts64.tv_nsec,
+ 		      readl(device_base + ISL38XX_CTRL_STAT_REG));
+ #endif
+
+ 		reg = readl(device_base + ISL38XX_INT_IDENT_REG);
+ 		if (reg == 0xabadface) {
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+-			do_gettimeofday(&current_time);
++			ktime_get_real_ts64(&current_ts64);
+ 			DEBUG(SHOW_TRACING,
+-			      "%08li.%08li Device register abadface\n",
+-			      current_time.tv_sec, (long)current_time.tv_usec);
++			      "%lld.%09ld Device register abadface\n",
++			      (s64)current_ts64.tv_sec, current_ts64.tv_nsec);
+ #endif
+ 			/* read the Device Status Register until Sleepmode bit is set */
+ 			while (reg = readl(device_base + ISL38XX_CTRL_STAT_REG),
+@@ -149,13 +150,13 @@ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+ 			DEBUG(SHOW_TRACING,
+-			      "%08li.%08li Device register read %08x\n",
+-			      current_time.tv_sec, (long)current_time.tv_usec,
++			      "%lld.%09ld Device register read %08x\n",
++			      (s64)current_ts64.tv_sec, current_ts64.tv_nsec,
+ 			      readl(device_base + ISL38XX_CTRL_STAT_REG));
+-			do_gettimeofday(&current_time);
++			ktime_get_real_ts64(&current_ts64);
+ 			DEBUG(SHOW_TRACING,
+-			      "%08li.%08li Device asleep counter %i\n",
+-			      current_time.tv_sec, (long)current_time.tv_usec,
++			      "%lld.%09ld Device asleep counter %i\n",
++			      (s64)current_ts64.tv_sec, current_ts64.tv_nsec,
+ 			      counter);
+ #endif
+ 		}
+@@ -168,9 +169,9 @@ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+
+ 		/* perform another read on the Device Status Register */
+ 		reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
+-		do_gettimeofday(&current_time);
+-		DEBUG(SHOW_TRACING, "%08li.%08li Device register read %08x\n",
+-		      current_time.tv_sec, (long)current_time.tv_usec, reg);
++		ktime_get_real_ts64(&current_ts64);
++		DEBUG(SHOW_TRACING, "%lld.%00ld Device register read %08x\n",
++		      (s64)current_ts64.tv_sec, current_ts64.tv_nsec, reg);
+ #endif
+ 	} else {
+ 		/* device is (still) awake  */
