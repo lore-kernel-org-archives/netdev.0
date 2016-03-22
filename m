@@ -1,70 +1,95 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [RFCv2 0/3] mac80211: implement fq codel
-Date: Tue, 22 Mar 2016 09:05:32 +0100
-Message-ID: <CA+BoTQ=hgkm2AwMb=kinx+Ezf3vjduCKNH4LNRcV_goDWH4_Vg@mail.gmail.com>
-References: <CAA93jw5AAWua23TbQHZX47XcFLEqU6T=NpxuLqa6FiffBf91Fw@mail.gmail.com>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: net/bluetooth: workqueue destruction WARNING in
+ hci_unregister_dev
+Date: Tue, 22 Mar 2016 09:09:50 +0100
+Message-ID: <56F0FDCE.1040701@suse.cz>
+References: <CACT4Y+ax7zMOxe+kd4tw5Xdbvt=qPdBhXGO0j7qJwdn5tsfNNg@mail.gmail.com>
+ <56C5CE85.6090808@suse.cz>
+ <CACT4Y+bVXfY=wBZ+08rq16tHFw9s3YDrE_LCS=to-GF70AffRQ@mail.gmail.com>
+ <20160218174427.GG13177@mtj.duckdns.org> <56C6EC62.8080107@suse.cz>
+ <56C70618.3010902@suse.cz> <20160302154507.GC4282@mtj.duckdns.org>
+ <56D7FFE1.90900@suse.cz> <20160311171205.GB24046@htj.duckdns.org>
+ <56EA9C4D.2080803@suse.cz> <20160318205231.GO20028@mtj.duckdns.org>
+ <56F01A1C.40208@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
- linux-wireless <linux-wireless@vger.kernel.org>,
- "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
- Jasmine Strong <jas@eero.com>,
- "codel@lists.bufferbloat.net" <codel@lists.bufferbloat.net>,
- make-wifi-fast@lists.bufferbloat.net
-To: Dave Taht <dave.taht@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <CAA93jw5AAWua23TbQHZX47XcFLEqU6T=NpxuLqa6FiffBf91Fw@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
- <mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Errors-To: codel-bounces@lists.bufferbloat.net
-Sender: "Codel" <codel-bounces@lists.bufferbloat.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	syzkaller <syzkaller-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Kostya Serebryany <kcc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Alexander Potapenko <glider-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Takashi Iwai <tiwai-IBi9RG/b67k@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Dmitry Vyukov <dvyukov-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <56F01A1C.40208-AlSwsSmVLrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjEgTWFyY2ggMjAxNiBhdCAxODoxMCwgRGF2ZSBUYWh0IDxkYXZlLnRhaHRAZ21haWwuY29t
-PiB3cm90ZToKPiB0aHguCj4KPiBhIGxvdCB0byBkaWdlc3QuCj4KPiBBKSBxdWljayBub3RlcyBv
-biAiZmxlbnQtZ3VpIGJ1cnN0c18xMWUtMjAxNi0wMy0yMVQwOSouZ3oiCj4KPiAxKSB0aGUgbmV3
-IGJ1cnN0c18xMWUgdGVzdCAqc2hvdWxkKiBoYXZlIHN0dWNrIHN0dWZmIGluIHRoZSBWSSBhbmQg
-Vk8KPiBxdWV1ZXMsIGFuZCB0aGVyZSAqc2hvdWxkKiBoYXZlIGJlZW4gc29tZSBzb3J0IG9mIGRp
-ZmZlcmVuY2Ugc2hvd24gb24KPiB0aGUgcGxvdHMgd2l0aCBpdC4gVGhlcmUgd2Fzbid0LgoKdHJh
-ZmZpYy1nZW4gZ2VuZXJhdGVzIG9ubHkgQkUgdHJhZmZpYy4gRXZlcnl0aGluZyBlbHNlIHJ1bnMg
-VURQX1JSCndoaWNoIGRvZXNuJ3QgZ2VuZXJhdGUgYSBsb3Qgb2YgdHJhZmZpYy4KCgo+IEZvciBk
-aWZmc2VydiBtYXJraW5ncyBJIHVzZWQgQkU9Q1MwLCBCSz1DUzEsIFZJPUNTNSwgYW5kIFZPPUVG
-Lgo+IENTNi9DUzcgc2hvdWxkIGFsc28gbGFuZCBpbiBWTyAoYXQgbGVhc3Qgd2l0aCB0aGUgc29m
-dCBtYWMgaGFuZGxlcgo+IGxhc3QgSSBsb29rZWQpLiBJcyB0aGVyZSBhIHdheSB0byBjaGVjayBp
-ZiB5b3UgYXJlIGluZGVlZCBleGVyY2lzaW5nCj4gYWxsIGZvdXIgODAyLjExZSBoYXJkd2FyZSBx
-dWV1ZXMgaW4gdGhpcyB0ZXN0PyBpbiBhdGg5ayBpdCBpcyB0aGUKPiAieG1pdCIgc3lzZnMgdmFy
-Li4uLgoKSG1tLi4gdGhlcmUgYXJlIG5vIHR4cSBzdGF0cy4gSSBndWVzcyBpdCBtYWtlcyBzZW5z
-ZSB0byBoYXZlIHRoZW0/CgpUaGVyZSBpcyAvc3lzL2tlcm5lbC9kZWJ1Zy9pZWVlODAyMTEvcGh5
-Ki9mcSB3aGljaCBkdW1wcyBzdGF0ZSBvZiBhbGwKcXVldWVzIHdoaWNoIHdpbGwgYmUgbW9zdGx5
-IGVtcHR5IHdpdGggVURQX1JSLiBZb3UgY2FuIHJ1biBuZXRwZXJmIFVEUApzdHJlYW0gd2l0aCBk
-aWZmc2VydiBtYXJraW5nIHRvIHNlZSBvbnRvIHdoaWNoIHRpZCB0aGV5IGFyZSBtYXBwZWQuCllv
-dSBjYW4gc2VlIHRpZC1BQyBtYXBwaW5ncyBoZXJlOgpodHRwczovL3dpcmVsZXNzLndpa2kua2Vy
-bmVsLm9yZy9lbi9kZXZlbG9wZXJzL2RvY3VtZW50YXRpb24vbWFjODAyMTEvcXVldWVzCgpJIGp1
-c3QgY2hlY2tlZCBhbmQgRUYgZW5kcyB1cCBhcyB0aWQ1IHdoaWNoIGlzIFZJLiBJdCdzIGFjdHVh
-bGx5IHRoZQpzYW1lIGFzIENTNS4gWW91IGNhbiB1c2UgQ1M3IHRvIHJ1biBvbiB0aWQ3IHdoaWNo
-IGlzIFZPLgoKCj4gMikgSW4gYWxsIHRoZSBvbGQgY2FzZXMgdGhlIEJFIFVEUF9SUiBmbG93IGRp
-ZWQgb24gdGhlIGZpcnN0IGJ1cnN0Cj4gKHdoeT8pLCBhbmQgdGhlIGZ1bGxwYXRjaCBwcmVzZXJ2
-ZWQgaXQuCgpJIHRoaW5rIGl0J3MgcmVsYXRlZCB0byBteSBzZXR1cCB3aGljaCBpbnZvbHZlcyB2
-ZXRoIHBhaXJzLiBJIHVzZSB0aGVtCnRvIHNpbXVsYXRlIGJyaWRnaW5nL0FQIGJlaGF2aW9yIGJ1
-dCBtYXliZSBpdCdzIG5vdCBkb2luZyB0aGUgam9iCnJpZ2h0LCBobW0uLgoKCj4gKEkgd291bGQg
-aGF2ZSBraW5kIG9mIGhvcGVkIHRvCj4gaGF2ZSBzZWVuIHRoZSBCSyBmbG93IGRpZSwgYWN0dWFs
-bHksIGluIHRoZSBmdWxscGF0Y2gpCgpUaGVyZSdzIG5vIGV4dHJhIHdlaWdodCBwcmlvcml0eSB0
-byBCSy4gVGhlIGRpZmZlcmVuY2UgYmV0d2VlbiBCRSBhbmQKQksgaW4gODAyLjExIGlzIGNvbnRl
-bnRpb24gd2luZG93IGFjY2VzcyB0aW1lIHNvIEJLIGdldHMgbGVzcyB0eG9wcwpzdGF0aXN0aWNh
-bGx5LiBCb3RoIHNoYXJlIHRoZSBzYW1lIHR4b3AsIHdoaWNoIGlzIDUuNDg0bXMgaW4gbW9zdApj
-YXNlcy4KCgo+IDMpIEkgYW0gYWxzbyBjb25mdXNlZCBvbiA4MDIuMTFhYyAtIGNhbiBWTyBhZ2dy
-ZWdhdGU/ICggY2FuJ3QgaW4gaW4gODAyLjExbikuCgpZZXMsIGl0IHNob3VsZCBiZSBhbGJlaXQg
-VkkgYW5kIFZPIGhhdmUgc2hvcnRlciB0eG9wIGNvbXBhcmVkIHRvCkJFL0JLOiAzLjAwOG1zIGFu
-ZCAxLjUwNG1zIHJlc3BlY3RpdmVseS4KClVEUF9SUiBkb2Vzbid0IHJlYWxseSBjcmVhdGUgYSBs
-b3Qgb2Ygb3Bwb3J0dW5pdGllcyBmb3IgYWdncmVnYXRpb24uCklmIHlvdSB3YW50IHRvIHNlZSBo
-b3cgZGlmZmVyZW50IHF1ZXVlcyBiZWhhdmUgd2hlbiBsb2FkZWQgeW91J2xsIG5lZWQKdG8gbW9k
-aWZ5IHRyYWZmaWMtZ2VuIGFuZCBhZGQgYnVyc3RzIGFjcm9zcyBkaWZmZXJlbnQgQUNzIGluIHRo
-ZQpidXJzdHNfMTFlIHRlc3QuCgoKTWljaGHFggpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpDb2RlbCBtYWlsaW5nIGxpc3QKQ29kZWxAbGlzdHMuYnVmZmVy
-YmxvYXQubmV0Cmh0dHBzOi8vbGlzdHMuYnVmZmVyYmxvYXQubmV0L2xpc3RpbmZvL2NvZGVsCg==
+On 03/21/2016, 04:58 PM, Jiri Slaby wrote:
+> Hello,
+> 
+> On 03/18/2016, 09:52 PM, Tejun Heo wrote:
+>> On Thu, Mar 17, 2016 at 01:00:13PM +0100, Jiri Slaby wrote:
+>>>>> I have not done that yet, but today, I see:
+>>>>> destroy_workqueue: name='req_hci0' pwq=ffff88002f590300
+>>>>> wq->dfl_pwq=ffff88002f591e00 pwq->refcnt=2 pwq->nr_active=0 delayed_works:
+>>>>>    pwq 12: cpus=0-1 node=0 flags=0x4 nice=-20 active=0/1
+>>>>>      in-flight: 18568:wq_barrier_func
+>>>>
+>>>> So, this means that there's flush_work() racing against workqueue
+>>>> destruction, which can't be safe. :(
+>>>
+>>> But I cannot trigger the WARN_ONs in the attached patch, so I am
+>>> confused how this can happen :(. (While I am still seeing the destroy
+>>> WARNINGs.)
+>>
+>> So, no operations should be in progress when destroy_workqueue() is
+>> called.  If somebody was flushing a work item, the flush call must
+>> have returned before destroy_workqueue() was invoked, which doesn't
+>> seem to be the case here.  Can you trigger BUG_ON() or sysrq-t when
+>> the above triggers?  There must be a task which is flushing a work
+>> item there and it shouldn't be difficult to pinpoint what's going on
+>> from it.
+> 
+> The output of sysrq-t is here (> 200k), but I cannot see anything
+> suspicious in it:
+> http://www.fi.muni.cz/~xslaby/sklad/panics/jctl.txt
+
+Hmm, so I seem I cannot reproduce with this hunk:
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -3139,10 +3139,10 @@ void hci_unregister_dev(struct hci_dev *hdev)
+        list_del(&hdev->list);
+        write_unlock(&hci_dev_list_lock);
+
+-       hci_dev_do_close(hdev);
+-
+        cancel_work_sync(&hdev->power_on);
+
++       hci_dev_do_close(hdev);
++
+        if (!test_bit(HCI_INIT, &hdev->flags) &&
+            !hci_dev_test_flag(hdev, HCI_SETUP) &&
+            !hci_dev_test_flag(hdev, HCI_CONFIG)) {
+
+
+
+I cannot explain why though. I do not see how it matters in this
+particular case...
+
+Dmitry, could you apply it too? But I don't know how often you see the
+warning.
+
+PS. next on the table is the gsm tty warning.
+
+thanks,
+-- 
+js
+suse labs
