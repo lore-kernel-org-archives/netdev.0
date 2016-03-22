@@ -1,38 +1,58 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net v2] ipv4: fix broadcast packets reception
-Date: Tue, 22 Mar 2016 15:54:26 -0400 (EDT)
-Message-ID: <20160322.155426.562303496878634271.davem@redhat.com>
-References: <c8ad97bbb6f1c9ec8c523209c1203d1982faab6f.1458634653.git.pabeni@redhat.com>
+Subject: Re: [PATCH v8 net-next] ravb: Add dma queue interrupt support
+Date: Tue, 22 Mar 2016 15:55:55 -0400 (EDT)
+Message-ID: <20160322.155555.77700411133852493.davem@redhat.com>
+References: <1458660120-23594-1-git-send-email-ykaneko0929@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	sbohrer@rgmadvisors.com, hannes@stressinduktion.org
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43233 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751893AbcCVTyc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Mar 2016 15:54:32 -0400
-In-Reply-To: <c8ad97bbb6f1c9ec8c523209c1203d1982faab6f.1458634653.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	horms@verge.net.au, magnus.damm@gmail.com,
+	linux-renesas-soc@vger.kernel.org
+To: ykaneko0929@gmail.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1458660120-23594-1-git-send-email-ykaneko0929@gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Tue, 22 Mar 2016 09:19:38 +0100
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Date: Wed, 23 Mar 2016 00:22:00 +0900
 
-> Currently, ingress ipv4 broadcast datagrams are dropped since,
-> in udp_v4_early_demux(), ip_check_mc_rcu() is invoked even on
-> bcast packets.
+> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 > 
-> This patch addresses the issue, invoking ip_check_mc_rcu()
-> only for mcast packets.
+> This patch supports the following interrupts.
 > 
-> Fixes: 6e5403093261 ("ipv4/udp: Verify multicast group is ours in upd_v4_early_demux()")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> - One interrupt for multiple (timestamp, error, gPTP)
+> - One interrupt for emac
+> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
 > 
-> --
->  v1 -> v2 droped the route related bits, the fib_validate_source()
->   failures are triggered by the in_device configuration
+> This patch improve efficiency of the interrupt handler by adding the
+> interrupt handler corresponding to each interrupt source described
+> above. Additionally, it reduces the number of times of the access to
+> EthernetAVB IF.
+> Also this patch prevent this driver depends on the whim of a boot loader.
+> 
+> [ykaneko0929@gmail.com: define bit names of registers]
+> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+> [ykaneko0929@gmail.com: fix coding style]
+> [ykaneko0929@gmail.com: update changelog]
+> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>  interrupt handler instead of dma queue interrupt handler]
+> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 
-Applied and queued up for -stable, thanks.
+Sorry, it is not appropriate to submit new features and major optimizations
+at this time.
+
+Please wait until some reasonable time after the merge window closes to
+resubmit this.
+
+Thanks.
