@@ -1,64 +1,86 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Subject: [PATCH RESEND] net: ipv4: Fix truncated timestamp returned by inet_current_timestamp()
-Date: Mon, 21 Mar 2016 18:21:26 -0700
-Message-ID: <1458609686-7435-1-git-send-email-deepa.kernel@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Arnd Bergmann <arnd@arndb.de>
-To: netdev@vger.kernel.org, y2038@lists.linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36768 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758026AbcCVBVm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Mar 2016 21:21:42 -0400
-Received: by mail-pf0-f194.google.com with SMTP id q129so33447156pfb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Mar 2016 18:21:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Kardashevskiy <aik-sLpHqDYs0B2HXe+LvDLADg@public.gmane.org>
+Subject: Re: [PATCH net-next] net/mlx4_core: Fix backward compatibility on VFs
+Date: Tue, 22 Mar 2016 12:24:01 +1100
+Message-ID: <56F09EB1.1090106@ozlabs.ru>
+References: <1458233382-12871-1-git-send-email-eli@mellanox.com>
+ <56EBCE2F.40902@ozlabs.ru> <56EF8058.2060203@ozlabs.ru>
+ <20160321135630.GA95906@x-vnc01.mtx.labs.mlnx>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160321135630.GA95906-lgQlq6cFzJSjLWYaRI30zHI+JuX82XLG@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The millisecond timestamps returned by the function is
-converted to network byte order by making a call to htons().
-htons() only returns __be16 while __be32 is required here.
+On 03/22/2016 12:56 AM, Eli Cohen wrote:
+> On Mon, Mar 21, 2016 at 04:02:16PM +1100, Alexey Kardashevskiy wrote:
+>>
+>> After more tries, I found that if for whatever reason mlx4_core
+>> fails to stop while shutting the guest down (last message is
+>> "mlx4_core 0000:00:00.0: mlx4_shutdown was called"), then next time
+>> VF in guest won't start.
+>>
+>> Example #1:
+>>
+>> mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
+>> mlx4_core: Initializing 0000:00:00.0
+>> mlx4_core 0000:00:00.0: enabling device (0000 -> 0002)
+>> mlx4_core 0000:00:00.0: Detected virtual function - running in slave mode
+>> mlx4_core 0000:00:00.0: Sending reset
+>> mlx4_core 0000:00:00.0: Sending vhcr0
+>> mlx4_core 0000:00:00.0: HCA minimum page size:1
+>> mlx4_core 0000:00:00.0: UAR size:4096 != kernel PAGE_SIZE of 65536
+>> mlx4_core 0000:00:00.0: Failed to obtain slave caps
+>
+> Alexey, can you verify that the value of the enable_4k_uar parameter
+> is false?
 
-This was identified by the sparse warning from the buildbot:
-net/ipv4/af_inet.c:1405:16: sparse: incorrect type in return
-			    expression (different base types)
-net/ipv4/af_inet.c:1405:16: expected restricted __be32
-net/ipv4/af_inet.c:1405:16: got restricted __be16 [usertype] <noident>
+aik@fstn1-p1:~$ cat 
+/sys/bus/pci/drivers/mlx4_core/module/parameters/enable_4k_uar
+N
+aik@fstn1-p1:~$
 
-Change the function to use htonl() to return the correct __be32 type
-instead so that the millisecond value doesn't get truncated.
 
-Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: James Morris <jmorris@namei.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Fixes: 822c868532ca ("net: ipv4: Convert IP network timestamps to be y2038 safe")
-Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
----
-Fixed the y2038 list email address.
 
- net/ipv4/af_inet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>>
+>> Example #2:
+>>
+>> root@le-dbg:~# dhclient eth0
+>> NETDEV WATCHDOG: eth0 (mlx4_core): transmit queue 11 timed out
+>> ------------[ cut here ]------------
+>> WARNING: at /home/aik/p/guest-kernel/net/sched/sch_generic.c:303
+>>
+>> and no IP assigned, timed out.
+>>
+>>
+>> This is fixed by the guest restart, first restart might not help,
+>> then the second restart will.
+>>
+>> The host is running the latest upstream plus the patch I am replying
+>> to. The guest is using initramdisk from debian bootstrap and vanilla
+>> v4.2 kernel, ppc64le arch, POWER8 chip, QEMU is running with 1 CPU
+>> and 2GB of RAM.
+>>
+>> Does this look any familiar?
+>>
+>
+> This is completely unrelated to the compatibility problem you reported
+> and which this patch addresses. We will reproduce in house and post a
+> fix.
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 0cc923f..5fab7e3 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1402,7 +1402,7 @@ __be32 inet_current_timestamp(void)
- 	msecs += (u32)ts.tv_nsec / NSEC_PER_MSEC;
- 
- 	/* Convert to network byte order. */
--	return htons(msecs);
-+	return htonl(msecs);
- }
- EXPORT_SYMBOL(inet_current_timestamp);
- 
+
+Example #2 is but example #1 mentions "UAR size" :)
+
+
+
 -- 
-1.9.1
+Alexey
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
