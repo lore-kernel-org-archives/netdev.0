@@ -1,142 +1,71 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net: Fix remote checksum offload with GUE
-Date: Tue, 22 Mar 2016 13:20:11 -0700
-Message-ID: <CAKgT0UfNrmmG3var3OQ04fPK08nNkip=ZC3EAKXc6PsFeYjFbA@mail.gmail.com>
-References: <1458674365-3944200-1-git-send-email-tom@herbertland.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] ipv4: initialize flowi4_flags before calling fib_lookup()
+Date: Tue, 22 Mar 2016 13:45:17 -0700
+Message-ID: <CAM_iQpV6srT84xa4y0WHrKG0mbO2xs=rnKKCx1XB9FtWusxCgw@mail.gmail.com>
+References: <1458660679-7279-1-git-send-email-lrichard@redhat.com>
+	<56F18EEE.4070000@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>,
-	Alex Duyck <aduyck@mirantis.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Lance Richardson <lrichard@redhat.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36699 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbcCVUUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 16:20:12 -0400
-Received: by mail-io0-f180.google.com with SMTP id 124so102889606iov.3
-        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 13:20:12 -0700 (PDT)
-In-Reply-To: <1458674365-3944200-1-git-send-email-tom@herbertland.com>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:33828 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750696AbcCVUpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Mar 2016 16:45:18 -0400
+Received: by mail-yw0-f181.google.com with SMTP id h129so270192710ywb.1
+        for <netdev@vger.kernel.org>; Tue, 22 Mar 2016 13:45:18 -0700 (PDT)
+In-Reply-To: <56F18EEE.4070000@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2016 at 12:19 PM, Tom Herbert <tom@herbertland.com> wrote:
-> In skb_segment the check of whether or not to perform the checksum on
-> host was changed to not consider rather remote checksum offload is
-> in use. In the case that can_checksum_protocol fails the checksum
-> is computed regardless. __skb_udp_tunnel_segment was modified in a
-> related patch to add NETIF_F_HW_CSUM into features when grabbing
-> the enc_features and remote checksum offload is being done. The
-> problem is that this bit can be cleared in lower GSO layers that
-> are also doing tunneling (e.g. ipip, GRE when used with GUE),
-> so when we get to skb_segment that intent has been lost and
-> can_checksum_protocol fails.
+On Tue, Mar 22, 2016 at 11:29 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 3/22/16 9:31 AM, Lance Richardson wrote:
+>>
+>> Field fl4.flowi4_flags is not initialized in fib_compute_spec_dst()
+>> before calling fib_lookup(), which means fib_table_lookup() is
+>> using non-deterministic data at this line:
+>>
+>>         if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
+>>
+>> Fix by initializing fl4.flowi4_flags to zero.
+>>
+>> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+>> ---
+>>   net/ipv4/fib_frontend.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+>> index 21add55..896844a 100644
+>> --- a/net/ipv4/fib_frontend.c
+>> +++ b/net/ipv4/fib_frontend.c
+>> @@ -304,6 +304,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
+>>                 fl4.flowi4_scope = scope;
+>>                 fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark :
+>> 0;
+>>                 fl4.flowi4_tun_key.tun_id = 0;
+>> +               fl4.flowi4_flags = 0;
+>>                 if (!fib_lookup(net, &fl4, &res, 0))
+>>                         return FIB_RES_PREFSRC(net, res);
+>>         } else {
+>>
+>
+> Fixes: 58189ca7b2741 ("net: Fix vti use case with oif in dst lookups")
 
-So what you are describing sounds like a tunnel in tunnel scenario.
-It might work better to just skip masking the features if
-skb->remcsum_offload is set rather than trying to change how we
-perform the offload.
+Why does this patch fix this commit? Even before this commit, flowi4_flags
+was already tested for other bit:
 
-I'm pretty sure this will cause data corruption and maybe a kernel
-panic if Tx checksum offload is disabled.
 
-> This patch:
->
-> - Restores the check in skb_segment to look at remote checksum offload.
-> - Removes the code in __skb_udp_tunnel_segment to force the
->   NETIF_F_HW_CSUM feature since this is no longer useful with above
->   change.
-> - Removes check for remote checksum offload in gso_reset_checksum.
->   A special case should not be needed here.
->
-> Tested: Single netperf STREAM over GUE-ipip
->
-> Before fix:
->    5625 Mbps
-> After fix:
->    6410 Mbps
->
-> Fixes: 76443456227097179c1482 ("net: Move GSO csum into SKB_GSO_CB")
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  include/linux/skbuff.h |  4 ----
->  net/core/skbuff.c      |  5 ++---
->  net/ipv4/udp_offload.c | 10 ----------
->  3 files changed, 2 insertions(+), 17 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 15d0df9..f6fe8a5 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -3615,10 +3615,6 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
->
->  static inline void gso_reset_checksum(struct sk_buff *skb, __wsum res)
->  {
-> -       /* Do not update partial checksums if remote checksum is enabled. */
-> -       if (skb->remcsum_offload)
-> -               return;
-> -
->         SKB_GSO_CB(skb)->csum = res;
->         SKB_GSO_CB(skb)->csum_start = skb_checksum_start(skb) - skb->head;
->  }
+@@ -1426,7 +1426,7 @@ int fib_table_lookup(struct fib_table *tb, const
+struct flowi4 *flp,
+                            nh->nh_flags & RTNH_F_LINKDOWN &&
+                            !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
+                                continue;
+-                       if (!(flp->flowi4_flags & FLOWI_FLAG_VRFSRC)) {
++                       if (!(flp->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF)) {
+                                if (flp->flowi4_oif &&
+                                    flp->flowi4_oif != nh->nh_oif)
+                                        continue;
 
-I'm pretty sure this part here will break things when you don't have
-an outer offload enabled.  What NIC did you test this on?  Did you try
-disabling the Tx checksum support in the hardware to see what would
-happen?
-
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index f044f97..e4eb78d 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3259,14 +3259,13 @@ skip_fraglist:
->                 nskb->truesize += nskb->data_len;
->
->  perform_csum_check:
-> -               if (!csum) {
-> +               if (!csum && !nskb->remcsum_offload) {
->                         if (skb_has_shared_frag(nskb)) {
->                                 err = __skb_linearize(nskb);
->                                 if (err)
->                                         goto err;
->                         }
-> -                       if (!nskb->remcsum_offload)
-> -                               nskb->ip_summed = CHECKSUM_NONE;
-> +                       nskb->ip_summed = CHECKSUM_NONE;
->                         SKB_GSO_CB(nskb)->csum =
->                                 skb_checksum(nskb, doffset,
->                                              nskb->len - doffset, 0);
-
-I'm pretty sure this is going to cause a huge mess if you are
-requesting remote checksum but cannot perform an outer checksum.  One
-of the reasons I merged these features together the way I did was
-because we needed to perform the initial checksum to avoid causing a
-kernel panic later on.  Otherwise we don't have the SKB_GSO_CB()->csum
-and SKB_GSO_CB()->csum_start fields populated.
-
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 8a3405a..f86f1e1 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -78,16 +78,6 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
->
->         features &= skb->dev->hw_enc_features;
->
-> -       /* The only checksum offload we care about from here on out is the
-> -        * outer one so strip the existing checksum feature flags and
-> -        * instead set the flag based on our outer checksum offload value.
-> -        */
-> -       if (remcsum || ufo) {
-> -               features &= ~NETIF_F_CSUM_MASK;
-> -               if (!need_csum || offload_csum)
-> -                       features |= NETIF_F_HW_CSUM;
-> -       }
-> -
->         /* segment inner packet. */
->         segs = gso_inner_segment(skb, features);
->         if (IS_ERR_OR_NULL(segs)) {
-
-This part breaks UDP fragmentation I am pretty sure.  We need this bit
-for UFO to avoid having to perform a checksum over the data twice if
-we are offloading the outer UDP checksum.
+For me, it looks the bug was introduce by commit 35ebf65e851c6d9731abc6362b1.
