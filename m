@@ -1,60 +1,41 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: b43: Fix memory leaks in b43_bus_dev_ssb_init
- andb43_bus_dev_bcma_init
-Date: Wed, 23 Mar 2016 15:51:57 +0000 (UTC)
-Message-ID: <20160323155157.45F8E615D5@smtp.codeaurora.org>
-References: <1457716477-6287-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rtlwifi: fix gcc-6 indentation warning
+Date: Wed, 23 Mar 2016 15:53:17 +0000 (UTC)
+Message-ID: <20160323155317.53EB26022C@smtp.codeaurora.org>
+References: <1458209066-3979295-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0614158801427239973=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>,
- b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, =?UTF-8?q?Michael=20B=C3=BCsch?= <m@bues.ch>
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1457716477-6287-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Arnd Bergmann <arnd@arndb.de>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458209066-3979295-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0614158801427239973==
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
 
-
-> From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+> The rtl8821ae_dm_txpower_tracking_callback_thermalmeter function
+> contains a call to RT_TRACE() that is indented in a misleading
+> way, as pointed out by a gcc-6 warning:
 > 
-> The memory allocated by kzalloc in b43_bus_dev_ssb_init and
-> b43_bus_dev_bcma_init is not freed.
-> This patch fixes the bug by adding kfree in b43_ssb_remove,
-> b43_bcma_remove and error handling code of b43_bcma_probe.
+> drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c: In function 'rtl8821ae_dm_txpower_tracking_callback_thermalmeter':
+> drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c:2491:4: error: statement is indented as if it were guarded by...
+>     RT_TRACE(rtlpriv, COMP_POWER_TRACKING, DBG_LOUD,
+>     ^~~~~~~~
+> drivers/net/wireless/realtek/rtlwifi/rtl8821ae/dm.c:2488:3: note: ...this 'for' clause, but it is not
+>    for (p = RF90_PATH_A; p < MAX_PATH_NUM_8821A; p++)
+>    ^~~
 > 
-> Thanks Michael for his suggestion.
+> It is clear from the context that the call was not meant to be
+> part of the loop and only the indentation is wrong, so this
+> removes the extra tabs.
 > 
-> Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-> Acked-by: Michael Büsch <m@bues.ch>
-> Signed-off-by: Sudip Mukherjee <sudip.mukherjee-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
 Thanks, applied to wireless-drivers.git.
 
 Kalle Valo
-
-
---===============0614158801427239973==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-b43-dev mailing list
-b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-http://lists.infradead.org/mailman/listinfo/b43-dev
-
---===============0614158801427239973==--
