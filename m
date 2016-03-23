@@ -1,32 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mediatek: fix checking for NULL instead of
- IS_ERR() in .probe
-Date: Wed, 23 Mar 2016 13:50:15 -0400 (EDT)
-Message-ID: <20160323.135015.4255305663652743.davem@davemloft.net>
-References: <1458687964-9690-1-git-send-email-vz@mleia.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, blogic@openwrt.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org
-To: vz@mleia.com
+From: Vishal Thanki <vishalthanki@gmail.com>
+Subject: [PATCH 0/3] Control ethernet PHY LEDs via LED subsystem
+Date: Wed, 23 Mar 2016 18:51:37 +0100
+Message-ID: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
+Cc: Vishal Thanki <vishalthanki@gmail.com>
+To: andrew@lunn.ch, f.fainelli@gmail.com, ujhelyi.m@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59519 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755928AbcCWRuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:50:17 -0400
-In-Reply-To: <1458687964-9690-1-git-send-email-vz@mleia.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36190 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753470AbcCWRvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:51:46 -0400
+Received: by mail-wm0-f53.google.com with SMTP id r129so146555605wmr.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 10:51:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladimir Zapolskiy <vz@mleia.com>
-Date: Wed, 23 Mar 2016 01:06:04 +0200
+Hi all,
 
-> devm_ioremap_resource() returns ERR_PTR() value on error, it never
-> returns NULL, fix it and propagate the returned error upwards.
-> 
-> Fixes: 656e705243fd ("net-next: mediatek: add support for MT7623 ethernet")
-> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
+Based on suggestions from Andrew and Florian, I have made some changes
+to expose the ethernet PHY LEDs using kernel LED subsystem. The following
+ALPHA patchset introduces two new LED triggers:
 
-Applied, thanks.
+1) <phydev>-eth-phy-link:
+To monitor the PHY Link status
+
+2) <phydev>-eth-phy-activity:
+To monitor the PHY activity status. This trigger may still some more work
+because as of now it just takes decision to set the trigger based on
+PHY state machine and triggers the blink_set with delay_on and delay_off
+parameters set to 0.
+
+Please provide the review comments so that I can work on this patchset to
+make it complete.
+
+Thanks,
+Vishal
+
+Vishal Thanki (3):
+  net: phy: Add ethernet PHY LED triggers
+  net: phy: at8030: Expose the Link and Activity LEDs
+  led: at8030: Add LED driver for AT8030 ethernet PHY
+
+ drivers/leds/Kconfig         |   7 ++
+ drivers/leds/Makefile        |   1 +
+ drivers/leds/leds-at803x.c   | 158 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/Kconfig      |   7 ++
+ drivers/net/phy/Makefile     |   1 +
+ drivers/net/phy/at803x.c     |  55 ++++++++++++++-
+ drivers/net/phy/phy.c        |  20 +++++-
+ drivers/net/phy/phy_device.c |   4 ++
+ drivers/net/phy/phy_led.c    |  70 +++++++++++++++++++
+ drivers/net/phy/phy_led.h    |  37 ++++++++++
+ include/linux/leds.h         |   1 +
+ include/linux/phy.h          |   6 ++
+ include/linux/phy/at803x.h   |  45 ++++++++++++
+ 13 files changed, 409 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/leds/leds-at803x.c
+ create mode 100644 drivers/net/phy/phy_led.c
+ create mode 100644 drivers/net/phy/phy_led.h
+ create mode 100644 include/linux/phy/at803x.h
+
+-- 
+2.4.3
