@@ -1,38 +1,54 @@
-From: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
-Subject: RE: [PATCH net-next] change nfqueue failopen to apply also to receive
- message buffer in addition to queue size
-Date: Wed, 23 Mar 2016 12:04:28 +0000
-Message-ID: <727dce6253224081b6bc4bd40c6e1958@XCH-RTP-014.cisco.com>
-References: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
- <20160321122236.GB29493@breakpoint.cc>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 2/3] IB/hns: Add HiSilicon RoCE driver support
+Date: Wed, 23 Mar 2016 20:20:52 +0800
+Message-ID: <56F28A24.5010107@huawei.com>
+References: <1458655621-3618-1-git-send-email-oulijun@huawei.com>
+ <1458655621-3618-3-git-send-email-oulijun@huawei.com>
+ <20160322185412.GA6262@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"pablo@netfilter.org" <pablo@netfilter.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160321122236.GB29493@breakpoint.cc>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160322185412.GA6262-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Much of the issues raised become redundant due to a much simpler solution proposed by Pablo. Still two issues left, proc and potential existing bug in sk filter case. 
+On 2016/3/23 2:54, Christoph Hellwig wrote:
+>>  drivers/infiniband/Kconfig                         |    1 +
+>>  drivers/infiniband/hw/Makefile                     |    1 +
+>>  drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
+> 
+> To fit in with the other drivers drop the hisilicon level
+> of the directory hierarchy.
+> 
+> Haven't had time to look at the actual driver yet so far, though.
+> 
+> .
+> 
+Hi Christoph Hellwig,
+   surely, I considered that other drivers will be put into the hisilicon
+level of the directory hierarchy. These drivers will support RDMA function which
+will be developed for a series of hisilicon chip. Because of the consideration, I drop the
+level.
+   In additon that, i thought that the patch of RoCE driver which supported the base function of RDMA is huge. However,
+It is not splitted into patches in form of patchset. I don't put a better strategy that it neither make mistakes
+of building and running nor huge.
 
-On March 21, 2016 2:23 PM, Florian Westphal wrote:
-> It looks like a bug -- AFAICS if a sk filter is active on the nfnetlink sk we will believe sk got queued and will put the (free'd) skb ptr on the reinject list.
-This issue may still need to be looked at separately.
+thanks
+Lijun Ou
 
-> Userspace already should get -ENOBUFS errors on netlink overrun.
--ENOBUFS doesn't provide statistics. It does not detect queue limitation. Also diagnostic needs are many times different than implementation needs. Also many times user uses NETLINK_NO_ENOBUFS in order to avoid penalty for buffer overruns (as for example done in a patch to daq_nfq submitted by you here (http://seclists.org/snort/2011/q2/311) :-) ).
-
->>  -	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n",
->>  +	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %5u %5u %2d\n",
-> Problematic since it changes layout of a file we unfortunately have to view as uapi.
-> I would prefer if we could leave the proc file alone and not add any new stats counters for this, unless there is a good argument for doing so.
-So my arguments are that there in order to fine tune a system it is required to know about the existence and number of packets that went under the radar. As I wrote ENOBUF does not answer all these needs.
-I understand it is problematic to change uapi. Tried to minimize incompatibility by keeping the order of arguments. I'll probably use a patch to proc any way. Please let me know if you think there is a point in proposing this patch or is it a "no-no" from kernel's perspective.
-
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
