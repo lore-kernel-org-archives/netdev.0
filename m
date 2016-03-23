@@ -1,66 +1,49 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Fix the order of num_sc_offered decrement
-Date: Wed, 23 Mar 2016 14:54:48 -0700
-Message-ID: <1458770088-923-1-git-send-email-haiyangz@microsoft.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 8/9] i40e/i40evf: Add support for GSO partial with
+ UDP_TUNNEL_CSUM and GRE_CSUM
+Date: Wed, 23 Mar 2016 13:21:46 -0700
+Message-ID: <CAKgT0Uf5CqHEZ0mjaesuaeOQC-_0b77bbLUdKp8Aq6gUd2XfVA@mail.gmail.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+	<20160318232528.14955.87859.stgit@localhost.localdomain>
+	<CAEh+42jxjkhoTeC0GK91pmX6XUpnMAxnA-pRhbG0kkQFfa2WXQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, haiyangz@microsoft.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36065 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbcCWUVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 16:21:47 -0400
+Received: by mail-io0-f179.google.com with SMTP id 124so62751529iov.3
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 13:21:47 -0700 (PDT)
+In-Reply-To: <CAEh+42jxjkhoTeC0GK91pmX6XUpnMAxnA-pRhbG0kkQFfa2WXQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reorder the code in netvsc_sc_open(), so num_sc_offered is only decremented
-after vmbus_open() is called. This avoid pontential race of removing device
-before all channels are setup.
+On Wed, Mar 23, 2016 at 12:35 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Fri, Mar 18, 2016 at 4:25 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> index 39b0009253c2..ac3964a9f5c0 100644
+>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> @@ -9074,7 +9075,12 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+>>         if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
+>>                 netdev->features |= NETIF_F_NTUPLE;
+>>         if (pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE)
+>> -               netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>> +               netdev->features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>
+> Looks like there might be a typo - I guess this is supposed to still
+> OR with the previous features instead of replacing them?
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Yes, that was a typo.  It looks like I got it right on the i40vf half
+of the patch but didn't get it correct here.
 
----
- drivers/net/hyperv/rndis_filter.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+Thanks for catching that, I'll have it fixed for when I push it for net-next.
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index d5a54da..c4e1e04 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -986,12 +986,6 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- 
- 	nvscdev = hv_get_drvdata(new_sc->primary_channel->device_obj);
- 
--	spin_lock_irqsave(&nvscdev->sc_lock, flags);
--	nvscdev->num_sc_offered--;
--	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
--	if (nvscdev->num_sc_offered == 0)
--		complete(&nvscdev->channel_init_wait);
--
- 	if (chn_index >= nvscdev->num_chn)
- 		return;
- 
-@@ -1004,6 +998,12 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- 
- 	if (ret == 0)
- 		nvscdev->chn_table[chn_index] = new_sc;
-+
-+	spin_lock_irqsave(&nvscdev->sc_lock, flags);
-+	nvscdev->num_sc_offered--;
-+	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
-+	if (nvscdev->num_sc_offered == 0)
-+		complete(&nvscdev->channel_init_wait);
- }
- 
- int rndis_filter_device_add(struct hv_device *dev,
--- 
-1.7.4.1
+- Alex
