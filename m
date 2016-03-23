@@ -1,86 +1,78 @@
-From: Laison@seymour.toledo.br, Computech@seymour.toledo.br,
-	"Inc <support"@ensuretech.com
-Subject: CISCO IP PHONES AND CPU's
-Date: Thu, 24 Mar 2016 02:12:12 +0700
-Message-ID: <20160323203611.CF413A7B60@seymour.toledo.br>
-Reply-To: sales@laisoncomputertech.us
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net 1/2] net: bcmgenet: fix dev->stats.tx_bytes accounting
+Date: Wed, 23 Mar 2016 14:47:45 -0700
+Message-ID: <C2A46484-4AE6-418C-A4F4-760C3A4DC368@gmail.com>
+References: <1458763289-95167-1-git-send-email-pgynther@google.com> <1458768237.10868.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <support@ensuretech.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jaedon.shin@gmail.com,
+	edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seymour.toledo.br ([200.148.142.55]:47681 "EHLO
-	seymour.toledo.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755413AbcCWVZD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 17:25:03 -0400
-Content-Description: Mail message body
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36750 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750886AbcCWVr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 17:47:57 -0400
+Received: by mail-pa0-f54.google.com with SMTP id tt10so5175469pab.3
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 14:47:57 -0700 (PDT)
+In-Reply-To: <1458768237.10868.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On March 23, 2016 2:23:57 PM PDT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>On Wed, 2016-03-23 at 13:01 -0700, Petri Gynther wrote:
+>> 1. Add bytes_compl local variable to collect transmitted bytes
+>>    - dev->stats updates can then be moved outside the while-loop
+>>    - bytes_compl is also needed for future BQL support
+>> 2. When bcmgenet device uses Tx checksum offload, each transmitted
+>>    skb has an extra 64-byte header prepended to it. This needs to
+>>    be deducted when counting transmitted bytes.
+>> 3. skb->len covers the entire length of skb, whether it is linear or
+>>    fragmented. Thus, when we clean the fragments, do not increase
+>>    transmitted bytes.
+>> 
+>> Signed-off-by: Petri Gynther <pgynther@google.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++----
+>>  1 file changed, 6 insertions(+), 4 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> index 6746fd0..9990582 100644
+>> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>> @@ -1171,6 +1171,7 @@ static unsigned int
+>__bcmgenet_tx_reclaim(struct net_device *dev,
+>>  	struct enet_cb *tx_cb_ptr;
+>>  	struct netdev_queue *txq;
+>>  	unsigned int pkts_compl = 0;
+>> +	unsigned int bytes_compl = 0;
+>>  	unsigned int c_index;
+>>  	unsigned int txbds_ready;
+>>  	unsigned int txbds_processed = 0;
+>> @@ -1193,16 +1194,14 @@ static unsigned int
+>__bcmgenet_tx_reclaim(struct net_device *dev,
+>>  		tx_cb_ptr = &priv->tx_cbs[ring->clean_ptr];
+>>  		if (tx_cb_ptr->skb) {
+>>  			pkts_compl++;
+>> -			dev->stats.tx_packets++;
+>> -			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
+>> +			bytes_compl += tx_cb_ptr->skb->len -
+>> +				       (priv->desc_64b_en ? 64 : 0);
+>
+>Please do not use this 64 scalar, prefer sizeof(struct status_64)
+>
+>I know this driver uses skb_pull(skb, 64); len -= 64; in
+>bcmgenet_desc_rx(), but I would prefer not adding magic values.
 
-Our Stock list.
+Agreed, and just so we are more robust and ready to add BQL in the features please store this information in skb->cb, in the same spirit as what this does:
 
-Brand NEW
-96 x Cisco 7900 IP Phone
-87 x Unified IP Phone 6900
-12 x Unified IP Phone 8900
-76 x Unified IP Phone 9900
-55 x Unified IP Phone 8800
-67 x Cisco 1921
-67 x Cisco 1941
-56 x Cisco CP-7961G 7961G
-34 x Cisco CP-7971G-GE 7971G
-19 x Cisco Unified IP Conference Station 7937G Model: 7937 CP-7937G
-20 x Cisco CP-7975G 7975G
+https://github.com/ffainelli/linux/commits/genet-bql
 
-Brand New Sealed :
+Thanks.
 
-23 x  CISCO1921-SEC/K9
-Conditions: Brand New Sealed
-Description: CISCO 1921 Security Bundle w/SEC license PAK
-
-45 x CISCO1921/K9
-Conditions: Brand New Sealed
-Description: CISCO 1921 Modular Router, 2 GE, 2 EHWIC slots, 512DRAM, IP Base
-
-(1)  WS-C4500X-16SFP+
-Serial number:  JAE183501L3
-US&#36;2600
-
-(1)  WS-C3850-48PW-S
-Serial number:  FCW1823C0EW
-US&#36;2650
-
-(1)  WS-X6908-10G-2T
-Serial number:  SAL1620CKUB
-US&#36;3650
-
-(1)  ASR1000-ESP10
-Serial number:  JAE181306C3
-US&#36;3800
-
-(1)  AIR-CT5508-250-K9   (this is new but box is open!)
-Serial number:  FCW1521L038
-US&#36;4000
-
-CPUs part number below
-
-89 x  X5650
-
-975 x  X5660
-
-150 x  X5680
-
-265 x  X5690
-
-Kindly make your price offers.
-
-Sincerely
-Barbara Johnson
-Laison Computech
-210 N Scoring Ave,
-Rialto California, 92376
-Tel: +1-657-232-7047
-Fax: +1-347-214-0478
-Email: sales@laisoncomputertech.us
+-- 
+Florian
