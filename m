@@ -1,36 +1,32 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Wed, 23 Mar 2016 16:23:04 -0700
-Message-ID: <CA+55aFxtX874DwJpE9SDurahJrE1LKLCNZL0qRWW8G26jWBKxw@mail.gmail.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
-	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-	<56E99960.5000604@redhat.com>
-	<CA+55aFyi31eRO6nO1-kz=-kq4XqyyA=VagbsiaO4ZPu1aLmnuA@mail.gmail.com>
-	<CAJ3xEMgth+KpQdcGi3Y8s9_0GJrEESCiEU_8uFGWrMOLHwOdHA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 2/9] udp: Add noreference lookup functions
+Date: Wed, 23 Mar 2016 16:28:56 -0700
+Message-ID: <1458775736.10868.55.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458772618-845742-1-git-send-email-tom@herbertland.com>
+	 <1458772618-845742-3-git-send-email-tom@herbertland.com>
+	 <1458773986.10868.54.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALx6S35pPLoyY6hiOg1WKKe4FUATgJQncWvoxJe-Z2NoOMe2eA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CAJ3xEMgth+KpQdcGi3Y8s9_0GJrEESCiEU_8uFGWrMOLHwOdHA@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33538 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbcCWX27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 19:28:59 -0400
+Received: by mail-pf0-f171.google.com with SMTP id 4so42145155pfd.0
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 16:28:58 -0700 (PDT)
+In-Reply-To: <CALx6S35pPLoyY6hiOg1WKKe4FUATgJQncWvoxJe-Z2NoOMe2eA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2016 at 4:04 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->
-> I know there's history here, and in the 4.5 cycle things were much
-> worse, but I still wanted to put things in their more precise place,
-> if you don't mind.
+On Wed, 2016-03-23 at 16:17 -0700, Tom Herbert wrote:
+> Thanks Eric. Do you think it is reasonable to not use
+> SLAB_DESTROY_BY_RCU for UDP since it probably has a much lower
+> allocation rate than what we'd see in TCP?
 
-We'll see how things shape up in the future. Once bitten, twice shy,
-as they say.
-
-Please make sure that Mellanox will not be a pain going forward, and
-everything will be forgiven/forgotten.
-
-            Linus
+This is absolutely reasonable ;)
