@@ -1,9 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 1/2] net: bcmgenet: fix dev->stats.tx_bytes
- accounting
-Date: Wed, 23 Mar 2016 14:23:57 -0700
-Message-ID: <1458768237.10868.46.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net 2/2] net: bcmgenet: fix skb_len in
+ bcmgenet_xmit_single()
+Date: Wed, 23 Mar 2016 14:24:37 -0700
+Message-ID: <1458768277.10868.47.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1458763289-95167-1-git-send-email-pgynther@google.com>
+	 <1458763289-95167-2-git-send-email-pgynther@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -11,56 +12,49 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, f.fainelli@gmail.com,
 	jaedon.shin@gmail.com, edumazet@google.com
 To: Petri Gynther <pgynther@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34967 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755413AbcCWVYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 17:24:00 -0400
-Received: by mail-pf0-f180.google.com with SMTP id n5so39695515pfn.2
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 14:24:00 -0700 (PDT)
-In-Reply-To: <1458763289-95167-1-git-send-email-pgynther@google.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34639 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757302AbcCWVYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 17:24:39 -0400
+Received: by mail-pf0-f169.google.com with SMTP id x3so39847942pfb.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 14:24:39 -0700 (PDT)
+In-Reply-To: <1458763289-95167-2-git-send-email-pgynther@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, 2016-03-23 at 13:01 -0700, Petri Gynther wrote:
-> 1. Add bytes_compl local variable to collect transmitted bytes
->    - dev->stats updates can then be moved outside the while-loop
->    - bytes_compl is also needed for future BQL support
-> 2. When bcmgenet device uses Tx checksum offload, each transmitted
->    skb has an extra 64-byte header prepended to it. This needs to
->    be deducted when counting transmitted bytes.
-> 3. skb->len covers the entire length of skb, whether it is linear or
->    fragmented. Thus, when we clean the fragments, do not increase
->    transmitted bytes.
+> skb_len needs to be skb_headlen(skb) in bcmgenet_xmit_single().
+> 
+> Fragmented skbs can have only Ethernet + IP + TCP headers (14+20+20=54 bytes)
+> in the linear buffer, followed by the rest in fragments. Bumping skb_len to
+> ETH_ZLEN would be incorrect for this case, as it would introduce garbage
+> between TCP header and the fragment data.
+> 
+> This also works with regular/non-fragmented small packets < ETH_ZLEN bytes.
+> Successfully tested this on GENETv3 with 42-byte ARP frames.
+> 
+> For testing, I used:
+> ethtool -K eth0 tx-checksum-ipv4 off
+> ethtool -K eth0 tx-checksum-ipv6 off
+> echo 0 > /proc/sys/net/ipv4/tcp_timestamps
 > 
 > Signed-off-by: Petri Gynther <pgynther@google.com>
 > ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++----
->  1 file changed, 6 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
 > diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index 6746fd0..9990582 100644
+> index 9990582..00da239 100644
 > --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 > +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -1171,6 +1171,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
->  	struct enet_cb *tx_cb_ptr;
->  	struct netdev_queue *txq;
->  	unsigned int pkts_compl = 0;
-> +	unsigned int bytes_compl = 0;
->  	unsigned int c_index;
->  	unsigned int txbds_ready;
->  	unsigned int txbds_processed = 0;
-> @@ -1193,16 +1194,14 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
->  		tx_cb_ptr = &priv->tx_cbs[ring->clean_ptr];
->  		if (tx_cb_ptr->skb) {
->  			pkts_compl++;
-> -			dev->stats.tx_packets++;
-> -			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
-> +			bytes_compl += tx_cb_ptr->skb->len -
-> +				       (priv->desc_64b_en ? 64 : 0);
+> @@ -1298,7 +1298,7 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+>  
+>  	tx_cb_ptr->skb = skb;
+>  
+> -	skb_len = skb_headlen(skb) < ETH_ZLEN ? ETH_ZLEN : skb_headlen(skb);
+> +	skb_len = skb_headlen(skb);
+>  
+>  	mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
+>  	ret = dma_mapping_error(kdev, mapping);
 
-Please do not use this 64 scalar, prefer sizeof(struct status_64)
-
-I know this driver uses skb_pull(skb, 64); len -= 64; in
-bcmgenet_desc_rx(), but I would prefer not adding magic values.
-
-Thanks.
+Acked-by: Eric Dumazet <edumazet@google.com>
