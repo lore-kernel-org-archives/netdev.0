@@ -1,96 +1,39 @@
-From: Maxim Zhukov <mussitantesmortem@gmail.com>
-Subject: [PATCH 2/2] drivers: net: ethernet: dlink: dl2k: fix indent
-Date: Wed, 23 Mar 2016 18:57:40 +0300
-Message-ID: <1458748660-10571-2-git-send-email-mussitantesmortem@gmail.com>
-References: <1458748660-10571-1-git-send-email-mussitantesmortem@gmail.com>
-Cc: linux@rainbow-software.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Maxim Zhukov <mussitantesmortem@gmail.com>
-To: davem@davemloft.net
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [PATCH net] ppp: take reference on channels netns
+Date: Wed, 23 Mar 2016 19:02:22 +0300
+Message-ID: <20160323160222.GB2231@uranus.lan>
+References: <4dbdfa8e264d5a635865c6e843c122daf9be4f8d.1458747209.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Baozeng Ding <sploving1@gmail.com>,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f195.google.com ([209.85.217.195]:33380 "EHLO
-	mail-lb0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755339AbcCWP5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 11:57:48 -0400
-In-Reply-To: <1458748660-10571-1-git-send-email-mussitantesmortem@gmail.com>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:33751 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754652AbcCWQCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 12:02:25 -0400
+Received: by mail-lb0-f182.google.com with SMTP id oe12so13563472lbc.0
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 09:02:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4dbdfa8e264d5a635865c6e843c122daf9be4f8d.1458747209.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit fixed indent in file. Labels must be start of the line
+On Wed, Mar 23, 2016 at 04:38:55PM +0100, Guillaume Nault wrote:
+> Let channels hold a reference on their network namespace.
+> Some channel types, like ppp_async and ppp_synctty, can have their
+> userspace controller running in a different namespace. Therefore they
+> can't rely on them to preclude their netns from being removed from
+> under them.
+> 
+...
+> 
+> Fixes: 273ec51dd7ce ("net: ppp_generic - introduce net-namespace functionality v2")
+> Reported-by: Baozeng Ding <sploving1@gmail.com>
+> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 
-Signed-off-by: Maxim Zhukov <mussitantesmortem@gmail.com>
----
- drivers/net/ethernet/dlink/dl2k.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Good catch! Thanks!
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index d128306..e635b1e 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -98,7 +98,7 @@ static const struct ethtool_ops ethtool_ops;
- 
- static const struct net_device_ops netdev_ops = {
- 	.ndo_open		= rio_open,
--	.ndo_start_xmit	= start_xmit,
-+	.ndo_start_xmit		= start_xmit,
- 	.ndo_stop		= rio_close,
- 	.ndo_get_stats		= get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -174,7 +174,7 @@ rio_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			    strcmp(media[card_idx], "0") == 0) {
- 				np->an_enable = 2;
- 			} else if (strcmp(media[card_idx], "100mbps_fd") == 0 ||
--			    strcmp(media[card_idx], "4") == 0) {
-+				   strcmp(media[card_idx], "4") == 0) {
- 				np->speed = 100;
- 				np->full_duplex = 1;
- 			} else if (strcmp(media[card_idx], "100mbps_hd") == 0 ||
-@@ -190,11 +190,11 @@ rio_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
- 				np->speed = 10;
- 				np->full_duplex = 0;
- 			} else if (strcmp(media[card_idx], "1000mbps_fd") == 0 ||
--				 strcmp(media[card_idx], "6") == 0) {
-+				  strcmp(media[card_idx], "6") == 0) {
- 				np->speed = 1000;
- 				np->full_duplex = 1;
- 			} else if (strcmp(media[card_idx], "1000mbps_hd") == 0 ||
--				 strcmp(media[card_idx], "5") == 0) {
-+				  strcmp(media[card_idx], "5") == 0) {
- 				np->speed = 1000;
- 				np->full_duplex = 0;
- 			} else {
-@@ -210,7 +210,7 @@ rio_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
- 				dev->mtu = mtu[card_idx];
- 		}
- 		np->vlan = (vlan[card_idx] > 0 && vlan[card_idx] < 4096) ?
--		    vlan[card_idx] : 0;
-+			    vlan[card_idx] : 0;
- 		if (rx_coalesce > 0 && rx_timeout > 0) {
- 			np->rx_coalesce = rx_coalesce;
- 			np->rx_timeout = rx_timeout;
-@@ -278,12 +278,12 @@ rio_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev->name, np->name, dev->dev_addr, irq);
- 	if (tx_coalesce > 1)
- 		printk(KERN_INFO "tx_coalesce:\t%d packets\n",
--				tx_coalesce);
-+				 tx_coalesce);
- 	if (np->coalesce)
- 		printk(KERN_INFO
- 		       "rx_coalesce:\t%d packets\n"
- 		       "rx_timeout: \t%d ns\n",
--				np->rx_coalesce, np->rx_timeout * 640);
-+		       np->rx_coalesce, np->rx_timeout * 640);
- 	if (np->vlan)
- 		printk(KERN_INFO "vlan(id):\t%d\n", np->vlan);
- 	return 0;
-@@ -1470,7 +1470,7 @@ mii_read(struct net_device *dev, int phy_addr, int reg_num)
- 	mii_getbit(dev);
- 	return (retval >> 1) & 0xffff;
- 
--      err_out:
-+err_out:
- 	return 0;
- }
- static int
--- 
-2.7.1.1.g3617aa0
+Reviewed-by: Cyrill Gorcunov <gorcunov@openvz.org>
