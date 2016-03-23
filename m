@@ -1,83 +1,68 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: linux-next: manual merge of the rdma tree with the net-next tree
-Date: Thu, 24 Mar 2016 01:04:19 +0200
-Message-ID: <CAJ3xEMgth+KpQdcGi3Y8s9_0GJrEESCiEU_8uFGWrMOLHwOdHA@mail.gmail.com>
-References: <20160316115809.61b4478e@canb.auug.org.au>
-	<CA+55aFzhYJxCOXER-mhOfJ6=V13Rb5F0LB_3A9n7S_dLkb8f0g@mail.gmail.com>
-	<56E99960.5000604@redhat.com>
-	<CA+55aFyi31eRO6nO1-kz=-kq4XqyyA=VagbsiaO4ZPu1aLmnuA@mail.gmail.com>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH v8 net-next] ravb: Add dma queue interrupt support
+Date: Thu, 24 Mar 2016 08:07:15 +0900
+Message-ID: <CAH1o70LC=nt1i17zw8rTH-2MppxrcqNXt-qrgUTAiXgctHEVFA@mail.gmail.com>
+References: <1458660120-23594-1-git-send-email-ykaneko0929@gmail.com>
+	<20160322.155555.77700411133852493.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFyi31eRO6nO1-kz=-kq4XqyyA=VagbsiaO4ZPu1aLmnuA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@redhat.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20160322.155555.77700411133852493.davem@redhat.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2016 at 7:44 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Wed, Mar 16, 2016 at 10:35 AM, Doug Ledford <dledford@redhat.com> wrote:
->> On 3/16/2016 1:18 PM, Linus Torvalds wrote:
->>> On Tue, Mar 15, 2016 at 5:58 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-
->>>> I fixed it up (see below) and can carry the fix as necessary (no action
->>>> is required).
-
->>> Side note: can you change this wording for your manual merge script?
->>> Last merge window (or was it the one before it?) we had confusion with
->>> people who thought that "no action is required" means "you can just
->>> ignore this entirely".
-
->> I certainly didn't take it that way regardless of the wording.
-
-> It was Or Gerlitz. You were cc'd, since it was the whole rdma Mellanox
-> mess. I quote from that thread:
+2016-03-23 4:55 GMT+09:00 David Miller <davem@redhat.com>:
+> From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+> Date: Wed, 23 Mar 2016 00:22:00 +0900
 >
->  "> However, the fact that it got resolved in linux-next is purely
->   > informational. It doesn't "fix" the conflict - it just means that both
->   > sides should have gotten informed about it. That doesn't mean that the
->   > conflict goes away or becomes better.
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> This patch supports the following interrupts.
+>>
+>> - One interrupt for multiple (timestamp, error, gPTP)
+>> - One interrupt for emac
+>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>
+>> This patch improve efficiency of the interrupt handler by adding the
+>> interrupt handler corresponding to each interrupt source described
+>> above. Additionally, it reduces the number of times of the access to
+>> EthernetAVB IF.
+>> Also this patch prevent this driver depends on the whim of a boot loader.
+>>
+>> [ykaneko0929@gmail.com: define bit names of registers]
+>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+>> [ykaneko0929@gmail.com: fix coding style]
+>> [ykaneko0929@gmail.com: update changelog]
+>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+>> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+>> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+>> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>>  interrupt handler instead of dma queue interrupt handler]
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
 >
->   That's news to me. When such things happen and caught by Stephen, we
->   are getting an email saying something like
+> Sorry, it is not appropriate to submit new features and major optimizations
+> at this time.
 >
->   "Today's linux-next merge of the infiniband tree got a conflict
->   between commit X from net-next tree and commit Y from the infiniband
->   tree. I fixed it up (see below) and can carry the fix as necessary (no
->   action is required)."
+> Please wait until some reasonable time after the merge window closes to
+> resubmit this.
+
+I'm sorry to bother you.
+I will re-post this patch after net-next reopened.
+
 >
->   Also asked around a bit and got to learn on Stephen using git rerere,
->   so all (no action needed note + seeing git rerere in action...) that
->   leaded me to think that indeed no action is required from our side,
->   but after reading your email (twice, so far), I realized that this was
->   wrong conclusion."
+> Thanks.
 
-> So that whole "no action is required" wording very much has caused
-> confusion before in the rdma camp.
-
-> Let's fix the wording. I'm indeed hopeful that the rdma camp is now
-> keenly aware of the issues, but that doesn't change the fact that the
-> wording has been problematic.
-
->> "[...] The Mellanox people are on my xxit-list until they show that they can
->> actually act like responsible people [...]"
-
-Linus,
-
-As I wrote you in that other thread you were quoting from there,
-following to the happenings mentioned there, we took responsibility
-and made bunch of corrective actions within Mellanox which got us to a
-point where there was only one rdma/netdev-next conflict for the 4.6
-merge window.
-
-I know there's history here, and in the 4.5 cycle things were much
-worse, but I still wanted to put things in their more precise place,
-if you don't mind.
-
-Or.
+Best regards,
+kaneko
