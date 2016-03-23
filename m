@@ -1,171 +1,50 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC 9/9] udp: Remove udp_offloads
-Date: Wed, 23 Mar 2016 15:36:58 -0700
-Message-ID: <1458772618-845742-10-git-send-email-tom@herbertland.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 2/9] udp: Add noreference lookup functions
+Date: Wed, 23 Mar 2016 15:59:46 -0700
+Message-ID: <1458773986.10868.54.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1458772618-845742-1-git-send-email-tom@herbertland.com>
+	 <1458772618-845742-3-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59167 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752937AbcCWWkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 18:40:32 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u2NMdA7h008859
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:40:31 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 21uet8rvfv-11
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:40:31 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- cca566b6f14711e5ae670002c9521c9e-781fb3f0 for <netdev@vger.kernel.org>;	Wed,
- 23 Mar 2016 15:37:18 -0700
-In-Reply-To: <1458772618-845742-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34554 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750838AbcCWXAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 19:00:05 -0400
+Received: by mail-pa0-f45.google.com with SMTP id fe3so6333909pab.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 16:00:04 -0700 (PDT)
+In-Reply-To: <1458772618-845742-3-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the UDP encapsulation GRO functions have been moved to the UDP
-socket we not longer need the udp_offload insfrastructure so removing it.
+On Wed, 2016-03-23 at 15:36 -0700, Tom Herbert wrote:
+> This patches adds udp6_lib_lookup_skb_noref, udp4_lib_lookup_skb_noref
+> and related support to allow a caller to lookup a UDP socket
+> without automatically taking a reference. The lookup and caller
+> use of the socket must be done under rcu_read_lock.
+> 
+> This feature will be used in a fast receive encapsulation path and
+> also when performing GRO through callout in the UDP socket.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/netdevice.h | 17 -------------
- include/net/protocol.h    |  3 ---
- net/ipv4/udp_offload.c    | 63 -----------------------------------------------
- 3 files changed, 83 deletions(-)
+As already mentioned in the past, you can not do a UDP lookup without
+taking a reference, because we use SLAB_DESTROY_BY_RCU rules which are
+strict.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index be693b3..9262ac9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2152,23 +2152,6 @@ struct packet_offload {
- 	struct list_head	 list;
- };
- 
--struct udp_offload;
--
--struct udp_offload_callbacks {
--	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
--						 struct sk_buff *skb,
--						 struct udp_offload *uoff);
--	int			(*gro_complete)(struct sk_buff *skb,
--						int nhoff,
--						struct udp_offload *uoff);
--};
--
--struct udp_offload {
--	__be16			 port;
--	u8			 ipproto;
--	struct udp_offload_callbacks callbacks;
--};
--
- /* often modified stats are per cpu, other are shared (netdev->stats) */
- struct pcpu_sw_netstats {
- 	u64     rx_packets;
-diff --git a/include/net/protocol.h b/include/net/protocol.h
-index da689f5..bf36ca3 100644
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -107,9 +107,6 @@ int inet_del_offload(const struct net_offload *prot, unsigned char num);
- void inet_register_protosw(struct inet_protosw *p);
- void inet_unregister_protosw(struct inet_protosw *p);
- 
--int  udp_add_offload(struct net *net, struct udp_offload *prot);
--void udp_del_offload(struct udp_offload *prot);
--
- #if IS_ENABLED(CONFIG_IPV6)
- int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char num);
- int inet6_del_protocol(const struct inet6_protocol *prot, unsigned char num);
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index dce43c9..320c91e 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -14,18 +14,6 @@
- #include <net/udp.h>
- #include <net/protocol.h>
- 
--static DEFINE_SPINLOCK(udp_offload_lock);
--static struct udp_offload_priv __rcu *udp_offload_base __read_mostly;
--
--#define udp_deref_protected(X) rcu_dereference_protected(X, lockdep_is_held(&udp_offload_lock))
--
--struct udp_offload_priv {
--	struct udp_offload	*offload;
--	possible_net_t	net;
--	struct rcu_head		rcu;
--	struct udp_offload_priv __rcu *next;
--};
--
- static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	netdev_features_t features,
- 	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
-@@ -254,56 +242,6 @@ out:
- 	return segs;
- }
- 
--int udp_add_offload(struct net *net, struct udp_offload *uo)
--{
--	struct udp_offload_priv *new_offload = kzalloc(sizeof(*new_offload), GFP_ATOMIC);
--
--	if (!new_offload)
--		return -ENOMEM;
--
--	write_pnet(&new_offload->net, net);
--	new_offload->offload = uo;
--
--	spin_lock(&udp_offload_lock);
--	new_offload->next = udp_offload_base;
--	rcu_assign_pointer(udp_offload_base, new_offload);
--	spin_unlock(&udp_offload_lock);
--
--	return 0;
--}
--EXPORT_SYMBOL(udp_add_offload);
--
--static void udp_offload_free_routine(struct rcu_head *head)
--{
--	struct udp_offload_priv *ou_priv = container_of(head, struct udp_offload_priv, rcu);
--	kfree(ou_priv);
--}
--
--void udp_del_offload(struct udp_offload *uo)
--{
--	struct udp_offload_priv __rcu **head = &udp_offload_base;
--	struct udp_offload_priv *uo_priv;
--
--	spin_lock(&udp_offload_lock);
--
--	uo_priv = udp_deref_protected(*head);
--	for (; uo_priv != NULL;
--	     uo_priv = udp_deref_protected(*head)) {
--		if (uo_priv->offload == uo) {
--			rcu_assign_pointer(*head,
--					   udp_deref_protected(uo_priv->next));
--			goto unlock;
--		}
--		head = &uo_priv->next;
--	}
--	pr_warn("udp_del_offload: didn't find offload for port %d\n", ntohs(uo->port));
--unlock:
--	spin_unlock(&udp_offload_lock);
--	if (uo_priv)
--		call_rcu(&uo_priv->rcu, udp_offload_free_routine);
--}
--EXPORT_SYMBOL(udp_del_offload);
--
- struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
- 				 struct udphdr *uh, udp_lookup_t lookup)
- {
-@@ -327,7 +265,6 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
- 
- 	if (sk && udp_sk(sk)->gro_receive)
- 		goto unflush;
--
- 	goto out_unlock;
- 
- unflush:
--- 
-2.8.0.rc2
+Only taking a reference and re-doing the keys check can make sure the
+lookup result makes sense (as we check multiple words and there is no
+way it can be done atomically)
+
+This is explained in include/linux/slab.h and
+Documentation/RCU/rculist_nulls.txt
+
+If you want that to happen, we need first to not use
+SLAB_DESTROY_BY_RCU.
+
+Then, we do not need to take a reference at all, even for the regular
+UDP stack unicast receive path.
