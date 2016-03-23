@@ -1,26 +1,42 @@
-From: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
-Subject: RE: [PATCH net-next] change nfqueue failopen to apply also to receive
- message buffer in addition to queue size
-Date: Wed, 23 Mar 2016 11:40:14 +0000
-Message-ID: <aecaf341ed194fd991ed1709c3634dab@XCH-RTP-014.cisco.com>
-References: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
- <20160321213532.GA1818@salvia>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: ping: make ping_v6_sendmsg static
+Date: Wed, 23 Mar 2016 14:53:10 +0300
+Message-ID: <56F283A6.6020801@cogentembedded.com>
+References: <1458727191-36958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"Florian Westphal (fw@strlen.de)" <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160321213532.GA1818@salvia>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:36599 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbcCWLxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 07:53:17 -0400
+Received: by mail-lb0-f182.google.com with SMTP id qe11so7958919lbc.3
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 04:53:16 -0700 (PDT)
+In-Reply-To: <1458727191-36958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, March 21, 2016 11:36 PM, Pablo Neira Ayuso wrote:
-> So isn't the more simple patch that I'm attaching achieving what you need?
-Yes. I applied the patch and it works as expected. Indeed much more simple.
+On 3/23/2016 12:59 PM, Haishuang Yan wrote:
 
-I intend to use this patch and would like it to eventually get into the formal kernel. Do you intend to pursue this into mainline kernel? 
+> As ping_v6_sendmsg is used only in this file,
+> making it static
+>
+> The body of "pingv6_prot" and "pingv6_protosw" were
+> moved at the middle of the file, to avoid having to
+> declare some static prototypes.
+>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
+    These seem as 2 independent changes, so should be in 2 separate patches.
+
+[...]
+
+MBR, Sergei
