@@ -1,44 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: enhancing nfnetlink stats [was Re: [PATCH net-next] change nfqueue
- failopen to apply also to receive message buffer in addition to queue size]
-Date: Wed, 23 Mar 2016 13:28:55 +0100
-Message-ID: <20160323122855.GA5355@salvia>
-References: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
- <20160321122236.GB29493@breakpoint.cc>
- <727dce6253224081b6bc4bd40c6e1958@XCH-RTP-014.cisco.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net v2] xfrm: Fix crash observed during device
+ unregistration and decryption
+Date: Wed, 23 Mar 2016 13:50:48 +0100
+Message-ID: <20160323125048.GC3347@gauss.secunet.com>
+References: <001c01d1849b$1c7c98e0$5575caa0$@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>,
+	'Herbert Xu' <herbert@gondor.apana.org.au>,
+	<jeromes@codeaurora.org>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:41182 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932306AbcCWMu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Mar 2016 08:50:57 -0400
 Content-Disposition: inline
-In-Reply-To: <727dce6253224081b6bc4bd40c6e1958@XCH-RTP-014.cisco.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <001c01d1849b$1c7c98e0$5575caa0$@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2016 at 12:04:28PM +0000, Yigal Reiss (yreiss) wrote:
-> >>  -	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n", +
-> >>  seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %5u %5u %2d\n",
-> > Problematic since it changes layout of a file we unfortunately
-> > have to view as uapi.  I would prefer if we could leave the proc
-> > file alone and not add any new stats counters for this, unless
-> > there is a good argument for doing so.
->
-> So my arguments are that there in order to fine tune a system it is
-> required to know about the existence and number of packets that went
-> under the radar. As I wrote ENOBUF does not answer all these needs.
-> I understand it is problematic to change uapi. Tried to minimize
-> incompatibility by keeping the order of arguments. I'll probably use
-> a patch to proc any way. Please let me know if you think there is a
-> point in proposing this patch or is it a "no-no" from kernel's
-> perspective.
+On Tue, Mar 22, 2016 at 06:29:48PM -0600, Subash Abhinov Kasiviswanathan wrote:
+> A crash is observed when a decrypted packet is processed in receive
+> path. get_rps_cpus() tries to dereference the skb->dev fields but it
+> appears that the device is freed from the poison pattern.
+> 
+> [<ffffffc000af58ec>] get_rps_cpu+0x94/0x2f0
+> [<ffffffc000af5f94>] netif_rx_internal+0x140/0x1cc
+> [<ffffffc000af6094>] netif_rx+0x74/0x94
+> [<ffffffc000bc0b6c>] xfrm_input+0x754/0x7d0
+> [<ffffffc000bc0bf8>] xfrm_input_resume+0x10/0x1c
+> [<ffffffc000ba6eb8>] esp_input_done+0x20/0x30
+> [<ffffffc0000b64c8>] process_one_work+0x244/0x3fc
+> [<ffffffc0000b7324>] worker_thread+0x2f8/0x418
+> [<ffffffc0000bb40c>] kthread+0xe0/0xec
+> 
+> -013|get_rps_cpu(
+>      |    dev = 0xFFFFFFC08B688000,
+>      |    skb = 0xFFFFFFC0C76AAC00 -> (
+>      |      dev = 0xFFFFFFC08B688000 -> (
+>      |        name =
+> "......................................................
+>      |        name_hlist = (next = 0xAAAAAAAAAAAAAAAA, pprev =
+> 0xAAAAAAAAAAA
+> 
+> Following are the sequence of events observed -
+> 
+> - Encrypted packet in receive path from netdevice is queued
+> - Encrypted packet queued for decryption (asynchronous)
+> - Netdevice brought down and freed
+> - Packet is decrypted and returned through callback in esp_input_done
+> - Packet is queued again for process in network stack using netif_rx
+> 
+> Since the device appears to have been freed, the dereference of
+> skb->dev in get_rps_cpus() leads to an unhandled page fault
+> exception.
+> 
+> Fix this by holding on to device reference when queueing packets
+> asynchronously and releasing the reference on call back return.
+> 
+> v2: Make the change generic to xfrm as mentioned by Steffen and
+> update the title to xfrm
+> 
+> Suggested-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Jerome Stanislaus <jeromes@codeaurora.org>
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-I'd suggest you extend the existing nfnetlink_queue infrastructure so
-we retrieve these statistics through netlink, ie. add the
-NFQNL_MSG_STATS message. Then, extend nft so we can list them via:
+Looks good.
 
-# nft list queues
-... [ stats here ] ...
+David, in case you want to take it directly into the net tree:
+
+Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
