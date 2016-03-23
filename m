@@ -1,47 +1,62 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [RFC PATCH 8/9] i40e/i40evf: Add support for GSO partial with
- UDP_TUNNEL_CSUM and GRE_CSUM
-Date: Wed, 23 Mar 2016 12:35:50 -0700
-Message-ID: <CAEh+42jxjkhoTeC0GK91pmX6XUpnMAxnA-pRhbG0kkQFfa2WXQ@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain> <20160318232528.14955.87859.stgit@localhost.localdomain>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: phy: at803x: Request 'reset' GPIO only for AT8030
+ PHY
+Date: Wed, 23 Mar 2016 22:42:01 +0300
+Message-ID: <56F2F189.1030003@cogentembedded.com>
+References: <56E99727.9040702@laposte.net>
+ <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
+ <20160318191242.GQ4292@pengutronix.de> <56EFEDAD.9030903@laposte.net>
+ <20160321135457.GX4292@pengutronix.de> <56F0150F.8080804@laposte.net>
+ <20160321201229.GA6191@pengutronix.de> <56F157EF.5080307@laposte.net>
+ <20160322194224.GF6191@pengutronix.de> <56F26BF7.3090201@laposte.net>
+ <56F274A5.6030502@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mans Rullgard <mans@mansr.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sebastian Frias <sf84@laposte.net>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46673 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755713AbcCWTgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2016 15:36:08 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id A8AD32041E
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 19:36:06 +0000 (UTC)
-Received: from mail-qg0-f50.google.com (mail-qg0-f50.google.com [209.85.192.50])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 7740220398
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 19:36:05 +0000 (UTC)
-Received: by mail-qg0-f50.google.com with SMTP id j35so20928869qge.0
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 12:36:05 -0700 (PDT)
-In-Reply-To: <20160318232528.14955.87859.stgit@localhost.localdomain>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:36580 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756114AbcCWTmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 15:42:07 -0400
+Received: by mail-lb0-f179.google.com with SMTP id qe11so16784548lbc.3
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 12:42:05 -0700 (PDT)
+In-Reply-To: <56F274A5.6030502@laposte.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 18, 2016 at 4:25 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 39b0009253c2..ac3964a9f5c0 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -9074,7 +9075,12 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
->         if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
->                 netdev->features |= NETIF_F_NTUPLE;
->         if (pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE)
-> -               netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-> +               netdev->features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
+Hello.
 
-Looks like there might be a typo - I guess this is supposed to still
-OR with the previous features instead of replacing them?
+On 03/23/2016 01:49 PM, Sebastian Frias wrote:
+
+> This removes the dependency on GPIOLIB for non faulty PHYs.
+>
+> Indeed, without this patch, if GPIOLIB is not selected
+> devm_gpiod_get_optional() will return -ENOSYS and the driver probe
+> call will fail, regardless of the actual PHY hardware.
+>
+> Out of the 3 PHYs supported by this driver (AT8030, AT8031, AT8035),
+> only AT8030 presents the issues that commit 13a56b449325 ("net: phy:
+> at803x: Add support for hardware reset") attempts to work-around by
+> using a 'reset' GPIO line.
+>
+> Hence, only AT8030 should depend on GPIOLIB operating properly.
+>
+> Fixes: 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
+>
+> Signed-off-by: Sebastian Frias <sf84@laposte.net>
+[...]
+
+    What I don't understand is why the link_change_notify() method ptr is 
+populated for all 3 supported chips while only being needed on 8030...
+
+MBR, Sergei
