@@ -1,52 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch iproute2 v2 1/2] include: add linked list implementation
- from kernel
-Date: Wed, 23 Mar 2016 12:22:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41124DBA@AcuExch.aculab.com>
-References: <1458637341-3434-1-git-send-email-jiri@resnulli.us>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: enhancing nfnetlink stats [was Re: [PATCH net-next] change nfqueue
+ failopen to apply also to receive message buffer in addition to queue size]
+Date: Wed, 23 Mar 2016 13:28:55 +0100
+Message-ID: <20160323122855.GA5355@salvia>
+References: <2ba8dceec36a41149598e43f09af048e@XCH-RTP-014.cisco.com>
+ <20160321122236.GB29493@breakpoint.cc>
+ <727dce6253224081b6bc4bd40c6e1958@XCH-RTP-014.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"yotamg@mellanox.com" <yotamg@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"yishaih@mellanox.com" <yishaih@mellanox.com>,
-	"dledford@redhat.com" <dledford@redhat.com>,
-	"sean.hefty@intel.com" <sean.hefty@intel.com>,
-	"hal.rosenstock@gmail.com" <hal.rosenstock@gmail.com>,
-	"eugenia@mellanox.com" <eugenia@mellanox.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-	"hadarh@mellanox.com" <hadarh@mellanox.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"brouer@redhat.com" <brouer@redhat
-To: 'Jiri Pirko' <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.189]:57100 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755154AbcCWMWy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 08:22:54 -0400
-In-Reply-To: <1458637341-3434-1-git-send-email-jiri@resnulli.us>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "Yigal Reiss (yreiss)" <yreiss@cisco.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <727dce6253224081b6bc4bd40c6e1958@XCH-RTP-014.cisco.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko
-> Sent: 22 March 2016 09:02
-> Rename hlist.h to list.h while adding it to be aligned with kernel
-...
->  include/hlist.h |  56 ----------------------------
->  include/list.h  | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+On Wed, Mar 23, 2016 at 12:04:28PM +0000, Yigal Reiss (yreiss) wrote:
+> >>  -	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n", +
+> >>  seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %5u %5u %2d\n",
+> > Problematic since it changes layout of a file we unfortunately
+> > have to view as uapi.  I would prefer if we could leave the proc
+> > file alone and not add any new stats counters for this, unless
+> > there is a good argument for doing so.
+>
+> So my arguments are that there in order to fine tune a system it is
+> required to know about the existence and number of packets that went
+> under the radar. As I wrote ENOBUF does not answer all these needs.
+> I understand it is problematic to change uapi. Tried to minimize
+> incompatibility by keeping the order of arguments. I'll probably use
+> a patch to proc any way. Please let me know if you think there is a
+> point in proposing this patch or is it a "no-no" from kernel's
+> perspective.
 
-I'm not sure where this gets installed, but #include <list.h>
-is likely to give grief and find the wrong file.
+I'd suggest you extend the existing nfnetlink_queue infrastructure so
+we retrieve these statistics through netlink, ie. add the
+NFQNL_MSG_STATS message. Then, extend nft so we can list them via:
 
-Even hlist.h seems a bit terse.
-
-	David
+# nft list queues
+... [ stats here ] ...
