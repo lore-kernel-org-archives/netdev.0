@@ -1,62 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: phy: at803x: Request 'reset' GPIO only for AT8030
- PHY
-Date: Wed, 23 Mar 2016 22:42:01 +0300
-Message-ID: <56F2F189.1030003@cogentembedded.com>
-References: <56E99727.9040702@laposte.net>
- <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
- <20160318191242.GQ4292@pengutronix.de> <56EFEDAD.9030903@laposte.net>
- <20160321135457.GX4292@pengutronix.de> <56F0150F.8080804@laposte.net>
- <20160321201229.GA6191@pengutronix.de> <56F157EF.5080307@laposte.net>
- <20160322194224.GF6191@pengutronix.de> <56F26BF7.3090201@laposte.net>
- <56F274A5.6030502@laposte.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sebastian Frias <sf84@laposte.net>,
-	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net 1/2] net: bcmgenet: fix dev->stats.tx_bytes accounting
+Date: Wed, 23 Mar 2016 13:01:28 -0700
+Message-ID: <1458763289-95167-1-git-send-email-pgynther@google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com,
+	edumazet@google.com, Petri Gynther <pgynther@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:36580 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756114AbcCWTmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 15:42:07 -0400
-Received: by mail-lb0-f179.google.com with SMTP id qe11so16784548lbc.3
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 12:42:05 -0700 (PDT)
-In-Reply-To: <56F274A5.6030502@laposte.net>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34082 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756165AbcCWUCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 16:02:13 -0400
+Received: by mail-pa0-f49.google.com with SMTP id fe3so3379101pab.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 13:02:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+1. Add bytes_compl local variable to collect transmitted bytes
+   - dev->stats updates can then be moved outside the while-loop
+   - bytes_compl is also needed for future BQL support
+2. When bcmgenet device uses Tx checksum offload, each transmitted
+   skb has an extra 64-byte header prepended to it. This needs to
+   be deducted when counting transmitted bytes.
+3. skb->len covers the entire length of skb, whether it is linear or
+   fragmented. Thus, when we clean the fragments, do not increase
+   transmitted bytes.
 
-On 03/23/2016 01:49 PM, Sebastian Frias wrote:
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-> This removes the dependency on GPIOLIB for non faulty PHYs.
->
-> Indeed, without this patch, if GPIOLIB is not selected
-> devm_gpiod_get_optional() will return -ENOSYS and the driver probe
-> call will fail, regardless of the actual PHY hardware.
->
-> Out of the 3 PHYs supported by this driver (AT8030, AT8031, AT8035),
-> only AT8030 presents the issues that commit 13a56b449325 ("net: phy:
-> at803x: Add support for hardware reset") attempts to work-around by
-> using a 'reset' GPIO line.
->
-> Hence, only AT8030 should depend on GPIOLIB operating properly.
->
-> Fixes: 13a56b449325 ("net: phy: at803x: Add support for hardware reset")
->
-> Signed-off-by: Sebastian Frias <sf84@laposte.net>
-[...]
-
-    What I don't understand is why the link_change_notify() method ptr is 
-populated for all 3 supported chips while only being needed on 8030...
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 6746fd0..9990582 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1171,6 +1171,7 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 	struct enet_cb *tx_cb_ptr;
+ 	struct netdev_queue *txq;
+ 	unsigned int pkts_compl = 0;
++	unsigned int bytes_compl = 0;
+ 	unsigned int c_index;
+ 	unsigned int txbds_ready;
+ 	unsigned int txbds_processed = 0;
+@@ -1193,16 +1194,14 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 		tx_cb_ptr = &priv->tx_cbs[ring->clean_ptr];
+ 		if (tx_cb_ptr->skb) {
+ 			pkts_compl++;
+-			dev->stats.tx_packets++;
+-			dev->stats.tx_bytes += tx_cb_ptr->skb->len;
++			bytes_compl += tx_cb_ptr->skb->len -
++				       (priv->desc_64b_en ? 64 : 0);
+ 			dma_unmap_single(&dev->dev,
+ 					 dma_unmap_addr(tx_cb_ptr, dma_addr),
+ 					 dma_unmap_len(tx_cb_ptr, dma_len),
+ 					 DMA_TO_DEVICE);
+ 			bcmgenet_free_cb(tx_cb_ptr);
+ 		} else if (dma_unmap_addr(tx_cb_ptr, dma_addr)) {
+-			dev->stats.tx_bytes +=
+-				dma_unmap_len(tx_cb_ptr, dma_len);
+ 			dma_unmap_page(&dev->dev,
+ 				       dma_unmap_addr(tx_cb_ptr, dma_addr),
+ 				       dma_unmap_len(tx_cb_ptr, dma_len),
+@@ -1220,6 +1219,9 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 	ring->free_bds += txbds_processed;
+ 	ring->c_index = (ring->c_index + txbds_processed) & DMA_C_INDEX_MASK;
+ 
++	dev->stats.tx_packets += pkts_compl;
++	dev->stats.tx_bytes += bytes_compl;
++
+ 	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
+ 		txq = netdev_get_tx_queue(dev, ring->queue);
+ 		if (netif_tx_queue_stopped(txq))
+-- 
+2.8.0.rc3.226.g39d4020
