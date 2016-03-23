@@ -1,177 +1,389 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC 7/9] fou: change to use UDP socket GRO and fast rcv encap
-Date: Wed, 23 Mar 2016 15:36:56 -0700
-Message-ID: <1458772618-845742-8-git-send-email-tom@herbertland.com>
+Subject: [PATCH RFC 2/9] udp: Add noreference lookup functions
+Date: Wed, 23 Mar 2016 15:36:51 -0700
+Message-ID: <1458772618-845742-3-git-send-email-tom@herbertland.com>
 References: <1458772618-845742-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:22555 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37681 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751830AbcCWWjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 18:39:35 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u2NMaDqU002940
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:39:34 -0700
+	by vger.kernel.org with ESMTP id S1751769AbcCWWkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 18:40:31 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u2NMdA7d008859
+	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:40:30 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 21v01d17ys-19
+	by m0001303.ppops.net with ESMTP id 21uet8rvfv-8
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:39:33 -0700
+	for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 15:40:30 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.212.236.87) with ESMTP	id
- cb652d54f14711e5ae670002c9521c9e-781fb3f0 for <netdev@vger.kernel.org>;	Wed,
- 23 Mar 2016 15:37:16 -0700
+ c83c1b42f14711e5ae670002c9521c9e-781fb3f0 for <netdev@vger.kernel.org>;	Wed,
+ 23 Mar 2016 15:37:11 -0700
 In-Reply-To: <1458772618-845742-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adapt gue_gro_receive, gue_gro_complete to take a socket argument.
-Set the encap_fast flag on fou sockets. Don't set udp_offloads
-any more.
+This patches adds udp6_lib_lookup_skb_noref, udp4_lib_lookup_skb_noref
+and related support to allow a caller to lookup a UDP socket
+without automatically taking a reference. The lookup and caller
+use of the socket must be done under rcu_read_lock.
+
+This feature will be used in a fast receive encapsulation path and
+also when performing GRO through callout in the UDP socket.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- net/ipv4/fou.c | 49 ++++++++++++++++++-------------------------------
- 1 file changed, 18 insertions(+), 31 deletions(-)
+ include/net/udp.h | 12 ++++++++
+ net/ipv4/udp.c    | 88 +++++++++++++++++++++++++++++++++++++++----------------
+ net/ipv6/udp.c    | 85 ++++++++++++++++++++++++++++++++++++++---------------
+ 3 files changed, 136 insertions(+), 49 deletions(-)
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 7804842..a90d179 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -22,7 +22,6 @@ struct fou {
- 	u8 flags;
- 	__be16 port;
- 	u16 type;
--	struct udp_offload udp_offloads;
- 	struct list_head list;
- 	struct rcu_head rcu;
- };
-@@ -177,13 +176,13 @@ drop:
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 92927f7..2a6f7b2 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -260,6 +260,8 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+ 			       __be32 daddr, __be16 dport, int dif,
+ 			       struct udp_table *tbl, struct sk_buff *skb);
++struct sock *udp4_lib_lookup_skb_noref(struct sk_buff *skb,
++				       __be16 sport, __be16 dport);
+ struct sock *udp6_lib_lookup(struct net *net,
+ 			     const struct in6_addr *saddr, __be16 sport,
+ 			     const struct in6_addr *daddr, __be16 dport,
+@@ -269,6 +271,16 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ 			       const struct in6_addr *daddr, __be16 dport,
+ 			       int dif, struct udp_table *tbl,
+ 			       struct sk_buff *skb);
++struct sock *udp6_lib_lookup_skb_noref(struct sk_buff *skb,
++				       __be16 sport, __be16 dport);
++
++static inline struct sock *udp_get_ref(struct sock *sk)
++{
++	if (unlikely(!atomic_inc_not_zero_hint(&sk->sk_refcnt, 2)))
++		return NULL;
++
++	return sk;
++}
+ 
+ /*
+  * 	SNMP statistics for UDP and UDP-Lite
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 836abe5..324d008 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -494,7 +494,7 @@ static struct sock *udp4_lib_lookup2(struct net *net,
+ 		__be32 saddr, __be16 sport,
+ 		__be32 daddr, unsigned int hnum, int dif,
+ 		struct udp_hslot *hslot2, unsigned int slot2,
+-		struct sk_buff *skb)
++		struct sk_buff *skb, bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -544,12 +544,14 @@ begin:
+ 		goto begin;
+ 	if (result) {
+ found:
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score2(result, net, saddr, sport,
+-				  daddr, hnum, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (!udp_get_ref(result)) {
++				result = NULL;
++			} else if (unlikely(compute_score2(result, net, saddr,
++					  sport, daddr, hnum, dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
+ 		}
+ 	}
+ 	return result;
+@@ -558,9 +560,11 @@ found:
+ /* UDP is nearly always wildcards out the wazoo, it makes no sense to try
+  * harder than this. -DaveM
+  */
+-struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
++/* called with read_rcu_lock() */
++static struct sock *___udp4_lib_lookup(struct net *net, __be32 saddr,
+ 		__be16 sport, __be32 daddr, __be16 dport,
+-		int dif, struct udp_table *udptable, struct sk_buff *skb)
++		int dif, struct udp_table *udptable, struct sk_buff *skb,
++		bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -571,7 +575,6 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 	bool select_ok = true;
+ 	u32 hash = 0;
+ 
+-	rcu_read_lock();
+ 	if (hslot->count > 10) {
+ 		hash2 = udp4_portaddr_hash(net, daddr, hnum);
+ 		slot2 = hash2 & udptable->mask;
+@@ -581,7 +584,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 
+ 		result = udp4_lib_lookup2(net, saddr, sport,
+ 					  daddr, hnum, dif,
+-					  hslot2, slot2, skb);
++					  hslot2, slot2, skb, get_ref);
+ 		if (!result) {
+ 			hash2 = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
+ 			slot2 = hash2 & udptable->mask;
+@@ -591,9 +594,8 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
+ 
+ 			result = udp4_lib_lookup2(net, saddr, sport,
+ 						  htonl(INADDR_ANY), hnum, dif,
+-						  hslot2, slot2, skb);
++						  hslot2, slot2, skb, get_ref);
+ 		}
+-		rcu_read_unlock();
+ 		return result;
+ 	}
+ begin:
+@@ -639,19 +641,43 @@ begin:
+ 
+ 	if (result) {
+ found:
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score(result, net, saddr, hnum, sport,
+-				  daddr, dport, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (!udp_get_ref(result)) {
++				result = NULL;
++			} else if (unlikely(compute_score(result, net, saddr,
++					  hnum, sport, daddr, dport,
++					  dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
+ 		}
+ 	}
+-	rcu_read_unlock();
+ 	return result;
+ }
++
++struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
++		__be16 sport, __be32 daddr, __be16 dport,
++		int dif, struct udp_table *udptable, struct sk_buff *skb)
++{
++	struct sock *sk;
++
++	rcu_read_lock();
++	sk = ___udp4_lib_lookup(net, saddr, sport, daddr, dport, dif, udptable,
++				skb, true);
++	rcu_read_unlock();
++
++	return sk;
++}
+ EXPORT_SYMBOL_GPL(__udp4_lib_lookup);
+ 
++struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
++			     __be32 daddr, __be16 dport, int dif)
++{
++	return __udp4_lib_lookup(net, saddr, sport, daddr, dport, dif,
++				 &udp_table, NULL);
++}
++EXPORT_SYMBOL_GPL(udp4_lib_lookup);
++
+ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
+ 						 __be16 sport, __be16 dport,
+ 						 struct udp_table *udptable)
+@@ -663,13 +689,24 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
+ 				 udptable, skb);
+ }
+ 
+-struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
+-			     __be32 daddr, __be16 dport, int dif)
++static inline struct sock *__udp4_lib_lookup_skb_noref(struct sk_buff *skb,
++					__be16 sport, __be16 dport,
++					struct udp_table *udptable)
+ {
+-	return __udp4_lib_lookup(net, saddr, sport, daddr, dport, dif,
+-				 &udp_table, NULL);
++	const struct iphdr *iph = ip_hdr(skb);
++	struct net_device *dev = skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
++
++	return ___udp4_lib_lookup(dev_net(dev), iph->saddr, sport,
++				  iph->daddr, dport, inet_iif(skb),
++				  udptable, skb, false);
+ }
+-EXPORT_SYMBOL_GPL(udp4_lib_lookup);
++
++struct sock *udp4_lib_lookup_skb_noref(struct sk_buff *skb,
++				       __be16 sport, __be16 dport)
++{
++	return __udp4_lib_lookup_skb_noref(skb, sport, dport, &udp_table);
++}
++EXPORT_SYMBOL_GPL(udp4_lib_lookup_skb_noref);
+ 
+ static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
+ 				       __be16 loc_port, __be32 loc_addr,
+@@ -1563,7 +1600,6 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 
  	return 0;
- }
- 
--static struct sk_buff **fou_gro_receive(struct sk_buff **head,
--					struct sk_buff *skb,
--					struct udp_offload *uoff)
-+static struct sk_buff **fou_gro_receive(struct sock *sk,
-+					struct sk_buff **head,
-+					struct sk_buff *skb)
- {
- 	const struct net_offload *ops;
- 	struct sk_buff **pp = NULL;
--	u8 proto = NAPI_GRO_CB(skb)->proto;
-+	u8 proto = fou_from_sock(sk)->protocol;
- 	const struct net_offload **offloads;
- 
- 	rcu_read_lock();
-@@ -200,11 +199,11 @@ out_unlock:
- 	return pp;
- }
- 
--static int fou_gro_complete(struct sk_buff *skb, int nhoff,
--			    struct udp_offload *uoff)
-+static int fou_gro_complete(struct sock *sk, struct sk_buff *skb,
-+			    int nhoff)
- {
- 	const struct net_offload *ops;
--	u8 proto = NAPI_GRO_CB(skb)->proto;
-+	u8 proto = fou_from_sock(sk)->protocol;
- 	int err = -ENOSYS;
- 	const struct net_offload **offloads;
- 
-@@ -247,9 +246,9 @@ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
- 	return guehdr;
- }
- 
--static struct sk_buff **gue_gro_receive(struct sk_buff **head,
--					struct sk_buff *skb,
--					struct udp_offload *uoff)
-+static struct sk_buff **gue_gro_receive(struct sock *sk,
-+					struct sk_buff **head,
-+					struct sk_buff *skb)
- {
- 	const struct net_offload **offloads;
- 	const struct net_offload *ops;
-@@ -260,7 +259,7 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 	void *data;
- 	u16 doffset = 0;
- 	int flush = 1;
--	struct fou *fou = container_of(uoff, struct fou, udp_offloads);
-+	struct fou *fou = fou_from_sock(sk);
- 	struct gro_remcsum grc;
- 
- 	skb_gro_remcsum_init(&grc);
-@@ -361,8 +360,7 @@ out:
- 	return pp;
- }
- 
--static int gue_gro_complete(struct sk_buff *skb, int nhoff,
--			    struct udp_offload *uoff)
-+static int gue_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
- {
- 	const struct net_offload **offloads;
- 	struct guehdr *guehdr = (struct guehdr *)(skb->data + nhoff);
-@@ -410,10 +408,7 @@ static int fou_add_to_port_list(struct net *net, struct fou *fou)
- static void fou_release(struct fou *fou)
- {
- 	struct socket *sock = fou->sock;
--	struct sock *sk = sock->sk;
- 
--	if (sk->sk_family == AF_INET)
--		udp_del_offload(&fou->udp_offloads);
- 	list_del(&fou->list);
- 	udp_tunnel_sock_release(sock);
- 
-@@ -422,12 +417,10 @@ static void fou_release(struct fou *fou)
- 
- static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
- {
--	udp_sk(sk)->encap_rcv = fou_udp_recv;
- 	fou->protocol = cfg->protocol;
--	fou->udp_offloads.callbacks.gro_receive = fou_gro_receive;
--	fou->udp_offloads.callbacks.gro_complete = fou_gro_complete;
--	fou->udp_offloads.port = cfg->udp_config.local_udp_port;
--	fou->udp_offloads.ipproto = cfg->protocol;
-+	udp_sk(sk)->encap_rcv = fou_udp_recv;
-+	udp_sk(sk)->gro_receive = fou_gro_receive;
-+	udp_sk(sk)->gro_complete = fou_gro_complete;
- 
- 	return 0;
- }
-@@ -435,9 +428,8 @@ static int fou_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
- static int gue_encap_init(struct sock *sk, struct fou *fou, struct fou_cfg *cfg)
- {
- 	udp_sk(sk)->encap_rcv = gue_udp_recv;
--	fou->udp_offloads.callbacks.gro_receive = gue_gro_receive;
--	fou->udp_offloads.callbacks.gro_complete = gue_gro_complete;
--	fou->udp_offloads.port = cfg->udp_config.local_udp_port;
-+	udp_sk(sk)->gro_receive = gue_gro_receive;
-+	udp_sk(sk)->gro_complete = gue_gro_complete;
- 
- 	return 0;
- }
-@@ -487,6 +479,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 	fou->type = cfg->type;
- 
- 	udp_sk(sk)->encap_type = 1;
-+	udp_sk(sk)->encap_fast = 1;
- 	udp_encap_enable();
- 
- 	sk->sk_user_data = fou;
-@@ -496,12 +489,6 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 
- 	sk->sk_allocation = GFP_ATOMIC;
- 
--	if (cfg->udp_config.family == AF_INET) {
--		err = udp_add_offload(net, &fou->udp_offloads);
--		if (err)
--			goto error;
--	}
 -
- 	err = fou_add_to_port_list(net, fou);
- 	if (err)
- 		goto error;
+ }
+ 
+ static struct static_key udp_encap_needed __read_mostly;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index fd25e44..281469c 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -210,7 +210,7 @@ static struct sock *udp6_lib_lookup2(struct net *net,
+ 		const struct in6_addr *saddr, __be16 sport,
+ 		const struct in6_addr *daddr, unsigned int hnum, int dif,
+ 		struct udp_hslot *hslot2, unsigned int slot2,
+-		struct sk_buff *skb)
++		struct sk_buff *skb, bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -261,22 +261,25 @@ begin:
+ 
+ 	if (result) {
+ found:
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score2(result, net, saddr, sport,
+-				  daddr, hnum, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (!udp_get_ref(result)) {
++				result = NULL;
++			} else if (unlikely(compute_score2(result, net, saddr,
++					  sport, daddr, hnum, dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
+ 		}
+ 	}
+ 	return result;
+ }
+ 
+-struct sock *__udp6_lib_lookup(struct net *net,
+-				      const struct in6_addr *saddr, __be16 sport,
+-				      const struct in6_addr *daddr, __be16 dport,
+-				      int dif, struct udp_table *udptable,
+-				      struct sk_buff *skb)
++/* called with read_rcu_lock() */
++struct sock *___udp6_lib_lookup(struct net *net,
++				const struct in6_addr *saddr, __be16 sport,
++				const struct in6_addr *daddr, __be16 dport,
++				int dif, struct udp_table *udptable,
++				struct sk_buff *skb, bool get_ref)
+ {
+ 	struct sock *sk, *result;
+ 	struct hlist_nulls_node *node;
+@@ -287,7 +290,6 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ 	bool select_ok = true;
+ 	u32 hash = 0;
+ 
+-	rcu_read_lock();
+ 	if (hslot->count > 10) {
+ 		hash2 = udp6_portaddr_hash(net, daddr, hnum);
+ 		slot2 = hash2 & udptable->mask;
+@@ -297,7 +299,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ 
+ 		result = udp6_lib_lookup2(net, saddr, sport,
+ 					  daddr, hnum, dif,
+-					  hslot2, slot2, skb);
++					  hslot2, slot2, skb, get_ref);
+ 		if (!result) {
+ 			hash2 = udp6_portaddr_hash(net, &in6addr_any, hnum);
+ 			slot2 = hash2 & udptable->mask;
+@@ -307,9 +309,8 @@ struct sock *__udp6_lib_lookup(struct net *net,
+ 
+ 			result = udp6_lib_lookup2(net, saddr, sport,
+ 						  &in6addr_any, hnum, dif,
+-						  hslot2, slot2, skb);
++						  hslot2, slot2, skb, get_ref);
+ 		}
+-		rcu_read_unlock();
+ 		return result;
+ 	}
+ begin:
+@@ -354,17 +355,35 @@ begin:
+ 
+ 	if (result) {
+ found:
+-		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
+-			result = NULL;
+-		else if (unlikely(compute_score(result, net, hnum, saddr, sport,
+-					daddr, dport, dif) < badness)) {
+-			sock_put(result);
+-			goto begin;
++		if (get_ref) {
++			if (!udp_get_ref(result)) {
++				result = NULL;
++			} else if (unlikely(compute_score(result, net, hnum,
++						saddr, sport, daddr, dport,
++						dif) < badness)) {
++				sock_put(result);
++				goto begin;
++			}
+ 		}
+ 	}
+-	rcu_read_unlock();
+ 	return result;
+ }
++
++struct sock *__udp6_lib_lookup(struct net *net,
++			       const struct in6_addr *saddr, __be16 sport,
++			       const struct in6_addr *daddr, __be16 dport,
++			       int dif, struct udp_table *udptable,
++			       struct sk_buff *skb)
++{
++	struct sock *sk;
++
++	rcu_read_lock();
++	sk = ___udp6_lib_lookup(net, saddr, sport, daddr, dport, dif,
++				udptable, skb, true);
++	rcu_read_unlock();
++
++	return sk;
++}
+ EXPORT_SYMBOL_GPL(__udp6_lib_lookup);
+ 
+ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
+@@ -389,6 +408,26 @@ struct sock *udp6_lib_lookup(struct net *net, const struct in6_addr *saddr, __be
+ }
+ EXPORT_SYMBOL_GPL(udp6_lib_lookup);
+ 
++static inline struct sock *__udp6_lib_lookup_skb_noref(struct sk_buff *skb,
++						       __be16 sport,
++						       __be16 dport,
++						       struct udp_table *udptable)
++{
++	const struct ipv6hdr *iph = ipv6_hdr(skb);
++	struct net_device *dev = skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
++
++	return ___udp6_lib_lookup(dev_net(dev), &iph->saddr, sport,
++				  &iph->daddr, dport, inet6_iif(skb),
++				  udptable, skb, false);
++}
++
++struct sock *udp6_lib_lookup_skb_noref(struct sk_buff *skb, __be16 sport,
++				       __be16 dport)
++{
++	return __udp6_lib_lookup_skb_noref(skb, sport, dport, &udp_table);
++}
++EXPORT_SYMBOL(udp6_lib_lookup_skb_noref);
++
+ /*
+  *	This should be easy, if there is something there we
+  *	return it, otherwise we block.
 -- 
 2.8.0.rc2
