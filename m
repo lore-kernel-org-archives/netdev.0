@@ -1,8 +1,9 @@
 From: Haiyang Zhang <haiyangz@microsoft.com>
 Subject: [PATCH net-next,
- 1/2] hv_netvsc: Fix accessing freed memory in netvsc_change_mtu()
-Date: Wed, 23 Mar 2016 09:43:09 -0700
-Message-ID: <1458751390-26971-1-git-send-email-haiyangz@microsoft.com>
+ 2/2] hv_netvsc: Fix the array sizes to be max supported channels
+Date: Wed, 23 Mar 2016 09:43:10 -0700
+Message-ID: <1458751390-26971-2-git-send-email-haiyangz@microsoft.com>
+References: <1458751390-26971-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: olaf@aepfle.de, haiyangz@microsoft.com,
 To: davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1458751390-26971-1-git-send-email-haiyangz@microsoft.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -22,47 +24,71 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-struct netvsc_device is freed in rndis_filter_device_remove(). So we save
-the nvdev->num_chn into a temp variable for later usage.
-
-(Please also include this patch into stable branch.)
+The VRSS_CHANNEL_MAX is the max number of channels supported by Hyper-V
+hosts. We use it for the related array sizes instead of using NR_CPUS,
+which may be set to several thousands.
+This patch reduces possible memory allocation failures.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
 ---
- drivers/net/hyperv/netvsc_drv.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |    7 ++++---
+ drivers/net/hyperv/rndis_filter.c |    4 ++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 0860849..b8121eb 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -858,6 +858,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	struct netvsc_device *nvdev = hv_get_drvdata(hdev);
- 	struct netvsc_device_info device_info;
- 	int limit = ETH_DATA_LEN;
-+	u32 num_chn;
- 	int ret = 0;
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index b4c6878..8b3bd8e 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -619,6 +619,7 @@ struct nvsp_message {
+ #define NETVSC_PACKET_SIZE                      4096
  
- 	if (nvdev == NULL || nvdev->destroy)
-@@ -873,6 +874,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	if (ret)
+ #define VRSS_SEND_TAB_SIZE 16
++#define VRSS_CHANNEL_MAX 64
+ 
+ #define RNDIS_MAX_PKT_DEFAULT 8
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
+@@ -700,13 +701,13 @@ struct netvsc_device {
+ 
+ 	struct net_device *ndev;
+ 
+-	struct vmbus_channel *chn_table[NR_CPUS];
++	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
+ 	u32 send_table[VRSS_SEND_TAB_SIZE];
+ 	u32 max_chn;
+ 	u32 num_chn;
+ 	spinlock_t sc_lock; /* Protects num_sc_offered variable */
+ 	u32 num_sc_offered;
+-	atomic_t queue_sends[NR_CPUS];
++	atomic_t queue_sends[VRSS_CHANNEL_MAX];
+ 
+ 	/* Holds rndis device info */
+ 	void *extension;
+@@ -718,7 +719,7 @@ struct netvsc_device {
+ 	/* The sub channel callback buffer */
+ 	unsigned char *sub_cb_buf;
+ 
+-	struct multi_send_data msd[NR_CPUS];
++	struct multi_send_data msd[VRSS_CHANNEL_MAX];
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 47d07c5..d5a54da 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1113,9 +1113,9 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (ret || rsscap.num_recv_que < 2)
  		goto out;
  
-+	num_chn = nvdev->num_chn;
-+
- 	nvdev->start_remove = true;
- 	rndis_filter_device_remove(hdev);
+-	num_rss_qs = min(device_info->max_num_vrss_chns, rsscap.num_recv_que);
++	net_device->max_chn = min_t(u32, VRSS_CHANNEL_MAX, rsscap.num_recv_que);
  
-@@ -883,7 +886,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+-	net_device->max_chn = rsscap.num_recv_que;
++	num_rss_qs = min(device_info->max_num_vrss_chns, net_device->max_chn);
  
- 	memset(&device_info, 0, sizeof(device_info));
- 	device_info.ring_size = ring_size;
--	device_info.num_chn = nvdev->num_chn;
-+	device_info.num_chn = num_chn;
- 	device_info.max_num_vrss_chns = max_num_vrss_chns;
- 	rndis_filter_device_add(hdev, &device_info);
- 
+ 	/*
+ 	 * We will limit the VRSS channels to the number CPUs in the NUMA node
 -- 
 1.7.4.1
