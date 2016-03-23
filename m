@@ -1,111 +1,101 @@
 From: Gilberto Bertin <gilberto.bertin@gmail.com>
-Subject: [net-next RFC 0/4] SO_BINDTOPREFIX
-Date: Wed, 23 Mar 2016 02:26:02 +0000
-Message-ID: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
+Subject: [net-next RFC 4/4] bindtoprefix: UPD implementation
+Date: Wed, 23 Mar 2016 02:26:06 +0000
+Message-ID: <1458699966-3752-5-git-send-email-gilberto.bertin@gmail.com>
+References: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
 Cc: tom@herbertland.com, markzzzsmith@gmail.com,
 	Gilberto Bertin <gilberto.bertin@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37230 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055AbcC2Nhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 09:37:50 -0400
-Received: by mail-wm0-f47.google.com with SMTP id p65so26891586wmp.0
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 06:37:50 -0700 (PDT)
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35666 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755858AbcC2Nhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 09:37:53 -0400
+Received: by mail-wm0-f44.google.com with SMTP id 191so51199116wmq.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 06:37:53 -0700 (PDT)
+In-Reply-To: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the net-next window just opened, I'm resubmitting my RFC for the
-SO_BINDTOSUBNET patch, following Mark Smith's suggestion to rename the
-whole thing to a more clear SO_BINDTOPREFIX.
+Signed-off-by: Gilberto Bertin <gilberto.bertin@gmail.com>
+---
+ net/ipv4/udp.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-Some arguments for and against it since the first submission:
-* SO_BINDTOPREFIX is an arbitrary option and can be seens as nother use
-* case of the SO_REUSEPORT BPF patch
-* but at the same time using BPF requires more work/code on the server
-  and since the bind to prefix use case could potentially become a
-  common one maybe there is some value in having it as an option instead
-  of having to code (either manually or with clang) an eBPF program that
-  would do the same
-* it may probably possible to archive the same results using VRF. This
-  would require to create a VRF device, configure the device routing
-  table and make each bind each process to a different VRF device (but
-  I'm not sure how this would work/interfere with an existing iptables
-  setup for example)
-
------------------------------------------------------------------------------
-
-This series introduces support for the SO_BINDTOPREFIX socket option, which
-allows a listener socket to bind to a prefix instead of * or a single address.
-
-Motivation:
-consider a set of servers, each one with thousands and thousands of IP
-addresses. Since assigning /32 or /128 IP individual addresses would be
-inefficient, one solution can be assigning prefixes using local routes
-(with 'ip route add local').
-
-This allows a listener to listen and terminate connections going to any
-of the IP addresses of these prefixes without explicitly configuring all
-the IP addresses of the prefix range.
-This is very efficient.
-
-Unfortunately there may be the need to use different prefixes for
-different purposes.
-One can imagine port 80 being served by one HTTP server for some IP
-prefix, while another server used for another prefix.
-Right now Linux does not allow this.
-It is either possible to bind to *, indicating ALL traffic going to
-given port, or to individual IP addresses.
-The first only allows to accept connections from all the prefixes.
-The latter does not scale well with lots of IP addresses.
-
-Using bindtoprefix would solve this problem: just by adding a local
-route rule and setting the SO_BINDTOPREFIX option for a socket it would
-be possible to easily partition traffic by prefixes.
-
-API:
-the prefix is specified (as argument of the setsockopt syscall) by the
-address of the network, and the prefix length of the netmask.
-
-IPv4:
-	struct ipv4_prefix {
-		__be32 net;
-		u_char plen;
-	};
-
-and IPv6:
-	struct ipv6_prefix {
-		struct in6_addr net;
-		u_char plen;
-	};
-
-Bind conflicts:
-two sockets with the bindtoprefix option enabled generate a bind
-conflict if their network addresses masked with the shortest of their
-prefix are equal.
-The bindtoprefix option can be combined with soreuseport so that two
-listener can bind on the same prefix.
-
-Any questions/feedback appreciated.
-
-Thanks,
- Gilberto
-
-Gilberto Bertin (4):
-  bindtoprefix: infrastructure
-  bindtoprefix: TCP/IPv4 implementation
-  bindtoprefix: TCP/IPv6 implementation
-  bindtoprefix: UPD implementation
-
- include/net/sock.h                |  20 +++++++
- include/uapi/asm-generic/socket.h |   1 +
- net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
- net/ipv4/inet_connection_sock.c   |  20 ++++++-
- net/ipv4/inet_hashtables.c        |   9 ++++
- net/ipv4/udp.c                    |  36 +++++++++++++
- net/ipv6/inet6_connection_sock.c  |  17 +++++-
- net/ipv6/inet6_hashtables.c       |   6 +++
- 8 files changed, 218 insertions(+), 2 deletions(-)
-
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 95d2f19..31b9687 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -133,6 +133,23 @@ EXPORT_SYMBOL(udp_memory_allocated);
+ #define MAX_UDP_PORTS 65536
+ #define PORTS_PER_CHAIN (MAX_UDP_PORTS / UDP_HTABLE_SIZE_MIN)
+ 
++static inline int udp_csk_bind_prefix_conflict(const struct sock *sk,
++					       const struct sock *sk2)
++{
++	__be32 mask;
++
++	if (sk->sk_bind_to_prefix && sk2->sk_bind_to_prefix) {
++		mask = inet_make_mask(min(sk->sk_bind_prefix4.plen,
++					  sk2->sk_bind_prefix4.plen));
++
++		return (sk->sk_bind_prefix4.net & mask) ==
++		       (sk2->sk_bind_prefix4.net & mask);
++	}
++
++	return 0;
++}
++
++
+ static int udp_lib_lport_inuse(struct net *net, __u16 num,
+ 			       const struct udp_hslot *hslot,
+ 			       unsigned long *bitmap,
+@@ -153,6 +170,7 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
+ 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
+ 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
+ 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
++		     udp_csk_bind_prefix_conflict(sk, sk2) &&
+ 		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
+ 		     rcu_access_pointer(sk->sk_reuseport_cb) ||
+ 		     !uid_eq(uid, sock_i_uid(sk2))) &&
+@@ -189,6 +207,7 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
+ 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
+ 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
+ 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
++		     udp_csk_bind_prefix_conflict(sk, sk2) &&
+ 		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
+ 		     rcu_access_pointer(sk->sk_reuseport_cb) ||
+ 		     !uid_eq(uid, sock_i_uid(sk2))) &&
+@@ -426,6 +445,15 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 			return -1;
+ 		score += 4;
+ 	}
++
++	if (sk->sk_bind_to_prefix) {
++		__be32 mask = inet_make_mask(sk->sk_bind_prefix4.plen);
++
++		if ((sk->sk_bind_prefix4.net & mask) != (daddr & mask))
++			return -1;
++		score += 4;
++	}
++
+ 	if (sk->sk_incoming_cpu == raw_smp_processor_id())
+ 		score++;
+ 	return score;
+@@ -471,6 +499,14 @@ static inline int compute_score2(struct sock *sk, struct net *net,
+ 		score += 4;
+ 	}
+ 
++	if (sk->sk_bind_to_prefix) {
++		__be32 mask = inet_make_mask(sk->sk_bind_prefix4.plen);
++
++		if ((sk->sk_bind_prefix4.net & mask) != (daddr & mask))
++			return -1;
++		score += 4;
++	}
++
+ 	if (sk->sk_incoming_cpu == raw_smp_processor_id())
+ 		score++;
+ 
 -- 
 2.7.3
