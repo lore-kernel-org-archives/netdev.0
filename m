@@ -1,226 +1,183 @@
 From: Vishal Thanki <vishalthanki@gmail.com>
-Subject: [PATCH 3/3] led: at8030: Add LED driver for AT8030 ethernet PHY
-Date: Wed, 23 Mar 2016 18:51:40 +0100
-Message-ID: <1458755500-15571-4-git-send-email-vishalthanki@gmail.com>
+Subject: [PATCH 2/3] net: phy: at8030: Expose the Link and Activity LEDs
+Date: Wed, 23 Mar 2016 18:51:39 +0100
+Message-ID: <1458755500-15571-3-git-send-email-vishalthanki@gmail.com>
 References: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
 Cc: Vishal Thanki <vishalthanki@gmail.com>
 To: andrew@lunn.ch, f.fainelli@gmail.com, ujhelyi.m@gmail.com,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:37205 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756338AbcCWRvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:51:49 -0400
-Received: by mail-wm0-f51.google.com with SMTP id p65so34368254wmp.0
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 10:51:48 -0700 (PDT)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:36230 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753208AbcCWRvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:51:48 -0400
+Received: by mail-wm0-f53.google.com with SMTP id r129so146556866wmr.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 10:51:47 -0700 (PDT)
 In-Reply-To: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for controlling the Link and
-Activity LED of AT8030 ethernet PHY through LED subsystem.
+Expose these LEDs by means of a platform device which
+can be controlled by a suitable LED driver.
 
 Signed-off-by: Vishal Thanki <vishalthanki@gmail.com>
 ---
- drivers/leds/Kconfig       |   7 ++
- drivers/leds/Makefile      |   1 +
- drivers/leds/leds-at803x.c | 158 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 166 insertions(+)
- create mode 100644 drivers/leds/leds-at803x.c
+ drivers/net/phy/at803x.c   | 55 +++++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/phy/at803x.h | 45 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 99 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/phy/at803x.h
 
-diff --git a/drivers/leds/Kconfig b/drivers/leds/Kconfig
-index 1f64151..07781ac 100644
---- a/drivers/leds/Kconfig
-+++ b/drivers/leds/Kconfig
-@@ -615,6 +615,13 @@ config LEDS_VERSATILE
- 	  This option enabled support for the LEDs on the ARM Versatile
- 	  and RealView boards. Say Y to enabled these.
- 
-+config LEDS_AT803X
-+	tristate "LED support for the AT803X Ethernet PHY (Experimental)"
-+	depends on LEDS_CLASS
-+	help
-+	  This option enabled support for the LEDs on AT803X ethernet PHY.
-+
-+
- comment "LED Triggers"
- source "drivers/leds/trigger/Kconfig"
- 
-diff --git a/drivers/leds/Makefile b/drivers/leds/Makefile
-index cb2013d..2d1ae65 100644
---- a/drivers/leds/Makefile
-+++ b/drivers/leds/Makefile
-@@ -67,6 +67,7 @@ obj-$(CONFIG_LEDS_KTD2692)		+= leds-ktd2692.o
- obj-$(CONFIG_LEDS_POWERNV)		+= leds-powernv.o
- obj-$(CONFIG_LEDS_SEAD3)		+= leds-sead3.o
- obj-$(CONFIG_LEDS_IS31FL32XX)		+= leds-is31fl32xx.o
-+obj-$(CONFIG_LEDS_AT803X)		+= leds-at803x.o
- 
- # LED SPI Drivers
- obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
-diff --git a/drivers/leds/leds-at803x.c b/drivers/leds/leds-at803x.c
-new file mode 100644
-index 0000000..58eb0c4
---- /dev/null
-+++ b/drivers/leds/leds-at803x.c
-@@ -0,0 +1,158 @@
-+#include <linux/kernel.h>
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index 1e901c7..8fdb5ff 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -18,6 +18,8 @@
+ #include <linux/etherdevice.h>
+ #include <linux/of_gpio.h>
+ #include <linux/gpio/consumer.h>
 +#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <linux/leds.h>
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/phy.h>
 +#include <linux/phy/at803x.h>
-+
-+#define LED_TX_NORMAL		0x0
-+#define LED_TX_BLINK		0x1
-+#define LED_TX_OFF		0x2
-+#define LED_TX_ON		0x3
-+
-+#define LED_RX_NORMAL		0x0
-+#define LED_RX_BLINK		0x1
-+#define LED_RX_OFF		0x2
-+#define LED_RX_ON		0x3
-+
-+#define LED_ACT_BLINK		0x1
-+
-+#define LED_LINK_NORMAL		0x0
-+#define LED_LINK_BLINK		LED_ACT_BLINK
-+#define LED_LINK_OFF		0x2
-+#define LED_LINK_ON		0x3
-+
-+#define LED_ACT_ACTIVE		0x0
-+#define LED_ACT_LINK		0x1
-+
-+static void at803x_led_work(struct work_struct *work)
-+{
-+	struct at803x_phy_led *led =
-+		container_of(work, struct at803x_phy_led, work);
-+	union at803x_led_manual_ctrl regval = led->regval;
-+
-+	phy_write(led->led_grp->phydev, led->reg, regval.value);
-+}
-+
-+static int at803x_blink_set(struct led_classdev *cdev,
-+	unsigned long *delay_on,
-+	unsigned long *delay_off)
-+{
-+	struct at803x_phy_led *led =
-+		container_of(cdev, struct at803x_phy_led, cdev);
-+	union at803x_led_manual_ctrl regval = {.value = 0};
-+	int id = led->id;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&led->lock, flags);
-+	switch (id) {
-+	case AT803X_LINK:
-+		/* Can't configure LED_LINK to blink */
-+		break;
-+	case AT803X_ACT:
-+		/*
-+		 * LED will be ON when link is established
-+		 * and it will blink when link is active.
-+		 * delay_on/delay_off values are ignored.
-+		 */
-+		regval.field.led_act_ctrl = LED_ACT_LINK;
-+		break;
-+	}
-+	led->regval = regval;
-+
-+	schedule_work(&led->work);
-+	spin_unlock_irqrestore(&led->lock, flags);
-+	return 0;
-+}
-+
-+
-+static void at803x_phy_led_brightness_set(struct led_classdev *led_cdev,
-+		enum led_brightness value)
-+{
-+	struct at803x_phy_led *led =
-+		container_of(led_cdev, struct at803x_phy_led, cdev);
-+	union at803x_led_manual_ctrl regval = led->regval;
-+	int id = led->id;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&led->lock, flags);
-+	switch (id) {
-+	case AT803X_LINK:
-+		regval.field.led_lnk_10_100_ctrl = value == LED_FULL ?
-+			LED_LINK_ON : LED_LINK_OFF;
-+		break;
-+	case AT803X_ACT:
-+		/* LED_ACT status is controlled via LED_TX and LED_RX */
-+		regval.field.led_tx = value == LED_FULL ?
-+			LED_TX_ON : LED_TX_OFF;
-+		regval.field.led_rx = value == LED_FULL ?
-+			LED_RX_ON : LED_RX_OFF;
-+		break;
-+	}
-+
-+	led->value = value;
-+	led->regval = regval;
-+	schedule_work(&led->work);
-+	spin_unlock_irqrestore(&led->lock, flags);
-+}
-+
-+static int at803x_phy_led_probe(struct platform_device *pdev)
-+{
-+	int i;
-+	int ret;
-+	struct at803x_phy_leds *led_grp = platform_get_drvdata(pdev);
-+	struct at803x_phy_led *leds = led_grp->leds;
-+
-+	for (i = 0; i < led_grp->nr_leds; i++) {
-+
-+		leds[i].cdev.brightness_set = at803x_phy_led_brightness_set;
-+		leds[i].cdev.blink_set = at803x_blink_set;
-+
-+		ret = led_classdev_register(&pdev->dev, &leds[i].cdev);
-+		if (ret < 0)
-+			goto err;
-+
-+		leds[i].led_grp = led_grp;
-+		leds[i].regval.value = phy_read(led_grp->phydev, leds[i].reg);
-+		INIT_WORK(&leds[i].work, at803x_led_work);
-+		spin_lock_init(&leds[i].lock);
-+
-+	}
-+
-+	return 0;
-+
-+err:
-+	for (i = i - 1; i >= 0; i--)
-+		led_classdev_unregister(&leds[i].cdev);
-+
-+	return ret;
-+}
-+
-+static int at803x_phy_led_remove(struct platform_device *pdev)
-+{
-+	int i;
-+	struct at803x_phy_leds *led_grp = platform_get_drvdata(pdev);
-+	struct at803x_phy_led *leds = led_grp->leds;
-+
-+
-+	for (i = 0; i < led_grp->nr_leds; i++)
-+		led_classdev_unregister(&leds[i].cdev);
-+
-+	return 0;
-+}
-+
-+static struct platform_driver at803x_phy_led_driver = {
-+	.probe		= at803x_phy_led_probe,
-+	.remove		= at803x_phy_led_remove,
-+	.driver		= {
-+		.name	= "at803x-led",
+ 
+ #define AT803X_INTR_ENABLE			0x12
+ #define AT803X_INTR_ENABLE_AUTONEG_ERR		BIT(15)
+@@ -34,6 +36,7 @@
+ 
+ #define AT803X_SMART_SPEED			0x14
+ #define AT803X_LED_CONTROL			0x18
++#define AT803X_LED_MANUAL_CTRL			0x19
+ 
+ #define AT803X_DEVICE_ADDR			0x03
+ #define AT803X_LOC_MAC_ADDR_0_15_OFFSET		0x804C
+@@ -117,6 +120,46 @@ static inline int at803x_enable_tx_delay(struct phy_device *phydev)
+ 					AT803X_DEBUG_TX_CLK_DLY_EN);
+ }
+ 
++static struct at803x_phy_led leds[] = {
++	{
++		.cdev.name = "at803x-link",
++		.id = AT803X_LINK,
++		.reg = AT803X_LED_MANUAL_CTRL,
++	},
++	{
++		.cdev.name = "at803x-act",
++		.id = AT803X_ACT,
++		.reg = AT803X_LED_MANUAL_CTRL,
 +	},
 +};
 +
-+module_platform_driver(at803x_phy_led_driver);
++static struct at803x_phy_leds led_grp = {
++	.leds = leds,
++	.nr_leds = ARRAY_SIZE(leds),
++};
 +
-+MODULE_DESCRIPTION("at803x PHY LED driver");
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS("platform:leds-at803x");
++static struct platform_device *pdev;
++
++static int at803x_led_init(struct phy_device *phydev)
++{
++	led_grp.phydev = phydev;
++
++	pdev = platform_device_alloc("at803x-led", 0);
++	if (!pdev) {
++		pr_info("Failed to allocate LED\n");
++		return -ENOMEM;
++	}
++
++	platform_set_drvdata(pdev, &led_grp);
++
++	return platform_device_add(pdev);
++}
++
++static void at803x_led_cleanup(struct phy_device *phydev)
++{
++	platform_device_del(pdev);
++}
++
+ /* save relevant PHY registers to private copy */
+ static void at803x_context_save(struct phy_device *phydev,
+ 				struct at803x_context *context)
+@@ -285,9 +328,18 @@ static int at803x_probe(struct phy_device *phydev)
+ 
+ 	phydev->priv = priv;
+ 
++	if (phydev->drv->flags & PHY_HAS_LED_CTRL)
++		return at803x_led_init(phydev);
++
+ 	return 0;
+ }
+ 
++static void at803x_remove(struct phy_device *phydev)
++{
++	if (phydev->drv->flags & PHY_HAS_LED_CTRL)
++		at803x_led_cleanup(phydev);
++}
++
+ static int at803x_config_init(struct phy_device *phydev)
+ {
+ 	int ret;
+@@ -411,11 +463,12 @@ static struct phy_driver at803x_driver[] = {
+ 	.suspend		= at803x_suspend,
+ 	.resume			= at803x_resume,
+ 	.features		= PHY_BASIC_FEATURES,
+-	.flags			= PHY_HAS_INTERRUPT,
++	.flags			= PHY_HAS_INTERRUPT | PHY_HAS_LED_CTRL,
+ 	.config_aneg		= genphy_config_aneg,
+ 	.read_status		= genphy_read_status,
+ 	.ack_interrupt		= at803x_ack_interrupt,
+ 	.config_intr		= at803x_config_intr,
++	.remove			= at803x_remove,
+ }, {
+ 	/* ATHEROS 8031 */
+ 	.phy_id			= ATH8031_PHY_ID,
+diff --git a/include/linux/phy/at803x.h b/include/linux/phy/at803x.h
+new file mode 100644
+index 0000000..f33bfcf
+--- /dev/null
++++ b/include/linux/phy/at803x.h
+@@ -0,0 +1,45 @@
++#ifndef _AT803X_H
++#define _AT803X_H
++
++#include <linux/leds.h>
++#include <linux/phy/phy.h>
++#include <linux/workqueue.h>
++#include <linux/spinlock.h>
++
++enum at803x_led_type {
++	AT803X_LINK,
++	AT803X_ACT,
++};
++
++union at803x_led_manual_ctrl {
++	struct {
++		u16 led_tx:2;
++		u16 led_rx:2;
++		u16 res3:2;
++		u16 led_lnk_10_100_ctrl:2;
++		u16 res2:4;
++		u16 led_act_ctrl:1;
++		u16 res1:3;
++
++	} field;
++	u16 value;
++};
++
++struct at803x_phy_led {
++	struct work_struct work;
++	struct led_classdev cdev;
++	enum led_brightness value;
++	union at803x_led_manual_ctrl regval;
++	enum at803x_led_type id;
++	struct at803x_phy_leds *led_grp;
++	spinlock_t lock;
++	u16 reg;
++};
++
++struct at803x_phy_leds {
++	struct phy_device *phydev;
++	struct at803x_phy_led *leds;
++	int nr_leds;
++};
++
++#endif
 -- 
 2.4.3
