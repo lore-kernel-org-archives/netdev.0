@@ -1,99 +1,111 @@
 From: Gilberto Bertin <gilberto.bertin@gmail.com>
-Subject: [net-next RFC 2/4] bindtoprefix: TCP/IPv4 implementation
-Date: Wed, 23 Mar 2016 02:26:04 +0000
-Message-ID: <1458699966-3752-3-git-send-email-gilberto.bertin@gmail.com>
-References: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
+Subject: [net-next RFC 0/4] SO_BINDTOPREFIX
+Date: Wed, 23 Mar 2016 02:26:02 +0000
+Message-ID: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
 Cc: tom@herbertland.com, markzzzsmith@gmail.com,
 	Gilberto Bertin <gilberto.bertin@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35808 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752539AbcC2Nhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 09:37:52 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 139so5427235wmn.2
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 06:37:51 -0700 (PDT)
-In-Reply-To: <1458699966-3752-1-git-send-email-gilberto.bertin@gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37230 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055AbcC2Nhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 09:37:50 -0400
+Received: by mail-wm0-f47.google.com with SMTP id p65so26891586wmp.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 06:37:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Gilberto Bertin <gilberto.bertin@gmail.com>
----
- net/ipv4/inet_connection_sock.c | 20 +++++++++++++++++++-
- net/ipv4/inet_hashtables.c      |  9 +++++++++
- 2 files changed, 28 insertions(+), 1 deletion(-)
+Since the net-next window just opened, I'm resubmitting my RFC for the
+SO_BINDTOSUBNET patch, following Mark Smith's suggestion to rename the
+whole thing to a more clear SO_BINDTOPREFIX.
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 6414891..162c252 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -15,6 +15,7 @@
- 
- #include <linux/module.h>
- #include <linux/jhash.h>
-+#include <linux/inetdevice.h>
- 
- #include <net/inet_connection_sock.h>
- #include <net/inet_hashtables.h>
-@@ -43,6 +44,22 @@ void inet_get_local_port_range(struct net *net, int *low, int *high)
- }
- EXPORT_SYMBOL(inet_get_local_port_range);
- 
-+static inline int inet_csk_bind_prefix_conflict(const struct sock *sk,
-+						const struct sock *sk2)
-+{
-+	__be32 mask;
-+
-+	if (sk->sk_bind_to_prefix && sk2->sk_bind_to_prefix) {
-+		mask = inet_make_mask(min(sk->sk_bind_prefix4.plen,
-+					  sk2->sk_bind_prefix4.plen));
-+
-+		return (sk->sk_bind_prefix4.net & mask) ==
-+		       (sk2->sk_bind_prefix4.net & mask);
-+	}
-+
-+	return 0;
-+}
-+
- int inet_csk_bind_conflict(const struct sock *sk,
- 			   const struct inet_bind_bucket *tb, bool relax)
- {
-@@ -63,7 +80,8 @@ int inet_csk_bind_conflict(const struct sock *sk,
- 		    !inet_v6_ipv6only(sk2) &&
- 		    (!sk->sk_bound_dev_if ||
- 		     !sk2->sk_bound_dev_if ||
--		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
-+		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if) &&
-+		     inet_csk_bind_prefix_conflict(sk, sk2)) {
- 			if ((!reuse || !sk2->sk_reuse ||
- 			    sk2->sk_state == TCP_LISTEN) &&
- 			    (!reuseport || !sk2->sk_reuseport ||
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index ccc5980..44693c4 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -13,6 +13,7 @@
-  *      2 of the License, or (at your option) any later version.
-  */
- 
-+#include <linux/inetdevice.h>
- #include <linux/module.h>
- #include <linux/random.h>
- #include <linux/sched.h>
-@@ -189,6 +190,14 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				return -1;
- 			score += 4;
- 		}
-+		if (sk->sk_bind_to_prefix) {
-+			__be32 mask = inet_make_mask(sk->sk_bind_prefix4.plen);
-+
-+			if ((sk->sk_bind_prefix4.net & mask) != (daddr & mask))
-+				return -1;
-+			score += 4;
-+		}
-+
- 		if (sk->sk_incoming_cpu == raw_smp_processor_id())
- 			score++;
- 	}
+Some arguments for and against it since the first submission:
+* SO_BINDTOPREFIX is an arbitrary option and can be seens as nother use
+* case of the SO_REUSEPORT BPF patch
+* but at the same time using BPF requires more work/code on the server
+  and since the bind to prefix use case could potentially become a
+  common one maybe there is some value in having it as an option instead
+  of having to code (either manually or with clang) an eBPF program that
+  would do the same
+* it may probably possible to archive the same results using VRF. This
+  would require to create a VRF device, configure the device routing
+  table and make each bind each process to a different VRF device (but
+  I'm not sure how this would work/interfere with an existing iptables
+  setup for example)
+
+-----------------------------------------------------------------------------
+
+This series introduces support for the SO_BINDTOPREFIX socket option, which
+allows a listener socket to bind to a prefix instead of * or a single address.
+
+Motivation:
+consider a set of servers, each one with thousands and thousands of IP
+addresses. Since assigning /32 or /128 IP individual addresses would be
+inefficient, one solution can be assigning prefixes using local routes
+(with 'ip route add local').
+
+This allows a listener to listen and terminate connections going to any
+of the IP addresses of these prefixes without explicitly configuring all
+the IP addresses of the prefix range.
+This is very efficient.
+
+Unfortunately there may be the need to use different prefixes for
+different purposes.
+One can imagine port 80 being served by one HTTP server for some IP
+prefix, while another server used for another prefix.
+Right now Linux does not allow this.
+It is either possible to bind to *, indicating ALL traffic going to
+given port, or to individual IP addresses.
+The first only allows to accept connections from all the prefixes.
+The latter does not scale well with lots of IP addresses.
+
+Using bindtoprefix would solve this problem: just by adding a local
+route rule and setting the SO_BINDTOPREFIX option for a socket it would
+be possible to easily partition traffic by prefixes.
+
+API:
+the prefix is specified (as argument of the setsockopt syscall) by the
+address of the network, and the prefix length of the netmask.
+
+IPv4:
+	struct ipv4_prefix {
+		__be32 net;
+		u_char plen;
+	};
+
+and IPv6:
+	struct ipv6_prefix {
+		struct in6_addr net;
+		u_char plen;
+	};
+
+Bind conflicts:
+two sockets with the bindtoprefix option enabled generate a bind
+conflict if their network addresses masked with the shortest of their
+prefix are equal.
+The bindtoprefix option can be combined with soreuseport so that two
+listener can bind on the same prefix.
+
+Any questions/feedback appreciated.
+
+Thanks,
+ Gilberto
+
+Gilberto Bertin (4):
+  bindtoprefix: infrastructure
+  bindtoprefix: TCP/IPv4 implementation
+  bindtoprefix: TCP/IPv6 implementation
+  bindtoprefix: UPD implementation
+
+ include/net/sock.h                |  20 +++++++
+ include/uapi/asm-generic/socket.h |   1 +
+ net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
+ net/ipv4/inet_connection_sock.c   |  20 ++++++-
+ net/ipv4/inet_hashtables.c        |   9 ++++
+ net/ipv4/udp.c                    |  36 +++++++++++++
+ net/ipv6/inet6_connection_sock.c  |  17 +++++-
+ net/ipv6/inet6_hashtables.c       |   6 +++
+ 8 files changed, 218 insertions(+), 2 deletions(-)
+
 -- 
 2.7.3
