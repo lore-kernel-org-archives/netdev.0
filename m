@@ -1,54 +1,52 @@
-From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v4 2/3] IB/hns: Add HiSilicon RoCE driver support
-Date: Wed, 23 Mar 2016 20:20:52 +0800
-Message-ID: <56F28A24.5010107@huawei.com>
-References: <1458655621-3618-1-git-send-email-oulijun@huawei.com>
- <1458655621-3618-3-git-send-email-oulijun@huawei.com>
- <20160322185412.GA6262@infradead.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch iproute2 v2 1/2] include: add linked list implementation
+ from kernel
+Date: Wed, 23 Mar 2016 12:22:22 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D41124DBA@AcuExch.aculab.com>
+References: <1458637341-3434-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160322185412.GA6262-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"idosch@mellanox.com" <idosch@mellanox.com>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"yotamg@mellanox.com" <yotamg@mellanox.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"yishaih@mellanox.com" <yishaih@mellanox.com>,
+	"dledford@redhat.com" <dledford@redhat.com>,
+	"sean.hefty@intel.com" <sean.hefty@intel.com>,
+	"hal.rosenstock@gmail.com" <hal.rosenstock@gmail.com>,
+	"eugenia@mellanox.com" <eugenia@mellanox.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
+	"hadarh@mellanox.com" <hadarh@mellanox.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"brouer@redhat.com" <brouer@redhat
+To: 'Jiri Pirko' <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.189]:57100 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755154AbcCWMWy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 08:22:54 -0400
+In-Reply-To: <1458637341-3434-1-git-send-email-jiri@resnulli.us>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/3/23 2:54, Christoph Hellwig wrote:
->>  drivers/infiniband/Kconfig                         |    1 +
->>  drivers/infiniband/hw/Makefile                     |    1 +
->>  drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
-> 
-> To fit in with the other drivers drop the hisilicon level
-> of the directory hierarchy.
-> 
-> Haven't had time to look at the actual driver yet so far, though.
-> 
-> .
-> 
-Hi Christoph Hellwig,
-   surely, I considered that other drivers will be put into the hisilicon
-level of the directory hierarchy. These drivers will support RDMA function which
-will be developed for a series of hisilicon chip. Because of the consideration, I drop the
-level.
-   In additon that, i thought that the patch of RoCE driver which supported the base function of RDMA is huge. However,
-It is not splitted into patches in form of patchset. I don't put a better strategy that it neither make mistakes
-of building and running nor huge.
+From: Jiri Pirko
+> Sent: 22 March 2016 09:02
+> Rename hlist.h to list.h while adding it to be aligned with kernel
+...
+>  include/hlist.h |  56 ----------------------------
+>  include/list.h  | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-thanks
-Lijun Ou
+I'm not sure where this gets installed, but #include <list.h>
+is likely to give grief and find the wrong file.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Even hlist.h seems a bit terse.
+
+	David
