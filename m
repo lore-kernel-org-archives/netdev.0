@@ -1,60 +1,57 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] macb: fix PHY reset
-Date: Wed, 23 Mar 2016 09:54:05 +0100
-Message-ID: <56F259AD.9010009@atmel.com>
-References: <3349780.3Prc3uV314@wasted.cogentembedded.com>
- <56F19E2D.8000700@cogentembedded.com>
- <20160322.160738.145737905213296810.davem@redhat.com>
- <56F1BA16.9070601@cogentembedded.com>
+From: Matthias Brugger <matthias.bgg@gmail.com>
+Subject: Re: [PATCH] net: mediatek: fix checking for NULL instead of IS_ERR()
+ in .probe
+Date: Wed, 23 Mar 2016 10:00:50 +0100
+Message-ID: <56F25B42.5030005@gmail.com>
+References: <1458687964-9690-1-git-send-email-vz@mleia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@redhat.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	linux-arm-kernel@lists.infradead.org
+To: Vladimir Zapolskiy <vz@mleia.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Felix Fietkau <nbd@openwrt.org>,
+	John Crispin <blogic@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:27214 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754085AbcCWIyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 04:54:01 -0400
-In-Reply-To: <56F1BA16.9070601@cogentembedded.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35618 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753702AbcCWJAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 05:00:54 -0400
+Received: by mail-wm0-f41.google.com with SMTP id l68so185709098wml.0
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 02:00:53 -0700 (PDT)
+In-Reply-To: <1458687964-9690-1-git-send-email-vz@mleia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/03/2016 22:33, Sergei Shtylyov a =E9crit :
-> On 03/22/2016 11:07 PM, David Miller wrote:
->=20
->>> On 03/22/2016 10:27 PM, Sergei Shtylyov wrote:
->>>
->>>> The driver calls gpiod_set_value() with GPIOD_OUT_* instead of 0 a=
-nd
->>>> 1, as
->>>> a result the PHY isn't really put back into reset state in
->>>> macb_remove().
->>>> Moreover, the driver assumes that something else has set the GPIO
->>>> direction
->>>> to output, so if it has not, the PHY wouldn't be taken out of rese=
-t in
->>>
->>>     s/wouldn't/may not/, sorry. Do I need to resend?
->>
->> No need, I fixed it up by hand.
->>
->> Applied, thanks.
->=20
->     Oops, forgot another tag:
->=20
-> Fixes: 270c499f0993 ("net/macb: Update device tree binding for resett=
-ing PHY=20
-> using GPIO")
->=20
->    Too late probably... :-(
 
-Too late also:
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks Sergei!
+On 23/03/16 00:06, Vladimir Zapolskiy wrote:
+> devm_ioremap_resource() returns ERR_PTR() value on error, it never
+> returns NULL, fix it and propagate the returned error upwards.
+>
+> Fixes: 656e705243fd ("net-next: mediatek: add support for MT7623 ethernet")
+> Signed-off-by: Vladimir Zapolskiy <vz@mleia.com>
+> ---
 
-Bye,
---=20
-Nicolas Ferre
+Reviewed-by: Matthias Brugger <mbrugger@suse.com>
+
+>   drivers/net/ethernet/mediatek/mtk_eth_soc.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index 7f2126b..e0b68af 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -1690,8 +1690,8 @@ static int mtk_probe(struct platform_device *pdev)
+>   		return -ENOMEM;
+>
+>   	eth->base = devm_ioremap_resource(&pdev->dev, res);
+> -	if (!eth->base)
+> -		return -EADDRNOTAVAIL;
+> +	if (IS_ERR(eth->base))
+> +		return PTR_ERR(eth->base);
+>
+>   	spin_lock_init(&eth->page_lock);
+>
+>
