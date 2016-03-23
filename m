@@ -1,35 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] net: Reset encap_level to avoid resetting features
- on inner IP headers
-Date: Wed, 23 Mar 2016 14:19:44 -0400 (EDT)
-Message-ID: <20160323.141944.223192963031809374.davem@davemloft.net>
-References: <20160322231732.13054.71337.stgit@localhost.localdomain>
+Subject: Re: [PATCH] gre: fix return value of gre_rcv
+Date: Wed, 23 Mar 2016 14:25:14 -0400 (EDT)
+Message-ID: <20160323.142514.2266464870508750029.davem@davemloft.net>
+References: <1458696883-15796-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, kernel-team@fb.com, alexander.duyck@gmail.com,
-	netdev@vger.kernel.org
-To: aduyck@mirantis.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60012 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756015AbcCWSTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 14:19:49 -0400
-In-Reply-To: <20160322231732.13054.71337.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458696883-15796-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Tue, 22 Mar 2016 16:18:07 -0700
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Wed, 23 Mar 2016 09:34:43 +0800
 
-> This patch corrects an oversight in which we were allowing the encap_level
-> value to pass from the outer headers to the inner headers.  As a result we
-> were incorrectly identifying UDP or GRE tunnels as also making use of ipip
-> or sit when the second header actually represented a tunnel encapsulated in
-> either a UDP or GRE tunnel which already had the features masked.
+> Dropped skb's should be documented by an appropriate return value.
+> Use the correct NET_RX_DROP and NET_RX_SUCCESS values for that reason.
 > 
-> Fixes: 76443456227097179c1482 ("net: Move GSO csum into SKB_GSO_CB")
-> Reported-by: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Applied, thanks.
+IP protocol handlers do not use NET_RX_* values like this.
+
+They either return 0, to finish processing, or a negative value which
+indicates the negated protocol number to use to demux in the protocol
+switch again.
+
+Many of your patches seem very straightforward, but usually upon
+further inspection severe fundamental issues with your changes are
+found because you don't know what the proper semantics are for the
+pieces of infrastructure you are touching.
+
+Therefore, reviewing your seemingly trivial changes is a large
+inventment of time and energy.
+
+Please put more care into your changes, or else people will simply
+stop reviewing your work and instead put their effort into submissions
+which are more properly researched and easier to verify.
+
+Thanks.
