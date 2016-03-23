@@ -1,50 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/sctp: stack-out-of-bounds in sctp_getsockopt
-Date: Wed, 23 Mar 2016 10:14:50 -0700
-Message-ID: <1458753290.10868.38.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <56f16034.890c620a.e04dc.ffffc770@mx.google.com>
-	 <1458660088.10868.19.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1458660478.10868.21.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAP=GMUFA-qAOxF1W=aeWDYBiR-GSohJYGHiMDsrqwsD0xdg3_Q@mail.gmail.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH] net: Fix typos and whitespace.
+Date: Wed, 23 Mar 2016 19:16:42 +0200
+Message-ID: <56F2CF7A.9070104@cloudius-systems.com>
+References: <20160323134530.18742.35082.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+ <20160323135535.GA18845@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Baozeng <sploving1@gmail.com>
+To: Bjorn Helgaas <helgaas@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35555 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbcCWROx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:14:53 -0400
-In-Reply-To: <CAP=GMUFA-qAOxF1W=aeWDYBiR-GSohJYGHiMDsrqwsD0xdg3_Q@mail.gmail.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37178 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbcCWRQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 13:16:46 -0400
+Received: by mail-wm0-f45.google.com with SMTP id p65so33215978wmp.0
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 10:16:45 -0700 (PDT)
+In-Reply-To: <20160323135535.GA18845@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-03-24 at 00:42 +0800, Baozeng wrote:
 
-> Thanks for your quick patch. I tested it but it still reproduce the
-> bug. We should limit the length of the name,
-> not the prefix. The following patch fixs it.
-> 
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index 67b2e27..4837425 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -346,7 +346,7 @@ find_inlist_lock(struct list_head *head, const
-> char *name, const char *prefix,
->  {
->         return try_then_request_module(
->                         find_inlist_lock_noload(head, name, error, mutex),
-> -                       "%s%s", prefix, name);
-> +                       "%s%.*s", prefix, EBT_TABLE_MAXNAMELEN, name);
-> }
-> 
 
-Right you are, please send a formal patch ?
+On 03/23/2016 03:55 PM, Bjorn Helgaas wrote:
+> [+cc Vlad]
+>
+> On Wed, Mar 23, 2016 at 08:45:30AM -0500, Bjorn Helgaas wrote:
+>> Fix typos.  Capitalize CPU, NAPI, RCU consistently.  Align structure
+>> indentation.  No functional change intended; only comment and whitespace
+>> changes.
+>>
+>> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+>> ---
+>>   include/linux/netdevice.h |  215 ++++++++++++++++++++++-----------------------
+>> @@ -920,7 +920,7 @@ struct tc_to_netdev {
+>>    *
+>>    *      Enable or disable the VF ability to query its RSS Redirection Table and
+>>    *      Hash Key. This is needed since on some devices VF share this information
+>> - *      with PF and querying it may adduce a theoretical security risk.
+>> + *      with PF and querying it may introduce a theoretical security risk.
+>>    * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting)
+> Most of these are obvious typo fixes, but I want to point out this one
+> in particular because "adduce" is a real word.  It's possible that's
+> what Vlad intended in 01a3d796813d ("if_link: Add an additional
+> parameter to ifla_vf_info for RSS querying"), though it doesn't quite
+> seem to fit.  Vlad, if you did intend "adduce", my apologies in
+> advance.
 
-Thanks !
+Of course it was a typo :D
+Thanks for fixing it, Bjorn.
+
+>
+> Bjorn
