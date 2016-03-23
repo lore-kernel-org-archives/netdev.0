@@ -1,54 +1,66 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net 2/2] net: bcmgenet: fix skb_len in bcmgenet_xmit_single()
-Date: Wed, 23 Mar 2016 13:01:29 -0700
-Message-ID: <1458763289-95167-2-git-send-email-pgynther@google.com>
-References: <1458763289-95167-1-git-send-email-pgynther@google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com,
-	edumazet@google.com, Petri Gynther <pgynther@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:32878 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752206AbcCWUCS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 16:02:18 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 4so38627706pfd.0
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 13:02:18 -0700 (PDT)
-In-Reply-To: <1458763289-95167-1-git-send-email-pgynther@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Fix the order of num_sc_offered decrement
+Date: Wed, 23 Mar 2016 14:54:48 -0700
+Message-ID: <1458770088-923-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, haiyangz@microsoft.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-skb_len needs to be skb_headlen(skb) in bcmgenet_xmit_single().
+Reorder the code in netvsc_sc_open(), so num_sc_offered is only decremented
+after vmbus_open() is called. This avoid pontential race of removing device
+before all channels are setup.
 
-Fragmented skbs can have only Ethernet + IP + TCP headers (14+20+20=54 bytes)
-in the linear buffer, followed by the rest in fragments. Bumping skb_len to
-ETH_ZLEN would be incorrect for this case, as it would introduce garbage
-between TCP header and the fragment data.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-This also works with regular/non-fragmented small packets < ETH_ZLEN bytes.
-Successfully tested this on GENETv3 with 42-byte ARP frames.
-
-For testing, I used:
-ethtool -K eth0 tx-checksum-ipv4 off
-ethtool -K eth0 tx-checksum-ipv6 off
-echo 0 > /proc/sys/net/ipv4/tcp_timestamps
-
-Signed-off-by: Petri Gynther <pgynther@google.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hyperv/rndis_filter.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 9990582..00da239 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1298,7 +1298,7 @@ static int bcmgenet_xmit_single(struct net_device *dev,
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index d5a54da..c4e1e04 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -986,12 +986,6 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
  
- 	tx_cb_ptr->skb = skb;
+ 	nvscdev = hv_get_drvdata(new_sc->primary_channel->device_obj);
  
--	skb_len = skb_headlen(skb) < ETH_ZLEN ? ETH_ZLEN : skb_headlen(skb);
-+	skb_len = skb_headlen(skb);
+-	spin_lock_irqsave(&nvscdev->sc_lock, flags);
+-	nvscdev->num_sc_offered--;
+-	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
+-	if (nvscdev->num_sc_offered == 0)
+-		complete(&nvscdev->channel_init_wait);
+-
+ 	if (chn_index >= nvscdev->num_chn)
+ 		return;
  
- 	mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
- 	ret = dma_mapping_error(kdev, mapping);
+@@ -1004,6 +998,12 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 
+ 	if (ret == 0)
+ 		nvscdev->chn_table[chn_index] = new_sc;
++
++	spin_lock_irqsave(&nvscdev->sc_lock, flags);
++	nvscdev->num_sc_offered--;
++	spin_unlock_irqrestore(&nvscdev->sc_lock, flags);
++	if (nvscdev->num_sc_offered == 0)
++		complete(&nvscdev->channel_init_wait);
+ }
+ 
+ int rndis_filter_device_add(struct hv_device *dev,
 -- 
-2.8.0.rc3.226.g39d4020
+1.7.4.1
