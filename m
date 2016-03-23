@@ -1,94 +1,161 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,
- 2/2] hv_netvsc: Fix the array sizes to be max supported channels
-Date: Wed, 23 Mar 2016 09:43:10 -0700
-Message-ID: <1458751390-26971-2-git-send-email-haiyangz@microsoft.com>
-References: <1458751390-26971-1-git-send-email-haiyangz@microsoft.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] ppp: take reference on channels netns
+Date: Wed, 23 Mar 2016 16:38:55 +0100
+Message-ID: <4dbdfa8e264d5a635865c6e843c122daf9be4f8d.1458747209.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, haiyangz@microsoft.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1458751390-26971-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cyrill Gorcunov <gorcunov@gmail.com>,
+	Baozeng Ding <sploving1@gmail.com>,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:39311 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752022AbcCWPjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 11:39:05 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The VRSS_CHANNEL_MAX is the max number of channels supported by Hyper-V
-hosts. We use it for the related array sizes instead of using NR_CPUS,
-which may be set to several thousands.
-This patch reduces possible memory allocation failures.
+Let channels hold a reference on their network namespace.
+Some channel types, like ppp_async and ppp_synctty, can have their
+userspace controller running in a different namespace. Therefore they
+can't rely on them to preclude their netns from being removed from
+under them.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+==================================================================
+BUG: KASAN: use-after-free in ppp_unregister_channel+0x372/0x3a0 at
+addr ffff880064e217e0
+Read of size 8 by task syz-executor/11581
+=============================================================================
+BUG net_namespace (Not tainted): kasan: bad access detected
+-----------------------------------------------------------------------------
 
+Disabling lock debugging due to kernel taint
+INFO: Allocated in copy_net_ns+0x6b/0x1a0 age=92569 cpu=3 pid=6906
+[<      none      >] ___slab_alloc+0x4c7/0x500 kernel/mm/slub.c:2440
+[<      none      >] __slab_alloc+0x4c/0x90 kernel/mm/slub.c:2469
+[<     inline     >] slab_alloc_node kernel/mm/slub.c:2532
+[<     inline     >] slab_alloc kernel/mm/slub.c:2574
+[<      none      >] kmem_cache_alloc+0x23a/0x2b0 kernel/mm/slub.c:2579
+[<     inline     >] kmem_cache_zalloc kernel/include/linux/slab.h:597
+[<     inline     >] net_alloc kernel/net/core/net_namespace.c:325
+[<      none      >] copy_net_ns+0x6b/0x1a0 kernel/net/core/net_namespace.c:360
+[<      none      >] create_new_namespaces+0x2f6/0x610 kernel/kernel/nsproxy.c:95
+[<      none      >] copy_namespaces+0x297/0x320 kernel/kernel/nsproxy.c:150
+[<      none      >] copy_process.part.35+0x1bf4/0x5760 kernel/kernel/fork.c:1451
+[<     inline     >] copy_process kernel/kernel/fork.c:1274
+[<      none      >] _do_fork+0x1bc/0xcb0 kernel/kernel/fork.c:1723
+[<     inline     >] SYSC_clone kernel/kernel/fork.c:1832
+[<      none      >] SyS_clone+0x37/0x50 kernel/kernel/fork.c:1826
+[<      none      >] entry_SYSCALL_64_fastpath+0x16/0x7a kernel/arch/x86/entry/entry_64.S:185
+
+INFO: Freed in net_drop_ns+0x67/0x80 age=575 cpu=2 pid=2631
+[<      none      >] __slab_free+0x1fc/0x320 kernel/mm/slub.c:2650
+[<     inline     >] slab_free kernel/mm/slub.c:2805
+[<      none      >] kmem_cache_free+0x2a0/0x330 kernel/mm/slub.c:2814
+[<     inline     >] net_free kernel/net/core/net_namespace.c:341
+[<      none      >] net_drop_ns+0x67/0x80 kernel/net/core/net_namespace.c:348
+[<      none      >] cleanup_net+0x4e5/0x600 kernel/net/core/net_namespace.c:448
+[<      none      >] process_one_work+0x794/0x1440 kernel/kernel/workqueue.c:2036
+[<      none      >] worker_thread+0xdb/0xfc0 kernel/kernel/workqueue.c:2170
+[<      none      >] kthread+0x23f/0x2d0 kernel/drivers/block/aoe/aoecmd.c:1303
+[<      none      >] ret_from_fork+0x3f/0x70 kernel/arch/x86/entry/entry_64.S:468
+INFO: Slab 0xffffea0001938800 objects=3 used=0 fp=0xffff880064e20000
+flags=0x5fffc0000004080
+INFO: Object 0xffff880064e20000 @offset=0 fp=0xffff880064e24200
+
+CPU: 1 PID: 11581 Comm: syz-executor Tainted: G    B           4.4.0+
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
+rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+ 00000000ffffffff ffff8800662c7790 ffffffff8292049d ffff88003e36a300
+ ffff880064e20000 ffff880064e20000 ffff8800662c77c0 ffffffff816f2054
+ ffff88003e36a300 ffffea0001938800 ffff880064e20000 0000000000000000
+Call Trace:
+ [<     inline     >] __dump_stack kernel/lib/dump_stack.c:15
+ [<ffffffff8292049d>] dump_stack+0x6f/0xa2 kernel/lib/dump_stack.c:50
+ [<ffffffff816f2054>] print_trailer+0xf4/0x150 kernel/mm/slub.c:654
+ [<ffffffff816f875f>] object_err+0x2f/0x40 kernel/mm/slub.c:661
+ [<     inline     >] print_address_description kernel/mm/kasan/report.c:138
+ [<ffffffff816fb0c5>] kasan_report_error+0x215/0x530 kernel/mm/kasan/report.c:236
+ [<     inline     >] kasan_report kernel/mm/kasan/report.c:259
+ [<ffffffff816fb4de>] __asan_report_load8_noabort+0x3e/0x40 kernel/mm/kasan/report.c:280
+ [<     inline     >] ? ppp_pernet kernel/include/linux/compiler.h:218
+ [<ffffffff83ad71b2>] ? ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<     inline     >] ppp_pernet kernel/include/linux/compiler.h:218
+ [<ffffffff83ad71b2>] ppp_unregister_channel+0x372/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<     inline     >] ? ppp_pernet kernel/drivers/net/ppp/ppp_generic.c:293
+ [<ffffffff83ad6f26>] ? ppp_unregister_channel+0xe6/0x3a0 kernel/drivers/net/ppp/ppp_generic.c:2392
+ [<ffffffff83ae18f3>] ppp_asynctty_close+0xa3/0x130 kernel/drivers/net/ppp/ppp_async.c:241
+ [<ffffffff83ae1850>] ? async_lcp_peek+0x5b0/0x5b0 kernel/drivers/net/ppp/ppp_async.c:1000
+ [<ffffffff82c33239>] tty_ldisc_close.isra.1+0x99/0xe0 kernel/drivers/tty/tty_ldisc.c:478
+ [<ffffffff82c332c0>] tty_ldisc_kill+0x40/0x170 kernel/drivers/tty/tty_ldisc.c:744
+ [<ffffffff82c34943>] tty_ldisc_release+0x1b3/0x260 kernel/drivers/tty/tty_ldisc.c:772
+ [<ffffffff82c1ef21>] tty_release+0xac1/0x13e0 kernel/drivers/tty/tty_io.c:1901
+ [<ffffffff82c1e460>] ? release_tty+0x320/0x320 kernel/drivers/tty/tty_io.c:1688
+ [<ffffffff8174de36>] __fput+0x236/0x780 kernel/fs/file_table.c:208
+ [<ffffffff8174e405>] ____fput+0x15/0x20 kernel/fs/file_table.c:244
+ [<ffffffff813595ab>] task_work_run+0x16b/0x200 kernel/kernel/task_work.c:115
+ [<     inline     >] exit_task_work kernel/include/linux/task_work.h:21
+ [<ffffffff81307105>] do_exit+0x8b5/0x2c60 kernel/kernel/exit.c:750
+ [<ffffffff813fdd20>] ? debug_check_no_locks_freed+0x290/0x290 kernel/kernel/locking/lockdep.c:4123
+ [<ffffffff81306850>] ? mm_update_next_owner+0x6f0/0x6f0 kernel/kernel/exit.c:357
+ [<ffffffff813215e6>] ? __dequeue_signal+0x136/0x470 kernel/kernel/signal.c:550
+ [<ffffffff8132067b>] ? recalc_sigpending_tsk+0x13b/0x180 kernel/kernel/signal.c:145
+ [<ffffffff81309628>] do_group_exit+0x108/0x330 kernel/kernel/exit.c:880
+ [<ffffffff8132b9d4>] get_signal+0x5e4/0x14f0 kernel/kernel/signal.c:2307
+ [<     inline     >] ? kretprobe_table_lock kernel/kernel/kprobes.c:1113
+ [<ffffffff8151d355>] ? kprobe_flush_task+0xb5/0x450 kernel/kernel/kprobes.c:1158
+ [<ffffffff8115f7d3>] do_signal+0x83/0x1c90 kernel/arch/x86/kernel/signal.c:712
+ [<ffffffff8151d2a0>] ? recycle_rp_inst+0x310/0x310 kernel/include/linux/list.h:655
+ [<ffffffff8115f750>] ? setup_sigcontext+0x780/0x780 kernel/arch/x86/kernel/signal.c:165
+ [<ffffffff81380864>] ? finish_task_switch+0x424/0x5f0 kernel/kernel/sched/core.c:2692
+ [<     inline     >] ? finish_lock_switch kernel/kernel/sched/sched.h:1099
+ [<ffffffff81380560>] ? finish_task_switch+0x120/0x5f0 kernel/kernel/sched/core.c:2678
+ [<     inline     >] ? context_switch kernel/kernel/sched/core.c:2807
+ [<ffffffff85d794e9>] ? __schedule+0x919/0x1bd0 kernel/kernel/sched/core.c:3283
+ [<ffffffff81003901>] exit_to_usermode_loop+0xf1/0x1a0 kernel/arch/x86/entry/common.c:247
+ [<     inline     >] prepare_exit_to_usermode kernel/arch/x86/entry/common.c:282
+ [<ffffffff810062ef>] syscall_return_slowpath+0x19f/0x210 kernel/arch/x86/entry/common.c:344
+ [<ffffffff85d88022>] int_ret_from_sys_call+0x25/0x9f kernel/arch/x86/entry/entry_64.S:281
+Memory state around the buggy address:
+ ffff880064e21680: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880064e21700: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff880064e21780: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                                       ^
+ ffff880064e21800: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880064e21880: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
+
+Fixes: 273ec51dd7ce ("net: ppp_generic - introduce net-namespace functionality v2")
+Reported-by: Baozeng Ding <sploving1@gmail.com>
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- drivers/net/hyperv/hyperv_net.h   |    7 ++++---
- drivers/net/hyperv/rndis_filter.c |    4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index b4c6878..8b3bd8e 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -619,6 +619,7 @@ struct nvsp_message {
- #define NETVSC_PACKET_SIZE                      4096
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 4fd8610..f572b31 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -2307,7 +2307,7 @@ int ppp_register_net_channel(struct net *net, struct ppp_channel *chan)
  
- #define VRSS_SEND_TAB_SIZE 16
-+#define VRSS_CHANNEL_MAX 64
+ 	pch->ppp = NULL;
+ 	pch->chan = chan;
+-	pch->chan_net = net;
++	pch->chan_net = get_net(net);
+ 	chan->ppp = pch;
+ 	init_ppp_file(&pch->file, CHANNEL);
+ 	pch->file.hdrlen = chan->hdrlen;
+@@ -2404,6 +2404,8 @@ ppp_unregister_channel(struct ppp_channel *chan)
+ 	spin_lock_bh(&pn->all_channels_lock);
+ 	list_del(&pch->list);
+ 	spin_unlock_bh(&pn->all_channels_lock);
++	put_net(pch->chan_net);
++	pch->chan_net = NULL;
  
- #define RNDIS_MAX_PKT_DEFAULT 8
- #define RNDIS_PKT_ALIGN_DEFAULT 8
-@@ -700,13 +701,13 @@ struct netvsc_device {
- 
- 	struct net_device *ndev;
- 
--	struct vmbus_channel *chn_table[NR_CPUS];
-+	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
- 	u32 send_table[VRSS_SEND_TAB_SIZE];
- 	u32 max_chn;
- 	u32 num_chn;
- 	spinlock_t sc_lock; /* Protects num_sc_offered variable */
- 	u32 num_sc_offered;
--	atomic_t queue_sends[NR_CPUS];
-+	atomic_t queue_sends[VRSS_CHANNEL_MAX];
- 
- 	/* Holds rndis device info */
- 	void *extension;
-@@ -718,7 +719,7 @@ struct netvsc_device {
- 	/* The sub channel callback buffer */
- 	unsigned char *sub_cb_buf;
- 
--	struct multi_send_data msd[NR_CPUS];
-+	struct multi_send_data msd[VRSS_CHANNEL_MAX];
- 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
- 	u32 pkt_align; /* alignment bytes, e.g. 8 */
- 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 47d07c5..d5a54da 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1113,9 +1113,9 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	if (ret || rsscap.num_recv_que < 2)
- 		goto out;
- 
--	num_rss_qs = min(device_info->max_num_vrss_chns, rsscap.num_recv_que);
-+	net_device->max_chn = min_t(u32, VRSS_CHANNEL_MAX, rsscap.num_recv_que);
- 
--	net_device->max_chn = rsscap.num_recv_que;
-+	num_rss_qs = min(device_info->max_num_vrss_chns, net_device->max_chn);
- 
- 	/*
- 	 * We will limit the VRSS channels to the number CPUs in the NUMA node
+ 	pch->file.dead = 1;
+ 	wake_up_interruptible(&pch->file.rwait);
 -- 
-1.7.4.1
+2.8.0.rc3
