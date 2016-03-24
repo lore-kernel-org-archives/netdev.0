@@ -1,40 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net v2] xfrm: Fix crash observed during device
- unregistration and decryption
-Date: Thu, 24 Mar 2016 08:45:14 +0800
-Message-ID: <20160324004514.GA3110@gondor.apana.org.au>
-References: <001c01d1849b$1c7c98e0$5575caa0$@codeaurora.org>
- <1458739547.10868.37.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160323132947.GA29938@gondor.apana.org.au>
- <1458754165.10868.41.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fix typos and whitespace.
+Date: Wed, 23 Mar 2016 20:55:31 -0400 (EDT)
+Message-ID: <20160323.205531.508870857957275663.davem@davemloft.net>
+References: <20160323134530.18742.35082.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+	<20160323.142703.2259993852905081527.davem@davemloft.net>
+	<CALx6S34KC2cGwvW0RPE_9CEABhrTOrbhkBYb5Eg3PpQ8rspsAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-	'Steffen Klassert' <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, jeromes@codeaurora.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:50665 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751566AbcCXAp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 20:45:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1458754165.10868.41.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bhelgaas@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tom@herbertland.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALx6S34KC2cGwvW0RPE_9CEABhrTOrbhkBYb5Eg3PpQ8rspsAg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 23, 2016 at 10:29:25AM -0700, Eric Dumazet wrote:
->
-> OK, but before calling netif_rx() are we properly testing dev->flags
-> IFF_UP status ?
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 23 Mar 2016 17:28:20 -0700
+
+> On Wed, Mar 23, 2016 at 11:27 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Bjorn Helgaas <bhelgaas@google.com>
+>> Date: Wed, 23 Mar 2016 08:45:30 -0500
+>>
+>>> Fix typos.  Capitalize CPU, NAPI, RCU consistently.  Align structure
+>>> indentation.  No functional change intended; only comment and whitespace
+>>> changes.
+>>>
+>>> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+>>
+>> Does not apply to the current 'net' tree, please respin.
 > 
-> Otherwise, we still allow packets being queued after flush_backlog() had
-> been called.
+> Why is this for net and not net-next?
 
-That's the first thing enqueue_to_backlog tests.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Fixing comment typos is always appropriate, as they enhance
+understanding of the code and make it easier to maintain.
