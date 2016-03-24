@@ -1,7 +1,8 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 0/7] net: hns: fix some bugs in HNS driver
-Date: Thu, 24 Mar 2016 19:07:59 +0800
-Message-ID: <1458817686-159708-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 4/7] net: hns: remove useless variable assignment and comment
+Date: Thu, 24 Mar 2016 19:08:03 +0800
+Message-ID: <1458817686-159708-5-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1458817686-159708-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
@@ -11,48 +12,41 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:41732 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:41774 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089AbcCXKt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 06:49:26 -0400
+	with ESMTP id S1755447AbcCXKt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 06:49:29 -0400
+In-Reply-To: <1458817686-159708-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here are some bug fixed patches for HNS driver.
+From: Qianqian Xie <xieqianqian@huawei.com>
 
-They are:
+The variable head in hns_nic_tx_fini_pro has read a value, but it is
+obviously no use. The patch will fix it.
+And the comment is nothing to do with the routine, so it has to be removed
 
->from Kejian, fix for the warning of passing zero to 'PTR_ERR'
+Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
->from qianqian, four fixes for inappropriate operation in hns driver
-
->from Sheng, one fix for optimization of irq proccess in hns driver, and
-one fix for hilink status for hns driver.
-
-For more details, please see individual patches.
-
-MBR.
-
-Kejian Yan (1):
-  net: hns: fix warning of passing zero to 'PTR_ERR'
-
-Qianqian Xie (4):
-  net: hns: fix a bug for cycle index
-  net: hns: optimizate fmt of snprintf()
-  net: hns: bug fix for return values
-  net: hns: remove useless variable assignment and comment
-
-Sheng Li (2):
-  net: hns: optimizate irq proccess for HNS V2
-  net: hns: bug fix about getting hilink status for HNS v2
-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  3 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 +++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 40 ++++++++++++----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 16 ++++-----
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  4 +--
- 6 files changed, 41 insertions(+), 36 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 71aa37b..f0c9a41 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -913,10 +913,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
+ static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hnae_ring *ring = ring_data->ring;
+-	int head = ring->next_to_clean;
+-
+-	/* for hardware bug fixed */
+-	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
++	int head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
+ 
+ 	if (head != ring->next_to_clean) {
+ 		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
 -- 
 1.9.1
