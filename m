@@ -1,73 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/3] Control ethernet PHY LEDs via LED subsystem
-Date: Thu, 24 Mar 2016 14:29:35 +0100
-Message-ID: <20160324132935.GA15624@lunn.ch>
-References: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
- <20160323185006.GL5250@lunn.ch>
- <CAC3a_SCD6aMF=triCQDJrW9GQ3HOMMH9q_J9GEw56qrnwgFXKA@mail.gmail.com>
- <20160323211010.GF19953@lunn.ch>
- <CAC3a_SBjvQFT5XP2bH3TO_4wHnjZ3a3+XvfBy8StxQieEsavQQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: phy: at803x: Request 'reset' GPIO only for AT8030
+ PHY
+Date: Thu, 24 Mar 2016 16:40:58 +0300
+Message-ID: <56F3EE6A.5040304@cogentembedded.com>
+References: <56E99727.9040702@laposte.net>
+ <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
+ <20160318191242.GQ4292@pengutronix.de> <56EFEDAD.9030903@laposte.net>
+ <20160321135457.GX4292@pengutronix.de> <56F0150F.8080804@laposte.net>
+ <20160321201229.GA6191@pengutronix.de> <56F157EF.5080307@laposte.net>
+ <20160322194224.GF6191@pengutronix.de> <56F26BF7.3090201@laposte.net>
+ <56F274A5.6030502@laposte.net> <56F2F189.1030003@cogentembedded.com>
+ <56F3B9A2.9060801@laposte.net> <56F3BD28.4080908@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>, netdev@vger.kernel.org
-To: Vishal Thanki <vishalthanki@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:56054 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750749AbcCXN3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2016 09:29:38 -0400
-Content-Disposition: inline
-In-Reply-To: <CAC3a_SBjvQFT5XP2bH3TO_4wHnjZ3a3+XvfBy8StxQieEsavQQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <daniel@zonque.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mans Rullgard <mans@mansr.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
+	Linus Walleij <linus.walleij@linaro.org>
+To: Sebastian Frias <sf84@laposte.net>,
+	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <56F3BD28.4080908@laposte.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 23, 2016 at 10:24:45PM +0100, Vishal Thanki wrote:
-> On Wed, Mar 23, 2016 at 10:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> > On Wed, Mar 23, 2016 at 09:24:00PM +0100, Vishal Thanki wrote:
-> >> Hi,
-> >>
-> >> > My suggestion was that the hardware needs to control the LEDs. You
-> >> > have software doing it. You might be able to do this with the PHY
-> >> > state machine for link. But activity is never going to be accepted if
-> >> > software control.
-> >> >
-> >> > The LED trigger attached to an LED should be used to configure the
-> >> > hardware to drive the LED as wanted.
-> >> >
-> >>
-> >> The eth-phy-activity trigger uses the blink_set which I think uses the
-> >> hardware acceleration if available. I am not sure how to handles LEDs
-> >> which does not have hardware acceleration for this (eth-phy-activity)
-> >> trigger.
-> >
-> > We want the LED to blink on activity, real packets coming in and
-> > out. The PHY can do this, so let the PHY control the LED. In this
-> > case, the trigger is just mechanism for the user to say what the LED
-> > should be used for. The trigger is not itself controlling the LED, it
-> > has no idea about packets coming and going.
-> >
-> 
-> Yes, I understand that. But PHY can only control the LEDs attached to
-> it directly. The at803x led driver configures the PHY to blink the
-> activity LED based on traffic but I think it is not possible for PHY
-> to control other LEDs in system, for example some other LEDs in system
-> controlled only via GPIO. In such cases, putting PHY activity trigger
-> on the GPIO LEDs would not make sense. Correct me if I am wrong.
+On 03/24/2016 01:10 PM, Sebastian Frias wrote:
 
-Hi Vishal
+>>>     What I don't understand is why the link_change_notify() method ptr is
+>>> populated for all 3 supported chips while only being needed on 8030...
+>>
+>> You are right.
+>
+> I made the patch but I'm unsure about it because it could conflict with
+> yours.
+> I mean, I think you submitted a patch to change the GPIO handling on the
+> link_change_notify() function, right?
 
-All correct. Which is why i said in my original email, you need to
-extend the LED core to associate triggers to LEDs. You can then
-associate the eth-phy-activity trigger to only PHY leds which can
-implement that functionality.
+> Well, if we only register the callback for the AT8030, then there is no
+> more need for the callback to check the PHY ID.
+> However, if I change that, the whole block moves as I remove one
+> indentation level (the one required by the PHY ID check).
+>
+> Any suggestions on how to create a patch that won't conflict? I probably
+> need to use a tree that already has your patch applied.
 
-drivers/leds/led-triggers.c contains a global list
-LIST_HEAD(trigger_list) which triggers get added to using
-led_trigger_register(). You could add a second list to the
-led_classdev structure, and add an led_trigger_register_to_led()
-function which registers a trigger to a specific LED, on its own
-trigger list. led_trigger_store() and led_trigger_show() would use
-both lists.
+    My patch is already in Linus' tree, so should be merged back from net.git 
+into net-next.git
+soon. I suggest that you wait until net-next is open again.
 
-     Andrew
+> Best regards,
+>
+> Sebastian
+
+MBR, Sergei
