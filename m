@@ -1,107 +1,59 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Thu, 24 Mar 2016 16:54:03 -0700
-Message-ID: <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
-References: <20151219070009.GA4634@1wt.eu>
-	<CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
-	<20151221204127.GC8018@1wt.eu>
-	<CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
-	<20160324061222.GA6807@1wt.eu>
-	<1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160324142222.GB7237@1wt.eu>
-	<1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160324153053.GA7569@1wt.eu>
-	<1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160324165047.GA7585@1wt.eu>
-	<1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
-	<56F42A00.7050002@iogearbox.net>
-	<CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
-	<1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: =?UTF-8?Q?Re=3A_veth_regression_with_=22don=E2=80=99t_modify_ip=5Fsummed=3B_?=
+	=?UTF-8?Q?doing_so_treats_packets_with_bad_checksums_as_good=2E=22?=
+Date: Thu, 24 Mar 2016 16:56:03 -0700
+Message-ID: <CAM_iQpWv_iP1ZtsRQT0YsztMrf6rdaXN2V57PUu5oBe5kR56AQ@mail.gmail.com>
+References: <56F463D6.7080406@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Craig Gallek <cgallek@google.com>,
-	Josh Snyder <josh@code406.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Yann Ylavic <ylavic.dev@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
+	Vijay P <vijayp@vijayp.ca>, Cong Wang <cwang@twopensource.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:32950 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522AbcCXXyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 19:54:04 -0400
-Received: by mail-io0-f180.google.com with SMTP id c63so102792549iof.0
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 16:54:04 -0700 (PDT)
-In-Reply-To: <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:34750 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbcCXX4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 19:56:09 -0400
+Received: by mail-yw0-f177.google.com with SMTP id h129so80282793ywb.1
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 16:56:04 -0700 (PDT)
+In-Reply-To: <56F463D6.7080406@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2016 at 4:40 PM, Yann Ylavic <ylavic.dev@gmail.com> wrote:
-> On Thu, Mar 24, 2016 at 11:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Thu, 2016-03-24 at 23:40 +0100, Yann Ylavic wrote:
->>
->>> FWIW, I find:
->>>
->>>     const struct bpf_insn prog[] = {
->>>         /* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
->>>         { BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
->>>         /* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
->>>         { BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
->>>         /* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
->>>         { BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
->>>         /* BPF_EXIT_INSN() */
->>>         { BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
->>>     };
->>> (and all the way to make it run)
->>>
->>> something quite unintuitive from a web server developper perspective,
->>> simply to make SO_REUSEPORT work with forked TCP listeners (probably
->>> as it should out of the box)...
->>
->>
->> That is why EBPF has LLVM backend.
->>
->> Basically you can write your "BPF" program in C, and let llvm convert it
->> into EBPF.
+On Thu, Mar 24, 2016 at 3:01 PM, Ben Greear <greearb@candelatech.com> wrote:
+> I have an application that creates two pairs of veth devices.
 >
-> I'll learn how to do this to get the best performances from the
-> server, but having to do so to work around what looks like a defect
-> (for simple/default SMP configurations at least, no NUMA or clever
-> CPU-affinity or queuing policy involved) seems odd in the first place.
+> a <-> b       c <-> d
 >
-I disagree with your assessment that there is a defect. SO_REUSEPORT
-is designed to spread packets amongst _equivalent_ connections. In the
-server draining case sockets are no longer equivalent, but that is a
-special case.
+> b and c have a raw packet socket opened on them and I 'bridge' frames
+> between b and c to provide network emulation (ie, configurable delay).
+>
 
-> From this POV, draining the (ending) listeners is already non obvious
-> but might be reasonable, (e)BPF sounds really overkill.
->
-Just the opposite, it's a simplification. With BPF we no longer to add
-interfaces for all these special cases. This is an important point,
-because the question is going to be raised for any proposed interface
-change that could be accomplished with BPF (i.e. adding new interfaces
-in the kernel becomes the overkill).
+IIUC, you create two raw sockets in order to bridge these two veth pairs?
+That is, to receive packets on one socket and deliver packets on the other?
 
-Please try to work with it. As I mentioned, the part that we may be
-missing are some real world programs that we can direct people to use,
-but aside from that I don't think we've seen any arguments that BPF is
-overkill or too hard to use for stuff like this.
 
-Tom
+>
+> I put IP 1.1.1.1/24 on a, 1.1.1.2/24 on d, and then create a UDP connection
+> (using policy based routing to ensure frames are sent on the appropriate
+> interfaces).
+>
+> This is user-space only app, and kernel in this case is completely
+> unmodified.
+>
+> The commit below breaks this feature:  UDP frames are sniffed on both a and
+> d ports
+> (in both directions), but the UDP socket does not receive frames.
+>
+> Using normal ethernet ports, this network emulation feature works fine, so
+> it is
+> specific to VETH.
+>
+> A similar test with just sending UDP between a single veth pair:  e <-> f
+> works fine.  Maybe it has something to do with raw packets?
+>
 
-> But there are surely plenty of good reasons for it, and I won't be
-> able to dispute your technical arguments in any case ;)
->
->>
->> Sure, you still can write BPF manually, as you could write HTTPS server
->> in assembly.
->
-> OK, I'll take your previous proposal :)
+Yeah, I have the same feeling. Could you trace kfree_skb() to see
+where these packets are dropped? At UDP layer?
+
+Thanks.
