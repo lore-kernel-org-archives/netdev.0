@@ -1,89 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Thu, 24 Mar 2016 18:55:12 +0100
-Message-ID: <56F42A00.7050002@iogearbox.net>
-References: <20151219070009.GA4634@1wt.eu>	<CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>	<20151221204127.GC8018@1wt.eu>	<CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>	<20160324061222.GA6807@1wt.eu>	<1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>	<20160324142222.GB7237@1wt.eu>	<1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>	<20160324153053.GA7569@1wt.eu>	<1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>	<20160324165047.GA7585@1wt.eu>	<1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com> <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: ipv4: Multipath needs to handle unreachable
+ nexthops
+Date: Thu, 24 Mar 2016 10:55:24 -0700
+Message-ID: <1458842124.12033.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458833154-39091-1-git-send-email-dsa@cumulusnetworks.com>
+	 <1458837934.12033.6.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56F4274C.70707@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Craig Gallek <cgallek@google.com>,
-	Josh Snyder <josh@code406.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60214 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbcCXRzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 13:55:22 -0400
-In-Reply-To: <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33620 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753209AbcCXRz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 13:55:26 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 4so63972263pfd.0
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 10:55:26 -0700 (PDT)
+In-Reply-To: <56F4274C.70707@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/24/2016 06:26 PM, Tom Herbert wrote:
-> On Thu, Mar 24, 2016 at 10:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Thu, 2016-03-24 at 17:50 +0100, Willy Tarreau wrote:
->>> On Thu, Mar 24, 2016 at 09:33:11AM -0700, Eric Dumazet wrote:
->>>>> --- a/net/ipv4/inet_hashtables.c
->>>>> +++ b/net/ipv4/inet_hashtables.c
->>>>> @@ -189,6 +189,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
->>>>>                                  return -1;
->>>>>                          score += 4;
->>>>>                  }
->>>>> +               if (sk->sk_reuseport)
->>>>> +                       score++;
->>>>
->>>> This wont work with BPF
->>>>
->>>>>                  if (sk->sk_incoming_cpu == raw_smp_processor_id())
->>>>>                          score++;
->>>>
->>>> This one does not work either with BPF
->>>
->>> But this *is* in 4.5. Does this mean that this part doesn't work anymore or
->>> just that it's not usable in conjunction with BPF ? In this case I'm less
->>> worried, because it would mean that we have a solution for non-BPF aware
->>> applications and that BPF-aware applications can simply use BPF.
->>
->> BPF can implement the CPU choice/pref itself. It has everything needed.
->>
->>> I don't try to reimplement something already available, but I'm confused
->>> by a few points :
->>>    - the code above already exists and you mention it cannot be used with BPF
->>
->> _If_ you use BPF, then you can implement a CPU preference using BPF
->> instructions. It is a user choice.
->>
->>>    - for the vast majority of applications not using BPF, would the above *still*
->>>      work (it worked in 4.4-rc at least)
->>
->>>    - it seems to me that for BPF to be usable on process shutting down, we'd
->>>      need to have some form of central knowledge if the goal is to redefine
->>>      how to distribute the load. In my case there are multiple independant
->>>      processes forked on startup, so it's unclear to me how each of them could
->>>      reconfigure BPF when shutting down without risking to break the other ones.
->>>    - the doc makes me believe that BPF would require privileges to be unset, so
->>>      that would not be compatible with a process shutting down which has already
->>>      dropped its privileges after startup, but I could be wrong.
->>>
->>> Thanks for your help on this,
->>> Willy
->>
->> The point is : BPF is the way to go, because it is expandable.
->>
->> No more hard points coded forever in the kernel.
->>
->> Really, when BPF can be the solution, we wont allow adding new stuff in
->> the kernel in the old way.
->
-> I completely agree with this, but I wonder if we now need a repository
-> of useful BPF modules. So in the case of implementing functionality
-> like in SO_REUSEPORT_LISTEN_OFF that might just become a common BPF
-> program we could direct people to use.
+On Thu, 2016-03-24 at 11:43 -0600, David Ahern wrote:
+> On 3/24/16 10:45 AM, Eric Dumazet wrote:
+> > On Thu, 2016-03-24 at 08:25 -0700, David Ahern wrote:
+> >> Multipath route lookups should consider knowledge about next hops and not
+> >> select a hop that is known to be failed.
+> >
+> > Does not look a net candidate to me.
+> 
+> you don't consider this a bug? certainly not a feature.
 
-Good point. There's tools/testing/selftests/net/ containing already reuseport
-BPF example, maybe it could be extended.
+For a bug that lasted years, certainly the fix can be properly tested in
+net-next, then eventually backported to stable once validated.
+
+Unless there is a sudden concern about known ways to crash linux
+hosts ;)
