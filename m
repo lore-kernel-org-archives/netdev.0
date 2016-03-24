@@ -1,226 +1,86 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
-Date: Thu, 24 Mar 2016 16:35:18 -0700
-Message-ID: <CAKgT0UcoVV-_LrLPRoK4PLim5Nn-Z7gOV9LZF_RMXDOU8aCciA@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain>
-	<20160318232522.14955.13475.stgit@localhost.localdomain>
-	<56F17A13.8090701@solarflare.com>
-	<CAKgT0Ud9uPG+9AdT47Q1VygLBnjygyY29sRf=y4Pqe=f2e+bkw@mail.gmail.com>
-	<56F19FAA.3090005@solarflare.com>
-	<CAKgT0UcAuOrBTcmj1ue8mK=j4dCqr-0bydHhRb+ghS1cZaUqrw@mail.gmail.com>
-	<56F2C3F8.8070308@solarflare.com>
-	<CAKgT0Uei6YrWRPaov3LAFrOima=o4+V4mQcFih-rHZ+w-x4hwA@mail.gmail.com>
-	<56F30523.8080108@solarflare.com>
-	<CAKgT0UfgKwSRjMwRHbDNawAyJ3jvz937j1jxGvJWRaD39bSSeQ@mail.gmail.com>
-	<56F3200C.20200@solarflare.com>
-	<CAKgT0UfyOc4tYhZq7CC5G4S5HdzPW3iSifdcwe20Vxsqu8C3LQ@mail.gmail.com>
-	<56F41FFF.7000508@solarflare.com>
-	<CAKgT0UeW7A6cMRHm8_nEX=op_VAK5wcoYYRTNQVmMQWe02HdfA@mail.gmail.com>
-	<56F44B56.9070206@solarflare.com>
-	<CAKgT0Uc083WTmag4_B5LkVvi+iDoFtEjB0Xx4u92-Wu5S=6mzw@mail.gmail.com>
-	<56F47171.4070003@solarflare.com>
+From: Yann Ylavic <ylavic.dev@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 25 Mar 2016 00:40:32 +0100
+Message-ID: <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+References: <20151219070009.GA4634@1wt.eu>
+	<CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
+	<20151221204127.GC8018@1wt.eu>
+	<CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
+	<20160324061222.GA6807@1wt.eu>
+	<1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324142222.GB7237@1wt.eu>
+	<1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324153053.GA7569@1wt.eu>
+	<1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324165047.GA7585@1wt.eu>
+	<1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+	<56F42A00.7050002@iogearbox.net>
+	<CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+	<1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
-To: Edward Cree <ecree@solarflare.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Willy Tarreau <w@1wt.eu>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Craig Gallek <cgallek@google.com>,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:34406 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751794AbcCXXfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 19:35:19 -0400
-Received: by mail-ig0-f172.google.com with SMTP id av4so4245728igc.1
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 16:35:19 -0700 (PDT)
-In-Reply-To: <56F47171.4070003@solarflare.com>
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:35059 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159AbcCXXkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 19:40:33 -0400
+Received: by mail-qg0-f65.google.com with SMTP id c67so5316575qgc.2
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 16:40:33 -0700 (PDT)
+In-Reply-To: <1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2016 at 4:00 PM, Edward Cree <ecree@solarflare.com> wrote:
-> On 24/03/16 21:50, Alexander Duyck wrote:
->> On Thu, Mar 24, 2016 at 1:17 PM, Edward Cree <ecree@solarflare.com> wrote:
->>> (Besides, I thought it was impossible for the partial checksum to be zero
->>> anyway because at least one of the inputs must be nonzero, and the end-
->>> around carry can never produce a zero.  But maybe I'm getting confused here.)
->>
->> I forgot about that bit.  I think you are right.  We end up inverting
->> the output from csum fold so we are back to 0x1 - 0xFFFF as possible
->> values.
-> Yes, it seems csum_fold inverts it and then the relevant callers invert it
-> again.  (I hadn't spotted either inversion, so I panicked for a moment when
-> I thought it was getting inverted just once.)
+On Thu, Mar 24, 2016 at 11:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-03-24 at 23:40 +0100, Yann Ylavic wrote:
 >
->>> The headers should already be in cache, I thought, and this is only happening
->>> once per superframe.  We're already going to have to crawl through the headers
->>> anyway to edit the lengths, I don't think it should cost much more to also
->>> inspect things like GRE csum bit or the UDP checksum field.  And by
->>> identifying the 'next header' from this method as well, we don't need to add a
->>> new SKB_GSO_FOO bit or two every time we add another kind of encapsulation to
->>> the kernel.
+>> FWIW, I find:
 >>
->> Right, but this gets back into the hardware flags issue.  The whole
->> reason for SKB_GSO_FOO and SKB_GSO_FOO_CSUM is because hardware
->> typically supports one but not the other.
-
-> Right, and for hardware supporting a specific GSO_FOO[_CSUM], we'll still
-> need the flags - but in that case we'll be doing "old style" TSO anyway.
-> GSO partial only really makes sense for a device that isn't (or at least can
-> be prevented from) parsing the tunnel headers, and such hardware will support
-> GSO_PARTIAL only, not a profusion of GSO_FOO (with or without _CSUM).
+>>     const struct bpf_insn prog[] = {
+>>         /* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
+>>         { BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
+>>         /* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
+>>         { BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
+>>         /* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
+>>         { BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
+>>         /* BPF_EXIT_INSN() */
+>>         { BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
+>>     };
+>> (and all the way to make it run)
+>>
+>> something quite unintuitive from a web server developper perspective,
+>> simply to make SO_REUSEPORT work with forked TCP listeners (probably
+>> as it should out of the box)...
 >
-> So: in the initial transmit path we build a coherent superframe; when we get
-> to the device, we say either "oh, device doesn't support offloads at all,
-> call GSO", or "oh, device supports this particular GSO type for TSO, so give
-> it the superframe SKB to do what it wants with", or "oh, device supports
-> GSO_PARTIAL, let's call skb_mac_gso_partial [i.e. chain of new callbacks I
-> was describing in previous email] and then give the non-coherent SKB to the
-> device".
-
-What you are proposing is essentially forking GSO.  I really don't
-like that.  I prefer the approach we have now where essentially GSO
-partial is something checked for at the very end and we have a few
-checks when putting together the headers so we do the right thing.
-
-> And in that last case it doesn't matter what the GSO type is, because the
-> hardware can handle anything as long as we transform it into GSO partial.
-
-Yes and no.  The problem is trying to figure out what the device
-supports.  The hw_enc_features flags are only meant to be used with
-one layer of tunnels.  Are you suggesting we add some code to make
-sure the GSO tunnel types are kept mutually exclusive and add an extra
-offload that forces GSO/GSO_PARTIAL if they aren't?
-
-This is sounding very complicated.  I think we would be better off if
-you took the time to try and implement some of this yourself so you
-could see how feasible it is.
-
->> The other thing to keep in mind is it is much easier to figure out
->> what offloads we can make use of when we are only dealing with at most
->> 1 layer of tunnels.  When we start getting into stacked tunnels it
->> really becomes impossible to figure out what features in the hardware
->> we can still make use of.  You throw everything and the kitchen sink
->> on it and we have to give up and would be doing everything in
->> software.  At least if we restrict the features being requested the
->> hardware has a chance to perhaps be useful.
-
-> I think all the protocol-specific offloads can just say "don't even try
-> if you've got stacked tunnels"; it's not something I expect current
-> hardware to support, and if GSO partial works out then a hw vendor would
-> have to be crazy to add such support in the future.  But GSO partial
-> doesn't care about stacked tunnels, it still works.  Unless of course
-> someone in the middle wants to change their IP IDs or GRE Counter or
-> whatever, in which case they can mark the skb as "not gso_partial-safe"
-> when they first build their header, or their gso_partial callback can
-> return "nope", and then we fall back on a protocol-specific offload (if
-> one's available, which it won't be for stacked tunnels) or software
-> segmentation.
-
-That is basically what happens now.  When the tunnel gets configured
-if there are any options that would prevent GSO from working then the
-tunnel disables TSO support.  That way the frames are segmented
-further up the stack and then come through and are built around the
-segmented frames.
-
->> For example one of the reasons why I know the outer UDP checksum works
->> the way it does with tunnel GSO is because the i40e and i40evf drivers
->> already have hardware that supports UDP_TUNNEL_CSUM.  As such in order
->> to do what you are proposing we would likely have to rip that code out
->> and completely rewrite it since it would change out the checksum value
->> given to the device.
-
-> I'm not sure I understand, so bear with me.  AIUI, UDP_TUNNEL_CSUM means
-> that the device will fill in both inner and outer L4 checksums.  But it can
-> only do that if it knows where the inner and outer L4 headers *are*, and I
-> thought you were going to tell it not to treat it as a tunnel at all, but
-> instead as a giant L3 header.  So it won't touch the outer L4 checksum at
-> all (and, in the case of stacked tunnels, it wouldn't touch the 'middle'
-> one either - it only sees the innermost L4 header).
-
-There is hardware that supports this already without GSO partial.
-Specifically the i40e driver supports a XL722 device that supports
-doing the outer UDP tunnel checksum in addition to the inner TCP
-checksum.  I'm suspecting there will be hardware from other vendors in
-the near future that will have support as well.
-
-The ixgbe and igb drivers will be taking the giant L3 header approach.
-
-> So while the driver would need to change to add GSO_partial support, the
-> hardware wouldn't.
-> Where am I going wrong?
 >
->> I'm not going to get into an argument over the merits of PMTU.  The
->> fact is I don't believe it is worth the effort in order to enable the
->> tunnel-in-tunnel case you envision.
+> That is why EBPF has LLVM backend.
+>
+> Basically you can write your "BPF" program in C, and let llvm convert it
+> into EBPF.
 
-> I agree it's not worth the effort to implement it right now.  But some day
-> it will be, and at that point, if we've designed GSO partial the way I'm
-> arguing for, it will just magically start working when we disable
-> fragmentation on inner tunnels.  And in the meantime we'll be using a more
-> generic interface that hopefully won't encourage driver (and hardware)
-> designers to see the gso_type enum as a list of protocols to support.
-> Again, tunnel-in-tunnel isn't important in itself, but as a canary for
-> "can we support whatever encapsulation protocol comes down the pike";
-> arguing that you won't be able to set DF on your inner tunnel because
-> operational consideration XYZ is missing the point IMHO.
+I'll learn how to do this to get the best performances from the
+server, but having to do so to work around what looks like a defect
+(for simple/default SMP configurations at least, no NUMA or clever
+CPU-affinity or queuing policy involved) seems odd in the first place.
 
-It turns out that UDP tunnels seem to be the only real problem child
-in terms of the DF bit.  I was looking over the GRE code and it
-already sets the DF bit and supports PMTU.  Odds are we would probably
-need to figure out how to borrow code from there and apply it to the
-UDP tunnels.
+>From this POV, draining the (ending) listeners is already non obvious
+but might be reasonable, (e)BPF sounds really overkill.
 
->> Also another thing to keep in mind is you would have to find a way to
->> identify that a tunnel requesting to be segmented is setting the DF
->> bit in the outer headers.
-> But that's easy, as above: either foo_xmit sets a "don't GSO-partial me"
-> flag in the SKB, or foo_gso_partial returns -EMIGHTBEFRAGMENTED.  The
-> former is probably preferable for performance reasons.
+But there are surely plenty of good reasons for it, and I won't be
+able to dispute your technical arguments in any case ;)
 
-Still ugly.
+>
+> Sure, you still can write BPF manually, as you could write HTTPS server
+> in assembly.
 
-Honestly I don't know if it is worth all this trouble because we are
-just as likely to run out of headroom which would probably be a more
-expensive operation then giving up on the segmentation offloads and
-only supporting HW_CSUM anyway.
-
->>>> On top of that it occurred to me that GRE cannot be screened in GRO
->>>> for the outer-IP-ID check.  Basically what can happen is on devices
->>>> that don't parse inner headers for GRE we can end up with two TCP
->>>> flows from the same tunnel essentially stomping on each other and
->>>> causing one another to get evicted for having an outer IP-ID that
->>>> doesn't match up with the expected value.
->>
->>> Yes, that does seem problematic - you'd need to save away the IPID check
->>> result and only evict once you'd ascertained they were the same flow.  All
->>> the more reason to try to make your tunnels use DF *grin*.
->>
->> Feel free to solve the problem if you believe it is that easy.  There
->> is nothing in my patches to prevent that.
-
-> I'm not saying it's easy.  The GRO side of your patches look great to me
-> and I think you're more likely to solve it than I am.  But I will have a
-> go at it too, if I have time.
-
-My concern is that what you are talking about ends up being a pretty
-significant change to the transmit path itself.  Really the stack
-doesn't want things segmented like that until you hit the GSO layer
-and I think that might be where you run into issues.
-
-> Though I must admit, I don't quite understand why we have to restrict to
-> (incrementing or constant) in GRO, rather than just saying "it's DF, we
-> can ignore the IP IDs and just aggregate it all together".  We won't be
-> producing the original IP IDs anyway if we resegment, because we don't
-> know whether they were originally incrementing or constant.  (In other
-> words, "RFC6864 compliant GRO" as you've defined it can reverse either
-> GSO or GSO partial, but GSO (in either form) can't always reverse
-> RFC6864 compliant GRO.)
-
-Actually for v2 of this GRO code I am taking the "it's DF just ignore
-the IP ID entirely" approach.  Basically IPv4 with DF set will behave
-the same as IPv6 by setting flush_id to 0 instead of computing the
-offset.  I realized I was still deriving information from the IP ID
-and RFC 6864 says we cannot do that for atomic datagrams.
-
-- Alex
+OK, I'll take your previous proposal :)
