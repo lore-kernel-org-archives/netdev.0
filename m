@@ -1,182 +1,116 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] net: ipv4: Multipath needs to handle unreachable
- nexthops
-Date: Fri, 25 Mar 2016 00:33:41 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1603242201200.1795@ja.home.ssi.bg>
-References: <1458833154-39091-1-git-send-email-dsa@cumulusnetworks.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
+Date: Thu, 24 Mar 2016 15:36:23 -0700
+Message-ID: <6193B00B-757B-44B8-9B71-0292E5FD432D@gmail.com>
+References: <20160216203625.GC2558@lunn.ch> <20160216.154358.164326104187806534.davem@davemloft.net> <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com> <20160216.155244.2052910262411568012.davem@davemloft.net> <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com> <20160216221536.GB6033@lunn.ch> <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com> <20160219201415.GA9884@lunn.ch> <90A7E81AE28BAE4CBDDB3B35F187D264402F31B5@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Bryan.Whitehead@microchip.com, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:37006 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750772AbcCXWds (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2016 18:33:48 -0400
-In-Reply-To: <1458833154-39091-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:36502 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750794AbcCXWgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 18:36:33 -0400
+Received: by mail-pa0-f43.google.com with SMTP id tt10so32785650pab.3
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 15:36:33 -0700 (PDT)
+In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402F31B5@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On March 24, 2016 2:16:30 PM PDT, Bryan.Whitehead@microchip.com wrote:
+>> -----Original Message-----
+>Hi Andrew,
+>
+>Sorry to bother you with this. But I'm having major difficulty with
+>getting my dsa driver entry points called.
+>
+>Here is what I've done so far.
+>
+>I copied drivers/net/dsa/mv88x6060.c into
+>drivers/net/dsa/mchp9352_dsa.c
+>I then modified mchp9352_dsa.c as follows
+>I emptied out the function bodies, and replaced them with a printk("Not
+>Implemented\n");
+>
+>I did the same thing with net/dsa/tag_trailer.c which was copied into
+>net/dsa/tag_mchp9352.c
+>And function bodies were replaced with printk("Not Implemented\n");
+>
+>I also modified net/dsa/dsa.c, and net/dsa/slave.c, to include the
+>hooks into my new tag files.
+>
+>My intent was to just see one of my "Not Implemented" functions called,
+>and then I would focus on implementing it.
+>
+>But so far I have not seen any of my "Not Implemented" functions
+>called.
+>
+>Here is what I know so far.
+>
+>It appears the dsa.c is not able to attach my underlying net device.
+>And that seems to be due to it is unable to find the mdio_bus. 
+>So I modified my net device driver so that in probe it calls
+>of_mdiobus_register instead of mdiobus_register.
+>And of_mdiobus_register seems to be looking for some kind of phy
+>definitions in the device tree, which it does not find. And so it does
+>not appear to register the bus in such a way that dsa.c can connect to
+>it.
 
-	Hello,
+If the lan9352 HW has a MDIO bus, which connects to internal switch, or PHYs from the switch, there must be an mii_bus structure allocated and registered to make that available.
 
-On Thu, 24 Mar 2016, David Ahern wrote:
+>
+>So the problem appears to be an issue with my device tree, which is
+>partially shown below.
+>
+>&gpmc {
+>	status = "okay";
+>	ranges = <0 0 0x10000000 0x08000000>;	// CS0: 128M 
+>	pinctrl-names = "default";
+>	pinctrl-0 = <&gpmc_pins>;
+>	lan9352: ethernet@gpmc {
+>		compatible = "microchip,lan9352";
+>		interrupt-parent = <&gpio0>;
+>		interrupts = <7 8>;//7==GPIO bit 7, 8 = Active low level triggered.
+>
+>		bank-width = <2>;
+>
+>		phy-mode = "mii";
 
-> Multipath route lookups should consider knowledge about next hops and not
-> select a hop that is known to be failed.
+Having a phy-mode without a phy-handle property or fixed-phy subnode does not sound correct nor useful.
 
-...
+Considering that you are interfaced to a built-in switch a fixed-link subnode is needed to tell the Ethernet MAC about the link parameters. See drivers/net/ethernet/broadcom/bcmsysport.c for an example by grepping for fixed_phy.
 
-> The failed path can be avoided by considering known neighbor information
-> when selecting next hops. If the neighbor lookups fails we have no
-> knowledge about the nexthop, so give it a shot. If there is an entry
-> then only select the nexthop if the state is sane. This is similar to
-> what fib_detect_death does for some single path cases.
+>
+>		reg = <0 0 0x10000>;
+>
+>		reg-io-width = <4>;
+>		microchip,save-mac-address;
+>		microchip,irq-push-pull;
+>
+>	};
+>};
+>
+>/ {
+>	dsa@0 {
+>		compatible = "microchip,dsa";
 
-	fib_detect_death works with alternatives and
-the neighbor status is used as the only present info
-in kernel.
+Did you also update net/dsa/dsa.c so it tries to match this compatible string? DSA is right now a platform device (though there is pending working from Andrew to change that) so we need a way to probe DSA.
 
-	But for multipath routes we can also consider the
-nexthops as "alternatives", so it depends on how one uses
-the multipath mechanism. The ability to fallback to
-another nexthop assumes one connection is allowed to
-move from one ISP to another. What if the second ISP
-decides to reject the connection? What we have is a
-broken connection just because the retransmits
-were diverted to wrong place in the hurry. So, the
-nexthops can be compatible or incompatible. For your
-setup they are, for others they are not.
 
-	For multipath setups I recall for the following
-possible cases:
+>		#address-cells = <2>;
+>		#size-cells = <0>;
+>		dsa,ethernet = <&lan9352>;
 
-1. Every packet from connection hits multipath route
-and what we want is the connection to use only one
-nexthop. If nexthop fails then the connection fails.
-Latest changes for the multipath algorithm chose this
-option: use hash to map traffic to nexthop and any
-fallbacks to another nexthop are not allowed because
-we should follow the hash mapping. Works when nexthops
-use different ISPs.
+That looks correct.
 
-2. Only the first packet hits multipath route. With
-the help from CONNMARK all next packets from connection
-use the same nexthop by using another unicast route.
-The goal here is the multipath route to be used just to
-balance connections. This works best when the nexthop
-selection was random and not a hash based. This was
-how the previous algorithm worked. Fallbacks are
-desired because it is fine to select alive nexthop
-for the first packet, but wrong for the next packets.
+>		dsa,mii-bus = <&lan9352>;
 
-	My preference was for the random selection,
-I don't know why we restricted the new algorithm. May be
-because in the common case when just a single default
-multipath route is created we want to use all nexthops
-in a ideal world where all nexthops are alive.
+But not that one, this must point to a device tree node which is a MDIO bus controller. It could be a sub-node to lan9352 provided that there is a way to expose a MDIO bus controller.
 
-	So, if the kernel used a random selection
-your fallback algorithm should help. But it is fragile
-for the simple setup with single default multipath route.
-May be what we miss is the ability to choose between
-random and hash-based selection. Then your patch may be
-useful but only for setup 2 (multipath route hit only by
-first packet). So, your patch may come with a sysctl var
-that explains your current patch logic: "avoid failed nexthops,
-never probe them, wait their failed entry to be expired by
-neigh_periodic_work and just then we can use the nexthop
-by creating new entry to probe the GW". Who will trigger
-probes often enough to maintain fresh state?
+Moving forward, with Andrew's latest patches included, this may become entirely optional, but it is not just now.
 
-	Also, one may argue that such decisions should
-be done in user space. It is common the direct routers
-to answer ARP even while their uplink is down. In
-the common case, one may need to ping 2-3 indirect
-gateways to decide if a path is alive and then to recreate
-the default multipath route.
-
-	More comments below...
-
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  net/ipv4/fib_semantics.c | 34 ++++++++++++++++++++++++++++++++--
->  1 file changed, 32 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index d97268e8ff10..28fc6700c2b1 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -1563,13 +1563,43 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->  void fib_select_multipath(struct fib_result *res, int hash)
->  {
->  	struct fib_info *fi = res->fi;
-> +	struct neighbour *n;
-> +	int state;
->  
->  	for_nexthops(fi) {
->  		if (hash > atomic_read(&nh->nh_upper_bound))
->  			continue;
->  
-> -		res->nh_sel = nhsel;
-> -		return;
-> +		state = NUD_NONE;
-> +		n = neigh_lookup(&arp_tbl, &nh->nh_gw, fi->fib_dev);
-
-	Sometimes nh_gw is a local IP, you can call
-neigh_lookup (or a lockless RCU-BH variant) only for the
-nh_scope == RT_SCOPE_LINK case, just like in fib_select_default.
-
-> +		if (n) {
-> +			state = n->nud_state;
-> +			neigh_release(n);
-> +		}
-> +		if (!n || (state == NUD_REACHABLE) || (state & NUD_VALID)) {
-
-	NUD_REACHABLE is part of NUD_VALID, so this is shorter:
-
-	if (!n || (state & NUD_VALID)) {
-
-> +			res->nh_sel = nhsel;
-> +			return;
-> +		}
-> +	} endfor_nexthops(fi);
-> +
-> +	/* try the nexthops again, but covering the entries
-> +	 * skipped by the hash
-> +	 */
-> +	fi = res->fi;
-> +	for_nexthops(fi) {
-> +		if (hash <= atomic_read(&nh->nh_upper_bound))
-
-	This is dangerous, we can try a RTNH_F_DEAD entry
-with nh_upper_bound = -1. This can work with 2 checks:
-
-	if (hash <= atomic_read(&nh->nh_upper_bound))
-		break;
-	if (atomic_read(&nh->nh_upper_bound) < 0)
-		continue;
-
-> +			continue;
-> +
-> +		state = NUD_NONE;
-> +		n = neigh_lookup(&arp_tbl, &nh->nh_gw, fi->fib_dev);
-> +		if (n) {
-> +			state = n->nud_state;
-> +			neigh_release(n);
-> +		}
-> +		if (!n || (state == NUD_REACHABLE) || (state & NUD_VALID)) {
-> +			res->nh_sel = nhsel;
-> +			return;
-> +		}
->  	} endfor_nexthops(fi);
-
-	If all are failed why not use the nexthop that was
-selected by the hash? Even if it is failed, new ARP probe
-can succeed.
-
->  	/* Race condition: route has just become dead. */
-> -- 
-> 1.9.1
-
-Regards
+-- 
+Florian
