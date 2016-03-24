@@ -1,64 +1,49 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: [PATCH] netpoll: Fix extra refcount release in netpoll_cleanup()
-Date: Thu, 24 Mar 2016 11:13:34 -0500
-Message-ID: <20160324161334.31279.26510.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+From: "Mrs. Ann " <tyuuiioigh1@jhmdfjhnm.my.vg>
+Subject: Attn My Dear
+Date: Thu, 24 Mar 2016 09:29:23 -0700
+Message-ID: <BLUPR18MB0017BE20A2B3D201EF634CB5A6820@BLUPR18MB0017.namprd18.prod.outlook.com>
+Reply-To: <dhlbenin35@yahoo.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, Neil Horman <nhorman@redhat.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <tyuuiioigh1@jhmdfjhnm.my.vg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2un0252.outbound.protection.outlook.com ([65.55.169.252]:37184
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751834AbcCXQ3q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 12:29:46 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
-fails, it correctly does a dev_put() but leaves np->dev set.  If we call
-netpoll_cleanup() after the failure, np->dev is still set so we do another
-dev_put(), which decrements the refcount an extra time.
+Attn My Dear
+We have finally arranged to deliver your package worth $5.8m USD
+Through (DHL) Company. We were able to accomplish this through the help
+Of IMF director Anderson Morgan and every necessary arrangement has
+Been made successfully.
 
-It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
-but it can be difficult to find the problem, and we can easily avoid it in
-this case.  The extra decrements can lead to hangs like this:
+Contact Dr.mark milliams
+Telephone: (+229-99653283)
+Email: (dhlbenin35@yahoo.in)
 
-  unregister_netdevice: waiting for bond0 to become free. Usage count = -3
+Contact the (DHL) with your delivery information such as:
 
-In __netpoll_setup(), don't set np->dev until we know we're going to
-succeed.
+(1) Full names ---
+(2) Phone line ---
+(3) Country -----
+(4) Age/sex ------
+(5) Occupation:---
+(6)Home address:--
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+And also be informed that delivery agent will leave to this country as
+soon as you proceed with (DHL) Company and please ask them how much is they Security Keeping fee to enable the agent live this country by tomorrow morning please I am waiting to hear from you thank you and God bless
+
+Sincerely
+Mrs. Ann Godwin
+
+
+
 ---
- net/core/netpoll.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 94acfc8..32e373e 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -603,7 +603,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 	const struct net_device_ops *ops;
- 	int err;
- 
--	np->dev = ndev;
- 	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
- 	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
- 
-@@ -628,7 +627,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 
- 		atomic_set(&npinfo->refcnt, 1);
- 
--		ops = np->dev->netdev_ops;
-+		ops = ndev->netdev_ops;
- 		if (ops->ndo_netpoll_setup) {
- 			err = ops->ndo_netpoll_setup(ndev, npinfo);
- 			if (err)
-@@ -639,6 +638,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 		atomic_inc(&npinfo->refcnt);
- 	}
- 
-+	np->dev = ndev;
- 	npinfo->netpoll = np;
- 
- 	/* last thing to do is link it to the net device structure */
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
