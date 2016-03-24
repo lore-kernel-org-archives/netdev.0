@@ -1,93 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Thu, 24 Mar 2016 10:01:37 -0700
-Message-ID: <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20151219070009.GA4634@1wt.eu>
-	 <CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
-	 <20151221204127.GC8018@1wt.eu>
-	 <CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
-	 <20160324061222.GA6807@1wt.eu>
-	 <1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160324142222.GB7237@1wt.eu>
-	 <1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160324153053.GA7569@1wt.eu>
-	 <1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160324165047.GA7585@1wt.eu>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
+Date: Thu, 24 Mar 2016 17:12:31 +0000
+Message-ID: <56F41FFF.7000508@solarflare.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+ <20160318232522.14955.13475.stgit@localhost.localdomain>
+ <56F17A13.8090701@solarflare.com>
+ <CAKgT0Ud9uPG+9AdT47Q1VygLBnjygyY29sRf=y4Pqe=f2e+bkw@mail.gmail.com>
+ <56F19FAA.3090005@solarflare.com>
+ <CAKgT0UcAuOrBTcmj1ue8mK=j4dCqr-0bydHhRb+ghS1cZaUqrw@mail.gmail.com>
+ <56F2C3F8.8070308@solarflare.com>
+ <CAKgT0Uei6YrWRPaov3LAFrOima=o4+V4mQcFih-rHZ+w-x4hwA@mail.gmail.com>
+ <56F30523.8080108@solarflare.com>
+ <CAKgT0UfgKwSRjMwRHbDNawAyJ3jvz937j1jxGvJWRaD39bSSeQ@mail.gmail.com>
+ <56F3200C.20200@solarflare.com>
+ <CAKgT0UfyOc4tYhZq7CC5G4S5HdzPW3iSifdcwe20Vxsqu8C3LQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Tom Herbert <tom@herbertland.com>, cgallek@google.com,
-	Josh Snyder <josh@code406.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33553 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313AbcCXRBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 13:01:40 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 4so62998650pfd.0
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 10:01:40 -0700 (PDT)
-In-Reply-To: <20160324165047.GA7585@1wt.eu>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:54203 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751548AbcCXRRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 13:17:12 -0400
+In-Reply-To: <CAKgT0UfyOc4tYhZq7CC5G4S5HdzPW3iSifdcwe20Vxsqu8C3LQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-03-24 at 17:50 +0100, Willy Tarreau wrote:
-> On Thu, Mar 24, 2016 at 09:33:11AM -0700, Eric Dumazet wrote:
-> > > --- a/net/ipv4/inet_hashtables.c
-> > > +++ b/net/ipv4/inet_hashtables.c
-> > > @@ -189,6 +189,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
-> > >                                 return -1;
-> > >                         score += 4;
-> > >                 }
-> > > +               if (sk->sk_reuseport)
-> > > +                       score++;
-> > 
-> > This wont work with BPF
-> > 
-> > >                 if (sk->sk_incoming_cpu == raw_smp_processor_id())
-> > >                         score++;
-> > 
-> > This one does not work either with BPF
-> 
-> But this *is* in 4.5. Does this mean that this part doesn't work anymore or
-> just that it's not usable in conjunction with BPF ? In this case I'm less
-> worried, because it would mean that we have a solution for non-BPF aware
-> applications and that BPF-aware applications can simply use BPF.
-> 
+On 23/03/16 23:15, Alexander Duyck wrote:
+> Right, but the problem becomes how do you identify what tunnel wants
+> what.  So for example we could theoretically have a UDP tunnel in a
+> UDP with checksum.  How would we tell which one want to have the
+> checksum set and which one doesn't?  The fact is we cannot.
+I think we can still handle that, assuming the device is only touching the
+innermost checksum (i.e. it's obeying csum_start/offset).  We don't need
+flags to tell us what to fill in in GSO, we can work it all out:
+Make the series of per-protocol callbacks for GSO partial run inner-
+outwards, by using recursion at the head.  Make each return a csum_edit
+value.  Then for example:
+For IPv4 header, our checksum covers only our header, so we fold any edits
+into our own checksum, and pass csum_edit through unchanged.
+For UDP header, we look to see if the current checksum field is zero.  If
+so, we leave it as zero, fold our edits into csum_edit and return the
+result.  Otherwise, we fold our edits and csum_edit into our checksum
+field, and return zero.
+For GRE, we look at the checksumming bit in the GRE header, and behave
+similarly to UDP.
+Etcetera...
 
-BPF can implement the CPU choice/pref itself. It has everything needed.
+This should even be a worthwhile simplification of the non-nested case,
+because (if I understand correctly) it means GSO partial doesn't need the
+various gso_type flags we already have to specify tunnel type and checksum
+status; it just figures it out as it goes.
 
-> I don't try to reimplement something already available, but I'm confused
-> by a few points :
->   - the code above already exists and you mention it cannot be used with BPF
+If your device is touching other checksums as well, then of course you need
+to figure that out in your driver so you can cancel it out.  But the device
+will only fiddle with the headers you tell it about (in your case I think
+that's outermost L3), not any others in the middle.  So it should still all
+work, without the driver having to know about the nesting.
 
-_If_ you use BPF, then you can implement a CPU preference using BPF
-instructions. It is a user choice.
+> You are
+> looking too far ahead.  We haven't gotten to tunnel in tunnel yet.
+IMHO, if our offloads are truly generic, tunnel in tunnel should be low-
+hanging fruit.  (In principle, "VxLAN + Ethernet + IP + GRE" is just
+another encapsulation header, albeit a rather long one).  Therefore, if
+it _isn't_ low-hanging fruit for us, we should suspect that we aren't
+generic.  So even if it's not currently useful in itself, it's still a
+convenient canary.
 
->   - for the vast majority of applications not using BPF, would the above *still*
->     work (it worked in 4.4-rc at least)
-
-
->   - it seems to me that for BPF to be usable on process shutting down, we'd
->     need to have some form of central knowledge if the goal is to redefine
->     how to distribute the load. In my case there are multiple independant
->     processes forked on startup, so it's unclear to me how each of them could
->     reconfigure BPF when shutting down without risking to break the other ones.
->   - the doc makes me believe that BPF would require privileges to be unset, so
->     that would not be compatible with a process shutting down which has already
->     dropped its privileges after startup, but I could be wrong.
-> 
-> Thanks for your help on this,
-> Willy
-> 
-
-The point is : BPF is the way to go, because it is expandable.
-
-No more hard points coded forever in the kernel.
-
-Really, when BPF can be the solution, we wont allow adding new stuff in
-the kernel in the old way.
+-Ed
