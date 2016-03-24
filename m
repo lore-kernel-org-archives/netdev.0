@@ -1,66 +1,93 @@
-From: John Keeping <john@metanate.com>
-Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
-Date: Thu, 24 Mar 2016 17:01:19 +0000
-Message-ID: <20160324170119.28d54ed5.john@metanate.com>
-References: <1458817012-14293-1-git-send-email-john@metanate.com>
-	<56F3E3E2.6070001@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Thu, 24 Mar 2016 10:01:37 -0700
+Message-ID: <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20151219070009.GA4634@1wt.eu>
+	 <CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
+	 <20151221204127.GC8018@1wt.eu>
+	 <CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
+	 <20160324061222.GA6807@1wt.eu>
+	 <1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160324142222.GB7237@1wt.eu>
+	 <1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160324153053.GA7569@1wt.eu>
+	 <1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160324165047.GA7585@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Tom Herbert <tom@herbertland.com>, cgallek@google.com,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dougal.metanate.com ([90.155.101.14]:12289 "EHLO metanate.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750772AbcCXRBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Mar 2016 13:01:38 -0400
-In-Reply-To: <56F3E3E2.6070001@st.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33553 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbcCXRBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 13:01:40 -0400
+Received: by mail-pf0-f182.google.com with SMTP id 4so62998650pfd.0
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 10:01:40 -0700 (PDT)
+In-Reply-To: <20160324165047.GA7585@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Mar 2016 13:56:02 +0100, Giuseppe CAVALLARO wrote:
-
-> This should be fixed by some work done some days
-> ago and not yet committed.
+On Thu, 2016-03-24 at 17:50 +0100, Willy Tarreau wrote:
+> On Thu, Mar 24, 2016 at 09:33:11AM -0700, Eric Dumazet wrote:
+> > > --- a/net/ipv4/inet_hashtables.c
+> > > +++ b/net/ipv4/inet_hashtables.c
+> > > @@ -189,6 +189,8 @@ static inline int compute_score(struct sock *sk, struct net *net,
+> > >                                 return -1;
+> > >                         score += 4;
+> > >                 }
+> > > +               if (sk->sk_reuseport)
+> > > +                       score++;
+> > 
+> > This wont work with BPF
+> > 
+> > >                 if (sk->sk_incoming_cpu == raw_smp_processor_id())
+> > >                         score++;
+> > 
+> > This one does not work either with BPF
 > 
-> Pls see "stmmac: MDIO fixes" patch-set and let me know
-> if ok on your side.
-
-Yes, that works for me.
-
-
-Thanks,
-John
-
-> On 3/24/2016 11:56 AM, John Keeping wrote:
-> > Since commit 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found'
-> > regression") we no longer allocate mdio_bus_data unless there is a MDIO
-> > subnode.  This breaks the ethernet on the Radxa Rock2 (using
-> > rk3288-rock2-square.dts) which does not have an MDIO subnode.
-> >
-> > That commit was correct that the phy_bus_name test is unhelpful since we
-> > allocate "plat" in the same function and never set phy_bus_name so let's
-> > just drop the test which restores the previous behaviour.
-> >
-> > Fixes: 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression")
-> > Signed-off-by: John Keeping <john@metanate.com>
-> > ---
-> >   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
-> >   1 file changed, 1 insertion(+), 1 deletion(-)
-> >
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > index dcbd2a1..e0fa060 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> > @@ -189,7 +189,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
-> >   	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
-> >   		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
-> >
-> > -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
-> > +	if ((plat->phy_node && !of_phy_is_fixed_link(np)))
-> >   		plat->mdio_bus_data = NULL;
-> >   	else
-> >   		plat->mdio_bus_data =
-> >  
+> But this *is* in 4.5. Does this mean that this part doesn't work anymore or
+> just that it's not usable in conjunction with BPF ? In this case I'm less
+> worried, because it would mean that we have a solution for non-BPF aware
+> applications and that BPF-aware applications can simply use BPF.
 > 
+
+BPF can implement the CPU choice/pref itself. It has everything needed.
+
+> I don't try to reimplement something already available, but I'm confused
+> by a few points :
+>   - the code above already exists and you mention it cannot be used with BPF
+
+_If_ you use BPF, then you can implement a CPU preference using BPF
+instructions. It is a user choice.
+
+>   - for the vast majority of applications not using BPF, would the above *still*
+>     work (it worked in 4.4-rc at least)
+
+
+>   - it seems to me that for BPF to be usable on process shutting down, we'd
+>     need to have some form of central knowledge if the goal is to redefine
+>     how to distribute the load. In my case there are multiple independant
+>     processes forked on startup, so it's unclear to me how each of them could
+>     reconfigure BPF when shutting down without risking to break the other ones.
+>   - the doc makes me believe that BPF would require privileges to be unset, so
+>     that would not be compatible with a process shutting down which has already
+>     dropped its privileges after startup, but I could be wrong.
+> 
+> Thanks for your help on this,
+> Willy
+> 
+
+The point is : BPF is the way to go, because it is expandable.
+
+No more hard points coded forever in the kernel.
+
+Really, when BPF can be the solution, we wont allow adding new stuff in
+the kernel in the old way.
