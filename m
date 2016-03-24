@@ -1,86 +1,60 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net v2 RESEND] xfrm: Fix crash observed during device unregistration and decryption
-Date: Wed, 23 Mar 2016 22:39:50 -0600
-Message-ID: <1458794390-19788-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-	Jerome Stanislaus <jeromes@codeaurora.org>
-To: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	eric.dumazet@gmail.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46962 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798AbcCXEnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 00:43:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baozeng <sploving1@gmail.com>
+Subject: Re: net/sctp: stack-out-of-bounds in sctp_getsockopt
+Date: Thu, 24 Mar 2016 13:01:14 +0800
+Message-ID: <CAP=GMUE3S5dxFu=r1XZWJzMeZ5XYriSQHY9-6YEbSFi4+j6wuA@mail.gmail.com>
+References: <56f16034.890c620a.e04dc.ffffc770@mx.google.com>
+	<1458660088.10868.19.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1458660478.10868.21.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CAP=GMUFA-qAOxF1W=aeWDYBiR-GSohJYGHiMDsrqwsD0xdg3_Q@mail.gmail.com>
+	<20160323173818.GA11724@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, kaber@trash.net,
+	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
+	marcelo.leitner@gmail.com,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160323173818.GA11724@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A crash is observed when a decrypted packet is processed in receive
-path. get_rps_cpus() tries to dereference the skb->dev fields but it
-appears that the device is freed from the poison pattern.
+2016-03-24 1:38 GMT+08:00, Pablo Neira Ayuso <pablo@netfilter.org>:
+> On Thu, Mar 24, 2016 at 12:42:43AM +0800, Baozeng wrote:
+>> 2016-03-22 23:27 GMT+08:00 Eric Dumazet <eric.dumazet@gmail.com>:
+>> > Untested patch would be :
+>> >
+>> > diff --git a/net/bridge/netfilter/ebtables.c
+>> > b/net/bridge/netfilter/ebtables.c
+>> > index 67b2e27999aa..fceb7354d169 100644
+>> > --- a/net/bridge/netfilter/ebtables.c
+>> > +++ b/net/bridge/netfilter/ebtables.c
+>> > @@ -346,7 +346,7 @@ find_inlist_lock(struct list_head *head, const char
+>> > *name, const char *prefix,
+>> >  {
+>> >         return try_then_request_module(
+>> >                         find_inlist_lock_noload(head, name, error,
+>> > mutex),
+>> > -                       "%s%s", prefix, name);
+>> > +                       "%.*s%s", EBT_TABLE_MAXNAMELEN, prefix, name);
+>> >  }
+>> >
+>> >  static inline struct ebt_table *
+>> >
+>> >
+>>
+>> Thanks for your quick patch. I tested it but it still reproduce the
+>> bug. We should limit the length of the name,
+>> not the prefix. The following patch fixs it.
+>
+> Could you give a try to this patch? Thanks.
+>
 
-[<ffffffc000af58ec>] get_rps_cpu+0x94/0x2f0
-[<ffffffc000af5f94>] netif_rx_internal+0x140/0x1cc
-[<ffffffc000af6094>] netif_rx+0x74/0x94
-[<ffffffc000bc0b6c>] xfrm_input+0x754/0x7d0
-[<ffffffc000bc0bf8>] xfrm_input_resume+0x10/0x1c
-[<ffffffc000ba6eb8>] esp_input_done+0x20/0x30
-[<ffffffc0000b64c8>] process_one_work+0x244/0x3fc
-[<ffffffc0000b7324>] worker_thread+0x2f8/0x418
-[<ffffffc0000bb40c>] kthread+0xe0/0xec
+I tested with your patch. It fixs the bug. Thanks.
 
--013|get_rps_cpu(
-     |    dev = 0xFFFFFFC08B688000,
-     |    skb = 0xFFFFFFC0C76AAC00 -> (
-     |      dev = 0xFFFFFFC08B688000 -> (
-     |        name =
-"......................................................
-     |        name_hlist = (next = 0xAAAAAAAAAAAAAAAA, pprev =
-0xAAAAAAAAAAA
-
-Following are the sequence of events observed -
-
-- Encrypted packet in receive path from netdevice is queued
-- Encrypted packet queued for decryption (asynchronous)
-- Netdevice brought down and freed
-- Packet is decrypted and returned through callback in esp_input_done
-- Packet is queued again for process in network stack using netif_rx
-
-Since the device appears to have been freed, the dereference of
-skb->dev in get_rps_cpus() leads to an unhandled page fault
-exception.
-
-Fix this by holding on to device reference when queueing packets
-asynchronously and releasing the reference on call back return.
-
-v2: Make the change generic to xfrm as mentioned by Steffen and
-update the title to xfrm
-
-Suggested-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Jerome Stanislaus <jeromes@codeaurora.org>
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/xfrm/xfrm_input.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index ad7f5b3..1c4ad47 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -292,12 +292,15 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 		XFRM_SKB_CB(skb)->seq.input.hi = seq_hi;
- 
- 		skb_dst_force(skb);
-+		dev_hold(skb->dev);
- 
- 		nexthdr = x->type->input(x, skb);
- 
- 		if (nexthdr == -EINPROGRESS)
- 			return 0;
- resume:
-+		dev_put(skb->dev);
-+
- 		spin_lock(&x->lock);
- 		if (nexthdr <= 0) {
- 			if (nexthdr == -EBADMSG) {
 -- 
-1.8.2.1
+     Best Regards,
+                                                                 Baozeng  Ding
