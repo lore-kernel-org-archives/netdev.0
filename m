@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net 4/7] net: hns: remove useless variable assignment and comment
-Date: Thu, 24 Mar 2016 19:08:03 +0800
-Message-ID: <1458817686-159708-5-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net 5/7] net: hns: optimizate irq proccess for HNS V2
+Date: Thu, 24 Mar 2016 19:08:04 +0800
+Message-ID: <1458817686-159708-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1458817686-159708-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,42 +11,64 @@ Cc: <yankejian@huawei.com>, <huangdaode@hisilicon.com>,
 	<xieqianqian@huawei.com>, <netdev@vger.kernel.org>,
 	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:41774 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755447AbcCXKt3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 06:49:29 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1458817686-159708-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Qianqian Xie <xieqianqian@huawei.com>
+From: Sheng Li <lisheng011@huawei.com>
 
-The variable head in hns_nic_tx_fini_pro has read a value, but it is
-obviously no use. The patch will fix it.
-And the comment is nothing to do with the routine, so it has to be removed
+In hns V1, common_poll should check and clean fbd pkts, because it
+can not pend irq to clean them if there is no new pkt comes in.
+But hns V2 hw fixes this bug, and will pend irq itself to do this.
+So, for hns V2, we set ring_data->fini_process to NULL.
 
-Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
+Signed-off-by: Sheng Li <lisheng011@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 71aa37b..f0c9a41 100644
+index f0c9a41..66d1652 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -913,10 +913,7 @@ static int hns_nic_tx_poll_one(struct hns_nic_ring_data *ring_data,
- static void hns_nic_tx_fini_pro(struct hns_nic_ring_data *ring_data)
- {
- 	struct hnae_ring *ring = ring_data->ring;
--	int head = ring->next_to_clean;
--
--	/* for hardware bug fixed */
--	head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
-+	int head = readl_relaxed(ring->io_base + RCB_REG_HEAD);
- 
- 	if (head != ring->next_to_clean) {
+@@ -956,8 +956,8 @@ static int hns_nic_common_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
  		ring_data->ring->q->handle->dev->ops->toggle_ring_irq(
+ 			ring_data->ring, 0);
+-
+-		ring_data->fini_process(ring_data);
++		if (ring_data->fini_process)
++			ring_data->fini_process(ring_data);
+ 		return 0;
+ 	}
+ 
+@@ -1720,6 +1720,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
+ {
+ 	struct hnae_handle *h = priv->ae_handle;
+ 	struct hns_nic_ring_data *rd;
++	bool is_ver1 = AE_IS_VER1(priv->enet_ver);
+ 	int i;
+ 
+ 	if (h->q_num > NIC_MAX_Q_PER_VF) {
+@@ -1737,7 +1738,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
+ 		rd->queue_index = i;
+ 		rd->ring = &h->qs[i]->tx_ring;
+ 		rd->poll_one = hns_nic_tx_poll_one;
+-		rd->fini_process = hns_nic_tx_fini_pro;
++		rd->fini_process = is_ver1 ? hns_nic_tx_fini_pro : NULL;
+ 
+ 		netif_napi_add(priv->netdev, &rd->napi,
+ 			       hns_nic_common_poll, NIC_TX_CLEAN_MAX_NUM);
+@@ -1749,7 +1750,7 @@ static int hns_nic_init_ring_data(struct hns_nic_priv *priv)
+ 		rd->ring = &h->qs[i - h->q_num]->rx_ring;
+ 		rd->poll_one = hns_nic_rx_poll_one;
+ 		rd->ex_process = hns_nic_rx_up_pro;
+-		rd->fini_process = hns_nic_rx_fini_pro;
++		rd->fini_process = is_ver1 ? hns_nic_rx_fini_pro : NULL;
+ 
+ 		netif_napi_add(priv->netdev, &rd->napi,
+ 			       hns_nic_common_poll, NIC_RX_CLEAN_MAX_NUM);
 -- 
 1.9.1
