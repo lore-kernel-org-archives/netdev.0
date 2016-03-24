@@ -1,88 +1,129 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
-Date: Thu, 24 Mar 2016 12:23:18 -0700
-Message-ID: <CAM_iQpUzx3U_wQrD+VBFSe_0BMZameRUgd6n1qgAFU978GbWEQ@mail.gmail.com>
-References: <20160316.223803.240230703927987310.davem@davemloft.net>
-	<1458185652.7353.28.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAM_iQpWG-Pd-qE05B8ETwBMnVGuxVCES-zrL=wyxKAfZwnbwyQ@mail.gmail.com>
-	<CAEA6p_CfDYYLf-s0pUy7VNFH+46PDZSXNzUExXRAM_xv2w8tcw@mail.gmail.com>
-	<CAM_iQpXgHHr=h=3VeMdYfOnzTdeBeODGVKmwBi7AFW485_WRAg@mail.gmail.com>
-	<CAC15z3hhXxTQ+_Y6DaZcd-XVfCdDO9ZcQD6doNNKt-wHjTXAQw@mail.gmail.com>
-	<CAM_iQpWvKUyTmvH=08FbeyGWKfV_WaM_L1MgOQ-9r9hjfvzPyA@mail.gmail.com>
-	<CAC15z3ikqBc3CcgNaUJkaD1ZiBbwqZFkjEsgR7_F9Q1dvZ2Zvw@mail.gmail.com>
-	<20160322060220.GA50824@kafai-mba.local>
-	<CAM_iQpVfofoThoUS8UYkh-2KR_Co42tfxz00mCXx+JMWpwgg8A@mail.gmail.com>
-	<20160322173939.GA53936@kafai-mba.local>
-	<CAC15z3jDRvJR4uZ97mC+beaMaPQvAvTHB9OLKCdQ4hcwRu07vw@mail.gmail.com>
-	<CAM_iQpU7JeLuAVPqtzjvJ7qvMYTDZSR8xc7Vfw--uQDxW-WaHQ@mail.gmail.com>
-	<1458689814.10868.29.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Wang <tracywwnj@gmail.com>, Martin KaFai Lau <kafai@fb.com>,
-	Wei Wang <weiwan@google.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFT Patch net 2/2] ipv6: add a socket release callback for datagram sockets
+Date: Thu, 24 Mar 2016 12:25:36 -0700
+Message-ID: <1458847536-7729-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1458847536-7729-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: weiwan@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:34672 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbcCXTXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 15:23:19 -0400
-Received: by mail-yw0-f177.google.com with SMTP id h129so71958595ywb.1
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 12:23:19 -0700 (PDT)
-In-Reply-To: <1458689814.10868.29.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36798 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcCXTZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 15:25:52 -0400
+Received: by mail-pf0-f181.google.com with SMTP id u190so65564048pfb.3
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 12:25:51 -0700 (PDT)
+In-Reply-To: <1458847536-7729-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 22, 2016 at 4:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2016-03-22 at 13:13 -0700, Cong Wang wrote:
->> On Tue, Mar 22, 2016 at 11:03 AM, Wei Wang <tracywwnj@gmail.com> wrote:
->> > Thanks Martin and Cong.
->> >
->> > I guess then we are going with the following fix in ip6_sk_update_pmtu():
->> > 1. call ip6_upate_pmtu() as it is
->> > 2. do a dst_check()
->> > 3. re-lookup() if it is invalid
->> > 4. and then do a ip6_dst_store()/dst_set
->>
->> Exactly, please try the attached patch. Note I did nothing more than a
->> compile test.
->>
->> Does it make sense to you now?
->
->
-> Hard to reply on your patch as it was not inlined.
+Similar to commit 8141ed9fcedb, this implements a socket
+release callback function to check if an IPv6 socket cached
+route got invalid during the time we owned the socket.
+The function is used from udp, raw sockets.
 
-Sorry about that, it is still not ready to send out formally yet, because
-I don't do any run-time tests yet.
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Martin KaFai Lau <kafai@fb.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/net/ipv6.h  |  1 +
+ net/ipv6/datagram.c | 40 ++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/raw.c      |  1 +
+ net/ipv6/udp.c      |  1 +
+ 4 files changed, 43 insertions(+)
 
->
-> 1) Lot of code duplication, for some reason I do not yet understand.
->
-> ip6_sk_update_pmtu() and ip6_update_pmtu() will basically do the same
-> thing...
-
-Hmm? After my patch ip6_sk_update_pmtu() will take care of sk_dst_cache,
-but ip6_update_pmtu() doesn't do that since it has no 'sk' parameter.
-It is pretty much similar to commit 9cb3a50c5f63.
-
->
-> 2)
->
-> +       if (sk->sk_state == TCP_ESTABLISHED)
-> +               ip6_dst_store(sk, dst, &iph->daddr, &iph->saddr);
-> +out:
->
->
-> ip6_dst_store() will do :
->
-> np->daddr_cache = daddr;  (&iph->daddr)
-> np->saddr_cache = saddr;  (&iph->saddr)
->
-> So when skb is freed, daddr_cache & saddr_cache point to freed data.
-
-Ah, good catch, so ip6_dst_store() can only use the addr's stored
-in socket or NULL.
-
-I will send out 2 formal patches shortly.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index d0aeb97..890456d 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -959,6 +959,7 @@ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
+ int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *addr,
+ 				 int addr_len);
++void ip6_datagram_release_cb(struct sock *sk);
+ 
+ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len,
+ 		    int *addr_len);
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 4281621..a743caa 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -231,6 +231,46 @@ int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *uaddr,
+ }
+ EXPORT_SYMBOL_GPL(ip6_datagram_connect_v6_only);
+ 
++void ip6_datagram_release_cb(struct sock *sk)
++{
++	const struct inet_sock *inet = inet_sk(sk);
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct in6_addr *final_p, final;
++	struct ipv6_txoptions *opt;
++	struct dst_entry *dst;
++	struct flowi6 fl6;
++	struct rtable *rt;
++
++	rcu_read_lock();
++
++	dst = __sk_dst_get(sk);
++	if (!dst || !dst->obsolete || dst->ops->check(dst, 0)) {
++		rcu_read_unlock();
++		return;
++	}
++
++	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_proto = sk->sk_protocol;
++	fl6.daddr = sk->sk_v6_daddr;
++	fl6.saddr = np->saddr;
++	fl6.flowi6_oif = sk->sk_bound_dev_if;
++	fl6.flowi6_mark = sk->sk_mark;
++	fl6.fl6_dport = inet->inet_dport;
++	fl6.fl6_sport = inet->inet_sport;
++
++	rcu_read_lock();
++	opt = rcu_dereference(np->opt);
++	final_p = fl6_update_dst(&fl6, opt, &final);
++	rcu_read_unlock();
++
++	dst = ip6_dst_lookup_flow(sk, &fl6, final_p);
++	dst = !IS_ERR(rt) ? &rt->dst : NULL;
++	sk_dst_set(sk, dst);
++
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(ip6_datagram_release_cb);
++
+ void ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
+ 		     __be16 port, u32 info, u8 *payload)
+ {
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index fa59dd7..4319e65 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1235,6 +1235,7 @@ struct proto rawv6_prot = {
+ 	.recvmsg	   = rawv6_recvmsg,
+ 	.bind		   = rawv6_bind,
+ 	.backlog_rcv	   = rawv6_rcv_skb,
++	.release_cb	   = ip6_datagram_release_cb,
+ 	.hash		   = raw_hash_sk,
+ 	.unhash		   = raw_unhash_sk,
+ 	.obj_size	   = sizeof(struct raw6_sock),
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index fd25e44..0fdaf8f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1539,6 +1539,7 @@ struct proto udpv6_prot = {
+ 	.sendmsg	   = udpv6_sendmsg,
+ 	.recvmsg	   = udpv6_recvmsg,
+ 	.backlog_rcv	   = __udpv6_queue_rcv_skb,
++	.release_cb	   = ip6_datagram_release_cb,
+ 	.hash		   = udp_lib_hash,
+ 	.unhash		   = udp_lib_unhash,
+ 	.rehash		   = udp_v6_rehash,
+-- 
+2.1.0
