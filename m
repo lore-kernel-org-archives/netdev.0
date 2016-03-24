@@ -1,54 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: Fix extra refcount release in
- netpoll_cleanup()
-Date: Thu, 24 Mar 2016 14:57:45 -0400 (EDT)
-Message-ID: <20160324.145745.451518711282450835.davem@davemloft.net>
-References: <20160324161334.31279.26510.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net v2 2/2] net: bcmgenet: fix skb_len in
+ bcmgenet_xmit_single()
+Date: Thu, 24 Mar 2016 15:15:25 -0400 (EDT)
+Message-ID: <20160324.151525.658998179104675344.davem@davemloft.net>
+References: <1458844041-71532-1-git-send-email-pgynther@google.com>
+	<1458844041-71532-2-git-send-email-pgynther@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, aduyck@mirantis.com,
-	linux-kernel@vger.kernel.org
-To: bhelgaas@google.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	jaedon.shin@gmail.com, edumazet@google.com
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52453 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52651 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbcCXS5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 14:57:48 -0400
-In-Reply-To: <20160324161334.31279.26510.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751117AbcCXTP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 15:15:26 -0400
+In-Reply-To: <1458844041-71532-2-git-send-email-pgynther@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Thu, 24 Mar 2016 11:13:34 -0500
+From: Petri Gynther <pgynther@google.com>
+Date: Thu, 24 Mar 2016 11:27:21 -0700
 
-> netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
-> fails, it correctly does a dev_put() but leaves np->dev set.  If we call
-> netpoll_cleanup() after the failure, np->dev is still set so we do another
-> dev_put(), which decrements the refcount an extra time.
+> skb_len needs to be skb_headlen(skb) in bcmgenet_xmit_single().
 > 
-> It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
-> but it can be difficult to find the problem, and we can easily avoid it in
-> this case.  The extra decrements can lead to hangs like this:
+> Fragmented skbs can have only Ethernet + IP + TCP headers (14+20+20=54 bytes)
+> in the linear buffer, followed by the rest in fragments. Bumping skb_len to
+> ETH_ZLEN would be incorrect for this case, as it would introduce garbage
+> between TCP header and the fragment data.
 > 
->   unregister_netdevice: waiting for bond0 to become free. Usage count = -3
+> This also works with regular/non-fragmented small packets < ETH_ZLEN bytes.
+> Successfully tested this on GENETv3 with 42-byte ARP frames.
 > 
-> In __netpoll_setup(), don't set np->dev until we know we're going to
-> succeed.
+> For testing, I used:
+> ethtool -K eth0 tx-checksum-ipv4 off
+> ethtool -K eth0 tx-checksum-ipv6 off
+> echo 0 > /proc/sys/net/ipv4/tcp_timestamps
 > 
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+> Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-The reason this bug exists is because the thing doing the reference
-counting is separated from the thing that assigns the device pointer.
-
-That's how this was allowed to happen.
-
-If you instead do the np->dev = dev; assignment where the get is
-performed, and do a np->dev = NULL; where the error path puts
-the reference, everything is obvious and this error is unlikely to
-be reintroduced.
-
-So could you please implement your fix like that?
-
-Thanks.
+Applied.
