@@ -1,60 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: phy: at803x: Request 'reset' GPIO only for AT8030
- PHY
-Date: Thu, 24 Mar 2016 16:40:58 +0300
-Message-ID: <56F3EE6A.5040304@cogentembedded.com>
-References: <56E99727.9040702@laposte.net>
- <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net>
- <20160318191242.GQ4292@pengutronix.de> <56EFEDAD.9030903@laposte.net>
- <20160321135457.GX4292@pengutronix.de> <56F0150F.8080804@laposte.net>
- <20160321201229.GA6191@pengutronix.de> <56F157EF.5080307@laposte.net>
- <20160322194224.GF6191@pengutronix.de> <56F26BF7.3090201@laposte.net>
- <56F274A5.6030502@laposte.net> <56F2F189.1030003@cogentembedded.com>
- <56F3B9A2.9060801@laposte.net> <56F3BD28.4080908@laposte.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Thu, 24 Mar 2016 07:13:33 -0700
+Message-ID: <1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1450214475.8474.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151216073814.GA3373@1wt.eu> <20151216161514.GA3476@1wt.eu>
+	 <CAO5YkUSL=k3UxmuqkGN666YSvH-=UGKCZvRgqqBnnr1EPRqRtw@mail.gmail.com>
+	 <20151218185812.GD4448@1wt.eu>
+	 <1450492683.8474.123.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20151219070009.GA4634@1wt.eu>
+	 <CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
+	 <20151221204127.GC8018@1wt.eu>
+	 <CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
+	 <20160324061222.GA6807@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sebastian Frias <sf84@laposte.net>,
-	=?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56F3BD28.4080908@laposte.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Tom Herbert <tom@herbertland.com>, cgallek@google.com,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36720 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbcCXONi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 10:13:38 -0400
+Received: by mail-pf0-f180.google.com with SMTP id u190so58501041pfb.3
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 07:13:38 -0700 (PDT)
+In-Reply-To: <20160324061222.GA6807@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/24/2016 01:10 PM, Sebastian Frias wrote:
+On Thu, 2016-03-24 at 07:12 +0100, Willy Tarreau wrote:
+> Hi,
+> 
+> On Wed, Mar 23, 2016 at 10:10:06PM -0700, Tolga Ceylan wrote:
+> > I apologize for not properly following up on this. I had the
+> > impression that we did not want to merge my original patch and then I
+> > also noticed that it fails to keep the hash consistent. Recently, I
+> > read the follow ups on it as well as Willy's patch/proposals.
+> > 
+> > Is there any update on Willy's SO_REUSEPORT patch? IMHO, it solves the
+> > problem and it is simpler than adding new sock option.
+> 
+> no, Craig's changes were merged, and I haven't checked yet if my patch
+> needs to be rebased or still applies. Feel free to check it and resubmit
+> if you have time.
 
->>>     What I don't understand is why the link_change_notify() method ptr is
->>> populated for all 3 supported chips while only being needed on 8030...
->>
->> You are right.
->
-> I made the patch but I'm unsure about it because it could conflict with
-> yours.
-> I mean, I think you submitted a patch to change the GPIO handling on the
-> link_change_notify() function, right?
+No need for a patch AFAIK.
 
-> Well, if we only register the callback for the AT8030, then there is no
-> more need for the callback to check the PHY ID.
-> However, if I change that, the whole block moves as I remove one
-> indentation level (the one required by the PHY ID check).
->
-> Any suggestions on how to create a patch that won't conflict? I probably
-> need to use a tree that already has your patch applied.
+BPF solution is generic enough.
 
-    My patch is already in Linus' tree, so should be merged back from net.git 
-into net-next.git
-soon. I suggest that you wait until net-next is open again.
-
-> Best regards,
->
-> Sebastian
-
-MBR, Sergei
+All user space needs to do is to update the BPF filter so that the
+listener needing to be dismantled does not receive any new packet.
