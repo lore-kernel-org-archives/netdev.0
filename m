@@ -1,247 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 23 Mar 2016 22:23:11 -0400 (EDT)
-Message-ID: <20160323.222311.757580304869107650.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
+Date: Wed, 23 Mar 2016 19:53:43 -0700
+Message-ID: <CAKgT0UcbX+Kfa0+B57ZOMfeNgDvAuFhQO=oVw2m4kGyurBqFSQ@mail.gmail.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+	<20160318232522.14955.13475.stgit@localhost.localdomain>
+	<CALx6S35wK2_eR1e5OTHnQTkQRg763unS0sCMQU+Jk6e27F26Vw@mail.gmail.com>
+	<CAKgT0Uc9FNJ59529V8=0vtZnVij+JrZ2s-uOpFjnvbiqNHdVYQ@mail.gmail.com>
+	<CAEh+42jKm0_89n_-vZwMRZHUpNgNVJLJ5Qo4YrhRZx7UZD0Swg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:34542 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753260AbcCXCxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 22:53:45 -0400
+Received: by mail-io0-f171.google.com with SMTP id m184so73298485iof.1
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 19:53:44 -0700 (PDT)
+In-Reply-To: <CAEh+42jKm0_89n_-vZwMRZHUpNgNVJLJ5Qo4YrhRZx7UZD0Swg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Mar 23, 2016 at 6:37 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Wed, Mar 23, 2016 at 11:19 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Wed, Mar 23, 2016 at 10:09 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> Can you add some description about strategy for dealing with ip_id?
+>>
+>> Yeah.  I still need to add more documentation.  I just didn't want to
+>> get into details on it until we have finalized things a bit more.  I'm
+>> still wondering if we should follow the pattern of ipip tunnels in
+>> terms of setting the DF bit if the inner header has the DF bit set.
+>> If we end up needing to add code to do that then it makes it so that
+>> the ip_id value can be fixed for both inner and outer which makes the
+>> segmentation much simpler since the only header that would ever really
+>> need to be updated would be the transport header in order to get the
+>> checksum correct.
+>
+> I tried to do this years ago but in practice it broke things.
+>
+> There's enough middleboxes/firewalls/etc. out there that filter ICMP
+> messages that path MTU discovery isn't necessarily reliable. And while
+> you might argue that if the box is breaking things then the same would
+> be true for the original, unencapsulated TCP stream but a lot of times
+> there are some other hacks built in (like MSS clamping) that make
+> assumptions that the traffic is TCP. So at the minimum it is generally
+> good to have an option to force the DF bit off.
 
-Several bug fixes rolling in, some for changes introduced in this
-merge window, and some for problems that have existed for some time:
+Agreed, I think if we tried anything we would have to have some sort
+of bit remaining to shut it off.
 
-1) Fix prepare_to_wait() handling in AF_VSOCK, from Claudio Imbrenda.
+> That being said, I actually think that it is good to have the DF bit
+> on by default for encapsulation headers being added. Unintentional
+> (and perhaps multiple layers of) fragmentation usually results in
+> unuseably bad performance and so it best to try to correct it,
+> hopefully automatically in most cases. And, of course, this is the
+> direction that IPv6 has already gone. If we can assume that this is
+> the most common case then in practice we can keep the outer headers
+> constant for the high performance path.
 
-2) The new DST_CACHE should be a silent config option, from Dave
-   Jones.
+I'm still weighting my options on how to address the DF issue.  I'm
+not really sure having DF always on for outer headers is the best way
+to go either.  I kind of like the idea that if DF is set for the inner
+headers then we set it for the outer headers.  I just have to see how
+hard something like that would be to implement.
 
-3) inet_current_timestamp() unintentionally truncates timestamps
-   to 16-bit, from Deepa Dinamani.
+> To me, incrementing the inner IP really seems the best choice. The
+> inner header is most likely someone else's traffic so it best to not
+> mess with that whereas the outer headers are likely ours and we know
+> the parameters for them (and can set the DF bit as we believe is
+> correct). Also, if you are looking forward to the future as far as
+> stacking multiple layers of tunnels, I think the only consistent thing
+> to do is have the inner ID increment and all of the tunnel headers
+> stay fixed - it is hard to justify why the first tunnel header should
+> increment but not the second one. And finally, as a nice bonus, this
+> is what the GRO code has been expecting already so you won't cause any
+> performance regressions with existing systems.
 
-4) Missing reference to netns in ppp, from Guillaume Nault.
+Agreed.  However in the case of the igb and ixgbe incrementing the
+inner isn't really going to work well as it introduces a number of
+issues.  I've considered not enabling GSO partial by default on those
+parts, but leaving it as an available feature.  In the case of i40e we
+will not have any of those issues as both the inner and outer IP IDs
+will increment.
 
-5) Free memory reference in hv_netvsc driver, from Haiyang Zhang.
+The regressions issue shouldn't be all that big.  In most cases
+tunnels are point to point links.  Odds are if someone is running a
+network they should have similar devices on both ends.  So in the case
+of the Intel drivers I have patched here updating i40e isn't that big
+of a deal since it retains the original GSO behavior.  In the case of
+ixgbe it didn't support any tunnel offloads so there is no GRO support
+without checksums being enabled in the tunnel, and Tx checksum support
+vi HW_CSUM has yet to be pushed upstream from Jeff's tree so things
+are currently throttled by the Tx side.
 
-6) Missing kernel doc documentation for function arguments in various
-   spots around the networking, from Luis de Bethencourt.
+GSO partial is going to end up being very driver specific in terms of
+what increments and what doesn't as we are having to really hack our
+way around to make it do things the spec sheets say it cannot do.
+Some implementations are going to end up working out better than
+others in terms of interoperability and what can make use of other
+advanced features such as GRO on legacy systems.
 
-7) UDP stopped receiving broadcast packets properly, due to overzealous
-   multicast checks, fix from Paolo Abeni.
-
-Please pull, thanks a lot!
-
-The following changes since commit de06dbfa7861c9019eedefc0c356ba86e5098f1b:
-
-  Merge branch 'for-linus' of git://ftp.arm.linux.org.uk/~rmk/linux-arm (2016-03-19 16:31:54 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to 6579a023a881e0592ce9a98fdfcbcc0a2a096aa7:
-
-  net: ping: make ping_v6_sendmsg static (2016-03-23 22:09:58 -0400)
-
-----------------------------------------------------------------
-Alexander Duyck (1):
-      net: Reset encap_level to avoid resetting features on inner IP headers
-
-Arnd Bergmann (1):
-      net: smc911x: avoid unused variable warnings
-
-Benjamin Poirier (3):
-      net: Fix indentation of the conf/ documentation block
-      igmp: Document sysctl_igmp_max_msf
-      net: Add missing kernel-doc for netdev ptype lists
-
-Bjorn Helgaas (1):
-      net: Fix typos and whitespace.
-
-Claudio Imbrenda (2):
-      Revert "vsock: Fix blocking ops call in prepare_to_wait"
-      AF_VSOCK: Shrink the area influenced by prepare_to_wait
-
-Colin Ian King (1):
-      net/mlx4: remove unused array zero_gid[]
-
-Dan Carpenter (1):
-      mdio-sun4i: oops in error handling in probe
-
-Daniel Borkmann (3):
-      vxlan: fix populating tclass in vxlan6_get_route
-      geneve: fix populating tclass in geneve_get_v6_dst
-      ipv6, trace: fix tos reporting on fib6_table_lookup
-
-Daode Huang (1):
-      net: hns: bug fix about the overflow of mss
-
-Dave Jones (1):
-      Make DST_CACHE a silent config option
-
-David Decotigny (2):
-      ethtool: minor doc update
-      netlink: add support for NIC driver ioctls
-
-David S. Miller (7):
-      Merge git://git.kernel.org/.../torvalds/linux
-      Merge branch 'flowi6_tos'
-      Merge branch 'tunnel-fixes'
-      Revert "lan78xx: add ndo_get_stats64"
-      Merge branch 'bridge-gso-segs-and-size'
-      Merge branch 'hns-fixes'
-      Merge branch 'AF_VSOCK-missed-wakeups'
-
-Deepa Dinamani (1):
-      net: ipv4: Fix truncated timestamp returned by inet_current_timestamp()
-
-Eric Dumazet (3):
-      net: remove a dubious unlikely() clause
-      net/rtnetlink: add IFLA_GSO_MAX_SEGS and IFLA_GSO_MAX_SIZE attributes
-      bridge: update max_gso_segs and max_gso_size
-
-Guillaume Nault (1):
-      ppp: take reference on channels netns
-
-Haishuang Yan (1):
-      net: ping: make ping_v6_sendmsg static
-
-Haiyang Zhang (3):
-      hv_netvsc: Fix accessing freed memory in netvsc_change_mtu()
-      hv_netvsc: Fix the array sizes to be max supported channels
-      hv_netvsc: Fix the order of num_sc_offered decrement
-
-Igal Liberman (1):
-      fsl/fman: Workaround for Errata A-007273
-
-Jesse Gross (3):
-      ipip: Properly mark ipip GRO packets as encapsulated.
-      tunnels: Don't apply GRO to multiple layers of encapsulation.
-      tunnels: Remove encapsulation offloads on decap.
-
-Jiri Benc (2):
-      vxlan: fix sparse warnings
-      vxlan: fix too large pskb_may_pull with remote checksum
-
-Kejian Yan (6):
-      net: hns: bug fix about ping6
-      net: hns: add uc match for debug ports
-      net: hns: fix return value of the function about rss
-      net: hns: fixes a bug of RSS
-      net: hns: fix the bug about mtu setting
-      net: hns: adds limitation for debug port mtu
-
-Lance Richardson (1):
-      ipv4: initialize flowi4_flags before calling fib_lookup()
-
-Luis de Bethencourt (5):
-      gen_stats.c: Add description for cpu argument
-      net: sched: Add description for cpu_bstats argument
-      net: add description for len argument of dev_get_phys_port_name
-      net: add missing descriptions in net_device_priv_flags
-      ipv6: remove unused in6_addr struct
-
-Marcelo Ricardo Leitner (5):
-      sctp: fix copying more bytes than expected in sctp_add_bind_addr
-      sctp: do not update a_rwnd if we are not issuing a sack
-      sctp: do not leak chunks that are sent to unconfirmed paths
-      sctp: align MTU to a word
-      sctp: keep fragmentation point aligned to word size
-
-Paolo Abeni (1):
-      ipv4: fix broadcast packets reception
-
-Qianqian Xie (1):
-      net: hns: set xge statistic reg as read only
-
-Sebastian Frias (1):
-      net: phy: at803x: Request 'reset' GPIO only for AT8030 PHY
-
-Sergei Shtylyov (2):
-      macb: fix PHY reset
-      at803x: fix reset handling
-
-Sheng Li (2):
-      net: hns: fixed portid bug in sending manage pkt
-      net: hns: fixed the bug about GMACs mac setting
-
-Tina Ruchandani (1):
-      isdn: Use ktime_t instead of 'struct timeval'
-
-Vladimir Zapolskiy (1):
-      net: mediatek: fix checking for NULL instead of IS_ERR() in .probe
-
- Documentation/networking/ip-sysctl.txt             |  19 +++--
- drivers/isdn/mISDN/clock.c                         |  69 +++++++----------
- drivers/net/ethernet/cadence/macb.c                |   4 +-
- drivers/net/ethernet/freescale/fman/fman.c         | 104 +++++++++++++++++++++----
- drivers/net/ethernet/hisilicon/hns/hnae.h          |   3 +
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  12 ++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c |  38 +++++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  15 +++-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |   6 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   5 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c  |   5 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.h  |   2 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   2 +
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  32 +++++---
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  38 +++++----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c        |   4 +-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |   2 -
- drivers/net/ethernet/smsc/smc911x.c                |   2 +
- drivers/net/geneve.c                               |  11 +--
- drivers/net/hyperv/hyperv_net.h                    |   7 +-
- drivers/net/hyperv/netvsc_drv.c                    |   5 +-
- drivers/net/hyperv/rndis_filter.c                  |  16 ++--
- drivers/net/phy/at803x.c                           |  10 ++-
- drivers/net/phy/mdio-sun4i.c                       |   4 +-
- drivers/net/ppp/ppp_generic.c                      |   4 +-
- drivers/net/usb/lan78xx.c                          |  49 ------------
- drivers/net/vxlan.c                                |   9 +--
- include/linux/mISDNif.h                            |   2 +-
- include/linux/netdevice.h                          | 225 +++++++++++++++++++++++++++---------------------------
- include/net/flow.h                                 |   2 +-
- include/net/inet6_connection_sock.h                |   1 -
- include/net/ip_tunnels.h                           |  16 ++++
- include/net/ipv6.h                                 |   6 ++
- include/net/ping.h                                 |   1 -
- include/net/sctp/sctp.h                            |  10 ++-
- include/net/sctp/structs.h                         |   2 +-
- include/net/vxlan.h                                |  16 ++--
- include/trace/events/fib6.h                        |   2 +-
- include/uapi/linux/ethtool.h                       |   6 +-
- include/uapi/linux/if_link.h                       |   2 +
- net/Kconfig                                        |   2 +-
- net/bridge/br_if.c                                 |  16 ++++
- net/core/dev.c                                     |   3 +-
- net/core/gen_estimator.c                           |   2 +
- net/core/gen_stats.c                               |   1 +
- net/core/rtnetlink.c                               |   4 +
- net/core/skbuff.c                                  |   2 +-
- net/ipv4/af_inet.c                                 |  26 ++++++-
- net/ipv4/fib_frontend.c                            |  16 ++--
- net/ipv4/fou.c                                     |  13 +++-
- net/ipv4/gre_offload.c                             |   6 ++
- net/ipv4/ip_tunnel_core.c                          |   3 +-
- net/ipv4/udp.c                                     |  12 ++-
- net/ipv4/udp_offload.c                             |   7 +-
- net/ipv6/ip6_offload.c                             |  15 +++-
- net/ipv6/ping.c                                    |  59 +++++++-------
- net/ipv6/sit.c                                     |   6 +-
- net/netlink/af_netlink.c                           |  10 ++-
- net/sctp/associola.c                               |   3 +-
- net/sctp/bind_addr.c                               |  14 ++--
- net/sctp/input.c                                   |   3 +-
- net/sctp/outqueue.c                                |   6 +-
- net/sctp/protocol.c                                |   1 +
- net/sctp/sm_make_chunk.c                           |   3 +-
- net/sctp/sm_sideeffect.c                           |   6 +-
- net/sctp/socket.c                                  |   4 +-
- net/sctp/transport.c                               |   4 +-
- net/vmw_vsock/af_vsock.c                           | 155 ++++++++++++++++++++-----------------
- 68 files changed, 710 insertions(+), 460 deletions(-)
+- Alex
