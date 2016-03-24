@@ -1,116 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: RE: [PATCH net-next,V2] Add LAN9352 Ethernet Driver
-Date: Thu, 24 Mar 2016 15:36:23 -0700
-Message-ID: <6193B00B-757B-44B8-9B71-0292E5FD432D@gmail.com>
-References: <20160216203625.GC2558@lunn.ch> <20160216.154358.164326104187806534.davem@davemloft.net> <90A7E81AE28BAE4CBDDB3B35F187D264402EFB5D@CHN-SV-EXMX02.mchp-main.com> <20160216.155244.2052910262411568012.davem@davemloft.net> <90A7E81AE28BAE4CBDDB3B35F187D264402EFB82@CHN-SV-EXMX02.mchp-main.com> <20160216221536.GB6033@lunn.ch> <90A7E81AE28BAE4CBDDB3B35F187D264402F0018@CHN-SV-EXMX02.mchp-main.com> <20160219201415.GA9884@lunn.ch> <90A7E81AE28BAE4CBDDB3B35F187D264402F31B5@CHN-SV-EXMX02.mchp-main.com>
+From: Yann Ylavic <ylavic.dev@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Thu, 24 Mar 2016 23:40:30 +0100
+Message-ID: <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+References: <20151219070009.GA4634@1wt.eu>
+	<CALx6S35248apbWqtG+g2U99O=4UJqyAG0bJeuxhZWtShrpDF+w@mail.gmail.com>
+	<20151221204127.GC8018@1wt.eu>
+	<CALmu+SwjG0GVocGufTbgX-WJfcsP85SvHB=xtW7qQX3kZwJCxg@mail.gmail.com>
+	<20160324061222.GA6807@1wt.eu>
+	<1458828813.10868.65.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324142222.GB7237@1wt.eu>
+	<1458830744.10868.72.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324153053.GA7569@1wt.eu>
+	<1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160324165047.GA7585@1wt.eu>
+	<1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+	<CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+	<56F42A00.7050002@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Bryan.Whitehead@microchip.com, andrew@lunn.ch
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Willy Tarreau <w@1wt.eu>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Craig Gallek <cgallek@google.com>,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36502 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794AbcCXWgd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 18:36:33 -0400
-Received: by mail-pa0-f43.google.com with SMTP id tt10so32785650pab.3
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 15:36:33 -0700 (PDT)
-In-Reply-To: <90A7E81AE28BAE4CBDDB3B35F187D264402F31B5@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-qg0-f68.google.com ([209.85.192.68]:33984 "EHLO
+	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750870AbcCXWkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 18:40:31 -0400
+Received: by mail-qg0-f68.google.com with SMTP id j35so1704795qge.1
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 15:40:31 -0700 (PDT)
+In-Reply-To: <56F42A00.7050002@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On March 24, 2016 2:16:30 PM PDT, Bryan.Whitehead@microchip.com wrote:
->> -----Original Message-----
->Hi Andrew,
+On Thu, Mar 24, 2016 at 6:55 PM, Daniel Borkmann wrote:
+> On 03/24/2016 06:26 PM, Tom Herbert wrote:
+>>
+>> On Thu, Mar 24, 2016 at 10:01 AM, Eric Dumazet wrote:
+>>>
+>>> Really, when BPF can be the solution, we wont allow adding new stuff in
+>>> the kernel in the old way.
+>>
+>> I completely agree with this, but I wonder if we now need a repository
+>> of useful BPF modules. So in the case of implementing functionality
+>> like in SO_REUSEPORT_LISTEN_OFF that might just become a common BPF
+>> program we could direct people to use.
 >
->Sorry to bother you with this. But I'm having major difficulty with
->getting my dsa driver entry points called.
->
->Here is what I've done so far.
->
->I copied drivers/net/dsa/mv88x6060.c into
->drivers/net/dsa/mchp9352_dsa.c
->I then modified mchp9352_dsa.c as follows
->I emptied out the function bodies, and replaced them with a printk("Not
->Implemented\n");
->
->I did the same thing with net/dsa/tag_trailer.c which was copied into
->net/dsa/tag_mchp9352.c
->And function bodies were replaced with printk("Not Implemented\n");
->
->I also modified net/dsa/dsa.c, and net/dsa/slave.c, to include the
->hooks into my new tag files.
->
->My intent was to just see one of my "Not Implemented" functions called,
->and then I would focus on implementing it.
->
->But so far I have not seen any of my "Not Implemented" functions
->called.
->
->Here is what I know so far.
->
->It appears the dsa.c is not able to attach my underlying net device.
->And that seems to be due to it is unable to find the mdio_bus. 
->So I modified my net device driver so that in probe it calls
->of_mdiobus_register instead of mdiobus_register.
->And of_mdiobus_register seems to be looking for some kind of phy
->definitions in the device tree, which it does not find. And so it does
->not appear to register the bus in such a way that dsa.c can connect to
->it.
+> Good point. There's tools/testing/selftests/net/ containing already
+> reuseport
+> BPF example, maybe it could be extended.
 
-If the lan9352 HW has a MDIO bus, which connects to internal switch, or PHYs from the switch, there must be an mii_bus structure allocated and registered to make that available.
+FWIW, I find:
 
->
->So the problem appears to be an issue with my device tree, which is
->partially shown below.
->
->&gpmc {
->	status = "okay";
->	ranges = <0 0 0x10000000 0x08000000>;	// CS0: 128M 
->	pinctrl-names = "default";
->	pinctrl-0 = <&gpmc_pins>;
->	lan9352: ethernet@gpmc {
->		compatible = "microchip,lan9352";
->		interrupt-parent = <&gpio0>;
->		interrupts = <7 8>;//7==GPIO bit 7, 8 = Active low level triggered.
->
->		bank-width = <2>;
->
->		phy-mode = "mii";
+    const struct bpf_insn prog[] = {
+        /* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
+        { BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
+        /* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
+        { BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
+        /* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
+        { BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
+        /* BPF_EXIT_INSN() */
+        { BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
+    };
+(and all the way to make it run)
 
-Having a phy-mode without a phy-handle property or fixed-phy subnode does not sound correct nor useful.
+something quite unintuitive from a web server developper perspective,
+simply to make SO_REUSEPORT work with forked TCP listeners (probably
+as it should out of the box)...
 
-Considering that you are interfaced to a built-in switch a fixed-link subnode is needed to tell the Ethernet MAC about the link parameters. See drivers/net/ethernet/broadcom/bcmsysport.c for an example by grepping for fixed_phy.
-
->
->		reg = <0 0 0x10000>;
->
->		reg-io-width = <4>;
->		microchip,save-mac-address;
->		microchip,irq-push-pull;
->
->	};
->};
->
->/ {
->	dsa@0 {
->		compatible = "microchip,dsa";
-
-Did you also update net/dsa/dsa.c so it tries to match this compatible string? DSA is right now a platform device (though there is pending working from Andrew to change that) so we need a way to probe DSA.
-
-
->		#address-cells = <2>;
->		#size-cells = <0>;
->		dsa,ethernet = <&lan9352>;
-
-That looks correct.
-
->		dsa,mii-bus = <&lan9352>;
-
-But not that one, this must point to a device tree node which is a MDIO bus controller. It could be a sub-node to lan9352 provided that there is a way to expose a MDIO bus controller.
-
-Moving forward, with Andrew's latest patches included, this may become entirely optional, but it is not just now.
-
--- 
-Florian
+Regards,
+Yann.
