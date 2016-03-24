@@ -1,31 +1,30 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
-Date: Thu, 24 Mar 2016 13:56:02 +0100
-Message-ID: <56F3E3E2.6070001@st.com>
+Date: Thu, 24 Mar 2016 16:00:23 +0300
+Message-ID: <56F3E4E7.6020608@cogentembedded.com>
 References: <1458817012-14293-1-git-send-email-john@metanate.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: John Keeping <john@metanate.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: John Keeping <john@metanate.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:34542 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757196AbcCXNA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 09:00:26 -0400
+Received: by mail-lb0-f170.google.com with SMTP id k12so29742481lbb.1
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 06:00:25 -0700 (PDT)
 In-Reply-To: <1458817012-14293-1-git-send-email-john@metanate.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi John
+Hello.
 
-This should be fixed by some work done some days
-ago and not yet committed.
+On 3/24/2016 1:56 PM, John Keeping wrote:
 
-Pls see "stmmac: MDIO fixes" patch-set and let me know
-if ok on your side.
-
-Regards
-Peppe
-
-On 3/24/2016 11:56 AM, John Keeping wrote:
 > Since commit 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found'
 > regression") we no longer allocate mdio_bus_data unless there is a MDIO
 > subnode.  This breaks the ethernet on the Radxa Rock2 (using
@@ -51,7 +50,7 @@ On 3/24/2016 11:56 AM, John Keeping wrote:
 >
 > -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
 > +	if ((plat->phy_node && !of_phy_is_fixed_link(np)))
->   		plat->mdio_bus_data = NULL;
->   	else
->   		plat->mdio_bus_data =
->
+
+    Too many parens...
+
+MBR, Sergei
