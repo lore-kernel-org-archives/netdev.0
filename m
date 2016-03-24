@@ -1,59 +1,50 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [RFC PATCH 1/9] ipv4/GRO: Allow multiple frames to use the same
- IP ID
-Date: Wed, 23 Mar 2016 18:43:40 -0700
-Message-ID: <CAEh+42ir0ich=MyEtr7NkKiUBhE7Md_AF8YzQ2bCv=cy=5ziFg@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain> <20160318232444.14955.38133.stgit@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] xfrm: Fix crash observed during device
+ unregistration and decryption
+Date: Wed, 23 Mar 2016 18:39:57 -0700
+Message-ID: <1458783597.10868.60.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <001c01d1849b$1c7c98e0$5575caa0$@codeaurora.org>
+	 <1458739547.10868.37.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160323132947.GA29938@gondor.apana.org.au>
+	 <1458754165.10868.41.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160324004514.GA3110@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+	'Steffen Klassert' <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, jeromes@codeaurora.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:34867 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753193AbcCXBn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Mar 2016 21:43:59 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 02B9620374
-	for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 01:43:57 +0000 (UTC)
-Received: from mail-qk0-f182.google.com (mail-qk0-f182.google.com [209.85.220.182])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 27A01202E5
-	for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 01:43:55 +0000 (UTC)
-Received: by mail-qk0-f182.google.com with SMTP id p130so14474917qke.1
-        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 18:43:55 -0700 (PDT)
-In-Reply-To: <20160318232444.14955.38133.stgit@localhost.localdomain>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:32817 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757001AbcCXBkB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Mar 2016 21:40:01 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 4so44498974pfd.0
+        for <netdev@vger.kernel.org>; Wed, 23 Mar 2016 18:40:00 -0700 (PDT)
+In-Reply-To: <20160324004514.GA3110@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 18, 2016 at 4:24 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> In RFC 6864 it is stated that we can essentially ignore the IPv4 ID field
-> if we have not and will not use fragmentation.  Such a frame is defined
-> as having the DF flag set to 1, and the MF and frag_offset as 0.  Currently
-> for GRO we were requiring that the inner header always have an increasing
-> IPv4 ID, but we are ignoring the outer value.
->
-> This patch is a first step in trying to reverse some of that.  Specifically
-> what this patch does is allow us to coalesce frames that have a static IPv4
-> ID value.  So for example if we had a series of frames where the DF flag
-> was set we would allow the same IPv4 ID value to be used for all the frames
-> belonging to that flow.  This would become the standard behavior for TCP so
-> it would support either a fixed IPv4 ID value, or one in which the value
-> increments.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+On Thu, 2016-03-24 at 08:45 +0800, Herbert Xu wrote:
+> On Wed, Mar 23, 2016 at 10:29:25AM -0700, Eric Dumazet wrote:
+> >
+> > OK, but before calling netif_rx() are we properly testing dev->flags
+> > IFF_UP status ?
+> > 
+> > Otherwise, we still allow packets being queued after flush_backlog() had
+> > been called.
+> 
+> That's the first thing enqueue_to_backlog tests.
+> 
+> Cheers,
 
-One thing that is a bit odd is that the TSO output procedure stays the
-same. So that means that if we get a stream of packets with the DF bit
-set and a constant IP ID, aggregate them with GRO, and the retransmit
-with GSO/TSO then we'll get packets with IDs that increment for each
-burst and then start back again to the original value. I guess it
-doesn't matter in practice since the IDs are supposed to be ignored
-but it does seem a little strange - especially because the new packets
-will now be violating the rules of the same GRO implementation that
-produced them.
+Seems to be very recent stuff ( commit
+e9e4dd3267d0c5234c5c0f47440456b10875dec9 in linux-4.2)
+
+In the old days the test was done in callers, since in most cases NIC
+drivers do not need it.
+
+Lets make sure this was backported to all stable trees.
+
+And then we probably can cleanup some callers as well.
