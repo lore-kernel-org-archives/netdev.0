@@ -1,56 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
-Date: Thu, 24 Mar 2016 16:00:23 +0300
-Message-ID: <56F3E4E7.6020608@cogentembedded.com>
-References: <1458817012-14293-1-git-send-email-john@metanate.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: mlxsw: avoid unused variable warnings
+Date: Thu, 24 Mar 2016 14:14:26 +0100
+Message-ID: <4334841.LFOAxr44mX@wuerfel>
+References: <1458751080-2044921-1-git-send-email-arnd@arndb.de> <20160323165111.GJ5250@lunn.ch> <20160323.143805.310789862506977932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: John Keeping <john@metanate.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: andrew@lunn.ch, jiri@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:34542 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757196AbcCXNA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 09:00:26 -0400
-Received: by mail-lb0-f170.google.com with SMTP id k12so29742481lbb.1
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 06:00:25 -0700 (PDT)
-In-Reply-To: <1458817012-14293-1-git-send-email-john@metanate.com>
+Received: from mout.kundenserver.de ([212.227.126.130]:55957 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbcCXNOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 09:14:46 -0400
+In-Reply-To: <20160323.143805.310789862506977932.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wednesday 23 March 2016 14:38:05 David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Wed, 23 Mar 2016 17:51:11 +0100
+> 
+> > On Wed, Mar 23, 2016 at 05:37:38PM +0100, Arnd Bergmann wrote:
+> >> dev_dbg_ratelimited() is a macro that ignores its arguments when DEBUG is
+> >> not set, which can lead to unused variable warnings:
+> >> 
+> >> ethernet/mellanox/mlxsw/pci.c: In function 'mlxsw_pci_cqe_sdq_handle':
+> >> ethernet/mellanox/mlxsw/pci.c:646:18: warning: unused variable 'pdev' [-Wunused-variable]
+> >> ethernet/mellanox/mlxsw/pci.c: In function 'mlxsw_pci_cqe_rdq_handle':
+> >> ethernet/mellanox/mlxsw/pci.c:671:18: warning: unused variable 'pdev' [-Wunused-variable]
+> >> 
+> >> This changes the mlxsw driver to remove the local variables we get
+> >> warnings for and instead pass the device directly into the API.
+> > 
+> > Hi Arnd
+> > 
+> > Would it not be better to fix the macro?
+> > 
+> > I think the issue is that dev_dbg_ratelimited calls no_printk(),
+> > without making use of dev. So how about:
+> > 
+> > #define dev_dbg_ratelimited(dev, fmt, ...)                              \
+> > ({                                                                      \
+> >         if (0)                                                          \
+> >                 dev_printk(KERN_DEBUG, dev, fmt, ##__VA_ARGS__);        \
+> > })
+> > 
+> > This follows the pattern for other macros for when DEBUG is not defined.
+> 
+> Yeah, this is probably a better way to fix this problem.
 
-On 3/24/2016 1:56 PM, John Keeping wrote:
+Makes sense. I was thrown off by how a related patch recently
+modified the no_printk() definition in Fixes: fe22cd9b7c98 ("printk:
+help pr_debug and pr_devel to optimize out arguments") around the
+same time I ran into the problem in the mlxsw driver.
 
-> Since commit 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found'
-> regression") we no longer allocate mdio_bus_data unless there is a MDIO
-> subnode.  This breaks the ethernet on the Radxa Rock2 (using
-> rk3288-rock2-square.dts) which does not have an MDIO subnode.
->
-> That commit was correct that the phy_bus_name test is unhelpful since we
-> allocate "plat" in the same function and never set phy_bus_name so let's
-> just drop the test which restores the previous behaviour.
->
-> Fixes: 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression")
-> Signed-off-by: John Keeping <john@metanate.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index dcbd2a1..e0fa060 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -189,7 +189,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->   	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
->   		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
->
-> -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
-> +	if ((plat->phy_node && !of_phy_is_fixed_link(np)))
+I'll test build the patch below for a while and submit that if it doesn't
+cause any other problems.
 
-    Too many parens...
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 002c59728dbe..07f74c246cac 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -1293,8 +1293,11 @@ do {									\
+ 		dev_printk(KERN_DEBUG, dev, fmt, ##__VA_ARGS__);	\
+ } while (0)
+ #else
+-#define dev_dbg_ratelimited(dev, fmt, ...)			\
+-	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
++#define dev_dbg_ratelimited(dev, fmt, ...)				\
++do {									\
++	if (0)								\
++		dev_printk(KERN_DEBUG, dev, fmt, ##__VA_ARGS__);	\
++} while (0)
+ #endif
+ 
+ #ifdef VERBOSE_DEBUG
 
-MBR, Sergei
+Thanks,
+
+	Arnd
