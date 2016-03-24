@@ -1,61 +1,58 @@
-From: Sebastian Frias <sf84@laposte.net>
-Subject: Re: [PATCH] net: phy: at803x: Request 'reset' GPIO only for AT8030
- PHY
-Date: Thu, 24 Mar 2016 11:10:48 +0100
-Message-ID: <56F3BD28.4080908@laposte.net>
-References: <56E99727.9040702@laposte.net> <20160318125455.GN4292@pengutronix.de> <56EC2525.8000706@laposte.net> <20160318191242.GQ4292@pengutronix.de> <56EFEDAD.9030903@laposte.net> <20160321135457.GX4292@pengutronix.de> <56F0150F.8080804@laposte.net> <20160321201229.GA6191@pengutronix.de> <56F157EF.5080307@laposte.net> <20160322194224.GF6191@pengutronix.de> <56F26BF7.3090201@laposte.net> <56F274A5.6030502@laposte.net> <56F2F189.1030003@cogentembedded.com> <56F3B9A2.9060801@laposte.net>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: call attention to review
+Date: Thu, 24 Mar 2016 18:30:12 +0800
+Message-ID: <56F3C1B4.80701@huawei.com>
+References: <56F38026.6040209@huawei.com> <20160324061743.GB11949@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <daniel@zonque.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, mason <slash.tmp@free.fr>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mans Rullgard <mans@mansr.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Martin Blumenstingl <martin.blumenstingl@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	=?windows-1252?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpoutz26.laposte.net ([194.117.213.101]:60271 "EHLO
-	smtp.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932078AbcCXKLA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 06:11:00 -0400
-Received: from smtp.laposte.net (localhost [127.0.0.1])
-	by lpn-prd-vrout014 (Postfix) with ESMTP id 224F311F31C
-	for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 11:10:56 +0100 (CET)
-Received: from lpn-prd-vrin004 (lpn-prd-vrin004.laposte [10.128.63.5])
-	by lpn-prd-vrout014 (Postfix) with ESMTP id 8939A11F44C
-	for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 11:10:49 +0100 (CET)
-Received: from lpn-prd-vrin004 (localhost [127.0.0.1])
-	by lpn-prd-vrin004 (Postfix) with ESMTP id 3AA5B70E2A9
-	for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 11:10:49 +0100 (CET)
-In-Reply-To: <56F3B9A2.9060801@laposte.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: <pandit.parav-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+	<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>, <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	<dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160324061743.GB11949-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
-
->>    What I don't understand is why the link_change_notify() method ptr is
->> populated for all 3 supported chips while only being needed on 8030...
+On 2016/3/24 14:17, Leon Romanovsky wrote:
+> On Thu, Mar 24, 2016 at 01:50:30PM +0800, oulijun wrote:
+>> Hi,
+>>    I am Lijun Ou. I have sent the PATCH v4 of HiSilicon RoCE driver at March 22, 2016.
+>> if you are convenient, please help to review. Welcome to give your reviewing.
 > 
-> You are right.
+> Hi Lijun,
+> Please read whole document which describes how to submit patches [1]
+> and especially section 9, but please don't limit yourself to that
+> section only. The whole document is relevant to your patches.
+> 
+> [1] https://www.kernel.org/doc/Documentation/SubmittingPatches
+> 
+>>
+>> thanks
+>> Lijun Ou
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
+Sorry, please forgive my impatience.  I will pay attention to the whole document afterwards.
+I am sorry  for my rashness again.
 
-I made the patch but I'm unsure about it because it could conflict with
-yours.
-I mean, I think you submitted a patch to change the GPIO handling on the
-link_change_notify() function, right?
+thanks
+Lijun Ou
 
-Well, if we only register the callback for the AT8030, then there is no
-more need for the callback to check the PHY ID.
-However, if I change that, the whole block moves as I remove one
-indentation level (the one required by the PHY ID check).
-
-Any suggestions on how to create a patch that won't conflict? I probably
-need to use a tree that already has your patch applied.
-
-Best regards,
-
-Sebastian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
