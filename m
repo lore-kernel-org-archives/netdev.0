@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] qlge: Update version to 1.00.00.35
-Date: Fri, 25 Mar 2016 11:41:31 -0400 (EDT)
-Message-ID: <20160325.114131.1189108232537972107.davem@davemloft.net>
-References: <1458904449-5776-1-git-send-email-manish.chopra@qlogic.com>
+Subject: Re: [PATCH v2 1/1] net: macb: remove BUG_ON() and reset the queue
+ to handle RX errors
+Date: Fri, 25 Mar 2016 11:44:23 -0400 (EDT)
+Message-ID: <20160325.114423.859412154606595295.davem@davemloft.net>
+References: <1458898654-25864-1-git-send-email-cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-GELinuxNICDev@qlogic.com,
-	harish.patil@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42186 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbcCYPle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 11:41:34 -0400
-In-Reply-To: <1458904449-5776-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, soren.brinkmann@xilinx.com,
+	linux-kernel@vger.kernel.org, narmstrong@baylibre.com
+To: cyrille.pitchen@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1458898654-25864-1-git-send-email-cyrille.pitchen@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Fri, 25 Mar 2016 07:14:09 -0400
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Date: Fri, 25 Mar 2016 10:37:34 +0100
 
-> Just updating version as many fixes got
-> accumulated over 1.00.00.34
+> This patch removes two BUG_ON() used to notify about RX queue corruptions
+> on macb (not gem) hardware without actually handling the error.
 > 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> The new code skips corrupted frames but still processes faultless frames.
+> Then it resets the RX queue before restarting the reception from a clean
+> state.
+> 
+> This patch is a rework of an older patch proposed by Neil Armstrong:
+> http://patchwork.ozlabs.org/patch/371525/
+> 
+> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+> Acked-by: Neil Armstrong <narmstrong@baylibre.com>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Applied, but it is the 'net' tree that fixes et al. like this
-should be targetting as 'net-next' is closed.
+Applied, thank you.
