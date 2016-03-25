@@ -1,125 +1,153 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH 00/13] Enhance stmmac driver to support GMAC4.x IP
-Date: Fri, 25 Mar 2016 10:14:07 +0100
-Message-ID: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH 01/13] stmmac: rework get_hw_feature function
+Date: Fri, 25 Mar 2016 10:14:08 +0100
+Message-ID: <1458897260-14104-2-git-send-email-alexandre.torgue@st.com>
+References: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
 Cc: Lars Persson <lars.persson@axis.com>
 To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60869 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60874 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751646AbcCYJOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:33 -0400
+	by vger.kernel.org with ESMTP id S1752275AbcCYJOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:38 -0400
+In-Reply-To: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a subset of patch to enhance current stmmac driver to support
-new GMAC4.x chips. New set of callbacks is defined to support this new
-family: descriptors, dma, core.
+On next GMAC IP generation (4.xx), the way to get hw feature
+is not the same than on previous 3.xx. As it is hardware
+dependent, the way to get hw capabilities should be defined in dma ops of
+each MAC IP. It will avoid also a huge computation of hw capabilities in
+stmmac_main.
 
-One of main changes of GMAC 4.xx IP is descriptors management.
- -descriptors are only used in ring mode.
- -A descriptor is composed of 4 32bits registers (no more extended
-  descriptors)
- -descriptor mechanism (Tx for example, but it is exactly the same for =
-RX):
- -useful registers:
-  -DMA_CH#_TxDesc_Ring_Len: length of transmit descriptor ring
-  -DMA_CH#_TxDesc_List_Address: start address of the ring
-  -DMA_CH#_TxDesc_Tail_Pointer: address of the last descriptor to send =
-+ 1.
-  -DMA_CH#_TxDesc_Current_App_TxDesc: address of the current descriptor
-   =20
- -The descriptor Tail Pointer register contains the pointer to the
-  descriptor address (N). The base address and the current
-  descriptor decide the address of the current descriptor that the
-  DMA can process. The descriptors up to one location less than the
-  one indicated by the descriptor tail pointer (N-1) are owned by
-  the DMA. The DMA continues to process the descriptors until the
-  following condition occurs:
-  "current descriptor pointer =3D=3D Descriptor Tail pointer"
+Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-  Then the DMA goes into suspend mode. The application must perform
-  a write to descriptor tail pointer register and update the tail
-  pointer to have the following condition and to start a new transfer:
-  "current descriptor pointer < Descriptor tail pointer"
-   =20
-  The DMA automatically wraps around the base address when the end
-  of ring is reached.
- =20
-New features are available on IP:
- -TSO (TCP Segmentation Offload) for TX only
- -Split header: to have header and payload in 2 different buffers (not =
-yet implemented)
-
-Below some throughput figures obtained on some boxes:
-
-                        iperf (mbps)=20
---------------------------------------
-                       tcp     udp   =20
-                    tx   rx   tx  rx =20
-                     -----------------
-    GMAC4.x         935  930  750 800=20
-
-Note: There is a change in 4.10a databook on bitfield mapping of DMA_CH=
-ANx_INTR_ENA register.=20
-This requires to have =E9 diffrent set of callbacks between IP 4.00a an=
-d 4.10a.
-
-Best regards
-
-Alex
-
-Alexandre TORGUE (13):
-  stmmac: rework get_hw_feature function
-  stmmac: rework the routines to show the ring status
-  stmmac: rework synopsys id read, moved to dwmac setup
-  stmmac: add descriptors function for GMAC 4.xx
-  stmmac: add GMAC4 DMA/CORE Header File
-  stmmac: add DMA support for GMAC 4.xx
-  stmmac: add GMAC4 core support
-  stmmac: enhance mmc counter management
-  stmmac: add new DT platform entries for GMAC4
-  stmmac: support new GMAC4
-  Documentation: networking: update stmmac
-  stmmac: update version to Jan_2016
-  stmmac: update MAINTAINERS
-
- Documentation/devicetree/bindings/net/stmmac.txt   |   2 +
- Documentation/networking/stmmac.txt                |  44 +-
- MAINTAINERS                                        |   1 +
- drivers/net/ethernet/stmicro/stmmac/Makefile       |   3 +-
- drivers/net/ethernet/stmicro/stmmac/common.h       |  64 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   7 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |  35 +-
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   5 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h       | 255 ++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 407 +++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 396 +++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h | 129 +++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   | 354 ++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h   | 202 +++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c   | 225 +++++++
- drivers/net/ethernet/stmicro/stmmac/enh_desc.c     |  21 +
- drivers/net/ethernet/stmicro/stmmac/mmc.h          |   4 +
- drivers/net/ethernet/stmicro/stmmac/mmc_core.c     | 349 +++++------
- drivers/net/ethernet/stmicro/stmmac/norm_desc.c    |  21 +
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   7 +-
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   7 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 643 +++++++++++++=
-++------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   7 +
- include/linux/stmmac.h                             |   2 +
- 24 files changed, 2821 insertions(+), 369 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4.h
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c
-
---=20
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index f96d257..797a913 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -412,7 +412,8 @@ struct stmmac_dma_ops {
+ 	int (*dma_interrupt) (void __iomem *ioaddr,
+ 			      struct stmmac_extra_stats *x);
+ 	/* If supported then get the optional core features */
+-	unsigned int (*get_hw_feature) (void __iomem *ioaddr);
++	void (*get_hw_feature)(void __iomem *ioaddr,
++			       struct dma_features *dma_cap);
+ 	/* Program the HW RX Watchdog */
+ 	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
+ };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+index da32d60..99074695 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
+@@ -215,9 +215,40 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr)
+ 	}
+ }
+ 
+-static unsigned int dwmac1000_get_hw_feature(void __iomem *ioaddr)
++static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
++				     struct dma_features *dma_cap)
+ {
+-	return readl(ioaddr + DMA_HW_FEATURE);
++	u32 hw_cap = readl(ioaddr + DMA_HW_FEATURE);
++
++	dma_cap->mbps_10_100 = (hw_cap & DMA_HW_FEAT_MIISEL);
++	dma_cap->mbps_1000 = (hw_cap & DMA_HW_FEAT_GMIISEL) >> 1;
++	dma_cap->half_duplex = (hw_cap & DMA_HW_FEAT_HDSEL) >> 2;
++	dma_cap->hash_filter = (hw_cap & DMA_HW_FEAT_HASHSEL) >> 4;
++	dma_cap->multi_addr = (hw_cap & DMA_HW_FEAT_ADDMAC) >> 5;
++	dma_cap->pcs = (hw_cap & DMA_HW_FEAT_PCSSEL) >> 6;
++	dma_cap->sma_mdio = (hw_cap & DMA_HW_FEAT_SMASEL) >> 8;
++	dma_cap->pmt_remote_wake_up = (hw_cap & DMA_HW_FEAT_RWKSEL) >> 9;
++	dma_cap->pmt_magic_frame = (hw_cap & DMA_HW_FEAT_MGKSEL) >> 10;
++	/* MMC */
++	dma_cap->rmon = (hw_cap & DMA_HW_FEAT_MMCSEL) >> 11;
++	/* IEEE 1588-2002 */
++	dma_cap->time_stamp =
++	    (hw_cap & DMA_HW_FEAT_TSVER1SEL) >> 12;
++	/* IEEE 1588-2008 */
++	dma_cap->atime_stamp = (hw_cap & DMA_HW_FEAT_TSVER2SEL) >> 13;
++	/* 802.3az - Energy-Efficient Ethernet (EEE) */
++	dma_cap->eee = (hw_cap & DMA_HW_FEAT_EEESEL) >> 14;
++	dma_cap->av = (hw_cap & DMA_HW_FEAT_AVSEL) >> 15;
++	/* TX and RX csum */
++	dma_cap->tx_coe = (hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
++	dma_cap->rx_coe_type1 = (hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
++	dma_cap->rx_coe_type2 = (hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
++	dma_cap->rxfifo_over_2048 = (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
++	/* TX and RX number of channels */
++	dma_cap->number_rx_channel = (hw_cap & DMA_HW_FEAT_RXCHCNT) >> 20;
++	dma_cap->number_tx_channel = (hw_cap & DMA_HW_FEAT_TXCHCNT) >> 22;
++	/* Alternate (enhanced) DESC mode */
++	dma_cap->enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
+ }
+ 
+ static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 4c5ce98..d3ebfea 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1558,51 +1558,15 @@ static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
+  */
+ static int stmmac_get_hw_features(struct stmmac_priv *priv)
+ {
+-	u32 hw_cap = 0;
++	u32 ret = 0;
+ 
+ 	if (priv->hw->dma->get_hw_feature) {
+-		hw_cap = priv->hw->dma->get_hw_feature(priv->ioaddr);
+-
+-		priv->dma_cap.mbps_10_100 = (hw_cap & DMA_HW_FEAT_MIISEL);
+-		priv->dma_cap.mbps_1000 = (hw_cap & DMA_HW_FEAT_GMIISEL) >> 1;
+-		priv->dma_cap.half_duplex = (hw_cap & DMA_HW_FEAT_HDSEL) >> 2;
+-		priv->dma_cap.hash_filter = (hw_cap & DMA_HW_FEAT_HASHSEL) >> 4;
+-		priv->dma_cap.multi_addr = (hw_cap & DMA_HW_FEAT_ADDMAC) >> 5;
+-		priv->dma_cap.pcs = (hw_cap & DMA_HW_FEAT_PCSSEL) >> 6;
+-		priv->dma_cap.sma_mdio = (hw_cap & DMA_HW_FEAT_SMASEL) >> 8;
+-		priv->dma_cap.pmt_remote_wake_up =
+-		    (hw_cap & DMA_HW_FEAT_RWKSEL) >> 9;
+-		priv->dma_cap.pmt_magic_frame =
+-		    (hw_cap & DMA_HW_FEAT_MGKSEL) >> 10;
+-		/* MMC */
+-		priv->dma_cap.rmon = (hw_cap & DMA_HW_FEAT_MMCSEL) >> 11;
+-		/* IEEE 1588-2002 */
+-		priv->dma_cap.time_stamp =
+-		    (hw_cap & DMA_HW_FEAT_TSVER1SEL) >> 12;
+-		/* IEEE 1588-2008 */
+-		priv->dma_cap.atime_stamp =
+-		    (hw_cap & DMA_HW_FEAT_TSVER2SEL) >> 13;
+-		/* 802.3az - Energy-Efficient Ethernet (EEE) */
+-		priv->dma_cap.eee = (hw_cap & DMA_HW_FEAT_EEESEL) >> 14;
+-		priv->dma_cap.av = (hw_cap & DMA_HW_FEAT_AVSEL) >> 15;
+-		/* TX and RX csum */
+-		priv->dma_cap.tx_coe = (hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
+-		priv->dma_cap.rx_coe_type1 =
+-		    (hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
+-		priv->dma_cap.rx_coe_type2 =
+-		    (hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
+-		priv->dma_cap.rxfifo_over_2048 =
+-		    (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
+-		/* TX and RX number of channels */
+-		priv->dma_cap.number_rx_channel =
+-		    (hw_cap & DMA_HW_FEAT_RXCHCNT) >> 20;
+-		priv->dma_cap.number_tx_channel =
+-		    (hw_cap & DMA_HW_FEAT_TXCHCNT) >> 22;
+-		/* Alternate (enhanced) DESC mode */
+-		priv->dma_cap.enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
+-	}
+-
+-	return hw_cap;
++		priv->hw->dma->get_hw_feature(priv->ioaddr,
++					      &priv->dma_cap);
++		ret = 1;
++	}
++
++	return ret;
+ }
+ 
+ /**
+-- 
 1.9.1
