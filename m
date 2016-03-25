@@ -1,51 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Fri, 25 Mar 2016 10:00:42 -0700
-Message-ID: <1458925242.6473.41.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAEfhGizvwATcG--OH_xhrV-c1t11ie-vNibJY8kqFAq3GX9upw@mail.gmail.com>
-	 <20160325162114.GA72479@ast-mbp.thefacebook.com>
-	 <CAEfhGiy-V0da6LQ_SY+E4u7S49n5dEpVaKiOOo103ijQtPujAw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Craig Gallek <kraigatgoog@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: fix 6185 hardware bridging
+Date: Fri, 25 Mar 2016 13:01:59 -0400
+Message-ID: <1458925319-16771-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35379 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753853AbcCYRAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 13:00:45 -0400
-Received: by mail-pf0-f180.google.com with SMTP id n5so86057721pfn.2
-        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 10:00:45 -0700 (PDT)
-In-Reply-To: <CAEfhGiy-V0da6LQ_SY+E4u7S49n5dEpVaKiOOo103ijQtPujAw@mail.gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:51003 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753628AbcCYREL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 13:04:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-03-25 at 12:31 -0400, Craig Gallek wrote:
+The 88E6185 switch also has a MapDA bit in its Port Control 2 register.
+When this bit is cleared, all frames are sent out to the CPU port.
 
-> I believe the issue here is that closing the listen sockets will drop
-> any connections that are in the listen queue but have not been
-> accepted yet.  In the case of reuseport, you could in theory drain
-> those queues into the non-closed sockets, but that probably has some
-> interesting consequences...
+Set this bit to rely on ATU hits and direct the frame out of the correct
+ports, and thus enable hardware bridging.
 
-It is more complicated than this.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Ideally, no TCP connection should be dropped during a server change.
-
-The idea is to let old program running as long as :
-1) It has established TCP sessions
-2) Some SYN_RECV pseudo requests are still around
-
-Once 3WHS completes for these SYN_RECV, children are queued into
-listener accept queues.
-
-But the idea is to direct all new SYN packets to the 'new' process and
-its listeners. (New SYN_RECV should be created on behalf on the new
-listeners only)
-
-
-In some environments, the listeners are simply transfered via FD
-passing, from the 'old process' to the new one.
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 4332b15..85ed3e2 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2586,7 +2586,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	reg = 0;
+ 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+ 	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
+-	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds))
++	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds) ||
++	    mv88e6xxx_6185_family(ds))
+ 		reg = PORT_CONTROL_2_MAP_DA;
+ 
+ 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+-- 
+2.7.4
