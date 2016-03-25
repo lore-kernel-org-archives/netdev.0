@@ -1,82 +1,84 @@
-From: Vijay Pandurangan <vijayp@vijayp.ca>
-Subject: =?UTF-8?Q?Re=3A_veth_regression_with_=22don=E2=80=99t_modify_ip=5Fsummed=3B_?=
-	=?UTF-8?Q?doing_so_treats_packets_with_bad_checksums_as_good=2E=22?=
-Date: Fri, 25 Mar 2016 01:24:54 -0400
-Message-ID: <CAKUBDd9qs9rzrvp8XJ4HpddekMsRjmL+rwsL3DqTWutPon=NdA@mail.gmail.com>
-References: <56F463D6.7080406@candelatech.com> <CAM_iQpWv_iP1ZtsRQT0YsztMrf6rdaXN2V57PUu5oBe5kR56AQ@mail.gmail.com>
- <56F4810A.9060904@candelatech.com> <56F49036.8050902@candelatech.com>
- <56F490B2.3090603@candelatech.com> <CAKUBDd9TjFTvXSEL=+J02PVndNG-gcrMOpRo_MFp4J-oOnLrvQ@mail.gmail.com>
- <56F4BFF1.8010806@candelatech.com> <CAKUBDd8ojaAYHZ6L_8HBetqL1P6v9iy9W9ThZwnnzf3-npt-Vg@mail.gmail.com>
- <CAKUBDd8vwvN4z5gP63ukVjRsgbjKQBZvVHv+bJdQRQgcxD5HGA@mail.gmail.com> <56F4C77E.1010608@candelatech.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 25 Mar 2016 06:28:19 +0100
+Message-ID: <20160325052819.GA8548@1wt.eu>
+References: <20160324153053.GA7569@1wt.eu>
+ <1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160324165047.GA7585@1wt.eu>
+ <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+ <56F42A00.7050002@iogearbox.net>
+ <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+ <1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+ <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
-	Cong Wang <cwang@twopensource.com>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Yann Ylavic <ylavic.dev@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Craig Gallek <cgallek@google.com>,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f47.google.com ([209.85.213.47]:35448 "EHLO
-	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087AbcCYFZP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 01:25:15 -0400
-Received: by mail-vk0-f47.google.com with SMTP id e6so82233753vkh.2
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 22:25:14 -0700 (PDT)
-In-Reply-To: <56F4C77E.1010608@candelatech.com>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:32303 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750854AbcCYF2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Mar 2016 01:28:41 -0400
+Content-Disposition: inline
+In-Reply-To: <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 1:07 AM, Ben Greear <greearb@candelatech.com> wrote:
-> On 03/24/2016 09:45 PM, Vijay Pandurangan wrote:
->>
->> Actually, maybe they should be set to CHECKSUM_PARTIAL if we want veth
->> to drop the packets if they have bad checksums before they hit the
->> application level.
->
->
-> VETH is pretty special in that when you transmit a frame on one
-> device, it's pair receives it, and unless there is RAM corruption
-> or bugs in the kernel, then it cannot be corrupted.
+On Thu, Mar 24, 2016 at 04:54:03PM -0700, Tom Herbert wrote:
+> On Thu, Mar 24, 2016 at 4:40 PM, Yann Ylavic <ylavic.dev@gmail.com> wrote:
+> > I'll learn how to do this to get the best performances from the
+> > server, but having to do so to work around what looks like a defect
+> > (for simple/default SMP configurations at least, no NUMA or clever
+> > CPU-affinity or queuing policy involved) seems odd in the first place.
+> >
+> I disagree with your assessment that there is a defect. SO_REUSEPORT
+> is designed to spread packets amongst _equivalent_ connections. In the
+> server draining case sockets are no longer equivalent, but that is a
+> special case.
 
-Yeah, you're right that that's an optimization. However, I think that
-we should first ensure that
+I partially disagree with you here Tom. Initially SO_REUSEPORT was not
+used to spread packets but to allow soft restart in some applications.
+I've been using it since 2001 in haproxy on *BSD and linux 2.2. It was
+removed during 2.3 and I used to keep a patch to reimplement it in 2.4
+(basically 2 or 3 lines, the infrastructure was still present), but the
+patch was not accepted. The same patch worked for 2.6 and 3.x, allowing
+me to continue to perform soft-restarts on Linux just like I used to do
+on *BSD. When SO_REUSEPORT was reimplemented in 3.9 with load balancing,
+I was happy because it at last allowed me to drop my patch and I got
+the extra benefit of better load balancing of incoming connections.
 
-a->veth->b
+But the main use we have for it (at least historically) is for soft
+restarts, where one process replaces another one. Very few people use
+more than one process in our case.
 
-operates exactly like:
+However given the benefits of the load spreading for extreme loads,
+I'm willing to find how to achieve the same with BPF, but it's pretty
+clear that at this point I have no idea where to start from and that
+for a single process replacing a single one, it looks quite complicated.
 
-a->physical eth 1 -> physical eth 2->b
+For me quite frankly the special case is the load balancing which is
+a side benefit (and a nice one, don't get me wrong).
 
-in all cases.  Once we have that working everywhere we could think
-about optimizations.
+That's why I would have found it nice to "fix" the process replacement
+to avoid dropping incoming connections, though I don't want it to become
+a problem for future improvements on BPF. I don't think the two lines I
+proposed could become an issue but I'll live without them (or continue
+to apply this patch).
 
+BTW, I have no problem with having to write a little bit of assembly for
+fast interfaces if it remains untouched for years, we do already have a
+bit in haproxy. It's just a longterm investment.
 
-If we're willing to refactor, we could implement the optimization by
-allowing veth devices to know whether their immediate peer is. If a
-veth knows it's talking to another veth, it could under some
-circumstances elide checksum calculation and verification.  I'm not
-sure what abstractions that would break, though. What do you guys
-think?
-
-
-
->
-> But, if you are routing frames from the network to veth
-> devices, then the original packet could be corrupted, as
-> described in your patch.
->
-> Probably the right behaviour is to keep the old logic for packets
-> originating from sockets, at least.  I am not sure of a good way
-> to implement that.
->
-> As for testing, I am not sure.  Probably you have to make a good
-> effort and then just deal with fallout like what I found.  I would guess
-> that any of us who have ever written an interesting patch have also written
-> an interesting bug!
->
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
+Best regards,
+Willy
