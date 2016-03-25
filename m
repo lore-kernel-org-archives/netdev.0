@@ -1,85 +1,51 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
- netpoll_cleanup()
-Date: Fri, 25 Mar 2016 11:46:39 -0500
-Message-ID: <20160325164639.GA29822@localhost>
-References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
- <20160325113342.GA21579@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 25 Mar 2016 10:00:42 -0700
+Message-ID: <1458925242.6473.41.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAEfhGizvwATcG--OH_xhrV-c1t11ie-vNibJY8kqFAq3GX9upw@mail.gmail.com>
+	 <20160325162114.GA72479@ast-mbp.thefacebook.com>
+	 <CAEfhGiy-V0da6LQ_SY+E4u7S49n5dEpVaKiOOo103ijQtPujAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, Alexander Duyck <aduyck@mirantis.com>,
-	linux-kernel@vger.kernel.org
-To: Neil Horman <nhorman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160325113342.GA21579@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35379 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853AbcCYRAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 13:00:45 -0400
+Received: by mail-pf0-f180.google.com with SMTP id n5so86057721pfn.2
+        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 10:00:45 -0700 (PDT)
+In-Reply-To: <CAEfhGiy-V0da6LQ_SY+E4u7S49n5dEpVaKiOOo103ijQtPujAw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 07:33:42AM -0400, Neil Horman wrote:
-> On Thu, Mar 24, 2016 at 09:56:21PM -0500, Bjorn Helgaas wrote:
-> > netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
-> > fails, it correctly does a dev_put() but leaves np->dev set.  If we call
-> > netpoll_cleanup() after the failure, np->dev is still set so we do another
-> > dev_put(), which decrements the refcount an extra time.
-> > 
-> > It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
-> > but it can be difficult to find the problem, and we can easily avoid it in
-> > this case.  The extra decrements can lead to hangs like this:
-> > 
-> >   unregister_netdevice: waiting for bond0 to become free. Usage count = -3
-> > 
-> > Set and clear np->dev at the points where we dev_hold() and dev_put() the
-> > device.
-> > 
-> > Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-> > ---
-> >  net/core/netpoll.c |    3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> > index 94acfc8..a57bd17 100644
-> > --- a/net/core/netpoll.c
-> > +++ b/net/core/netpoll.c
-> > @@ -603,7 +603,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
-> >  	const struct net_device_ops *ops;
-> >  	int err;
-> >  
-> > -	np->dev = ndev;
-> >  	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
-> >  	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
-> >  
-> > @@ -670,6 +669,7 @@ int netpoll_setup(struct netpoll *np)
-> >  		goto unlock;
-> >  	}
-> >  	dev_hold(ndev);
-> > +	np->dev = ndev;
-> >  
-> >  	if (netdev_master_upper_dev_get(ndev)) {
-> >  		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
-> > @@ -770,6 +770,7 @@ int netpoll_setup(struct netpoll *np)
-> >  	return 0;
-> >  
-> >  put:
-> > +	np->dev = NULL;
-> >  	dev_put(ndev);
-> >  unlock:
-> >  	rtnl_unlock();
-> > 
-> 
-> Is this safe for stacked devices?  It makes good sense for the typical case, but
-> if you attempt to setup a netpoll client on a bridge/bond/vlan, etc, the lower
-> device will get its own netpoll struct registered and have no associated np->dev
-> pointer.  It not be a real problem in practice, But you probably want to check
-> to make sure that stacked  devices which recursively call the netpoll api don't
-> do anyting with the np->dev pointer.
+On Fri, 2016-03-25 at 12:31 -0400, Craig Gallek wrote:
 
-You're right, there is an issue here.  I reproduced a problem with a
-bond device.  bond_netpoll_setup() calls __netpoll_setup() directly
-(not netpoll_setup()).  I'll debug it more; just wanted to let you
-know there *is* a problem with this patch.
+> I believe the issue here is that closing the listen sockets will drop
+> any connections that are in the listen queue but have not been
+> accepted yet.  In the case of reuseport, you could in theory drain
+> those queues into the non-closed sockets, but that probably has some
+> interesting consequences...
 
-Bjorn
+It is more complicated than this.
+
+Ideally, no TCP connection should be dropped during a server change.
+
+The idea is to let old program running as long as :
+1) It has established TCP sessions
+2) Some SYN_RECV pseudo requests are still around
+
+Once 3WHS completes for these SYN_RECV, children are queued into
+listener accept queues.
+
+But the idea is to direct all new SYN packets to the 'new' process and
+its listeners. (New SYN_RECV should be created on behalf on the new
+listeners only)
+
+
+In some environments, the listeners are simply transfered via FD
+passing, from the 'old process' to the new one.
