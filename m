@@ -1,29 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: veth regression with =?iso-8859-7?B?ImRvbqJ0?= modify
- ip_summed; doing so treats packets with bad checksums as good."
-Date: Fri, 25 Mar 2016 12:45:29 -0400 (EDT)
-Message-ID: <20160325.124529.2108561053159019972.davem@davemloft.net>
-References: <CAM_iQpWwch3+6u+X0DBGyVSWttd7Nz2COdmq2q=G9BxisW52bA@mail.gmail.com>
-	<56F56312.4080408@candelatech.com>
-	<CAM_iQpXpqVgweZFw438v_b7No8U8YtqHSt0x0+HZ+oSimdCyfg@mail.gmail.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
+ netpoll_cleanup()
+Date: Fri, 25 Mar 2016 11:46:39 -0500
+Message-ID: <20160325164639.GA29822@localhost>
+References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+ <20160325113342.GA21579@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, vijayp@vijayp.ca, netdev@vger.kernel.org,
-	ej@evanjones.ca, cwang@twopensource.com, tom@herbertland.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42984 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753372AbcCYQpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 12:45:32 -0400
-In-Reply-To: <CAM_iQpXpqVgweZFw438v_b7No8U8YtqHSt0x0+HZ+oSimdCyfg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org, Alexander Duyck <aduyck@mirantis.com>,
+	linux-kernel@vger.kernel.org
+To: Neil Horman <nhorman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160325113342.GA21579@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 25 Mar 2016 09:32:23 -0700
+On Fri, Mar 25, 2016 at 07:33:42AM -0400, Neil Horman wrote:
+> On Thu, Mar 24, 2016 at 09:56:21PM -0500, Bjorn Helgaas wrote:
+> > netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
+> > fails, it correctly does a dev_put() but leaves np->dev set.  If we call
+> > netpoll_cleanup() after the failure, np->dev is still set so we do another
+> > dev_put(), which decrements the refcount an extra time.
+> > 
+> > It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
+> > but it can be difficult to find the problem, and we can easily avoid it in
+> > this case.  The extra decrements can lead to hangs like this:
+> > 
+> >   unregister_netdevice: waiting for bond0 to become free. Usage count = -3
+> > 
+> > Set and clear np->dev at the points where we dev_hold() and dev_put() the
+> > device.
+> > 
+> > Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+> > ---
+> >  net/core/netpoll.c |    3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> > index 94acfc8..a57bd17 100644
+> > --- a/net/core/netpoll.c
+> > +++ b/net/core/netpoll.c
+> > @@ -603,7 +603,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+> >  	const struct net_device_ops *ops;
+> >  	int err;
+> >  
+> > -	np->dev = ndev;
+> >  	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
+> >  	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
+> >  
+> > @@ -670,6 +669,7 @@ int netpoll_setup(struct netpoll *np)
+> >  		goto unlock;
+> >  	}
+> >  	dev_hold(ndev);
+> > +	np->dev = ndev;
+> >  
+> >  	if (netdev_master_upper_dev_get(ndev)) {
+> >  		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+> > @@ -770,6 +770,7 @@ int netpoll_setup(struct netpoll *np)
+> >  	return 0;
+> >  
+> >  put:
+> > +	np->dev = NULL;
+> >  	dev_put(ndev);
+> >  unlock:
+> >  	rtnl_unlock();
+> > 
+> 
+> Is this safe for stacked devices?  It makes good sense for the typical case, but
+> if you attempt to setup a netpoll client on a bridge/bond/vlan, etc, the lower
+> device will get its own netpoll struct registered and have no associated np->dev
+> pointer.  It not be a real problem in practice, But you probably want to check
+> to make sure that stacked  devices which recursively call the netpoll api don't
+> do anyting with the np->dev pointer.
 
-> So I believe dm9000 needs to fix.
+You're right, there is an issue here.  I reproduced a problem with a
+bond device.  bond_netpoll_setup() calls __netpoll_setup() directly
+(not netpoll_setup()).  I'll debug it more; just wanted to let you
+know there *is* a problem with this patch.
 
-+1
+Bjorn
