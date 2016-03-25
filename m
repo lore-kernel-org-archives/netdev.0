@@ -1,61 +1,65 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: netpoll rtnl_dereference() usage
-Date: Fri, 25 Mar 2016 14:16:06 -0400
-Message-ID: <20160325181606.GA18985@hmsreliant.think-freely.org>
-References: <20160325173032.GC29822@localhost>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 25 Mar 2016 14:31:23 -0400
+Message-ID: <CAF=yD-+QgnbM5_LR73NFnzE2AJWwPxkoii30O8bbEwXR3XhCvA@mail.gmail.com>
+References: <CAEfhGizvwATcG--OH_xhrV-c1t11ie-vNibJY8kqFAq3GX9upw@mail.gmail.com>
+ <20160325162114.GA72479@ast-mbp.thefacebook.com> <CAEfhGiy-V0da6LQ_SY+E4u7S49n5dEpVaKiOOo103ijQtPujAw@mail.gmail.com>
+ <1458925242.6473.41.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, Alexander Duyck <aduyck@mirantis.com>,
-	linux-kernel@vger.kernel.org
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160325173032.GC29822@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Craig Gallek <kraigatgoog@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:36642 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753321AbcCYScF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 14:32:05 -0400
+Received: by mail-lf0-f65.google.com with SMTP id r8so6490222lfe.3
+        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 11:32:04 -0700 (PDT)
+In-Reply-To: <1458925242.6473.41.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 12:30:32PM -0500, Bjorn Helgaas wrote:
-> Hi Neil,
-> 
-> Since we're looking at netpoll, here's another question (or two).
-> 0790bbb68f9d ("netpoll: cleanup sparse warnings") adds this:
-> 
-> @@ -1236,7 +1236,11 @@ void __netpoll_cleanup(struct netpoll *np)
->         struct netpoll_info *npinfo;
->         unsigned long flags;
->  
-> -       npinfo = np->dev->npinfo;
-> +       /* rtnl_dereference would be preferable here but
-> +        * rcu_cleanup_netpoll path can put us in here safely without
-> +        * holding the rtnl, so plain rcu_dereference it is
-> +        */
-> +       npinfo = rtnl_dereference(np->dev->npinfo);
->         if (!npinfo)
->                 return;
-> 
-> The comment seems to contradict the code: the comment says "we would
-> like to use rtnl_dereference(), but we have to use rcu_dereference()."
-> But the code in fact *does* use rtnl_dereference().
-> 
-its the comment that went awry.  I remember writing that patch, and I initially
-thought we had to use rcu_derefence there, but I would up finding a way to keep
-the rntl lock held, so rtnl_deref should be ok.  I must have just forgotten to
-fixup the comment.
+On Fri, Mar 25, 2016 at 1:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2016-03-25 at 12:31 -0400, Craig Gallek wrote:
+>
+>> I believe the issue here is that closing the listen sockets will drop
+>> any connections that are in the listen queue but have not been
+>> accepted yet.  In the case of reuseport, you could in theory drain
+>> those queues into the non-closed sockets, but that probably has some
+>> interesting consequences...
+>
+> It is more complicated than this.
+>
+> Ideally, no TCP connection should be dropped during a server change.
+>
+> The idea is to let old program running as long as :
+> 1) It has established TCP sessions
+> 2) Some SYN_RECV pseudo requests are still around
+>
+> Once 3WHS completes for these SYN_RECV, children are queued into
+> listener accept queues.
+>
+> But the idea is to direct all new SYN packets to the 'new' process and
+> its listeners. (New SYN_RECV should be created on behalf on the new
+> listeners only)
+>
+>
+> In some environments, the listeners are simply transfered via FD
+> passing, from the 'old process' to the new one.
 
-> Also, "rcu_cleanup_netpoll" doesn't exist; maybe it's a typo for
-> rcu_cleanup_netpoll_info()?  I don't see the path that leads from
-> rcu_cleanup_netpoll_info() to __netpoll_cleanup(), but I don't claim
-> to understand the netpoll async subtleties.
-> 
-Correct again, its the rcu callback rcu_cleanup_netpoll_info that I'm referring
-to there, and the comment was written initially when rcu_cleanup_netpoll info
-was called cleanup_netpoll_info and called forward into __netpoll_cleanup (in my
-development patch versions).  That comment should really just be re-written.
-I'm happy to do so if you like
+Right. Comparatively, one of the nice features of the BPF variant is
+that the sockets in the old process can passively enter listen_off
+state solely with changes initiated by the new process (change the bpf
+filter for the group).
 
-Best
-Neil
-
-> Bjorn
+By the way, if I read correctly, the listen_off feature was already
+possible without kernel changes prior to fast reuseport by changing
+SO_BINDTODEVICE on the old process's sockets to effectively segment
+them into a separate reuseport group. With fast reuseport,
+sk_bound_dev_if state equivalence is checked on joining a group, but
+the socket is not removed from the array when that syscall is made, so
+this does not work.
