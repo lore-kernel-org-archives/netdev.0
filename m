@@ -1,54 +1,136 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
-Date: Fri, 25 Mar 2016 00:37:59 +0000
-Message-ID: <alpine.LFD.2.20.1603250029090.1789@ec-desktop.uk.level5networks.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain> <20160318232522.14955.13475.stgit@localhost.localdomain> <56F17A13.8090701@solarflare.com> <CAKgT0Ud9uPG+9AdT47Q1VygLBnjygyY29sRf=y4Pqe=f2e+bkw@mail.gmail.com> <56F19FAA.3090005@solarflare.com>
- <CAKgT0UcAuOrBTcmj1ue8mK=j4dCqr-0bydHhRb+ghS1cZaUqrw@mail.gmail.com> <56F2C3F8.8070308@solarflare.com> <CAKgT0Uei6YrWRPaov3LAFrOima=o4+V4mQcFih-rHZ+w-x4hwA@mail.gmail.com> <56F30523.8080108@solarflare.com> <CAKgT0UfgKwSRjMwRHbDNawAyJ3jvz937j1jxGvJWRaD39bSSeQ@mail.gmail.com>
- <56F3200C.20200@solarflare.com> <CAKgT0UfyOc4tYhZq7CC5G4S5HdzPW3iSifdcwe20Vxsqu8C3LQ@mail.gmail.com> <56F41FFF.7000508@solarflare.com> <CAKgT0UeW7A6cMRHm8_nEX=op_VAK5wcoYYRTNQVmMQWe02HdfA@mail.gmail.com> <56F44B56.9070206@solarflare.com>
- <CAKgT0Uc083WTmag4_B5LkVvi+iDoFtEjB0Xx4u92-Wu5S=6mzw@mail.gmail.com> <56F47171.4070003@solarflare.com> <CAKgT0UcoVV-_LrLPRoK4PLim5Nn-Z7gOV9LZF_RMXDOU8aCciA@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: =?UTF-8?Q?Re:_veth_regression_with_=22don=e2=80=99t_modify_ip=5fsum?=
+ =?UTF-8?Q?med;_doing_so_treats_packets_with_bad_checksums_as_good.=22?=
+Date: Thu, 24 Mar 2016 18:11:18 -0700
+Message-ID: <56F49036.8050902@candelatech.com>
+References: <56F463D6.7080406@candelatech.com>
+ <CAM_iQpWv_iP1ZtsRQT0YsztMrf6rdaXN2V57PUu5oBe5kR56AQ@mail.gmail.com>
+ <56F4810A.9060904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Edward Cree <ec429@cantab.net>, Or Gerlitz <gerlitz.or@gmail.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
+	Vijay P <vijayp@vijayp.ca>, Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:17482 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750965AbcCYAiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:38:12 -0400
-In-Reply-To: <CAKgT0UcoVV-_LrLPRoK4PLim5Nn-Z7gOV9LZF_RMXDOU8aCciA@mail.gmail.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:56499 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbcCYBLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 21:11:20 -0400
+In-Reply-To: <56F4810A.9060904@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Mar 2016, Alexander Duyck wrote:
-> On Thu, Mar 24, 2016 at 4:00 PM, Edward Cree <ecree@solarflare.com> wrote:
->> So: in the initial transmit path we build a coherent superframe; when we get
->> to the device, we say either "oh, device doesn't support offloads at all,
->> call GSO", or "oh, device supports this particular GSO type for TSO, so give
->> it the superframe SKB to do what it wants with", or "oh, device supports
->> GSO_PARTIAL, let's call skb_mac_gso_partial [i.e. chain of new callbacks I
->> was describing in previous email] and then give the non-coherent SKB to the
->> device".
-> 
-> What you are proposing is essentially forking GSO.
-In a way, I suppose it is.
+On 03/24/2016 05:06 PM, Ben Greear wrote:
+> On 03/24/2016 04:56 PM, Cong Wang wrote:
+>> On Thu, Mar 24, 2016 at 3:01 PM, Ben Greear <greearb@candelatech.com> wrote:
+>>> I have an application that creates two pairs of veth devices.
+>>>
+>>> a <-> b       c <-> d
+>>>
+>>> b and c have a raw packet socket opened on them and I 'bridge' frames
+>>> between b and c to provide network emulation (ie, configurable delay).
+>>>
+>>
+>> IIUC, you create two raw sockets in order to bridge these two veth pairs?
+>> That is, to receive packets on one socket and deliver packets on the other?
+>
+> Yes.
+>
+>>> I put IP 1.1.1.1/24 on a, 1.1.1.2/24 on d, and then create a UDP connection
+>>> (using policy based routing to ensure frames are sent on the appropriate
+>>> interfaces).
+>>>
+>>> This is user-space only app, and kernel in this case is completely
+>>> unmodified.
+>>>
+>>> The commit below breaks this feature:  UDP frames are sniffed on both a and
+>>> d ports
+>>> (in both directions), but the UDP socket does not receive frames.
+>>>
+>>> Using normal ethernet ports, this network emulation feature works fine, so
+>>> it is
+>>> specific to VETH.
+>>>
+>>> A similar test with just sending UDP between a single veth pair:  e <-> f
+>>> works fine.  Maybe it has something to do with raw packets?
+>>>
+>>
+>> Yeah, I have the same feeling. Could you trace kfree_skb() to see
+>> where these packets are dropped? At UDP layer?
+>
+> Since reverting the patch fixes this, it almost certainly has to be due to some
+> checksum checking logic.  Since UDP sockets (between single veth pair)
+> works, it would appear to be related to my packet bridge, so maybe
+> it is specific to raw packets and/or sendmmsg api.
+>
+> I'll investigate it better tomorrow.
 
-> I really don't
-> like that.  I prefer the approach we have now where essentially GSO
-> partial is something checked for at the very end and we have a few
-> checks when putting together the headers so we do the right thing.
-I guess both can exist, and I'll name mine something other than "GSO 
-partial"...
+So, I found time to poke at it this evening:
 
-> This is sounding very complicated.  I think we would be better off if
-> you took the time to try and implement some of this yourself so you
-> could see how feasible it is.
-Sure, I was already intending to do that before I saw your patch series
-and thought it might be able to do what I had in mind.  As it now seems
-like we're envisaging different things, I'll go back to implementing
-mine and wish you luck with yours.
+Sending between two veth pairs, no packet bridge involved.
 
--Ed
+UDP:  ip_summed is 3 (CHECKSUM_PARTIAL)   # Works fine.
+raw packet frames, custom ether protocol (0x1111 type):  ip_summed is 0 (NONE) # Works fine.
+
+When I try to send UDP through the veth pairs & pkt bridge, I see this:
+
+(pkt-bridge connects to the 'b' side of the veth pairs)
+
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR0  rcv: rddVR0b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR1b  rcv: rddVR1  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR1  rcv: rddVR1b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR0b  rcv: rddVR0  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR0  rcv: rddVR0b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:34 ben-ota-1 kernel: dev: rddVR1b  rcv: rddVR1  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR1  rcv: rddVR1b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0b  rcv: rddVR0  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0  rcv: rddVR0b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR1b  rcv: rddVR1  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR1  rcv: rddVR1b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0b  rcv: rddVR0  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0  rcv: rddVR0b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR1b  rcv: rddVR1  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR1  rcv: rddVR1b  ip_summed: 3  rcv-features: 0x184074011e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0b  rcv: rddVR0  ip_summed: 0  rcv-features: 0x184075b59e9
+Mar 24 17:59:35 ben-ota-1 kernel: dev: rddVR0  rcv: rddVR0b  ip_summed: 3  rcv-features: 0x184074011e9
+
+
+I am guessing the issue is that when my pkt bridge sends a raw frame that is actually a UDP packet,
+the fact that it has ip_summed == 0 in the kernel causes the frame to be dropped.
+
+
+I modified veth.c like this for this test:
+
+static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	struct veth_priv *priv = netdev_priv(dev);
+	struct net_device *rcv;
+	int length = skb->len;
+
+	rcu_read_lock();
+	rcv = rcu_dereference(priv->peer);
+	if (unlikely(!rcv)) {
+		kfree_skb(skb);
+		goto drop;
+	}
+
+	pr_err("dev: %s  rcv: %s  ip_summed: %d  rcv-features: 0x%llx\n",
+	       dev->name, rcv->name, skb->ip_summed, (unsigned long long)rcv->features);
+#if 0
+	/* don't change ip_summed == CHECKSUM_PARTIAL, as that
+	 * will cause bad checksum on forwarded packets
+	 */
+	if (skb->ip_summed == CHECKSUM_NONE &&
+	    rcv->features & NETIF_F_RXCSUM)
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
+#endif
+
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
