@@ -1,44 +1,56 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: mv88e6xxx: fix 6185 hardware bridging
-Date: Fri, 25 Mar 2016 13:01:59 -0400
-Message-ID: <1458925319-16771-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: veth regression with =?windows-1252?Q?=22don=92t_modify_?=
+ =?windows-1252?Q?ip=5Fsummed=3B_doing_so_treats_packets_with_?=
+ =?windows-1252?Q?bad_checksums_as_good=2E=22?=
+Date: Fri, 25 Mar 2016 10:14:46 -0700
+Message-ID: <56F57206.5000701@candelatech.com>
+References: <56F4C8FD.7030907@candelatech.com>	<CAM_iQpWwch3+6u+X0DBGyVSWttd7Nz2COdmq2q=G9BxisW52bA@mail.gmail.com>	<56F56312.4080408@candelatech.com> <20160325.124427.273071525698476869.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, vijayp@vijayp.ca, netdev@vger.kernel.org,
+	ej@evanjones.ca, cwang@twopensource.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:51003 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628AbcCYREL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 13:04:11 -0400
+Received: from mail2.candelatech.com ([208.74.158.173]:38788 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753648AbcCYROs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 13:14:48 -0400
+In-Reply-To: <20160325.124427.273071525698476869.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 88E6185 switch also has a MapDA bit in its Port Control 2 register.
-When this bit is cleared, all frames are sent out to the CPU port.
 
-Set this bit to rely on ATU hits and direct the frame out of the correct
-ports, and thus enable hardware bridging.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 03/25/2016 09:44 AM, David Miller wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> Date: Fri, 25 Mar 2016 09:10:58 -0700
+>
+>> I am suspicious that this will break at least some drivers.  I
+>> grepped around for ip_summed, and found this, for instance:
+>>
+>> davicom/dm9000.c
+>>
+>>          /* The DM9000 is not smart enough to leave fragmented packets
+>
+> An really old (circa 1997), not-oft-used, driver such as this is not
+> the place to be looking for correct usage of skb->ip_summed semantics.
+>
+> I would never use whatever a driver like this does influence whether I
+> apply a bug fix or not.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 4332b15..85ed3e2 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2586,7 +2586,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	reg = 0;
- 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
- 	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
--	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds))
-+	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds) ||
-+	    mv88e6xxx_6185_family(ds))
- 		reg = PORT_CONTROL_2_MAP_DA;
- 
- 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+
+Point is, it took me 5 minutes to find that, and I did not look hard at many
+other drivers.  e1000e and igb appear to be fine, and maybe the rest of them
+are too.  Lord knows what other strange setups might be effected by the
+ip_summed change.
+
+Anyway, you know the stack and drivers better than me, so if you think Cong's
+patch is valid, then I'll test it and make sure it works in my setups at least.
+
+Thanks,
+Ben
+
 -- 
-2.7.4
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
