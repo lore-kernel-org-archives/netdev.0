@@ -1,153 +1,226 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH 01/13] stmmac: rework get_hw_feature function
-Date: Fri, 25 Mar 2016 10:14:08 +0100
-Message-ID: <1458897260-14104-2-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH 02/13] stmmac: rework the routines to show the ring status
+Date: Fri, 25 Mar 2016 10:14:09 +0100
+Message-ID: <1458897260-14104-3-git-send-email-alexandre.torgue@st.com>
 References: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Lars Persson <lars.persson@axis.com>
 To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60874 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:39575 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752275AbcCYJOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:38 -0400
+	by vger.kernel.org with ESMTP id S1752306AbcCYJOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:40 -0400
 In-Reply-To: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On next GMAC IP generation (4.xx), the way to get hw feature
-is not the same than on previous 3.xx. As it is hardware
-dependent, the way to get hw capabilities should be defined in dma ops of
-each MAC IP. It will avoid also a huge computation of hw capabilities in
-stmmac_main.
+To avoid lot of check in stmmac_main for display ring management
+and support the GMAC4 chip, the display_ring function is moved
+into dedicated descriptor file.
 
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index f96d257..797a913 100644
+index 797a913..6cea61b 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -412,7 +412,8 @@ struct stmmac_dma_ops {
- 	int (*dma_interrupt) (void __iomem *ioaddr,
- 			      struct stmmac_extra_stats *x);
- 	/* If supported then get the optional core features */
--	unsigned int (*get_hw_feature) (void __iomem *ioaddr);
-+	void (*get_hw_feature)(void __iomem *ioaddr,
-+			       struct dma_features *dma_cap);
- 	/* Program the HW RX Watchdog */
- 	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
+@@ -380,6 +380,8 @@ struct stmmac_desc_ops {
+ 	 u64(*get_timestamp) (void *desc, u32 ats);
+ 	/* get rx timestamp status */
+ 	int (*get_rx_timestamp_status) (void *desc, u32 ats);
++	/* Display ring */
++	void (*display_ring)(void *head, unsigned int size, bool rx);
  };
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index da32d60..99074695 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -215,9 +215,40 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr)
+ 
+ extern const struct stmmac_desc_ops enh_desc_ops;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index cfb018c..3e1b249 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -411,6 +411,26 @@ static int enh_desc_get_rx_timestamp_status(void *desc, u32 ats)
  	}
  }
  
--static unsigned int dwmac1000_get_hw_feature(void __iomem *ioaddr)
-+static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
-+				     struct dma_features *dma_cap)
- {
--	return readl(ioaddr + DMA_HW_FEATURE);
-+	u32 hw_cap = readl(ioaddr + DMA_HW_FEATURE);
++static void enh_desc_display_ring(void *head, unsigned size, bool rx)
++{
++	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
++	int i;
 +
-+	dma_cap->mbps_10_100 = (hw_cap & DMA_HW_FEAT_MIISEL);
-+	dma_cap->mbps_1000 = (hw_cap & DMA_HW_FEAT_GMIISEL) >> 1;
-+	dma_cap->half_duplex = (hw_cap & DMA_HW_FEAT_HDSEL) >> 2;
-+	dma_cap->hash_filter = (hw_cap & DMA_HW_FEAT_HASHSEL) >> 4;
-+	dma_cap->multi_addr = (hw_cap & DMA_HW_FEAT_ADDMAC) >> 5;
-+	dma_cap->pcs = (hw_cap & DMA_HW_FEAT_PCSSEL) >> 6;
-+	dma_cap->sma_mdio = (hw_cap & DMA_HW_FEAT_SMASEL) >> 8;
-+	dma_cap->pmt_remote_wake_up = (hw_cap & DMA_HW_FEAT_RWKSEL) >> 9;
-+	dma_cap->pmt_magic_frame = (hw_cap & DMA_HW_FEAT_MGKSEL) >> 10;
-+	/* MMC */
-+	dma_cap->rmon = (hw_cap & DMA_HW_FEAT_MMCSEL) >> 11;
-+	/* IEEE 1588-2002 */
-+	dma_cap->time_stamp =
-+	    (hw_cap & DMA_HW_FEAT_TSVER1SEL) >> 12;
-+	/* IEEE 1588-2008 */
-+	dma_cap->atime_stamp = (hw_cap & DMA_HW_FEAT_TSVER2SEL) >> 13;
-+	/* 802.3az - Energy-Efficient Ethernet (EEE) */
-+	dma_cap->eee = (hw_cap & DMA_HW_FEAT_EEESEL) >> 14;
-+	dma_cap->av = (hw_cap & DMA_HW_FEAT_AVSEL) >> 15;
-+	/* TX and RX csum */
-+	dma_cap->tx_coe = (hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
-+	dma_cap->rx_coe_type1 = (hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
-+	dma_cap->rx_coe_type2 = (hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
-+	dma_cap->rxfifo_over_2048 = (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
-+	/* TX and RX number of channels */
-+	dma_cap->number_rx_channel = (hw_cap & DMA_HW_FEAT_RXCHCNT) >> 20;
-+	dma_cap->number_tx_channel = (hw_cap & DMA_HW_FEAT_TXCHCNT) >> 22;
-+	/* Alternate (enhanced) DESC mode */
-+	dma_cap->enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
++	pr_info("Extended %s descriptor ring:\n", rx ? "RX" : "TX");
++
++	for (i = 0; i < size; i++) {
++		u64 x;
++
++		x = *(u64 *)ep;
++		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
++			i, (unsigned int)virt_to_phys(ep),
++			(unsigned int)x, (unsigned int)(x >> 32),
++			ep->basic.des2, ep->basic.des3);
++		ep++;
++	}
++	pr_info("\n");
++}
++
+ const struct stmmac_desc_ops enh_desc_ops = {
+ 	.tx_status = enh_desc_get_tx_status,
+ 	.rx_status = enh_desc_get_rx_status,
+@@ -430,4 +450,5 @@ const struct stmmac_desc_ops enh_desc_ops = {
+ 	.get_tx_timestamp_status = enh_desc_get_tx_timestamp_status,
+ 	.get_timestamp = enh_desc_get_timestamp,
+ 	.get_rx_timestamp_status = enh_desc_get_rx_timestamp_status,
++	.display_ring = enh_desc_display_ring,
+ };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index e13228f..d93323d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -279,6 +279,26 @@ static int ndesc_get_rx_timestamp_status(void *desc, u32 ats)
+ 		return 1;
  }
  
- static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
++static void ndesc_display_ring(void *head, unsigned size, bool rx)
++{
++	struct dma_desc *p = (struct dma_desc *)head;
++	int i;
++
++	pr_info("%s descriptor ring:\n", rx ? "RX" : "TX");
++
++	for (i = 0; i < size; i++) {
++		u64 x;
++
++		x = *(u64 *)p;
++		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x",
++			i, (unsigned int)virt_to_phys(p),
++			(unsigned int)x, (unsigned int)(x >> 32),
++			p->des2, p->des3);
++		p++;
++	}
++	pr_info("\n");
++}
++
+ const struct stmmac_desc_ops ndesc_ops = {
+ 	.tx_status = ndesc_get_tx_status,
+ 	.rx_status = ndesc_get_rx_status,
+@@ -297,4 +317,5 @@ const struct stmmac_desc_ops ndesc_ops = {
+ 	.get_tx_timestamp_status = ndesc_get_tx_timestamp_status,
+ 	.get_timestamp = ndesc_get_timestamp,
+ 	.get_rx_timestamp_status = ndesc_get_rx_timestamp_status,
++	.display_ring = ndesc_display_ring,
+ };
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 4c5ce98..d3ebfea 100644
+index d3ebfea..8103527 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1558,51 +1558,15 @@ static void stmmac_selec_desc_mode(struct stmmac_priv *priv)
-  */
- static int stmmac_get_hw_features(struct stmmac_priv *priv)
- {
--	u32 hw_cap = 0;
-+	u32 ret = 0;
- 
- 	if (priv->hw->dma->get_hw_feature) {
--		hw_cap = priv->hw->dma->get_hw_feature(priv->ioaddr);
--
--		priv->dma_cap.mbps_10_100 = (hw_cap & DMA_HW_FEAT_MIISEL);
--		priv->dma_cap.mbps_1000 = (hw_cap & DMA_HW_FEAT_GMIISEL) >> 1;
--		priv->dma_cap.half_duplex = (hw_cap & DMA_HW_FEAT_HDSEL) >> 2;
--		priv->dma_cap.hash_filter = (hw_cap & DMA_HW_FEAT_HASHSEL) >> 4;
--		priv->dma_cap.multi_addr = (hw_cap & DMA_HW_FEAT_ADDMAC) >> 5;
--		priv->dma_cap.pcs = (hw_cap & DMA_HW_FEAT_PCSSEL) >> 6;
--		priv->dma_cap.sma_mdio = (hw_cap & DMA_HW_FEAT_SMASEL) >> 8;
--		priv->dma_cap.pmt_remote_wake_up =
--		    (hw_cap & DMA_HW_FEAT_RWKSEL) >> 9;
--		priv->dma_cap.pmt_magic_frame =
--		    (hw_cap & DMA_HW_FEAT_MGKSEL) >> 10;
--		/* MMC */
--		priv->dma_cap.rmon = (hw_cap & DMA_HW_FEAT_MMCSEL) >> 11;
--		/* IEEE 1588-2002 */
--		priv->dma_cap.time_stamp =
--		    (hw_cap & DMA_HW_FEAT_TSVER1SEL) >> 12;
--		/* IEEE 1588-2008 */
--		priv->dma_cap.atime_stamp =
--		    (hw_cap & DMA_HW_FEAT_TSVER2SEL) >> 13;
--		/* 802.3az - Energy-Efficient Ethernet (EEE) */
--		priv->dma_cap.eee = (hw_cap & DMA_HW_FEAT_EEESEL) >> 14;
--		priv->dma_cap.av = (hw_cap & DMA_HW_FEAT_AVSEL) >> 15;
--		/* TX and RX csum */
--		priv->dma_cap.tx_coe = (hw_cap & DMA_HW_FEAT_TXCOESEL) >> 16;
--		priv->dma_cap.rx_coe_type1 =
--		    (hw_cap & DMA_HW_FEAT_RXTYP1COE) >> 17;
--		priv->dma_cap.rx_coe_type2 =
--		    (hw_cap & DMA_HW_FEAT_RXTYP2COE) >> 18;
--		priv->dma_cap.rxfifo_over_2048 =
--		    (hw_cap & DMA_HW_FEAT_RXFIFOSIZE) >> 19;
--		/* TX and RX number of channels */
--		priv->dma_cap.number_rx_channel =
--		    (hw_cap & DMA_HW_FEAT_RXCHCNT) >> 20;
--		priv->dma_cap.number_tx_channel =
--		    (hw_cap & DMA_HW_FEAT_TXCHCNT) >> 22;
--		/* Alternate (enhanced) DESC mode */
--		priv->dma_cap.enh_desc = (hw_cap & DMA_HW_FEAT_ENHDESSEL) >> 24;
--	}
--
--	return hw_cap;
-+		priv->hw->dma->get_hw_feature(priv->ioaddr,
-+					      &priv->dma_cap);
-+		ret = 1;
-+	}
-+
-+	return ret;
+@@ -883,53 +883,22 @@ static int stmmac_init_phy(struct net_device *dev)
+ 	return 0;
  }
  
- /**
+-/**
+- * stmmac_display_ring - display ring
+- * @head: pointer to the head of the ring passed.
+- * @size: size of the ring.
+- * @extend_desc: to verify if extended descriptors are used.
+- * Description: display the control/status and buffer descriptors.
+- */
+-static void stmmac_display_ring(void *head, int size, int extend_desc)
+-{
+-	int i;
+-	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
+-	struct dma_desc *p = (struct dma_desc *)head;
+-
+-	for (i = 0; i < size; i++) {
+-		u64 x;
+-		if (extend_desc) {
+-			x = *(u64 *) ep;
+-			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+-				i, (unsigned int)virt_to_phys(ep),
+-				(unsigned int)x, (unsigned int)(x >> 32),
+-				ep->basic.des2, ep->basic.des3);
+-			ep++;
+-		} else {
+-			x = *(u64 *) p;
+-			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x",
+-				i, (unsigned int)virt_to_phys(p),
+-				(unsigned int)x, (unsigned int)(x >> 32),
+-				p->des2, p->des3);
+-			p++;
+-		}
+-		pr_info("\n");
+-	}
+-}
+-
+ static void stmmac_display_rings(struct stmmac_priv *priv)
+ {
++	void *head_rx, *head_tx;
++
+ 	if (priv->extend_desc) {
+-		pr_info("Extended RX descriptor ring:\n");
+-		stmmac_display_ring((void *)priv->dma_erx, DMA_RX_SIZE, 1);
+-		pr_info("Extended TX descriptor ring:\n");
+-		stmmac_display_ring((void *)priv->dma_etx, DMA_TX_SIZE, 1);
++		head_rx = (void *)priv->dma_erx;
++		head_tx = (void *)priv->dma_etx;
+ 	} else {
+-		pr_info("RX descriptor ring:\n");
+-		stmmac_display_ring((void *)priv->dma_rx, DMA_RX_SIZE, 0);
+-		pr_info("TX descriptor ring:\n");
+-		stmmac_display_ring((void *)priv->dma_tx, DMA_TX_SIZE, 0);
++		head_rx = (void *)priv->dma_rx;
++		head_tx = (void *)priv->dma_tx;
+ 	}
++
++	/* Display Rx ring */
++	priv->hw->desc->display_ring(head_rx, DMA_RX_SIZE, true);
++	/* Display Tx ring */
++	priv->hw->desc->display_ring(head_tx, DMA_TX_SIZE, false);
+ }
+ 
+ static int stmmac_set_bfsize(int mtu, int bufsize)
+@@ -1996,16 +1965,18 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	priv->cur_tx = entry;
+ 
+ 	if (netif_msg_pktdata(priv)) {
++		void *tx_head;
++
+ 		pr_debug("%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
+ 			 __func__, priv->cur_tx, priv->dirty_tx, first_entry,
+ 			 entry, first, nfrags);
+ 
+ 		if (priv->extend_desc)
+-			stmmac_display_ring((void *)priv->dma_etx,
+-					    DMA_TX_SIZE, 1);
++			tx_head = (void *)priv->dma_etx;
+ 		else
+-			stmmac_display_ring((void *)priv->dma_tx,
+-					    DMA_TX_SIZE, 0);
++			tx_head = (void *)priv->dma_tx;
++
++		priv->hw->desc->display_ring(tx_head, DMA_TX_SIZE, false);
+ 
+ 		pr_debug(">>> frame to be transmitted: ");
+ 		print_pkt(skb->data, skb->len);
+@@ -2190,13 +2161,15 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 	int coe = priv->hw->rx_csum;
+ 
+ 	if (netif_msg_rx_status(priv)) {
++		void *rx_head;
++
+ 		pr_debug("%s: descriptor ring:\n", __func__);
+ 		if (priv->extend_desc)
+-			stmmac_display_ring((void *)priv->dma_erx,
+-					    DMA_RX_SIZE, 1);
++			rx_head = (void *)priv->dma_erx;
+ 		else
+-			stmmac_display_ring((void *)priv->dma_rx,
+-					    DMA_RX_SIZE, 0);
++			rx_head = (void *)priv->dma_rx;
++
++		priv->hw->desc->display_ring(rx_head, DMA_RX_SIZE, true);
+ 	}
+ 	while (count < limit) {
+ 		int status;
 -- 
 1.9.1
