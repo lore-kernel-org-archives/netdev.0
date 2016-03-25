@@ -1,69 +1,82 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
-Date: Fri, 25 Mar 2016 09:42:30 +0100
-Message-ID: <56F4F9F6.8070103@st.com>
-References: <1458817012-14293-1-git-send-email-john@metanate.com>	<56F3E3E2.6070001@st.com> <20160324170119.28d54ed5.john@metanate.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Fri, 25 Mar 2016 09:53:38 +0100
+Message-ID: <20160325085338.GB8655@1wt.eu>
+References: <20160324165047.GA7585@1wt.eu>
+ <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+ <56F42A00.7050002@iogearbox.net>
+ <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+ <1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+ <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
+ <20160325052819.GA8548@1wt.eu>
+ <1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: John Keeping <john@metanate.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160324170119.28d54ed5.john@metanate.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>,
+	Yann Ylavic <ylavic.dev@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Craig Gallek <cgallek@google.com>,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:32958 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750797AbcCYIyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Mar 2016 04:54:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 3/24/2016 6:01 PM, John Keeping wrote:
-> On Thu, 24 Mar 2016 13:56:02 +0100, Giuseppe CAVALLARO wrote:
->
->> This should be fixed by some work done some days
->> ago and not yet committed.
->>
->> Pls see "stmmac: MDIO fixes" patch-set and let me know
->> if ok on your side.
->
-> Yes, that works for me.
+Hi Eric,
 
-thx John for having tested it on your side.
+On Thu, Mar 24, 2016 at 11:49:41PM -0700, Eric Dumazet wrote:
+> Everything is possible, but do not complain because BPF went in the
+> kernel before your changes.
 
-peppe
+Don't get me wrong, I'm not complaining, I'm more asking for help to
+try to elaborate the alternate solution. I understood well what my
+proposal did because it was pretty straightforward, and the new one
+I'll have to do is of an immense complexity for me by now, since it
+will require learning a new language and finding doc on how all this
+works together. But as I said I'm totally sold to the benefits it can
+provide for large scale deployments and I'm well aware of the ugly
+socket scan there was in the previous one.
 
->
->
-> Thanks,
-> John
->
->> On 3/24/2016 11:56 AM, John Keeping wrote:
->>> Since commit 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found'
->>> regression") we no longer allocate mdio_bus_data unless there is a MDIO
->>> subnode.  This breaks the ethernet on the Radxa Rock2 (using
->>> rk3288-rock2-square.dts) which does not have an MDIO subnode.
->>>
->>> That commit was correct that the phy_bus_name test is unhelpful since we
->>> allocate "plat" in the same function and never set phy_bus_name so let's
->>> just drop the test which restores the previous behaviour.
->>>
->>> Fixes: 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression")
->>> Signed-off-by: John Keeping <john@metanate.com>
->>> ---
->>>    drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
->>>    1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> index dcbd2a1..e0fa060 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> @@ -189,7 +189,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
->>>    	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) == 0)
->>>    		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
->>>
->>> -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_node)
->>> +	if ((plat->phy_node && !of_phy_is_fixed_link(np)))
->>>    		plat->mdio_bus_data = NULL;
->>>    	else
->>>    		plat->mdio_bus_data =
->>>
->>
->
->
+> Just rework your patch.
+> 
+> Supporting multiple SO_REUSEPORT groups on the same port should not be
+> too hard really. Making sure BPF still work for them is feasible.
+> 
+> But the semantic of the socket option would be really different.
+
+I don't care much about the socket options themselves as long as I can
+continue to support seamless reloads. I could even get rid of SO_REUSEPORT
+on Linux to use something else instead if I have a reliable way to detect
+that the alternative will work.
+
+> You need to not control an individual listener, but a group of listener.
+> 
+> Your dying haproxy would issue a single system call to tell the kernel :
+> My SO_REUSEPORT group should not accept new SYN packets, so that the new
+> haproxy can setup a working new SO_REUSEPORT group.
+
+Normally it's the other way around :-) The new process first grabs the
+socket, there's a tiny window where both are attached, and only then the
+old process leaves. That's the only way to ensure there's no loss nor
+added latency in the processing.
+
+If you could share a pointer to some good starter documentation for this,
+I would appreciate it. I really have no idea where to start from and the
+only elements I found on the net didn't give a single hint regarding all
+this :-/
+
+Thanks,
+Willy
