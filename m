@@ -1,63 +1,33 @@
-From: William Dauchy <william@gandi.net>
-Subject: Re: dynamically set number of queues for 82598 devices in -stable
-Date: Fri, 25 Mar 2016 16:22:56 +0100
-Message-ID: <20160325152256.GA20821@gandi.net>
-References: <20151127100557.GB21147@gandi.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bpf: add missing map_flags to bpf_map_show_fdinfo
+Date: Fri, 25 Mar 2016 11:37:05 -0400 (EDT)
+Message-ID: <20160325.113705.1506548943081346934.davem@davemloft.net>
+References: <5da67066a9739eb443b2e89e58ea4d356d70459c.1458861762.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="HlL+5n6rz5pIUxbD"
-Cc: William Dauchy <william@gandi.net>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:50491 "EHLO gandi.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752026AbcCYPaS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Mar 2016 11:30:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20151127100557.GB21147@gandi.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42095 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753838AbcCYPhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 11:37:07 -0400
+In-Reply-To: <5da67066a9739eb443b2e89e58ea4d356d70459c.1458861762.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 25 Mar 2016 00:30:25 +0100
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Add map_flags attribute to bpf_map_show_fdinfo(), so that tools like
+> tc can check for them when loading objects from a pinned entry, e.g.
+> if user intent wrt allocation (BPF_F_NO_PREALLOC) is different to the
+> pinned object, it can bail out. Follow-up to 6c9059817432 ("bpf:
+> pre-allocate hash map elements"), so that tc can still support this
+> with v4.6.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Hi Jeff,
-
-Any chance to get an opinion on that?
-
-Thanks,
-
-On Nov27 11:05, William Dauchy wrote:
-> Hello Jeff,
->=20
-> I faced the problem described in commit 7e3f5c8:
-> ixgbe: fix bounds checking in ixgbe_setup_tc for 82598
->=20
-> This patch resolves an issue where users were not able to dynamically
-> set number of queues for 82598 via ethtool -L
->=20
->=20
-> I backported it for my v4.1.x build but I was wondering if this could be
-> a candidate for a backport in stable tree at least for v4.1.x.
-
---=20
-William
-
---HlL+5n6rz5pIUxbD
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlb1V9AACgkQ1I6eqOUidQF6WwCfbjaq8WjA34WyjZYIZkWaygXU
-TAgAoKKCAiLNzJcTC+/4z850dmkOTxoc
-=T6Dc
------END PGP SIGNATURE-----
-
---HlL+5n6rz5pIUxbD--
+Applied, thanks Daniel.
