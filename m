@@ -1,82 +1,130 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Fri, 25 Mar 2016 09:53:38 +0100
-Message-ID: <20160325085338.GB8655@1wt.eu>
-References: <20160324165047.GA7585@1wt.eu>
- <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
- <56F42A00.7050002@iogearbox.net>
- <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
- <1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
- <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
- <20160325052819.GA8548@1wt.eu>
- <1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net] net: ipv4: Multipath needs to handle unreachable
+ nexthops
+Date: Fri, 25 Mar 2016 11:05:38 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1603251024390.1896@ja.home.ssi.bg>
+References: <1458833154-39091-1-git-send-email-dsa@cumulusnetworks.com> <alpine.LFD.2.11.1603242201200.1795@ja.home.ssi.bg> <56F49CD3.1060406@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Yann Ylavic <ylavic.dev@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Craig Gallek <cgallek@google.com>,
-	Josh Snyder <josh@code406.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:32958 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750797AbcCYIyD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Mar 2016 04:54:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from ja.ssi.bg ([178.16.129.10]:55384 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751181AbcCYJFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Mar 2016 05:05:45 -0400
+In-Reply-To: <56F49CD3.1060406@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
 
-On Thu, Mar 24, 2016 at 11:49:41PM -0700, Eric Dumazet wrote:
-> Everything is possible, but do not complain because BPF went in the
-> kernel before your changes.
+	Hello,
 
-Don't get me wrong, I'm not complaining, I'm more asking for help to
-try to elaborate the alternate solution. I understood well what my
-proposal did because it was pretty straightforward, and the new one
-I'll have to do is of an immense complexity for me by now, since it
-will require learning a new language and finding doc on how all this
-works together. But as I said I'm totally sold to the benefits it can
-provide for large scale deployments and I'm well aware of the ugly
-socket scan there was in the previous one.
+On Thu, 24 Mar 2016, David Ahern wrote:
 
-> Just rework your patch.
+> On 3/24/16 4:33 PM, Julian Anastasov wrote:
+> > 	But for multipath routes we can also consider the
+> > nexthops as "alternatives", so it depends on how one uses
+> > the multipath mechanism. The ability to fallback to
+> > another nexthop assumes one connection is allowed to
+> > move from one ISP to another. What if the second ISP
+> > decides to reject the connection? What we have is a
+> > broken connection just because the retransmits
+> > were diverted to wrong place in the hurry. So, the
+> > nexthops can be compatible or incompatible. For your
+> > setup they are, for others they are not.
 > 
-> Supporting multiple SO_REUSEPORT groups on the same port should not be
-> too hard really. Making sure BPF still work for them is feasible.
+> I am not sure I completely understand your point. Are you saying that within a
+> single multipath route some connections to nexthops are allowed and others are
+> not?
 > 
-> But the semantic of the socket option would be really different.
-
-I don't care much about the socket options themselves as long as I can
-continue to support seamless reloads. I could even get rid of SO_REUSEPORT
-on Linux to use something else instead if I have a reliable way to detect
-that the alternative will work.
-
-> You need to not control an individual listener, but a group of listener.
+> So to put that paragraph into an example
 > 
-> Your dying haproxy would issue a single system call to tell the kernel :
-> My SO_REUSEPORT group should not accept new SYN packets, so that the new
-> haproxy can setup a working new SO_REUSEPORT group.
+> 15.0.0.0/16
+> 	nexthop via 12.0.0.2  dev swp1 weight 1
+> 	nexthop via 12.0.0.3  dev swp1 weight 1
+> 
+> Hosts from 15.0/16 could have TCP connections use 12.0.0.2, but not 12.0.0.3
+> because 12.0.0.3 could be a different ISP and not allow TCP connections from
+> this address space?
 
-Normally it's the other way around :-) The new process first grabs the
-socket, there's a tiny window where both are attached, and only then the
-old process leaves. That's the only way to ensure there's no loss nor
-added latency in the processing.
+	Yes. Two cases are possible:
 
-If you could share a pointer to some good starter documentation for this,
-I would appreciate it. I really have no idea where to start from and the
-only elements I found on the net didn't give a single hint regarding all
-this :-/
+1. ISP2 filters saddr, traffic with saddr from ISP1 is dropped.
 
-Thanks,
-Willy
+2. ISP2 allows any saddr. But how the responses from
+world with daddr=IP_from_ISP1 will come from ISP2 link?
+If the nexthops are for different ISP the connection
+can survive only if sticks to its ISP. An ISP will
+not work as a backup link for another ISP.
+
+	The hash-based algorithm does not move connections
+from one nexthop to another. If you rearrange the nexthops
+on failure, the binding is lost and connections can break.
+A fallback from fragile wifi link can upset users and any
+redirects will lead to bad experience with broken conns.
+So only CONNMARK can help to stick connection to some path.
+If this path has multiple simultaneous alternatives you can
+again use multipath route reached from 'ip rule from PUBIP2 table ISP2'
+but then we again are restricted from the hash-based alg
+which is suitable only for default routes hit by saddr=0.0.0.0
+lookups. In the common case when connection is created
+there are two lookups:
+
+1. TCP selects nexthop with a saddr=0.0.0.0 lookup.
+ISP is selected based on the mp alg.
+
+2. If one is lucky to reach ip_route_me_harder the
+hash-based lookup is defeated because now lookup
+uses saddr=iph->saddr, so it selects different nexthop.
+It works while all packets for the connection reach
+ip_route_me_harder.
+
+> > 	So, if the kernel used a random selection
+> > your fallback algorithm should help. But it is fragile
+> > for the simple setup with single default multipath route.
+> > May be what we miss is the ability to choose between
+> > random and hash-based selection. Then your patch may be
+> > useful but only for setup 2 (multipath route hit only by
+> > first packet). So, your patch may come with a sysctl var
+> > that explains your current patch logic: "avoid failed nexthops,
+> > never probe them, wait their failed entry to be expired by
+> > neigh_periodic_work and just then we can use the nexthop
+> > by creating new entry to probe the GW". Who will trigger
+> > probes often enough to maintain fresh state?
+> 
+> First packet out does the probe -- neigh lookup fails, kernel has no knowledge
+> so can't reject the nexthop based on neighbor information.
+> 
+> After that if it has information that says that a nexthop is dead, why would
+> it continue to try to probe? Any traffic that selects that nh is dead. That to
+
+	If entry becomes FAILED this state is preserved
+if we do not direct traffic to this entry. If there was a
+single connection that was rejected after 3 failed probes
+the next connection (with your patch) will fallback to
+another neigh and the first entry will remain in FAILED
+state until expiration. If one wants to refresh the state
+often, a script/tool that pings all GWs is needed, so that
+you can notice the available or failed paths faster.
+
+> me defies the basis of having multiple paths.
+
+	We do not know how long is the outage. Long living
+connections may prefer to survive with retransmits.
+Say you are using SSH via wifi link doing important work.
+Do you want your connection to break just because link was
+down for a while?
+
+	Fallback to other ISP can be unwanted. If we do not
+know if multipath route is used per-packet ot per-connection
+we can not just apply a fallback to other nexthops.
+We can do it only if user can configure the different
+usages per multipath route:
+
+1. hash-based or random
+
+2. allow fallback or not. This config is not a MUST if users
+can select random mode, it can imply that fallback is allowed.
+
+Regards
