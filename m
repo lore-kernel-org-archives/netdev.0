@@ -1,226 +1,183 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH 02/13] stmmac: rework the routines to show the ring status
-Date: Fri, 25 Mar 2016 10:14:09 +0100
-Message-ID: <1458897260-14104-3-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH 03/13] stmmac: rework synopsys id read, moved to dwmac setup
+Date: Fri, 25 Mar 2016 10:14:10 +0100
+Message-ID: <1458897260-14104-4-git-send-email-alexandre.torgue@st.com>
 References: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Lars Persson <lars.persson@axis.com>
 To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:39575 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60879 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752306AbcCYJOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:40 -0400
+	by vger.kernel.org with ESMTP id S1752395AbcCYJOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:44 -0400
 In-Reply-To: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To avoid lot of check in stmmac_main for display ring management
-and support the GMAC4 chip, the display_ring function is moved
-into dedicated descriptor file.
+synopsys_uid is only used once after setup, to get synopsys_id
+by using shitf/mask operation. It's no longer used then.
+So, remove this temporary variable and directly compute
+synopsys_id from setup routine.
 
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 797a913..6cea61b 100644
+index 6cea61b..66e132f 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -380,6 +380,8 @@ struct stmmac_desc_ops {
- 	 u64(*get_timestamp) (void *desc, u32 ats);
- 	/* get rx timestamp status */
- 	int (*get_rx_timestamp_status) (void *desc, u32 ats);
-+	/* Display ring */
-+	void (*display_ring)(void *head, unsigned int size, bool rx);
+@@ -498,7 +498,6 @@ struct mac_device_info {
+ 	const struct stmmac_hwtimestamp *ptp;
+ 	struct mii_regs mii;	/* MII register Addresses */
+ 	struct mac_link link;
+-	unsigned int synopsys_uid;
+ 	void __iomem *pcsr;     /* vpointer to device CSRs */
+ 	int multicast_filter_bins;
+ 	int unicast_filter_entries;
+@@ -507,8 +506,10 @@ struct mac_device_info {
  };
  
- extern const struct stmmac_desc_ops enh_desc_ops;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-index cfb018c..3e1b249 100644
---- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-@@ -411,6 +411,26 @@ static int enh_desc_get_rx_timestamp_status(void *desc, u32 ats)
- 	}
- }
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+-					int perfect_uc_entries);
+-struct mac_device_info *dwmac100_setup(void __iomem *ioaddr);
++					int perfect_uc_entries,
++					int *synopsys_id);
++struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id);
++
  
-+static void enh_desc_display_ring(void *head, unsigned size, bool rx)
+ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
+ 			 unsigned int high, unsigned int low);
+@@ -521,4 +522,24 @@ void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
+ extern const struct stmmac_mode_ops ring_mode_ops;
+ extern const struct stmmac_mode_ops chain_mode_ops;
+ 
++/**
++ * stmmac_get_synopsys_id - return the SYINID.
++ * @priv: driver private structure
++ * Description: this simple function is to decode and return the SYINID
++ * starting from the HW core register.
++ */
++static inline u32 stmmac_get_synopsys_id(u32 hwid)
 +{
-+	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
-+	int i;
++	/* Check Synopsys Id (not available on old chips) */
++	if (likely(hwid)) {
++		u32 uid = ((hwid & 0x0000ff00) >> 8);
++		u32 synid = (hwid & 0x000000ff);
 +
-+	pr_info("Extended %s descriptor ring:\n", rx ? "RX" : "TX");
++		pr_info("stmmac - user ID: 0x%x, Synopsys ID: 0x%x\n",
++			uid, synid);
 +
-+	for (i = 0; i < size; i++) {
-+		u64 x;
-+
-+		x = *(u64 *)ep;
-+		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
-+			i, (unsigned int)virt_to_phys(ep),
-+			(unsigned int)x, (unsigned int)(x >> 32),
-+			ep->basic.des2, ep->basic.des3);
-+		ep++;
++		return synid;
 +	}
-+	pr_info("\n");
++	return 0;
 +}
-+
- const struct stmmac_desc_ops enh_desc_ops = {
- 	.tx_status = enh_desc_get_tx_status,
- 	.rx_status = enh_desc_get_rx_status,
-@@ -430,4 +450,5 @@ const struct stmmac_desc_ops enh_desc_ops = {
- 	.get_tx_timestamp_status = enh_desc_get_tx_timestamp_status,
- 	.get_timestamp = enh_desc_get_timestamp,
- 	.get_rx_timestamp_status = enh_desc_get_rx_timestamp_status,
-+	.display_ring = enh_desc_display_ring,
+ #endif /* __COMMON_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index c294117..fb1eb57 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -491,7 +491,8 @@ static const struct stmmac_ops dwmac1000_ops = {
  };
-diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-index e13228f..d93323d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
-@@ -279,6 +279,26 @@ static int ndesc_get_rx_timestamp_status(void *desc, u32 ats)
- 		return 1;
- }
  
-+static void ndesc_display_ring(void *head, unsigned size, bool rx)
-+{
-+	struct dma_desc *p = (struct dma_desc *)head;
-+	int i;
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+-					int perfect_uc_entries)
++					int perfect_uc_entries,
++					int *synopsys_id)
+ {
+ 	struct mac_device_info *mac;
+ 	u32 hwid = readl(ioaddr + GMAC_VERSION);
+@@ -516,7 +517,9 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+ 	mac->link.speed = GMAC_CONTROL_FES;
+ 	mac->mii.addr = GMAC_MII_ADDR;
+ 	mac->mii.data = GMAC_MII_DATA;
+-	mac->synopsys_uid = hwid;
 +
-+	pr_info("%s descriptor ring:\n", rx ? "RX" : "TX");
-+
-+	for (i = 0; i < size; i++) {
-+		u64 x;
-+
-+		x = *(u64 *)p;
-+		pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x",
-+			i, (unsigned int)virt_to_phys(p),
-+			(unsigned int)x, (unsigned int)(x >> 32),
-+			p->des2, p->des3);
-+		p++;
-+	}
-+	pr_info("\n");
-+}
-+
- const struct stmmac_desc_ops ndesc_ops = {
- 	.tx_status = ndesc_get_tx_status,
- 	.rx_status = ndesc_get_rx_status,
-@@ -297,4 +317,5 @@ const struct stmmac_desc_ops ndesc_ops = {
- 	.get_tx_timestamp_status = ndesc_get_tx_timestamp_status,
- 	.get_timestamp = ndesc_get_timestamp,
- 	.get_rx_timestamp_status = ndesc_get_rx_timestamp_status,
-+	.display_ring = ndesc_display_ring,
++	/* Get and dump the chip ID */
++	*synopsys_id = stmmac_get_synopsys_id(hwid);
+ 
+ 	return mac;
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index f8dd773..6418b2e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -173,7 +173,7 @@ static const struct stmmac_ops dwmac100_ops = {
+ 	.get_umac_addr = dwmac100_get_umac_addr,
  };
+ 
+-struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
++struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
+ {
+ 	struct mac_device_info *mac;
+ 
+@@ -192,7 +192,8 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
+ 	mac->link.speed = 0;
+ 	mac->mii.addr = MAC_MII_ADDR;
+ 	mac->mii.data = MAC_MII_DATA;
+-	mac->synopsys_uid = 0;
++	/* Synopsys Id is not available on old chips */
++	*synopsys_id = 0;
+ 
+ 	return mac;
+ }
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index d3ebfea..8103527 100644
+index 8103527..2ebee81 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -883,53 +883,22 @@ static int stmmac_init_phy(struct net_device *dev)
- 	return 0;
+@@ -1468,29 +1468,6 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
  }
  
--/**
-- * stmmac_display_ring - display ring
-- * @head: pointer to the head of the ring passed.
-- * @size: size of the ring.
-- * @extend_desc: to verify if extended descriptors are used.
-- * Description: display the control/status and buffer descriptors.
+ /**
+- * stmmac_get_synopsys_id - return the SYINID.
+- * @priv: driver private structure
+- * Description: this simple function is to decode and return the SYINID
+- * starting from the HW core register.
 - */
--static void stmmac_display_ring(void *head, int size, int extend_desc)
+-static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
 -{
--	int i;
--	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
--	struct dma_desc *p = (struct dma_desc *)head;
+-	u32 hwid = priv->hw->synopsys_uid;
 -
--	for (i = 0; i < size; i++) {
--		u64 x;
--		if (extend_desc) {
--			x = *(u64 *) ep;
--			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
--				i, (unsigned int)virt_to_phys(ep),
--				(unsigned int)x, (unsigned int)(x >> 32),
--				ep->basic.des2, ep->basic.des3);
--			ep++;
--		} else {
--			x = *(u64 *) p;
--			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x",
--				i, (unsigned int)virt_to_phys(p),
--				(unsigned int)x, (unsigned int)(x >> 32),
--				p->des2, p->des3);
--			p++;
--		}
--		pr_info("\n");
+-	/* Check Synopsys Id (not available on old chips) */
+-	if (likely(hwid)) {
+-		u32 uid = ((hwid & 0x0000ff00) >> 8);
+-		u32 synid = (hwid & 0x000000ff);
+-
+-		pr_info("stmmac - user ID: 0x%x, Synopsys ID: 0x%x\n",
+-			uid, synid);
+-
+-		return synid;
 -	}
+-	return 0;
 -}
 -
- static void stmmac_display_rings(struct stmmac_priv *priv)
- {
-+	void *head_rx, *head_tx;
-+
- 	if (priv->extend_desc) {
--		pr_info("Extended RX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_erx, DMA_RX_SIZE, 1);
--		pr_info("Extended TX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_etx, DMA_TX_SIZE, 1);
-+		head_rx = (void *)priv->dma_erx;
-+		head_tx = (void *)priv->dma_etx;
+-/**
+  * stmmac_selec_desc_mode - to select among: normal/alternate/extend descriptors
+  * @priv: driver private structure
+  * Description: select the Enhanced/Alternate or Normal descriptors.
+@@ -2763,18 +2740,16 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
+ 		mac = dwmac1000_setup(priv->ioaddr,
+ 				      priv->plat->multicast_filter_bins,
+-				      priv->plat->unicast_filter_entries);
++				      priv->plat->unicast_filter_entries,
++				      &priv->synopsys_id);
  	} else {
--		pr_info("RX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_rx, DMA_RX_SIZE, 0);
--		pr_info("TX descriptor ring:\n");
--		stmmac_display_ring((void *)priv->dma_tx, DMA_TX_SIZE, 0);
-+		head_rx = (void *)priv->dma_rx;
-+		head_tx = (void *)priv->dma_tx;
+-		mac = dwmac100_setup(priv->ioaddr);
++		mac = dwmac100_setup(priv->ioaddr, &priv->synopsys_id);
  	}
-+
-+	/* Display Rx ring */
-+	priv->hw->desc->display_ring(head_rx, DMA_RX_SIZE, true);
-+	/* Display Tx ring */
-+	priv->hw->desc->display_ring(head_tx, DMA_TX_SIZE, false);
- }
+ 	if (!mac)
+ 		return -ENOMEM;
  
- static int stmmac_set_bfsize(int mtu, int bufsize)
-@@ -1996,16 +1965,18 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 	priv->cur_tx = entry;
+ 	priv->hw = mac;
  
- 	if (netif_msg_pktdata(priv)) {
-+		void *tx_head;
-+
- 		pr_debug("%s: curr=%d dirty=%d f=%d, e=%d, first=%p, nfrags=%d",
- 			 __func__, priv->cur_tx, priv->dirty_tx, first_entry,
- 			 entry, first, nfrags);
- 
- 		if (priv->extend_desc)
--			stmmac_display_ring((void *)priv->dma_etx,
--					    DMA_TX_SIZE, 1);
-+			tx_head = (void *)priv->dma_etx;
- 		else
--			stmmac_display_ring((void *)priv->dma_tx,
--					    DMA_TX_SIZE, 0);
-+			tx_head = (void *)priv->dma_tx;
-+
-+		priv->hw->desc->display_ring(tx_head, DMA_TX_SIZE, false);
- 
- 		pr_debug(">>> frame to be transmitted: ");
- 		print_pkt(skb->data, skb->len);
-@@ -2190,13 +2161,15 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- 	int coe = priv->hw->rx_csum;
- 
- 	if (netif_msg_rx_status(priv)) {
-+		void *rx_head;
-+
- 		pr_debug("%s: descriptor ring:\n", __func__);
- 		if (priv->extend_desc)
--			stmmac_display_ring((void *)priv->dma_erx,
--					    DMA_RX_SIZE, 1);
-+			rx_head = (void *)priv->dma_erx;
- 		else
--			stmmac_display_ring((void *)priv->dma_rx,
--					    DMA_RX_SIZE, 0);
-+			rx_head = (void *)priv->dma_rx;
-+
-+		priv->hw->desc->display_ring(rx_head, DMA_RX_SIZE, true);
- 	}
- 	while (count < limit) {
- 		int status;
+-	/* Get and dump the chip ID */
+-	priv->synopsys_id = stmmac_get_synopsys_id(priv);
+-
+ 	/* To use the chained or ring mode */
+ 	if (chain_mode) {
+ 		priv->hw->mode = &chain_mode_ops;
 -- 
 1.9.1
