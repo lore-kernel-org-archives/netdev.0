@@ -1,83 +1,82 @@
-From: Yann Ylavic <ylavic.dev@gmail.com>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Fri, 25 Mar 2016 12:21:35 +0100
-Message-ID: <CAKQ1sVMpwjegwvW1vcJKq+wRwqY0XMP_SS_LWhzc=UZq5yDcoA@mail.gmail.com>
-References: <20160324165047.GA7585@1wt.eu>
-	<1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
-	<56F42A00.7050002@iogearbox.net>
-	<CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
-	<1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
-	<CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
-	<20160325052819.GA8548@1wt.eu>
-	<1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160325085338.GB8655@1wt.eu>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
+ netpoll_cleanup()
+Date: Fri, 25 Mar 2016 07:33:42 -0400
+Message-ID: <20160325113342.GA21579@hmsreliant.think-freely.org>
+References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Tolga Ceylan <tolga.ceylan@gmail.com>,
-	Craig Gallek <cgallek@google.com>,
-	Josh Snyder <josh@code406.com>,
-	Aaron Conole <aconole@bytheb.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org, Alexander Duyck <aduyck@mirantis.com>,
+	linux-kernel@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:34992 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbcCYLVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 07:21:36 -0400
-Received: by mail-qg0-f67.google.com with SMTP id c67so6260663qgc.2
-        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 04:21:36 -0700 (PDT)
-In-Reply-To: <20160325085338.GB8655@1wt.eu>
+Received: from mx1.redhat.com ([209.132.183.28]:39973 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751247AbcCYLdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Mar 2016 07:33:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 9:53 AM, Willy Tarreau wrote:
->
-> On Thu, Mar 24, 2016 at 11:49:41PM -0700, Eric Dumazet wrote:
->> Everything is possible, but do not complain because BPF went in the
->> kernel before your changes.
->
-> Don't get me wrong, I'm not complaining, I'm more asking for help to
-> try to elaborate the alternate solution. I understood well what my
-> proposal did because it was pretty straightforward, and the new one
-> I'll have to do is of an immense complexity for me by now, since it
-> will require learning a new language and finding doc on how all this
-> works together. But as I said I'm totally sold to the benefits it can
-> provide for large scale deployments and I'm well aware of the ugly
-> socket scan there was in the previous one.
+On Thu, Mar 24, 2016 at 09:56:21PM -0500, Bjorn Helgaas wrote:
+> netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
+> fails, it correctly does a dev_put() but leaves np->dev set.  If we call
+> netpoll_cleanup() after the failure, np->dev is still set so we do another
+> dev_put(), which decrements the refcount an extra time.
+> 
+> It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
+> but it can be difficult to find the problem, and we can easily avoid it in
+> this case.  The extra decrements can lead to hangs like this:
+> 
+>   unregister_netdevice: waiting for bond0 to become free. Usage count = -3
+> 
+> Set and clear np->dev at the points where we dev_hold() and dev_put() the
+> device.
+> 
+> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+> ---
+>  net/core/netpoll.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 94acfc8..a57bd17 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -603,7 +603,6 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+>  	const struct net_device_ops *ops;
+>  	int err;
+>  
+> -	np->dev = ndev;
+>  	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
+>  	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
+>  
+> @@ -670,6 +669,7 @@ int netpoll_setup(struct netpoll *np)
+>  		goto unlock;
+>  	}
+>  	dev_hold(ndev);
+> +	np->dev = ndev;
+>  
+>  	if (netdev_master_upper_dev_get(ndev)) {
+>  		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+> @@ -770,6 +770,7 @@ int netpoll_setup(struct netpoll *np)
+>  	return 0;
+>  
+>  put:
+> +	np->dev = NULL;
+>  	dev_put(ndev);
+>  unlock:
+>  	rtnl_unlock();
+> 
 
-+1 (all the work done on the listeners, including SO_REUSEPORT, and
-until lately very much appreciated in any case!)
+Is this safe for stacked devices?  It makes good sense for the typical case, but
+if you attempt to setup a netpoll client on a bridge/bond/vlan, etc, the lower
+device will get its own netpoll struct registered and have no associated np->dev
+pointer.  It not be a real problem in practice, But you probably want to check
+to make sure that stacked  devices which recursively call the netpoll api don't
+do anyting with the np->dev pointer.
 
->
-> If you could share a pointer to some good starter documentation for this,
-> I would appreciate it. I really have no idea where to start from and the
-> only elements I found on the net didn't give a single hint regarding all
-> this :-/
-
-+1
-
-On Fri, Mar 25, 2016 at 1:24 AM, David Miller wrote:
->
-> If we encapsulate this into libraries and helper wrappers, there is
-> no reason web server developers should be looking at these details
-> anyways.
-
-++1
-
->
-> Please don't make a mountain out of a mole-hill.
-
-Not my intention, you guys know what's the better for the kernel and its APIs.
-My concern is (was) admittedly due to my own lack of knowledge of
-(e)BPF, hence how much of kernel internals I'd need to know to make
-the SO_REUSEPORT work in my case.
-
-But sure, any of the help suggested above would make it go away, I'll
-stay tuned.
+Regards
+Neil
