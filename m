@@ -1,24 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: fix 6185 hardware
- bridging
-Date: Fri, 25 Mar 2016 15:01:20 -0400 (EDT)
-Message-ID: <20160325.150120.2195759523897160879.davem@davemloft.net>
-References: <1458925319-16771-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-	<87r3eyscdd.fsf@ketchup.mtl.sfl>
+Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
+ netpoll_cleanup()
+Date: Fri, 25 Mar 2016 15:16:36 -0400 (EDT)
+Message-ID: <20160325.151636.590435237623997861.davem@davemloft.net>
+References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+	<20160325113342.GA21579@hmsreliant.think-freely.org>
+	<20160325164639.GA29822@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
+Cc: nhorman@redhat.com, bhelgaas@google.com,
+	nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	aduyck@mirantis.com, linux-kernel@vger.kernel.org
+To: helgaas@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87r3eyscdd.fsf@ketchup.mtl.sfl>
+In-Reply-To: <20160325164639.GA29822@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri, 25 Mar 2016 13:20:30 -0400
+From: Bjorn Helgaas <helgaas@kernel.org>
+Date: Fri, 25 Mar 2016 11:46:39 -0500
 
-> David, please ignore this patch for the moment.
+> You're right, there is an issue here.  I reproduced a problem with a
+> bond device.  bond_netpoll_setup() calls __netpoll_setup() directly
+> (not netpoll_setup()).  I'll debug it more; just wanted to let you
+> know there *is* a problem with this patch.
 
-Ok.
+I bet that's why the assignment to np->dev and the reference counting
+were separated in the first place :-/
+
+Indeed, commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb:
+
+commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb
+Author: Jiri Pirko <jiri@resnulli.us>
+Date:   Tue Jul 17 05:22:35 2012 +0000
+
+    netpoll: move np->dev and np->dev_name init into __netpoll_setup()
+    
+    Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
