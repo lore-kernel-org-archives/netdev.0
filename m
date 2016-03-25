@@ -1,74 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: =?UTF-8?Q?Re:_veth_regression_with_=22don=e2=80=99t_modify_ip=5fsum?=
- =?UTF-8?Q?med;_doing_so_treats_packets_with_bad_checksums_as_good.=22?=
-Date: Thu, 24 Mar 2016 17:06:34 -0700
-Message-ID: <56F4810A.9060904@candelatech.com>
-References: <56F463D6.7080406@candelatech.com>
- <CAM_iQpWv_iP1ZtsRQT0YsztMrf6rdaXN2V57PUu5oBe5kR56AQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFT Patch net 1/2] ipv6: invalidate the socket cached route on
+ pmtu events if possible
+Date: Thu, 24 Mar 2016 17:15:18 -0700
+Message-ID: <CAM_iQpVDN_LPsa2XgVWoqMjrOYpg9JNjPJVwEvTuxPgYyWRWmg@mail.gmail.com>
+References: <1458847536-7729-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1458851740.12033.24.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
-	Vijay P <vijayp@vijayp.ca>, Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Wei Wang <weiwan@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:55855 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750797AbcCYAGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:06:39 -0400
-In-Reply-To: <CAM_iQpWv_iP1ZtsRQT0YsztMrf6rdaXN2V57PUu5oBe5kR56AQ@mail.gmail.com>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:34604 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208AbcCYAPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:15:19 -0400
+Received: by mail-yw0-f175.google.com with SMTP id h129so80659880ywb.1
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 17:15:19 -0700 (PDT)
+In-Reply-To: <1458851740.12033.24.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/24/2016 04:56 PM, Cong Wang wrote:
-> On Thu, Mar 24, 2016 at 3:01 PM, Ben Greear <greearb@candelatech.com> wrote:
->> I have an application that creates two pairs of veth devices.
->>
->> a <-> b       c <-> d
->>
->> b and c have a raw packet socket opened on them and I 'bridge' frames
->> between b and c to provide network emulation (ie, configurable delay).
->>
+On Thu, Mar 24, 2016 at 1:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-03-24 at 12:25 -0700, Cong Wang wrote:
 >
-> IIUC, you create two raw sockets in order to bridge these two veth pairs?
-> That is, to receive packets on one socket and deliver packets on the other?
-
-Yes.
-
->> I put IP 1.1.1.1/24 on a, 1.1.1.2/24 on d, and then create a UDP connection
->> (using policy based routing to ensure frames are sent on the appropriate
->> interfaces).
->>
->> This is user-space only app, and kernel in this case is completely
->> unmodified.
->>
->> The commit below breaks this feature:  UDP frames are sniffed on both a and
->> d ports
->> (in both directions), but the UDP socket does not receive frames.
->>
->> Using normal ethernet ports, this network emulation feature works fine, so
->> it is
->> specific to VETH.
->>
->> A similar test with just sending UDP between a single veth pair:  e <-> f
->> works fine.  Maybe it has something to do with raw packets?
->>
+>>  void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
+>>  {
+>> -     ip6_update_pmtu(skb, sock_net(sk), mtu,
+>> -                     sk->sk_bound_dev_if, sk->sk_mark);
+>> +     const struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
+>> +     struct net *net = sock_net(sk);
+>> +     struct dst_entry *ndst, *dst;
+>> +     struct flowi6 fl6;
+>> +     bool new = false;
+>> +
+>> +     memset(&fl6, 0, sizeof(fl6));
+>> +
+>> +     bh_lock_sock(sk);
+>> +
 >
-> Yeah, I have the same feeling. Could you trace kfree_skb() to see
-> where these packets are dropped? At UDP layer?
+>
+> This is not clear why you need to acquire socket lock.
+>
+> sk_dst_cache is protected by an atomic operation.
+>
+> udp for example calls ip6_dst_store() without socket being locked.
 
-Since reverting the patch fixes this, it almost certainly has to be due to some
-checksum checking logic.  Since UDP sockets (between single veth pair)
-works, it would appear to be related to my packet bridge, so maybe
-it is specific to raw packets and/or sendmmsg api.
+My understanding is that bh_lock_sock() prevents concurrent
+access to sock struct. Since this is in softirq context, multiple
+CPU's could call this function concurrently, the whole pmtu
+update needs to be done atomically.
 
-I'll investigate it better tomorrow.
-
-Thanks,
-Ben
-
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+UDP, on the other hand, doesn't do this logic, it just looks up
+for dst and save it in sk_dst_cache.
