@@ -1,202 +1,68 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv4: Multipath needs to handle unreachable
- nexthops
-Date: Thu, 24 Mar 2016 20:05:07 -0600
-Message-ID: <56F49CD3.1060406@cumulusnetworks.com>
-References: <1458833154-39091-1-git-send-email-dsa@cumulusnetworks.com>
- <alpine.LFD.2.11.1603242201200.1795@ja.home.ssi.bg>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [RFC PATCH V2 0/2] basic device IOTLB support
+Date: Fri, 25 Mar 2016 10:34:32 +0800
+Message-ID: <1458873274-13961-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:33502 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbcCYCFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 22:05:12 -0400
-Received: by mail-ig0-f170.google.com with SMTP id ig19so5864903igb.0
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 19:05:11 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.11.1603242201200.1795@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pbonzini@redhat.com, qemu-devel@nongnu.org, peterx@redhat.com
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 3/24/16 4:33 PM, Julian Anastasov wrote:
-> 	But for multipath routes we can also consider the
-> nexthops as "alternatives", so it depends on how one uses
-> the multipath mechanism. The ability to fallback to
-> another nexthop assumes one connection is allowed to
-> move from one ISP to another. What if the second ISP
-> decides to reject the connection? What we have is a
-> broken connection just because the retransmits
-> were diverted to wrong place in the hurry. So, the
-> nexthops can be compatible or incompatible. For your
-> setup they are, for others they are not.
+This patch tries to implement an device IOTLB for vhost. This could be
+used with for co-operation with userspace(qemu) implementation of
+iommu for a secure DMA environment (DMAR) in guest.
 
-I am not sure I completely understand your point. Are you saying that 
-within a single multipath route some connections to nexthops are allowed 
-and others are not?
+The idea is simple. When vhost meets an IOTLB miss, it will request
+the assistance of userspace to do the translation, this is done
+through:
 
-So to put that paragraph into an example
+- Fill the translation request in a preset userspace address (This
+  address is set through ioctl VHOST_SET_IOTLB_REQUEST_ENTRY).
+- Notify userspace through eventfd (This eventfd was set through ioctl
+  VHOST_SET_IOTLB_FD).
 
-15.0.0.0/16
-	nexthop via 12.0.0.2  dev swp1 weight 1
-	nexthop via 12.0.0.3  dev swp1 weight 1
+When userspace finishes the translation, it will update the vhost
+IOTLB through VHOST_UPDATE_IOTLB ioctl. Userspace is also in charge of
+snooping the IOTLB invalidation of IOMMU IOTLB and use
+VHOST_UPDATE_IOTLB to invalidate the possible entry in vhost.
 
-Hosts from 15.0/16 could have TCP connections use 12.0.0.2, but not 
-12.0.0.3 because 12.0.0.3 could be a different ISP and not allow TCP 
-connections from this address space?
+The codes were designed to be architecture independent. It should be
+easily ported to any architecture.
 
+Changes from V1:
+- support any size/range of updating and invalidation through
+  introducing the interval tree.
+- convert from per device iotlb request to per virtqueue iotlb
+  request, this solves the possible deadlock in V1.
+- read/write permission check support.
 
->
-> 	For multipath setups I recall for the following
-> possible cases:
->
-> 1. Every packet from connection hits multipath route
-> and what we want is the connection to use only one
-> nexthop. If nexthop fails then the connection fails.
-> Latest changes for the multipath algorithm chose this
-> option: use hash to map traffic to nexthop and any
-> fallbacks to another nexthop are not allowed because
-> we should follow the hash mapping. Works when nexthops
-> use different ISPs.
->
-> 2. Only the first packet hits multipath route. With
-> the help from CONNMARK all next packets from connection
-> use the same nexthop by using another unicast route.
-> The goal here is the multipath route to be used just to
-> balance connections. This works best when the nexthop
-> selection was random and not a hash based. This was
-> how the previous algorithm worked. Fallbacks are
-> desired because it is fine to select alive nexthop
-> for the first packet, but wrong for the next packets.
->
-> 	My preference was for the random selection,
-> I don't know why we restricted the new algorithm. May be
-> because in the common case when just a single default
-> multipath route is created we want to use all nexthops
-> in a ideal world where all nexthops are alive.
->
-> 	So, if the kernel used a random selection
-> your fallback algorithm should help. But it is fragile
-> for the simple setup with single default multipath route.
-> May be what we miss is the ability to choose between
-> random and hash-based selection. Then your patch may be
-> useful but only for setup 2 (multipath route hit only by
-> first packet). So, your patch may come with a sysctl var
-> that explains your current patch logic: "avoid failed nexthops,
-> never probe them, wait their failed entry to be expired by
-> neigh_periodic_work and just then we can use the nexthop
-> by creating new entry to probe the GW". Who will trigger
-> probes often enough to maintain fresh state?
+Please review.
 
-First packet out does the probe -- neigh lookup fails, kernel has no 
-knowledge so can't reject the nexthop based on neighbor information.
+Thanks
 
-After that if it has information that says that a nexthop is dead, why 
-would it continue to try to probe? Any traffic that selects that nh is 
-dead. That to me defies the basis of having multiple paths.
+Jason Wang (2):
+  vhost: convert pre sorted vhost memory array to interval tree
+  vhost: device IOTLB API
 
->
-> 	Also, one may argue that such decisions should
-> be done in user space. It is common the direct routers
-> to answer ARP even while their uplink is down. In
-> the common case, one may need to ping 2-3 indirect
-> gateways to decide if a path is alive and then to recreate
-> the default multipath route.
->
-> 	More comments below...
->
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> ---
->>   net/ipv4/fib_semantics.c | 34 ++++++++++++++++++++++++++++++++--
->>   1 file changed, 32 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
->> index d97268e8ff10..28fc6700c2b1 100644
->> --- a/net/ipv4/fib_semantics.c
->> +++ b/net/ipv4/fib_semantics.c
->> @@ -1563,13 +1563,43 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->>   void fib_select_multipath(struct fib_result *res, int hash)
->>   {
->>   	struct fib_info *fi = res->fi;
->> +	struct neighbour *n;
->> +	int state;
->>
->>   	for_nexthops(fi) {
->>   		if (hash > atomic_read(&nh->nh_upper_bound))
->>   			continue;
->>
->> -		res->nh_sel = nhsel;
->> -		return;
->> +		state = NUD_NONE;
->> +		n = neigh_lookup(&arp_tbl, &nh->nh_gw, fi->fib_dev);
->
-> 	Sometimes nh_gw is a local IP, you can call
-> neigh_lookup (or a lockless RCU-BH variant) only for the
-> nh_scope == RT_SCOPE_LINK case, just like in fib_select_default.
+ drivers/vhost/net.c        |  14 +-
+ drivers/vhost/vhost.c      | 427 +++++++++++++++++++++++++++++++++++----------
+ drivers/vhost/vhost.h      |  42 ++++-
+ fs/eventfd.c               |   3 +-
+ include/uapi/linux/vhost.h |  35 ++++
+ 5 files changed, 419 insertions(+), 102 deletions(-)
 
-got it, will change.
-
->
->> +		if (n) {
->> +			state = n->nud_state;
->> +			neigh_release(n);
->> +		}
->> +		if (!n || (state == NUD_REACHABLE) || (state & NUD_VALID)) {
->
-> 	NUD_REACHABLE is part of NUD_VALID, so this is shorter:
->
-> 	if (!n || (state & NUD_VALID)) {
-
-sure.
-
-
->
->> +			res->nh_sel = nhsel;
->> +			return;
->> +		}
->> +	} endfor_nexthops(fi);
->> +
->> +	/* try the nexthops again, but covering the entries
->> +	 * skipped by the hash
->> +	 */
->> +	fi = res->fi;
->> +	for_nexthops(fi) {
->> +		if (hash <= atomic_read(&nh->nh_upper_bound))
->
-> 	This is dangerous, we can try a RTNH_F_DEAD entry
-> with nh_upper_bound = -1. This can work with 2 checks:
-
-In v2 of my patch I dropped this change as it technically is not needed 
-for the case I am trying to solve.
-
->
-> 	if (hash <= atomic_read(&nh->nh_upper_bound))
-> 		break;
-> 	if (atomic_read(&nh->nh_upper_bound) < 0)
-> 		continue;
->
->> +			continue;
->> +
->> +		state = NUD_NONE;
->> +		n = neigh_lookup(&arp_tbl, &nh->nh_gw, fi->fib_dev);
->> +		if (n) {
->> +			state = n->nud_state;
->> +			neigh_release(n);
->> +		}
->> +		if (!n || (state == NUD_REACHABLE) || (state & NUD_VALID)) {
->> +			res->nh_sel = nhsel;
->> +			return;
->> +		}
->>   	} endfor_nexthops(fi);
->
-> 	If all are failed why not use the nexthop that was
-> selected by the hash? Even if it is failed, new ARP probe
-> can succeed.
-
-sure.
-
-Thanks for the comments.
-
-David
+-- 
+2.5.0
