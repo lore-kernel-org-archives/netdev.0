@@ -1,146 +1,64 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH v2 1/1] net: macb: remove BUG_ON() and reset the queue to handle RX errors
-Date: Fri, 25 Mar 2016 10:37:34 +0100
-Message-ID: <1458898654-25864-1-git-send-email-cyrille.pitchen@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <narmstrong@baylibre.com>,
-	Cyrille Pitchen <cyrille.pitchen@atmel.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<soren.brinkmann@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net-next v3.16]r8169:  Implement definitions from linux/mii.h header
+Date: Fri, 25 Mar 2016 12:25:17 +0200
+Message-ID: <1458901517-5932-1-git-send-email-asd@marian1000.go.ro>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 5-14-53-82.residential.rdsnet.ro ([5.14.53.82]:54254 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbcCYKZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 06:25:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch removes two BUG_ON() used to notify about RX queue corruptions
-on macb (not gem) hardware without actually handling the error.
+ Add definitions from mii and inhibit 0 to advertise.
 
-The new code skips corrupted frames but still processes faultless frames.
-Then it resets the RX queue before restarting the reception from a clean
-state.
-
-This patch is a rework of an older patch proposed by Neil Armstrong:
-http://patchwork.ozlabs.org/patch/371525/
-
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Acked-by: Neil Armstrong <narmstrong@baylibre.com>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
 ---
+ drivers/net/ethernet/realtek/r8169.c | 22 ++++++----------------
+ 1 file changed, 6 insertions(+), 16 deletions(-)
 
-ChangeLog
-
-v1 -> v2
-- add Acked-by Neil Armstrong and Nicolas Ferre
-- use bool type instead of int for the 'reset_rx_queue' variable
-- move longer declarations before shorter declarations
-
- drivers/net/ethernet/cadence/macb.c | 59 ++++++++++++++++++++++++++++++-------
- 1 file changed, 49 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index f715352a9b85..6c3dc27cb100 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -917,7 +917,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		unsigned int frag_len = bp->rx_buffer_size;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index a57b650..a450656 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1679,29 +1679,19 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		int auto_nego;
  
- 		if (offset + frag_len > len) {
--			BUG_ON(frag != last_frag);
-+			if (unlikely(frag != last_frag)) {
-+				dev_kfree_skb_any(skb);
-+				return -1;
-+			}
- 			frag_len = len - offset;
- 		}
- 		skb_copy_to_linear_data_offset(skb, offset,
-@@ -945,8 +948,23 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	return 0;
- }
+ 		auto_nego = rtl_readphy(tp, MII_ADVERTISE);
+-		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
+-				ADVERTISE_100HALF | ADVERTISE_100FULL);
+-
+-		if (adv & ADVERTISED_10baseT_Half)
+-			auto_nego |= ADVERTISE_10HALF;
+-		if (adv & ADVERTISED_10baseT_Full)
+-			auto_nego |= ADVERTISE_10FULL;
+-		if (adv & ADVERTISED_100baseT_Half)
+-			auto_nego |= ADVERTISE_100HALF;
+-		if (adv & ADVERTISED_100baseT_Full)
+-			auto_nego |= ADVERTISE_100FULL;
++		auto_nego &= ~(0 | ADVERTISE_10HALF | ADVERTISE_10FULL |
++				ADVERTISE_100HALF | ADVERTISE_100FULL |
++				ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
  
-+static inline void macb_init_rx_ring(struct macb *bp)
-+{
-+	dma_addr_t addr;
-+	int i;
-+
-+	addr = bp->rx_buffers_dma;
-+	for (i = 0; i < RX_RING_SIZE; i++) {
-+		bp->rx_ring[i].addr = addr;
-+		bp->rx_ring[i].ctrl = 0;
-+		addr += bp->rx_buffer_size;
-+	}
-+	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
-+}
-+
- static int macb_rx(struct macb *bp, int budget)
- {
-+	bool reset_rx_queue = false;
- 	int received = 0;
- 	unsigned int tail;
- 	int first_frag = -1;
-@@ -972,10 +990,18 @@ static int macb_rx(struct macb *bp, int budget)
++		auto_nego |= ethtool_adv_to_mii_adv_t(adv);
+ 		auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
  
- 		if (ctrl & MACB_BIT(RX_EOF)) {
- 			int dropped;
--			BUG_ON(first_frag == -1);
-+
-+			if (unlikely(first_frag == -1)) {
-+				reset_rx_queue = true;
-+				continue;
-+			}
+ 		giga_ctrl = rtl_readphy(tp, MII_CTRL1000);
+-		giga_ctrl &= ~(ADVERTISE_1000FULL | ADVERTISE_1000HALF);
++		giga_ctrl &= ~(0 | ADVERTISE_1000FULL | ADVERTISE_1000HALF);
  
- 			dropped = macb_rx_frame(bp, first_frag, tail);
- 			first_frag = -1;
-+			if (unlikely(dropped < 0)) {
-+				reset_rx_queue = true;
-+				continue;
-+			}
- 			if (!dropped) {
- 				received++;
- 				budget--;
-@@ -983,6 +1009,26 @@ static int macb_rx(struct macb *bp, int budget)
- 		}
- 	}
- 
-+	if (unlikely(reset_rx_queue)) {
-+		unsigned long flags;
-+		u32 ctrl;
-+
-+		netdev_err(bp->dev, "RX queue corruption: reset it\n");
-+
-+		spin_lock_irqsave(&bp->lock, flags);
-+
-+		ctrl = macb_readl(bp, NCR);
-+		macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
-+
-+		macb_init_rx_ring(bp);
-+		macb_writel(bp, RBQP, bp->rx_ring_dma);
-+
-+		macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
-+
-+		spin_unlock_irqrestore(&bp->lock, flags);
-+		return received;
-+	}
-+
- 	if (first_frag != -1)
- 		bp->rx_tail = first_frag;
- 	else
-@@ -1523,15 +1569,8 @@ static void gem_init_rings(struct macb *bp)
- static void macb_init_rings(struct macb *bp)
- {
- 	int i;
--	dma_addr_t addr;
- 
--	addr = bp->rx_buffers_dma;
--	for (i = 0; i < RX_RING_SIZE; i++) {
--		bp->rx_ring[i].addr = addr;
--		bp->rx_ring[i].ctrl = 0;
--		addr += bp->rx_buffer_size;
--	}
--	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
-+	macb_init_rx_ring(bp);
- 
- 	for (i = 0; i < TX_RING_SIZE; i++) {
- 		bp->queues[0].tx_ring[i].addr = 0;
+ 		/* The 8100e/8101e/8102e do Fast Ethernet only. */
+ 		if (tp->mii.supports_gmii) {
+-			if (adv & ADVERTISED_1000baseT_Half)
+-				giga_ctrl |= ADVERTISE_1000HALF;
+-			if (adv & ADVERTISED_1000baseT_Full)
+-				giga_ctrl |= ADVERTISE_1000FULL;
++			giga_ctrl |= ethtool_adv_to_mii_ctrl1000_t(adv);
+ 		} else if (adv & (ADVERTISED_1000baseT_Half |
+ 				  ADVERTISED_1000baseT_Full)) {
+ 			netif_info(tp, link, dev,
 -- 
-1.8.2.2
+2.1.4
