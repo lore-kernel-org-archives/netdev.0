@@ -1,60 +1,87 @@
 From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: Re: [PATCH net-next v3.16]r8169:  Correct value from speed 10 on
- MII_BMCR
-Date: Fri, 25 Mar 2016 15:35:08 +0200
-Message-ID: <20160325153508.2027dbcc@192-168-0-108.rdsnet.ro>
-References: <1458910866-21784-1-git-send-email-asd@marian1000.go.ro>
-	<20160325133113.3001B62813@mail.nwl.cc>
+Subject: Re: [PATCH net-next v3.16]r8169: Implement definitions from
+ linux/mii.h header
+Date: Fri, 25 Mar 2016 16:00:21 +0200
+Message-ID: <20160325160021.391d93ae@192-168-0-108.rdsnet.ro>
+References: <1458901517-5932-1-git-send-email-asd@marian1000.go.ro>
+	<56F524FB.5080202@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: Phil Sutter <phil@nwl.cc>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-53-82.residential.rdsnet.ro ([5.14.53.82]:58581 "EHLO
+Received: from 5-14-53-82.residential.rdsnet.ro ([5.14.53.82]:58585 "EHLO
 	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787AbcCYNff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 09:35:35 -0400
-In-Reply-To: <20160325133113.3001B62813@mail.nwl.cc>
+	with ESMTP id S1751696AbcCYOAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 10:00:47 -0400
+In-Reply-To: <56F524FB.5080202@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 25 Mar 2016 14:33:02 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+On Fri, 25 Mar 2016 14:46:03 +0300
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
 
-> Hi,
+> Hello.
 > 
-> Your patch submissions are getting better, also good to see you're
-> finally using git-send-email. A few things need to be corrected
-> though:
+> On 3/25/2016 1:25 PM, Corcodel Marian wrote:
 > 
-> Subject line:
-> - The 'vNN' part in brackets is supposed to be the reroll-count (see
->   'git format-patch -h' for details), not kernel version. You're
->   supposed to submit your patches for either net or net-next, not a
->   specific kernel version like 3.16.
-> - Missing space after the closing bracket.
-> - Extra space after 'r8169:'.
+> >   Add definitions from mii and inhibit 0 to advertise.
+> >
+> > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> > ---
+> >   drivers/net/ethernet/realtek/r8169.c | 22 ++++++----------------
+> >   1 file changed, 6 insertions(+), 16 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/realtek/r8169.c
+> > b/drivers/net/ethernet/realtek/r8169.c index a57b650..a450656 100644
+> > --- a/drivers/net/ethernet/realtek/r8169.c
+> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> > @@ -1679,29 +1679,19 @@ static int rtl8169_set_speed_xmii(struct
+> > net_device *dev, int auto_nego;
+> >
+> >   		auto_nego = rtl_readphy(tp, MII_ADVERTISE);
+> > -		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL
+> > |
+> > -				ADVERTISE_100HALF |
+> > ADVERTISE_100FULL); -
+> > -		if (adv & ADVERTISED_10baseT_Half)
+> > -			auto_nego |= ADVERTISE_10HALF;
+> > -		if (adv & ADVERTISED_10baseT_Full)
+> > -			auto_nego |= ADVERTISE_10FULL;
+> > -		if (adv & ADVERTISED_100baseT_Half)
+> > -			auto_nego |= ADVERTISE_100HALF;
+> > -		if (adv & ADVERTISED_100baseT_Full)
+> > -			auto_nego |= ADVERTISE_100FULL;
+> > +		auto_nego &= ~(0 | ADVERTISE_10HALF |
+> > ADVERTISE_10FULL |
 > 
-> On Fri, Mar 25, 2016 at 03:01:06PM +0200, Corcodel Marian wrote:
-> >  This patch correct value on MII_BMCR register ald value 0
-> >  have target on reserved register first 2 bytes from MII_BMCR
-> >  speed 10 is flipped value on BMCR_SPEED100
+>     ORing with 0 doesn't change the result.
 > 
-> This is very hard to understand. I *guess* you want to say one should
-> not write 0 to MII_BMCR since it overwrites reserved bits, but it's
-> really not clear. Don't you know someone who can properly translate
-> from Romanian to English?
+> > +				ADVERTISE_100HALF |
+> > ADVERTISE_100FULL |
+> > +				ADVERTISE_PAUSE_CAP |
+> > ADVERTISE_PAUSE_ASYM);
+> >
+> > +		auto_nego |= ethtool_adv_to_mii_adv_t(adv);
+> >   		auto_nego |= ADVERTISE_PAUSE_CAP |
+> > ADVERTISE_PAUSE_ASYM;
+> >
+> >   		giga_ctrl = rtl_readphy(tp, MII_CTRL1000);
+> > -		giga_ctrl &= ~(ADVERTISE_1000FULL |
+> > ADVERTISE_1000HALF);
+> > +		giga_ctrl &= ~(0 | ADVERTISE_1000FULL |
+> > ADVERTISE_1000HALF);
 > 
-> Also detailed instructions on how to trigger the problem you are
-> fixing for would be good. In detail: Which specific hardware was
-> used, in which situation did the problem occur, how did it behave in
-> that situation and what was the expected behaviour?
+>     Likewise.
 > 
-> Cheers, Phil
+> [...]
+> 
+> MBR, Sergei
+> 
 
-> This is very hard to understand. I *guess* you want to say one should
-> not write 0 to MII_BMCR since it overwrites reserved bits, but it's
-> really not clear. Don't you know someone who can properly translate
-> from Romanian to English?
->Yes this it.
+>Zero not change result but is defined mii_adv_to_ethtool_adv_t,
+>ethtool_adv_to_mii_ctrl1000_t and not want to set because on
+>first bit from register is set on default and only 
+>CSMA/CD protocol is supported.For more info see mii.h file from
+>kernel
