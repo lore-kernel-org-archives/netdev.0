@@ -1,183 +1,256 @@
 From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH 03/13] stmmac: rework synopsys id read, moved to dwmac setup
-Date: Fri, 25 Mar 2016 10:14:10 +0100
-Message-ID: <1458897260-14104-4-git-send-email-alexandre.torgue@st.com>
+Subject: [PATCH 05/13] stmmac: add GMAC4 DMA/CORE Header File
+Date: Fri, 25 Mar 2016 10:14:12 +0100
+Message-ID: <1458897260-14104-6-git-send-email-alexandre.torgue@st.com>
 References: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Lars Persson <lars.persson@axis.com>
 To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:60879 "EHLO
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:38264 "EHLO
 	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752395AbcCYJOo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:44 -0400
+	by vger.kernel.org with ESMTP id S1752517AbcCYJOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 05:14:51 -0400
 In-Reply-To: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-synopsys_uid is only used once after setup, to get synopsys_id
-by using shitf/mask operation. It's no longer used then.
-So, remove this temporary variable and directly compute
-synopsys_id from setup routine.
+This is the main header file to define all the
+macro used for GMAC4 DMA and CORE parts.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Fabrice Gasnier <fabrice.gasnier@st.com>
 Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 6cea61b..66e132f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -498,7 +498,6 @@ struct mac_device_info {
- 	const struct stmmac_hwtimestamp *ptp;
- 	struct mii_regs mii;	/* MII register Addresses */
- 	struct mac_link link;
--	unsigned int synopsys_uid;
- 	void __iomem *pcsr;     /* vpointer to device CSRs */
- 	int multicast_filter_bins;
- 	int unicast_filter_entries;
-@@ -507,8 +506,10 @@ struct mac_device_info {
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
--					int perfect_uc_entries);
--struct mac_device_info *dwmac100_setup(void __iomem *ioaddr);
-+					int perfect_uc_entries,
-+					int *synopsys_id);
-+struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id);
-+
- 
- void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
- 			 unsigned int high, unsigned int low);
-@@ -521,4 +522,24 @@ void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
- extern const struct stmmac_mode_ops ring_mode_ops;
- extern const struct stmmac_mode_ops chain_mode_ops;
- 
-+/**
-+ * stmmac_get_synopsys_id - return the SYINID.
-+ * @priv: driver private structure
-+ * Description: this simple function is to decode and return the SYINID
-+ * starting from the HW core register.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+new file mode 100644
+index 0000000..c12f15c
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -0,0 +1,224 @@
++/*
++ * DWMAC4 Header file.
++ *
++ * Copyright (C) 2015  STMicroelectronics Ltd
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * Author: Alexandre Torgue <alexandre.torgue@st.com>
 + */
-+static inline u32 stmmac_get_synopsys_id(u32 hwid)
-+{
-+	/* Check Synopsys Id (not available on old chips) */
-+	if (likely(hwid)) {
-+		u32 uid = ((hwid & 0x0000ff00) >> 8);
-+		u32 synid = (hwid & 0x000000ff);
 +
-+		pr_info("stmmac - user ID: 0x%x, Synopsys ID: 0x%x\n",
-+			uid, synid);
++#ifndef __DWMAC4_H__
++#define __DWMAC4_H__
 +
-+		return synid;
-+	}
-+	return 0;
-+}
- #endif /* __COMMON_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index c294117..fb1eb57 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -491,7 +491,8 @@ static const struct stmmac_ops dwmac1000_ops = {
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
--					int perfect_uc_entries)
-+					int perfect_uc_entries,
-+					int *synopsys_id)
- {
- 	struct mac_device_info *mac;
- 	u32 hwid = readl(ioaddr + GMAC_VERSION);
-@@ -516,7 +517,9 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
- 	mac->link.speed = GMAC_CONTROL_FES;
- 	mac->mii.addr = GMAC_MII_ADDR;
- 	mac->mii.data = GMAC_MII_DATA;
--	mac->synopsys_uid = hwid;
++#include "common.h"
 +
-+	/* Get and dump the chip ID */
-+	*synopsys_id = stmmac_get_synopsys_id(hwid);
- 
- 	return mac;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index f8dd773..6418b2e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -173,7 +173,7 @@ static const struct stmmac_ops dwmac100_ops = {
- 	.get_umac_addr = dwmac100_get_umac_addr,
- };
- 
--struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
-+struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
- {
- 	struct mac_device_info *mac;
- 
-@@ -192,7 +192,8 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
- 	mac->link.speed = 0;
- 	mac->mii.addr = MAC_MII_ADDR;
- 	mac->mii.data = MAC_MII_DATA;
--	mac->synopsys_uid = 0;
-+	/* Synopsys Id is not available on old chips */
-+	*synopsys_id = 0;
- 
- 	return mac;
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 8103527..2ebee81 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1468,29 +1468,6 @@ static void stmmac_mmc_setup(struct stmmac_priv *priv)
- }
- 
- /**
-- * stmmac_get_synopsys_id - return the SYINID.
-- * @priv: driver private structure
-- * Description: this simple function is to decode and return the SYINID
-- * starting from the HW core register.
-- */
--static u32 stmmac_get_synopsys_id(struct stmmac_priv *priv)
--{
--	u32 hwid = priv->hw->synopsys_uid;
--
--	/* Check Synopsys Id (not available on old chips) */
--	if (likely(hwid)) {
--		u32 uid = ((hwid & 0x0000ff00) >> 8);
--		u32 synid = (hwid & 0x000000ff);
--
--		pr_info("stmmac - user ID: 0x%x, Synopsys ID: 0x%x\n",
--			uid, synid);
--
--		return synid;
--	}
--	return 0;
--}
--
--/**
-  * stmmac_selec_desc_mode - to select among: normal/alternate/extend descriptors
-  * @priv: driver private structure
-  * Description: select the Enhanced/Alternate or Normal descriptors.
-@@ -2763,18 +2740,16 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
- 		priv->dev->priv_flags |= IFF_UNICAST_FLT;
- 		mac = dwmac1000_setup(priv->ioaddr,
- 				      priv->plat->multicast_filter_bins,
--				      priv->plat->unicast_filter_entries);
-+				      priv->plat->unicast_filter_entries,
-+				      &priv->synopsys_id);
- 	} else {
--		mac = dwmac100_setup(priv->ioaddr);
-+		mac = dwmac100_setup(priv->ioaddr, &priv->synopsys_id);
- 	}
- 	if (!mac)
- 		return -ENOMEM;
- 
- 	priv->hw = mac;
- 
--	/* Get and dump the chip ID */
--	priv->synopsys_id = stmmac_get_synopsys_id(priv);
--
- 	/* To use the chained or ring mode */
- 	if (chain_mode) {
- 		priv->hw->mode = &chain_mode_ops;
++/*  MAC registers */
++#define GMAC_CONFIG			0x00000000
++#define GMAC_PACKET_FILTER		0x00000008
++#define GMAC_HASH_TAB_0_31		0x00000010
++#define GMAC_HASH_TAB_32_63		0x00000014
++#define GMAC_RX_FLOW_CTRL		0x00000090
++#define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
++#define GMAC_INT_STATUS			0x000000b0
++#define GMAC_INT_EN			0x000000b4
++#define GMAC_AN_CTRL			0x000000e0
++#define GMAC_AN_STATUS			0x000000e4
++#define GMAC_AN_ADV			0x000000e8
++#define GMAC_AN_LPA			0x000000ec
++#define GMAC_PMT			0x000000c0
++#define GMAC_VERSION			0x00000110
++#define GMAC_DEBUG			0x00000114
++#define GMAC_HW_FEATURE0		0x0000011c
++#define GMAC_HW_FEATURE1		0x00000120
++#define GMAC_HW_FEATURE2		0x00000124
++#define GMAC_MDIO_ADDR			0x00000200
++#define GMAC_MDIO_DATA			0x00000204
++#define GMAC_ADDR_HIGH(reg)		(0x300 + reg * 8)
++#define GMAC_ADDR_LOW(reg)		(0x304 + reg * 8)
++
++/* MAC Packet Filtering */
++#define GMAC_PACKET_FILTER_PR		BIT(0)
++#define GMAC_PACKET_FILTER_HMC		BIT(2)
++#define GMAC_PACKET_FILTER_PM		BIT(4)
++
++#define GMAC_MAX_PERFECT_ADDRESSES	128
++
++/* MAC Flow Control RX */
++#define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
++
++/* MAC Flow Control TX */
++#define GMAC_TX_FLOW_CTRL_TFE		BIT(1)
++#define GMAC_TX_FLOW_CTRL_PT_SHIFT	16
++
++/*  MAC Interrupt bitmap*/
++#define GMAC_INT_PMT_EN			BIT(4)
++#define GMAC_INT_LPI_EN			BIT(5)
++
++enum dwmac4_irq_status {
++	time_stamp_irq = 0x00001000,
++	mmc_rx_csum_offload_irq = 0x00000800,
++	mmc_tx_irq = 0x00000400,
++	mmc_rx_irq = 0x00000200,
++	mmc_irq = 0x00000100,
++	pmt_irq = 0x00000010,
++	pcs_ane_irq = 0x00000004,
++	pcs_link_irq = 0x00000002,
++};
++
++/* MAC Auto-Neg bitmap*/
++#define	GMAC_AN_CTRL_RAN		BIT(9)
++#define	GMAC_AN_CTRL_ANE		BIT(12)
++#define GMAC_AN_CTRL_ELE		BIT(14)
++#define GMAC_AN_FD			BIT(5)
++#define GMAC_AN_HD			BIT(6)
++#define GMAC_AN_PSE_MASK		GENMASK(8, 7)
++#define GMAC_AN_PSE_SHIFT		7
++
++/* MAC PMT bitmap */
++enum power_event {
++	pointer_reset =	0x80000000,
++	global_unicast = 0x00000200,
++	wake_up_rx_frame = 0x00000040,
++	magic_frame = 0x00000020,
++	wake_up_frame_en = 0x00000004,
++	magic_pkt_en = 0x00000002,
++	power_down = 0x00000001,
++};
++
++/* MAC Debug bitmap */
++#define GMAC_DEBUG_TFCSTS_MASK		GENMASK(18, 17)
++#define GMAC_DEBUG_TFCSTS_SHIFT		17
++#define GMAC_DEBUG_TFCSTS_IDLE		0
++#define GMAC_DEBUG_TFCSTS_WAIT		1
++#define GMAC_DEBUG_TFCSTS_GEN_PAUSE	2
++#define GMAC_DEBUG_TFCSTS_XFER		3
++#define GMAC_DEBUG_TPESTS		BIT(16)
++#define GMAC_DEBUG_RFCFCSTS_MASK	GENMASK(2, 1)
++#define GMAC_DEBUG_RFCFCSTS_SHIFT	1
++#define GMAC_DEBUG_RPESTS		BIT(0)
++
++/* MAC config */
++#define GMAC_CONFIG_IPC			BIT(27)
++#define GMAC_CONFIG_2K			BIT(22)
++#define GMAC_CONFIG_ACS			BIT(20)
++#define GMAC_CONFIG_BE			BIT(18)
++#define GMAC_CONFIG_JD			BIT(17)
++#define GMAC_CONFIG_JE			BIT(16)
++#define GMAC_CONFIG_PS			BIT(15)
++#define GMAC_CONFIG_FES			BIT(14)
++#define GMAC_CONFIG_DM			BIT(13)
++#define GMAC_CONFIG_DCRS		BIT(9)
++#define GMAC_CONFIG_TE			BIT(1)
++#define GMAC_CONFIG_RE			BIT(0)
++
++/* MAC HW features0 bitmap */
++#define GMAC_HW_FEAT_ADDMAC		BIT(18)
++#define GMAC_HW_FEAT_RXCOESEL		BIT(16)
++#define GMAC_HW_FEAT_TXCOSEL		BIT(14)
++#define GMAC_HW_FEAT_EEESEL		BIT(13)
++#define GMAC_HW_FEAT_TSSEL		BIT(12)
++#define GMAC_HW_FEAT_MMCSEL		BIT(8)
++#define GMAC_HW_FEAT_MGKSEL		BIT(7)
++#define GMAC_HW_FEAT_RWKSEL		BIT(6)
++#define GMAC_HW_FEAT_SMASEL		BIT(5)
++#define GMAC_HW_FEAT_VLHASH		BIT(4)
++#define GMAC_HW_FEAT_PCSSEL		BIT(3)
++#define GMAC_HW_FEAT_HDSEL		BIT(2)
++#define GMAC_HW_FEAT_GMIISEL		BIT(1)
++#define GMAC_HW_FEAT_MIISEL		BIT(0)
++
++/* MAC HW features1 bitmap */
++#define GMAC_HW_FEAT_AVSEL		BIT(20)
++#define GMAC_HW_TSOEN			BIT(18)
++
++/* MAC HW features2 bitmap */
++#define GMAC_HW_FEAT_TXCHCNT		GENMASK(21, 18)
++#define GMAC_HW_FEAT_RXCHCNT		GENMASK(15, 12)
++
++/* MAC HW ADDR regs */
++#define GMAC_HI_DCS			GENMASK(18, 16)
++#define GMAC_HI_DCS_SHIFT		16
++#define GMAC_HI_REG_AE			BIT(31)
++
++/*  MTL registers */
++#define MTL_INT_STATUS			0x00000c20
++#define MTL_INT_Q0			BIT(0)
++
++#define MTL_CHAN_BASE_ADDR		0x00000d00
++#define MTL_CHAN_BASE_OFFSET		0x40
++#define MTL_CHANX_BASE_ADDR(x)		(MTL_CHAN_BASE_ADDR + \
++					(x * MTL_CHAN_BASE_OFFSET))
++
++#define MTL_CHAN_TX_OP_MODE(x)		MTL_CHANX_BASE_ADDR(x)
++#define MTL_CHAN_TX_DEBUG(x)		(MTL_CHANX_BASE_ADDR(x) + 0x8)
++#define MTL_CHAN_INT_CTRL(x)		(MTL_CHANX_BASE_ADDR(x) + 0x2c)
++#define MTL_CHAN_RX_OP_MODE(x)		(MTL_CHANX_BASE_ADDR(x) + 0x30)
++#define MTL_CHAN_RX_DEBUG(x)		(MTL_CHANX_BASE_ADDR(x) + 0x38)
++
++#define MTL_OP_MODE_RSF			BIT(5)
++#define MTL_OP_MODE_TSF			BIT(1)
++
++#define MTL_OP_MODE_TTC_MASK		0x70
++#define MTL_OP_MODE_TTC_SHIFT		4
++
++#define MTL_OP_MODE_TTC_32		0
++#define MTL_OP_MODE_TTC_64		(1 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_96		(2 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_128		(3 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_192		(4 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_256		(5 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_384		(6 << MTL_OP_MODE_TTC_SHIFT)
++#define MTL_OP_MODE_TTC_512		(7 << MTL_OP_MODE_TTC_SHIFT)
++
++#define MTL_OP_MODE_RTC_MASK		0x18
++#define MTL_OP_MODE_RTC_SHIFT		3
++
++#define MTL_OP_MODE_RTC_32		(1 << MTL_OP_MODE_RTC_SHIFT)
++#define MTL_OP_MODE_RTC_64		0
++#define MTL_OP_MODE_RTC_96		(2 << MTL_OP_MODE_RTC_SHIFT)
++#define MTL_OP_MODE_RTC_128		(3 << MTL_OP_MODE_RTC_SHIFT)
++
++/*  MTL debug */
++#define MTL_DEBUG_TXSTSFSTS		BIT(5)
++#define MTL_DEBUG_TXFSTS		BIT(4)
++#define MTL_DEBUG_TWCSTS		BIT(3)
++
++/* MTL debug: Tx FIFO Read Controller Status */
++#define MTL_DEBUG_TRCSTS_MASK		GENMASK(2, 1)
++#define MTL_DEBUG_TRCSTS_SHIFT		1
++#define MTL_DEBUG_TRCSTS_IDLE		0
++#define MTL_DEBUG_TRCSTS_READ		1
++#define MTL_DEBUG_TRCSTS_TXW		2
++#define MTL_DEBUG_TRCSTS_WRITE		3
++#define MTL_DEBUG_TXPAUSED		BIT(0)
++
++/* MAC debug: GMII or MII Transmit Protocol Engine Status */
++#define MTL_DEBUG_RXFSTS_MASK		GENMASK(5, 4)
++#define MTL_DEBUG_RXFSTS_SHIFT		4
++#define MTL_DEBUG_RXFSTS_EMPTY		0
++#define MTL_DEBUG_RXFSTS_BT		1
++#define MTL_DEBUG_RXFSTS_AT		2
++#define MTL_DEBUG_RXFSTS_FULL		3
++#define MTL_DEBUG_RRCSTS_MASK		GENMASK(2, 1)
++#define MTL_DEBUG_RRCSTS_SHIFT		1
++#define MTL_DEBUG_RRCSTS_IDLE		0
++#define MTL_DEBUG_RRCSTS_RDATA		1
++#define MTL_DEBUG_RRCSTS_RSTAT		2
++#define MTL_DEBUG_RRCSTS_FLUSH		3
++#define MTL_DEBUG_RWCSTS		BIT(0)
++
++/*  MTL interrupt */
++#define MTL_RX_OVERFLOW_INT_EN		BIT(24)
++#define MTL_RX_OVERFLOW_INT		BIT(16)
++
++/* Default operating mode of the MAC */
++#define GMAC_CORE_INIT (GMAC_CONFIG_JD | GMAC_CONFIG_PS | GMAC_CONFIG_ACS | \
++			GMAC_CONFIG_BE | GMAC_CONFIG_DCRS)
++
++/* To dump the core regs excluding  the Address Registers */
++#define	GMAC_REG_NUM	132
++
++#endif /* __DWMAC4_H__ */
 -- 
 1.9.1
