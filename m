@@ -1,68 +1,101 @@
-From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: RE: [v6, 2/5] soc: fsl: add GUTS driver for QorIQ platforms
-Date: Fri, 25 Mar 2016 06:44:33 +0000
-Message-ID: <HE1PR04MB0889420582187F850129D3D0F8830@HE1PR04MB0889.eurprd04.prod.outlook.com>
-References: <1457518131-11339-1-git-send-email-yangbo.lu@nxp.com>
-	<1457518131-11339-3-git-send-email-yangbo.lu@nxp.com>
-	<DB5PR0401MB1928302BB0DDE8D9B47E4361918C0@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Thu, 24 Mar 2016 23:49:41 -0700
+Message-ID: <1458888581.6473.30.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160324153053.GA7569@1wt.eu>
+	 <1458837191.12033.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160324165047.GA7585@1wt.eu>
+	 <1458838897.12033.10.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+	 <56F42A00.7050002@iogearbox.net>
+	 <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+	 <1458859788.6473.2.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAKQ1sVPJoaaf1gRfgYPRygfMFVqk08Q0K74wn6kLHV+vy=8w1w@mail.gmail.com>
+	 <CALx6S37uZah89sNgH9wuD1J+_WEhd34Z5zmrnG8Qp-AQ7Ew=Jg@mail.gmail.com>
+	 <20160325052819.GA8548@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Claudiu
-	Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>
-To: Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>, "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
-	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>, "linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org"
-	<iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-	<linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <DB5PR0401MB1928302BB0DDE8D9B47E4361918C0-GXldUsIPo7Z/SeJcUcAJq43W/0Ik+aLCnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>,
+	Yann Ylavic <ylavic.dev@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tolga Ceylan <tolga.ceylan@gmail.com>,
+	Craig Gallek <cgallek@google.com>,
+	Josh Snyder <josh@code406.com>,
+	Aaron Conole <aconole@bytheb.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34229 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091AbcCYGtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 02:49:45 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fe3so40539026pab.1
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 23:49:44 -0700 (PDT)
+In-Reply-To: <20160325052819.GA8548@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Scott Wood
-> Sent: Saturday, March 19, 2016 6:55 AM
-> To: Yangbo Lu; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-arm-
-> kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linuxppc-
-> dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org; linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Rob Herring; Russell King; Jochen Friedrich; Joerg Roedel; Claudiu
-> Manoil; ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; Bhupesh Sharma; Zhao Qiang; Kumar Gala;
-> Santosh Shilimkar; Yang-Leo Li; Xiaobo Xie
-> Subject: Re: [v6, 2/5] soc: fsl: add GUTS driver for QorIQ platforms
+On Fri, 2016-03-25 at 06:28 +0100, Willy Tarreau wrote:
+> On Thu, Mar 24, 2016 at 04:54:03PM -0700, Tom Herbert wrote:
+> > On Thu, Mar 24, 2016 at 4:40 PM, Yann Ylavic <ylavic.dev@gmail.com> wrote:
+> > > I'll learn how to do this to get the best performances from the
+> > > server, but having to do so to work around what looks like a defect
+> > > (for simple/default SMP configurations at least, no NUMA or clever
+> > > CPU-affinity or queuing policy involved) seems odd in the first place.
+> > >
+> > I disagree with your assessment that there is a defect. SO_REUSEPORT
+> > is designed to spread packets amongst _equivalent_ connections. In the
+> > server draining case sockets are no longer equivalent, but that is a
+> > special case.
 > 
-> On 03/09/2016 04:18 AM, Yangbo Lu wrote:
-> > +#ifdef CONFIG_FSL_GUTS
-> > +u32 fsl_guts_get_svr(void);
-> > +int fsl_guts_init(void);
-> > +#endif
+> I partially disagree with you here Tom. Initially SO_REUSEPORT was not
+> used to spread packets but to allow soft restart in some applications.
+> I've been using it since 2001 in haproxy on *BSD and linux 2.2. It was
+> removed during 2.3 and I used to keep a patch to reimplement it in 2.4
+> (basically 2 or 3 lines, the infrastructure was still present), but the
+> patch was not accepted. The same patch worked for 2.6 and 3.x, allowing
+> me to continue to perform soft-restarts on Linux just like I used to do
+> on *BSD. When SO_REUSEPORT was reimplemented in 3.9 with load balancing,
+> I was happy because it at last allowed me to drop my patch and I got
+> the extra benefit of better load balancing of incoming connections.
 > 
-> Don't ifdef prototypes (when not providing a stub alternative).
+> But the main use we have for it (at least historically) is for soft
+> restarts, where one process replaces another one. Very few people use
+> more than one process in our case.
 > 
-> -Scott
+> However given the benefits of the load spreading for extreme loads,
+> I'm willing to find how to achieve the same with BPF, but it's pretty
+> clear that at this point I have no idea where to start from and that
+> for a single process replacing a single one, it looks quite complicated.
+> 
+> For me quite frankly the special case is the load balancing which is
+> a side benefit (and a nice one, don't get me wrong).
+> 
+> That's why I would have found it nice to "fix" the process replacement
+> to avoid dropping incoming connections, though I don't want it to become
+> a problem for future improvements on BPF. I don't think the two lines I
+> proposed could become an issue but I'll live without them (or continue
+> to apply this patch).
+> 
+> BTW, I have no problem with having to write a little bit of assembly for
+> fast interfaces if it remains untouched for years, we do already have a
+> bit in haproxy. It's just a longterm investment.
 
-[Lu Yangbo-B47093] Ok, will remove the ifdef.
-Thank you very much.
+Everything is possible, but do not complain because BPF went in the
+kernel before your changes.
+
+Just rework your patch.
+
+Supporting multiple SO_REUSEPORT groups on the same port should not be
+too hard really. Making sure BPF still work for them is feasible.
+
+But the semantic of the socket option would be really different.
+
+You need to not control an individual listener, but a group of listener.
+
+Your dying haproxy would issue a single system call to tell the kernel :
+My SO_REUSEPORT group should not accept new SYN packets, so that the new
+haproxy can setup a working new SO_REUSEPORT group.
