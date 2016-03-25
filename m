@@ -1,40 +1,39 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net-next 1/1] qlge: Update version to 1.00.00.35
-Date: Fri, 25 Mar 2016 07:14:09 -0400
-Message-ID: <1458904449-5776-1-git-send-email-manish.chopra@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>,
-	<harish.patil@qlogic.com>
-To: <davem@davemloft.net>
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: [PATCH net-next v3.16]r8169:  Correct value from speed 10 on MII_BMCR
+Date: Fri, 25 Mar 2016 15:01:06 +0200
+Message-ID: <1458910866-21784-1-git-send-email-asd@marian1000.go.ro>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Corcodel Marian <asd@marian1000.go.ro>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:38111 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751475AbcCYLzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 07:55:04 -0400
+Received: from 5-14-53-82.residential.rdsnet.ro ([5.14.53.82]:58578 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989AbcCYNBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 09:01:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just updating version as many fixes got
-accumulated over 1.00.00.34
+ This patch correct value on MII_BMCR register ald value 0
+ have target on reserved register first 2 bytes from MII_BMCR
+ speed 10 is flipped value on BMCR_SPEED100
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge.h | 2 +-
+ drivers/net/ethernet/realtek/r8169.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-index ef33270..6d31f92 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-@@ -18,7 +18,7 @@
-  */
- #define DRV_NAME  	"qlge"
- #define DRV_STRING 	"QLogic 10 Gigabit PCI-E Ethernet Driver "
--#define DRV_VERSION	"1.00.00.34"
-+#define DRV_VERSION	"1.00.00.35"
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index a450656..77c5efb 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1707,7 +1707,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		giga_ctrl = 0;
  
- #define WQ_ADDR_ALIGN	0x3	/* 4 byte alignment */
- 
+ 		if (speed == SPEED_10)
+-			bmcr = 0;
++			bmcr = ~BMCR_SPEED100;
+ 		else if (speed == SPEED_100)
+ 			bmcr = BMCR_SPEED100;
+ 		else
 -- 
-2.7.2
+2.1.4
