@@ -1,76 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
- drain mode
-Date: Thu, 24 Mar 2016 20:24:46 -0400 (EDT)
-Message-ID: <20160324.202446.41433213332686770.davem@davemloft.net>
-References: <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
-	<56F42A00.7050002@iogearbox.net>
-	<CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next RFC 0/4] SO_BINDTOSUBNET
+Date: Thu, 24 Mar 2016 17:25:10 -0700
+Message-ID: <CALx6S35+Lv85SQvqMOe4anj6z=qXB+5dUjhEw1x=jQRQGLjD2w@mail.gmail.com>
+References: <1458134349-2454-1-git-send-email-gilberto.bertin@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com,
-	eric.dumazet@gmail.com, w@1wt.eu, tolga.ceylan@gmail.com,
-	cgallek@google.com, josh@code406.com, aconole@bytheb.org,
-	daniel@iogearbox.net
-To: ylavic.dev@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gilberto Bertin <gilberto.bertin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56492 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbcCYAYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:24:51 -0400
-In-Reply-To: <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:32879 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752452AbcCYAZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:25:12 -0400
+Received: by mail-io0-f182.google.com with SMTP id c63so103324761iof.0
+        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 17:25:11 -0700 (PDT)
+In-Reply-To: <1458134349-2454-1-git-send-email-gilberto.bertin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yann Ylavic <ylavic.dev@gmail.com>
-Date: Thu, 24 Mar 2016 23:40:30 +0100
+On Wed, Mar 16, 2016 at 6:19 AM, Gilberto Bertin
+<gilberto.bertin@gmail.com> wrote:
+> This is my second attempt to submit an RFC for this patch.
+>
+> Some arguments for and against it since the first submission:
+> * SO_BINDTOSUBNET is an arbitrary option and can be seens as nother use
+> * case of the SO_REUSEPORT BPF patch
+> * but at the same time using BPF requires more work/code on the server
+>   and since the bind to subnet use case could potentially become a
+>   common one maybe there is some value in having it as an option instead
+>   of having to code (either manually or with clang) an eBPF program that
+>   would do the same
 
-> On Thu, Mar 24, 2016 at 6:55 PM, Daniel Borkmann wrote:
->> On 03/24/2016 06:26 PM, Tom Herbert wrote:
->>>
->>> On Thu, Mar 24, 2016 at 10:01 AM, Eric Dumazet wrote:
->>>>
->>>> Really, when BPF can be the solution, we wont allow adding new stuff in
->>>> the kernel in the old way.
->>>
->>> I completely agree with this, but I wonder if we now need a repository
->>> of useful BPF modules. So in the case of implementing functionality
->>> like in SO_REUSEPORT_LISTEN_OFF that might just become a common BPF
->>> program we could direct people to use.
->>
->> Good point. There's tools/testing/selftests/net/ containing already
->> reuseport
->> BPF example, maybe it could be extended.
-> 
-> FWIW, I find:
-> 
->     const struct bpf_insn prog[] = {
->         /* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
->         { BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
->         /* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
->         { BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
->         /* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
->         { BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
->         /* BPF_EXIT_INSN() */
->         { BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
->     };
-> (and all the way to make it run)
-> 
-> something quite unintuitive from a web server developper perspective,
-> simply to make SO_REUSEPORT work with forked TCP listeners (probably
-> as it should out of the box)...
+Gilberto, I'm not sure I understand this argument. Have you
+implemented the BPF bind solution?
 
-If we encapsulate this into libraries and helper wrappers, there is
-no reason web server developers should be looking at these details
-anyways.
+Thanks,
+Tom
 
-Please don't make a mountain out of a mole-hill.
-
-We build things on top of good infrastructure, rather than build
-duplicate ways to do the same exact thing.
-
-BPF is good infrastructure, therefore that is what things will be
-built on top of.
-
-Thanks.
+> * it may probably possible to archive the same results using VRF. This
+>   would require to create a VRF device, configure the device routing
+>   table and make each bind each process to a different VRF device (but
+>   I'm not sure how this would work/interfere with an existing iptables
+>   setup for example)
+>
+> -----------------------------------------------------------------------------
+>
+> This series introduces support for the SO_BINDTOSUBNET socket option, which
+> allows a listener socket to bind to a subnet instead of * or a single address.
+>
+> Motivation:
+> consider a set of servers, each one with thousands and thousands of IP
+> addresses. Since assigning /32 or /128 IP individual addresses would be
+> inefficient, one solution can be assigning subnets using local routes
+> (with 'ip route add local').
+>
+> This allows a listener to listen and terminate connections going to any
+> of the IP addresses of these subnets without explicitly configuring all
+> the IP addresses of the subnet range.
+> This is very efficient.
+>
+> Unfortunately there may be the need to use different subnets for
+> different purposes.
+> One can imagine port 80 being served by one HTTP server for some IP
+> subnet, while another server used for another subnet.
+> Right now Linux does not allow this.
+> It is either possible to bind to *, indicating ALL traffic going to
+> given port, or to individual IP addresses.
+> The first only allows to accept connections from all the subnets.
+> The latter does not scale well with lots of IP addresses.
+>
+> Using bindtosubnet would solve this problem: just by adding a local
+> route rule and setting the SO_BINDTOSUBNET option for a socket it would
+> be possible to easily partition traffic by subnets.
+>
+> API:
+> the subnet is specified (as argument of the setsockopt syscall) by the
+> address of the network, and the prefix length of the netmask.
+>
+> IPv4:
+>         struct ipv4_subnet {
+>                 __be32 net;
+>                 u_char plen;
+>         };
+>
+> and IPv6:
+>         struct ipv6_subnet {
+>                 struct in6_addr net;
+>                 u_char plen;
+>         };
+>
+> Bind conflicts:
+> two sockets with the bindtosubnet option enabled generate a bind
+> conflict if their network addresses masked with the shortest of their
+> prefix are equal.
+> The bindtosubnet option can be combined with soreuseport so that two
+> listener can bind on the same subnet.
+>
+> Any questions/feedback appreciated.
+>
+> Thanks,
+>  Gilberto
+>
+> Gilberto Bertin (4):
+>   bindtosubnet: infrastructure
+>   bindtosubnet: TCP/IPv4 implementation
+>   bindtosubnet: TCP/IPv6 implementation
+>   bindtosubnet: UPD implementation
+>
+>  include/net/sock.h                |  20 +++++++
+>  include/uapi/asm-generic/socket.h |   1 +
+>  net/core/sock.c                   | 111 ++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/inet_connection_sock.c   |  20 ++++++-
+>  net/ipv4/inet_hashtables.c        |   9 ++++
+>  net/ipv4/udp.c                    |  36 +++++++++++++
+>  net/ipv6/inet6_connection_sock.c  |  17 +++++-
+>  net/ipv6/inet6_hashtables.c       |   6 +++
+>  8 files changed, 218 insertions(+), 2 deletions(-)
+>
+> --
+> 2.7.2
+>
