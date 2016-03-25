@@ -1,41 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
- netpoll_cleanup()
-Date: Fri, 25 Mar 2016 15:16:36 -0400 (EDT)
-Message-ID: <20160325.151636.590435237623997861.davem@davemloft.net>
-References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
-	<20160325113342.GA21579@hmsreliant.think-freely.org>
-	<20160325164639.GA29822@localhost>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ip.7: Fix incorrect sockopt name
+Date: Sat, 26 Mar 2016 08:36:15 +1300
+Message-ID: <56F5932F.6000809@gmail.com>
+References: <1458592124-6208-1-git-send-email-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@redhat.com, bhelgaas@google.com,
-	nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	aduyck@mirantis.com, linux-kernel@vger.kernel.org
-To: helgaas@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160325164639.GA29822@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Radek Pazdera <rpazdera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Benjamin Poirier <bpoirier-IBi9RG/b67k@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458592124-6208-1-git-send-email-bpoirier-IBi9RG/b67k@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 25 Mar 2016 11:46:39 -0500
+Hello Benjamin,
 
-> You're right, there is an issue here.  I reproduced a problem with a
-> bond device.  bond_netpoll_setup() calls __netpoll_setup() directly
-> (not netpoll_setup()).  I'll debug it more; just wanted to let you
-> know there *is* a problem with this patch.
+On 03/22/2016 09:28 AM, Benjamin Poirier wrote:
+> "IP_LEAVE_GROUP" does not exist. It was perhaps a confusion with
+> MCAST_LEAVE_GROUP. Change the text to IP_DROP_MEMBERSHIP which has the same
+> function as MCAST_LEAVE_GROUP and is documented in the ip.7 man page.
+> 
+> Reference:
+> Linux kernel net/ipv4/ip_sockglue.c do_ip_setsockopt()
 
-I bet that's why the assignment to np->dev and the reference counting
-were separated in the first place :-/
+Thanks! Applied.
 
-Indeed, commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb:
+Cheers,
 
-commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb
-Author: Jiri Pirko <jiri@resnulli.us>
-Date:   Tue Jul 17 05:22:35 2012 +0000
+Michael
 
-    netpoll: move np->dev and np->dev_name init into __netpoll_setup()
-    
-    Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+> Cc: Radek Pazdera <rpazdera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Benjamin Poirier <bpoirier-IBi9RG/b67k@public.gmane.org>
+> ---
+>  man7/ip.7 | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/man7/ip.7 b/man7/ip.7
+> index 3905573..37e2c86 100644
+> --- a/man7/ip.7
+> +++ b/man7/ip.7
+> @@ -376,7 +376,7 @@ a given multicast group that come from a given source.
+>  If the application has subscribed to multiple sources within
+>  the same group, data from the remaining sources will still be delivered.
+>  To stop receiving data from all sources at once, use
+> -.BR IP_LEAVE_GROUP .
+> +.BR IP_DROP_MEMBERSHIP .
+>  .IP
+>  Argument is an
+>  .I ip_mreq_source
+> 
+
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
