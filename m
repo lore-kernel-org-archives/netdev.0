@@ -1,59 +1,76 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFT Patch net 1/2] ipv6: invalidate the socket cached route on
- pmtu events if possible
-Date: Thu, 24 Mar 2016 17:15:18 -0700
-Message-ID: <CAM_iQpVDN_LPsa2XgVWoqMjrOYpg9JNjPJVwEvTuxPgYyWRWmg@mail.gmail.com>
-References: <1458847536-7729-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1458851740.12033.24.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: Add SO_REUSEPORT_LISTEN_OFF socket option as
+ drain mode
+Date: Thu, 24 Mar 2016 20:24:46 -0400 (EDT)
+Message-ID: <20160324.202446.41433213332686770.davem@davemloft.net>
+References: <CALx6S36Ej1es8qFi2Q3=199f+rmG=Za02N5ZBWT5DCRqrBEWvQ@mail.gmail.com>
+	<56F42A00.7050002@iogearbox.net>
+	<CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Wei Wang <weiwan@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tom@herbertland.com,
+	eric.dumazet@gmail.com, w@1wt.eu, tolga.ceylan@gmail.com,
+	cgallek@google.com, josh@code406.com, aconole@bytheb.org,
+	daniel@iogearbox.net
+To: ylavic.dev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f175.google.com ([209.85.161.175]:34604 "EHLO
-	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208AbcCYAPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:15:19 -0400
-Received: by mail-yw0-f175.google.com with SMTP id h129so80659880ywb.1
-        for <netdev@vger.kernel.org>; Thu, 24 Mar 2016 17:15:19 -0700 (PDT)
-In-Reply-To: <1458851740.12033.24.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56492 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752248AbcCYAYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Mar 2016 20:24:51 -0400
+In-Reply-To: <CAKQ1sVP_bbGYnVW=9WDnuzJ7qcC1xrM3qmeYFk-c3fi696F5-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 24, 2016 at 1:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-03-24 at 12:25 -0700, Cong Wang wrote:
->
->>  void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
->>  {
->> -     ip6_update_pmtu(skb, sock_net(sk), mtu,
->> -                     sk->sk_bound_dev_if, sk->sk_mark);
->> +     const struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
->> +     struct net *net = sock_net(sk);
->> +     struct dst_entry *ndst, *dst;
->> +     struct flowi6 fl6;
->> +     bool new = false;
->> +
->> +     memset(&fl6, 0, sizeof(fl6));
->> +
->> +     bh_lock_sock(sk);
->> +
->
->
-> This is not clear why you need to acquire socket lock.
->
-> sk_dst_cache is protected by an atomic operation.
->
-> udp for example calls ip6_dst_store() without socket being locked.
+From: Yann Ylavic <ylavic.dev@gmail.com>
+Date: Thu, 24 Mar 2016 23:40:30 +0100
 
-My understanding is that bh_lock_sock() prevents concurrent
-access to sock struct. Since this is in softirq context, multiple
-CPU's could call this function concurrently, the whole pmtu
-update needs to be done atomically.
+> On Thu, Mar 24, 2016 at 6:55 PM, Daniel Borkmann wrote:
+>> On 03/24/2016 06:26 PM, Tom Herbert wrote:
+>>>
+>>> On Thu, Mar 24, 2016 at 10:01 AM, Eric Dumazet wrote:
+>>>>
+>>>> Really, when BPF can be the solution, we wont allow adding new stuff in
+>>>> the kernel in the old way.
+>>>
+>>> I completely agree with this, but I wonder if we now need a repository
+>>> of useful BPF modules. So in the case of implementing functionality
+>>> like in SO_REUSEPORT_LISTEN_OFF that might just become a common BPF
+>>> program we could direct people to use.
+>>
+>> Good point. There's tools/testing/selftests/net/ containing already
+>> reuseport
+>> BPF example, maybe it could be extended.
+> 
+> FWIW, I find:
+> 
+>     const struct bpf_insn prog[] = {
+>         /* BPF_MOV64_REG(BPF_REG_6, BPF_REG_1) */
+>         { BPF_ALU64 | BPF_MOV | BPF_X, BPF_REG_6, BPF_REG_1, 0, 0 },
+>         /* BPF_LD_ABS(BPF_W, 0) R0 = (uint32_t)skb[0] */
+>         { BPF_LD | BPF_ABS | BPF_W, 0, 0, 0, 0 },
+>         /* BPF_ALU64_IMM(BPF_MOD, BPF_REG_0, mod) */
+>         { BPF_ALU64 | BPF_MOD | BPF_K, BPF_REG_0, 0, 0, mod },
+>         /* BPF_EXIT_INSN() */
+>         { BPF_JMP | BPF_EXIT, 0, 0, 0, 0 }
+>     };
+> (and all the way to make it run)
+> 
+> something quite unintuitive from a web server developper perspective,
+> simply to make SO_REUSEPORT work with forked TCP listeners (probably
+> as it should out of the box)...
 
-UDP, on the other hand, doesn't do this logic, it just looks up
-for dst and save it in sk_dst_cache.
+If we encapsulate this into libraries and helper wrappers, there is
+no reason web server developers should be looking at these details
+anyways.
+
+Please don't make a mountain out of a mole-hill.
+
+We build things on top of good infrastructure, rather than build
+duplicate ways to do the same exact thing.
+
+BPF is good infrastructure, therefore that is what things will be
+built on top of.
+
+Thanks.
