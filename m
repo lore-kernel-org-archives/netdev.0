@@ -1,40 +1,43 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH 00/13] Enhance stmmac driver to support GMAC4.x IP
-Date: Fri, 25 Mar 2016 16:21:12 +0100
-Message-ID: <56F55768.4030004@st.com>
-References: <1458897260-14104-1-git-send-email-alexandre.torgue@st.com>
- <20160325.111153.1753782955238285726.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
+ netpoll_cleanup()
+Date: Fri, 25 Mar 2016 11:24:38 -0400 (EDT)
+Message-ID: <20160325.112438.1680393079835321066.davem@davemloft.net>
+References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>,
-	<lars.persson@axis.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:30993 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751884AbcCYPVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 11:21:21 -0400
-In-Reply-To: <20160325.111153.1753782955238285726.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, aduyck@mirantis.com,
+	linux-kernel@vger.kernel.org
+To: bhelgaas@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Thu, 24 Mar 2016 21:56:21 -0500
 
-On 03/25/2016 04:11 PM, David Miller wrote:
->
-> It is absolutely not appropriate to submit new feature patches
-> at this time.
->
-> Please resubmit this after the net-next tree opens back out.
->
+> netpoll_setup() does a dev_hold() on np->dev, the netpoll device.  If it
+> fails, it correctly does a dev_put() but leaves np->dev set.  If we call
+> netpoll_cleanup() after the failure, np->dev is still set so we do another
+> dev_put(), which decrements the refcount an extra time.
+> 
+> It's questionable to call netpoll_cleanup() after netpoll_setup() fails,
+> but it can be difficult to find the problem, and we can easily avoid it in
+> this case.  The extra decrements can lead to hangs like this:
+> 
+>   unregister_netdevice: waiting for bond0 to become free. Usage count = -3
+> 
+> Set and clear np->dev at the points where we dev_hold() and dev_put() the
+> device.
+> 
+> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 
-No pb, I will wait and resend.
+Looks good, applied and queued up for -stable.
 
-Regards
+But you probably do want to look into the stacked device issue
+Neil pointed out.
 
-Alex
-
-
-> Thank you.
->
+Thanks!
