@@ -1,64 +1,68 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
-Date: Fri, 25 Mar 2016 17:16:08 -0700
-Message-ID: <20160326001600.GA29626@kafai-mba.local>
-References: <CAM_iQpWvKUyTmvH=08FbeyGWKfV_WaM_L1MgOQ-9r9hjfvzPyA@mail.gmail.com>
- <CAC15z3ikqBc3CcgNaUJkaD1ZiBbwqZFkjEsgR7_F9Q1dvZ2Zvw@mail.gmail.com>
- <20160322060220.GA50824@kafai-mba.local>
- <CAM_iQpVfofoThoUS8UYkh-2KR_Co42tfxz00mCXx+JMWpwgg8A@mail.gmail.com>
- <20160322173939.GA53936@kafai-mba.local>
- <CAC15z3jDRvJR4uZ97mC+beaMaPQvAvTHB9OLKCdQ4hcwRu07vw@mail.gmail.com>
- <CAM_iQpU7JeLuAVPqtzjvJ7qvMYTDZSR8xc7Vfw--uQDxW-WaHQ@mail.gmail.com>
- <1458689814.10868.29.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAC15z3g-LDOdpcsZEs6XFFOOb92bXAbdOORdnd+MTvF62TgSiA@mail.gmail.com>
- <20160325235527.GA29327@kafai-mba.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Wei Wang <weiwan@google.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Wei Wang <tracywwnj@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57029 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751872AbcCZAQQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 20:16:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20160325235527.GA29327@kafai-mba.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>
+Subject: [PATCH] Drivers: isdn: hisax: isac.c: Fix assignment and check into one expression.
+Date: Sat, 26 Mar 2016 02:49:50 +0200
+Message-ID: <1458953390-7306-1-git-send-email-gabrielcsmo@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>
+To: isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 25, 2016 at 04:55:27PM -0700, Martin KaFai Lau wrote:
->  void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
->  {
-> +	struct dst_entry *odst;
-> +
-> +	odst = sk_dst_get(sk);
-> +
->  	ip6_update_pmtu(skb, sock_net(sk), mtu,
->  			sk->sk_bound_dev_if, sk->sk_mark);
-> +
-> +	if (odst && !odst->error &&
-> +	    !ip6_dst_check(odst, inet6_sk(sk)->dst_cookie)) {
-> +		struct dst_entry *ndst;
-> +		struct flowi6 fl6;
-> +
-> +		build_skb_flow_key(&fl6, skb, sock_net(sk),
-> +				   sk->sk_bound_dev_if, sk->sk_mark);
-> +		ndst = ip6_route_output(sock_net(sk), NULL, &fl6);
-> +		if (!ndst->error)
-> +			ip6_dst_store(sk, ndst, NULL, NULL);
-oops...missed:
-		else
-			dst_release(ndst);
-> +	}
-> +
-> +	dst_release(odst);
->  }
->  EXPORT_SYMBOL_GPL(ip6_sk_update_pmtu);
->
-> --
-> 2.5.1
+Fix variable assignment inside if statement. It is error-prone and hard to read.
+
+Signed-off-by: Cosmin-Gabriel Samoila <gabrielcsmo@gmail.com>
+---
+ drivers/isdn/hisax/isac.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
+index 7fdf78f..df7e05c 100644
+--- a/drivers/isdn/hisax/isac.c
++++ b/drivers/isdn/hisax/isac.c
+@@ -215,9 +215,11 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
+ 			if (count == 0)
+ 				count = 32;
+ 			isac_empty_fifo(cs, count);
+-			if ((count = cs->rcvidx) > 0) {
++			count = cs->rcvidx;
++			if (count > 0) {
+ 				cs->rcvidx = 0;
+-				if (!(skb = alloc_skb(count, GFP_ATOMIC)))
++				skb = alloc_skb(count, GFP_ATOMIC);
++				if (!skb)
+ 					printk(KERN_WARNING "HiSax: D receive out of memory\n");
+ 				else {
+ 					memcpy(skb_put(skb, count), cs->rcvbuf, count);
+@@ -251,7 +253,8 @@ isac_interrupt(struct IsdnCardState *cs, u_char val)
+ 				cs->tx_skb = NULL;
+ 			}
+ 		}
+-		if ((cs->tx_skb = skb_dequeue(&cs->sq))) {
++		cs->tx_skb = skb_dequeue(&cs->sq);
++		if (cs->tx_skb) {
+ 			cs->tx_cnt = 0;
+ 			isac_fill_fifo(cs);
+ 		} else
+@@ -313,7 +316,8 @@ afterXPR:
+ #if ARCOFI_USE
+ 			if (v1 & 0x08) {
+ 				if (!cs->dc.isac.mon_rx) {
+-					if (!(cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
++					cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC);
++					if (!cs->dc.isac.mon_rx) {
+ 						if (cs->debug & L1_DEB_WARN)
+ 							debugl1(cs, "ISAC MON RX out of memory!");
+ 						cs->dc.isac.mocr &= 0xf0;
+@@ -343,7 +347,8 @@ afterXPR:
+ 		afterMONR0:
+ 			if (v1 & 0x80) {
+ 				if (!cs->dc.isac.mon_rx) {
+-					if (!(cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC))) {
++					cs->dc.isac.mon_rx = kmalloc(MAX_MON_FRAME, GFP_ATOMIC);
++					if (!cs->dc.isac.mon_rx) {
+ 						if (cs->debug & L1_DEB_WARN)
+ 							debugl1(cs, "ISAC MON RX out of memory!");
+ 						cs->dc.isac.mocr &= 0x0f;
+-- 
+1.9.1
