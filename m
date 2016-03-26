@@ -1,194 +1,64 @@
-From: Patrick Uiterwijk <patrick@puiterwijk.org>
-Subject: [PATCH 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit on setup
-Date: Sat, 26 Mar 2016 00:10:04 +0000
-Message-ID: <1458951004-27424-2-git-send-email-patrick@puiterwijk.org>
-References: <1458951004-27424-1-git-send-email-patrick@puiterwijk.org>
-Cc: linux@arm.linux.org.uk, vivien.didelot@savoirfairelinux.com,
-	andrew@lunn.ch, netdev@vger.kernel.org, dennis@ausil.us,
-	pbrobinson@gmail.com, Patrick Uiterwijk <patrick@puiterwijk.org>
-To: linux@roeck-us.net, davem@davemloft.net
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH] ipv6: Fix the pmtu path for connected UDP socket
+Date: Fri, 25 Mar 2016 17:16:08 -0700
+Message-ID: <20160326001600.GA29626@kafai-mba.local>
+References: <CAM_iQpWvKUyTmvH=08FbeyGWKfV_WaM_L1MgOQ-9r9hjfvzPyA@mail.gmail.com>
+ <CAC15z3ikqBc3CcgNaUJkaD1ZiBbwqZFkjEsgR7_F9Q1dvZ2Zvw@mail.gmail.com>
+ <20160322060220.GA50824@kafai-mba.local>
+ <CAM_iQpVfofoThoUS8UYkh-2KR_Co42tfxz00mCXx+JMWpwgg8A@mail.gmail.com>
+ <20160322173939.GA53936@kafai-mba.local>
+ <CAC15z3jDRvJR4uZ97mC+beaMaPQvAvTHB9OLKCdQ4hcwRu07vw@mail.gmail.com>
+ <CAM_iQpU7JeLuAVPqtzjvJ7qvMYTDZSR8xc7Vfw--uQDxW-WaHQ@mail.gmail.com>
+ <1458689814.10868.29.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAC15z3g-LDOdpcsZEs6XFFOOb92bXAbdOORdnd+MTvF62TgSiA@mail.gmail.com>
+ <20160325235527.GA29327@kafai-mba.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Wei Wang <weiwan@google.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Wei Wang <tracywwnj@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37438 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752836AbcCZAKJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 20:10:09 -0400
-Received: by mail-wm0-f45.google.com with SMTP id p65so37580642wmp.0
-        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 17:10:08 -0700 (PDT)
-In-Reply-To: <1458951004-27424-1-git-send-email-patrick@puiterwijk.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57029 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751872AbcCZAQQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 20:16:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20160325235527.GA29327@kafai-mba.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the vendor-specific bootloaders set up this part
-of the initialization for us, so this was never added.
-However, since upstream bootloaders don't initialize the
-chip specifically, they leave the fiber MII's PDOWN flag
-set, which means that the CPU port doesn't connect.
-
-This patch checks whether this flag has been clear prior
-by something else, and if not make us clear it.
-
-Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
----
- drivers/net/dsa/mv88e6xxx.c | 99 +++++++++++++++++++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx.h |  8 ++++
- 2 files changed, 76 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 13db5d8..05b2efb 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2264,6 +2264,57 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
- 	mutex_unlock(&ps->smi_mutex);
- }
- 
-+static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
-+				     int reg, int val)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
-+	if (ret < 0)
-+		goto clear;
-+
-+	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
-+clear:
-+	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
-+
-+	return ret;
-+}
-+
-+static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
-+				    int reg)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
-+	if (ret < 0)
-+		goto clear;
-+
-+	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
-+clear:
-+	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
-+
-+	return ret;
-+}
-+
-+static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_phy_page_read(ds, REG_FIBER_SERDES, PAGE_FIBER_SERDES,
-+				       MII_BMCR);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (ret & BMCR_PDOWN) {
-+		ret = ret & ~BMCR_PDOWN;
-+		ret = _mv88e6xxx_phy_page_write(ds, REG_FIBER_SERDES,
-+						PAGE_FIBER_SERDES, MII_BMCR,
-+						ret);
-+	}
-+
-+	return ret;
-+}
-+
- static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2367,6 +2418,23 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 			goto abort;
- 	}
- 
-+	/* If this port is connected to a SerDes, make sure the SerDes is not
-+	 * powered down.
-+	 */
-+	if (mv88e6xxx_6352_family(ds)) {
-+		ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_STATUS);
-+		if (ret < 0)
-+			goto abort;
-+		ret &= PORT_STATUS_CMODE_MASK;
-+		if ((ret == PORT_STATUS_CMODE_100BASE_X) ||
-+		    (ret == PORT_STATUS_CMODE_1000BASE_X) ||
-+		    (ret == PORT_STATUS_CMODE_SGMII)) {
-+			ret = mv88e6xxx_power_on_serdes(ds);
-+			if (ret < 0)
-+				goto abort;
-+		}
-+	}
-+
- 	/* Port Control 2: don't force a good FCS, set the maximum frame size to
- 	 * 10240 bytes, disable 802.1q tags checking, don't discard tagged or
- 	 * untagged frames on this port, do a destination address lookup on all
-@@ -2708,21 +2776,6 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
- 	return 0;
- }
- 
--static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
--				    int reg)
--{
--	int ret;
--
--	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
--	if (ret < 0)
--		goto clear;
--	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
--clear:
--	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
--
--	return ret;
--}
--
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2735,22 +2788,6 @@ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
- 	return ret;
- }
- 
--static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
--				     int reg, int val)
--{
--	int ret;
--
--	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
--	if (ret < 0)
--		goto clear;
--
--	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
--clear:
--	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
--
--	return ret;
--}
--
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val)
- {
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 9a038ab..26a424a 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -28,6 +28,10 @@
- #define SMI_CMD_OP_45_READ_DATA_INC	((3 << 10) | SMI_CMD_BUSY)
- #define SMI_DATA		0x01
- 
-+/* Fiber/SERDES Registers are located at SMI address F, page 1 */
-+#define REG_FIBER_SERDES	0x0f
-+#define PAGE_FIBER_SERDES	0x01
-+
- #define REG_PORT(p)		(0x10 + (p))
- #define PORT_STATUS		0x00
- #define PORT_STATUS_PAUSE_EN	BIT(15)
-@@ -45,6 +49,10 @@
- #define PORT_STATUS_MGMII	BIT(6) /* 6185 */
- #define PORT_STATUS_TX_PAUSED	BIT(5)
- #define PORT_STATUS_FLOW_CTRL	BIT(4)
-+#define PORT_STATUS_CMODE_MASK	0x0f
-+#define PORT_STATUS_CMODE_100BASE_X	0x8
-+#define PORT_STATUS_CMODE_1000BASE_X	0x9
-+#define PORT_STATUS_CMODE_SGMII		0xa
- #define PORT_PCS_CTRL		0x01
- #define PORT_PCS_CTRL_RGMII_DELAY_RXCLK	BIT(15)
- #define PORT_PCS_CTRL_RGMII_DELAY_TXCLK	BIT(14)
--- 
-2.7.4
+On Fri, Mar 25, 2016 at 04:55:27PM -0700, Martin KaFai Lau wrote:
+>  void ip6_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, __be32 mtu)
+>  {
+> +	struct dst_entry *odst;
+> +
+> +	odst = sk_dst_get(sk);
+> +
+>  	ip6_update_pmtu(skb, sock_net(sk), mtu,
+>  			sk->sk_bound_dev_if, sk->sk_mark);
+> +
+> +	if (odst && !odst->error &&
+> +	    !ip6_dst_check(odst, inet6_sk(sk)->dst_cookie)) {
+> +		struct dst_entry *ndst;
+> +		struct flowi6 fl6;
+> +
+> +		build_skb_flow_key(&fl6, skb, sock_net(sk),
+> +				   sk->sk_bound_dev_if, sk->sk_mark);
+> +		ndst = ip6_route_output(sock_net(sk), NULL, &fl6);
+> +		if (!ndst->error)
+> +			ip6_dst_store(sk, ndst, NULL, NULL);
+oops...missed:
+		else
+			dst_release(ndst);
+> +	}
+> +
+> +	dst_release(odst);
+>  }
+>  EXPORT_SYMBOL_GPL(ip6_sk_update_pmtu);
+>
+> --
+> 2.5.1
