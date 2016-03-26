@@ -1,52 +1,131 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC net-next 2/2] udp: No longer use SLAB_DESTROY_BY_RCU
-Date: Fri, 25 Mar 2016 18:55:58 -0700
-Message-ID: <20160326015556.GA84340@ast-mbp.thefacebook.com>
-References: <1458944964-12890-1-git-send-email-edumazet@google.com>
- <1458944964-12890-3-git-send-email-edumazet@google.com>
+From: Patrick Uiterwijk <patrick@puiterwijk.org>
+Subject: Re: [PATCH 1/2] net: dsa: mv88e6xxx: Introduce _mv88e6xxx_phy_page_{read,write}
+Date: Sat, 26 Mar 2016 02:58:56 +0100
+Message-ID: <CAJweMdYoiA5mwHW3kSQOY0y46=GuLhnBor7mS3kXo9K3FGqW4g@mail.gmail.com>
+References: <1458951004-27424-1-git-send-email-patrick@puiterwijk.org>
+	<56F5E9D1.9030909@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, linux@arm.linux.org.uk,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+	netdev@vger.kernel.org, Dennis Gilmore <dennis@ausil.us>,
+	Peter Robinson <pbrobinson@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36480 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752594AbcCZB4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 21:56:03 -0400
-Received: by mail-pf0-f171.google.com with SMTP id u190so93782395pfb.3
-        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 18:56:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1458944964-12890-3-git-send-email-edumazet@google.com>
+Received: from mail-vk0-f44.google.com ([209.85.213.44]:35629 "EHLO
+	mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbcCZB65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Mar 2016 21:58:57 -0400
+Received: by mail-vk0-f44.google.com with SMTP id e6so106208650vkh.2
+        for <netdev@vger.kernel.org>; Fri, 25 Mar 2016 18:58:56 -0700 (PDT)
+In-Reply-To: <56F5E9D1.9030909@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 03:29:24PM -0700, Eric Dumazet wrote:
-> Tom Herbert would like to avoid touching UDP socket refcnt for encapsulated
-> traffic. For this to happen, we need to use normal RCU rules, with a grace
-> period before freeing a socket. UDP sockets are not short lived in the
-> high usage case, so the added cost of call_rcu() should not be a concern.
-> 
-> This actually removes a lot of complexity in UDP stack
-> 
-> Multicast receives no longer need to hold a bucket lock.
-> 
-> Note that ip early demux still needs to take a reference on the socket.
-> 
-> Same remark for functions used by xt_socket and xt_PROXY netfilter modules,
-> but this might be changed later.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tom Herbert <tom@herbertland.com>
-> ---
->  include/linux/udp.h |   8 +-
->  include/net/sock.h  |  12 +--
->  include/net/udp.h   |   2 +-
->  net/ipv4/udp.c      | 290 +++++++++++++++-------------------------------------
->  net/ipv4/udp_diag.c |  18 ++--
->  net/ipv6/udp.c      | 194 +++++++++++------------------------
->  6 files changed, 162 insertions(+), 362 deletions(-)
+On Sat, Mar 26, 2016 at 2:45 AM, Guenter Roeck <linux@roeck-us.net> wrote:
+> On 03/25/2016 05:10 PM, Patrick Uiterwijk wrote:
+>>
+>> Add versions of the phy_page_read and _write functions to
+>> be used in a context where the SMI mutex is held.
+>>
+>> Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+>> ---
+>>   drivers/net/dsa/mv88e6xxx.c | 42
+>> ++++++++++++++++++++++++++++++++----------
+>>   1 file changed, 32 insertions(+), 10 deletions(-)
+>>
+>> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+>> index fa086e0..13db5d8 100644
+>> --- a/drivers/net/dsa/mv88e6xxx.c
+>> +++ b/drivers/net/dsa/mv88e6xxx.c
+>> @@ -2708,37 +2708,59 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds,
+>> bool ppu_active)
+>>         return 0;
+>>   }
+>>
+>> -int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
+>> int reg)
+>> +static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int
+>> page,
+>> +                                   int reg)
+>>   {
+>> -       struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>>         int ret;
+>>
+>> -       mutex_lock(&ps->smi_mutex);
+>>         ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+>>         if (ret < 0)
+>> -               goto error;
+>> +               goto clear;
+>>         ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
+>> -error:
+>> +clear:
+>
+>
+> Is there some good reason for changing the name of those labels ?
 
-great stuff!
+Vivien suggested to rename this since it makes more clear that this write is
+meant to return to page 0 to make sure that phylib doesn't get confused
+about the currently active page.
+
+Patrick
+
+>
+> Guenter
+>
+>
+>>         _mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
+>> -       mutex_unlock(&ps->smi_mutex);
+>> +
+>>         return ret;
+>>   }
+>>
+>> -int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+>> -                            int reg, int val)
+>> +int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
+>> int reg)
+>>   {
+>>         struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>>         int ret;
+>>
+>>         mutex_lock(&ps->smi_mutex);
+>> +       ret = _mv88e6xxx_phy_page_read(ds, port, page, reg);
+>> +       mutex_unlock(&ps->smi_mutex);
+>> +
+>> +       return ret;
+>> +}
+>> +
+>> +static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int
+>> page,
+>> +                                    int reg, int val)
+>> +{
+>> +       int ret;
+>> +
+>>         ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+>>         if (ret < 0)
+>> -               goto error;
+>> +               goto clear;
+>>
+>>         ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
+>> -error:
+>> +clear:
+>>         _mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
+>> +
+>> +       return ret;
+>> +}
+>> +
+>> +int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+>> +                            int reg, int val)
+>> +{
+>> +       struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+>> +       int ret;
+>> +
+>> +       mutex_lock(&ps->smi_mutex);
+>> +       ret = _mv88e6xxx_phy_page_write(ds, port, page, reg, val);
+>>         mutex_unlock(&ps->smi_mutex);
+>> +
+>>         return ret;
+>>   }
+>>
+>>
+>
