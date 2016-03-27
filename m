@@ -1,46 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] drivers : Remove unnecessary void pointer conversions
-Date: Sat, 26 Mar 2016 22:49:05 -0700
-Message-ID: <1459057745.23450.17.camel@perches.com>
-References: <1459050140-14621-1-git-send-email-njupudi@ucsc.edu>
+From: "zhaoxiu.zeng" <zhaoxiu.zeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 12/31] sunrpc: auth_gss: use parity8
+Date: Sun, 27 Mar 2016 14:51:36 +0800
+Message-ID: <56F782F8.8000903@gmail.com>
+References: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Bhaskar Jupudi <njupudi@ucsc.edu>, davem@davemloft.net,
-	igal.liberman@freescale.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459050140-14621-1-git-send-email-njupudi@ucsc.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458788612-4367-1-git-send-email-zhaoxiu.zeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-03-26 at 20:42 -0700, Bhaskar Jupudi wrote:
-> Explicit void pointer conversion is unnecessary
-> because the conversions to and from a void pointer
-> are always implicit in 'C'. Changed two instances=A0
-> of such conversions.
+From: Zeng Zhaoxiu <zhaoxiu.zeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Your patch subject is incorrect, this is for fman
-not all of drivers/
+Signed-off-by: Zeng Zhaoxiu <zhaoxiu.zeng-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/sunrpc/auth_gss/gss_krb5_keys.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-If you do one file, you should do them all.
+diff --git a/net/sunrpc/auth_gss/gss_krb5_keys.c b/net/sunrpc/auth_gss/gss_krb5_keys.c
+index 8701331..c41b389 100644
+--- a/net/sunrpc/auth_gss/gss_krb5_keys.c
++++ b/net/sunrpc/auth_gss/gss_krb5_keys.c
+@@ -243,16 +243,12 @@ err_return:
+ 	return ret;
+ }
+ 
+-#define smask(step) ((1<<step)-1)
+-#define pstep(x, step) (((x)&smask(step))^(((x)>>step)&smask(step)))
+-#define parity_char(x) pstep(pstep(pstep((x), 4), 2), 1)
+-
+ static void mit_des_fixup_key_parity(u8 key[8])
+ {
+ 	int i;
+ 	for (i = 0; i < 8; i++) {
+ 		key[i] &= 0xfe;
+-		key[i] |= 1^parity_char(key[i]);
++		key[i] |= !parity8(key[i]);
+ 	}
+ }
+ 
+-- 
+2.5.5
 
-$ git grep -E "\*\s*\)\s*of_get_property" drivers/net/ethernet/freescal=
-e/
-drivers/net/ethernet/freescale/fman/fman.c:=A0=A0=A0=A0=A0u32_prop =3D =
-(const u32 *)of_get_property(fm_node, "cell-index", &lenp);
-drivers/net/ethernet/freescale/fman/fman.c:=A0=A0=A0=A0=A0u32_prop =3D =
-(const u32 *)of_get_property(fm_node,
-drivers/net/ethernet/freescale/fman/fman_port.c:=A0=A0=A0=A0=A0=A0=A0=A0=
-u32_prop =3D (const u32 *)of_get_property(port_node, "cell-index", &len=
-p);
-drivers/net/ethernet/freescale/fman/fman_port.c:=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0u32_prop =3D (const u32 *)of_get_property(port_=
-node,
-drivers/net/ethernet/freescale/fman/fman_port.c:=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0u32_prop =3D (const u32 *)of_get_property(port_=
-node,
-drivers/net/ethernet/freescale/fman/mac.c:=A0=A0=A0=A0=A0=A0char_prop =3D=
- (const char *)of_get_property(mac_node,
-
-> =A0drivers/net/ethernet/freescale/fman/fman.c | 4 ++--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
