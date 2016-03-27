@@ -1,54 +1,58 @@
-From: Quentin Armitage <quentin@armitage.org.uk>
-Subject: [PATCH] Fix returned tc and hoplimit values for route with IPv6 encapsulation
-Date: Sun, 27 Mar 2016 17:06:11 +0100
-Message-ID: <1459094771-24749-1-git-send-email-quentin@armitage.org.uk>
-Cc: Quentin Armitage <quentin@armitage.org.uk>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+From: Corcodel Marian <asd@marian1000.go.ro>
+Subject: Re: [PATCH 1/2 net-next v3.16]r8169:  Disable set bit multicast
+ enable per multicast address.
+Date: Sun, 27 Mar 2016 19:31:50 +0300
+Message-ID: <20160327193150.6085df90@192-168-0-108.rdsnet.ro>
+References: <1458989821-19782-1-git-send-email-asd@marian1000.go.ro>
+	<1459012726.6473.72.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rslrsmtp2.opaltelecom.net ([62.24.128.202]:59956 "EHLO
-	iprslrsmtp2msp.cpwnetworks.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752219AbcC0QQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 12:16:46 -0400
-Received: from [92.27.6.192] (helo=nabal.armitage.org.uk)
-	by rslr-smtp-1.cpwnetworks.com with esmtps (TLSv1:AES256-SHA:256)
-	(Exim 4.63)
-	(envelope-from <quentin@armitage.org.uk>)
-	id 1akDD0-0005nz-0m
-	for netdev@vger.kernel.org; Sun, 27 Mar 2016 17:06:34 +0100
+Received: from 5-14-230-247.residential.rdsnet.ro ([5.14.230.247]:44902 "EHLO
+	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752241AbcC0QcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 12:32:15 -0400
+In-Reply-To: <1459012726.6473.72.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For a route with IPv6 encapsulation, the traffic class and hop limit
-values are interchanged when returned to userspace by the kernel.
-For example, see below.
+On Sat, 26 Mar 2016 10:18:46 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-># ip route add 192.168.0.1 dev eth0.2 encap ip6 dst 0x50 tc 0x50 hoplimit 100 table 1000
-># ip route show table 1000
-192.168.0.1  encap ip6 id 0 src :: dst fe83::1 hoplimit 80 tc 100 dev eth0.2  scope link
+> On Sat, 2016-03-26 at 12:57 +0200, Corcodel Marian wrote:
+> >  This patch correct set bit multicast enable only once per
+> > set_rx_mode invocation.
+> > 
+> > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> > ---
+> >  drivers/net/ethernet/realtek/r8169.c | 3 +--
+> >  1 file changed, 1 insertion(+), 2 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/realtek/r8169.c
+> > b/drivers/net/ethernet/realtek/r8169.c index 7f6fb1f..f7b0dfb 100644
+> > --- a/drivers/net/ethernet/realtek/r8169.c
+> > +++ b/drivers/net/ethernet/realtek/r8169.c
+> > @@ -4619,12 +4619,11 @@ static void rtl_set_rx_mode(struct
+> > net_device *dev) } else {
+> >  		struct netdev_hw_addr *ha;
+> >  
+> > -		rx_mode = AcceptBroadcast | AcceptMyPhys;
+> > +		rx_mode = AcceptBroadcast | AcceptMyPhys |
+> > AcceptMulticast; mc_filter[1] = mc_filter[0] = 0;
+> >  		netdev_for_each_mc_addr(ha, dev) {
+> >  			int bit_nr = ether_crc(ETH_ALEN, ha->addr)
+> > >> 26; mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+> > -			rx_mode |= AcceptMulticast;
+> >  		}
+> >  	}
+> >  
+> 
+> If the list is empty, why should we enable AcceptMulticast ?
+> 
+> 
+> 
 
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
----
- net/ipv4/ip_tunnel_core.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 02dd990..6165f30 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -372,8 +372,8 @@ static int ip6_tun_fill_encap_info(struct sk_buff *skb,
- 	if (nla_put_be64(skb, LWTUNNEL_IP6_ID, tun_info->key.tun_id) ||
- 	    nla_put_in6_addr(skb, LWTUNNEL_IP6_DST, &tun_info->key.u.ipv6.dst) ||
- 	    nla_put_in6_addr(skb, LWTUNNEL_IP6_SRC, &tun_info->key.u.ipv6.src) ||
--	    nla_put_u8(skb, LWTUNNEL_IP6_HOPLIMIT, tun_info->key.tos) ||
--	    nla_put_u8(skb, LWTUNNEL_IP6_TC, tun_info->key.ttl) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP6_TC, tun_info->key.tos) ||
-+	    nla_put_u8(skb, LWTUNNEL_IP6_HOPLIMIT, tun_info->key.ttl) ||
- 	    nla_put_be16(skb, LWTUNNEL_IP6_FLAGS, tun_info->key.tun_flags))
- 		return -ENOMEM;
- 
--- 
-1.7.7.6
+I not experienced list empty, allways on my case exist bit_nr variable. 
