@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/7] net: dsa: mv88e6xxx: fix ATU FID access for 6185
-Date: Sat, 26 Mar 2016 21:59:40 -0400
-Message-ID: <1459043983-12088-5-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/7] net: dsa: mv88e6xxx: HW bridging support for 6185
+Date: Sat, 26 Mar 2016 21:59:36 -0400
+Message-ID: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -10,63 +9,36 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Guenter Roeck <linux@roeck-us.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:51462 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754739AbcC0CAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Mar 2016 22:00:13 -0400
-In-Reply-To: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 6185 family does not have a ATU FID register. It splits it in the
-ATU Control register and the ATU Operation.
+All packets passing through a switch of the 6185 family are currently all
+directed to the CPU port. This means that port bridging is software driven.
 
-Add 6185 support for FID (a.k.a. DBNum) in ATU commands.
+To enable hardware bridging for this switch family, we need to implement the
+port mapping operations, the FDB operations, and optionally the VLAN operations
+(for 802.1Q and VLAN filtering aware systems).
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  2 +-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+However this family only has 256 FDBs indexed by 8-bit identifiers, opposed to
+4096 FDBs with 12-bit identifiers for other families such as 6352. It also
+doesn't have dedicated FID registers for ATU and VTU operations.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index df3f219..4b3c466 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -961,6 +961,20 @@ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
- 		if (ret < 0)
- 			return ret;
-+	} else if (mv88e6xxx_6185_family(ds)) {
-+		/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL);
-+		if (ret < 0)
-+			return ret;
-+
-+		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL,
-+					   (ret & 0xfff) |
-+					   ((fid << 8) & 0xf000));
-+		if (ret < 0)
-+			return ret;
-+
-+		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-+		cmd |= fid & 0xf;
- 	} else {
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index febab76..94d3cb3 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -366,7 +366,7 @@ struct mv88e6xxx_switch_id {
- };
- 
- struct mv88e6xxx_atu_entry {
--	u16	fid;
-+	u16	fid; /* 8-bit DBNum in 88E6185 family */
- 	u8	state;
- 	bool	trunk;
- 	u16	portv_trunkid;
+This patchset fixes these differences, and enable hardware bridging for 6185.
+
+Vivien Didelot (7):
+  net: dsa: mv88e6xxx: 6185 port default FID is 8-bit
+  net: dsa: mv88e6xxx: 6185 has only 256 FDBs
+  net: dsa: mv88e6xxx: write FID in ATU command
+  net: dsa: mv88e6xxx: fix ATU FID access for 6185
+  net: dsa: mv88e6xxx: fix VTU FID access for 6185
+  net: dsa: mv88e6xxx: map destination addresses for 6185
+  net: dsa: mv88e6131: enable hardware bridging
+
+ drivers/net/dsa/mv88e6131.c | 11 ++++++
+ drivers/net/dsa/mv88e6xxx.c | 84 ++++++++++++++++++++++++++++++++-------------
+ drivers/net/dsa/mv88e6xxx.h |  7 ++--
+ 3 files changed, 76 insertions(+), 26 deletions(-)
+
 -- 
 2.7.4
