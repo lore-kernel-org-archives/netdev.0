@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/7] net: dsa: mv88e6xxx: HW bridging support for 6185
-Date: Sat, 26 Mar 2016 21:59:36 -0400
-Message-ID: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/7] net: dsa: mv88e6xxx: map destination addresses for 6185
+Date: Sat, 26 Mar 2016 21:59:42 -0400
+Message-ID: <1459043983-12088-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -10,35 +11,34 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All packets passing through a switch of the 6185 family are currently all
-directed to the CPU port. This means that port bridging is software driven.
+The 88E6185 switch also has a MapDA bit in its Port Control 2 register.
+When this bit is cleared, all frames are sent out to the CPU port.
 
-To enable hardware bridging for this switch family, we need to implement the
-port mapping operations, the FDB operations, and optionally the VLAN operations
-(for 802.1Q and VLAN filtering aware systems).
+Set this bit to rely on address databases (ATU) hits and direct frames
+out of the correct ports, and thus allow hardware bridging.
 
-However this family only has 256 FDBs indexed by 8-bit identifiers, opposed to
-4096 FDBs with 12-bit identifiers for other families such as 6352. It also
-doesn't have dedicated FID registers for ATU and VTU operations.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This patchset fixes these differences, and enable hardware bridging for 6185.
-
-Vivien Didelot (7):
-  net: dsa: mv88e6xxx: 6185 port default FID is 8-bit
-  net: dsa: mv88e6xxx: 6185 has only 256 FDBs
-  net: dsa: mv88e6xxx: write FID in ATU command
-  net: dsa: mv88e6xxx: fix ATU FID access for 6185
-  net: dsa: mv88e6xxx: fix VTU FID access for 6185
-  net: dsa: mv88e6xxx: map destination addresses for 6185
-  net: dsa: mv88e6131: enable hardware bridging
-
- drivers/net/dsa/mv88e6131.c | 11 ++++++
- drivers/net/dsa/mv88e6xxx.c | 84 ++++++++++++++++++++++++++++++++-------------
- drivers/net/dsa/mv88e6xxx.h |  7 ++--
- 3 files changed, 76 insertions(+), 26 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 366fda1..35d0ace 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2413,7 +2413,8 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	reg = 0;
+ 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+ 	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
+-	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds))
++	    mv88e6xxx_6095_family(ds) || mv88e6xxx_6320_family(ds) ||
++	    mv88e6xxx_6185_family(ds))
+ 		reg = PORT_CONTROL_2_MAP_DA;
+ 
+ 	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
 -- 
 2.7.4
