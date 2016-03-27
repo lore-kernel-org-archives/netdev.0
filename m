@@ -1,81 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v1 1/1] lib/utils: fix get_addr() and
- get_prefix() error messages
-Date: Sun, 27 Mar 2016 10:35:06 -0700
-Message-ID: <20160327103506.28f3d68e@xeon-e3>
-References: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH 0/7] Refactor some internal library functions
+Date: Sun, 27 Mar 2016 10:38:23 -0700
+Message-ID: <20160327103823.1ffebed4@xeon-e3>
+References: <1458671719-14361-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"Szczerbik, PrzemyslawX" <przemyslawx.szczerbik@intel.com>
-To: "Varlese, Marco" <marco.varlese@intel.com>
+Cc: <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34607 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138AbcC0Rev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 13:34:51 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fe3so81274960pab.1
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 10:34:51 -0700 (PDT)
-In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:30599 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751138AbcC0RiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 13:38:10 -0400
+In-Reply-To: <1458671719-14361-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Mar 2016 13:02:02 +0000
-"Varlese, Marco" <marco.varlese@intel.com> wrote:
+On Tue, 22 Mar 2016 19:35:12 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> An attempt to add invalid address to interface would print "???" string
-> instead of the address family name.
+> The following series is a result of reviewing color output support and
+> some formatting helpers usually used with struct rtattr fields.
 > 
-> For example:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: ??? prefix is expected rather than "256.10.166.1/24".
+> Phil Sutter (7):
+>   color: introduce color helpers and COLOR_CLEAR
+>   ipaddress: colorize peer, broadcast and anycast addresses as well
+>   make format_host non-reentrant by default
+>   utils: make rt_addr_n2a() non-reentrant by default
+>   lib/utils: introduce format_host_rta()
+>   lib/utils: introduce rt_addr_n2a_rta()
+>   lib/ll_addr: improve ll_addr_n2a() a bit
 > 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: ??? address is expected rather than "2001:db8::g".
+>  bridge/fdb.c          |  4 +--
+>  include/color.h       |  5 ++-
+>  include/utils.h       | 10 ++++--
+>  ip/ip6tunnel.c        |  4 +--
+>  ip/ipaddress.c        | 87 ++++++++++++++++++---------------------------------
+>  ip/ipaddrlabel.c      |  7 ++---
+>  ip/iplink_bond.c      |  7 +----
+>  ip/iplink_geneve.c    |  5 ++-
+>  ip/iplink_vxlan.c     | 13 ++++----
+>  ip/ipmaddr.c          |  6 +---
+>  ip/ipmroute.c         | 11 ++-----
+>  ip/ipneigh.c          |  6 +---
+>  ip/ipprefix.c         | 17 ++--------
+>  ip/iproute.c          | 68 ++++++++++++----------------------------
+>  ip/iproute_lwtunnel.c | 29 ++++-------------
+>  ip/iprule.c           | 39 +++++++----------------
+>  ip/iptoken.c          | 11 ++-----
+>  ip/iptunnel.c         |  8 ++---
+>  ip/ipxfrm.c           | 29 ++++-------------
+>  ip/link_gre.c         |  5 ++-
+>  ip/link_gre6.c        |  5 ++-
+>  ip/link_ip6tnl.c      | 11 ++-----
+>  ip/link_iptnl.c       |  7 ++---
+>  ip/link_vti.c         |  5 ++-
+>  ip/link_vti6.c        |  5 ++-
+>  ip/tcp_metrics.c      |  6 ++--
+>  ip/xfrm_monitor.c     | 16 ++--------
+>  lib/color.c           | 30 +++++++++++++++++-
+>  lib/ll_addr.c         | 15 ++-------
+>  lib/utils.c           | 20 ++++++++++--
+>  misc/ss.c             |  4 +--
+>  tc/f_flower.c         | 11 ++-----
+>  tc/m_nat.c            |  4 +--
+>  33 files changed, 187 insertions(+), 323 deletions(-)
 > 
-> With this patch the output will look like:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: inet prefix is expected rather than "256.10.166.1/24".
-> 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: inet6 address is expected rather than "2001:db8::g".
-> 
-> Signed-off-by: Przemyslaw Szczerbik <przemyslawx.szczerbik@intel.com>
-> Signed-off-by: Marco Varlese <marco.varlese@intel.com>
-> ---
-> lib/utils.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/lib/utils.c b/lib/utils.c
-> index fa35f4d..4820de1 100644
-> --- a/lib/utils.c
-> +++ b/lib/utils.c
-> @@ -567,7 +567,7 @@ int get_addr(inet_prefix *dst, const char *arg, int family)
-> {
->         if (get_addr_1(dst, arg, family)) {
->                 fprintf(stderr, "Error: %s address is expected rather than \"%s\".\n",
-> -                               family_name(family) ,arg);
-> +                               family_name(dst->family), arg);
->                 exit(1);
->         }
->         return 0;
-> @@ -581,7 +581,7 @@ int get_prefix(inet_prefix *dst, char *arg, int family)
->         }
->         if (get_prefix_1(dst, arg, family)) {
->                 fprintf(stderr, "Error: %s prefix is expected rather than \"%s\".\n",
-> -                               family_name(family) ,arg);
-> +                               family_name(dst->family), arg);
->                 exit(1);
->         }
->         return 0;
 
-Your patch was corrupted by your email client?
-
-$ patch -p1 <~/Downloads/iproute2-v1-1-1-lib-utils-fix-get_addr-and-get_prefix-error-messages.patch 
-patching file lib/utils.c
-patch: **** malformed patch at line 6: {
+Applied thanks
