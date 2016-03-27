@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/7] net: dsa: mv88e6xxx: 6185 has only 256 FDBs
-Date: Sat, 26 Mar 2016 21:59:38 -0400
-Message-ID: <1459043983-12088-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 7/7] net: dsa: mv88e6131: enable hardware bridging
+Date: Sat, 26 Mar 2016 21:59:43 -0400
+Message-ID: <1459043983-12088-8-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,40 +15,38 @@ In-Reply-To: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 6185 family has only 256 indexable address databases, while the
-others (such as 6352) have 4095. Explicit and use these maximum values
-in the _mv88e6xxx_fid_new function.
+By adding support for bridge operations, FDB operations, and optionally
+VLAN operations (for 802.1Q and VLAN filtering aware systems), the
+switch bridges ports correctly, the CPU is able to populate the hardware
+address databases, and thus hardware bridging becomes functional within
+the 88E6185 family of switches.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6131.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 1d9ae48..1d9b5dd 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1575,8 +1575,12 @@ static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
- 	struct mv88e6xxx_vtu_stu_entry vlan;
-+	u16 max = 4095;
- 	int i, err;
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index a92ca65..2407028 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -169,6 +169,17 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
++	.port_bridge_join	= mv88e6xxx_port_bridge_join,
++	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
++	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
++	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
++	.port_vlan_add		= mv88e6xxx_port_vlan_add,
++	.port_vlan_del		= mv88e6xxx_port_vlan_del,
++	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
++	.port_fdb_prepare       = mv88e6xxx_port_fdb_prepare,
++	.port_fdb_add           = mv88e6xxx_port_fdb_add,
++	.port_fdb_del           = mv88e6xxx_port_fdb_del,
++	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+ };
  
-+	if (mv88e6xxx_6185_family(ds))
-+		max = 256;
-+
- 	bitmap_zero(fid_bitmap, MV88E6XXX_N_FID);
- 
- 	/* Set every FID bit used by the (un)bridged ports */
-@@ -1608,7 +1612,7 @@ static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
- 	 * databases are not needed. Return the next positive available.
- 	 */
- 	*fid = find_next_zero_bit(fid_bitmap, MV88E6XXX_N_FID, 1);
--	if (unlikely(*fid == MV88E6XXX_N_FID))
-+	if (unlikely(*fid > max))
- 		return -ENOSPC;
- 
- 	/* Clear the database */
+ MODULE_ALIAS("platform:mv88e6085");
 -- 
 2.7.4
