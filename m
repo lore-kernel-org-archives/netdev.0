@@ -1,42 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: sxgbe: fix error paths in sxgbe_platform_probe()
-Date: Sun, 27 Mar 2016 10:22:54 +0200
-Message-ID: <20160327082254.GA10620@electric-eye.fr.zoreil.com>
-References: <877fgue1mx.fsf@rasmusvillemoes.dk>
- <1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: [PATCH] ravb: fix software timestamping
+Date: Sun, 27 Mar 2016 12:22:02 +0200
+Message-ID: <1459074122-6964-1-git-send-email-LinoSanfilippo@gmx.de>
+Cc: netdev@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51187 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754405AbcC0IXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 04:23:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
+Received: from mout.gmx.net ([212.227.17.21]:56184 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750924AbcC0KW2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Mar 2016 06:22:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rasmus Villemoes <linux@rasmusvillemoes.dk> :
-> We need to use post-decrement to ensure that irq_dispose_mapping is
-> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
-> loops failed already at i==0 (so we reach one of these labels with
-> that value of i), we'll enter an essentially infinite loop of
-> out-of-bounds accesses.
-> 
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+In ravb_start_xmit dont call skb_tx_timestamp only when hardware
+timestamping is requested: in the latter case software timestamps are
+suppressed and thus the call of skb_tx_timestamp does not have any effect.
 
-(ok, i is signed)
+Instead call skb_tx_timestamp unconditionally in ravb_start_xmit, since
+the function checks itself if software timestamping is required or should
+be skipped due to hardware timestamping.
 
-Reviewed-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Someone messed with my review on 2014/03/25 and got it wrong. :o/
+ Sergei, please note that this is only compile tested, since I dont have access
+ to the concerning hardware.
 
-Two years after the initial submission, there is zero change regarding use
-of sxgbe_core_ops for extension or manageability. The extra indirection is
-ripe for removal during next net-next.
-
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 4e1a7db..087e14a 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1377,11 +1377,11 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 		/* TAG and timestamp required flag */
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+-		skb_tx_timestamp(skb);
+ 		desc->tagh_tsr = (ts_skb->tag >> 4) | TX_TSR;
+ 		desc->ds_tagl |= le16_to_cpu(ts_skb->tag << 12);
+ 	}
+ 
++	skb_tx_timestamp(skb);
+ 	/* Descriptor type must be set after all the above writes */
+ 	dma_wmb();
+ 	desc->die_dt = DT_FEND;
 -- 
-Ueimor
+1.9.1
