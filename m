@@ -1,51 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v1 1/1] lib/utils: fix get_addr() and
- get_prefix() error messages
-Date: Sun, 27 Mar 2016 11:02:15 -0700
-Message-ID: <20160327110215.44f62214@xeon-e3>
-References: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH] net: sxgbe: fix error paths in sxgbe_platform_probe()
+Date: Sun, 27 Mar 2016 23:40:24 +0200
+Message-ID: <87r3ev8urb.fsf@rasmusvillemoes.dk>
+References: <877fgue1mx.fsf@rasmusvillemoes.dk>
+	<1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
+	<20160327082254.GA10620@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"Szczerbik, PrzemyslawX" <przemyslawx.szczerbik@intel.com>
-To: "Varlese, Marco" <marco.varlese@intel.com>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33177 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749AbcC0SB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 14:01:59 -0400
-Received: by mail-pa0-f42.google.com with SMTP id fl4so81475308pad.0
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 11:01:59 -0700 (PDT)
-In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33738 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751533AbcC0Vk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 17:40:27 -0400
+Received: by mail-wm0-f41.google.com with SMTP id l68so80422731wml.0
+        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 14:40:27 -0700 (PDT)
+In-Reply-To: <20160327082254.GA10620@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Sun, 27 Mar 2016 10:22:54 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Mar 2016 13:02:02 +0000
-"Varlese, Marco" <marco.varlese@intel.com> wrote:
+On Sun, Mar 27 2016, Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> An attempt to add invalid address to interface would print "???" string
-> instead of the address family name.
-> 
-> For example:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: ??? prefix is expected rather than "256.10.166.1/24".
-> 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: ??? address is expected rather than "2001:db8::g".
-> 
-> With this patch the output will look like:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: inet prefix is expected rather than "256.10.166.1/24".
-> 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: inet6 address is expected rather than "2001:db8::g".
-> 
-> Signed-off-by: Przemyslaw Szczerbik <przemyslawx.szczerbik@intel.com>
-> Signed-off-by: Marco Varlese <marco.varlese@intel.com>
+> Rasmus Villemoes <linux@rasmusvillemoes.dk> :
+>> We need to use post-decrement to ensure that irq_dispose_mapping is
+>> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
+>> loops failed already at i==0 (so we reach one of these labels with
+>> that value of i), we'll enter an essentially infinite loop of
+>> out-of-bounds accesses.
+>> 
+>> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+>
+> (ok, i is signed)
+>
+> Reviewed-by: Francois Romieu <romieu@fr.zoreil.com>
+>
 
-Since this was so trivial, I did change manually since patch was corrupted.
+Thanks for reviewing, but just FTR I want to point out that it doesn't
+matter whether i is signed or not in
+
+  while (i--)
+
+However, when i is signed, there's another slightly less popular variant
+which is equivalent:
+
+  while (--i >= 0)
+
+(a precondition for their equivalence is that i has a non-negative value
+before reaching the while statement).
+
+Neither are equivalent to the almost-always broken
+
+  while (--i)
+
+Rasmus
