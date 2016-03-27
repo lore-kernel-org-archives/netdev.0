@@ -1,62 +1,58 @@
-From: Richard Weinberger <richard.weinberger@gmail.com>
-Subject: Re: [PATCH -next 0/5] netlink: remove mmapped netlink support
-Date: Sun, 27 Mar 2016 09:32:05 +0200
-Message-ID: <CAFLxGvxxDFHoxZM0OQkrPhKbFFuvN6cV4VLcDLsoqt-r=4D2UA@mail.gmail.com>
-References: <1455804208-30512-1-git-send-email-fw@strlen.de>
+From: "zhaoxiu.zeng" <zhaoxiu.zeng@gmail.com>
+Subject: [PATCH 25/31] ethernet: use parity8 in sun/niu.c
+Date: Sun, 27 Mar 2016 15:36:22 +0800
+Message-ID: <56F78D76.1060305@gmail.com>
+References: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Nazarewicz <mina86@mina86.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlastimil Babka <vbabka@suse.cz>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f196.google.com ([209.85.214.196]:33068 "EHLO
-	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753778AbcC0HcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 03:32:07 -0400
-Received: by mail-ob0-f196.google.com with SMTP id do7so7624371obb.0
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 00:32:06 -0700 (PDT)
-In-Reply-To: <1455804208-30512-1-git-send-email-fw@strlen.de>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36474 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbcC0Hg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 03:36:56 -0400
+In-Reply-To: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 18, 2016 at 3:03 PM, Florian Westphal <fw@strlen.de> wrote:
-> As discussed during netconf 2016 in Seville, this series removes
-> CONFIG_NETLINK_MMAP.
+From: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
 
-Sorry for hopping in so^Wtoo late.
-I always thought mmaped netlink is the way to go for
-userspace packet processing.
-Sure, the problems you state are real but that the whole concept
-is now thrown away kind of surprises me.
+Signed-off-by: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
+---
+ drivers/net/ethernet/sun/niu.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-> Close to three years after it was merged it has retained several problems
-> that do not appear to be fixable.
->
-> No official netfilter libmnl release contains support for mmap backed netlink
-> sockets. No openvswitch release makes use of it either.
->
-> To use the mmap interface, userspace not only has to probe for mmap netlink
-> support, it also has to implement a recv/socket receive path in order to
-> handle messages that exceed the size of an rx ring element (NL_MMAP_STATUS_COPY).
->
-> So if there are odd programs out there that attempt to use MMAP netlink
-> they should continue to work as they already need a socket based code path
-> to work properly.
->
-> The actual revert (first patch) has a list of problems.
-> The followup patches remove a couple of helpers that are no longer needed
-> after the revert.
->
-> I did a few tests with mmap vs. socket based interface on a 4.4 based
-> kernel on an i7-4790 box and there are no performance advantages:
-
-Did you also test smaller devices?
-i.e. stuff one would use for cheap routers.
-
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index 9cc4564..8c344ef 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -2742,18 +2742,12 @@ static int niu_set_alt_mac_rdc_table(struct niu *np, int idx,
+ 
+ static u64 vlan_entry_set_parity(u64 reg_val)
+ {
+-	u64 port01_mask;
+-	u64 port23_mask;
+-
+-	port01_mask = 0x00ff;
+-	port23_mask = 0xff00;
+-
+-	if (hweight64(reg_val & port01_mask) & 1)
++	if (parity8(reg_val))
+ 		reg_val |= ENET_VLAN_TBL_PARITY0;
+ 	else
+ 		reg_val &= ~ENET_VLAN_TBL_PARITY0;
+ 
+-	if (hweight64(reg_val & port23_mask) & 1)
++	if (parity8((unsigned int)reg_val >> 8))
+ 		reg_val |= ENET_VLAN_TBL_PARITY1;
+ 	else
+ 		reg_val &= ~ENET_VLAN_TBL_PARITY1;
 -- 
-Thanks,
-//richard
+2.5.5
