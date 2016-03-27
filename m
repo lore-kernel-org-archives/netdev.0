@@ -1,47 +1,42 @@
-From: "zhaoxiu.zeng" <zhaoxiu.zeng@gmail.com>
-Subject: [PATCH 31/31] ethernet: broadcom: use parity8 in tg3.c
-Date: Sun, 27 Mar 2016 15:50:01 +0800
-Message-ID: <56F790A9.3000501@gmail.com>
-References: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: sxgbe: fix error paths in sxgbe_platform_probe()
+Date: Sun, 27 Mar 2016 10:22:54 +0200
+Message-ID: <20160327082254.GA10620@electric-eye.fr.zoreil.com>
+References: <877fgue1mx.fsf@rasmusvillemoes.dk>
+ <1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Siva Reddy Kallam <siva.kallam@broadcom.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35064 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbcC0Hu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 03:50:28 -0400
-In-Reply-To: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51187 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754405AbcC0IXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 04:23:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
+Rasmus Villemoes <linux@rasmusvillemoes.dk> :
+> We need to use post-decrement to ensure that irq_dispose_mapping is
+> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
+> loops failed already at i==0 (so we reach one of these labels with
+> that value of i), we'll enter an essentially infinite loop of
+> out-of-bounds accesses.
+> 
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 
-Signed-off-by: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+(ok, i is signed)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3010080..802a429 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12939,11 +12939,7 @@ static int tg3_test_nvram(struct tg3 *tp)
- 
- 		err = -EIO;
- 		for (i = 0; i < NVRAM_SELFBOOT_DATA_SIZE; i++) {
--			u8 hw8 = hweight8(data[i]);
--
--			if ((hw8 & 0x1) && parity[i])
--				goto out;
--			else if (!(hw8 & 0x1) && !parity[i])
-+			if (parity8(data[i]) == !!parity[i])
- 				goto out;
- 		}
- 		err = 0;
+Reviewed-by: Francois Romieu <romieu@fr.zoreil.com>
+
+Someone messed with my review on 2014/03/25 and got it wrong. :o/
+
+Two years after the initial submission, there is zero change regarding use
+of sxgbe_core_ops for extension or manageability. The extra indirection is
+ripe for removal during next net-next.
+
 -- 
-2.5.5
+Ueimor
