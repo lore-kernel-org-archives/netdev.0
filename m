@@ -1,90 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/7] net: dsa: mv88e6xxx: fix ATU FID access for
- 6185
-Date: Sun, 27 Mar 2016 05:04:34 +0200
-Message-ID: <20160327030434.GB15402@lunn.ch>
-References: <1459043983-12088-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1459043983-12088-5-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick Uiterwijk <patrick@puiterwijk.org>,
-	Guenter Roeck <linux@roeck-us.net>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Bhaskar Jupudi <njupudi@ucsc.edu>
+Subject: [PATCH] drivers : Remove unnecessary void pointer conversions
+Date: Sat, 26 Mar 2016 20:42:20 -0700
+Message-ID: <1459050140-14621-1-git-send-email-njupudi@ucsc.edu>
+Cc: Bhaskar Jupudi <njupudi@ucsc.edu>
+To: davem@davemloft.net, igal.liberman@freescale.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58277 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754526AbcC0DEh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Mar 2016 23:04:37 -0400
-Content-Disposition: inline
-In-Reply-To: <1459043983-12088-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34718 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754733AbcC0Dmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Mar 2016 23:42:44 -0400
+Received: by mail-pf0-f180.google.com with SMTP id x3so111093429pfb.1
+        for <netdev@vger.kernel.org>; Sat, 26 Mar 2016 20:42:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 26, 2016 at 09:59:40PM -0400, Vivien Didelot wrote:
-> The 6185 family does not have a ATU FID register. It splits it in the
-> ATU Control register and the ATU Operation.
+Explicit void pointer conversion is unnecessary
+because the conversions to and from a void pointer
+are always implicit in 'C'. Changed two instances 
+of such conversions.
 
-Looking at the reference code, the following devices have a FID
-register:
-( DEV_88E6097_FAMILY | DEV_88E6165_FAMILY | DEV_88E6351_FAMILY | 
-  DEV_88E6352_FAMILY)
 
-If there are 256 databases, it gets split across the two registers.
+Signed-off-by: Bhaskar Jupudi <njupudi@ucsc.edu>
+---
+This patch is based on Kernel Janitors To-Do list
 
-If there are only 64, it all goes in the ATU operation.
+ drivers/net/ethernet/freescale/fman/fman.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-   Andrew
-
-> 
-> Add 6185 support for FID (a.k.a. DBNum) in ATU commands.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6xxx.c | 14 ++++++++++++++
->  drivers/net/dsa/mv88e6xxx.h |  2 +-
->  2 files changed, 15 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-> index df3f219..4b3c466 100644
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -961,6 +961,20 @@ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
->  		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
->  		if (ret < 0)
->  			return ret;
-> +	} else if (mv88e6xxx_6185_family(ds)) {
-> +		/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL);
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL,
-> +					   (ret & 0xfff) |
-> +					   ((fid << 8) & 0xf000));
-> +		if (ret < 0)
-> +			return ret;
-> +
-> +		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-> +		cmd |= fid & 0xf;
->  	} else {
->  		return -EOPNOTSUPP;
->  	}
-> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-> index febab76..94d3cb3 100644
-> --- a/drivers/net/dsa/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx.h
-> @@ -366,7 +366,7 @@ struct mv88e6xxx_switch_id {
->  };
->  
->  struct mv88e6xxx_atu_entry {
-> -	u16	fid;
-> +	u16	fid; /* 8-bit DBNum in 88E6185 family */
->  	u8	state;
->  	bool	trunk;
->  	u16	portv_trunkid;
-> -- 
-> 2.7.4
-> 
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index 623aa1c..8719f7b 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -2668,7 +2668,7 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
+ 
+ 	fm_node = of_node_get(of_dev->dev.of_node);
+ 
+-	u32_prop = (const u32 *)of_get_property(fm_node, "cell-index", &lenp);
++	u32_prop = of_get_property(fm_node, "cell-index", &lenp);
+ 	if (!u32_prop) {
+ 		dev_err(&of_dev->dev, "%s: of_get_property(%s, cell-index) failed\n",
+ 			__func__, fm_node->full_name);
+@@ -2724,7 +2724,7 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
+ 	/* Rounding to MHz */
+ 	fman->dts_params.clk_freq = DIV_ROUND_UP(clk_rate, 1000000);
+ 
+-	u32_prop = (const u32 *)of_get_property(fm_node,
++	u32_prop = of_get_property(fm_node,
+ 						"fsl,qman-channel-range",
+ 						&lenp);
+ 	if (!u32_prop) {
+-- 
+2.5.0
