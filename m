@@ -1,75 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] inet: add proper locking in __inet{6}_lookup()
-Date: Mon, 28 Mar 2016 06:29:32 -0700
-Message-ID: <1459171772.6473.86.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1458944115.6473.62.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160327.223222.486104825905902179.davem@davemloft.net>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [PATCH net-next 1/1] qlge: Update version to 1.00.00.35
+Date: Mon, 28 Mar 2016 12:09:58 +0000
+Message-ID: <DM2PR11MB0124541010FE79CFA0CA8CC993860@DM2PR11MB0124.namprd11.prod.outlook.com>
+References: <1458904449-5776-1-git-send-email-manish.chopra@qlogic.com>
+ <20160325.114131.1189108232537972107.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>,
+	Harish Patil <harish.patil@qlogic.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35917 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753450AbcC1N3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 09:29:45 -0400
-Received: by mail-pa0-f46.google.com with SMTP id tt10so98140882pab.3
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 06:29:44 -0700 (PDT)
-In-Reply-To: <20160327.223222.486104825905902179.davem@davemloft.net>
+Received: from mail-bl2on0109.outbound.protection.outlook.com ([65.55.169.109]:32742
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751160AbcC1NnB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 09:43:01 -0400
+In-Reply-To: <20160325.114131.1189108232537972107.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-03-27 at 22:32 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 25 Mar 2016 15:15:15 -0700
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, March 25, 2016 9:12 PM
+> To: Manish Chopra <manish.chopra@qlogic.com>
+> Cc: netdev <netdev@vger.kernel.org>; Dept-GE Linux NIC Dev <Dept-
+> GELinuxNICDev@qlogic.com>; Harish Patil <harish.patil@qlogic.com>
+> Subject: Re: [PATCH net-next 1/1] qlge: Update version to 1.00.00.35
 > 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Blocking BH in __inet{6}_lookup() is not correct, as the lookups
-> > are done using RCU protection.
-> > 
-> > It matters only starting from Lorenzo Colitti patches to destroy
-> > a TCP socket, since rcu_read_lock() is already held by other users
-> > of these functions.
-> > 
-> > This can be backported to all known stable versions, since TCP got RCU
-> > lookups back in 2.6.29 : Even if iproute2 contained no code to trigger
-> > the bug, some user programs could have used the API.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Cc: Lorenzo Colitti <lorenzo@google.com>
+> From: Manish Chopra <manish.chopra@qlogic.com>
+> Date: Fri, 25 Mar 2016 07:14:09 -0400
 > 
-> This is quite the maze of RCU locking here.  With this change,
-> inet_lookup is now:
+> > Just updating version as many fixes got accumulated over 1.00.00.34
+> >
+> > Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 > 
-> 	rcu_read_lock();
-> 	sk = x(); {
-> 		rcu_read_lock();
-> 		...
-> 		rcu_read_unlock();
-> 	}
-> 	if (!sk) {
-> 		sk = y(); {
-> 			rcu_read_lock();
-> 			...
-> 			rcu_read_unlock();
-> 		}
-> 	}
-> 	rcu_read_unlock();
-> 
-> It would seem to me that we should bubble up the rcu locking calls.
-> 
-> If, as you say, the other users do RCU locking already, then it should
-> be safe to do what your patch is doing and also remove the RCU locking
-> done by __inet_lookup_established() and __inet_lookup_listener().
-> 
+> Applied, but it is the 'net' tree that fixes et al. like this should be targetting as
+> 'net-next' is closed.
 
-Sure, but the caller changed quite a lot in all stable versions.
+Thanks Dave. By the way I used to see an announcement regarding "net-next is CLOSED" on netdev which I don't see these days.
+I know that there are other ways to know this but I think it's much easier and straight to know this from announcement email so that
+everybody be more aware of NOT sending patches for net-next over this period at first place.
 
-I took the easiest path for stable maintainers, and was planing to
-implement a better way in net-next.
 
-I certainly can take the final form and let you do the backports ?
-
-Thanks.
+  
