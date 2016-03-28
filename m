@@ -1,57 +1,37 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] team: team should sync the port's uc/mc addrs when
- add a port
-Date: Mon, 28 Mar 2016 13:49:21 -0300
-Message-ID: <20160328164921.GA26741@mrl.redhat.com>
-References: <320fc71dbbf5ed164ca506cf5750b7bf4e048d44.1459183351.git.lucien.xin@gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC net-next 2/2] udp: No longer use SLAB_DESTROY_BY_RCU
+Date: Mon, 28 Mar 2016 09:54:19 -0700
+Message-ID: <CALx6S35beVmxdp8D_xp+5GthHuFekR7TDemZn64LzPA5thYPvw@mail.gmail.com>
+References: <1458944964-12890-1-git-send-email-edumazet@google.com>
+	<1458944964-12890-3-git-send-email-edumazet@google.com>
+	<56F95884.8010901@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
-	Jiri Pirko <jiri@resnulli.us>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56793 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753524AbcC1QtY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 12:49:24 -0400
-Content-Disposition: inline
-In-Reply-To: <320fc71dbbf5ed164ca506cf5750b7bf4e048d44.1459183351.git.lucien.xin@gmail.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36683 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893AbcC1QyU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:54:20 -0400
+Received: by mail-io0-f177.google.com with SMTP id q128so11735428iof.3
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 09:54:20 -0700 (PDT)
+In-Reply-To: <56F95884.8010901@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 29, 2016 at 12:42:31AM +0800, Xin Long wrote:
-> There is an issue when we use mavtap over team:
-> When we replug nic links from team0, the real nics's mc list will not
-> include the maddr for macvtap any more. then we can't receive pkts to
-> macvtap device, as they are filterred by mc list of nic.
-> 
-> In Bonding Driver, it syncs the uc/mc addrs in bond_enslave().
-> 
-> We will fix this issue on team by adding the port's uc/mc addrs sync in
-> team_port_add.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+On Mon, Mar 28, 2016 at 9:15 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+> On 03/25/2016 03:29 PM, Eric Dumazet wrote:
+>>
+>> UDP sockets are not short lived in the high usage case, so the added
+>> cost of call_rcu() should not be a concern.
+>
+>
+> Even a busy DNS resolver?
+>
+Should use connectionless UDP sockets.
 
-Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
-> ---
->  drivers/net/team/team.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index 26c64d2..17ff367 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -1198,6 +1198,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
->  		goto err_dev_open;
->  	}
->  
-> +	dev_uc_sync_multiple(port_dev, dev);
-> +	dev_mc_sync_multiple(port_dev, dev);
-> +
->  	err = vlan_vids_add_by_dev(port_dev, dev);
->  	if (err) {
->  		netdev_err(dev, "Failed to add vlan ids to device %s\n",
-> -- 
-> 2.1.0
-> 
+> rick jones
