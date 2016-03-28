@@ -1,43 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlabel: fix a problem with
- netlbl_secattr_catmap_setrng()
-Date: Mon, 28 Mar 2016 11:41:30 -0400 (EDT)
-Message-ID: <20160328.114130.2069088439489149203.davem@davemloft.net>
-References: <145917783800.9565.7759086668991534988.stgit@localhost>
-	<CAHC9VhTV_0tdRgFEcRoF1qjBunjwK6rSp8wpB4Jqjow2ENToCg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 0/3] Control ethernet PHY LEDs via LED subsystem
+Date: Mon, 28 Mar 2016 08:43:35 -0700
+Message-ID: <20160328084335.2b631e99@xeon-e3>
+References: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	Janak.Desai@gtri.gatech.edu, pmoore@redhat.com
-To: paul@paul-moore.com
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, ujhelyi.m@gmail.com,
+	netdev@vger.kernel.org
+To: Vishal Thanki <vishalthanki@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44687 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752620AbcC1Plc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 11:41:32 -0400
-In-Reply-To: <CAHC9VhTV_0tdRgFEcRoF1qjBunjwK6rSp8wpB4Jqjow2ENToCg@mail.gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36824 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752529AbcC1PnU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 11:43:20 -0400
+Received: by mail-pf0-f176.google.com with SMTP id u190so140650051pfb.3
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 08:43:20 -0700 (PDT)
+In-Reply-To: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul@paul-moore.com>
-Date: Mon, 28 Mar 2016 11:17:28 -0400
+On Wed, 23 Mar 2016 18:51:37 +0100
+Vishal Thanki <vishalthanki@gmail.com> wrote:
 
-> On Mon, Mar 28, 2016 at 11:10 AM, Paul Moore <pmoore@redhat.com> wrote:
->> From: Janak Desai <Janak.Desai@gtri.gatech.edu>
->>
->> We try to be clever and set large chunks of the bitmap at once, when
->> possible; unfortunately we weren't very clever when we wrote the code
->> and messed up the if-conditional.  Fix this bug and restore proper
->> operation.
->>
->> Signed-off-by: Janak Desai <Janak.Desai@gtri.gatech.edu>
->> Signed-off-by: Paul Moore <paul@paul-moore.com>
->> ---
->>  net/netlabel/netlabel_kapi.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
+> Hi all,
 > 
-> DaveM, I'm planning on carrying this in selinux#next unless you really
-> want to this to go to Linus via the netdev tree.
+> Based on suggestions from Andrew and Florian, I have made some changes
+> to expose the ethernet PHY LEDs using kernel LED subsystem. The following
+> ALPHA patchset introduces two new LED triggers:
+> 
+> 1) <phydev>-eth-phy-link:
+> To monitor the PHY Link status
+> 
+> 2) <phydev>-eth-phy-activity:
+> To monitor the PHY activity status. This trigger may still some more work
+> because as of now it just takes decision to set the trigger based on
+> PHY state machine and triggers the blink_set with delay_on and delay_off
+> parameters set to 0.
+> 
+> Please provide the review comments so that I can work on this patchset to
+> make it complete.
+> 
+> Thanks,
+> Vishal
+> 
+> Vishal Thanki (3):
+>   net: phy: Add ethernet PHY LED triggers
+>   net: phy: at8030: Expose the Link and Activity LEDs
+>   led: at8030: Add LED driver for AT8030 ethernet PHY
+> 
+>  drivers/leds/Kconfig         |   7 ++
+>  drivers/leds/Makefile        |   1 +
+>  drivers/leds/leds-at803x.c   | 158 +++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/phy/Kconfig      |   7 ++
+>  drivers/net/phy/Makefile     |   1 +
+>  drivers/net/phy/at803x.c     |  55 ++++++++++++++-
+>  drivers/net/phy/phy.c        |  20 +++++-
+>  drivers/net/phy/phy_device.c |   4 ++
+>  drivers/net/phy/phy_led.c    |  70 +++++++++++++++++++
+>  drivers/net/phy/phy_led.h    |  37 ++++++++++
+>  include/linux/leds.h         |   1 +
+>  include/linux/phy.h          |   6 ++
+>  include/linux/phy/at803x.h   |  45 ++++++++++++
+>  13 files changed, 409 insertions(+), 3 deletions(-)
+>  create mode 100644 drivers/leds/leds-at803x.c
+>  create mode 100644 drivers/net/phy/phy_led.c
+>  create mode 100644 drivers/net/phy/phy_led.h
+>  create mode 100644 include/linux/phy/at803x.h
+> 
 
-I'm fine with it going via your tree, thanks.
+There already is LED control via ethtool.
+It is more important that the existing API (ethtool) still work.
