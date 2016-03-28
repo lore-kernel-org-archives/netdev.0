@@ -1,77 +1,83 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH] brcmfmac: sdio: remove unused variable retry_limit
-Date: Mon, 28 Mar 2016 15:16:07 +1100
-Message-ID: <CAGRGNgXn8Kjm5Rf3Qr60JdG2x9-=Jqf4WazhPoWTsjUjLKgfOg@mail.gmail.com>
-References: <1458495292-17701-1-git-send-email-colin.king@canonical.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [PATCH net v2 2/3] tunnels: Don't apply GRO to multiple layers of encapsulation.
+Date: Sun, 27 Mar 2016 21:38:34 -0700
+Message-ID: <CAEh+42hbYUMK4WMZYDtzfynd1XFb7OxKkmdPOdT1Z7=n-kw4sA@mail.gmail.com>
+References: <1458405122-12565-1-git-send-email-jesse@kernel.org>
+ <1458405122-12565-3-git-send-email-jesse@kernel.org> <CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:35526 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079AbcC1EQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 00:16:27 -0400
-In-Reply-To: <1458495292-17701-1-git-send-email-colin.king@canonical.com>
+Received: from mail.kernel.org ([198.145.29.136]:43616 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751512AbcC1Eiw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 00:38:52 -0400
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id D362E20259
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:38:50 +0000 (UTC)
+Received: from mail-qg0-f50.google.com (mail-qg0-f50.google.com [209.85.192.50])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 86BFD2024C
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:38:49 +0000 (UTC)
+Received: by mail-qg0-f50.google.com with SMTP id u110so100878773qge.3
+        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 21:38:49 -0700 (PDT)
+In-Reply-To: <CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
-
-On Mon, Mar 21, 2016 at 4:34 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On Sat, Mar 26, 2016 at 12:41 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Sat, Mar 19, 2016 at 9:32 AM, Jesse Gross <jesse@kernel.org> wrote:
+>> When drivers express support for TSO of encapsulated packets, they
+>> only mean that they can do it for one layer of encapsulation.
+>> Supporting additional levels would mean updating, at a minimum,
+>> more IP length fields and they are unaware of this.
+>>
+> This patch completely breaks GRO for FOU and GUE.
 >
-> retry_limit has never been used during the life of this driver, so
-> we may as well remove it as it is redundant.
+>> No encapsulation device expresses support for handling offloaded
+>> encapsulated packets, so we won't generate these types of frames
+>> in the transmit path. However, GRO doesn't have a check for
+>> multiple levels of encapsulation and will attempt to build them.
+>>
+>> UDP tunnel GRO actually does prevent this situation but it only
+>> handles multiple UDP tunnels stacked on top of each other. This
+>> generalizes that solution to prevent any kind of tunnel stacking
+>> that would cause problems.
+>>
+> GUE and FOU regularly create packets that will be both GSO UDP tunnels
+> and IPIP, SIT, GRE, etc. This is by design. There should be no
+> ambiguity in the drivers as to what this means. For instance, if
+> SKB_GSO_UDP_TUNNEL and SKB_GSO_GRE are set that is GRE/UDP packet, a
+> driver can use ndo_features_check to validate.
 >
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> So multiple levels of encapsulation with GRO is perfectly valid and I
+> would suggest to simply revert this patch. The one potential issue we
+> could have is the potential for GRO to construct a packet which is a
+> UDP-encapsulation inside another encapsulation, like UDP-encap in GRE.
+> In this case the GSO flags don't provide enough information to
+> distinguish say between GRE/UDP (common case) and UDP/GRE (uncommon
+> case). To make this clear we can set udp_mark in GRE, ipip, and sit
+> but *not* check for it.
 
-Looks right to me.
+Generally speaking, multiple levels of encapsulation offload are not
+valid. I think this is pretty clear from the fact that none of the
+encapsulation drivers expose support for encapsulation offloads on
+transmit and the drivers supporting NETIF_F_GSO_GRE and
+NETIF_F_GSO_UDP_TUNNEL do not mean they can handle GRE in VXLAN.
 
-Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+Asking drivers to assume that this combination of flags means FOU
+doesn't seem right to me. To the best of my knowledge, no driver uses
+ndo_feature_check to do validation of multiple tunnel offload flags
+since the assumption is that the stack will never try to do this.
+Since FOU is being treated as only a single level of encapsulation, I
+think it would be better to just advertise it that way on transmit
+(i.e. only set SKB_GSO_UDP_TUNNEL).
 
-
-> ---
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c | 3 ---
->  1 file changed, 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> index 43fd3f4..cd92ba7 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/sdio.c
-> @@ -535,9 +535,6 @@ static int qcount[NUMPRIO];
->
->  #define RETRYCHAN(chan) ((chan) == SDPCM_EVENT_CHANNEL)
->
-> -/* Retry count for register access failures */
-> -static const uint retry_limit = 2;
-> -
->  /* Limit on rounding up frames */
->  static const uint max_roundup = 512;
->
-> --
-> 2.7.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+The change that you are suggesting would result in packets generated
+by GRO that cannot be handled properly on transmit in some cases and
+would likely end up being dropped or malformed. GRO is just an
+optimization and correctness must come first so we cannot use it if it
+might corrupt traffic.
