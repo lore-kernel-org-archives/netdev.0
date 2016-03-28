@@ -1,36 +1,61 @@
-From: Diego Viola <diego.viola-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH TRIVIAL] drivers/net/usb/plusb.c: Fix typo
-Date: Sun, 27 Mar 2016 20:58:15 -0300
-Message-ID: <1459123095-2673-1-git-send-email-diego.viola@gmail.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Diego Viola <diego.viola-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet: add proper locking in __inet{6}_lookup()
+Date: Sun, 27 Mar 2016 22:32:22 -0400 (EDT)
+Message-ID: <20160327.223222.486104825905902179.davem@davemloft.net>
+References: <1458944115.6473.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58758 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753616AbcC1Cc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 22:32:27 -0400
+In-Reply-To: <1458944115.6473.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Diego Viola <diego.viola-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/plusb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 25 Mar 2016 15:15:15 -0700
 
-diff --git a/drivers/net/usb/plusb.c b/drivers/net/usb/plusb.c
-index 1bfe0fc..22e1a9a 100644
---- a/drivers/net/usb/plusb.c
-+++ b/drivers/net/usb/plusb.c
-@@ -38,7 +38,7 @@
-  * HEADS UP:  this handshaking isn't all that robust.  This driver
-  * gets confused easily if you unplug one end of the cable then
-  * try to connect it again; you'll need to restart both ends. The
-- * "naplink" software (used by some PlayStation/2 deveopers) does
-+ * "naplink" software (used by some PlayStation/2 developers) does
-  * the handshaking much better!   Also, sometimes this hardware
-  * seems to get wedged under load.  Prolific docs are weak, and
-  * don't identify differences between PL2301 and PL2302, much less
--- 
-2.7.4
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Blocking BH in __inet{6}_lookup() is not correct, as the lookups
+> are done using RCU protection.
+> 
+> It matters only starting from Lorenzo Colitti patches to destroy
+> a TCP socket, since rcu_read_lock() is already held by other users
+> of these functions.
+> 
+> This can be backported to all known stable versions, since TCP got RCU
+> lookups back in 2.6.29 : Even if iproute2 contained no code to trigger
+> the bug, some user programs could have used the API.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Lorenzo Colitti <lorenzo@google.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is quite the maze of RCU locking here.  With this change,
+inet_lookup is now:
+
+	rcu_read_lock();
+	sk = x(); {
+		rcu_read_lock();
+		...
+		rcu_read_unlock();
+	}
+	if (!sk) {
+		sk = y(); {
+			rcu_read_lock();
+			...
+			rcu_read_unlock();
+		}
+	}
+	rcu_read_unlock();
+
+It would seem to me that we should bubble up the rcu locking calls.
+
+If, as you say, the other users do RCU locking already, then it should
+be safe to do what your patch is doing and also remove the RCU locking
+done by __inet_lookup_established() and __inet_lookup_listener().
