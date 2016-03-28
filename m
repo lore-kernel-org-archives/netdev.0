@@ -1,88 +1,106 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
-Date: Mon, 28 Mar 2016 09:25:14 -0700
-Message-ID: <CAKgT0UezT1YMa6iD2y_qzPVhZL1ChYphnonRpOcdvwhvybHavw@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain>
-	<20160318232522.14955.13475.stgit@localhost.localdomain>
-	<CAEh+42iqaSg5WNCsc_iJbpxtwi+mjVtH+Wg5WY5HdWF7-5eM1Q@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net v2 2/3] tunnels: Don't apply GRO to multiple layers of encapsulation.
+Date: Mon, 28 Mar 2016 09:31:51 -0700
+Message-ID: <CALx6S35WiXiKDJL6s_nW4xWNx8M6atZVQYEgb8kO5ty2WhjFyQ@mail.gmail.com>
+References: <1458405122-12565-1-git-send-email-jesse@kernel.org>
+	<1458405122-12565-3-git-send-email-jesse@kernel.org>
+	<CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
+	<CAEh+42hbYUMK4WMZYDtzfynd1XFb7OxKkmdPOdT1Z7=n-kw4sA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:37598 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753761AbcC1QZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:25:16 -0400
-Received: by mail-ig0-f173.google.com with SMTP id l20so59715244igf.0
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 09:25:15 -0700 (PDT)
-In-Reply-To: <CAEh+42iqaSg5WNCsc_iJbpxtwi+mjVtH+Wg5WY5HdWF7-5eM1Q@mail.gmail.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:38710 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752202AbcC1Qbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:31:52 -0400
+Received: by mail-ig0-f176.google.com with SMTP id a1so21912835igb.1
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 09:31:52 -0700 (PDT)
+In-Reply-To: <CAEh+42hbYUMK4WMZYDtzfynd1XFb7OxKkmdPOdT1Z7=n-kw4sA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Mar 27, 2016 at 10:36 PM, Jesse Gross <jesse@kernel.org> wrote:
-> On Fri, Mar 18, 2016 at 4:25 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index edb7179bc051..666cf427898b 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -2711,6 +2711,19 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
-> [...]
->> +       /* Only report GSO partial support if it will enable us to
->> +        * support segmentation on this frame without needing additional
->> +        * work.
->> +        */
->> +       if (features & NETIF_F_GSO_PARTIAL) {
->> +               netdev_features_t partial_features;
->> +               struct net_device *dev = skb->dev;
->> +
->> +               partial_features = dev->features & dev->gso_partial_features;
->> +               if (!skb_gso_ok(skb, features | partial_features))
->> +                       features &= ~NETIF_F_GSO_PARTIAL;
->
-> I think we need to add NETIF_F_GSO_ROBUST into the skb_gso_ok() check
-> - otherwise packets coming from VMs fail this test and we lose GSO
-> partial. It's totally safe to expose this feature, since we'll compute
-> gso_segs anyways.
-
-Good point.  I will update that before submitting for net-next.
-
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index f044f970f1a6..bdcba77e164c 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3281,6 +3291,15 @@ perform_csum_check:
->>          */
->>         segs->prev = tail;
+On Sun, Mar 27, 2016 at 9:38 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Sat, Mar 26, 2016 at 12:41 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Sat, Mar 19, 2016 at 9:32 AM, Jesse Gross <jesse@kernel.org> wrote:
+>>> When drivers express support for TSO of encapsulated packets, they
+>>> only mean that they can do it for one layer of encapsulation.
+>>> Supporting additional levels would mean updating, at a minimum,
+>>> more IP length fields and they are unaware of this.
+>>>
+>> This patch completely breaks GRO for FOU and GUE.
 >>
->> +       /* Update GSO info on first skb in partial sequence. */
->> +       if (partial_segs) {
->> +               skb_shinfo(segs)->gso_size = mss / partial_segs;
+>>> No encapsulation device expresses support for handling offloaded
+>>> encapsulated packets, so we won't generate these types of frames
+>>> in the transmit path. However, GRO doesn't have a check for
+>>> multiple levels of encapsulation and will attempt to build them.
+>>>
+>>> UDP tunnel GRO actually does prevent this situation but it only
+>>> handles multiple UDP tunnels stacked on top of each other. This
+>>> generalizes that solution to prevent any kind of tunnel stacking
+>>> that would cause problems.
+>>>
+>> GUE and FOU regularly create packets that will be both GSO UDP tunnels
+>> and IPIP, SIT, GRE, etc. This is by design. There should be no
+>> ambiguity in the drivers as to what this means. For instance, if
+>> SKB_GSO_UDP_TUNNEL and SKB_GSO_GRE are set that is GRE/UDP packet, a
+>> driver can use ndo_features_check to validate.
+>>
+>> So multiple levels of encapsulation with GRO is perfectly valid and I
+>> would suggest to simply revert this patch. The one potential issue we
+>> could have is the potential for GRO to construct a packet which is a
+>> UDP-encapsulation inside another encapsulation, like UDP-encap in GRE.
+>> In this case the GSO flags don't provide enough information to
+>> distinguish say between GRE/UDP (common case) and UDP/GRE (uncommon
+>> case). To make this clear we can set udp_mark in GRE, ipip, and sit
+>> but *not* check for it.
 >
-> One small thing: this gso_size is the same as the original MSS, right?
-> It seems like we could trivially stick it in a local variable and
-> avoid the extra division.
-
-Nice catch.  I was a bit too in the mindset of having to use the same
-variable throughout.
-
->> +               skb_shinfo(segs)->gso_segs = partial_segs;
->> +               skb_shinfo(segs)->gso_type = skb_shinfo(head_skb)->gso_type |
->> +                                            SKB_GSO_PARTIAL;
+> Generally speaking, multiple levels of encapsulation offload are not
+> valid. I think this is pretty clear from the fact that none of the
+> encapsulation drivers expose support for encapsulation offloads on
+> transmit and the drivers supporting NETIF_F_GSO_GRE and
+> NETIF_F_GSO_UDP_TUNNEL do not mean they can handle GRE in VXLAN.
 >
-> Since we're computing the gso_segs ourselves, it might be nice to
-> strip out SKB_GSO_DODGY when we set the type.
 
-I will have that fixed for the version I submit for net-next.
+Kernel software offload does support this combination just fine.
+Seriously, I've tested that more than a thousand times. This is a few
+HW implementations you're referring to. The limitations of these
+drivers should not dictate how we build the software-- it needs to
+work the other way around.
 
-> I just wanted to say that this is really nice work - I was expecting
-> it to turn out to be really messy and unmaintainable but this is very
-> clean. Thanks!
+> Asking drivers to assume that this combination of flags means FOU
+> doesn't seem right to me. To the best of my knowledge, no driver uses
+> ndo_feature_check to do validation of multiple tunnel offload flags
+> since the assumption is that the stack will never try to do this.
+> Since FOU is being treated as only a single level of encapsulation, I
+> think it would be better to just advertise it that way on transmit
+> (i.e. only set SKB_GSO_UDP_TUNNEL).
+>
+If it's not FOU it will be something else. Arbitrarily declaring
+multi-levels of encapsulation invalid is simply the wrong direction,
+we should be increasing generality and capabilities of the kernel not
+holding it down with artificial limits. This is why the generic TSO
+work that Alexander and Edward are looking at is so important-- if
+this flies then we can offload any combination of encapsulations with
+out protocol specific information.
 
-Thanks.
+> The change that you are suggesting would result in packets generated
+> by GRO that cannot be handled properly on transmit in some cases and
+> would likely end up being dropped or malformed. GRO is just an
+> optimization and correctness must come first so we cannot use it if it
+> might corrupt traffic.
 
-- Alex
+That's (a few) drivers problem. It's no different than if they had
+decided that SKB_GSO_UDP_TUNNEL means vxlan, or they can support GRE
+in IPv4 offload but not GRE in IPv6, or they can only handle headers
+of a certain size, can't handle IPv6 ext. hdrs., etc. As I mentioned,
+the long term solution is to eliminate the GSO_ flags and use a
+generic segmentation offload interface. But in the interim, it is
+*incumbent* on drivers to determine if they can handle a GSO packet
+and the interfaces to do that exist. Restricting the capabilities of
+GRO just to appease those drivers is not right. Breaking existing GRO
+for their benefit is definitely not right.
+
+Tom
