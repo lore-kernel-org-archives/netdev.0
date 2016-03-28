@@ -1,56 +1,49 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH] netlabel: fix a problem with netlbl_secattr_catmap_setrng()
-Date: Mon, 28 Mar 2016 11:17:28 -0400
-Message-ID: <CAHC9VhTV_0tdRgFEcRoF1qjBunjwK6rSp8wpB4Jqjow2ENToCg@mail.gmail.com>
-References: <145917783800.9565.7759086668991534988.stgit@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet: add proper locking in __inet{6}_lookup()
+Date: Mon, 28 Mar 2016 11:27:10 -0400 (EDT)
+Message-ID: <20160328.112710.2279688094912005224.davem@davemloft.net>
+References: <1459171772.6473.86.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1459174213.6473.87.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1459175035.6473.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: selinux@tycho.nsa.gov, Janak Desai <Janak.Desai@gtri.gatech.edu>,
-	Paul Moore <pmoore@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:35431 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752665AbcC1PRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 11:17:46 -0400
-Received: by mail-oi0-f41.google.com with SMTP id h6so118178070oia.2
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 08:17:45 -0700 (PDT)
-In-Reply-To: <145917783800.9565.7759086668991534988.stgit@localhost>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44293 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404AbcC1P1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 11:27:13 -0400
+In-Reply-To: <1459175035.6473.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 28, 2016 at 11:10 AM, Paul Moore <pmoore@redhat.com> wrote:
-> From: Janak Desai <Janak.Desai@gtri.gatech.edu>
->
-> We try to be clever and set large chunks of the bitmap at once, when
-> possible; unfortunately we weren't very clever when we wrote the code
-> and messed up the if-conditional.  Fix this bug and restore proper
-> operation.
->
-> Signed-off-by: Janak Desai <Janak.Desai@gtri.gatech.edu>
-> Signed-off-by: Paul Moore <paul@paul-moore.com>
-> ---
->  net/netlabel/netlabel_kapi.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 28 Mar 2016 07:23:55 -0700
 
-DaveM, I'm planning on carrying this in selinux#next unless you really
-want to this to go to Linus via the netdev tree.
+> On Mon, 2016-03-28 at 07:10 -0700, Eric Dumazet wrote:
+>> On Mon, 2016-03-28 at 06:29 -0700, Eric Dumazet wrote:
+>> 
+>> > Sure, but the caller changed quite a lot in all stable versions.
+>> > 
+>> > I took the easiest path for stable maintainers, and was planing to
+>> > implement a better way in net-next.
+>> 
+>> I misread your suggestion David, I send a V2 shortly.
+>> 
+> 
+> Actually, I'll wait for net-next opening.
+> 
+> My brain farted while working on the 'non refcounted TCP listener'
+> because __inet_lookup_listener() will really need to be called from
+> enclosed rcu_read_lock(), and for a reason I though net tree had a bug.
+> 
+> The local_bh_disable()/local_bh_enable() removal can certainly wait
+> net-next.
+> 
+> Sorry for the confusion.
 
-> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-> index 28cddc8..1325776 100644
-> --- a/net/netlabel/netlabel_kapi.c
-> +++ b/net/netlabel/netlabel_kapi.c
-> @@ -677,7 +677,7 @@ int netlbl_catmap_setrng(struct netlbl_lsm_catmap **catmap,
->         u32 spot = start;
->
->         while (rc == 0 && spot <= end) {
-> -               if (((spot & (BITS_PER_LONG - 1)) != 0) &&
-> +               if (((spot & (BITS_PER_LONG - 1)) == 0) &&
->                     ((end - spot) > BITS_PER_LONG)) {
->                         rc = netlbl_catmap_setlong(catmap,
->                                                    spot,
->
+Ok, I'll mark this patch as deferred then.
 
--- 
-paul moore
-www.paul-moore.com
+Thanks Eric.
