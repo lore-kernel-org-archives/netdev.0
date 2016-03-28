@@ -1,142 +1,209 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/9] openvswitch: call only into reachable nf-nat code
-Date: Mon, 28 Mar 2016 19:57:56 +0200
-Message-ID: <1459187882-5357-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/9] netfilter: ipset: fix race condition in ipset save, swap and delete
+Date: Mon, 28 Mar 2016 19:57:54 +0200
+Message-ID: <1459187882-5357-2-git-send-email-pablo@netfilter.org>
 References: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50841 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:50830 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544AbcC1R6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 13:58:13 -0400
+	id S1751212AbcC1R6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 13:58:11 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id C45ADE83A1
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:11 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 7C9DCDA8FA
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:12 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id C6C66DA8FA
+	by mail.us.es (Postfix) with ESMTP id CDD6AE8391
 	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:09 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 84A62DA38C
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:10 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 4E524DA38F
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:08 +0200 (CEST)
 In-Reply-To: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Vishwanath Pai <vpai@akamai.com>
 
-The openvswitch code has gained support for calling into the
-nf-nat-ipv4/ipv6 modules, however those can be loadable modules
-in a configuration in which openvswitch is built-in, leading
-to link errors:
+This fix adds a new reference counter (ref_netlink) for the struct ip_set.
+The other reference counter (ref) can be swapped out by ip_set_swap and we
+need a separate counter to keep track of references for netlink events
+like dump. Using the same ref counter for dump causes a race condition
+which can be demonstrated by the following script:
 
-net/built-in.o: In function `__ovs_ct_lookup':
-:(.text+0x2cc2c8): undefined reference to `nf_nat_icmp_reply_translation'
-:(.text+0x2cc66c): undefined reference to `nf_nat_icmpv6_reply_translation'
+ipset create hash_ip1 hash:ip family inet hashsize 1024 maxelem 500000 \
+counters
+ipset create hash_ip2 hash:ip family inet hashsize 300000 maxelem 500000 \
+counters
+ipset create hash_ip3 hash:ip family inet hashsize 1024 maxelem 500000 \
+counters
 
-The dependency on (!NF_NAT || NF_NAT) prevents similar issues,
-but NF_NAT is set to 'y' if any of the symbols selecting
-it are built-in, but the link error happens when any of them
-are modular.
+ipset save &
 
-A second issue is that even if CONFIG_NF_NAT_IPV6 is built-in,
-CONFIG_NF_NAT_IPV4 might be completely disabled. This is unlikely
-to be useful in practice, but the driver currently only handles
-IPv6 being optional.
+ipset swap hash_ip3 hash_ip2
+ipset destroy hash_ip3 /* will crash the machine */
 
-This patch improves the Kconfig dependency so that openvswitch
-cannot be built-in if either of the two other symbols are set
-to 'm', and it replaces the incorrect #ifdef in ovs_ct_nat_execute()
-with two "if (IS_ENABLED())" checks that should catch all corner
-cases also make the code more readable.
+Swap will exchange the values of ref so destroy will see ref = 0 instead of
+ref = 1. With this fix in place swap will not succeed because ipset save
+still has ref_netlink on the set (ip_set_swap doesn't swap ref_netlink).
 
-The same #ifdef exists ovs_ct_nat_to_attr(), where it does not
-cause a link error, but for consistency I'm changing it the same
-way.
+Both delete and swap will error out if ref_netlink != 0 on the set.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 05752523e565 ("openvswitch: Interface with NAT.")
-Acked-by: Joe Stringer <joe@ovn.org>
+Note: The changes to *_head functions is because previously we would
+increment ref whenever we called these functions, we don't do that
+anymore.
+
+Reviewed-by: Joshua Hunt <johunt@akamai.com>
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/openvswitch/Kconfig     |  4 +++-
- net/openvswitch/conntrack.c | 16 ++++++++--------
- 2 files changed, 11 insertions(+), 9 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h  |  4 ++++
+ net/netfilter/ipset/ip_set_bitmap_gen.h |  2 +-
+ net/netfilter/ipset/ip_set_core.c       | 33 ++++++++++++++++++++++++++++-----
+ net/netfilter/ipset/ip_set_hash_gen.h   |  2 +-
+ net/netfilter/ipset/ip_set_list_set.c   |  2 +-
+ 5 files changed, 35 insertions(+), 8 deletions(-)
 
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index 234a733..ce94729 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -7,7 +7,9 @@ config OPENVSWITCH
- 	depends on INET
- 	depends on !NF_CONNTRACK || \
- 		   (NF_CONNTRACK && ((!NF_DEFRAG_IPV6 || NF_DEFRAG_IPV6) && \
--				     (!NF_NAT || NF_NAT)))
-+				     (!NF_NAT || NF_NAT) && \
-+				     (!NF_NAT_IPV4 || NF_NAT_IPV4) && \
-+				     (!NF_NAT_IPV6 || NF_NAT_IPV6)))
- 	select LIBCRC32C
- 	select MPLS
- 	select NET_MPLS_GSO
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 47f7c62..3797879 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -535,14 +535,15 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
- 	switch (ctinfo) {
- 	case IP_CT_RELATED:
- 	case IP_CT_RELATED_REPLY:
--		if (skb->protocol == htons(ETH_P_IP) &&
-+		if (IS_ENABLED(CONFIG_NF_NAT_IPV4) &&
-+		    skb->protocol == htons(ETH_P_IP) &&
- 		    ip_hdr(skb)->protocol == IPPROTO_ICMP) {
- 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
- 							   hooknum))
- 				err = NF_DROP;
- 			goto push;
--#if IS_ENABLED(CONFIG_NF_NAT_IPV6)
--		} else if (skb->protocol == htons(ETH_P_IPV6)) {
-+		} else if (IS_ENABLED(CONFIG_NF_NAT_IPV6) &&
-+			   skb->protocol == htons(ETH_P_IPV6)) {
- 			__be16 frag_off;
- 			u8 nexthdr = ipv6_hdr(skb)->nexthdr;
- 			int hdrlen = ipv6_skip_exthdr(skb,
-@@ -557,7 +558,6 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
- 					err = NF_DROP;
- 				goto push;
- 			}
--#endif
- 		}
- 		/* Non-ICMP, fall thru to initialize if needed. */
- 	case IP_CT_NEW:
-@@ -1239,7 +1239,8 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
- 	}
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index 0e1f433..f48b8a6 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -234,6 +234,10 @@ struct ip_set {
+ 	spinlock_t lock;
+ 	/* References to the set */
+ 	u32 ref;
++	/* References to the set for netlink events like dump,
++	 * ref can be swapped out by ip_set_swap
++	 */
++	u32 ref_netlink;
+ 	/* The core set type */
+ 	struct ip_set_type *type;
+ 	/* The type variant doing the real job */
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index b0bc475..2e8e7e5 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -95,7 +95,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ 	if (!nested)
+ 		goto nla_put_failure;
+ 	if (mtype_do_head(skb, map) ||
+-	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
++	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)))
+ 		goto nla_put_failure;
+ 	if (unlikely(ip_set_put_flags(skb, set)))
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 7e6568c..a748b0c 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -497,6 +497,26 @@ __ip_set_put(struct ip_set *set)
+ 	write_unlock_bh(&ip_set_ref_lock);
+ }
  
- 	if (info->range.flags & NF_NAT_RANGE_MAP_IPS) {
--		if (info->family == NFPROTO_IPV4) {
-+		if (IS_ENABLED(CONFIG_NF_NAT_IPV4) &&
-+		    info->family == NFPROTO_IPV4) {
- 			if (nla_put_in_addr(skb, OVS_NAT_ATTR_IP_MIN,
- 					    info->range.min_addr.ip) ||
- 			    (info->range.max_addr.ip
-@@ -1247,8 +1248,8 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
- 			     (nla_put_in_addr(skb, OVS_NAT_ATTR_IP_MAX,
- 					      info->range.max_addr.ip))))
- 				return false;
--#if IS_ENABLED(CONFIG_NF_NAT_IPV6)
--		} else if (info->family == NFPROTO_IPV6) {
-+		} else if (IS_ENABLED(CONFIG_NF_NAT_IPV6) &&
-+			   info->family == NFPROTO_IPV6) {
- 			if (nla_put_in6_addr(skb, OVS_NAT_ATTR_IP_MIN,
- 					     &info->range.min_addr.in6) ||
- 			    (memcmp(&info->range.max_addr.in6,
-@@ -1257,7 +1258,6 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
- 			     (nla_put_in6_addr(skb, OVS_NAT_ATTR_IP_MAX,
- 					       &info->range.max_addr.in6))))
- 				return false;
--#endif
- 		} else {
- 			return false;
++/* set->ref can be swapped out by ip_set_swap, netlink events (like dump) need
++ * a separate reference counter
++ */
++static inline void
++__ip_set_get_netlink(struct ip_set *set)
++{
++	write_lock_bh(&ip_set_ref_lock);
++	set->ref_netlink++;
++	write_unlock_bh(&ip_set_ref_lock);
++}
++
++static inline void
++__ip_set_put_netlink(struct ip_set *set)
++{
++	write_lock_bh(&ip_set_ref_lock);
++	BUG_ON(set->ref_netlink == 0);
++	set->ref_netlink--;
++	write_unlock_bh(&ip_set_ref_lock);
++}
++
+ /* Add, del and test set entries from kernel.
+  *
+  * The set behind the index must exist and must be referenced
+@@ -1002,7 +1022,7 @@ static int ip_set_destroy(struct net *net, struct sock *ctnl,
+ 	if (!attr[IPSET_ATTR_SETNAME]) {
+ 		for (i = 0; i < inst->ip_set_max; i++) {
+ 			s = ip_set(inst, i);
+-			if (s && s->ref) {
++			if (s && (s->ref || s->ref_netlink)) {
+ 				ret = -IPSET_ERR_BUSY;
+ 				goto out;
+ 			}
+@@ -1024,7 +1044,7 @@ static int ip_set_destroy(struct net *net, struct sock *ctnl,
+ 		if (!s) {
+ 			ret = -ENOENT;
+ 			goto out;
+-		} else if (s->ref) {
++		} else if (s->ref || s->ref_netlink) {
+ 			ret = -IPSET_ERR_BUSY;
+ 			goto out;
  		}
+@@ -1171,6 +1191,9 @@ static int ip_set_swap(struct net *net, struct sock *ctnl, struct sk_buff *skb,
+ 	      from->family == to->family))
+ 		return -IPSET_ERR_TYPE_MISMATCH;
+ 
++	if (from->ref_netlink || to->ref_netlink)
++		return -EBUSY;
++
+ 	strncpy(from_name, from->name, IPSET_MAXNAMELEN);
+ 	strncpy(from->name, to->name, IPSET_MAXNAMELEN);
+ 	strncpy(to->name, from_name, IPSET_MAXNAMELEN);
+@@ -1206,7 +1229,7 @@ ip_set_dump_done(struct netlink_callback *cb)
+ 		if (set->variant->uref)
+ 			set->variant->uref(set, cb, false);
+ 		pr_debug("release set %s\n", set->name);
+-		__ip_set_put_byindex(inst, index);
++		__ip_set_put_netlink(set);
+ 	}
+ 	return 0;
+ }
+@@ -1328,7 +1351,7 @@ dump_last:
+ 		if (!cb->args[IPSET_CB_ARG0]) {
+ 			/* Start listing: make sure set won't be destroyed */
+ 			pr_debug("reference set\n");
+-			set->ref++;
++			set->ref_netlink++;
+ 		}
+ 		write_unlock_bh(&ip_set_ref_lock);
+ 		nlh = start_msg(skb, NETLINK_CB(cb->skb).portid,
+@@ -1396,7 +1419,7 @@ release_refcount:
+ 		if (set->variant->uref)
+ 			set->variant->uref(set, cb, false);
+ 		pr_debug("release set %s\n", set->name);
+-		__ip_set_put_byindex(inst, index);
++		__ip_set_put_netlink(set);
+ 		cb->args[IPSET_CB_ARG0] = 0;
+ 	}
+ out:
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index e5336ab..d32fd6b 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -1082,7 +1082,7 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ 	if (nla_put_u32(skb, IPSET_ATTR_MARKMASK, h->markmask))
+ 		goto nla_put_failure;
+ #endif
+-	if (nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
++	if (nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)))
+ 		goto nla_put_failure;
+ 	if (unlikely(ip_set_put_flags(skb, set)))
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 24c6c19..a2a89e4 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -458,7 +458,7 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
+ 	if (!nested)
+ 		goto nla_put_failure;
+ 	if (nla_put_net32(skb, IPSET_ATTR_SIZE, htonl(map->size)) ||
+-	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
++	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref)) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
+ 			  htonl(sizeof(*map) + n * set->dsize)))
+ 		goto nla_put_failure;
 -- 
 2.1.4
