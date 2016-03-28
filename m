@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sxgbe: fix error paths in sxgbe_platform_probe()
-Date: Sun, 27 Mar 2016 22:40:51 -0400 (EDT)
-Message-ID: <20160327.224051.626731642699154866.davem@davemloft.net>
-References: <877fgue1mx.fsf@rasmusvillemoes.dk>
-	<1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
+Subject: Re: [PATCH] ravb: fix software timestamping
+Date: Sun, 27 Mar 2016 22:42:09 -0400 (EDT)
+Message-ID: <20160327.224209.1094647396845524866.davem@davemloft.net>
+References: <1459074122-6964-1-git-send-email-LinoSanfilippo@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux@rasmusvillemoes.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459027449-2667-1-git-send-email-linux@rasmusvillemoes.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: LinoSanfilippo@gmx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58864 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753044AbcC1CmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Mar 2016 22:42:11 -0400
+In-Reply-To: <1459074122-6964-1-git-send-email-LinoSanfilippo@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Date: Sat, 26 Mar 2016 22:24:09 +0100
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Date: Sun, 27 Mar 2016 12:22:02 +0200
 
-> We need to use post-decrement to ensure that irq_dispose_mapping is
-> also called on priv->rxq[0]->irq_no; moreover, if one of the above for
-> loops failed already at i==0 (so we reach one of these labels with
-> that value of i), we'll enter an essentially infinite loop of
-> out-of-bounds accesses.
+> In ravb_start_xmit dont call skb_tx_timestamp only when hardware
+> timestamping is requested: in the latter case software timestamps are
+> suppressed and thus the call of skb_tx_timestamp does not have any effect.
 > 
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+> Instead call skb_tx_timestamp unconditionally in ravb_start_xmit, since
+> the function checks itself if software timestamping is required or should
+> be skipped due to hardware timestamping.
+> 
+> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 
 Applied, thanks.
-
-> David, can you take this directly? Of the three samsung people listed
-> by get_maintainer.pl, one address bounces and another informed me
-> privately that he's not actually a maintainer of this anymore.
-
-That's awesome, another pump and dump driver submission.
