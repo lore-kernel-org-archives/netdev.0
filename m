@@ -1,63 +1,75 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [PATCH v2] netpoll: Fix extra refcount release in
- netpoll_cleanup()
-Date: Mon, 28 Mar 2016 09:18:34 -0400
-Message-ID: <20160328131834.GA8419@hmsreliant.think-freely.org>
-References: <20160325025621.32476.93348.stgit@bhelgaas-glaptop2.roam.corp.google.com>
- <20160325113342.GA21579@hmsreliant.think-freely.org>
- <20160325164639.GA29822@localhost>
- <20160325.151636.590435237623997861.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] inet: add proper locking in __inet{6}_lookup()
+Date: Mon, 28 Mar 2016 06:29:32 -0700
+Message-ID: <1459171772.6473.86.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458944115.6473.62.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160327.223222.486104825905902179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: helgaas@kernel.org, bhelgaas@google.com,
-	nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	aduyck@mirantis.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lorenzo@google.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55147 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752306AbcC1NSh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 09:18:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20160325.151636.590435237623997861.davem@davemloft.net>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35917 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753450AbcC1N3p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 09:29:45 -0400
+Received: by mail-pa0-f46.google.com with SMTP id tt10so98140882pab.3
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 06:29:44 -0700 (PDT)
+In-Reply-To: <20160327.223222.486104825905902179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 25, 2016 at 03:16:36PM -0400, David Miller wrote:
-> From: Bjorn Helgaas <helgaas@kernel.org>
-> Date: Fri, 25 Mar 2016 11:46:39 -0500
+On Sun, 2016-03-27 at 22:32 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 25 Mar 2016 15:15:15 -0700
 > 
-> > You're right, there is an issue here.  I reproduced a problem with a
-> > bond device.  bond_netpoll_setup() calls __netpoll_setup() directly
-> > (not netpoll_setup()).  I'll debug it more; just wanted to let you
-> > know there *is* a problem with this patch.
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Blocking BH in __inet{6}_lookup() is not correct, as the lookups
+> > are done using RCU protection.
+> > 
+> > It matters only starting from Lorenzo Colitti patches to destroy
+> > a TCP socket, since rcu_read_lock() is already held by other users
+> > of these functions.
+> > 
+> > This can be backported to all known stable versions, since TCP got RCU
+> > lookups back in 2.6.29 : Even if iproute2 contained no code to trigger
+> > the bug, some user programs could have used the API.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Lorenzo Colitti <lorenzo@google.com>
 > 
-> I bet that's why the assignment to np->dev and the reference counting
-> were separated in the first place :-/
+> This is quite the maze of RCU locking here.  With this change,
+> inet_lookup is now:
 > 
-> Indeed, commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb:
+> 	rcu_read_lock();
+> 	sk = x(); {
+> 		rcu_read_lock();
+> 		...
+> 		rcu_read_unlock();
+> 	}
+> 	if (!sk) {
+> 		sk = y(); {
+> 			rcu_read_lock();
+> 			...
+> 			rcu_read_unlock();
+> 		}
+> 	}
+> 	rcu_read_unlock();
 > 
-> commit 30fdd8a082a00126a6feec994e43e8dc12f5bccb
-> Author: Jiri Pirko <jiri@resnulli.us>
-> Date:   Tue Jul 17 05:22:35 2012 +0000
+> It would seem to me that we should bubble up the rcu locking calls.
 > 
->     netpoll: move np->dev and np->dev_name init into __netpoll_setup()
->     
->     Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+> If, as you say, the other users do RCU locking already, then it should
+> be safe to do what your patch is doing and also remove the RCU locking
+> done by __inet_lookup_established() and __inet_lookup_listener().
+> 
 
-We probably just want to balance the setting/clearing of np->dev in
-__netpoll_setup, so that any error return (that would result in a drop of the
-refcount in netpoll_setup) correlates to a setting of np->dev to NULL in
-__netpoll_setup. That leaves us with the problem of having to watch for future
-imbalances as you mentioned previously Dave, but it seems a potential problem
-tomorrow is preferable to an actual problem today.
+Sure, but the caller changed quite a lot in all stable versions.
 
-Another option would be to move the dev_hold/put into __netpoll_setup, but doing
-so would I think require some additional refactoring in netpoll_setup.  Namely
-that we would still need a dev_hold/put in netpoll_setup to prevent the device
-from being removed during the period where we release the rtnl lock in the if
-(!netif_running(ndev)) clause. We would have to hold the device, unlock rtnl,
-then put the device after re-aquiring rtnl at the end of that if block.
+I took the easiest path for stable maintainers, and was planing to
+implement a better way in net-next.
 
-Neil
+I certainly can take the final form and let you do the backports ?
+
+Thanks.
