@@ -1,37 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: hns: set-coalesce-usecs returns
- errno by dsaf.ko
-Date: Mon, 28 Mar 2016 11:39:43 -0400 (EDT)
-Message-ID: <20160328.113943.1432536731823075776.davem@davemloft.net>
-References: <1459161657-151406-1-git-send-email-Yisen.Zhuang@huawei.com>
-	<1459161657-151406-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: Re: [PATCH] net: macb: Only call GPIO functions if there is a
+ valid GPIO
+Date: Mon, 28 Mar 2016 11:40:13 -0400 (EDT)
+Message-ID: <20160328.114013.2144667113443554424.davem@davemloft.net>
+References: <1459169262-3941-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: salil.mehta@huawei.com, liguozhu@huawei.com,
-	huangdaode@hisilicon.com, arnd@arndb.de,
-	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-	geliangtang@163.com, ivecera@redhat.com, lisheng011@huawei.com,
-	fengguang.wu@intel.com, charles.chenxin@huawei.com,
-	haifeng.wei@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxarm@huawei.com
-To: Yisen.Zhuang@huawei.com
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, patches@opensource.wolfsonmicro.com
+To: ckeepax@opensource.wolfsonmicro.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459161657-151406-3-git-send-email-Yisen.Zhuang@huawei.com>
+In-Reply-To: <1459169262-3941-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Date: Mon, 28 Mar 2016 18:40:57 +0800
+From: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
+Date: Mon, 28 Mar 2016 13:47:42 +0100
 
-> From: Lisheng <lisheng011@huawei.com>
+> GPIOlib will print warning messages if we call GPIO functions without a
+> valid GPIO. Change the code to avoid doing so.
 > 
-> It may fail to set coalesce usecs to HW, and Ethtool needs to know if it
-> is successful to cfg the parameter or not. So it needs return the errno by
-> dsaf.ko.
-> 
-> Signed-off-by: Lisheng <lisheng011@huawei.com>
-> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+> Signed-off-by: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
 
 Applied.
