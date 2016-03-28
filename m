@@ -1,150 +1,63 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net v2 2/3] tunnels: Don't apply GRO to multiple layers of encapsulation.
-Date: Mon, 28 Mar 2016 11:47:39 -0700
-Message-ID: <CALx6S37RPHwsWJOpNJ+8t1bBbJJ=5PKNwFUrh-yhwwXN63RFOA@mail.gmail.com>
-References: <1458405122-12565-1-git-send-email-jesse@kernel.org>
-	<1458405122-12565-3-git-send-email-jesse@kernel.org>
-	<CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
-	<CAEh+42hbYUMK4WMZYDtzfynd1XFb7OxKkmdPOdT1Z7=n-kw4sA@mail.gmail.com>
-	<CALx6S35WiXiKDJL6s_nW4xWNx8M6atZVQYEgb8kO5ty2WhjFyQ@mail.gmail.com>
-	<CAKgT0UdiqecAMihYP=gfmBYp7-Ko54EkO23=GWg4jEAuHocKJQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next 2/2] udp: No longer use SLAB_DESTROY_BY_RCU
+Date: Mon, 28 Mar 2016 11:55:46 -0700
+Message-ID: <1459191346.6473.111.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458944964-12890-1-git-send-email-edumazet@google.com>
+	 <1458944964-12890-3-git-send-email-edumazet@google.com>
+	 <56F95884.8010901@hpe.com>
+	 <1459184434.6473.104.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56F97B70.1000904@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@kernel.org>, David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:35724 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751639AbcC1Srk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 14:47:40 -0400
-Received: by mail-ig0-f180.google.com with SMTP id cl4so58851014igb.0
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 11:47:40 -0700 (PDT)
-In-Reply-To: <CAKgT0UdiqecAMihYP=gfmBYp7-Ko54EkO23=GWg4jEAuHocKJQ@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35794 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbcC1Szs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 14:55:48 -0400
+Received: by mail-pa0-f44.google.com with SMTP id td3so103946490pab.2
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 11:55:48 -0700 (PDT)
+In-Reply-To: <56F97B70.1000904@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Mar 28, 2016 at 10:37 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Mon, Mar 28, 2016 at 9:31 AM, Tom Herbert <tom@herbertland.com> wrote:
->> On Sun, Mar 27, 2016 at 9:38 PM, Jesse Gross <jesse@kernel.org> wrote:
->>> On Sat, Mar 26, 2016 at 12:41 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>> On Sat, Mar 19, 2016 at 9:32 AM, Jesse Gross <jesse@kernel.org> wrote:
->>>>> When drivers express support for TSO of encapsulated packets, they
->>>>> only mean that they can do it for one layer of encapsulation.
->>>>> Supporting additional levels would mean updating, at a minimum,
->>>>> more IP length fields and they are unaware of this.
->>>>>
->>>> This patch completely breaks GRO for FOU and GUE.
->>>>
->>>>> No encapsulation device expresses support for handling offloaded
->>>>> encapsulated packets, so we won't generate these types of frames
->>>>> in the transmit path. However, GRO doesn't have a check for
->>>>> multiple levels of encapsulation and will attempt to build them.
->>>>>
->>>>> UDP tunnel GRO actually does prevent this situation but it only
->>>>> handles multiple UDP tunnels stacked on top of each other. This
->>>>> generalizes that solution to prevent any kind of tunnel stacking
->>>>> that would cause problems.
->>>>>
->>>> GUE and FOU regularly create packets that will be both GSO UDP tunnels
->>>> and IPIP, SIT, GRE, etc. This is by design. There should be no
->>>> ambiguity in the drivers as to what this means. For instance, if
->>>> SKB_GSO_UDP_TUNNEL and SKB_GSO_GRE are set that is GRE/UDP packet, a
->>>> driver can use ndo_features_check to validate.
->>>>
->>>> So multiple levels of encapsulation with GRO is perfectly valid and I
->>>> would suggest to simply revert this patch. The one potential issue we
->>>> could have is the potential for GRO to construct a packet which is a
->>>> UDP-encapsulation inside another encapsulation, like UDP-encap in GRE.
->>>> In this case the GSO flags don't provide enough information to
->>>> distinguish say between GRE/UDP (common case) and UDP/GRE (uncommon
->>>> case). To make this clear we can set udp_mark in GRE, ipip, and sit
->>>> but *not* check for it.
->>>
->>> Generally speaking, multiple levels of encapsulation offload are not
->>> valid. I think this is pretty clear from the fact that none of the
->>> encapsulation drivers expose support for encapsulation offloads on
->>> transmit and the drivers supporting NETIF_F_GSO_GRE and
->>> NETIF_F_GSO_UDP_TUNNEL do not mean they can handle GRE in VXLAN.
->>>
->>
->> Kernel software offload does support this combination just fine.
->> Seriously, I've tested that more than a thousand times. This is a few
->> HW implementations you're referring to. The limitations of these
->> drivers should not dictate how we build the software-- it needs to
->> work the other way around.
->
-> Jesse does have a point.  Drivers aren't checking for this kind of
-> thing currently as the transmit side doesn't generate these kind of
-> frames.  The fact that GRO is makes things a bit more messy as we will
-> really need to restructure the GSO code in order to handle it.  As far
-> as drivers testing for it I am pretty certain the i40e isn't.  I would
-> wonder if we need to add yet another GSO bit to indicate that we
-> support multiple layers of encapsulation.  I'm pretty sure the only
-> way we could possibly handle it would be in software since what you
-> are indicating is a indeterminate number of headers that all require
-> updates.
->
->>> Asking drivers to assume that this combination of flags means FOU
->>> doesn't seem right to me. To the best of my knowledge, no driver uses
->>> ndo_feature_check to do validation of multiple tunnel offload flags
->>> since the assumption is that the stack will never try to do this.
->>> Since FOU is being treated as only a single level of encapsulation, I
->>> think it would be better to just advertise it that way on transmit
->>> (i.e. only set SKB_GSO_UDP_TUNNEL).
->>>
->> If it's not FOU it will be something else. Arbitrarily declaring
->> multi-levels of encapsulation invalid is simply the wrong direction,
->> we should be increasing generality and capabilities of the kernel not
->> holding it down with artificial limits. This is why the generic TSO
->> work that Alexander and Edward are looking at is so important-- if
->> this flies then we can offload any combination of encapsulations with
->> out protocol specific information.
->
-> The segmentation code isn't designed to handle more than 2 layers of
-> headers.  Currently we have the pointers for the inner headers and the
-> outer headers.  If you are talking about adding yet another level we
-> would need additional pointers in the skbuff to handle them and we
-> currently don't have them at present.
->
->>> The change that you are suggesting would result in packets generated
->>> by GRO that cannot be handled properly on transmit in some cases and
->>> would likely end up being dropped or malformed. GRO is just an
->>> optimization and correctness must come first so we cannot use it if it
->>> might corrupt traffic.
->>
->> That's (a few) drivers problem. It's no different than if they had
->> decided that SKB_GSO_UDP_TUNNEL means vxlan, or they can support GRE
->> in IPv4 offload but not GRE in IPv6, or they can only handle headers
->> of a certain size, can't handle IPv6 ext. hdrs., etc. As I mentioned,
->> the long term solution is to eliminate the GSO_ flags and use a
->> generic segmentation offload interface. But in the interim, it is
->> *incumbent* on drivers to determine if they can handle a GSO packet
->> and the interfaces to do that exist. Restricting the capabilities of
->> GRO just to appease those drivers is not right. Breaking existing GRO
->> for their benefit is definitely not right.
->
-> This isn't about if drivers can handle it.  It is about if the skbuff
-> can handle it.  The problem as it stands right now is that we start
-> losing data once we go past 1 level of encapsulation.  We only have
-> the standard mac_header, network_header, transport_header, and then
-> the inner set of the same pointers.  If we try to go multiple levels
-> deep we start losing data.
->
-Huh? GUE/FOU has been running perfectly well with two levels of
-encapsulation for over a year now. We never had to add anything to
-skbuff to make that work. If "losing data" is a problem please provide
-the *reproducible* test case for that and we'll debug that.
+On Mon, 2016-03-28 at 11:44 -0700, Rick Jones wrote:
+> On 03/28/2016 10:00 AM, Eric Dumazet wrote:
+> > On Mon, 2016-03-28 at 09:15 -0700, Rick Jones wrote:
+> >> On 03/25/2016 03:29 PM, Eric Dumazet wrote:
+> >>> UDP sockets are not short lived in the high usage case, so the added
+> >>> cost of call_rcu() should not be a concern.
+> >>
+> >> Even a busy DNS resolver?
+> >
+> > If you mean that a busy DNS resolver spends _most_ of its time doing :
+> >
+> > fd = socket()
+> > bind(fd  port=0)
+> >    < send and receive one frame >
+> > close(fd)
+> 
+> Yes.  Although it has been a long time, I thought that say the likes of 
+> a caching named in the middle between hosts and the rest of the DNS 
+> would behave that way as it was looking-up names on behalf those who 
+> asked it.
 
-> If we are wanting to start allowing unlimited headers then maybe we
-> need to start allowing for "partial" GRO to complement the partial GSO
-> implementation I have.  With that at least we might be able to track
-> the first and last headers and we could leave the remaining headers
-> static.  Then when the frame made it to the driver it would know that
-> the headers in the long list can be replicated and it only has to
-> update the outer network header and the inner transport header,
-> otherwise if it doesn't support that it can just chop up the frame in
-> software and send that out.
->
-> - Alex
+I really doubt a modern program would dynamically allocate one UDP port
+for every in-flight request, as it would limit them to number of
+ephemeral ports concurrent requests (~30000 assuming the process can get
+them all on the host)
+
+Managing a pool would be more efficient (The 1.3 usec penalty becomes
+more like 4 usec in multi threaded programs)
+
+Sure, you always can find badly written programs, but they already hit
+scalability issues anyway.
+
+UDP refcounting cost about 2 cache line misses per packet in stress
+situations, this really has to go, so that well written programs can get
+full speed.
