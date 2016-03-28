@@ -1,45 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] inet: add proper locking in __inet{6}_lookup()
-Date: Mon, 28 Mar 2016 07:23:55 -0700
-Message-ID: <1459175035.6473.92.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1458944115.6473.62.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160327.223222.486104825905902179.davem@davemloft.net>
-	 <1459171772.6473.86.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1459174213.6473.87.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+Subject: Re: [PATCH v8 net-next] ravb: Add dma queue interrupt support
+Date: Mon, 28 Mar 2016 23:32:16 +0900
+Message-ID: <CAH1o70LE6UojsYAkAao0M--S+ZcrTPYrvVFitrQT+e29q+znbA@mail.gmail.com>
+References: <1458660120-23594-1-git-send-email-ykaneko0929@gmail.com>
+	<56F7D9E6.6080605@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:32874 "EHLO
-	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752306AbcC1OYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 10:24:35 -0400
-Received: by mail-vk0-f42.google.com with SMTP id k1so156920654vkb.0
-        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 07:24:35 -0700 (PDT)
-In-Reply-To: <1459174213.6473.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	linux-renesas-soc@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <56F7D9E6.6080605@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-03-28 at 07:10 -0700, Eric Dumazet wrote:
-> On Mon, 2016-03-28 at 06:29 -0700, Eric Dumazet wrote:
-> 
-> > Sure, but the caller changed quite a lot in all stable versions.
-> > 
-> > I took the easiest path for stable maintainers, and was planing to
-> > implement a better way in net-next.
-> 
-> I misread your suggestion David, I send a V2 shortly.
-> 
+Hello.
 
-Actually, I'll wait for net-next opening.
+2016-03-27 22:02 GMT+09:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+>
+> On 03/22/2016 06:22 PM, Yoshihiro Kaneko wrote:
+>
+>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>>
+>> This patch supports the following interrupts.
+>>
+>> - One interrupt for multiple (timestamp, error, gPTP)
+>> - One interrupt for emac
+>> - Four interrupts for dma queue (best effort rx/tx, network control rx/tx)
+>>
+>> This patch improve efficiency of the interrupt handler by adding the
+>> interrupt handler corresponding to each interrupt source described
+>> above. Additionally, it reduces the number of times of the access to
+>> EthernetAVB IF.
+>> Also this patch prevent this driver depends on the whim of a boot loader.
+>>
+>> [ykaneko0929@gmail.com: define bit names of registers]
+>> [ykaneko0929@gmail.com: add comment for gen3 only registers]
+>> [ykaneko0929@gmail.com: fix coding style]
+>> [ykaneko0929@gmail.com: update changelog]
+>> [ykaneko0929@gmail.com: gen3: fix initialization of interrupts]
+>> [ykaneko0929@gmail.com: gen3: fix clearing interrupts]
+>> [ykaneko0929@gmail.com: gen3: add helper function for request_irq()]
+>> [ykaneko0929@gmail.com: gen3: remove IRQF_SHARED flag for request_irq()]
+>> [ykaneko0929@gmail.com: revert ravb_close() and ravb_ptp_stop()]
+>> [ykaneko0929@gmail.com: avoid calling free_irq() to non-hooked interrupts]
+>> [ykaneko0929@gmail.com: make NC/BE interrupt handler a function]
+>> [ykaneko0929@gmail.com: make timestamp interrupt handler a function]
+>> [ykaneko0929@gmail.com: timestamp interrupt is handled in multiple
+>>   interrupt handler instead of dma queue interrupt handler]
+>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
+>
+> [...]
+>
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-My brain farted while working on the 'non refcounted TCP listener'
-because __inet_lookup_listener() will really need to be called from
-enclosed rcu_read_lock(), and for a reason I though net tree had a bug.
+Many thanks for your review and much help!
 
-The local_bh_disable()/local_bh_enable() removal can certainly wait
-net-next.
+>
+> MBR, Sergei
+>
 
-Sorry for the confusion.
+Thanks,
+kaneko
