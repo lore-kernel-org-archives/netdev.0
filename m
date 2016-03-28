@@ -1,243 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/9] netfilter: x_tables: fix unconditional helper
-Date: Mon, 28 Mar 2016 19:57:59 +0200
-Message-ID: <1459187882-5357-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/9] openvswitch: Fix checking for new expected connections.
+Date: Mon, 28 Mar 2016 19:57:55 +0200
+Message-ID: <1459187882-5357-3-git-send-email-pablo@netfilter.org>
 References: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:50837 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751785AbcC1R6M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 13:58:12 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id EFD21E839A
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:10 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id A8CB8DA38E
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:11 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 16578DA391
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:09 +0200 (CEST)
 In-Reply-To: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Jarno Rajahalme <jarno@ovn.org>
 
-Ben Hawkes says:
+OVS should call into CT NAT for packets of new expected connections only
+when the conntrack state is persisted with the 'commit' option to the
+OVS CT action.  The test for this condition is doubly wrong, as the CT
+status field is ANDed with the bit number (IPS_EXPECTED_BIT) rather
+than the mask (IPS_EXPECTED), and due to the wrong assumption that the
+expected bit would apply only for the first (i.e., 'new') packet of a
+connection, while in fact the expected bit remains on for the lifetime of
+an expected connection.  The 'ctinfo' value IP_CT_RELATED derived from
+the ct status can be used instead, as it is only ever applicable to
+the 'new' packets of the expected connection.
 
- In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
- is possible for a user-supplied ipt_entry structure to have a large
- next_offset field. This field is not bounds checked prior to writing a
- counter value at the supplied offset.
-
-Problem is that mark_source_chains should not have been called --
-the rule doesn't have a next entry, so its supposed to return
-an absolute verdict of either ACCEPT or DROP.
-
-However, the function conditional() doesn't work as the name implies.
-It only checks that the rule is using wildcard address matching.
-
-However, an unconditional rule must also not be using any matches
-(no -m args).
-
-The underflow validator only checked the addresses, therefore
-passing the 'unconditional absolute verdict' test, while
-mark_source_chains also tested for presence of matches, and thus
-proceeeded to the next (not-existent) rule.
-
-Unify this so that all the callers have same idea of 'unconditional rule'.
-
-Reported-by: Ben Hawkes <hawkes@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: 05752523e565 ('openvswitch: Interface with NAT.')
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/arp_tables.c | 18 +++++++++---------
- net/ipv4/netfilter/ip_tables.c  | 23 +++++++++++------------
- net/ipv6/netfilter/ip6_tables.c | 23 +++++++++++------------
- 3 files changed, 31 insertions(+), 33 deletions(-)
+ net/openvswitch/conntrack.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 51d4fe5..a1bb5e7 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -359,11 +359,12 @@ unsigned int arpt_do_table(struct sk_buff *skb,
- }
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index dc5eb29..47f7c62 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -664,11 +664,12 @@ static int ovs_ct_nat(struct net *net, struct sw_flow_key *key,
  
- /* All zeroes == unconditional rule. */
--static inline bool unconditional(const struct arpt_arp *arp)
-+static inline bool unconditional(const struct arpt_entry *e)
- {
- 	static const struct arpt_arp uncond;
- 
--	return memcmp(arp, &uncond, sizeof(uncond)) == 0;
-+	return e->target_offset == sizeof(struct arpt_entry) &&
-+	       memcmp(&e->arp, &uncond, sizeof(uncond)) == 0;
- }
- 
- /* Figures out from what hook each rule can be called: returns 0 if
-@@ -402,11 +403,10 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
- 				|= ((1 << hook) | (1 << NF_ARP_NUMHOOKS));
- 
- 			/* Unconditional return/END. */
--			if ((e->target_offset == sizeof(struct arpt_entry) &&
-+			if ((unconditional(e) &&
- 			     (strcmp(t->target.u.user.name,
- 				     XT_STANDARD_TARGET) == 0) &&
--			     t->verdict < 0 && unconditional(&e->arp)) ||
--			    visited) {
-+			     t->verdict < 0) || visited) {
- 				unsigned int oldpos, size;
- 
- 				if ((strcmp(t->target.u.user.name,
-@@ -551,7 +551,7 @@ static bool check_underflow(const struct arpt_entry *e)
- 	const struct xt_entry_target *t;
- 	unsigned int verdict;
- 
--	if (!unconditional(&e->arp))
-+	if (!unconditional(e))
- 		return false;
- 	t = arpt_get_target_c(e);
- 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-@@ -598,9 +598,9 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
- 			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
- 			if (!check_underflow(e)) {
--				pr_err("Underflows must be unconditional and "
--				       "use the STANDARD target with "
--				       "ACCEPT/DROP\n");
-+				pr_debug("Underflows must be unconditional and "
-+					 "use the STANDARD target with "
-+					 "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index fb7694e..89b5d95 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -168,11 +168,12 @@ get_entry(const void *base, unsigned int offset)
- 
- /* All zeroes == unconditional rule. */
- /* Mildly perf critical (only if packet tracing is on) */
--static inline bool unconditional(const struct ipt_ip *ip)
-+static inline bool unconditional(const struct ipt_entry *e)
- {
- 	static const struct ipt_ip uncond;
- 
--	return memcmp(ip, &uncond, sizeof(uncond)) == 0;
-+	return e->target_offset == sizeof(struct ipt_entry) &&
-+	       memcmp(&e->ip, &uncond, sizeof(uncond)) == 0;
- #undef FWINV
- }
- 
-@@ -229,11 +230,10 @@ get_chainname_rulenum(const struct ipt_entry *s, const struct ipt_entry *e,
- 	} else if (s == e) {
- 		(*rulenum)++;
- 
--		if (s->target_offset == sizeof(struct ipt_entry) &&
-+		if (unconditional(s) &&
- 		    strcmp(t->target.u.kernel.target->name,
- 			   XT_STANDARD_TARGET) == 0 &&
--		   t->verdict < 0 &&
--		   unconditional(&s->ip)) {
-+		   t->verdict < 0) {
- 			/* Tail of chains: STANDARD target (return/policy) */
- 			*comment = *chainname == hookname
- 				? comments[NF_IP_TRACE_COMMENT_POLICY]
-@@ -476,11 +476,10 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 			e->comefrom |= ((1 << hook) | (1 << NF_INET_NUMHOOKS));
- 
- 			/* Unconditional return/END. */
--			if ((e->target_offset == sizeof(struct ipt_entry) &&
-+			if ((unconditional(e) &&
- 			     (strcmp(t->target.u.user.name,
- 				     XT_STANDARD_TARGET) == 0) &&
--			     t->verdict < 0 && unconditional(&e->ip)) ||
--			    visited) {
-+			     t->verdict < 0) || visited) {
- 				unsigned int oldpos, size;
- 
- 				if ((strcmp(t->target.u.user.name,
-@@ -715,7 +714,7 @@ static bool check_underflow(const struct ipt_entry *e)
- 	const struct xt_entry_target *t;
- 	unsigned int verdict;
- 
--	if (!unconditional(&e->ip))
-+	if (!unconditional(e))
- 		return false;
- 	t = ipt_get_target_c(e);
- 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-@@ -763,9 +762,9 @@ check_entry_size_and_hooks(struct ipt_entry *e,
- 			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
- 			if (!check_underflow(e)) {
--				pr_err("Underflows must be unconditional and "
--				       "use the STANDARD target with "
--				       "ACCEPT/DROP\n");
-+				pr_debug("Underflows must be unconditional and "
-+					 "use the STANDARD target with "
-+					 "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index b248528f..541b59f 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -198,11 +198,12 @@ get_entry(const void *base, unsigned int offset)
- 
- /* All zeroes == unconditional rule. */
- /* Mildly perf critical (only if packet tracing is on) */
--static inline bool unconditional(const struct ip6t_ip6 *ipv6)
-+static inline bool unconditional(const struct ip6t_entry *e)
- {
- 	static const struct ip6t_ip6 uncond;
- 
--	return memcmp(ipv6, &uncond, sizeof(uncond)) == 0;
-+	return e->target_offset == sizeof(struct ip6t_entry) &&
-+	       memcmp(&e->ipv6, &uncond, sizeof(uncond)) == 0;
- }
- 
- static inline const struct xt_entry_target *
-@@ -258,11 +259,10 @@ get_chainname_rulenum(const struct ip6t_entry *s, const struct ip6t_entry *e,
- 	} else if (s == e) {
- 		(*rulenum)++;
- 
--		if (s->target_offset == sizeof(struct ip6t_entry) &&
-+		if (unconditional(s) &&
- 		    strcmp(t->target.u.kernel.target->name,
- 			   XT_STANDARD_TARGET) == 0 &&
--		    t->verdict < 0 &&
--		    unconditional(&s->ipv6)) {
-+		    t->verdict < 0) {
- 			/* Tail of chains: STANDARD target (return/policy) */
- 			*comment = *chainname == hookname
- 				? comments[NF_IP6_TRACE_COMMENT_POLICY]
-@@ -488,11 +488,10 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 			e->comefrom |= ((1 << hook) | (1 << NF_INET_NUMHOOKS));
- 
- 			/* Unconditional return/END. */
--			if ((e->target_offset == sizeof(struct ip6t_entry) &&
-+			if ((unconditional(e) &&
- 			     (strcmp(t->target.u.user.name,
- 				     XT_STANDARD_TARGET) == 0) &&
--			     t->verdict < 0 &&
--			     unconditional(&e->ipv6)) || visited) {
-+			     t->verdict < 0) || visited) {
- 				unsigned int oldpos, size;
- 
- 				if ((strcmp(t->target.u.user.name,
-@@ -727,7 +726,7 @@ static bool check_underflow(const struct ip6t_entry *e)
- 	const struct xt_entry_target *t;
- 	unsigned int verdict;
- 
--	if (!unconditional(&e->ipv6))
-+	if (!unconditional(e))
- 		return false;
- 	t = ip6t_get_target_c(e);
- 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) != 0)
-@@ -775,9 +774,9 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
- 			newinfo->hook_entry[h] = hook_entries[h];
- 		if ((unsigned char *)e - base == underflows[h]) {
- 			if (!check_underflow(e)) {
--				pr_err("Underflows must be unconditional and "
--				       "use the STANDARD target with "
--				       "ACCEPT/DROP\n");
-+				pr_debug("Underflows must be unconditional and "
-+					 "use the STANDARD target with "
-+					 "ACCEPT/DROP\n");
- 				return -EINVAL;
- 			}
- 			newinfo->underflow[h] = underflows[h];
+ 	/* Determine NAT type.
+ 	 * Check if the NAT type can be deduced from the tracked connection.
+-	 * Make sure expected traffic is NATted only when committing.
++	 * Make sure new expected connections (IP_CT_RELATED) are NATted only
++	 * when committing.
+ 	 */
+ 	if (info->nat & OVS_CT_NAT && ctinfo != IP_CT_NEW &&
+ 	    ct->status & IPS_NAT_MASK &&
+-	    (!(ct->status & IPS_EXPECTED_BIT) || info->commit)) {
++	    (ctinfo != IP_CT_RELATED || info->commit)) {
+ 		/* NAT an established or related connection like before. */
+ 		if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY)
+ 			/* This is the REPLY direction for a connection
 -- 
 2.1.4
-
