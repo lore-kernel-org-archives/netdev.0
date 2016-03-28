@@ -1,74 +1,69 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable] qmi_wwan: add "D-Link DWM-221 B1" device id
-Date: Mon, 28 Mar 2016 22:38:16 +0200
-Message-ID: <1459197496-11236-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+Subject: [PATCH] ethernet: mvneta: Support netpoll
+Date: Mon, 28 Mar 2016 17:41:18 -0300
+Message-ID: <1459197678-12022-1-git-send-email-ezequiel@vanguardiasur.com.ar>
+Cc: <netdev@vger.kernel.org>,
+	Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:36779 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbcC1Ulu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 16:41:50 -0400
+Received: by mail-qk0-f177.google.com with SMTP id i4so90080641qkc.3
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 13:41:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thomas reports:
-"Windows:
+This commit adds the support for netpoll, which is used
+to implement netconsole.
 
-00 diagnostics
-01 modem
-02 at-port
-03 nmea
-04 nic
-
-Linux:
-
-T:  Bus=3D02 Lev=3D01 Prnt=3D01 Port=3D03 Cnt=3D01 Dev#=3D  4 Spd=3D480=
- MxCh=3D 0
-D:  Ver=3D 2.00 Cls=3D00(>ifc ) Sub=3D00 Prot=3D00 MxPS=3D64 #Cfgs=3D  =
-1
-P:  Vendor=3D2001 ProdID=3D7e19 Rev=3D02.32
-S:  Manufacturer=3DMobile Connect
-S:  Product=3DMobile Connect
-S:  SerialNumber=3D0123456789ABCDEF
-C:  #Ifs=3D 6 Cfg#=3D 1 Atr=3Da0 MxPwr=3D500mA
-I:  If#=3D 0 Alt=3D 0 #EPs=3D 2 Cls=3Dff(vend.) Sub=3Dff Prot=3Dff Driv=
-er=3Doption
-I:  If#=3D 1 Alt=3D 0 #EPs=3D 3 Cls=3Dff(vend.) Sub=3D00 Prot=3D00 Driv=
-er=3Doption
-I:  If#=3D 2 Alt=3D 0 #EPs=3D 3 Cls=3Dff(vend.) Sub=3D00 Prot=3D00 Driv=
-er=3Doption
-I:  If#=3D 3 Alt=3D 0 #EPs=3D 3 Cls=3Dff(vend.) Sub=3D00 Prot=3D00 Driv=
-er=3Doption
-I:  If#=3D 4 Alt=3D 0 #EPs=3D 3 Cls=3Dff(vend.) Sub=3Dff Prot=3Dff Driv=
-er=3Dqmi_wwan
-I:  If#=3D 5 Alt=3D 0 #EPs=3D 2 Cls=3D08(stor.) Sub=3D06 Prot=3D50 Driv=
-er=3Dusb-storage"
-
-Reported-by: Thomas Sch=C3=A4fer <tschaefer-zqRNUXuvxA0b1SvskN2V4Q@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Signed-off-by: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
 ---
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+Tested on Armada 370 Mirabox and Armada XP Openblocks AX3-4
+with netconsole.
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 7d717c66bcb0..9d1fce8a6e84 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -844,6 +844,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x19d2, 0x1426, 2)},	/* ZTE MF91 */
- 	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
- 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
-+	{QMI_FIXED_INTF(0x2001, 0x7e19, 4)},	/* D-Link DWM-221 B1 */
- 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
- 	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
- mode */
---=20
-2.1.4
+ drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 577f7ca7deba..dd114303c98f 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3813,6 +3813,24 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void mvneta_percpu_poll_controller(void *arg)
++{
++	struct mvneta_port *pp = arg;
++	struct mvneta_pcpu_port *pcpu_port =
++		this_cpu_ptr(pp->ports);
++	mvneta_isr(pp->dev->irq, pcpu_port);
++}
++
++/* Polled functionality used by netconsole and others in non interrupt mode */
++static void mvneta_poll_controller(struct net_device *dev)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	on_each_cpu(mvneta_percpu_poll_controller, pp, false);
++}
++#endif
++
+ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_open            = mvneta_open,
+ 	.ndo_stop            = mvneta_stop,
+@@ -3823,6 +3841,9 @@ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_fix_features    = mvneta_fix_features,
+ 	.ndo_get_stats64     = mvneta_get_stats64,
+ 	.ndo_do_ioctl        = mvneta_ioctl,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller = mvneta_poll_controller,
++#endif
+ };
+ 
+ const struct ethtool_ops mvneta_eth_tool_ops = {
+-- 
+2.7.0
