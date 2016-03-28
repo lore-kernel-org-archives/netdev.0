@@ -1,124 +1,142 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/9] Netfilter fixes for net
-Date: Mon, 28 Mar 2016 19:57:53 +0200
-Message-ID: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/9] openvswitch: call only into reachable nf-nat code
+Date: Mon, 28 Mar 2016 19:57:56 +0200
+Message-ID: <1459187882-5357-4-git-send-email-pablo@netfilter.org>
+References: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50819 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:50841 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751004AbcC1R6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 13:58:11 -0400
+	id S1751544AbcC1R6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 13:58:13 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 60387E8397
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:08 +0200 (CEST)
+	by mail.us.es (Postfix) with ESMTP id C45ADE83A1
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:11 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 1617BDA8F7
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 7C9DCDA8FA
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:12 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id C6C66DA8FA
 	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:09 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 0837ADA8FA
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:07 +0200 (CEST)
+In-Reply-To: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Arnd Bergmann <arnd@arndb.de>
 
-The following patchset contains Netfilter fixes for you net tree,
-they are:
+The openvswitch code has gained support for calling into the
+nf-nat-ipv4/ipv6 modules, however those can be loadable modules
+in a configuration in which openvswitch is built-in, leading
+to link errors:
 
-1) There was a race condition between parallel save/swap and delete,
-   which resulted a kernel crash due to the increase ref for save, swap,
-   wrong ref decrease operations. Reported and fixed by Vishwanath Pai.
+net/built-in.o: In function `__ovs_ct_lookup':
+:(.text+0x2cc2c8): undefined reference to `nf_nat_icmp_reply_translation'
+:(.text+0x2cc66c): undefined reference to `nf_nat_icmpv6_reply_translation'
 
-2) OVS should call into CT NAT for packets of new expected connections only
-   when the conntrack state is persisted with the 'commit' option to the
-   OVS CT action. From Jarno Rajahalme.
+The dependency on (!NF_NAT || NF_NAT) prevents similar issues,
+but NF_NAT is set to 'y' if any of the symbols selecting
+it are built-in, but the link error happens when any of them
+are modular.
 
-3) Resolve kconfig dependencies with new OVS NAT support. From Arnd Bergmann.
+A second issue is that even if CONFIG_NF_NAT_IPV6 is built-in,
+CONFIG_NF_NAT_IPV4 might be completely disabled. This is unlikely
+to be useful in practice, but the driver currently only handles
+IPv6 being optional.
 
-4) Early validation of entry->target_offset to make sure it doesn't take us
-   out from the blob, from Florian Westphal.
+This patch improves the Kconfig dependency so that openvswitch
+cannot be built-in if either of the two other symbols are set
+to 'm', and it replaces the incorrect #ifdef in ovs_ct_nat_execute()
+with two "if (IS_ENABLED())" checks that should catch all corner
+cases also make the code more readable.
 
-5) Again early validation of entry->next_offset to make sure it doesn't take
-   out from the blob, also from Florian.
+The same #ifdef exists ovs_ct_nat_to_attr(), where it does not
+cause a link error, but for consistency I'm changing it the same
+way.
 
-6) Check that entry->target_offset is always of of sizeof(struct xt_entry)
-   for unconditional entries, when checking both from check_underflow()
-   and when checking for loops in mark_source_chains(), again from
-   Florian.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 05752523e565 ("openvswitch: Interface with NAT.")
+Acked-by: Joe Stringer <joe@ovn.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/openvswitch/Kconfig     |  4 +++-
+ net/openvswitch/conntrack.c | 16 ++++++++--------
+ 2 files changed, 11 insertions(+), 9 deletions(-)
 
-7) Fix inconsistent behaviour in nfnetlink_queue when
-   NFQA_CFG_F_FAIL_OPEN is set and netlink_unicast() fails due to buffer
-   overrun, we have to reinject the packet as the user expects.
-
-8) Enforce nul-terminated table names from getsockopt GET_ENTRIES
-   requests.
-
-9) Don't assume skb->sk is set from nft_bridge_reject and synproxy,
-   this fixes a recent update of the code to namespaceify
-   ip_default_ttl, patch from Liping Zhang.
-
-This batch comes with four patches to validate x_tables blobs coming
-from userspace. CONFIG_USERNS exposes the x_tables interface to
-unpriviledged users and to be honest this interface never received the
-attention for this move away from the CAP_NET_ADMIN domain. Florian is
-working on another round with more patches with more sanity checks, so
-expect a bit more Netfilter fixes in this development cycle than usual.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit d7be81a5916bdb1d904803958e5991a16f7ae4b2:
-
-  ravb: fix software timestamping (2016-03-27 22:41:37 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 29421198c3a860092e27c2ad8499dfe603398817:
-
-  netfilter: ipv4: fix NULL dereference (2016-03-28 17:59:29 +0200)
-
-----------------------------------------------------------------
-Arnd Bergmann (1):
-      openvswitch: call only into reachable nf-nat code
-
-Florian Westphal (3):
-      netfilter: x_tables: validate e->target_offset early
-      netfilter: x_tables: make sure e->next_offset covers remaining blob size
-      netfilter: x_tables: fix unconditional helper
-
-Jarno Rajahalme (1):
-      openvswitch: Fix checking for new expected connections.
-
-Liping Zhang (1):
-      netfilter: ipv4: fix NULL dereference
-
-Pablo Neira Ayuso (2):
-      netfilter: nfnetlink_queue: honor NFQA_CFG_F_FAIL_OPEN when netlink unicast fails
-      netfilter: x_tables: enforce nul-terminated table name from getsockopt GET_ENTRIES
-
-Vishwanath Pai (1):
-      netfilter: ipset: fix race condition in ipset save, swap and delete
-
- include/linux/netfilter/ipset/ip_set.h   |  4 +++
- net/bridge/netfilter/ebtables.c          |  4 +++
- net/bridge/netfilter/nft_reject_bridge.c | 20 ++++++------
- net/ipv4/netfilter/arp_tables.c          | 43 +++++++++++++------------
- net/ipv4/netfilter/ip_tables.c           | 48 ++++++++++++++--------------
- net/ipv4/netfilter/ipt_SYNPROXY.c        | 54 +++++++++++++++++---------------
- net/ipv6/netfilter/ip6_tables.c          | 48 ++++++++++++++--------------
- net/netfilter/ipset/ip_set_bitmap_gen.h  |  2 +-
- net/netfilter/ipset/ip_set_core.c        | 33 ++++++++++++++++---
- net/netfilter/ipset/ip_set_hash_gen.h    |  2 +-
- net/netfilter/ipset/ip_set_list_set.c    |  2 +-
- net/netfilter/nfnetlink_queue.c          |  7 ++++-
- net/openvswitch/Kconfig                  |  4 ++-
- net/openvswitch/conntrack.c              | 21 +++++++------
- 14 files changed, 170 insertions(+), 122 deletions(-)
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 234a733..ce94729 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -7,7 +7,9 @@ config OPENVSWITCH
+ 	depends on INET
+ 	depends on !NF_CONNTRACK || \
+ 		   (NF_CONNTRACK && ((!NF_DEFRAG_IPV6 || NF_DEFRAG_IPV6) && \
+-				     (!NF_NAT || NF_NAT)))
++				     (!NF_NAT || NF_NAT) && \
++				     (!NF_NAT_IPV4 || NF_NAT_IPV4) && \
++				     (!NF_NAT_IPV6 || NF_NAT_IPV6)))
+ 	select LIBCRC32C
+ 	select MPLS
+ 	select NET_MPLS_GSO
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 47f7c62..3797879 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -535,14 +535,15 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
+ 	switch (ctinfo) {
+ 	case IP_CT_RELATED:
+ 	case IP_CT_RELATED_REPLY:
+-		if (skb->protocol == htons(ETH_P_IP) &&
++		if (IS_ENABLED(CONFIG_NF_NAT_IPV4) &&
++		    skb->protocol == htons(ETH_P_IP) &&
+ 		    ip_hdr(skb)->protocol == IPPROTO_ICMP) {
+ 			if (!nf_nat_icmp_reply_translation(skb, ct, ctinfo,
+ 							   hooknum))
+ 				err = NF_DROP;
+ 			goto push;
+-#if IS_ENABLED(CONFIG_NF_NAT_IPV6)
+-		} else if (skb->protocol == htons(ETH_P_IPV6)) {
++		} else if (IS_ENABLED(CONFIG_NF_NAT_IPV6) &&
++			   skb->protocol == htons(ETH_P_IPV6)) {
+ 			__be16 frag_off;
+ 			u8 nexthdr = ipv6_hdr(skb)->nexthdr;
+ 			int hdrlen = ipv6_skip_exthdr(skb,
+@@ -557,7 +558,6 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
+ 					err = NF_DROP;
+ 				goto push;
+ 			}
+-#endif
+ 		}
+ 		/* Non-ICMP, fall thru to initialize if needed. */
+ 	case IP_CT_NEW:
+@@ -1239,7 +1239,8 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
+ 	}
+ 
+ 	if (info->range.flags & NF_NAT_RANGE_MAP_IPS) {
+-		if (info->family == NFPROTO_IPV4) {
++		if (IS_ENABLED(CONFIG_NF_NAT_IPV4) &&
++		    info->family == NFPROTO_IPV4) {
+ 			if (nla_put_in_addr(skb, OVS_NAT_ATTR_IP_MIN,
+ 					    info->range.min_addr.ip) ||
+ 			    (info->range.max_addr.ip
+@@ -1247,8 +1248,8 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
+ 			     (nla_put_in_addr(skb, OVS_NAT_ATTR_IP_MAX,
+ 					      info->range.max_addr.ip))))
+ 				return false;
+-#if IS_ENABLED(CONFIG_NF_NAT_IPV6)
+-		} else if (info->family == NFPROTO_IPV6) {
++		} else if (IS_ENABLED(CONFIG_NF_NAT_IPV6) &&
++			   info->family == NFPROTO_IPV6) {
+ 			if (nla_put_in6_addr(skb, OVS_NAT_ATTR_IP_MIN,
+ 					     &info->range.min_addr.in6) ||
+ 			    (memcmp(&info->range.max_addr.in6,
+@@ -1257,7 +1258,6 @@ static bool ovs_ct_nat_to_attr(const struct ovs_conntrack_info *info,
+ 			     (nla_put_in6_addr(skb, OVS_NAT_ATTR_IP_MAX,
+ 					       &info->range.max_addr.in6))))
+ 				return false;
+-#endif
+ 		} else {
+ 			return false;
+ 		}
+-- 
+2.1.4
