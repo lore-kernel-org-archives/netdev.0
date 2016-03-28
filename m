@@ -1,66 +1,58 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: BUG: net/netfilter: KASAN: stack-out-of-bounds in tcp_packet
-Date: Mon, 28 Mar 2016 23:11:07 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1603282256120.25443@blackhole.kfki.hu>
-References: <56F8987B.5030501@gmail.com> <56F92E21.30509@gmail.com>  <alpine.DEB.2.10.1603281844200.23985@blackhole.kfki.hu>  <20160328.152959.1109841569654352040.davem@davemloft.net>  <alpine.LSU.2.20.1603282214130.16241@nerf40.vanv.qr>
- <1459197963.6473.125.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Mon, 28 Mar 2016 14:29:57 -0700
+Message-ID: <1459200597.6473.138.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <56F8987B.5030501@gmail.com> <56F92E21.30509@gmail.com>
+	  <alpine.DEB.2.10.1603281844200.23985@blackhole.kfki.hu>
+	  <20160328.152959.1109841569654352040.davem@davemloft.net>
+	  <alpine.LSU.2.20.1603282214130.16241@nerf40.vanv.qr>
+	 <1459197963.6473.125.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <alpine.DEB.2.10.1603282256120.25443@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Jan Engelhardt <jengelh@inai.de>,
 	David Miller <davem@davemloft.net>, sploving1@gmail.com,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
 	Patrick McHardy <kaber@trash.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1459197963.6473.125.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34000 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252AbcC1VaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 17:30:00 -0400
+In-Reply-To: <alpine.DEB.2.10.1603282256120.25443@blackhole.kfki.hu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Mar 2016, Eric Dumazet wrote:
+On Mon, 2016-03-28 at 23:11 +0200, Jozsef Kadlecsik wrote:
 
-> On Mon, 2016-03-28 at 22:20 +0200, Jan Engelhardt wrote:
-> > On Monday 2016-03-28 21:29, David Miller wrote:
-> > >>> > > @@ -3716,6 +3716,8 @@ void tcp_parse_options(const struct sk_buff *skb,
-> > >>> > >               length--;
-> > >>> > >               continue;
-> > >>> > >           default:
-> > >>> > > +            if (length < 2)
-> > >>> > > +                return;
-> > >>> > >               opsize = *ptr++;
-> > >>> > >               if (opsize < 2) /* "silly options" */
-> > >>> > >                   return;
-> > >
-> > >I'm trying to figure out how this can even matter.
-> > >If we are in the loop, length is at least one.
-> > >That means it is legal to read the opsize byte.
-> > 
-> > Is that because the skbuff is always padded to a multiple of (at
-> > least) two? Maybe such padding is explicitly foregone when ASAN is in
-> > place. After all, glibc, in userspace, is likely to do padding as
-> > well for malloc, and yet, ASAN catches these cases.
-
-There might be a TCP option combination, which is "properly" padded but 
-broken, like (wscale, wscale-value, mss) where the mss-value is missing.
-
-> We have at least 384 bytes of padding in skb->head (this is struct
-> skb_shared_info).
+> In net/netfilter/nf_conntrack_proto_tcp.c we copy the options into a 
+> buffer with skb_header_pointer(), so it's not a false positive there and 
+> the KASAN report referred to that part.
 > 
-> Whatever garbage we might read, current code is fine.
-> 
-> We have to deal with a false positive here.
 
-In net/netfilter/nf_conntrack_proto_tcp.c we copy the options into a 
-buffer with skb_header_pointer(), so it's not a false positive there and 
-the KASAN report referred to that part.
+Although the out of bound could be one extra byte,
+if skb_header_bpointer() had to copy something (since it also might
+return a pointer inside skb->head)
 
-I thought it's valid for tcp_parse_options() too, but then I'm wrong so 
-at least the part from the patch for tcp_input.c can be dropped.
+No arch would possibly fault here.
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+So reading one byte on the stack is fooling KASAN, but no ill effect
+would actually happen.
+
+If the read byte is < 2, the function would return because of
+
+	 if (opsize < 2)
+		return;
+
+If the read byte is >= 2, the function would return because of
+	if (opsize > length)
+		return; /* don't parse partial options */
+
+
+(Since we care here of the case where length == 1)
+
+No big deal, it is probably better to 'fix' the code so that it pleases
+dynamic checkers.
