@@ -1,83 +1,83 @@
 From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net v2 2/3] tunnels: Don't apply GRO to multiple layers of encapsulation.
-Date: Sun, 27 Mar 2016 21:38:34 -0700
-Message-ID: <CAEh+42hbYUMK4WMZYDtzfynd1XFb7OxKkmdPOdT1Z7=n-kw4sA@mail.gmail.com>
-References: <1458405122-12565-1-git-send-email-jesse@kernel.org>
- <1458405122-12565-3-git-send-email-jesse@kernel.org> <CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
+Subject: Re: [RFC PATCH 1/9] ipv4/GRO: Allow multiple frames to use the same
+ IP ID
+Date: Sun, 27 Mar 2016 21:57:55 -0700
+Message-ID: <CAEh+42iAWwKFLuorcOEM+=uUr0qOkwJWv9bE6Vvhyv4j9m3wrw@mail.gmail.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+ <20160318232444.14955.38133.stgit@localhost.localdomain> <CAEh+42ir0ich=MyEtr7NkKiUBhE7Md_AF8YzQ2bCv=cy=5ziFg@mail.gmail.com>
+ <CAKgT0UeH4qEHeaES2k31CNbb3cXD1zxm_vutqEZ_svO2F73b9A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:43616 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.136]:44119 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751512AbcC1Eiw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 00:38:52 -0400
+	id S1754007AbcC1E6O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 00:58:14 -0400
 Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id D362E20259
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:38:50 +0000 (UTC)
-Received: from mail-qg0-f50.google.com (mail-qg0-f50.google.com [209.85.192.50])
+	by mail.kernel.org (Postfix) with ESMTP id 9661120272
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:58:12 +0000 (UTC)
+Received: from mail-qg0-f54.google.com (mail-qg0-f54.google.com [209.85.192.54])
 	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 86BFD2024C
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:38:49 +0000 (UTC)
-Received: by mail-qg0-f50.google.com with SMTP id u110so100878773qge.3
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 21:38:49 -0700 (PDT)
-In-Reply-To: <CALx6S36Zw+ky+u0XHROV1AE21H=EU5=SEoAj7+AskxLw6b0Odg@mail.gmail.com>
+	by mail.kernel.org (Postfix) with ESMTPSA id A727F2026F
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 04:58:10 +0000 (UTC)
+Received: by mail-qg0-f54.google.com with SMTP id u110so101078100qge.3
+        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 21:58:10 -0700 (PDT)
+In-Reply-To: <CAKgT0UeH4qEHeaES2k31CNbb3cXD1zxm_vutqEZ_svO2F73b9A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Mar 26, 2016 at 12:41 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Sat, Mar 19, 2016 at 9:32 AM, Jesse Gross <jesse@kernel.org> wrote:
->> When drivers express support for TSO of encapsulated packets, they
->> only mean that they can do it for one layer of encapsulation.
->> Supporting additional levels would mean updating, at a minimum,
->> more IP length fields and they are unaware of this.
+On Wed, Mar 23, 2016 at 7:21 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Wed, Mar 23, 2016 at 6:43 PM, Jesse Gross <jesse@kernel.org> wrote:
+>> On Fri, Mar 18, 2016 at 4:24 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>>> In RFC 6864 it is stated that we can essentially ignore the IPv4 ID field
+>>> if we have not and will not use fragmentation.  Such a frame is defined
+>>> as having the DF flag set to 1, and the MF and frag_offset as 0.  Currently
+>>> for GRO we were requiring that the inner header always have an increasing
+>>> IPv4 ID, but we are ignoring the outer value.
+>>>
+>>> This patch is a first step in trying to reverse some of that.  Specifically
+>>> what this patch does is allow us to coalesce frames that have a static IPv4
+>>> ID value.  So for example if we had a series of frames where the DF flag
+>>> was set we would allow the same IPv4 ID value to be used for all the frames
+>>> belonging to that flow.  This would become the standard behavior for TCP so
+>>> it would support either a fixed IPv4 ID value, or one in which the value
+>>> increments.
+>>>
+>>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 >>
-> This patch completely breaks GRO for FOU and GUE.
+>> One thing that is a bit odd is that the TSO output procedure stays the
+>> same. So that means that if we get a stream of packets with the DF bit
+>> set and a constant IP ID, aggregate them with GRO, and the retransmit
+>> with GSO/TSO then we'll get packets with IDs that increment for each
+>> burst and then start back again to the original value. I guess it
+>> doesn't matter in practice since the IDs are supposed to be ignored
+>> but it does seem a little strange - especially because the new packets
+>> will now be violating the rules of the same GRO implementation that
+>> produced them.
 >
->> No encapsulation device expresses support for handling offloaded
->> encapsulated packets, so we won't generate these types of frames
->> in the transmit path. However, GRO doesn't have a check for
->> multiple levels of encapsulation and will attempt to build them.
->>
->> UDP tunnel GRO actually does prevent this situation but it only
->> handles multiple UDP tunnels stacked on top of each other. This
->> generalizes that solution to prevent any kind of tunnel stacking
->> that would cause problems.
->>
-> GUE and FOU regularly create packets that will be both GSO UDP tunnels
-> and IPIP, SIT, GRE, etc. This is by design. There should be no
-> ambiguity in the drivers as to what this means. For instance, if
-> SKB_GSO_UDP_TUNNEL and SKB_GSO_GRE are set that is GRE/UDP packet, a
-> driver can use ndo_features_check to validate.
->
-> So multiple levels of encapsulation with GRO is perfectly valid and I
-> would suggest to simply revert this patch. The one potential issue we
-> could have is the potential for GRO to construct a packet which is a
-> UDP-encapsulation inside another encapsulation, like UDP-encap in GRE.
-> In this case the GSO flags don't provide enough information to
-> distinguish say between GRE/UDP (common case) and UDP/GRE (uncommon
-> case). To make this clear we can set udp_mark in GRE, ipip, and sit
-> but *not* check for it.
+> Yes and no.  The rule for GRO with this patch is that the IP ID has to
+> be either incrementing or if DF is set it has the option to be a fixed
+> value for a given grouping of packets.  In that regard either GSO
+> partial or standard GSO are still both reversible via GRO so that you
+> can aggregate to get back to the original frame (ignoring the IP ID)
+> that GSO segmented.  The bit I am still trying to work out is what to
+> do about the case where we GRO 2 frames out of one GSO segment.  I
+> wonder if I should just totally ignore the IP ID value since it ends
+> up creating an artificial boundary between the two frames if they are
+> segmented using the incrementing GSO versus the fixed IP ID GSO.
 
-Generally speaking, multiple levels of encapsulation offload are not
-valid. I think this is pretty clear from the fact that none of the
-encapsulation drivers expose support for encapsulation offloads on
-transmit and the drivers supporting NETIF_F_GSO_GRE and
-NETIF_F_GSO_UDP_TUNNEL do not mean they can handle GRE in VXLAN.
+Yeah, I agree that it should work in practice, it just seems a bit odd
+to have the IP IDs skip around like that. It does also mean that GRO
+will no longer be completely, transparently reversible.
 
-Asking drivers to assume that this combination of flags means FOU
-doesn't seem right to me. To the best of my knowledge, no driver uses
-ndo_feature_check to do validation of multiple tunnel offload flags
-since the assumption is that the stack will never try to do this.
-Since FOU is being treated as only a single level of encapsulation, I
-think it would be better to just advertise it that way on transmit
-(i.e. only set SKB_GSO_UDP_TUNNEL).
-
-The change that you are suggesting would result in packets generated
-by GRO that cannot be handled properly on transmit in some cases and
-would likely end up being dropped or malformed. GRO is just an
-optimization and correctness must come first so we cannot use it if it
-might corrupt traffic.
+I guess that's fine though as long as we fully embrace the idea that
+the DF bit means that IP IDs are not used. In that case, it seems best
+to allow any ID when DF is set so we are at least self-consistent.
