@@ -1,35 +1,88 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [RFC net-next 2/2] udp: No longer use SLAB_DESTROY_BY_RCU
-Date: Mon, 28 Mar 2016 09:15:00 -0700
-Message-ID: <56F95884.8010901@hpe.com>
-References: <1458944964-12890-1-git-send-email-edumazet@google.com>
- <1458944964-12890-3-git-send-email-edumazet@google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
+Date: Mon, 28 Mar 2016 09:25:14 -0700
+Message-ID: <CAKgT0UezT1YMa6iD2y_qzPVhZL1ChYphnonRpOcdvwhvybHavw@mail.gmail.com>
+References: <20160318230945.14955.63211.stgit@localhost.localdomain>
+	<20160318232522.14955.13475.stgit@localhost.localdomain>
+	<CAEh+42iqaSg5WNCsc_iJbpxtwi+mjVtH+Wg5WY5HdWF7-5eM1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
 	Tom Herbert <tom@herbertland.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hp.com ([15.240.0.71]:59976 "EHLO
-	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753863AbcC1QPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:15:07 -0400
-Received: from g4t3428.houston.hp.com (g4t3428.houston.hp.com [15.201.208.56])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 2D8C463148
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 16:15:06 +0000 (UTC)
-In-Reply-To: <1458944964-12890-3-git-send-email-edumazet@google.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:37598 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753761AbcC1QZQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:25:16 -0400
+Received: by mail-ig0-f173.google.com with SMTP id l20so59715244igf.0
+        for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 09:25:15 -0700 (PDT)
+In-Reply-To: <CAEh+42iqaSg5WNCsc_iJbpxtwi+mjVtH+Wg5WY5HdWF7-5eM1Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/25/2016 03:29 PM, Eric Dumazet wrote:
-> UDP sockets are not short lived in the high usage case, so the added
-> cost of call_rcu() should not be a concern.
+On Sun, Mar 27, 2016 at 10:36 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Fri, Mar 18, 2016 at 4:25 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index edb7179bc051..666cf427898b 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -2711,6 +2711,19 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+> [...]
+>> +       /* Only report GSO partial support if it will enable us to
+>> +        * support segmentation on this frame without needing additional
+>> +        * work.
+>> +        */
+>> +       if (features & NETIF_F_GSO_PARTIAL) {
+>> +               netdev_features_t partial_features;
+>> +               struct net_device *dev = skb->dev;
+>> +
+>> +               partial_features = dev->features & dev->gso_partial_features;
+>> +               if (!skb_gso_ok(skb, features | partial_features))
+>> +                       features &= ~NETIF_F_GSO_PARTIAL;
+>
+> I think we need to add NETIF_F_GSO_ROBUST into the skb_gso_ok() check
+> - otherwise packets coming from VMs fail this test and we lose GSO
+> partial. It's totally safe to expose this feature, since we'll compute
+> gso_segs anyways.
 
-Even a busy DNS resolver?
+Good point.  I will update that before submitting for net-next.
 
-rick jones
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index f044f970f1a6..bdcba77e164c 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3281,6 +3291,15 @@ perform_csum_check:
+>>          */
+>>         segs->prev = tail;
+>>
+>> +       /* Update GSO info on first skb in partial sequence. */
+>> +       if (partial_segs) {
+>> +               skb_shinfo(segs)->gso_size = mss / partial_segs;
+>
+> One small thing: this gso_size is the same as the original MSS, right?
+> It seems like we could trivially stick it in a local variable and
+> avoid the extra division.
+
+Nice catch.  I was a bit too in the mindset of having to use the same
+variable throughout.
+
+>> +               skb_shinfo(segs)->gso_segs = partial_segs;
+>> +               skb_shinfo(segs)->gso_type = skb_shinfo(head_skb)->gso_type |
+>> +                                            SKB_GSO_PARTIAL;
+>
+> Since we're computing the gso_segs ourselves, it might be nice to
+> strip out SKB_GSO_DODGY when we set the type.
+
+I will have that fixed for the version I submit for net-next.
+
+> I just wanted to say that this is really nice work - I was expecting
+> it to turn out to be really messy and unmaintainable but this is very
+> clean. Thanks!
+
+Thanks.
+
+- Alex
