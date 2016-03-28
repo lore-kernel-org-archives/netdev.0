@@ -1,35 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/3] Control ethernet PHY LEDs via LED subsystem
-Date: Mon, 28 Mar 2016 18:10:27 +0200
-Message-ID: <20160328161027.GC31462@lunn.ch>
-References: <1458755500-15571-1-git-send-email-vishalthanki@gmail.com>
- <20160328084335.2b631e99@xeon-e3>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [RFC net-next 2/2] udp: No longer use SLAB_DESTROY_BY_RCU
+Date: Mon, 28 Mar 2016 09:15:00 -0700
+Message-ID: <56F95884.8010901@hpe.com>
+References: <1458944964-12890-1-git-send-email-edumazet@google.com>
+ <1458944964-12890-3-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vishal Thanki <vishalthanki@gmail.com>, f.fainelli@gmail.com,
-	ujhelyi.m@gmail.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39837 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755071AbcC1QKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 12:10:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20160328084335.2b631e99@xeon-e3>
+Received: from g9t1613g.houston.hp.com ([15.240.0.71]:59976 "EHLO
+	g9t1613g.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753863AbcC1QPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 12:15:07 -0400
+Received: from g4t3428.houston.hp.com (g4t3428.houston.hp.com [15.201.208.56])
+	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by g9t1613g.houston.hp.com (Postfix) with ESMTPS id 2D8C463148
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 16:15:06 +0000 (UTC)
+In-Reply-To: <1458944964-12890-3-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen
- 
-> There already is LED control via ethtool.
-> It is more important that the existing API (ethtool) still work.
+On 03/25/2016 03:29 PM, Eric Dumazet wrote:
+> UDP sockets are not short lived in the high usage case, so the added
+> cost of call_rcu() should not be a concern.
 
-I'm having trouble finding this. The man page for ethtool only
-mentions -p --identify with respect to LEDs.
+Even a busy DNS resolver?
 
-I also don't see anything in include/uapi/linux/ethtool.h
-
-Please could you give more specific pointers.
-
-Thanks
-	Andrew
+rick jones
