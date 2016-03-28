@@ -1,209 +1,124 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/9] netfilter: x_tables: validate e->target_offset early
-Date: Mon, 28 Mar 2016 19:57:57 +0200
-Message-ID: <1459187882-5357-5-git-send-email-pablo@netfilter.org>
-References: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/9] Netfilter fixes for net
+Date: Mon, 28 Mar 2016 19:57:53 +0200
+Message-ID: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1459187882-5357-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:50819 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751004AbcC1R6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Mar 2016 13:58:11 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 60387E8397
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:08 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 1617BDA8F7
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:09 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 0837ADA8FA
+	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 19:58:07 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Hi David,
 
-We should check that e->target_offset is sane before
-mark_source_chains gets called since it will fetch the target entry
-for loop detection.
+The following patchset contains Netfilter fixes for you net tree,
+they are:
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/arp_tables.c | 17 ++++++++---------
- net/ipv4/netfilter/ip_tables.c  | 17 ++++++++---------
- net/ipv6/netfilter/ip6_tables.c | 17 ++++++++---------
- 3 files changed, 24 insertions(+), 27 deletions(-)
+1) There was a race condition between parallel save/swap and delete,
+   which resulted a kernel crash due to the increase ref for save, swap,
+   wrong ref decrease operations. Reported and fixed by Vishwanath Pai.
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index bf08192..830bbe8 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -474,14 +474,12 @@ next:
- 	return 1;
- }
- 
--static inline int check_entry(const struct arpt_entry *e, const char *name)
-+static inline int check_entry(const struct arpt_entry *e)
- {
- 	const struct xt_entry_target *t;
- 
--	if (!arp_checkentry(&e->arp)) {
--		duprintf("arp_tables: arp check failed %p %s.\n", e, name);
-+	if (!arp_checkentry(&e->arp))
- 		return -EINVAL;
--	}
- 
- 	if (e->target_offset + sizeof(struct xt_entry_target) > e->next_offset)
- 		return -EINVAL;
-@@ -522,10 +520,6 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
- 	struct xt_target *target;
- 	int ret;
- 
--	ret = check_entry(e, name);
--	if (ret)
--		return ret;
--
- 	e->counters.pcnt = xt_percpu_counter_alloc();
- 	if (IS_ERR_VALUE(e->counters.pcnt))
- 		return -ENOMEM;
-@@ -576,6 +570,7 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
- 					     unsigned int valid_hooks)
- {
- 	unsigned int h;
-+	int err;
- 
- 	if ((unsigned long)e % __alignof__(struct arpt_entry) != 0 ||
- 	    (unsigned char *)e + sizeof(struct arpt_entry) >= limit) {
-@@ -590,6 +585,10 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
- 		return -EINVAL;
- 	}
- 
-+	err = check_entry(e);
-+	if (err)
-+		return err;
-+
- 	/* Check hooks & underflows */
- 	for (h = 0; h < NF_ARP_NUMHOOKS; h++) {
- 		if (!(valid_hooks & (1 << h)))
-@@ -1246,7 +1245,7 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
- 	}
- 
- 	/* For purposes of check_entry casting the compat entry is fine */
--	ret = check_entry((struct arpt_entry *)e, name);
-+	ret = check_entry((struct arpt_entry *)e);
- 	if (ret)
- 		return ret;
- 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index e53f8d6..1d72a3c 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -569,14 +569,12 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
- }
- 
- static int
--check_entry(const struct ipt_entry *e, const char *name)
-+check_entry(const struct ipt_entry *e)
- {
- 	const struct xt_entry_target *t;
- 
--	if (!ip_checkentry(&e->ip)) {
--		duprintf("ip check failed %p %s.\n", e, name);
-+	if (!ip_checkentry(&e->ip))
- 		return -EINVAL;
--	}
- 
- 	if (e->target_offset + sizeof(struct xt_entry_target) >
- 	    e->next_offset)
-@@ -666,10 +664,6 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
- 	struct xt_mtchk_param mtpar;
- 	struct xt_entry_match *ematch;
- 
--	ret = check_entry(e, name);
--	if (ret)
--		return ret;
--
- 	e->counters.pcnt = xt_percpu_counter_alloc();
- 	if (IS_ERR_VALUE(e->counters.pcnt))
- 		return -ENOMEM;
-@@ -741,6 +735,7 @@ check_entry_size_and_hooks(struct ipt_entry *e,
- 			   unsigned int valid_hooks)
- {
- 	unsigned int h;
-+	int err;
- 
- 	if ((unsigned long)e % __alignof__(struct ipt_entry) != 0 ||
- 	    (unsigned char *)e + sizeof(struct ipt_entry) >= limit) {
-@@ -755,6 +750,10 @@ check_entry_size_and_hooks(struct ipt_entry *e,
- 		return -EINVAL;
- 	}
- 
-+	err = check_entry(e);
-+	if (err)
-+		return err;
-+
- 	/* Check hooks & underflows */
- 	for (h = 0; h < NF_INET_NUMHOOKS; h++) {
- 		if (!(valid_hooks & (1 << h)))
-@@ -1506,7 +1505,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
- 	}
- 
- 	/* For purposes of check_entry casting the compat entry is fine */
--	ret = check_entry((struct ipt_entry *)e, name);
-+	ret = check_entry((struct ipt_entry *)e);
- 	if (ret)
- 		return ret;
- 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 84f9baf..26a5ad1 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -581,14 +581,12 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
- }
- 
- static int
--check_entry(const struct ip6t_entry *e, const char *name)
-+check_entry(const struct ip6t_entry *e)
- {
- 	const struct xt_entry_target *t;
- 
--	if (!ip6_checkentry(&e->ipv6)) {
--		duprintf("ip_tables: ip check failed %p %s.\n", e, name);
-+	if (!ip6_checkentry(&e->ipv6))
- 		return -EINVAL;
--	}
- 
- 	if (e->target_offset + sizeof(struct xt_entry_target) >
- 	    e->next_offset)
-@@ -679,10 +677,6 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
- 	struct xt_mtchk_param mtpar;
- 	struct xt_entry_match *ematch;
- 
--	ret = check_entry(e, name);
--	if (ret)
--		return ret;
--
- 	e->counters.pcnt = xt_percpu_counter_alloc();
- 	if (IS_ERR_VALUE(e->counters.pcnt))
- 		return -ENOMEM;
-@@ -753,6 +747,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
- 			   unsigned int valid_hooks)
- {
- 	unsigned int h;
-+	int err;
- 
- 	if ((unsigned long)e % __alignof__(struct ip6t_entry) != 0 ||
- 	    (unsigned char *)e + sizeof(struct ip6t_entry) >= limit) {
-@@ -767,6 +762,10 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
- 		return -EINVAL;
- 	}
- 
-+	err = check_entry(e);
-+	if (err)
-+		return err;
-+
- 	/* Check hooks & underflows */
- 	for (h = 0; h < NF_INET_NUMHOOKS; h++) {
- 		if (!(valid_hooks & (1 << h)))
-@@ -1518,7 +1517,7 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
- 	}
- 
- 	/* For purposes of check_entry casting the compat entry is fine */
--	ret = check_entry((struct ip6t_entry *)e, name);
-+	ret = check_entry((struct ip6t_entry *)e);
- 	if (ret)
- 		return ret;
- 
--- 
-2.1.4
+2) OVS should call into CT NAT for packets of new expected connections only
+   when the conntrack state is persisted with the 'commit' option to the
+   OVS CT action. From Jarno Rajahalme.
 
+3) Resolve kconfig dependencies with new OVS NAT support. From Arnd Bergmann.
+
+4) Early validation of entry->target_offset to make sure it doesn't take us
+   out from the blob, from Florian Westphal.
+
+5) Again early validation of entry->next_offset to make sure it doesn't take
+   out from the blob, also from Florian.
+
+6) Check that entry->target_offset is always of of sizeof(struct xt_entry)
+   for unconditional entries, when checking both from check_underflow()
+   and when checking for loops in mark_source_chains(), again from
+   Florian.
+
+7) Fix inconsistent behaviour in nfnetlink_queue when
+   NFQA_CFG_F_FAIL_OPEN is set and netlink_unicast() fails due to buffer
+   overrun, we have to reinject the packet as the user expects.
+
+8) Enforce nul-terminated table names from getsockopt GET_ENTRIES
+   requests.
+
+9) Don't assume skb->sk is set from nft_bridge_reject and synproxy,
+   this fixes a recent update of the code to namespaceify
+   ip_default_ttl, patch from Liping Zhang.
+
+This batch comes with four patches to validate x_tables blobs coming
+from userspace. CONFIG_USERNS exposes the x_tables interface to
+unpriviledged users and to be honest this interface never received the
+attention for this move away from the CAP_NET_ADMIN domain. Florian is
+working on another round with more patches with more sanity checks, so
+expect a bit more Netfilter fixes in this development cycle than usual.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit d7be81a5916bdb1d904803958e5991a16f7ae4b2:
+
+  ravb: fix software timestamping (2016-03-27 22:41:37 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to 29421198c3a860092e27c2ad8499dfe603398817:
+
+  netfilter: ipv4: fix NULL dereference (2016-03-28 17:59:29 +0200)
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      openvswitch: call only into reachable nf-nat code
+
+Florian Westphal (3):
+      netfilter: x_tables: validate e->target_offset early
+      netfilter: x_tables: make sure e->next_offset covers remaining blob size
+      netfilter: x_tables: fix unconditional helper
+
+Jarno Rajahalme (1):
+      openvswitch: Fix checking for new expected connections.
+
+Liping Zhang (1):
+      netfilter: ipv4: fix NULL dereference
+
+Pablo Neira Ayuso (2):
+      netfilter: nfnetlink_queue: honor NFQA_CFG_F_FAIL_OPEN when netlink unicast fails
+      netfilter: x_tables: enforce nul-terminated table name from getsockopt GET_ENTRIES
+
+Vishwanath Pai (1):
+      netfilter: ipset: fix race condition in ipset save, swap and delete
+
+ include/linux/netfilter/ipset/ip_set.h   |  4 +++
+ net/bridge/netfilter/ebtables.c          |  4 +++
+ net/bridge/netfilter/nft_reject_bridge.c | 20 ++++++------
+ net/ipv4/netfilter/arp_tables.c          | 43 +++++++++++++------------
+ net/ipv4/netfilter/ip_tables.c           | 48 ++++++++++++++--------------
+ net/ipv4/netfilter/ipt_SYNPROXY.c        | 54 +++++++++++++++++---------------
+ net/ipv6/netfilter/ip6_tables.c          | 48 ++++++++++++++--------------
+ net/netfilter/ipset/ip_set_bitmap_gen.h  |  2 +-
+ net/netfilter/ipset/ip_set_core.c        | 33 ++++++++++++++++---
+ net/netfilter/ipset/ip_set_hash_gen.h    |  2 +-
+ net/netfilter/ipset/ip_set_list_set.c    |  2 +-
+ net/netfilter/nfnetlink_queue.c          |  7 ++++-
+ net/openvswitch/Kconfig                  |  4 ++-
+ net/openvswitch/conntrack.c              | 21 +++++++------
+ 14 files changed, 170 insertions(+), 122 deletions(-)
