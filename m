@@ -1,82 +1,63 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [RFC PATCH 7/9] GSO: Support partial segmentation offload
-Date: Sun, 27 Mar 2016 22:36:12 -0700
-Message-ID: <CAEh+42iqaSg5WNCsc_iJbpxtwi+mjVtH+Wg5WY5HdWF7-5eM1Q@mail.gmail.com>
-References: <20160318230945.14955.63211.stgit@localhost.localdomain> <20160318232522.14955.13475.stgit@localhost.localdomain>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [RFC PATCH] tcp: Add SOF_TIMESTAMPING_TX_EOR and allow MSG_EOR
+ in tcp_sendmsg
+Date: Sun, 27 Mar 2016 22:42:10 -0700
+Message-ID: <20160328054210.GA30968@DHCP.thefacebook.com>
+References: <1458859592-751521-1-git-send-email-kafai@fb.com>
+ <CAF=yD-JPvjNz=CZH6X=Hj+0vSyTyZcwKJoeTdOZKjx1Ys17DNQ@mail.gmail.com>
+ <CAK6E8=ekVGq9E3sZEcZVdSEfTxxZ74W7FdW1YmKS-GFASQbJnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:45910 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752140AbcC1Fga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Mar 2016 01:36:30 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 5E382202B8
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 05:36:29 +0000 (UTC)
-Received: from mail-qk0-f174.google.com (mail-qk0-f174.google.com [209.85.220.174])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id DC98220272
-	for <netdev@vger.kernel.org>; Mon, 28 Mar 2016 05:36:27 +0000 (UTC)
-Received: by mail-qk0-f174.google.com with SMTP id i4so58848809qkc.3
-        for <netdev@vger.kernel.org>; Sun, 27 Mar 2016 22:36:27 -0700 (PDT)
-In-Reply-To: <20160318232522.14955.13475.stgit@localhost.localdomain>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:42958 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753873AbcC1FmZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 01:42:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=ekVGq9E3sZEcZVdSEfTxxZ74W7FdW1YmKS-GFASQbJnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Mar 18, 2016 at 4:25 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index edb7179bc051..666cf427898b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2711,6 +2711,19 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
-[...]
-> +       /* Only report GSO partial support if it will enable us to
-> +        * support segmentation on this frame without needing additional
-> +        * work.
-> +        */
-> +       if (features & NETIF_F_GSO_PARTIAL) {
-> +               netdev_features_t partial_features;
-> +               struct net_device *dev = skb->dev;
-> +
-> +               partial_features = dev->features & dev->gso_partial_features;
-> +               if (!skb_gso_ok(skb, features | partial_features))
-> +                       features &= ~NETIF_F_GSO_PARTIAL;
-
-I think we need to add NETIF_F_GSO_ROBUST into the skb_gso_ok() check
-- otherwise packets coming from VMs fail this test and we lose GSO
-partial. It's totally safe to expose this feature, since we'll compute
-gso_segs anyways.
-
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index f044f970f1a6..bdcba77e164c 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3281,6 +3291,15 @@ perform_csum_check:
->          */
->         segs->prev = tail;
+On Fri, Mar 25, 2016 at 04:05:51PM -0700, Yuchung Cheng wrote:
+> Looks like an interesting and useful patch. Since HTTP2 allows
+> multiplexing data stream frames from multiple logical streams on a
+> single socket,
+> how would you instrument to measure the latency of each stream? e.g.,
 >
-> +       /* Update GSO info on first skb in partial sequence. */
-> +       if (partial_segs) {
-> +               skb_shinfo(segs)->gso_size = mss / partial_segs;
+> sendmsg of data_frame_1_of_stream_a
+> sendmsg of data_frame_1_of_stream_b
+> sendmsg of data_frame_2_of_stream_a
+> sendmsg of data_frame_1_of_stream_c
+> sendmsg of data_frame_2_of_stream_b
 
-One small thing: this gso_size is the same as the original MSS, right?
-It seems like we could trivially stick it in a local variable and
-avoid the extra division.
+A quick recall from the end of the commit message:
+"One of our use case is at the webserver.  The webserver tracks
+the HTTP2 response latency by measuring when the webserver
+sends the first byte to the socket till the TCP ACK of the last byte
+is received."
 
-> +               skb_shinfo(segs)->gso_segs = partial_segs;
-> +               skb_shinfo(segs)->gso_type = skb_shinfo(head_skb)->gso_type |
-> +                                            SKB_GSO_PARTIAL;
+It is the server side perception on how long does it take to deliver
+the whole response/stream to the client.  Hence, the number of
+interleaved streams does not matter.
 
-Since we're computing the gso_segs ourselves, it might be nice to
-strip out SKB_GSO_DODGY when we set the type.
+Some sample use cases are,
+comparing TCP sysctl/code changes,
+observing encoding/compression impact (e.g. HPACK in HTTP2).
 
-I just wanted to say that this is really nice work - I was expecting
-it to turn out to be really messy and unmaintainable but this is very
-clean. Thanks!
+Assuming frame_2 is the end stream for 'a' and 'b':
+sendmsg of data_frame_1_of_stream_a
+sendmsg of data_frame_1_of_stream_b
+sendmsg of data_frame_2_of_stream_a MSG_EOR
+sendmsg of data_frame_1_of_stream_c
+sendmsg of data_frame_2_of_stream_b MSG_EOR
+
+Are you suggesting other useful ways/metrics should be measured in
+this case?
