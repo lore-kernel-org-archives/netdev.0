@@ -1,43 +1,43 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] openvswitch: Use proper buffer size in nla_memcpy
-Date: Mon, 28 Mar 2016 18:08:59 +0800
-Message-ID: <1459159739-51541-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dev@openvswitch.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:12218 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbcC1KJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Mar 2016 06:09:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 0/2] net: hns: add setting coalescing parameters for HNS v2
+Date: Mon, 28 Mar 2016 18:40:55 +0800
+Message-ID: <1459161657-151406-1-git-send-email-Yisen.Zhuang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <charles.chenxin@huawei.com>, <haifeng.wei@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
+	<salil.mehta@huawei.com>, <liguozhu@huawei.com>,
+	<huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<geliangtang@163.com>, <ivecera@redhat.com>,
+	<lisheng011@huawei.com>, <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For the input parameter count, it's better to use the size
-of destination buffer size, as nla_memcpy would take into
-account the length of the source netlink attribute when
-a data is copied from an attribute.
+There are some different REGs about coalescing setting between HNS V2 and
+HNS V1. The current HNS driver is only considering the situation for HNS
+V1. It needs to support both of them. And Ethtool needs to know if it is
+successful to set the parameters as well.
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/openvswitch/conntrack.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The patchset as below:
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index dc5eb29..f8a8d43 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -968,7 +968,8 @@ static int parse_nat(const struct nlattr *attr,
- 			break;
- 
- 		case OVS_NAT_ATTR_IP_MIN:
--			nla_memcpy(&info->range.min_addr, a, nla_len(a));
-+			nla_memcpy(&info->range.min_addr, a,
-+				   sizeof(info->range.min_addr));
- 			info->range.flags |= NF_NAT_RANGE_MAP_IPS;
- 			break;
- 
+>from Lisheng, one fix about setting overtime regs, and the other is about
+the return value from HW when setting the parameters.
+
+Lisheng (2):
+  net: hns: fixed the setting and getting overtime bug
+  net: hns: set-coalesce-usecs returns errno by dsaf.ko
+
+ drivers/net/ethernet/hisilicon/hns/hnae.h         |   2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  64 +++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 196 ++++++++++------------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h |  23 +--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h |   1 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  |   6 +-
+ 6 files changed, 133 insertions(+), 159 deletions(-)
+
 -- 
-1.8.3.1
+1.9.1
