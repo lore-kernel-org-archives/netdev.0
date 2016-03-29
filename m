@@ -1,40 +1,47 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] bond: set mac address only if necessary
-Date: Tue, 29 Mar 2016 15:14:17 +0000
-Message-ID: <1459264457-19000-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org
-To: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: udp: fix UDP_MIB_IGNOREDMULTI updates
+Date: Tue, 29 Mar 2016 08:43:41 -0700
+Message-ID: <1459266221.6473.182.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Rick Jones <rick.jones2@hp.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:8836 "EHLO
-	cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757275AbcC2PCY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 11:02:24 -0400
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33064 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757515AbcC2Pnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 11:43:43 -0400
+Received: by mail-pf0-f175.google.com with SMTP id 4so17108462pfd.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 08:43:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bond device gets it's mac address from the first slave device, it's not
-necessary to set slave device's mac address to bond if equal.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+IPv6 counters updates use a different macro than IPv4.
+
+Fixes: 36cbb2452cbaf ("udp: Increment UDP_MIB_IGNOREDMULTI for arriving unmatched multicasts")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Rick Jones <rick.jones2@hp.com>
+Cc: Willem de Bruijn <willemb@google.com>
 ---
- drivers/net/bonding/bond_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/ipv6/udp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 97fad05..6569219 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1473,8 +1473,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 */
- 	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
- 
--	if (!bond->params.fail_over_mac ||
--	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
-+	if ((!bond->params.fail_over_mac ||
-+	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) &&
-+	    !ether_addr_equal_64bits(bond_dev->dev_addr, slave_dev->dev_addr)) {
- 		/* Set slave to master's mac address.  The application already
- 		 * set the master's mac address to that of the first slave
- 		 */
--- 
-1.8.3.1
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index fd25e447a5fa..8125931106be 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -843,8 +843,8 @@ start_lookup:
+ 		flush_stack(stack, count, skb, count - 1);
+ 	} else {
+ 		if (!inner_flushed)
+-			UDP_INC_STATS_BH(net, UDP_MIB_IGNOREDMULTI,
+-					 proto == IPPROTO_UDPLITE);
++			UDP6_INC_STATS_BH(net, UDP_MIB_IGNOREDMULTI,
++					  proto == IPPROTO_UDPLITE);
+ 		consume_skb(skb);
+ 	}
+ 	return 0;
