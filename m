@@ -1,41 +1,58 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit
- on setup
-Date: Tue, 29 Mar 2016 18:28:25 +0200
-Message-ID: <20160329162825.GC4690@lunn.ch>
-References: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org>
- <1459249908-4556-2-git-send-email-patrick@puiterwijk.org>
- <87fuv9fe39.fsf@ketchup.mtl.sfl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
-	davem@davemloft.net, netdev@vger.kernel.org, dennis@ausil.us,
-	pbrobinson@gmail.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42025 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752517AbcC2Q2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Mar 2016 12:28:36 -0400
-Content-Disposition: inline
-In-Reply-To: <87fuv9fe39.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] rtl8xxxu: fix uninitialized return value in ret
+Date: Tue, 29 Mar 2016 17:44:36 +0100
+Message-ID: <1459269876-15559-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Jes Sorensen <Jes.Sorensen@redhat.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2016 at 12:23:06PM -0400, Vivien Didelot wrote:
-> Hi Patrick,
-> 
-> Two comments below.
-> 
-> Patrick Uiterwijk <patrick@puiterwijk.org> writes:
-> 
-> > +static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
-> 
-> Since this function assumes the SMI lock is already held, its name
-> should be prefixed with _ by convention (_mv88e6xxx_power_on_serdes).
+From: Colin Ian King <colin.king@canonical.com>
 
-We decided to drop at, since nearly everything would end up with a _
-prefix. The assert_smi_lock() should find any missing locks, and
-lockdep/deadlocks will make it clear when the lock is taken twice.
+several functions are not initializing a return status in ret
+resulting in garbage to be returned instead of 0 for success.
+Currently, the calls to these functions are not checking the
+return, however, it seems prudent to return the correct status
+in case they are to be checked at a later date.
 
-	  Andrew
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
+index abdff45..9262aad 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
+@@ -5231,7 +5231,7 @@ static void rtl8xxxu_set_ampdu_min_space(struct rtl8xxxu_priv *priv, u8 density)
+ static int rtl8xxxu_active_to_emu(struct rtl8xxxu_priv *priv)
+ {
+ 	u8 val8;
+-	int count, ret;
++	int count, ret = 0;
+ 
+ 	/* Start of rtl8723AU_card_enable_flow */
+ 	/* Act to Cardemu sequence*/
+@@ -5281,7 +5281,7 @@ static int rtl8723bu_active_to_emu(struct rtl8xxxu_priv *priv)
+ 	u8 val8;
+ 	u16 val16;
+ 	u32 val32;
+-	int count, ret;
++	int count, ret = 0;
+ 
+ 	/* Turn off RF */
+ 	rtl8xxxu_write8(priv, REG_RF_CTRL, 0);
+@@ -5338,7 +5338,7 @@ static int rtl8xxxu_active_to_lps(struct rtl8xxxu_priv *priv)
+ {
+ 	u8 val8;
+ 	u8 val32;
+-	int count, ret;
++	int count, ret = 0;
+ 
+ 	rtl8xxxu_write8(priv, REG_TXPAUSE, 0xff);
+ 
+-- 
+2.7.4
