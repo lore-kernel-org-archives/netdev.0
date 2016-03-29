@@ -1,36 +1,57 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] bridge: Allow set bridge ageing time when switchdev disabled
-Date: Tue, 29 Mar 2016 18:48:08 +0800
-Message-ID: <1459248488-25621-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
+Date: Tue, 29 Mar 2016 10:51:50 +0000
+Message-ID: <ef69d92813da49e89d5fc3881ec13f33@SC-EXCH04.marvell.com>
+References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
+	<87vb45brxc.fsf@kamboji.qca.qualcomm.com>
+ <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Sameer Nanda <snanda-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sonny Rao <sonnyrao-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When NET_SWITCHDEV=n, switchdev_port_attr_set will return -EOPNOTSUPP,
-we should ignore this error code and continue to set the ageing time.
-
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/bridge/br_stp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index e234490..9cb7044 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -582,7 +582,7 @@ int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
- 	int err;
- 
- 	err = switchdev_port_attr_set(br->dev, &attr);
--	if (err)
-+	if (err && err != -EOPNOTSUPP)
- 		return err;
- 
- 	br->ageing_time = t;
--- 
-1.8.3.1
+PiBGcm9tOiBXZWktTmluZyBIdWFuZyBbbWFpbHRvOnduaHVhbmdAZ29vZ2xlLmNvbV0NCj4gU2Vu
+dDogVHVlc2RheSwgTWFyY2ggMjksIDIwMTYgMjo1NyBQTQ0KPiBUbzogS2FsbGUgVmFsbw0KPiBD
+YzogTGludXggV2lyZWxlc3M7IExLTUw7IEFtaXRrdW1hciBLYXJ3YXI7IE5pc2hhbnQgU2FybXVr
+YWRhbTsgU2FtZWVyDQo+IE5hbmRhOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBTb25ueSBSYW87
+IERvdWdsYXMgQW5kZXJzb24NCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbXdpZmlleDogYWRkIF9f
+R0ZQX1JFUEVBVCB0byBza2IgYWxsb2NhdGlvbiBjYWxsDQo+IA0KPiBBZGRpbmcgc29tZSBjaHJv
+bWl1bSBkZXZzIHRvIHRoZSB0aHJlYWQuDQo+IA0KPiBJbiwgaHR0cDovL2x4ci5mcmVlLWVsZWN0
+cm9ucy5jb20vc291cmNlL21tL3BhZ2VfYWxsb2MuYyNMMzE1Mg0KPiANCj4gVGhlIGRlZmF1bHQg
+bW0gcmV0cnkgYWxsb2NhdGlvbiB3aGVuICdvcmRlciA8PSBQQUdFX0FMTE9DX0NPU1RMWV9PUkRF
+UicNCj4gb2YgZ2ZwX21hc2sgY29udGFpbnMgX19HRlBfUkVQRUFULg0KPiBQQUdFX0FMTE9DX0NP
+U1RMWV9PUkRFUiBpcyBkZWZpbmVkIHRvIGJlIDMuIE9uIHN5c3RlbXMgd2l0aCBwYWdlIHNpemUg
+PQ0KPiA0SywgdGhpcyBtZWFucyBtZW1vcnkgY29tcGFjdGlvbiBhbmQgcmV0cnkgaXMgb25seSBk
+b25lIHdoZW4gdGhlIHNpemUgb2YNCj4gYWxsb2NhdGlvbiBpcyA8PSAzMksgSW4gbXdpZmlleCwg
+dGhlIGFsbG9jYXRpb24gc2l6ZSBpcyA2NEsuIFdoZW4gd2UNCj4gaGF2ZSBzeXN0ZW0gd2l0aCBt
+ZW1vcnkgZnJhZ21lbnRhdGlvbiBhbmQgYWxsb2NhdGlvbiBmYWlsZWQsIHRoZXJlIHdpbGwNCj4g
+YmUgbm8gcmV0cnkuDQo+IFRoaXMgaXMgd2h5IHdlIG5lZWQgdG8gYWRkIF9fR0ZQX1JFUEVBVCBo
+ZXJlIHRvIGFsbG93IHRoZSBzeXN0ZW0gdG8NCj4gcGVyZm9ybSBtZW1vcnkgY29tcGFjdGlvbiBh
+bmQgcmV0cnkgYWxsb2NhdGlvbi4NCj4gDQo+IE1heWJlIEFtaXRAbWFydmVsbCBjYW4gY29tbWVu
+dCBvbiBpZiB0aGlzIGlzIGEgZ29vZCBmaXggb24gdGhpcyBpc3N1ZS4NCj4gSSdtIGFsc28gYXdh
+cmUgdGhhdCBtYXJ2ZWxsIGlzIHRoZSBwcm9ncmVzcyBvZiBpbXBsZW1lbnRpbmcNCj4gc2NhdHRl
+ci9nYXR0ZXIgZm9yIG13aWZpZXgsIHdoaWNoIGNhbiBhbHNvIGZpeCB0aGUgaXNzdWUuDQo+IA0K
+PiBXZWktTmluZw0KPiANCg0KVGhpcyBmaXggd291bGQgYmUgdXNlZnVsLiBXZSBoYXZlIGEgZmVh
+dHVyZSBjYWxsZWQgc2luZ2xlIHBvcnQgYWdncmVnYXRpb24gaW4gd2hpY2ggc29tZXRpbWVzIGRh
+dGEgcmVjZWl2ZWQgZnJvbSBTRElPIGludGVyZmFjZSBjYW4gYmUgPjMyayAoYnV0IGxlc3MgdGhh
+biA2NGspLiBUaGlzIGZlYXR1cmUgaW1wcm92ZXMgdGhyb3VnaHB1dCBwZXJmb3JtYW5jZS4gV2Ug
+YXJlIHByZXBhcmluZyBwYXRjaGVzIGZvciBzY2F0dGVyL2dhdGhlciBmZWF0dXJlLiBidXQgc2Nh
+dHRlci9nYXRoZXIgd29uJ3QgYmUgc3VwcG9ydGVkIGJ5IHNvbWUgcGxhdGZvcm1zLiBIZW5jZSB0
+aGlzIGZpeCB3b3VsZCBzdGlsbCBiZSBuZWVkZWQuDQoNClJlZ2FyZHMsDQpBbWl0a3VtYXINCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
