@@ -1,29 +1,45 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH] qed: initialize return rc to avoid returning garbage
-Date: Tue, 29 Mar 2016 18:28:04 +0000
-Message-ID: <CO2PR11MB0088C1D580858221F6554A6997870@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1459270850-16177-1-git-send-email-colin.king@canonical.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit on setup
+Date: Tue, 29 Mar 2016 14:49:57 -0400
+Message-ID: <87wpolgluy.fsf@ketchup.mtl.sfl>
+References: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org> <1459249908-4556-2-git-send-email-patrick@puiterwijk.org> <87fuv9fe39.fsf@ketchup.mtl.sfl> <20160329162825.GC4690@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Dept-Eng Everest Linux L2 <everest-linux-l2@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: Colin King <colin.king@canonical.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459270850-16177-1-git-send-email-colin.king@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
+	davem@davemloft.net, netdev@vger.kernel.org, dennis@ausil.us,
+	pbrobinson@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:43878 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbcC2SuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 14:50:07 -0400
+In-Reply-To: <20160329162825.GC4690@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> in the case where qed_slowpath_irq_req is not called, rc is not assigned and so
-> qed_int_igu_enable will return a garbage value.
-> Fix this by initializing rc to 0.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Hi Andrew, Patrick,
 
-Thanks Colin.
-Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Andrew Lunn <andrew@lunn.ch> writes:
+
+> On Tue, Mar 29, 2016 at 12:23:06PM -0400, Vivien Didelot wrote:
+>> Hi Patrick,
+>> 
+>> Two comments below.
+>> 
+>> Patrick Uiterwijk <patrick@puiterwijk.org> writes:
+>> 
+>> > +static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
+>> 
+>> Since this function assumes the SMI lock is already held, its name
+>> should be prefixed with _ by convention (_mv88e6xxx_power_on_serdes).
+>
+> We decided to drop at, since nearly everything would end up with a _
+> prefix. The assert_smi_lock() should find any missing locks, and
+> lockdep/deadlocks will make it clear when the lock is taken twice.
+
+OK, I didn't know that. This makes sense. There is no need to respin a
+v3 only for my previous &= comment then.
+
+Thanks,
+-v
