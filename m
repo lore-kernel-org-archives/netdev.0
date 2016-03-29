@@ -1,60 +1,104 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: am335x: no multicast reception over VLAN
-Date: Tue, 29 Mar 2016 14:05:16 +0300
-Message-ID: <56FA616C.9080502@ti.com>
-References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
- <56F9FDD0.8030504@ti.com>
- <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	<drivshin@allworx.com>, <ml@markusgrimm.de>
-To: Yegor Yefremov <yegorslists@googlemail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+From: Patrick Uiterwijk <patrick@puiterwijk.org>
+Subject: [PATCH net-next v2 1/2] net: dsa: mv88e6xxx: Introduce _mv88e6xxx_phy_page_{read,write}
+Date: Tue, 29 Mar 2016 11:11:47 +0000
+Message-ID: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org>
+Cc: netdev@vger.kernel.org, dennis@ausil.us, pbrobinson@gmail.com,
+	Patrick Uiterwijk <patrick@puiterwijk.org>
+To: linux@roeck-us.net, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:49453 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538AbcC2LFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 07:05:25 -0400
-In-Reply-To: <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34400 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753911AbcC2LM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 07:12:26 -0400
+Received: by mail-wm0-f42.google.com with SMTP id p65so134086183wmp.1
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 04:12:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/29/2016 08:21 AM, Yegor Yefremov wrote:
-> Hi Mugunthan,
-> 
-> On Tue, Mar 29, 2016 at 6:00 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
->> Hi Yegor
->>
->> On Wednesday 16 March 2016 08:35 PM, Yegor Yefremov wrote:
->>> I have an am335x based board using CPSW in Dual EMAC mode. Without
->>> VLAN IDs I can receive and send multicast packets [1]. When I create
->>> VLAN ID:
->>>
->>> ip link add link eth1 name eth1.100 type vlan id 100
->>> ip addr add 192.168.100.2/24 brd 192.168.100.255 dev eth1.100
->>> route add -net 224.0.0.0 netmask 224.0.0.0 eth1.100
->>>
->>> I can successfully send multicast packets, but not receive them. On
->>> the other side of the Ethernet cable I've used Pandaboard. Pandaboard
->>> could both receive and send multicast packets via VLAN.
->>
->> Are you trying multicast tx/rx on eth1 or eth1.100?
-> 
-> I'm trying multicast tx/rx on eth1.100.
-> 
-> eth1 has no problems.
-> 
+Add versions of the phy_page_read and _write functions to
+be used in a context where the SMI mutex is held.
 
-it'd be nice if will be able to post here output fom commands:
-# switch-config -d [git://git.ti.com/switch-config/switch-config.git v4.1]
-# ifconfig -a
-# tcpdump -e -f -Q in -i eth0
-# tcpdump -e -f -Q in -i eth0.100
+Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+---
+ drivers/net/dsa/mv88e6xxx.c | 49 +++++++++++++++++++++++++++++++++------------
+ 1 file changed, 36 insertions(+), 13 deletions(-)
 
-
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index fa086e0..86a2029 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2264,6 +2264,38 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	mutex_unlock(&ps->smi_mutex);
+ }
+ 
++static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
++				     int reg, int val)
++{
++	int ret;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
++	if (ret < 0)
++		goto restore_page_0;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
++restore_page_0:
++	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++
++	return ret;
++}
++
++static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
++				    int reg)
++{
++	int ret;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
++	if (ret < 0)
++		goto restore_page_0;
++
++	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
++restore_page_0:
++	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++
++	return ret;
++}
++
+ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -2714,13 +2746,9 @@ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+-	if (ret < 0)
+-		goto error;
+-	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
+-error:
+-	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++	ret = _mv88e6xxx_phy_page_read(ds, port, page, reg);
+ 	mutex_unlock(&ps->smi_mutex);
++
+ 	return ret;
+ }
+ 
+@@ -2731,14 +2759,9 @@ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
+-error:
+-	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++	ret = _mv88e6xxx_phy_page_write(ds, port, page, reg, val);
+ 	mutex_unlock(&ps->smi_mutex);
++
+ 	return ret;
+ }
+ 
 -- 
-regards,
--grygorii
+2.7.4
