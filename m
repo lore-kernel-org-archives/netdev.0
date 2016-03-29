@@ -1,137 +1,65 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 08/16] wcn36xx: Remove sta pointer in private vif struct
-Date: Mon, 28 Mar 2016 23:06:25 -0700
-Message-ID: <1459231593-360-9-git-send-email-bjorn.andersson@linaro.org>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 09/16] wcn36xx: Parse trigger_ba response properly
+Date: Mon, 28 Mar 2016 23:06:26 -0700
+Message-ID: <1459231593-360-10-git-send-email-bjorn.andersson@linaro.org>
 References: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pontus Fuchs <pontus.fuchs@gmail.com>
-To: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1459231593-360-1-git-send-email-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Pontus Fuchs <pontus.fuchs@gmail.com>
+From: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-This does not work with multiple sta's in a vif.
+This message does not follow the canonical format and needs it's own
+parser.
 
-Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Signed-off-by: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/wireless/ath/wcn36xx/main.c    |  3 ---
- drivers/net/wireless/ath/wcn36xx/smd.c     | 28 +++++++++++++++-------------
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  1 -
- 3 files changed, 15 insertions(+), 17 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/smd.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index a23738deb5b3..7c06ca9fdd2c 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -796,7 +796,6 @@ static int wcn36xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 		    vif, sta->addr);
- 
- 	spin_lock_init(&sta_priv->ampdu_lock);
--	vif_priv->sta = sta_priv;
- 	sta_priv->vif = vif_priv;
- 	/*
- 	 * For STA mode HW will be configured on BSS_CHANGED_ASSOC because
-@@ -815,14 +814,12 @@ static int wcn36xx_sta_remove(struct ieee80211_hw *hw,
- 			      struct ieee80211_sta *sta)
- {
- 	struct wcn36xx *wcn = hw->priv;
--	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 	struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
- 
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac sta remove vif %p sta %pM index %d\n",
- 		    vif, sta->addr, sta_priv->sta_index);
- 
- 	wcn36xx_smd_delete_sta(wcn, sta_priv->sta_index);
--	vif_priv->sta = NULL;
- 	sta_priv->vif = NULL;
- 	return 0;
- }
 diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index b75e7211049d..887781dff110 100644
+index 887781dff110..2b416ee9f105 100644
 --- a/drivers/net/wireless/ath/wcn36xx/smd.c
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -1170,6 +1170,7 @@ static int wcn36xx_smd_config_bss_v1(struct wcn36xx *wcn,
+@@ -1963,6 +1963,17 @@ out:
+ 	return ret;
+ }
  
- static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
- 				      struct ieee80211_vif *vif,
-+				      struct ieee80211_sta *sta,
- 				      void *buf,
- 				      size_t len)
- {
-@@ -1200,9 +1201,10 @@ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
- 
- 	vif_priv->bss_index = params->bss_index;
- 
--	if (vif_priv->sta) {
--		vif_priv->sta->bss_sta_index =  params->bss_sta_index;
--		vif_priv->sta->bss_dpu_desc_index = params->dpu_desc_index;
-+	if (sta) {
-+		struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
-+		sta_priv->bss_sta_index = params->bss_sta_index;
-+		sta_priv->bss_dpu_desc_index = params->dpu_desc_index;
- 	}
- 
- 	vif_priv->self_ucast_dpu_sign = params->ucast_dpu_signature;
-@@ -1329,6 +1331,7 @@ int wcn36xx_smd_config_bss(struct wcn36xx *wcn, struct ieee80211_vif *vif,
- 	}
- 	ret = wcn36xx_smd_config_bss_rsp(wcn,
- 					 vif,
-+					 sta,
- 					 wcn->hal_buf,
- 					 wcn->hal_rsp_len);
- 	if (ret) {
-@@ -2053,25 +2056,24 @@ static int wcn36xx_smd_delete_sta_context_ind(struct wcn36xx *wcn,
- {
- 	struct wcn36xx_hal_delete_sta_context_ind_msg *rsp = buf;
- 	struct wcn36xx_vif *tmp;
--	struct ieee80211_sta *sta = NULL;
-+	struct ieee80211_sta *sta;
- 
- 	if (len != sizeof(*rsp)) {
- 		wcn36xx_warn("Corrupted delete sta indication\n");
- 		return -EIO;
- 	}
- 
-+	wcn36xx_dbg(WCN36XX_DBG_HAL, "delete station indication %pM index %d\n",
-+		    rsp->addr2, rsp->sta_id);
++static int wcn36xx_smd_trigger_ba_rsp(void *buf, int len)
++{
++	struct wcn36xx_hal_trigger_ba_rsp_msg *rsp;
 +
- 	list_for_each_entry(tmp, &wcn->vif_list, list) {
--		if (sta && (tmp->sta->sta_index == rsp->sta_id)) {
--			sta = container_of((void *)tmp->sta,
--						 struct ieee80211_sta,
--						 drv_priv);
--			wcn36xx_dbg(WCN36XX_DBG_HAL,
--				    "delete station indication %pM index %d\n",
--				    rsp->addr2,
--				    rsp->sta_id);
-+		rcu_read_lock();
-+		sta = ieee80211_find_sta(wcn36xx_priv_to_vif(tmp), rsp->addr2);
-+		if (sta)
- 			ieee80211_report_low_ack(sta, 0);
-+		rcu_read_unlock();
-+		if (sta)
- 			return 0;
--		}
++	if (len < sizeof(*rsp))
++		return -EINVAL;
++
++	rsp = (struct wcn36xx_hal_trigger_ba_rsp_msg *) buf;
++	return rsp->status;
++}
++
+ int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index)
+ {
+ 	struct wcn36xx_hal_trigger_ba_req_msg msg_body;
+@@ -1987,8 +1998,7 @@ int wcn36xx_smd_trigger_ba(struct wcn36xx *wcn, u8 sta_index)
+ 		wcn36xx_err("Sending hal_trigger_ba failed\n");
+ 		goto out;
  	}
- 
- 	wcn36xx_warn("STA with addr %pM and index %d not found\n",
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index c368a34c8de7..54000db0af1a 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -125,7 +125,6 @@ struct wcn36xx_platform_ctrl_ops {
-  */
- struct wcn36xx_vif {
- 	struct list_head list;
--	struct wcn36xx_sta *sta;
- 	u8 dtim_period;
- 	enum ani_ed_type encrypt_type;
- 	bool is_joining;
+-	ret = wcn36xx_smd_rsp_status_check_v2(wcn, wcn->hal_buf,
+-						wcn->hal_rsp_len);
++	ret = wcn36xx_smd_trigger_ba_rsp(wcn->hal_buf, wcn->hal_rsp_len);
+ 	if (ret) {
+ 		wcn36xx_err("hal_trigger_ba response failed err=%d\n", ret);
+ 		goto out;
 -- 
 2.5.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
