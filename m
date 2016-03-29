@@ -1,84 +1,69 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
-Date: Tue, 29 Mar 2016 05:58:40 -0700
-Message-ID: <1459256320.6473.160.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
-	 <87vb45brxc.fsf@kamboji.qca.qualcomm.com>
-	 <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
+Subject: Re: [PATCH 1/2 net-next v3.16]r8169:  Disable set bit multicast
+ enable per multicast address.
+Date: Tue, 29 Mar 2016 05:59:43 -0700
+Message-ID: <1459256383.6473.161.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1458989821-19782-1-git-send-email-asd@marian1000.go.ro>
+	 <1459012726.6473.72.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160327193150.6085df90@192-168-0-108.rdsnet.ro>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Linux Wireless <linux-wireless@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Sameer Nanda <snanda@google.com>, netdev@vger.kernel.org,
-	Sonny Rao <sonnyrao@chromium.org>,
-	Douglas Anderson <dianders@chromium.org>
-To: Wei-Ning Huang <wnhuang@google.com>
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
+To: Corcodel Marian <asd@marian1000.go.ro>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34956 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753064AbcC2M6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 08:58:42 -0400
-In-Reply-To: <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34872 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826AbcC2M7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 08:59:45 -0400
+Received: by mail-pa0-f47.google.com with SMTP id td3so13145454pab.2
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 05:59:45 -0700 (PDT)
+In-Reply-To: <20160327193150.6085df90@192-168-0-108.rdsnet.ro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-03-29 at 17:27 +0800, Wei-Ning Huang wrote:
-> Adding some chromium devs to the thread.
+On Sun, 2016-03-27 at 19:31 +0300, Corcodel Marian wrote:
+> On Sat, 26 Mar 2016 10:18:46 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > 
-> In, http://lxr.free-electrons.com/source/mm/page_alloc.c#L3152
+> > On Sat, 2016-03-26 at 12:57 +0200, Corcodel Marian wrote:
+> > >  This patch correct set bit multicast enable only once per
+> > > set_rx_mode invocation.
+> > > 
+> > > Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> > > ---
+> > >  drivers/net/ethernet/realtek/r8169.c | 3 +--
+> > >  1 file changed, 1 insertion(+), 2 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/ethernet/realtek/r8169.c
+> > > b/drivers/net/ethernet/realtek/r8169.c index 7f6fb1f..f7b0dfb 100644
+> > > --- a/drivers/net/ethernet/realtek/r8169.c
+> > > +++ b/drivers/net/ethernet/realtek/r8169.c
+> > > @@ -4619,12 +4619,11 @@ static void rtl_set_rx_mode(struct
+> > > net_device *dev) } else {
+> > >  		struct netdev_hw_addr *ha;
+> > >  
+> > > -		rx_mode = AcceptBroadcast | AcceptMyPhys;
+> > > +		rx_mode = AcceptBroadcast | AcceptMyPhys |
+> > > AcceptMulticast; mc_filter[1] = mc_filter[0] = 0;
+> > >  		netdev_for_each_mc_addr(ha, dev) {
+> > >  			int bit_nr = ether_crc(ETH_ALEN, ha->addr)
+> > > >> 26; mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+> > > -			rx_mode |= AcceptMulticast;
+> > >  		}
+> > >  	}
+> > >  
+> > 
+> > If the list is empty, why should we enable AcceptMulticast ?
+> > 
+> > 
+> > 
 > 
-> The default mm retry allocation when 'order <=
-> PAGE_ALLOC_COSTLY_ORDER' of gfp_mask contains __GFP_REPEAT.
-> PAGE_ALLOC_COSTLY_ORDER is defined to be 3. On systems with page size
-> = 4K, this means memory compaction and retry is only done when the
-> size of allocation is <= 32K
-> In mwifiex, the allocation size is 64K.
+> I not experienced list empty, allways on my case exist bit_nr variable. 
 
+If dev->mc list is empty, the netdev_for_each_mc_addr(ha, dev) does
+nothing at all.
 
+In other words, netdev_mc_count(dev) can be 0
 
->  When we have system with
-> memory fragmentation and allocation failed, there will be no retry.
-> This is why we need to add __GFP_REPEAT here to allow the system to
-> perform memory compaction and retry allocation.
-> 
-> Maybe Amit@marvell can comment on if this is a good fix on this issue.
-> I'm also aware that marvell is the progress of implementing
-> scatter/gatter for mwifiex, which can also fix the issue.
-
-Before SG is implemented, you really need to copy incoming frames into
-smallest chunks (to get lowest skb->truesize) and leave the 64KB
-allocated stuff forever in the driver.
-
-__GFP_REPEAT wont really solve the issue.
-
-It seems the problem comes from the fact that the drivers calls
-dev_kfree_skb_any() after calling mwifiex_deaggr_sdio_pkt(), instead of
-recycling this very precious 64KB skb once memory gets fragmented.
-
-Another problem is that mwifiex_deaggr_sdio_pkt() uses
-mwifiex_alloc_dma_align_buf() with GFP_KERNEL | GFP_DMA
-
-Really GFP_DMA makes no sense here, since the skb is going to be
-processed by the stack, which has no such requirement.
-
-Please use normal skb allocations there.
-
-diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index b2c839a..8404db5 100644
---- a/drivers/net/wireless/marvell/mwifiex/sdio.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -1123,8 +1123,8 @@ static void mwifiex_deaggr_sdio_pkt(struct mwifiex_adapter *adapter,
- 				    __func__, pkt_len, blk_size);
- 			break;
- 		}
--		skb_deaggr = mwifiex_alloc_dma_align_buf(pkt_len,
--							 GFP_KERNEL | GFP_DMA);
-+		skb_deaggr = __netdev_alloc_skb_ip_align(NULL, pkt_len,
-+							 GFP_KERNEL);
- 		if (!skb_deaggr)
- 			break;
- 		skb_put(skb_deaggr, pkt_len);
+Current code is fine, and run in control (slow) path anyway.
