@@ -1,38 +1,60 @@
-From: James Cameron <quozl-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
-Date: Tue, 29 Mar 2016 16:31:03 +1100
-Message-ID: <20160329053103.GH32709@us.netrek.org>
-References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, snanda-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1459226840-36287-1-git-send-email-wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 13/16] wcn36xx: Track association state
+Date: Mon, 28 Mar 2016 23:06:30 -0700
+Message-ID: <1459231593-360-14-git-send-email-bjorn.andersson@linaro.org>
+References: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pontus Fuchs <pontus.fuchs@gmail.com>
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2016 at 12:47:20PM +0800, Wei-Ning Huang wrote:
-> "single skb allocation failure" happens when system is under heavy
-> memory pressure.  Add __GFP_REPEAT to skb allocation call so kernel
-> attempts to reclaim pages and retry the allocation.
+From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-Oh, that's interesting, we're back to this symptom again.
+Knowing the association state is needed for mc filtering.
 
-Nice to see this fix.
+Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/net/wireless/ath/wcn36xx/main.c    | 2 ++
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h | 1 +
+ 2 files changed, 3 insertions(+)
 
-Heavy memory pressure on 3.5 caused dev_alloc_skb failure in this
-driver.  Tracked at OLPC as #12694.
-
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index f9c77de94583..253cece1b660 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -655,6 +655,7 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
+ 				     vif->addr,
+ 				     bss_conf->aid);
+ 
++			vif_priv->sta_assoc = true;
+ 			rcu_read_lock();
+ 			sta = ieee80211_find_sta(vif, bss_conf->bssid);
+ 			if (!sta) {
+@@ -686,6 +687,7 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
+ 				    bss_conf->bssid,
+ 				    vif->addr,
+ 				    bss_conf->aid);
++			vif_priv->sta_assoc = false;
+ 			wcn36xx_smd_set_link_st(wcn,
+ 						bss_conf->bssid,
+ 						vif->addr,
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index 54000db0af1a..7433d67a5929 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -128,6 +128,7 @@ struct wcn36xx_vif {
+ 	u8 dtim_period;
+ 	enum ani_ed_type encrypt_type;
+ 	bool is_joining;
++	bool sta_assoc;
+ 	struct wcn36xx_hal_mac_ssid ssid;
+ 
+ 	/* Power management */
 -- 
-James Cameron
-http://quozl.netrek.org/
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.5.0
