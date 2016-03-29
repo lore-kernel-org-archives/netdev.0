@@ -1,32 +1,41 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 1/2] net: dsa: mv88e6xxx: Introduce _mv88e6xxx_phy_page_{read,write}
-Date: Tue, 29 Mar 2016 12:26:37 -0400
-Message-ID: <87d1qdfdxe.fsf@ketchup.mtl.sfl>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit
+ on setup
+Date: Tue, 29 Mar 2016 18:28:25 +0200
+Message-ID: <20160329162825.GC4690@lunn.ch>
 References: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org>
+ <1459249908-4556-2-git-send-email-patrick@puiterwijk.org>
+ <87fuv9fe39.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, dennis@ausil.us, pbrobinson@gmail.com,
-	Patrick Uiterwijk <patrick@puiterwijk.org>
-To: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
-	davem@davemloft.net, andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
+	davem@davemloft.net, netdev@vger.kernel.org, dennis@ausil.us,
+	pbrobinson@gmail.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:38071 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbcC2Q0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 12:26:40 -0400
-In-Reply-To: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42025 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752517AbcC2Q2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Mar 2016 12:28:36 -0400
+Content-Disposition: inline
+In-Reply-To: <87fuv9fe39.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patrick Uiterwijk <patrick@puiterwijk.org> writes:
+On Tue, Mar 29, 2016 at 12:23:06PM -0400, Vivien Didelot wrote:
+> Hi Patrick,
+> 
+> Two comments below.
+> 
+> Patrick Uiterwijk <patrick@puiterwijk.org> writes:
+> 
+> > +static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
+> 
+> Since this function assumes the SMI lock is already held, its name
+> should be prefixed with _ by convention (_mv88e6xxx_power_on_serdes).
 
-> Add versions of the phy_page_read and _write functions to
-> be used in a context where the SMI mutex is held.
->
-> Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+We decided to drop at, since nearly everything would end up with a _
+prefix. The assert_smi_lock() should find any missing locks, and
+lockdep/deadlocks will make it clear when the lock is taken twice.
 
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Thanks,
-Vivien
+	  Andrew
