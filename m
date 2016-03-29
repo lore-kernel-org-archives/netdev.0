@@ -1,98 +1,75 @@
-From: Corcodel Marian <asd@marian1000.go.ro>
-Subject: [PATCH net-next v3.16]r9169:  Correct Set Vlan tag
-Date: Tue, 29 Mar 2016 11:33:20 +0300
-Message-ID: <1459240400-1602-1-git-send-email-asd@marian1000.go.ro>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Corcodel Marian <asd@marian1000.go.ro>
-To: netdev@vger.kernel.org
+From: Wei-Ning Huang <wnhuang@google.com>
+Subject: Re: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
+Date: Tue, 29 Mar 2016 17:27:16 +0800
+Message-ID: <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
+References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
+	<87vb45brxc.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Wireless <linux-wireless@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Sameer Nanda <snanda@google.com>, netdev@vger.kernel.org,
+	Sonny Rao <sonnyrao@chromium.org>,
+	Douglas Anderson <dianders@chromium.org>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5-14-227-26.residential.rdsnet.ro ([5.14.227.26]:50128 "EHLO
-	marian1000.go.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbcC2JAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 05:00:45 -0400
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:33700 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756531AbcC2J1S convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 05:27:18 -0400
+Received: by mail-ob0-f172.google.com with SMTP id x3so7499521obt.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 02:27:17 -0700 (PDT)
+In-Reply-To: <87vb45brxc.fsf@kamboji.qca.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- This patch add set Vlan tag and flush CPlusCmd register because when unset
- RxVlan and RxChkSum bit, whithout some explication , unwanted bits
- is set, PCIDAC, PCIMulRW  and others.Whithout this patch when run
- ethtool -d eth0 on "C+ Command" field missing "VLAN de-tagging"
+Adding some chromium devs to the thread.
 
-Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
----
- drivers/net/ethernet/realtek/r8169.c | 21 +++------------------
- 1 file changed, 3 insertions(+), 18 deletions(-)
+In, http://lxr.free-electrons.com/source/mm/page_alloc.c#L3152
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 2594bbb..df7ea28 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -752,7 +752,7 @@ struct rtl8169_private {
- 	void *Rx_databuff[NUM_RX_DESC];	/* Rx data buffers */
- 	struct ring_info tx_skb[NUM_TX_DESC];	/* Tx data buffers */
- 	struct timer_list timer;
--	u16 cp_cmd;
-+	int cp_cmd;
- 
- 	u16 event_slow;
- 
-@@ -1797,7 +1797,7 @@ static void __rtl8169_set_features(struct net_device *dev,
- 				   netdev_features_t features)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	netdev_features_t changed = features ^ dev->features;
-+	netdev_features_t changed = features & dev->features;
- 	void __iomem *ioaddr = tp->mmio_addr;
- 
- 	if (!(changed & (NETIF_F_RXALL | NETIF_F_RXCSUM |
-@@ -1807,16 +1807,10 @@ static void __rtl8169_set_features(struct net_device *dev,
- 	if (changed & (NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_RX)) {
- 		if (features & NETIF_F_RXCSUM)
- 			tp->cp_cmd |= RxChkSum;
--		else
--			tp->cp_cmd &= ~RxChkSum;
- 
- 		if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
- 			tp->cp_cmd |= RxVlan;
--		else
--			tp->cp_cmd &= ~RxVlan;
- 
--		RTL_W16(CPlusCmd, tp->cp_cmd);
--		RTL_R16(CPlusCmd);
- 	}
- 	if (changed & NETIF_F_RXALL) {
- 		int tmp = (RTL_R32(RxConfig) & ~(AcceptErr | AcceptRunt));
-@@ -6573,8 +6567,6 @@ static int rtl_open(struct net_device *dev)
- 
- 	rtl8169_init_phy(dev, tp);
- 
--	__rtl8169_set_features(dev, dev->features);
--
- 	rtl_pll_power_up(tp);
- 
- 	rtl_hw_start(dev);
-@@ -7060,7 +7052,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_mwi_2;
- 	}
- 
--	tp->cp_cmd = RxChkSum;
-+	tp->cp_cmd = ~0xffff;
- 
- 	if ((sizeof(dma_addr_t) > 4) &&
- 	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
-@@ -7101,13 +7093,6 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	pci_set_master(pdev);
- 
--	/*
--	 * Pretend we are using VLANs; This bypasses a nasty bug where
--	 * Interrupts stop flowing on high load on 8110SCd controllers.
--	 */
--	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
--		tp->cp_cmd |= RxVlan;
--
- 	rtl_init_mdio_ops(tp);
- 	rtl_init_pll_power_ops(tp);
- 	rtl_init_jumbo_ops(tp);
--- 
-2.1.4
+The default mm retry allocation when 'order <=3D
+PAGE_ALLOC_COSTLY_ORDER' of gfp_mask contains __GFP_REPEAT.
+PAGE_ALLOC_COSTLY_ORDER is defined to be 3. On systems with page size
+=3D 4K, this means memory compaction and retry is only done when the
+size of allocation is <=3D 32K
+In mwifiex, the allocation size is 64K. When we have system with
+memory fragmentation and allocation failed, there will be no retry.
+This is why we need to add __GFP_REPEAT here to allow the system to
+perform memory compaction and retry allocation.
+
+Maybe Amit@marvell can comment on if this is a good fix on this issue.
+I'm also aware that marvell is the progress of implementing
+scatter/gatter for mwifiex, which can also fix the issue.
+
+Wei-Ning
+
+On Tue, Mar 29, 2016 at 4:37 PM, Kalle Valo <kvalo@codeaurora.org> wrot=
+e:
+> Wei-Ning Huang <wnhuang@chromium.org> writes:
+>
+>> "single skb allocation failure" happens when system is under heavy
+>> memory pressure.  Add __GFP_REPEAT to skb allocation call so kernel
+>> attempts to reclaim pages and retry the allocation.
+>>
+>> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+>
+> Is this really a proper way to fix the issue? This is the first time =
+I'm
+> hearing about the flag and there isn't even a single user in
+> drivers/net. I would like to get confirmation from others that
+> __GFP_REPEAT is really ok to use in a wireless driver before I can ta=
+ke
+> this.
+>
+> --
+> Kalle Valo
+
+
+
+--=20
+Wei-Ning Huang, =E9=BB=83=E5=81=89=E5=AF=A7 | Software Engineer, Google=
+ Inc., Taiwan |
+wnhuang@google.com | Cell: +886 910-380678
