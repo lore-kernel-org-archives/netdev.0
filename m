@@ -1,56 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3.16]r9169: Correct Set Vlan tag
-Date: Tue, 29 Mar 2016 16:59:43 -0400 (EDT)
-Message-ID: <20160329.165943.1444638018201199679.davem@davemloft.net>
-References: <1459240400-1602-1-git-send-email-asd@marian1000.go.ro>
+Subject: Re: [net PATCH] gro: Allow tunnel stacking in the case of FOU/GUE
+Date: Tue, 29 Mar 2016 17:03:48 -0400 (EDT)
+Message-ID: <20160329.170348.883731618823989561.davem@davemloft.net>
+References: <CALx6S37xUjQpxYdskm0Lt33MQr6Jwwg1eGjZYnadX8762EuxBg@mail.gmail.com>
+	<CAMt9YRo07TD0kxkdKve2kD_E=xt89Cf=08=ZzZ_j+k1=6R5R-g@mail.gmail.com>
+	<CALx6S37GPMUuhgiWRH+40314x8eKnCWA-zZkvUmsTqf3_AFOhw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
-To: asd@marian1000.go.ro
+Cc: aduyck@mirantis.com, alexander.duyck@gmail.com, jesse@kernel.org,
+	netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44457 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44530 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823AbcC2U7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 16:59:45 -0400
-In-Reply-To: <1459240400-1602-1-git-send-email-asd@marian1000.go.ro>
+	with ESMTP id S1758149AbcC2VDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 17:03:51 -0400
+In-Reply-To: <CALx6S37GPMUuhgiWRH+40314x8eKnCWA-zZkvUmsTqf3_AFOhw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Corcodel Marian <asd@marian1000.go.ro>
-Date: Tue, 29 Mar 2016 11:33:20 +0300
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 28 Mar 2016 21:51:17 -0700
 
->  This patch add set Vlan tag and flush CPlusCmd register because when unset
->  RxVlan and RxChkSum bit, whithout some explication , unwanted bits
->  is set, PCIDAC, PCIMulRW  and others.Whithout this patch when run
->  ethtool -d eth0 on "C+ Command" field missing "VLAN de-tagging"
+> No, but I do expect that you support code that is already there. There
+> was apparently zero testing done on the original patch and it caused
+> one very obvious regression. So how can we have any confidence
+> whatsoever that this patch doesn't break other things? Furthermore,
+> with all these claims of bugs I still don't see that _anyone_ has
+> taken the time to reproduce any issue and show that this patch
+> materially fixes any thing. I seriously don't understand how basic
+> testing could be such a challenge.
 > 
-> Signed-off-by: Corcodel Marian <asd@marian1000.go.ro>
+> Anyway, what I expect is moot. It's up to davem to decide what to do
+> with this...
 
-I am hereby blocking you from making any and all postings to the
-mailing lists at vger.kernel.org
+You being upset with a lack of testing is one issue, and is
+legitimate.
 
-There is not negotiating about this, all complaints sent to me will be
-ignored.  You should have thought about the consequences of your
-actions (or lack thereof) over the past several months.
-
-You cannot continually post patches, as you please, and completely
-refuse to interact with the developers who review your changes and
-give you feedback.
-
-You have not coherently replied to any feedback you have been given.
-
-You have almost always ignored the feedback you were given and
-continued to make the same undesirable changes over and over again.
-
-And you refuse to even acknowledge or address the issue of your
-interactions with the community in any way whatsoever.
-
-Therefore you are hurting development, and wasting precious developer
-resources with your postings.
-
-All of this is unacceptable.
-
-But that all ends right now.
-
-Thank you.
+But the fact that we can't support, and never could support, more than
+one network header at a time except in a very special case for GRO
+is very real.  And you must acknowledge that this was a very shaky
+foundation upon which to erect the kinds of things you expect to work.
