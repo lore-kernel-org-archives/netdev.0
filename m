@@ -1,45 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit on setup
-Date: Tue, 29 Mar 2016 14:49:57 -0400
-Message-ID: <87wpolgluy.fsf@ketchup.mtl.sfl>
-References: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org> <1459249908-4556-2-git-send-email-patrick@puiterwijk.org> <87fuv9fe39.fsf@ketchup.mtl.sfl> <20160329162825.GC4690@lunn.ch>
+From: Phil Sutter <phil@nwl.cc>
+Subject: ss filter problem
+Date: Tue, 29 Mar 2016 21:32:42 +0200
+Message-ID: <20160329193242.GA28502@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
-	davem@davemloft.net, netdev@vger.kernel.org, dennis@ausil.us,
-	pbrobinson@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:43878 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877AbcC2SuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 14:50:07 -0400
-In-Reply-To: <20160329162825.GC4690@lunn.ch>
+Received: from orbyte.nwl.cc ([151.80.46.58]:39356 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757976AbcC2Tcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Mar 2016 15:32:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew, Patrick,
+Hi,
 
-Andrew Lunn <andrew@lunn.ch> writes:
+I am trying to fix a bug in ss filter code, but feel quite lost right
+now. The issue is this:
 
-> On Tue, Mar 29, 2016 at 12:23:06PM -0400, Vivien Didelot wrote:
->> Hi Patrick,
->> 
->> Two comments below.
->> 
->> Patrick Uiterwijk <patrick@puiterwijk.org> writes:
->> 
->> > +static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
->> 
->> Since this function assumes the SMI lock is already held, its name
->> should be prefixed with _ by convention (_mv88e6xxx_power_on_serdes).
->
-> We decided to drop at, since nearly everything would end up with a _
-> prefix. The assert_smi_lock() should find any missing locks, and
-> lockdep/deadlocks will make it clear when the lock is taken twice.
+| ss -nl -f inet '( sport = :22 )'
 
-OK, I didn't know that. This makes sense. There is no need to respin a
-v3 only for my previous &= comment then.
+prints not only listening sockets (as requested by -l flag), but
+established ones as well (reproduce by opening ssh connection to
+127.0.0.1 before calling above).
 
-Thanks,
--v
+In contrast, the following both don't show the established sockets:
+
+| ss -nl '( sport = :22 )'
+| ss -nl -f inet
+
+My investigation led me to see that current_filter.states is altered
+after ssfilter_parse() returns, and using gdb with a watchpoint I was
+able to identify parse_hostcond() to be the bad guy: In line 1560, it
+calls filter_af_set() after checking for fam != AF_UNSPEC (which is the
+case, since fam = preferred_family and the latter is changed to AF_INET
+when parsing '-f inet' parameter).
+
+This whole jumping back and forth confuses me quite effectively. Since
+you did some fixes in the past already, are you possibly able to point
+out where/how this tiny mess has to be fixed?
+
+I guess in an ideal world we would translate '-l' to 'state listen', '-f
+inet' to 'src inet:*' and pass everything ANDed together to
+ssfilter_parse(). Or maybe that would make things even worse. ;)
+
+Cheers, Phil
