@@ -1,51 +1,88 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 00/16] Misc wcn36xx fixes
-Date: Mon, 28 Mar 2016 23:06:17 -0700
-Message-ID: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
+Subject: [PATCH 02/16] wcn36xx: Pad TIM PVM if needed
+Date: Mon, 28 Mar 2016 23:06:19 -0700
+Message-ID: <1459231593-360-3-git-send-email-bjorn.andersson@linaro.org>
+References: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
 Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pontus Fuchs <pontus.fuchs@gmail.com>
 To: Eugene Krasnikov <k.eugene.e@gmail.com>,
 	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As I was debugging some issues with the wcn36xx driver I found a series of
-patches that exists in Eugene's github tree but not in mainline.
+From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-Noteworthy is the long requested feature of having working ARP support.
+The wcn36xx FW expects a fixed size TIM PVM in the beacon template. If
+supplied with a shorter than expected PVM it will overwrite the IE
+following the TIM.
 
-Please apply these rebased and relocated patches.
+Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/net/wireless/ath/wcn36xx/hal.h |  3 +++
+ drivers/net/wireless/ath/wcn36xx/smd.c | 22 ++++++++++++++++++++--
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
-Jason Mobarak (1):
-  wcn36xx: don't pad beacons for mesh
-
-Pontus Fuchs (15):
-  wcn36xx: Clean up wcn36xx_smd_send_beacon
-  wcn36xx: Pad TIM PVM if needed
-  wcn36xx: Add helper macros to cast vif to private vif and vice versa
-  wcn36xx: Use consistent name for private vif
-  wcn36xx: Use define for invalid index and fix typo
-  wcn36xx: Fetch private sta data from sta entry instead of from vif
-  wcn36xx: Add helper macros to cast sta to priv
-  wcn36xx: Remove sta pointer in private vif struct
-  wcn36xx: Parse trigger_ba response properly
-  wcn36xx: Copy all members in config_sta v1 conversion
-  wcn36xx: Use allocated self sta index instead of hard coded
-  wcn36xx: Clear encrypt_type when deleting bss key
-  wcn36xx: Track association state
-  wcn36xx: Implement multicast filtering
-  wcn36xx: Use correct command struct for EXIT_BMPS_REQ
-
- drivers/net/wireless/ath/wcn36xx/debug.c   |  12 +-
- drivers/net/wireless/ath/wcn36xx/hal.h     |  18 ++-
- drivers/net/wireless/ath/wcn36xx/main.c    |  91 +++++++++----
- drivers/net/wireless/ath/wcn36xx/pmc.c     |   4 +-
- drivers/net/wireless/ath/wcn36xx/smd.c     | 205 +++++++++++++++++++++--------
- drivers/net/wireless/ath/wcn36xx/smd.h     |   3 +
- drivers/net/wireless/ath/wcn36xx/txrx.c    |   8 +-
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  20 ++-
- 8 files changed, 257 insertions(+), 104 deletions(-)
-
+diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
+index 4fd77ccc2287..6f99b6134e4e 100644
+--- a/drivers/net/wireless/ath/wcn36xx/hal.h
++++ b/drivers/net/wireless/ath/wcn36xx/hal.h
+@@ -54,6 +54,9 @@
+ /* Default Beacon template size. */
+ #define BEACON_TEMPLATE_SIZE 0x17C
+ 
++/* Minimum PVM size that the FW expects. See comment in smd.c for details. */
++#define TIM_MIN_PVM_SIZE 6
++
+ /* Param Change Bitmap sent to HAL */
+ #define PARAM_BCN_INTERVAL_CHANGED                      (1 << 0)
+ #define PARAM_SHORT_PREAMBLE_CHANGED                 (1 << 1)
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index ff3ed2461a69..0aa3ae62494e 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -1375,12 +1375,14 @@ int wcn36xx_smd_send_beacon(struct wcn36xx *wcn, struct ieee80211_vif *vif,
+ 			    u16 p2p_off)
+ {
+ 	struct wcn36xx_hal_send_beacon_req_msg msg_body;
+-	int ret = 0;
++	int ret = 0, pad, pvm_len;
+ 
+ 	mutex_lock(&wcn->hal_mutex);
+ 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_SEND_BEACON_REQ);
+ 
+-	msg_body.beacon_length = skb_beacon->len;
++	pvm_len = skb_beacon->data[tim_off + 1] - 3;
++	pad = TIM_MIN_PVM_SIZE - pvm_len;
++	msg_body.beacon_length = skb_beacon->len + pad;
+ 	/* TODO need to find out why + 6 is needed */
+ 	msg_body.beacon_length6 = msg_body.beacon_length + 6;
+ 
+@@ -1393,6 +1395,22 @@ int wcn36xx_smd_send_beacon(struct wcn36xx *wcn, struct ieee80211_vif *vif,
+ 	memcpy(msg_body.beacon, skb_beacon->data, skb_beacon->len);
+ 	memcpy(msg_body.bssid, vif->addr, ETH_ALEN);
+ 
++	if (pad > 0) {
++		/*
++		 * The wcn36xx FW has a fixed size for the PVM in the TIM. If
++		 * given the beacon template from mac80211 with a PVM shorter
++		 * than the FW expectes it will overwrite the data after the
++		 * TIM.
++		 */
++		wcn36xx_dbg(WCN36XX_DBG_HAL, "Pad TIM PVM. %d bytes at %d\n",
++			    pad, pvm_len);
++		memmove(&msg_body.beacon[tim_off + 5 + pvm_len + pad],
++			&msg_body.beacon[tim_off + 5 + pvm_len],
++			skb_beacon->len - (tim_off + 5 + pvm_len));
++		memset(&msg_body.beacon[tim_off + 5 + pvm_len], 0, pad);
++		msg_body.beacon[tim_off + 1] += pad;
++	}
++
+ 	/* TODO need to find out why this is needed? */
+ 	if (vif->type == NL80211_IFTYPE_MESH_POINT)
+ 		/* mesh beacon don't need this, so push further down */
 -- 
 2.5.0
