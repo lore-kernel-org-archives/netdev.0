@@ -1,60 +1,51 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 13/16] wcn36xx: Track association state
-Date: Mon, 28 Mar 2016 23:06:30 -0700
-Message-ID: <1459231593-360-14-git-send-email-bjorn.andersson@linaro.org>
-References: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
+Subject: [PATCH 00/16] Misc wcn36xx fixes
+Date: Mon, 28 Mar 2016 23:06:17 -0700
+Message-ID: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
 Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pontus Fuchs <pontus.fuchs@gmail.com>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Eugene Krasnikov <k.eugene.e@gmail.com>,
 	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pontus Fuchs <pontus.fuchs@gmail.com>
+As I was debugging some issues with the wcn36xx driver I found a series of
+patches that exists in Eugene's github tree but not in mainline.
 
-Knowing the association state is needed for mc filtering.
+Noteworthy is the long requested feature of having working ARP support.
 
-Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
-Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
----
- drivers/net/wireless/ath/wcn36xx/main.c    | 2 ++
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h | 1 +
- 2 files changed, 3 insertions(+)
+Please apply these rebased and relocated patches.
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index f9c77de94583..253cece1b660 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -655,6 +655,7 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 				     vif->addr,
- 				     bss_conf->aid);
- 
-+			vif_priv->sta_assoc = true;
- 			rcu_read_lock();
- 			sta = ieee80211_find_sta(vif, bss_conf->bssid);
- 			if (!sta) {
-@@ -686,6 +687,7 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
- 				    bss_conf->bssid,
- 				    vif->addr,
- 				    bss_conf->aid);
-+			vif_priv->sta_assoc = false;
- 			wcn36xx_smd_set_link_st(wcn,
- 						bss_conf->bssid,
- 						vif->addr,
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index 54000db0af1a..7433d67a5929 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -128,6 +128,7 @@ struct wcn36xx_vif {
- 	u8 dtim_period;
- 	enum ani_ed_type encrypt_type;
- 	bool is_joining;
-+	bool sta_assoc;
- 	struct wcn36xx_hal_mac_ssid ssid;
- 
- 	/* Power management */
+Jason Mobarak (1):
+  wcn36xx: don't pad beacons for mesh
+
+Pontus Fuchs (15):
+  wcn36xx: Clean up wcn36xx_smd_send_beacon
+  wcn36xx: Pad TIM PVM if needed
+  wcn36xx: Add helper macros to cast vif to private vif and vice versa
+  wcn36xx: Use consistent name for private vif
+  wcn36xx: Use define for invalid index and fix typo
+  wcn36xx: Fetch private sta data from sta entry instead of from vif
+  wcn36xx: Add helper macros to cast sta to priv
+  wcn36xx: Remove sta pointer in private vif struct
+  wcn36xx: Parse trigger_ba response properly
+  wcn36xx: Copy all members in config_sta v1 conversion
+  wcn36xx: Use allocated self sta index instead of hard coded
+  wcn36xx: Clear encrypt_type when deleting bss key
+  wcn36xx: Track association state
+  wcn36xx: Implement multicast filtering
+  wcn36xx: Use correct command struct for EXIT_BMPS_REQ
+
+ drivers/net/wireless/ath/wcn36xx/debug.c   |  12 +-
+ drivers/net/wireless/ath/wcn36xx/hal.h     |  18 ++-
+ drivers/net/wireless/ath/wcn36xx/main.c    |  91 +++++++++----
+ drivers/net/wireless/ath/wcn36xx/pmc.c     |   4 +-
+ drivers/net/wireless/ath/wcn36xx/smd.c     | 205 +++++++++++++++++++++--------
+ drivers/net/wireless/ath/wcn36xx/smd.h     |   3 +
+ drivers/net/wireless/ath/wcn36xx/txrx.c    |   8 +-
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  20 ++-
+ 8 files changed, 257 insertions(+), 104 deletions(-)
+
 -- 
 2.5.0
