@@ -1,35 +1,59 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
-Date: Tue, 29 Mar 2016 11:37:51 +0300
-Message-ID: <87vb45brxc.fsf@kamboji.qca.qualcomm.com>
-References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] team: team should sync the port's uc/mc addrs when
+ add a port
+Date: Tue, 29 Mar 2016 16:50:10 +0800
+Message-ID: <CADvbK_ekaf+eCUmhuxo8UwsyWScXhJ6tzU=z1cNQ9W-jWZD7TQ@mail.gmail.com>
+References: <320fc71dbbf5ed164ca506cf5750b7bf4e048d44.1459183351.git.lucien.xin@gmail.com>
+	<CAM_iQpV2Ed=6FaWQP29PKjA=DtpMdH06OgVb+D9XvNt4DhbkFw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>, snanda@google.com,
-	netdev@vger.kernel.org
-To: Wei-Ning Huang <wnhuang@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
-	(Wei-Ning Huang's message of "Tue, 29 Mar 2016 12:47:20 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33458 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbcC2IuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 04:50:11 -0400
+Received: by mail-oi0-f66.google.com with SMTP id z7so1308624oig.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 01:50:11 -0700 (PDT)
+In-Reply-To: <CAM_iQpV2Ed=6FaWQP29PKjA=DtpMdH06OgVb+D9XvNt4DhbkFw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Wei-Ning Huang <wnhuang@chromium.org> writes:
-
-> "single skb allocation failure" happens when system is under heavy
-> memory pressure.  Add __GFP_REPEAT to skb allocation call so kernel
-> attempts to reclaim pages and retry the allocation.
+On Tue, Mar 29, 2016 at 12:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Mon, Mar 28, 2016 at 9:42 AM, Xin Long <lucien.xin@gmail.com> wrote:
+>> There is an issue when we use mavtap over team:
+>> When we replug nic links from team0, the real nics's mc list will not
+>> include the maddr for macvtap any more. then we can't receive pkts to
+>> macvtap device, as they are filterred by mc list of nic.
+>>
+>> In Bonding Driver, it syncs the uc/mc addrs in bond_enslave().
+>>
+>> We will fix this issue on team by adding the port's uc/mc addrs sync in
+>> team_port_add.
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  drivers/net/team/team.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index 26c64d2..17ff367 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -1198,6 +1198,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+>>                 goto err_dev_open;
+>>         }
+>>
+>> +       dev_uc_sync_multiple(port_dev, dev);
+>> +       dev_mc_sync_multiple(port_dev, dev);
+>> +
+>>         err = vlan_vids_add_by_dev(port_dev, dev);
 >
-> Signed-off-by: Wei-Ning Huang <wnhuang@chromium.org>
+> You need to call dev_{uc,mc}_unsync() on error path, don't you?
 
-Is this really a proper way to fix the issue? This is the first time I'm
-hearing about the flag and there isn't even a single user in
-drivers/net. I would like to get confirmation from others that
-__GFP_REPEAT is really ok to use in a wireless driver before I can take
-this.
-
--- 
-Kalle Valo
+I think so, I'm gonna post another patch as a fix for this one.
+Thanks, Cong.
