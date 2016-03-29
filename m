@@ -1,109 +1,36 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH] gro: Allow tunnel stacking in the case of FOU/GUE
-Date: Tue, 29 Mar 2016 14:26:46 -0700
-Message-ID: <CAKgT0UdUy_YomWXW2800CodCoTG=msQU9y-5ZHcpkFouGW2hJA@mail.gmail.com>
-References: <20160328235613.26269.26291.stgit@localhost.localdomain>
-	<CALx6S36PohjN6ReOE_cZKcyQdcRDOmSh+sij9boTVLnDHNc7JA@mail.gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH] bridge: Allow set bridge ageing time when
+ switchdev disabled
+Date: Wed, 30 Mar 2016 00:34:13 +0300
+Message-ID: <20160329213413.GA2917@colbert.idosch.org>
+References: <1459248488-25621-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, jiri@mellanox.com,
 	"David S. Miller" <davem@davemloft.net>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:34877 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754435AbcC2V0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 17:26:47 -0400
-Received: by mail-io0-f180.google.com with SMTP id g185so42639385ioa.2
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 14:26:46 -0700 (PDT)
-In-Reply-To: <CALx6S36PohjN6ReOE_cZKcyQdcRDOmSh+sij9boTVLnDHNc7JA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1459248488-25621-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2016 at 2:13 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, Mar 28, 2016 at 4:58 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch should fix the issues seen with a recent fix to prevent
->> tunnel-in-tunnel frames from being generated with GRO.  The fix itself is
->> correct for now as long as we do not add any devices that support
->> NETIF_F_GSO_GRE_CSUM.  When such a device is added it could have the
->> potential to mess things up due to the fact that the outer transport header
->> points to the outer UDP header and not the GRE header as would be expected.
->>
->> Fixes: fac8e0f579695 ("tunnels: Don't apply GRO to multiple layers of encapsulation.")
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>
->> This should allow us to keep the fix that Jesse added without breaking the
->> 3 cases that Tom called out in terms of FOU/GUE.
->>
->> Additional work will be needed in net-next as we probably need to make it
->> so that offloads work correctly when we get around to supporting
->> NETIF_F_GSO_GRE_CSUM.
->>
->>  net/ipv4/fou.c |   32 ++++++++++++++++++++++++++++++++
->>  1 file changed, 32 insertions(+)
->>
->> diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
->> index 4136da9275b2..2c30256ee959 100644
->> --- a/net/ipv4/fou.c
->> +++ b/net/ipv4/fou.c
->> @@ -195,6 +195,22 @@ static struct sk_buff **fou_gro_receive(struct sk_buff **head,
->>         u8 proto = NAPI_GRO_CB(skb)->proto;
->>         const struct net_offload **offloads;
->>
->> +       switch (proto) {
->> +       case IPPROTO_IPIP:
->> +       case IPPROTO_IPV6:
->> +       case IPPROTO_GRE:
->> +               /* We can clear the encap_mark for these 3 protocols as
->> +                * we are either adding an L4 tunnel header to the outer
->> +                * L3 tunnel header, or we are are simply treating the
->> +                * GRE tunnel header as though it is a UDP protocol
->> +                * specific header such as VXLAN or GENEVE.
->> +                */
->> +               NAPI_GRO_CB(skb)->encap_mark = 0;
->> +               /* fall-through */
->> +       default:
->> +               break;
->> +       }
+Tue, Mar 29, 2016 at 01:48:08PM IDT, yanhaishuang@cmss.chinamobile.com wrote:
+>When NET_SWITCHDEV=n, switchdev_port_attr_set will return -EOPNOTSUPP,
+>we should ignore this error code and continue to set the ageing time.
 >
-> Switch statement is not needed, just do NAPI_GRO_CB(skb)->encap_mark = 0;
->
->> +
->>         rcu_read_lock();
->>         offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
->>         ops = rcu_dereference(offloads[proto]);
->> @@ -359,6 +375,22 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
->>                 NAPI_GRO_CB(p)->flush |= NAPI_GRO_CB(p)->flush_id;
->>         }
->>
->> +       switch (guehdr->proto_ctype) {
->> +       case IPPROTO_IPIP:
->> +       case IPPROTO_IPV6:
->> +       case IPPROTO_GRE:
->> +               /* We can clear the encap_mark for these 3 protocols as
->> +                * we are either adding an L4 tunnel header to the outer
->> +                * L3 tunnel header, or we are are simply treating the
->> +                * GRE tunnel header as though it is a UDP protocol
->> +                * specific header such as VXLAN or GENEVE.
->> +                */
->> +               NAPI_GRO_CB(skb)->encap_mark = 0;
->> +               /* fall-through */
->> +       default:
->> +               break;
->> +       }
->> +
-> Here also.
->
->>         rcu_read_lock();
->>         offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
->>         ops = rcu_dereference(offloads[guehdr->proto_ctype]);
->>
+>Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Okay, I can update that and submit a v2.  The only real reason why I
-had the switch statements was out of an abundance of caution since
-those were the only 3 cases where I knew we would run into issues.
+Fixes: c62987bbd8a1 ("bridge: push bridge setting ageing_time down to switchdev")
+Acked-by: Ido Schimmel <idosch@mellanox.com>
 
-- Alex
+Thank you.
