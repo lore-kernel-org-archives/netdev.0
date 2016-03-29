@@ -1,59 +1,55 @@
-From: fanhui <fanhui00@gmail.com>
-Subject: [PATCH 1/1] ipv4: fix NULL pointer dereference in __inet_put_port()
-Date: Tue, 29 Mar 2016 14:45:53 +0800
-Message-ID: <1459233953-4745-1-git-send-email-fanhui00@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fanhui <fanhui00@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+From: Charles Keepax <ckeepax@opensource.wolfsonmicro.com>
+Subject: Re: [PATCH] net: macb: Only call GPIO functions if there is a valid
+ GPIO
+Date: Tue, 29 Mar 2016 09:28:36 +0100
+Message-ID: <20160329082836.GD31814@localhost.localdomain>
+References: <1459169262-3941-1-git-send-email-ckeepax@opensource.wolfsonmicro.com>
+ <56F96A23.4000001@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<patches@opensource.wolfsonmicro.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56F96A23.4000001@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There may be race condition when accessing inet_csk(sk)->icsk_bind_hash,
-which leads to a crash like this:
+On Mon, Mar 28, 2016 at 08:30:11PM +0300, Sergei Shtylyov wrote:
+> >@@ -3029,7 +3030,8 @@ static int macb_remove(struct platform_device *pdev)
+> >  		mdiobus_free(bp->mii_bus);
+> >
+> >  		/* Shutdown the PHY if there is a GPIO reset */
+> >-		gpiod_set_value(bp->reset_gpio, 0);
+> >+		if (bp->reset_gpio)
+> >+			gpiod_set_value(bp->reset_gpio, 0);
+> 
+>    Hm, this function was previously OK to call with NULL (it didn't curse)...
+> 
 
-Unable to handle kernel NULL pointer dereference at virtual
-address 00000010
-......
-[<ffffffc000929140>] inet_put_port+0x80/0xb8
-[<ffffffc00092c4bc>] tcp_set_state+0xc4/0x110
-[<ffffffc00092ce68>] tcp_done+0x60/0xb8
-[<ffffffc000930718>] tcp_nuke_addr+0x22c/0x2a0
-[<ffffffc000950558>] devinet_ioctl+0x294/0x680
-[<ffffffc000951e68>] inet_ioctl+0xd4/0x100
-[<ffffffc00089fd04>] sock_do_ioctl+0x40/0x70
-[<ffffffc0008a0238>] sock_ioctl+0x288/0x2a8
-[<ffffffc000193358>] do_vfs_ioctl+0x4b4/0x588
-[<ffffffc000193494>] SyS_ioctl+0x68/0x94
-......
+Looks like it was changed so that it does complain fairly
+recently (patch librally snipped down):
 
-Signed-off-by: fanhui <fanhui00@gmail.com>
----
- net/ipv4/inet_hashtables.c | 3 +++
- 1 file changed, 3 insertions(+)
+commit fdeb8e1547cb9dd39d5d7223b33f3565cf86c28e
+Author: Linus Walleij <linus.walleij@linaro.org>
 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index bc68ece..742c618 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -112,11 +112,14 @@ static void __inet_put_port(struct sock *sk)
- 
- 	spin_lock(&head->lock);
- 	tb = inet_csk(sk)->icsk_bind_hash;
-+	if (!tb)
-+		goto out;
- 	__sk_del_bind_node(sk);
- 	tb->num_owners--;
- 	inet_csk(sk)->icsk_bind_hash = NULL;
- 	inet_sk(sk)->inet_num = 0;
- 	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
-+out:
- 	spin_unlock(&head->lock);
- }
- 
--- 
-1.9.1
+    gpio: reflect base and ngpio into gpio_device
+
+
++#define VALIDATE_DESC_VOID(desc) do { \
++ if (!desc || !desc->gdev) { \
++         pr_warn("%s: invalid GPIO\n", __func__); \
++         return; \
++ } \
++
+
+void gpiod_set_value(struct gpio_desc *desc, int value)
+{
+-   if (!desc)
+-           return;
++ VALIDATE_DESC_VOID(desc);
+
+Thanks,
+Charles
