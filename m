@@ -1,7 +1,7 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH 02/16] wcn36xx: Pad TIM PVM if needed
-Date: Mon, 28 Mar 2016 23:06:19 -0700
-Message-ID: <1459231593-360-3-git-send-email-bjorn.andersson@linaro.org>
+Subject: [PATCH 08/16] wcn36xx: Remove sta pointer in private vif struct
+Date: Mon, 28 Mar 2016 23:06:25 -0700
+Message-ID: <1459231593-360-9-git-send-email-bjorn.andersson@linaro.org>
 References: <1459231593-360-1-git-send-email-bjorn.andersson@linaro.org>
 Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -15,74 +15,123 @@ List-Id: netdev.vger.kernel.org
 
 From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-The wcn36xx FW expects a fixed size TIM PVM in the beacon template. If
-supplied with a shorter than expected PVM it will overwrite the IE
-following the TIM.
+This does not work with multiple sta's in a vif.
 
 Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- drivers/net/wireless/ath/wcn36xx/hal.h |  3 +++
- drivers/net/wireless/ath/wcn36xx/smd.c | 22 ++++++++++++++++++++--
- 2 files changed, 23 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/main.c    |  3 ---
+ drivers/net/wireless/ath/wcn36xx/smd.c     | 28 +++++++++++++++-------------
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  1 -
+ 3 files changed, 15 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
-index 4fd77ccc2287..6f99b6134e4e 100644
---- a/drivers/net/wireless/ath/wcn36xx/hal.h
-+++ b/drivers/net/wireless/ath/wcn36xx/hal.h
-@@ -54,6 +54,9 @@
- /* Default Beacon template size. */
- #define BEACON_TEMPLATE_SIZE 0x17C
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index a23738deb5b3..7c06ca9fdd2c 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -796,7 +796,6 @@ static int wcn36xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 		    vif, sta->addr);
  
-+/* Minimum PVM size that the FW expects. See comment in smd.c for details. */
-+#define TIM_MIN_PVM_SIZE 6
-+
- /* Param Change Bitmap sent to HAL */
- #define PARAM_BCN_INTERVAL_CHANGED                      (1 << 0)
- #define PARAM_SHORT_PREAMBLE_CHANGED                 (1 << 1)
+ 	spin_lock_init(&sta_priv->ampdu_lock);
+-	vif_priv->sta = sta_priv;
+ 	sta_priv->vif = vif_priv;
+ 	/*
+ 	 * For STA mode HW will be configured on BSS_CHANGED_ASSOC because
+@@ -815,14 +814,12 @@ static int wcn36xx_sta_remove(struct ieee80211_hw *hw,
+ 			      struct ieee80211_sta *sta)
+ {
+ 	struct wcn36xx *wcn = hw->priv;
+-	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
+ 	struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
+ 
+ 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac sta remove vif %p sta %pM index %d\n",
+ 		    vif, sta->addr, sta_priv->sta_index);
+ 
+ 	wcn36xx_smd_delete_sta(wcn, sta_priv->sta_index);
+-	vif_priv->sta = NULL;
+ 	sta_priv->vif = NULL;
+ 	return 0;
+ }
 diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index ff3ed2461a69..0aa3ae62494e 100644
+index b75e7211049d..887781dff110 100644
 --- a/drivers/net/wireless/ath/wcn36xx/smd.c
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -1375,12 +1375,14 @@ int wcn36xx_smd_send_beacon(struct wcn36xx *wcn, struct ieee80211_vif *vif,
- 			    u16 p2p_off)
+@@ -1170,6 +1170,7 @@ static int wcn36xx_smd_config_bss_v1(struct wcn36xx *wcn,
+ 
+ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
+ 				      struct ieee80211_vif *vif,
++				      struct ieee80211_sta *sta,
+ 				      void *buf,
+ 				      size_t len)
  {
- 	struct wcn36xx_hal_send_beacon_req_msg msg_body;
--	int ret = 0;
-+	int ret = 0, pad, pvm_len;
+@@ -1200,9 +1201,10 @@ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
  
- 	mutex_lock(&wcn->hal_mutex);
- 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_SEND_BEACON_REQ);
+ 	vif_priv->bss_index = params->bss_index;
  
--	msg_body.beacon_length = skb_beacon->len;
-+	pvm_len = skb_beacon->data[tim_off + 1] - 3;
-+	pad = TIM_MIN_PVM_SIZE - pvm_len;
-+	msg_body.beacon_length = skb_beacon->len + pad;
- 	/* TODO need to find out why + 6 is needed */
- 	msg_body.beacon_length6 = msg_body.beacon_length + 6;
+-	if (vif_priv->sta) {
+-		vif_priv->sta->bss_sta_index =  params->bss_sta_index;
+-		vif_priv->sta->bss_dpu_desc_index = params->dpu_desc_index;
++	if (sta) {
++		struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
++		sta_priv->bss_sta_index = params->bss_sta_index;
++		sta_priv->bss_dpu_desc_index = params->dpu_desc_index;
+ 	}
  
-@@ -1393,6 +1395,22 @@ int wcn36xx_smd_send_beacon(struct wcn36xx *wcn, struct ieee80211_vif *vif,
- 	memcpy(msg_body.beacon, skb_beacon->data, skb_beacon->len);
- 	memcpy(msg_body.bssid, vif->addr, ETH_ALEN);
+ 	vif_priv->self_ucast_dpu_sign = params->ucast_dpu_signature;
+@@ -1329,6 +1331,7 @@ int wcn36xx_smd_config_bss(struct wcn36xx *wcn, struct ieee80211_vif *vif,
+ 	}
+ 	ret = wcn36xx_smd_config_bss_rsp(wcn,
+ 					 vif,
++					 sta,
+ 					 wcn->hal_buf,
+ 					 wcn->hal_rsp_len);
+ 	if (ret) {
+@@ -2053,25 +2056,24 @@ static int wcn36xx_smd_delete_sta_context_ind(struct wcn36xx *wcn,
+ {
+ 	struct wcn36xx_hal_delete_sta_context_ind_msg *rsp = buf;
+ 	struct wcn36xx_vif *tmp;
+-	struct ieee80211_sta *sta = NULL;
++	struct ieee80211_sta *sta;
  
-+	if (pad > 0) {
-+		/*
-+		 * The wcn36xx FW has a fixed size for the PVM in the TIM. If
-+		 * given the beacon template from mac80211 with a PVM shorter
-+		 * than the FW expectes it will overwrite the data after the
-+		 * TIM.
-+		 */
-+		wcn36xx_dbg(WCN36XX_DBG_HAL, "Pad TIM PVM. %d bytes at %d\n",
-+			    pad, pvm_len);
-+		memmove(&msg_body.beacon[tim_off + 5 + pvm_len + pad],
-+			&msg_body.beacon[tim_off + 5 + pvm_len],
-+			skb_beacon->len - (tim_off + 5 + pvm_len));
-+		memset(&msg_body.beacon[tim_off + 5 + pvm_len], 0, pad);
-+		msg_body.beacon[tim_off + 1] += pad;
-+	}
+ 	if (len != sizeof(*rsp)) {
+ 		wcn36xx_warn("Corrupted delete sta indication\n");
+ 		return -EIO;
+ 	}
+ 
++	wcn36xx_dbg(WCN36XX_DBG_HAL, "delete station indication %pM index %d\n",
++		    rsp->addr2, rsp->sta_id);
 +
- 	/* TODO need to find out why this is needed? */
- 	if (vif->type == NL80211_IFTYPE_MESH_POINT)
- 		/* mesh beacon don't need this, so push further down */
+ 	list_for_each_entry(tmp, &wcn->vif_list, list) {
+-		if (sta && (tmp->sta->sta_index == rsp->sta_id)) {
+-			sta = container_of((void *)tmp->sta,
+-						 struct ieee80211_sta,
+-						 drv_priv);
+-			wcn36xx_dbg(WCN36XX_DBG_HAL,
+-				    "delete station indication %pM index %d\n",
+-				    rsp->addr2,
+-				    rsp->sta_id);
++		rcu_read_lock();
++		sta = ieee80211_find_sta(wcn36xx_priv_to_vif(tmp), rsp->addr2);
++		if (sta)
+ 			ieee80211_report_low_ack(sta, 0);
++		rcu_read_unlock();
++		if (sta)
+ 			return 0;
+-		}
+ 	}
+ 
+ 	wcn36xx_warn("STA with addr %pM and index %d not found\n",
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index c368a34c8de7..54000db0af1a 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -125,7 +125,6 @@ struct wcn36xx_platform_ctrl_ops {
+  */
+ struct wcn36xx_vif {
+ 	struct list_head list;
+-	struct wcn36xx_sta *sta;
+ 	u8 dtim_period;
+ 	enum ani_ed_type encrypt_type;
+ 	bool is_joining;
 -- 
 2.5.0
