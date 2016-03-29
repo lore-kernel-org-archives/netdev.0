@@ -1,68 +1,38 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH] rtl8xxxu: fix uninitialized return value in ret
-Date: Tue, 29 Mar 2016 12:47:55 -0400
-Message-ID: <wrfjshz9ut6s.fsf@redhat.com>
-References: <1459269876-15559-1-git-send-email-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] qed: initialize return rc to avoid returning garbage
+Date: Tue, 29 Mar 2016 18:00:50 +0100
+Message-ID: <1459270850-16177-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459269876-15559-1-git-send-email-colin.king@canonical.com>
-	(Colin King's message of "Tue, 29 Mar 2016 17:44:36 +0100")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Colin King <colin.king@canonical.com> writes:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> several functions are not initializing a return status in ret
-> resulting in garbage to be returned instead of 0 for success.
-> Currently, the calls to these functions are not checking the
-> return, however, it seems prudent to return the correct status
-> in case they are to be checked at a later date.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+From: Colin Ian King <colin.king@canonical.com>
 
-Thanks for the patch! I'm surprised the compiler didn't warn about this.
+in the case where qed_slowpath_irq_req is not called, rc is not
+assigned and so qed_int_igu_enable will return a garbage value.
+Fix this by initializing rc to 0.
 
-I'll add it to my queue for rtl8xxxu.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_int.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Cheers,
-Jes
-
->
-> diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
-> index abdff45..9262aad 100644
-> --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
-> +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
-> @@ -5231,7 +5231,7 @@ static void rtl8xxxu_set_ampdu_min_space(struct rtl8xxxu_priv *priv, u8 density)
->  static int rtl8xxxu_active_to_emu(struct rtl8xxxu_priv *priv)
->  {
->  	u8 val8;
-> -	int count, ret;
-> +	int count, ret = 0;
->  
->  	/* Start of rtl8723AU_card_enable_flow */
->  	/* Act to Cardemu sequence*/
-> @@ -5281,7 +5281,7 @@ static int rtl8723bu_active_to_emu(struct rtl8xxxu_priv *priv)
->  	u8 val8;
->  	u16 val16;
->  	u32 val32;
-> -	int count, ret;
-> +	int count, ret = 0;
->  
->  	/* Turn off RF */
->  	rtl8xxxu_write8(priv, REG_RF_CTRL, 0);
-> @@ -5338,7 +5338,7 @@ static int rtl8xxxu_active_to_lps(struct rtl8xxxu_priv *priv)
->  {
->  	u8 val8;
->  	u8 val32;
-> -	int count, ret;
-> +	int count, ret = 0;
->  
->  	rtl8xxxu_write8(priv, REG_TXPAUSE, 0xff);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
+index ffd0acc..2017b01 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_int.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
+@@ -2750,7 +2750,7 @@ void qed_int_igu_enable_int(struct qed_hwfn *p_hwfn,
+ int qed_int_igu_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
+ 		       enum qed_int_mode int_mode)
+ {
+-	int rc;
++	int rc = 0;
+ 
+ 	/* Configure AEU signal change to produce attentions */
+ 	qed_wr(p_hwfn, p_ptt, IGU_REG_ATTENTION_ENABLE, 0);
+-- 
+2.7.4
