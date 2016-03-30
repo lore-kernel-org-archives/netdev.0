@@ -1,56 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Allow set bridge ageing time when
- switchdev disabled
-Date: Wed, 30 Mar 2016 15:40:43 -0400 (EDT)
-Message-ID: <20160330.154043.649305811904515416.davem@davemloft.net>
-References: <1459248488-25621-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [net PATCH] i40e/i40evf: Limit TSO to 7 descriptors for payload
+ instead of 8 per packet
+Date: Wed, 30 Mar 2016 12:41:35 -0700
+Message-ID: <20160330124135.000054c6@unknown>
+References: <20160330064213.12927.46852.stgit@localhost.localdomain>
+	<20160330170011.GB27540@oracle.com>
+	<CAKgT0UdTgaeamyLetGPK0mqMNS-80BTc8t-WdSGJuuLDfz4JOg@mail.gmail.com>
+	<20160330172001.GD27540@oracle.com>
+	<CAKgT0Ufb-_X-DD2jYkVJQwLZ-JBfWD2Biuhi6YaxWBeNy9K2fQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1459248488-25621-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	jesse.brandeburg@intel.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:7158 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753155AbcC3Tlh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Mar 2016 15:41:37 -0400
+In-Reply-To: <CAKgT0Ufb-_X-DD2jYkVJQwLZ-JBfWD2Biuhi6YaxWBeNy9K2fQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Tue, 29 Mar 2016 18:48:08 +0800
+On Wed, 30 Mar 2016 10:35:55 -0700
+Alexander Duyck <alexander.duyck@gmail.com> wrote:
 
-> When NET_SWITCHDEV=n, switchdev_port_attr_set will return -EOPNOTSUPP,
-> we should ignore this error code and continue to set the ageing time.
+> On Wed, Mar 30, 2016 at 10:20 AM, Sowmini Varadhan
+> <sowmini.varadhan@oracle.com> wrote:
+> > On (03/30/16 10:12), Alexander Duyck wrote:
+> >> Yeah.  The patch was sort of a knee-jerk reaction to being told that
+> >> the patch referenced caused a regression.  From what I can tell that
+> >> is not the case as I am also seeing the Tx hangs when I run the test
+> >> with the frames being linearized.
+> >
+> > I'm not sure how important of a subtlety this is, but the actual
+> > console log after the patch is the following:
+> >
+> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
+> >  i40e 0000:82:00.0 eth2: adding 68:05:ca:30:dd:18 vid=0
+> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
+> >  i40e 0000:82:00.0 eth2: adding 68:05:ca:30:dd:18 vid=0
+> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
+> >
+> > Comparing with what I'd pasted in the sourceforge thread earlier,
+> > I see that it does not say "Hung Tx queue etc."  any more, though
+> > it still resets.
+> >
+> > Not sure if that changed info is significant?
 > 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> It might be.  Right now I am chasing down the Tx driver issue as that
+> I what I am reproducing in my environment as well.
 
-Applied and queued up for -stable, thanks.
+This gets "Even Uglier", I've turned off all offloads at my receiver,
+enabled calling skb_linearize on *all* frames, which works fine for
+scp, but the receiver shows > MSS sized frames on the wire for
+rds-stress traffic.
 
-> @@ -582,7 +582,7 @@ int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
->  	int err;
->  
->  	err = switchdev_port_attr_set(br->dev, &attr);
-> -	if (err)
-> +	if (err && err != -EOPNOTSUPP)
->  		return err;
->  
->  	br->ageing_time = t;
+This implies to me we have some issue with skb_linearize, possibly in
+how the stack linearizes the data, or how the driver interprets the
+linearized packets (which should always work)
 
-This is at least the 5th time I've had to apply a bug fix exactly like
-this one.
-
-If this doesn't convince everyone that this whole -EOPNOTSUPP
-mechanism is extremely error prone, I don't know what will.
-
-There should be only one or two strictly controlled locations that
-reinterpret the return value from all of these routines that have this
-special way of signalling lack of switchdev support via -EOPNOTSUPP.
-
-It can't be spread all over the place like this, it simply does NOT work.
+Wheee......
