@@ -1,34 +1,108 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/5] wireless: ti: Convert specialized logging macros to
- kernel style
-Date: Wed, 30 Mar 2016 14:36:31 -0700
-Message-ID: <1459373791.25110.132.camel@perches.com>
-References: <cover.1457395071.git.joe@perches.com>
-	 <87shz85gkq.fsf@purkki.adurom.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v2 net-next] tcp: remove cwnd moderation after recovery
+Date: Wed, 30 Mar 2016 14:54:20 -0700
+Message-ID: <1459374860-32643-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0149.hostedemail.com ([216.40.44.149]:47035 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751653AbcC3Vgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:36:35 -0400
-In-Reply-To: <87shz85gkq.fsf@purkki.adurom.net>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34292 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751212AbcC3Vyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:54:41 -0400
+Received: by mail-pa0-f44.google.com with SMTP id fe3so50191063pab.1
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 14:54:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-03-30 at 14:51 +0300, Kalle Valo wrote:
-> Joe Perches <joe@perches.com> writes:
-> > Using the normal kernel logging mechanisms makes this code
-> > a bit more like other wireless drivers.
-> Personally I don't see the point but I don't have any strong opinions. A
-> bigger problem is that TI drivers are not really in active development
-> and that's I'm not thrilled to take big patches like this for dormant
-> drivers.
+For non-SACK connections, cwnd is lowered to inflight plus 3 packets
+when the recovery ends. This is an optional feature in the NewReno
+RFC 2582 to reduce the potential burst when cwnd is "re-opened"
+after recovery and inflight is low.
 
-Not very dormant.
+This feature is questionably effective because of PRR: when
+the recovery ends (i.e., snd_una == high_seq) NewReno holds the
+CA_Recovery state for another round trip to prevent false fast
+retransmits. But if the inflight is low, PRR will overwrite the
+moderated cwnd in tcp_cwnd_reduction() later regardlessly. So if a
+receiver responds bogus ACKs (i.e., acking future data) to speed up
+transfer after recovery, it can only induce a burst up to a window
+worth of data packets by acking up to SND.NXT. A restart from (short)
+idle or receiving streched ACKs can both cause such bursts as well.
 
-35 patches in the last year, most of them adding functionality.
+On the other hand, if the recovery ends because the sender
+detects the losses were spurious (e.g., reordering). This feature
+unconditionally lowers a reverted cwnd even though nothing
+was lost.
+
+By principle loss recovery module should not update cwnd. Further
+pacing is much more effective to reduce burst. Hence this patch
+removes the cwnd moderation feature.
+
+v2 changes: revised commit message on bogus ACKs and burst, and
+            missing signature
+
+Signed-off-by: Matt Mathis <mattmathis@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/net/tcp.h    | 11 -----------
+ net/ipv4/tcp_input.c | 11 -----------
+ 2 files changed, 22 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b91370f..f8bb4a4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1039,17 +1039,6 @@ static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
+ 	return 3;
+ }
+ 
+-/* Slow start with delack produces 3 packets of burst, so that
+- * it is safe "de facto".  This will be the default - same as
+- * the default reordering threshold - but if reordering increases,
+- * we must be able to allow cwnd to burst at least this much in order
+- * to not pull it back when holes are filled.
+- */
+-static __inline__ __u32 tcp_max_burst(const struct tcp_sock *tp)
+-{
+-	return tp->reordering;
+-}
+-
+ /* Returns end sequence number of the receiver's advertised window */
+ static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
+ {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e6e65f7..f87b84a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2252,16 +2252,6 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
+ 	}
+ }
+ 
+-/* CWND moderation, preventing bursts due to too big ACKs
+- * in dubious situations.
+- */
+-static inline void tcp_moderate_cwnd(struct tcp_sock *tp)
+-{
+-	tp->snd_cwnd = min(tp->snd_cwnd,
+-			   tcp_packets_in_flight(tp) + tcp_max_burst(tp));
+-	tp->snd_cwnd_stamp = tcp_time_stamp;
+-}
+-
+ static bool tcp_tsopt_ecr_before(const struct tcp_sock *tp, u32 when)
+ {
+ 	return tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+@@ -2410,7 +2400,6 @@ static bool tcp_try_undo_recovery(struct sock *sk)
+ 		/* Hold old state until something *above* high_seq
+ 		 * is ACKed. For Reno it is MUST to prevent false
+ 		 * fast retransmits (RFC2582). SACK TCP is safe. */
+-		tcp_moderate_cwnd(tp);
+ 		if (!tcp_any_retrans_done(sk))
+ 			tp->retrans_stamp = 0;
+ 		return true;
+-- 
+2.8.0.rc3.226.g39d4020
