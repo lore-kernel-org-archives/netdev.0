@@ -1,36 +1,40 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [net PATCH] i40e/i40evf: Limit TSO to 7 descriptors for payload
- instead of 8 per packet
-Date: Wed, 30 Mar 2016 13:00:11 -0400
-Message-ID: <20160330170011.GB27540@oracle.com>
-References: <20160330064213.12927.46852.stgit@localhost.localdomain>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+Date: Wed, 30 Mar 2016 10:04:20 -0700
+Message-ID: <56FC0714.6060607@boundarydevices.com>
+References: <56FB46EA.7050401@uclinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	jesse.brandeburg@intel.com, alexander.duyck@gmail.com,
-	jeffrey.t.kirsher@intel.com
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Greg Ungerer <gerg@uclinux.org>, Zhi Li <lznuaa@gmail.com>,
+	Fugang Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48636 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755028AbcC3RAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 13:00:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20160330064213.12927.46852.stgit@localhost.localdomain>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:33468 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755147AbcC3REX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 13:04:23 -0400
+Received: by mail-pf0-f177.google.com with SMTP id 4so47658126pfd.0
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 10:04:22 -0700 (PDT)
+In-Reply-To: <56FB46EA.7050401@uclinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (03/29/16 23:44), Alexander Duyck wrote:
-> This patch has been sanity checked only.  I cannot yet guarantee it
-> resolves the original issue that was reported.  I'll try to get a
-> reproduction environment setup tomorrow but I don't know how long that
-> should take.
+On 3/29/2016 8:24 PM, Greg Ungerer wrote:
+> Hi Troy,
+> 
+> Commit 55cd48c8 ('net: fec: stop the "rcv is not +last, " error
+> messages') adds a write to a register that is not present in all
+> implementations of the FEC hardware module. None of the ColdFire
+> SoC parts with the FEC module have the FTRL (0x1b0) register.
+> 
+> Does this need a quirk flag to key access to this register of?
+> Or can you piggyback on the FEC_QUIRK_HAS_RACC flag?
+> 
+> Regards
+> Greg
 
-I tried this out with rds-stress on my test-pair, unfortunately, I
-still see the Tx hang.
-
-Setting up the test is quite easy- for reference, the instructions 
-are here:
-   https://sourceforge.net/p/e1000/mailman/message/34936766/
-
---Sowmini
+I'm no expert on what hardware has which registers, but piggybacking
+works for all the processors that I use. Let's see what Freescale
+says, but would you like to submit a patch to move it inside the quirk's
+"if", or do you want me to do it?
