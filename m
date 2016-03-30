@@ -1,78 +1,185 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: qdisc spin lock
-Date: Wed, 30 Mar 2016 00:20:03 -0700
-Message-ID: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: am335x: no multicast reception over VLAN
+Date: Wed, 30 Mar 2016 10:35:01 +0200
+Message-ID: <CAGm1_kvXA4egrK8-oCedYjvPm7BhJdy_w-5ON24snYdKiN3K7g@mail.gmail.com>
+References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
+ <56F9FDD0.8030504@ti.com> <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
+ <56FA616C.9080502@ti.com> <CAGm1_ksvEdk-mF-hW4o5+bri6J6sMgnQQVD3j-e7xm6PsP8k0A@mail.gmail.com>
+ <56FA78AA.4030402@ti.com> <56FB6543.9060904@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	drivshin@allworx.com, ml@markusgrimm.de
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34122 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbcC3HUF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 03:20:05 -0400
-Received: by mail-ig0-f170.google.com with SMTP id sy18so24058269igc.1
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 00:20:04 -0700 (PDT)
+Received: from mail-vk0-f41.google.com ([209.85.213.41]:34805 "EHLO
+	mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752227AbcC3IfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 04:35:22 -0400
+In-Reply-To: <56FB6543.9060904@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi -
+On Wed, Mar 30, 2016 at 7:33 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+> On Tuesday 29 March 2016 06:14 PM, Grygorii Strashko wrote:
+>> On 03/29/2016 03:35 PM, Yegor Yefremov wrote:
+>>> On Tue, Mar 29, 2016 at 1:05 PM, Grygorii Strashko
+>>> <grygorii.strashko@ti.com> wrote:
+>>>> On 03/29/2016 08:21 AM, Yegor Yefremov wrote:
+>>>>> Hi Mugunthan,
+>>>>>
+>>>>> On Tue, Mar 29, 2016 at 6:00 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+>>>>>> Hi Yegor
+>>>>>>
+>>>>>> On Wednesday 16 March 2016 08:35 PM, Yegor Yefremov wrote:
+>>>>>>> I have an am335x based board using CPSW in Dual EMAC mode. Without
+>>>>>>> VLAN IDs I can receive and send multicast packets [1]. When I create
+>>>>>>> VLAN ID:
+>>>>>>>
+>>>>>>> ip link add link eth1 name eth1.100 type vlan id 100
+>>>>>>> ip addr add 192.168.100.2/24 brd 192.168.100.255 dev eth1.100
+>>>>>>> route add -net 224.0.0.0 netmask 224.0.0.0 eth1.100
+>>>>>>>
+>>>>>>> I can successfully send multicast packets, but not receive them. On
+>>>>>>> the other side of the Ethernet cable I've used Pandaboard. Pandaboard
+>>>>>>> could both receive and send multicast packets via VLAN.
+>>>>>>
+>>>>>> Are you trying multicast tx/rx on eth1 or eth1.100?
+>>>>>
+>>>>> I'm trying multicast tx/rx on eth1.100.
+>>>>>
+>>>>> eth1 has no problems.
+>>>>>
+>>>>
+>>>> it'd be nice if will be able to post here output fom commands:
+>>>> # switch-config -d [git://git.ti.com/switch-config/switch-config.git v4.1]
+>>>> # ifconfig -a
+>>>> # tcpdump -e -f -Q in -i eth0
+>>>> # tcpdump -e -f -Q in -i eth0.100
+>>>
+>>> Which kernel/branch do you want me to test?
+>>>
+>>> git://git.ti.com/ti-linux-kernel/ti-linux-kernel.git and ti-rt-linux-4.1.y?
+>>>
+>>> So far I was using vanilla kernel.
+>>
+>> Your branch (but better 4.5 kernels (or 4.4)).
+>> Just when you've done with configuration run cmds 1&2,
+>> and when you run your use-case - run cmds 2&3 on receiver side (grap ~5-10 packets).
+>> then stop test and run cmd 1 again.
+>>
+>> After all could you provide your console output here, pls.
+>>
+>>
+>
+> To use command 1, you need TI kernel [1] as it won't build with vanilla
+> kernel.
+>
+> [1]: git://git.ti.com/ti-linux-kernel/ti-linux-kernel.git ti-linux-4.1.y
 
-I know this might be an old topic so bare with me =E2=80=93 what we are=
- facing
-is that applications are sending small packets using hundreds of
-threads so the contention on spin lock in __dev_xmit_skb increases the
-latency of dev_queue_xmit significantly. We=E2=80=99re building a netwo=
-rk QoS
-solution to avoid interference of different applications using HTB.
-But in this case when some applications send massive small packets in
-parallel, the application to be protected will get its throughput
-affected (because it=E2=80=99s doing synchronous network communication =
-using
-multiple threads and throughput is sensitive to the increased latency)
+# uname -a
+Linux buildroot 4.1.18 #1 SMP Wed Mar 30 09:48:37 CEST 2016 armv7l GNU/Linux
 
-Here is the profiling from perf:
+# switch-config -d
+cpsw hw version 1.12 (0)
+0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
+unreg_mcast = 0x1, member_list = 0x3
 
--  67.57%   iperf  [kernel.kallsyms]     [k] _spin_lock
-                                                         - 99.94%
-dev_queue_xmit
-                                                              96.91%
-_spin_lock
-                                                            - 2.62%
-__qdisc_run
-                                                               -
-98.98% sch_direct_xmit
+1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+no super, port_mask = 0x3
+2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
+persistant, port_num = 0x0, Secure
+3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
+unreg_mcast = 0x1, member_list = 0x7
+4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
+no super, port_mask = 0x3
+5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
+unreg_mcast = 0x1, member_list = 0x5
+6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+no super, port_mask = 0x5
+7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
+persistant, port_num = 0x0, Secure
+8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
+no super, port_mask = 0x5
+9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
+unreg_mcast = 0x1, member_list = 0x5
+10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
+persistant, port_num = 0x0
+11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
+f, no super, port_mask = 0x5
+12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
+no super, port_mask = 0x5
+13  : type: mcast, vid = 2, addr = 01:00:5e:03:1d:47, mcast_state = f,
+no super, port_mask = 0x5
 
-99.98% _spin_lock
-                                                                 1.01%
-_spin_lock
+# ifconfig -a
+can0      Link encap:UNSPEC  HWaddr
+00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+          NOARP  MTU:16  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:10
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+          Interrupt:165
 
-As far as I understand the design of TC is to simplify locking schema
-and minimize the work in __qdisc_run so that throughput won=E2=80=99t b=
-e
-affected, especially with large packets. However if the scenario is
-that multiple classes in the queueing discipline only have the shaping
-limit, there isn=E2=80=99t really a necessary correlation between diffe=
-rent
-classes. The only synchronization point should be when the packet is
-dequeued from the qdisc queue and enqueued to the transmit queue of
-the device. My question is =E2=80=93 is it worth investing on avoiding =
-the
-locking contention by partitioning the queue/lock so that this
-scenario is addressed with relatively smaller latency?
+eth0      Link encap:Ethernet  HWaddr 74:6A:8F:00:16:12
+          inet addr:192.168.254.254  Bcast:0.0.0.0  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+          Interrupt:175
 
-I must have oversimplified a lot of details since I=E2=80=99m not famil=
-iar
-with the TC implementation at this point =E2=80=93 just want to get you=
-r input
-in terms of whether this is a worthwhile effort or there is something
-fundamental that I=E2=80=99m not aware of. If this is just a matter of =
-quite
-some additional work, would also appreciate helping to outline the
-required work here.
+eth1      Link encap:Ethernet  HWaddr 74:6A:8F:00:16:13
+          inet addr:192.168.1.233  Bcast:0.0.0.0  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:245 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:123 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:40995 (40.0 KiB)  TX bytes:14086 (13.7 KiB)
 
-Also would appreciate if there is any information about the latest
-status of this work http://www.ijcset.com/docs/IJCSET13-04-04-113.pdf
+eth1.100  Link encap:Ethernet  HWaddr 74:6A:8F:00:16:13
+          inet addr:192.168.100.2  Bcast:192.168.100.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:65 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:51 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:8369 (8.1 KiB)  TX bytes:6340 (6.1 KiB)
 
-Thanks,
-Ke Ma
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:4 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:4 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:344 (344.0 B)  TX bytes:344 (344.0 B)
+
+# tcpdump -e -f -Q in -i eth1
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1, link-type EN10MB (Ethernet), capture size 262144 bytes
+00:47:40.240731 06:15:4d:85:61:1e (oui Unknown) > 01:00:5e:03:1d:47
+(oui Unknown), ethertype 802.1Q (0x8100), length 65: vlan 100, p 0,
+ethertype IPv4, 192.168.100.1.59870 > 224.3.29.71.10000: UDP, length
+19
+00:47:45.259285 06:15:4d:85:61:1e (oui Unknown) > 74:6a:8f:00:16:13
+(oui Unknown), ethertype 802.1Q (0x8100), length 60: vlan 100, p 0,
+ethertype ARP, Reply 192.168.100.1 is-at 06:15:4d:85:61:1e (oui
+Unknown), length 42
+
+# tcpdump -e -f -Q in -i eth1.100
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth1.100, link-type EN10MB (Ethernet), capture size 262144 bytes
+00:48:52.477500 06:15:4d:85:61:1e (oui Unknown) > 01:00:5e:03:1d:47
+(oui Unknown), ethertype IPv4 (0x0800), length 61: 192.168.100.1.54382
+> 224.3.29.71.10000: UDP, length 19
+00:48:57.486437 06:15:4d:85:61:1e (oui Unknown) > 74:6a:8f:00:16:13
+(oui Unknown), ethertype ARP (0x0806), length 56: Reply 192.168.100.1
+is-at 06:15:4d:85:61:1e (oui Unknown), length 42
+
+What does "no super" mean and where can I see the "--fwd-state <value
+0-3>" value/description?
+
+Yegor
