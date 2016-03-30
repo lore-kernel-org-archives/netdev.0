@@ -1,58 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Wed, 30 Mar 2016 22:09:33 +0800
-Message-ID: <20160330140933.GA19606@gondor.apana.org.au>
-References: <56F9941A.3080501@candelatech.com>
- <56FAAA6D.3070806@candelatech.com>
- <1459329252.2055.1.camel@sipsolutions.net>
- <20160330135521.GA19423@gondor.apana.org.au>
- <1459346588.2055.6.camel@sipsolutions.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v3 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit on setup
+Date: Wed, 30 Mar 2016 10:10:46 -0400
+Message-ID: <8737r8cazd.fsf@ketchup.mtl.sfl>
+References: <1459301981-26535-1-git-send-email-patrick@puiterwijk.org> <1459301981-26535-2-git-send-email-patrick@puiterwijk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, dennis@ausil.us, pbrobinson@gmail.com,
+	Patrick Uiterwijk <patrick@puiterwijk.org>,
+	Kevin Smith <kevin.smith@elecsyscorp.com>,
+	Lucile Quirion <lucile.quirion@savoirfairelinux.com>
+To: Patrick Uiterwijk <patrick@puiterwijk.org>, linux@roeck-us.net,
+	davem@davemloft.net, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:53620 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441AbcC3OJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 10:09:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1459346588.2055.6.camel@sipsolutions.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:43264 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754010AbcC3OKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 10:10:53 -0400
+In-Reply-To: <1459301981-26535-2-git-send-email-patrick@puiterwijk.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 04:03:08PM +0200, Johannes Berg wrote:
-> 
-> But we really don't want that either - in the normal case where you
-> don't create all these virtual interfaces for testing, you have a
-> certain number of peers that can vary a lot (zero to hundreds, in
-> theory thousands) where you *don't* have the same key, so we still want
-> to have the rehashing if the chains get longer in that case.
+Patrick Uiterwijk <patrick@puiterwijk.org> writes:
 
-insecure_elasticity only disables rehashing without growing, it
-does not inhibit table expansion which is driven by the number of
-objects in the whole table.
+> Some of the vendor-specific bootloaders set up this part
+> of the initialization for us, so this was never added.
+> However, since upstream bootloaders don't initialize the
+> chip specifically, they leave the fiber MII's PDOWN flag
+> set, which means that the CPU port doesn't connect.
+>
+> This patch checks whether this flag has been clear prior
+> by something else, and if not make us clear it.
+>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
 
-> It's really just the degenerate case that Ben is creating locally
-> that's causing a problem, afaict, though it's a bit disconcerting that
-> rhashtable in general can cause strange failures at delete time.
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-The failure is simple, rhashtable will rehash the table if a given
-chain becomes too long.  This simply doesn't work if you hash many
-objects with the same key since the chain will never get shorter
-even after a rehash (or expansion).
+This fixes the SerDes link on my single 6352 x86 platform.
 
-Therefore if your hashtable has to do this then you have to disable
-the rehash logic using the insecure_elasticity flag.
-
-Alternatively you can construct your own linked list for objects
-with the same key outside of rhashtable and hash the list instead.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks!
+Vivien
