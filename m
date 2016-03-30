@@ -1,47 +1,37 @@
-From: "Light, John J" <john.j.light@intel.com>
-Subject: RE: possible bug in latest network tree
-Date: Wed, 30 Mar 2016 21:05:30 +0000
-Message-ID: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net] team: team should sync the port's uc/mc addrs
+ when add a port
+Date: Wed, 30 Mar 2016 17:07:12 -0400 (EDT)
+Message-ID: <20160330.170712.1708636507092918184.davem@davemloft.net>
+References: <e7eed00cdf5b0bf2d7eda4364f0fd28e95028db8.1459306719.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	marcelo.leitner@gmail.com, xiyou.wangcong@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:31271 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751156AbcC3VHI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:07:08 -0400
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:38520 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994AbcC3VHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:07:15 -0400
+In-Reply-To: <e7eed00cdf5b0bf2d7eda4364f0fd28e95028db8.1459306719.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 30 Mar 2016 10:58:39 +0800
 
-I see a recent change in inet_connection_sock.c that uses sysctl_tcp_sy=
-nack_retries suspiciously.
+> There is an issue when we use mavtap over team:
+> When we replug nic links from team0, the real nics's mc list will not
+> include the maddr for macvtap any more. then we can't receive pkts to
+> macvtap device, as they are filterred by mc list of nic.
+> 
+> In Bonding Driver, it syncs the uc/mc addrs in bond_enslave().
+> 
+> We will fix this issue on team by adding the port's uc/mc addrs sync in
+> team_port_add.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Previously, sysctl_tcp_synack_retries was a global variable, and now it=
- has been moved into the fragment (really netns_ipv4).
-
-In reqsk_timer_handler (inet_connection_sock.c) near line 563 it is use=
-d as the default max_retries value in case icsk->icsk_syn_retries is no=
-t set.
-
-Previously, other transports (dccp?) would use the TCP global variable =
-as a default.=A0 Now that the defaults come from the fragment, I suspec=
-t the fragment variable is not set for other transports.=A0 (I can't fi=
-nd where it's set for dccp.)
-
-Of course, this will only show in non-TCP transport protocols when the =
-icsk retries value is not set, so it's a rare case.=A0 Perhaps it's an =
-unreachable case, since I don't know all the kernel paths.
-
-Maybe the problem is that the default shouldn't be to a TCP value, but =
-should be a 'transport' value.
-
-This code is somewhat convoluted, so I am not sure of my analysis, but =
-I wanted you to consider it.
-
-John Light
-Intel OTC comms
+Applied, thanks.
