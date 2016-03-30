@@ -1,100 +1,118 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next] tcp: remove cwnd moderation after recovery
-Date: Tue, 29 Mar 2016 17:15:52 -0700
-Message-ID: <1459296952-12214-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH RFC net-next] net: core: Pass XPS select queue decision to
+ skb_tx_hash
+Date: Tue, 29 Mar 2016 17:18:44 -0700
+Message-ID: <56FB1B64.40301@gmail.com>
+References: <1459290252-4121-1-git-send-email-saeedm@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Saeed Mahameed <saeedm@mellanox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34441 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102AbcC3AQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 20:16:06 -0400
-Received: by mail-pf0-f176.google.com with SMTP id x3so27430201pfb.1
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 17:16:06 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35677 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135AbcC3ATC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 20:19:02 -0400
+Received: by mail-pa0-f53.google.com with SMTP id td3so25912303pab.2
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 17:19:02 -0700 (PDT)
+In-Reply-To: <1459290252-4121-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For non-SACK connections, cwnd is lowered to inflight plus 3 packets
-when the recovery ends. This is an optional feature in the NewReno
-RFC 2582 to reduce the potential burst when cwnd is "re-opened"
-after recovery and inflight is low.
+On 16-03-29 03:24 PM, Saeed Mahameed wrote:
+> Currently XPS select queue decision is final and overrides/ignores all other
+> select queue parameters such as QoS TC, RX recording.
+> 
+> This patch makes get_xps_queue value as a hint for skb_tx_hash, which will decide
+> whether to use this hint as is or to tweak it a little to provide the correct TXQ.
+> 
+> This will fix bugs in cases such that TC QoS offload (tc_to_txq mapping) and XPS mapping
+> are configured but select queue will only respect the XPS configuration which will skip
+> the TC QoS queue selection and thus will not satisfy the QoS configuration.
+> 
+> RFC because I want to discuss how we would like the final behavior of the
+> __netdev_pick_tx, with this patch it goes as follows:
+> 
+> netdev_pick_tx(skb):
+>         hint = get_xps_queue
+>         txq = skb_tx_hash(skb, hint)
+> 
+> skb_tx_hash(skb, hint):
+>         if (skb_rx_queue_recorded(skb))
+>                 return skb_get_rx_queue(skb);
+> 
+>         queue_offset = 0;
+>         if (dev->num_tc)
+>                 queue_offset = tc_queue_offset[tc];
+> 
+>         hash = hint < 0 ? skb_get_hash(skb) : hint;
+>         return hash + queue_offset;
+> 
+> i.e: instead of blindly return the XPS decision, we pass it to skb_tx_hash which can make the final
+> decision for us, select queue will now respect and combine XPS and TC QoS tc_to_txq mappings.
+> 
+> Also there is one additional behavioral change that recorded rx queues will
+> now override the XPS configuration.
+> 
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    2 +-
+>  include/linux/netdevice.h                  |    6 +++---
+>  net/core/dev.c                             |   10 ++++++----
+>  3 files changed, 10 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index c0d7b72..873cf49 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -693,7 +693,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
+>  	u8 up = 0;
+>  
+>  	if (dev->num_tc)
+> -		return skb_tx_hash(dev, skb);
+> +		return skb_tx_hash(dev, skb, -1);
+>  
 
-This feature is questionably effective because of PRR: when
-the recovery ends (i.e., snd_una == high_seq) NewReno holds the
-CA_Recovery state for another round trip to prevent false fast
-retransmits. But if the inflight is low, PRR will overwrite the
-moderated cwnd in tcp_cwnd_reduction() later.
+I would prefer to not have another strange quirk users have to remember
+in order to do tx classification. So with this change depending on the
+driver the queue selection precedence changes. In short I agree with
+the problem statement but think we can find a better solution.
 
-On the other hand, if the recovery ends because the sender
-detects the losses were spurious (e.g., reordering). This feature
-unconditionally lowers a reverted cwnd even though nothing
-was lost.
+One idea that comes to mind is we can have a tc action to force the
+queue selection? Now that we have the egress tc hook it would probably
+be fairly cheap to implement and if users want this behavior they can
+ask for it explicitly.
 
-By principle loss recovery module should not update cwnd. Further
-pacing is much more effective to reduce burst. Hence this patch
-removes the cwnd moderation feature.
+If your thinking about tc stuff we could fix the tooling to set this
+action when ever dcb is turned on or hardware rate limiting is enabled,
+etc. And even if we wanted we could have the driver add the rule in the
+cases where firmware protocols are configuring the QOS/etc.
 
-Signed-off-by: Matt Mathis <mattmathis@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
----
- include/net/tcp.h    | 11 -----------
- net/ipv4/tcp_input.c | 11 -----------
- 2 files changed, 22 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b91370f..f8bb4a4 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1039,17 +1039,6 @@ static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
- 	return 3;
- }
- 
--/* Slow start with delack produces 3 packets of burst, so that
-- * it is safe "de facto".  This will be the default - same as
-- * the default reordering threshold - but if reordering increases,
-- * we must be able to allow cwnd to burst at least this much in order
-- * to not pull it back when holes are filled.
-- */
--static __inline__ __u32 tcp_max_burst(const struct tcp_sock *tp)
--{
--	return tp->reordering;
--}
--
- /* Returns end sequence number of the receiver's advertised window */
- static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
- {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e6e65f7..f87b84a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2252,16 +2252,6 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
- 	}
- }
- 
--/* CWND moderation, preventing bursts due to too big ACKs
-- * in dubious situations.
-- */
--static inline void tcp_moderate_cwnd(struct tcp_sock *tp)
--{
--	tp->snd_cwnd = min(tp->snd_cwnd,
--			   tcp_packets_in_flight(tp) + tcp_max_burst(tp));
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--}
--
- static bool tcp_tsopt_ecr_before(const struct tcp_sock *tp, u32 when)
- {
- 	return tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
-@@ -2410,7 +2400,6 @@ static bool tcp_try_undo_recovery(struct sock *sk)
- 		/* Hold old state until something *above* high_seq
- 		 * is ACKed. For Reno it is MUST to prevent false
- 		 * fast retransmits (RFC2582). SACK TCP is safe. */
--		tcp_moderate_cwnd(tp);
- 		if (!tcp_any_retrans_done(sk))
- 			tp->retrans_stamp = 0;
- 		return true;
--- 
-2.8.0.rc3.226.g39d4020
+>  	if (skb_vlan_tag_present(skb))
+>  		up = skb_vlan_tag_get(skb) >> VLAN_PRIO_SHIFT;
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index cb0d5d0..ad81ffe 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -3130,16 +3130,16 @@ static inline int netif_set_xps_queue(struct net_device *dev,
+>  #endif
+>  
+>  u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
+> -		  unsigned int num_tx_queues);
+> +		  unsigned int num_tx_queues, int txq_hint);
+>  
+
+[...]
+
+And all this seems like it would only ever be called by drivers select
+queue routines which I really wish we could kill off one of these days
+instead of add to. Now if the signal is something higher in the stack
+and not the driver I think it is OK.
+
+.John
