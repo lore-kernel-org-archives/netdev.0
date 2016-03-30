@@ -1,75 +1,69 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: remove cwnd moderation after recovery
-Date: Wed, 30 Mar 2016 13:20:31 -0700
-Message-ID: <CAK6E8=d61AbL+-E6_kyiwAe3ByXt4CU3DuHAmC5aH7DY11+yiQ@mail.gmail.com>
-References: <1459296952-12214-1-git-send-email-ycheng@google.com> <20160329173545.5fe0ae8b@xeon-e3>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: flush if we can't fit another DATA chunk
+Date: Wed, 30 Mar 2016 16:32:11 -0400
+Message-ID: <20160330203211.GD15549@hmsreliant.think-freely.org>
+References: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
+ <20160330.154622.1322506750240048120.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Matt Mathis <mattmathis@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
+	vyasevich@gmail.com, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:33060 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754016AbcC3UVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:21:12 -0400
-Received: by mail-wm0-f49.google.com with SMTP id r72so114233395wmg.0
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 13:21:11 -0700 (PDT)
-In-Reply-To: <20160329173545.5fe0ae8b@xeon-e3>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40270 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754393AbcC3UcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:32:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20160330.154622.1322506750240048120.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 29, 2016 at 5:35 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Tue, 29 Mar 2016 17:15:52 -0700
-> Yuchung Cheng <ycheng@google.com> wrote:
->
->> For non-SACK connections, cwnd is lowered to inflight plus 3 packets
->> when the recovery ends. This is an optional feature in the NewReno
->> RFC 2582 to reduce the potential burst when cwnd is "re-opened"
->> after recovery and inflight is low.
->>
->> This feature is questionably effective because of PRR: when
->> the recovery ends (i.e., snd_una == high_seq) NewReno holds the
->> CA_Recovery state for another round trip to prevent false fast
->> retransmits. But if the inflight is low, PRR will overwrite the
->> moderated cwnd in tcp_cwnd_reduction() later.
->>
->> On the other hand, if the recovery ends because the sender
->> detects the losses were spurious (e.g., reordering). This feature
->> unconditionally lowers a reverted cwnd even though nothing
->> was lost.
->>
->> By principle loss recovery module should not update cwnd. Further
->> pacing is much more effective to reduce burst. Hence this patch
->> removes the cwnd moderation feature.
->>
->> Signed-off-by: Matt Mathis <mattmathis@google.com>
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
->
-> I have a concern that this might break Linux builtin protection
-> against hostile receiver sending bogus ACK's.  Remember Linux is
-> different than NewReno. You are changing something that has existed for
-> a long long time.
+On Wed, Mar 30, 2016 at 03:46:22PM -0400, David Miller wrote:
+> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Date: Tue, 29 Mar 2016 10:41:25 -0300
+> 
+> > There is no point in delaying the packet if we can't fit a single byte
+> > of data on it anymore. So lets just reduce the threshold by the amount
+> > that a data chunk with 4 bytes (rounding) would use.
+> > 
+> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > ---
+> >  net/sctp/output.c | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/sctp/output.c b/net/sctp/output.c
+> > index 97745351d58c2fb32b9f9b57d61831d7724d83b2..c518569123ce42a8f21f80754756306c39875013 100644
+> > --- a/net/sctp/output.c
+> > +++ b/net/sctp/output.c
+> > @@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+> >  	/* Check whether this chunk and all the rest of pending data will fit
+> >  	 * or delay in hopes of bundling a full sized packet.
+> >  	 */
+> > -	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
+> > +	if (chunk->skb->len + q->out_qlen >
+> > +		maxsize - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
+> 
+> There is no maxsize in this function.
+> 
+> You must generate and test your patches against my networking tree.
+> 
+> Neil, how were you able to see where 'maxsize' is and how it's even
+> calculated before determining that this change is correct?
+> 
+Shit, sorry, dave, I trusted that Marcello built and tested the patch, and
+reviewed it based on the validity of the math (which making assumptions for what
+maxsize was, should be correct).  No exuse, I screwed up.
+Neil
 
-I suppose the bogus ACKs are ACKs acking future but in-flight data
-packets. The most bogus ACK would ack at most SND.NXT otherwise it
-will be filtered early in tcp_ack(). Then cwnd_moderation() will pull
-cwnd down to inflight + maxburst = 0 + 3 = 3. But immediately
-afterward tcp_cwnd_reduction() will over-write cwnd = inflight +
-sndcnt =~ 0 + newly_acked_sacked.
-
-w/o pacing, such a bogus ACK can at most induce a burst of a window
-(minus 3 dupacks). Restart after (short) idle or receiving stretched
-ACKs can induce the same degree of behavior. More importantly the cwnd
-moderation is already a NOP b/c cwnd is over-written by the PRR,
-regardless of this patch. If the receiver's intention is to speed up
-recovery, he is risking reliability w/ future ACKs. if the sole
-intention is network abuse then he unlikely would bother to trigger
-recovery and congestion control reactions in the first place.
-
-I will update the commit message regarding your concern. Thanks.
+> Please don't ACK patches you really didn't verify in any way at all,
+> thanks.  It's better to have no reviews than bad reviews, because ACKs
+> are supposed to give me a reason to be more confident in the change.
+> 
+> Marcelo, I'm ignoring the rest of your SCTP changes, you have to get
+> your act together.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
