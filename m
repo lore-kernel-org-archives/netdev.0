@@ -1,32 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Wed, 30 Mar 2016 11:14:12 +0200
-Message-ID: <1459329252.2055.1.camel@sipsolutions.net>
-References: <56F9941A.3080501@candelatech.com>
-	 <56FAAA6D.3070806@candelatech.com> (sfid-20160329_181708_555021_6CC5B70B)
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH] bus: mvebu-mbus: use %pad to print phys_addr_t
+Date: Wed, 30 Mar 2016 11:37:49 +0200
+Message-ID: <87r3esux02.fsf@free-electrons.com>
+References: <1458036233-2770406-1-git-send-email-arnd@arndb.de>
+	<87h9fpw9r4.fsf@free-electrons.com> <3820422.5Ogyd0Xvfq@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>
-To: Ben Greear <greearb@candelatech.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Evan Wang <xswang@marvell.com>, netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56FAAA6D.3070806@candelatech.com> (sfid-20160329_181708_555021_6CC5B70B)
+In-Reply-To: <3820422.5Ogyd0Xvfq@wuerfel> (Arnd Bergmann's message of "Tue, 29
+	Mar 2016 21:51:48 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-03-29 at 09:16 -0700, Ben Greear wrote:
-> Looks like rhashtable has too much policy in it to properly deal with
-> cases where there are too many hash collisions, so I am going to work
-> on reverting it's use in mac80211.
+Hi Arnd,
+ 
+ On mar., mars 29 2016, Arnd Bergmann <arnd@arndb.de> wrote:
 
-I'm not really all that happy with that approach - can't we fix the
-rhashtable? It's a pretty rare corner case that many keys really are
-identical and no kind of hash algorithm, but it seems much better to
-still deal with it than to remove the rhashtable usage and go back to
-hand-rolling something.
+> On Tuesday 29 March 2016 18:04:47 Gregory CLEMENT wrote:
+>> 
+>> What is the status of this patch?
+>> 
+>> Do you plan to send a second version with the title fixed as suggested
+>> by Joe Perches?
+>> 
+>> Also do you expect that I collect this patch in the mvebu subsystem?
+>
+> Right now, it's on my long-term todo list along with some 70 other patches
+> I need to revisit. If you want to fix up the title and apply it now,
+> that would be great, otherwise I'll get to it in a few weeks after coming
+> back from ELC/vacation.
 
-johannes
+
+So I fixed the title and applied it on mvebu/fixes
+
+Thanks,
+
+Gregory
+
+>
+> 	ARnd
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
