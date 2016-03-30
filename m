@@ -1,63 +1,61 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH] sctp: flush if we can't fit another DATA chunk
-Date: Wed, 30 Mar 2016 16:52:54 -0300
-Message-ID: <20160330195254.GI3387@mrl.redhat.com>
-References: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
- <20160330.154622.1322506750240048120.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] Add netdev all_adj_list refcnt propagation to fix panic
+Date: Wed, 30 Mar 2016 16:01:50 -0400 (EDT)
+Message-ID: <20160330.160150.1290720758360796805.davem@davemloft.net>
+References: <1459272303-8851-1-git-send-email-acollins@cradlepoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mschiffer@universe-factory.net,
+	vfalico@redhat.com
+To: acollins@cradlepoint.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60845 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752994AbcC3Tw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Mar 2016 15:52:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20160330.154622.1322506750240048120.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37680 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753865AbcC3UBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:01:52 -0400
+In-Reply-To: <1459272303-8851-1-git-send-email-acollins@cradlepoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 03:46:22PM -0400, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Tue, 29 Mar 2016 10:41:25 -0300
-> 
-> > There is no point in delaying the packet if we can't fit a single byte
-> > of data on it anymore. So lets just reduce the threshold by the amount
-> > that a data chunk with 4 bytes (rounding) would use.
-> > 
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  net/sctp/output.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/sctp/output.c b/net/sctp/output.c
-> > index 97745351d58c2fb32b9f9b57d61831d7724d83b2..c518569123ce42a8f21f80754756306c39875013 100644
-> > --- a/net/sctp/output.c
-> > +++ b/net/sctp/output.c
-> > @@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
-> >  	/* Check whether this chunk and all the rest of pending data will fit
-> >  	 * or delay in hopes of bundling a full sized packet.
-> >  	 */
-> > -	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
-> > +	if (chunk->skb->len + q->out_qlen >
-> > +		maxsize - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
-> 
-> There is no maxsize in this function.
-> 
-> You must generate and test your patches against my networking tree.
-> 
-> Neil, how were you able to see where 'maxsize' is and how it's even
-> calculated before determining that this change is correct?
-> 
-> Please don't ACK patches you really didn't verify in any way at all,
-> thanks.  It's better to have no reviews than bad reviews, because ACKs
-> are supposed to give me a reason to be more confident in the change.
-> 
-> Marcelo, I'm ignoring the rest of your SCTP changes, you have to get
-> your act together.
+From: Andrew Collins <acollins@cradlepoint.com>
+Date: Tue, 29 Mar 2016 11:25:03 -0600
 
-Argh, indeed. Bad decision here to split up the patchset. Sorry for that.
+> This is an RFC patch to fix a relatively easily reproducible kernel
+> panic related to the all_adj_list handling for netdevs in recent kernels.
+> 
+> This is more to generate discussion than anything else.  I don't
+> particularly like this approach, I'm hoping someone has a better idea.
+> 
+> The following sequence of commands will reproduce the issue:
+> 
+> ip link add link eth0 name eth0.100 type vlan id 100
+> ip link add link eth0 name eth0.200 type vlan id 200
+> ip link add name testbr type bridge
+> ip link set eth0.100 master testbr
+> ip link set eth0.200 master testbr
+> ip link add link testbr mac0 type macvlan
+> ip link delete dev testbr
+> 
+> This creates an upper/lower tree of (excuse the poor ASCII art):
+> 
+>             /---eth0.100-eth0
+> mac0-testbr-
+>             \---eth0.200-eth0
+> 
+> When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
+> the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
+> reference to eth0 is added, so this results in a panic.
+> 
+> This change adds reference count propagation so things are handled properly.
+> 
+> Matthias Schiffer reported a similar crash in batman-adv:
+> 
+> https://github.com/freifunk-gluon/gluon/issues/680
+> https://www.open-mesh.org/issues/247
+> 
+> which this patch also seems to resolve.
 
-  Marcelo
+Veaceslav, please look into this.
+
+Thanks.
