@@ -1,45 +1,43 @@
 From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH] net: mvneta: explicitly disable BM on 64bit platform
-Date: Wed, 30 Mar 2016 21:25:10 +0800
-Message-ID: <1459344310-626-1-git-send-email-jszhang@marvell.com>
+Subject: [RFC] net: mvneta: 64bit platform support
+Date: Wed, 30 Mar 2016 21:37:00 +0800
+Message-ID: <20160330213700.41876e09@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Jisheng Zhang <jszhang@marvell.com>
-To: <davem@davemloft.net>, <gregory.clement@free-electrons.com>,
-	<mw@semihalf.com>, <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<gregory.clement@free-electrons.com>, <mw@semihalf.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:30682 "EHLO
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:22647 "EHLO
 	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753354AbcC3N31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 09:29:27 -0400
+	by vger.kernel.org with ESMTP id S1751379AbcC3NlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 09:41:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvneta BM can't work on 64bit platform, as the BM hardware expects
-buf virtual address to be placed in the first four bytes of mapped
-buffer, but obviously the virtual address on 64bit platform can't be
-stored in 4 bytes. So we have to explicitly disable BM on 64bit
-platform.
+Hi all,
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
- drivers/net/ethernet/marvell/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Obviously, current mvneta driver can't work on 64bit platforms. For one thing
+the BM feature should be explicitly disabled, I just sent out one patch for
+this purpose. 
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index b5c6d42..53d6572 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -42,7 +42,7 @@ config MVMDIO
- 
- config MVNETA_BM_ENABLE
- 	tristate "Marvell Armada 38x/XP network interface BM support"
--	depends on MVNETA
-+	depends on MVNETA && !64BIT
- 	---help---
- 	  This driver supports auxiliary block of the network
- 	  interface units in the Marvell ARMADA XP and ARMADA 38x SoC
--- 
-2.8.0.rc3
+What's more, the buf_cookie in mvneta_rx_desc need to be carefully considered.
+The driver use the buf_cookie(u32 type) to store the buffer virtual address,
+obviously it can't store the virtual address on 64bit platforms. I have two
+solutions:
+
+solution A: let one reserved type in current mvneta_rx_desc, e.g reserved5
+to store the high 32bit virt address, and hack code as the following:
+#ifdef CONFIG_64BIT
+rx_desc->reserved5 = high32(data);
+#endif
+
+solution B: add one member void **buf_virt_ptrs in mvneta_rx_queue, and point
+all buf_cookie usage to the according buf_virt_ptrs[i]
+
+
+Is there any elegant solutions?
+
+Thanks,
+Jisheng
