@@ -1,55 +1,43 @@
-From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
-Subject: Re: [PATCH] ethernet: mvneta: Support netpoll
-Date: Wed, 30 Mar 2016 01:59:13 -0300
-Message-ID: <CAAEAJfCYH5SnhiPyJCeBTquj8roUnt3AxQ2rWwugo=tN+EUZTA@mail.gmail.com>
-References: <1459197678-12022-1-git-send-email-ezequiel@vanguardiasur.com.ar>
-	<20160329.230930.1234182429605936870.davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH RFC] net: decrease the length of backlog queue immediately after it's detached from sk
+Date: Wed, 30 Mar 2016 13:16:41 +0800
+Message-ID: <1459315001-3448-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:34834 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635AbcC3E7O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 00:59:14 -0400
-Received: by mail-wm0-f53.google.com with SMTP id 191so74477019wmq.0
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 21:59:14 -0700 (PDT)
-In-Reply-To: <20160329.230930.1234182429605936870.davem@davemloft.net>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:40199 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbcC3FRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 01:17:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+When task A hold the sk owned in tcp_sendmsg, if lots of packets
+arrive and the packets will be added to backlog queue. The packets
+will be handled in release_sock called from tcp_sendmsg. When the
+sk_backlog is removed from sk, the length will not decrease until
+all the packets in backlog queue are handled. This may leads to the
+new packets be dropped because the lenth is too big. So set the
+lenth to 0 immediately after it's detached from sk.
 
-On 30 March 2016 at 00:09, David Miller <davem@davemloft.net> wrote:
-> From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
-> Date: Mon, 28 Mar 2016 17:41:18 -0300
->
->> +/* Polled functionality used by netconsole and others in non interr=
-upt mode */
->> +static void mvneta_poll_controller(struct net_device *dev)
->> +{
->> +     struct mvneta_port *pp =3D netdev_priv(dev);
->> +
->> +     on_each_cpu(mvneta_percpu_poll_controller, pp, false);
->> +}
->
-> This doesn't work.
->
-> netpoll may be invoked from any context whatsoever, even hardware
-> interrupt handlers or contexts where cpu interrupts are disabled.
->
-> smp_call_function() and thus on_each_cpu() may not be called with
-> disabled interrupts or from a hardware interrupt handler or from
-> a bottom half handler, all of which are valid situations where
-> netpoll may occur since printk's can occur anywhere.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/core/sock.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Well, I hated the idea of using on_each_cpu here, but wasn't sure
-if there was a real reason that forbid it.
-
-Thanks a lot for the feedback.
---=20
-Ezequiel Garc=C3=ADa, VanguardiaSur
-www.vanguardiasur.com.ar
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 47fc8bb..108be05 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1933,6 +1933,7 @@ static void __release_sock(struct sock *sk)
+ 
+ 	do {
+ 		sk->sk_backlog.head = sk->sk_backlog.tail = NULL;
++		sk->sk_backlog.len = 0;
+ 		bh_unlock_sock(sk);
+ 
+ 		do {
+-- 
+2.5.0
