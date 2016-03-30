@@ -1,108 +1,114 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v2 net-next] tcp: remove cwnd moderation after recovery
-Date: Wed, 30 Mar 2016 14:54:20 -0700
-Message-ID: <1459374860-32643-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net-next 4/8] sock: accept SO_TIMESTAMPING flags in socket cmsg
+Date: Wed, 30 Mar 2016 18:37:24 -0400
+Message-ID: <1459377448-2239-5-git-send-email-soheil.kdev@gmail.com>
+References: <1459377448-2239-1-git-send-email-soheil.kdev@gmail.com>
+Cc: willemb@google.com, edumazet@google.com, ycheng@google.com,
+	ncardwell@google.com, kafai@fb.com,
 	Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34292 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751212AbcC3Vyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:54:41 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fe3so50191063pab.1
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 14:54:41 -0700 (PDT)
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:36447 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755127AbcC3Wht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 18:37:49 -0400
+Received: by mail-qg0-f65.google.com with SMTP id n34so6175551qge.3
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 15:37:48 -0700 (PDT)
+In-Reply-To: <1459377448-2239-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For non-SACK connections, cwnd is lowered to inflight plus 3 packets
-when the recovery ends. This is an optional feature in the NewReno
-RFC 2582 to reduce the potential burst when cwnd is "re-opened"
-after recovery and inflight is low.
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-This feature is questionably effective because of PRR: when
-the recovery ends (i.e., snd_una == high_seq) NewReno holds the
-CA_Recovery state for another round trip to prevent false fast
-retransmits. But if the inflight is low, PRR will overwrite the
-moderated cwnd in tcp_cwnd_reduction() later regardlessly. So if a
-receiver responds bogus ACKs (i.e., acking future data) to speed up
-transfer after recovery, it can only induce a burst up to a window
-worth of data packets by acking up to SND.NXT. A restart from (short)
-idle or receiving streched ACKs can both cause such bursts as well.
+Accept SO_TIMESTAMPING in control messages of the SOL_SOCKET level
+as a basis to accept timestamping requests per write.
 
-On the other hand, if the recovery ends because the sender
-detects the losses were spurious (e.g., reordering). This feature
-unconditionally lowers a reverted cwnd even though nothing
-was lost.
+This implementation only accepts TX recording flags (i.e.,
+SOF_TIMESTAMPING_TX_HARDWARE, SOF_TIMESTAMPING_TX_SOFTWARE,
+SOF_TIMESTAMPING_TX_SCHED, and SOF_TIMESTAMPING_TX_ACK) in
+control messages. Users need to set reporting flags (e.g.,
+SOF_TIMESTAMPING_OPT_ID) per socket via socket options.
 
-By principle loss recovery module should not update cwnd. Further
-pacing is much more effective to reduce burst. Hence this patch
-removes the cwnd moderation feature.
+This commit adds a tsflags field in sockcm_cookie which is
+set in __sock_cmsg_send. It only override the SOF_TIMESTAMPING_TX_*
+bits in sockcm_cookie.tsflags allowing the control message
+to override the recording behavior per write, yet maintaining
+the value of other flags.
 
-v2 changes: revised commit message on bogus ACKs and burst, and
-            missing signature
+This patch implements validating the control message and setting
+tsflags in struct sockcm_cookie. Next commits in this series will
+actually implement timestamping per write for different protocols.
 
-Signed-off-by: Matt Mathis <mattmathis@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
- include/net/tcp.h    | 11 -----------
- net/ipv4/tcp_input.c | 11 -----------
- 2 files changed, 22 deletions(-)
+ include/net/sock.h              |  1 +
+ include/uapi/linux/net_tstamp.h | 10 ++++++++++
+ net/core/sock.c                 | 13 +++++++++++++
+ 3 files changed, 24 insertions(+)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b91370f..f8bb4a4 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1039,17 +1039,6 @@ static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
- 	return 3;
- }
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 03772d4..af012da 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1418,6 +1418,7 @@ void sk_send_sigurg(struct sock *sk);
  
--/* Slow start with delack produces 3 packets of burst, so that
-- * it is safe "de facto".  This will be the default - same as
-- * the default reordering threshold - but if reordering increases,
-- * we must be able to allow cwnd to burst at least this much in order
-- * to not pull it back when holes are filled.
-- */
--static __inline__ __u32 tcp_max_burst(const struct tcp_sock *tp)
--{
--	return tp->reordering;
--}
--
- /* Returns end sequence number of the receiver's advertised window */
- static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
+ struct sockcm_cookie {
+ 	u32 mark;
++	u16 tsflags;
+ };
+ 
+ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
+index 6d1abea..264e515 100644
+--- a/include/uapi/linux/net_tstamp.h
++++ b/include/uapi/linux/net_tstamp.h
+@@ -31,6 +31,16 @@ enum {
+ 				 SOF_TIMESTAMPING_LAST
+ };
+ 
++/*
++ * SO_TIMESTAMPING flags are either for recording a packet timestamp or for
++ * reporting the timestamp to user space.
++ * Recording flags can be set both via socket options and control messages.
++ */
++#define SOF_TIMESTAMPING_TX_RECORD_MASK	(SOF_TIMESTAMPING_TX_HARDWARE | \
++					 SOF_TIMESTAMPING_TX_SOFTWARE | \
++					 SOF_TIMESTAMPING_TX_SCHED | \
++					 SOF_TIMESTAMPING_TX_ACK)
++
+ /**
+  * struct hwtstamp_config - %SIOCGHWTSTAMP and %SIOCSHWTSTAMP parameter
+  *
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0a64fe2..315f5e5 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1870,6 +1870,8 @@ EXPORT_SYMBOL(sock_alloc_send_skb);
+ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+ 		     struct sockcm_cookie *sockc)
  {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e6e65f7..f87b84a 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2252,16 +2252,6 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
++	u32 tsflags;
++
+ 	switch (cmsg->cmsg_type) {
+ 	case SO_MARK:
+ 		if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+@@ -1878,6 +1880,17 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+ 			return -EINVAL;
+ 		sockc->mark = *(u32 *)CMSG_DATA(cmsg);
+ 		break;
++	case SO_TIMESTAMPING:
++		if (cmsg->cmsg_len != CMSG_LEN(sizeof(u32)))
++			return -EINVAL;
++
++		tsflags = *(u32 *)CMSG_DATA(cmsg);
++		if (tsflags & ~SOF_TIMESTAMPING_TX_RECORD_MASK)
++			return -EINVAL;
++
++		sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
++		sockc->tsflags |= tsflags;
++		break;
+ 	default:
+ 		return -EINVAL;
  	}
- }
- 
--/* CWND moderation, preventing bursts due to too big ACKs
-- * in dubious situations.
-- */
--static inline void tcp_moderate_cwnd(struct tcp_sock *tp)
--{
--	tp->snd_cwnd = min(tp->snd_cwnd,
--			   tcp_packets_in_flight(tp) + tcp_max_burst(tp));
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--}
--
- static bool tcp_tsopt_ecr_before(const struct tcp_sock *tp, u32 when)
- {
- 	return tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
-@@ -2410,7 +2400,6 @@ static bool tcp_try_undo_recovery(struct sock *sk)
- 		/* Hold old state until something *above* high_seq
- 		 * is ACKed. For Reno it is MUST to prevent false
- 		 * fast retransmits (RFC2582). SACK TCP is safe. */
--		tcp_moderate_cwnd(tp);
- 		if (!tcp_any_retrans_done(sk))
- 			tp->retrans_stamp = 0;
- 		return true;
 -- 
 2.8.0.rc3.226.g39d4020
