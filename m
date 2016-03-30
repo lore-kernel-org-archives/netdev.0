@@ -1,208 +1,215 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: bpf: net/core/filter.c:2115 suspicious
- rcu_dereference_protected() usage!
-Date: Wed, 30 Mar 2016 14:24:19 +0200
-Message-ID: <20160330122418.GD15048@unicorn.suse.cz>
-References: <56CB29D5.9090000@oracle.com>
- <20160329125823.GB15048@unicorn.suse.cz>
- <56FA8935.8030109@iogearbox.net>
- <56FA93AF.8060001@iogearbox.net>
- <20160330094224.GC15048@unicorn.suse.cz>
- <56FBB998.5090504@iogearbox.net>
+From: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>
+Subject: Re: [PATCH 4/5] fsl/qe: Add QE TDM lib
+Date: Wed, 30 Mar 2016 11:50:00 +0000
+Message-ID: <1459338701.3538.17.camel@infinera.com>
+References: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
+	 <1459327830-19829-4-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sasha Levin <sasha.levin@oracle.com>, Jiri Slaby <jslaby@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>, ast@plumgrid.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"xiaobo.xie@nxp.com" <xiaobo.xie@nxp.com>,
+	"oss@buserror.net" <oss@buserror.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"qiang.zhao@nxp.com" <qiang.zhao@nxp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <56FBB998.5090504@iogearbox.net>
+In-Reply-To: <1459327830-19829-4-git-send-email-qiang.zhao@nxp.com>
+Content-Language: en-US
+Content-ID: <15A85D9336B5D843B17BC2512C9F0B4D@infinera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 30, 2016 at 01:33:44PM +0200, Daniel Borkmann wrote:
-> On 03/30/2016 11:42 AM, Michal Kubecek wrote:
-> >
-> >I'm just not sure checking if we hold the right lock depending on caller
-> >is worth the extra complexity. After all, what is really needed is to
-> >hold _some_ lock guaranteeing sk_attach_prog() and sk_detach_filter()
-> >are safe so that just changing the condition in both to
-> >
-> >   sock_owned_by_user(sk) || lockdep_rtnl_is_held()
-> 
-> It would certainly silence it, but would be less accurate in terms of lock
-> proving as opposed to the diff above. E.g. rntl could be held elsewhere,
-> while someone attaches a socket filter w/o having locked the socket (currently
-> not the case, but it would kind of defeat the purpose of rcu_dereference_protected()
-> here). Was thinking about using a extra socket flag to indicate it's
-> externally managed, but it's not really worth wasting sk's flags bit
-> space just for this corner case.
+On Wed, 2016-03-30 at 16:50 +0800, Zhao Qiang wrote:
+> QE has module to support TDM, some other protocols
+> supported by QE are based on TDM.
+> add a qe-tdm lib, this lib provides functions to the protocols
+> using TDM to configurate QE-TDM.
+>=20
+> Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
+> ---
+> =A0drivers/soc/fsl/qe/Kconfig=A0=A0=A0=A0|=A0=A0=A04 +
+> =A0drivers/soc/fsl/qe/Makefile=A0=A0=A0|=A0=A0=A01 +
+> =A0drivers/soc/fsl/qe/qe_tdm.c=A0=A0=A0| 271 ++++++++++++++++++++++++=
+++++++++++++++++++
+> =A0include/soc/fsl/qe/immap_qe.h |=A0=A0=A05 +-
+> =A0include/soc/fsl/qe/qe_tdm.h=A0=A0=A0|=A0=A094 +++++++++++++++
+> =A05 files changed, 371 insertions(+), 4 deletions(-)
+> =A0create mode 100644 drivers/soc/fsl/qe/qe_tdm.c
+> =A0create mode 100644 include/soc/fsl/qe/qe_tdm.h
+>=20
+> diff --git a/drivers/soc/fsl/qe/Kconfig b/drivers/soc/fsl/qe/Kconfig
+> index 20978f2..463cf29 100644
+> --- a/drivers/soc/fsl/qe/Kconfig
+> +++ b/drivers/soc/fsl/qe/Kconfig
+> @@ -31,6 +31,10 @@ config UCC
+> =A0	bool
+> =A0	default y if UCC_FAST || UCC_SLOW
+> =A0
+> +config QE_TDM
+> +	bool
+> +	select UCC_FAST
+> +
+> =A0config QE_USB
+> =A0	bool
+> =A0	default y if USB_FSL_QE
+> diff --git a/drivers/soc/fsl/qe/Makefile b/drivers/soc/fsl/qe/Makefil=
+e
+> index ffac541..2031d38 100644
+> --- a/drivers/soc/fsl/qe/Makefile
+> +++ b/drivers/soc/fsl/qe/Makefile
+> @@ -6,5 +6,6 @@ obj-$(CONFIG_CPM)	+=3D qe_common.o
+> =A0obj-$(CONFIG_UCC)	+=3D ucc.o
+> =A0obj-$(CONFIG_UCC_SLOW)	+=3D ucc_slow.o
+> =A0obj-$(CONFIG_UCC_FAST)	+=3D ucc_fast.o
+> +obj-$(CONFIG_QE_TDM)	+=3D qe_tdm.o
+> =A0obj-$(CONFIG_QE_USB)	+=3D usb.o
+> =A0obj-$(CONFIG_QE_GPIO)	+=3D gpio.o
+> diff --git a/drivers/soc/fsl/qe/qe_tdm.c b/drivers/soc/fsl/qe/qe_tdm.=
+c
+> new file mode 100644
+> index 0000000..9a2374d
+> --- /dev/null
+> +++ b/drivers/soc/fsl/qe/qe_tdm.c
+> @@ -0,0 +1,271 @@
+> +/*
+> + * Copyright (C) 2015 Freescale Semiconductor, Inc. All rights reser=
+ved.
+> + *
+> + * Authors:	Zhao Qiang <qiang.zhao@nxp.com>
+> + *
+> + * Description:
+> + * QE TDM API Set - TDM specific routines implementations.
+> + *
+> + * This program is free software; you can redistribute=A0=A0it and/o=
+r modify it
+> + * under=A0=A0the terms of=A0=A0the GNU General=A0=A0Public License =
+as published by the
+> + * Free Software Foundation;=A0=A0either version 2 of the=A0=A0Licen=
+se, or (at your
+> + * option) any later version.
+> + */
+> +#include <linux/io.h>
+> +#include <linux/kernel.h>
+> +#include <linux/of_address.h>
+> +#include <linux/of_irq.h>
+> +#include <linux/of_platform.h>
+> +#include <soc/fsl/qe/qe_tdm.h>
+> +
+> +static enum tdm_framer_t set_tdm_framer(const char *tdm_framer_type)
+> +{
+> +	if (strcmp(tdm_framer_type, "e1") =3D=3D 0)
+> +		return TDM_FRAMER_E1;
+> +	else
+> +		return TDM_FRAMER_T1;
+> +}
+> +
+> +static void set_si_param(struct ucc_tdm *utdm, struct ucc_tdm_info *=
+ut_info)
+> +{
+> +	struct si_mode_info *si_info =3D &ut_info->si_info;
+> +
+> +	if (utdm->tdm_mode =3D=3D TDM_INTERNAL_LOOPBACK) {
+> +		si_info->simr_crt =3D 1;
+> +		si_info->simr_rfsd =3D 0;
+> +	}
+> +}
+> +
+> +int ucc_of_parse_tdm(struct device_node *np, struct ucc_tdm *utdm,
+> +		=A0=A0=A0=A0=A0struct ucc_tdm_info *ut_info)
+> +{
+> +	const char *sprop;
+> +	int ret =3D 0;
+> +	u32 val;
+> +	struct resource *res;
+> +	struct device_node *np2;
+> +	static int siram_init_flag;
+> +	struct platform_device *pdev;
+> +
+> +	sprop =3D of_get_property(np, "fsl,rx-sync-clock", NULL);
+> +	if (sprop) {
+> +		ut_info->uf_info.rx_sync =3D qe_clock_source(sprop);
+> +		if ((ut_info->uf_info.rx_sync < QE_CLK_NONE) ||
+> +		=A0=A0=A0=A0(ut_info->uf_info.rx_sync > QE_RSYNC_PIN)) {
+> +			pr_err("QE-TDM: Invalid rx-sync-clock property\n");
+> +			return -EINVAL;
+> +		}
+> +	} else {
+> +		pr_err("QE-TDM: Invalid rx-sync-clock property\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	sprop =3D of_get_property(np, "fsl,tx-sync-clock", NULL);
+> +	if (sprop) {
+> +		ut_info->uf_info.tx_sync =3D qe_clock_source(sprop);
+> +		if ((ut_info->uf_info.tx_sync < QE_CLK_NONE) ||
+> +		=A0=A0=A0=A0(ut_info->uf_info.tx_sync > QE_TSYNC_PIN)) {
+> +			pr_err("QE-TDM: Invalid tx-sync-clock property\n");
+> +		return -EINVAL;
+> +		}
+> +	} else {
+> +		pr_err("QE-TDM: Invalid tx-sync-clock property\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	ret =3D of_property_read_u32_index(np, "fsl,tx-timeslot-mask", 0, &=
+val);
+> +	if (ret) {
+> +		pr_err("QE-TDM: Invalid tx-timeslot-mask property\n");
+> +		return -EINVAL;
+> +	}
+> +	utdm->tx_ts_mask =3D val;
+> +
+> +	ret =3D of_property_read_u32_index(np, "fsl,rx-timeslot-mask", 0, &=
+val);
+> +	if (ret) {
+> +		ret =3D -EINVAL;
+> +		pr_err("QE-TDM: Invalid rx-timeslot-mask property\n");
+> +		return ret;
+> +	}
+> +	utdm->rx_ts_mask =3D val;
+> +
+> +	ret =3D of_property_read_u32_index(np, "fsl,tdm-id", 0, &val);
+> +	if (ret) {
+> +		ret =3D -EINVAL;
+> +		pr_err("QE-TDM: No fsl,tdm-id property for this UCC\n");
+> +		return ret;
+> +	}
+> +	utdm->tdm_port =3D val;
+> +	ut_info->uf_info.tdm_num =3D utdm->tdm_port;
+> +
+> +	if (of_get_property(np, "fsl,tdm-internal-loopback", NULL))
+> +		utdm->tdm_mode =3D TDM_INTERNAL_LOOPBACK;
+> +	else
+> +		utdm->tdm_mode =3D TDM_NORMAL;
+> +
+> +	sprop =3D of_get_property(np, "fsl,tdm-framer-type", NULL);
+> +	if (!sprop) {
+> +		ret =3D -EINVAL;
+> +		pr_err("QE-TDM: No tdm-framer-type property for UCC\n");
+> +		return ret;
+> +	}
+> +	utdm->tdm_framer_type =3D set_tdm_framer(sprop);
+> +
+> +	ret =3D of_property_read_u32_index(np, "fsl,siram-entry-id", 0, &va=
+l);
+> +	if (ret) {
+> +		ret =3D -EINVAL;
+> +		pr_err("QE-TDM: No siram entry id for UCC\n");
+> +		return ret;
+> +	}
+> +	utdm->siram_entry_id =3D val;
+> +
+> +	set_si_param(utdm, ut_info);
+> +
+> +	np2 =3D of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-si");
 
-Originally my reasoning was that to actually hide a locking issue from
-lockdep, this would have to happen every time we get down into the
-function which is unlikely. But thinking about it again, this code path
-is not so frequent and the fuzzers tend to do strange things so that it
-could really happen.
+fsl,t1040-qe-si only? What about mpc83xx?
+I recall QE is a little bit different compared to T1040 or will this wo=
+rk(including the hdlc driver)
+on 83xx as well?
 
-Sasha/Jiri, could you test the patch with your testcases? I received it
-corrupted (strange leading whitespaces) so I better add cleaned up
-version below.
-
-                                                         Michal Kubecek
-
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index afdf950617c3..510e90a6bb26 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -622,7 +622,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 
- 	/* Re-attach the filter to persist device */
- 	if (!skip_filter && (tun->filter_attached == true)) {
--		err = sk_attach_filter(&tun->fprog, tfile->socket.sk);
-+		err = __sk_attach_filter(&tun->fprog, tfile->socket.sk,
-+					 lockdep_rtnl_is_held());
- 		if (!err)
- 			goto out;
- 	}
-@@ -1822,7 +1823,7 @@ static void tun_detach_filter(struct tun_struct *tun, int n)
- 
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
--		sk_detach_filter(tfile->socket.sk);
-+		__sk_detach_filter(tfile->socket.sk, lockdep_rtnl_is_held());
- 	}
- 
- 	tun->filter_attached = false;
-@@ -1835,7 +1836,8 @@ static int tun_attach_filter(struct tun_struct *tun)
- 
- 	for (i = 0; i < tun->numqueues; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
--		ret = sk_attach_filter(&tun->fprog, tfile->socket.sk);
-+		ret = __sk_attach_filter(&tun->fprog, tfile->socket.sk,
-+					 lockdep_rtnl_is_held());
- 		if (ret) {
- 			tun_detach_filter(tun, i);
- 			return ret;
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 43aa1f8855c7..a51a5361695f 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -465,10 +465,14 @@ int bpf_prog_create_from_user(struct bpf_prog **pfp, struct sock_fprog *fprog,
- void bpf_prog_destroy(struct bpf_prog *fp);
- 
- int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
-+int __sk_attach_filter(struct sock_fprog *fprog, struct sock *sk,
-+		       bool locked);
- int sk_attach_bpf(u32 ufd, struct sock *sk);
- int sk_reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- int sk_reuseport_attach_bpf(u32 ufd, struct sock *sk);
- int sk_detach_filter(struct sock *sk);
-+int __sk_detach_filter(struct sock *sk, bool locked);
-+
- int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
- 		  unsigned int len);
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index b7177d01ecb0..dfb4561a2247 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1149,7 +1149,8 @@ void bpf_prog_destroy(struct bpf_prog *fp)
- }
- EXPORT_SYMBOL_GPL(bpf_prog_destroy);
- 
--static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
-+static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk,
-+			    bool locked)
- {
- 	struct sk_filter *fp, *old_fp;
- 
-@@ -1165,10 +1166,8 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
- 		return -ENOMEM;
- 	}
- 
--	old_fp = rcu_dereference_protected(sk->sk_filter,
--					   sock_owned_by_user(sk));
-+	old_fp = rcu_dereference_protected(sk->sk_filter, locked);
- 	rcu_assign_pointer(sk->sk_filter, fp);
--
- 	if (old_fp)
- 		sk_filter_uncharge(sk, old_fp);
- 
-@@ -1247,7 +1246,8 @@ struct bpf_prog *__get_filter(struct sock_fprog *fprog, struct sock *sk)
-  * occurs or there is insufficient memory for the filter a negative
-  * errno code is returned. On success the return is zero.
-  */
--int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
-+int __sk_attach_filter(struct sock_fprog *fprog, struct sock *sk,
-+		       bool locked)
- {
- 	struct bpf_prog *prog = __get_filter(fprog, sk);
- 	int err;
-@@ -1255,7 +1255,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	err = __sk_attach_prog(prog, sk);
-+	err = __sk_attach_prog(prog, sk, locked);
- 	if (err < 0) {
- 		__bpf_prog_release(prog);
- 		return err;
-@@ -1263,7 +1263,12 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(sk_attach_filter);
-+EXPORT_SYMBOL_GPL(__sk_attach_filter);
-+
-+int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
-+{
-+	return __sk_attach_filter(fprog, sk, sock_owned_by_user(sk));
-+}
- 
- int sk_reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- {
-@@ -1309,7 +1314,7 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	err = __sk_attach_prog(prog, sk);
-+	err = __sk_attach_prog(prog, sk, sock_owned_by_user(sk));
- 	if (err < 0) {
- 		bpf_prog_put(prog);
- 		return err;
-@@ -2247,7 +2252,7 @@ static int __init register_sk_filter_ops(void)
- }
- late_initcall(register_sk_filter_ops);
- 
--int sk_detach_filter(struct sock *sk)
-+int __sk_detach_filter(struct sock *sk, bool locked)
- {
- 	int ret = -ENOENT;
- 	struct sk_filter *filter;
-@@ -2255,8 +2260,7 @@ int sk_detach_filter(struct sock *sk)
- 	if (sock_flag(sk, SOCK_FILTER_LOCKED))
- 		return -EPERM;
- 
--	filter = rcu_dereference_protected(sk->sk_filter,
--					   sock_owned_by_user(sk));
-+	filter = rcu_dereference_protected(sk->sk_filter, locked);
- 	if (filter) {
- 		RCU_INIT_POINTER(sk->sk_filter, NULL);
- 		sk_filter_uncharge(sk, filter);
-@@ -2265,7 +2269,12 @@ int sk_detach_filter(struct sock *sk)
- 
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(sk_detach_filter);
-+EXPORT_SYMBOL_GPL(__sk_detach_filter);
-+
-+int sk_detach_filter(struct sock *sk)
-+{
-+	return __sk_detach_filter(sk, sock_owned_by_user(sk));
-+}
- 
- int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
- 		  unsigned int len)
+=A0Jocke=A0
