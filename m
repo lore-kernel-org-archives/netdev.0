@@ -1,86 +1,48 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH RFC net-next] net: core: Pass XPS select queue decision to skb_tx_hash
-Date: Wed, 30 Mar 2016 21:30:57 +0300
-Message-ID: <CALzJLG-xJe6_-2a=djpLxBR5xQY562m06eLLCP04GdTrzmWJuQ@mail.gmail.com>
-References: <1459290252-4121-1-git-send-email-saeedm@mellanox.com>
- <56FB1B64.40301@gmail.com> <56FBD35D.4090805@dev.mellanox.co.il> <56FC0723.4040003@gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+Date: Wed, 30 Mar 2016 15:37:15 -0300
+Message-ID: <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+References: <56FB46EA.7050401@uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Greg Ungerer <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:33572 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753081AbcC3SbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 14:31:17 -0400
-Received: by mail-yw0-f193.google.com with SMTP id o63so8084321ywe.0
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 11:31:17 -0700 (PDT)
-In-Reply-To: <56FC0723.4040003@gmail.com>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36638 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250AbcC3ShQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 14:37:16 -0400
+Received: by mail-io0-f179.google.com with SMTP id q128so83333561iof.3
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 11:37:16 -0700 (PDT)
+In-Reply-To: <56FB46EA.7050401@uclinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 8:04 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> OK, so let me see if I get this right now. This was the precedence
-> before the patch in the normal no select queue case,
->
->         (1) socket mapping sk_tx_queue_mapping iff !ooo_okay
->         (2) xps
->         (3) skb->queue_mapping
->         (4) qoffset/qcount (hash over tc queues)
->         (5) hash over num_tx_queues
->
-> With this patch the precedence is a bit changed because
-> skb_tx_hash is always called.
->
->         (1) socket mapping sk_tx_queue_mapping iff !ooo_okay
->         (2) skb->queue_mapping
->         (3) qoffset/qcount
->            (hash over tc queues if xps choice is > qcount)
->         (4) xps
->         (5) hash over num_tx_queues
->
-> Sound right? Nice thing about this with correct configuration
-> of tc with qcount = xps_queues it sort of works as at least
+Hi Greg,
 
-Yes !
-for qcount = xps_queues which almost all drivers default
-configurations goes this way, it works like charm, xps selects the
-exact TC TX queue at the correct offset without any need for further
-SKB hashing.
-and even if by mistake XPS was also configured on TC TX queue then
-this patch will detect that the xps hash is out of this TC
-offset/qcount range and will re-hash. But i don't see why would user
-or driver do such strange configuration.
-
-> I expect it to. I think the question is are people OK with
-> letting skb->queue_mapping take precedence. I am at least
-> because it makes the skb edit queue_mapping action from tc
-> easier to use.
+On Wed, Mar 30, 2016 at 12:24 AM, Greg Ungerer <gerg@uclinux.org> wrote:
+> Hi Troy,
 >
-
-skb->queue_mapping toke precedence also before this patch, the only
-thing this patch came to change is how to compute the txq when
-skb->queue_mapping is not present, so we don't need to worry about
-this.
-
-> And just a comment on the code why not just move get_xps_queue
-> into skb_tx_hash at this point if its always being called as the
-> "hint". Then we avoid calling it in the case queue_mapping is
-> set.
+> Commit 55cd48c8 ('net: fec: stop the "rcv is not +last, " error
+> messages') adds a write to a register that is not present in all
+> implementations of the FEC hardware module. None of the ColdFire
+> SoC parts with the FEC module have the FTRL (0x1b0) register.
 >
+> Does this need a quirk flag to key access to this register of?
+> Or can you piggyback on the FEC_QUIRK_HAS_RACC flag?
 
-Very good point, the only place that calls skb_tx_hash(dev, skb) other
-than __netdev_pick_tx is mlx4 driver and they did it there just
-because they wanted to bypass XPS configuration if TC QoS is
-configured, with this fix we don't have to bypass XPS at all for when
-TC is configured.
+Would the change below work on Coldfire?
 
-I will change it.
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -943,8 +943,8 @@ fec_restart(struct net_device *ndev)
+                else
+                        val &= ~FEC_RACC_OPTIONS;
+                writel(val, fep->hwp + FEC_RACC);
+-       }
+        writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
++       }
+ #endif
+
+        /*
