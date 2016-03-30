@@ -1,7 +1,7 @@
 From: Zhao Qiang <qiang.zhao@nxp.com>
-Subject: [PATCH 2/5] fsl/qe: setup clock source for TDM mode
-Date: Wed, 30 Mar 2016 16:50:27 +0800
-Message-ID: <1459327830-19829-2-git-send-email-qiang.zhao@nxp.com>
+Subject: [PATCH 4/5] fsl/qe: Add QE TDM lib
+Date: Wed, 30 Mar 2016 16:50:29 +0800
+Message-ID: <1459327830-19829-4-git-send-email-qiang.zhao@nxp.com>
 References: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,583 +15,440 @@ In-Reply-To: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add tdm clock configuration in both qe clock system and ucc
-fast controller.
+QE has module to support TDM, some other protocols
+supported by QE are based on TDM.
+add a qe-tdm lib, this lib provides functions to the protocols
+using TDM to configurate QE-TDM.
 
 Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
 ---
- drivers/soc/fsl/qe/ucc.c      | 450 ++++++++++++++++++++++++++++++++++++++++++
- drivers/soc/fsl/qe/ucc_fast.c |  36 ++++
- include/soc/fsl/qe/qe.h       |  16 ++
- include/soc/fsl/qe/ucc.h      |   4 +
- include/soc/fsl/qe/ucc_fast.h |   1 +
- 5 files changed, 507 insertions(+)
+ drivers/soc/fsl/qe/Kconfig    |   4 +
+ drivers/soc/fsl/qe/Makefile   |   1 +
+ drivers/soc/fsl/qe/qe_tdm.c   | 271 ++++++++++++++++++++++++++++++++++++++++++
+ include/soc/fsl/qe/immap_qe.h |   5 +-
+ include/soc/fsl/qe/qe_tdm.h   |  94 +++++++++++++++
+ 5 files changed, 371 insertions(+), 4 deletions(-)
+ create mode 100644 drivers/soc/fsl/qe/qe_tdm.c
+ create mode 100644 include/soc/fsl/qe/qe_tdm.h
 
-diff --git a/drivers/soc/fsl/qe/ucc.c b/drivers/soc/fsl/qe/ucc.c
-index b59d335..5e1a850 100644
---- a/drivers/soc/fsl/qe/ucc.c
-+++ b/drivers/soc/fsl/qe/ucc.c
-@@ -25,6 +25,12 @@
- #include <soc/fsl/qe/qe.h>
- #include <soc/fsl/qe/ucc.h>
+diff --git a/drivers/soc/fsl/qe/Kconfig b/drivers/soc/fsl/qe/Kconfig
+index 20978f2..463cf29 100644
+--- a/drivers/soc/fsl/qe/Kconfig
++++ b/drivers/soc/fsl/qe/Kconfig
+@@ -31,6 +31,10 @@ config UCC
+ 	bool
+ 	default y if UCC_FAST || UCC_SLOW
  
-+#define UCC_TDM_NUM 8
-+#define RX_SYNC_SHIFT_BASE 30
-+#define TX_SYNC_SHIFT_BASE 14
-+#define RX_CLK_SHIFT_BASE 28
-+#define TX_CLK_SHIFT_BASE 12
++config QE_TDM
++	bool
++	select UCC_FAST
 +
- int ucc_set_qe_mux_mii_mng(unsigned int ucc_num)
- {
- 	unsigned long flags;
-@@ -210,3 +216,447 @@ int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
- 
- 	return 0;
- }
+ config QE_USB
+ 	bool
+ 	default y if USB_FSL_QE
+diff --git a/drivers/soc/fsl/qe/Makefile b/drivers/soc/fsl/qe/Makefile
+index ffac541..2031d38 100644
+--- a/drivers/soc/fsl/qe/Makefile
++++ b/drivers/soc/fsl/qe/Makefile
+@@ -6,5 +6,6 @@ obj-$(CONFIG_CPM)	+= qe_common.o
+ obj-$(CONFIG_UCC)	+= ucc.o
+ obj-$(CONFIG_UCC_SLOW)	+= ucc_slow.o
+ obj-$(CONFIG_UCC_FAST)	+= ucc_fast.o
++obj-$(CONFIG_QE_TDM)	+= qe_tdm.o
+ obj-$(CONFIG_QE_USB)	+= usb.o
+ obj-$(CONFIG_QE_GPIO)	+= gpio.o
+diff --git a/drivers/soc/fsl/qe/qe_tdm.c b/drivers/soc/fsl/qe/qe_tdm.c
+new file mode 100644
+index 0000000..9a2374d
+--- /dev/null
++++ b/drivers/soc/fsl/qe/qe_tdm.c
+@@ -0,0 +1,271 @@
++/*
++ * Copyright (C) 2015 Freescale Semiconductor, Inc. All rights reserved.
++ *
++ * Authors:	Zhao Qiang <qiang.zhao@nxp.com>
++ *
++ * Description:
++ * QE TDM API Set - TDM specific routines implementations.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ */
++#include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_platform.h>
++#include <soc/fsl/qe/qe_tdm.h>
 +
-+static int ucc_get_tdm_common_clk(u32 tdm_num, enum qe_clock clock)
++static enum tdm_framer_t set_tdm_framer(const char *tdm_framer_type)
 +{
-+	int clock_bits = -EINVAL;
++	if (strcmp(tdm_framer_type, "e1") == 0)
++		return TDM_FRAMER_E1;
++	else
++		return TDM_FRAMER_T1;
++}
 +
-+	/*
-+	 * for TDM[0, 1, 2, 3], TX and RX use  common
-+	 * clock source BRG3,4 and CLK1,2
-+	 * for TDM[4, 5, 6, 7], TX and RX use  common
-+	 * clock source BRG12,13 and CLK23,24
-+	 */
-+	switch (tdm_num) {
++static void set_si_param(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info)
++{
++	struct si_mode_info *si_info = &ut_info->si_info;
++
++	if (utdm->tdm_mode == TDM_INTERNAL_LOOPBACK) {
++		si_info->simr_crt = 1;
++		si_info->simr_rfsd = 0;
++	}
++}
++
++int ucc_of_parse_tdm(struct device_node *np, struct ucc_tdm *utdm,
++		     struct ucc_tdm_info *ut_info)
++{
++	const char *sprop;
++	int ret = 0;
++	u32 val;
++	struct resource *res;
++	struct device_node *np2;
++	static int siram_init_flag;
++	struct platform_device *pdev;
++
++	sprop = of_get_property(np, "fsl,rx-sync-clock", NULL);
++	if (sprop) {
++		ut_info->uf_info.rx_sync = qe_clock_source(sprop);
++		if ((ut_info->uf_info.rx_sync < QE_CLK_NONE) ||
++		    (ut_info->uf_info.rx_sync > QE_RSYNC_PIN)) {
++			pr_err("QE-TDM: Invalid rx-sync-clock property\n");
++			return -EINVAL;
++		}
++	} else {
++		pr_err("QE-TDM: Invalid rx-sync-clock property\n");
++		return -EINVAL;
++	}
++
++	sprop = of_get_property(np, "fsl,tx-sync-clock", NULL);
++	if (sprop) {
++		ut_info->uf_info.tx_sync = qe_clock_source(sprop);
++		if ((ut_info->uf_info.tx_sync < QE_CLK_NONE) ||
++		    (ut_info->uf_info.tx_sync > QE_TSYNC_PIN)) {
++			pr_err("QE-TDM: Invalid tx-sync-clock property\n");
++		return -EINVAL;
++		}
++	} else {
++		pr_err("QE-TDM: Invalid tx-sync-clock property\n");
++		return -EINVAL;
++	}
++
++	ret = of_property_read_u32_index(np, "fsl,tx-timeslot-mask", 0, &val);
++	if (ret) {
++		pr_err("QE-TDM: Invalid tx-timeslot-mask property\n");
++		return -EINVAL;
++	}
++	utdm->tx_ts_mask = val;
++
++	ret = of_property_read_u32_index(np, "fsl,rx-timeslot-mask", 0, &val);
++	if (ret) {
++		ret = -EINVAL;
++		pr_err("QE-TDM: Invalid rx-timeslot-mask property\n");
++		return ret;
++	}
++	utdm->rx_ts_mask = val;
++
++	ret = of_property_read_u32_index(np, "fsl,tdm-id", 0, &val);
++	if (ret) {
++		ret = -EINVAL;
++		pr_err("QE-TDM: No fsl,tdm-id property for this UCC\n");
++		return ret;
++	}
++	utdm->tdm_port = val;
++	ut_info->uf_info.tdm_num = utdm->tdm_port;
++
++	if (of_get_property(np, "fsl,tdm-internal-loopback", NULL))
++		utdm->tdm_mode = TDM_INTERNAL_LOOPBACK;
++	else
++		utdm->tdm_mode = TDM_NORMAL;
++
++	sprop = of_get_property(np, "fsl,tdm-framer-type", NULL);
++	if (!sprop) {
++		ret = -EINVAL;
++		pr_err("QE-TDM: No tdm-framer-type property for UCC\n");
++		return ret;
++	}
++	utdm->tdm_framer_type = set_tdm_framer(sprop);
++
++	ret = of_property_read_u32_index(np, "fsl,siram-entry-id", 0, &val);
++	if (ret) {
++		ret = -EINVAL;
++		pr_err("QE-TDM: No siram entry id for UCC\n");
++		return ret;
++	}
++	utdm->siram_entry_id = val;
++
++	set_si_param(utdm, ut_info);
++
++	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-si");
++	if (!np2)
++		return -EINVAL;
++
++	pdev = of_find_device_by_node(np2);
++	if (!pdev) {
++		pr_err("%s: failed to lookup pdev\n", np2->name);
++		of_node_put(np2);
++		return -EINVAL;
++	}
++
++	of_node_put(np2);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	utdm->si_regs = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(utdm->si_regs)) {
++		ret = PTR_ERR(utdm->si_regs);
++		goto err_miss_siram_property;
++	}
++
++	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-siram");
++	if (!np2) {
++		ret = -EINVAL;
++		goto err_miss_siram_property;
++	}
++
++	pdev = of_find_device_by_node(np2);
++	if (!pdev) {
++		ret = -EINVAL;
++		pr_err("%s: failed to lookup pdev\n", np2->name);
++		of_node_put(np2);
++		goto err_miss_siram_property;
++	}
++
++	of_node_put(np2);
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	utdm->siram = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(utdm->siram)) {
++		ret = PTR_ERR(utdm->siram);
++		goto err_miss_siram_property;
++	}
++
++	if (siram_init_flag == 0) {
++		memset_io(utdm->siram, 0,  res->end - res->start + 1);
++		siram_init_flag = 1;
++	}
++
++	return ret;
++
++err_miss_siram_property:
++	devm_iounmap(&pdev->dev, utdm->si_regs);
++	return ret;
++}
++
++void ucc_tdm_init(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info)
++{
++	struct si1 __iomem *si_regs;
++	u16 __iomem *siram;
++	u16 siram_entry_valid;
++	u16 siram_entry_closed;
++	u16 ucc_num;
++	u8 csel;
++	u16 sixmr;
++	u16 tdm_port;
++	u32 siram_entry_id;
++	u32 mask;
++	int i;
++
++	si_regs = utdm->si_regs;
++	siram = utdm->siram;
++	ucc_num = ut_info->uf_info.ucc_num;
++	tdm_port = utdm->tdm_port;
++	siram_entry_id = utdm->siram_entry_id;
++
++	if (utdm->tdm_framer_type == TDM_FRAMER_T1)
++		utdm->num_of_ts = 24;
++	if (utdm->tdm_framer_type == TDM_FRAMER_E1)
++		utdm->num_of_ts = 32;
++
++	/* set siram table */
++	csel = (ucc_num < 4) ? ucc_num + 9 : ucc_num - 3;
++
++	siram_entry_valid = SIR_CSEL(csel) | SIR_BYTE | SIR_CNT(0);
++	siram_entry_closed = SIR_IDLE | SIR_BYTE | SIR_CNT(0);
++
++	for (i = 0; i < utdm->num_of_ts; i++) {
++		mask = 0x01 << i;
++
++		if (utdm->tx_ts_mask & mask)
++			iowrite16be(siram_entry_valid,
++				    &siram[siram_entry_id * 32 + i]);
++		else
++			iowrite16be(siram_entry_closed,
++				    &siram[siram_entry_id * 32 + i]);
++
++		if (utdm->rx_ts_mask & mask)
++			iowrite16be(siram_entry_valid,
++				    &siram[siram_entry_id * 32 + 0x200 +  i]);
++		else
++			iowrite16be(siram_entry_closed,
++				    &siram[siram_entry_id * 32 + 0x200 +  i]);
++	}
++
++	setbits16(&siram[(siram_entry_id * 32) + (utdm->num_of_ts - 1)],
++		  SIR_LAST);
++	setbits16(&siram[(siram_entry_id * 32) + 0x200 + (utdm->num_of_ts - 1)],
++		  SIR_LAST);
++
++	/* Set SIxMR register */
++	sixmr = SIMR_SAD(siram_entry_id);
++
++	sixmr &= ~SIMR_SDM_MASK;
++
++	if (utdm->tdm_mode == TDM_INTERNAL_LOOPBACK)
++		sixmr |= SIMR_SDM_INTERNAL_LOOPBACK;
++	else
++		sixmr |= SIMR_SDM_NORMAL;
++
++	sixmr |= SIMR_RFSD(ut_info->si_info.simr_rfsd) |
++			SIMR_TFSD(ut_info->si_info.simr_tfsd);
++
++	if (ut_info->si_info.simr_crt)
++		sixmr |= SIMR_CRT;
++	if (ut_info->si_info.simr_sl)
++		sixmr |= SIMR_SL;
++	if (ut_info->si_info.simr_ce)
++		sixmr |= SIMR_CE;
++	if (ut_info->si_info.simr_fe)
++		sixmr |= SIMR_FE;
++	if (ut_info->si_info.simr_gm)
++		sixmr |= SIMR_GM;
++
++	switch (tdm_port) {
 +	case 0:
-+	case 1:
-+	case 2:
-+	case 3:
-+		switch (clock) {
-+		case QE_BRG3:
-+			clock_bits = 1;
-+			break;
-+		case QE_BRG4:
-+			clock_bits = 2;
-+			break;
-+		case QE_CLK1:
-+			clock_bits = 4;
-+			break;
-+		case QE_CLK2:
-+			clock_bits = 5;
-+			break;
-+		default:
-+			break;
-+		}
++		iowrite16be(sixmr, &si_regs->sixmr1[0]);
 +		break;
-+	case 4:
-+	case 5:
-+	case 6:
-+	case 7:
-+		switch (clock) {
-+		case QE_BRG12:
-+			clock_bits = 1;
-+			break;
-+		case QE_BRG13:
-+			clock_bits = 2;
-+			break;
-+		case QE_CLK23:
-+			clock_bits = 4;
-+			break;
-+		case QE_CLK24:
-+			clock_bits = 5;
-+			break;
-+		default:
-+			break;
-+		}
++	case 1:
++		iowrite16be(sixmr, &si_regs->sixmr1[1]);
++		break;
++	case 2:
++		iowrite16be(sixmr, &si_regs->sixmr1[2]);
++		break;
++	case 3:
++		iowrite16be(sixmr, &si_regs->sixmr1[3]);
 +		break;
 +	default:
++		pr_err("QE-TDM: can not find tdm sixmr reg\n");
 +		break;
 +	}
-+
-+	return clock_bits;
 +}
-+
-+static int ucc_get_tdm_rx_clk(u32 tdm_num, enum qe_clock clock)
-+{
-+	int clock_bits = -EINVAL;
-+
-+	switch (tdm_num) {
-+	case 0:
-+		switch (clock) {
-+		case QE_CLK3:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK8:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 1:
-+		switch (clock) {
-+		case QE_CLK5:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK10:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 2:
-+		switch (clock) {
-+		case QE_CLK7:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK12:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 3:
-+		switch (clock) {
-+		case QE_CLK9:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK14:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 4:
-+		switch (clock) {
-+		case QE_CLK11:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK16:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 5:
-+		switch (clock) {
-+		case QE_CLK13:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK18:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 6:
-+		switch (clock) {
-+		case QE_CLK15:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK20:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 7:
-+		switch (clock) {
-+		case QE_CLK17:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK22:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	}
-+
-+	return clock_bits;
-+}
-+
-+static int ucc_get_tdm_tx_clk(u32 tdm_num, enum qe_clock clock)
-+{
-+	int clock_bits = -EINVAL;
-+
-+	switch (tdm_num) {
-+	case 0:
-+		switch (clock) {
-+		case QE_CLK4:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK9:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 1:
-+		switch (clock) {
-+		case QE_CLK6:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK11:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 2:
-+		switch (clock) {
-+		case QE_CLK8:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK13:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 3:
-+		switch (clock) {
-+		case QE_CLK10:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK15:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 4:
-+		switch (clock) {
-+		case QE_CLK12:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK17:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 5:
-+		switch (clock) {
-+		case QE_CLK14:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK19:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 6:
-+		switch (clock) {
-+		case QE_CLK16:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK21:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 7:
-+		switch (clock) {
-+		case QE_CLK18:
-+			clock_bits = 6;
-+			break;
-+		case QE_CLK3:
-+			clock_bits = 7;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	}
-+
-+	return clock_bits;
-+}
-+
-+/* tdm_num: TDM A-H port num is 0-7 */
-+static int ucc_get_tdm_rxtx_clk(enum comm_dir mode, u32 tdm_num,
-+				enum qe_clock clock)
-+{
-+	int clock_bits;
-+
-+	clock_bits = ucc_get_tdm_common_clk(tdm_num, clock);
-+	if (clock_bits > 0)
-+		return clock_bits;
-+	if (mode == COMM_DIR_RX)
-+		clock_bits = ucc_get_tdm_rx_clk(tdm_num, clock);
-+	if (mode == COMM_DIR_TX)
-+		clock_bits = ucc_get_tdm_tx_clk(tdm_num, clock);
-+	return clock_bits;
-+}
-+
-+static u32 ucc_get_tdm_clk_shift(enum comm_dir mode, u32 tdm_num)
-+{
-+	u32 shift;
-+
-+	shift = (mode == COMM_DIR_RX) ? RX_CLK_SHIFT_BASE : TX_CLK_SHIFT_BASE;
-+	if (tdm_num < 4)
-+		shift -= tdm_num * 4;
-+	else
-+		shift -= (tdm_num - 4) * 4;
-+
-+	return shift;
-+}
-+
-+int ucc_set_tdm_rxtx_clk(u32 tdm_num, enum qe_clock clock,
-+			 enum comm_dir mode)
-+{
-+	int clock_bits;
-+	u32 shift;
-+	struct qe_mux __iomem *qe_mux_reg;
-+	 __be32 __iomem *cmxs1cr;
-+
-+	qe_mux_reg = &qe_immr->qmx;
-+
-+	if (tdm_num > 7 || tdm_num < 0)
-+		return -EINVAL;
-+
-+	/* The communications direction must be RX or TX */
-+	if (mode != COMM_DIR_RX && mode != COMM_DIR_TX)
-+		return -EINVAL;
-+
-+	clock_bits = ucc_get_tdm_rxtx_clk(mode, tdm_num, clock);
-+	if (clock_bits < 0)
-+		return -EINVAL;
-+
-+	shift = ucc_get_tdm_clk_shift(mode, tdm_num);
-+
-+	cmxs1cr = (tdm_num < 4) ? &qe_mux_reg->cmxsi1cr_l :
-+				  &qe_mux_reg->cmxsi1cr_h;
-+
-+	qe_clrsetbits32(cmxs1cr, QE_CMXUCR_TX_CLK_SRC_MASK << shift,
-+			clock_bits << shift);
-+
-+	return 0;
-+}
-+
-+static int ucc_get_tdm_sync_source(u32 tdm_num, enum qe_clock clock,
-+				   enum comm_dir mode)
-+{
-+	int source = -EINVAL;
-+
-+	if (mode == COMM_DIR_RX && clock == QE_RSYNC_PIN) {
-+		source = 0;
-+		return source;
-+	}
-+	if (mode == COMM_DIR_TX && clock == QE_TSYNC_PIN) {
-+		source = 0;
-+		return source;
-+	}
-+
-+	switch (tdm_num) {
-+	case 0:
-+	case 1:
-+		switch (clock) {
-+		case QE_BRG9:
-+				source = 1;
-+				break;
-+		case QE_BRG10:
-+				source = 2;
-+				break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 2:
-+	case 3:
-+		switch (clock) {
-+		case QE_BRG9:
-+				source = 1;
-+				break;
-+		case QE_BRG11:
-+				source = 2;
-+				break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 4:
-+	case 5:
-+		switch (clock) {
-+		case QE_BRG13:
-+				source = 1;
-+				break;
-+		case QE_BRG14:
-+				source = 2;
-+				break;
-+		default:
-+			break;
-+		}
-+		break;
-+	case 6:
-+	case 7:
-+		switch (clock) {
-+		case QE_BRG13:
-+				source = 1;
-+				break;
-+		case QE_BRG15:
-+				source = 2;
-+				break;
-+		default:
-+			break;
-+		}
-+		break;
-+	}
-+
-+	return source;
-+}
-+
-+static u32 ucc_get_tdm_sync_shift(enum comm_dir mode, u32 tdm_num)
-+{
-+	u32 shift;
-+
-+	shift = (mode == COMM_DIR_RX) ? RX_SYNC_SHIFT_BASE : RX_SYNC_SHIFT_BASE;
-+	shift -= tdm_num * 2;
-+
-+	return shift;
-+}
-+
-+int ucc_set_tdm_rxtx_sync(u32 tdm_num, enum qe_clock clock,
-+			  enum comm_dir mode)
-+{
-+	int source;
-+	u32 shift;
-+	struct qe_mux *qe_mux_reg;
-+
-+	qe_mux_reg = &qe_immr->qmx;
-+
-+	if (tdm_num >= UCC_TDM_NUM)
-+		return -EINVAL;
-+
-+	/* The communications direction must be RX or TX */
-+	if (mode != COMM_DIR_RX && mode != COMM_DIR_TX)
-+		return -EINVAL;
-+
-+	source = ucc_get_tdm_sync_source(tdm_num, clock, mode);
-+	if (source < 0)
-+		return -EINVAL;
-+
-+	shift = ucc_get_tdm_sync_shift(mode, tdm_num);
-+
-+	qe_clrsetbits32(&qe_mux_reg->cmxsi1syr,
-+			QE_CMXUCR_TX_CLK_SRC_MASK << shift,
-+			source << shift);
-+
-+	return 0;
-+}
-diff --git a/drivers/soc/fsl/qe/ucc_fast.c b/drivers/soc/fsl/qe/ucc_fast.c
-index a768931..83d8d16 100644
---- a/drivers/soc/fsl/qe/ucc_fast.c
-+++ b/drivers/soc/fsl/qe/ucc_fast.c
-@@ -327,6 +327,42 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
- 			ucc_fast_free(uccf);
- 			return -EINVAL;
- 		}
-+	} else {
-+		/* tdm Rx clock routing */
-+		if ((uf_info->rx_clock != QE_CLK_NONE) &&
-+		    ucc_set_tdm_rxtx_clk(uf_info->tdm_num, uf_info->rx_clock,
-+					 COMM_DIR_RX)) {
-+			pr_err("%s: illegal value for RX clock", __func__);
-+			ucc_fast_free(uccf);
-+			return -EINVAL;
-+		}
-+
-+		/* tdm Tx clock routing */
-+		if ((uf_info->tx_clock != QE_CLK_NONE) &&
-+		    ucc_set_tdm_rxtx_clk(uf_info->tdm_num, uf_info->tx_clock,
-+					 COMM_DIR_TX)) {
-+			pr_err("%s: illegal value for TX clock", __func__);
-+			ucc_fast_free(uccf);
-+			return -EINVAL;
-+		}
-+
-+		/* tdm Rx sync clock routing */
-+		if ((uf_info->rx_sync != QE_CLK_NONE) &&
-+		    ucc_set_tdm_rxtx_sync(uf_info->tdm_num, uf_info->rx_sync,
-+					  COMM_DIR_RX)) {
-+			pr_err("%s: illegal value for RX clock", __func__);
-+			ucc_fast_free(uccf);
-+			return -EINVAL;
-+		}
-+
-+		/* tdm Tx sync clock routing */
-+		if ((uf_info->tx_sync != QE_CLK_NONE) &&
-+		    ucc_set_tdm_rxtx_sync(uf_info->tdm_num, uf_info->tx_sync,
-+					  COMM_DIR_TX)) {
-+			pr_err("%s: illegal value for TX clock", __func__);
-+			ucc_fast_free(uccf);
-+			return -EINVAL;
-+		}
- 	}
+diff --git a/include/soc/fsl/qe/immap_qe.h b/include/soc/fsl/qe/immap_qe.h
+index bedbff8..c76ef30 100644
+--- a/include/soc/fsl/qe/immap_qe.h
++++ b/include/soc/fsl/qe/immap_qe.h
+@@ -159,10 +159,7 @@ struct spi {
  
- 	/* Set interrupt mask register at UCC level. */
-diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
-index f918745..c3b1dc8 100644
---- a/include/soc/fsl/qe/qe.h
-+++ b/include/soc/fsl/qe/qe.h
-@@ -244,6 +244,22 @@ static inline int qe_alive_during_sleep(void)
- #define qe_muram_addr cpm_muram_addr
- #define qe_muram_offset cpm_muram_offset
- 
-+#define qe_setbits32(_addr, _v) iowrite32be(ioread32be(_addr) |  (_v), (_addr))
-+#define qe_clrbits32(_addr, _v) iowrite32be(ioread32be(_addr) & ~(_v), (_addr))
+ /* SI */
+ struct si1 {
+-	__be16	siamr1;		/* SI1 TDMA mode register */
+-	__be16	sibmr1;		/* SI1 TDMB mode register */
+-	__be16	sicmr1;		/* SI1 TDMC mode register */
+-	__be16	sidmr1;		/* SI1 TDMD mode register */
++	__be16	sixmr1[4];	/* SI1 TDMx (x = A B C D) mode register */
+ 	u8	siglmr1_h;	/* SI1 global mode register high */
+ 	u8	res0[0x1];
+ 	u8	sicmdr1_h;	/* SI1 command register high */
+diff --git a/include/soc/fsl/qe/qe_tdm.h b/include/soc/fsl/qe/qe_tdm.h
+new file mode 100644
+index 0000000..e7ae93a
+--- /dev/null
++++ b/include/soc/fsl/qe/qe_tdm.h
+@@ -0,0 +1,94 @@
++/*
++ * Internal header file for QE TDM mode routines.
++ *
++ * Copyright (C) 2015 Freescale Semiconductor, Inc. All rights reserved.
++ *
++ * Authors:	Zhao Qiang <qiang.zhao@nxp.com>
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version
++ */
 +
-+#define qe_setbits16(_addr, _v) iowrite16be(ioread16be(_addr) |  (_v), (_addr))
-+#define qe_clrbits16(_addr, _v) iowrite16be(ioread16be(_addr) & ~(_v), (_addr))
++#ifndef CONFIG_QE_TDM_H
++#define CONFIG_QE_TDM_H
 +
-+#define qe_setbits8(_addr, _v) iowrite8(ioread8(_addr) |  (_v), (_addr))
-+#define qe_clrbits8(_addr, _v) iowrite8(ioread8(_addr) & ~(_v), (_addr))
++#include <linux/kernel.h>
++#include <linux/list.h>
 +
-+#define qe_clrsetbits32(addr, clear, set) \
-+	iowrite32be((ioread32be(addr) & ~(clear)) | (set), (addr))
-+#define qe_clrsetbits16(addr, clear, set) \
-+	iowrite16be((ioread16be(addr) & ~(clear)) | (set), (addr))
-+#define qe_clrsetbits8(addr, clear, set) \
-+	iowrite8((ioread8(addr) & ~(clear)) | (set), (addr))
++#include <soc/fsl/qe/immap_qe.h>
++#include <soc/fsl/qe/qe.h>
 +
- /* Structure that defines QE firmware binary files.
-  *
-  * See Documentation/powerpc/qe_firmware.txt for a description of these
-diff --git a/include/soc/fsl/qe/ucc.h b/include/soc/fsl/qe/ucc.h
-index 894f14c..6bbbb59 100644
---- a/include/soc/fsl/qe/ucc.h
-+++ b/include/soc/fsl/qe/ucc.h
-@@ -41,6 +41,10 @@ int ucc_set_qe_mux_mii_mng(unsigned int ucc_num);
- 
- int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
- 	enum comm_dir mode);
-+int ucc_set_tdm_rxtx_clk(unsigned int tdm_num, enum qe_clock clock,
-+			 enum comm_dir mode);
-+int ucc_set_tdm_rxtx_sync(unsigned int tdm_num, enum qe_clock clock,
-+			  enum comm_dir mode);
- 
- int ucc_mux_set_grant_tsa_bkpt(unsigned int ucc_num, int set, u32 mask);
- 
-diff --git a/include/soc/fsl/qe/ucc_fast.h b/include/soc/fsl/qe/ucc_fast.h
-index 31548b7..b2633b7 100644
---- a/include/soc/fsl/qe/ucc_fast.h
-+++ b/include/soc/fsl/qe/ucc_fast.h
-@@ -118,6 +118,7 @@ enum ucc_fast_transparent_tcrc {
- /* Fast UCC initialization structure */
- struct ucc_fast_info {
- 	int ucc_num;
-+	int tdm_num;
- 	enum qe_clock rx_clock;
- 	enum qe_clock tx_clock;
- 	enum qe_clock rx_sync;
++#include <soc/fsl/qe/ucc.h>
++#include <soc/fsl/qe/ucc_fast.h>
++
++/* SI RAM entries */
++#define SIR_LAST	0x0001
++#define SIR_BYTE	0x0002
++#define SIR_CNT(x)	((x) << 2)
++#define SIR_CSEL(x)	((x) << 5)
++#define SIR_SGS		0x0200
++#define SIR_SWTR	0x4000
++#define SIR_MCC		0x8000
++#define SIR_IDLE	0
++
++/* SIxMR fields */
++#define SIMR_SAD(x) ((x) << 12)
++#define SIMR_SDM_NORMAL	0x0000
++#define SIMR_SDM_INTERNAL_LOOPBACK	0x0800
++#define SIMR_SDM_MASK	0x0c00
++#define SIMR_CRT	0x0040
++#define SIMR_SL		0x0020
++#define SIMR_CE		0x0010
++#define SIMR_FE		0x0008
++#define SIMR_GM		0x0004
++#define SIMR_TFSD(n)	(n)
++#define SIMR_RFSD(n)	((n) << 8)
++
++enum tdm_ts_t {
++	TDM_TX_TS,
++	TDM_RX_TS
++};
++
++enum tdm_framer_t {
++	TDM_FRAMER_T1,
++	TDM_FRAMER_E1
++};
++
++enum tdm_mode_t {
++	TDM_INTERNAL_LOOPBACK,
++	TDM_NORMAL
++};
++
++struct si_mode_info {
++	u8 simr_rfsd;
++	u8 simr_tfsd;
++	u8 simr_crt;
++	u8 simr_sl;
++	u8 simr_ce;
++	u8 simr_fe;
++	u8 simr_gm;
++};
++
++struct ucc_tdm_info {
++	struct ucc_fast_info uf_info;
++	struct si_mode_info si_info;
++};
++
++struct ucc_tdm {
++	u16 tdm_port;		/* port for this tdm:TDMA,TDMB */
++	u32 siram_entry_id;
++	u16 __iomem *siram;
++	struct si1 __iomem *si_regs;
++	enum tdm_framer_t tdm_framer_type;
++	enum tdm_mode_t tdm_mode;
++	u8 num_of_ts;		/* the number of timeslots in this tdm frame */
++	u32 tx_ts_mask;		/* tx time slot mask */
++	u32 rx_ts_mask;		/* rx time slot mask */
++};
++
++int ucc_of_parse_tdm(struct device_node *np, struct ucc_tdm *utdm,
++		     struct ucc_tdm_info *ut_info);
++void ucc_tdm_init(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info);
++#endif
 -- 
 2.1.0.27.g96db324
