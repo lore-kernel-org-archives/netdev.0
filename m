@@ -1,96 +1,84 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 06/11] ixgbevf: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed, 30 Mar 2016 16:00:50 -0700
-Message-ID: <1459378855-139837-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1459378855-139837-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+Subject: [net 00/11][pull request] Intel Wired LAN Driver Updates 2016-03-29
+Date: Wed, 30 Mar 2016 16:00:44 -0700
+Message-ID: <1459378855-139837-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:55746 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755312AbcC3XBT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Mar 2016 19:01:19 -0400
-In-Reply-To: <1459378855-139837-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1755190AbcC3XBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Mar 2016 19:01:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+This series contains fixes to ixgbe and ixgbevf.
 
-Calling dev_close() causes IFF_UP to be cleared which will remove the
-interfaces routes and some addresses. That's probably not what the user
-intended when running the offline selftest. Besides this does not happen
-if the interface is brought down before the test, so the current
-behaviour is inconsistent.
-Instead call the net_device_ops ndo_stop function directly and avoid
-touching IFF_UP at all.
+Tushar fixes an issue which was introduced with an earlier commit, where
+hardware register RAR0 default MAC address does not get set properly.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 4 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 2 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
- 3 files changed, 6 insertions(+), 4 deletions(-)
+Alex fixes two issues, first being the VXLAN port number should be stored
+in network order instead of in host order.  The second fix corrects the ATR
+code to handle IPv6 extension headers.  The issue was ATR code was assuming
+that it would be able to use tcp_hdr for every TCP frame that came through,
+but that is not the case, which resulted in bad filters being setup.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index c48aef6..d7aa4b2 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -680,7 +680,7 @@ static void ixgbevf_diag_test(struct net_device *netdev,
- 
- 		if (if_running)
- 			/* indicate we're in test mode */
--			dev_close(netdev);
-+			ixgbevf_close(netdev);
- 		else
- 			ixgbevf_reset(adapter);
- 
-@@ -692,7 +692,7 @@ static void ixgbevf_diag_test(struct net_device *netdev,
- 
- 		clear_bit(__IXGBEVF_TESTING, &adapter->state);
- 		if (if_running)
--			dev_open(netdev);
-+			ixgbevf_open(netdev);
- 	} else {
- 		hw_dbg(&adapter->hw, "online testing starting\n");
- 		/* Online tests */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 68ec7daa..991eeae 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -486,6 +486,8 @@ extern const struct ixgbe_mbx_operations ixgbevf_mbx_ops;
- extern const char ixgbevf_driver_name[];
- extern const char ixgbevf_driver_version[];
- 
-+int ixgbevf_open(struct net_device *netdev);
-+int ixgbevf_close(struct net_device *netdev);
- void ixgbevf_up(struct ixgbevf_adapter *adapter);
- void ixgbevf_down(struct ixgbevf_adapter *adapter);
- void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 0ea14c0..6a337bb 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3122,7 +3122,7 @@ static void ixgbevf_free_all_rx_resources(struct ixgbevf_adapter *adapter)
-  * handler is registered with the OS, the watchdog timer is started,
-  * and the stack is notified that the interface is ready.
-  **/
--static int ixgbevf_open(struct net_device *netdev)
-+int ixgbevf_open(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -3205,7 +3205,7 @@ err_setup_reset:
-  * needs to be disabled.  A global MAC reset is issued to stop the
-  * hardware, and all transmit and receive resources are freed.
-  **/
--static int ixgbevf_close(struct net_device *netdev)
-+int ixgbevf_close(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 
+Mark fixes a use of usleep_range() to udelay() in the case where a lock
+is being held.
+
+Stefan fixes the offline self tests where ndo_stop() should be used instead
+of ndo_close(), which causes IFF_UP to be cleared and interface routes get
+removed.
+
+Emil fixes the error case where we need to return an error when a MAC
+address change is rejected by the PF.  This helps prevent the user from
+modifying the MAC address when the operation is not permitted.
+
+Sridhar provides three fixes for ixgbe, all dealing with traffic class
+offload handling.
+
+The following are changes since commit e84810c7b85a2d7897797b3ad3e879168a8e032a:
+  qmi_wwan: add "D-Link DWM-221 B1" device id
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 10GbE
+
+Alexander Duyck (2):
+  ixgbe: Store VXLAN port number in network order
+  ixgbe: Fix ATR so that it correctly handles IPv6 extension headers
+
+Emil Tantilov (2):
+  ixgbevf: fix error code path when setting MAC address
+  ixgbe: make __ixgbe_setup_tc static
+
+Mark Rustad (1):
+  ixgbe: Use udelay to avoid sleeping while atomic
+
+Sridhar Samudrala (3):
+  ixgbe: fix error handling in TC cls_u32 offload routines
+  ixgbe: Fix cls_u32 offload support for fields with masks
+  ixgbe: Fix cls_u32 offload support for L4 ports
+
+Stefan Assmann (2):
+  ixgbe: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  ixgbevf: call ndo_stop() instead of dev_close() when running offline
+    selftest
+
+Tushar Dave (1):
+  ixgbe: Fix for RAR0 not being set to default MAC addr
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  10 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 165 ++++++++++------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h    |  21 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |   2 +-
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      |   4 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   2 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  16 ++-
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |   4 +-
+ 9 files changed, 107 insertions(+), 121 deletions(-)
+
 -- 
 2.5.5
