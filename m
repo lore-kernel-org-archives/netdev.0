@@ -1,195 +1,78 @@
-From: "Varlese, Marco" <marco.varlese@intel.com>
-Subject: RE: [PATCH iproute2 v1 1/1] lib/utils: fix get_addr() and
- get_prefix() error messages
-Date: Wed, 30 Mar 2016 07:19:52 +0000
-Message-ID: <C4896FB061E7DE4AAC93031BDCA044B11A217B6B@IRSMSX108.ger.corp.intel.com>
-References: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
- <20160327103506.28f3d68e@xeon-e3>
+From: Michael Ma <make0818@gmail.com>
+Subject: qdisc spin lock
+Date: Wed, 30 Mar 2016 00:20:03 -0700
+Message-ID: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/x-pkcs7-signature";
-	micalg=SHA1; boundary="----=_NextPart_000_0012_01D18A5C.EE5C5D70"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"Szczerbik, PrzemyslawX" <przemyslawx.szczerbik@intel.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:44623 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753129AbcC3HT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Mar 2016 03:19:56 -0400
-In-Reply-To: <20160327103506.28f3d68e@xeon-e3>
-Content-Language: en-US
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:34122 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129AbcC3HUF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 03:20:05 -0400
+Received: by mail-ig0-f170.google.com with SMTP id sy18so24058269igc.1
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 00:20:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_NextPart_000_0012_01D18A5C.EE5C5D70
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Hi -
 
+I know this might be an old topic so bare with me =E2=80=93 what we are=
+ facing
+is that applications are sending small packets using hundreds of
+threads so the contention on spin lock in __dev_xmit_skb increases the
+latency of dev_queue_xmit significantly. We=E2=80=99re building a netwo=
+rk QoS
+solution to avoid interference of different applications using HTB.
+But in this case when some applications send massive small packets in
+parallel, the application to be protected will get its throughput
+affected (because it=E2=80=99s doing synchronous network communication =
+using
+multiple threads and throughput is sensitive to the increased latency)
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Stephen Hemminger
-> Sent: Sunday, March 27, 2016 6:35 PM
-> To: Varlese, Marco <marco.varlese@intel.com>
-> Cc: netdev@vger.kernel.org; davem@davemloft.net; Jiri Pirko
-<jiri@resnulli.us>;
-> John Fastabend <john.fastabend@gmail.com>; jhs@mojatatu.com; Szczerbik,
-> PrzemyslawX <przemyslawx.szczerbik@intel.com>
-> Subject: Re: [PATCH iproute2 v1 1/1] lib/utils: fix get_addr() and
-get_prefix()
-> error messages
-> 
-> On Tue, 22 Mar 2016 13:02:02 +0000
-> "Varlese, Marco" <marco.varlese@intel.com> wrote:
-> 
-> > An attempt to add invalid address to interface would print "???" string
-> > instead of the address family name.
-> >
-> > For example:
-> > $ ip address add 256.10.166.1/24 dev ens8
-> > Error: ??? prefix is expected rather than "256.10.166.1/24".
-> >
-> > $ ip neighbor add proxy 2001:db8::g dev ens8
-> > Error: ??? address is expected rather than "2001:db8::g".
-> >
-> > With this patch the output will look like:
-> > $ ip address add 256.10.166.1/24 dev ens8
-> > Error: inet prefix is expected rather than "256.10.166.1/24".
-> >
-> > $ ip neighbor add proxy 2001:db8::g dev ens8
-> > Error: inet6 address is expected rather than "2001:db8::g".
-> >
-> > Signed-off-by: Przemyslaw Szczerbik <przemyslawx.szczerbik@intel.com>
-> > Signed-off-by: Marco Varlese <marco.varlese@intel.com>
-> > ---
-> > lib/utils.c | 4 ++--
-> > 1 file changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/lib/utils.c b/lib/utils.c
-> > index fa35f4d..4820de1 100644
-> > --- a/lib/utils.c
-> > +++ b/lib/utils.c
-> > @@ -567,7 +567,7 @@ int get_addr(inet_prefix *dst, const char *arg, int
-> family)
-> > {
-> >         if (get_addr_1(dst, arg, family)) {
-> >                 fprintf(stderr, "Error: %s address is expected rather than
-\"%s\".\n",
-> > -                               family_name(family) ,arg);
-> > +                               family_name(dst->family), arg);
-> >                 exit(1);
-> >         }
-> >         return 0;
-> > @@ -581,7 +581,7 @@ int get_prefix(inet_prefix *dst, char *arg, int family)
-> >         }
-> >         if (get_prefix_1(dst, arg, family)) {
-> >                 fprintf(stderr, "Error: %s prefix is expected rather than
-\"%s\".\n",
-> > -                               family_name(family) ,arg);
-> > +                               family_name(dst->family), arg);
-> >                 exit(1);
-> >         }
-> >         return 0;
-> 
-> Your patch was corrupted by your email client?
-Yes, you're right; the patch got corrupted by the email client.
-Sorry about that.
-Looking into this now.
+Here is the profiling from perf:
 
-> 
-> $ patch -p1
-<~/Downloads/iproute2-v1-1-1-lib-utils-fix-get_addr-and-get_prefix-
-> error-messages.patch
-> patching file lib/utils.c
-> patch: **** malformed patch at line 6: {
+-  67.57%   iperf  [kernel.kallsyms]     [k] _spin_lock
+                                                         - 99.94%
+dev_queue_xmit
+                                                              96.91%
+_spin_lock
+                                                            - 2.62%
+__qdisc_run
+                                                               -
+98.98% sch_direct_xmit
 
-------=_NextPart_000_0012_01D18A5C.EE5C5D70
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
+99.98% _spin_lock
+                                                                 1.01%
+_spin_lock
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOpzCCBDYw
-ggMeoAMCAQICAQEwDQYJKoZIhvcNAQEFBQAwbzELMAkGA1UEBhMCU0UxFDASBgNVBAoTC0FkZFRy
-dXN0IEFCMSYwJAYDVQQLEx1BZGRUcnVzdCBFeHRlcm5hbCBUVFAgTmV0d29yazEiMCAGA1UEAxMZ
-QWRkVHJ1c3QgRXh0ZXJuYWwgQ0EgUm9vdDAeFw0wMDA1MzAxMDQ4MzhaFw0yMDA1MzAxMDQ4Mzha
-MG8xCzAJBgNVBAYTAlNFMRQwEgYDVQQKEwtBZGRUcnVzdCBBQjEmMCQGA1UECxMdQWRkVHJ1c3Qg
-RXh0ZXJuYWwgVFRQIE5ldHdvcmsxIjAgBgNVBAMTGUFkZFRydXN0IEV4dGVybmFsIENBIFJvb3Qw
-ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC39xoz5vIABC054E5b7R+8bA/Ntfojts7e
-mxEzl6QpTH2Tn71KvJPtAxrjj8/lbVBa1pcplFqAsEl62y6V/bjKvzc4LR4+kUGtcFbH8E8/6DKe
-dMrIkFTpxl8PeJ2aQDwOrGGqXhSPnoehalDc15pOrwWzpnGUnHGzUGAKxxOdOAeGAqjpqGkmGJCr
-TLBPI6s6T4TY386f4Wlvu9dC12tE5Met7m1BX3JacQg3s3llpFmglDf3AC8NwpJy2tA4ctsUqEXE
-XSp9t7TWxO6szRNEt8kr3UMAJfphuWlqWCMRt6czj1Z1WfXNKddGtworZbbTQm8Vsrh7++/pXVPV
-NFonAgMBAAGjgdwwgdkwHQYDVR0OBBYEFK29mHo0tCb3+sQmVO8DveAky1QaMAsGA1UdDwQEAwIB
-BjAPBgNVHRMBAf8EBTADAQH/MIGZBgNVHSMEgZEwgY6AFK29mHo0tCb3+sQmVO8DveAky1QaoXOk
-cTBvMQswCQYDVQQGEwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0
-IEV4dGVybmFsIFRUUCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290
-ggEBMA0GCSqGSIb3DQEBBQUAA4IBAQCwm+CFJcLWI+IPlgaSnUGYnNmEeYHZHlsUByM2ZY+w2He7
-rEFsR2CDUbD5Mj3n/PYmE8eAFqW/WvyHz3h5iSGa4kwHCoY1vPLeUcTSlrfcfk7ucP0cOesMAlEU
-LY69FuDB30Z15ySt7PRCtIWTcBBnup0GNUoY0yt6zFFCoXpj0ea7ocUrwja+Ew3mvWN+eXunCQ1A
-q2rdj4rD9vaMGkIFUdRF9Z+nYiFoFSBDPJnnfL0k2KmRF3OIP1YbMTgYtHEPms3IDp6OLhvhjJiD
-yx8x8URMxgRzSXZgD8f4vReAay7pzEwOWpp5DyAKLtWeYyYeVZKU2IIXWnvQvMePToYEMIIE6zCC
-A9OgAwIBAgIQUukCyhHoRJ2UZTgvoxowuzANBgkqhkiG9w0BAQUFADBvMQswCQYDVQQGEwJTRTEU
-MBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFsIFRUUCBOZXR3
-b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290MB4XDTEzMDMxOTAwMDAwMFoX
-DTIwMDUzMDEwNDgzOFoweTELMAkGA1UEBhMCVVMxCzAJBgNVBAgTAkNBMRQwEgYDVQQHEwtTYW50
-YSBDbGFyYTEaMBgGA1UEChMRSW50ZWwgQ29ycG9yYXRpb24xKzApBgNVBAMTIkludGVsIEV4dGVy
-bmFsIEJhc2ljIElzc3VpbmcgQ0EgNEEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDg
-sMyAndhJVfoD2wT6OMfdv4XddrzrPcssq7/pa+Mh29RvGejPaqe+X1QpAjewTXNRFDGt+C+0/Rs+
-C3W4PAB8tzofl6qfKL7sWs+xMYJHiDAOarVaRNCA0M1dSBvvV73/qx+r5Z8IOmLxJxqCXIsJGnum
-H9XrRxuK0G+dkV6UoIMGHffZLoobdsB2c0YH++TzpvAOVjqiYOzr9Gx83DNBXCj8zeg+u7HrLrPI
-ihG6V+RUQ1szT/1GvNA6XIrhblWTgQSx9baOUJXhbzdAqpFxwAohTHDar8egdU9tsROusuYTpFFn
-/55aWQZaX6a3HjYc6A6ZfQFF1NGj28fvJ4GjAgMBAAGjggF3MIIBczAfBgNVHSMEGDAWgBStvZh6
-NLQm9/rEJlTvA73gJMtUGjAdBgNVHQ4EFgQUHmkqtNwo/kcYTiELP7ysES/wmPUwDgYDVR0PAQH/
-BAQDAgGGMBIGA1UdEwEB/wQIMAYBAf8CAQAwNgYDVR0lBC8wLQYIKwYBBQUHAwQGCisGAQQBgjcK
-AwQGCisGAQQBgjcKAwwGCSsGAQQBgjcVBTAXBgNVHSAEEDAOMAwGCiqGSIb4TQEFAWkwSQYDVR0f
-BEIwQDA+oDygOoY4aHR0cDovL2NybC50cnVzdC1wcm92aWRlci5jb20vQWRkVHJ1c3RFeHRlcm5h
-bENBUm9vdC5jcmwwOgYIKwYBBQUHAQEELjAsMCoGCCsGAQUFBzABhh5odHRwOi8vb2NzcC50cnVz
-dC1wcm92aWRlci5jb20wNQYDVR0eBC4wLKAqMAuBCWludGVsLmNvbTAboBkGCisGAQQBgjcUAgOg
-CwwJaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQApws2j/ZKjUmeiLwbtblDoVI+rV+bIpbex
-IN/Vqa/IeSMSB3bmfswpEcYSZHHGjOI8qlyZt9dhT4nSDnrScKjmA8XvxZ3tmbNyYJybVQUV8jF/
-DpADX1tGlMLxswxpJISXzLf0+DBr4cQ2ag9mwzrcN1nrOIOc+pxJtx9izyp3+bl3baulerkgZVS1
-fotftH+FJLD/ex8BOcEuCIm2KVXJjs4YaZgoIBLYjTiK29JLVa15xdO305kPI1uXsu05sGuAwuFm
-Sklb6k5H1/eHlUbZLm4qQDtOH00L0ShJx3BAIAjD5RYptJDQiyPZQUvt8cq+apYpVMv3yxHO8jex
-40LgMIIFejCCBGKgAwIBAgITMwAAfQ8MRyV/yVPnYwAAAAB9DzANBgkqhkiG9w0BAQUFADB5MQsw
-CQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFDASBgNVBAcTC1NhbnRhIENsYXJhMRowGAYDVQQKExFJ
-bnRlbCBDb3Jwb3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBD
-QSA0QTAeFw0xNjAzMjMxMjU3MDJaFw0xNzAzMTgxMjU3MDJaMEExFzAVBgNVBAMTDlZhcmxlc2Us
-IE1hcmNvMSYwJAYJKoZIhvcNAQkBFhdtYXJjby52YXJsZXNlQGludGVsLmNvbTCCASIwDQYJKoZI
-hvcNAQEBBQADggEPADCCAQoCggEBANWFfD5N9XAuYWdFkj4C5MoRvGFqUU7/qrrNEt3UsoNTqzKf
-2KNoR0C2FsRnsivsjQC0EWx32kUToJcUqm182NBsoIMo5Oe/8JpruDHPZ+BLpLEnafqaZ4ZF1fFf
-NlRa/ljKmdoI8TBCaM9Q/vcgn2HxcS3DBF3Gzp+OBeM7Ln5Ma5QFIRDvVTIeFBiS092GGUTMVscr
-FI9u70ZaZ6zfgcPq6nJwGhDpi3t6QGFflSuNTC614H+47uELLIMMPydMhZmLAxudtJm8Ohf4Hhdf
-epc6Y2c1I/LZDv+HkPWFZ3WC30Z6K/uoUKjaJiwkaItA06MYmKVI+FKGzObxdDKSSgcCAwEAAaOC
-AjEwggItMAsGA1UdDwQEAwIHgDA8BgkrBgEEAYI3FQcELzAtBiUrBgEEAYI3FQiGw4x1hJnlUYP9
-gSiFjp9TgpHACWeB3r05lfBDAgFkAgEJMB0GA1UdDgQWBBT5LsQt79l5zcmGHP1WAspDLugYjDAf
-BgNVHSMEGDAWgBQeaSq03Cj+RxhOIQs/vKwRL/CY9TBlBgNVHR8EXjBcMFqgWKBWhlRodHRwOi8v
-d3d3LmludGVsLmNvbS9yZXBvc2l0b3J5L0NSTC9JbnRlbCUyMEV4dGVybmFsJTIwQmFzaWMlMjBJ
-c3N1aW5nJTIwQ0ElMjA0QS5jcmwwgZ8GCCsGAQUFBwEBBIGSMIGPMGkGCCsGAQUFBzAChl1odHRw
-Oi8vd3d3LmludGVsLmNvbS9yZXBvc2l0b3J5L2NlcnRpZmljYXRlcy9JbnRlbCUyMEV4dGVybmFs
-JTIwQmFzaWMlMjBJc3N1aW5nJTIwQ0ElMjA0QS5jcnQwIgYIKwYBBQUHMAGGFmh0dHA6Ly9vY3Nw
-LmludGVsLmNvbS8wHwYDVR0lBBgwFgYIKwYBBQUHAwQGCisGAQQBgjcKAwwwKQYJKwYBBAGCNxUK
-BBwwGjAKBggrBgEFBQcDBDAMBgorBgEEAYI3CgMMMEsGA1UdEQREMEKgJwYKKwYBBAGCNxQCA6AZ
-DBdtYXJjby52YXJsZXNlQGludGVsLmNvbYEXbWFyY28udmFybGVzZUBpbnRlbC5jb20wDQYJKoZI
-hvcNAQEFBQADggEBAM5qHolwebSV+VWrDtiWU+VbdWKdp1AvV0aceB0/btbPwPFEJQo1/r571RxU
-hW31+1i82M9JhA56oSxbk8WTRe5OHx+H6vkpB2+th80InLJdfSzvvq2LAT09r6XcFuXOFqRqZnBG
-r4r+OAsVGIXFQP9zFtpSjp05KEF5olGL871iMXJW4li4q1B+bGZg+hfHNimh80n3dLUMMQ49Dskq
-oZV7geNatzBrc6ZhTnDEITKsXt8m3gmQnm7wZinDMdqa16UGtse2P/PO/v6MDMsbyw4l2FUzeFmS
-bCTJFTTBCfeaiWxN3AXVE7H5a9C/P9UqTXR6YTAFvg1XfU8yvDl6owkxggJZMIICVQIBATCBkDB5
-MQswCQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFDASBgNVBAcTC1NhbnRhIENsYXJhMRowGAYDVQQK
-ExFJbnRlbCBDb3Jwb3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWlu
-ZyBDQSA0QQITMwAAfQ8MRyV/yVPnYwAAAAB9DzAJBgUrDgMCGgUAoIGeMBgGCSqGSIb3DQEJAzEL
-BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MDMzMDA3MTk1MVowIwYJKoZIhvcNAQkEMRYE
-FMbDpmDCya4SPQhenfgRzqDWyU+QMD8GCSqGSIb3DQEJDzEyMDAwBwYFKw4DAhowCwYJYIZIAWUD
-BAIDMAsGCWCGSAFlAwQCAjALBglghkgBZQMEAgEwDQYJKoZIhvcNAQEBBQAEggEAJoE3ouYGmxgp
-F8dm3wLljkwRW1nEHhhQcxPgvJoLUNE9KHmc2VLidcIxOQ7GlWAhll7No4NfxW17dnI7P+jlJq5s
-ZlpIfYd1ojmCRa1Qwnj1z5lzthAEbZYkVYmjZZFVUTLGH0CzgSTBaWWwRKyEndfUIojJFP79AfdH
-QxMW9eiADW2qcf9IypFttYsVl+0vEwqpsqHo6kuTt7DjHor7yMioAf025cCwo0JP+WOpgmWse2YI
-UqSMnTPgJVAbN4hYdVNS/rBMjbio27UtOBfR6o6w1A9GTW5ZYWnwK5GbZBka2Zxsh6JNekh6HHCm
-nG1I5XIhMbygUQXsdW+5eYuMWAAAAAAAAA==
+As far as I understand the design of TC is to simplify locking schema
+and minimize the work in __qdisc_run so that throughput won=E2=80=99t b=
+e
+affected, especially with large packets. However if the scenario is
+that multiple classes in the queueing discipline only have the shaping
+limit, there isn=E2=80=99t really a necessary correlation between diffe=
+rent
+classes. The only synchronization point should be when the packet is
+dequeued from the qdisc queue and enqueued to the transmit queue of
+the device. My question is =E2=80=93 is it worth investing on avoiding =
+the
+locking contention by partitioning the queue/lock so that this
+scenario is addressed with relatively smaller latency?
 
-------=_NextPart_000_0012_01D18A5C.EE5C5D70--
+I must have oversimplified a lot of details since I=E2=80=99m not famil=
+iar
+with the TC implementation at this point =E2=80=93 just want to get you=
+r input
+in terms of whether this is a worthwhile effort or there is something
+fundamental that I=E2=80=99m not aware of. If this is just a matter of =
+quite
+some additional work, would also appreciate helping to outline the
+required work here.
+
+Also would appreciate if there is any information about the latest
+status of this work http://www.ijcset.com/docs/IJCSET13-04-04-113.pdf
+
+Thanks,
+Ke Ma
