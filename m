@@ -1,70 +1,54 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with L1_CACHE_BYTES
-Date: Wed, 30 Mar 2016 19:55:21 +0800
-Message-ID: <1459338921-391-1-git-send-email-jszhang@marvell.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: flush if we can't fit another DATA chunk
+Date: Wed, 30 Mar 2016 08:03:57 -0400
+Message-ID: <20160330120357.GB15549@hmsreliant.think-freely.org>
+References: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Jisheng Zhang <jszhang@marvell.com>
-To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59205 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbcC3MEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 08:04:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The mvneta is also used in some Marvell berlin family SoCs which may
-have 64bytes cacheline size. Replace the MVNETA_CPU_D_CACHE_LINE_SIZE
-usage with L1_CACHE_BYTES.
+On Tue, Mar 29, 2016 at 10:41:25AM -0300, Marcelo Ricardo Leitner wrote:
+> There is no point in delaying the packet if we can't fit a single byte
+> of data on it anymore. So lets just reduce the threshold by the amount
+> that a data chunk with 4 bytes (rounding) would use.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/sctp/output.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 97745351d58c2fb32b9f9b57d61831d7724d83b2..c518569123ce42a8f21f80754756306c39875013 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+>  	/* Check whether this chunk and all the rest of pending data will fit
+>  	 * or delay in hopes of bundling a full sized packet.
+>  	 */
+> -	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
+> +	if (chunk->skb->len + q->out_qlen >
+> +		maxsize - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
+>  		/* Enough data queued to fill a packet */
+>  		return SCTP_XMIT_OK;
+>  
+> -- 
+> 2.5.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-And since dma_alloc_coherent() is always cacheline size aligned, so
-remove the align checks.
-
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 577f7ca..5880871 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -260,7 +260,6 @@
- 
- #define MVNETA_VLAN_TAG_LEN             4
- 
--#define MVNETA_CPU_D_CACHE_LINE_SIZE    32
- #define MVNETA_TX_CSUM_DEF_SIZE		1600
- #define MVNETA_TX_CSUM_MAX_SIZE		9800
- #define MVNETA_ACC_MODE_EXT1		1
-@@ -300,7 +299,7 @@
- #define MVNETA_RX_PKT_SIZE(mtu) \
- 	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
- 	      ETH_HLEN + ETH_FCS_LEN,			     \
--	      MVNETA_CPU_D_CACHE_LINE_SIZE)
-+	      L1_CACHE_BYTES)
- 
- #define IS_TSO_HEADER(txq, addr) \
- 	((addr >= txq->tso_hdrs_phys) && \
-@@ -2764,9 +2763,6 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
- 	if (rxq->descs == NULL)
- 		return -ENOMEM;
- 
--	BUG_ON(rxq->descs !=
--	       PTR_ALIGN(rxq->descs, MVNETA_CPU_D_CACHE_LINE_SIZE));
--
- 	rxq->last_desc = rxq->size - 1;
- 
- 	/* Set Rx descriptors queue starting address */
-@@ -2837,10 +2833,6 @@ static int mvneta_txq_init(struct mvneta_port *pp,
- 	if (txq->descs == NULL)
- 		return -ENOMEM;
- 
--	/* Make sure descriptor address is cache line size aligned  */
--	BUG_ON(txq->descs !=
--	       PTR_ALIGN(txq->descs, MVNETA_CPU_D_CACHE_LINE_SIZE));
--
- 	txq->last_desc = txq->size - 1;
- 
- 	/* Set maximum bandwidth for enabled TXQs */
--- 
-2.8.0.rc3
+Acked-By: Neil Horman <nhorman@tuxdriver.com>
