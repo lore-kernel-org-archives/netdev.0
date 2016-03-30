@@ -1,42 +1,33 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Subject: Re: am335x: no multicast reception over VLAN
-Date: Wed, 30 Mar 2016 21:47:32 +0200
-Message-ID: <878u0z9297.fsf@dell.be.48ers.dk>
-References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
-	<56F9FDD0.8030504@ti.com>
-	<CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
-	<56FA616C.9080502@ti.com>
-	<CAGm1_ksvEdk-mF-hW4o5+bri6J6sMgnQQVD3j-e7xm6PsP8k0A@mail.gmail.com>
-	<56FA78AA.4030402@ti.com> <56FB6543.9060904@ti.com>
-	<CAGm1_kvXA4egrK8-oCedYjvPm7BhJdy_w-5ON24snYdKiN3K7g@mail.gmail.com>
-	<56FC0431.5000106@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] qed: initialize return rc to avoid returning garbage
+Date: Wed, 30 Mar 2016 15:48:42 -0400 (EDT)
+Message-ID: <20160330.154842.1616404973583316987.davem@davemloft.net>
+References: <1459270850-16177-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yegor Yefremov <yegorslists@googlemail.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-omap\@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	<drivshin@allworx.com>, <ml@markusgrimm.de>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:34688 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753762AbcC3Trf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 15:47:35 -0400
-In-Reply-To: <56FC0431.5000106@ti.com> (Mugunthan V. N.'s message of "Wed, 30
-	Mar 2016 22:22:01 +0530")
+Received: from shards.monkeyblade.net ([149.20.54.216]:37526 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752283AbcC3Tso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 15:48:44 -0400
+In-Reply-To: <1459270850-16177-1-git-send-email-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Mugunthan" == Mugunthan V N <mugunthanvnm@ti.com> writes:
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 29 Mar 2016 18:00:50 +0100
 
-Hi,
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> in the case where qed_slowpath_irq_req is not called, rc is not
+> assigned and so qed_int_igu_enable will return a garbage value.
+> Fix this by initializing rc to 0.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
- > You had received these packets as tcpdump will enable promiscuous mode
- > so that you receive all the packets from the wire.
-
-FYI, you can use the -p option to tcpdump to not put the interface into
-promiscuous mode.
-
--- 
-Bye, Peter Korsgaard
+Applied, thanks.
