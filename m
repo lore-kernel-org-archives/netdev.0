@@ -1,96 +1,284 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH] i40e/i40evf: Limit TSO to 7 descriptors for payload
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net PATCH v2] i40e/i40evf: Limit TSO to 7 descriptors for payload
  instead of 8 per packet
-Date: Wed, 30 Mar 2016 16:06:43 -0700
-Message-ID: <CAKgT0UfzbgfbYHjaj9aevxxKm1W+JraTs=SWhzt5hoPzSSg1nA@mail.gmail.com>
-References: <20160330064213.12927.46852.stgit@localhost.localdomain>
-	<20160330170011.GB27540@oracle.com>
-	<CAKgT0UdTgaeamyLetGPK0mqMNS-80BTc8t-WdSGJuuLDfz4JOg@mail.gmail.com>
-	<20160330172001.GD27540@oracle.com>
-	<CAKgT0Ufb-_X-DD2jYkVJQwLZ-JBfWD2Biuhi6YaxWBeNy9K2fQ@mail.gmail.com>
-	<20160330124135.000054c6@unknown>
-	<CAKgT0Ud59j1NDHD6siPSZL24HJnPOF7m07DKf4U96Tq4dtByvg@mail.gmail.com>
+Date: Wed, 30 Mar 2016 16:15:37 -0700
+Message-ID: <20160330231116.12643.59554.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	alexander.duyck@gmail.com, intel-wired-lan@lists.osuosl.org,
+	jeffrey.t.kirsher@intel.com, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:33882 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750940AbcC3XGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 19:06:49 -0400
-Received: by mail-ig0-f181.google.com with SMTP id sy18so47258689igc.1
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 16:06:44 -0700 (PDT)
-In-Reply-To: <CAKgT0Ud59j1NDHD6siPSZL24HJnPOF7m07DKf4U96Tq4dtByvg@mail.gmail.com>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36391 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753846AbcC3XPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 19:15:39 -0400
+Received: by mail-pf0-f179.google.com with SMTP id e128so32730187pfe.3
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 16:15:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 2:20 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Wed, Mar 30, 2016 at 12:41 PM, Jesse Brandeburg
-> <jesse.brandeburg@intel.com> wrote:
->> On Wed, 30 Mar 2016 10:35:55 -0700
->> Alexander Duyck <alexander.duyck@gmail.com> wrote:
->>
->>> On Wed, Mar 30, 2016 at 10:20 AM, Sowmini Varadhan
->>> <sowmini.varadhan@oracle.com> wrote:
->>> > On (03/30/16 10:12), Alexander Duyck wrote:
->>> >> Yeah.  The patch was sort of a knee-jerk reaction to being told that
->>> >> the patch referenced caused a regression.  From what I can tell that
->>> >> is not the case as I am also seeing the Tx hangs when I run the test
->>> >> with the frames being linearized.
->>> >
->>> > I'm not sure how important of a subtlety this is, but the actual
->>> > console log after the patch is the following:
->>> >
->>> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
->>> >  i40e 0000:82:00.0 eth2: adding 68:05:ca:30:dd:18 vid=0
->>> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
->>> >  i40e 0000:82:00.0 eth2: adding 68:05:ca:30:dd:18 vid=0
->>> >  i40e 0000:82:00.0: TX driver issue detected, PF reset issued
->>> >
->>> > Comparing with what I'd pasted in the sourceforge thread earlier,
->>> > I see that it does not say "Hung Tx queue etc."  any more, though
->>> > it still resets.
->>> >
->>> > Not sure if that changed info is significant?
->>>
->>> It might be.  Right now I am chasing down the Tx driver issue as that
->>> I what I am reproducing in my environment as well.
->>
->> This gets "Even Uglier", I've turned off all offloads at my receiver,
->> enabled calling skb_linearize on *all* frames, which works fine for
->> scp, but the receiver shows > MSS sized frames on the wire for
->> rds-stress traffic.
->
-> Are you sure it isn't just GRO reassembling frames on the receive
-> side.  I know that one always trips me up when I am using the Rx path
-> to validate Tx checksums.
->
->> This implies to me we have some issue with skb_linearize, possibly in
->> how the stack linearizes the data, or how the driver interprets the
->> linearized packets (which should always work)
->>
->> Wheee......
->
-> With the descriptor dump code you have you should be able to verify
-> what the layout is after the descriptor is linearized.  I would think
-> in most cases you would end up with at most something like 4 to maybe
-> 5 descriptors for a 64K frame.
->
-> - Alex
+This patch addresses a bug introduced based on my interpretation of the
+XL710 datasheet.  Specifically section 8.4.1 states that "A single transmit
+packet may span up to 8 buffers (up to 8 data descriptors per packet
+including both the header and payload buffers)."  It then later goes on to
+say that each segment for a TSO obeys the previous rule, however it then
+refers to TSO header and the segment payload buffers.
 
-Actually I think I just found an issue I missed in the patch.  I
-didn't update the inline function that was performing the check for 8
-descriptors.  As such it was allowing TSO with 8 descriptors to pass
-even though the fact that the head and payload in the first descriptor
-had pushed it to 9.
+I believe the actual limit for fragments with TSO and a skbuff that has
+payload data in the header portion of the buffer is actually only 7
+fragments as the skb->data portion counts as 2 buffers, one for the TSO
+header, and one for a segment payload buffer.
 
-I should have a v2 ready in about 20 minutes or so.  In my testing it
-fixes the issue.
+Fixes: 2d37490b82af ("i40e/i40evf: Rewrite logic for 8 descriptor per packet check")
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
 
-- Alex
+v2: I realized that I overlooked the check in the inline function and as a
+    result we were still allowing for cases where 8 descriptors were being
+    used per packet and this would result in 9 DMA buffers.  I updated the
+    code so that we only allow 8 in the case of a single send, otherwise we
+    go into the function that walks the frags to verify each block.
+
+I have tested this using rds-stress and it seems to run traffic without
+throwing any errors.
+
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   |   49 ++++++++++++-------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |   10 ++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |   49 ++++++++++++-------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |   10 ++++-
+ 4 files changed, 62 insertions(+), 56 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5d5fa5359a1d..6bf705add321 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2597,35 +2597,34 @@ int __i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+ }
+ 
+ /**
+- * __i40e_chk_linearize - Check if there are more than 8 fragments per packet
++ * __i40e_chk_linearize - Check if there are more than 8 buffers per packet
+  * @skb:      send buffer
+  *
+- * Note: Our HW can't scatter-gather more than 8 fragments to build
+- * a packet on the wire and so we need to figure out the cases where we
+- * need to linearize the skb.
++ * Note: Our HW can't DMA more than 8 buffers to build a packet on the wire
++ * and so we need to figure out the cases where we need to linearize the skb.
++ *
++ * For TSO we need to count the TSO header and segment payload separately.
++ * As such we need to check cases where we have 7 fragments or more as we
++ * can potentially require 9 DMA transactions, 1 for the TSO header, 1 for
++ * the segment payload in the first descriptor, and another 7 for the
++ * fragments.
+  **/
+ bool __i40e_chk_linearize(struct sk_buff *skb)
+ {
+ 	const struct skb_frag_struct *frag, *stale;
+-	int gso_size, nr_frags, sum;
+-
+-	/* check to see if TSO is enabled, if so we may get a repreive */
+-	gso_size = skb_shinfo(skb)->gso_size;
+-	if (unlikely(!gso_size))
+-		return true;
++	int nr_frags, sum;
+ 
+-	/* no need to check if number of frags is less than 8 */
++	/* no need to check if number of frags is less than 7 */
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+-	if (nr_frags < I40E_MAX_BUFFER_TXD)
++	if (nr_frags < (I40E_MAX_BUFFER_TXD - 1))
+ 		return false;
+ 
+ 	/* We need to walk through the list and validate that each group
+ 	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the first or last 6 since the first
+-	 * 6 cannot inherit any data from a descriptor before them, and the
+-	 * last 6 cannot inherit any data from a descriptor after them.
++	 * to perform such validation on the last 6 since the last 6 cannot
++	 * inherit any data from a descriptor after them.
+ 	 */
+-	nr_frags -= I40E_MAX_BUFFER_TXD - 1;
++	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+ 
+ 	/* Initialize size to the negative value of gso_size minus 1.  We
+@@ -2634,21 +2633,21 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 	 * descriptors for a single transmit as the header and previous
+ 	 * fragment are already consuming 2 descriptors.
+ 	 */
+-	sum = 1 - gso_size;
++	sum = 1 - skb_shinfo(skb)->gso_size;
+ 
+-	/* Add size of frags 1 through 5 to create our initial sum */
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
++	/* Add size of frags 0 through 4 to create our initial sum */
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
+ 
+ 	/* Walk through fragments adding latest fragment, testing it, and
+ 	 * then removing stale fragments from the sum.
+ 	 */
+ 	stale = &skb_shinfo(skb)->frags[0];
+ 	for (;;) {
+-		sum += skb_frag_size(++frag);
++		sum += skb_frag_size(frag++);
+ 
+ 		/* if sum is negative we failed to make sufficient progress */
+ 		if (sum < 0)
+@@ -2658,7 +2657,7 @@ bool __i40e_chk_linearize(struct sk_buff *skb)
+ 		if (!--nr_frags)
+ 			break;
+ 
+-		sum -= skb_frag_size(++stale);
++		sum -= skb_frag_size(stale++);
+ 	}
+ 
+ 	return false;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 681e9bca37db..c864932bd844 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -442,10 +442,14 @@ static inline int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+  **/
+ static inline bool i40e_chk_linearize(struct sk_buff *skb, int count)
+ {
+-	/* we can only support up to 8 data buffers for a single send */
+-	if (likely(count <= I40E_MAX_BUFFER_TXD))
++	/* Both TSO and single send will work if count is less than 8 */
++	if (likely(count < I40E_MAX_BUFFER_TXD))
+ 		return false;
+ 
+-	return __i40e_chk_linearize(skb);
++	if (skb_is_gso(skb))
++		return __i40e_chk_linearize(skb);
++
++	/* we can support up to 8 data buffers for a single send */
++	return count != I40E_MAX_BUFFER_TXD;
+ }
+ #endif /* _I40E_TXRX_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 04aabc52ba0d..519256bb63e8 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1799,35 +1799,34 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ }
+ 
+ /**
+- * __i40evf_chk_linearize - Check if there are more than 8 fragments per packet
++ * __i40evf_chk_linearize - Check if there are more than 8 buffers per packet
+  * @skb:      send buffer
+  *
+- * Note: Our HW can't scatter-gather more than 8 fragments to build
+- * a packet on the wire and so we need to figure out the cases where we
+- * need to linearize the skb.
++ * Note: Our HW can't DMA more than 8 buffers to build a packet on the wire
++ * and so we need to figure out the cases where we need to linearize the skb.
++ *
++ * For TSO we need to count the TSO header and segment payload separately.
++ * As such we need to check cases where we have 7 fragments or more as we
++ * can potentially require 9 DMA transactions, 1 for the TSO header, 1 for
++ * the segment payload in the first descriptor, and another 7 for the
++ * fragments.
+  **/
+ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ {
+ 	const struct skb_frag_struct *frag, *stale;
+-	int gso_size, nr_frags, sum;
+-
+-	/* check to see if TSO is enabled, if so we may get a repreive */
+-	gso_size = skb_shinfo(skb)->gso_size;
+-	if (unlikely(!gso_size))
+-		return true;
++	int nr_frags, sum;
+ 
+-	/* no need to check if number of frags is less than 8 */
++	/* no need to check if number of frags is less than 7 */
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+-	if (nr_frags < I40E_MAX_BUFFER_TXD)
++	if (nr_frags < (I40E_MAX_BUFFER_TXD - 1))
+ 		return false;
+ 
+ 	/* We need to walk through the list and validate that each group
+ 	 * of 6 fragments totals at least gso_size.  However we don't need
+-	 * to perform such validation on the first or last 6 since the first
+-	 * 6 cannot inherit any data from a descriptor before them, and the
+-	 * last 6 cannot inherit any data from a descriptor after them.
++	 * to perform such validation on the last 6 since the last 6 cannot
++	 * inherit any data from a descriptor after them.
+ 	 */
+-	nr_frags -= I40E_MAX_BUFFER_TXD - 1;
++	nr_frags -= I40E_MAX_BUFFER_TXD - 2;
+ 	frag = &skb_shinfo(skb)->frags[0];
+ 
+ 	/* Initialize size to the negative value of gso_size minus 1.  We
+@@ -1836,21 +1835,21 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 	 * descriptors for a single transmit as the header and previous
+ 	 * fragment are already consuming 2 descriptors.
+ 	 */
+-	sum = 1 - gso_size;
++	sum = 1 - skb_shinfo(skb)->gso_size;
+ 
+-	/* Add size of frags 1 through 5 to create our initial sum */
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
+-	sum += skb_frag_size(++frag);
++	/* Add size of frags 0 through 4 to create our initial sum */
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
++	sum += skb_frag_size(frag++);
+ 
+ 	/* Walk through fragments adding latest fragment, testing it, and
+ 	 * then removing stale fragments from the sum.
+ 	 */
+ 	stale = &skb_shinfo(skb)->frags[0];
+ 	for (;;) {
+-		sum += skb_frag_size(++frag);
++		sum += skb_frag_size(frag++);
+ 
+ 		/* if sum is negative we failed to make sufficient progress */
+ 		if (sum < 0)
+@@ -1860,7 +1859,7 @@ bool __i40evf_chk_linearize(struct sk_buff *skb)
+ 		if (!--nr_frags)
+ 			break;
+ 
+-		sum -= skb_frag_size(++stale);
++		sum -= skb_frag_size(stale++);
+ 	}
+ 
+ 	return false;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 6cf116972f62..396c3893ce8a 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -424,10 +424,14 @@ static inline int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+  **/
+ static inline bool i40e_chk_linearize(struct sk_buff *skb, int count)
+ {
+-	/* we can only support up to 8 data buffers for a single send */
+-	if (likely(count <= I40E_MAX_BUFFER_TXD))
++	/* Both TSO and single send will work if count is less than 8 */
++	if (likely(count < I40E_MAX_BUFFER_TXD))
+ 		return false;
+ 
+-	return __i40evf_chk_linearize(skb);
++	if (skb_is_gso(skb))
++		return __i40evf_chk_linearize(skb);
++
++	/* we can support up to 8 data buffers for a single send */
++	return count != I40E_MAX_BUFFER_TXD;
+ }
+ #endif /* _I40E_TXRX_H_ */
