@@ -1,76 +1,57 @@
-From: Daniel Walker <danielwa@cisco.com>
-Subject: Re: [PATCH-RFC] drivers: net: ethernet: intel: e1000e: fix ethtool
- autoneg off for fiber
-Date: Wed, 30 Mar 2016 12:34:58 -0700
-Message-ID: <56FC2A62.6040206@cisco.com>
-References: <1458943126-32258-1-git-send-email-danielwa@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: flush if we can't fit another DATA chunk
+Date: Wed, 30 Mar 2016 15:46:22 -0400 (EDT)
+Message-ID: <20160330.154622.1322506750240048120.davem@davemloft.net>
+References: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Steve Shih <sshih@cisco.com>, danielwa@fifo99.com,
-	xe-kernel@external.cisco.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1458943126-32258-1-git-send-email-danielwa@cisco.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37463 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994AbcC3TqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 15:46:24 -0400
+In-Reply-To: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Tue, 29 Mar 2016 10:41:25 -0300
 
-So Intel maintainers (Jeff, Jesse, Shannon, Carolyn, Don, Bruce, and John)
-
-I'm assuming no comments means this patch is acceptable , and I will 
-resubmit it without the RFC. Is that acceptable ?
-
-
-On 03/25/2016 02:58 PM, Daniel Walker wrote:
-> From: Steve Shih <sshih@cisco.com>
->
-> This patch fixes the issues for disabling auto-negotiation and forcing
-> speed and duplex settings for the fiber media.
->
-> For fiber media, e1000_get_settings should return ETH_TP_MDI_INVALID for
-> eth_tp_mdix_ctrl instead of ETH_TP_MDI_AUTO so subsequent e1000_set_settings
-> call would not fail with -EOPNOTSUPP.
->
-> e1000_set_spd_dplx should not automatically turn autoneg back on for forced
-> 1000 Mbps full duplex settings.
->
-> Cc: danielwa@fifo99.com
-> Cc: xe-kernel@external.cisco.com
-> Signed-off-by: Steve Shih <sshih@cisco.com>
+> There is no point in delaying the packet if we can't fit a single byte
+> of data on it anymore. So lets just reduce the threshold by the amount
+> that a data chunk with 4 bytes (rounding) would use.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 > ---
->   drivers/net/ethernet/intel/e1000e/ethtool.c | 6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> index 6cab1f3..cd03dcd 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> @@ -201,6 +201,9 @@ static int e1000_get_settings(struct net_device *netdev,
->   	else
->   		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
->   
-> +	if (hw->phy.media_type != e1000_media_type_copper)
-> +		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
-> +
->   	return 0;
->   }
->   
-> @@ -236,8 +239,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
->   		mac->forced_speed_duplex = ADVERTISE_100_FULL;
->   		break;
->   	case SPEED_1000 + DUPLEX_FULL:
-> -		mac->autoneg = 1;
-> -		adapter->hw.phy.autoneg_advertised = ADVERTISE_1000_FULL;
-> +		mac->forced_speed_duplex = ADVERTISE_1000_FULL;
->   		break;
->   	case SPEED_1000 + DUPLEX_HALF:	/* not supported */
->   	default:
+>  net/sctp/output.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 97745351d58c2fb32b9f9b57d61831d7724d83b2..c518569123ce42a8f21f80754756306c39875013 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+>  	/* Check whether this chunk and all the rest of pending data will fit
+>  	 * or delay in hopes of bundling a full sized packet.
+>  	 */
+> -	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
+> +	if (chunk->skb->len + q->out_qlen >
+> +		maxsize - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
+
+There is no maxsize in this function.
+
+You must generate and test your patches against my networking tree.
+
+Neil, how were you able to see where 'maxsize' is and how it's even
+calculated before determining that this change is correct?
+
+Please don't ACK patches you really didn't verify in any way at all,
+thanks.  It's better to have no reviews than bad reviews, because ACKs
+are supposed to give me a reason to be more confident in the change.
+
+Marcelo, I'm ignoring the rest of your SCTP changes, you have to get
+your act together.
