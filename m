@@ -1,55 +1,43 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH v2] rds: rds-stress show all zeros after few minutes
-Date: Sun, 3 Apr 2016 10:11:01 -0700
-Message-ID: <57014EA5.4080002@oracle.com>
-References: <1459405762-29778-1-git-send-email-shamir.rabinovitch@oracle.com>
- <20160331.160246.2179579552166806534.davem@davemloft.net>
- <20160403122951.GA14675@shamir-linux.uk.oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34323 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbcDCRLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 13:11:14 -0400
-In-Reply-To: <20160403122951.GA14675@shamir-linux.uk.oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Moritz Fischer <moritz.fischer@ettus.com>
+Subject: [PATCH v3 0/5] macb: Codingstyle cleanups
+Date: Tue, 29 Mar 2016 19:11:10 -0700
+Message-ID: <1459303875-3362-1-git-send-email-moritz.fischer@ettus.com>
+Cc: michal.simek@xilinx.com, joe@perches.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	moritz.fischer.private@gmail.com,
+	Moritz Fischer <moritz.fischer@ettus.com>
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/3/16 5:29 AM, Shamir Rabinovitch wrote:
-> On Thu, Mar 31, 2016 at 04:02:46PM -0400, David Miller wrote:
->> From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
->> Date: Thu, 31 Mar 2016 02:29:22 -0400
->>
->>> Issue can be seen on platforms that use 8K and above page size
->>> while rds fragment size is 4K. On those platforms single page is
->>> shared between 2 or more rds fragments. Each fragment has its own
->>> offset and rds congestion map code need to take this offset to account.
->>> Not taking this offset to account lead to reading the data fragment
->>> as congestion map fragment and hang of the rds transmit due to far
->>> congestion map corruption.
->>>
->>> Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
->>>
->>> Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
->>> Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
->>> Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
->>> Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
->>
->> This doesn't apply cleanly to my current tree, please respin.
->
-> Sorry for the trouble.
->
-> Re-sent the patch based on net-next master.
-> Broke the patch according to comments from Santosh Shilimkar.
->
-Thanks Shamir. Updated versions looks fine. You already
-have my ack included.
+Hi all,
 
+resending almost unchanged v2 here:
 
-Regards,
-Santosh
+Changes from v2:
+* Rebased onto net-next
+* Changed 5th patches commit message
+* Added Nicholas' and Michal's Acked-Bys
+
+Changes from v1:
+* Backed out variable scope changes
+* Separated out ether_addr_copy into it's own commit
+* Fixed typo in comments as suggested by Joe
+
+Cheers,
+
+    Moritz
+
+Moritz Fischer (5):
+  net: macb: Fix coding style error message
+  net: macb: Fix coding style warnings
+  net: macb: Fix coding style suggestions
+  net: macb: Use ether_addr_copy over memcpy
+  net: macb: Fix simple typo
+
+ drivers/net/ethernet/cadence/macb.c | 152 ++++++++++++++++--------------------
+ 1 file changed, 69 insertions(+), 83 deletions(-)
+
+-- 
+2.7.4
