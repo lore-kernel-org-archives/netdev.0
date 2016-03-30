@@ -1,46 +1,100 @@
-From: Guus Sliepen <guus@tinc-vpn.org>
-Subject: Best way to reduce system call overhead for tun device I/O?
-Date: Wed, 30 Mar 2016 00:40:43 +0200
-Message-ID: <20160329224043.GY3784@sliepen.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: remove cwnd moderation after recovery
+Date: Tue, 29 Mar 2016 17:15:52 -0700
+Message-ID: <1459296952-12214-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arianus.sliepen.org ([92.243.30.131]:36627 "EHLO
-	arianus.sliepen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252AbcC2WuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 18:50:14 -0400
-Received: from sliepen.org (unknown [10.1.1.1])
-	by arianus.sliepen.org (Postfix) with ESMTP id 59A7A264FE
-	for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 00:40:43 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-	by sliepen.org (Postfix) with ESMTP id 1B4C2220425
-	for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 00:40:43 +0200 (CEST)
-Content-Disposition: inline
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34441 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753102AbcC3AQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 20:16:06 -0400
+Received: by mail-pf0-f176.google.com with SMTP id x3so27430201pfb.1
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 17:16:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm trying to reduce system call overhead when reading/writing to/from a
-tun device in userspace. For sockets, one can use sendmmsg()/recvmmsg(),
-but a tun fd is not a socket fd, so this doesn't work. I'm see several
-options to allow userspace to read/write multiple packets with one
-syscall:
+For non-SACK connections, cwnd is lowered to inflight plus 3 packets
+when the recovery ends. This is an optional feature in the NewReno
+RFC 2582 to reduce the potential burst when cwnd is "re-opened"
+after recovery and inflight is low.
 
-- Implement a TX/RX ring buffer that is mmap()ed, like with AF_PACKET
-  sockets.
+This feature is questionably effective because of PRR: when
+the recovery ends (i.e., snd_una == high_seq) NewReno holds the
+CA_Recovery state for another round trip to prevent false fast
+retransmits. But if the inflight is low, PRR will overwrite the
+moderated cwnd in tcp_cwnd_reduction() later.
 
-- Implement a ioctl() to emulate sendmmsg()/recvmmsg().
+On the other hand, if the recovery ends because the sender
+detects the losses were spurious (e.g., reordering). This feature
+unconditionally lowers a reverted cwnd even though nothing
+was lost.
 
-- Add a flag that can be set using TUNSETIFF that makes regular
-  read()/write() calls handle multiple packets in one go.
+By principle loss recovery module should not update cwnd. Further
+pacing is much more effective to reduce burst. Hence this patch
+removes the cwnd moderation feature.
 
-- Expose a socket fd to userspace, so regular sendmmsg()/recvmmsg() can
-  be used. There is tun_get_socket() which is used internally in the
-  kernel, but this is not exposed to userspace, and doesn't look trivial
-  to do either.
+Signed-off-by: Matt Mathis <mattmathis@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+---
+ include/net/tcp.h    | 11 -----------
+ net/ipv4/tcp_input.c | 11 -----------
+ 2 files changed, 22 deletions(-)
 
-What would be the right way to do this?
-
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b91370f..f8bb4a4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1039,17 +1039,6 @@ static inline __u32 tcp_max_tso_deferred_mss(const struct tcp_sock *tp)
+ 	return 3;
+ }
+ 
+-/* Slow start with delack produces 3 packets of burst, so that
+- * it is safe "de facto".  This will be the default - same as
+- * the default reordering threshold - but if reordering increases,
+- * we must be able to allow cwnd to burst at least this much in order
+- * to not pull it back when holes are filled.
+- */
+-static __inline__ __u32 tcp_max_burst(const struct tcp_sock *tp)
+-{
+-	return tp->reordering;
+-}
+-
+ /* Returns end sequence number of the receiver's advertised window */
+ static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
+ {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e6e65f7..f87b84a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2252,16 +2252,6 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
+ 	}
+ }
+ 
+-/* CWND moderation, preventing bursts due to too big ACKs
+- * in dubious situations.
+- */
+-static inline void tcp_moderate_cwnd(struct tcp_sock *tp)
+-{
+-	tp->snd_cwnd = min(tp->snd_cwnd,
+-			   tcp_packets_in_flight(tp) + tcp_max_burst(tp));
+-	tp->snd_cwnd_stamp = tcp_time_stamp;
+-}
+-
+ static bool tcp_tsopt_ecr_before(const struct tcp_sock *tp, u32 when)
+ {
+ 	return tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+@@ -2410,7 +2400,6 @@ static bool tcp_try_undo_recovery(struct sock *sk)
+ 		/* Hold old state until something *above* high_seq
+ 		 * is ACKed. For Reno it is MUST to prevent false
+ 		 * fast retransmits (RFC2582). SACK TCP is safe. */
+-		tcp_moderate_cwnd(tp);
+ 		if (!tcp_any_retrans_done(sk))
+ 			tp->retrans_stamp = 0;
+ 		return true;
 -- 
-Met vriendelijke groet / with kind regards,
-     Guus Sliepen <guus@tinc-vpn.org>
+2.8.0.rc3.226.g39d4020
