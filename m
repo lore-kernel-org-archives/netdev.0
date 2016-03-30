@@ -1,68 +1,106 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/2] net: dsa: mv88e6xxx: Clear the PDOWN bit
- on setup
-Date: Wed, 30 Mar 2016 03:02:16 +0200
-Message-ID: <20160330010216.GG31182@lunn.ch>
-References: <1459249908-4556-1-git-send-email-patrick@puiterwijk.org>
- <1459249908-4556-2-git-send-email-patrick@puiterwijk.org>
- <87fuv9fe39.fsf@ketchup.mtl.sfl>
- <20160329162825.GC4690@lunn.ch>
- <87wpolgluy.fsf@ketchup.mtl.sfl>
- <CAJweMdYPfk7v0VVZoKW3+ZFsKD=6ja-yCo0jjwygTwYE3D30fQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Guenter Roeck <linux@roeck-us.net>, davem@davemloft.net,
-	netdev@vger.kernel.org, Dennis Gilmore <dennis@ausil.us>,
-	Peter Robinson <pbrobinson@gmail.com>
-To: Patrick Uiterwijk <patrick@puiterwijk.org>
+From: Patrick Uiterwijk <patrick@puiterwijk.org>
+Subject: [PATCH net-next v3 1/2] net: dsa: mv88e6xxx: Introduce _mv88e6xxx_phy_page_{read,write}
+Date: Wed, 30 Mar 2016 01:39:40 +0000
+Message-ID: <1459301981-26535-1-git-send-email-patrick@puiterwijk.org>
+Cc: netdev@vger.kernel.org, dennis@ausil.us, pbrobinson@gmail.com,
+	Patrick Uiterwijk <patrick@puiterwijk.org>
+To: linux@roeck-us.net, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42393 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752995AbcC3BCa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Mar 2016 21:02:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJweMdYPfk7v0VVZoKW3+ZFsKD=6ja-yCo0jjwygTwYE3D30fQ@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38648 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbcC3Bjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 21:39:37 -0400
+Received: by mail-wm0-f42.google.com with SMTP id 20so49847273wmh.1
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 18:39:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 12:58:04AM +0000, Patrick Uiterwijk wrote:
-> Hi Vivien,
-> 
-> On Tue, Mar 29, 2016 at 6:49 PM, Vivien Didelot
-> <vivien.didelot@savoirfairelinux.com> wrote:
-> > Hi Andrew, Patrick,
-> >
-> > Andrew Lunn <andrew@lunn.ch> writes:
-> >
-> >> On Tue, Mar 29, 2016 at 12:23:06PM -0400, Vivien Didelot wrote:
-> >>> Hi Patrick,
-> >>>
-> >>> Two comments below.
-> >>>
-> >>> Patrick Uiterwijk <patrick@puiterwijk.org> writes:
-> >>>
-> >>> > +static int mv88e6xxx_power_on_serdes(struct dsa_switch *ds)
-> >>>
-> >>> Since this function assumes the SMI lock is already held, its name
-> >>> should be prefixed with _ by convention (_mv88e6xxx_power_on_serdes).
-> >>
-> >> We decided to drop at, since nearly everything would end up with a _
-> >> prefix. The assert_smi_lock() should find any missing locks, and
-> >> lockdep/deadlocks will make it clear when the lock is taken twice.
-> >
-> > OK, I didn't know that. This makes sense. There is no need to respin a
-> > v3 only for my previous &= comment then.
-> 
-> Does that mean the merger will fix this up?
-> Or that I'll roll a v3 when I get a reviewed-by for the second patch?
+Add versions of the phy_page_read and _write functions to
+be used in a context where the SMI mutex is held.
 
-Hi Patrick
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+---
+ drivers/net/dsa/mv88e6xxx.c | 49 +++++++++++++++++++++++++++++++++------------
+ 1 file changed, 36 insertions(+), 13 deletions(-)
 
-Role a v3, and you can add
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-as well as Viviens for patch #1.
-
-     Andrew
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index fa086e0..86a2029 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2264,6 +2264,38 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	mutex_unlock(&ps->smi_mutex);
+ }
+ 
++static int _mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
++				     int reg, int val)
++{
++	int ret;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
++	if (ret < 0)
++		goto restore_page_0;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
++restore_page_0:
++	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++
++	return ret;
++}
++
++static int _mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page,
++				    int reg)
++{
++	int ret;
++
++	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
++	if (ret < 0)
++		goto restore_page_0;
++
++	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
++restore_page_0:
++	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++
++	return ret;
++}
++
+ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -2714,13 +2746,9 @@ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+-	if (ret < 0)
+-		goto error;
+-	ret = _mv88e6xxx_phy_read_indirect(ds, port, reg);
+-error:
+-	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++	ret = _mv88e6xxx_phy_page_read(ds, port, page, reg);
+ 	mutex_unlock(&ps->smi_mutex);
++
+ 	return ret;
+ }
+ 
+@@ -2731,14 +2759,9 @@ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
+ 	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, 0x16, page);
+-	if (ret < 0)
+-		goto error;
+-
+-	ret = _mv88e6xxx_phy_write_indirect(ds, port, reg, val);
+-error:
+-	_mv88e6xxx_phy_write_indirect(ds, port, 0x16, 0x0);
++	ret = _mv88e6xxx_phy_page_write(ds, port, page, reg, val);
+ 	mutex_unlock(&ps->smi_mutex);
++
+ 	return ret;
+ }
+ 
+-- 
+2.7.4
