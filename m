@@ -1,331 +1,207 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH 3/4] net: w5100: enable to support sleepable register access interface
-Date: Thu, 31 Mar 2016 01:38:39 +0900
-Message-ID: <1459355920-14623-3-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH 4/4] net: w5100: support SPI interface mode
+Date: Thu, 31 Mar 2016 01:38:40 +0900
+Message-ID: <1459355920-14623-4-git-send-email-akinobu.mita@gmail.com>
 References: <1459355920-14623-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
 	Mike Sinkovsky <msink@permonline.ru>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33836 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755018AbcC3Qjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 12:39:51 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hj7so7134933pac.1
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 09:39:51 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:32835 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932466AbcC3Qjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 12:39:53 -0400
+Received: by mail-pa0-f67.google.com with SMTP id q6so7298010pav.0
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 09:39:53 -0700 (PDT)
 In-Reply-To: <1459355920-14623-1-git-send-email-akinobu.mita@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SPI transfer routines are callable only from contexts that can sleep.
-
-This adds ability to tell the core driver that the interface mode
-cannot access w5100 register on atomic contexts.  In this case,
-workqueue and threaded irq are required.
+This adds new w5100-spi driver which shares the bus interface
+independent code with existing w5100 driver.
 
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 Cc: Mike Sinkovsky <msink@permonline.ru>
 Cc: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/wiznet/w5100.c | 184 ++++++++++++++++++++++++++++--------
- drivers/net/ethernet/wiznet/w5100.h |   1 +
- 2 files changed, 148 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/wiznet/Kconfig     |  14 ++++
+ drivers/net/ethernet/wiznet/Makefile    |   1 +
+ drivers/net/ethernet/wiznet/w5100-spi.c | 135 ++++++++++++++++++++++++++++++++
+ 3 files changed, 150 insertions(+)
+ create mode 100644 drivers/net/ethernet/wiznet/w5100-spi.c
 
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 7290096..a2a0c59 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -102,6 +102,13 @@ struct w5100_priv {
- 	bool promisc;
- 	u32 msg_enable;
+diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
+index f98b91d..d1ab353 100644
+--- a/drivers/net/ethernet/wiznet/Kconfig
++++ b/drivers/net/ethernet/wiznet/Kconfig
+@@ -69,4 +69,18 @@ config WIZNET_BUS_ANY
+ 	  Performance may decrease compared to explicitly selected bus mode.
+ endchoice
  
-+	struct workqueue_struct *xfer_wq;
-+	struct work_struct rx_work;
-+	struct sk_buff_head tx_queue;
-+	struct work_struct tx_work;
-+	struct work_struct setrx_work;
-+	struct work_struct restart_work;
++config WIZNET_W5100_SPI
++	tristate "WIZnet W5100 Ethernet support for SPI mode"
++	depends on WIZNET_BUS_ANY
++	depends on SPI
++	---help---
++	  In SPI mode host system accesses registers using SPI protocol
++	  (mode 0) on the SPI bus.
 +
- 	struct w5100_mmio_priv mmio_priv;
- };
- 
-@@ -608,7 +615,7 @@ static void w5100_get_regs(struct net_device *ndev,
- 	w5100_readbulk(priv, W5100_S0_REGS, buf, W5100_S0_REGS_LEN);
- }
- 
--static void w5100_tx_timeout(struct net_device *ndev)
-+static void w5100_restart(struct net_device *ndev)
- {
- 	struct w5100_priv *priv = netdev_priv(ndev);
- 
-@@ -620,12 +627,28 @@ static void w5100_tx_timeout(struct net_device *ndev)
- 	netif_wake_queue(ndev);
- }
- 
--static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
-+static void w5100_restart_work(struct work_struct *work)
++	  Performance decreases compared to other bus interface mode.
++	  In W5100 SPI mode, burst READ/WRITE processing are not provided.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called w5100-spi.
++
+ endif # NET_VENDOR_WIZNET
+diff --git a/drivers/net/ethernet/wiznet/Makefile b/drivers/net/ethernet/wiznet/Makefile
+index c614535..1e05e1a 100644
+--- a/drivers/net/ethernet/wiznet/Makefile
++++ b/drivers/net/ethernet/wiznet/Makefile
+@@ -1,2 +1,3 @@
+ obj-$(CONFIG_WIZNET_W5100) += w5100.o
++obj-$(CONFIG_WIZNET_W5100_SPI) += w5100-spi.o
+ obj-$(CONFIG_WIZNET_W5300) += w5300.o
+diff --git a/drivers/net/ethernet/wiznet/w5100-spi.c b/drivers/net/ethernet/wiznet/w5100-spi.c
+new file mode 100644
+index 0000000..cf2b845
+--- /dev/null
++++ b/drivers/net/ethernet/wiznet/w5100-spi.c
+@@ -0,0 +1,135 @@
++/*
++ * Ethernet driver for the WIZnet W5100 chip.
++ *
++ * Copyright (C) 2016 Akinobu Mita <akinobu.mita@gmail.com>
++ *
++ * Licensed under the GPL-2 or later.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/spi/spi.h>
++
++#include "w5100.h"
++
++#define W5100_SPI_WRITE_OPCODE 0xf0
++#define W5100_SPI_READ_OPCODE 0x0f
++
++static int w5100_spi_read(struct net_device *ndev, u16 addr)
 +{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       restart_work);
++	struct spi_device *spi = to_spi_device(ndev->dev.parent);
++	u8 cmd[3] = { W5100_SPI_READ_OPCODE, addr >> 8, addr & 0xff };
++	u8 data;
++	int ret;
 +
-+	w5100_restart(priv->ndev);
++	ret = spi_write_then_read(spi, cmd, sizeof(cmd), &data, 1);
++
++	return ret ? ret : data;
 +}
 +
-+static void w5100_tx_timeout(struct net_device *ndev)
- {
- 	struct w5100_priv *priv = netdev_priv(ndev);
--	u16 offset;
- 
--	netif_stop_queue(ndev);
-+	if (priv->ops->may_sleep)
-+		schedule_work(&priv->restart_work);
-+	else
-+		w5100_restart(ndev);
++static int w5100_spi_write(struct net_device *ndev, u16 addr, u8 data)
++{
++	struct spi_device *spi = to_spi_device(ndev->dev.parent);
++	u8 cmd[4] = { W5100_SPI_WRITE_OPCODE, addr >> 8, addr & 0xff, data};
++
++	return spi_write(spi, cmd, sizeof(cmd));
 +}
 +
-+static void w5100_tx_skb(struct net_device *ndev, struct sk_buff *skb)
++static int w5100_spi_read16(struct net_device *ndev, u16 addr)
 +{
-+	struct w5100_priv *priv = netdev_priv(ndev);
-+	u16 offset;
- 
- 	offset = w5100_read16(priv, W5100_S0_TX_WR);
- 	w5100_writebuf(priv, offset, skb->data, skb->len);
-@@ -635,47 +658,94 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
- 	dev_kfree_skb(skb);
- 
- 	w5100_command(priv, S0_CR_SEND);
++	u16 data;
++	int ret;
++
++	ret = w5100_spi_read(ndev, addr);
++	if (ret < 0)
++		return ret;
++	data = ret << 8;
++	ret = w5100_spi_read(ndev, addr + 1);
++
++	return ret < 0 ? ret : data | ret;
 +}
 +
-+static void w5100_tx_work(struct work_struct *work)
++static int w5100_spi_write16(struct net_device *ndev, u16 addr, u16 data)
 +{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       tx_work);
-+	struct sk_buff *skb;
++	int ret;
 +
-+	while ((skb = skb_dequeue(&priv->tx_queue)))
-+		w5100_tx_skb(priv->ndev, skb);
++	ret = w5100_spi_write(ndev, addr, data >> 8);
++	if (ret)
++		return ret;
++
++	return w5100_spi_write(ndev, addr + 1, data & 0xff);
 +}
 +
-+static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
++static int w5100_spi_readbulk(struct net_device *ndev, u16 addr, u8 *buf,
++			      int len)
 +{
-+	struct w5100_priv *priv = netdev_priv(ndev);
++	int i;
 +
-+	netif_stop_queue(ndev);
++	for (i = 0; i < len; i++) {
++		int ret = w5100_spi_read(ndev, addr + i);
 +
-+	if (priv->ops->may_sleep) {
-+		skb_queue_tail(&priv->tx_queue, skb);
-+		queue_work(priv->xfer_wq, &priv->tx_work);
-+	} else {
-+		w5100_tx_skb(ndev, skb);
-+	}
- 
- 	return NETDEV_TX_OK;
- }
- 
--static int w5100_napi_poll(struct napi_struct *napi, int budget)
-+static struct sk_buff *w5100_rx_skb(struct net_device *ndev)
- {
--	struct w5100_priv *priv = container_of(napi, struct w5100_priv, napi);
--	struct net_device *ndev = priv->ndev;
-+	struct w5100_priv *priv = netdev_priv(ndev);
- 	struct sk_buff *skb;
--	int rx_count;
- 	u16 rx_len;
- 	u16 offset;
- 	u8 header[2];
-+	u16 rx_buf_len = w5100_read16(priv, W5100_S0_RX_RSR);
- 
--	for (rx_count = 0; rx_count < budget; rx_count++) {
--		u16 rx_buf_len = w5100_read16(priv, W5100_S0_RX_RSR);
--		if (rx_buf_len == 0)
--			break;
-+	if (rx_buf_len == 0)
-+		return NULL;
- 
--		offset = w5100_read16(priv, W5100_S0_RX_RD);
--		w5100_readbuf(priv, offset, header, 2);
--		rx_len = get_unaligned_be16(header) - 2;
--
--		skb = netdev_alloc_skb_ip_align(ndev, rx_len);
--		if (unlikely(!skb)) {
--			w5100_write16(priv, W5100_S0_RX_RD,
--					    offset + rx_buf_len);
--			w5100_command(priv, S0_CR_RECV);
--			ndev->stats.rx_dropped++;
--			return -ENOMEM;
--		}
-+	offset = w5100_read16(priv, W5100_S0_RX_RD);
-+	w5100_readbuf(priv, offset, header, 2);
-+	rx_len = get_unaligned_be16(header) - 2;
- 
--		skb_put(skb, rx_len);
--		w5100_readbuf(priv, offset + 2, skb->data, rx_len);
--		w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
-+	skb = netdev_alloc_skb_ip_align(ndev, rx_len);
-+	if (unlikely(!skb)) {
-+		w5100_write16(priv, W5100_S0_RX_RD, offset + rx_buf_len);
- 		w5100_command(priv, S0_CR_RECV);
--		skb->protocol = eth_type_trans(skb, ndev);
-+		ndev->stats.rx_dropped++;
-+		return NULL;
++		if (ret < 0)
++			return ret;
++		buf[i] = ret;
 +	}
 +
-+	skb_put(skb, rx_len);
-+	w5100_readbuf(priv, offset + 2, skb->data, rx_len);
-+	w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
-+	w5100_command(priv, S0_CR_RECV);
-+	skb->protocol = eth_type_trans(skb, ndev);
-+
-+	ndev->stats.rx_packets++;
-+	ndev->stats.rx_bytes += rx_len;
-+
-+	return skb;
++	return 0;
 +}
 +
-+static void w5100_rx_work(struct work_struct *work)
++static int w5100_spi_writebulk(struct net_device *ndev, u16 addr, const u8 *buf,
++			       int len)
 +{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       rx_work);
-+	struct sk_buff *skb;
++	int i;
 +
-+	while ((skb = w5100_rx_skb(priv->ndev)))
-+		netif_rx_ni(skb);
++	for (i = 0; i < len; i++) {
++		int ret = w5100_spi_write(ndev, addr + i, buf[i]);
 +
-+	w5100_write(priv, W5100_IMR, IR_S0);
-+}
-+
-+static int w5100_napi_poll(struct napi_struct *napi, int budget)
-+{
-+	struct w5100_priv *priv = container_of(napi, struct w5100_priv, napi);
-+	int rx_count;
-+
-+	for (rx_count = 0; rx_count < budget; rx_count++) {
-+		struct sk_buff *skb = w5100_rx_skb(priv->ndev);
- 
--		netif_receive_skb(skb);
--		ndev->stats.rx_packets++;
--		ndev->stats.rx_bytes += rx_len;
-+		if (skb)
-+			netif_receive_skb(skb);
-+		else
-+			break;
- 	}
- 
- 	if (rx_count < budget) {
-@@ -702,10 +772,12 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
- 	}
- 
- 	if (ir & S0_IR_RECV) {
--		if (napi_schedule_prep(&priv->napi)) {
--			w5100_write(priv, W5100_IMR, 0);
-+		w5100_write(priv, W5100_IMR, 0);
-+
-+		if (priv->ops->may_sleep)
-+			queue_work(priv->xfer_wq, &priv->rx_work);
-+		else if (napi_schedule_prep(&priv->napi))
- 			__napi_schedule(&priv->napi);
--		}
- 	}
- 
- 	return IRQ_HANDLED;
-@@ -729,6 +801,14 @@ static irqreturn_t w5100_detect_link(int irq, void *ndev_instance)
- 	return IRQ_HANDLED;
- }
- 
-+static void w5100_setrx_work(struct work_struct *work)
-+{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       setrx_work);
-+
-+	w5100_hw_start(priv);
-+}
-+
- static void w5100_set_rx_mode(struct net_device *ndev)
- {
- 	struct w5100_priv *priv = netdev_priv(ndev);
-@@ -736,7 +816,11 @@ static void w5100_set_rx_mode(struct net_device *ndev)
- 
- 	if (priv->promisc != set_promisc) {
- 		priv->promisc = set_promisc;
--		w5100_hw_start(priv);
-+
-+		if (priv->ops->may_sleep)
-+			schedule_work(&priv->setrx_work);
-+		else
-+			w5100_hw_start(priv);
- 	}
- }
- 
-@@ -860,6 +944,18 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- 	if (err < 0)
- 		goto err_register;
- 
-+	priv->xfer_wq = create_workqueue(netdev_name(ndev));
-+	if (!priv->xfer_wq) {
-+		err = -ENOMEM;
-+		goto err_wq;
++		if (ret)
++			return ret;
 +	}
 +
-+	skb_queue_head_init(&priv->tx_queue);
-+	INIT_WORK(&priv->rx_work, w5100_rx_work);
-+	INIT_WORK(&priv->tx_work, w5100_tx_work);
-+	INIT_WORK(&priv->setrx_work, w5100_setrx_work);
-+	INIT_WORK(&priv->restart_work, w5100_restart_work);
++	return 0;
++}
 +
- 	if (mac_addr)
- 		memcpy(ndev->dev_addr, mac_addr, ETH_ALEN);
- 	else
-@@ -877,8 +973,14 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- 		goto err_hw;
- 	}
- 
--	err = request_irq(priv->irq, w5100_interrupt, IRQF_TRIGGER_LOW,
--			  netdev_name(ndev), ndev);
-+	if (ops->may_sleep) {
-+		err = request_threaded_irq(priv->irq, NULL, w5100_interrupt,
-+					   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-+					   netdev_name(ndev), ndev);
-+	} else {
-+		err = request_irq(priv->irq, w5100_interrupt,
-+				  IRQF_TRIGGER_LOW, netdev_name(ndev), ndev);
-+	}
- 	if (err)
- 		goto err_hw;
- 
-@@ -903,6 +1005,8 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- err_gpio:
- 	free_irq(priv->irq, ndev);
- err_hw:
-+	destroy_workqueue(priv->xfer_wq);
-+err_wq:
- 	unregister_netdev(ndev);
- err_register:
- 	free_netdev(ndev);
-@@ -920,6 +1024,12 @@ int w5100_remove(struct device *dev)
- 	if (gpio_is_valid(priv->link_gpio))
- 		free_irq(priv->link_irq, ndev);
- 
-+	flush_work(&priv->setrx_work);
-+	flush_work(&priv->restart_work);
-+	flush_workqueue(priv->xfer_wq);
-+	skb_queue_purge(&priv->tx_queue);
-+	destroy_workqueue(priv->xfer_wq);
++static const struct w5100_ops w5100_spi_ops = {
++	.may_sleep = true,
++	.read = w5100_spi_read,
++	.write = w5100_spi_write,
++	.read16 = w5100_spi_read16,
++	.write16 = w5100_spi_write16,
++	.readbulk = w5100_spi_readbulk,
++	.writebulk = w5100_spi_writebulk,
++};
 +
- 	unregister_netdev(ndev);
- 	free_netdev(ndev);
- 	return 0;
-diff --git a/drivers/net/ethernet/wiznet/w5100.h b/drivers/net/ethernet/wiznet/w5100.h
-index 368862d..292fbd5 100644
---- a/drivers/net/ethernet/wiznet/w5100.h
-+++ b/drivers/net/ethernet/wiznet/w5100.h
-@@ -8,6 +8,7 @@
-  */
- 
- struct w5100_ops {
-+	bool may_sleep;
- 	int (*read)(struct net_device *ndev, u16 addr);
- 	int (*write)(struct net_device *ndev, u16 addr, u8 data);
- 	int (*read16)(struct net_device *ndev, u16 addr);
++static int w5100_spi_probe(struct spi_device *spi)
++{
++	return w5100_probe(&spi->dev, &w5100_spi_ops, NULL, spi->irq, -EINVAL);
++}
++
++static int w5100_spi_remove(struct spi_device *spi)
++{
++	return w5100_remove(&spi->dev);
++}
++
++static const struct spi_device_id w5100_spi_ids[] = {
++	{ "w5100", 0 },
++	{}
++};
++MODULE_DEVICE_TABLE(spi, w5100_spi_ids);
++
++static struct spi_driver w5100_spi_driver = {
++	.driver		= {
++		.name	= "w5100",
++		.pm	= &w5100_pm_ops,
++	},
++	.probe		= w5100_spi_probe,
++	.remove		= w5100_spi_remove,
++	.id_table	= w5100_spi_ids,
++};
++module_spi_driver(w5100_spi_driver);
++
++MODULE_DESCRIPTION("WIZnet W5100 Ethernet driver for SPI mode");
++MODULE_AUTHOR("Akinobu Mita <akinobu.mita@gmail.com>");
++MODULE_LICENSE("GPL");
 -- 
 2.5.0
