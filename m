@@ -1,97 +1,58 @@
-From: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
-Date: Wed, 30 Mar 2016 11:44:36 -0500
-Message-ID: <CADhT+wdXXp322vmgFmWTUiiRZTsCWeJSSdU=BMEEbSyb_bnrUw@mail.gmail.com>
-References: <1457294038-14243-1-git-send-email-afaerber@suse.de>
-	<56DDA3D5.3090209@st.com>
-	<56DDB749.1020808@suse.de>
-	<CADhT+wfO8x4En78g5ixnnwbpaeXJGDo+Q1sOABYsbXzNZy0CPw@mail.gmail.com>
-	<56DE7E1D.5070508@st.com>
-	<CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>
-	<CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>
-	<56DFE55B.2090806@st.com>
-	<56DFE64B.8060606@st.com>
-	<CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com>
-	<56DFF253.9050208@st.com>
-	<56DFFA9E.7060602@st.com>
-	<CAAObsKBUzBXcamEyup44N1bYUzGr_ZZTsYcD5x3PXb-2E00cGA@mail.gmail.com>
-	<56E033C8.40506@st.com>
-	<56E038CE.606@st.com>
-	<CADhT+wcMpzA_Coj8Z5OQZsc3bF3a7yOmsbazQMPtcdUWkJSuCA@mail.gmail.com>
-	<56E13AAB.2080900@st.com>
-	<CADhT+wd=vcph2y_OxkGNO5EwHvN=kBy-BrfZHmNjZHww4LxmTg@mail.gmail.com>
-	<56E28B5D.6000708@st.com>
-	<CAAObsKB-tSCu5KMYk2Zi-oX9zMKEOwwT93sMkiZKiYvtexmHaQ@mail.gmail.com>
-	<56E6E4B0.8060408@st.com>
-	<CAAObsKCdk+6HdzFYxRKZbPiaKcfMCLjbpngurat47YvyvSgH-w@mail.gmail.com>
-	<56E801EB.6030107@st.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Wed, 30 Mar 2016 09:52:21 -0700
+Message-ID: <56FC0445.6010200@candelatech.com>
+References: <56F9941A.3080501@candelatech.com>
+ <56FAAA6D.3070806@candelatech.com> <1459329252.2055.1.camel@sipsolutions.net>
+ <20160330.123821.328761526754742195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tomeu Vizoso <tomeu-XCtybt49RKsYaV1qd6yewg@public.gmane.org>,
-	=?UTF-8?Q?Andreas_F=C3=A4rber?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
-	Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-	=?UTF-8?Q?Frank_Sch=C3=A4fer?= <fschaefer.oss-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56E801EB.6030107-qxv4g6HH51o@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	tgraf@suug.ch
+To: David Miller <davem@davemloft.net>, johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:44321 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932960AbcC3QwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 12:52:23 -0400
+In-Reply-To: <20160330.123821.328761526754742195.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 15, 2016 at 7:36 AM, Giuseppe CAVALLARO
-<peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
-> Hello Tomeu
+On 03/30/2016 09:38 AM, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Wed, 30 Mar 2016 11:14:12 +0200
 >
-> On 3/15/2016 8:23 AM, Tomeu Vizoso wrote:
+>> On Tue, 2016-03-29 at 09:16 -0700, Ben Greear wrote:
+>>> Looks like rhashtable has too much policy in it to properly deal with
+>>> cases where there are too many hash collisions, so I am going to work
+>>> on reverting it's use in mac80211.
 >>
->> Thanks.
->>
->> Btw, I have rebased on top of 4.5 this morning and I have noticed that
->> 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression") got in
->> there, so I guess we have now a bunch of boards with broken network on
->> that release:(
+>> I'm not really all that happy with that approach - can't we fix the
+>> rhashtable? It's a pretty rare corner case that many keys really are
+>> identical and no kind of hash algorithm, but it seems much better to
+>> still deal with it than to remove the rhashtable usage and go back to
+>> hand-rolling something.
 >
->
->
-> This is the status on my side: I am testing on an HW that has the
-> Enhanced descriptors and all works fine.
->
-> On this HW, if I force the driver to use the normal descriptor
-> layout, I meet problems but using both net.git and net-next.
-> So I suspect I cannot ply with this HW forcing the normal descriptors.
-> But! That is helping me to check if, on net-next, the stmmac is
-> actually  programming fine the normal desc case.
-> I have just found another fix so I kindly ask you to apply the temp
-> patch  attached and let me know.
-> In details, I have noticed that the OWN bit was not set in the right
-> TDES0.
->
-> I also ask you to give me a log of the kernel where the stmmac was
-> running fine. I would like to see which configuration it is selected
-> at runtime by the driver on your box.
-> From your previous logs (where the stmmac failed), it seems that
-> the  problem is on normal desc but, to be honest, this is the first
-> case I see a 3.50a with HW capability register and w/o Enhanced
-> descriptors.
+> Yeah reverting seems like a really idiotic way to deal with the issue.
 >
 
-Are you still working on a fix for:
+If someone can fix rhashtable, then great.
+I read some earlier comments [1] back when someone else reported
+similar problems, and the comments seemed to indicate that rhashtable was
+broken in this manner on purpose to protect against hashing attacks.
 
-[    1.196110] libphy: PHY stmmac-0:ffffffff not found
-[    1.200972] eth0: Could not attach to PHY
-[    1.204991] stmmac_open: Cannot attach to PHY (error: -19)
+If you are baking in this type of policy to what should be a basic
+data-type, then it is not useful for how it is being used in
+the mac80211 stack.
 
-I see the error still there as of linux-next 20160330.
+[1]  http://lkml.iu.edu/hypermail/linux/kernel/1512.2/01681.html
 
-Dinh
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
