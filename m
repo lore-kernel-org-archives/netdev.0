@@ -1,43 +1,42 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH RFC] net: decrease the length of backlog queue immediately after it's detached from sk
-Date: Wed, 30 Mar 2016 13:16:41 +0800
-Message-ID: <1459315001-3448-1-git-send-email-yangyingliang@huawei.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 06/16] wcn36xx: Fetch private sta data from sta entry instead of from vif
+Date: Wed, 30 Mar 2016 08:18:45 +0300
+Message-ID: <8760w4bl1m.fsf@kamboji.qca.qualcomm.com>
+References: <1459231593-360-7-git-send-email-bjorn.andersson@linaro.org>
+	<201603300022.MmhimaU1%fengguang.wu@intel.com>
+	<20160329213721.GV8929@tuxbot>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:40199 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbcC3FRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 01:17:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild test robot <lkp@intel.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pontus Fuchs <pontus.fuchs@gmail.com>, kbuild-all@01.org,
+	wcn36xx@lists.infradead.org,
+	Eugene Krasnikov <k.eugene.e@gmail.com>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160329213721.GV8929@tuxbot> (Bjorn Andersson's message of
+	"Tue, 29 Mar 2016 14:37:21 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When task A hold the sk owned in tcp_sendmsg, if lots of packets
-arrive and the packets will be added to backlog queue. The packets
-will be handled in release_sock called from tcp_sendmsg. When the
-sk_backlog is removed from sk, the length will not decrease until
-all the packets in backlog queue are handled. This may leads to the
-new packets be dropped because the lenth is too big. So set the
-lenth to 0 immediately after it's detached from sk.
+Bjorn Andersson <bjorn.andersson@linaro.org> writes:
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- net/core/sock.c | 1 +
- 1 file changed, 1 insertion(+)
+>> All error/warnings (new ones prefixed by >>):
+>> 
+>>    drivers/net/wireless/ath/wcn36xx/main.c: In function 'wcn36xx_set_key':
+>> >> drivers/net/wireless/ath/wcn36xx/main.c:389:9: error: implicit declaration of function 'wcn36xx_sta_to_priv' [-Werror=implicit-function-declaration]
+>>      struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
+>>             ^
+>> >> drivers/net/wireless/ath/wcn36xx/main.c:389:33: warning: initialization makes pointer from integer without a cast
+>>      struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
+>>                                     ^
+>>    cc1: some warnings being treated as errors
+>
+> This should have been reordered with patch 7, that introduces this
+> helper function. Do you want me to resend, or can you apply the patches
+> out of order?
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 47fc8bb..108be05 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1933,6 +1933,7 @@ static void __release_sock(struct sock *sk)
- 
- 	do {
- 		sk->sk_backlog.head = sk->sk_backlog.tail = NULL;
-+		sk->sk_backlog.len = 0;
- 		bh_unlock_sock(sk);
- 
- 		do {
+It's better that you resend the whole patchset as v2.
+
 -- 
-2.5.0
+Kalle Valo
