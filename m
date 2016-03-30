@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: make padding in bpf_tunnel_key explicit
-Date: Wed, 30 Mar 2016 00:10:43 -0400 (EDT)
-Message-ID: <20160330.001043.584711438018970796.davem@davemloft.net>
-References: <6589c70157238797e63986eeea67cfe2abfb3260.1459288316.git.daniel@iogearbox.net>
+From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+Subject: Re: [PATCH] ethernet: mvneta: Support netpoll
+Date: Wed, 30 Mar 2016 01:59:13 -0300
+Message-ID: <CAAEAJfCYH5SnhiPyJCeBTquj8roUnt3AxQ2rWwugo=tN+EUZTA@mail.gmail.com>
+References: <1459197678-12022-1-git-send-email-ezequiel@vanguardiasur.com.ar>
+	<20160329.230930.1234182429605936870.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49948 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751551AbcC3EKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 00:10:48 -0400
-In-Reply-To: <6589c70157238797e63986eeea67cfe2abfb3260.1459288316.git.daniel@iogearbox.net>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:34834 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635AbcC3E7O convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 00:59:14 -0400
+Received: by mail-wm0-f53.google.com with SMTP id 191so74477019wmq.0
+        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 21:59:14 -0700 (PDT)
+In-Reply-To: <20160329.230930.1234182429605936870.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 30 Mar 2016 00:02:00 +0200
+Hi David,
 
-> Make the 2 byte padding in struct bpf_tunnel_key between tunnel_ttl
-> and tunnel_label members explicit. No issue has been observed, and
-> gcc/llvm does padding for the old struct already, where tunnel_label
-> was not yet present, so the current code works, but since it's part
-> of uapi, make sure we don't introduce holes in structs.
-> 
-> Therefore, add tunnel_ext that we can use generically in future
-> (f.e. to flag OAM messages for backends, etc). Also add the offset
-> to the compat tests to be sure should some compilers not padd the
-> tail of the old version of bpf_tunnel_key.
-> 
-> Fixes: 4018ab1875e0 ("bpf: support flow label for bpf_skb_{set, get}_tunnel_key")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+On 30 March 2016 at 00:09, David Miller <davem@davemloft.net> wrote:
+> From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+> Date: Mon, 28 Mar 2016 17:41:18 -0300
+>
+>> +/* Polled functionality used by netconsole and others in non interr=
+upt mode */
+>> +static void mvneta_poll_controller(struct net_device *dev)
+>> +{
+>> +     struct mvneta_port *pp =3D netdev_priv(dev);
+>> +
+>> +     on_each_cpu(mvneta_percpu_poll_controller, pp, false);
+>> +}
+>
+> This doesn't work.
+>
+> netpoll may be invoked from any context whatsoever, even hardware
+> interrupt handlers or contexts where cpu interrupts are disabled.
+>
+> smp_call_function() and thus on_each_cpu() may not be called with
+> disabled interrupts or from a hardware interrupt handler or from
+> a bottom half handler, all of which are valid situations where
+> netpoll may occur since printk's can occur anywhere.
 
-Applied, thanks.
+Well, I hated the idea of using on_each_cpu here, but wasn't sure
+if there was a real reason that forbid it.
+
+Thanks a lot for the feedback.
+--=20
+Ezequiel Garc=C3=ADa, VanguardiaSur
+www.vanguardiasur.com.ar
