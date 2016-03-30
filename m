@@ -1,42 +1,34 @@
-From: Patrick Uiterwijk <patrick@puiterwijk.org>
-Subject: Re: [PATCH net-next v3 1/2] net: dsa: mv88e6xxx: Introduce _mv88e6xxx_phy_page_{read,write}
-Date: Wed, 30 Mar 2016 15:21:01 +0000
-Message-ID: <CAJweMdZLM63dxEyByvF4vxtYfqtK39mw7TC1mbAHX=JcpRk97A@mail.gmail.com>
-References: <1459301981-26535-1-git-send-email-patrick@puiterwijk.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Wed, 30 Mar 2016 12:38:21 -0400 (EDT)
+Message-ID: <20160330.123821.328761526754742195.davem@davemloft.net>
+References: <56F9941A.3080501@candelatech.com>
+	<56FAAA6D.3070806@candelatech.com>
+	<1459329252.2055.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Dennis Gilmore <dennis@ausil.us>,
-	Peter Robinson <pbrobinson@gmail.com>,
-	Patrick Uiterwijk <patrick@puiterwijk.org>
-To: Guenter Roeck <linux@roeck-us.net>, davem@davemloft.net,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:33926 "EHLO
-	mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752619AbcC3PVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 11:21:03 -0400
-Received: by mail-vk0-f41.google.com with SMTP id e185so65271259vkb.1
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 08:21:02 -0700 (PDT)
-In-Reply-To: <1459301981-26535-1-git-send-email-patrick@puiterwijk.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
+	herbert@gondor.apana.org.au, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459329252.2055.1.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 30 Mar 2016 11:14:12 +0200
 
-Could this patch and the patch 2/2 v3 "net: dsa: mv88e6xxx: Clear the
-PDOWN bit on setup" be put
-on net, since this fixes a bug with the clearfog, which was introduced in v4.5?
+> On Tue, 2016-03-29 at 09:16 -0700, Ben Greear wrote:
+>> Looks like rhashtable has too much policy in it to properly deal with
+>> cases where there are too many hash collisions, so I am going to work
+>> on reverting it's use in mac80211.
+> 
+> I'm not really all that happy with that approach - can't we fix the
+> rhashtable? It's a pretty rare corner case that many keys really are
+> identical and no kind of hash algorithm, but it seems much better to
+> still deal with it than to remove the rhashtable usage and go back to
+> hand-rolling something.
 
-Thanks,
-Patrick
-
-On Wed, Mar 30, 2016 at 1:39 AM, Patrick Uiterwijk
-<patrick@puiterwijk.org> wrote:
-> Add versions of the phy_page_read and _write functions to
-> be used in a context where the SMI mutex is held.
->
-> Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
-> ---
+Yeah reverting seems like a really idiotic way to deal with the issue.
