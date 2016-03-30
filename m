@@ -1,37 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net] team: team should sync the port's uc/mc addrs
- when add a port
-Date: Wed, 30 Mar 2016 17:07:12 -0400 (EDT)
-Message-ID: <20160330.170712.1708636507092918184.davem@davemloft.net>
-References: <e7eed00cdf5b0bf2d7eda4364f0fd28e95028db8.1459306719.git.lucien.xin@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: possible bug in latest network tree
+Date: Wed, 30 Mar 2016 14:17:43 -0700
+Message-ID: <1459372663.6473.211.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-	marcelo.leitner@gmail.com, xiyou.wangcong@gmail.com
-To: lucien.xin@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Light, John J" <john.j.light@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38520 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752994AbcC3VHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:07:15 -0400
-In-Reply-To: <e7eed00cdf5b0bf2d7eda4364f0fd28e95028db8.1459306719.git.lucien.xin@gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34584 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752089AbcC3VRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 17:17:51 -0400
+Received: by mail-pa0-f53.google.com with SMTP id fe3so49594816pab.1
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 14:17:51 -0700 (PDT)
+In-Reply-To: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Wed, 30 Mar 2016 10:58:39 +0800
+On Wed, 2016-03-30 at 21:05 +0000, Light, John J wrote:
+> David,
+> 
+> I see a recent change in inet_connection_sock.c that uses
+> sysctl_tcp_synack_retries suspiciously.
+> 
+> Previously, sysctl_tcp_synack_retries was a global variable, and now
+> it has been moved into the fragment (really netns_ipv4).
 
-> There is an issue when we use mavtap over team:
-> When we replug nic links from team0, the real nics's mc list will not
-> include the maddr for macvtap any more. then we can't receive pkts to
-> macvtap device, as they are filterred by mc list of nic.
+You mean the network namespace ?
 > 
-> In Bonding Driver, it syncs the uc/mc addrs in bond_enslave().
+> In reqsk_timer_handler (inet_connection_sock.c) near line 563 it is
+> used as the default max_retries value in case icsk->icsk_syn_retries
+> is not set.
 > 
-> We will fix this issue on team by adding the port's uc/mc addrs sync in
-> team_port_add.
+> Previously, other transports (dccp?) would use the TCP global variable
+> as a default.  Now that the defaults come from the fragment, I suspect
+> the fragment variable is not set for other transports.  (I can't find
+> where it's set for dccp.)
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Of course, this will only show in non-TCP transport protocols when the
+> icsk retries value is not set, so it's a rare case.  Perhaps it's an
+> unreachable case, since I don't know all the kernel paths.
+> 
+> Maybe the problem is that the default shouldn't be to a TCP value, but
+> should be a 'transport' value.
+> 
+> This code is somewhat convoluted, so I am not sure of my analysis, but
+> I wanted you to consider it.
+> 
 
-Applied, thanks.
+No idea why you ask David instead of patch author ?
+
+I don't see any problem here.
+
+Do we really want to spend time on this minor issue ?
