@@ -1,69 +1,50 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: flush if we can't fit another DATA chunk
-Date: Wed, 30 Mar 2016 16:32:11 -0400
-Message-ID: <20160330203211.GD15549@hmsreliant.think-freely.org>
-References: <1459258885-21502-1-git-send-email-marcelo.leitner@gmail.com>
- <20160330.154622.1322506750240048120.davem@davemloft.net>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [net PATCH] i40e/i40evf: Limit TSO to 7 descriptors for payload
+ instead of 8 per packet
+Date: Wed, 30 Mar 2016 16:40:23 -0400
+Message-ID: <20160330204023.GK27540@oracle.com>
+References: <20160330064213.12927.46852.stgit@localhost.localdomain>
+ <20160330170011.GB27540@oracle.com>
+ <CAKgT0UdTgaeamyLetGPK0mqMNS-80BTc8t-WdSGJuuLDfz4JOg@mail.gmail.com>
+ <20160330172001.GD27540@oracle.com>
+ <CAKgT0Ufb-_X-DD2jYkVJQwLZ-JBfWD2Biuhi6YaxWBeNy9K2fQ@mail.gmail.com>
+ <20160330124135.000054c6@unknown>
+ <20160330200959.GI27540@oracle.com>
+ <1459368904.6473.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: marcelo.leitner@gmail.com, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40270 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754393AbcC3UcT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:32:19 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:38306 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085AbcC3Ukc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:40:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20160330.154622.1322506750240048120.davem@davemloft.net>
+In-Reply-To: <1459368904.6473.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 03:46:22PM -0400, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Tue, 29 Mar 2016 10:41:25 -0300
+On (03/30/16 13:15), Eric Dumazet wrote:
+> You might try netperf -t TCP_SENDFILE -- -m 150
 > 
-> > There is no point in delaying the packet if we can't fit a single byte
-> > of data on it anymore. So lets just reduce the threshold by the amount
-> > that a data chunk with 4 bytes (rounding) would use.
-> > 
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  net/sctp/output.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/sctp/output.c b/net/sctp/output.c
-> > index 97745351d58c2fb32b9f9b57d61831d7724d83b2..c518569123ce42a8f21f80754756306c39875013 100644
-> > --- a/net/sctp/output.c
-> > +++ b/net/sctp/output.c
-> > @@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
-> >  	/* Check whether this chunk and all the rest of pending data will fit
-> >  	 * or delay in hopes of bundling a full sized packet.
-> >  	 */
-> > -	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
-> > +	if (chunk->skb->len + q->out_qlen >
-> > +		maxsize - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
-> 
-> There is no maxsize in this function.
-> 
-> You must generate and test your patches against my networking tree.
-> 
-> Neil, how were you able to see where 'maxsize' is and how it's even
-> calculated before determining that this change is correct?
-> 
-Shit, sorry, dave, I trusted that Marcello built and tested the patch, and
-reviewed it based on the validity of the math (which making assumptions for what
-maxsize was, should be correct).  No exuse, I screwed up.
-Neil
+> to let netperf use sendfile() on small frags.
 
-> Please don't ACK patches you really didn't verify in any way at all,
-> thanks.  It's better to have no reviews than bad reviews, because ACKs
-> are supposed to give me a reason to be more confident in the change.
-> 
-> Marcelo, I'm ignoring the rest of your SCTP changes, you have to get
-> your act together.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+that still did not reproduce it but let me try beating on
+that approach with more permutations.
+
+BTW, another data-point that may help debug this: even with i40e,
+if you use the "-o" option to the rds-stress invocation, there are
+no problems: the "-o" option  enforces uni-directional data
+transfer, so one side is pure-Tx, other side is pure-Rx. 
+
+It is only when both sides simultaneously do both Tx and Rx
+on the tcp socket that you see the issue. I dont know if
+that provides any clues.
+
+--Sowmini
