@@ -1,61 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Add netdev all_adj_list refcnt propagation to fix panic
-Date: Wed, 30 Mar 2016 16:01:50 -0400 (EDT)
-Message-ID: <20160330.160150.1290720758360796805.davem@davemloft.net>
-References: <1459272303-8851-1-git-send-email-acollins@cradlepoint.com>
+Subject: Re: [net PATCH v2] gro: Allow tunnel stacking in the case of
+ FOU/GUE
+Date: Wed, 30 Mar 2016 16:03:20 -0400 (EDT)
+Message-ID: <20160330.160320.1141897932138398381.davem@davemloft.net>
+References: <20160329215226.12478.3696.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mschiffer@universe-factory.net,
-	vfalico@redhat.com
-To: acollins@cradlepoint.com
+Cc: jesse@kernel.org, netdev@vger.kernel.org,
+	alexander.duyck@gmail.com, tom@herbertland.com
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37680 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbcC3UBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:01:52 -0400
-In-Reply-To: <1459272303-8851-1-git-send-email-acollins@cradlepoint.com>
+	with ESMTP id S1752929AbcC3UDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 16:03:22 -0400
+In-Reply-To: <20160329215226.12478.3696.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Collins <acollins@cradlepoint.com>
-Date: Tue, 29 Mar 2016 11:25:03 -0600
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Tue, 29 Mar 2016 14:55:22 -0700
 
-> This is an RFC patch to fix a relatively easily reproducible kernel
-> panic related to the all_adj_list handling for netdevs in recent kernels.
+> This patch should fix the issues seen with a recent fix to prevent
+> tunnel-in-tunnel frames from being generated with GRO.  The fix itself is
+> correct for now as long as we do not add any devices that support
+> NETIF_F_GSO_GRE_CSUM.  When such a device is added it could have the
+> potential to mess things up due to the fact that the outer transport header
+> points to the outer UDP header and not the GRE header as would be expected.
 > 
-> This is more to generate discussion than anything else.  I don't
-> particularly like this approach, I'm hoping someone has a better idea.
+> Fixes: fac8e0f579695 ("tunnels: Don't apply GRO to multiple layers of encapsulation.")
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> ---
 > 
-> The following sequence of commands will reproduce the issue:
-> 
-> ip link add link eth0 name eth0.100 type vlan id 100
-> ip link add link eth0 name eth0.200 type vlan id 200
-> ip link add name testbr type bridge
-> ip link set eth0.100 master testbr
-> ip link set eth0.200 master testbr
-> ip link add link testbr mac0 type macvlan
-> ip link delete dev testbr
-> 
-> This creates an upper/lower tree of (excuse the poor ASCII art):
-> 
->             /---eth0.100-eth0
-> mac0-testbr-
->             \---eth0.200-eth0
-> 
-> When testbr is deleted, the all_adj_lists are walked, and eth0 is deleted twice from
-> the mac0 list. Unfortunately, during setup in __netdev_upper_dev_link, only one
-> reference to eth0 is added, so this results in a panic.
-> 
-> This change adds reference count propagation so things are handled properly.
-> 
-> Matthias Schiffer reported a similar crash in batman-adv:
-> 
-> https://github.com/freifunk-gluon/gluon/issues/680
-> https://www.open-mesh.org/issues/247
-> 
-> which this patch also seems to resolve.
+> v2: Dropped switch statements per suggestion of Tom Herbert.
 
-Veaceslav, please look into this.
-
-Thanks.
+Applied, thanks Alex.
