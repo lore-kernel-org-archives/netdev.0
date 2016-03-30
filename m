@@ -1,222 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 02/11] ixgbe: Store VXLAN port number in network order
-Date: Wed, 30 Mar 2016 16:00:46 -0700
-Message-ID: <1459378855-139837-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 01/11] ixgbe: Fix for RAR0 not being set to default MAC addr
+Date: Wed, 30 Mar 2016 16:00:45 -0700
+Message-ID: <1459378855-139837-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459378855-139837-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Tushar Dave <tushar.n.dave@oracle.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55746 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:49527 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755202AbcC3XBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755201AbcC3XBR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 30 Mar 2016 19:01:17 -0400
 In-Reply-To: <1459378855-139837-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Tushar Dave <tushar.n.dave@oracle.com>
 
-The VXLAN port number should be stored in network order instead of in host
-order as it is accessed from the hot-path in ATR.  This way we can avoid
-having to do any byte swaps in order to validate the port number.
+commit c9f53e63c208 ("ixgbe: Refactor MAC address configuration code")
+introduced code that doesn't set HW register RAR0 to default mac address
+but FF:FF:FF:FF:FF:FF. Due to this, ixgbe HW discards all incoming packets
+that doesn't have destination mac address equals to FF:FF:FF:FF:FF:FF.
 
-I moved the vxlan_port value into a hole in the read-mostly region of the
-adapter struct.  This way it should be in a warm cache-line instead of in
-some isolated region in memory when it needs to be accessed.
+This commit sets RAR0 correctly to default HW mac address.
 
-In addition I went through and stripped a bunch of unneeded ifdef flags
-since having an extra variable present doesn't really hurt anything and
-makes the code easier to read.  I also went through and dropped the
-NETIF_F_RXCSUM flag which was being set in hw_encap_features but provides
-no value as the flag is not evaluated in the Rx path.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Tested-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  8 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 61 ++++++++-------------------
- 2 files changed, 20 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 84fa28c..458549c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -661,9 +661,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP		(u32)(1 << 9)
- #define IXGBE_FLAG2_PTP_PPS_ENABLED		(u32)(1 << 10)
- #define IXGBE_FLAG2_PHY_INTERRUPT		(u32)(1 << 11)
--#ifdef CONFIG_IXGBE_VXLAN
- #define IXGBE_FLAG2_VXLAN_REREG_NEEDED		BIT(12)
--#endif
- #define IXGBE_FLAG2_VLAN_PROMISC		BIT(13)
- 
- 	/* Tx fast path data */
-@@ -675,6 +673,9 @@ struct ixgbe_adapter {
- 	int num_rx_queues;
- 	u16 rx_itr_setting;
- 
-+	/* Port number used to identify VXLAN traffic */
-+	__be16 vxlan_port;
-+
- 	/* TX */
- 	struct ixgbe_ring *tx_ring[MAX_TX_QUEUES] ____cacheline_aligned_in_smp;
- 
-@@ -782,9 +783,6 @@ struct ixgbe_adapter {
- 	u32 timer_event_accumulator;
- 	u32 vferr_refcount;
- 	struct ixgbe_mac_addr *mac_table;
--#ifdef CONFIG_IXGBE_VXLAN
--	u16 vxlan_port;
--#endif
- 	struct kobject *info_kobj;
- #ifdef CONFIG_IXGBE_HWMON
- 	struct hwmon_buff *ixgbe_hwmon_buff;
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f193273..f67c9a6 100644
+index 569cb07..f193273 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4531,9 +4531,7 @@ static void ixgbe_clear_vxlan_port(struct ixgbe_adapter *adapter)
- 	case ixgbe_mac_X550:
- 	case ixgbe_mac_X550EM_x:
- 		IXGBE_WRITE_REG(&adapter->hw, IXGBE_VXLANCTRL, 0);
--#ifdef CONFIG_IXGBE_VXLAN
- 		adapter->vxlan_port = 0;
--#endif
- 		break;
- 	default:
- 		break;
-@@ -7561,9 +7559,6 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 	} hdr;
- 	struct tcphdr *th;
- 	struct sk_buff *skb;
--#ifdef CONFIG_IXGBE_VXLAN
--	u8 encap = false;
--#endif /* CONFIG_IXGBE_VXLAN */
- 	__be16 vlan_id;
- 
- 	/* if ring doesn't have a interrupt vector, cannot perform ATR */
-@@ -7579,28 +7574,21 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 	/* snag network header to get L4 type and address */
- 	skb = first->skb;
- 	hdr.network = skb_network_header(skb);
--	if (!skb->encapsulation) {
--		th = tcp_hdr(skb);
--	} else {
-+	th = tcp_hdr(skb);
- #ifdef CONFIG_IXGBE_VXLAN
-+	if (skb->encapsulation &&
-+	    first->protocol == htons(ETH_P_IP) &&
-+	    hdr.ipv4->protocol != IPPROTO_UDP) {
- 		struct ixgbe_adapter *adapter = q_vector->adapter;
- 
--		if (!adapter->vxlan_port)
--			return;
--		if (first->protocol != htons(ETH_P_IP) ||
--		    hdr.ipv4->version != IPVERSION ||
--		    hdr.ipv4->protocol != IPPROTO_UDP) {
--			return;
-+		/* verify the port is recognized as VXLAN */
-+		if (adapter->vxlan_port &&
-+		    udp_hdr(skb)->dest == adapter->vxlan_port) {
-+			hdr.network = skb_inner_network_header(skb);
-+			th = inner_tcp_hdr(skb);
- 		}
--		if (ntohs(udp_hdr(skb)->dest) != adapter->vxlan_port)
--			return;
--		encap = true;
--		hdr.network = skb_inner_network_header(skb);
--		th = inner_tcp_hdr(skb);
--#else
--		return;
--#endif /* CONFIG_IXGBE_VXLAN */
- 	}
-+#endif /* CONFIG_IXGBE_VXLAN */
- 
- 	/* Currently only IPv4/IPv6 with TCP is supported */
- 	switch (hdr.ipv4->version) {
-@@ -7682,10 +7670,8 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 		break;
+@@ -9329,6 +9329,8 @@ skip_sriov:
+ 		goto err_sw_init;
  	}
  
--#ifdef CONFIG_IXGBE_VXLAN
--	if (encap)
-+	if (hdr.network != skb_network_header(skb))
- 		input.formatted.flow_type |= IXGBE_ATR_L4TYPE_TUNNEL_MASK;
--#endif /* CONFIG_IXGBE_VXLAN */
++	/* Set hw->mac.addr to permanent MAC address */
++	ether_addr_copy(hw->mac.addr, hw->mac.perm_addr);
+ 	ixgbe_mac_set_default_filter(adapter);
  
- 	/* This assumes the Rx queue and Tx queue are bound to the same CPU */
- 	ixgbe_fdir_add_signature_filter_82599(&q_vector->adapter->hw,
-@@ -8554,7 +8540,6 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u16 new_port = ntohs(port);
- 
- 	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
- 		return;
-@@ -8562,18 +8547,18 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
- 	if (sa_family == AF_INET6)
- 		return;
- 
--	if (adapter->vxlan_port == new_port)
-+	if (adapter->vxlan_port == port)
- 		return;
- 
- 	if (adapter->vxlan_port) {
- 		netdev_info(dev,
- 			    "Hit Max num of VXLAN ports, not adding port %d\n",
--			    new_port);
-+			    ntohs(port));
- 		return;
- 	}
- 
--	adapter->vxlan_port = new_port;
--	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, new_port);
-+	adapter->vxlan_port = port;
-+	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, ntohs(port));
- }
- 
- /**
-@@ -8586,7 +8571,6 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
- 				 __be16 port)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	u16 new_port = ntohs(port);
- 
- 	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
- 		return;
-@@ -8594,9 +8578,9 @@ static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
- 	if (sa_family == AF_INET6)
- 		return;
- 
--	if (adapter->vxlan_port != new_port) {
-+	if (adapter->vxlan_port != port) {
- 		netdev_info(dev, "Port %d was not found, not deleting\n",
--			    new_port);
-+			    ntohs(port));
- 		return;
- 	}
- 
-@@ -9265,17 +9249,6 @@ skip_sriov:
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
- 
--#ifdef CONFIG_IXGBE_VXLAN
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_X550:
--	case ixgbe_mac_X550EM_x:
--		netdev->hw_enc_features |= NETIF_F_RXCSUM;
--		break;
--	default:
--		break;
--	}
--#endif /* CONFIG_IXGBE_VXLAN */
--
- #ifdef CONFIG_IXGBE_DCB
- 	netdev->dcbnl_ops = &dcbnl_ops;
- #endif
+ 	setup_timer(&adapter->service_timer, &ixgbe_service_timer,
 -- 
 2.5.5
