@@ -1,58 +1,39 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] team: team should sync the port's uc/mc addrs when add a port
-Date: Wed, 30 Mar 2016 10:58:39 +0800
-Message-ID: <e7eed00cdf5b0bf2d7eda4364f0fd28e95028db8.1459306719.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Jiri Pirko <jiri@resnulli.us>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ethernet: mvneta: Support netpoll
+Date: Tue, 29 Mar 2016 23:09:30 -0400 (EDT)
+Message-ID: <20160329.230930.1234182429605936870.davem@davemloft.net>
+References: <1459197678-12022-1-git-send-email-ezequiel@vanguardiasur.com.ar>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org
+To: ezequiel@vanguardiasur.com.ar
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34495 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752895AbcC3C6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 22:58:43 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fe3so28889550pab.1
-        for <netdev@vger.kernel.org>; Tue, 29 Mar 2016 19:58:43 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49285 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752895AbcC3DJe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Mar 2016 23:09:34 -0400
+In-Reply-To: <1459197678-12022-1-git-send-email-ezequiel@vanguardiasur.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is an issue when we use mavtap over team:
-When we replug nic links from team0, the real nics's mc list will not
-include the maddr for macvtap any more. then we can't receive pkts to
-macvtap device, as they are filterred by mc list of nic.
+From: Ezequiel Garcia <ezequiel@vanguardiasur.com.ar>
+Date: Mon, 28 Mar 2016 17:41:18 -0300
 
-In Bonding Driver, it syncs the uc/mc addrs in bond_enslave().
+> +/* Polled functionality used by netconsole and others in non interrupt mode */
+> +static void mvneta_poll_controller(struct net_device *dev)
+> +{
+> +	struct mvneta_port *pp = netdev_priv(dev);
+> +
+> +	on_each_cpu(mvneta_percpu_poll_controller, pp, false);
+> +}
 
-We will fix this issue on team by adding the port's uc/mc addrs sync in
-team_port_add.
+This doesn't work.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- drivers/net/team/team.c | 5 +++++
- 1 file changed, 5 insertions(+)
+netpoll may be invoked from any context whatsoever, even hardware
+interrupt handlers or contexts where cpu interrupts are disabled.
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 26c64d2..a0f64cb 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1198,6 +1198,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 		goto err_dev_open;
- 	}
- 
-+	dev_uc_sync_multiple(port_dev, dev);
-+	dev_mc_sync_multiple(port_dev, dev);
-+
- 	err = vlan_vids_add_by_dev(port_dev, dev);
- 	if (err) {
- 		netdev_err(dev, "Failed to add vlan ids to device %s\n",
-@@ -1261,6 +1264,8 @@ err_enable_netpoll:
- 	vlan_vids_del_by_dev(port_dev, dev);
- 
- err_vids_add:
-+	dev_uc_unsync(port_dev, dev);
-+	dev_mc_unsync(port_dev, dev);
- 	dev_close(port_dev);
- 
- err_dev_open:
--- 
-2.1.0
+smp_call_function() and thus on_each_cpu() may not be called with
+disabled interrupts or from a hardware interrupt handler or from
+a bottom half handler, all of which are valid situations where
+netpoll may occur since printk's can occur anywhere.
