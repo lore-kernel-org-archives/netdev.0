@@ -1,57 +1,49 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
  tun_{attach,detach}_filter
-Date: Thu, 31 Mar 2016 15:36:30 -0400 (EDT)
-Message-ID: <20160331.153630.1640223846173244431.davem@davemloft.net>
-References: <56FD1512.70409@iogearbox.net>
-	<20160331.152149.396188904137423987.davem@davemloft.net>
+Date: Thu, 31 Mar 2016 15:48:40 -0400 (EDT)
+Message-ID: <20160331.154840.206151100376077818.davem@davemloft.net>
+References: <20160331.152149.396188904137423987.davem@davemloft.net>
 	<56FD795C.9090903@stressinduktion.org>
+	<20160331193154.GA63937@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz,
-	sasha.levin@oracle.com, jslaby@suse.cz, mst@redhat.com,
-	netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: hannes@stressinduktion.org, daniel@iogearbox.net,
+	eric.dumazet@gmail.com, mkubecek@suse.cz, sasha.levin@oracle.com,
+	jslaby@suse.cz, mst@redhat.com, netdev@vger.kernel.org
+To: alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57922 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58135 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757415AbcCaTgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:36:32 -0400
-In-Reply-To: <56FD795C.9090903@stressinduktion.org>
+	with ESMTP id S1757065AbcCaTsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:48:43 -0400
+In-Reply-To: <20160331193154.GA63937@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 31 Mar 2016 21:24:12 +0200
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Thu, 31 Mar 2016 12:31:56 -0700
 
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 4b81b71171b4ce..8ab270d5ce5507 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -1166,7 +1166,8 @@ static int __sk_attach_prog(struct bpf_prog
-> *prog, struct sock *sk)
->  	}
+> On Thu, Mar 31, 2016 at 09:24:12PM +0200, Hannes Frederic Sowa wrote:
+>> Hello,
+>> 
+>> On 31.03.2016 21:21, David Miller wrote:
+>> >From: Daniel Borkmann <daniel@iogearbox.net>
+>> >Date: Thu, 31 Mar 2016 14:16:18 +0200
+>> >
+>> >Alexei, do you really mind if I apply Danile's patch?
 > 
->  	old_fp = rcu_dereference_protected(sk->sk_filter,
-> -					   sock_owned_by_user(sk));
-> +					   lockdep_rtnl_is_held() ||
-> +					   lockdep_sock_is_held(sk));
->  	rcu_assign_pointer(sk->sk_filter, fp);
-> 
->  	if (old_fp)
+> I don't have strong opinion either way.
+> Though Hannes's patch below looks simpler and easier to backport.
+> Yeah, I do care about backports quite a bit more nowadays :)
 
-I have the same objections Daniel did.
+You know, I care a lot about backports too :)
 
-Not all socket filter clients use RTNL as the synchornization
-mechanism.  The caller, or some descriptive element, should tell us
-what that synchronizing element is.
+But Hannes's patch has the same fundamental issue, I think.
 
-Yes, I understand how these RTNL checks can pass "accidently" but
-the opposite is true too.  A socket locking synchornizing user,
-who didn't lock the socket, might now pass because RTNL happens
-to be held elsewhere.
+If we accept both synchornization styles, false positives are more
+likely.
 
-Constraining the test properly, based upon the user, makes this less
-likely to happen.  And that's desirable.
+And in the long term, we can fix the false positive possibilities with
+the RTNL checks.
