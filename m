@@ -1,65 +1,68 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
-Date: Thu, 31 Mar 2016 09:40:09 +0200
-Message-ID: <56FCD459.2040406@st.com>
-References: <1458817012-14293-1-git-send-email-john@metanate.com> <56F3E3E2.6070001@st.com> <20160324170119.28d54ed5.john@metanate.com> <56F4F9F6.8070103@st.com> <56FC1972.9050704@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Thu, 31 Mar 2016 09:46:45 +0200
+Message-ID: <1459410405.4576.8.camel@sipsolutions.net>
+References: <56F9941A.3080501@candelatech.com>
+	 <56FAAA6D.3070806@candelatech.com>
+	 <1459329252.2055.1.camel@sipsolutions.net>
+	 <20160330.123821.328761526754742195.davem@davemloft.net>
+	 <56FC0445.6010200@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Robert Gadsdon <rhgadsdon@gmail.com>,
-	John Keeping <john@metanate.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	tgraf@suug.ch
+To: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56FC1972.9050704@gmail.com>
+In-Reply-To: <56FC0445.6010200@candelatech.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2016-03-30 at 09:52 -0700, Ben Greear wrote:
 
-Hello Robert
+> If someone can fix rhashtable, then great.
+> I read some earlier comments [1] back when someone else reported
+> similar problems, and the comments seemed to indicate that rhashtable
+> was broken in this manner on purpose to protect against hashing
+> attacks.
+>=20
+> If you are baking in this type of policy to what should be a basic
+> data-type, then it is not useful for how it is being used in
+> the mac80211 stack.
+>=20
+> [1]=C2=A0=C2=A0http://lkml.iu.edu/hypermail/linux/kernel/1512.2/01681=
+=2Ehtml
+>=20
 
-On 3/30/2016 8:22 PM, Robert Gadsdon wrote:
-> I have applied this to my Rock2 - Kernel 4.6-rc1 - and eth0 is present,
-> now, but no network traffic gets through:
+That's not really saying it's purposely broken, that's more saying that
+Herbert didn't see a point in fixing a case that has awful behaviour
+already.
 
-there are some patches not yet applied that fix known
-problems
+However, I'm confused now - we can much more easily live with
+*insertion* failures, as the linked email indicates, than *deletion*
+failures, which I think you had indicated originally. Are you really
+seeing *deletion* failures?
 
-pls take a look at :
+If there are in fact *deletion* failures then I think we really need to
+address those in rhashtable, no matter the worst-case behaviour of the
+hashing or keys, since we should be able to delete entries in order to
+get back to something reasonable. Looking at the code though, I don't
+actually see that happening.
 
-"stmmac: MDIO fixes"
+If you're seeing only *insertion* failures, which you indicated in the
+root of this thread, then I think for the general case in mac80211 we
+can live with that - we use a seeded jhash for the hash function, and
+since in the general case we cannot accept entries with identical MAC
+addresses to start with, it shouldn't be possible to run into this
+problem under normal use cases.
 
-and
+In this case, I think perhaps you can just patch your local system with
+the many interfaces connecting to the same AP to add the parameter
+Herbert suggested (.insecure_elasticity =3D true in sta_rht_params). Th=
+is
+is, after all, very much a case that "normal" operation doesn't even
+get close to.
 
-[PATCH (net-next.git)] STMMAC: fix TX Normal descriptor
-
-peppe
-
->
-> To rock2:
-> $ ping rgrock2
-> PING rgrock2 (192.168.0.xx) 56(84) bytes of data.
-> ^C
-> --- rgrock2 ping statistics ---
-> 9 packets transmitted, 0 received, 100% packet loss, time 7999ms
->
->>From rock2:
-> # ping 192.168.0.x
-> PING 192.168.0.x (192.168.0.2) 56(84) bytes of data.
->>From 192.168.0.xx icmp_seq=1 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=2 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=3 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=4 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=5 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=6 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=7 Destination Host Unreachable
->>From 192.168.0.xx icmp_seq=8 Destination Host Unreachable
->
-> --- 192.168.0.x ping statistics ---
-> 9 packets transmitted, 0 received, +8 errors, 100% packet loss, time 8001ms
->
-> Everything worked OK with kernel 4.5-rc7, and with 4.5 Final with the
-> -rc7 versions of stmmac_platform.c and stmmac_mdio.c substituted..
->
-> Robert Gadsdon. March 30, 2016
->
+johannes
