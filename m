@@ -1,57 +1,60 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Thu, 31 Mar 2016 16:48:43 -0700
-Message-ID: <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net 5/4] tcp: fix rcu usage around __sk_dst_get in tcp_update_metrics
+Date: Fri,  1 Apr 2016 01:48:43 +0200
+Message-ID: <1459468123-31474-1-git-send-email-hannes@stressinduktion.org>
+References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org, sasha.levin@oracle.com,
+	daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+	mkubecek@suse.cz
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:33389 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753222AbcCaXso convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:48:44 -0400
-Received: by mail-io0-f172.google.com with SMTP id a129so125053376ioe.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 16:48:44 -0700 (PDT)
-In-Reply-To: <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60617 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757408AbcCaXsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:48:51 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 8DD2720807
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 19:48:50 -0400 (EDT)
+In-Reply-To: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I didn't really know that multiple qdiscs can be isolated using MQ so
-that each txq can be associated with a particular qdisc. Also we don't
-really have multiple interfaces...
+Already another one fix I overlooked.
 
-With this MQ solution we'll still need to assign transmit queues to
-different classes by doing some math on the bandwidth limit if I
-understand correctly, which seems to be less convenient compared with
-a solution purely within HTB.
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv4/tcp_metrics.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-I assume that with this solution I can still share qdisc among
-multiple transmit queues - please let me know if this is not the case.
-
-2016-03-31 15:16 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
-> On Wed, Mar 30, 2016 at 12:20 AM, Michael Ma <make0818@gmail.com> wro=
-te:
->> As far as I understand the design of TC is to simplify locking schem=
-a
->> and minimize the work in __qdisc_run so that throughput won=E2=80=99=
-t be
->> affected, especially with large packets. However if the scenario is
->> that multiple classes in the queueing discipline only have the shapi=
-ng
->> limit, there isn=E2=80=99t really a necessary correlation between di=
-fferent
->> classes. The only synchronization point should be when the packet is
->> dequeued from the qdisc queue and enqueued to the transmit queue of
->> the device. My question is =E2=80=93 is it worth investing on avoidi=
-ng the
->> locking contention by partitioning the queue/lock so that this
->> scenario is addressed with relatively smaller latency?
->
-> If your HTB classes don't share bandwidth, why do you still make them
-> under the same hierarchy? IOW, you can just isolate them either with =
-some
-> other qdisc or just separated interfaces.
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 33a36648423e8b..196de79902819a 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -367,7 +367,7 @@ static struct tcp_metrics_block *tcp_get_metrics(struct sock *sk,
+ void tcp_update_metrics(struct sock *sk)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+-	struct dst_entry *dst = __sk_dst_get(sk);
++	struct dst_entry *dst;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct net *net = sock_net(sk);
+ 	struct tcp_metrics_block *tm;
+@@ -375,13 +375,14 @@ void tcp_update_metrics(struct sock *sk)
+ 	u32 val;
+ 	int m;
+ 
++	rcu_read_lock();
++	dst = __sk_dst_get(sk);
+ 	if (sysctl_tcp_nometrics_save || !dst)
+-		return;
++		goto out_unlock;
+ 
+ 	if (dst->flags & DST_HOST)
+ 		dst_confirm(dst);
+ 
+-	rcu_read_lock();
+ 	if (icsk->icsk_backoff || !tp->srtt_us) {
+ 		/* This session failed to estimate rtt. Why?
+ 		 * Probably, no packets returned in time.  Reset our
+-- 
+2.5.5
