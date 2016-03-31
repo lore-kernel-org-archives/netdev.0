@@ -1,69 +1,50 @@
-From: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH] rds: rds-stress show all zeros after few minutes
-Date: Thu, 31 Mar 2016 17:20:48 +0300
-Message-ID: <20160331142047.GA24193@shamir-linux.uk.oracle.com>
+Date: Thu, 31 Mar 2016 17:23:30 +0300
+Message-ID: <56FD32E2.8050003@cogentembedded.com>
 References: <1459385402-28449-1-git-send-email-shamir.rabinovitch@oracle.com>
  <56FD227F.502@cogentembedded.com>
+ <20160331142047.GA24193@shamir-linux.uk.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
 	davem@davemloft.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:25488 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757365AbcCaOVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 10:21:03 -0400
-Content-Disposition: inline
-In-Reply-To: <56FD227F.502@cogentembedded.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:35830 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754376AbcCaOXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 10:23:35 -0400
+Received: by mail-lb0-f181.google.com with SMTP id bc4so53591990lbc.2
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 07:23:34 -0700 (PDT)
+In-Reply-To: <20160331142047.GA24193@shamir-linux.uk.oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 31, 2016 at 04:13:35PM +0300, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 3/31/2016 3:50 AM, shamir rabinovitch wrote:
-> 
-> >Issue can be seen on platforms that use 8K and above page size
-> >while rds fragment size is 4K. On those platforms single page is
-> >shared between 2 or more rds fragments. Each fragment has it's own
-> 
->    Its.
+On 3/31/2016 5:20 PM, Shamir Rabinovitch wrote:
 
-Fixed in next version. 
-Thanks.
+>>> Issue can be seen on platforms that use 8K and above page size
+>>> while rds fragment size is 4K. On those platforms single page is
+>>> shared between 2 or more rds fragments. Each fragment has it's own
+>>
+>>     Its.
+>
+> Fixed in next version.
+> Thanks.
+>
+>>
+>>> offeset and rds cong map code need to take this offset to account.
+>>
+>>     Offset. What is "cong", congestion?
+>
+> 'Offset' is in middle of the sentence so it is OK as-is.
 
-> 
-> >offeset and rds cong map code need to take this offset to account.
-> 
->    Offset. What is "cong", congestion?
+    No, "offeset" is not OK. :-)
 
-'Offset' is in middle of the sentence so it is OK as-is. 
-Cong is short hand of congestion.
-It will be replaces 
-with the full word in next version.
+[...]
 
-> 
-> >Not taking this offset to account lead to reading the data fragment
-> >as congestion map fragment and hang of the rds transmit due to far
-> >cong map corruption.
-> >
-> >Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
-> >Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
-> >Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-> >Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
-> 
->    These should be after your sign-off, not before.
+>>> Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+[...]
 
-Thanks for the comment.
-Will be fixed in next version.
-
-> 
-> >Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
-> [...]
-> 
-> MBR, Sergei
-> 
-
-Thanks for the review.
-BR, Shamir
+MBR, Sergei
