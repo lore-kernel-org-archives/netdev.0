@@ -1,53 +1,78 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Reboot Failed was occurred after v4.4-rc1 during IPv6 Ready Logo
- Conformance Test
-Date: Thu, 31 Mar 2016 16:09:12 +0900
-Message-ID: <56FCCD18.9050306@jp.fujitsu.com>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: [PATCH] net: mvneta: remove useless RX descriptor prefetch
+Date: Thu, 31 Mar 2016 15:15:01 +0800
+Message-ID: <20160331151501.27fe34d5@xhacker>
+References: <1459406190-2334-1-git-send-email-jszhang@marvell.com>
+	<20160331144537.20f04a8c@xhacker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:57298 "EHLO
-	mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804AbcCaHJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 03:09:16 -0400
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 5BAD4AC0376
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 16:09:12 +0900 (JST)
-Received: from omame (omame.fct.css.fujitsu.com [10.24.14.171])
-	by m3050.s.css.fujitsu.com (Postfix) with ESMTP id 4A1EB12B
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 16:09:12 +0900 (JST)
-Received: from [10.24.19.86] (ubi86.utsfd.cs.fujitsu.co.jp [10.24.19.86])
-	by omame (Postfix) with ESMTPSA id 346531E0088
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 16:09:12 +0900 (JST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: <thomas.petazzoni@free-electrons.com>,
+	<gregory.clement@free-electrons.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160331144537.20f04a8c@xhacker>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Reboot Failed was occurred at Linux Kernel after v4.4-rc1 during IPv6 Ready Logo Conformance Test.
-Not Fix a bug in v4.5-rc7 yet.
-I will conform that it fix a bug in v4.6-rc1.
+On Thu, 31 Mar 2016 14:45:37 +0800 Jisheng Zhang wrote:
 
-Currently, it is under investigation.
+> Hi,
+> 
+> + linux arm kernel
+> 
+> On Thu, 31 Mar 2016 14:36:30 +0800 Jisheng Zhang wrote:
+> 
+> > The rx descriptors are allocated using dma_alloc_coherent, so prefetch
+> > doesn't really happen at all.  
+> 
+> This is for RFC, I'm sorry to send it without changing its title -- s/PATCH/RFC.
+> 
+> I'm not sure whether there's any benefit to prefetch on space allocated from
+> dma_alloc_coherent.
 
-IPv6 Ready Logo
-https://www.ipv6ready.org/
-TAHI Project
-http://www.tahi.org/
+After more consideration, I think my patch is wrong.
 
-I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
-It is using userland build with yocto project.
+As for coherent platforms, the space allocated from dma_alloc_coherent is
+cacheable, so prefetch would definitely benefit us.
 
-Test Environment
-Test Specification          : 4.0.6
-Tool Version                : REL_3_3_2
-Test Program Version        : V6LC_5_0_0
-Target Device               : Intel D510MO (Atom D510)
+As for noncoherent platforms, the space allocated from dma_alloc_coherent is
+uncacheable, but prefetch on arm/arm64 is implemented via. pld/prfm, the op
+would be nop if target address is uncacheable.
 
-I conform that random testcases are failed.
-(e.g. No.5, No.130, No.131, No.134, No.167 and No.168)
+So let's drop this patch.
 
-Regards,
-Yuki Machida
+Thanks,
+Jisheng
+
+
+> 
+> Thanks
+> 
+> > 
+> > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> > ---
+> >  drivers/net/ethernet/marvell/mvneta.c | 1 -
+> >  1 file changed, 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> > index 5880871..6c09a27 100644
+> > --- a/drivers/net/ethernet/marvell/mvneta.c
+> > +++ b/drivers/net/ethernet/marvell/mvneta.c
+> > @@ -757,7 +757,6 @@ mvneta_rxq_next_desc_get(struct mvneta_rx_queue *rxq)
+> >  	int rx_desc = rxq->next_desc_to_proc;
+> >  
+> >  	rxq->next_desc_to_proc = MVNETA_QUEUE_NEXT_DESC(rxq, rx_desc);
+> > -	prefetch(rxq->descs + rxq->next_desc_to_proc);
+> >  	return rxq->descs + rx_desc;
+> >  }
+> >    
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
