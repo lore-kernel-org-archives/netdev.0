@@ -1,42 +1,202 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Thu, 31 Mar 2016 15:16:22 -0700
-Message-ID: <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v2 net-next] net: ipv4: Consider unreachable nexthops in multipath routes
+Date: Thu, 31 Mar 2016 15:24:41 -0700
+Message-ID: <1459463081-20206-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: ja@ssi.bg, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:33192 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757665AbcCaWQX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:16:23 -0400
-Received: by mail-yw0-f177.google.com with SMTP id h65so117184606ywe.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:16:22 -0700 (PDT)
-In-Reply-To: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34558 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757251AbcCaWYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:24:49 -0400
+Received: by mail-pa0-f51.google.com with SMTP id fe3so75393037pab.1
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:24:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 12:20 AM, Michael Ma <make0818@gmail.com> wrote=
-:
-> As far as I understand the design of TC is to simplify locking schema
-> and minimize the work in __qdisc_run so that throughput won=E2=80=99t=
- be
-> affected, especially with large packets. However if the scenario is
-> that multiple classes in the queueing discipline only have the shapin=
-g
-> limit, there isn=E2=80=99t really a necessary correlation between dif=
-ferent
-> classes. The only synchronization point should be when the packet is
-> dequeued from the qdisc queue and enqueued to the transmit queue of
-> the device. My question is =E2=80=93 is it worth investing on avoidin=
-g the
-> locking contention by partitioning the queue/lock so that this
-> scenario is addressed with relatively smaller latency?
+Multipath route lookups should consider knowledge about next hops and not
+select a hop that is known to be failed.
 
-If your HTB classes don't share bandwidth, why do you still make them
-under the same hierarchy? IOW, you can just isolate them either with so=
-me
-other qdisc or just separated interfaces.
+Example:
+
+                     [h2]                   [h3]   15.0.0.5
+                      |                      |
+                     3|                     3|
+                    [SP1]                  [SP2]--+
+                     1  2                   1     2
+                     |  |     /-------------+     |
+                     |   \   /                    |
+                     |     X                      |
+                     |    / \                     |
+                     |   /   \---------------\    |
+                     1  2                     1   2
+         12.0.0.2  [TOR1] 3-----------------3 [TOR2] 12.0.0.3
+                     4                         4
+                      \                       /
+                        \                    /
+                         \                  /
+                          -------|   |-----/
+                                 1   2
+                                [TOR3]
+                                  3|
+                                   |
+                                  [h1]  12.0.0.1
+
+host h1 with IP 12.0.0.1 has 2 paths to host h3 at 15.0.0.5:
+
+    root@h1:~# ip ro ls
+    ...
+    12.0.0.0/24 dev swp1  proto kernel  scope link  src 12.0.0.1
+    15.0.0.0/16
+            nexthop via 12.0.0.2  dev swp1 weight 1
+            nexthop via 12.0.0.3  dev swp1 weight 1
+    ...
+
+If the link between tor3 and tor1 is down and the link between tor1
+and tor2 then tor1 is effectively cut-off from h1. Yet the route lookups
+in h1 are alternating between the 2 routes: ping 15.0.0.5 gets one and
+ssh 15.0.0.5 gets the other. Connections that attempt to use the
+12.0.0.2 nexthop fail since that neighbor is not reachable:
+
+    root@h1:~# ip neigh show
+    ...
+    12.0.0.3 dev swp1 lladdr 00:02:00:00:00:1b REACHABLE
+    12.0.0.2 dev swp1  FAILED
+    ...
+
+The failed path can be avoided by considering known neighbor information
+when selecting next hops. If the neighbor lookup fails we have no
+knowledge about the nexthop, so give it a shot. If there is an entry
+then only select the nexthop if the state is sane. This is similar to
+what fib_detect_death does.
+
+To maintain backward compatibility use of the neighbor information is
+based on a new sysctl, fib_multipath_use_neigh.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+v2
+- use rcu locking to avoid refcnts per Eric's suggestion
+- only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
+  comment
+- drop the 'state == NUD_REACHABLE' from the state check since it is
+  part of NUD_VALID (comment from Julian)
+- wrapped the use of the neigh in a sysctl
+
+ Documentation/networking/ip-sysctl.txt | 10 ++++++++++
+ include/net/netns/ipv4.h               |  3 +++
+ net/ipv4/fib_semantics.c               | 32 ++++++++++++++++++++++++++++++--
+ net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
+ 4 files changed, 54 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index b183e2b606c8..5b316d33a23f 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
+ 	fwmark of the packet they are replying to.
+ 	Default: 0
+ 
++fib_multipath_use_neigh - BOOLEAN
++	Use status of existing neighbor entry when determining nexthop for
++	multipath routes. If disabled neighbor information is not used then
++	packets could be directed to a dead nexthop. Only valid for kernels
++	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
++	Default: 0 (disabled)
++	Possible values:
++	0 - disabled
++	1 - enabled
++
+ route/max_size - INTEGER
+ 	Maximum number of routes allowed in the kernel.  Increase
+ 	this when using large numbers of interfaces and/or routes.
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index a69cde3ce460..d061ffeb1e71 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -133,6 +133,9 @@ struct netns_ipv4 {
+ 	struct fib_rules_ops	*mr_rules_ops;
+ #endif
+ #endif
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++	int sysctl_fib_multipath_use_neigh;
++#endif
+ 	atomic_t	rt_genid;
+ };
+ #endif
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index d97268e8ff10..6d423faff0ce 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1559,17 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+ }
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
++static bool fib_good_nh(const struct fib_nh *nh, struct net_device *dev)
++{
++	struct neighbour *n = NULL;
++	int state = NUD_NONE;
++
++	if (nh->nh_scope == RT_SCOPE_LINK) {
++		rcu_read_lock_bh();
++
++		n = __neigh_lookup_noref(&arp_tbl, &nh->nh_gw, dev);
++		if (n)
++			state = n->nud_state;
++
++		rcu_read_unlock_bh();
++	}
++
++	/* outside of rcu locking using n only as a boolean
++	 * on whether a neighbor entry existed
++	 */
++	if (!n || (state & NUD_VALID))
++		return true;
++
++	return false;
++}
+ 
+ void fib_select_multipath(struct fib_result *res, int hash)
+ {
+ 	struct fib_info *fi = res->fi;
++	struct net_device *dev = fi->fib_dev;
++	struct net *net = fi->fib_net;
+ 
+ 	for_nexthops(fi) {
+ 		if (hash > atomic_read(&nh->nh_upper_bound))
+ 			continue;
+ 
+-		res->nh_sel = nhsel;
+-		return;
++		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
++		    fib_good_nh(nh, dev)) {
++			res->nh_sel = nhsel;
++			return;
++		}
+ 	} endfor_nexthops(fi);
+ 
+ 	/* Race condition: route has just become dead. */
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 1e1fe6086dd9..bb0419582b8d 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -960,6 +960,17 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++#ifdef CONFIG_IP_ROUTE_MULTIPATH
++	{
++		.procname	= "fib_multipath_use_neigh",
++		.data		= &init_net.ipv4.sysctl_fib_multipath_use_neigh,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &one,
++	},
++#endif
+ 	{ }
+ };
+ 
+-- 
+1.9.1
