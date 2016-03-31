@@ -1,46 +1,69 @@
-From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/1] net: usb: cdc_ncm: adding Telit LE910 V2 mobile broadband card
-Date: Thu, 31 Mar 2016 15:16:47 +0200
-Message-ID: <1459430207-11757-2-git-send-email-dnlplm@gmail.com>
-References: <1459430207-11757-1-git-send-email-dnlplm@gmail.com>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1459430207-11757-1-git-send-email-dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+Subject: Re: [PATCH] rds: rds-stress show all zeros after few minutes
+Date: Thu, 31 Mar 2016 17:20:48 +0300
+Message-ID: <20160331142047.GA24193@shamir-linux.uk.oracle.com>
+References: <1459385402-28449-1-git-send-email-shamir.rabinovitch@oracle.com>
+ <56FD227F.502@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:25488 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757365AbcCaOVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 10:21:03 -0400
+Content-Disposition: inline
+In-Reply-To: <56FD227F.502@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Telit LE910 V2 is a mobile broadband card with no ARP capabilities:
-the patch makes this device to use wwan_noarp_info struct
+On Thu, Mar 31, 2016 at 04:13:35PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 3/31/2016 3:50 AM, shamir rabinovitch wrote:
+> 
+> >Issue can be seen on platforms that use 8K and above page size
+> >while rds fragment size is 4K. On those platforms single page is
+> >shared between 2 or more rds fragments. Each fragment has it's own
+> 
+>    Its.
 
-Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/cdc_ncm.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Fixed in next version. 
+Thanks.
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 86ba30b..2fb31ed 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1626,6 +1626,13 @@ static const struct usb_device_id cdc_devs[] = {
- 	  .driver_info = (unsigned long) &wwan_info,
- 	},
- 
-+	/* Telit LE910 V2 */
-+	{ USB_DEVICE_AND_INTERFACE_INFO(0x1bc7, 0x0036,
-+		USB_CLASS_COMM,
-+		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
-+	  .driver_info = (unsigned long)&wwan_noarp_info,
-+	},
-+
- 	/* DW5812 LTE Verizon Mobile Broadband Card
- 	 * Unlike DW5550 this device requires FLAG_NOARP
- 	 */
--- 
-1.9.1
+> 
+> >offeset and rds cong map code need to take this offset to account.
+> 
+>    Offset. What is "cong", congestion?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+'Offset' is in middle of the sentence so it is OK as-is. 
+Cong is short hand of congestion.
+It will be replaces 
+with the full word in next version.
+
+> 
+> >Not taking this offset to account lead to reading the data fragment
+> >as congestion map fragment and hang of the rds transmit due to far
+> >cong map corruption.
+> >
+> >Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
+> >Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
+> >Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> >Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
+> 
+>    These should be after your sign-off, not before.
+
+Thanks for the comment.
+Will be fixed in next version.
+
+> 
+> >Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+> [...]
+> 
+> MBR, Sergei
+> 
+
+Thanks for the review.
+BR, Shamir
