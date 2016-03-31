@@ -1,78 +1,57 @@
-From: Leon Romanovsky <leon-2ukJVAZIZ/Y@public.gmane.org>
-Subject: Re: [PULL REQUEST] Please pull rdma.git
-Date: Fri, 1 Apr 2016 02:38:28 +0300
-Message-ID: <20160331233828.GE2670@leon.nu>
-References: <56EAE9D6.2030908@redhat.com>
- <CA+55aFxxoO=i7neGBRGW_afHsSZ7K-x6fMO8v-8po3Ls_Ew0Rg@mail.gmail.com>
- <20160318173748.GL25216@leon.nu>
- <CA+55aFwNcyywn3gYQ=H_+6WMt=s+xZ5bgpX3O9z8b2o5EhDMGQ@mail.gmail.com>
- <20160323105708.GP25216@leon.nu>
- <56F29C32.305@redhat.com>
-Reply-To: leon-2ukJVAZIZ/Y@public.gmane.org
+From: Greg Ungerer <gerg@uclinux.org>
+Subject: Re: [PATCH] fec: Do not access unexisting register in Coldfire
+Date: Fri, 1 Apr 2016 09:43:34 +1000
+Message-ID: <56FDB626.9040107@uclinux.org>
+References: <1459436717-12809-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <56F29C32.305-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
+	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@nxp.com>
+To: Fabio Estevam <festevam@gmail.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from icp-osb-irony-out2.external.iinet.net.au ([203.59.1.155]:47708
+	"EHLO icp-osb-irony-out2.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757589AbcCaXnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:43:24 -0400
+In-Reply-To: <1459436717-12809-1-git-send-email-festevam@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 23, 2016 at 09:37:54AM -0400, Doug Ledford wrote:
-> On 03/23/2016 06:57 AM, Leon Romanovsky wrote:
-> > On Sat, Mar 19, 2016 at 02:37:08PM -0700, Linus Torvalds wrote:
-> >> So the *best* situation would be:
-> >>
-> >>  - your two groups talk it over, and figure out what the common commits are
-> >>
-> >>  - you put those common commits as a "base" branch in git
-> >>
-> >>  - you ask the two upper-level maintainers to both pull that base branch
-> >>
-> >>  - you then make sure that you send the later patches (whether as
-> >> emailed patches or as pull requests) based on top of that base branch.
-> > 
-> > Hi David and Doug,
-> > 
-> > Are you OK with the approach suggested by Linus?
-> > We are eager to know it, so we will adopt it as soon
-> > as possible in our development flow.
-> > 
-> > The original thread [1].
-> > 
-> > [1] http://thread.gmane.org/gmane.linux.drivers.rdma/34907
-> > 
-> > Thanks.
-> > 
+Thanks for taking care of that Fabio.
+
+Regards
+Greg
+
+
+On 01/04/16 01:05, Fabio Estevam wrote:
+> From: Fabio Estevam <fabio.estevam@nxp.com>
 > 
-> I'm fine with it.  Since I happen to use topic branches to build my
-> for-next from anyway, I might need to be the one that Dave pulls from
-> versus the other way around.
-
-Resending to linux-netdev.
-
-David,
-Can you please express your opinion about Linus's suggestion to
-eliminate merge conflicts in Mellanox related products?
-
-Thanks
-
+> Commit 55cd48c821de ("net: fec: stop the "rcv is not +last, " error
+> messages") introduces a write to a register that does not exist in
+> Coldfire.
 > 
-> -- 
-> Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->               GPG KeyID: 0E572FDD
+> Move the FEC_FTRL register access inside the FEC_QUIRK_HAS_RACC 'if' block,
+> so that we guarantee it will not be used on Coldfire CPUs.
 > 
+> Reported-by: Greg Ungerer <gerg@uclinux.org>
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 37c0815..08243c2 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -943,8 +943,8 @@ fec_restart(struct net_device *ndev)
+>  		else
+>  			val &= ~FEC_RACC_OPTIONS;
+>  		writel(val, fep->hwp + FEC_RACC);
+> +		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+>  	}
+> -	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+>  #endif
+>  
+>  	/*
+> 
