@@ -1,62 +1,84 @@
-From: Qiang Zhao <qiang.zhao@nxp.com>
-Subject: RE: [PATCH 4/5] fsl/qe: Add QE TDM lib
-Date: Thu, 31 Mar 2016 01:25:11 +0000
-Message-ID: <AM3PR04MB11852B1F60CE58F0A877969291990@AM3PR04MB1185.eurprd04.prod.outlook.com>
-References: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
-	 <1459327830-19829-4-git-send-email-qiang.zhao@nxp.com>
- <1459338701.3538.17.camel@infinera.com>
+From: Greg Ungerer <gerg@uclinux.org>
+Subject: Re: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+Date: Thu, 31 Mar 2016 11:59:14 +1000
+Message-ID: <56FC8472.6010005@uclinux.org>
+References: <56FB46EA.7050401@uclinux.org>
+ <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+ <VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>,
-	"oss@buserror.net" <oss@buserror.net>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459338701.3538.17.camel@infinera.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Fugang Duan <fugang.duan@nxp.com>,
+	Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from icp-osb-irony-out7.external.iinet.net.au ([203.59.1.107]:4713
+	"EHLO icp-osb-irony-out7.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754759AbcCaB7H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 21:59:07 -0400
+In-Reply-To: <VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-03-30 at 07:50PM, Joakim Tjernlund wrote:
-> -----Original Message-----
-> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@infinera.com]
-> Sent: Wednesday, March 30, 2016 7:50 PM
-> To: davem@davemloft.net; Qiang Zhao <qiang.zhao@nxp.com>
-> Cc: linuxppc-dev@lists.ozlabs.org; linux-kernel@vger.kernel.org; Xiaobo Xie
-> <xiaobo.xie@nxp.com>; oss@buserror.net; gregkh@linuxfoundation.org;
-> akpm@linux-foundation.org; netdev@vger.kernel.org
-> Subject: Re: [PATCH 4/5] fsl/qe: Add QE TDM lib
+Hi Andy,
+
+On 31/03/16 11:41, Fugang Duan wrote:
+> From: Fabio Estevam <festevam@gmail.com> Sent: Thursday, March 31, 2016 2:37 AM
+>> To: Greg Ungerer <gerg@uclinux.org>
+>> Cc: Troy Kisky <troy.kisky@boundarydevices.com>; netdev@vger.kernel.org
+>> Subject: Re: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+>>
+>> Hi Greg,
+>>
+>> On Wed, Mar 30, 2016 at 12:24 AM, Greg Ungerer <gerg@uclinux.org> wrote:
+>>> Hi Troy,
+>>>
+>>> Commit 55cd48c8 ('net: fec: stop the "rcv is not +last, " error
+>>> messages') adds a write to a register that is not present in all
+>>> implementations of the FEC hardware module. None of the ColdFire SoC
+>>> parts with the FEC module have the FTRL (0x1b0) register.
+>>>
+>>> Does this need a quirk flag to key access to this register of?
+>>> Or can you piggyback on the FEC_QUIRK_HAS_RACC flag?
+>>
+>> Would the change below work on Coldfire?
+>>
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -943,8 +943,8 @@ fec_restart(struct net_device *ndev)
+>>                 else
+>>                         val &= ~FEC_RACC_OPTIONS;
+>>                 writel(val, fep->hwp + FEC_RACC);
+>> -       }
+>>         writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+>> +       }
+>>  #endif
+>>
+>>         /*
 > 
-> On Wed, 2016-03-30 at 16:50 +0800, Zhao Qiang wrote:
-> > QE has module to support TDM, some other protocols supported by QE are
-> > based on TDM.
-> > add a qe-tdm lib, this lib provides functions to the protocols using
-> > TDM to configurate QE-TDM.
-> >
-> > Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
-> > +	utdm->siram_entry_id = val;
-> > +
-> > +	set_si_param(utdm, ut_info);
-> > +
-> > +	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-si");
+> Fabio, we cannot do it like this that may cause confused for the quirk flag "FEC_QUIRK_HAS_RACC".
 > 
-> fsl,t1040-qe-si only? What about mpc83xx?
-> I recall QE is a little bit different compared to T1040 or will this work(including
-> the hdlc driver) on 83xx as well?
+> 
+> Hi, Greg,
+> 
+> The header file fec.h define the FEC_FTRL as below,  if ColdFire SoC has no this register,  we may remove the define in here and define the register according to SOC type. For example, it is ColdFire Soc, define it as 0xFFF. Is it  feasible ?
+> 
+> #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
+>     defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG_ARM)
+> ...
+> #define FEC_FTRL                0x1b0
+> ...
+> #else
+> ...
+> #endif
 
-The " fsl,t1040-qe-si " is new added to dts and bindings, it is required to have SoC specific compatible strings.
-mpc83xx will not use qe-si node. If there will be other soc useing qe-si, " fsl,t1040-qe-si " will follow the soc specific compatible,
-like : 
-                si1: si@700 {
-                        compatible = "fsl,ls1043-qe-si", "fsl,t1040-qe-si";
-                        reg = <0x700 0x80>;
-                };
+Sure you could do that. But... you still have to be careful
+with references to it in fec_main.c. They will need be conditional
+on existence of FEC_FTRL, otherwise you break compilation.
 
-Best Regards
-Zhao Qiang
+Even if you define it to some bogus value we still don't 
+want the code actually writing to it.
+
+Regards
+Greg
