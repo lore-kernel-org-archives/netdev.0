@@ -1,90 +1,42 @@
-From: "'Marcelo Ricardo Leitner'" <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] sctp: avoid refreshing heartbeat timer too often
-Date: Thu, 31 Mar 2016 18:25:12 -0300
-Message-ID: <20160331212512.GJ3387@mrl.redhat.com>
-References: <1459258897-21607-1-git-send-email-marcelo.leitner@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D54DBFFCD@AcuExch.aculab.com>
- <56FBC2DE.3000207@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D54DC1DB0@AcuExch.aculab.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in tun_{attach,detach}_filter
+Date: Thu, 31 Mar 2016 23:52:57 +0200
+Message-ID: <56FD9C39.6040703@iogearbox.net>
+References: <56FD1512.70409@iogearbox.net> <20160331.152149.396188904137423987.davem@davemloft.net> <56FD795C.9090903@stressinduktion.org> <20160331.153630.1640223846173244431.davem@davemloft.net> <56FD7F0B.5090602@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
+	mkubecek@suse.cz, sasha.levin@oracle.com, jslaby@suse.cz,
+	mst@redhat.com, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60212 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758089AbcCaVZP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2016 17:25:15 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D54DC1DB0@AcuExch.aculab.com>
+Received: from www62.your-server.de ([213.133.104.62]:40668 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752512AbcCaVxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 17:53:08 -0400
+In-Reply-To: <56FD7F0B.5090602@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 31, 2016 at 11:16:52AM +0000, David Laight wrote:
-> From: Marcelo Ricardo Leitner
-> > Sent: 30 March 2016 13:13
-> > Em 30-03-2016 06:37, David Laight escreveu:
-> > > From: Marcelo Ricardo Leitner
-> > >> Sent: 29 March 2016 14:42
-> > >>
-> > >> Currently on high rate SCTP streams the heartbeat timer refresh can
-> > >> consume quite a lot of resources as timer updates are costly and it
-> > >> contains a random factor, which a) is also costly and b) invalidates
-> > >> mod_timer() optimization for not editing a timer to the same value.
-> > >> It may even cause the timer to be slightly advanced, for no good reason.
-> > >
-> > > Interesting thoughts:
-> > > 1) Is it necessary to use a different 'random factor' until the timer actually
-> > >     expires?
-> > 
-> > I don't understand you fully here, but we have to have a random factor
-> > on timer expire. As noted by Daniel Borkmann on his commit 8f61059a96c2
-> > ("net: sctp: improve timer slack calculation for transport HBs"):
-> 
-> When a HEARTBEAT chunk is sent determine the new interval, use that
-> interval until the timer actually expires when a new interval is
-> calculated. So the random number is only generated once per heartbeat.
-> 
-> >      RFC4960, section 8.3 says:
-> > 
-> >        On an idle destination address that is allowed to heartbeat,
-> >        it is recommended that a HEARTBEAT chunk is sent once per RTO
-> >        of that destination address plus the protocol parameter
-> >        'HB.interval', with jittering of +/- 50% of the RTO value,
-> >        and exponential backoff of the RTO if the previous HEARTBEAT
-> >        is unanswered.
-> > 
-> > Previous to his commit, it was using a random factor based on jiffies.
-> > 
-> > This patch then assumes that random_A+2 is just as random as random_B as
-> > long as it is within the allowed range, avoiding the unnecessary updates.
-> > 
-> > > 2) It might be better to allow the heartbeat timer to expire, on expiry work
-> > >     out the new interval based on when the last 'refresh' was done.
-> > 
-> > Cool, I thought about this too. It would introduce some extra complexity
-> > that is not really worth I think, specially because now we may be doing
-> > more timer updates even with this patch but it's not triggering any wake
-> > ups and we would need at least 2 wake ups then: one for the first
-> > timeout event, and then re-schedule the timer for the next updated one,
-> > and maybe again, and again.. less timer updates but more wake ups, one
-> > at every heartbeat interval even on a busy transport. Seems it's cheaper
-> > to just update the timer then.
-> 
-> One wakeup per heartbeat interval on a busy connection is probably noise.
-> Probably much less than the 1000s of timer updates that would otherwise happen.
+On 03/31/2016 09:48 PM, Hannes Frederic Sowa wrote:
+[...]
+> Tightest solution would probably be to combine both patches.
+>
+> bool called_by_tuntap;
+>
+> old_fp = rcu_dereference_protected(sk->sk_filter, called_by_tuntap ? lockdep_rtnl_is_held() : lockdep_sock_is_held());
 
-I was thinking more on near-idle systems, as the overhead for this
-refresh looked rather small now even for busy transports if compared to
-other points, a worth trade-off for reducing wake ups, imho.
+If I understand you correctly with combining them, you mean you'd still
+need the API change to pass the bool 'called_by_tuntap' down, right?
 
-But then I checked tcp, and it does what you're suggesting.
-I'll rework the patch. Thanks
+If so, your main difference is, after all, to replace the sock_owned_by_user()
+with the lockdep_sock_is_held() construction instead, correct?
 
-> A further optimisation would be to restart the timer if more than (say) 80%
-> of the way through the timeout period.
-> 
-> Similarly the HEARTBEAT could be sent if the 2nd wakeup would be almost immediate.
+But then, isn't it already sufficient when you pass the bool itself down
+that 'demuxes' in this case between the sock_owned_by_user() vs
+lockdep_rtnl_is_held() check?
+
+Thanks,
+Daniel
