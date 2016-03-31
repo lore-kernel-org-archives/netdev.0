@@ -1,109 +1,78 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH] net: mvneta: explicitly disable BM on 64bit platform
-Date: Thu, 31 Mar 2016 16:13:24 +0800
-Message-ID: <20160331161324.64c541b7@xhacker>
-References: <1459344310-626-1-git-send-email-jszhang@marvell.com>
-	<8737r8uhjm.fsf@free-electrons.com>	<20160331135322.523a7ceb@xhacker>
-	<CAPv3WKcR+JgoguUUEW0_uPoJL_CtxgKz-ZG_rZhGAAB5utzqMw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPv3WKcR+JgoguUUEW0_uPoJL_CtxgKz-ZG_rZhGAAB5utzqMw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+Subject: [PATCH] rds: rds-stress show all zeros after few minutes
+Date: Wed, 30 Mar 2016 20:50:02 -0400
+Message-ID: <1459385402-28449-1-git-send-email-shamir.rabinovitch@oracle.com>
+Cc: davem@davemloft.net, shamir.rabinovitch@oracle.com
+To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:46207 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753669AbcCaIxx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 04:53:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcin,
+Issue can be seen on platforms that use 8K and above page size
+while rds fragment size is 4K. On those platforms single page is
+shared between 2 or more rds fragments. Each fragment has it's own
+offeset and rds cong map code need to take this offset to account.
+Not taking this offset to account lead to reading the data fragment
+as congestion map fragment and hang of the rds transmit due to far
+cong map corruption.
 
-On Thu, 31 Mar 2016 08:49:19 +0200 Marcin Wojtas wrote:
+Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
+Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
 
-> Hi Jisheng,
-> 
-> 2016-03-31 7:53 GMT+02:00 Jisheng Zhang <jszhang@marvell.com>:
-> > Hi Gregory,
-> >
-> > On Wed, 30 Mar 2016 17:11:41 +0200 Gregory CLEMENT wrote:
-> >  
-> >> Hi Jisheng,
-> >>
-> >>  On mer., mars 30 2016, Jisheng Zhang <jszhang@marvell.com> wrote:
-> >>  
-> >> > The mvneta BM can't work on 64bit platform, as the BM hardware expects
-> >> > buf virtual address to be placed in the first four bytes of mapped
-> >> > buffer, but obviously the virtual address on 64bit platform can't be
-> >> > stored in 4 bytes. So we have to explicitly disable BM on 64bit
-> >> > platform.  
-> >>
-> >> Actually mvneta is used on Armada 3700 which is a 64bits platform.
-> >> Is it true that the driver needs some change to use BM in 64 bits, but
-> >> we don't have to disable it.
-> >>
-> >> Here is the 64 bits part of the patch we have currently on the hardware
-> >> prototype. We have more things which are really related to the way the
-> >> mvneta is connected to the Armada 3700 SoC. This code was not ready for  
-> >
-> > Thanks for the sharing.
-> >
-> > I think we could commit easy parts firstly, for example: the cacheline size
-> > hardcoding, either piece of your diff or my version:
-> >
-> > http://lists.infradead.org/pipermail/linux-arm-kernel/2016-March/418513.html  
-> 
-> Since the commit:
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/arch/arm64/include/asm/cache.h?id=97303480753e48fb313dc0e15daaf11b0451cdb8
-> detached L1_CACHE_BYTES from real cache size, I suggest, the macro should be:
-> #define MVNETA_CPU_D_CACHE_LINE_SIZE     cache_line_size()
+Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+---
+ net/rds/ib_recv.c |    2 +-
+ net/rds/iw_recv.c |    2 +-
+ net/rds/page.c    |    5 +++--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-Thanks for the hint. I'll send out updated version to address the cacheline size
-issue.
-
-> 
-> Regarding check after dma_alloc_coherent, I agree it's not necessary.
-> 
-> >  
-> >> mainline but I prefer share it now instead of having the HWBM blindly  
-> >
-> > I have looked through the diff, it is for the driver itself on 64bit platforms,
-> > and it doesn't touch BM. The BM itself need to be disabled for 64bit, I'm not
-> > sure the BM could work on 64bit even with your diff. Per my understanding, the BM
-> > can't work on 64 bit, let's have a look at some piece of the mvneta_bm_construct()
-> >
-> > *(u32 *)buf = (u32)buf;  
-> 
-> Indeed this particular part is different and unclear, I tried
-> different options - with no success. I'm checking with design team
-> now. Anyway, I managed to enable operation for HWBM on A3700 with one
-> work-around in mvneta_hwbm_rx():
-> data = phys_to_virt(rx_desc->buf_phys_addr);
-
-oh yes! This seems a good idea. And If we replace all
-
-data = (void *)rx_desc->buf_cookie
-
-with
-
-data = phys_to_virt(rx_desc->buf_phys_addr);
-
-we also resolve the buf_cookie issue on 64bit platforms! no need to introduce
-data_high or use existing reserved member to store virtual address' higher 32bits
-
-> 
-> Of course mvneta_bm, due to some silicone differences needed also a rework.
-> 
-> Actually I'd wait with updating 64-bit parts of mvneta, until real
-> support for such machine's controller is introduced. Basing on my
-> experience with enabling neta on A3700, it turns out to be more
-> changes.
-
-I agree with you. And I need one more rework: berlin SoCs don't have mbus
-concept at all ;)
-
-Thanks for your hints,
-Jisheng
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 977fb86..abc8cc8 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -796,7 +796,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+ 
+ 		addr = kmap_atomic(sg_page(&frag->f_sg));
+ 
+-		src = addr + frag_off;
++		src = addr + frag->f_sg.offset + frag_off;
+ 		dst = (void *)map->m_page_addrs[map_page] + map_off;
+ 		for (k = 0; k < to_copy; k += 8) {
+ 			/* Record ports that became uncongested, ie
+diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
+index a66d179..62a1738 100644
+--- a/net/rds/iw_recv.c
++++ b/net/rds/iw_recv.c
+@@ -585,7 +585,7 @@ static void rds_iw_cong_recv(struct rds_connection *conn,
+ 
+ 		addr = kmap_atomic(frag->f_page);
+ 
+-		src = addr + frag_off;
++		src = addr +  frag->f_offset + frag_off;
+ 		dst = (void *)map->m_page_addrs[map_page] + map_off;
+ 		for (k = 0; k < to_copy; k += 8) {
+ 			/* Record ports that became uncongested, ie
+diff --git a/net/rds/page.c b/net/rds/page.c
+index 5a14e6d..715cbaa 100644
+--- a/net/rds/page.c
++++ b/net/rds/page.c
+@@ -135,8 +135,9 @@ int rds_page_remainder_alloc(struct scatterlist *scat, unsigned long bytes,
+ 			if (rem->r_offset != 0)
+ 				rds_stats_inc(s_page_remainder_hit);
+ 
+-			rem->r_offset += bytes;
+-			if (rem->r_offset == PAGE_SIZE) {
++			/* some hw (e.g. sparc) require aligned memory */
++			rem->r_offset += ALIGN(bytes, 8);
++			if (rem->r_offset >= PAGE_SIZE) {
+ 				__free_page(rem->r_page);
+ 				rem->r_page = NULL;
+ 			}
+-- 
+1.7.1
