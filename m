@@ -1,29 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: possible bug in latest network tree
-Date: Thu, 31 Mar 2016 15:34:40 -0700
-Message-ID: <CAM_iQpWHT-iMYm++CroUZO9Czih7xOnbDkauhTP8qhtqHLbpag@mail.gmail.com>
-References: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
+From: Mr Tony Hope <Hope@hikksks.website.tk>
+Subject: Urgent Founds!!
+Date: Thu, 31 Mar 2016 23:21:44 +0100
+Message-ID: <AMSPR02MB2139207B83BFB2181DBB8DBE6990@AMSPR02MB213.eurprd02.prod.outlook.com>
+Reply-To: <dipltonyhope@photofile.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Light, John J" <john.j.light@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: DHS <Hope@hikksks.website.tk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:32906 "EHLO
-	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932266AbcCaWel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:34:41 -0400
-Received: by mail-yw0-f181.google.com with SMTP id h65so118081793ywe.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:34:41 -0700 (PDT)
-In-Reply-To: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
+Received: from mail-am1hn0252.outbound.protection.outlook.com ([157.56.112.252]:29847
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753934AbcCaXHZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:07:25 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 30, 2016 at 2:05 PM, Light, John J <john.j.light@intel.com> wrote:
->
-> Maybe the problem is that the default shouldn't be to a TCP value, but should be a 'transport' value.
->
+ 	
+Urgent Founds!!
 
-The code is fine because net->ipv4 is always there, it doesn't
-depend on any CONFIG, so it is safe for dccp to use too, although
-I agree it is a bit ugly.
+We wish to inform you that your over due Inheritance funds which we agreed to pay you in cash is already sealed and package with a security proof box. The funds worth of $7.5 millions US Dollar,in the package will be conveyed to you by an Int'l diplomatic agent, Mr. Tony Hope.
+
+He will be leaving for your country any time from now, therefore reach us with the details below.
+
+Using a Diplomatic agent this time is because of the failure that were recorded in the other transfer options. Just try and give the diplomat your information and offer him all assistance he may need, especially directive assistance so that he will be able to get your consignment box to you in the couple of days.
+
+Please contact him with your full information, such as your.
+
+1) Full name: ......
+2) Resident address:......
+3) Phone number:.....
+4) The name of your nearest airport:....
+Send him the information above for him to locate your home with your package.
+
+Below is some of his contact information:
+
+Name: Mr Tony Hope
+Email: (dipltonyhope@photofile.ru)Phone numbers:
++229-99 22 69 25
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
