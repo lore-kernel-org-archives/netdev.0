@@ -1,78 +1,74 @@
-From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
-Subject: [PATCH] rds: rds-stress show all zeros after few minutes
-Date: Wed, 30 Mar 2016 20:50:02 -0400
-Message-ID: <1459385402-28449-1-git-send-email-shamir.rabinovitch@oracle.com>
-Cc: davem@davemloft.net, shamir.rabinovitch@oracle.com
-To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:46207 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753669AbcCaIxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 04:53:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH v2] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with cache_line_size
+Date: Thu, 31 Mar 2016 16:54:14 +0800
+Message-ID: <1459414454-6095-1-git-send-email-jszhang@marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Jisheng Zhang <jszhang@marvell.com>
+To: <thomas.petazzoni@free-electrons.com>, <mw@semihalf.com>,
+	<gregory.clement@free-electrons.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Issue can be seen on platforms that use 8K and above page size
-while rds fragment size is 4K. On those platforms single page is
-shared between 2 or more rds fragments. Each fragment has it's own
-offeset and rds cong map code need to take this offset to account.
-Not taking this offset to account lead to reading the data fragment
-as congestion map fragment and hang of the rds transmit due to far
-cong map corruption.
+The mvneta is also used in some Marvell berlin family SoCs which may
+have different cacheline size. Replace the MVNETA_CPU_D_CACHE_LINE_SIZE
+usage with cache_line_size().
 
-Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
-Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
+And since dma_alloc_coherent() is always cacheline size aligned, so
+remove the align checks.
 
-Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 ---
- net/rds/ib_recv.c |    2 +-
- net/rds/iw_recv.c |    2 +-
- net/rds/page.c    |    5 +++--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+Since v1:
+ - use cache_line_size() suggested by Marcin
 
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 977fb86..abc8cc8 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -796,7 +796,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+ drivers/net/ethernet/marvell/mvneta.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 577f7ca..b1db000 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -260,7 +260,6 @@
  
- 		addr = kmap_atomic(sg_page(&frag->f_sg));
+ #define MVNETA_VLAN_TAG_LEN             4
  
--		src = addr + frag_off;
-+		src = addr + frag->f_sg.offset + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
- 		for (k = 0; k < to_copy; k += 8) {
- 			/* Record ports that became uncongested, ie
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-index a66d179..62a1738 100644
---- a/net/rds/iw_recv.c
-+++ b/net/rds/iw_recv.c
-@@ -585,7 +585,7 @@ static void rds_iw_cong_recv(struct rds_connection *conn,
+-#define MVNETA_CPU_D_CACHE_LINE_SIZE    32
+ #define MVNETA_TX_CSUM_DEF_SIZE		1600
+ #define MVNETA_TX_CSUM_MAX_SIZE		9800
+ #define MVNETA_ACC_MODE_EXT1		1
+@@ -300,7 +299,7 @@
+ #define MVNETA_RX_PKT_SIZE(mtu) \
+ 	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
+ 	      ETH_HLEN + ETH_FCS_LEN,			     \
+-	      MVNETA_CPU_D_CACHE_LINE_SIZE)
++	      cache_line_size())
  
- 		addr = kmap_atomic(frag->f_page);
+ #define IS_TSO_HEADER(txq, addr) \
+ 	((addr >= txq->tso_hdrs_phys) && \
+@@ -2764,9 +2763,6 @@ static int mvneta_rxq_init(struct mvneta_port *pp,
+ 	if (rxq->descs == NULL)
+ 		return -ENOMEM;
  
--		src = addr + frag_off;
-+		src = addr +  frag->f_offset + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
- 		for (k = 0; k < to_copy; k += 8) {
- 			/* Record ports that became uncongested, ie
-diff --git a/net/rds/page.c b/net/rds/page.c
-index 5a14e6d..715cbaa 100644
---- a/net/rds/page.c
-+++ b/net/rds/page.c
-@@ -135,8 +135,9 @@ int rds_page_remainder_alloc(struct scatterlist *scat, unsigned long bytes,
- 			if (rem->r_offset != 0)
- 				rds_stats_inc(s_page_remainder_hit);
+-	BUG_ON(rxq->descs !=
+-	       PTR_ALIGN(rxq->descs, MVNETA_CPU_D_CACHE_LINE_SIZE));
+-
+ 	rxq->last_desc = rxq->size - 1;
  
--			rem->r_offset += bytes;
--			if (rem->r_offset == PAGE_SIZE) {
-+			/* some hw (e.g. sparc) require aligned memory */
-+			rem->r_offset += ALIGN(bytes, 8);
-+			if (rem->r_offset >= PAGE_SIZE) {
- 				__free_page(rem->r_page);
- 				rem->r_page = NULL;
- 			}
+ 	/* Set Rx descriptors queue starting address */
+@@ -2837,10 +2833,6 @@ static int mvneta_txq_init(struct mvneta_port *pp,
+ 	if (txq->descs == NULL)
+ 		return -ENOMEM;
+ 
+-	/* Make sure descriptor address is cache line size aligned  */
+-	BUG_ON(txq->descs !=
+-	       PTR_ALIGN(txq->descs, MVNETA_CPU_D_CACHE_LINE_SIZE));
+-
+ 	txq->last_desc = txq->size - 1;
+ 
+ 	/* Set maximum bandwidth for enabled TXQs */
 -- 
-1.7.1
+2.8.0.rc3
