@@ -1,135 +1,39 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 2/6] net: dsa: mv88e6xxx: protect FID registers access
-Date: Thu, 31 Mar 2016 16:53:42 -0400
-Message-ID: <1459457626-30082-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH 1/1] net: usb: cdc_ncm: adding Telit LE910 V2 mobile broadband card
+Date: Thu, 31 Mar 2016 23:07:30 +0200
+Message-ID: <87lh4ycq5p.fsf@nemi.mork.no>
+References: <1459430207-11757-1-git-send-email-dnlplm@gmail.com>
+	<1459430207-11757-2-git-send-email-dnlplm@gmail.com>
+	<20160331.165138.1846092223088368562.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160331.165138.1846092223088368562.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Thu, 31 Mar 2016 16:51:38 -0400 (EDT)")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Only switch families with 4096 address databases have dedicated FID
-registers for ATU and VTU operations.
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
+> From: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Thu, 31 Mar 2016 15:16:47 +0200
+>
+>> Telit LE910 V2 is a mobile broadband card with no ARP capabilities:
+>> the patch makes this device to use wwan_noarp_info struct
+>>=20
+>> Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>
+> Bjorn, can you take a quick look at this?
 
-Factorize the access to the GLOBAL_ATU_FID register and introduce a
-mv88e6xxx_has_fid_reg() helper function to protect the access to
-GLOBAL_ATU_FID and GLOBAL_VTU_FID.
+Looks fine to me.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 42 +++++++++++++++++++++++-------------------
- 1 file changed, 23 insertions(+), 19 deletions(-)
+Reviewed-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 19a8208..cc066dc 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -482,6 +482,16 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
- 	return false;
- }
- 
-+static bool mv88e6xxx_has_fid_reg(struct dsa_switch *ds)
-+{
-+	/* Does the device have dedicated FID registers for ATU and VTU ops? */
-+	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
-+	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds))
-+		return true;
-+
-+	return false;
-+}
-+
- static bool mv88e6xxx_has_stu(struct dsa_switch *ds)
- {
- 	/* Does the device have STU and dedicated SID registers for VTU ops? */
-@@ -961,10 +971,16 @@ out:
- 	return ret;
- }
- 
--static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 cmd)
-+static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
- {
- 	int ret;
- 
-+	if (mv88e6xxx_has_fid_reg(ds)) {
-+		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
- 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_OP, cmd);
- 	if (ret < 0)
- 		return ret;
-@@ -1011,11 +1027,6 @@ static int _mv88e6xxx_atu_flush_move(struct dsa_switch *ds,
- 		return err;
- 
- 	if (entry->fid) {
--		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID,
--					   entry->fid);
--		if (err)
--			return err;
--
- 		op = static_too ? GLOBAL_ATU_OP_FLUSH_MOVE_ALL_DB :
- 			GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC_DB;
- 	} else {
-@@ -1023,7 +1034,7 @@ static int _mv88e6xxx_atu_flush_move(struct dsa_switch *ds,
- 			GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC;
- 	}
- 
--	return _mv88e6xxx_atu_cmd(ds, op);
-+	return _mv88e6xxx_atu_cmd(ds, entry->fid, op);
- }
- 
- static int _mv88e6xxx_atu_flush(struct dsa_switch *ds, u16 fid, bool static_too)
-@@ -1331,8 +1342,7 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
- 		if (ret < 0)
- 			return ret;
- 
--		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
--		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
-+		if (mv88e6xxx_has_fid_reg(ds)) {
- 			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
- 						  GLOBAL_VTU_FID);
- 			if (ret < 0)
-@@ -1429,7 +1439,9 @@ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_SID, reg);
- 		if (ret < 0)
- 			return ret;
-+	}
- 
-+	if (mv88e6xxx_has_fid_reg(ds)) {
- 		reg = entry->fid & GLOBAL_VTU_FID_MASK;
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_FID, reg);
- 		if (ret < 0)
-@@ -1976,11 +1988,7 @@ static int _mv88e6xxx_atu_load(struct dsa_switch *ds,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, entry->fid);
--	if (ret < 0)
--		return ret;
--
--	return _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_LOAD_DB);
-+	return _mv88e6xxx_atu_cmd(ds, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
- }
- 
- static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
-@@ -2063,11 +2071,7 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
- 	if (ret < 0)
- 		return ret;
- 
--	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
--	if (ret < 0)
--		return ret;
--
--	ret = _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_GET_NEXT_DB);
-+	ret = _mv88e6xxx_atu_cmd(ds, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
- 	if (ret < 0)
- 		return ret;
- 
--- 
-2.7.4
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
