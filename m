@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 2/2] net: dsa: mv88e6xxx: Clear the PDOWN
- bit on setup
-Date: Thu, 31 Mar 2016 15:13:26 -0400 (EDT)
-Message-ID: <20160331.151326.1811698418230235797.davem@davemloft.net>
-References: <1459301981-26535-1-git-send-email-patrick@puiterwijk.org>
-	<1459301981-26535-2-git-send-email-patrick@puiterwijk.org>
+Subject: Re: [PATCH] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with
+ L1_CACHE_BYTES
+Date: Thu, 31 Mar 2016 15:15:47 -0400 (EDT)
+Message-ID: <20160331.151547.1889188465826831929.davem@davemloft.net>
+References: <1459338921-391-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@roeck-us.net, vivien.didelot@savoirfairelinux.com,
-	andrew@lunn.ch, netdev@vger.kernel.org, dennis@ausil.us,
-	pbrobinson@gmail.com
-To: patrick@puiterwijk.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57547 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756197AbcCaTN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:13:28 -0400
-In-Reply-To: <1459301981-26535-2-git-send-email-patrick@puiterwijk.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: jszhang@marvell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459338921-391-1-git-send-email-jszhang@marvell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick Uiterwijk <patrick@puiterwijk.org>
-Date: Wed, 30 Mar 2016 01:39:41 +0000
+From: Jisheng Zhang <jszhang@marvell.com>
+Date: Wed, 30 Mar 2016 19:55:21 +0800
 
-> Some of the vendor-specific bootloaders set up this part
-> of the initialization for us, so this was never added.
-> However, since upstream bootloaders don't initialize the
-> chip specifically, they leave the fiber MII's PDOWN flag
-> set, which means that the CPU port doesn't connect.
+> The mvneta is also used in some Marvell berlin family SoCs which may
+> have 64bytes cacheline size. Replace the MVNETA_CPU_D_CACHE_LINE_SIZE
+> usage with L1_CACHE_BYTES.
 > 
-> This patch checks whether this flag has been clear prior
-> by something else, and if not make us clear it.
+> And since dma_alloc_coherent() is always cacheline size aligned, so
+> remove the align checks.
 > 
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Patrick Uiterwijk <patrick@puiterwijk.org>
+> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
 
-Applied, thank you.
+Applied.
