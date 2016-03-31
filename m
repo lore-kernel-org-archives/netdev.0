@@ -1,56 +1,62 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: stop the "rcv is not +last, " error messages
-Date: Thu, 31 Mar 2016 01:41:57 +0000
-Message-ID: <VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <56FB46EA.7050401@uclinux.org>
- <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+From: Qiang Zhao <qiang.zhao@nxp.com>
+Subject: RE: [PATCH 4/5] fsl/qe: Add QE TDM lib
+Date: Thu, 31 Mar 2016 01:25:11 +0000
+Message-ID: <AM3PR04MB11852B1F60CE58F0A877969291990@AM3PR04MB1185.eurprd04.prod.outlook.com>
+References: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
+	 <1459327830-19829-4-git-send-email-qiang.zhao@nxp.com>
+ <1459338701.3538.17.camel@infinera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>,
+	"oss@buserror.net" <oss@buserror.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>, Greg Ungerer <gerg@uclinux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0063.outbound.protection.outlook.com ([157.55.234.63]:51520
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751353AbcCaBmB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Mar 2016 21:42:01 -0400
-In-Reply-To: <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+To: Joakim Tjernlund <Joakim.Tjernlund@infinera.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459338701.3538.17.camel@infinera.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRmFiaW8gRXN0ZXZhbSA8ZmVzdGV2YW1AZ21haWwuY29tPiBTZW50OiBUaHVyc2RheSwg
-TWFyY2ggMzEsIDIwMTYgMjozNyBBTQ0KPiBUbzogR3JlZyBVbmdlcmVyIDxnZXJnQHVjbGludXgu
-b3JnPg0KPiBDYzogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPjsg
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGZlYzog
-c3RvcCB0aGUgInJjdiBpcyBub3QgK2xhc3QsICIgZXJyb3IgbWVzc2FnZXMNCj4gDQo+IEhpIEdy
-ZWcsDQo+IA0KPiBPbiBXZWQsIE1hciAzMCwgMjAxNiBhdCAxMjoyNCBBTSwgR3JlZyBVbmdlcmVy
-IDxnZXJnQHVjbGludXgub3JnPiB3cm90ZToNCj4gPiBIaSBUcm95LA0KPiA+DQo+ID4gQ29tbWl0
-IDU1Y2Q0OGM4ICgnbmV0OiBmZWM6IHN0b3AgdGhlICJyY3YgaXMgbm90ICtsYXN0LCAiIGVycm9y
-DQo+ID4gbWVzc2FnZXMnKSBhZGRzIGEgd3JpdGUgdG8gYSByZWdpc3RlciB0aGF0IGlzIG5vdCBw
-cmVzZW50IGluIGFsbA0KPiA+IGltcGxlbWVudGF0aW9ucyBvZiB0aGUgRkVDIGhhcmR3YXJlIG1v
-ZHVsZS4gTm9uZSBvZiB0aGUgQ29sZEZpcmUgU29DDQo+ID4gcGFydHMgd2l0aCB0aGUgRkVDIG1v
-ZHVsZSBoYXZlIHRoZSBGVFJMICgweDFiMCkgcmVnaXN0ZXIuDQo+ID4NCj4gPiBEb2VzIHRoaXMg
-bmVlZCBhIHF1aXJrIGZsYWcgdG8ga2V5IGFjY2VzcyB0byB0aGlzIHJlZ2lzdGVyIG9mPw0KPiA+
-IE9yIGNhbiB5b3UgcGlnZ3liYWNrIG9uIHRoZSBGRUNfUVVJUktfSEFTX1JBQ0MgZmxhZz8NCj4g
-DQo+IFdvdWxkIHRoZSBjaGFuZ2UgYmVsb3cgd29yayBvbiBDb2xkZmlyZT8NCj4gDQo+IC0tLSBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IEBAIC05NDMsOCArOTQzLDgg
-QEAgZmVjX3Jlc3RhcnQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpDQo+ICAgICAgICAgICAgICAg
-ICBlbHNlDQo+ICAgICAgICAgICAgICAgICAgICAgICAgIHZhbCAmPSB+RkVDX1JBQ0NfT1BUSU9O
-UzsNCj4gICAgICAgICAgICAgICAgIHdyaXRlbCh2YWwsIGZlcC0+aHdwICsgRkVDX1JBQ0MpOw0K
-PiAtICAgICAgIH0NCj4gICAgICAgICB3cml0ZWwoUEtUX01BWEJVRl9TSVpFLCBmZXAtPmh3cCAr
-IEZFQ19GVFJMKTsNCj4gKyAgICAgICB9DQo+ICAjZW5kaWYNCj4gDQo+ICAgICAgICAgLyoNCg0K
-RmFiaW8sIHdlIGNhbm5vdCBkbyBpdCBsaWtlIHRoaXMgdGhhdCBtYXkgY2F1c2UgY29uZnVzZWQg
-Zm9yIHRoZSBxdWlyayBmbGFnICJGRUNfUVVJUktfSEFTX1JBQ0MiLg0KDQoNCkhpLCBHcmVnLA0K
-DQpUaGUgaGVhZGVyIGZpbGUgZmVjLmggZGVmaW5lIHRoZSBGRUNfRlRSTCBhcyBiZWxvdywgIGlm
-IENvbGRGaXJlIFNvQyBoYXMgbm8gdGhpcyByZWdpc3RlciwgIHdlIG1heSByZW1vdmUgdGhlIGRl
-ZmluZSBpbiBoZXJlIGFuZCBkZWZpbmUgdGhlIHJlZ2lzdGVyIGFjY29yZGluZyB0byBTT0MgdHlw
-ZS4gRm9yIGV4YW1wbGUsIGl0IGlzIENvbGRGaXJlIFNvYywgZGVmaW5lIGl0IGFzIDB4RkZGLiBJ
-cyBpdCAgZmVhc2libGUgPw0KDQojaWYgZGVmaW5lZChDT05GSUdfTTUyM3gpIHx8IGRlZmluZWQo
-Q09ORklHX001Mjd4KSB8fCBkZWZpbmVkKENPTkZJR19NNTI4eCkgfHwgXA0KICAgIGRlZmluZWQo
-Q09ORklHX001MjB4KSB8fCBkZWZpbmVkKENPTkZJR19NNTMyeCkgfHwgZGVmaW5lZChDT05GSUdf
-QVJNKQ0KLi4uDQojZGVmaW5lIEZFQ19GVFJMICAgICAgICAgICAgICAgIDB4MWIwDQouLi4NCiNl
-bHNlDQouLi4NCiNlbmRpZg0KDQoNClJlZ2FyZHMsDQpBbmR5DQo=
+On Wed, 2016-03-30 at 07:50PM, Joakim Tjernlund wrote:
+> -----Original Message-----
+> From: Joakim Tjernlund [mailto:Joakim.Tjernlund@infinera.com]
+> Sent: Wednesday, March 30, 2016 7:50 PM
+> To: davem@davemloft.net; Qiang Zhao <qiang.zhao@nxp.com>
+> Cc: linuxppc-dev@lists.ozlabs.org; linux-kernel@vger.kernel.org; Xiaobo Xie
+> <xiaobo.xie@nxp.com>; oss@buserror.net; gregkh@linuxfoundation.org;
+> akpm@linux-foundation.org; netdev@vger.kernel.org
+> Subject: Re: [PATCH 4/5] fsl/qe: Add QE TDM lib
+> 
+> On Wed, 2016-03-30 at 16:50 +0800, Zhao Qiang wrote:
+> > QE has module to support TDM, some other protocols supported by QE are
+> > based on TDM.
+> > add a qe-tdm lib, this lib provides functions to the protocols using
+> > TDM to configurate QE-TDM.
+> >
+> > Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
+> > +	utdm->siram_entry_id = val;
+> > +
+> > +	set_si_param(utdm, ut_info);
+> > +
+> > +	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-si");
+> 
+> fsl,t1040-qe-si only? What about mpc83xx?
+> I recall QE is a little bit different compared to T1040 or will this work(including
+> the hdlc driver) on 83xx as well?
+
+The " fsl,t1040-qe-si " is new added to dts and bindings, it is required to have SoC specific compatible strings.
+mpc83xx will not use qe-si node. If there will be other soc useing qe-si, " fsl,t1040-qe-si " will follow the soc specific compatible,
+like : 
+                si1: si@700 {
+                        compatible = "fsl,ls1043-qe-si", "fsl,t1040-qe-si";
+                        reg = <0x700 0x80>;
+                };
+
+Best Regards
+Zhao Qiang
