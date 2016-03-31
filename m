@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 4/6] net: dsa: mv88e6xxx: support 256 databases
-Date: Thu, 31 Mar 2016 16:53:44 -0400
-Message-ID: <1459457626-30082-5-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/6] net: dsa: mv88e6xxx: variable number of databases
+Date: Thu, 31 Mar 2016 16:53:43 -0400
+Message-ID: <1459457626-30082-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -13,96 +13,93 @@ In-Reply-To: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 6185 family of devices has only 256 address databases. Their 8-bit
-FID for ATU and VTU operations are split into ATU Control and ATU/VTU
-Operation registers.
+Marvell switch chips have different number of address databases.
+
+The code currently only supports models with 4096 databases. Such switch
+has dedicated FID registers for ATU and VTU operations. Models with
+fewer databases have their FID split in several registers.
+
+List them all but only support models with 4096 databases at the moment.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 36 +++++++++++++++++++++++++++++++++++-
- 1 file changed, 35 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx.c | 38 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 34 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 888c66b..52c3e17 100644
+index cc066dc..888c66b 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1003,6 +1003,20 @@ static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
- 		if (ret < 0)
- 			return ret;
-+	} else if (mv88e6xxx_num_databases(ds) == 256) {
-+		/* ATU DBNum[7:4] are located in ATU Control 15:12 */
-+		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL);
-+		if (ret < 0)
-+			return ret;
-+
-+		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL,
-+					   (ret & 0xfff) |
-+					   ((fid << 8) & 0xf000));
-+		if (ret < 0)
-+			return ret;
-+
-+		/* ATU DBNum[3:0] are located in ATU Operation 3:0 */
-+		cmd |= fid & 0xf;
- 	}
+@@ -482,6 +482,30 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
+ 	return false;
+ }
  
- 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_OP, cmd);
-@@ -1373,6 +1387,17 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
- 				return ret;
- 
- 			next.fid = ret & GLOBAL_VTU_FID_MASK;
-+		} else if (mv88e6xxx_num_databases(ds) == 256) {
-+			/* VTU DBNum[7:4] are located in VTU Operation 11:8, and
-+			 * VTU DBNum[3:0] are located in VTU Operation 3:0
-+			 */
-+			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
-+						  GLOBAL_VTU_OP);
-+			if (ret < 0)
-+				return ret;
++static unsigned int mv88e6xxx_num_databases(struct dsa_switch *ds)
++{
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
 +
-+			next.fid = (ret & 0xf00) >> 4;
-+			next.fid |= ret & 0xf;
- 		}
- 
- 		if (mv88e6xxx_has_stu(ds)) {
-@@ -1443,6 +1468,7 @@ unlock:
- static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
- 				    struct mv88e6xxx_vtu_stu_entry *entry)
++	/* The following devices have 4-bit identifiers for 16 databases */
++	if (ps->id == PORT_SWITCH_ID_6061)
++		return 16;
++
++	/* The following devices have 6-bit identifiers for 64 databases */
++	if (ps->id == PORT_SWITCH_ID_6065)
++		return 64;
++
++	/* The following devices have 8-bit identifiers for 256 databases */
++	if (mv88e6xxx_6095_family(ds) || mv88e6xxx_6185_family(ds))
++		return 256;
++
++	/* The following devices have 12-bit identifiers for 4096 databases */
++	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
++	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds))
++		return 4096;
++
++	return 0;
++}
++
+ static bool mv88e6xxx_has_fid_reg(struct dsa_switch *ds)
  {
-+	u16 op = GLOBAL_VTU_OP_VTU_LOAD_PURGE;
- 	u16 reg = 0;
+ 	/* Does the device have dedicated FID registers for ATU and VTU ops? */
+@@ -1534,9 +1558,15 @@ loadpurge:
+ static int _mv88e6xxx_port_fid(struct dsa_switch *ds, int port, u16 *new,
+ 			       u16 *old)
+ {
++	u16 upper_mask;
+ 	u16 fid;
  	int ret;
  
-@@ -1470,6 +1496,12 @@ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_FID, reg);
- 		if (ret < 0)
- 			return ret;
-+	} else if (mv88e6xxx_num_databases(ds) == 256) {
-+		/* VTU DBNum[7:4] are located in VTU Operation 11:8, and
-+		 * VTU DBNum[3:0] are located in VTU Operation 3:0
-+		 */
-+		op |= (entry->fid & 0xf0) << 8;
-+		op |= entry->fid & 0xf;
- 	}
- 
- 	reg = GLOBAL_VTU_VID_VALID;
-@@ -1479,7 +1511,7 @@ loadpurge:
++	if (mv88e6xxx_num_databases(ds) == 4096)
++		upper_mask = 0xff;
++	else
++		return -EOPNOTSUPP;
++
+ 	/* Port's default FID bits 3:0 are located in reg 0x06, offset 12 */
+ 	ret = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_BASE_VLAN);
+ 	if (ret < 0)
+@@ -1559,11 +1589,11 @@ static int _mv88e6xxx_port_fid(struct dsa_switch *ds, int port, u16 *new,
  	if (ret < 0)
  		return ret;
  
--	return _mv88e6xxx_vtu_cmd(ds, GLOBAL_VTU_OP_VTU_LOAD_PURGE);
-+	return _mv88e6xxx_vtu_cmd(ds, op);
- }
+-	fid |= (ret & PORT_CONTROL_1_FID_11_4_MASK) << 4;
++	fid |= (ret & upper_mask) << 4;
  
- static int _mv88e6xxx_stu_getnext(struct dsa_switch *ds, u8 sid,
-@@ -1564,6 +1596,8 @@ static int _mv88e6xxx_port_fid(struct dsa_switch *ds, int port, u16 *new,
+ 	if (new) {
+-		ret &= ~PORT_CONTROL_1_FID_11_4_MASK;
+-		ret |= (*new >> 4) & PORT_CONTROL_1_FID_11_4_MASK;
++		ret &= ~upper_mask;
++		ret |= (*new >> 4) & upper_mask;
  
- 	if (mv88e6xxx_num_databases(ds) == 4096)
- 		upper_mask = 0xff;
-+	else if (mv88e6xxx_num_databases(ds) == 256)
-+		upper_mask = 0xf;
- 	else
- 		return -EOPNOTSUPP;
+ 		ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_CONTROL_1,
+ 					   ret);
+@@ -1627,7 +1657,7 @@ static int _mv88e6xxx_fid_new(struct dsa_switch *ds, u16 *fid)
+ 	 * databases are not needed. Return the next positive available.
+ 	 */
+ 	*fid = find_next_zero_bit(fid_bitmap, MV88E6XXX_N_FID, 1);
+-	if (unlikely(*fid == MV88E6XXX_N_FID))
++	if (unlikely(*fid >= mv88e6xxx_num_databases(ds)))
+ 		return -ENOSPC;
  
+ 	/* Clear the database */
 -- 
 2.7.4
