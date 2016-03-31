@@ -1,88 +1,145 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: IPv6: routing/forwarding/masking link-local addresses
-Date: Thu, 31 Mar 2016 11:44:58 +0200
-Message-ID: <CA+BoTQnC-OKZ8eRohBYetfyW6-xo31kJtS8Lh+svxC=fkVsrXw@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: am335x: no multicast reception over VLAN
+Date: Thu, 31 Mar 2016 15:32:35 +0530
+Message-ID: <56FCF5BB.2030000@ti.com>
+References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
+ <56F9FDD0.8030504@ti.com>
+ <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
+ <56FA616C.9080502@ti.com>
+ <CAGm1_ksvEdk-mF-hW4o5+bri6J6sMgnQQVD3j-e7xm6PsP8k0A@mail.gmail.com>
+ <56FA78AA.4030402@ti.com> <56FB6543.9060904@ti.com>
+ <CAGm1_kvXA4egrK8-oCedYjvPm7BhJdy_w-5ON24snYdKiN3K7g@mail.gmail.com>
+ <56FC0431.5000106@ti.com> <878u0z9297.fsf@dell.be.48ers.dk>
+ <56FCC59B.70209@ti.com>
+ <CAGm1_kutVn+jNf58QwKyO8j5NmRhaOCUsXmpTiLbX75AczCm6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Network Development <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Peter Korsgaard <peter@korsgaard.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	<drivshin@allworx.com>, <ml@markusgrimm.de>
+To: Yegor Yefremov <yegorslists@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35734 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756455AbcCaJo7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 05:44:59 -0400
-Received: by mail-wm0-f44.google.com with SMTP id 191so119693142wmq.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 02:44:59 -0700 (PDT)
+Received: from comal.ext.ti.com ([198.47.26.152]:49690 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbcCaKCr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Mar 2016 06:02:47 -0400
+In-Reply-To: <CAGm1_kutVn+jNf58QwKyO8j5NmRhaOCUsXmpTiLbX75AczCm6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thursday 31 March 2016 01:22 PM, Yegor Yefremov wrote:
+> On Thu, Mar 31, 2016 at 8:37 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+>> On Thursday 31 March 2016 01:17 AM, Peter Korsgaard wrote:
+>>>>>>>> "Mugunthan" == Mugunthan V N <mugunthanvnm@ti.com> writes:
+>>>
+>>> Hi,
+>>>
+>>>  > You had received these packets as tcpdump will enable promiscuous mode
+>>>  > so that you receive all the packets from the wire.
+>>>
+>>> FYI, you can use the -p option to tcpdump to not put the interface into
+>>> promiscuous mode.
+>>>
+>>
+>> Thanks for the information Peter Korsgaard.
+>>
+>> Yegor, can you provide tcpdump using -p as well in Grygorii commands.
+> 
+> Before VLAN configuration:
+> 
+> # switch-config -d
+> cpsw hw version 1.12 (0)
+> 0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
+> unreg_mcast = 0x0, member_list = 0x3
+> 1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x3
+> 2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
+> unreg_mcast = 0x0, member_list = 0x7
+> 4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x3
+> 5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
+> unreg_mcast = 0x0, member_list = 0x5
+> 6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x5
+> 7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x5
+> 
+> After VLAN configuration:
+> 
+> # switch-config -d
+> cpsw hw version 1.12 (0)
+> 0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
+> unreg_mcast = 0x0, member_list = 0x3
+> 1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x3
+> 2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
+> unreg_mcast = 0x0, member_list = 0x7
+> 4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x3
+> 5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
+> unreg_mcast = 0x0, member_list = 0x5
+> 6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x5
+> 7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x5
+> 9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
+> unreg_mcast = 0x0, member_list = 0x5
+> 10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
+> persistant, port_num = 0x0
+> 11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
+> f, no super, port_mask = 0x5
+> 12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
+> no super, port_mask = 0x5
+> 
+> During mulitcast receive:
+> 
+> # switch-config -d
+> cpsw hw version 1.12 (0)
+> 0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
+> unreg_mcast = 0x0, member_list = 0x3
+> 1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x3
+> 2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
+> unreg_mcast = 0x0, member_list = 0x7
+> 4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x3
+> 5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
+> unreg_mcast = 0x0, member_list = 0x5
+> 6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
+> no super, port_mask = 0x5
+> 7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
+> persistant, port_num = 0x0, Secure
+> 8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
+> no super, port_mask = 0x5
+> 9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
+> unreg_mcast = 0x0, member_list = 0x5
+> 10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
+> persistant, port_num = 0x0
+> 11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
+> f, no super, port_mask = 0x5
+> 12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
+> no super, port_mask = 0x5
+> 13  : type: mcast, vid = 2, addr = 01:00:5e:03:1d:47, mcast_state = f,
+> no super, port_mask = 0x5
+> 14  : type: ucast, vid = 100, addr = 66:22:04:bc:90:26, ucast_type =
+> untouched , port_num = 0x2
 
-The most commonly used framing/addressing in 802.11 is 3addr. This is
-how most Access Points work and Clients follow suit.
+I could see multicast address 01:00:5e:03:1d:47 is added to ALE table at
+index 13, but it is added for VLAN id 2 ie eth1, did you ran the test
+for eth1 or eth1.100?
 
-However it is impossible to put a 3addr Client interface into a bridge
-because it's not possible to properly distinguish RA/TA/DA/SA
-addresses.
-
-There is 4addr framing in 802.11 (often referred to as WDS or
-Repeater) but it's a loose standard and various vendors implement it
-differently. For this kind of framing to work both AP and Client must
-support the same flavor of the framing. Many APs don't even allow the
-user to enable WDS. This makes it troublesome to extend wireless
-networks without replacing AP equipment (upgrading AP software isn't
-always an option).
-
-There is already a userspace tool which solves this problem for IPv4
-called relayd [1]. It forwards ARP/DHCP packets (and replaces MAC
-addresses accordingly) between non-bridged interfaces and adds
-additional route entries to the firewall to, effectively, act as a
-bridge transparently. via routing. Compared to ARP Proxy it doesn't
-require IP address configuration on local interfaces.
-
-I'm trying to add IPv6 support for relayd. The problem is I can't get
-link-local addresses to route properly.
-
-I can easily get things like 2000::/32 to route perfectly fine but
-fe80:: just won't work. Upon inspection I've noticed:
-
-; ip link add veth0 type veth peer name veth1
-; ip link set veth0 up
-; ip link set veth1 up
-; ip route add fe80::1 dev veth0
-; ip route add 2000::1 dev veth0
-; ip route get iif veth1 fe80::1
-fe80::1 from :: dev veth1  metric 0
-    cache  iif veth1
-; ip route get iif veth1 2000::1
-2000::1 from :: dev veth0  metric 0
-    cache  iif veth1
-; ip link del veth0
-
-If I remove default fe80::/64 routes I get:
-
-; ip link del veth0
-; ip link add veth0 type veth peer name veth1
-; ip link set veth0 up
-; ip link set veth1 up
-; ip route del fe80::/64 dev veth0
-; ip route del fe80::/64 dev veth1
-; ip route add fe80::1 dev veth0
-; ip route add 2000::1 dev veth0
-; ip route get iif veth1 fe80::1
-unreachable fe80::1 from :: dev lo  table unspec  proto kernel  metric
-4294967295  error -101 iif veth1
-; ip route get iif veth1 2000::1
-2000::1 from :: dev veth0  metric 0
-    cache  iif veth1
-
-The fe80:: route gets ignored completely in both cases.
-
-My question is: can I make it work (a kernel knob I'm not aware of) or
-does it require patching the kernel? Thoughts/ideas/hints?
-
-
-Micha=C5=82
-
-[1]: http://git.openwrt.org/?p=3Dproject/relayd.git;a=3Dsummary
+Regards
+Mugunthan V N
