@@ -1,66 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
- tun_{attach,detach}_filter
-Date: Thu, 31 Mar 2016 14:12:18 +0200
-Message-ID: <56FD1422.9030903@stressinduktion.org>
-References: <755ee9ec1f6d2229be41806964b372548e4b7586.1459382574.git.daniel@iogearbox.net>
- <20160331011840.GA50846@ast-mbp.thefacebook.com>
- <20160331050115.GA21665@unicorn.suse.cz>
- <20160331050808.GA56499@ast-mbp.thefacebook.com>
- <20160331052232.GB21665@unicorn.suse.cz>
- <20160331054301.GA57227@ast-mbp.thefacebook.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in tun_{attach,detach}_filter
+Date: Thu, 31 Mar 2016 14:16:18 +0200
+Message-ID: <56FD1512.70409@iogearbox.net>
+References: <755ee9ec1f6d2229be41806964b372548e4b7586.1459382574.git.daniel@iogearbox.net>	 <20160331011840.GA50846@ast-mbp.thefacebook.com>	 <20160331050115.GA21665@unicorn.suse.cz>	 <20160331050808.GA56499@ast-mbp.thefacebook.com>	 <20160331052232.GB21665@unicorn.suse.cz>	 <20160331054301.GA57227@ast-mbp.thefacebook.com>	 <56FD0B79.5020007@iogearbox.net> <1459425558.6473.229.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	sasha.levin@oracle.com, jslaby@suse.cz, eric.dumazet@gmail.com,
-	mst@redhat.com, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Michal Kubecek <mkubecek@suse.cz>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Michal Kubecek <mkubecek@suse.cz>, davem@davemloft.net,
+	sasha.levin@oracle.com, jslaby@suse.cz, mst@redhat.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:54899 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753691AbcCaMMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 08:12:21 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id E3D1222595
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 08:12:20 -0400 (EDT)
-In-Reply-To: <20160331054301.GA57227@ast-mbp.thefacebook.com>
+Received: from www62.your-server.de ([213.133.104.62]:52934 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbcCaMQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 08:16:28 -0400
+In-Reply-To: <1459425558.6473.229.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31.03.2016 07:43, Alexei Starovoitov wrote:
-> On Thu, Mar 31, 2016 at 07:22:32AM +0200, Michal Kubecek wrote:
->> On Wed, Mar 30, 2016 at 10:08:10PM -0700, Alexei Starovoitov wrote:
->>> On Thu, Mar 31, 2016 at 07:01:15AM +0200, Michal Kubecek wrote:
->>>> On Wed, Mar 30, 2016 at 06:18:42PM -0700, Alexei Starovoitov wrote:
->>>>>
->>>>> kinda heavy patch to shut up lockdep.
->>>>> Can we do
->>>>> old_fp = rcu_dereference_protected(sk->sk_filter,
->>>>>                                  sock_owned_by_user(sk) || lockdep_rtnl_is_held());
->>>>> and it always be correct?
->>>>> I think right now tun is the only such user, but if it's correct
->>>>> for tun, it's correct for future users too. If not correct then
->>>>> not correct for tun either.
->>>>> Or I'm missing something?
->>>>
->>>> Already discussed here:
->>>>
->>>>    http://thread.gmane.org/gmane.linux.kernel/2158069/focus=405853
->>>
->>> I saw that. My point above was challenging 'less accurate' part.
->>>
->> Daniel's point was that lockdep_rtnl_is_held() does not mean "we hold
->> RTNL" but "someone holds RTNL" so that some other task holding RTNL at
->> the moment could make the check happy even when called by someone
->> supposed to own the socket.
+On 03/31/2016 01:59 PM, Eric Dumazet wrote:
+> On Thu, 2016-03-31 at 13:35 +0200, Daniel Borkmann wrote:
 >
-> Of course... and that is the case for all rtnl_dereference() calls...
-> yet we're not paranoid about it.
+>> +static inline bool sock_owned_externally(const struct sock *sk)
+>> +{
+>> +	return sk->sk_flags & (1UL << SOCK_EXTERNAL_OWNER);
+>> +}
+>> +
+>
+> Have you reinvented sock_flag(sl, SOCK_EXTERNAL_OWNER) ? ;)
+>
+> Anyway, using a flag for this purpose sounds overkill to me.
 
-lockdep_rtnl_is_held actually checks *current if the currently running 
-code actually has the lock, no?
+Right.
 
-Bye,
-Hannes
+> Setting it is a way to 'fool' lockdep anyway...
+
+Yep, correct, we'd be fooling the tun case, so this diff doesn't
+really make it any better there.
+
+Thanks,
+Daniel
