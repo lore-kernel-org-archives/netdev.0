@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Do not access unexisting register in Coldfire
-Date: Thu, 31 Mar 2016 16:46:35 -0400 (EDT)
-Message-ID: <20160331.164635.2025583994422727303.davem@davemloft.net>
-References: <1459436717-12809-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with
+ L1_CACHE_BYTES
+Date: Thu, 31 Mar 2016 16:47:10 -0400 (EDT)
+Message-ID: <20160331.164710.1998871529914699937.davem@davemloft.net>
+References: <1459338921-391-1-git-send-email-jszhang@marvell.com>
+	<20160331.151547.1889188465826831929.davem@davemloft.net>
+	<20160331223735.32904e42@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
-	gerg@uclinux.org, netdev@vger.kernel.org, fabio.estevam@nxp.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59070 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757428AbcCaUqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 16:46:39 -0400
-In-Reply-To: <1459436717-12809-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jszhang@marvell.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: thomas.petazzoni@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160331223735.32904e42@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Thu, 31 Mar 2016 12:05:17 -0300
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Thu, 31 Mar 2016 22:37:35 +0200
 
-> From: Fabio Estevam <fabio.estevam@nxp.com>
+> Hello,
 > 
-> Commit 55cd48c821de ("net: fec: stop the "rcv is not +last, " error
-> messages") introduces a write to a register that does not exist in
-> Coldfire.
+> On Thu, 31 Mar 2016 15:15:47 -0400 (EDT), David Miller wrote:
+>> From: Jisheng Zhang <jszhang@marvell.com>
+>> Date: Wed, 30 Mar 2016 19:55:21 +0800
+>> 
+>> > The mvneta is also used in some Marvell berlin family SoCs which may
+>> > have 64bytes cacheline size. Replace the MVNETA_CPU_D_CACHE_LINE_SIZE
+>> > usage with L1_CACHE_BYTES.
+>> > 
+>> > And since dma_alloc_coherent() is always cacheline size aligned, so
+>> > remove the align checks.
+>> > 
+>> > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+>> 
+>> Applied.
 > 
-> Move the FEC_FTRL register access inside the FEC_QUIRK_HAS_RACC 'if' block,
-> so that we guarantee it will not be used on Coldfire CPUs.
+> A new version of the patch was sent, which more rightfully uses
+> cache_line_size(), see:
 > 
-> Reported-by: Greg Ungerer <gerg@uclinux.org>
-> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+>  "[PATCH v2] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with cache_line_size"
 
-Applied, thanks.
+Sorry about that.
+
+Send me a realtive fixup patch if you like.
+
+Thanks.
