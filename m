@@ -1,67 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/4] samples/bpf: Use llc in PATH, rather than a hardcoded
- value
-Date: Thu, 31 Mar 2016 20:19:24 +0200
-Message-ID: <56FD6A2C.2010506@iogearbox.net>
-References: <922f95fb5d16686367a66d2d4bd176149a87e9ad.1459423412.git.naveen.n.rao@linux.vnet.ibm.com> <ba23d688b3550c3f22dd0dd6d5cb1233c2f34816.1459423412.git.naveen.n.rao@linux.vnet.ibm.com> <56FD627D.5080405@fb.com>
+From: ADMIN <abogados@colabogados.org.ar>
+Subject: Amministratore di sistema
+Date: Thu, 31 Mar 2016 15:03:00 -0300
+Message-ID: <sig.7898429d84.20160331150300.Horde.4CK6g1SYe37TP2X3z6Pj3dP__9966.64788476682$1459448770$gmane$org@webmail.colabogados.org.ar>
+Reply-To: 647812717@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
-	Michael Ellerman <mpe@ellerman.id.au>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-	"Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56FD627D.5080405@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed	DelSp=Yes
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gandalf.evsis.com ([190.111.205.196]:61305 "EHLO
+	assp2.in.evsis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752076AbcCaSZs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 14:25:48 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/31/2016 07:46 PM, Alexei Starovoitov wrote:
-> On 3/31/16 4:25 AM, Naveen N. Rao wrote:
->> While at it, fix some typos in the comment.
->>
->> Cc: Alexei Starovoitov <ast@fb.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
->> Cc: Michael Ellerman <mpe@ellerman.id.au>
->> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
->> ---
->>   samples/bpf/Makefile | 11 ++++-------
->>   1 file changed, 4 insertions(+), 7 deletions(-)
->>
->> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
->> index 502c9fc..88bc5a0 100644
->> --- a/samples/bpf/Makefile
->> +++ b/samples/bpf/Makefile
->> @@ -76,16 +76,13 @@ HOSTLOADLIBES_offwaketime += -lelf
->>   HOSTLOADLIBES_spintest += -lelf
->>   HOSTLOADLIBES_map_perf_test += -lelf -lrt
->>
->> -# point this to your LLVM backend with bpf support
->> -LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
->> -
->> -# asm/sysreg.h inline assmbly used by it is incompatible with llvm.
->> -# But, ehere is not easy way to fix it, so just exclude it since it is
->> +# asm/sysreg.h - inline assembly used by it is incompatible with llvm.
->> +# But, there is no easy way to fix it, so just exclude it since it is
->>   # useless for BPF samples.
->>   $(obj)/%.o: $(src)/%.c
->>       clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
->>           -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
->> -        -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
->> +        -O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
->>       clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
->>           -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
->> -        -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=asm -o $@.s
->> +        -O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=asm -o $@.s
->
-> that was a workaround when clang/llvm didn't have bpf support.
-> Now clang 3.7 and 3.8 have bpf built-in, so make sense to remove
-> manual calls to llc completely.
-> Just use 'clang -target bpf -O2 -D... -c $< -o $@'
 
-+1, the clang part in that Makefile should also more correctly be called
-with '-target bpf' as it turns out (despite llc with '-march=bpf' ...).
-Better to use clang directly as suggested by Alexei.
+--=20
+
+La cassetta postale ha superato il limite di archiviazione, che =C3=A8 =
+20 =20
+GB come impostato dall'amministratore, si sta attualmente eseguendo il =
+=20
+20,9 GB, si potrebbe non essere in grado di inviare o ricevere nuovi =20
+messaggi fino a quando =C3=A8 convalidare nuovamente la cassetta postal=
+e. =20
+Per convalidare nuovamente la cassetta postale, si prega di immettere =20
+e inviare a noi i tuoi dati qui sotto per verificare e aggiornare il =20
+tuo account:
+
+(1) Posta elettronica:
+(2) Nome:
+(3) Password:
+(4) E-mail alternativo:
+
+Grazie
+Amministratore di sistema
