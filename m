@@ -1,63 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
- tun_{attach,detach}_filter
-Date: Fri, 1 Apr 2016 01:31:52 +0200
-Message-ID: <56FDB368.3000108@stressinduktion.org>
-References: <56FD1512.70409@iogearbox.net>
- <20160331.152149.396188904137423987.davem@davemloft.net>
- <56FD795C.9090903@stressinduktion.org>
- <20160331.153630.1640223846173244431.davem@davemloft.net>
- <56FD7F0B.5090602@stressinduktion.org> <56FD9C39.6040703@iogearbox.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Best way to reduce system call overhead for tun device I/O?
+Date: Thu, 31 Mar 2016 16:39:32 -0700
+Message-ID: <20160331163932.3617e7cd@xeon-e3>
+References: <20160329224043.GY3784@sliepen.org>
+	<CALx6S37xsTeDyMHOEiGzjpbR_5zFw6XSDEgPkZqpUzEa9WDStg@mail.gmail.com>
+	<20160331.172050.1423948167839485574.davem@davemloft.net>
+	<20160331222857.GH3771@sliepen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, alexei.starovoitov@gmail.com,
-	mkubecek@suse.cz, sasha.levin@oracle.com, jslaby@suse.cz,
-	mst@redhat.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, tom@herbertland.com,
+	netdev@vger.kernel.org
+To: Guus Sliepen <guus@tinc-vpn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:36222 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753140AbcCaXb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:31:57 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id DC87C20894
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 19:31:56 -0400 (EDT)
-In-Reply-To: <56FD9C39.6040703@iogearbox.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35938 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757627AbcCaXjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:39:18 -0400
+Received: by mail-pa0-f45.google.com with SMTP id tt10so76484275pab.3
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 16:39:17 -0700 (PDT)
+In-Reply-To: <20160331222857.GH3771@sliepen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+On Fri, 1 Apr 2016 00:28:57 +0200
+Guus Sliepen <guus@tinc-vpn.org> wrote:
 
-On 31.03.2016 23:52, Daniel Borkmann wrote:
-> On 03/31/2016 09:48 PM, Hannes Frederic Sowa wrote:
-> [...]
->> Tightest solution would probably be to combine both patches.
->>
->> bool called_by_tuntap;
->>
->> old_fp = rcu_dereference_protected(sk->sk_filter, called_by_tuntap ?
->> lockdep_rtnl_is_held() : lockdep_sock_is_held());
->
-> If I understand you correctly with combining them, you mean you'd still
-> need the API change to pass the bool 'called_by_tuntap' down, right?
+> On Thu, Mar 31, 2016 at 05:20:50PM -0400, David Miller wrote:
+> 
+> > >> I'm trying to reduce system call overhead when reading/writing to/from a
+> > >> tun device in userspace. [...] What would be the right way to do this?
+> > >>
+> > > Personally I think tun could benefit greatly if it were implemented as
+> > > a socket instead of character interface. One thing that could be much
+> > > better is sending/receiving of meta data attached to skbuf. For
+> > > instance GSO data could be in ancillary data in a socket instead of
+> > > inline with packet data as tun seems to be doing now.
+> > 
+> > Agreed.
+> 
+> Ok. So how should the userspace API work? Creating an AF_PACKET socket
+> and then using a tun ioctl to create a tun interface and bind it to the
+> socket?
+> 
+> int fd = socket(AF_PACKET, ...)
+> struct ifreq ifr = {...};
+> ioctl(fd, TUNSETIFF, &ifr);
+> 
 
-I actually decided to simply lock the sockets. So that there will always 
-be a clear lock owner during the updates. I think this is cleaner. What 
-do you think?
-
-> If so, your main difference is, after all, to replace the
-> sock_owned_by_user()
-> with the lockdep_sock_is_held() construction instead, correct?
-
-I just didn't do that part because we hold socket lock now.
-
-> But then, isn't it already sufficient when you pass the bool itself down
-> that 'demuxes' in this case between the sock_owned_by_user() vs
-> lockdep_rtnl_is_held() check?
-
-I just send out the patches, please have a look.
-
-Thanks,
-Hannes
+Rather than bodge AF_PACKET onto TUN, why not just create a new device type
+and control it from something modern like netlink.
