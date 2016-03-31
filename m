@@ -1,41 +1,32 @@
 From: Fabio Estevam <festevam@gmail.com>
 Subject: Re: [PATCH] net: fec: stop the "rcv is not +last, " error messages
-Date: Thu, 31 Mar 2016 07:56:58 -0300
-Message-ID: <CAOMZO5AfQrhjRErp+cCmcpn2qqjuPp0oNN9gaJp65A0o=p0DUQ@mail.gmail.com>
+Date: Thu, 31 Mar 2016 07:58:10 -0300
+Message-ID: <CAOMZO5Dz0B5f1qUN81_NH5xpGa=t1-8pFmdf7Y67oosDxA8a1w@mail.gmail.com>
 References: <56FB46EA.7050401@uclinux.org>
 	<CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
-	<VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+	<56FC7A96.9070002@uclinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Greg Ungerer <gerg@uclinux.org>,
-	Troy Kisky <troy.kisky@boundarydevices.com>,
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fugang Duan <fugang.duan@nxp.com>
+To: Greg Ungerer <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:36970 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240AbcCaK47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 06:56:59 -0400
-Received: by mail-ig0-f169.google.com with SMTP id l20so64792555igf.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 03:56:59 -0700 (PDT)
-In-Reply-To: <VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36080 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547AbcCaK6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 06:58:12 -0400
+Received: by mail-io0-f177.google.com with SMTP id q128so107267810iof.3
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 03:58:11 -0700 (PDT)
+In-Reply-To: <56FC7A96.9070002@uclinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andy,
+Hi Greg,
 
-On Wed, Mar 30, 2016 at 10:41 PM, Fugang Duan <fugang.duan@nxp.com> wrote:
->
-> Fabio, we cannot do it like this that may cause confused for the quirk flag "FEC_QUIRK_HAS_RACC".
+On Wed, Mar 30, 2016 at 10:17 PM, Greg Ungerer <gerg@uclinux.org> wrote:
 
-We can treat FEC_QUIRK_HAS_RACC flag as "this is a non-Coldfire SoC".
+> Yes, that fixes it. Will you carry this change?
 
->
->
-> Hi, Greg,
->
-> The header file fec.h define the FEC_FTRL as below,  if ColdFire SoC has no this register,  we may remove the define in here and define the register according to SOC type. For example, it is ColdFire Soc, define it as 0xFFF. Is it  feasible ?
->
+Thanks for confirming.
 
-This is even worse IMHO. We should not write to a 'fake' register
-offset of 0xFFF.
+Yes, I will submit it later today;
