@@ -1,39 +1,65 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 0/5] wireless: ti: Convert specialized logging macros to kernel style
-Date: Thu, 31 Mar 2016 10:39:40 +0300
-Message-ID: <87y48z3xkz.fsf@purkki.adurom.net>
-References: <cover.1457395071.git.joe@perches.com>
-	<87shz85gkq.fsf@purkki.adurom.net>
-	<1459373791.25110.132.camel@perches.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: Fix phy without MDIO subnode
+Date: Thu, 31 Mar 2016 09:40:09 +0200
+Message-ID: <56FCD459.2040406@st.com>
+References: <1458817012-14293-1-git-send-email-john@metanate.com> <56F3E3E2.6070001@st.com> <20160324170119.28d54ed5.john@metanate.com> <56F4F9F6.8070103@st.com> <56FC1972.9050704@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Robert Gadsdon <rhgadsdon@gmail.com>,
+	John Keeping <john@metanate.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459373791.25110.132.camel@perches.com> (Joe Perches's message
-	of "Wed, 30 Mar 2016 14:36:31 -0700")
+In-Reply-To: <56FC1972.9050704@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe@perches.com> writes:
 
-> On Wed, 2016-03-30 at 14:51 +0300, Kalle Valo wrote:
->> Joe Perches <joe@perches.com> writes:
->> > Using the normal kernel logging mechanisms makes this code
->> > a bit more like other wireless drivers.
->> Personally I don't see the point but I don't have any strong opinions. A
->> bigger problem is that TI drivers are not really in active development
->> and that's I'm not thrilled to take big patches like this for dormant
->> drivers.
+Hello Robert
+
+On 3/30/2016 8:22 PM, Robert Gadsdon wrote:
+> I have applied this to my Rock2 - Kernel 4.6-rc1 - and eth0 is present,
+> now, but no network traffic gets through:
+
+there are some patches not yet applied that fix known
+problems
+
+pls take a look at :
+
+"stmmac: MDIO fixes"
+
+and
+
+[PATCH (net-next.git)] STMMAC: fix TX Normal descriptor
+
+peppe
+
 >
-> Not very dormant.
+> To rock2:
+> $ ping rgrock2
+> PING rgrock2 (192.168.0.xx) 56(84) bytes of data.
+> ^C
+> --- rgrock2 ping statistics ---
+> 9 packets transmitted, 0 received, 100% packet loss, time 7999ms
 >
-> 35 patches in the last year, most of them adding functionality.
-
-Oh, I didn't realise it had that many patches. But the driver is
-orphaned and doesn't have a maintainer so could I then have an ack from
-one of the active contributors that this ok?
-
--- 
-Kalle Valo
+>>From rock2:
+> # ping 192.168.0.x
+> PING 192.168.0.x (192.168.0.2) 56(84) bytes of data.
+>>From 192.168.0.xx icmp_seq=1 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=2 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=3 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=4 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=5 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=6 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=7 Destination Host Unreachable
+>>From 192.168.0.xx icmp_seq=8 Destination Host Unreachable
+>
+> --- 192.168.0.x ping statistics ---
+> 9 packets transmitted, 0 received, +8 errors, 100% packet loss, time 8001ms
+>
+> Everything worked OK with kernel 4.5-rc7, and with 4.5 Final with the
+> -rc7 versions of stmmac_platform.c and stmmac_mdio.c substituted..
+>
+> Robert Gadsdon. March 30, 2016
+>
