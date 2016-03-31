@@ -1,45 +1,55 @@
-From: Mr Tony Hope <Hope@hikksks.website.tk>
-Subject: Urgent Founds!!
-Date: Thu, 31 Mar 2016 23:21:44 +0100
-Message-ID: <AMSPR02MB2139207B83BFB2181DBB8DBE6990@AMSPR02MB213.eurprd02.prod.outlook.com>
-Reply-To: <dipltonyhope@photofile.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: DHS <Hope@hikksks.website.tk>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net 0/4] net: fix and tighten rcu dereference checks
+Date: Fri,  1 Apr 2016 01:29:38 +0200
+Message-ID: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org, sasha.levin@oracle.com,
+	daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+	mkubecek@suse.cz
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1hn0252.outbound.protection.outlook.com ([157.56.112.252]:29847
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753934AbcCaXHZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:07:25 -0400
-Content-Description: Mail message body
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:38636 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753103AbcCaX3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:29:53 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 07C8021B46
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 19:29:52 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 	
-Urgent Founds!!
+Only the first patch is really applicable for stable. It adds appropriate
+socket locks so lockdep doesn't complain if tuntap's ioctls modify the
+filters on the socket.
 
-We wish to inform you that your over due Inheritance funds which we agreed to pay you in cash is already sealed and package with a security proof box. The funds worth of $7.5 millions US Dollar,in the package will be conveyed to you by an Int'l diplomatic agent, Mr. Tony Hope.
+Rest of the patches tighten the rcu dereference socket lock checks.
 
-He will be leaving for your country any time from now, therefore reach us with the details below.
+Last patch fixes missing rcu_read_locks which were discovered by this
+change. Certainly there are more to come.
 
-Using a Diplomatic agent this time is because of the failure that were recorded in the other transfer options. Just try and give the diplomat your information and offer him all assistance he may need, especially directive assistance so that he will be able to get your consignment box to you in the couple of days.
+Hannes Frederic Sowa (4):
+  tun: add socket locking around sk_{attach,detach}_filter
+  net: proper check if we hold the socket lock during dereference
+  sock: use lockdep_sock_is_held were appropriate
+  tcp: various missing rcu_read_lock around __sk_dst_get
 
-Please contact him with your full information, such as your.
+ drivers/net/tun.c        | 12 ++++++++++++
+ include/net/sock.h       | 10 ++++++++--
+ include/net/tcp.h        |  5 ++++-
+ net/core/filter.c        |  6 +++---
+ net/core/sock.c          |  7 +++++--
+ net/dccp/ipv4.c          |  2 +-
+ net/dccp/ipv6.c          |  2 +-
+ net/ipv4/af_inet.c       |  2 +-
+ net/ipv4/cipso_ipv4.c    |  3 ++-
+ net/ipv4/ip_sockglue.c   |  4 ++--
+ net/ipv4/tcp_input.c     | 18 ++++++++++++++----
+ net/ipv4/tcp_ipv4.c      |  8 +++-----
+ net/ipv4/tcp_metrics.c   | 12 +++++-------
+ net/ipv4/tcp_output.c    | 22 ++++++++++++++++++++--
+ net/ipv6/ipv6_sockglue.c |  6 ++++--
+ net/ipv6/tcp_ipv6.c      |  2 +-
+ net/socket.c             |  2 +-
+ 17 files changed, 87 insertions(+), 36 deletions(-)
 
-1) Full name: ......
-2) Resident address:......
-3) Phone number:.....
-4) The name of your nearest airport:....
-Send him the information above for him to locate your home with your package.
-
-Below is some of his contact information:
-
-Name: Mr Tony Hope
-Email: (dipltonyhope@photofile.ru)Phone numbers:
-+229-99 22 69 25
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+-- 
+2.5.5
