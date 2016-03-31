@@ -1,39 +1,124 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] net: w5100: enable to support sleepable register
- access interface
-Date: Thu, 31 Mar 2016 15:30:40 -0400 (EDT)
-Message-ID: <20160331.153040.1786802199114216613.davem@davemloft.net>
-References: <1459355920-14623-1-git-send-email-akinobu.mita@gmail.com>
-	<1459355920-14623-3-git-send-email-akinobu.mita@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
+ tun_{attach,detach}_filter
+Date: Thu, 31 Mar 2016 12:31:56 -0700
+Message-ID: <20160331193154.GA63937@ast-mbp.thefacebook.com>
+References: <56FD0B79.5020007@iogearbox.net>
+ <1459425558.6473.229.camel@edumazet-glaptop3.roam.corp.google.com>
+ <56FD1512.70409@iogearbox.net>
+ <20160331.152149.396188904137423987.davem@davemloft.net>
+ <56FD795C.9090903@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, msink@permonline.ru
-To: akinobu.mita@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, daniel@iogearbox.net,
+	eric.dumazet@gmail.com, mkubecek@suse.cz, sasha.levin@oracle.com,
+	jslaby@suse.cz, mst@redhat.com, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57854 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbcCaTam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:30:42 -0400
-In-Reply-To: <1459355920-14623-3-git-send-email-akinobu.mita@gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33163 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756656AbcCaTcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:32:00 -0400
+Received: by mail-pa0-f52.google.com with SMTP id zm5so72793809pac.0
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 12:32:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <56FD795C.9090903@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Thu, 31 Mar 2016 01:38:39 +0900
+On Thu, Mar 31, 2016 at 09:24:12PM +0200, Hannes Frederic Sowa wrote:
+> Hello,
+> 
+> On 31.03.2016 21:21, David Miller wrote:
+> >From: Daniel Borkmann <daniel@iogearbox.net>
+> >Date: Thu, 31 Mar 2016 14:16:18 +0200
+> >
+> >>On 03/31/2016 01:59 PM, Eric Dumazet wrote:
+> >>>On Thu, 2016-03-31 at 13:35 +0200, Daniel Borkmann wrote:
+> >>>
+> >>>>+static inline bool sock_owned_externally(const struct sock *sk)
+> >>>>+{
+> >>>>+	return sk->sk_flags & (1UL << SOCK_EXTERNAL_OWNER);
+> >>>>+}
+> >>>>+
+> >>>
+> >>>Have you reinvented sock_flag(sl, SOCK_EXTERNAL_OWNER) ? ;)
+> >>>
+> >>>Anyway, using a flag for this purpose sounds overkill to me.
+> >>
+> >>Right.
+> >>
+> >>>Setting it is a way to 'fool' lockdep anyway...
+> >>
+> >>Yep, correct, we'd be fooling the tun case, so this diff doesn't
+> >>really make it any better there.
+> >
+> >I like the currently proposed patch where TUN says that RTNL is what
+> >the synchronizing element is.
+> >
+> >Maybe we could make a helper of some sort but since we only have once
+> >case like this is just overkill.
+> >
+> >Alexei, do you really mind if I apply Danile's patch?
 
-> +	struct sk_buff_head tx_queue;
+I don't have strong opinion either way.
+Though Hannes's patch below looks simpler and easier to backport.
+Yeah, I do care about backports quite a bit more nowadays :)
 
-The way the queueing works in this driver is that it is only possible
-to have one SKB being transmitted at one time.
-
-This is evident by how the driver immediately stops the TX queue when
-it is given a new packet to transmit, and this is woken up by the TX
-completion IRQ.
-
-So don't use a queue here, just use a plain single pointer.
-
-The SKB queue you're using here is going to also do locking which is
-even more unnecessary overhead.
-
-Thanks.
+> I proposed the following patch to Daniel and he seemed to like it. I
+> was just waiting for his feedback and tags and wanted to send it out
+> then.
+> 
+> What do you think?
+> 
+> lockdep_sock_is_held does also have some other applications in other
+> parts of the source.
+> 
+> Bye,
+> Hannes
+> 
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 255d3e03727b73..651b84a38cfb9b 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1330,6 +1330,12 @@ static inline void sock_release_ownership(struct sock
+> *sk)
+>  	sk->sk_lock.owned = 0;
+>  }
+> 
+> +static inline bool lockdep_sock_is_held(struct sock *sk)
+> +{
+> +	return lockdep_is_held(&sk->sk_lock) ||
+> +	       lockdep_is_held(&sk->sk_lock.slock);
+> +}
+> +
+>  /*
+>   * Macro so as to not evaluate some arguments when
+>   * lockdep is not enabled.
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 4b81b71171b4ce..8ab270d5ce5507 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -1166,7 +1166,8 @@ static int __sk_attach_prog(struct bpf_prog *prog,
+> struct sock *sk)
+>  	}
+> 
+>  	old_fp = rcu_dereference_protected(sk->sk_filter,
+> -					   sock_owned_by_user(sk));
+> +					   lockdep_rtnl_is_held() ||
+> +					   lockdep_sock_is_held(sk));
+>  	rcu_assign_pointer(sk->sk_filter, fp);
+> 
+>  	if (old_fp)
+> @@ -2259,7 +2260,9 @@ int sk_detach_filter(struct sock *sk)
+>  		return -EPERM;
+> 
+>  	filter = rcu_dereference_protected(sk->sk_filter,
+> -					   sock_owned_by_user(sk));
+> +					   lockdep_rtnl_is_held() ||
+> +					   lockdep_sock_is_held(sk));
+> +
+>  	if (filter) {
+>  		RCU_INIT_POINTER(sk->sk_filter, NULL);
+>  		sk_filter_uncharge(sk, filter);
+> 
