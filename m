@@ -1,8 +1,9 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 4/8] sock: accept SO_TIMESTAMPING flags in socket cmsg
-Date: Wed, 30 Mar 2016 23:36:30 -0400
-Message-ID: <CAF=yD-+M1EPLXBpQDO3TczhXZJWJ7=b89nGfzC0ui_W6wW_eBw@mail.gmail.com>
-References: <1459377448-2239-1-git-send-email-soheil.kdev@gmail.com> <1459377448-2239-5-git-send-email-soheil.kdev@gmail.com>
+Subject: Re: [PATCH net-next 5/8] ipv4: process socket-level control messages
+ in IPv4
+Date: Wed, 30 Mar 2016 23:36:55 -0400
+Message-ID: <CAF=yD-LH2dzfYJmKskqVVjenjAqW4MBAe1N3tA_tO77wQMDCbg@mail.gmail.com>
+References: <1459377448-2239-1-git-send-email-soheil.kdev@gmail.com> <1459377448-2239-6-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -15,13 +16,13 @@ Cc: David Miller <davem@davemloft.net>,
 	Soheil Hassas Yeganeh <soheil@google.com>
 To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36261 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760AbcCaDhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 23:37:12 -0400
-Received: by mail-lf0-f66.google.com with SMTP id p81so1382632lfb.3
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 20:37:11 -0700 (PDT)
-In-Reply-To: <1459377448-2239-5-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:36208 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760AbcCaDhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 23:37:36 -0400
+Received: by mail-lb0-f196.google.com with SMTP id q4so5828238lbq.3
+        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 20:37:35 -0700 (PDT)
+In-Reply-To: <1459377448-2239-6-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -29,24 +30,16 @@ On Wed, Mar 30, 2016 at 6:37 PM, Soheil Hassas Yeganeh
 <soheil.kdev@gmail.com> wrote:
 > From: Soheil Hassas Yeganeh <soheil@google.com>
 >
-> Accept SO_TIMESTAMPING in control messages of the SOL_SOCKET level
-> as a basis to accept timestamping requests per write.
+> Process socket-level control messages by invoking
+> __sock_cmsg_send in ip_cmsg_send for control messages on
+> the SOL_SOCKET layer.
 >
-> This implementation only accepts TX recording flags (i.e.,
-> SOF_TIMESTAMPING_TX_HARDWARE, SOF_TIMESTAMPING_TX_SOFTWARE,
-> SOF_TIMESTAMPING_TX_SCHED, and SOF_TIMESTAMPING_TX_ACK) in
-> control messages. Users need to set reporting flags (e.g.,
-> SOF_TIMESTAMPING_OPT_ID) per socket via socket options.
+> This makes sure whenever ip_cmsg_send is called in udp, icmp,
+> and raw, we also process socket-level control messages.
 >
-> This commit adds a tsflags field in sockcm_cookie which is
-> set in __sock_cmsg_send. It only override the SOF_TIMESTAMPING_TX_*
-> bits in sockcm_cookie.tsflags allowing the control message
-> to override the recording behavior per write, yet maintaining
-> the value of other flags.
->
-> This patch implements validating the control message and setting
-> tsflags in struct sockcm_cookie. Next commits in this series will
-> actually implement timestamping per write for different protocols.
+> Note that this commit interprets new control messages that
+> were ignored before. As such, this commit does not change
+> the behavior of IPv4 control messages.
 >
 > Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 
