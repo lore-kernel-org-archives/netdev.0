@@ -1,54 +1,223 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v1 1/1] lib/utils: fix get_addr() and
- get_prefix() error messages
-Date: Wed, 30 Mar 2016 16:54:20 -0700
-Message-ID: <20160330165420.36f98115@xeon-e3>
-References: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"Szczerbik, PrzemyslawX" <przemyslawx.szczerbik@intel.com>
-To: "Varlese, Marco" <marco.varlese@intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] tun, bpf: fix suspicious RCU usage in tun_{attach,detach}_filter
+Date: Thu, 31 Mar 2016 02:13:18 +0200
+Message-ID: <755ee9ec1f6d2229be41806964b372548e4b7586.1459382574.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, mkubecek@suse.cz,
+	sasha.levin@oracle.com, jslaby@suse.cz, eric.dumazet@gmail.com,
+	mst@redhat.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33142 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457AbcC3XyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 19:54:06 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 4so54734103pfd.0
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 16:54:05 -0700 (PDT)
-In-Reply-To: <C4896FB061E7DE4AAC93031BDCA044B11A2146FF@IRSMSX108.ger.corp.intel.com>
+Received: from www62.your-server.de ([213.133.104.62]:40449 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943AbcCaANW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 20:13:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Mar 2016 13:02:02 +0000
-"Varlese, Marco" <marco.varlese@intel.com> wrote:
+Sasha Levin reported a suspicious rcu_dereference_protected() warning
+found while fuzzing with trinity that is similar to this one:
 
-> An attempt to add invalid address to interface would print "???" string
-> instead of the address family name.
-> 
-> For example:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: ??? prefix is expected rather than "256.10.166.1/24".
-> 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: ??? address is expected rather than "2001:db8::g".
-> 
-> With this patch the output will look like:
-> $ ip address add 256.10.166.1/24 dev ens8
-> Error: inet prefix is expected rather than "256.10.166.1/24".
-> 
-> $ ip neighbor add proxy 2001:db8::g dev ens8
-> Error: inet6 address is expected rather than "2001:db8::g".
-> 
-> Signed-off-by: Przemyslaw Szczerbik <przemyslawx.szczerbik@intel.com>
-> Signed-off-by: Marco Varlese <marco.varlese@intel.com>
-> ---
-> lib/utils.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
+  [   52.765684] net/core/filter.c:2262 suspicious rcu_dereference_protected() usage!
+  [   52.765688] other info that might help us debug this:
+  [   52.765695] rcu_scheduler_active = 1, debug_locks = 1
+  [   52.765701] 1 lock held by a.out/1525:
+  [   52.765704]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff816a64b7>] rtnl_lock+0x17/0x20
+  [   52.765721] stack backtrace:
+  [   52.765728] CPU: 1 PID: 1525 Comm: a.out Not tainted 4.5.0+ #264
+  [...]
+  [   52.765768] Call Trace:
+  [   52.765775]  [<ffffffff813e488d>] dump_stack+0x85/0xc8
+  [   52.765784]  [<ffffffff810f2fa5>] lockdep_rcu_suspicious+0xd5/0x110
+  [   52.765792]  [<ffffffff816afdc2>] sk_detach_filter+0x82/0x90
+  [   52.765801]  [<ffffffffa0883425>] tun_detach_filter+0x35/0x90 [tun]
+  [   52.765810]  [<ffffffffa0884ed4>] __tun_chr_ioctl+0x354/0x1130 [tun]
+  [   52.765818]  [<ffffffff8136fed0>] ? selinux_file_ioctl+0x130/0x210
+  [   52.765827]  [<ffffffffa0885ce3>] tun_chr_ioctl+0x13/0x20 [tun]
+  [   52.765834]  [<ffffffff81260ea6>] do_vfs_ioctl+0x96/0x690
+  [   52.765843]  [<ffffffff81364af3>] ? security_file_ioctl+0x43/0x60
+  [   52.765850]  [<ffffffff81261519>] SyS_ioctl+0x79/0x90
+  [   52.765858]  [<ffffffff81003ba2>] do_syscall_64+0x62/0x140
+  [   52.765866]  [<ffffffff817d563f>] entry_SYSCALL64_slow_path+0x25/0x25
 
-If you look at git, I already applied this by manual fix.
+Same can be triggered with PROVE_RCU (+ PROVE_RCU_REPEATEDLY) enabled
+from tun_attach_filter() when user space calls ioctl(tun_fd, TUN{ATTACH,
+DETACH}FILTER, ...) for adding/removing a BPF filter on tap devices.
+
+Since the fix in f91ff5b9ff52 ("net: sk_{detach|attach}_filter() rcu
+fixes") sk_attach_filter()/sk_detach_filter() now dereferences the
+filter with rcu_dereference_protected(), checking whether socket lock
+is held in control path.
+
+Since its introduction in 994051625981 ("tun: socket filter support"),
+tap filters are managed under RTNL lock from __tun_chr_ioctl(). Thus the
+sock_owned_by_user(sk) doesn't apply in this specific case and therefore
+triggers the false positive.
+
+Extend the BPF API with __sk_attach_filter()/__sk_detach_filter() pair
+that is used by tap filters and pass in lockdep_rtnl_is_held() for the
+rcu_dereference_protected() checks instead.
+
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ drivers/net/tun.c      |  8 +++++---
+ include/linux/filter.h |  4 ++++
+ net/core/filter.c      | 33 +++++++++++++++++++++------------
+ 3 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index afdf950..510e90a 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -622,7 +622,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
+ 
+ 	/* Re-attach the filter to persist device */
+ 	if (!skip_filter && (tun->filter_attached == true)) {
+-		err = sk_attach_filter(&tun->fprog, tfile->socket.sk);
++		err = __sk_attach_filter(&tun->fprog, tfile->socket.sk,
++					 lockdep_rtnl_is_held());
+ 		if (!err)
+ 			goto out;
+ 	}
+@@ -1822,7 +1823,7 @@ static void tun_detach_filter(struct tun_struct *tun, int n)
+ 
+ 	for (i = 0; i < n; i++) {
+ 		tfile = rtnl_dereference(tun->tfiles[i]);
+-		sk_detach_filter(tfile->socket.sk);
++		__sk_detach_filter(tfile->socket.sk, lockdep_rtnl_is_held());
+ 	}
+ 
+ 	tun->filter_attached = false;
+@@ -1835,7 +1836,8 @@ static int tun_attach_filter(struct tun_struct *tun)
+ 
+ 	for (i = 0; i < tun->numqueues; i++) {
+ 		tfile = rtnl_dereference(tun->tfiles[i]);
+-		ret = sk_attach_filter(&tun->fprog, tfile->socket.sk);
++		ret = __sk_attach_filter(&tun->fprog, tfile->socket.sk,
++					 lockdep_rtnl_is_held());
+ 		if (ret) {
+ 			tun_detach_filter(tun, i);
+ 			return ret;
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 43aa1f8..a51a536 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -465,10 +465,14 @@ int bpf_prog_create_from_user(struct bpf_prog **pfp, struct sock_fprog *fprog,
+ void bpf_prog_destroy(struct bpf_prog *fp);
+ 
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++int __sk_attach_filter(struct sock_fprog *fprog, struct sock *sk,
++		       bool locked);
+ int sk_attach_bpf(u32 ufd, struct sock *sk);
+ int sk_reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk);
+ int sk_reuseport_attach_bpf(u32 ufd, struct sock *sk);
+ int sk_detach_filter(struct sock *sk);
++int __sk_detach_filter(struct sock *sk, bool locked);
++
+ int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
+ 		  unsigned int len);
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4b81b71..ca7f832 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1149,7 +1149,8 @@ void bpf_prog_destroy(struct bpf_prog *fp)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_destroy);
+ 
+-static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
++static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk,
++			    bool locked)
+ {
+ 	struct sk_filter *fp, *old_fp;
+ 
+@@ -1165,10 +1166,8 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
+ 		return -ENOMEM;
+ 	}
+ 
+-	old_fp = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
++	old_fp = rcu_dereference_protected(sk->sk_filter, locked);
+ 	rcu_assign_pointer(sk->sk_filter, fp);
+-
+ 	if (old_fp)
+ 		sk_filter_uncharge(sk, old_fp);
+ 
+@@ -1247,7 +1246,8 @@ struct bpf_prog *__get_filter(struct sock_fprog *fprog, struct sock *sk)
+  * occurs or there is insufficient memory for the filter a negative
+  * errno code is returned. On success the return is zero.
+  */
+-int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
++int __sk_attach_filter(struct sock_fprog *fprog, struct sock *sk,
++		       bool locked)
+ {
+ 	struct bpf_prog *prog = __get_filter(fprog, sk);
+ 	int err;
+@@ -1255,7 +1255,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	if (IS_ERR(prog))
+ 		return PTR_ERR(prog);
+ 
+-	err = __sk_attach_prog(prog, sk);
++	err = __sk_attach_prog(prog, sk, locked);
+ 	if (err < 0) {
+ 		__bpf_prog_release(prog);
+ 		return err;
+@@ -1263,7 +1263,12 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(sk_attach_filter);
++EXPORT_SYMBOL_GPL(__sk_attach_filter);
++
++int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
++{
++	return __sk_attach_filter(fprog, sk, sock_owned_by_user(sk));
++}
+ 
+ int sk_reuseport_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+@@ -1309,7 +1314,7 @@ int sk_attach_bpf(u32 ufd, struct sock *sk)
+ 	if (IS_ERR(prog))
+ 		return PTR_ERR(prog);
+ 
+-	err = __sk_attach_prog(prog, sk);
++	err = __sk_attach_prog(prog, sk, sock_owned_by_user(sk));
+ 	if (err < 0) {
+ 		bpf_prog_put(prog);
+ 		return err;
+@@ -2250,7 +2255,7 @@ static int __init register_sk_filter_ops(void)
+ }
+ late_initcall(register_sk_filter_ops);
+ 
+-int sk_detach_filter(struct sock *sk)
++int __sk_detach_filter(struct sock *sk, bool locked)
+ {
+ 	int ret = -ENOENT;
+ 	struct sk_filter *filter;
+@@ -2258,8 +2263,7 @@ int sk_detach_filter(struct sock *sk)
+ 	if (sock_flag(sk, SOCK_FILTER_LOCKED))
+ 		return -EPERM;
+ 
+-	filter = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
++	filter = rcu_dereference_protected(sk->sk_filter, locked);
+ 	if (filter) {
+ 		RCU_INIT_POINTER(sk->sk_filter, NULL);
+ 		sk_filter_uncharge(sk, filter);
+@@ -2268,7 +2272,12 @@ int sk_detach_filter(struct sock *sk)
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(sk_detach_filter);
++EXPORT_SYMBOL_GPL(__sk_detach_filter);
++
++int sk_detach_filter(struct sock *sk)
++{
++	return __sk_detach_filter(sk, sock_owned_by_user(sk));
++}
+ 
+ int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
+ 		  unsigned int len)
+-- 
+1.9.3
