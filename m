@@ -1,43 +1,78 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
- tun_{attach,detach}_filter
-Date: Thu, 31 Mar 2016 15:50:32 -0400 (EDT)
-Message-ID: <20160331.155032.901890572470890195.davem@davemloft.net>
-References: <56FD795C.9090903@stressinduktion.org>
-	<20160331.153630.1640223846173244431.davem@davemloft.net>
-	<56FD7F0B.5090602@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id
+ and sender_cpu
+Date: Thu, 31 Mar 2016 16:01:15 -0400 (EDT)
+Message-ID: <20160331.160115.1737831060132252055.davem@davemloft.net>
+References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
+	<1459403439-6011-2-git-send-email-jasowang@redhat.com>
+	<1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, eric.dumazet@gmail.com,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz,
-	sasha.levin@oracle.com, jslaby@suse.cz, mst@redhat.com,
-	netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: jasowang@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58162 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58373 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752578AbcCaTue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 15:50:34 -0400
-In-Reply-To: <56FD7F0B.5090602@stressinduktion.org>
+	with ESMTP id S1752578AbcCaUBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 16:01:17 -0400
+In-Reply-To: <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 31 Mar 2016 21:48:27 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 31 Mar 2016 03:32:21 -0700
 
-> Tightest solution would probably be to combine both patches.
+> On Thu, 2016-03-31 at 13:50 +0800, Jason Wang wrote:
+>> We use a union for napi_id and send_cpu, this is ok for most of the
+>> cases except when we want to support busy polling for tun which needs
+>> napi_id to be stored and passed to socket during tun_net_xmit(). In
+>> this case, napi_id was overridden with sender_cpu before tun_net_xmit()
+>> was called if XPS was enabled. Fixing by not using union for napi_id
+>> and sender_cpu.
+>> 
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  include/linux/skbuff.h | 10 +++++-----
+>>  1 file changed, 5 insertions(+), 5 deletions(-)
+>> 
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 15d0df9..8aee891 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -743,11 +743,11 @@ struct sk_buff {
+>>  	__u32			hash;
+>>  	__be16			vlan_proto;
+>>  	__u16			vlan_tci;
+>> -#if defined(CONFIG_NET_RX_BUSY_POLL) || defined(CONFIG_XPS)
+>> -	union {
+>> -		unsigned int	napi_id;
+>> -		unsigned int	sender_cpu;
+>> -	};
+>> +#if defined(CONFIG_NET_RX_BUSY_POLL)
+>> +	unsigned int		napi_id;
+>> +#endif
+>> +#if defined(CONFIG_XPS)
+>> +	unsigned int		sender_cpu;
+>>  #endif
+>>  	union {
+>>  #ifdef CONFIG_NETWORK_SECMARK
 > 
-> bool called_by_tuntap;
+> Hmmm...
 > 
-> old_fp = rcu_dereference_protected(sk->sk_filter, called_by_tuntap ?
-> lockdep_rtnl_is_held() : lockdep_sock_is_held());
+> This is a serious problem.
+> 
+> Making skb bigger (8 bytes because of alignment) was not considered
+> valid for sender_cpu introduction. We worked quite hard to avoid this,
+> if you take a look at git history :(
+> 
+> Can you describe more precisely the problem and code path ?
 
-Ok, I see what you're saying.
+>From what I can see they are doing busy poll loops in the TX code paths,
+as well as the RX code paths, of vhost.
 
-I misunderstood how the RTNL lockdep checks work and thought we could
-get false positives from other entities taking RTNL.
-
-Can you cook up the combined patch?
-
-Thanks.
+Doing this in the TX side makes little sense to me.  The busy poll
+implementations in the drivers only process their RX queues when
+->ndo_busy_poll() is invoked.  So I wonder what this is accomplishing
+for the vhost TX case?
