@@ -1,78 +1,49 @@
-From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
-Subject: [PATCH v2] rds: rds-stress show all zeros after few minutes
-Date: Thu, 31 Mar 2016 02:29:22 -0400
-Message-ID: <1459405762-29778-1-git-send-email-shamir.rabinovitch@oracle.com>
-Cc: davem@davemloft.net, shamir.rabinovitch@oracle.com
-To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: [PATCH] fec: Do not access unexisting register in Coldfire
+Date: Thu, 31 Mar 2016 12:05:17 -0300
+Message-ID: <1459436717-12809-1-git-send-email-festevam@gmail.com>
+Cc: fugang.duan@nxp.com, troy.kisky@boundarydevices.com,
+	gerg@uclinux.org, netdev@vger.kernel.org,
+	Fabio Estevam <fabio.estevam@nxp.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:36753 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753530AbcCaOdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 10:33:14 -0400
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:36150 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756317AbcCaPF7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 11:05:59 -0400
+Received: by mail-yw0-f181.google.com with SMTP id g3so100861931ywa.3
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 08:05:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Issue can be seen on platforms that use 8K and above page size
-while rds fragment size is 4K. On those platforms single page is
-shared between 2 or more rds fragments. Each fragment has its own
-offset and rds congestion map code need to take this offset to account.
-Not taking this offset to account lead to reading the data fragment
-as congestion map fragment and hang of the rds transmit due to far
-congestion map corruption.
+From: Fabio Estevam <fabio.estevam@nxp.com>
 
-Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+Commit 55cd48c821de ("net: fec: stop the "rcv is not +last, " error
+messages") introduces a write to a register that does not exist in
+Coldfire.
 
-Reviewed-by: Wengang Wang <wen.gang.wang@oracle.com>
-Reviewed-by: Ajaykumar Hotchandani <ajaykumar.hotchandani@oracle.com>
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Tested-by: Anand Bibhuti <anand.bibhuti@oracle.com>
+Move the FEC_FTRL register access inside the FEC_QUIRK_HAS_RACC 'if' block,
+so that we guarantee it will not be used on Coldfire CPUs.
+
+Reported-by: Greg Ungerer <gerg@uclinux.org>
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
 ---
- net/rds/ib_recv.c |    2 +-
- net/rds/iw_recv.c |    2 +-
- net/rds/page.c    |    5 +++--
- 3 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 977fb86..abc8cc8 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -796,7 +796,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 37c0815..08243c2 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -943,8 +943,8 @@ fec_restart(struct net_device *ndev)
+ 		else
+ 			val &= ~FEC_RACC_OPTIONS;
+ 		writel(val, fep->hwp + FEC_RACC);
++		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+ 	}
+-	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
+ #endif
  
- 		addr = kmap_atomic(sg_page(&frag->f_sg));
- 
--		src = addr + frag_off;
-+		src = addr + frag->f_sg.offset + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
- 		for (k = 0; k < to_copy; k += 8) {
- 			/* Record ports that became uncongested, ie
-diff --git a/net/rds/iw_recv.c b/net/rds/iw_recv.c
-index a66d179..62a1738 100644
---- a/net/rds/iw_recv.c
-+++ b/net/rds/iw_recv.c
-@@ -585,7 +585,7 @@ static void rds_iw_cong_recv(struct rds_connection *conn,
- 
- 		addr = kmap_atomic(frag->f_page);
- 
--		src = addr + frag_off;
-+		src = addr +  frag->f_offset + frag_off;
- 		dst = (void *)map->m_page_addrs[map_page] + map_off;
- 		for (k = 0; k < to_copy; k += 8) {
- 			/* Record ports that became uncongested, ie
-diff --git a/net/rds/page.c b/net/rds/page.c
-index 5a14e6d..715cbaa 100644
---- a/net/rds/page.c
-+++ b/net/rds/page.c
-@@ -135,8 +135,9 @@ int rds_page_remainder_alloc(struct scatterlist *scat, unsigned long bytes,
- 			if (rem->r_offset != 0)
- 				rds_stats_inc(s_page_remainder_hit);
- 
--			rem->r_offset += bytes;
--			if (rem->r_offset == PAGE_SIZE) {
-+			/* some hw (e.g. sparc) require aligned memory */
-+			rem->r_offset += ALIGN(bytes, 8);
-+			if (rem->r_offset >= PAGE_SIZE) {
- 				__free_page(rem->r_page);
- 				rem->r_page = NULL;
- 			}
+ 	/*
 -- 
-1.7.1
+1.9.1
