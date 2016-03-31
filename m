@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: usb: cdc_ncm: adding Telit LE910 V2 mobile
- broadband card
-Date: Thu, 31 Mar 2016 16:51:38 -0400 (EDT)
-Message-ID: <20160331.165138.1846092223088368562.davem@davemloft.net>
-References: <1459430207-11757-1-git-send-email-dnlplm@gmail.com>
-	<1459430207-11757-2-git-send-email-dnlplm@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org, bjorn@mork.no
-To: dnlplm@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59163 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932260AbcCaUvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 16:51:45 -0400
-In-Reply-To: <1459430207-11757-2-git-send-email-dnlplm@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 0/6] net: dsa: mv88e6131: HW bridging support for 6185
+Date: Thu, 31 Mar 2016 16:53:40 -0400
+Message-ID: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniele Palmas <dnlplm@gmail.com>
-Date: Thu, 31 Mar 2016 15:16:47 +0200
+All packets passing through a switch of the 6185 family are currently all
+directed to the CPU port. This means that port bridging is software driven.
 
-> Telit LE910 V2 is a mobile broadband card with no ARP capabilities:
-> the patch makes this device to use wwan_noarp_info struct
-> 
-> Signed-off-by: Daniele Palmas <dnlplm@gmail.com>
+To enable hardware bridging for this switch family, we need to implement the
+port mapping operations, the FDB operations, and optionally the VLAN operations
+(for 802.1Q and VLAN filtering aware systems).
 
-Bjorn, can you take a quick look at this?
+However this family only has 256 FDBs indexed by 8-bit identifiers, opposed to
+4096 FDBs with 12-bit identifiers for other families such as 6352. It also
+doesn't have dedicated FID registers for ATU and VTU operations.
 
-Thank you.
+This patchset fixes these differences, and enable hardware bridging for 6185.
+
+Changes v1 -> v2:
+ - Describe the different numbers of databases and prefer a feature-based logic
+   over the current ID/family-based logic.
+
+Vivien Didelot (6):
+  net: dsa: mv88e6xxx: protect SID register access
+  net: dsa: mv88e6xxx: protect FID registers access
+  net: dsa: mv88e6xxx: variable number of databases
+  net: dsa: mv88e6xxx: support 256 databases
+  net: dsa: mv88e6xxx: map destination addresses for 6185
+  net: dsa: mv88e6131: enable hardware bridging
+
+ drivers/net/dsa/mv88e6131.c |  11 ++++
+ drivers/net/dsa/mv88e6xxx.c | 134 +++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 118 insertions(+), 27 deletions(-)
+
+-- 
+2.7.4
