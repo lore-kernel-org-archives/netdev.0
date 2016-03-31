@@ -1,62 +1,42 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH v2] i40e/i40evf: Limit TSO to 7 descriptors for
- payload instead of 8 per packet
-Date: Thu, 31 Mar 2016 15:09:13 -0700
-Message-ID: <CAKgT0UeBoTEkPrvuzawh8mxZHcaFx8z-AFSG=t_=K1LmG2mthg@mail.gmail.com>
-References: <20160330231116.12643.59554.stgit@localhost.localdomain>
-	<20160331150438.00005617@unknown>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: qdisc spin lock
+Date: Thu, 31 Mar 2016 15:16:22 -0700
+Message-ID: <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
+References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Michael Ma <make0818@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:35172 "EHLO
-	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757259AbcCaWJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:09:14 -0400
-Received: by mail-io0-f171.google.com with SMTP id g185so131982338ioa.2
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:09:13 -0700 (PDT)
-In-Reply-To: <20160331150438.00005617@unknown>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:33192 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757665AbcCaWQX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:16:23 -0400
+Received: by mail-yw0-f177.google.com with SMTP id h65so117184606ywe.0
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:16:22 -0700 (PDT)
+In-Reply-To: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 31, 2016 at 3:04 PM, Jesse Brandeburg
-<jesse.brandeburg@intel.com> wrote:
-> On Wed, 30 Mar 2016 16:15:37 -0700
-> Alexander Duyck <aduyck@mirantis.com> wrote:
->
->> This patch addresses a bug introduced based on my interpretation of the
->> XL710 datasheet.  Specifically section 8.4.1 states that "A single transmit
->> packet may span up to 8 buffers (up to 8 data descriptors per packet
->> including both the header and payload buffers)."  It then later goes on to
->> say that each segment for a TSO obeys the previous rule, however it then
->> refers to TSO header and the segment payload buffers.
->>
->> I believe the actual limit for fragments with TSO and a skbuff that has
->> payload data in the header portion of the buffer is actually only 7
->> fragments as the skb->data portion counts as 2 buffers, one for the TSO
->> header, and one for a segment payload buffer.
->>
->> Fixes: 2d37490b82af ("i40e/i40evf: Rewrite logic for 8 descriptor per packet check")
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>
->> v2: I realized that I overlooked the check in the inline function and as a
->>     result we were still allowing for cases where 8 descriptors were being
->>     used per packet and this would result in 9 DMA buffers.  I updated the
->>     code so that we only allow 8 in the case of a single send, otherwise we
->>     go into the function that walks the frags to verify each block.
->>
->> I have tested this using rds-stress and it seems to run traffic without
->> throwing any errors.
->
-> Looking like it is working for me too with at least the PF.
+On Wed, Mar 30, 2016 at 12:20 AM, Michael Ma <make0818@gmail.com> wrote=
+:
+> As far as I understand the design of TC is to simplify locking schema
+> and minimize the work in __qdisc_run so that throughput won=E2=80=99t=
+ be
+> affected, especially with large packets. However if the scenario is
+> that multiple classes in the queueing discipline only have the shapin=
+g
+> limit, there isn=E2=80=99t really a necessary correlation between dif=
+ferent
+> classes. The only synchronization point should be when the packet is
+> dequeued from the qdisc queue and enqueued to the transmit queue of
+> the device. My question is =E2=80=93 is it worth investing on avoidin=
+g the
+> locking contention by partitioning the queue/lock so that this
+> scenario is addressed with relatively smaller latency?
 
-I was testing PF <-> VF in my environment so I think I ended up
-covering both in my test at least.
-
-- Alex
+If your HTB classes don't share bandwidth, why do you still make them
+under the same hierarchy? IOW, you can just isolate them either with so=
+me
+other qdisc or just separated interfaces.
