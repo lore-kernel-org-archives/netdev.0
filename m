@@ -1,118 +1,84 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net 1/4] tun: add socket locking around sk_{attach,detach}_filter
-Date: Fri,  1 Apr 2016 01:29:39 +0200
-Message-ID: <1459466982-20432-2-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net 2/4] net: proper check if we hold the socket lock during dereference
+Date: Fri,  1 Apr 2016 01:29:40 +0200
+Message-ID: <1459466982-20432-3-git-send-email-hannes@stressinduktion.org>
 References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
 Cc: netdev@vger.kernel.org, sasha.levin@oracle.com,
 	daniel@iogearbox.net, alexei.starovoitov@gmail.com,
 	mkubecek@suse.cz
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:59112 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57884 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753103AbcCaX3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:29:54 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 08DA221A56
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 19:29:54 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1753103AbcCaX34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 19:29:56 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id F0ACC2194A
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 19:29:55 -0400 (EDT)
 In-Reply-To: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Changelog stolen from Daniel Borkmann:]
+lockdep_sock_is_held makes sure that we currently own the
+lock. sock_owned_by_user simply checks if a user holds the socket. This
+could lead to non deterministic lock checks.
 
-Sasha Levin reported a suspicious rcu_dereference_protected() warning
-found while fuzzing with trinity that is similar to this one:
-
-  [   52.765684] net/core/filter.c:2262 suspicious rcu_dereference_protected() usage!
-  [   52.765688] other info that might help us debug this:
-  [   52.765695] rcu_scheduler_active = 1, debug_locks = 1
-  [   52.765701] 1 lock held by a.out/1525:
-  [   52.765704]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff816a64b7>] rtnl_lock+0x17/0x20
-  [   52.765721] stack backtrace:
-  [   52.765728] CPU: 1 PID: 1525 Comm: a.out Not tainted 4.5.0+ #264
-  [...]
-  [   52.765768] Call Trace:
-  [   52.765775]  [<ffffffff813e488d>] dump_stack+0x85/0xc8
-  [   52.765784]  [<ffffffff810f2fa5>] lockdep_rcu_suspicious+0xd5/0x110
-  [   52.765792]  [<ffffffff816afdc2>] sk_detach_filter+0x82/0x90
-  [   52.765801]  [<ffffffffa0883425>] tun_detach_filter+0x35/0x90 [tun]
-  [   52.765810]  [<ffffffffa0884ed4>] __tun_chr_ioctl+0x354/0x1130 [tun]
-  [   52.765818]  [<ffffffff8136fed0>] ? selinux_file_ioctl+0x130/0x210
-  [   52.765827]  [<ffffffffa0885ce3>] tun_chr_ioctl+0x13/0x20 [tun]
-  [   52.765834]  [<ffffffff81260ea6>] do_vfs_ioctl+0x96/0x690
-  [   52.765843]  [<ffffffff81364af3>] ? security_file_ioctl+0x43/0x60
-  [   52.765850]  [<ffffffff81261519>] SyS_ioctl+0x79/0x90
-  [   52.765858]  [<ffffffff81003ba2>] do_syscall_64+0x62/0x140
-  [   52.765866]  [<ffffffff817d563f>] entry_SYSCALL64_slow_path+0x25/0x25
-
-Same can be triggered with PROVE_RCU (+ PROVE_RCU_REPEATEDLY) enabled
-from tun_attach_filter() when user space calls ioctl(tun_fd, TUN{ATTACH,
-DETACH}FILTER, ...) for adding/removing a BPF filter on tap devices.
-
-Since the fix in commit f91ff5b9ff52 ("net: sk_{detach|attach}_filter()
-rcu fixes") sk_attach_filter()/sk_detach_filter() now dereferences the
-filter with rcu_dereference_protected(), checking whether socket lock
-is held in control path.
-
-Since its introduction in commit 994051625981 ("tun: socket
-filter support"), tap filters are managed under RTNL lock from
-__tun_chr_ioctl(). Thus the sock_owned_by_user(sk) doesn't apply in this
-specific case and therefore triggers the false positive.
-
-Simply holding the locks during the filter updates will fix this problem.
-
-Fixes: 994051625981 ("tun: socket filter support")
 Reported-by: Sasha Levin <sasha.levin@oracle.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Cc: Michal Kubecek <mkubecek@suse.cz>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/tun.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ include/net/sock.h | 5 +++++
+ net/core/filter.c  | 6 +++---
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index afdf950617c36e..dccbbacbbc7f02 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -622,7 +622,11 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 255d3e03727b73..30f9b5ad0a82ef 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1382,6 +1382,11 @@ static inline void unlock_sock_fast(struct sock *sk, bool slow)
+ 		spin_unlock_bh(&sk->sk_lock.slock);
+ }
  
- 	/* Re-attach the filter to persist device */
- 	if (!skip_filter && (tun->filter_attached == true)) {
-+		bool slow;
-+
-+		slow = lock_sock_fast(tfile->socket.sk);
- 		err = sk_attach_filter(&tun->fprog, tfile->socket.sk);
-+		unlock_sock_fast(tfile->socket.sk, slow);
- 		if (!err)
- 			goto out;
- 	}
-@@ -1821,8 +1825,12 @@ static void tun_detach_filter(struct tun_struct *tun, int n)
- 	struct tun_file *tfile;
++static bool lockdep_sock_is_held(struct sock *sk)
++{
++	return lockdep_is_held(&sk->sk_lock) ||
++	       lockdep_is_held(&sk->sk_lock.slock);
++}
  
- 	for (i = 0; i < n; i++) {
-+		bool slow;
-+
- 		tfile = rtnl_dereference(tun->tfiles[i]);
-+		slow = lock_sock_fast(tfile->socket.sk);
- 		sk_detach_filter(tfile->socket.sk);
-+		unlock_sock_fast(tfile->socket.sk, slow);
+ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		      struct proto *prot, int kern);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4b81b71171b4ce..e8486ba601eae7 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1166,7 +1166,7 @@ static int __sk_attach_prog(struct bpf_prog *prog, struct sock *sk)
  	}
  
- 	tun->filter_attached = false;
-@@ -1834,8 +1842,12 @@ static int tun_attach_filter(struct tun_struct *tun)
- 	struct tun_file *tfile;
+ 	old_fp = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
++					   lockdep_sock_is_held(sk));
+ 	rcu_assign_pointer(sk->sk_filter, fp);
  
- 	for (i = 0; i < tun->numqueues; i++) {
-+		bool slow;
-+
- 		tfile = rtnl_dereference(tun->tfiles[i]);
-+		slow = lock_sock_fast(tfile->socket.sk);
- 		ret = sk_attach_filter(&tun->fprog, tfile->socket.sk);
-+		unlock_sock_fast(tfile->socket.sk, slow);
- 		if (ret) {
- 			tun_detach_filter(tun, i);
- 			return ret;
+ 	if (old_fp)
+@@ -2259,7 +2259,7 @@ int sk_detach_filter(struct sock *sk)
+ 		return -EPERM;
+ 
+ 	filter = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
++					   lockdep_sock_is_held(sk));
+ 	if (filter) {
+ 		RCU_INIT_POINTER(sk->sk_filter, NULL);
+ 		sk_filter_uncharge(sk, filter);
+@@ -2279,7 +2279,7 @@ int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
+ 
+ 	lock_sock(sk);
+ 	filter = rcu_dereference_protected(sk->sk_filter,
+-					   sock_owned_by_user(sk));
++					   lockdep_sock_is_held(sk));
+ 	if (!filter)
+ 		goto out;
+ 
 -- 
 2.5.5
