@@ -1,38 +1,56 @@
-From: =?gb2312?B?1cXKpL7Z?= <zhangshengju@cmss.chinamobile.com>
-Subject: Re: [net-next] bond: output message before setting slave to inactive
-Date: Thu, 31 Mar 2016 09:23:01 +0800
-Message-ID: <000401d18aeb$de199060$9a4cb120$@cmss.chinamobile.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+Date: Thu, 31 Mar 2016 01:41:57 +0000
+Message-ID: <VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <56FB46EA.7050401@uclinux.org>
+ <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: 7bit
-Cc: <j.vosburgh@gmail.com>, <vfalico@gmail.com>,
-	<gospo@cumulusnetworks.com>, <netdev@vger.kernel.org>
-To: "'David Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Troy Kisky <troy.kisky@boundarydevices.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>, Greg Ungerer <gerg@uclinux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta1.chinamobile.com ([221.176.66.79]:5855 "EHLO
-	cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754213AbcCaBXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Mar 2016 21:23:31 -0400
-Content-Language: en-us
+Received: from mail-db3on0063.outbound.protection.outlook.com ([157.55.234.63]:51520
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751353AbcCaBmB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Mar 2016 21:42:01 -0400
+In-Reply-To: <CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> Date: Tue, 29 Mar 2016 06:32:57 +0000
-> 
-> > This patch moves output message before setting slave to inactive, this
-> > will print the correct status of slave device.
-> >
-> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> 
-> I think the message is in the appropriate spot wrt. state, so I will not
-apply
-> this, thanks.
-
-The message will always print 'backup',  since the code set it to inactive
-before this output.
-I think this will cause a little confused, because even when I detach an
-active slave, the output is always 'backup'.
-
-Thanks.
+RnJvbTogRmFiaW8gRXN0ZXZhbSA8ZmVzdGV2YW1AZ21haWwuY29tPiBTZW50OiBUaHVyc2RheSwg
+TWFyY2ggMzEsIDIwMTYgMjozNyBBTQ0KPiBUbzogR3JlZyBVbmdlcmVyIDxnZXJnQHVjbGludXgu
+b3JnPg0KPiBDYzogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPjsg
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGZlYzog
+c3RvcCB0aGUgInJjdiBpcyBub3QgK2xhc3QsICIgZXJyb3IgbWVzc2FnZXMNCj4gDQo+IEhpIEdy
+ZWcsDQo+IA0KPiBPbiBXZWQsIE1hciAzMCwgMjAxNiBhdCAxMjoyNCBBTSwgR3JlZyBVbmdlcmVy
+IDxnZXJnQHVjbGludXgub3JnPiB3cm90ZToNCj4gPiBIaSBUcm95LA0KPiA+DQo+ID4gQ29tbWl0
+IDU1Y2Q0OGM4ICgnbmV0OiBmZWM6IHN0b3AgdGhlICJyY3YgaXMgbm90ICtsYXN0LCAiIGVycm9y
+DQo+ID4gbWVzc2FnZXMnKSBhZGRzIGEgd3JpdGUgdG8gYSByZWdpc3RlciB0aGF0IGlzIG5vdCBw
+cmVzZW50IGluIGFsbA0KPiA+IGltcGxlbWVudGF0aW9ucyBvZiB0aGUgRkVDIGhhcmR3YXJlIG1v
+ZHVsZS4gTm9uZSBvZiB0aGUgQ29sZEZpcmUgU29DDQo+ID4gcGFydHMgd2l0aCB0aGUgRkVDIG1v
+ZHVsZSBoYXZlIHRoZSBGVFJMICgweDFiMCkgcmVnaXN0ZXIuDQo+ID4NCj4gPiBEb2VzIHRoaXMg
+bmVlZCBhIHF1aXJrIGZsYWcgdG8ga2V5IGFjY2VzcyB0byB0aGlzIHJlZ2lzdGVyIG9mPw0KPiA+
+IE9yIGNhbiB5b3UgcGlnZ3liYWNrIG9uIHRoZSBGRUNfUVVJUktfSEFTX1JBQ0MgZmxhZz8NCj4g
+DQo+IFdvdWxkIHRoZSBjaGFuZ2UgYmVsb3cgd29yayBvbiBDb2xkZmlyZT8NCj4gDQo+IC0tLSBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+IEBAIC05NDMsOCArOTQzLDgg
+QEAgZmVjX3Jlc3RhcnQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYpDQo+ICAgICAgICAgICAgICAg
+ICBlbHNlDQo+ICAgICAgICAgICAgICAgICAgICAgICAgIHZhbCAmPSB+RkVDX1JBQ0NfT1BUSU9O
+UzsNCj4gICAgICAgICAgICAgICAgIHdyaXRlbCh2YWwsIGZlcC0+aHdwICsgRkVDX1JBQ0MpOw0K
+PiAtICAgICAgIH0NCj4gICAgICAgICB3cml0ZWwoUEtUX01BWEJVRl9TSVpFLCBmZXAtPmh3cCAr
+IEZFQ19GVFJMKTsNCj4gKyAgICAgICB9DQo+ICAjZW5kaWYNCj4gDQo+ICAgICAgICAgLyoNCg0K
+RmFiaW8sIHdlIGNhbm5vdCBkbyBpdCBsaWtlIHRoaXMgdGhhdCBtYXkgY2F1c2UgY29uZnVzZWQg
+Zm9yIHRoZSBxdWlyayBmbGFnICJGRUNfUVVJUktfSEFTX1JBQ0MiLg0KDQoNCkhpLCBHcmVnLA0K
+DQpUaGUgaGVhZGVyIGZpbGUgZmVjLmggZGVmaW5lIHRoZSBGRUNfRlRSTCBhcyBiZWxvdywgIGlm
+IENvbGRGaXJlIFNvQyBoYXMgbm8gdGhpcyByZWdpc3RlciwgIHdlIG1heSByZW1vdmUgdGhlIGRl
+ZmluZSBpbiBoZXJlIGFuZCBkZWZpbmUgdGhlIHJlZ2lzdGVyIGFjY29yZGluZyB0byBTT0MgdHlw
+ZS4gRm9yIGV4YW1wbGUsIGl0IGlzIENvbGRGaXJlIFNvYywgZGVmaW5lIGl0IGFzIDB4RkZGLiBJ
+cyBpdCAgZmVhc2libGUgPw0KDQojaWYgZGVmaW5lZChDT05GSUdfTTUyM3gpIHx8IGRlZmluZWQo
+Q09ORklHX001Mjd4KSB8fCBkZWZpbmVkKENPTkZJR19NNTI4eCkgfHwgXA0KICAgIGRlZmluZWQo
+Q09ORklHX001MjB4KSB8fCBkZWZpbmVkKENPTkZJR19NNTMyeCkgfHwgZGVmaW5lZChDT05GSUdf
+QVJNKQ0KLi4uDQojZGVmaW5lIEZFQ19GVFJMICAgICAgICAgICAgICAgIDB4MWIwDQouLi4NCiNl
+bHNlDQouLi4NCiNlbmRpZg0KDQoNClJlZ2FyZHMsDQpBbmR5DQo=
