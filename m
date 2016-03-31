@@ -1,56 +1,100 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] tun, bpf: fix suspicious RCU usage in
- tun_{attach,detach}_filter
-Date: Wed, 30 Mar 2016 22:43:03 -0700
-Message-ID: <20160331054301.GA57227@ast-mbp.thefacebook.com>
-References: <755ee9ec1f6d2229be41806964b372548e4b7586.1459382574.git.daniel@iogearbox.net>
- <20160331011840.GA50846@ast-mbp.thefacebook.com>
- <20160331050115.GA21665@unicorn.suse.cz>
- <20160331050808.GA56499@ast-mbp.thefacebook.com>
- <20160331052232.GB21665@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	sasha.levin@oracle.com, jslaby@suse.cz, eric.dumazet@gmail.com,
-	mst@redhat.com, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:35459 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975AbcCaFnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 01:43:11 -0400
-Received: by mail-pa0-f43.google.com with SMTP id td3so58009089pab.2
-        for <netdev@vger.kernel.org>; Wed, 30 Mar 2016 22:43:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160331052232.GB21665@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next 0/6] net device rx busy polling support in vhost_net
+Date: Thu, 31 Mar 2016 13:50:33 +0800
+Message-ID: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2016 at 07:22:32AM +0200, Michal Kubecek wrote:
-> On Wed, Mar 30, 2016 at 10:08:10PM -0700, Alexei Starovoitov wrote:
-> > On Thu, Mar 31, 2016 at 07:01:15AM +0200, Michal Kubecek wrote:
-> > > On Wed, Mar 30, 2016 at 06:18:42PM -0700, Alexei Starovoitov wrote:
-> > > > 
-> > > > kinda heavy patch to shut up lockdep.
-> > > > Can we do
-> > > > old_fp = rcu_dereference_protected(sk->sk_filter,
-> > > >                                 sock_owned_by_user(sk) || lockdep_rtnl_is_held());
-> > > > and it always be correct?
-> > > > I think right now tun is the only such user, but if it's correct
-> > > > for tun, it's correct for future users too. If not correct then
-> > > > not correct for tun either.
-> > > > Or I'm missing something?
-> > > 
-> > > Already discussed here:
-> > > 
-> > >   http://thread.gmane.org/gmane.linux.kernel/2158069/focus=405853
-> > 
-> > I saw that. My point above was challenging 'less accurate' part.
-> > 
-> Daniel's point was that lockdep_rtnl_is_held() does not mean "we hold
-> RTNL" but "someone holds RTNL" so that some other task holding RTNL at
-> the moment could make the check happy even when called by someone
-> supposed to own the socket.
+Hi all:
 
-Of course... and that is the case for all rtnl_dereference() calls...
-yet we're not paranoid about it.
+This series try to add net device rx busy polling support in
+vhost_net. This is done through:
+
+- adding socket rx busy polling support for tun/macvtap by marking
+  napi_id.
+- vhost_net will try to find the net device through napi_id and do
+  busy polling if possible.
+
+TCP_RR tests on two mlx4s show some improvements:
+
+smp=1 queue=1
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+    1/     1/   +4%/   +3%/   +3%/   +3%/  +22%
+    1/    50/   +2%/   +2%/   +2%/   +2%/    0%
+    1/   100/   +1%/    0%/   +1%/   +1%/   -1%
+    1/   200/   +2%/   +1%/   +2%/   +2%/    0%
+   64/     1/   +1%/   +3%/   +1%/   +1%/   +1%
+   64/    50/    0%/    0%/    0%/    0%/   -1%
+   64/   100/   +1%/    0%/   +1%/   +1%/    0%
+   64/   200/    0%/    0%/   +2%/   +2%/    0%
+  256/     1/   +2%/   +2%/   +2%/   +2%/   +2%
+  256/    50/   +3%/   +3%/   +3%/   +3%/    0%
+  256/   100/   +1%/   +1%/   +2%/   +2%/    0%
+  256/   200/    0%/    0%/   +1%/   +1%/   +1%
+ 1024/     1/   +2%/   +2%/   +2%/   +2%/   +2%
+ 1024/    50/   -1%/   -1%/   -1%/   -1%/   -2%
+ 1024/   100/   +1%/   +1%/    0%/    0%/   -1%
+ 1024/   200/   +2%/   +1%/   +2%/   +2%/    0%
+
+smp=8 queue=1
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+    1/     1/   +1%/   -5%/   +1%/   +1%/    0%
+    1/    50/   +1%/    0%/   +1%/   +1%/   -1%
+    1/   100/   -1%/   -1%/   -2%/   -2%/   -4%
+    1/   200/    0%/    0%/    0%/    0%/   -1%
+   64/     1/   -2%/  -10%/   -2%/   -2%/   -2%
+   64/    50/   -1%/   -1%/   -1%/   -1%/   -2%
+   64/   100/   -1%/    0%/    0%/    0%/   -1%
+   64/   200/   -1%/   -1%/    0%/    0%/    0%
+  256/     1/   +7%/  +25%/   +7%/   +7%/   +7%
+  256/    50/   +2%/   +2%/   +2%/   +2%/   -1%
+  256/   100/   -1%/   -1%/   -1%/   -1%/   -3%
+  256/   200/   +1%/    0%/    0%/    0%/    0%
+ 1024/     1/   +5%/  +15%/   +5%/   +5%/   +4%
+ 1024/    50/    0%/    0%/   -1%/   -1%/   -1%
+ 1024/   100/   -1%/   -1%/   -1%/   -1%/   -2%
+ 1024/   200/   -1%/    0%/   -1%/   -1%/   -1%
+
+smp=8 queue=8
+size/session/+thu%/+normalize%/+tpkts%/+rpkts%/+ioexits%/
+    1/     1/   +5%/   +2%/   +5%/   +5%/    0%
+    1/    50/   +2%/   +2%/   +3%/   +3%/  -20%
+    1/   100/   +5%/   +5%/   +5%/   +5%/  -13%
+    1/   200/   +8%/   +8%/   +6%/   +6%/  -12%
+   64/     1/    0%/   +4%/    0%/    0%/  +18%
+   64/    50/   +6%/   +5%/   +5%/   +5%/   -7%
+   64/   100/   +4%/   +4%/   +5%/   +5%/  -12%
+   64/   200/   +5%/   +5%/   +5%/   +5%/  -12%
+  256/     1/    0%/   -3%/    0%/    0%/   +1%
+  256/    50/   +3%/   +3%/   +3%/   +3%/   -2%
+  256/   100/   +6%/   +5%/   +5%/   +5%/  -11%
+  256/   200/   +4%/   +4%/   +4%/   +4%/  -13%
+ 1024/     1/    0%/   -3%/    0%/    0%/   -6%
+ 1024/    50/   +1%/   +1%/   +1%/   +1%/  -10%
+ 1024/   100/   +4%/   +4%/   +5%/   +5%/  -11%
+ 1024/   200/   +4%/   +5%/   +4%/   +4%/  -12%
+
+Thanks
+
+Jason Wang (6):
+  net: skbuff: don't use union for napi_id and sender_cpu
+  tuntap: socket rx busy polling support
+  macvtap: socket rx busy polling support
+  net: core: factor out core busy polling logic to sk_busy_loop_once()
+  net: export napi_by_id()
+  vhost_net: net device rx busy polling support
+
+ drivers/net/macvtap.c   |  4 ++++
+ drivers/net/tun.c       |  3 ++-
+ drivers/vhost/net.c     | 22 ++++++++++++++++--
+ include/linux/skbuff.h  | 10 ++++----
+ include/net/busy_poll.h |  8 +++++++
+ net/core/dev.c          | 62 ++++++++++++++++++++++++++++---------------------
+ 6 files changed, 75 insertions(+), 34 deletions(-)
+
+-- 
+2.5.0
