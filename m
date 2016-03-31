@@ -1,48 +1,40 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: am335x: no multicast reception over VLAN
-Date: Thu, 31 Mar 2016 12:07:15 +0530
-Message-ID: <56FCC59B.70209@ti.com>
-References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
- <56F9FDD0.8030504@ti.com>
- <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
- <56FA616C.9080502@ti.com>
- <CAGm1_ksvEdk-mF-hW4o5+bri6J6sMgnQQVD3j-e7xm6PsP8k0A@mail.gmail.com>
- <56FA78AA.4030402@ti.com> <56FB6543.9060904@ti.com>
- <CAGm1_kvXA4egrK8-oCedYjvPm7BhJdy_w-5ON24snYdKiN3K7g@mail.gmail.com>
- <56FC0431.5000106@ti.com> <878u0z9297.fsf@dell.be.48ers.dk>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH] net: mvneta: remove useless RX descriptor prefetch
+Date: Thu, 31 Mar 2016 14:36:30 +0800
+Message-ID: <1459406190-2334-1-git-send-email-jszhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Yegor Yefremov <yegorslists@googlemail.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	<drivshin@allworx.com>, <ml@markusgrimm.de>
-To: Peter Korsgaard <peter@korsgaard.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Jisheng Zhang <jszhang@marvell.com>
+To: <thomas.petazzoni@free-electrons.com>,
+	<gregory.clement@free-electrons.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:34420 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755832AbcCaGha (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Mar 2016 02:37:30 -0400
-In-Reply-To: <878u0z9297.fsf@dell.be.48ers.dk>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:21515 "EHLO
+	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752674AbcCaGk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 02:40:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 31 March 2016 01:17 AM, Peter Korsgaard wrote:
->>>>>> "Mugunthan" == Mugunthan V N <mugunthanvnm@ti.com> writes:
-> 
-> Hi,
-> 
->  > You had received these packets as tcpdump will enable promiscuous mode
->  > so that you receive all the packets from the wire.
-> 
-> FYI, you can use the -p option to tcpdump to not put the interface into
-> promiscuous mode.
-> 
+The rx descriptors are allocated using dma_alloc_coherent, so prefetch
+doesn't really happen at all.
 
-Thanks for the information Peter Korsgaard.
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Yegor, can you provide tcpdump using -p as well in Grygorii commands.
-
-Regards
-Mugunthan V N
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 5880871..6c09a27 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -757,7 +757,6 @@ mvneta_rxq_next_desc_get(struct mvneta_rx_queue *rxq)
+ 	int rx_desc = rxq->next_desc_to_proc;
+ 
+ 	rxq->next_desc_to_proc = MVNETA_QUEUE_NEXT_DESC(rxq, rx_desc);
+-	prefetch(rxq->descs + rxq->next_desc_to_proc);
+ 	return rxq->descs + rx_desc;
+ }
+ 
+-- 
+2.8.0.rc3
