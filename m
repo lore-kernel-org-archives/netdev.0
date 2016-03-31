@@ -1,45 +1,29 @@
-From: Guus Sliepen <guus@tinc-vpn.org>
-Subject: Re: Best way to reduce system call overhead for tun device I/O?
-Date: Fri, 1 Apr 2016 00:28:57 +0200
-Message-ID: <20160331222857.GH3771@sliepen.org>
-References: <20160329224043.GY3784@sliepen.org>
- <CALx6S37xsTeDyMHOEiGzjpbR_5zFw6XSDEgPkZqpUzEa9WDStg@mail.gmail.com>
- <20160331.172050.1423948167839485574.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: possible bug in latest network tree
+Date: Thu, 31 Mar 2016 15:34:40 -0700
+Message-ID: <CAM_iQpWHT-iMYm++CroUZO9Czih7xOnbDkauhTP8qhtqHLbpag@mail.gmail.com>
+References: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Light, John J" <john.j.light@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arianus.sliepen.org ([92.243.30.131]:37685 "EHLO
-	arianus.sliepen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757369AbcCaW3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:29:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20160331.172050.1423948167839485574.davem@davemloft.net>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:32906 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932266AbcCaWel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 18:34:41 -0400
+Received: by mail-yw0-f181.google.com with SMTP id h65so118081793ywe.0
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 15:34:41 -0700 (PDT)
+In-Reply-To: <660C7E53FDDFB64C8741117E0D659AAAB8463B9F@ORSMSX116.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 31, 2016 at 05:20:50PM -0400, David Miller wrote:
+On Wed, Mar 30, 2016 at 2:05 PM, Light, John J <john.j.light@intel.com> wrote:
+>
+> Maybe the problem is that the default shouldn't be to a TCP value, but should be a 'transport' value.
+>
 
-> >> I'm trying to reduce system call overhead when reading/writing to/from a
-> >> tun device in userspace. [...] What would be the right way to do this?
-> >>
-> > Personally I think tun could benefit greatly if it were implemented as
-> > a socket instead of character interface. One thing that could be much
-> > better is sending/receiving of meta data attached to skbuf. For
-> > instance GSO data could be in ancillary data in a socket instead of
-> > inline with packet data as tun seems to be doing now.
-> 
-> Agreed.
-
-Ok. So how should the userspace API work? Creating an AF_PACKET socket
-and then using a tun ioctl to create a tun interface and bind it to the
-socket?
-
-int fd = socket(AF_PACKET, ...)
-struct ifreq ifr = {...};
-ioctl(fd, TUNSETIFF, &ifr);
-
--- 
-Met vriendelijke groet / with kind regards,
-     Guus Sliepen <guus@tinc-vpn.org>
+The code is fine because net->ipv4 is always there, it doesn't
+depend on any CONFIG, so it is safe for dccp to use too, although
+I agree it is a bit ugly.
