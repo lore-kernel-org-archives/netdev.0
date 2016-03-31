@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 1/6] net: dsa: mv88e6xxx: protect SID register access
-Date: Thu, 31 Mar 2016 16:53:41 -0400
-Message-ID: <1459457626-30082-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 2/6] net: dsa: mv88e6xxx: protect FID registers access
+Date: Thu, 31 Mar 2016 16:53:42 -0400
+Message-ID: <1459457626-30082-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -13,25 +13,29 @@ In-Reply-To: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce a mv88e6xxx_has_stu() helper to protect the access to the
-GLOBAL_VTU_SID register, instead of checking switch families.
+Only switch families with 4096 address databases have dedicated FID
+registers for ATU and VTU operations.
+
+Factorize the access to the GLOBAL_ATU_FID register and introduce a
+mv88e6xxx_has_fid_reg() helper function to protect the access to
+GLOBAL_ATU_FID and GLOBAL_VTU_FID.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index fa086e0..19a8208 100644
+index 19a8208..cc066dc 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
 @@ -482,6 +482,16 @@ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
  	return false;
  }
  
-+static bool mv88e6xxx_has_stu(struct dsa_switch *ds)
++static bool mv88e6xxx_has_fid_reg(struct dsa_switch *ds)
 +{
-+	/* Does the device have STU and dedicated SID registers for VTU ops? */
++	/* Does the device have dedicated FID registers for ATU and VTU ops? */
 +	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
 +	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds))
 +		return true;
@@ -39,28 +43,93 @@ index fa086e0..19a8208 100644
 +	return false;
 +}
 +
- /* We expect the switch to perform auto negotiation if there is a real
-  * phy. However, in the case of a fixed link phy, we force the port
-  * settings from the fixed link settings.
-@@ -1329,7 +1339,9 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
- 				return ret;
+ static bool mv88e6xxx_has_stu(struct dsa_switch *ds)
+ {
+ 	/* Does the device have STU and dedicated SID registers for VTU ops? */
+@@ -961,10 +971,16 @@ out:
+ 	return ret;
+ }
  
- 			next.fid = ret & GLOBAL_VTU_FID_MASK;
-+		}
+-static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 cmd)
++static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
+ {
+ 	int ret;
  
-+		if (mv88e6xxx_has_stu(ds)) {
++	if (mv88e6xxx_has_fid_reg(ds)) {
++		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
++		if (ret < 0)
++			return ret;
++	}
++
+ 	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_OP, cmd);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1011,11 +1027,6 @@ static int _mv88e6xxx_atu_flush_move(struct dsa_switch *ds,
+ 		return err;
+ 
+ 	if (entry->fid) {
+-		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID,
+-					   entry->fid);
+-		if (err)
+-			return err;
+-
+ 		op = static_too ? GLOBAL_ATU_OP_FLUSH_MOVE_ALL_DB :
+ 			GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC_DB;
+ 	} else {
+@@ -1023,7 +1034,7 @@ static int _mv88e6xxx_atu_flush_move(struct dsa_switch *ds,
+ 			GLOBAL_ATU_OP_FLUSH_MOVE_NON_STATIC;
+ 	}
+ 
+-	return _mv88e6xxx_atu_cmd(ds, op);
++	return _mv88e6xxx_atu_cmd(ds, entry->fid, op);
+ }
+ 
+ static int _mv88e6xxx_atu_flush(struct dsa_switch *ds, u16 fid, bool static_too)
+@@ -1331,8 +1342,7 @@ static int _mv88e6xxx_vtu_getnext(struct dsa_switch *ds,
+ 		if (ret < 0)
+ 			return ret;
+ 
+-		if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
+-		    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
++		if (mv88e6xxx_has_fid_reg(ds)) {
  			ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL,
- 						  GLOBAL_VTU_SID);
+ 						  GLOBAL_VTU_FID);
  			if (ret < 0)
-@@ -1412,8 +1424,7 @@ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
+@@ -1429,7 +1439,9 @@ static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
+ 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_SID, reg);
+ 		if (ret < 0)
+ 			return ret;
++	}
+ 
++	if (mv88e6xxx_has_fid_reg(ds)) {
+ 		reg = entry->fid & GLOBAL_VTU_FID_MASK;
+ 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_FID, reg);
+ 		if (ret < 0)
+@@ -1976,11 +1988,7 @@ static int _mv88e6xxx_atu_load(struct dsa_switch *ds,
  	if (ret < 0)
  		return ret;
  
--	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
--	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds)) {
-+	if (mv88e6xxx_has_stu(ds)) {
- 		reg = entry->sid & GLOBAL_VTU_SID_MASK;
- 		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_VTU_SID, reg);
- 		if (ret < 0)
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, entry->fid);
+-	if (ret < 0)
+-		return ret;
+-
+-	return _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_LOAD_DB);
++	return _mv88e6xxx_atu_cmd(ds, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
+ }
+ 
+ static int _mv88e6xxx_port_fdb_load(struct dsa_switch *ds, int port,
+@@ -2063,11 +2071,7 @@ static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_FID, fid);
+-	if (ret < 0)
+-		return ret;
+-
+-	ret = _mv88e6xxx_atu_cmd(ds, GLOBAL_ATU_OP_GET_NEXT_DB);
++	ret = _mv88e6xxx_atu_cmd(ds, fid, GLOBAL_ATU_OP_GET_NEXT_DB);
+ 	if (ret < 0)
+ 		return ret;
+ 
 -- 
 2.7.4
