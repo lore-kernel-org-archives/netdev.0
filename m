@@ -1,227 +1,89 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: am335x: no multicast reception over VLAN
-Date: Thu, 31 Mar 2016 09:52:53 +0200
-Message-ID: <CAGm1_kutVn+jNf58QwKyO8j5NmRhaOCUsXmpTiLbX75AczCm6w@mail.gmail.com>
-References: <CAGm1_ktOqB4QBMy2G4XeHTkaP+WvG8GOc8maVv3dDoxM+-F+ZA@mail.gmail.com>
- <56F9FDD0.8030504@ti.com> <CAGm1_ksxRPCAqx4n5gbsARSYeF116BT7r8cC6=1QYnEsYRxpVw@mail.gmail.com>
- <56FA616C.9080502@ti.com> <CAGm1_ksvEdk-mF-hW4o5+bri6J6sMgnQQVD3j-e7xm6PsP8k0A@mail.gmail.com>
- <56FA78AA.4030402@ti.com> <56FB6543.9060904@ti.com> <CAGm1_kvXA4egrK8-oCedYjvPm7BhJdy_w-5ON24snYdKiN3K7g@mail.gmail.com>
- <56FC0431.5000106@ti.com> <878u0z9297.fsf@dell.be.48ers.dk> <56FCC59B.70209@ti.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH v3 0/8] arm64: rockchip: Initial GeekBox enablement
+Date: Thu, 31 Mar 2016 09:53:26 +0200
+Message-ID: <56FCD776.2090206@st.com>
+References: <1457294038-14243-1-git-send-email-afaerber@suse.de>	<56DE7E1D.5070508@st.com>	<CADhT+weKf+F98uxCQhRa2RfMm8+4p=rrNZc-Vf=w_HPycXto=A@mail.gmail.com>	<CAAObsKD9HoEbtV_JMz_R=bcrQseDmhncRAWP9k8djksL-LMQqw@mail.gmail.com>	<56DFE55B.2090806@st.com>	<56DFE64B.8060606@st.com>	<CAAObsKBr9SXg1-wr9O-ypR8JozdGpeAwfDLMeUKi8ozxkKyTXg@mail.gmail.com>	<56DFF253.9050208@st.com>	<56DFFA9E.7060602@st.com>	<CAAObsKBUzBXcamEyup44N1bYUzGr_ZZTsYcD5x3PXb-2E00cGA@mail.gmail.com>	<56E033C8.40506@st.com>	<56E038CE.606@st.com>	<CADhT+wcMpzA_Coj8Z5OQZsc3bF3a7yOmsbazQMPtcdUWkJSuCA@mail.gmail.com>	<56E13AAB.2080900@st.com>	<CADhT+wd=vcph2y_OxkGNO5EwHvN=kBy-BrfZHmNjZHww4LxmTg@mail.gmail.com>	<56E28B5D.6000708@st.com>	<CAAObsKB-tSCu5KMYk2Zi-oX9zMKEOwwT93sMkiZKiYvtexmHaQ@mail.gmail.com>	<56E6E4B0.8060408@st.com
+ >	<CAAObsKCdk+6HdzFYxRKZbPiaKcfMCLjbpngurat47YvyvSgH-w@mail.gmail.com>	<56E801EB.6030107@st.com>
+ <CADhT+wdXXp322vmgFmWTUiiRZTsCWeJSSdU=BMEEbSyb_bnrUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1144a0e4e6d4c4052f538da9
-Cc: Peter Korsgaard <peter@korsgaard.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	drivshin@allworx.com, ml@markusgrimm.de
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:36400 "EHLO
-	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754429AbcCaHxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 03:53:14 -0400
-In-Reply-To: <56FCC59B.70209@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ =?UTF-8?B?SGVpa28gU3TDvGJuZXI=?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Gabriel Fernandez <gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ =?UTF-8?B?RnJhbmsgU2Now6RmZXI=?= <fschaefer.oss-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+ "open list:ARM/Rockchip SoC..." <linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ LAKML <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+ Fabrice GASNIER <fabrice.gasnier-qxv4g6HH51o@public.gmane.org>,
+ =?UTF-8?B?QW5kcmVhcyBGw6RyYmVy?= <afaerber-l3A5Bk7waGM@public.gmane.org>,
+ Tomeu Vizoso <tomeu-XCtybt49RKsYaV1qd6yewg@public.gmane.org>,
+ Alexandre TORGUE <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+To: Dinh Nguyen <dinh.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <CADhT+wdXXp322vmgFmWTUiiRZTsCWeJSSdU=BMEEbSyb_bnrUw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---001a1144a0e4e6d4c4052f538da9
-Content-Type: text/plain; charset=UTF-8
-
-On Thu, Mar 31, 2016 at 8:37 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
-> On Thursday 31 March 2016 01:17 AM, Peter Korsgaard wrote:
->>>>>>> "Mugunthan" == Mugunthan V N <mugunthanvnm@ti.com> writes:
+On 3/30/2016 6:44 PM, Dinh Nguyen wrote:
+> On Tue, Mar 15, 2016 at 7:36 AM, Giuseppe CAVALLARO
+> <peppe.cavallaro-qxv4g6HH51o@public.gmane.org> wrote:
+>> Hello Tomeu
 >>
->> Hi,
+>> On 3/15/2016 8:23 AM, Tomeu Vizoso wrote:
+>>>
+>>> Thanks.
+>>>
+>>> Btw, I have rebased on top of 4.5 this morning and I have noticed that
+>>> 88f8b1bb41c6 ("stmmac: Fix 'eth0: No PHY found' regression") got in
+>>> there, so I guess we have now a bunch of boards with broken network on
+>>> that release:(
 >>
->>  > You had received these packets as tcpdump will enable promiscuous mode
->>  > so that you receive all the packets from the wire.
 >>
->> FYI, you can use the -p option to tcpdump to not put the interface into
->> promiscuous mode.
+>>
+>> This is the status on my side: I am testing on an HW that has the
+>> Enhanced descriptors and all works fine.
+>>
+>> On this HW, if I force the driver to use the normal descriptor
+>> layout, I meet problems but using both net.git and net-next.
+>> So I suspect I cannot ply with this HW forcing the normal descriptors.
+>> But! That is helping me to check if, on net-next, the stmmac is
+>> actually  programming fine the normal desc case.
+>> I have just found another fix so I kindly ask you to apply the temp
+>> patch  attached and let me know.
+>> In details, I have noticed that the OWN bit was not set in the right
+>> TDES0.
+>>
+>> I also ask you to give me a log of the kernel where the stmmac was
+>> running fine. I would like to see which configuration it is selected
+>> at runtime by the driver on your box.
+>>  From your previous logs (where the stmmac failed), it seems that
+>> the  problem is on normal desc but, to be honest, this is the first
+>> case I see a 3.50a with HW capability register and w/o Enhanced
+>> descriptors.
 >>
 >
-> Thanks for the information Peter Korsgaard.
+> Are you still working on a fix for:
 >
-> Yegor, can you provide tcpdump using -p as well in Grygorii commands.
+> [    1.196110] libphy: PHY stmmac-0:ffffffff not found
+> [    1.200972] eth0: Could not attach to PHY
+> [    1.204991] stmmac_open: Cannot attach to PHY (error: -19)
+>
+> I see the error still there as of linux-next 20160330.
 
-Before VLAN configuration:
+this could be because the fixes have been not applied on net-next
+I will check and resend all asap
 
-# switch-config -d
-cpsw hw version 1.12 (0)
-0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
-unreg_mcast = 0x0, member_list = 0x3
-1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x3
-2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
-persistant, port_num = 0x0, Secure
-3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
-unreg_mcast = 0x0, member_list = 0x7
-4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x3
-5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x5
-7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0, Secure
-8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x5
+peppe
 
-After VLAN configuration:
-
-# switch-config -d
-cpsw hw version 1.12 (0)
-0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
-unreg_mcast = 0x0, member_list = 0x3
-1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x3
-2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
-persistant, port_num = 0x0, Secure
-3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
-unreg_mcast = 0x0, member_list = 0x7
-4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x3
-5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x5
-7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0, Secure
-8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x5
-9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0
-11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
-f, no super, port_mask = 0x5
-12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
-no super, port_mask = 0x5
-
-During mulitcast receive:
-
-# switch-config -d
-cpsw hw version 1.12 (0)
-0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
-unreg_mcast = 0x0, member_list = 0x3
-1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x3
-2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
-persistant, port_num = 0x0, Secure
-3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
-unreg_mcast = 0x0, member_list = 0x7
-4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x3
-5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x5
-7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0, Secure
-8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x5
-9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0
-11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
-f, no super, port_mask = 0x5
-12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
-no super, port_mask = 0x5
-13  : type: mcast, vid = 2, addr = 01:00:5e:03:1d:47, mcast_state = f,
-no super, port_mask = 0x5
-14  : type: ucast, vid = 100, addr = 66:22:04:bc:90:26, ucast_type =
-untouched , port_num = 0x2
-
-
-After multicast receive use case:
-
-# switch-config -d
-cpsw hw version 1.12 (0)
-0   : type: vlan , vid = 1, untag_force = 0x3, reg_mcast = 0x3,
-unreg_mcast = 0x0, member_list = 0x3
-1   : type: mcast, vid = 1, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x3
-2   : type: ucast, vid = 1, addr = 74:6a:8f:00:16:12, ucast_type =
-persistant, port_num = 0x0, Secure
-3   : type: vlan , vid = 0, untag_force = 0x7, reg_mcast = 0x0,
-unreg_mcast = 0x0, member_list = 0x7
-4   : type: mcast, vid = 1, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x3
-5   : type: vlan , vid = 2, untag_force = 0x5, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-6   : type: mcast, vid = 2, addr = ff:ff:ff:ff:ff:ff, mcast_state = f,
-no super, port_mask = 0x5
-7   : type: ucast, vid = 2, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0, Secure
-8   : type: mcast, vid = 2, addr = 01:00:5e:00:00:01, mcast_state = f,
-no super, port_mask = 0x5
-9   : type: vlan , vid = 100, untag_force = 0x0, reg_mcast = 0x5,
-unreg_mcast = 0x0, member_list = 0x5
-10  : type: ucast, vid = 100, addr = 74:6a:8f:00:16:13, ucast_type =
-persistant, port_num = 0x0
-11  : type: mcast, vid = 100, addr = ff:ff:ff:ff:ff:ff, mcast_state =
-f, no super, port_mask = 0x5
-12  : type: mcast, vid = 2, addr = 01:80:c2:00:00:21, mcast_state = f,
-no super, port_mask = 0x5
-15  : type: ucast, vid = 100, addr = 66:22:04:bc:90:26, ucast_type =
-untouched , port_num = 0x2
-
-Both tcpdumps with -p option showed no packets. If I execute ping, I
-can see related ICMP packets. addr = 66:22:04:bc:90:26 is PandaBoards
-MAC.
-
-Btw I've attached my test scripts (mcastr.py - multicast receiver and
-mcastt.py - multicast transmitter). Could you reproduce my setup?
-
-Thanks.
-
-Yegor
-
---001a1144a0e4e6d4c4052f538da9
-Content-Type: text/plain; charset=US-ASCII; name="mcastr.py"
-Content-Disposition: attachment; filename="mcastr.py"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_imfzeo620
-
-aW1wb3J0IHNvY2tldAppbXBvcnQgc3RydWN0CmltcG9ydCBzeXMKCm11bHRpY2FzdF9ncm91cCA9
-ICcyMjQuMy4yOS43MScKc2VydmVyX2FkZHJlc3MgPSAoJycsIDEwMDAwKQoKIyBDcmVhdGUgdGhl
-IHNvY2tldApzb2NrID0gc29ja2V0LnNvY2tldChzb2NrZXQuQUZfSU5FVCwgc29ja2V0LlNPQ0tf
-REdSQU0pCgojIEJpbmQgdG8gdGhlIHNlcnZlciBhZGRyZXNzCnNvY2suYmluZChzZXJ2ZXJfYWRk
-cmVzcykKCiMgVGVsbCB0aGUgb3BlcmF0aW5nIHN5c3RlbSB0byBhZGQgdGhlIHNvY2tldCB0byB0
-aGUgbXVsdGljYXN0IGdyb3VwCiMgb24gYWxsIGludGVyZmFjZXMuCmdyb3VwID0gc29ja2V0Lmlu
-ZXRfYXRvbihtdWx0aWNhc3RfZ3JvdXApCm1yZXEgPSBzdHJ1Y3QucGFjaygnNHNMJywgZ3JvdXAs
-IHNvY2tldC5JTkFERFJfQU5ZKQpzb2NrLnNldHNvY2tvcHQoc29ja2V0LklQUFJPVE9fSVAsIHNv
-Y2tldC5JUF9BRERfTUVNQkVSU0hJUCwgbXJlcSkKCiMgUmVjZWl2ZS9yZXNwb25kIGxvb3AKd2hp
-bGUgVHJ1ZToKICAgIHByaW50ID4+c3lzLnN0ZGVyciwgJ1xud2FpdGluZyB0byByZWNlaXZlIG1l
-c3NhZ2UnCiAgICBkYXRhLCBhZGRyZXNzID0gc29jay5yZWN2ZnJvbSgxMDI0KQogICAgCiAgICBw
-cmludCA+PnN5cy5zdGRlcnIsICdyZWNlaXZlZCAlcyBieXRlcyBmcm9tICVzJyAlIChsZW4oZGF0
-YSksIGFkZHJlc3MpCiAgICBwcmludCA+PnN5cy5zdGRlcnIsIGRhdGEKCiAgICBwcmludCA+PnN5
-cy5zdGRlcnIsICdzZW5kaW5nIGFja25vd2xlZGdlbWVudCB0bycsIGFkZHJlc3MKICAgIHNvY2su
-c2VuZHRvKCdhY2snLCBhZGRyZXNzKQo=
---001a1144a0e4e6d4c4052f538da9
-Content-Type: text/plain; charset=US-ASCII; name="mcastt.py"
-Content-Disposition: attachment; filename="mcastt.py"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_imfzevjt1
-
-aW1wb3J0IHNvY2tldAppbXBvcnQgc3RydWN0CmltcG9ydCBzeXMKCm1lc3NhZ2UgPSAndmVyeSBp
-bXBvcnRhbnQgZGF0YScKbXVsdGljYXN0X2dyb3VwID0gKCcyMjQuMy4yOS43MScsIDEwMDAwKQoK
-IyBDcmVhdGUgdGhlIGRhdGFncmFtIHNvY2tldApzb2NrID0gc29ja2V0LnNvY2tldChzb2NrZXQu
-QUZfSU5FVCwgc29ja2V0LlNPQ0tfREdSQU0pCgojIFNldCBhIHRpbWVvdXQgc28gdGhlIHNvY2tl
-dCBkb2VzIG5vdCBibG9jayBpbmRlZmluaXRlbHkgd2hlbiB0cnlpbmcKIyB0byByZWNlaXZlIGRh
-dGEuCnNvY2suc2V0dGltZW91dCgwLjIpCgojIFNldCB0aGUgdGltZS10by1saXZlIGZvciBtZXNz
-YWdlcyB0byAxIHNvIHRoZXkgZG8gbm90IGdvIHBhc3QgdGhlCiMgbG9jYWwgbmV0d29yayBzZWdt
-ZW50Lgp0dGwgPSBzdHJ1Y3QucGFjaygnYicsIDEpCnNvY2suc2V0c29ja29wdChzb2NrZXQuSVBQ
-Uk9UT19JUCwgc29ja2V0LklQX01VTFRJQ0FTVF9UVEwsIHR0bCkKCnRyeToKCiAgICAjIFNlbmQg
-ZGF0YSB0byB0aGUgbXVsdGljYXN0IGdyb3VwCiAgICBwcmludCA+PnN5cy5zdGRlcnIsICdzZW5k
-aW5nICIlcyInICUgbWVzc2FnZQogICAgc2VudCA9IHNvY2suc2VuZHRvKG1lc3NhZ2UsIG11bHRp
-Y2FzdF9ncm91cCkKCiAgICAjIExvb2sgZm9yIHJlc3BvbnNlcyBmcm9tIGFsbCByZWNpcGllbnRz
-CiAgICB3aGlsZSBUcnVlOgogICAgICAgIHByaW50ID4+c3lzLnN0ZGVyciwgJ3dhaXRpbmcgdG8g
-cmVjZWl2ZScKICAgICAgICB0cnk6CiAgICAgICAgICAgIGRhdGEsIHNlcnZlciA9IHNvY2sucmVj
-dmZyb20oMTYpCiAgICAgICAgZXhjZXB0IHNvY2tldC50aW1lb3V0OgogICAgICAgICAgICBwcmlu
-dCA+PnN5cy5zdGRlcnIsICd0aW1lZCBvdXQsIG5vIG1vcmUgcmVzcG9uc2VzJwogICAgICAgICAg
-ICBicmVhawogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHByaW50ID4+c3lzLnN0ZGVyciwgJ3Jl
-Y2VpdmVkICIlcyIgZnJvbSAlcycgJSAoZGF0YSwgc2VydmVyKQoKZmluYWxseToKICAgIHByaW50
-ID4+c3lzLnN0ZGVyciwgJ2Nsb3Npbmcgc29ja2V0JwogICAgc29jay5jbG9zZSgpCg==
---001a1144a0e4e6d4c4052f538da9--
+>
+> Dinh
+>
