@@ -1,90 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
- __sk_dst_get
-Date: Fri, 1 Apr 2016 06:33:19 +0200
-Message-ID: <56FDFA0F.5070104@stressinduktion.org>
-References: <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
- <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBA6E.5030508@stressinduktion.org>
- <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBF0E.8020309@stressinduktion.org>
- <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160401014516.GA11017@ast-mbp.thefacebook.com>
- <1459479818.6473.265.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160401040442.GA14661@ast-mbp.thefacebook.com>
- <56FDF541.6070106@stressinduktion.org>
- <20160401042655.GA16500@ast-mbp.thefacebook.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id and
+ sender_cpu
+Date: Fri, 1 Apr 2016 12:49:31 +0800
+Message-ID: <56FDFDDB.7090606@redhat.com>
+References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
+ <1459403439-6011-2-git-send-email-jasowang@redhat.com>
+ <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
+ <56FDD94E.8090908@redhat.com>
+ <1459479325.6473.260.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, sasha.levin@oracle.com,
-	daniel@iogearbox.net, mkubecek@suse.cz
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54054 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750741AbcDAEdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 00:33:25 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id BCA37209B7
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 00:33:22 -0400 (EDT)
-In-Reply-To: <20160401042655.GA16500@ast-mbp.thefacebook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:60133 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750741AbcDAEtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2016 00:49:36 -0400
+In-Reply-To: <1459479325.6473.260.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.04.2016 06:26, Alexei Starovoitov wrote:
-> On Fri, Apr 01, 2016 at 06:12:49AM +0200, Hannes Frederic Sowa wrote:
->> On 01.04.2016 06:04, Alexei Starovoitov wrote:
->>> On Thu, Mar 31, 2016 at 08:03:38PM -0700, Eric Dumazet wrote:
->>>> On Thu, 2016-03-31 at 18:45 -0700, Alexei Starovoitov wrote:
->>>>
->>>>> Eric, what's your take on Hannes's patch 2 ?
->>>>> Is it more accurate to ask lockdep to check for actual lock
->>>>> or lockdep can rely on owned flag?
->>>>> Potentially there could be races between setting the flag and
->>>>> actual lock... but that code is contained, so unlikely.
->>>>> Will we find the real issues with this 'stronger' check or
->>>>> just spend a ton of time adapting to new model like your other
->>>>> patch for release_sock and whatever may need to come next...
->>>>
->>>> More precise lockdep checks are certainly good, I only objected to 4/4
->>>> trying to work around another bug.
->>>>
->>>> But why do we rush for 'net' tree ?
->>>>
->>>> This looks net-next material to me.
->>>>
->>>> Locking changes are often subtle, lets take the time to do them
->>>> properly.
->>>
->>> completely agree. I think only first patch belongs in net.
->>> Everything else is net-next material.
->>
->> Problem with first patch is that it uses lock_sock_fast, thus the current
->> sock_owned_by_user check doesn't get rid the lockdep warning. :/
->>
->> Thus we would need to go with the two first patches. Do you think it is
->> acceptable? I actually didn't see a problem and testing showed no problems
->> so far.
+
+
+On 04/01/2016 10:55 AM, Eric Dumazet wrote:
+> On Fri, 2016-04-01 at 10:13 +0800, Jason Wang wrote:
 >
-> I see. right. the patch 1 only makes sense when coupled with 2.
-> but now I'm not so sure that lockdep_is_held(&sk->sk_lock.slock)
-> is a valid check, since current sock_owned_by_user() is equivalent
-> to lockdep_is_held(&sk->sk_lock) only.
-> I would go with Daniel's approach. Much simpler to reason about.
+>
+>> The problem is we want to support busy polling for tun. This needs
+>> napi_id to be passed to tun socket by sk_mark_napi_id() during
+>> tun_net_xmit(). But before reaching this, XPS will set sender_cpu will
+>> make us can't see correct napi_id.
+>>
+> Looks like napi_id should have precedence then ?
 
-IMHO we should treat sk_lock and sk_lock.slock the same as they are 
-encapsulated by socket lock api.
+But then when busy polling is enabled, we may still hit the issue before
+commit 2bd82484bb4c5db1d5dc983ac7c409b2782e0154? So looks like sometimes
+(e.g for tun), we need both two fields.
 
-I was rather afraid that we call those changed functions from within 
-release_sock and thus would have the same problem again, where we get 
-splats because of the time where we actually have user ownership but not 
-the mark in the lockdep data structures. But this seems not to be the 
-case as the functions are only directly called on behalf of user space.
+>
+> Only forwarding should allow the field to be cleared to allow XPS to do
+> its job.
+>
+> Maybe skb_sender_cpu_clear() was removed too early (commit
+> 64d4e3431e686dc37ce388ba531c4c4e866fb141)
 
-Daniel, what do you think? I would be fine with your patch for net and 
-we clean this up a bit in net-next then.
+Not sure I get you, but this will clear napi_id too.
 
-Bye,
-Hannes
+> Look, it is 8pm here, I am pretty sure a solution can be found,
+> but I am also need to take a break, I started at 3am today...
+>
+>
+>
