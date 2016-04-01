@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mvpp2: fix maybe-uninitialized warning
-Date: Fri, 01 Apr 2016 14:37:28 -0400 (EDT)
-Message-ID: <20160401.143728.2154823165656728049.davem@davemloft.net>
-References: <1459414883-6295-1-git-send-email-jszhang@marvell.com>
+Subject: Re: [PATCH (net.git) 0/3] stmmac MDIO and normal descr fixes
+Date: Fri, 01 Apr 2016 14:39:26 -0400 (EDT)
+Message-ID: <20160401.143926.875975627564814374.davem@davemloft.net>
+References: <1459494436-27386-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mw@semihalf.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: jszhang@marvell.com
+Cc: netdev@vger.kernel.org, gabriel.fernandez@linaro.org,
+	afaerber@suse.de, fschaefer.oss@googlemail.com,
+	dinh.linux@gmail.com, preid@electromag.com.au, rhgadsdon@gmail.com,
+	linux-kernel@vger.kernel.org
+To: peppe.cavallaro@st.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459414883-6295-1-git-send-email-jszhang@marvell.com>
+In-Reply-To: <1459494436-27386-1-git-send-email-peppe.cavallaro@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jisheng Zhang <jszhang@marvell.com>
-Date: Thu, 31 Mar 2016 17:01:23 +0800
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Fri, 1 Apr 2016 09:07:13 +0200
 
-> This is to fix the following maybe-uninitialized warning:
+> This patch series is to fix the problems below and recently debugged
+> in this mailing list:
 > 
-> drivers/net/ethernet/marvell/mvpp2.c:6007:18: warning: 'err' may be
-> used uninitialized in this function [-Wmaybe-uninitialized]
+> o to fix a problem for the HW where the normal descriptor
+> o to fix the mdio registration according to the different
+>   platform configurations
 > 
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> I am resending all the patches again: built on top of net.git repo.
 
-Applied.
+Series applied, thanks.
