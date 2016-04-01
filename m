@@ -1,49 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Fri, 01 Apr 2016 11:49:03 -0700
-Message-ID: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160401175741.13882.24175.stgit@localhost.localdomain>
-	 <20160401180531.13882.44793.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vlan: pull on __vlan_insert_tag error path and fix
+ csum correction
+Date: Fri, 01 Apr 2016 15:00:00 -0400 (EDT)
+Message-ID: <20160401.150000.1165010490623034251.davem@davemloft.net>
+References: <244f8d5684800cc98545932aa6851bf73f7326e2.1459503053.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Alexander Duyck <aduyck@mirantis.com>
+Cc: jiri@resnulli.us, alexei.starovoitov@gmail.com, jesse@kernel.org,
+	tom@herbertland.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35793 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbcDAStG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:49:06 -0400
-Received: by mail-pa0-f45.google.com with SMTP id td3so96899817pab.2
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 11:49:06 -0700 (PDT)
-In-Reply-To: <20160401180531.13882.44793.stgit@localhost.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52371 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035AbcDATAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 15:00:02 -0400
+In-Reply-To: <244f8d5684800cc98545932aa6851bf73f7326e2.1459503053.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-01 at 11:05 -0700, Alexander Duyck wrote:
-> RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes other
-> than fragmentation and reassembly.  Currently we are looking at this field
-> as a way of identifying what frames can be aggregated and  which cannot for
-> GRO.  While this is valid for frames that do not have DF set, it is invalid
-> to do so if the bit is set.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri,  1 Apr 2016 11:41:03 +0200
+
+> Moreover, I noticed that when in the non-error path the __skb_pull()
+> is done and the original offset to mac header was non-zero, we fixup
+> from a wrong skb->data offset in the checksum complete processing.
 > 
-> In addition we were generating IPv4 ID collisions when 2 or more flows were
-> interleaved over the same tunnel.  To prevent that we store the result of
-> all IP ID checks via a "|=" instead of overwriting previous values.
+> So the skb_postpush_rcsum() really needs to be done before __skb_pull()
+> where skb->data still points to the mac header start.
 
-Note that for atomic datagrams (DF = 1), since fragmentation and
-reassembly can not occur, maybe some people use ID field for other
-purposes.
+Ugh, what a mess, are you sure any of this is right even after your
+change?  What happens (outside of the csum part) is this:
 
-For example, TCP stack tracks per socket ID generation, even if it sends
-DF=1 frames. Damn useful for tcpdump analysis and drop inference.
+	__skb_push(offset);
+	__vlan_insert_tag(); {
+		skb_push(VLAN_HLEN);
+	...
+		memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);
+	}
+	__skb_pull(offset);
 
+If I understand this correctly, the last pull will therefore put
+skb->data pointing at vlan_ethhdr->h_vlan_TCI of the new VLAN header
+pushed by __vlan_insert_tag().
 
-With your change, the resulting GRO packet would propagate the ID of
-first frag. Most GSO/GSO engines will then provide a ID sequence, which
-might not match original packets.
+That is assuming skb->data began right after the original ethernet
+header.
 
-I do not particularly care, but it is worth mentioning that GRO+TSO
-would not be idempotent anymore.
+To me, that postpull csum currently is absolutely in the correct spot,
+because it's acting upon the pull done by __vlan_insert_tag(), not the
+one done here by skb_vlan_push().
+
+Right?
+
+Can you tell me how you tested this?  Just curious...
