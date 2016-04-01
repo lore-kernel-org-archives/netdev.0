@@ -1,108 +1,104 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [RESEND PATCH V4 0/3] IB/hns: Add HiSilicon RoCE driver
-Date: Fri, 1 Apr 2016 17:21:29 +0800
-Message-ID: <1459502492-19891-1-git-send-email-oulijun@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<lisheng011@huawei.com>, <charles.chenxin@huawei.com>,
-	<linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH 1/2] ipv6: rework the lock in addrconf_permanent_addr
+Date: Fri,  1 Apr 2016 16:45:44 +0800
+Message-ID: <1459500344-26207-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:42943 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754621AbcDAKMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 06:12:12 -0400
+Received: from mail.windriver.com ([147.11.1.11]:43835 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963AbcDALAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 07:00:02 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u318ji1X007650
+	for <netdev@vger.kernel.org>; Fri, 1 Apr 2016 01:45:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The HiSilicon Network Substem is a long term evolution IP which is
-supposed to be used in HiSilicon ICT SoC. RoCE is a feature of hns.
-The driver for HiSilicon RoCE engine is a platform driver.
-The driver will support mulitple versions of hns. Currently only "v1"
-for hip06 SoC is supported.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Changes v3 -> v4:
-1. modify roce.o into hns-roce.o in Makefile and Kconfig file.
+1. nothing of idev is changed, so read lock is enough
+2. ifp is changed, so used ifp->lock or cmpxchg to protect it
 
-Changes v2 -> v3:
-1. modify the formats of RoCE driver code base v2 by the experts 
-reviewing. also, it used kmalloc_array instead of kmalloc, used kcalloc
-instead of kzalloc, when refer to memory allocation for array
-2. remove some functions without use and unconnected macros
-3. modify the binding document with RoCE DT base v2 which added interrupt-names
-4. redesign the port_map and si_map in hns_dsaf_roce_reset
-5. add HiSilicon RoCE driver maintainers introduction in MAINTAINERS document
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-Changes v1 -> v2:
-1. modify the formats of roce driver code by the experts reviewing
-2. modify the bindings file with roce dts. add the attribute named 
-interrput-names.
-3. modify the way of defining port mode in hns_dsaf_main.c
-4. move the Kconfig file into the hns directory and send it with roce
-
-Lijun Ou (3):
-  net: hns: Add reset function support for RoCE driver
-  IB/hns: Add HiSilicon RoCE driver support
-  IB/hns: Add binding document for HiSilicon RoCE driver
-
- .../bindings/infiniband/hisilicon-hns-roce.txt     |  107 +
- MAINTAINERS                                        |    8 +
- drivers/infiniband/Kconfig                         |    1 +
- drivers/infiniband/hw/Makefile                     |    1 +
- drivers/infiniband/hw/hisilicon/hns/Kconfig        |   10 +
- drivers/infiniband/hw/hisilicon/hns/Makefile       |    9 +
- drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c  |  110 +
- .../infiniband/hw/hisilicon/hns/hns_roce_alloc.c   |  239 ++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c |  338 +++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h |   80 +
- .../infiniband/hw/hisilicon/hns/hns_roce_common.h  |  308 +++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c  |  436 +++
- .../infiniband/hw/hisilicon/hns/hns_roce_device.h  |  794 ++++++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c  |  758 ++++++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h  |  132 +
- drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c |  578 ++++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h |  112 +
- .../infiniband/hw/hisilicon/hns/hns_roce_main.c    | 1097 ++++++++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c  |  605 +++++
- drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c  |  124 +
- drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c  |  841 ++++++
- .../infiniband/hw/hisilicon/hns/hns_roce_user.h    |   31 +
- .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c   | 2832 ++++++++++++++++++++
- .../infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h   |  985 +++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   84 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   30 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   62 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   13 +
- 28 files changed, 10715 insertions(+), 10 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/Kconfig
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/Makefile
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_ah.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_alloc.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cmd.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_common.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_cq.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_eq.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_icm.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_main.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_mr.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_pd.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_qp.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_user.h
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.c
- create mode 100644 drivers/infiniband/hw/hisilicon/hns/hns_roce_v1_hw.h
-
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 27aed1a..f6e7605b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3184,14 +3184,21 @@ static void addrconf_gre_config(struct net_device *dev)
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ 				  struct inet6_ifaddr *ifp)
+ {
++	struct rt6_info *rt = NULL;
++
++	spin_lock(&ifp->lock);
+ 	if (ifp->rt) {
+ 		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
+ 
+ 		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
+-			ip6_del_rt(ifp->rt);
++			rt = ifp->rt;
+ 			ifp->rt = NULL;
+ 		}
+ 	}
++	spin_unlock(&ifp->lock);
++
++	if (rt)
++		ip6_del_rt(rt);
+ }
+ #else
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+@@ -3203,6 +3210,8 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
++	struct rt6_info *prev;
++
+ 	l3mdev_check_host_rt(idev, ifp);
+ 
+ 	if (!ifp->rt) {
+@@ -3212,7 +3221,12 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 		if (unlikely(IS_ERR(rt)))
+ 			return PTR_ERR(rt);
+ 
+-		ifp->rt = rt;
++		prev = cmpxchg(&ifp->rt, NULL, rt);
++
++		/*if cmpxchg failed*/
++		if (prev) {
++			ip6_rt_put(rt);
++		}
+ 	}
+ 
+ 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+@@ -3234,21 +3248,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 	if (!idev)
+ 		return;
+ 
+-	write_lock_bh(&idev->lock);
++	read_lock_bh(&idev->lock);
+ 
+ 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+-			write_unlock_bh(&idev->lock);
++			read_unlock_bh(&idev->lock);
+ 			ipv6_del_addr(ifp);
+-			write_lock_bh(&idev->lock);
++			read_lock_bh(&idev->lock);
+ 
+ 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
+ 					     idev->dev->name, &ifp->addr);
+ 		}
+ 	}
+ 
+-	write_unlock_bh(&idev->lock);
++	read_unlock_bh(&idev->lock);
+ }
+ 
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 -- 
-1.9.1
+2.1.4
