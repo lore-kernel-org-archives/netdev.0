@@ -1,120 +1,119 @@
-From: santosh shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] RDS: sync congestion map updating
-Date: Fri, 1 Apr 2016 12:47:24 -0700
-Message-ID: <56FED04C.2060806@oracle.com>
-References: <1459328902-31968-1-git-send-email-wen.gang.wang@oracle.com>
- <20160330161952.GA2670@leon.nu> <56FC09D6.7090602@oracle.com>
- <56FC82B7.3070504@oracle.com> <56FC927E.9090404@oracle.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v3 net-next] net: ipv4: Consider failed nexthops in
+ multipath routes
+Date: Fri, 1 Apr 2016 22:51:43 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1604012211510.1833@ja.home.ssi.bg>
+References: <1459523824-29828-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, leon-2ukJVAZIZ/Y@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <56FC927E.9090404-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-(cc-ing netdev)
-On 3/30/2016 7:59 PM, Wengang Wang wrote:
->
->
-> =E5=9C=A8 2016=E5=B9=B403=E6=9C=8831=E6=97=A5 09:51, Wengang Wang =E5=
-=86=99=E9=81=93:
->>
->>
->> =E5=9C=A8 2016=E5=B9=B403=E6=9C=8831=E6=97=A5 01:16, santosh shilimk=
-ar =E5=86=99=E9=81=93:
->>> Hi Wengang,
->>>
->>> On 3/30/2016 9:19 AM, Leon Romanovsky wrote:
->>>> On Wed, Mar 30, 2016 at 05:08:22PM +0800, Wengang Wang wrote:
->>>>> Problem is found that some among a lot of parallel RDS
->>>>> communications hang.
->>>>> In my test ten or so among 33 communications hang. The send
->>>>> requests got
->>>>> -ENOBUF error meaning the peer socket (port) is congested. But
->>>>> meanwhile,
->>>>> peer socket (port) is not congested.
->>>>>
->>>>> The congestion map updating can happen in two paths: one is in
->>>>> rds_recvmsg path
->>>>> and the other is when it receives packets from the hardware. Ther=
-e
->>>>> is no
->>>>> synchronization when updating the congestion map. So a bit
->>>>> operation (clearing)
->>>>> in the rds_recvmsg path can be skipped by another bit operation
->>>>> (setting) in
->>>>> hardware packet receving path.
->>>>>
->
-> To be more detailed.  Here, the two paths (user calls recvmsg and
-> hardware receives data) are for different rds socks. thus the
-> rds_sock->rs_recv_lock is not helpful to sync the updating on congest=
-ion
-> map.
->
-=46or archive purpose, let me try to conclude the thread. I synced
-with Wengang offlist and came up with below fix. I was under
-impression that __set_bit_le() was atmoic version. After fixing
-it like patch(end of the email), the bug gets addressed.
-
-I will probably send this as fix for stable as well.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:47840 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750750AbcDATvt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2016 15:51:49 -0400
+In-Reply-To: <1459523824-29828-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
- From 5614b61f6fdcd6ae0c04e50b97efd13201762294 Mon Sep 17 00:00:00 2001
-=46rom: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Wed, 30 Mar 2016 23:26:47 -0700
-Subject: [PATCH] RDS: Fix the atomicity for congestion map update
+	Hello,
 
-Two different threads with different rds sockets may be in
-rds_recv_rcvbuf_delta() via receive path. If their ports
-both map to the same word in the congestion map, then
-using non-atomic ops to update it could cause the map to
-be incorrect. Lets use atomics to avoid such an issue.
+On Fri, 1 Apr 2016, David Ahern wrote:
 
-=46ull credit to Wengang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> for
-finding the issue, analysing it and also pointing out
-to offending code with spin lock based fix.
+> v3
+> - Julian comments: changed use of dead in documentation to failed,
+>   init state to NUD_REACHABLE which simplifies fib_good_nh, use of
+>   nh_dev for neighbor lookup, fallback to first entry which is what
+>   current logic does
+> 
+> v2
+> - use rcu locking to avoid refcnts per Eric's suggestion
+> - only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
+>   comment
+> - drop the 'state == NUD_REACHABLE' from the state check since it is
+>   part of NUD_VALID (comment from Julian)
+> - wrapped the use of the neigh in a sysctl
+> 
+>  Documentation/networking/ip-sysctl.txt | 10 ++++++++++
+>  include/net/netns/ipv4.h               |  3 +++
+>  net/ipv4/fib_semantics.c               | 32 ++++++++++++++++++++++++++++----
+>  net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
+>  4 files changed, 52 insertions(+), 4 deletions(-)
+> 
 
-Signed-off-by: Wengang Wang <wen.gang.wang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
-  net/rds/cong.c |    4 ++--
-  1 files changed, 2 insertions(+), 2 deletions(-)
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index d97268e8ff10..e08abf96824a 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -1559,21 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+>  }
+>  
+>  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +static bool fib_good_nh(const struct fib_nh *nh)
+> +{
+> +	int state = NUD_REACHABLE;
+> +
+> +	if (nh->nh_scope == RT_SCOPE_LINK) {
+> +		struct neighbour *n = NULL;
 
-diff --git a/net/rds/cong.c b/net/rds/cong.c
-index e6144b8..6641bcf 100644
---- a/net/rds/cong.c
-+++ b/net/rds/cong.c
-@@ -299,7 +299,7 @@ void rds_cong_set_bit(struct rds_cong_map *map,=20
-__be16 port)
-  	i =3D be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
-  	off =3D be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
+	NULL is not needed anymore.
 
--	__set_bit_le(off, (void *)map->m_page_addrs[i]);
-+	set_bit_le(off, (void *)map->m_page_addrs[i]);
-  }
+> +
+> +		rcu_read_lock_bh();
+> +
+> +		n = __neigh_lookup_noref(&arp_tbl, &nh->nh_gw, nh->nh_dev);
+> +		if (n)
+> +			state = n->nud_state;
+> +
+> +		rcu_read_unlock_bh();
+> +	}
+> +
+> +	return !!(state & NUD_VALID);
+> +}
+>  
+>  void fib_select_multipath(struct fib_result *res, int hash)
+>  {
+>  	struct fib_info *fi = res->fi;
+> +	struct net *net = fi->fib_net;
+> +	unsigned char first_nhsel = 0;
 
-  void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
-@@ -313,7 +313,7 @@ void rds_cong_clear_bit(struct rds_cong_map *map,=20
-__be16 port)
-  	i =3D be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
-  	off =3D be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
+	Looking at fib_table_lookup() res->nh_sel is not 0
+in all cases. I personally don't like that we do not
+fallback properly but to make this logic more correct we
+can use something like this:
 
--	__clear_bit_le(off, (void *)map->m_page_addrs[i]);
-+	clear_bit_le(off, (void *)map->m_page_addrs[i]);
-  }
+	bool first = false;
 
-  static int rds_cong_test_bit(struct rds_cong_map *map, __be16 port)
---=20
-1.7.1
+>  
+>  	for_nexthops(fi) {
+>  		if (hash > atomic_read(&nh->nh_upper_bound))
+>  			continue;
+>  
+> -		res->nh_sel = nhsel;
+> -		return;
+> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
+> +		    fib_good_nh(nh)) {
+> +			res->nh_sel = nhsel;
+> +			return;
+> +		}
+> +		if (!first_nhsel)
+> +			first_nhsel = nhsel;
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+		if (!first) {
+			res->nh_sel = nhsel;
+			first = true;
+		}
+
+>  	} endfor_nexthops(fi);
+>  
+> -	/* Race condition: route has just become dead. */
+> -	res->nh_sel = 0;
+> +	res->nh_sel = first_nhsel;
+
+	And then this is not needed anymore. Even setting
+to 0 was not needed because 0 is not better than current
+nh_sel when both are DEAD/LINKDOWN.
+
+Regards
