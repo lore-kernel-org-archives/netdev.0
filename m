@@ -1,40 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id
- and sender_cpu
-Date: Thu, 31 Mar 2016 19:55:25 -0700
-Message-ID: <1459479325.6473.260.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
-	 <1459403439-6011-2-git-send-email-jasowang@redhat.com>
-	 <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDD94E.8090908@redhat.com>
+Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
+ __sk_dst_get
+Date: Thu, 31 Mar 2016 20:03:38 -0700
+Message-ID: <1459479818.6473.265.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
+	 <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
+	 <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FDBA6E.5030508@stressinduktion.org>
+	 <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FDBF0E.8020309@stressinduktion.org>
+	 <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160401014516.GA11017@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <56FDD94E.8090908@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	sasha.levin@oracle.com, daniel@iogearbox.net, mkubecek@suse.cz
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35199 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbcDADDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:03:41 -0400
+Received: by mail-pa0-f44.google.com with SMTP id td3so79727730pab.2
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:03:40 -0700 (PDT)
+In-Reply-To: <20160401014516.GA11017@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-01 at 10:13 +0800, Jason Wang wrote:
+On Thu, 2016-03-31 at 18:45 -0700, Alexei Starovoitov wrote:
 
+> Eric, what's your take on Hannes's patch 2 ?
+> Is it more accurate to ask lockdep to check for actual lock
+> or lockdep can rely on owned flag?
+> Potentially there could be races between setting the flag and
+> actual lock... but that code is contained, so unlikely.
+> Will we find the real issues with this 'stronger' check or
+> just spend a ton of time adapting to new model like your other
+> patch for release_sock and whatever may need to come next...
 
-> 
-> The problem is we want to support busy polling for tun. This needs
-> napi_id to be passed to tun socket by sk_mark_napi_id() during
-> tun_net_xmit(). But before reaching this, XPS will set sender_cpu will
-> make us can't see correct napi_id.
-> 
+More precise lockdep checks are certainly good, I only objected to 4/4
+trying to work around another bug.
 
-Looks like napi_id should have precedence then ?
+But why do we rush for 'net' tree ?
 
-Only forwarding should allow the field to be cleared to allow XPS to do
-its job.
+This looks net-next material to me.
 
-Maybe skb_sender_cpu_clear() was removed too early (commit
-64d4e3431e686dc37ce388ba531c4c4e866fb141)
-
-Look, it is 8pm here, I am pretty sure a solution can be found,
-but I am also need to take a break, I started at 3am today...
+Locking changes are often subtle, lets take the time to do them
+properly.
