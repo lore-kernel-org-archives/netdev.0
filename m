@@ -1,49 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
- __sk_dst_get
-Date: Fri, 1 Apr 2016 02:30:59 +0200
-Message-ID: <56FDC143.5060507@stressinduktion.org>
-References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
- <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
- <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBA6E.5030508@stressinduktion.org>
- <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Fri, 1 Apr 2016 08:46:27 +0800
+Message-ID: <20160401004627.GA9367@gondor.apana.org.au>
+References: <56F9941A.3080501@candelatech.com>
+ <56FAAA6D.3070806@candelatech.com>
+ <1459329252.2055.1.camel@sipsolutions.net>
+ <20160330.123821.328761526754742195.davem@davemloft.net>
+ <56FC0445.6010200@candelatech.com>
+ <1459410405.4576.8.camel@sipsolutions.net>
+ <20160331075015.GA27716@gondor.apana.org.au>
+ <1459438199.4576.26.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, daniel@iogearbox.net,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:35143 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753424AbcDAAbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 20:31:03 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 3ACF820C4B
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:31:02 -0400 (EDT)
-In-Reply-To: <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:35002 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753659AbcDAAqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 20:46:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1459438199.4576.26.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.04.2016 02:12, Eric Dumazet wrote:
-> Since this function does not take a reference on the dst, how could it
-> be safe ?
->
-> As soon as you exit the function, dst would possibly point to something
-> obsolete/freed.
->
-> This works because the caller owns the socket.
->
-> If you believe one path needs to be fixed, tell me which one it is.
->
-> Please ?
+On Thu, Mar 31, 2016 at 05:29:59PM +0200, Johannes Berg wrote:
+> 
+> Does removing this completely disable the "-EEXIST" error? I can't say
+> I fully understand the elasticity stuff in __rhashtable_insert_fast().
 
-I fixed this one, I wait with review a bit and collapse some of the 
-newer fixes into one and check and repost again tomorrow.
+What EEXIST error are you talking about? The only one that can be
+returned on insertion is if you're explicitly checking for dups
+which clearly can't be the case for you.
 
-Thanks for reviewing!
+If you're talking about the EEXIST error due to a rehash then it is
+completely hidden from you by rhashtable_insert_rehash.
 
-Bye,
-Hannes
+If you actually meant EBUSY then yes this should prevent it from
+occurring, unless your chain-length exceeds 2^32.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
