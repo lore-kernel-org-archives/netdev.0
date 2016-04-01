@@ -1,50 +1,47 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] bridge: remove br_dev_set_multicast_list
-Date: Fri,  1 Apr 2016 16:16:10 +0800
-Message-ID: <1459498570-30664-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:46259 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753070AbcDAIQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 04:16:12 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u318GBpQ002861
-	for <netdev@vger.kernel.org>; Fri, 1 Apr 2016 01:16:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: [PATCH] net: mvpp2: use cache_line_size() to get cacheline size
+Date: Fri, 1 Apr 2016 17:11:05 +0800
+Message-ID: <1459501865-7033-1-git-send-email-jszhang@marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Jisheng Zhang <jszhang@marvell.com>
+To: <davem@davemloft.net>, <mw@semihalf.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+L1_CACHE_BYTES may not be the real cacheline size, use cache_line_size
+to determine the cacheline size in runtime.
 
-remove br_dev_set_multicast_list which does nothing
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+Suggested-by: Marcin Wojtas <mw@semihalf.com>
 ---
- net/bridge/br_device.c | 5 -----
- 1 file changed, 5 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 2c8095a..75c7e00 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -123,10 +123,6 @@ static int br_dev_open(struct net_device *dev)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 05f358b..23f3c08 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -376,7 +376,7 @@
  
--static void br_dev_set_multicast_list(struct net_device *dev)
--{
--}
--
- static void br_dev_change_rx_flags(struct net_device *dev, int change)
- {
- 	if (change & IFF_PROMISC)
-@@ -329,7 +325,6 @@ static const struct net_device_ops br_netdev_ops = {
- 	.ndo_start_xmit		 = br_dev_xmit,
- 	.ndo_get_stats64	 = br_get_stats64,
- 	.ndo_set_mac_address	 = br_set_mac_address,
--	.ndo_set_rx_mode	 = br_dev_set_multicast_list,
- 	.ndo_change_rx_flags	 = br_dev_change_rx_flags,
- 	.ndo_change_mtu		 = br_change_mtu,
- 	.ndo_do_ioctl		 = br_dev_ioctl,
+ #define MVPP2_RX_PKT_SIZE(mtu) \
+ 	ALIGN((mtu) + MVPP2_MH_SIZE + MVPP2_VLAN_TAG_LEN + \
+-	      ETH_HLEN + ETH_FCS_LEN, L1_CACHE_BYTES)
++	      ETH_HLEN + ETH_FCS_LEN, cache_line_size())
+ 
+ #define MVPP2_RX_BUF_SIZE(pkt_size)	((pkt_size) + NET_SKB_PAD)
+ #define MVPP2_RX_TOTAL_SIZE(buf_size)	((buf_size) + MVPP2_SKB_SHINFO_SIZE)
 -- 
-2.1.4
+2.8.0.rc3
