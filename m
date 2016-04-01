@@ -1,59 +1,56 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCH] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with
- L1_CACHE_BYTES
-Date: Fri, 1 Apr 2016 15:15:32 +0800
-Message-ID: <20160401151532.3c596206@xhacker>
-References: <1459338921-391-1-git-send-email-jszhang@marvell.com>
-	<20160331.151547.1889188465826831929.davem@davemloft.net>
-	<20160331223735.32904e42@free-electrons.com>
-	<20160331.164710.1998871529914699937.davem@davemloft.net>
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Subject: Section 4 No. 9,10 Failed was occurred by IPv6 Ready Logo Conformance
+ Test
+Date: Fri, 1 Apr 2016 16:31:16 +0900
+Message-ID: <56FE23C4.2000706@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160331.164710.1998871529914699937.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:22675 "EHLO
+	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753407AbcDAHbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 03:31:47 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+	by yt-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 7F456AC01F7
+	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 16:31:42 +0900 (JST)
+Received: from omame (omame.fct.css.fujitsu.com [10.24.14.171])
+	by m3051.s.css.fujitsu.com (Postfix) with ESMTP id 7973C9E
+	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 16:31:42 +0900 (JST)
+Received: from [10.24.19.86] (ubi86.utsfd.cs.fujitsu.co.jp [10.24.19.86])
+	by omame (Postfix) with ESMTPSA id 681F71E0088
+	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 16:31:42 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David, Thomas,
+Hi all,
 
-On Thu, 31 Mar 2016 16:47:10 -0400 David Miller  wrote:
+I tested 4.6-rc1 by IPv6 Ready Logo Core Conformance Test.
+4.6-rc1 has some FAILs in Section 4 (RFC 1981: Path MTU Discovery for IP version 6).
+I conformed that it was PASSed in 3.14.28 and it was FAILed in 4.1.17.
+I will find a patch between 3.14 and 4.1.
 
-> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Date: Thu, 31 Mar 2016 22:37:35 +0200
-> 
-> > Hello,
-> > 
-> > On Thu, 31 Mar 2016 15:15:47 -0400 (EDT), David Miller wrote:  
-> >> From: Jisheng Zhang <jszhang@marvell.com>
-> >> Date: Wed, 30 Mar 2016 19:55:21 +0800
-> >>   
-> >> > The mvneta is also used in some Marvell berlin family SoCs which may
-> >> > have 64bytes cacheline size. Replace the MVNETA_CPU_D_CACHE_LINE_SIZE
-> >> > usage with L1_CACHE_BYTES.
-> >> > 
-> >> > And since dma_alloc_coherent() is always cacheline size aligned, so
-> >> > remove the align checks.
-> >> > 
-> >> > Signed-off-by: Jisheng Zhang <jszhang@marvell.com>  
-> >> 
-> >> Applied.  
-> > 
-> > A new version of the patch was sent, which more rightfully uses
-> > cache_line_size(), see:
-> > 
-> >  "[PATCH v2] net: mvneta: replace MVNETA_CPU_D_CACHE_LINE_SIZE with cache_line_size"  
-> 
-> Sorry about that.
-> 
-> Send me a realtive fixup patch if you like.
-> 
+IPv6 Ready Logo
+https://www.ipv6ready.org/
+TAHI Project
+http://www.tahi.org/
 
-Sorry about inconvenience, I'll send out fixup patch.
+I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
+It is using userland build with yocto project.
 
-Thanks,
-Jisheng
+Test Environment
+Test Specification          : 4.0.6
+Tool Version                : REL_3_3_2
+Test Program Version        : V6LC_5_0_0
+Target Device               : Intel D510MO (Atom D510)
+
+List of FAILs
+
+Section 4: RFC 1981 - Path MTU Discovery for IPv6
+- Test v6LC.4.1.6: Receiving MTU Below IPv6 Minimum Link MTU
+  - No. 9 Part A: MTU equal to 56
+  - No.10 Part B: MTU equal to 1279
+
+Regards,
+Yuki Machida
