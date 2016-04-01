@@ -1,62 +1,80 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: Reboot Failed was occurred after v4.4-rc1 during IPv6 Ready Logo
- Conformance Test
-Date: Fri, 1 Apr 2016 11:40:01 +0900
-Message-ID: <56FDDF81.9000402@jp.fujitsu.com>
-References: <56FCCD18.9050306@jp.fujitsu.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id and
+ sender_cpu
+Date: Fri, 1 Apr 2016 10:46:56 +0800
+Message-ID: <56FDE120.1000403@redhat.com>
+References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
+ <1459403439-6011-2-git-send-email-jasowang@redhat.com>
+ <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160331.160115.1737831060132252055.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm02.jp.fujitsu.com ([202.219.69.169]:32470 "EHLO
-	mgwkm02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753684AbcDACkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 22:40:08 -0400
-Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
-	by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id A21E6AC030C
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 11:40:01 +0900 (JST)
-Received: from omame (omame.fct.css.fujitsu.com [10.24.14.171])
-	by m3051.s.css.fujitsu.com (Postfix) with ESMTP id 8FCD4167
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 11:40:01 +0900 (JST)
-Received: from [10.24.19.86] (ubi86.utsfd.cs.fujitsu.co.jp [10.24.19.86])
-	by omame (Postfix) with ESMTPSA id 7B6F51E0088
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 11:40:01 +0900 (JST)
-In-Reply-To: <56FCCD18.9050306@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160331.160115.1737831060132252055.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On 2016年03月31日 16:09, Yuki Machida wrote:
-> Hi all,
-> 
-> Reboot Failed was occurred at Linux Kernel after v4.4-rc1 during IPv6 Ready Logo Conformance Test.
-> Not Fix a bug in v4.5-rc7 yet.
-> I will conform that it fix a bug in v4.6-rc1.
-I conform that it was not occurred in v4.6-rc1.
 
-I will find a patch for this bug, and conform it was applied -stable kernel.
-If it was not applied -stable kernel, I will report again.
+On 04/01/2016 04:01 AM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 31 Mar 2016 03:32:21 -0700
+>
+>> On Thu, 2016-03-31 at 13:50 +0800, Jason Wang wrote:
+>>> We use a union for napi_id and send_cpu, this is ok for most of the
+>>> cases except when we want to support busy polling for tun which needs
+>>> napi_id to be stored and passed to socket during tun_net_xmit(). In
+>>> this case, napi_id was overridden with sender_cpu before tun_net_xmit()
+>>> was called if XPS was enabled. Fixing by not using union for napi_id
+>>> and sender_cpu.
+>>>
+>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> ---
+>>>  include/linux/skbuff.h | 10 +++++-----
+>>>  1 file changed, 5 insertions(+), 5 deletions(-)
+>>>
+>>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>>> index 15d0df9..8aee891 100644
+>>> --- a/include/linux/skbuff.h
+>>> +++ b/include/linux/skbuff.h
+>>> @@ -743,11 +743,11 @@ struct sk_buff {
+>>>  	__u32			hash;
+>>>  	__be16			vlan_proto;
+>>>  	__u16			vlan_tci;
+>>> -#if defined(CONFIG_NET_RX_BUSY_POLL) || defined(CONFIG_XPS)
+>>> -	union {
+>>> -		unsigned int	napi_id;
+>>> -		unsigned int	sender_cpu;
+>>> -	};
+>>> +#if defined(CONFIG_NET_RX_BUSY_POLL)
+>>> +	unsigned int		napi_id;
+>>> +#endif
+>>> +#if defined(CONFIG_XPS)
+>>> +	unsigned int		sender_cpu;
+>>>  #endif
+>>>  	union {
+>>>  #ifdef CONFIG_NETWORK_SECMARK
+>> Hmmm...
+>>
+>> This is a serious problem.
+>>
+>> Making skb bigger (8 bytes because of alignment) was not considered
+>> valid for sender_cpu introduction. We worked quite hard to avoid this,
+>> if you take a look at git history :(
+>>
+>> Can you describe more precisely the problem and code path ?
+> From what I can see they are doing busy poll loops in the TX code paths,
+> as well as the RX code paths, of vhost.
+>
+> Doing this in the TX side makes little sense to me.  The busy poll
+> implementations in the drivers only process their RX queues when
+> ->ndo_busy_poll() is invoked.  So I wonder what this is accomplishing
+> for the vhost TX case?
 
-> Currently, it is under investigation.
-> 
-> IPv6 Ready Logo
-> https://www.ipv6ready.org/
-> TAHI Project
-> http://www.tahi.org/
-> 
-> I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
-> It is using userland build with yocto project.
-> 
-> Test Environment
-> Test Specification          : 4.0.6
-> Tool Version                : REL_3_3_2
-> Test Program Version        : V6LC_5_0_0
-> Target Device               : Intel D510MO (Atom D510)
-> 
-> I conform that random testcases are failed.
-> (e.g. No.5, No.130, No.131, No.134, No.167 and No.168)
-> 
-> Regards,
-> Yuki Machida
-> 
+In vhost TX case, it's possible that new packets were arrived at rx
+queue during tx polling. Consider tx and rx were processed in one
+thread, poll rx looks feasible to me.
