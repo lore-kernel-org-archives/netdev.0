@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mvneta: use cache_line_size() to get cacheline
- size
-Date: Fri, 01 Apr 2016 14:44:01 -0400 (EDT)
-Message-ID: <20160401.144401.152232996846825369.davem@davemloft.net>
-References: <1459501969-7083-1-git-send-email-jszhang@marvell.com>
+Subject: Re: [PATCH 1/2] ipv6: rework the lock in addrconf_permanent_addr
+Date: Fri, 01 Apr 2016 14:44:19 -0400 (EDT)
+Message-ID: <20160401.144419.2268825550214210639.davem@davemloft.net>
+References: <1459502818-24939-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mw@semihalf.com, thomas.petazzoni@free-electrons.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: jszhang@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459501969-7083-1-git-send-email-jszhang@marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52075 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753156AbcDASoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:44:21 -0400
+In-Reply-To: <1459502818-24939-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jisheng Zhang <jszhang@marvell.com>
-Date: Fri, 1 Apr 2016 17:12:49 +0800
+From: roy.qing.li@gmail.com
+Date: Fri,  1 Apr 2016 17:26:58 +0800
 
-> L1_CACHE_BYTES may not be the real cacheline size, use cache_line_size
-> to determine the cacheline size in runtime.
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-> Suggested-by: Marcin Wojtas <mw@semihalf.com>
+> 1. nothing of idev is changed, so read lock is enough
+> 2. ifp is changed, so used ifp->lock or cmpxchg to protect it
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied.
+You posted this patch twice and didn't post patch 2/2.
+
+I'm tossing this from patchwork, please resubmit this
+properly.
