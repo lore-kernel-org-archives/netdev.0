@@ -1,45 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Fri, 01 Apr 2016 23:34:10 +0200
-Message-ID: <1459546450.3342.22.camel@sipsolutions.net>
-References: <56F9941A.3080501@candelatech.com>
-	 <56FAAA6D.3070806@candelatech.com>
-	 <1459329252.2055.1.camel@sipsolutions.net>
-	 <20160330.123821.328761526754742195.davem@davemloft.net>
-	 <56FC0445.6010200@candelatech.com>
-	 <1459410405.4576.8.camel@sipsolutions.net>
-	 <20160331075015.GA27716@gondor.apana.org.au>
-	 <1459438199.4576.26.camel@sipsolutions.net>
-	 <20160401004627.GA9367@gondor.apana.org.au>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [Odd commit author id merge via netdev]
+Date: Fri, 1 Apr 2016 15:15:18 -0700
+Message-ID: <56FEF2F6.4090302@oracle.com>
+References: <56FEB50E.4060004@oracle.com>
+ <1459540904.3342.2.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160401004627.GA9367@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17411 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752708AbcDAWP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 18:15:26 -0400
+In-Reply-To: <1459540904.3342.2.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-01 at 08:46 +0800, Herbert Xu wrote:
-> On Thu, Mar 31, 2016 at 05:29:59PM +0200, Johannes Berg wrote:
-> > 
-> > 
-> > Does removing this completely disable the "-EEXIST" error? I can't
-> > say
-> > I fully understand the elasticity stuff in
-> > __rhashtable_insert_fast().
-> What EEXIST error are you talking about? The only one that can be
-> returned on insertion is if you're explicitly checking for dups
-> which clearly can't be the case for you.
+On 4/1/2016 1:01 PM, Johannes Berg wrote:
+> On Fri, 2016-04-01 at 10:51 -0700, santosh shilimkar wrote:
+>> Hi Dave,
+>>
+>> I noticed something odd while checking the recent
+>> commits of mine in kernel.org tree made it via netdev.
+>>
+>> Don't know if its patchwork tool doing this.
+>> Usual author line in my git objects	:
+>> 	Author: Santosh Shilimkar <emaid-id>
+>>
+>> But the commits going via your tree seems to be like below..
+>> 	Author: email-id <email-id>
+>>
+>> Few more examples of the commits end of the email. Can this
+>> be fixed for future commits ? The git objects you pulled from
+>> my tree directly have right author format where as ones which
+>> are picked from patchworks seems to be odd.
+>>
+>
+> Patchwork does store this info somehow and re-use it, quite possibly
+> from the very first patch you ever sent. I think this bug was *just*
+> fixed in patchwork, but it'll probably be a while until that fix lands.
+>
+> However, you can go and create a patchwork account with the real name,
+> associate it with all the email addresses you use and then I think
+> it'll pick it up. Not entirely sure though, you'll have to test it.
+>
+I will try that. Thanks for the tip.
 
-I was thinking about that one - it's not obvious to me from the code
-how this "explicitly checking for dups" would be done or let's say how
-rhashtable differentiates. But since it seems to work for Ben until
-hitting a certain number of identical keys, surely that's just me not
-understanding the code rather than anything else :)
-
-johannes
+Reagrds,
+Santosh
