@@ -1,42 +1,82 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2] sctp: flush if we can't fit another DATA chunk
-Date: Fri,  1 Apr 2016 14:05:48 -0300
-Message-ID: <a9e4f862b5f7a43eccca5966684d172e4de57b13.1459475764.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] Marvell phy: add fiber status check for some components
+Date: Fri, 1 Apr 2016 19:08:38 +0200
+Message-ID: <20160401170838.GA21633@lunn.ch>
+References: <56FE9B5C.6030509@nexvision.fr>
+ <56FEA2EC.2030303@nexvision.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35901 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:44654 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752510AbcDARGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Apr 2016 13:06:25 -0400
+	id S1752895AbcDARIk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2016 13:08:40 -0400
+Content-Disposition: inline
+In-Reply-To: <56FEA2EC.2030303@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no point on delaying the packet if we can't fit a single byte
-of data on it anymore. So lets just reduce the threshold by the amount
-that a data chunk with 4 bytes (rounding) would use.
+On Fri, Apr 01, 2016 at 06:33:48PM +0200, Charles-Antoine Couret wrote:
 
-v2: based on the right tree
+> >From a5a7a9828511ff6a522cf742109768207ff89929 Mon Sep 17 00:00:00 2001
+> From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+> Date: Fri, 1 Apr 2016 16:16:35 +0200
+> Subject: [PATCH] Marvell phy: add fiber status check for some components
+> 
+> This patch is not tested with all Marvell's phy. The new function was actived
+> only for tested phys.
+> 
+> Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+> ---
+>  drivers/net/phy/marvell.c | 37 +++++++++++++++++++++++++++++++++++--
+>  1 file changed, 35 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index ab1d0fc..5ac186e 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -890,6 +890,39 @@ static int marvell_read_status(struct phy_device *phydev)
+>  	return 0;
+>  }
+>  
+> +/* marvell_read_fiber_status
+> + *
+> + * Some Marvell's phys have two modes: fiber and copper.
+> + * Both need status checked.
+> + * Description:
+> + *   First, check the fiber link and status.
+> + *   If the fiber link is down, check the copper link and status which
+> + *   will be the default value if both link are down.
+> + */
+> +static int marvell_read_fiber_status(struct phy_device *phydev)
+> +{
+> +	int err;
+> +
+> +	/* Check the fiber mode first */
+> +	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	err = marvell_read_status(phydev);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	if (phydev->link)
+> +		return 0;
+> +
+> +	/* If fiber link is down, check and save copper mode state */
+> +	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	return marvell_read_status(phydev);
+> +}
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/output.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hi Charles
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 97745351d58c2fb32b9f9b57d61831d7724d83b2..9844fe573029b9e262743440980f15277ddaf5a1 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
- 	/* Check whether this chunk and all the rest of pending data will fit
- 	 * or delay in hopes of bundling a full sized packet.
- 	 */
--	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
-+	if (chunk->skb->len + q->out_qlen >
-+		transport->pathmtu - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
- 		/* Enough data queued to fill a packet */
- 		return SCTP_XMIT_OK;
- 
--- 
-2.5.0
+Shouldn't you return to page 0, i.e. MII_M1111_COPPER, under all
+conditions?
+
+	Andrew
