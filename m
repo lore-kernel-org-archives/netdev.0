@@ -1,49 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
- __sk_dst_get
-Date: Fri, 01 Apr 2016 03:37:26 +0200
-Message-ID: <1459474646.3751154.565322314.303C5B08@webmail.messagingengine.com>
-References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
- <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
- <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBA6E.5030508@stressinduktion.org>
- <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDC143.5060507@stressinduktion.org>
- <1459473790.6473.247.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: stop the "rcv is not +last, " error messages
+Date: Fri, 1 Apr 2016 01:37:41 +0000
+Message-ID: <VI1PR0401MB185587E14ABDBD5C692E40F8FF9A0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <56FB46EA.7050401@uclinux.org>
+	<CAOMZO5B79aHocuqT4jgEU9gGcFYD5ZSDZh8PrGeXYAcLHW1x5Q@mail.gmail.com>
+	<VI1PR0401MB1855458E0B31502D1C112AF6FF990@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+ <CAOMZO5AfQrhjRErp+cCmcpn2qqjuPp0oNN9gaJp65A0o=p0DUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, daniel@iogearbox.net,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Greg Ungerer <gerg@uclinux.org>,
+	Troy Kisky <troy.kisky@boundarydevices.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54749 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753297AbcDABh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 21:37:27 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 69E062029F
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 21:37:26 -0400 (EDT)
-In-Reply-To: <1459473790.6473.247.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-am1on0060.outbound.protection.outlook.com ([157.56.112.60]:55856
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753297AbcDABhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Mar 2016 21:37:45 -0400
+In-Reply-To: <CAOMZO5AfQrhjRErp+cCmcpn2qqjuPp0oNN9gaJp65A0o=p0DUQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, Apr 1, 2016, at 03:23, Eric Dumazet wrote:
-> On Fri, 2016-04-01 at 02:30 +0200, Hannes Frederic Sowa wrote:
-> 
-> > I fixed this one, I wait with review a bit and collapse some of the 
-> > newer fixes into one and check and repost again tomorrow.
-> 
-> No change should be needed in TCP, once net/core/sock.c is fixed.
-> 
-> When someone fixes a lockdep issue, it should be mandatory to include in
-> the changelog the lockdep splat, so that we can double check.
-
-Yup, will do that. Every change will be a single patch with lockdep
-report.
-
-Thank you,
-Hannes
+RnJvbTogRmFiaW8gRXN0ZXZhbSA8ZmVzdGV2YW1AZ21haWwuY29tPiBTZW50OiBUaHVyc2RheSwg
+TWFyY2ggMzEsIDIwMTYgNjo1NyBQTQ0KPiBUbzogRnVnYW5nIER1YW4gPGZ1Z2FuZy5kdWFuQG54
+cC5jb20+DQo+IENjOiBHcmVnIFVuZ2VyZXIgPGdlcmdAdWNsaW51eC5vcmc+OyBUcm95IEtpc2t5
+DQo+IDx0cm95Lmtpc2t5QGJvdW5kYXJ5ZGV2aWNlcy5jb20+OyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogZmVjOiBzdG9wIHRoZSAicmN2IGlzIG5v
+dCArbGFzdCwgIiBlcnJvciBtZXNzYWdlcw0KPiANCj4gSGkgQW5keSwNCj4gDQo+IE9uIFdlZCwg
+TWFyIDMwLCAyMDE2IGF0IDEwOjQxIFBNLCBGdWdhbmcgRHVhbiA8ZnVnYW5nLmR1YW5AbnhwLmNv
+bT4NCj4gd3JvdGU6DQo+ID4NCj4gPiBGYWJpbywgd2UgY2Fubm90IGRvIGl0IGxpa2UgdGhpcyB0
+aGF0IG1heSBjYXVzZSBjb25mdXNlZCBmb3IgdGhlIHF1aXJrIGZsYWcNCj4gIkZFQ19RVUlSS19I
+QVNfUkFDQyIuDQo+IA0KPiBXZSBjYW4gdHJlYXQgRkVDX1FVSVJLX0hBU19SQUNDIGZsYWcgYXMg
+InRoaXMgaXMgYSBub24tQ29sZGZpcmUgU29DIi4NCj4gDQoNCkZFQ19RVUlSS19IQVNfUkFDQyBt
+ZWFucyB0aGUgSFcgc3VwcG9ydCAiUmVjZWl2ZSBBY2NlbGVyYXRvciBGdW5jdGlvbiBDb25maWd1
+cmF0aW9uIi4gSXQgaXMgcmVhbGx5IG1ha2Ugc29tZWJvZHkgY29uZnVzZWQuDQoNClRvIHNhdmUg
+dHJvdWJsZSwgIHlvdSB0cmVhdCAgRkVDX1FVSVJLX0hBU19SQUNDIGZsYWcgYXMgInRoaXMgaXMg
+YSBub24tQ29sZGZpcmUgU29DIiwgIHlvdSBtdXN0IGFkZCBjb21tZW50IG9uIHRoZSBmbGFnIGRl
+ZmluZS4NCg0KPiA+DQo+ID4NCj4gPiBIaSwgR3JlZywNCj4gPg0KPiA+IFRoZSBoZWFkZXIgZmls
+ZSBmZWMuaCBkZWZpbmUgdGhlIEZFQ19GVFJMIGFzIGJlbG93LCAgaWYgQ29sZEZpcmUgU29DIGhh
+cyBubyB0aGlzDQo+IHJlZ2lzdGVyLCAgd2UgbWF5IHJlbW92ZSB0aGUgZGVmaW5lIGluIGhlcmUg
+YW5kIGRlZmluZSB0aGUgcmVnaXN0ZXIgYWNjb3JkaW5nDQo+IHRvIFNPQyB0eXBlLiBGb3IgZXhh
+bXBsZSwgaXQgaXMgQ29sZEZpcmUgU29jLCBkZWZpbmUgaXQgYXMgMHhGRkYuIElzIGl0ICBmZWFz
+aWJsZSA/DQo+ID4NCj4gDQo+IFRoaXMgaXMgZXZlbiB3b3JzZSBJTUhPLiBXZSBzaG91bGQgbm90
+IHdyaXRlIHRvIGEgJ2Zha2UnIHJlZ2lzdGVyIG9mZnNldCBvZiAweEZGRi4NCg0KV2UgY2FuIGRv
+IGl0IGxpa2UgdGhpczoNCg0KI2lmIGRlZmluZWQoQ09ORklHX0FSTSkNCiAgICAgICAgd3JpdGVs
+KFBLVF9NQVhCVUZfU0laRSwgZmVwLT5od3AgKyBGRUNfRlRSTCk7DQojZW5kaWYNCg==
