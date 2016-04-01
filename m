@@ -1,80 +1,111 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Fri, 1 Apr 2016 11:17:26 -0700
-Message-ID: <56FEBB36.4020606@candelatech.com>
-References: <56F9941A.3080501@candelatech.com>
- <56FAAA6D.3070806@candelatech.com> <1459329252.2055.1.camel@sipsolutions.net>
- <20160330.123821.328761526754742195.davem@davemloft.net>
- <56FC0445.6010200@candelatech.com> <1459410405.4576.8.camel@sipsolutions.net>
- <20160331075015.GA27716@gondor.apana.org.au>
- <1459438199.4576.26.camel@sipsolutions.net>
- <20160401004627.GA9367@gondor.apana.org.au>
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Subject: [PATCH] Marvell phy: add fiber status check for some components
+Date: Fri, 1 Apr 2016 18:01:32 +0200
+Message-ID: <56FE9B5C.6030509@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	tgraf@suug.ch
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: multipart/mixed;
+ boundary="------------090307090500070302020706"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:44102 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbcDASR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:17:28 -0400
-In-Reply-To: <20160401004627.GA9367@gondor.apana.org.au>
+Received: from 8.mo4.mail-out.ovh.net ([188.165.33.112]:45024 "EHLO
+	8.mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751022AbcDAS1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:27:38 -0400
+Received: from mail699.ha.ovh.net (b6.ovh.net [213.186.33.56])
+	by mo4.mail-out.ovh.net (Postfix) with SMTP id C637A1068124
+	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 18:01:34 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/31/2016 05:46 PM, Herbert Xu wrote:
-> On Thu, Mar 31, 2016 at 05:29:59PM +0200, Johannes Berg wrote:
->>
->> Does removing this completely disable the "-EEXIST" error? I can't say
->> I fully understand the elasticity stuff in __rhashtable_insert_fast().
->
-> What EEXIST error are you talking about? The only one that can be
-> returned on insertion is if you're explicitly checking for dups
-> which clearly can't be the case for you.
->
-> If you're talking about the EEXIST error due to a rehash then it is
-> completely hidden from you by rhashtable_insert_rehash.
->
-> If you actually meant EBUSY then yes this should prevent it from
-> occurring, unless your chain-length exceeds 2^32.
-
-EEXIST was on removal, and was a symptom of the failure to insert, not
-really a problem itself.
-
-I reverted my revert (ie, back to rhashtable), added Johanne's patch
-to check insertion (and added my on pr_err there).
-
-I also added this:
-
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 38ef0be..c25b945 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -66,6 +66,7 @@
-
-  static const struct rhashtable_params sta_rht_params = {
-         .nelem_hint = 3, /* start small */
-+       .insecure_elasticity = true, /* Disable chain-length checks. */
-         .automatic_shrinking = true,
-         .head_offset = offsetof(struct sta_info, hash_node),
-         .key_offset = offsetof(struct sta_info, addr),
+This is a multi-part message in MIME format.
+--------------090307090500070302020706
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
 
-Now, my test case seems to pass, though I did have one strange issue
-before I put in the pr_err.  I'm not sure if it was a hashtable issue
-or something else..but I have lots of something-else going on in this system,
-so I'd say that likely the patch above fixes rhashtable for my use case.
+--------------090307090500070302020706
+Content-Type: text/x-patch;
+ name="marvell.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="marvell.patch"
 
-I will of course let you know if I run into more issues that appear
-to be hashtable related!
+>From a5a7a9828511ff6a522cf742109768207ff89929 Mon Sep 17 00:00:00 2001
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Date: Fri, 1 Apr 2016 16:16:35 +0200
+Subject: [PATCH] Marvell phy: add fiber status check for some components
 
-Thanks,
-Ben
+This patch is not tested with all Marvell's phy. The new function was actived
+only for tested phys.
 
+Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+---
+ drivers/net/phy/marvell.c | 37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index ab1d0fc..5ac186e 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -890,6 +890,39 @@ static int marvell_read_status(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++/* marvell_read_fiber_status
++ *
++ * Some Marvell's phys have two modes: fiber and copper.
++ * Both need status checked.
++ * Description:
++ *   First, check the fiber link and status.
++ *   If the fiber link is down, check the copper link and status which
++ *   will be the default value if both link are down.
++ */
++static int marvell_read_fiber_status(struct phy_device *phydev)
++{
++	int err;
++
++	/* Check the fiber mode first */
++	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
++	if (err < 0)
++		return err;
++
++	err = marvell_read_status(phydev);
++	if (err < 0)
++		return err;
++
++	if (phydev->link)
++		return 0;
++
++	/* If fiber link is down, check and save copper mode state */
++	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++	if (err < 0)
++		return err;
++
++	return marvell_read_status(phydev);
++}
++
+ static int marvell_aneg_done(struct phy_device *phydev)
+ {
+ 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
+@@ -1122,7 +1155,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.probe = marvell_probe,
+ 		.config_init = &m88e1111_config_init,
+ 		.config_aneg = &marvell_config_aneg,
+-		.read_status = &marvell_read_status,
++		.read_status = &marvell_read_fiber_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.resume = &genphy_resume,
+@@ -1270,7 +1303,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.probe = marvell_probe,
+ 		.config_init = &marvell_config_init,
+ 		.config_aneg = &m88e1510_config_aneg,
+-		.read_status = &marvell_read_status,
++		.read_status = &marvell_read_fiber_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.did_interrupt = &m88e1121_did_interrupt,
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+2.5.5
+
+--------------090307090500070302020706--
