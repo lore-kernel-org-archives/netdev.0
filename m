@@ -1,101 +1,81 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2 net-next] net: ipv4: Consider unreachable nexthops in
- multipath routes
-Date: Fri, 1 Apr 2016 08:39:30 -0600
-Message-ID: <56FE8822.3080900@cumulusnetworks.com>
-References: <1459463081-20206-1-git-send-email-dsa@cumulusnetworks.com>
- <alpine.LFD.2.11.1604011005480.2190@ja.home.ssi.bg>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/4] samples/bpf: Use llc in PATH, rather than a
+ hardcoded value
+Date: Fri, 1 Apr 2016 20:07:51 +0530
+Message-ID: <20160401143751.GF17907@naverao1-tp.ibm.com>
+References: <922f95fb5d16686367a66d2d4bd176149a87e9ad.1459423412.git.naveen.n.rao@linux.vnet.ibm.com>
+ <ba23d688b3550c3f22dd0dd6d5cb1233c2f34816.1459423412.git.naveen.n.rao@linux.vnet.ibm.com>
+ <56FD627D.5080405@fb.com>
+ <56FD6A2C.2010506@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34931 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759273AbcDAOje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 10:39:34 -0400
-Received: by mail-io0-f175.google.com with SMTP id g185so154807539ioa.2
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 07:39:33 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.11.1604011005480.2190@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <56FD6A2C.2010506@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/1/16 2:09 AM, Julian Anastasov wrote:
->> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
->> index d97268e8ff10..6d423faff0ce 100644
->> --- a/net/ipv4/fib_semantics.c
->> +++ b/net/ipv4/fib_semantics.c
->> @@ -1559,17 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->>   }
->>
->>   #ifdef CONFIG_IP_ROUTE_MULTIPATH
->> +static bool fib_good_nh(const struct fib_nh *nh, struct net_device *dev)
->> +{
->> +	struct neighbour *n = NULL;
->> +	int state = NUD_NONE;
->
-> 	Looks like we can do it even better.
-> If we use NUD_REACHABLE here...
->
->> +
->> +	if (nh->nh_scope == RT_SCOPE_LINK) {
->> +		rcu_read_lock_bh();
->> +
->> +		n = __neigh_lookup_noref(&arp_tbl, &nh->nh_gw, dev);
->> +		if (n)
->> +			state = n->nud_state;
->> +
->> +		rcu_read_unlock_bh();
->> +	}
->> +
->> +	/* outside of rcu locking using n only as a boolean
->> +	 * on whether a neighbor entry existed
->> +	 */
->> +	if (!n || (state & NUD_VALID))
->
-> 	then check for '!n' is not needed. For bool type
-> 'return state & NUD_VALID;' should work.
+On 2016/03/31 08:19PM, Daniel Borkmann wrote:
+> On 03/31/2016 07:46 PM, Alexei Starovoitov wrote:
+> >On 3/31/16 4:25 AM, Naveen N. Rao wrote:
+> >>      clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+> >>          -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+> >>-        -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+> >>+        -O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=obj -o $@
+> >>      clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+> >>          -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+> >>-        -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=asm -o $@.s
+> >>+        -O2 -emit-llvm -c $< -o -| llc -march=bpf -filetype=asm -o $@.s
+> >
+> >that was a workaround when clang/llvm didn't have bpf support.
+> >Now clang 3.7 and 3.8 have bpf built-in, so make sense to remove
+> >manual calls to llc completely.
+> >Just use 'clang -target bpf -O2 -D... -c $< -o $@'
+> 
+> +1, the clang part in that Makefile should also more correctly be called
+> with '-target bpf' as it turns out (despite llc with '-march=bpf' ...).
+> Better to use clang directly as suggested by Alexei.
 
-good simplification.
+I'm likely missing something obvious, but I cannot get this to work.  
+With this diff:
 
->
->> +		return true;
->> +
->> +	return false;
->> +}
->>
->>   void fib_select_multipath(struct fib_result *res, int hash)
->>   {
->>   	struct fib_info *fi = res->fi;
->> +	struct net_device *dev = fi->fib_dev;
->> +	struct net *net = fi->fib_net;
->>
->>   	for_nexthops(fi) {
->>   		if (hash > atomic_read(&nh->nh_upper_bound))
->>   			continue;
->>
->> -		res->nh_sel = nhsel;
->> -		return;
->> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
->> +		    fib_good_nh(nh, dev)) {
->
-> 	This dev is from first nexthop. Better fib_good_nh
-> to use nh->nh_dev instead, it is present for all nexthops
-> in multipath route. We should not copy the bugs from
-> fib_detect_death.
+	 $(obj)/%.o: $(src)/%.c
+		clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+			-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+	-               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
+	-       clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+	-               -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+	-               -O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=asm -o $@.s
+	+               -O2 -target bpf -c $< -o $@
 
-ack. Will fix.
+I see far too many errors thrown starting with:
 
->
->> +			res->nh_sel = nhsel;
->> +			return;
->> +		}
->>   	} endfor_nexthops(fi);
->
-> 	So, you dropped the idea to give full chance for
-> fallback? Now if last nexthop fails we do not fallback at all.
-> We promised to prefer reachable nexthops.
+	clang  -nostdinc -isystem 
+	/usr/lib/gcc/x86_64-redhat-linux/4.8.2/include 
+	-I./arch/x86/include -Iarch/x86/include/generated/uapi 
+	-Iarch/x86/include/generated  -Iinclude 
+	-I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi 
+	-I./include/uapi -Iinclude/generated/uapi -include 
+	./include/linux/kconfig.h  \
+		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+		-O2 -target bpf -c samples/bpf/map_perf_test_kern.c -o samples/bpf/map_perf_test_kern.o
+	In file included from samples/bpf/map_perf_test_kern.c:7:
+	In file included from include/linux/skbuff.h:17:
+	In file included from include/linux/kernel.h:10:
+	In file included from include/linux/bitops.h:36:
+	In file included from ./arch/x86/include/asm/bitops.h:500:
+	./arch/x86/include/asm/arch_hweight.h:31:10: error: invalid output constraint '=a' in asm
+			     : "="REG_OUT (res)
+			       ^
+	./arch/x86/include/asm/arch_hweight.h:59:10: error: invalid output constraint '=a' in asm
+			     : "="REG_OUT (res)
 
-I'll save the first nhsel not selected and if all fails return it. That 
-keeps the fallback inline with what happens today.
+
+What am I missing?
+
+
+- Naveen
