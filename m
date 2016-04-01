@@ -1,51 +1,42 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [v7, 0/5] Fix eSDHC host version register bug
-Date: Fri, 01 Apr 2016 17:25:43 -0500
-Message-ID: <1459549543.32510.28.camel@buserror.net>
-References: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH net 0/4] ip6: datagram: Update dst cache of a connected datagram sk during pmtu update
+Date: Fri, 1 Apr 2016 15:56:27 -0700
+Message-ID: <1459551391-69969-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ulf.hansson@linaro.org, Zhao Qiang <qiang.zhao@freescale.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Joerg Roedel <joro@8bytes.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	Jochen Friedrich <jochen@scram.de>, scott.wood@nxp.com,
-	Rob Herring <robh+dt@kernel.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>, leoyang.li@nxp.com,
-	xiaobo.xie@nxp.com
-To: Yangbo Lu <yangbo.lu@nxp.com>, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-clk@vger.kernel.org,
-	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-mmc@vger.kernel.org
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
-Sender: linux-clk-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:7612 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754341AbcDAW5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 18:57:32 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u31MvG2J017449
+	for <netdev@vger.kernel.org>; Fri, 1 Apr 2016 15:57:31 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 221x2w9197-1
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 15:57:31 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.102.107.99) with ESMTP	id
+ 1cf6e3e4f85d11e58ecd0002c99293a0-73fed3f0 for <netdev@vger.kernel.org>;	Fri,
+ 01 Apr 2016 15:57:30 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-01 at 11:07 +0800, Yangbo Lu wrote:
-> This patchset is used to fix a host version register bug in the T4240-R1.0
-> -R2.0
-> eSDHC controller. To get the SoC version and revision, it's needed to add
-> the
-> GUTS driver to access the global utilities registers.
-> 
-> So, the first three patches are to add the GUTS driver.
-> The following two patches are to enable GUTS driver support to get SVR in
-> eSDHC
-> driver and fix host version for T4240.
-> 
-> Yangbo Lu (5):
->   ARM64: dts: ls2080a: add device configuration node
->   soc: fsl: add GUTS driver for QorIQ platforms
->   dt: move guts devicetree doc out of powerpc directory
->   powerpc/fsl: move mpc85xx.h to include/linux/fsl
->   mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
+There is a case in connected UDP socket such that
+getsockopt(IPV6_MTU) will return a stale MTU value. The reproducible
+sequence could be the following:
+1. Create a connected UDP socket
+2. Send some datagrams out
+3. Receive a ICMPV6_PKT_TOOBIG
+4. No new outgoing datagrams to trigger the sk_dst_check()
+   logic to update the sk->sk_dst_cache.
+5. getsockopt(IPV6_MTU) returns the mtu from the invalid
+   sk->sk_dst_cache instead of the newly created RTF_CACHE clone.
 
-Acked-by: Scott Wood <oss@buserror.net>
-
--Scott
-
+Patch 1 and 2 are the prep work.
+Patch 3 and 4 are the fixes.
