@@ -1,66 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id
- and sender_cpu
-Date: Fri, 01 Apr 2016 06:04:19 -0700
-Message-ID: <1459515859.6473.277.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
-	 <1459403439-6011-2-git-send-email-jasowang@redhat.com>
-	 <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDD94E.8090908@redhat.com>
-	 <1459479325.6473.260.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDFDDB.7090606@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34310 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754536AbcDANEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 09:04:22 -0400
-In-Reply-To: <56FDFDDB.7090606@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcin Wojtas <mw@semihalf.com>
+Subject: [PATCH] net: mvneta: fix changing MTU when using per-cpu processing
+Date: Fri,  1 Apr 2016 15:21:18 +0200
+Message-ID: <1459516878-2802-1-git-send-email-mw@semihalf.com>
+Cc: davem@davemloft.net, linux@arm.linux.org.uk,
+	sebastian.hesselbarth@gmail.com, andrew@lunn.ch,
+	jason@lakedaemon.net, thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, nadavh@marvell.com,
+	alior@marvell.com, nitroshift@yahoo.com, mw@semihalf.com,
+	jaz@semihalf.com
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-04-01 at 12:49 +0800, Jason Wang wrote:
-> 
-> On 04/01/2016 10:55 AM, Eric Dumazet wrote:
-> > On Fri, 2016-04-01 at 10:13 +0800, Jason Wang wrote:
-> >
-> >
-> >> The problem is we want to support busy polling for tun. This needs
-> >> napi_id to be passed to tun socket by sk_mark_napi_id() during
-> >> tun_net_xmit(). But before reaching this, XPS will set sender_cpu will
-> >> make us can't see correct napi_id.
-> >>
-> > Looks like napi_id should have precedence then ?
-> 
-> But then when busy polling is enabled, we may still hit the issue before
-> commit 2bd82484bb4c5db1d5dc983ac7c409b2782e0154? So looks like sometimes
-> (e.g for tun), we need both two fields.
+After enabling per-cpu processing it appeared that under heavy load
+changing MTU can result in blocking all port's interrupts and transmitting
+data is not possible after the change.
 
-You did not clearly show me the path you take where both fields would be
-needed. If you expect me to do that, it wont happen.
+This commit fixes above issue by disabling percpu interrupts for the
+time, when TXQs and RXQs are reconfigured.
 
-> 
-> >
-> > Only forwarding should allow the field to be cleared to allow XPS to do
-> > its job.
-> >
-> > Maybe skb_sender_cpu_clear() was removed too early (commit
-> > 64d4e3431e686dc37ce388ba531c4c4e866fb141)
-> 
-> Not sure I get you, but this will clear napi_id too.
+Signed-off-by: Marcin Wojtas <mw@semihalf.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 30 ++++++++++++++++--------------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
 
-Only when allowed. In your case it would not be called.
-
-Some people do not use tun, and want to forward or cook millions of
-packets per second. sk_buff size is critical. 
-
-If busy polling gives you 5 % of performance improvement, but cost
-everyone else a performance decrease, this is a serious problem.
-
-XPS is a sender problem, NAPI is a receiver problem. Fields should be
-shared.
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index fee6a91..a433de9 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3083,6 +3083,20 @@ static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
+ 	return mtu;
+ }
+ 
++static void mvneta_percpu_enable(void *arg)
++{
++	struct mvneta_port *pp = arg;
++
++	enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
++}
++
++static void mvneta_percpu_disable(void *arg)
++{
++	struct mvneta_port *pp = arg;
++
++	disable_percpu_irq(pp->dev->irq);
++}
++
+ /* Change the device mtu */
+ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ {
+@@ -3107,6 +3121,7 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 	 * reallocation of the queues
+ 	 */
+ 	mvneta_stop_dev(pp);
++	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 
+ 	mvneta_cleanup_txqs(pp);
+ 	mvneta_cleanup_rxqs(pp);
+@@ -3130,6 +3145,7 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 		return ret;
+ 	}
+ 
++	on_each_cpu(mvneta_percpu_enable, pp, true);
+ 	mvneta_start_dev(pp);
+ 	mvneta_port_up(pp);
+ 
+@@ -3283,20 +3299,6 @@ static void mvneta_mdio_remove(struct mvneta_port *pp)
+ 	pp->phy_dev = NULL;
+ }
+ 
+-static void mvneta_percpu_enable(void *arg)
+-{
+-	struct mvneta_port *pp = arg;
+-
+-	enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
+-}
+-
+-static void mvneta_percpu_disable(void *arg)
+-{
+-	struct mvneta_port *pp = arg;
+-
+-	disable_percpu_irq(pp->dev->irq);
+-}
+-
+ /* Electing a CPU must be done in an atomic way: it should be done
+  * after or before the removal/insertion of a CPU and this function is
+  * not reentrant.
+-- 
+1.8.3.1
