@@ -1,111 +1,31 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH] Marvell phy: add fiber status check for some components
-Date: Fri, 1 Apr 2016 18:01:32 +0200
-Message-ID: <56FE9B5C.6030509@nexvision.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
+ __sk_dst_get
+Date: Fri, 01 Apr 2016 14:33:58 -0400 (EDT)
+Message-ID: <20160401.143358.1963393066215816255.davem@davemloft.net>
+References: <20160401042655.GA16500@ast-mbp.thefacebook.com>
+	<56FDFA0F.5070104@stressinduktion.org>
+	<56FE2CE3.9080805@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090307090500070302020706"
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	sasha.levin@oracle.com, mkubecek@suse.cz
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8.mo4.mail-out.ovh.net ([188.165.33.112]:45024 "EHLO
-	8.mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022AbcDAS1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:27:38 -0400
-Received: from mail699.ha.ovh.net (b6.ovh.net [213.186.33.56])
-	by mo4.mail-out.ovh.net (Postfix) with SMTP id C637A1068124
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 18:01:34 +0200 (CEST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:51843 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbcDASeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 14:34:00 -0400
+In-Reply-To: <56FE2CE3.9080805@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------090307090500070302020706
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 01 Apr 2016 10:10:11 +0200
 
+> Dave, do you need me to resubmit this one w/o changes:
+> http://patchwork.ozlabs.org/patch/603903/ ?
 
---------------090307090500070302020706
-Content-Type: text/x-patch;
- name="marvell.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="marvell.patch"
-
->From a5a7a9828511ff6a522cf742109768207ff89929 Mon Sep 17 00:00:00 2001
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Date: Fri, 1 Apr 2016 16:16:35 +0200
-Subject: [PATCH] Marvell phy: add fiber status check for some components
-
-This patch is not tested with all Marvell's phy. The new function was actived
-only for tested phys.
-
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
----
- drivers/net/phy/marvell.c | 37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index ab1d0fc..5ac186e 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -890,6 +890,39 @@ static int marvell_read_status(struct phy_device *phydev)
- 	return 0;
- }
- 
-+/* marvell_read_fiber_status
-+ *
-+ * Some Marvell's phys have two modes: fiber and copper.
-+ * Both need status checked.
-+ * Description:
-+ *   First, check the fiber link and status.
-+ *   If the fiber link is down, check the copper link and status which
-+ *   will be the default value if both link are down.
-+ */
-+static int marvell_read_fiber_status(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Check the fiber mode first */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+	if (err < 0)
-+		return err;
-+
-+	err = marvell_read_status(phydev);
-+	if (err < 0)
-+		return err;
-+
-+	if (phydev->link)
-+		return 0;
-+
-+	/* If fiber link is down, check and save copper mode state */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	if (err < 0)
-+		return err;
-+
-+	return marvell_read_status(phydev);
-+}
-+
- static int marvell_aneg_done(struct phy_device *phydev)
- {
- 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
-@@ -1122,7 +1155,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.probe = marvell_probe,
- 		.config_init = &m88e1111_config_init,
- 		.config_aneg = &marvell_config_aneg,
--		.read_status = &marvell_read_status,
-+		.read_status = &marvell_read_fiber_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.resume = &genphy_resume,
-@@ -1270,7 +1303,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.probe = marvell_probe,
- 		.config_init = &marvell_config_init,
- 		.config_aneg = &m88e1510_config_aneg,
--		.read_status = &marvell_read_status,
-+		.read_status = &marvell_read_fiber_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.did_interrupt = &m88e1121_did_interrupt,
--- 
-2.5.5
-
---------------090307090500070302020706--
+I'll apply this and queue it up for -stable, thanks.
