@@ -1,79 +1,44 @@
-From: Petr Kulhavy <petr@barix.com>
-Subject: davinci-mdio: failing to connect to PHY
-Date: Fri, 1 Apr 2016 17:24:13 +0200
-Message-ID: <56FE929D.2060104@barix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 2/8] tcp: accept SOF_TIMESTAMPING_OPT_ID for
+ passive TFO
+Date: Fri, 01 Apr 2016 08:44:23 -0700
+Message-ID: <1459525463.6473.278.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
+	 <1459523080-29329-3-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, willemb@google.com,
+	edumazet@google.com, ycheng@google.com, ncardwell@google.com,
+	kafai@fb.com, Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:34573 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751925AbcDAPYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 11:24:16 -0400
-Received: by mail-wm0-f42.google.com with SMTP id p65so30503654wmp.1
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 08:24:15 -0700 (PDT)
-Received: from [192.168.11.166] (dynamic-31-25-120-010.ftth.glattnet.ch. [31.25.120.10])
-        by smtp.gmail.com with ESMTPSA id uq10sm14496528wjc.38.2016.04.01.08.24.13
-        for <netdev@vger.kernel.org>
-        (version=TLSv1/SSLv3 cipher=OTHER);
-        Fri, 01 Apr 2016 08:24:14 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35647 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbcDAPo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 11:44:26 -0400
+Received: by mail-pa0-f53.google.com with SMTP id td3so93307756pab.2
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 08:44:26 -0700 (PDT)
+In-Reply-To: <1459523080-29329-3-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-I'm experiencing a peculiar problem with PHY communication in the 
-current davinci-mdio.c driver.
-After upgrading from kernel 3.17 to 4.5 my DT based AM1808 board started 
-having issues with the PHY communication.
-The MAC is detected, the MDIO is detected, the PHY is detected 
-(twice?!?!), however there is no data being sent/received and the after 
-issuing "ifdown -a" the MDIO starts spitting out messages that it cannot 
-connect to the PHY:
-
-net eth0: could not connect to phy davinci_mdio.0:00
-davinci_mdio davinci_mdio.0: resetting idled controller
-
-
-I'm using a single Micrel KSZ8081 PHY connected via RMII.
-Here is the dmesg excerpt related to mdio:
-
-davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
-davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
-davinci_mdio davinci_mdio.0: detected phy mask fffffffc
-libphy: davinci_mdio.0: probed
-davinci_mdio davinci_mdio.0: phy[0]: device davinci_mdio.0:00, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: resetting idled controller
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: failed to disable NAND tree 
-mode
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: attached PHY driver [Micrel 
-KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:00, irq=-1)
+On Fri, 2016-04-01 at 11:04 -0400, Soheil Hassas Yeganeh wrote:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> SOF_TIMESTAMPING_OPT_ID is set to get data-independent IDs
+> to associate timestamps with send calls. For TCP connections,
+> tp->snd_una is used as the starting point to calculate
+> relative IDs.
+> 
+> This socket option will fail if set before the handshake on a
+> passive TCP fast open connection with data in SYN or SYN/ACK,
+> since setsockopt requires the connection to be in the
+> ESTABLISHED state.
+> 
+> To address these, instead of limiting the option to the
+> ESTABLISHED state, accept the SOF_TIMESTAMPING_OPT_ID option as
+> long as the connection is not in LISTEN or CLOSE states.
 
 
-After soft-rebooting the MDIO uses a different PHY mask fffffffd, 
-detects correctly only one PHY at address 1 (this is the default 
-address) and the networking works:
-
-davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
-davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
-davinci_mdio davinci_mdio.0: detected phy mask fffffffd
-libphy: davinci_mdio.0: probed
-davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: resetting idled controller
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:01: attached PHY driver [Micrel 
-KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:01, irq=-1)
-
-
-I'm wondering what the problem is and why the PHY mask is different 
-after power-up.
-Also it's not clear to me why this set-up worked with kernel 3.17 even 
-if it was detecting the PHY twice exactly the same way.
-How does the mask relate to the PHY address and how is it calculated?
-
-Thanks
-Petr
+Acked-by: Eric Dumazet <edumazet@google.com>
