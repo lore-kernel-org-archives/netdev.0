@@ -1,156 +1,75 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 net-next] net: ipv4: Consider unreachable nexthops in
- multipath routes
-Date: Fri, 1 Apr 2016 11:09:04 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604011005480.2190@ja.home.ssi.bg>
-References: <1459463081-20206-1-git-send-email-dsa@cumulusnetworks.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around __sk_dst_get
+Date: Fri, 01 Apr 2016 10:10:11 +0200
+Message-ID: <56FE2CE3.9080805@iogearbox.net>
+References: <1459466982-20432-5-git-send-email-hannes@stressinduktion.org> <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com> <56FDBA6E.5030508@stressinduktion.org> <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com> <56FDBF0E.8020309@stressinduktion.org> <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com> <20160401014516.GA11017@ast-mbp.thefacebook.com> <1459479818.6473.265.camel@edumazet-glaptop3.roam.corp.google.com> <20160401040442.GA14661@ast-mbp.thefacebook.com> <56FDF541.6070106@stressinduktion.org> <20160401042655.GA16500@ast-mbp.thefacebook.com> <56FDFA0F.5070104@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, sasha.levin@oracle.com, mkubecek@suse.cz
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:58089 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753249AbcDAIJL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Apr 2016 04:09:11 -0400
-In-Reply-To: <1459463081-20206-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:56441 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758483AbcDAIKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 04:10:17 -0400
+In-Reply-To: <56FDFA0F.5070104@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/01/2016 06:33 AM, Hannes Frederic Sowa wrote:
+> On 01.04.2016 06:26, Alexei Starovoitov wrote:
+>> On Fri, Apr 01, 2016 at 06:12:49AM +0200, Hannes Frederic Sowa wrote:
+>>> On 01.04.2016 06:04, Alexei Starovoitov wrote:
+>>>> On Thu, Mar 31, 2016 at 08:03:38PM -0700, Eric Dumazet wrote:
+>>>>> On Thu, 2016-03-31 at 18:45 -0700, Alexei Starovoitov wrote:
+>>>>>
+>>>>>> Eric, what's your take on Hannes's patch 2 ?
+>>>>>> Is it more accurate to ask lockdep to check for actual lock
+>>>>>> or lockdep can rely on owned flag?
+>>>>>> Potentially there could be races between setting the flag and
+>>>>>> actual lock... but that code is contained, so unlikely.
+>>>>>> Will we find the real issues with this 'stronger' check or
+>>>>>> just spend a ton of time adapting to new model like your other
+>>>>>> patch for release_sock and whatever may need to come next...
+>>>>>
+>>>>> More precise lockdep checks are certainly good, I only objected to 4/4
+>>>>> trying to work around another bug.
+>>>>>
+>>>>> But why do we rush for 'net' tree ?
+>>>>>
+>>>>> This looks net-next material to me.
+>>>>>
+>>>>> Locking changes are often subtle, lets take the time to do them
+>>>>> properly.
+>>>>
+>>>> completely agree. I think only first patch belongs in net.
+>>>> Everything else is net-next material.
+>>>
+>>> Problem with first patch is that it uses lock_sock_fast, thus the current
+>>> sock_owned_by_user check doesn't get rid the lockdep warning. :/
+>>>
+>>> Thus we would need to go with the two first patches. Do you think it is
+>>> acceptable? I actually didn't see a problem and testing showed no problems
+>>> so far.
+>>
+>> I see. right. the patch 1 only makes sense when coupled with 2.
+>> but now I'm not so sure that lockdep_is_held(&sk->sk_lock.slock)
+>> is a valid check, since current sock_owned_by_user() is equivalent
+>> to lockdep_is_held(&sk->sk_lock) only.
+>> I would go with Daniel's approach. Much simpler to reason about.
+>
+> IMHO we should treat sk_lock and sk_lock.slock the same as they are encapsulated by socket lock api.
+>
+> I was rather afraid that we call those changed functions from within release_sock and thus would have the same problem again, where we get splats because of the time where we actually have user ownership but not the mark in the lockdep data structures. But this seems not to be the case as the functions are only directly called on behalf of user space.
+>
+> Daniel, what do you think? I would be fine with your patch for net and we clean this up a bit in net-next then.
 
-	Hello,
+Okay, that's fine by me.
 
-On Thu, 31 Mar 2016, David Ahern wrote:
+Dave, do you need me to resubmit this one w/o changes: http://patchwork.ozlabs.org/patch/603903/ ?
 
-> To maintain backward compatibility use of the neighbor information is
-> based on a new sysctl, fib_multipath_use_neigh.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> v2
-> - use rcu locking to avoid refcnts per Eric's suggestion
-> - only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
->   comment
-> - drop the 'state == NUD_REACHABLE' from the state check since it is
->   part of NUD_VALID (comment from Julian)
-> - wrapped the use of the neigh in a sysctl
-> 
->  Documentation/networking/ip-sysctl.txt | 10 ++++++++++
->  include/net/netns/ipv4.h               |  3 +++
->  net/ipv4/fib_semantics.c               | 32 ++++++++++++++++++++++++++++++--
->  net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
->  4 files changed, 54 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index b183e2b606c8..5b316d33a23f 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
->  	fwmark of the packet they are replying to.
->  	Default: 0
->  
-> +fib_multipath_use_neigh - BOOLEAN
-> +	Use status of existing neighbor entry when determining nexthop for
-> +	multipath routes. If disabled neighbor information is not used then
-> +	packets could be directed to a dead nexthop. Only valid for kernels
-
-	Some may associate "dead" with RTNH_F_DEAD while
-in context of nexthop "failed" or "unreachable" can be
-more suitable? Can we use something like this?:
-
-	If disabled<COMMA_ALLOWED_HERE?> neighbor information is not used
-and packets could be directed to a failed nexthop.
-
-> +	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
-> +	Default: 0 (disabled)
-> +	Possible values:
-> +	0 - disabled
-> +	1 - enabled
-> +
->  route/max_size - INTEGER
->  	Maximum number of routes allowed in the kernel.  Increase
->  	this when using large numbers of interfaces and/or routes.
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index a69cde3ce460..d061ffeb1e71 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -133,6 +133,9 @@ struct netns_ipv4 {
->  	struct fib_rules_ops	*mr_rules_ops;
->  #endif
->  #endif
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	int sysctl_fib_multipath_use_neigh;
-> +#endif
->  	atomic_t	rt_genid;
->  };
->  #endif
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index d97268e8ff10..6d423faff0ce 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -1559,17 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->  }
->  
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +static bool fib_good_nh(const struct fib_nh *nh, struct net_device *dev)
-> +{
-> +	struct neighbour *n = NULL;
-> +	int state = NUD_NONE;
-
-	Looks like we can do it even better.
-If we use NUD_REACHABLE here...
-
-> +
-> +	if (nh->nh_scope == RT_SCOPE_LINK) {
-> +		rcu_read_lock_bh();
-> +
-> +		n = __neigh_lookup_noref(&arp_tbl, &nh->nh_gw, dev);
-> +		if (n)
-> +			state = n->nud_state;
-> +
-> +		rcu_read_unlock_bh();
-> +	}
-> +
-> +	/* outside of rcu locking using n only as a boolean
-> +	 * on whether a neighbor entry existed
-> +	 */
-> +	if (!n || (state & NUD_VALID))
-
-	then check for '!n' is not needed. For bool type
-'return state & NUD_VALID;' should work.
-
-> +		return true;
-> +
-> +	return false;
-> +}
->  
->  void fib_select_multipath(struct fib_result *res, int hash)
->  {
->  	struct fib_info *fi = res->fi;
-> +	struct net_device *dev = fi->fib_dev;
-> +	struct net *net = fi->fib_net;
->  
->  	for_nexthops(fi) {
->  		if (hash > atomic_read(&nh->nh_upper_bound))
->  			continue;
->  
-> -		res->nh_sel = nhsel;
-> -		return;
-> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
-> +		    fib_good_nh(nh, dev)) {
-
-	This dev is from first nexthop. Better fib_good_nh
-to use nh->nh_dev instead, it is present for all nexthops
-in multipath route. We should not copy the bugs from
-fib_detect_death.
-
-> +			res->nh_sel = nhsel;
-> +			return;
-> +		}
->  	} endfor_nexthops(fi);
-
-	So, you dropped the idea to give full chance for
-fallback? Now if last nexthop fails we do not fallback at all.
-We promised to prefer reachable nexthops.
-
-Regards
+Thanks,
+Daniel
