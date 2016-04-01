@@ -1,91 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] vlan: pull on __vlan_insert_tag error path and fix
- csum correction
-Date: Fri, 01 Apr 2016 23:28:44 +0200
-Message-ID: <56FEE80C.9080806@iogearbox.net>
-References: <244f8d5684800cc98545932aa6851bf73f7326e2.1459503053.git.daniel@iogearbox.net> <20160401.150000.1165010490623034251.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Fri, 01 Apr 2016 23:34:10 +0200
+Message-ID: <1459546450.3342.22.camel@sipsolutions.net>
+References: <56F9941A.3080501@candelatech.com>
+	 <56FAAA6D.3070806@candelatech.com>
+	 <1459329252.2055.1.camel@sipsolutions.net>
+	 <20160330.123821.328761526754742195.davem@davemloft.net>
+	 <56FC0445.6010200@candelatech.com>
+	 <1459410405.4576.8.camel@sipsolutions.net>
+	 <20160331075015.GA27716@gondor.apana.org.au>
+	 <1459438199.4576.26.camel@sipsolutions.net>
+	 <20160401004627.GA9367@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, alexei.starovoitov@gmail.com, jesse@kernel.org,
-	tom@herbertland.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51379 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754131AbcDAV2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 17:28:53 -0400
-In-Reply-To: <20160401.150000.1165010490623034251.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160401004627.GA9367@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/01/2016 09:00 PM, David Miller wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Fri,  1 Apr 2016 11:41:03 +0200
->
->> Moreover, I noticed that when in the non-error path the __skb_pull()
->> is done and the original offset to mac header was non-zero, we fixup
->> from a wrong skb->data offset in the checksum complete processing.
->>
->> So the skb_postpush_rcsum() really needs to be done before __skb_pull()
->> where skb->data still points to the mac header start.
->
-> Ugh, what a mess, are you sure any of this is right even after your
-> change?  What happens (outside of the csum part) is this:
->
-> 	__skb_push(offset);
-> 	__vlan_insert_tag(); {
-> 		skb_push(VLAN_HLEN);
-> 	...
-> 		memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);
-> 	}
-> 	__skb_pull(offset);
->
-> If I understand this correctly, the last pull will therefore put
-> skb->data pointing at vlan_ethhdr->h_vlan_TCI of the new VLAN header
-> pushed by __vlan_insert_tag().
->
-> That is assuming skb->data began right after the original ethernet
-> header.
+On Fri, 2016-04-01 at 08:46 +0800, Herbert Xu wrote:
+> On Thu, Mar 31, 2016 at 05:29:59PM +0200, Johannes Berg wrote:
+> > 
+> > 
+> > Does removing this completely disable the "-EEXIST" error? I can't
+> > say
+> > I fully understand the elasticity stuff in
+> > __rhashtable_insert_fast().
+> What EEXIST error are you talking about? The only one that can be
+> returned on insertion is if you're explicitly checking for dups
+> which clearly can't be the case for you.
 
-Yes, this is correct. Now, continuing this train of thought: you have
-skb->data pointing _currently_ at vlan_ethhdr->h_vlan_TCI.
+I was thinking about that one - it's not obvious to me from the code
+how this "explicitly checking for dups" would be done or let's say how
+rhashtable differentiates. But since it seems to work for Ben until
+hitting a certain number of identical keys, surely that's just me not
+understanding the code rather than anything else :)
 
-And then you call:
-
-   skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
-
-So, we point from the ->vlan_TCI + (2 * ETH_ALEN) as start offset, and
-with VLAN_HLEN (= 4 bytes that we added) as length for the csum
-correction as input. So, we point way beyond what we actually wanted
-to fixup wrt csum, no?
-
-But what we actually want to sum is [h_vlan_proto + h_vlan_TCI], which
-is where above skb_postpush_rcsum() call points to _before_ the last
-__skb_pull() happens. In other words, still at that time, we have the
-same expectations as in __vlan_insert_tag().
-
-> To me, that postpull csum currently is absolutely in the correct spot,
-> because it's acting upon the pull done by __vlan_insert_tag(), not the
-> one done here by skb_vlan_push().
->
-> Right?
->
-> Can you tell me how you tested this?  Just curious...
-
-I noticed both while reviewing the code, the error path fixup is not
-critical for ovs or act_vlan as the skb is dropped afterwards, but not
-necessarily in eBPF case, so there it matters as eBPF doesn't know at
-this point, what the program is going to do with it (similar fixup is
-done in __skb_vlan_pop() error path, btw). For the csum, I did a hexdump
-to compare what we write and what is being passed in for the csum correction.
-
-Anyway ...
-
-Aside from all this and based on your comment, I'm investigating whether
-for the vlan push and also pop case the __skb_pull(skb, offset) in success
-case is actually enough and whether it needs to take VLAN_HLEN into account
-as well. But, I need to do more test for that one first. At least the skb_vlan_push()
-comment says "__vlan_insert_tag expect skb->data pointing to mac header.
-So change skb->data before calling it and change back to original position
-later", Jiri?
+johannes
