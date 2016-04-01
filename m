@@ -1,77 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 03/11] tcp/dccp: remove BH disable/enable in lookup
-Date: Fri,  1 Apr 2016 08:52:14 -0700
-Message-ID: <1459525942-30399-4-git-send-email-edumazet@google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v2 net-next 11/11] tcp: rate limit ACK sent by SYN_RECV
+ request sockets
+Date: Fri, 1 Apr 2016 12:05:20 -0400
+Message-ID: <CADVnQy=bR=zWiDwyrzjaJ9qHSeJJ7mAUvoxgQ57AgG-VK5wtaw@mail.gmail.com>
 References: <1459525942-30399-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
+	<1459525942-30399-12-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Tom Herbert <tom@herbertland.com>,
 	Willem de Bruijn <willemb@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
-To: "David S . Miller" <davem@davemloft.net>
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35389 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932733AbcDAPwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 11:52:33 -0400
-Received: by mail-pa0-f54.google.com with SMTP id td3so93530393pab.2
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 08:52:32 -0700 (PDT)
-In-Reply-To: <1459525942-30399-1-git-send-email-edumazet@google.com>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:35187 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574AbcDAQFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 12:05:21 -0400
+Received: by mail-ob0-f177.google.com with SMTP id fp4so50014836obb.2
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 09:05:20 -0700 (PDT)
+In-Reply-To: <1459525942-30399-12-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since linux 2.6.29, lookups only use rcu locking.
+On Fri, Apr 1, 2016 at 11:52 AM, Eric Dumazet <edumazet@google.com> wrote:
+> Attackers like to use SYNFLOOD targeting one 5-tuple, as they
+> hit a single RX queue (and cpu) on the victim.
+>
+> If they use random sequence numbers in their SYN, we detect
+> they do not match the expected window and send back an ACK.
+>
+> This patch adds a rate limitation, so that the effect of such
+> attacks is limited to ingress only.
+>
+> We roughly double our ability to absorb such attacks.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/inet_hashtables.h | 7 +------
- net/ipv6/inet6_hashtables.c   | 2 --
- 2 files changed, 1 insertion(+), 8 deletions(-)
+Thanks, Eric!
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 50f635c2c536..a77acee93aaf 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -280,11 +280,8 @@ static inline struct sock *inet_lookup_listener(struct net *net,
- 	 net_eq(sock_net(__sk), (__net)))
- #endif /* 64-bit arch */
- 
--/*
-- * Sockets in TCP_CLOSE state are _always_ taken out of the hash, so we need
-+/* Sockets in TCP_CLOSE state are _always_ taken out of the hash, so we need
-  * not check it for lookups anymore, thanks Alexey. -DaveM
-- *
-- * Local BH must be disabled here.
-  */
- struct sock *__inet_lookup_established(struct net *net,
- 				       struct inet_hashinfo *hashinfo,
-@@ -326,10 +323,8 @@ static inline struct sock *inet_lookup(struct net *net,
- {
- 	struct sock *sk;
- 
--	local_bh_disable();
- 	sk = __inet_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
- 			   dport, dif);
--	local_bh_enable();
- 
- 	return sk;
- }
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 70f2628be6fa..d253f32874c9 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -200,10 +200,8 @@ struct sock *inet6_lookup(struct net *net, struct inet_hashinfo *hashinfo,
- {
- 	struct sock *sk;
- 
--	local_bh_disable();
- 	sk = __inet6_lookup(net, hashinfo, skb, doff, saddr, sport, daddr,
- 			    ntohs(dport), dif);
--	local_bh_enable();
- 
- 	return sk;
- }
--- 
-2.8.0.rc3.226.g39d4020
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
