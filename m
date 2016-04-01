@@ -1,137 +1,90 @@
 From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH v2 net-next 5/8] ipv4: process socket-level control messages in IPv4
-Date: Fri,  1 Apr 2016 11:04:37 -0400
-Message-ID: <1459523080-29329-6-git-send-email-soheil.kdev@gmail.com>
-References: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
+Subject: [PATCH v2 net-next 0/8] add TX timestamping via cmsg
+Date: Fri,  1 Apr 2016 11:04:32 -0400
+Message-ID: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
 Cc: willemb@google.com, edumazet@google.com, ycheng@google.com,
 	ncardwell@google.com, kafai@fb.com,
 	Soheil Hassas Yeganeh <soheil@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f68.google.com ([209.85.192.68]:36459 "EHLO
-	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758781AbcDAPEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 11:04:46 -0400
-Received: by mail-qg0-f68.google.com with SMTP id n34so11468261qge.3
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 08:04:46 -0700 (PDT)
-In-Reply-To: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:34888 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751820AbcDAPEn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 11:04:43 -0400
+Received: by mail-qg0-f66.google.com with SMTP id b32so10464023qgf.2
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 08:04:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Soheil Hassas Yeganeh <soheil@google.com>
 
-Process socket-level control messages by invoking
-__sock_cmsg_send in ip_cmsg_send for control messages on
-the SOL_SOCKET layer.
+This patch series aim at enabling TX timestamping via cmsg.
 
-This makes sure whenever ip_cmsg_send is called in udp, icmp,
-and raw, we also process socket-level control messages.
+Currently, to occasionally sample TX timestamping on a socket,
+applications need to call setsockopt twice: first for enabling
+timestamps and then for disabling them. This is an unnecessary
+overhead. With cmsg, in contrast, applications can sample TX
+timestamps per sendmsg().
 
-Note that this commit interprets new control messages that
-were ignored before. As such, this commit does not change
-the behavior of IPv4 control messages.
+This patch series adds the code for processing SO_TIMESTAMPING
+for cmsg's of the SOL_SOCKET level, and adds the glue code for
+TCP, UDP, and RAW for both IPv4 and IPv6. This implementation
+supports overriding timestamp generation flags (i.e.,
+SOF_TIMESTAMPING_TX_*) but not timestamp reporting flags.
+Applications must still enable timestamp reporting via
+setsockopt to receive timestamps.
 
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
----
- include/net/ip.h       | 3 ++-
- net/ipv4/ip_sockglue.c | 9 ++++++++-
- net/ipv4/ping.c        | 2 +-
- net/ipv4/raw.c         | 2 +-
- net/ipv4/udp.c         | 3 +--
- 5 files changed, 13 insertions(+), 6 deletions(-)
+This series does not change existing timestamping behavior for
+applications that are using socket options.
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index fad74d3..93725e5 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -56,6 +56,7 @@ static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
- }
- 
- struct ipcm_cookie {
-+	struct sockcm_cookie	sockc;
- 	__be32			addr;
- 	int			oif;
- 	struct ip_options_rcu	*opt;
-@@ -550,7 +551,7 @@ int ip_options_rcv_srr(struct sk_buff *skb);
- 
- void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb);
- void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb, int offset);
--int ip_cmsg_send(struct net *net, struct msghdr *msg,
-+int ip_cmsg_send(struct sock *sk, struct msghdr *msg,
- 		 struct ipcm_cookie *ipc, bool allow_ipv6);
- int ip_setsockopt(struct sock *sk, int level, int optname, char __user *optval,
- 		  unsigned int optlen);
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 035ad64..1b7c077 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -219,11 +219,12 @@ void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
- }
- EXPORT_SYMBOL(ip_cmsg_recv_offset);
- 
--int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
-+int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
- 		 bool allow_ipv6)
- {
- 	int err, val;
- 	struct cmsghdr *cmsg;
-+	struct net *net = sock_net(sk);
- 
- 	for_each_cmsghdr(cmsg, msg) {
- 		if (!CMSG_OK(msg, cmsg))
-@@ -244,6 +245,12 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
- 			continue;
- 		}
- #endif
-+		if (cmsg->cmsg_level == SOL_SOCKET) {
-+			if (__sock_cmsg_send(sk, msg, cmsg, &ipc->sockc))
-+				return -EINVAL;
-+			continue;
-+		}
-+
- 		if (cmsg->cmsg_level != SOL_IP)
- 			continue;
- 		switch (cmsg->cmsg_type) {
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index cf9700b..670639b 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -747,7 +747,7 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	sock_tx_timestamp(sk, &ipc.tx_flags);
- 
- 	if (msg->msg_controllen) {
--		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
-+		err = ip_cmsg_send(sk, msg, &ipc, false);
- 		if (unlikely(err)) {
- 			kfree(ipc.opt);
- 			return err;
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 8d22de7..088ce66 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -548,7 +548,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	ipc.oif = sk->sk_bound_dev_if;
- 
- 	if (msg->msg_controllen) {
--		err = ip_cmsg_send(net, msg, &ipc, false);
-+		err = ip_cmsg_send(sk, msg, &ipc, false);
- 		if (unlikely(err)) {
- 			kfree(ipc.opt);
- 			goto out;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 08eed5e..bccb4e1 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1034,8 +1034,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	sock_tx_timestamp(sk, &ipc.tx_flags);
- 
- 	if (msg->msg_controllen) {
--		err = ip_cmsg_send(sock_net(sk), msg, &ipc,
--				   sk->sk_family == AF_INET6);
-+		err = ip_cmsg_send(sk, msg, &ipc, sk->sk_family == AF_INET6);
- 		if (unlikely(err)) {
- 			kfree(ipc.opt);
- 			return err;
+I will follow up with another patch to enable timestamping for
+active TFO (client-side TCP Fast Open) and also setting packet
+mark via cmsgs.
+
+Thanks!
+
+Changes in v2:
+	- Replace u32 with __u32 in the documentation.
+
+Soheil Hassas Yeganeh (7):
+  tcp: accept SOF_TIMESTAMPING_OPT_ID for passive TFO
+  tcp: use one bit in TCP_SKB_CB to mark ACK timestamps
+  sock: accept SO_TIMESTAMPING flags in socket cmsg
+  ipv4: process socket-level control messages in IPv4
+  ipv6: process socket-level control messages in IPv6
+  sock: enable timestamping using control messages
+  sock: document timestamping via cmsg in Documentation
+
+Willem de Bruijn (1):
+  sock: break up sock_cmsg_snd into __sock_cmsg_snd and loop
+
+ Documentation/networking/timestamping.txt | 48 ++++++++++++++++++++++++++++--
+ drivers/net/tun.c                         |  3 +-
+ include/net/ip.h                          |  3 +-
+ include/net/ipv6.h                        |  6 ++--
+ include/net/sock.h                        | 13 +++++---
+ include/net/tcp.h                         |  3 +-
+ include/net/transp_v6.h                   |  3 +-
+ include/uapi/linux/net_tstamp.h           | 10 +++++++
+ net/can/raw.c                             |  2 +-
+ net/core/sock.c                           | 49 +++++++++++++++++++++++--------
+ net/ipv4/ip_sockglue.c                    |  9 +++++-
+ net/ipv4/ping.c                           |  7 +++--
+ net/ipv4/raw.c                            | 13 ++++----
+ net/ipv4/tcp.c                            | 22 ++++++++++----
+ net/ipv4/tcp_input.c                      |  2 +-
+ net/ipv4/udp.c                            | 10 +++----
+ net/ipv6/datagram.c                       |  9 +++++-
+ net/ipv6/icmp.c                           |  6 ++--
+ net/ipv6/ip6_flowlabel.c                  |  3 +-
+ net/ipv6/ip6_output.c                     | 15 ++++++----
+ net/ipv6/ipv6_sockglue.c                  |  3 +-
+ net/ipv6/ping.c                           |  3 +-
+ net/ipv6/raw.c                            |  7 +++--
+ net/ipv6/udp.c                            | 10 +++++--
+ net/packet/af_packet.c                    | 30 +++++++++++++++----
+ net/socket.c                              | 10 +++----
+ 26 files changed, 225 insertions(+), 74 deletions(-)
+
 -- 
 2.8.0.rc3.226.g39d4020
