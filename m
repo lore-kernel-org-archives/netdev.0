@@ -1,43 +1,104 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH] net: mvneta: use cache_line_size() to get cacheline size
-Date: Fri, 1 Apr 2016 17:12:49 +0800
-Message-ID: <1459501969-7083-1-git-send-email-jszhang@marvell.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Jisheng Zhang <jszhang@marvell.com>
-To: <davem@davemloft.net>, <mw@semihalf.com>,
-	<thomas.petazzoni@free-electrons.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH 1/2] ipv6: rework the lock in addrconf_permanent_addr
+Date: Fri,  1 Apr 2016 17:26:58 +0800
+Message-ID: <1459502818-24939-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:29724 "EHLO
-	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752460AbcDAJRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 05:17:05 -0400
+Received: from mail.windriver.com ([147.11.1.11]:60185 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753745AbcDAJ1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 05:27:00 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u319Qx0h014819
+	for <netdev@vger.kernel.org>; Fri, 1 Apr 2016 02:26:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-L1_CACHE_BYTES may not be the real cacheline size, use cache_line_size
-to determine the cacheline size in runtime.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-Suggested-by: Marcin Wojtas <mw@semihalf.com>
+1. nothing of idev is changed, so read lock is enough
+2. ifp is changed, so used ifp->lock or cmpxchg to protect it
+
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 5880871..b1db000 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -299,7 +299,7 @@
- #define MVNETA_RX_PKT_SIZE(mtu) \
- 	ALIGN((mtu) + MVNETA_MH_SIZE + MVNETA_VLAN_TAG_LEN + \
- 	      ETH_HLEN + ETH_FCS_LEN,			     \
--	      L1_CACHE_BYTES)
-+	      cache_line_size())
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 27aed1a..f6e7605b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3184,14 +3184,21 @@ static void addrconf_gre_config(struct net_device *dev)
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ 				  struct inet6_ifaddr *ifp)
+ {
++	struct rt6_info *rt = NULL;
++
++	spin_lock(&ifp->lock);
+ 	if (ifp->rt) {
+ 		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
  
- #define IS_TSO_HEADER(txq, addr) \
- 	((addr >= txq->tso_hdrs_phys) && \
+ 		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
+-			ip6_del_rt(ifp->rt);
++			rt = ifp->rt;
+ 			ifp->rt = NULL;
+ 		}
+ 	}
++	spin_unlock(&ifp->lock);
++
++	if (rt)
++		ip6_del_rt(rt);
+ }
+ #else
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+@@ -3203,6 +3210,8 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
++	struct rt6_info *prev;
++
+ 	l3mdev_check_host_rt(idev, ifp);
+ 
+ 	if (!ifp->rt) {
+@@ -3212,7 +3221,12 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 		if (unlikely(IS_ERR(rt)))
+ 			return PTR_ERR(rt);
+ 
+-		ifp->rt = rt;
++		prev = cmpxchg(&ifp->rt, NULL, rt);
++
++		/*if cmpxchg failed*/
++		if (prev) {
++			ip6_rt_put(rt);
++		}
+ 	}
+ 
+ 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+@@ -3234,21 +3248,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 	if (!idev)
+ 		return;
+ 
+-	write_lock_bh(&idev->lock);
++	read_lock_bh(&idev->lock);
+ 
+ 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+-			write_unlock_bh(&idev->lock);
++			read_unlock_bh(&idev->lock);
+ 			ipv6_del_addr(ifp);
+-			write_lock_bh(&idev->lock);
++			read_lock_bh(&idev->lock);
+ 
+ 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
+ 					     idev->dev->name, &ifp->addr);
+ 		}
+ 	}
+ 
+-	write_unlock_bh(&idev->lock);
++	read_unlock_bh(&idev->lock);
+ }
+ 
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 -- 
-2.8.0.rc3
+2.1.4
