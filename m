@@ -1,91 +1,118 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Thu, 31 Mar 2016 20:44:05 -0700
-Message-ID: <56FDEE85.3020505@gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
- <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
- <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next] net: core: Pass XPS select queue decision to
+ skb_tx_hash
+Date: Thu, 31 Mar 2016 20:49:09 -0700
+Message-ID: <56FDEFB5.8090207@gmail.com>
+References: <1459290252-4121-1-git-send-email-saeedm@mellanox.com>
+ <56FB1B64.40301@gmail.com> <56FBD35D.4090805@dev.mellanox.co.il>
+ <56FC0723.4040003@gmail.com>
+ <CALzJLG-xJe6_-2a=djpLxBR5xQY562m06eLLCP04GdTrzmWJuQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33721 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717AbcDADoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:44:20 -0400
-Received: by mail-pf0-f181.google.com with SMTP id 4so84528392pfd.0
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:44:19 -0700 (PDT)
-In-Reply-To: <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33273 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753675AbcDADt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:49:27 -0400
+Received: by mail-pa0-f51.google.com with SMTP id zm5so80964479pac.0
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:49:27 -0700 (PDT)
+In-Reply-To: <CALzJLG-xJe6_-2a=djpLxBR5xQY562m06eLLCP04GdTrzmWJuQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-03-31 04:48 PM, Michael Ma wrote:
-> I didn't really know that multiple qdiscs can be isolated using MQ so
-> that each txq can be associated with a particular qdisc. Also we don'=
-t
-> really have multiple interfaces...
-
-MQ will assign a default qdisc to each txq and the default qdisc can
-be changed to htb or any other qdisc of your choice.
-
->=20
-> With this MQ solution we'll still need to assign transmit queues to
-> different classes by doing some math on the bandwidth limit if I
-> understand correctly, which seems to be less convenient compared with
-> a solution purely within HTB.
->=20
-
-Agreed.
-
-> I assume that with this solution I can still share qdisc among
-> multiple transmit queues - please let me know if this is not the case=
-=2E
-
-Nope sorry doesn't work that way unless you employ some sort of stacked
-netdevice strategy which does start to get a bit complex. The basic hin=
-t
-would be to stack some type of virtual netdev on top of a device and
-run the htb qdisc there. Push traffic onto the netdev depending on the
-class it belongs to. Its ugly yes.
-
-Noting all that I posted an RFC patch some time back to allow writing
-qdiscs that do not require taking the lock. I'll try to respin these
-and submit them when net-next opens again. The next logical step is to
-write a "better" HTB probably using a shared counter and dropping the
-requirement that it be exact.
-
-Sorry I didn't get a chance to look at the paper in your post so not
-sure if they suggest something similar or not.
-
-Thanks,
-John
-
->=20
-> 2016-03-31 15:16 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
->> On Wed, Mar 30, 2016 at 12:20 AM, Michael Ma <make0818@gmail.com> wr=
-ote:
->>> As far as I understand the design of TC is to simplify locking sche=
-ma
->>> and minimize the work in __qdisc_run so that throughput won=E2=80=99=
-t be
->>> affected, especially with large packets. However if the scenario is
->>> that multiple classes in the queueing discipline only have the shap=
-ing
->>> limit, there isn=E2=80=99t really a necessary correlation between d=
-ifferent
->>> classes. The only synchronization point should be when the packet i=
-s
->>> dequeued from the qdisc queue and enqueued to the transmit queue of
->>> the device. My question is =E2=80=93 is it worth investing on avoid=
-ing the
->>> locking contention by partitioning the queue/lock so that this
->>> scenario is addressed with relatively smaller latency?
+On 16-03-30 11:30 AM, Saeed Mahameed wrote:
+> On Wed, Mar 30, 2016 at 8:04 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
 >>
->> If your HTB classes don't share bandwidth, why do you still make the=
-m
->> under the same hierarchy? IOW, you can just isolate them either with=
- some
->> other qdisc or just separated interfaces.
+>> OK, so let me see if I get this right now. This was the precedence
+>> before the patch in the normal no select queue case,
+>>
+>>         (1) socket mapping sk_tx_queue_mapping iff !ooo_okay
+>>         (2) xps
+>>         (3) skb->queue_mapping
+>>         (4) qoffset/qcount (hash over tc queues)
+>>         (5) hash over num_tx_queues
+>>
+>> With this patch the precedence is a bit changed because
+>> skb_tx_hash is always called.
+>>
+>>         (1) socket mapping sk_tx_queue_mapping iff !ooo_okay
+>>         (2) skb->queue_mapping
+>>         (3) qoffset/qcount
+>>            (hash over tc queues if xps choice is > qcount)
+>>         (4) xps
+>>         (5) hash over num_tx_queues
+>>
+>> Sound right? Nice thing about this with correct configuration
+>> of tc with qcount = xps_queues it sort of works as at least
+> 
+> Yes !
+> for qcount = xps_queues which almost all drivers default
+> configurations goes this way, it works like charm, xps selects the
+> exact TC TX queue at the correct offset without any need for further
+> SKB hashing.
+> and even if by mistake XPS was also configured on TC TX queue then
+> this patch will detect that the xps hash is out of this TC
+> offset/qcount range and will re-hash. But i don't see why would user
+> or driver do such strange configuration.
+> 
+>> I expect it to. I think the question is are people OK with
+>> letting skb->queue_mapping take precedence. I am at least
+>> because it makes the skb edit queue_mapping action from tc
+>> easier to use.
+>>
+> 
+> skb->queue_mapping toke precedence also before this patch, the only
+> thing this patch came to change is how to compute the txq when
+> skb->queue_mapping is not present, so we don't need to worry about
+> this.
+> 
+
+I don't believe that is correct in the general case. Perhaps
+in the ndo_select_queue path though. See this line,
+
+        if (queue_index < 0 || skb->ooo_okay ||
+            queue_index >= dev->real_num_tx_queues) {
+                int new_index = get_xps_queue(dev, skb);
+                if (new_index < 0)
+                        new_index = skb_tx_hash(dev, skb);
+
+The skb_tx_hash() routine is never called if xps is enabled.
+And so we never get into the call to do this,
+
+        if (skb_rx_queue_recorded(skb)) {
+                hash = skb_get_rx_queue(skb);
+                while (unlikely(hash >= num_tx_queues))
+                        hash -= num_tx_queues;
+                return hash;
+        }
+
+Right? FWIW I think that using queue_mapping before xps is better
+because we can use tc to pick the queue_mapping them programmatically
+if we want for these special cases instead if wanted.
+
+>> And just a comment on the code why not just move get_xps_queue
+>> into skb_tx_hash at this point if its always being called as the
+>> "hint". Then we avoid calling it in the case queue_mapping is
+>> set.
+>>
+> 
+> Very good point, the only place that calls skb_tx_hash(dev, skb) other
+> than __netdev_pick_tx is mlx4 driver and they did it there just
+> because they wanted to bypass XPS configuration if TC QoS is
+> configured, with this fix we don't have to bypass XPS at all for when
+> TC is configured.
+> 
+> I will change it.
+> 
+
+Great thanks.
