@@ -1,88 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
- __sk_dst_get
-Date: Thu, 31 Mar 2016 20:13:03 -0700
-Message-ID: <1459480383.6473.270.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
-	 <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
-	 <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDBA6E.5030508@stressinduktion.org>
-	 <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDBF0E.8020309@stressinduktion.org>
-	 <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1459474618.3751123.565321858.30DF1858@webmail.messagingengine.com>
-	 <1459474756.6473.248.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1459475124.6473.250.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FDD67E.2040904@stressinduktion.org>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v7, 0/5] Fix eSDHC host version register bug
+Date: Fri, 1 Apr 2016 11:07:26 +0800
+Message-ID: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, daniel@iogearbox.net,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34664 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbcDADNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:13:06 -0400
-Received: by mail-pf0-f170.google.com with SMTP id x3so83928451pfb.1
-        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:13:05 -0700 (PDT)
-In-Reply-To: <56FDD67E.2040904@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, scott.wood-3arQi8VN3Tc@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org, xiaobo.xie-3arQi8VN3Tc@public.gmane.org
+To: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-04-01 at 04:01 +0200, Hannes Frederic Sowa wrote:
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To get the SoC version and revision, it's needed to add the
+GUTS driver to access the global utilities registers.
 
-> I thought so first, as well. But given the double check for the 
-> spin_lock and the "mutex" we end up with the same result for the 
-> lockdep_sock_is_held check.
-> 
-> Do you see other consequences?
+So, the first three patches are to add the GUTS driver.
+The following two patches are to enable GUTS driver support to get SVR in eSDHC
+driver and fix host version for T4240.
 
-Well, we release the spinlock in __release_sock()
+Yangbo Lu (5):
+  ARM64: dts: ls2080a: add device configuration node
+  soc: fsl: add GUTS driver for QorIQ platforms
+  dt: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
 
-So another thread could come and acquire the socket, then call
-mutex_acquire() while the first thread did not call yet mutex_release()
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 ++
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   2 +-
+ drivers/soc/fsl/Kconfig                            |   8 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++++
+ include/linux/fsl/guts.h                           |  98 ++++++++---------
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ 15 files changed, 219 insertions(+), 58 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
-So maybe lockdep will complain (but I do not know lockdep enough to
-tell)
-
-So maybe the following would be better :
-
-(Absolutely untested, really I need to take a break)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 255d3e03727b..7d5dfa7e1918 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1327,7 +1327,13 @@ static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
- 
- static inline void sock_release_ownership(struct sock *sk)
- {
--	sk->sk_lock.owned = 0;
-+	if (sk->sk_lock.owned) {
-+		/*
-+		 * The sk_lock has mutex_unlock() semantics:
-+		 */
-+		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
-+		sk->sk_lock.owned = 0;
-+	}
- }
- 
- /*
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b67b9aedb230..c7ab98e72346 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2429,10 +2429,6 @@ EXPORT_SYMBOL(lock_sock_nested);
- 
- void release_sock(struct sock *sk)
- {
--	/*
--	 * The sk_lock has mutex_unlock() semantics:
--	 */
--	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
- 
- 	spin_lock_bh(&sk->sk_lock.slock);
- 	if (sk->sk_backlog.tail)
+-- 
+2.1.0.27.g96db324
