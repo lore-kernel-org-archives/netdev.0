@@ -1,65 +1,83 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] fec: Do not access unexisting register in Coldfire
-Date: Fri, 1 Apr 2016 01:39:27 +0000
-Message-ID: <VI1PR0401MB1855CB589F417686E859C76BFF9A0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1459436717-12809-1-git-send-email-festevam@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
+ __sk_dst_get
+Date: Fri, 1 Apr 2016 03:58:48 +0200
+Message-ID: <56FDD5D8.2040300@stressinduktion.org>
+References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
+ <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
+ <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
+ <56FDBA6E.5030508@stressinduktion.org>
+ <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
+ <56FDBF0E.8020309@stressinduktion.org>
+ <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1459474618.3751123.565321858.30DF1858@webmail.messagingengine.com>
+ <1459474756.6473.248.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "troy.kisky@boundarydevices.com" <troy.kisky@boundarydevices.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@nxp.com>
-To: Fabio Estevam <festevam@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	sasha.levin@oracle.com, daniel@iogearbox.net,
+	alexei.starovoitov@gmail.com, mkubecek@suse.cz
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0084.outbound.protection.outlook.com ([157.55.234.84]:56880
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752422AbcDABy6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 21:54:58 -0400
-In-Reply-To: <1459436717-12809-1-git-send-email-festevam@gmail.com>
-Content-Language: en-US
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:41485 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752210AbcDAB6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 21:58:53 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 948472038A
+	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 21:58:52 -0400 (EDT)
+In-Reply-To: <1459474756.6473.248.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com> Sent: Thursday, March 31, 2016 11:05 PM
-> To: davem@davemloft.net
-> Cc: Fugang Duan <fugang.duan@nxp.com>; troy.kisky@boundarydevices.com;
-> gerg@uclinux.org; netdev@vger.kernel.org; Fabio Estevam
-> <fabio.estevam@nxp.com>
-> Subject: [PATCH] fec: Do not access unexisting register in Coldfire
-> 
-> From: Fabio Estevam <fabio.estevam@nxp.com>
-> 
-> Commit 55cd48c821de ("net: fec: stop the "rcv is not +last, " error
-> messages") introduces a write to a register that does not exist in Coldfire.
-> 
-> Move the FEC_FTRL register access inside the FEC_QUIRK_HAS_RACC 'if' block,
-> so that we guarantee it will not be used on Coldfire CPUs.
-> 
-> Reported-by: Greg Ungerer <gerg@uclinux.org>
-> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 37c0815..08243c2 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -943,8 +943,8 @@ fec_restart(struct net_device *ndev)
->  		else
->  			val &= ~FEC_RACC_OPTIONS;
->  		writel(val, fep->hwp + FEC_RACC);
-> +		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
->  	}
-> -	writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_FTRL);
->  #endif
-> 
->  	/*
-> --
-> 1.9.1
+On 01.04.2016 03:39, Eric Dumazet wrote:
+> On Fri, 2016-04-01 at 03:36 +0200, Hannes Frederic Sowa wrote:
+>> On Fri, Apr 1, 2016, at 03:19, Eric Dumazet wrote:
+>>> Thanks.
+>>>
+>>> As you can see, release_sock() messes badly lockdep (once your other
+>>> patches are in )
+>>>
+>>> Once we properly fix release_sock() and/or __release_sock(), all these
+>>> false positives disappear.
+>>
+>> This was a loopback connection. I need to study release_sock and
+>> __release_sock more as I cannot currently see an issue with the lockdep
+>> handling.
+>
+> Okay, please try :
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index b67b9aedb230..570dcd91d64e 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -2429,10 +2429,6 @@ EXPORT_SYMBOL(lock_sock_nested);
+>
+>   void release_sock(struct sock *sk)
+>   {
+> -	/*
+> -	 * The sk_lock has mutex_unlock() semantics:
+> -	 */
+> -	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+>
+>   	spin_lock_bh(&sk->sk_lock.slock);
+>   	if (sk->sk_backlog.tail)
+> @@ -2445,6 +2441,10 @@ void release_sock(struct sock *sk)
+>   		sk->sk_prot->release_cb(sk);
+>
+>   	sock_release_ownership(sk);
+> +	/*
+> +	 * The sk_lock has mutex_unlock() semantics:
+> +	 */
+> +	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+>   	if (waitqueue_active(&sk->sk_lock.wq))
+>   		wake_up(&sk->sk_lock.wq);
+>   	spin_unlock_bh(&sk->sk_lock.slock);
 
-If you stick to do it like this,  you must add comments on the quirk flag FEC_QUIRK_HAS_RACC. 
+
+Looks much better with your patch already. I slowly begin to understand, 
+this is really tricky... :)
+
+Bye,
+Hannes
