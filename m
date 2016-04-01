@@ -1,113 +1,93 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: [PATCH] net: mvneta: fix changing MTU when using per-cpu processing
-Date: Fri, 1 Apr 2016 15:22:54 +0200
-Message-ID: <CAPv3WKfLXibDQbr71p3H4Okh-o7pv_BhjoL_T6mtHcPRQmu1Jg@mail.gmail.com>
-References: <1459516878-2802-1-git-send-email-mw@semihalf.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 0/6] net: dsa: mv88e6131: HW bridging support for 6185
+Date: Fri, 01 Apr 2016 09:38:42 -0400
+Message-ID: <87oa9tphy5.fsf@ketchup.mtl.sfl>
+References: <1459457626-30082-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20160401124518.GB32554@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	=?UTF-8?Q?Gregory_Cl=C3=A9ment?=
-	<gregory.clement@free-electrons.com>, nadavh@marvell.com,
-	Lior Amsalem <alior@marvell.com>,
-	Sebastian Careba <nitroshift@yahoo.com>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Grzegorz Jaszczyk <jaz@semihalf.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459516878-2802-1-git-send-email-mw@semihalf.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36495 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752833AbcDANis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 09:38:48 -0400
+In-Reply-To: <20160401124518.GB32554@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi Andrew,
 
-I've just realized I forgot to add an information, that this patch is
-intended for 'net' tree.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Best regards,
-Marcin
+> On Thu, Mar 31, 2016 at 04:53:40PM -0400, Vivien Didelot wrote:
+>> All packets passing through a switch of the 6185 family are currently all
+>> directed to the CPU port. This means that port bridging is software driven.
+>> 
+>> To enable hardware bridging for this switch family, we need to implement the
+>> port mapping operations, the FDB operations, and optionally the VLAN operations
+>> (for 802.1Q and VLAN filtering aware systems).
+>
+> Hi Vivien
+>
+> I ran these patches with my tests and got some interesting
+> results. Not sure if its a feature or a bug.
+>
+> Hardware looks like
+>
+> CPU<--->Switch0<--->Switch1<--->Switch2
+>          6352        6352        6185 
+>
+> and the test sets up a bridge spanning the three switches. Packets are
+> sent between ports on this bridge.
 
-2016-04-01 15:21 GMT+02:00 Marcin Wojtas <mw@semihalf.com>:
-> After enabling per-cpu processing it appeared that under heavy load
-> changing MTU can result in blocking all port's interrupts and transmitting
-> data is not possible after the change.
+Please note that this patchset aims to add support for in-chip hardware
+bridging within the 6185 only, i.e. your Switch2.
+
+Can you setup a bridge spanning only 2 ports of Switch2 and confirm me
+that the CPU port never sees any packet during a ping between these two
+ports in any of the 3 configurations below?
+
+If that is true, we're good to go with this patchset.
+
+> I build three different kernel configurations for these tests:
 >
-> This commit fixes above issue by disabling percpu interrupts for the
-> time, when TXQs and RXQs are reconfigured.
+> 1) 802.1D
+> 2) 802.1D + 802.1Q
+> 3) 802.1D + 802.1Q + VLAN filtering
+
+Question: does 3) implies that you enable filtering with the following?
+
+    # echo 0 > /sys/class/net/<bridge>/bridge/vlan_filtering
+
+Otherwise the bridged ports remain with 802.1Q mode disabled, and thus
+they should not care about any programmed hardware VLAN rules (VTU).
+
+I'm not sure about what Linux does differently between 2) and 3) though.
+
+> With all three configurations, cross chip frames get forwarded and go
+> out the port they are supposed to. With kernel configuration 1) & 2),
+> frames from switch2 go via the CPU and are SW bridged back to Switch0
+> or Switch1.
 >
-> Signed-off-by: Marcin Wojtas <mw@semihalf.com>
-> ---
->  drivers/net/ethernet/marvell/mvneta.c | 30 ++++++++++++++++--------------
->  1 file changed, 16 insertions(+), 14 deletions(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index fee6a91..a433de9 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -3083,6 +3083,20 @@ static int mvneta_check_mtu_valid(struct net_device *dev, int mtu)
->         return mtu;
->  }
->
-> +static void mvneta_percpu_enable(void *arg)
-> +{
-> +       struct mvneta_port *pp = arg;
-> +
-> +       enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
-> +}
-> +
-> +static void mvneta_percpu_disable(void *arg)
-> +{
-> +       struct mvneta_port *pp = arg;
-> +
-> +       disable_percpu_irq(pp->dev->irq);
-> +}
-> +
->  /* Change the device mtu */
->  static int mvneta_change_mtu(struct net_device *dev, int mtu)
->  {
-> @@ -3107,6 +3121,7 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
->          * reallocation of the queues
->          */
->         mvneta_stop_dev(pp);
-> +       on_each_cpu(mvneta_percpu_disable, pp, true);
->
->         mvneta_cleanup_txqs(pp);
->         mvneta_cleanup_rxqs(pp);
-> @@ -3130,6 +3145,7 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
->                 return ret;
->         }
->
-> +       on_each_cpu(mvneta_percpu_enable, pp, true);
->         mvneta_start_dev(pp);
->         mvneta_port_up(pp);
->
-> @@ -3283,20 +3299,6 @@ static void mvneta_mdio_remove(struct mvneta_port *pp)
->         pp->phy_dev = NULL;
->  }
->
-> -static void mvneta_percpu_enable(void *arg)
-> -{
-> -       struct mvneta_port *pp = arg;
-> -
-> -       enable_percpu_irq(pp->dev->irq, IRQ_TYPE_NONE);
-> -}
-> -
-> -static void mvneta_percpu_disable(void *arg)
-> -{
-> -       struct mvneta_port *pp = arg;
-> -
-> -       disable_percpu_irq(pp->dev->irq);
-> -}
-> -
->  /* Electing a CPU must be done in an atomic way: it should be done
->   * after or before the removal/insertion of a CPU and this function is
->   * not reentrant.
-> --
-> 1.8.3.1
->
+> However, with kernel configuration 3), the CPU never sees the
+> frames. The bridging is all happening in hardware. Why does this
+> kernel configuration do something different?
+
+With 3) and the vlan_filtering enabled, the switching logic is
+VLAN-based, which means that the switch and its ports must care about
+what is programmed in the VTU. The default VID of each port is important
+here. Unless the user changed it, it is set with the content of
+/sys/class/net/<bridge>/bridge/default_pvid.
+
+With the VTU correctly programmed *in every switch*, that would make
+sense that cross-chip hardware bridging works in this setup.
+
+To verify that, you can try spanning a bridge over Switch0 and Switch2,
+but not Switch1. I don't expect this to work since the VTU of Switch1
+would not be programmed.
+
+Thanks,
+Vivien
