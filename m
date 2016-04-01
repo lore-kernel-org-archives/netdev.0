@@ -1,34 +1,44 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Fri, 1 Apr 2016 10:17:36 -0700
-Message-ID: <CAAmHdhx9=p6+CZpa7j-XcO2VE4th0+tggS_10Kye22RnL8rPSA@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-	<CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-	<20160331.221909.800235529624766700.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2] sctp: use list_* in sctp_list_dequeue
+Date: Fri,  1 Apr 2016 14:30:32 -0300
+Message-ID: <729a27385f91aacaee46ecfa6f37f084f2843b9c.1459530791.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34657 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751775AbcDARRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 13:17:37 -0400
-Received: by mail-io0-f194.google.com with SMTP id z133so6452559iod.1
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 10:17:37 -0700 (PDT)
-In-Reply-To: <20160331.221909.800235529624766700.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:56695 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751815AbcDARb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2016 13:31:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-03-31 19:19 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: Michael Ma <make0818@gmail.com>
-> Date: Thu, 31 Mar 2016 16:48:43 -0700
->
->> I didn't really know that multiple qdiscs can be isolated using MQ so
->  ...
->
-> Please stop top-posting.
+Use list_* helpers in sctp_list_dequeue, more readable.
 
-Sorry that I wasn't aware of this...
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+v2: patch rechecked
+
+ include/net/sctp/sctp.h | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 65521cfdcadeee35d61f280165a387cc2164ab6d..03fb33efcae21d54192204629ff4ced2e36e7d4d 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -386,11 +386,9 @@ static inline struct list_head *sctp_list_dequeue(struct list_head *list)
+ {
+ 	struct list_head *result = NULL;
+ 
+-	if (list->next != list) {
++	if (!list_empty(list)) {
+ 		result = list->next;
+-		list->next = result->next;
+-		list->next->prev = list;
+-		INIT_LIST_HEAD(result);
++		list_del_init(result);
+ 	}
+ 	return result;
+ }
+-- 
+2.5.0
