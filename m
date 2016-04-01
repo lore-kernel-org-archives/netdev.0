@@ -1,46 +1,42 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 3/4] net: w5100: enable to support sleepable register
- access interface
-Date: Sat, 2 Apr 2016 01:42:44 +0900
-Message-ID: <CAC5umyhHw6wR=g7wQTH8ouZ8HA9+7ww4=AVf=AiCwD9J2CFQ9Q@mail.gmail.com>
-References: <1459355920-14623-1-git-send-email-akinobu.mita@gmail.com>
-	<1459355920-14623-3-git-send-email-akinobu.mita@gmail.com>
-	<20160331.153040.1786802199114216613.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Mike Sinkovsky <msink@permonline.ru>
-To: David Miller <davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v2] sctp: flush if we can't fit another DATA chunk
+Date: Fri,  1 Apr 2016 14:05:48 -0300
+Message-ID: <a9e4f862b5f7a43eccca5966684d172e4de57b13.1459475764.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:34061 "EHLO
-	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbcDAQmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 12:42:45 -0400
-Received: by mail-yw0-f195.google.com with SMTP id f6so20267723ywa.1
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 09:42:44 -0700 (PDT)
-In-Reply-To: <20160331.153040.1786802199114216613.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:35901 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752510AbcDARGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Apr 2016 13:06:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-04-01 4:30 GMT+09:00 David Miller <davem@davemloft.net>:
-> From: Akinobu Mita <akinobu.mita@gmail.com>
-> Date: Thu, 31 Mar 2016 01:38:39 +0900
->
->> +     struct sk_buff_head tx_queue;
->
-> The way the queueing works in this driver is that it is only possible
-> to have one SKB being transmitted at one time.
->
-> This is evident by how the driver immediately stops the TX queue when
-> it is given a new packet to transmit, and this is woken up by the TX
-> completion IRQ.
->
-> So don't use a queue here, just use a plain single pointer.
->
-> The SKB queue you're using here is going to also do locking which is
-> even more unnecessary overhead.
+There is no point on delaying the packet if we can't fit a single byte
+of data on it anymore. So lets just reduce the threshold by the amount
+that a data chunk with 4 bytes (rounding) would use.
 
-Thanks for spotting this.  Using a single pointer works fine.
+v2: based on the right tree
 
-Maybe we can support sending multiple packets at a time, but it should be
-another separated patch.
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/output.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 97745351d58c2fb32b9f9b57d61831d7724d83b2..9844fe573029b9e262743440980f15277ddaf5a1 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -705,7 +705,8 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 	/* Check whether this chunk and all the rest of pending data will fit
+ 	 * or delay in hopes of bundling a full sized packet.
+ 	 */
+-	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
++	if (chunk->skb->len + q->out_qlen >
++		transport->pathmtu - packet->overhead - sizeof(sctp_data_chunk_t) - 4)
+ 		/* Enough data queued to fill a packet */
+ 		return SCTP_XMIT_OK;
+ 
+-- 
+2.5.0
