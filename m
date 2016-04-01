@@ -1,65 +1,91 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
- __sk_dst_get
-Date: Fri, 01 Apr 2016 05:31:25 +0200
-Message-ID: <1459481485.3777651.565382010.1CCB2A5E@webmail.messagingengine.com>
-References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
- <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
- <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBA6E.5030508@stressinduktion.org>
- <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBF0E.8020309@stressinduktion.org>
- <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
- <1459474618.3751123.565321858.30DF1858@webmail.messagingengine.com>
- <1459474756.6473.248.camel@edumazet-glaptop3.roam.corp.google.com>
- <1459475124.6473.250.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDD67E.2040904@stressinduktion.org>
- <1459480383.6473.270.camel@edumazet-glaptop3.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: qdisc spin lock
+Date: Thu, 31 Mar 2016 20:44:05 -0700
+Message-ID: <56FDEE85.3020505@gmail.com>
+References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
+ <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
+ <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, daniel@iogearbox.net,
-	alexei.starovoitov@gmail.com, mkubecek@suse.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Michael Ma <make0818@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:60044 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758325AbcDADb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:31:27 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 2D06820B9C
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 23:31:26 -0400 (EDT)
-In-Reply-To: <1459480383.6473.270.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33721 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751717AbcDADoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:44:20 -0400
+Received: by mail-pf0-f181.google.com with SMTP id 4so84528392pfd.0
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:44:19 -0700 (PDT)
+In-Reply-To: <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 16-03-31 04:48 PM, Michael Ma wrote:
+> I didn't really know that multiple qdiscs can be isolated using MQ so
+> that each txq can be associated with a particular qdisc. Also we don'=
+t
+> really have multiple interfaces...
 
+MQ will assign a default qdisc to each txq and the default qdisc can
+be changed to htb or any other qdisc of your choice.
 
-On Fri, Apr 1, 2016, at 05:13, Eric Dumazet wrote:
-> On Fri, 2016-04-01 at 04:01 +0200, Hannes Frederic Sowa wrote:
-> 
-> > I thought so first, as well. But given the double check for the 
-> > spin_lock and the "mutex" we end up with the same result for the 
-> > lockdep_sock_is_held check.
-> > 
-> > Do you see other consequences?
-> 
-> Well, we release the spinlock in __release_sock()
-> 
-> So another thread could come and acquire the socket, then call
-> mutex_acquire() while the first thread did not call yet mutex_release()
-> 
-> So maybe lockdep will complain (but I do not know lockdep enough to
-> tell)
-> 
-> So maybe the following would be better :
-> 
-> (Absolutely untested, really I need to take a break)
+>=20
+> With this MQ solution we'll still need to assign transmit queues to
+> different classes by doing some math on the bandwidth limit if I
+> understand correctly, which seems to be less convenient compared with
+> a solution purely within HTB.
+>=20
 
-I quickly tested the patch and my scripts didn't show any splats so far.
-This patch seems more consistent albeit I don't think it is relevant for
-lockdep_sock_is_held as we only flip owned while holding slock. But this
-definitely needs more review.
+Agreed.
 
-Thanks a lot!
+> I assume that with this solution I can still share qdisc among
+> multiple transmit queues - please let me know if this is not the case=
+=2E
+
+Nope sorry doesn't work that way unless you employ some sort of stacked
+netdevice strategy which does start to get a bit complex. The basic hin=
+t
+would be to stack some type of virtual netdev on top of a device and
+run the htb qdisc there. Push traffic onto the netdev depending on the
+class it belongs to. Its ugly yes.
+
+Noting all that I posted an RFC patch some time back to allow writing
+qdiscs that do not require taking the lock. I'll try to respin these
+and submit them when net-next opens again. The next logical step is to
+write a "better" HTB probably using a shared counter and dropping the
+requirement that it be exact.
+
+Sorry I didn't get a chance to look at the paper in your post so not
+sure if they suggest something similar or not.
+
+Thanks,
+John
+
+>=20
+> 2016-03-31 15:16 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
+>> On Wed, Mar 30, 2016 at 12:20 AM, Michael Ma <make0818@gmail.com> wr=
+ote:
+>>> As far as I understand the design of TC is to simplify locking sche=
+ma
+>>> and minimize the work in __qdisc_run so that throughput won=E2=80=99=
+t be
+>>> affected, especially with large packets. However if the scenario is
+>>> that multiple classes in the queueing discipline only have the shap=
+ing
+>>> limit, there isn=E2=80=99t really a necessary correlation between d=
+ifferent
+>>> classes. The only synchronization point should be when the packet i=
+s
+>>> dequeued from the qdisc queue and enqueued to the transmit queue of
+>>> the device. My question is =E2=80=93 is it worth investing on avoid=
+ing the
+>>> locking contention by partitioning the queue/lock so that this
+>>> scenario is addressed with relatively smaller latency?
+>>
+>> If your HTB classes don't share bandwidth, why do you still make the=
+m
+>> under the same hierarchy? IOW, you can just isolate them either with=
+ some
+>> other qdisc or just separated interfaces.
