@@ -1,15 +1,19 @@
 From: David Daney <ddaney.cavm@gmail.com>
 Subject: [PATCH] net: thunderx: Fix broken of_node_put() code.
-Date: Thu, 31 Mar 2016 14:42:48 -0700
-Message-ID: <1459460568-2458-1-git-send-email-ddaney.cavm@gmail.com>
+Date: Thu, 31 Mar 2016 18:01:57 -0700
+Message-ID: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Robert Richter <rric@kernel.org>,
 	Sunil Goutham <sgoutham@cavium.com>,
 	David Daney <david.daney@cavium.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35555 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753864AbcDHQ3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 12:29:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: David Daney <david.daney@cavium.com>
 
