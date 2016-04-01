@@ -1,57 +1,88 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net 4/4] tcp: various missing rcu_read_lock around
  __sk_dst_get
-Date: Fri, 01 Apr 2016 05:06:53 +0200
-Message-ID: <1459480013.3772171.565370082.48F59FEC@webmail.messagingengine.com>
+Date: Thu, 31 Mar 2016 20:13:03 -0700
+Message-ID: <1459480383.6473.270.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1459466982-20432-1-git-send-email-hannes@stressinduktion.org>
- <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
- <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBA6E.5030508@stressinduktion.org>
- <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDBF0E.8020309@stressinduktion.org>
- <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160401014516.GA11017@ast-mbp.thefacebook.com>
- <1459479818.6473.265.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1459466982-20432-5-git-send-email-hannes@stressinduktion.org>
+	 <1459467595.6473.233.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FDBA6E.5030508@stressinduktion.org>
+	 <1459469572.6473.239.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FDBF0E.8020309@stressinduktion.org>
+	 <1459473592.6473.243.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1459474618.3751123.565321858.30DF1858@webmail.messagingengine.com>
+	 <1459474756.6473.248.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1459475124.6473.250.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FDD67E.2040904@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sasha.levin@oracle.com, daniel@iogearbox.net, mkubecek@suse.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	sasha.levin@oracle.com, daniel@iogearbox.net,
+	alexei.starovoitov@gmail.com, mkubecek@suse.cz
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:47937 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753140AbcDADGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:06:55 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 06B2320CC7
-	for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 23:06:54 -0400 (EDT)
-In-Reply-To: <1459479818.6473.265.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34664 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbcDADNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Mar 2016 23:13:06 -0400
+Received: by mail-pf0-f170.google.com with SMTP id x3so83928451pfb.1
+        for <netdev@vger.kernel.org>; Thu, 31 Mar 2016 20:13:05 -0700 (PDT)
+In-Reply-To: <56FDD67E.2040904@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 1, 2016, at 05:03, Eric Dumazet wrote:
-> On Thu, 2016-03-31 at 18:45 -0700, Alexei Starovoitov wrote:
-> 
-> > Eric, what's your take on Hannes's patch 2 ?
-> > Is it more accurate to ask lockdep to check for actual lock
-> > or lockdep can rely on owned flag?
-> > Potentially there could be races between setting the flag and
-> > actual lock... but that code is contained, so unlikely.
-> > Will we find the real issues with this 'stronger' check or
-> > just spend a ton of time adapting to new model like your other
-> > patch for release_sock and whatever may need to come next...
-> 
-> More precise lockdep checks are certainly good, I only objected to 4/4
-> trying to work around another bug.
-> 
-> But why do we rush for 'net' tree ?
-> 
-> This looks net-next material to me.
-> 
-> Locking changes are often subtle, lets take the time to do them
-> properly.
+On Fri, 2016-04-01 at 04:01 +0200, Hannes Frederic Sowa wrote:
 
-I certainly can see my mistake now trying to paper over the splats. Do
-you object if I send the first patches to fix up the reported lockdep?
+> I thought so first, as well. But given the double check for the 
+> spin_lock and the "mutex" we end up with the same result for the 
+> lockdep_sock_is_held check.
+> 
+> Do you see other consequences?
+
+Well, we release the spinlock in __release_sock()
+
+So another thread could come and acquire the socket, then call
+mutex_acquire() while the first thread did not call yet mutex_release()
+
+So maybe lockdep will complain (but I do not know lockdep enough to
+tell)
+
+So maybe the following would be better :
+
+(Absolutely untested, really I need to take a break)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 255d3e03727b..7d5dfa7e1918 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1327,7 +1327,13 @@ static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ static inline void sock_release_ownership(struct sock *sk)
+ {
+-	sk->sk_lock.owned = 0;
++	if (sk->sk_lock.owned) {
++		/*
++		 * The sk_lock has mutex_unlock() semantics:
++		 */
++		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
++		sk->sk_lock.owned = 0;
++	}
+ }
+ 
+ /*
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b67b9aedb230..c7ab98e72346 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2429,10 +2429,6 @@ EXPORT_SYMBOL(lock_sock_nested);
+ 
+ void release_sock(struct sock *sk)
+ {
+-	/*
+-	 * The sk_lock has mutex_unlock() semantics:
+-	 */
+-	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+ 
+ 	spin_lock_bh(&sk->sk_lock.slock);
+ 	if (sk->sk_backlog.tail)
