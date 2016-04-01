@@ -1,82 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] Marvell phy: add fiber status check for some components
-Date: Fri, 1 Apr 2016 19:08:38 +0200
-Message-ID: <20160401170838.GA21633@lunn.ch>
-References: <56FE9B5C.6030509@nexvision.fr>
- <56FEA2EC.2030303@nexvision.fr>
+From: Michael Ma <make0818@gmail.com>
+Subject: Re: qdisc spin lock
+Date: Fri, 1 Apr 2016 10:17:36 -0700
+Message-ID: <CAAmHdhx9=p6+CZpa7j-XcO2VE4th0+tggS_10Kye22RnL8rPSA@mail.gmail.com>
+References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
+	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
+	<CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
+	<20160331.221909.800235529624766700.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44654 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752895AbcDARIk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Apr 2016 13:08:40 -0400
-Content-Disposition: inline
-In-Reply-To: <56FEA2EC.2030303@nexvision.fr>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:34657 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751775AbcDARRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 13:17:37 -0400
+Received: by mail-io0-f194.google.com with SMTP id z133so6452559iod.1
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 10:17:37 -0700 (PDT)
+In-Reply-To: <20160331.221909.800235529624766700.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 01, 2016 at 06:33:48PM +0200, Charles-Antoine Couret wrote:
+2016-03-31 19:19 GMT-07:00 David Miller <davem@davemloft.net>:
+> From: Michael Ma <make0818@gmail.com>
+> Date: Thu, 31 Mar 2016 16:48:43 -0700
+>
+>> I didn't really know that multiple qdiscs can be isolated using MQ so
+>  ...
+>
+> Please stop top-posting.
 
-> >From a5a7a9828511ff6a522cf742109768207ff89929 Mon Sep 17 00:00:00 2001
-> From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-> Date: Fri, 1 Apr 2016 16:16:35 +0200
-> Subject: [PATCH] Marvell phy: add fiber status check for some components
-> 
-> This patch is not tested with all Marvell's phy. The new function was actived
-> only for tested phys.
-> 
-> Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-> ---
->  drivers/net/phy/marvell.c | 37 +++++++++++++++++++++++++++++++++++--
->  1 file changed, 35 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index ab1d0fc..5ac186e 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -890,6 +890,39 @@ static int marvell_read_status(struct phy_device *phydev)
->  	return 0;
->  }
->  
-> +/* marvell_read_fiber_status
-> + *
-> + * Some Marvell's phys have two modes: fiber and copper.
-> + * Both need status checked.
-> + * Description:
-> + *   First, check the fiber link and status.
-> + *   If the fiber link is down, check the copper link and status which
-> + *   will be the default value if both link are down.
-> + */
-> +static int marvell_read_fiber_status(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	/* Check the fiber mode first */
-> +	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	err = marvell_read_status(phydev);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	if (phydev->link)
-> +		return 0;
-> +
-> +	/* If fiber link is down, check and save copper mode state */
-> +	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	return marvell_read_status(phydev);
-> +}
-
-Hi Charles
-
-Shouldn't you return to page 0, i.e. MII_M1111_COPPER, under all
-conditions?
-
-	Andrew
+Sorry that I wasn't aware of this...
