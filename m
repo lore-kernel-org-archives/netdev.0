@@ -1,7 +1,8 @@
 From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v7, 0/5] Fix eSDHC host version register bug
-Date: Fri, 1 Apr 2016 11:07:26 +0800
-Message-ID: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
+Subject: [v7, 1/5] ARM64: dts: ls2080a: add device configuration node
+Date: Fri, 1 Apr 2016 11:07:27 +0800
+Message-ID: <1459480051-3701-2-git-send-email-yangbo.lu@nxp.com>
+References: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,6 +20,7 @@ To: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPF
 	<iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	<linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1459480051-3701-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
 	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
@@ -30,41 +32,43 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
-eSDHC controller. To get the SoC version and revision, it's needed to add the
-GUTS driver to access the global utilities registers.
+Add the dts node for device configuration unit that provides
+general purpose configuration and status for the device.
 
-So, the first three patches are to add the GUTS driver.
-The following two patches are to enable GUTS driver support to get SVR in eSDHC
-driver and fix host version for T4240.
+Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+---
+Changes for v2:
+	- None
+Changes for v3:
+	- None
+Changes for v4:
+	- None
+Changes for v5:
+	- Added this patch
+Changes for v6:
+	- None
+Changes for v7:
+	- None
+---
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Yangbo Lu (5):
-  ARM64: dts: ls2080a: add device configuration node
-  soc: fsl: add GUTS driver for QorIQ platforms
-  dt: move guts devicetree doc out of powerpc directory
-  powerpc/fsl: move mpc85xx.h to include/linux/fsl
-  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
-
- .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
- arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 ++
- arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
- drivers/clk/clk-qoriq.c                            |   3 +-
- drivers/i2c/busses/i2c-mpc.c                       |   2 +-
- drivers/iommu/fsl_pamu.c                           |   3 +-
- drivers/mmc/host/Kconfig                           |   1 +
- drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
- drivers/net/ethernet/freescale/gianfar.c           |   2 +-
- drivers/soc/Kconfig                                |   2 +-
- drivers/soc/fsl/Kconfig                            |   8 ++
- drivers/soc/fsl/Makefile                           |   1 +
- drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++++
- include/linux/fsl/guts.h                           |  98 ++++++++---------
- .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
- 15 files changed, 219 insertions(+), 58 deletions(-)
- rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
- create mode 100644 drivers/soc/fsl/Kconfig
- create mode 100644 drivers/soc/fsl/guts.c
- rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
-
+diff --git a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+index 9d746c6..8724cf1 100644
+--- a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
++++ b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+@@ -191,6 +191,12 @@
+ 			clocks = <&sysclk>;
+ 		};
+ 
++		dcfg: dcfg@1e00000 {
++			compatible = "fsl,ls2080a-dcfg", "syscon";
++			reg = <0x0 0x1e00000 0x0 0x10000>;
++			little-endian;
++		};
++
+ 		serial0: serial@21c0500 {
+ 			compatible = "fsl,ns16550", "ns16550a";
+ 			reg = <0x0 0x21c0500 0x0 0x100>;
 -- 
 2.1.0.27.g96db324
