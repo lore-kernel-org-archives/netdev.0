@@ -1,58 +1,147 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] vlan: pull on __vlan_insert_tag error path and fix csum correction
-Date: Fri,  1 Apr 2016 11:41:03 +0200
-Message-ID: <244f8d5684800cc98545932aa6851bf73f7326e2.1459503053.git.daniel@iogearbox.net>
-Cc: jiri@resnulli.us, alexei.starovoitov@gmail.com, jesse@kernel.org,
-	tom@herbertland.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37595 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963AbcDAJlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 05:41:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [RESEND PATCH V4 3/3] IB/hns: Add binding document for HiSilicon RoCE driver
+Date: Fri, 1 Apr 2016 17:21:32 +0800
+Message-ID: <1459502492-19891-4-git-send-email-oulijun@huawei.com>
+References: <1459502492-19891-1-git-send-email-oulijun@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<lisheng011@huawei.com>, <charles.chenxin@huawei.com>,
+	<linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459502492-19891-1-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When __vlan_insert_tag() fails from skb_vlan_push() path due to the
-skb_cow_head(), we need to undo the __skb_push() in the error path
-as well that was done earlier to move skb->data pointer to mac header.
+This patch adds related DTS binding document for HiSilicon RoCE driver.
 
-Moreover, I noticed that when in the non-error path the __skb_pull()
-is done and the original offset to mac header was non-zero, we fixup
-from a wrong skb->data offset in the checksum complete processing.
-
-So the skb_postpush_rcsum() really needs to be done before __skb_pull()
-where skb->data still points to the mac header start.
-
-Fixes: 93515d53b133 ("net: move vlan pop/push functions into common code")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
+Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
 ---
- net/core/skbuff.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ .../bindings/infiniband/hisilicon-hns-roce.txt     | 107 +++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d04c2d1..e561f9f 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4502,13 +4502,16 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci)
- 		__skb_push(skb, offset);
- 		err = __vlan_insert_tag(skb, skb->vlan_proto,
- 					skb_vlan_tag_get(skb));
--		if (err)
-+		if (err) {
-+			__skb_pull(skb, offset);
- 			return err;
-+		}
+diff --git a/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+new file mode 100644
+index 0000000..5180fef
+--- /dev/null
++++ b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+@@ -0,0 +1,107 @@
++HiSilicon RoCE DT description
 +
- 		skb->protocol = skb->vlan_proto;
- 		skb->mac_len += VLAN_HLEN;
--		__skb_pull(skb, offset);
- 
- 		skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
-+		__skb_pull(skb, offset);
- 	}
- 	__vlan_hwaccel_put_tag(skb, vlan_proto, vlan_tci);
- 	return 0;
++HiSilicon RoCE engine is a part of network subsystem.
++It works depending on other part of network wubsytem, such as, gmac and
++dsa fabric.
++
++Additional properties are described here:
++
++Required properties:
++- compatible: Should contain "hisilicon,hns-roce-v1".
++- reg: Physical base address of the roce driver and
++length of memory mapped region.
++- eth-handle: phandle, specifies a reference to a node
++representing a ethernet device.
++- dsaf-handle: phandle, specifies a reference to a node
++representing a dsaf device.
++- #address-cells: must be 2
++- #size-cells: must be 2
++Optional properties:
++- dma-coherent: Present if DMA operations are coherent.
++- interrupt-parent: the interrupt parent of this device.
++- interrupts: should contain 32 completion event irq,1 async event irq
++and 1 event overflow irq.
++- interrupt-names:should be one of 34 irqs for roce device
++  - roce_ce0_irq ~ roce_ce31_irq: 32 complete event irq
++  - roce_ae_irq: 1 async event irq
++  - roce_common_irq: named common exception warning irq
++Example:
++	infiniband@c4000000 {
++			compatible = "hisilicon,hns-roce-v1";
++			reg = <0x0 0xc4000000 0x0 0x100000>;
++			dma-coherent;
++			eth-handle = <&eth2 &eth3 &eth4 &eth5 &eth6 &eth7>;
++			dsaf-handle = <&soc0_dsa>;
++			#address-cells = <2>;
++			#size-cells = <2>;
++			interrupt-parent = <&mbigen_dsa>;
++			interrupts = <722 1>,
++					<723 1>,
++					<724 1>,
++					<725 1>,
++					<726 1>,
++					<727 1>,
++					<728 1>,
++					<729 1>,
++					<730 1>,
++					<731 1>,
++					<732 1>,
++					<733 1>,
++					<734 1>,
++					<735 1>,
++					<736 1>,
++					<737 1>,
++					<738 1>,
++					<739 1>,
++					<740 1>,
++					<741 1>,
++					<742 1>,
++					<743 1>,
++					<744 1>,
++					<745 1>,
++					<746 1>,
++					<747 1>,
++					<748 1>,
++					<749 1>,
++					<750 1>,
++					<751 1>,
++					<752 1>,
++					<753 1>,
++					<785 1>,
++					<754 4>;
++
++			interrupt-names = "roce_ce0_irq",
++					"roce_ce1_irq",
++					"roce_ce2_irq",
++					"roce_ce3_irq",
++					"roce_ce4_irq",
++					"roce_ce5_irq",
++					"roce_ce6_irq",
++					"roce_ce7_irq",
++					"roce_ce8_irq",
++					"roce_ce9_irq",
++					"roce_ce10_irq",
++					"roce_ce11_irq",
++					"roce_ce12_irq",
++					"roce_ce13_irq",
++					"roce_ce14_irq",
++					"roce_ce15_irq",
++					"roce_ce16_irq",
++					"roce_ce17_irq",
++					"roce_ce18_irq",
++					"roce_ce19_irq",
++					"roce_ce20_irq",
++					"roce_ce21_irq",
++					"roce_ce22_irq",
++					"roce_ce23_irq",
++					"roce_ce24_irq",
++					"roce_ce25_irq",
++					"roce_ce26_irq",
++					"roce_ce27_irq",
++					"roce_ce28_irq",
++					"roce_ce29_irq",
++					"roce_ce30_irq",
++					"roce_ce31_irq",
++					"roce_ae_irq",
++					"roce_common_irq";
++		};
 -- 
-1.9.3
+1.9.1
