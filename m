@@ -1,52 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Fri, 01 Apr 2016 15:24:05 -0400 (EDT)
-Message-ID: <20160401.152405.915323132719949585.davem@davemloft.net>
-References: <20160401175741.13882.24175.stgit@localhost.localdomain>
-	<20160401180531.13882.44793.stgit@localhost.localdomain>
-	<1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Aaron Conole <aconole@redhat.com>
+Subject: [RFC v3 -next 0/2] virtio-net: Advised MTU feature
+Date: Fri,  1 Apr 2016 15:32:14 -0400
+Message-ID: <1459539136-13948-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: aduyck@mirantis.com, herbert@gondor.apana.org.au,
-	tom@herbertland.com, jesse@kernel.org, alexander.duyck@gmail.com,
-	edumazet@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52852 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752009AbcDATYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 15:24:07 -0400
-In-Reply-To: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Paolo Abeni <pabeni@redhat.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Pankaj Gupta <pagupta@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 01 Apr 2016 11:49:03 -0700
+The following series adds the ability for a hypervisor to set an MTU on the
+guest during feature negotiation phase. This is useful for VM orchestration
+when, for instance, tunneling is involved and the MTU of the various systems
+should be homogenous.
 
-> For example, TCP stack tracks per socket ID generation, even if it
-> sends DF=1 frames. Damn useful for tcpdump analysis and drop
-> inference.
+The first patch adds the feature bit as described in the proposed VIRTIO spec
+addition found at
+https://lists.oasis-open.org/archives/virtio-dev/201603/msg00001.html
+The second patch adds a user of the bit, and a warning when the guest changes
+the MTU from the hypervisor advised MTU. Future patches may add more thorough
+error handling.
 
-Thanks for mentioning this, I never considered this use case.
+v2:
+* Whitespace and code style cleanups from Sergei Shtylyov and Paolo Abeni
+* Additional test before printing a warning
 
-> With your change, the resulting GRO packet would propagate the ID of
-> first frag. Most GSO/GSO engines will then provide a ID sequence,
-> which might not match original packets.
-> 
-> I do not particularly care, but it is worth mentioning that GRO+TSO
-> would not be idempotent anymore.
+v3:
+* Removed the warning when changing MTU (which simplified the code)
 
-Our eventual plan was to start emitting zero in the ID field for
-outgoing TCP datagrams with DF set, since the issue that caused us to
-generate incrementing IDs in the first place (buggy Microsoft SLHC
-compression) we decided is not relevant and important enough to
-accommodate any more.
+Aaron Conole (2):
+  virtio: Start feature MTU support
+  virtio_net: Read the advised MTU
 
-So outside of your TCP behavior analysis case, there isn't a
-compelling argument to keeping that code around any more, rather than
-just put zero in the ID field.
+ drivers/net/virtio_net.c        | 8 ++++++++
+ include/uapi/linux/virtio_net.h | 3 +++
+ 2 files changed, 11 insertions(+)
 
-I suppose we could keep the counter code around and allow it to be
-enabled using a sysctl or socket option, but how strongly do you
-really feel about this?
+-- 
+2.5.5
