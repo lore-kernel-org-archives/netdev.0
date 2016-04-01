@@ -1,114 +1,46 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH] Marvell phy: add fiber status check for some components
-Date: Fri, 1 Apr 2016 18:33:48 +0200
-Message-ID: <56FEA2EC.2030303@nexvision.fr>
-References: <56FE9B5C.6030509@nexvision.fr>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Re: [PATCH 3/4] net: w5100: enable to support sleepable register
+ access interface
+Date: Sat, 2 Apr 2016 01:42:44 +0900
+Message-ID: <CAC5umyhHw6wR=g7wQTH8ouZ8HA9+7ww4=AVf=AiCwD9J2CFQ9Q@mail.gmail.com>
+References: <1459355920-14623-1-git-send-email-akinobu.mita@gmail.com>
+	<1459355920-14623-3-git-send-email-akinobu.mita@gmail.com>
+	<20160331.153040.1786802199114216613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040409040408080507070500"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Mike Sinkovsky <msink@permonline.ru>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 19.mo4.mail-out.ovh.net ([87.98.179.66]:59905 "EHLO
-	19.mo4.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbcDAQm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 12:42:29 -0400
-Received: from mail699.ha.ovh.net (b6.ovh.net [213.186.33.56])
-	by mo4.mail-out.ovh.net (Postfix) with SMTP id 9A90510E81D4
-	for <netdev@vger.kernel.org>; Fri,  1 Apr 2016 18:33:50 +0200 (CEST)
-In-Reply-To: <56FE9B5C.6030509@nexvision.fr>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:34061 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539AbcDAQmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 12:42:45 -0400
+Received: by mail-yw0-f195.google.com with SMTP id f6so20267723ywa.1
+        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 09:42:44 -0700 (PDT)
+In-Reply-To: <20160331.153040.1786802199114216613.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040409040408080507070500
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+2016-04-01 4:30 GMT+09:00 David Miller <davem@davemloft.net>:
+> From: Akinobu Mita <akinobu.mita@gmail.com>
+> Date: Thu, 31 Mar 2016 01:38:39 +0900
+>
+>> +     struct sk_buff_head tx_queue;
+>
+> The way the queueing works in this driver is that it is only possible
+> to have one SKB being transmitted at one time.
+>
+> This is evident by how the driver immediately stops the TX queue when
+> it is given a new packet to transmit, and this is woken up by the TX
+> completion IRQ.
+>
+> So don't use a queue here, just use a plain single pointer.
+>
+> The SKB queue you're using here is going to also do locking which is
+> even more unnecessary overhead.
 
+Thanks for spotting this.  Using a single pointer works fine.
 
---------------040409040408080507070500
-Content-Type: text/x-patch;
- name="marvell.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="marvell.patch"
-
->From a5a7a9828511ff6a522cf742109768207ff89929 Mon Sep 17 00:00:00 2001
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Date: Fri, 1 Apr 2016 16:16:35 +0200
-Subject: [PATCH] Marvell phy: add fiber status check for some components
-
-This patch is not tested with all Marvell's phy. The new function was actived
-only for tested phys.
-
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
----
- drivers/net/phy/marvell.c | 37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index ab1d0fc..5ac186e 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -890,6 +890,39 @@ static int marvell_read_status(struct phy_device *phydev)
- 	return 0;
- }
- 
-+/* marvell_read_fiber_status
-+ *
-+ * Some Marvell's phys have two modes: fiber and copper.
-+ * Both need status checked.
-+ * Description:
-+ *   First, check the fiber link and status.
-+ *   If the fiber link is down, check the copper link and status which
-+ *   will be the default value if both link are down.
-+ */
-+static int marvell_read_fiber_status(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Check the fiber mode first */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+	if (err < 0)
-+		return err;
-+
-+	err = marvell_read_status(phydev);
-+	if (err < 0)
-+		return err;
-+
-+	if (phydev->link)
-+		return 0;
-+
-+	/* If fiber link is down, check and save copper mode state */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	if (err < 0)
-+		return err;
-+
-+	return marvell_read_status(phydev);
-+}
-+
- static int marvell_aneg_done(struct phy_device *phydev)
- {
- 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
-@@ -1122,7 +1155,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.probe = marvell_probe,
- 		.config_init = &m88e1111_config_init,
- 		.config_aneg = &marvell_config_aneg,
--		.read_status = &marvell_read_status,
-+		.read_status = &marvell_read_fiber_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.resume = &genphy_resume,
-@@ -1270,7 +1303,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.probe = marvell_probe,
- 		.config_init = &marvell_config_init,
- 		.config_aneg = &m88e1510_config_aneg,
--		.read_status = &marvell_read_status,
-+		.read_status = &marvell_read_fiber_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.did_interrupt = &m88e1121_did_interrupt,
--- 
-2.5.5
-
-
---------------040409040408080507070500--
+Maybe we can support sending multiple packets at a time, but it should be
+another separated patch.
