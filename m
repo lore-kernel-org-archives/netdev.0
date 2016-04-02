@@ -1,105 +1,201 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 01/11] net: add SOCK_RCU_FREE socket flag
-Date: Sat, 2 Apr 2016 12:35:17 -0400
-Message-ID: <CALx6S37ubscTboXqBSFwG2bEUJscZjuyFngUWL_=_ymTy-UehA@mail.gmail.com>
-References: <1459525942-30399-1-git-send-email-edumazet@google.com>
-	<1459525942-30399-2-git-send-email-edumazet@google.com>
+Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver filter
+Date: Sat, 2 Apr 2016 12:39:45 -0400
+Message-ID: <CALx6S35N1W32e9fvAmEbPdZk1PK2eNUgd0uU7pteMkBoHUd36g@mail.gmail.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+	<1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37311 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbcDBQfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 12:35:23 -0400
-Received: by mail-ig0-f181.google.com with SMTP id l20so25331576igf.0
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 09:35:23 -0700 (PDT)
-In-Reply-To: <1459525942-30399-2-git-send-email-edumazet@google.com>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:33028 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045AbcDBQjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 12:39:46 -0400
+Received: by mail-ig0-f180.google.com with SMTP id ma7so31740632igc.0
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 09:39:46 -0700 (PDT)
+In-Reply-To: <1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 1, 2016 at 11:52 AM, Eric Dumazet <edumazet@google.com> wrote:
-> We want a generic way to insert an RCU grace period before socket
-> freeing for cases where RCU_SLAB_DESTROY_BY_RCU is adding too
-> much overhead.
+On Fri, Apr 1, 2016 at 9:21 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> Add a new bpf prog type that is intended to run in early stages of the
+> packet rx path. Only minimal packet metadata will be available, hence a new
+> context type, struct xdp_metadata, is exposed to userspace. So far only
+> expose the readable packet length, and only in read mode.
 >
-> SLAB_DESTROY_BY_RCU strict rules force us to take a reference
-> on the socket sk_refcnt, and it is a performance problem for UDP
-> encapsulation, or TCP synflood behavior, as many CPUs might
-> attempt the atomic operations on a shared sk_refcnt
+This would eventually be a generic abstraction of receive descriptors?
+
+> The PHYS_DEV name is chosen to represent that the program is meant only
+> for physical adapters, rather than all netdevs.
 >
-> UDP sockets and TCP listeners can set SOCK_RCU_FREE so that their
-> lookup can use traditional RCU rules, without refcount changes.
-> They can set the flag only once hashed and visible by other cpus.
+Is there a hard restriction that this could only work with physical devices?
+
+> While the user visible struct is new, the underlying context must be
+> implemented as a minimal skb in order for the packet load_* instructions
+> to work. The skb filled in by the driver must have skb->len, skb->head,
+> and skb->data set, and skb->data_len == 0.
 >
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 > ---
->  include/net/sock.h |  2 ++
->  net/core/sock.c    | 14 +++++++++++++-
->  2 files changed, 15 insertions(+), 1 deletion(-)
+>  include/uapi/linux/bpf.h |  5 ++++
+>  kernel/bpf/verifier.c    |  1 +
+>  net/core/filter.c        | 68 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 74 insertions(+)
 >
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 255d3e03727b..c88785a3e76c 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -438,6 +438,7 @@ struct sock {
->                                                   struct sk_buff *skb);
->         void                    (*sk_destruct)(struct sock *sk);
->         struct sock_reuseport __rcu     *sk_reuseport_cb;
-> +       struct rcu_head         sk_rcu;
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 924f537..b8a4ef2 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -92,6 +92,7 @@ enum bpf_prog_type {
+>         BPF_PROG_TYPE_KPROBE,
+>         BPF_PROG_TYPE_SCHED_CLS,
+>         BPF_PROG_TYPE_SCHED_ACT,
+> +       BPF_PROG_TYPE_PHYS_DEV,
 >  };
 >
->  #define __sk_user_data(sk) ((*((void __rcu **)&(sk)->sk_user_data)))
-> @@ -720,6 +721,7 @@ enum sock_flags {
->                      */
->         SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
->         SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
-> +       SOCK_RCU_FREE, /* wait rcu grace period in sk_destruct() */
+>  #define BPF_PSEUDO_MAP_FD      1
+> @@ -367,6 +368,10 @@ struct __sk_buff {
+>         __u32 tc_classid;
 >  };
 >
->  #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index b67b9aedb230..238a94f879ca 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1418,8 +1418,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+> +struct xdp_metadata {
+> +       __u32 len;
+> +};
+> +
+>  struct bpf_tunnel_key {
+>         __u32 tunnel_id;
+>         union {
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 2e08f8e..804ca70 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -1340,6 +1340,7 @@ static bool may_access_skb(enum bpf_prog_type type)
+>         case BPF_PROG_TYPE_SOCKET_FILTER:
+>         case BPF_PROG_TYPE_SCHED_CLS:
+>         case BPF_PROG_TYPE_SCHED_ACT:
+> +       case BPF_PROG_TYPE_PHYS_DEV:
+>                 return true;
+>         default:
+>                 return false;
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index b7177d0..c417db6 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2018,6 +2018,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+>         }
 >  }
->  EXPORT_SYMBOL(sk_alloc);
 >
-> -void sk_destruct(struct sock *sk)
-> +/* Sockets having SOCK_RCU_FREE will call this function after one RCU
-> + * grace period. This is the case for UDP sockets and TCP listeners.
-> + */
-> +static void __sk_destruct(struct rcu_head *head)
->  {
-> +       struct sock *sk = container_of(head, struct sock, sk_rcu);
->         struct sk_filter *filter;
->
->         if (sk->sk_destruct)
-> @@ -1448,6 +1452,14 @@ void sk_destruct(struct sock *sk)
->         sk_prot_free(sk->sk_prot_creator, sk);
->  }
->
-> +void sk_destruct(struct sock *sk)
+> +static const struct bpf_func_proto *
+> +phys_dev_func_proto(enum bpf_func_id func_id)
 > +{
-> +       if (sock_flag(sk, SOCK_RCU_FREE))
-> +               call_rcu(&sk->sk_rcu, __sk_destruct);
-> +       else
-> +               __sk_destruct(&sk->sk_rcu);
+> +       return sk_filter_func_proto(func_id);
 > +}
 > +
->  static void __sk_free(struct sock *sk)
+>  static bool __is_valid_access(int off, int size, enum bpf_access_type type)
 >  {
->         if (unlikely(sock_diag_has_destroy_listeners(sk) && sk->sk_net_refcnt))
-> --
-> 2.8.0.rc3.226.g39d4020
+>         /* check bounds */
+> @@ -2073,6 +2079,36 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+>         return __is_valid_access(off, size, type);
+>  }
 >
-
-Tested-by: Tom Herbert <tom@herbertland.com>
+> +static bool __is_valid_xdp_access(int off, int size,
+> +                                 enum bpf_access_type type)
+> +{
+> +       if (off < 0 || off >= sizeof(struct xdp_metadata))
+> +               return false;
+> +
+> +       if (off % size != 0)
+> +               return false;
+> +
+> +       if (size != 4)
+> +               return false;
+> +
+> +       return true;
+> +}
+> +
+> +static bool phys_dev_is_valid_access(int off, int size,
+> +                                    enum bpf_access_type type)
+> +{
+> +       if (type == BPF_WRITE)
+> +               return false;
+> +
+> +       switch (off) {
+> +       case offsetof(struct xdp_metadata, len):
+> +               break;
+> +       default:
+> +               return false;
+> +       }
+> +       return __is_valid_xdp_access(off, size, type);
+> +}
+> +
+>  static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+>                                       int src_reg, int ctx_off,
+>                                       struct bpf_insn *insn_buf,
+> @@ -2210,6 +2246,26 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+>         return insn - insn_buf;
+>  }
+>
+> +static u32 bpf_phys_dev_convert_ctx_access(enum bpf_access_type type,
+> +                                          int dst_reg, int src_reg,
+> +                                          int ctx_off,
+> +                                          struct bpf_insn *insn_buf,
+> +                                          struct bpf_prog *prog)
+> +{
+> +       struct bpf_insn *insn = insn_buf;
+> +
+> +       switch (ctx_off) {
+> +       case offsetof(struct xdp_metadata, len):
+> +               BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, len) != 4);
+> +
+> +               *insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
+> +                                     offsetof(struct sk_buff, len));
+> +               break;
+> +       }
+> +
+> +       return insn - insn_buf;
+> +}
+> +
+>  static const struct bpf_verifier_ops sk_filter_ops = {
+>         .get_func_proto = sk_filter_func_proto,
+>         .is_valid_access = sk_filter_is_valid_access,
+> @@ -2222,6 +2278,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
+>         .convert_ctx_access = bpf_net_convert_ctx_access,
+>  };
+>
+> +static const struct bpf_verifier_ops phys_dev_ops = {
+> +       .get_func_proto = phys_dev_func_proto,
+> +       .is_valid_access = phys_dev_is_valid_access,
+> +       .convert_ctx_access = bpf_phys_dev_convert_ctx_access,
+> +};
+> +
+>  static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+>         .ops = &sk_filter_ops,
+>         .type = BPF_PROG_TYPE_SOCKET_FILTER,
+> @@ -2237,11 +2299,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
+>         .type = BPF_PROG_TYPE_SCHED_ACT,
+>  };
+>
+> +static struct bpf_prog_type_list phys_dev_type __read_mostly = {
+> +       .ops = &phys_dev_ops,
+> +       .type = BPF_PROG_TYPE_PHYS_DEV,
+> +};
+> +
+>  static int __init register_sk_filter_ops(void)
+>  {
+>         bpf_register_prog_type(&sk_filter_type);
+>         bpf_register_prog_type(&sched_cls_type);
+>         bpf_register_prog_type(&sched_act_type);
+> +       bpf_register_prog_type(&phys_dev_type);
+>
+>         return 0;
+>  }
+> --
+> 2.8.0
+>
