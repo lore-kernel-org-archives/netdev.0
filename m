@@ -1,41 +1,41 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [net PATCH 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Fri, 01 Apr 2016 22:16:32 -0400 (EDT)
-Message-ID: <20160401.221632.846129753053296932.davem@davemloft.net>
-References: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160401.152405.915323132719949585.davem@davemloft.net>
-	<CAKgT0UcLvAF9gTzcaR=GZyTkM2UQ6ymDmnisjgZiG8hTE+PdLA@mail.gmail.com>
+Date: Sat, 2 Apr 2016 10:19:17 +0800
+Message-ID: <20160402021917.GA19570@gondor.apana.org.au>
+References: <20160402015709.GA19365@gondor.apana.org.au>
+ <1459563333.6473.302.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, aduyck@mirantis.com,
-	herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	edumazet@google.com, netdev@vger.kernel.org
-To: alexander.duyck@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: aduyck@mirantis.com, tom@herbertland.com, jesse@kernel.org,
+	alexander.duyck@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60735 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660AbcDBCQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 22:16:37 -0400
-In-Reply-To: <CAKgT0UcLvAF9gTzcaR=GZyTkM2UQ6ymDmnisjgZiG8hTE+PdLA@mail.gmail.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:45554 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbcDBCTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 22:19:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1459563333.6473.302.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Fri, 1 Apr 2016 12:58:41 -0700
-
-> RFC 6864 is pretty explicit about this, IPv4 ID used only for
-> fragmentation.  https://tools.ietf.org/html/rfc6864#section-4.1
+On Fri, Apr 01, 2016 at 07:15:33PM -0700, Eric Dumazet wrote:
+> On Sat, 2016-04-02 at 09:57 +0800, Herbert Xu wrote:
+> > 
+> > We could easily fix that by adding a feature bit to control this,
+> > something like SKB_GSO_TCP_FIXEDID.
 > 
-> The goal with this change is to try and keep most of the existing
-> behavior in tact without violating this rule?  I would think the
-> sequence number should give you the ability to infer a drop in the
-> case of TCP.  In the case of UDP tunnels we are now getting a bit more
-> data since we were ignoring the outer IP header ID before.
+> I understood the patch allowed to aggregate 4 segments having
+> 
+> ID=12   ID=40   ID=80  ID=1000
 
-When retransmits happen, the sequence numbers are the same.  But you
-can then use the IP ID to see exactly what happened.  You can even
-tell if multiple retransmits got reordered.
+Right.  But I haven't seen any justification that we should aggregate
+such packets at all.  The only valid case that I have seen is for
+the case of unchanging IDs, no?
 
-Eric's use case is extremely useful, and flat out eliminates ambiguity
-when analyzing TCP traces.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
