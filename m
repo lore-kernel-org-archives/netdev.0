@@ -1,40 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Sat, 2 Apr 2016 09:46:53 +0800
-Message-ID: <20160402014653.GA19235@gondor.apana.org.au>
-References: <56F9941A.3080501@candelatech.com>
- <56FAAA6D.3070806@candelatech.com>
- <1459329252.2055.1.camel@sipsolutions.net>
- <20160330.123821.328761526754742195.davem@davemloft.net>
- <56FC0445.6010200@candelatech.com>
- <1459410405.4576.8.camel@sipsolutions.net>
- <20160331075015.GA27716@gondor.apana.org.au>
- <1459438199.4576.26.camel@sipsolutions.net>
- <20160401004627.GA9367@gondor.apana.org.au>
- <1459546450.3342.22.camel@sipsolutions.net>
+Subject: Re: [net PATCH 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Sat, 2 Apr 2016 09:57:10 +0800
+Message-ID: <20160402015709.GA19365@gondor.apana.org.au>
+References: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: aduyck@mirantis.com, tom@herbertland.com, jesse@kernel.org,
+	alexander.duyck@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:51200 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095AbcDBB50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 21:57:26 -0400
 Content-Disposition: inline
-In-Reply-To: <1459546450.3342.22.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 01, 2016 at 11:34:10PM +0200, Johannes Berg wrote:
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> I was thinking about that one - it's not obvious to me from the code
-> how this "explicitly checking for dups" would be done or let's say how
-> rhashtable differentiates. But since it seems to work for Ben until
-> hitting a certain number of identical keys, surely that's just me not
-> understanding the code rather than anything else :)
+> I do not particularly care, but it is worth mentioning that GRO+TSO
+> would not be idempotent anymore.
 
-It's really simple, rhashtable_insert_fast does not check for dups
-while rhashtable_lookup_insert_* do.
+We could easily fix that by adding a feature bit to control this,
+something like SKB_GSO_TCP_FIXEDID.
 
 Cheers,
 -- 
