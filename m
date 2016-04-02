@@ -1,43 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [net PATCH 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Fri, 01 Apr 2016 19:15:33 -0700
-Message-ID: <1459563333.6473.302.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160402015709.GA19365@gondor.apana.org.au>
+Date: Fri, 01 Apr 2016 22:16:32 -0400 (EDT)
+Message-ID: <20160401.221632.846129753053296932.davem@davemloft.net>
+References: <1459536543.6473.289.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160401.152405.915323132719949585.davem@davemloft.net>
+	<CAKgT0UcLvAF9gTzcaR=GZyTkM2UQ6ymDmnisjgZiG8hTE+PdLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: aduyck@mirantis.com, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: eric.dumazet@gmail.com, aduyck@mirantis.com,
+	herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:36062 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755338AbcDBCPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 22:15:36 -0400
-Received: by mail-yw0-f169.google.com with SMTP id g3so195577645ywa.3
-        for <netdev@vger.kernel.org>; Fri, 01 Apr 2016 19:15:36 -0700 (PDT)
-In-Reply-To: <20160402015709.GA19365@gondor.apana.org.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60735 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753660AbcDBCQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Apr 2016 22:16:37 -0400
+In-Reply-To: <CAKgT0UcLvAF9gTzcaR=GZyTkM2UQ6ymDmnisjgZiG8hTE+PdLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-04-02 at 09:57 +0800, Herbert Xu wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
-> > I do not particularly care, but it is worth mentioning that GRO+TSO
-> > would not be idempotent anymore.
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Fri, 1 Apr 2016 12:58:41 -0700
+
+> RFC 6864 is pretty explicit about this, IPv4 ID used only for
+> fragmentation.  https://tools.ietf.org/html/rfc6864#section-4.1
 > 
-> We could easily fix that by adding a feature bit to control this,
-> something like SKB_GSO_TCP_FIXEDID.
+> The goal with this change is to try and keep most of the existing
+> behavior in tact without violating this rule?  I would think the
+> sequence number should give you the ability to infer a drop in the
+> case of TCP.  In the case of UDP tunnels we are now getting a bit more
+> data since we were ignoring the outer IP header ID before.
 
-I understood the patch allowed to aggregate 4 segments having
+When retransmits happen, the sequence numbers are the same.  But you
+can then use the IP ID to see exactly what happened.  You can even
+tell if multiple retransmits got reordered.
 
-ID=12   ID=40   ID=80  ID=1000
-
--> resulting GRO packet with 4 segments and ID=12.  TSO would generate
-12,13,14,15   or 12,12,12,12 with your flag ?
-
-(Before the patch no aggregation took place and exact same packets were
-forwarded with 12, 40, 80, 1000)
-
-As I said, I am not sure we should care :)
+Eric's use case is extremely useful, and flat out eliminates ambiguity
+when analyzing TCP traces.
