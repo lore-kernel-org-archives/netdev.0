@@ -1,78 +1,46 @@
-From: Quentin Armitage <quentin@armitage.org.uk>
-Subject: [PATCH v2] net: remove unimplemented RTNH_F_PERVASIVE
-Date: Sat,  2 Apr 2016 17:51:28 +0100
-Message-ID: <1459615888-456-1-git-send-email-quentin@armitage.org.uk>
-References: <56FFED8B.7010701@cogentembedded.com>
-Cc: Quentin Armitage <quentin@armitage.org.uk>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-92-27-6-192.static.as13285.net ([92.27.6.192]:52022 "EHLO
-	nabal.armitage.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbcDBQvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 12:51:43 -0400
-In-Reply-To: <56FFED8B.7010701@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Question on rhashtable in worst-case scenario.
+Date: Sat, 02 Apr 2016 20:33:34 +0200
+Message-ID: <1459622014.18188.2.camel@sipsolutions.net>
+References: <56F9941A.3080501@candelatech.com>
+	 <56FAAA6D.3070806@candelatech.com>
+	 <1459329252.2055.1.camel@sipsolutions.net>
+	 <20160330.123821.328761526754742195.davem@davemloft.net>
+	 <56FC0445.6010200@candelatech.com>
+	 <1459410405.4576.8.camel@sipsolutions.net>
+	 <20160331075015.GA27716@gondor.apana.org.au>
+	 <1459438199.4576.26.camel@sipsolutions.net>
+	 <20160401004627.GA9367@gondor.apana.org.au>
+	 <1459546450.3342.22.camel@sipsolutions.net>
+	 <20160402014653.GA19235@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160402014653.GA19235@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Linux 2.1.68 introduced RTNH_F_PERVASIVE, but it had no implementation
-and couldn't be enabled since the required config parameter wasn't in
-any Kconfig file (see commit d088dde7b196 ("ipv4: obsolete config in
-kernel source (IP_ROUTE_PERVASIVE)")).
+On Sat, 2016-04-02 at 09:46 +0800, Herbert Xu wrote:
+> On Fri, Apr 01, 2016 at 11:34:10PM +0200, Johannes Berg wrote:
+> > 
+> > 
+> > I was thinking about that one - it's not obvious to me from the
+> > code
+> > how this "explicitly checking for dups" would be done or let's say
+> > how
+> > rhashtable differentiates. But since it seems to work for Ben until
+> > hitting a certain number of identical keys, surely that's just me
+> > not
+> > understanding the code rather than anything else :)
+> It's really simple, rhashtable_insert_fast does not check for dups
+> while rhashtable_lookup_insert_* do.
 
-This commit removes all remaining references to RTNH_F_PERVASIVE.
-Although this will cause userspace applications that were using the
-flag to fail to build, they will be alerted to the fact that using
-RTNH_F_PERVASIVE was not achieving anything.
+Oh, ok, thanks :)
 
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
----
- include/uapi/linux/rtnetlink.h |    2 +-
- net/decnet/dn_fib.c            |    2 +-
- net/ipv4/fib_semantics.c       |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index ca764b5..58e6ba0 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -339,7 +339,7 @@ struct rtnexthop {
- /* rtnh_flags */
- 
- #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
--#define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
-+					/* 2 was RTNH_F_PERVASIVE (never implemented) */
- #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
- #define RTNH_F_OFFLOAD		8	/* offloaded route */
- #define RTNH_F_LINKDOWN		16	/* carrier-down on nexthop */
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index df48034..c53aa74 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -243,7 +243,7 @@ out:
- 	} else {
- 		struct net_device *dev;
- 
--		if (nh->nh_flags&(RTNH_F_PERVASIVE|RTNH_F_ONLINK))
-+		if (nh->nh_flags & RTNH_F_ONLINK)
- 			return -EINVAL;
- 
- 		dev = __dev_get_by_index(&init_net, nh->nh_oif);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d97268e..3883860 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -803,7 +803,7 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
- 	} else {
- 		struct in_device *in_dev;
- 
--		if (nh->nh_flags & (RTNH_F_PERVASIVE | RTNH_F_ONLINK))
-+		if (nh->nh_flags & RTNH_F_ONLINK)
- 			return -EINVAL;
- 
- 		rcu_read_lock();
--- 
-1.7.7.6
+johannes
