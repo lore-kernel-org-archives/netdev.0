@@ -1,87 +1,78 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
-Date: Sat, 2 Apr 2016 12:47:16 -0400
-Message-ID: <CALx6S37y8+kFh=04cceSpLWZMHkanwWREgoVKc7Edmyhe3qvzg@mail.gmail.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v2] net: remove unimplemented RTNH_F_PERVASIVE
+Date: Sat,  2 Apr 2016 17:51:28 +0100
+Message-ID: <1459615888-456-1-git-send-email-quentin@armitage.org.uk>
+References: <56FFED8B.7010701@cogentembedded.com>
+Cc: Quentin Armitage <quentin@armitage.org.uk>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:37971 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751097AbcDBQrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 12:47:17 -0400
-Received: by mail-ig0-f177.google.com with SMTP id ui10so25413229igc.1
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 09:47:17 -0700 (PDT)
-In-Reply-To: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+Received: from host-92-27-6-192.static.as13285.net ([92.27.6.192]:52022 "EHLO
+	nabal.armitage.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229AbcDBQvn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 12:51:43 -0400
+In-Reply-To: <56FFED8B.7010701@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 1, 2016 at 9:21 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> This patch set introduces new infrastructure for programmatically
-> processing packets in the earliest stages of rx, as part of an effort
-> others are calling Express Data Path (XDP) [1]. Start this effort by
-> introducing a new bpf program type for early packet filtering, before even
-> an skb has been allocated.
->
-> With this, hope to enable line rate filtering, with this initial
-> implementation providing drop/allow action only.
->
-> Patch 1 introduces the new prog type and helpers for validating the bpf
-> program. A new userspace struct is defined containing only len as a field,
-> with others to follow in the future.
-> In patch 2, create a new ndo to pass the fd to support drivers.
-> In patch 3, expose a new rtnl option to userspace.
-> In patch 4, enable support in mlx4 driver. No skb allocation is required,
-> instead a static percpu skb is kept in the driver and minimally initialized
-> for each driver frag.
-> In patch 5, create a sample drop and count program. With single core,
-> achieved ~14.5 Mpps drop rate on a 40G mlx4. This includes packet data
-> access, bpf array lookup, and increment.
->
-Very nice! Do you think this hook will be sufficient to implement a
-fast forward patch also?
+Linux 2.1.68 introduced RTNH_F_PERVASIVE, but it had no implementation
+and couldn't be enabled since the required config parameter wasn't in
+any Kconfig file (see commit d088dde7b196 ("ipv4: obsolete config in
+kernel source (IP_ROUTE_PERVASIVE)")).
 
-Tom
+This commit removes all remaining references to RTNH_F_PERVASIVE.
+Although this will cause userspace applications that were using the
+flag to fail to build, they will be alerted to the fact that using
+RTNH_F_PERVASIVE was not achieving anything.
 
-> Interestingly, accessing packet data from the program did not have a
-> noticeable impact on performance. Even so, future enhancements to
-> prefetching / batching / page-allocs should hopefully improve the
-> performance in this path.
->
-> [1] https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
->
-> Brenden Blanco (5):
->   bpf: add PHYS_DEV prog type for early driver filter
->   net: add ndo to set bpf prog in adapter rx
->   rtnl: add option for setting link bpf prog
->   mlx4: add support for fast rx drop bpf program
->   Add sample for adding simple drop program to link
->
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  61 ++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c     |  18 +++
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   2 +
->  include/linux/netdevice.h                      |   8 ++
->  include/uapi/linux/bpf.h                       |   5 +
->  include/uapi/linux/if_link.h                   |   1 +
->  kernel/bpf/verifier.c                          |   1 +
->  net/core/dev.c                                 |  12 ++
->  net/core/filter.c                              |  68 +++++++++++
->  net/core/rtnetlink.c                           |  10 ++
->  samples/bpf/Makefile                           |   4 +
->  samples/bpf/bpf_load.c                         |   8 ++
->  samples/bpf/netdrvx1_kern.c                    |  26 +++++
->  samples/bpf/netdrvx1_user.c                    | 155 +++++++++++++++++++++++++
->  14 files changed, 379 insertions(+)
->  create mode 100644 samples/bpf/netdrvx1_kern.c
->  create mode 100644 samples/bpf/netdrvx1_user.c
->
-> --
-> 2.8.0
->
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+ include/uapi/linux/rtnetlink.h |    2 +-
+ net/decnet/dn_fib.c            |    2 +-
+ net/ipv4/fib_semantics.c       |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index ca764b5..58e6ba0 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -339,7 +339,7 @@ struct rtnexthop {
+ /* rtnh_flags */
+ 
+ #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
+-#define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
++					/* 2 was RTNH_F_PERVASIVE (never implemented) */
+ #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
+ #define RTNH_F_OFFLOAD		8	/* offloaded route */
+ #define RTNH_F_LINKDOWN		16	/* carrier-down on nexthop */
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index df48034..c53aa74 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -243,7 +243,7 @@ out:
+ 	} else {
+ 		struct net_device *dev;
+ 
+-		if (nh->nh_flags&(RTNH_F_PERVASIVE|RTNH_F_ONLINK))
++		if (nh->nh_flags & RTNH_F_ONLINK)
+ 			return -EINVAL;
+ 
+ 		dev = __dev_get_by_index(&init_net, nh->nh_oif);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index d97268e..3883860 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -803,7 +803,7 @@ static int fib_check_nh(struct fib_config *cfg, struct fib_info *fi,
+ 	} else {
+ 		struct in_device *in_dev;
+ 
+-		if (nh->nh_flags & (RTNH_F_PERVASIVE | RTNH_F_ONLINK))
++		if (nh->nh_flags & RTNH_F_ONLINK)
+ 			return -EINVAL;
+ 
+ 		rcu_read_lock();
+-- 
+1.7.7.6
