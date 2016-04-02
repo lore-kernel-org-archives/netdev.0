@@ -1,46 +1,38 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Question on rhashtable in worst-case scenario.
-Date: Sat, 02 Apr 2016 20:33:34 +0200
-Message-ID: <1459622014.18188.2.camel@sipsolutions.net>
-References: <56F9941A.3080501@candelatech.com>
-	 <56FAAA6D.3070806@candelatech.com>
-	 <1459329252.2055.1.camel@sipsolutions.net>
-	 <20160330.123821.328761526754742195.davem@davemloft.net>
-	 <56FC0445.6010200@candelatech.com>
-	 <1459410405.4576.8.camel@sipsolutions.net>
-	 <20160331075015.GA27716@gondor.apana.org.au>
-	 <1459438199.4576.26.camel@sipsolutions.net>
-	 <20160401004627.GA9367@gondor.apana.org.au>
-	 <1459546450.3342.22.camel@sipsolutions.net>
-	 <20160402014653.GA19235@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Sat, 02 Apr 2016 20:40:55 +0200
+Message-ID: <1459622455.18188.5.camel@sipsolutions.net>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+	 <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
+	 (sfid-20160402_032226_544590_102A25B3)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, tgraf@suug.ch
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160402014653.GA19235@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, gerlitz@mellanox.com,
+	daniel@iogearbox.net, john.fastabend@gmail.com, brouer@redhat.com
+To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:58723 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751219AbcDBSlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Apr 2016 14:41:01 -0400
+In-Reply-To: <1459560118-5582-5-git-send-email-bblanco@plumgrid.com> (sfid-20160402_032226_544590_102A25B3)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-04-02 at 09:46 +0800, Herbert Xu wrote:
-> On Fri, Apr 01, 2016 at 11:34:10PM +0200, Johannes Berg wrote:
-> > 
-> > 
-> > I was thinking about that one - it's not obvious to me from the
-> > code
-> > how this "explicitly checking for dups" would be done or let's say
-> > how
-> > rhashtable differentiates. But since it seems to work for Ben until
-> > hitting a certain number of identical keys, surely that's just me
-> > not
-> > understanding the code rather than anything else :)
-> It's really simple, rhashtable_insert_fast does not check for dups
-> while rhashtable_lookup_insert_* do.
+On Fri, 2016-04-01 at 18:21 -0700, Brenden Blanco wrote:
 
-Oh, ok, thanks :)
+> +static int mlx4_bpf_set(struct net_device *dev, int fd)
+> +{
+[...]
+> +		if (prog->type != BPF_PROG_TYPE_PHYS_DEV) {
+> +			bpf_prog_put(prog);
+> +			return -EINVAL;
+> +		}
+> +	}
+
+Why wouldn't this check be done in the generic code that calls
+ndo_bpf_set()?
 
 johannes
