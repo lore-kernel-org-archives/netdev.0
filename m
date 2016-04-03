@@ -1,37 +1,99 @@
-From: Moritz Fischer <moritz.fischer@ettus.com>
-Subject: [PATCH v3 5/5] net: macb: Fix simple typo
-Date: Tue, 29 Mar 2016 19:11:15 -0700
-Message-ID: <1459303875-3362-6-git-send-email-moritz.fischer@ettus.com>
-References: <1459303875-3362-1-git-send-email-moritz.fischer@ettus.com>
-Cc: michal.simek@xilinx.com, joe@perches.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	moritz.fischer.private@gmail.com,
-	Moritz Fischer <moritz.fischer@ettus.com>
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1459303875-3362-1-git-send-email-moritz.fischer@ettus.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] vlan: pull on __vlan_insert_tag error path and fix
+ csum correction
+Date: Sun, 03 Apr 2016 20:59:00 +0200
+Message-ID: <570167F4.9060901@iogearbox.net>
+References: <244f8d5684800cc98545932aa6851bf73f7326e2.1459503053.git.daniel@iogearbox.net> <20160401.150000.1165010490623034251.davem@davemloft.net> <56FEE80C.9080806@iogearbox.net> <56FF0C84.5030300@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, alexei.starovoitov@gmail.com, jesse@kernel.org,
+	tom@herbertland.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:60732 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbcDCS7J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 14:59:09 -0400
+In-Reply-To: <56FF0C84.5030300@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Michal Simek <michal.simek@xilinx.com>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Signed-off-by: Moritz Fischer <moritz.fischer@ettus.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 04/02/2016 02:04 AM, Daniel Borkmann wrote:
+> On 04/01/2016 11:28 PM, Daniel Borkmann wrote:
+>> On 04/01/2016 09:00 PM, David Miller wrote:
+>>> From: Daniel Borkmann <daniel@iogearbox.net>
+>>> Date: Fri,  1 Apr 2016 11:41:03 +0200
+>>>
+>>>> Moreover, I noticed that when in the non-error path the __skb_pull()
+>>>> is done and the original offset to mac header was non-zero, we fixup
+>>>> from a wrong skb->data offset in the checksum complete processing.
+>>>>
+>>>> So the skb_postpush_rcsum() really needs to be done before __skb_pull()
+>>>> where skb->data still points to the mac header start.
+>>>
+>>> Ugh, what a mess, are you sure any of this is right even after your
+>>> change?  What happens (outside of the csum part) is this:
+>>>
+>>>     __skb_push(offset);
+>>>     __vlan_insert_tag(); {
+>>>         skb_push(VLAN_HLEN);
+>>>     ...
+>>>         memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);
+>>>     }
+>>>     __skb_pull(offset);
+>>>
+>>> If I understand this correctly, the last pull will therefore put
+>>> skb->data pointing at vlan_ethhdr->h_vlan_TCI of the new VLAN header
+>>> pushed by __vlan_insert_tag().
+>>>
+>>> That is assuming skb->data began right after the original ethernet
+>>> header.
+>>
+>> Yes, this is correct. Now, continuing this train of thought: you have
+>> skb->data pointing _currently_ at vlan_ethhdr->h_vlan_TCI.
+>>
+>> And then you call:
+>>
+>>    skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
+>>
+>> So, we point from the ->vlan_TCI + (2 * ETH_ALEN) as start offset, and
+>> with VLAN_HLEN (= 4 bytes that we added) as length for the csum
+>> correction as input. So, we point way beyond what we actually wanted
+>> to fixup wrt csum, no?
+>>
+>> But what we actually want to sum is [h_vlan_proto + h_vlan_TCI], which
+>> is where above skb_postpush_rcsum() call points to _before_ the last
+>> __skb_pull() happens. In other words, still at that time, we have the
+>> same expectations as in __vlan_insert_tag().
+>>
+>>> To me, that postpull csum currently is absolutely in the correct spot,
+>>> because it's acting upon the pull done by __vlan_insert_tag(), not the
+>>> one done here by skb_vlan_push().
+>>>
+>>> Right?
+>>>
+>>> Can you tell me how you tested this?  Just curious...
+>>
+>> I noticed both while reviewing the code, the error path fixup is not
+>> critical for ovs or act_vlan as the skb is dropped afterwards, but not
+>> necessarily in eBPF case, so there it matters as eBPF doesn't know at
+>> this point, what the program is going to do with it (similar fixup is
+>> done in __skb_vlan_pop() error path, btw). For the csum, I did a hexdump
+>> to compare what we write and what is being passed in for the csum correction.
+>>
+>> Anyway ...
+>>
+>> Aside from all this and based on your comment, I'm investigating whether
+>> for the vlan push and also pop case the __skb_pull(skb, offset) in success
+>> case is actually enough and whether it needs to take VLAN_HLEN into account
+>> as well. But, I need to do more test for that one first. At least the skb_vlan_push()
+>> comment says "__vlan_insert_tag expect skb->data pointing to mac header.
+>> So change skb->data before calling it and change back to original position
+>> later", Jiri?
+>
+> For this part, what is meant with "original" position (relative to the start
+> of the ethernet header [currently the case], or relative to some data, e.g.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 01a8ffb..eec3200 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -130,7 +130,7 @@ static void hw_writel(struct macb *bp, int offset, u32 value)
- }
- 
- /* Find the CPU endianness by using the loopback bit of NCR register. When the
-- * CPU is in big endian we need to program swaped mode for management
-+ * CPU is in big endian we need to program swapped mode for management
-  * descriptor access.
-  */
- static bool hw_is_native_io(void __iomem *addr)
--- 
-2.7.4
+Fwiw, here, the current behavior looks good to me (e.g. when called with offset
+zero, you really want to remain at mac header start).
