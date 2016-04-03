@@ -1,34 +1,53 @@
-From: Jeh Charles Johnsonr <Johnson1@bikjudmjhg.website.tk>
-Subject: Homeland Security
-Date: Sun, 3 Apr 2016 01:37:57 +0100
-Message-ID: <BM1PR01MB02281CD2783E09FF84E551BDCD9C0@BM1PR01MB0228.INDPRD01.PROD.OUTLOOK.COM>
-Reply-To: <mr.jehjohnson12@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/8] add TX timestamping via cmsg
+Date: Sat, 02 Apr 2016 21:19:42 -0400 (EDT)
+Message-ID: <20160402.211942.598210499165268433.davem@davemloft.net>
+References: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: DHS <Johnson1@bikjudmjhg.website.tk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, willemb@google.com, edumazet@google.com,
+	ycheng@google.com, ncardwell@google.com, kafai@fb.com,
+	soheil@google.com
+To: soheil.kdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ma1ind01hn0202.outbound.protection.outlook.com ([104.47.100.202]:58713
-	"EHLO IND01-MA1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750819AbcDCBIw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 21:08:52 -0400
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:53516 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbcDCBTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 21:19:49 -0400
+In-Reply-To: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tel:+14073924312 text messages only
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Fri,  1 Apr 2016 11:04:32 -0400
 
-I am Mr. Jeh Charles Johnson. The secretary of the US Department of Homeland Security Washington DC, an international summit was held in West Africa and i was opporturned to be one of the officials, after the meeting I found out that a huge sum of 4.5 million dollars which is in your name was abandoned here in West Africa probably due to malpractices.
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> This patch series aim at enabling TX timestamping via cmsg.
+> 
+> Currently, to occasionally sample TX timestamping on a socket,
+> applications need to call setsockopt twice: first for enabling
+> timestamps and then for disabling them. This is an unnecessary
+> overhead. With cmsg, in contrast, applications can sample TX
+> timestamps per sendmsg().
+> 
+> This patch series adds the code for processing SO_TIMESTAMPING
+> for cmsg's of the SOL_SOCKET level, and adds the glue code for
+> TCP, UDP, and RAW for both IPv4 and IPv6. This implementation
+> supports overriding timestamp generation flags (i.e.,
+> SOF_TIMESTAMPING_TX_*) but not timestamp reporting flags.
+> Applications must still enable timestamp reporting via
+> setsockopt to receive timestamps.
+> 
+> This series does not change existing timestamping behavior for
+> applications that are using socket options.
+> 
+> I will follow up with another patch to enable timestamping for
+> active TFO (client-side TCP Fast Open) and also setting packet
+> mark via cmsgs.
+ ...
+> Changes in v2:
+> 	- Replace u32 with __u32 in the documentation.
 
-I would like you to kindly reconfirm your full address, Full name, Phone number, and nearest Airport so that I shall bring your parcel to our Head Office in Washington DC and you will come and claim or we can send it to your designated address I wait for your urgent and positive respond. You can reach me on this email as well: mr.jehjohnson12@gmail.com. I will be looking forward to your positive response. Thank you and God bless you.`
-
-
-Best regards
-Jeh Charles Johnson
-mr.jehjohnson12@gmail.com.
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Series applied, thanks.
