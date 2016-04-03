@@ -1,94 +1,41 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH v3 net-next 3/8] tcp: use one bit in TCP_SKB_CB to mark ACK timestamps
-Date: Sat,  2 Apr 2016 23:08:08 -0400
-Message-ID: <1459652893-14207-4-git-send-email-soheil.kdev@gmail.com>
-References: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
-Cc: willemb@google.com, edumazet@google.com, ycheng@google.com,
-	ncardwell@google.com, kafai@fb.com,
-	Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
+Date: Sat, 2 Apr 2016 22:41:04 -0700
+Message-ID: <20160403054103.GB21980@gmail.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+ <CALx6S37y8+kFh=04cceSpLWZMHkanwWREgoVKc7Edmyhe3qvzg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:35237 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbcDCDIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 23:08:25 -0400
-Received: by mail-qg0-f65.google.com with SMTP id b32so13849710qgf.2
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 20:08:24 -0700 (PDT)
-In-Reply-To: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34429 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873AbcDCFlI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 01:41:08 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fe3so120829214pab.1
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 22:41:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S37y8+kFh=04cceSpLWZMHkanwWREgoVKc7Edmyhe3qvzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+On Sat, Apr 02, 2016 at 12:47:16PM -0400, Tom Herbert wrote:
+> Very nice! Do you think this hook will be sufficient to implement a
+> fast forward patch also?
+That is the goal, but more work needs to be done of course. It won't be
+possible with just a single pseudo skb, the driver will need a fast way to get
+batches of pseudo skbs (per core?) through from rx to tx. In mlx4 for
+instance, either the skb needs to be much more complete to be handled from the
+start of mlx4_en_xmit(), or that function would need to be split so that the
+fast tx could start midway through.
 
-Currently, to avoid a cache line miss for accessing skb_shinfo,
-tcp_ack_tstamp skips socket that do not have
-SOF_TIMESTAMPING_TX_ACK bit set in sk_tsflags. This is
-implemented based on an implicit assumption that the
-SOF_TIMESTAMPING_TX_ACK is set via socket options for the
-duration that ACK timestamps are needed.
-
-To implement per-write timestamps, this check should be
-removed and replaced with a per-packet alternative that
-quickly skips packets missing ACK timestamps marks without
-a cache-line miss.
-
-To enable per-packet marking without a cache line miss, use
-one bit in TCP_SKB_CB to mark a whether a SKB might need a
-ack tx timestamp or not. Further checks in tcp_ack_tstamp are not
-modified and work as before.
-
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- include/net/tcp.h    | 3 ++-
- net/ipv4/tcp.c       | 2 ++
- net/ipv4/tcp_input.c | 2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b91370f..f3a80ec 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -754,7 +754,8 @@ struct tcp_skb_cb {
- 				TCPCB_REPAIRED)
- 
- 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
--	/* 1 byte hole */
-+	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
-+			unused:7;
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
- 	union {
- 		struct inet_skb_parm	h4;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 08b8b96..ce3c9eb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -432,10 +432,12 @@ static void tcp_tx_timestamp(struct sock *sk, struct sk_buff *skb)
- {
- 	if (sk->sk_tsflags) {
- 		struct skb_shared_info *shinfo = skb_shinfo(skb);
-+		struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
- 
- 		sock_tx_timestamp(sk, &shinfo->tx_flags);
- 		if (shinfo->tx_flags & SKBTX_ANY_TSTAMP)
- 			shinfo->tskey = TCP_SKB_CB(skb)->seq + skb->len - 1;
-+		tcb->txstamp_ack = !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
- 	}
- }
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e6e65f7..2d5fee4 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3093,7 +3093,7 @@ static void tcp_ack_tstamp(struct sock *sk, struct sk_buff *skb,
- 	const struct skb_shared_info *shinfo;
- 
- 	/* Avoid cache line misses to get skb_shinfo() and shinfo->tx_flags */
--	if (likely(!(sk->sk_tsflags & SOF_TIMESTAMPING_TX_ACK)))
-+	if (likely(!TCP_SKB_CB(skb)->txstamp_ack))
- 		return;
- 
- 	shinfo = skb_shinfo(skb);
--- 
-2.8.0.rc3.226.g39d4020
+Or, skb allocation just gets much faster. Then it should be pretty
+straightforward.
+> 
+> Tom
