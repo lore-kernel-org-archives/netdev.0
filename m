@@ -1,50 +1,120 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH 1/2] ipv4: l2tp: fix a potential issue in l2tp_ip_recv
-Date: Sun,  3 Apr 2016 22:09:23 +0800
-Message-ID: <1459692564-3998-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Ruinskiy, Dima" <dima.ruinskiy@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH-RFC] drivers: net: ethernet: intel:
+ e1000e: fix ethtool autoneg off for fiber
+Date: Sun, 3 Apr 2016 14:23:13 +0000
+Message-ID: <36CDDD56DDB4D44E911123902EFC26B05B440F17@HASMSX110.ger.corp.intel.com>
+References: <1458943126-32258-1-git-send-email-danielwa@cisco.com>
+ <56FC2A62.6040206@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xe-kernel@external.cisco.com" <xe-kernel@external.cisco.com>,
+	"danielwa@fifo99.com" <danielwa@fifo99.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Steve Shih <sshih@cisco.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Daniel Walker <danielwa@cisco.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:23608 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751280AbcDCOXS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 10:23:18 -0400
+In-Reply-To: <56FC2A62.6040206@cisco.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-pskb_may_pull() can change skb->data, so we have to load ptr/optr at the
-right place.
+I have a couple of comments (sorry for not getting to it a bit sooner).
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- net/l2tp/l2tp_ip.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+> For fiber media, e1000_get_settings should return ETH_TP_MDI_INVALID for
+> eth_tp_mdix_ctrl instead of ETH_TP_MDI_AUTO so subsequent e1000_set_settings
+> call would not fail with -EOPNOTSUPP.
 
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index ec22078..42de4cc 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -123,12 +123,11 @@ static int l2tp_ip_recv(struct sk_buff *skb)
- 	struct l2tp_tunnel *tunnel = NULL;
- 	int length;
- 
--	/* Point to L2TP header */
--	optr = ptr = skb->data;
--
- 	if (!pskb_may_pull(skb, 4))
- 		goto discard;
- 
-+	/* Point to L2TP header */
-+	optr = ptr = skb->data;
- 	session_id = ntohl(*((__be32 *) ptr));
- 	ptr += 4;
- 
-@@ -156,6 +155,9 @@ static int l2tp_ip_recv(struct sk_buff *skb)
- 		if (!pskb_may_pull(skb, length))
- 			goto discard;
- 
-+		/* Point to L2TP header */
-+		optr = ptr = skb->data;
-+		ptr += 4;
- 		pr_debug("%s: ip recv\n", tunnel->name);
- 		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, ptr, length);
- 	}
--- 
-1.8.3.1
+Should this be specific to fiber? Because the code just checks media != copper. There is at least other media type (e1000_media_type_internal_serdes), which will be affected by this change as well. What is the proper behavior in this case?
+
+> e1000_set_spd_dplx should not automatically turn autoneg back on for forced
+> 1000 Mbps full duplex settings.
+
+I seem to remember that this code is there because the copper-based NICs only support 1000Mbps in auto-negotiation mode, not forced (this is according to the IEEE spec, as far as I know). I believe this code is there to ensure that a user can force the speed to 1000 via the API, and still have the link resolve correctly via auto-negotiation. I am concerned that changing this code will break clients that rely on it. Maybe it is best to also limit it to fiber devices only?
+
+Thanks,
+Dima (Intel e1000e maintainer).
+
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Daniel Walker
+Sent: Wednesday, 30 March, 2016 22:35
+To: Kirsher, Jeffrey T; Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald C; Allan, Bruce W; Ronciak, John; Williams, Mitch A
+Cc: netdev@vger.kernel.org; xe-kernel@external.cisco.com; danielwa@fifo99.com; linux-kernel@vger.kernel.org; Steve Shih; intel-wired-lan@lists.osuosl.org
+Subject: Re: [Intel-wired-lan] [PATCH-RFC] drivers: net: ethernet: intel: e1000e: fix ethtool autoneg off for fiber
+
+
+So Intel maintainers (Jeff, Jesse, Shannon, Carolyn, Don, Bruce, and John)
+
+I'm assuming no comments means this patch is acceptable , and I will resubmit it without the RFC. Is that acceptable ?
+
+
+On 03/25/2016 02:58 PM, Daniel Walker wrote:
+> From: Steve Shih <sshih@cisco.com>
+>
+> This patch fixes the issues for disabling auto-negotiation and forcing
+> speed and duplex settings for the fiber media.
+>
+> For fiber media, e1000_get_settings should return ETH_TP_MDI_INVALID for
+> eth_tp_mdix_ctrl instead of ETH_TP_MDI_AUTO so subsequent e1000_set_settings
+> call would not fail with -EOPNOTSUPP.
+>
+> e1000_set_spd_dplx should not automatically turn autoneg back on for forced
+> 1000 Mbps full duplex settings.
+>
+> Cc: danielwa@fifo99.com
+> Cc: xe-kernel@external.cisco.com
+> Signed-off-by: Steve Shih <sshih@cisco.com>
+> ---
+>   drivers/net/ethernet/intel/e1000e/ethtool.c | 6 ++++--
+>   1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> index 6cab1f3..cd03dcd 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> @@ -201,6 +201,9 @@ static int e1000_get_settings(struct net_device *netdev,
+>   	else
+>   		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
+>   
+> +	if (hw->phy.media_type != e1000_media_type_copper)
+> +		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
+> +
+>   	return 0;
+>   }
+>   
+> @@ -236,8 +239,7 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
+>   		mac->forced_speed_duplex = ADVERTISE_100_FULL;
+>   		break;
+>   	case SPEED_1000 + DUPLEX_FULL:
+> -		mac->autoneg = 1;
+> -		adapter->hw.phy.autoneg_advertised = ADVERTISE_1000_FULL;
+> +		mac->forced_speed_duplex = ADVERTISE_1000_FULL;
+>   		break;
+>   	case SPEED_1000 + DUPLEX_HALF:	/* not supported */
+>   	default:
+
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
