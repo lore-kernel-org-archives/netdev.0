@@ -1,56 +1,56 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
-Date: Sat, 2 Apr 2016 18:57:09 -0400
-Message-ID: <CALx6S35kK9eNk8r-fZmP-mOSB=Tb8udbaQeSUjmHWJagh+=i=A@mail.gmail.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	<1459622491.18188.6.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] tcp: remove cwnd moderation after recovery
+Date: Sat, 02 Apr 2016 20:14:21 -0400 (EDT)
+Message-ID: <20160402.201421.1535372805780247767.davem@davemloft.net>
+References: <1459374860-32643-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Lorenzo Colitti <lorenzo@google.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mattmathis@google.com,
+	ncardwell@google.com, soheil@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:33445 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbcDBW5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 18:57:10 -0400
-Received: by mail-ig0-f181.google.com with SMTP id ma7so39379132igc.0
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 15:57:10 -0700 (PDT)
-In-Reply-To: <1459622491.18188.6.camel@sipsolutions.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52804 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724AbcDCAOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 20:14:25 -0400
+In-Reply-To: <1459374860-32643-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 2, 2016 at 2:41 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Fri, 2016-04-01 at 18:21 -0700, Brenden Blanco wrote:
->> This patch set introduces new infrastructure for programmatically
->> processing packets in the earliest stages of rx, as part of an effort
->> others are calling Express Data Path (XDP) [1]. Start this effort by
->> introducing a new bpf program type for early packet filtering, before
->> even
->> an skb has been allocated.
->>
->> With this, hope to enable line rate filtering, with this initial
->> implementation providing drop/allow action only.
->
-> Since this is handed to the driver in some way, I assume the API would
-> also allow offloading the program to the NIC itself, and as such be
-> useful for what Android wants to do to save power in wireless?
->
-Conceptually, yes. There is some ongoing work to offload BPF and one
-goal is that BPF programs (like for XDP) could be portable between
-userspace, kernel (maybe even other OSes), and devices.
+From: Yuchung Cheng <ycheng@google.com>
+Date: Wed, 30 Mar 2016 14:54:20 -0700
 
-I am curious though, how do you think this would specifically help
-Android with power? Seems like the receiver still needs to be powered
-to receive packets to filter them anyway...
+> For non-SACK connections, cwnd is lowered to inflight plus 3 packets
+> when the recovery ends. This is an optional feature in the NewReno
+> RFC 2582 to reduce the potential burst when cwnd is "re-opened"
+> after recovery and inflight is low.
+> 
+> This feature is questionably effective because of PRR: when
+> the recovery ends (i.e., snd_una == high_seq) NewReno holds the
+> CA_Recovery state for another round trip to prevent false fast
+> retransmits. But if the inflight is low, PRR will overwrite the
+> moderated cwnd in tcp_cwnd_reduction() later regardlessly. So if a
+> receiver responds bogus ACKs (i.e., acking future data) to speed up
+> transfer after recovery, it can only induce a burst up to a window
+> worth of data packets by acking up to SND.NXT. A restart from (short)
+> idle or receiving streched ACKs can both cause such bursts as well.
+> 
+> On the other hand, if the recovery ends because the sender
+> detects the losses were spurious (e.g., reordering). This feature
+> unconditionally lowers a reverted cwnd even though nothing
+> was lost.
+> 
+> By principle loss recovery module should not update cwnd. Further
+> pacing is much more effective to reduce burst. Hence this patch
+> removes the cwnd moderation feature.
+> 
+> v2 changes: revised commit message on bogus ACKs and burst, and
+>             missing signature
+> 
+> Signed-off-by: Matt Mathis <mattmathis@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Thanks,
-Tom
-
-> johannes
+Applied, thanks.
