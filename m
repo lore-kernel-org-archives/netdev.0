@@ -1,37 +1,52 @@
 From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] netfilter: unnecessary to check whether ip6_route_output() returns NULL
-Date: Sun,  3 Apr 2016 22:03:33 +0800
-Message-ID: <1459692213-3948-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Subject: [PATCH 2/2] ipv6: l2tp: fix a potential issue in l2tp_ip6_recv
+Date: Sun,  3 Apr 2016 22:09:24 +0800
+Message-ID: <1459692564-3998-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+References: <1459692564-3998-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459692564-3998-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ip6_route_output() never returns NULL, so it is not appropriate to
-check if the return value is NULL.
+pskb_may_pull() can change skb->data, so we have to load ptr/optr at the
+right place.
 
 Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 ---
- net/ipv6/netfilter/nf_reject_ipv6.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/l2tp/l2tp_ip6.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_reject_ipv6.c b/net/ipv6/netfilter/nf_reject_ipv6.c
-index 4709f65..a540022 100644
---- a/net/ipv6/netfilter/nf_reject_ipv6.c
-+++ b/net/ipv6/netfilter/nf_reject_ipv6.c
-@@ -158,7 +158,7 @@ void nf_send_reset6(struct net *net, struct sk_buff *oldskb, int hook)
- 	fl6.fl6_dport = otcph->source;
- 	security_skb_classify_flow(oldskb, flowi6_to_flowi(&fl6));
- 	dst = ip6_route_output(net, NULL, &fl6);
--	if (dst == NULL || dst->error) {
-+	if (dst->error) {
- 		dst_release(dst);
- 		return;
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 6b54ff3..cd47990 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -136,12 +136,11 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 	struct l2tp_tunnel *tunnel = NULL;
+ 	int length;
+ 
+-	/* Point to L2TP header */
+-	optr = ptr = skb->data;
+-
+ 	if (!pskb_may_pull(skb, 4))
+ 		goto discard;
+ 
++	/* Point to L2TP header */
++	optr = ptr = skb->data;
+ 	session_id = ntohl(*((__be32 *) ptr));
+ 	ptr += 4;
+ 
+@@ -169,6 +168,9 @@ static int l2tp_ip6_recv(struct sk_buff *skb)
+ 		if (!pskb_may_pull(skb, length))
+ 			goto discard;
+ 
++		/* Point to L2TP header */
++		optr = ptr = skb->data;
++		ptr += 4;
+ 		pr_debug("%s: ip recv\n", tunnel->name);
+ 		print_hex_dump_bytes("", DUMP_PREFIX_OFFSET, ptr, length);
  	}
 -- 
 1.8.3.1
