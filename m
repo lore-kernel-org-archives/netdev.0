@@ -1,78 +1,69 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 0/8] add TX timestamping via cmsg
-Date: Sun, 3 Apr 2016 18:45:56 -0400
-Message-ID: <CAF=yD-K9RGiqPJHjgyGx8DVM1mPRATq3-WMZhCBzeeaOwYNPYw@mail.gmail.com>
-References: <1459377448-2239-1-git-send-email-soheil.kdev@gmail.com>
- <20160331003744.GA3300@kafai-mba.local> <CADAM+B1osNNwVpg1R_kAFW8m75mr15_usDa=gmqpBA+xwyA_fg@mail.gmail.com>
- <CAF=yD-Lpx2nBq1bL64-pzOqHh5E-a4Bbr2goDE59ApWvzFri_Q@mail.gmail.com> <20160331215207.GA10007@Shashi-FB-iPhone-6.DHCP.thefacebook.com>
+Subject: Re: Best way to reduce system call overhead for tun device I/O?
+Date: Sun, 3 Apr 2016 19:03:09 -0400
+Message-ID: <CAF=yD-LUaxsJMZiGXQdEDh-6UE11ApL89rjt=13oLK3FM1rerQ@mail.gmail.com>
+References: <20160329224043.GY3784@sliepen.org> <CALx6S37xsTeDyMHOEiGzjpbR_5zFw6XSDEgPkZqpUzEa9WDStg@mail.gmail.com>
+ <20160331.172050.1423948167839485574.davem@davemloft.net> <20160331222857.GH3771@sliepen.org>
+ <20160331163932.3617e7cd@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+Cc: Guus Sliepen <guus@tinc-vpn.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>,
 	Network Development <netdev@vger.kernel.org>
-To: Martin KaFai Lau <kafai@fb.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f194.google.com ([209.85.217.194]:33523 "EHLO
-	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145AbcDCWqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 18:46:37 -0400
-Received: by mail-lb0-f194.google.com with SMTP id bc4so18818195lbc.0
-        for <netdev@vger.kernel.org>; Sun, 03 Apr 2016 15:46:36 -0700 (PDT)
-In-Reply-To: <20160331215207.GA10007@Shashi-FB-iPhone-6.DHCP.thefacebook.com>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:36529 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752266AbcDCXDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 19:03:51 -0400
+Received: by mail-lb0-f178.google.com with SMTP id qe11so135244903lbc.3
+        for <netdev@vger.kernel.org>; Sun, 03 Apr 2016 16:03:50 -0700 (PDT)
+In-Reply-To: <20160331163932.3617e7cd@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> This does not yet solve the append issue that your MSG_EOR patch
->> addresses, of course.
-> Yes.  I have been thinking about both approaches.
+On Thu, Mar 31, 2016 at 7:39 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Fri, 1 Apr 2016 00:28:57 +0200
+> Guus Sliepen <guus@tinc-vpn.org> wrote:
 >
+>> On Thu, Mar 31, 2016 at 05:20:50PM -0400, David Miller wrote:
 >>
->> The straightforward jump to new_segment that I proposed as
->> simplification is more properly a "start-of-record" than
->> "end-of-record" signal. It is probably preferable to indeed be able to
->> pass EOR as signal that the last skb must not be appended to in
->> subsequent calls.
-> I suspect we could do better than only checking MSG_EOR and jump.
-> Before entering the loop, we may be able to check if the
-> last-not-yet-written out skb has tskey set and the current
-> tcp_sendmsg may need to overwrite it before jumping.
+>> > >> I'm trying to reduce system call overhead when reading/writing to/from a
+>> > >> tun device in userspace. [...] What would be the right way to do this?
+>> > >>
+>> > > Personally I think tun could benefit greatly if it were implemented as
+>> > > a socket instead of character interface. One thing that could be much
+>> > > better is sending/receiving of meta data attached to skbuf. For
+>> > > instance GSO data could be in ancillary data in a socket instead of
+>> > > inline with packet data as tun seems to be doing now.
+>> >
+>> > Agreed.
+>>
+>> Ok. So how should the userspace API work? Creating an AF_PACKET socket
+>> and then using a tun ioctl to create a tun interface and bind it to the
+>> socket?
+>>
+>> int fd = socket(AF_PACKET, ...)
+>> struct ifreq ifr = {...};
+>> ioctl(fd, TUNSETIFF, &ifr);
+>>
+>
+> Rather than bodge AF_PACKET onto TUN, why not just create a new device type
+> and control it from something modern like netlink.
 
-Yes, that would be better, if it is conditional on the tskey having
-been set by a sendmsg call that also had MSG_EOR.
+Depending on the use-case, it may be sufficient to extend AF_PACKET
+with limited tap functionality:
 
-> Also, the 2nd sendmsg may not be called with MSG_EOR set but
-> the per-write-knob is turned on.  It could overwrite the
-> 1st sendmsg with both per-write-knob on and MSG_EOR set.
->
-> Note that there is another collapse-case during tcp retrans
-> where the MSG_EOR bit is already loss.
->
-> Hence, having EOR passed as signal (as you mentioned) and stored
-> is needed.
->
-> I think another bit in the TCP_SKB_CB may help here.
-> The semantic of this bit could be 'no skb merge under some rare conditions'.
-> For now, it is limited to tskey.
+- add a po->xmit mode that reinjects into the kernel receive path,
+  analogous to pktgen's M_NETIF_RECEIVE mode.
 
-Agreed.
+- optionally drop packets in __netif_receive_skb_core and xmit_one
+  if any of the registered packet sockets accepted the packet and has
+  a new intercept feature flag enabled.
 
-> [Another side note is, the split/fragment case should be fine as it is.
->  When splitting a skb into two smaller skbs, the tskey should fall
->  into either of them and no information loss.]
->
->> I think that the record bounds issue is best solved independently from
->> the interface for intermittent timestamps because
-> I understand that users may want to selectively do timestamping on a
-> particular sendmsg (per-write-knob), while do not care if the tskey
-> will be overwritten (no-tskey-overwritten) by the future
-> sendmsg/retrans.  Separating them gives the end-user a choice.
->
-> On the other hand, if the caller has specifically asked to do tstamp in
-> a particular tcp_sendmsg, it is a strong intention that the caller wants to
-> specifically track this message alone and not expecting this tstmap to
-> include anything else sent after it.
->
-> Beside, TLS user needs to make more
-> effort to pass the per-write-knob to tcp_sendmsg.  Hence, when per-write-knob
-> is used, I think the no-tskey-overwritten should be at least allowed
-
-Absolutely.
+This can be applied to a dummy device, but much more interesting
+is to interpose on the flow of a normal nic. It is clearly not a drop-in
+replacement for a tap (let alone tun) device. I have some preliminary
+code.
