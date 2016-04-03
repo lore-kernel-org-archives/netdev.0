@@ -1,38 +1,214 @@
-From: Bastien Philbert <bastienphilbert@gmail.com>
-Subject: [PATCH] bridge:Fix incorrect variable assignment on error path in br_sysfs_addbr
-Date: Sun,  3 Apr 2016 19:04:26 -0400
-Message-ID: <1459724666-3666-1-git-send-email-bastienphilbert@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 2/4] udp: remove headers from UDP packets before queueing
+Date: Sun,  3 Apr 2016 19:29:51 -0400
+Message-ID: <1459726193-20863-3-git-send-email-willemdebruijn.kernel@gmail.com>
+References: <1459726193-20863-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, samanthakumar@google.com, edumazet@google.com,
+	willemb@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36711 "EHLO
+	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbcDCXaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Apr 2016 19:30:09 -0400
+Received: by mail-qk0-f193.google.com with SMTP id e124so6998837qkc.3
+        for <netdev@vger.kernel.org>; Sun, 03 Apr 2016 16:30:09 -0700 (PDT)
+In-Reply-To: <1459726193-20863-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes the incorrect variable assignment on error path in
-br_sysfs_addbr for when the call to kobject_create_and_add
-fails to assign the value of -EINVAL to the returned variable of
-err rather then incorrectly return zero making callers think this
-function has succeededed due to the previous assignment being
-assigned zero when assigning it the successful return value of
-the call to sysfs_create_group which is zero.
+From: samanthakumar <samanthakumar@google.com>
 
-Signed-off-by: Bastien Philbert <bastienphilbert@gmail.com>
+Remove UDP transport headers before queueing packets for reception.
+This change simplifies a follow-up patch to add MSG_PEEK support.
+
+Signed-off-by: Sam Kumar <samanthakumar@google.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/bridge/br_sysfs_br.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/net/sock.h |  1 +
+ include/net/udp.h  |  9 +++++++++
+ net/core/sock.c    | 19 +++++++++++++------
+ net/ipv4/udp.c     | 20 +++++++++++---------
+ net/ipv6/udp.c     | 12 +++++++-----
+ 5 files changed, 41 insertions(+), 20 deletions(-)
 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 6b80914..f4d40ed 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -870,6 +870,7 @@ int br_sysfs_addbr(struct net_device *dev)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 6435f6d..b30c2b3 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1859,6 +1859,7 @@ void sk_reset_timer(struct sock *sk, struct timer_list *timer,
  
- 	br->ifobj = kobject_create_and_add(SYSFS_BRIDGE_PORT_SUBDIR, brobj);
- 	if (!br->ifobj) {
-+		err = -EINVAL;
- 		pr_info("%s: can't add kobject (directory) %s/%s\n",
- 			__func__, dev->name, SYSFS_BRIDGE_PORT_SUBDIR);
- 		goto out3;
+ void sk_stop_timer(struct sock *sk, struct timer_list *timer);
+ 
++int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+ 
+ int sock_queue_err_skb(struct sock *sk, struct sk_buff *skb);
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 92927f7..baa2ec1 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -158,6 +158,15 @@ static inline __sum16 udp_v4_check(int len, __be32 saddr,
+ void udp_set_csum(bool nocheck, struct sk_buff *skb,
+ 		  __be32 saddr, __be32 daddr, int len);
+ 
++static inline void udp_csum_pull_header(struct sk_buff *skb)
++{
++	if (skb->ip_summed == CHECKSUM_NONE)
++		skb->csum = csum_partial(udp_hdr(skb), sizeof(struct udphdr),
++					 skb->csum);
++	skb_pull_rcsum(skb, sizeof(struct udphdr));
++	UDP_SKB_CB(skb)->cscov -= sizeof(struct udphdr);
++}
++
+ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 				 struct udphdr *uh);
+ int udp_gro_complete(struct sk_buff *skb, int nhoff);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b67b9ae..a33f494 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -402,9 +402,8 @@ static void sock_disable_timestamp(struct sock *sk, unsigned long flags)
+ }
+ 
+ 
+-int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+-	int err;
+ 	unsigned long flags;
+ 	struct sk_buff_head *list = &sk->sk_receive_queue;
+ 
+@@ -414,10 +413,6 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		return -ENOMEM;
+ 	}
+ 
+-	err = sk_filter(sk, skb);
+-	if (err)
+-		return err;
+-
+ 	if (!sk_rmem_schedule(sk, skb, skb->truesize)) {
+ 		atomic_inc(&sk->sk_drops);
+ 		return -ENOBUFS;
+@@ -440,6 +435,18 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk->sk_data_ready(sk);
+ 	return 0;
+ }
++EXPORT_SYMBOL(__sock_queue_rcv_skb);
++
++int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++{
++	int err;
++
++	err = sk_filter(sk, skb);
++	if (err)
++		return err;
++
++	return __sock_queue_rcv_skb(sk, skb);
++}
+ EXPORT_SYMBOL(sock_queue_rcv_skb);
+ 
+ int sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 08eed5e..6ebc7de 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1357,7 +1357,7 @@ try_again:
+ 	if (!skb)
+ 		goto out;
+ 
+-	ulen = skb->len - sizeof(struct udphdr);
++	ulen = skb->len;
+ 	copied = len;
+ 	if (copied > ulen)
+ 		copied = ulen;
+@@ -1377,11 +1377,9 @@ try_again:
+ 	}
+ 
+ 	if (checksum_valid || skb_csum_unnecessary(skb))
+-		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
+-					    msg, copied);
++		err = skb_copy_datagram_msg(skb, 0, msg, copied);
+ 	else {
+-		err = skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr),
+-						     msg);
++		err = skb_copy_and_csum_datagram_msg(skb, 0, msg);
+ 
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+@@ -1548,7 +1546,7 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk_incoming_cpu_update(sk);
+ 	}
+ 
+-	rc = sock_queue_rcv_skb(sk, skb);
++	rc = __sock_queue_rcv_skb(sk, skb);
+ 	if (rc < 0) {
+ 		int is_udplite = IS_UDPLITE(sk);
+ 
+@@ -1664,10 +1662,14 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	if (rcu_access_pointer(sk->sk_filter) &&
+-	    udp_lib_checksum_complete(skb))
+-		goto csum_error;
++	if (rcu_access_pointer(sk->sk_filter)) {
++		if (udp_lib_checksum_complete(skb))
++			goto csum_error;
++		if (sk_filter(sk, skb))
++			goto drop;
++	}
+ 
++	udp_csum_pull_header(skb);
+ 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+ 		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
+ 				 is_udplite);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 8125931..ebcf05f 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -420,7 +420,7 @@ try_again:
+ 	if (!skb)
+ 		goto out;
+ 
+-	ulen = skb->len - sizeof(struct udphdr);
++	ulen = skb->len;
+ 	copied = len;
+ 	if (copied > ulen)
+ 		copied = ulen;
+@@ -442,10 +442,9 @@ try_again:
+ 	}
+ 
+ 	if (checksum_valid || skb_csum_unnecessary(skb))
+-		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
+-					    msg, copied);
++		err = skb_copy_datagram_msg(skb, 0, msg, copied);
+ 	else {
+-		err = skb_copy_and_csum_datagram_msg(skb, sizeof(struct udphdr), msg);
++		err = skb_copy_and_csum_datagram_msg(skb, 0, msg);
+ 		if (err == -EINVAL)
+ 			goto csum_copy_err;
+ 	}
+@@ -598,7 +597,7 @@ static int __udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk_incoming_cpu_update(sk);
+ 	}
+ 
+-	rc = sock_queue_rcv_skb(sk, skb);
++	rc = __sock_queue_rcv_skb(sk, skb);
+ 	if (rc < 0) {
+ 		int is_udplite = IS_UDPLITE(sk);
+ 
+@@ -692,8 +691,11 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	if (rcu_access_pointer(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+ 			goto csum_error;
++		if (sk_filter(sk, skb))
++			goto drop;
+ 	}
+ 
++	udp_csum_pull_header(skb);
+ 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+ 		UDP6_INC_STATS_BH(sock_net(sk),
+ 				  UDP_MIB_RCVBUFERRORS, is_udplite);
 -- 
-2.5.0
+2.8.0.rc3.226.g39d4020
