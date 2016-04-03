@@ -1,59 +1,49 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/8] add TX timestamping via cmsg
-Date: Sat, 2 Apr 2016 21:36:16 -0400
-Message-ID: <CADAM+B06fkY-OT8-Po06Tu6CdVhh7FAvx5W5-_2NXTex_MmV8g@mail.gmail.com>
-References: <1459523080-29329-1-git-send-email-soheil.kdev@gmail.com>
-	<20160402.211942.598210499165268433.davem@davemloft.net>
-	<20160402.212729.2129485115379390591.davem@davemloft.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
+Date: Sun, 3 Apr 2016 11:28:00 +0900
+Message-ID: <CAKD1Yr351bEXwBOj8e8Hq=_u7J4Zi2-r=w3k9Z3XFe0AP4m5aw@mail.gmail.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+ <1459622491.18188.6.camel@sipsolutions.net> <CALx6S35kK9eNk8r-fZmP-mOSB=Tb8udbaQeSUjmHWJagh+=i=A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:36738 "EHLO
-	mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750833AbcDCBgR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 21:36:17 -0400
-Received: by mail-vk0-f68.google.com with SMTP id x190so2410176vka.3
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 18:36:17 -0700 (PDT)
-In-Reply-To: <20160402.212729.2129485115379390591.davem@davemloft.net>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:35052 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbcDCC2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 22:28:21 -0400
+Received: by mail-yw0-f171.google.com with SMTP id g127so215123801ywf.2
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 19:28:21 -0700 (PDT)
+In-Reply-To: <CALx6S35kK9eNk8r-fZmP-mOSB=Tb8udbaQeSUjmHWJagh+=i=A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 2, 2016 at 9:27 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> From: David Miller <davem@davemloft.net>
-> Date: Sat, 02 Apr 2016 21:19:42 -0400 (EDT)
->
->> Series applied, thanks.
->
-> I had to revert, this breaks the build:
->
-> net/l2tp/l2tp_ip6.c: In function =E2=80=98l2tp_ip6_sendmsg=E2=80=99:
-> net/l2tp/l2tp_ip6.c:565:9: error: too few arguments to function =E2=80=
-=98ip6_datagram_send_ctl=E2=80=99
->    err =3D ip6_datagram_send_ctl(sock_net(sk), sk, msg, &fl6, opt,
->          ^
-> In file included from net/l2tp/l2tp_ip6.c:33:0:
-> include/net/transp_v6.h:43:5: note: declared here
->  int ip6_datagram_send_ctl(struct net *net, struct sock *sk, struct m=
-sghdr *msg,
->      ^
-> net/l2tp/l2tp_ip6.c:625:8: error: too few arguments to function =E2=80=
-=98ip6_append_data=E2=80=99
->   err =3D ip6_append_data(sk, ip_generic_getfrag, msg,
->         ^
-> In file included from include/net/inetpeer.h:15:0,
->                  from include/net/route.h:28,
->                  from include/net/ip.h:31,
->                  from net/l2tp/l2tp_ip6.c:23:
-> include/net/ipv6.h:865:5: note: declared here
->  int ip6_append_data(struct sock *sk,
->      ^
+On Sun, Apr 3, 2016 at 7:57 AM, Tom Herbert <tom@herbertland.com> wrote:
+> I am curious though, how do you think this would specifically help
+> Android with power? Seems like the receiver still needs to be powered
+> to receive packets to filter them anyway...
 
-I'm really sorry about this. CONFIG_L2TP was no enabled in my config.
-I'll fix the patch, and will mail v3.
+The receiver is powered up, but its wake/sleep cycles are much shorter
+than the main CPU's. On a phone, leaving the CPU asleep with wifi on
+might consume ~5mA average, but getting the CPU out of suspend might
+average ~200mA for ~300ms as the system comes out of sleep,
+initializes other hardware, wakes up userspace processes whose
+timeouts have fired, freezes, and suspends again. Receiving one such
+superfluous packet every 3 seconds (e.g., on networks that send
+identical IPv6 RAs once every 3 seconds) works out to ~25mA, which is
+5x the cost of idle. Pushing down filters to the hardware so it can
+drop the packet without waking up the CPU thus saves a lot of idle
+power.
 
-Thanks,
-Soheil
+That said, getting BPF to the driver is part of the picture. On the
+chipsets we're targeting for APF, we're only seeing 2k-4k of memory
+(that's 256-512 BPF instructions) available for filtering code, which
+means that BPF might be too large.
