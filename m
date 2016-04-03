@@ -1,95 +1,107 @@
 From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH v3 net-next 0/8] add TX timestamping via cmsg
-Date: Sat,  2 Apr 2016 23:08:05 -0400
-Message-ID: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
+Subject: [PATCH v3 net-next 1/8] sock: break up sock_cmsg_snd into __sock_cmsg_snd and loop
+Date: Sat,  2 Apr 2016 23:08:06 -0400
+Message-ID: <1459652893-14207-2-git-send-email-soheil.kdev@gmail.com>
+References: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
 Cc: willemb@google.com, edumazet@google.com, ycheng@google.com,
 	ncardwell@google.com, kafai@fb.com,
 	Soheil Hassas Yeganeh <soheil@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f66.google.com ([209.85.192.66]:35234 "EHLO
-	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbcDCDIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 23:08:23 -0400
-Received: by mail-qg0-f66.google.com with SMTP id b32so13849672qgf.2
+Received: from mail-qg0-f68.google.com ([209.85.192.68]:36384 "EHLO
+	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864AbcDCDIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 23:08:24 -0400
+Received: by mail-qg0-f68.google.com with SMTP id n34so14845795qge.3
         for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 20:08:23 -0700 (PDT)
+In-Reply-To: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+From: Willem de Bruijn <willemb@google.com>
 
-This patch series aim at enabling TX timestamping via cmsg.
+To process cmsg's of the SOL_SOCKET level in addition to
+cmsgs of another level, protocols can call sock_cmsg_send().
+This causes a double walk on the cmsghdr list, one for SOL_SOCKET
+and one for the other level.
 
-Currently, to occasionally sample TX timestamping on a socket,
-applications need to call setsockopt twice: first for enabling
-timestamps and then for disabling them. This is an unnecessary
-overhead. With cmsg, in contrast, applications can sample TX
-timestamps per sendmsg().
+Extract the inner demultiplex logic from the loop that walks the list,
+to allow having this called directly from a walker in the protocol
+specific code.
 
-This patch series adds the code for processing SO_TIMESTAMPING
-for cmsg's of the SOL_SOCKET level, and adds the glue code for
-TCP, UDP, and RAW for both IPv4 and IPv6. This implementation
-supports overriding timestamp generation flags (i.e.,
-SOF_TIMESTAMPING_TX_*) but not timestamp reporting flags.
-Applications must still enable timestamp reporting via
-setsockopt to receive timestamps.
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+---
+ include/net/sock.h |  2 ++
+ net/core/sock.c    | 33 ++++++++++++++++++++++-----------
+ 2 files changed, 24 insertions(+), 11 deletions(-)
 
-This series does not change existing timestamping behavior for
-applications that are using socket options.
-
-I will follow up with another patch to enable timestamping for
-active TFO (client-side TCP Fast Open) and also setting packet
-mark via cmsgs.
-
-Thanks!
-
-Changes in v2:
-        - Replace u32 with __u32 in the documentation.
-
-Changes in v3:
-	- Fix the broken build for L2TP (due to changes
-	  in IPv6).
-
-Soheil Hassas Yeganeh (7):
-  tcp: accept SOF_TIMESTAMPING_OPT_ID for passive TFO
-  tcp: use one bit in TCP_SKB_CB to mark ACK timestamps
-  sock: accept SO_TIMESTAMPING flags in socket cmsg
-  ipv4: process socket-level control messages in IPv4
-  ipv6: process socket-level control messages in IPv6
-  sock: enable timestamping using control messages
-  sock: document timestamping via cmsg in Documentation
-
-Willem de Bruijn (1):
-  sock: break up sock_cmsg_snd into __sock_cmsg_snd and loop
-
- Documentation/networking/timestamping.txt | 48 ++++++++++++++++++++++++++++--
- drivers/net/tun.c                         |  3 +-
- include/net/ip.h                          |  3 +-
- include/net/ipv6.h                        |  6 ++--
- include/net/sock.h                        | 13 +++++---
- include/net/tcp.h                         |  3 +-
- include/net/transp_v6.h                   |  3 +-
- include/uapi/linux/net_tstamp.h           | 10 +++++++
- net/can/raw.c                             |  2 +-
- net/core/sock.c                           | 49 +++++++++++++++++++++++--------
- net/ipv4/ip_sockglue.c                    |  9 +++++-
- net/ipv4/ping.c                           |  7 +++--
- net/ipv4/raw.c                            | 13 ++++----
- net/ipv4/tcp.c                            | 22 ++++++++++----
- net/ipv4/tcp_input.c                      |  2 +-
- net/ipv4/udp.c                            | 10 +++----
- net/ipv6/datagram.c                       |  9 +++++-
- net/ipv6/icmp.c                           |  6 ++--
- net/ipv6/ip6_flowlabel.c                  |  3 +-
- net/ipv6/ip6_output.c                     | 15 ++++++----
- net/ipv6/ipv6_sockglue.c                  |  3 +-
- net/ipv6/ping.c                           |  3 +-
- net/ipv6/raw.c                            |  7 +++--
- net/ipv6/udp.c                            | 10 +++++--
- net/l2tp/l2tp_ip6.c                       | 10 ++++---
- net/packet/af_packet.c                    | 30 +++++++++++++++----
- net/socket.c                              | 10 +++----
- 27 files changed, 231 insertions(+), 78 deletions(-)
-
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 255d3e0..03772d4 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1420,6 +1420,8 @@ struct sockcm_cookie {
+ 	u32 mark;
+ };
+ 
++int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
++		     struct sockcm_cookie *sockc);
+ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
+ 		   struct sockcm_cookie *sockc);
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b67b9ae..66976f8 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1866,27 +1866,38 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
+ }
+ EXPORT_SYMBOL(sock_alloc_send_skb);
+ 
++int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
++		     struct sockcm_cookie *sockc)
++{
++	switch (cmsg->cmsg_type) {
++	case SO_MARK:
++		if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
++			return -EPERM;
++		if (cmsg->cmsg_len != CMSG_LEN(sizeof(u32)))
++			return -EINVAL;
++		sockc->mark = *(u32 *)CMSG_DATA(cmsg);
++		break;
++	default:
++		return -EINVAL;
++	}
++	return 0;
++}
++EXPORT_SYMBOL(__sock_cmsg_send);
++
+ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
+ 		   struct sockcm_cookie *sockc)
+ {
+ 	struct cmsghdr *cmsg;
++	int ret;
+ 
+ 	for_each_cmsghdr(cmsg, msg) {
+ 		if (!CMSG_OK(msg, cmsg))
+ 			return -EINVAL;
+ 		if (cmsg->cmsg_level != SOL_SOCKET)
+ 			continue;
+-		switch (cmsg->cmsg_type) {
+-		case SO_MARK:
+-			if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+-				return -EPERM;
+-			if (cmsg->cmsg_len != CMSG_LEN(sizeof(u32)))
+-				return -EINVAL;
+-			sockc->mark = *(u32 *)CMSG_DATA(cmsg);
+-			break;
+-		default:
+-			return -EINVAL;
+-		}
++		ret = __sock_cmsg_send(sk, msg, cmsg, sockc);
++		if (ret)
++			return ret;
+ 	}
+ 	return 0;
+ }
 -- 
 2.8.0.rc3.226.g39d4020
