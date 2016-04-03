@@ -1,107 +1,137 @@
 From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH v3 net-next 1/8] sock: break up sock_cmsg_snd into __sock_cmsg_snd and loop
-Date: Sat,  2 Apr 2016 23:08:06 -0400
-Message-ID: <1459652893-14207-2-git-send-email-soheil.kdev@gmail.com>
+Subject: [PATCH v3 net-next 5/8] ipv4: process socket-level control messages in IPv4
+Date: Sat,  2 Apr 2016 23:08:10 -0400
+Message-ID: <1459652893-14207-6-git-send-email-soheil.kdev@gmail.com>
 References: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
 Cc: willemb@google.com, edumazet@google.com, ycheng@google.com,
 	ncardwell@google.com, kafai@fb.com,
 	Soheil Hassas Yeganeh <soheil@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f68.google.com ([209.85.192.68]:36384 "EHLO
-	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbcDCDIY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 23:08:24 -0400
-Received: by mail-qg0-f68.google.com with SMTP id n34so14845795qge.3
-        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 20:08:23 -0700 (PDT)
+Received: from mail-qg0-f65.google.com ([209.85.192.65]:36391 "EHLO
+	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001AbcDCDI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Apr 2016 23:08:26 -0400
+Received: by mail-qg0-f65.google.com with SMTP id n34so14845850qge.3
+        for <netdev@vger.kernel.org>; Sat, 02 Apr 2016 20:08:25 -0700 (PDT)
 In-Reply-To: <1459652893-14207-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-To process cmsg's of the SOL_SOCKET level in addition to
-cmsgs of another level, protocols can call sock_cmsg_send().
-This causes a double walk on the cmsghdr list, one for SOL_SOCKET
-and one for the other level.
+Process socket-level control messages by invoking
+__sock_cmsg_send in ip_cmsg_send for control messages on
+the SOL_SOCKET layer.
 
-Extract the inner demultiplex logic from the loop that walks the list,
-to allow having this called directly from a walker in the protocol
-specific code.
+This makes sure whenever ip_cmsg_send is called in udp, icmp,
+and raw, we also process socket-level control messages.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Note that this commit interprets new control messages that
+were ignored before. As such, this commit does not change
+the behavior of IPv4 control messages.
+
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Acked-by: Willem de Bruijn <willemb@google.com>
 ---
- include/net/sock.h |  2 ++
- net/core/sock.c    | 33 ++++++++++++++++++++++-----------
- 2 files changed, 24 insertions(+), 11 deletions(-)
+ include/net/ip.h       | 3 ++-
+ net/ipv4/ip_sockglue.c | 9 ++++++++-
+ net/ipv4/ping.c        | 2 +-
+ net/ipv4/raw.c         | 2 +-
+ net/ipv4/udp.c         | 3 +--
+ 5 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 255d3e0..03772d4 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1420,6 +1420,8 @@ struct sockcm_cookie {
- 	u32 mark;
- };
- 
-+int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
-+		     struct sockcm_cookie *sockc);
- int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
- 		   struct sockcm_cookie *sockc);
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b67b9ae..66976f8 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1866,27 +1866,38 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
+diff --git a/include/net/ip.h b/include/net/ip.h
+index fad74d3..93725e5 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -56,6 +56,7 @@ static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
  }
- EXPORT_SYMBOL(sock_alloc_send_skb);
  
-+int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
-+		     struct sockcm_cookie *sockc)
-+{
-+	switch (cmsg->cmsg_type) {
-+	case SO_MARK:
-+		if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
-+			return -EPERM;
-+		if (cmsg->cmsg_len != CMSG_LEN(sizeof(u32)))
-+			return -EINVAL;
-+		sockc->mark = *(u32 *)CMSG_DATA(cmsg);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(__sock_cmsg_send);
-+
- int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
- 		   struct sockcm_cookie *sockc)
+ struct ipcm_cookie {
++	struct sockcm_cookie	sockc;
+ 	__be32			addr;
+ 	int			oif;
+ 	struct ip_options_rcu	*opt;
+@@ -550,7 +551,7 @@ int ip_options_rcv_srr(struct sk_buff *skb);
+ 
+ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb);
+ void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb, int offset);
+-int ip_cmsg_send(struct net *net, struct msghdr *msg,
++int ip_cmsg_send(struct sock *sk, struct msghdr *msg,
+ 		 struct ipcm_cookie *ipc, bool allow_ipv6);
+ int ip_setsockopt(struct sock *sk, int level, int optname, char __user *optval,
+ 		  unsigned int optlen);
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 035ad64..1b7c077 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -219,11 +219,12 @@ void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL(ip_cmsg_recv_offset);
+ 
+-int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
++int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+ 		 bool allow_ipv6)
  {
+ 	int err, val;
  	struct cmsghdr *cmsg;
-+	int ret;
++	struct net *net = sock_net(sk);
  
  	for_each_cmsghdr(cmsg, msg) {
  		if (!CMSG_OK(msg, cmsg))
- 			return -EINVAL;
- 		if (cmsg->cmsg_level != SOL_SOCKET)
+@@ -244,6 +245,12 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc,
  			continue;
--		switch (cmsg->cmsg_type) {
--		case SO_MARK:
--			if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
--				return -EPERM;
--			if (cmsg->cmsg_len != CMSG_LEN(sizeof(u32)))
--				return -EINVAL;
--			sockc->mark = *(u32 *)CMSG_DATA(cmsg);
--			break;
--		default:
--			return -EINVAL;
--		}
-+		ret = __sock_cmsg_send(sk, msg, cmsg, sockc);
-+		if (ret)
-+			return ret;
- 	}
- 	return 0;
- }
+ 		}
+ #endif
++		if (cmsg->cmsg_level == SOL_SOCKET) {
++			if (__sock_cmsg_send(sk, msg, cmsg, &ipc->sockc))
++				return -EINVAL;
++			continue;
++		}
++
+ 		if (cmsg->cmsg_level != SOL_IP)
+ 			continue;
+ 		switch (cmsg->cmsg_type) {
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index cf9700b..670639b 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -747,7 +747,7 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	sock_tx_timestamp(sk, &ipc.tx_flags);
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc, false);
++		err = ip_cmsg_send(sk, msg, &ipc, false);
+ 		if (unlikely(err)) {
+ 			kfree(ipc.opt);
+ 			return err;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 8d22de7..088ce66 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -548,7 +548,7 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	ipc.oif = sk->sk_bound_dev_if;
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(net, msg, &ipc, false);
++		err = ip_cmsg_send(sk, msg, &ipc, false);
+ 		if (unlikely(err)) {
+ 			kfree(ipc.opt);
+ 			goto out;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 08eed5e..bccb4e1 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1034,8 +1034,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	sock_tx_timestamp(sk, &ipc.tx_flags);
+ 
+ 	if (msg->msg_controllen) {
+-		err = ip_cmsg_send(sock_net(sk), msg, &ipc,
+-				   sk->sk_family == AF_INET6);
++		err = ip_cmsg_send(sk, msg, &ipc, sk->sk_family == AF_INET6);
+ 		if (unlikely(err)) {
+ 			kfree(ipc.opt);
+ 			return err;
 -- 
 2.8.0.rc3.226.g39d4020
