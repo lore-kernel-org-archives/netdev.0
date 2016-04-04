@@ -1,107 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver Updates 2016-04-04
-Date: Mon,  4 Apr 2016 15:14:43 -0700
-Message-ID: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 02/14] ixgbevf: use bit operations for setting and checking resets
+Date: Mon,  4 Apr 2016 15:14:45 -0700
+Message-ID: <1459808097-26409-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:51308 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752689AbcDDWPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 18:15:02 -0400
+	id S1754070AbcDDWPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:15:03 -0400
+In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf.
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Pavel Tikhomirov fixes a typo where we were incrementing transmit stats
-instead of receive stats on the receive side.
+Move the reset flags to adapter->state in order to make use of bit
+operations.
 
-Emil updates the ixgbevf driver to use bit operations for setting and
-checking the adapter state.
+This is an alternative patch to the one previously submitted by
+John Greene.
 
-Chas Williams adds the new NDO trust feature check so that the VF guest
-has the ability to set the unicast address of the interface, if it is a
-trusted VF.
+Suggested-by: Alexander Duyck <aduyck@mirantis.com>
+Reported-by: Scott Otto <otts62@yahoo.com>
+Reported-by: John Greene <jogreene@redhat.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  9 ++-------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 15 ++++++---------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
 
-Alex cleans up the driver to that the only time we add a PF entry to the
-VLVF is either for VLAN 0 or if the PF has requested a VLAN that a VF
-is already using.  Also adds support for generic transmit checksums,
-giving the added advantage is that we can support inner checksum offloads
-for tunnels and MPLS while still being able to transparently insert
-VLAN tags.  Lastly, changed ixgbe so that we can use the ethtool
-rx-vlan-filter flag to toggle receive VLAN filtering on and off.
-
-Mark cleans up the ixgbe driver by making all op structures that do not
-change constants.  Also fixed flow control for Xeon D KR backplanes, since
-we cannot use auto-negotiation to determine the mode, we have to use
-whatever the user configured.
-
-Sowmini Varadhan updates ixgbe to use eth_platform_get_mac_address()
-instead of the arch specific solution that was added by a previous
-commit.
-
-Don fixed an issue where it was possible that a system reset could occur
-when we were holding the SWFW semaphore lock, which the next time the
-driver loaded would see it incorrectly as locked.
-
-The following are changes since commit 833716e0ed026c1abc7dd0e85a6932b855a8e56b:
-  Merge branch 'stmmac-GMAC4.x'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Alexander Duyck (5):
-  ixgbe: Do not allow PF to add VLVF entry unless it actually needs it
-  ixgbe: Avoid adding VLAN 0 twice to VLVF and VFTA
-  ixgbe: Add support for generic Tx checksums
-  ixgbevf: Add support for generic Tx checksums
-  ixgbe: Add support for toggling VLAN filtering flag via ethtool
-
-Amritha Nambiar (1):
-  ixgbe: Extend cls_u32 offload to support UDP headers
-
-Don Skidmore (1):
-  ixgbe: Place SWFW semaphore in known valid state at probe
-
-Emil Tantilov (1):
-  ixgbevf: use bit operations for setting and checking resets
-
-Mark Rustad (2):
-  ixgbe: Make all unchanging ops structures const
-  ixgbe: Fix flow control for Xeon D KR backplane
-
-Pavel Tikhomirov (1):
-  ixgbe: on recv increment rx.ring->stats.yields
-
-Rostislav Pehlivanov (1):
-  ixgbe: add a callback to set the maximum transmit bitrate
-
-Sowmini Varadhan (1):
-  ixgbe: use eth_platform_get_mac_address()
-
-chas williams (1):
-  ixgbe: Extend trust to allow guest to set unicast address
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  14 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 296 ++++++++++------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c      |  40 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h    |   8 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  35 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  18 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |  31 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.h     |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     | 106 +++++++-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   9 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 119 ++++-----
- 17 files changed, 390 insertions(+), 327 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 991eeae..5ac60ee 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -403,13 +403,6 @@ struct ixgbevf_adapter {
+ 	u32 alloc_rx_page_failed;
+ 	u32 alloc_rx_buff_failed;
+ 
+-	/* Some features need tri-state capability,
+-	 * thus the additional *_CAPABLE flags.
+-	 */
+-	u32 flags;
+-#define IXGBEVF_FLAG_RESET_REQUESTED		(u32)(1)
+-#define IXGBEVF_FLAG_QUEUE_RESET_REQUESTED	(u32)(1 << 2)
+-
+ 	struct msix_entry *msix_entries;
+ 
+ 	/* OS defined structs */
+@@ -461,6 +454,8 @@ enum ixbgevf_state_t {
+ 	__IXGBEVF_REMOVING,
+ 	__IXGBEVF_SERVICE_SCHED,
+ 	__IXGBEVF_SERVICE_INITED,
++	__IXGBEVF_RESET_REQUESTED,
++	__IXGBEVF_QUEUE_RESET_REQUESTED,
+ };
+ 
+ enum ixgbevf_boards {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index b0edae9..9a2eed0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -268,7 +268,7 @@ static void ixgbevf_tx_timeout_reset(struct ixgbevf_adapter *adapter)
+ {
+ 	/* Do the reset outside of interrupt context */
+ 	if (!test_bit(__IXGBEVF_DOWN, &adapter->state)) {
+-		adapter->flags |= IXGBEVF_FLAG_RESET_REQUESTED;
++		set_bit(__IXGBEVF_RESET_REQUESTED, &adapter->state);
+ 		ixgbevf_service_event_schedule(adapter);
+ 	}
+ }
+@@ -1984,7 +1984,7 @@ static int ixgbevf_configure_dcb(struct ixgbevf_adapter *adapter)
+ 		hw->mbx.timeout = 0;
+ 
+ 		/* wait for watchdog to come around and bail us out */
+-		adapter->flags |= IXGBEVF_FLAG_QUEUE_RESET_REQUESTED;
++		set_bit(__IXGBEVF_QUEUE_RESET_REQUESTED, &adapter->state);
+ 	}
+ 
+ 	return 0;
+@@ -2749,11 +2749,9 @@ static void ixgbevf_service_timer(unsigned long data)
+ 
+ static void ixgbevf_reset_subtask(struct ixgbevf_adapter *adapter)
+ {
+-	if (!(adapter->flags & IXGBEVF_FLAG_RESET_REQUESTED))
++	if (!test_and_clear_bit(__IXGBEVF_RESET_REQUESTED, &adapter->state))
+ 		return;
+ 
+-	adapter->flags &= ~IXGBEVF_FLAG_RESET_REQUESTED;
+-
+ 	/* If we're already down or resetting, just bail */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
+@@ -2821,7 +2819,7 @@ static void ixgbevf_watchdog_update_link(struct ixgbevf_adapter *adapter)
+ 
+ 	/* if check for link returns error we will need to reset */
+ 	if (err && time_after(jiffies, adapter->last_reset + (10 * HZ))) {
+-		adapter->flags |= IXGBEVF_FLAG_RESET_REQUESTED;
++		set_bit(__IXGBEVF_RESET_REQUESTED, &adapter->state);
+ 		link_up = false;
+ 	}
+ 
+@@ -3222,11 +3220,10 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
+ {
+ 	struct net_device *dev = adapter->netdev;
+ 
+-	if (!(adapter->flags & IXGBEVF_FLAG_QUEUE_RESET_REQUESTED))
++	if (!test_and_clear_bit(__IXGBEVF_QUEUE_RESET_REQUESTED,
++				&adapter->state))
+ 		return;
+ 
+-	adapter->flags &= ~IXGBEVF_FLAG_QUEUE_RESET_REQUESTED;
+-
+ 	/* if interface is down do nothing */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
 -- 
 2.5.5
