@@ -1,162 +1,36 @@
-From: Yuki Machida <machida.yuki@jp.fujitsu.com>
-Subject: Re: Section 4 No. 9,10 Failed was occurred by IPv6 Ready Logo
- Conformance Test
-Date: Mon, 4 Apr 2016 15:43:47 +0900
-Message-ID: <57020D23.9010403@jp.fujitsu.com>
-References: <56FE23C4.2000706@jp.fujitsu.com> <56FE26BE.2060209@windriver.com>
- <56FE2A90.8080300@jp.fujitsu.com>
+From: "John M" <john@blueriver.net>
+Subject: For Your Consideration!
+Date: Mon, 04 Apr 2016 17:41:08 +1000
+Message-ID: <20160404065915258@vmx.blueriver.net.redcondor.net>
+Reply-To: jmmore234@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-To: Rongqing Li <rongqing.li@windriver.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:12031 "EHLO
-	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbcDDGnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 02:43:55 -0400
-Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
-	by yt-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id D2558AC02B0
-	for <netdev@vger.kernel.org>; Mon,  4 Apr 2016 15:43:47 +0900 (JST)
-In-Reply-To: <56FE2A90.8080300@jp.fujitsu.com>
+Received: from vmx.blueriver.net.redcondor.net ([69.27.48.32]:35298 "EHLO
+	vmx.blueriver.net.redcondor.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753675AbcDDHKU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 03:10:20 -0400
+Received: from pop.blueriver.net ([69.27.48.24])
+          by vmx.blueriver.net.redcondor.net ({993de224-0a60-4725-9c0f-c395756ae893})
+          via TCP (outbound) with ESMTP id 20160404065915258_0000
+          for <netdev@vger.kernel.org>;
+          Mon, 04 Apr 2016 02:59:15 -0400
+Received: from ADSERVER.ausdance.local (ppp59-167-170-12.static.internode.on.net [59.167.170.12])
+	by pop.blueriver.net (Postfix) with ESMTPSA id 7601AA0ACE
+	for <netdev@vger.kernel.org>; Mon,  4 Apr 2016 02:59:14 -0400 (EDT)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Roy,
+Hello,
 
-On 2016年04月01日 17:00, Yuki Machida wrote:
-> Hi Roy,
-> 
-> Thank you for your advice.
-> I am very glad.
-> 
-> Futher comment below.
-> 
-> On 2016年04月01日 16:43, Rongqing Li wrote:
->>
->>
->> On 2016年04月01日 15:31, Yuki Machida wrote:
->>> Hi all,
->>>
->>> I tested 4.6-rc1 by IPv6 Ready Logo Core Conformance Test.
->>> 4.6-rc1 has some FAILs in Section 4 (RFC 1981: Path MTU Discovery for IP version 6).
->>> I conformed that it was PASSed in 3.14.28 and it was FAILed in 4.1.17.
->>> I will find a patch between 3.14 and 4.1.
->>>
->>> IPv6 Ready Logo
->>> https://www.ipv6ready.org/
->>> TAHI Project
->>> http://www.tahi.org/
->>>
->>> I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
->>> It is using userland build with yocto project.
->>>
->>> Test Environment
->>> Test Specification          : 4.0.6
->>> Tool Version                : REL_3_3_2
->>> Test Program Version        : V6LC_5_0_0
->>> Target Device               : Intel D510MO (Atom D510)
->>>
->>> List of FAILs
->>>
->>> Section 4: RFC 1981 - Path MTU Discovery for IPv6
->>> - Test v6LC.4.1.6: Receiving MTU Below IPv6 Minimum Link MTU
->>>      - No. 9 Part A: MTU equal to 56
->>>      - No.10 Part B: MTU equal to 1279
->>>
->>
->> apply this one
->>
->> commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4
->> Author: Hangbin Liu <liuhangbin@gmail.com>
->> Date:   Thu Jul 30 14:28:42 2015 +0800
->>
->>       net/ipv6: add sysctl option accept_ra_min_hop_limit
->>
->>       Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
->>       disabled accept hop limit from RA if it is smaller than the current hop
->>       limit for security stuff. But this behavior kind of break the RFC
->> definition.
->>
->>       RFC 4861, 6.3.4.  Processing Received Router Advertisements
->>          A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
->>          and Retrans Timer) may contain a value denoting that it is
->>          unspecified.  In such cases, the parameter should be ignored and the
->>          host should continue using whatever value it is already using.
->>
->>          If the received Cur Hop Limit value is non-zero, the host SHOULD set
->>          its CurHopLimit variable to the received value.
->>
->>       So add sysctl option accept_ra_min_hop_limit to let user choose the
->> minimum
->>       hop limit value they can accept from RA. And set default to 1 to
->> meet RFC
->>       standards.
->>
->>       Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
->>       Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
->>       Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> I conformed that above patch has been applied at v4.3 in linux.git.
-> 
-> % git tag --contains=8013d1d7eafb0589ca766db6b74026f76b7f5cb4 | head
-> v4.3
-> v4.3-rc1
-> v4.3-rc2
-> v4.3-rc3
-> v4.3-rc4
-> v4.3-rc5
-> v4.3-rc6
-> v4.3-rc7
-> v4.4
-> v4.4-rc1
-> 
->>
->>
->>
->>
->>
->> and revert the below one, the TAHI should be updated
->>
->> commit 9d289715eb5c252ae15bd547cb252ca547a3c4f2
->> Author: Hagen Paul Pfeifer <hagen@jauu.net>
->> Date: Thu Jan 15 22:34:25 2015 +0100
->>
->>       ipv6: stop sending PTB packets for MTU < 1280
->>
->>       Reduce the attack vector and stop generating IPv6 Fragment Header for
->>       paths with an MTU smaller than the minimum required IPv6 MTU
->>       size (1280 byte) - called atomic fragments.
->>
->>       See IETF I-D "Deprecating the Generation of IPv6 Atomic Fragments" [1]
->>       for more information and how this "feature" can be misused.
->>
->>       [1]
->> https://tools.ietf.org/html/draft-ietf-6man-deprecate-atomfrag-generation-00
->>
->>       Signed-off-by: Fernando Gont <fgont@si6networks.com>
->>       Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
->>       Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>       Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> I will try.
 
-I confirmed that v4.1.20 revert above patch is passed Section 4 No. 9 and 10 testcases
-in IPv6 Ready Logo Conformance Test.
-I can't immediately revert above patch from v4.6-rc1 by implementation has changed.
+I need you to assist me claim and invest the sum of $50 Million(Fifty Million US Dollars) in your Country.You will get 30% share out of the total fund for your assistance.More details when i hear back from you.
 
-I am considering how to fix this problem for mainline.
 
-> 
->>
->>
->>
->> -Roy
->>
->>
->>
->>
->>> Regards,
->>> Yuki Machida
->>>
->>
+
+Kind regards,
+John
