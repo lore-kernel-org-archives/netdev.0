@@ -1,45 +1,47 @@
-From: Mr Michael Gary <Gary4@hadrrrryy.website.tk>
-Subject: Your Urgent Respond,
-Date: Mon, 4 Apr 2016 14:44:38 +0100
-Message-ID: <VI1PR08MB047997990642C4D53D980F6DCA9D0@VI1PR08MB0479.eurprd08.prod.outlook.com>
-Reply-To: <dipjeffbernard@hotmail.com>
+From: Petr Kulhavy <petr@barix.com>
+Subject: Re: davinci-mdio: failing to connect to PHY
+Date: Mon, 4 Apr 2016 15:50:02 +0200
+Message-ID: <5702710A.5010804@barix.com>
+References: <57022356.6010309@barix.com> <20160404123145.GE21828@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: DHS <Gary4@hadrrrryy.website.tk>
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3hn0250.outbound.protection.outlook.com ([157.55.234.250]:48972
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752017AbcDDNpD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 09:45:03 -0400
-Content-Description: Mail message body
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:34231 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747AbcDDNuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 09:50:06 -0400
+Received: by mail-lf0-f53.google.com with SMTP id c62so171621890lfc.1
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 06:50:06 -0700 (PDT)
+In-Reply-To: <20160404123145.GE21828@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Urgent Founds!!
 
-We wish to inform you that your over due Inheritance funds which we agreed to pay you in cash is already sealed and package with a security proof box. The funds worth of $7.5 millions US Dollar,in the package will be conveyed to you by an Int'l diplomatic agent, Mr. Jeff Bernard. He will be leaving for your country any time from now, therefore reach us with the details below.
 
-Using a Diplomatic agent this time is because of the failure that were recorded in the other transfer options. Just try and give the diplomat your information and offer him all assistance he may need, especially directive assistance so that he will be able to get your consignment box to you in the couple of days.
+On 04.04.2016 14:31, Andrew Lunn wrote:
+>   
+> Hi Petr
+>
+> You might want to take a look at:
+>
+> http://lxr.free-electrons.com/source/drivers/net/ethernet/ti/davinci_mdio.c#L137
+>
+> It seems to be asking the hardware about the phy mask.
+>
+>     Andrew
 
-Please contact him with your full information, such as your.
+Hi Andrew,
 
-1) Full name: ......
-2) Resident address:......
-3) Phone number:.....
-4) The name of your nearest airport:....
-Send him the information above for him to locate your home with your package.
+thanks a lot for the link. In the meantime I've understood the issue 
+better. It is due to the fact that the PHY is pin-strapped to address 1 
+and broadcast (at address 0) is  enabled. The Micrel driver's 
+config_init() disables the broadcast and the PHY stops responding, which 
+causes the troubles. The kernel 3.17 didn't disable the broadcast and 
+therefore it worked.
 
-Below is some of his contact information:
+I'm wondering how to solve or workaround this...
 
-Name: Jeff Bernard
-Email: (dipjeffbernard@hotmail.com).
-Feel free and call your fund's original bank at +229-982-92-026, any time you wish for more explanation. 
-
-Best Regard 
-Mr Michael Gary
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Petr
