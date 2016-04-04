@@ -1,45 +1,56 @@
-From: Bastien Philbert <bastienphilbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] bluetooth: Fix locking issues in the function l2cap_connect_cfm
-Date: Mon,  4 Apr 2016 16:32:40 -0400
-Message-ID: <1459801960-8886-1-git-send-email-bastienphilbert@gmail.com>
-Cc: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
+ connected datagram sk during pmtu update
+Date: Mon, 4 Apr 2016 13:45:02 -0700
+Message-ID: <CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
+References: <1459551391-69969-1-git-send-email-kafai@fb.com>
+	<1459551391-69969-4-git-send-email-kafai@fb.com>
+	<CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
+	<20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:35751 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932459AbcDDUpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 16:45:03 -0400
+Received: by mail-yw0-f171.google.com with SMTP id g127so267160556ywf.2
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 13:45:03 -0700 (PDT)
+In-Reply-To: <20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes a locking issue in the function l2cap_connect_cfm for
-not locking the mutex lock for channels on the l2cap_conn structure
-pointer conn before calling __l2cap_get_chan_by_dcid as all callers
-need to lock and unlock this mutex before calling this function due
-to issues with either concurrent users or race conditions arising
+On Sat, Apr 2, 2016 at 7:33 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> One thing to note is that this patch uses the addresses from the sk
+> instead of iph when updating sk->sk_dst_cache.  It is basically the
+> same logic that the __ip6_datagram_connect() is doing, so some
+> refactoring works in the first two patches.
+>
+> AFAIK, a UDP socket can become connected after sending out some
+> datagrams in un-connected state.  or It can be connected
+> multiple times to different destinations.  I did some quick
+> tests but I could be wrong.
+>
+> I am thinking if there could be a chance that the skb->data, which
+> has the original outgoing iph, is not related to the current
+> connected address.  If it is possible, we have to specifically
+> use the addresses in the sk instead of skb->data (i.e. iph) when
+> updating the sk->sk_dst_cache.
+>
+> If we need to use the sk addresses (and other info) to find out a
+> new dst for a connected udp socket, it is better not doing it while
+> the userland is connecting to somewhere else.
+>
+> If the above case is impossible, we can keep using the info from iph to
+> do the dst update for a connected-udp sk without taking the lock.
 
-Signed-off-by: Bastien Philbert <bastienphilbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/bluetooth/l2cap_core.c | 2 ++
- 1 file changed, 2 insertions(+)
+I see your point, but calling __ip6_datagram_connect() seems overkill
+here, we don't need to update so many things in the pmtu update context,
+at least IPv4 doesn't do that either. I don't think you have to do that.
 
-diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
-index eb4f5f2..2ab103e 100644
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -7308,6 +7308,7 @@ static void l2cap_connect_cfm(struct hci_conn *hcon, u8 status)
- 		struct l2cap_chan *chan, *next;
- 
- 		/* Client fixed channels should override server ones */
-+		mutex_lock(&conn->chan_lock);
- 		if (__l2cap_get_chan_by_dcid(conn, pchan->scid))
- 			goto next;
- 
-@@ -7324,6 +7325,7 @@ static void l2cap_connect_cfm(struct hci_conn *hcon, u8 status)
- 
- 		l2cap_chan_unlock(pchan);
- next:
-+		mutex_unlock(&conn->chan_lock);
- 		next = l2cap_global_fixed_chan(pchan, hcon);
- 		l2cap_chan_put(pchan);
- 		pchan = next;
--- 
-2.5.0
+So why just updating the dst cache (also some addr cache) here is not
+enough?
