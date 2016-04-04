@@ -1,128 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] ixgbe: Make all unchanging ops structures const
-Date: Mon,  4 Apr 2016 15:14:49 -0700
-Message-ID: <1459808097-26409-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/14] ixgbe: Fix flow control for Xeon D KR backplane
+Date: Mon,  4 Apr 2016 15:14:53 -0700
+Message-ID: <1459808097-26409-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54610 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:24234 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753043AbcDDWPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 18:15:06 -0400
+	id S1756303AbcDDWPH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:15:07 -0400
 In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-The source for the ops structure contents are const, so make them
-so. Copy them in place with structure assignments instead of memcpys.
-Make the mbx_ops accessed by reference instead of making a copy of
-the source structure. Update copyright date on the touched files.
+Xeon D KR backplane is different from other backplanes,
+in that we can't use auto-negotiation to determine the
+mode. Instead, use whatever the user configured.
 
-Reported-by: Julia Lawall <Julia.Lawall@lip6.fr>
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       | 12 ++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c | 10 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 10 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 10 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c   | 40 +++++++++++++-------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  4 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  | 12 ++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  | 10 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c  | 18 ++++++------
- 9 files changed, 63 insertions(+), 63 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  8 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  5 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 86 ++++++++++++++++++++++++-
+ 7 files changed, 98 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 9f64354..4590fab 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -862,11 +862,11 @@ enum ixgbe_boards {
- 	board_X550EM_x,
- };
- 
--extern struct ixgbe_info ixgbe_82598_info;
--extern struct ixgbe_info ixgbe_82599_info;
--extern struct ixgbe_info ixgbe_X540_info;
--extern struct ixgbe_info ixgbe_X550_info;
--extern struct ixgbe_info ixgbe_X550EM_x_info;
-+extern const struct ixgbe_info ixgbe_82598_info;
-+extern const struct ixgbe_info ixgbe_82599_info;
-+extern const struct ixgbe_info ixgbe_X540_info;
-+extern const struct ixgbe_info ixgbe_X550_info;
-+extern const struct ixgbe_info ixgbe_X550EM_x_info;
- #ifdef CONFIG_IXGBE_DCB
- extern const struct dcbnl_rtnl_ops dcbnl_ops;
- #endif
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index d8a9fb8..9790d02 100644
+index 9790d02..f47eb12 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2015 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -1160,7 +1160,7 @@ static void ixgbe_set_rxpba_82598(struct ixgbe_hw *hw, int num_pb,
- 		IXGBE_WRITE_REG(hw, IXGBE_TXPBSIZE(i), IXGBE_TXPBSIZE_40KB);
- }
- 
--static struct ixgbe_mac_operations mac_ops_82598 = {
-+static const struct ixgbe_mac_operations mac_ops_82598 = {
- 	.init_hw		= &ixgbe_init_hw_generic,
- 	.reset_hw		= &ixgbe_reset_hw_82598,
- 	.start_hw		= &ixgbe_start_hw_82598,
-@@ -1203,7 +1203,7 @@ static struct ixgbe_mac_operations mac_ops_82598 = {
- 	.disable_rx		= &ixgbe_disable_rx_generic,
- };
- 
--static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
-+static const struct ixgbe_eeprom_operations eeprom_ops_82598 = {
- 	.init_params		= &ixgbe_init_eeprom_params_generic,
- 	.read			= &ixgbe_read_eerd_generic,
- 	.write			= &ixgbe_write_eeprom_generic,
-@@ -1214,7 +1214,7 @@ static struct ixgbe_eeprom_operations eeprom_ops_82598 = {
- 	.update_checksum	= &ixgbe_update_eeprom_checksum_generic,
- };
- 
--static struct ixgbe_phy_operations phy_ops_82598 = {
-+static const struct ixgbe_phy_operations phy_ops_82598 = {
- 	.identify		= &ixgbe_identify_phy_generic,
- 	.identify_sfp		= &ixgbe_identify_module_generic,
- 	.init			= &ixgbe_init_phy_ops_82598,
-@@ -1230,7 +1230,7 @@ static struct ixgbe_phy_operations phy_ops_82598 = {
- 	.check_overtemp		= &ixgbe_tn_check_overtemp,
- };
- 
--struct ixgbe_info ixgbe_82598_info = {
-+const struct ixgbe_info ixgbe_82598_info = {
- 	.mac			= ixgbe_mac_82598EB,
- 	.get_invariants		= &ixgbe_get_invariants_82598,
- 	.mac_ops		= &mac_ops_82598,
+@@ -1192,6 +1192,7 @@ static const struct ixgbe_mac_operations mac_ops_82598 = {
+ 	.clear_vfta		= &ixgbe_clear_vfta_82598,
+ 	.set_vfta		= &ixgbe_set_vfta_82598,
+ 	.fc_enable		= &ixgbe_fc_enable_82598,
++	.setup_fc		= ixgbe_setup_fc_generic,
+ 	.set_fw_drv_ver         = NULL,
+ 	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync,
+ 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index fa8d4f4..b276fe0 100644
+index b276fe0..c3ae5a7 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -2220,6 +2220,7 @@ static const struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.clear_vfta             = &ixgbe_clear_vfta_generic,
+ 	.set_vfta               = &ixgbe_set_vfta_generic,
+ 	.fc_enable              = &ixgbe_fc_enable_generic,
++	.setup_fc		= ixgbe_setup_fc_generic,
+ 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
+ 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
+ 	.setup_sfp              = &ixgbe_setup_sfp_modules_82599,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 6404505..8c7e78b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 @@ -1,7 +1,7 @@
  /*******************************************************************************
  
@@ -132,295 +72,34 @@ index fa8d4f4..b276fe0 100644
  
    This program is free software; you can redistribute it and/or modify it
    under the terms and conditions of the GNU General Public License,
-@@ -2181,7 +2181,7 @@ release_i2c_access:
- 	return status;
- }
- 
--static struct ixgbe_mac_operations mac_ops_82599 = {
-+static const struct ixgbe_mac_operations mac_ops_82599 = {
- 	.init_hw                = &ixgbe_init_hw_generic,
- 	.reset_hw               = &ixgbe_reset_hw_82599,
- 	.start_hw               = &ixgbe_start_hw_82599,
-@@ -2235,7 +2235,7 @@ static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.disable_rx		= &ixgbe_disable_rx_generic,
- };
- 
--static struct ixgbe_eeprom_operations eeprom_ops_82599 = {
-+static const struct ixgbe_eeprom_operations eeprom_ops_82599 = {
- 	.init_params		= &ixgbe_init_eeprom_params_generic,
- 	.read			= &ixgbe_read_eeprom_82599,
- 	.read_buffer		= &ixgbe_read_eeprom_buffer_82599,
-@@ -2246,7 +2246,7 @@ static struct ixgbe_eeprom_operations eeprom_ops_82599 = {
- 	.update_checksum	= &ixgbe_update_eeprom_checksum_generic,
- };
- 
--static struct ixgbe_phy_operations phy_ops_82599 = {
-+static const struct ixgbe_phy_operations phy_ops_82599 = {
- 	.identify		= &ixgbe_identify_phy_82599,
- 	.identify_sfp		= &ixgbe_identify_module_generic,
- 	.init			= &ixgbe_init_phy_ops_82599,
-@@ -2263,7 +2263,7 @@ static struct ixgbe_phy_operations phy_ops_82599 = {
- 	.check_overtemp		= &ixgbe_tn_check_overtemp,
- };
- 
--struct ixgbe_info ixgbe_82599_info = {
-+const struct ixgbe_info ixgbe_82599_info = {
- 	.mac                    = ixgbe_mac_82599EB,
- 	.get_invariants         = &ixgbe_get_invariants_82599,
- 	.mac_ops                = &mac_ops_82599,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 297e7d3..5f4ecf5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2015 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -9136,12 +9136,12 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name));
- 
- 	/* Setup hw api */
--	memcpy(&hw->mac.ops, ii->mac_ops, sizeof(hw->mac.ops));
-+	hw->mac.ops   = *ii->mac_ops;
- 	hw->mac.type  = ii->mac;
- 	hw->mvals     = ii->mvals;
- 
- 	/* EEPROM */
--	memcpy(&hw->eeprom.ops, ii->eeprom_ops, sizeof(hw->eeprom.ops));
-+	hw->eeprom.ops = *ii->eeprom_ops;
- 	eec = IXGBE_READ_REG(hw, IXGBE_EEC(hw));
- 	if (ixgbe_removed(hw->hw_addr)) {
- 		err = -EIO;
-@@ -9152,7 +9152,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		hw->eeprom.ops.read = &ixgbe_read_eeprom_bit_bang_generic;
- 
- 	/* PHY */
--	memcpy(&hw->phy.ops, ii->phy_ops, sizeof(hw->phy.ops));
-+	hw->phy.ops = *ii->phy_ops;
- 	hw->phy.sfp_type = ixgbe_sfp_type_unknown;
- 	/* ixgbe_identify_phy_generic will set prtad and mmds properly */
- 	hw->phy.mdio.prtad = MDIO_PRTAD_NONE;
-@@ -9215,7 +9215,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto skip_sriov;
- 	/* Mailbox */
- 	ixgbe_init_mbx_params_pf(hw);
--	memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
-+	hw->mbx.ops = ii->mbx_ops;
- 	pci_sriov_set_totalvfs(pdev, IXGBE_MAX_VFS_DRV_LIMIT);
- 	ixgbe_enable_sriov(adapter);
- skip_sriov:
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index 9993a47..2837c94 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2014 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -48,10 +48,10 @@ s32 ixgbe_read_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- 	if (size > mbx->size)
- 		size = mbx->size;
- 
--	if (!mbx->ops.read)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	return mbx->ops.read(hw, msg, size, mbx_id);
-+	return mbx->ops->read(hw, msg, size, mbx_id);
+@@ -111,12 +111,12 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
  }
  
  /**
-@@ -70,10 +70,10 @@ s32 ixgbe_write_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- 	if (size > mbx->size)
- 		return IXGBE_ERR_MBX;
- 
--	if (!mbx->ops.write)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	return mbx->ops.write(hw, msg, size, mbx_id);
-+	return mbx->ops->write(hw, msg, size, mbx_id);
- }
- 
- /**
-@@ -87,10 +87,10 @@ s32 ixgbe_check_for_msg(struct ixgbe_hw *hw, u16 mbx_id)
+- *  ixgbe_setup_fc - Set up flow control
++ *  ixgbe_setup_fc_generic - Set up flow control
+  *  @hw: pointer to hardware structure
+  *
+  *  Called at init time to set up flow control.
+  **/
+-static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
++s32 ixgbe_setup_fc_generic(struct ixgbe_hw *hw)
  {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
+ 	s32 ret_val = 0;
+ 	u32 reg = 0, reg_bp = 0;
+@@ -296,7 +296,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
+ 	IXGBE_WRITE_FLUSH(hw);
  
--	if (!mbx->ops.check_for_msg)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	return mbx->ops.check_for_msg(hw, mbx_id);
-+	return mbx->ops->check_for_msg(hw, mbx_id);
- }
- 
- /**
-@@ -104,10 +104,10 @@ s32 ixgbe_check_for_ack(struct ixgbe_hw *hw, u16 mbx_id)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 
--	if (!mbx->ops.check_for_ack)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	return mbx->ops.check_for_ack(hw, mbx_id);
-+	return mbx->ops->check_for_ack(hw, mbx_id);
- }
- 
- /**
-@@ -121,10 +121,10 @@ s32 ixgbe_check_for_rst(struct ixgbe_hw *hw, u16 mbx_id)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 
--	if (!mbx->ops.check_for_rst)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	return mbx->ops.check_for_rst(hw, mbx_id);
-+	return mbx->ops->check_for_rst(hw, mbx_id);
- }
- 
- /**
-@@ -139,10 +139,10 @@ static s32 ixgbe_poll_for_msg(struct ixgbe_hw *hw, u16 mbx_id)
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	int countdown = mbx->timeout;
- 
--	if (!countdown || !mbx->ops.check_for_msg)
-+	if (!countdown || !mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	while (mbx->ops.check_for_msg(hw, mbx_id)) {
-+	while (mbx->ops->check_for_msg(hw, mbx_id)) {
- 		countdown--;
- 		if (!countdown)
- 			return IXGBE_ERR_MBX;
-@@ -164,10 +164,10 @@ static s32 ixgbe_poll_for_ack(struct ixgbe_hw *hw, u16 mbx_id)
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	int countdown = mbx->timeout;
- 
--	if (!countdown || !mbx->ops.check_for_ack)
-+	if (!countdown || !mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
--	while (mbx->ops.check_for_ack(hw, mbx_id)) {
-+	while (mbx->ops->check_for_ack(hw, mbx_id)) {
- 		countdown--;
- 		if (!countdown)
- 			return IXGBE_ERR_MBX;
-@@ -193,7 +193,7 @@ static s32 ixgbe_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size,
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	s32 ret_val;
- 
--	if (!mbx->ops.read)
-+	if (!mbx->ops)
- 		return IXGBE_ERR_MBX;
- 
- 	ret_val = ixgbe_poll_for_msg(hw, mbx_id);
-@@ -201,7 +201,7 @@ static s32 ixgbe_read_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size,
- 		return ret_val;
- 
- 	/* if ack received read message */
--	return mbx->ops.read(hw, msg, size, mbx_id);
-+	return mbx->ops->read(hw, msg, size, mbx_id);
- }
- 
- /**
-@@ -221,11 +221,11 @@ static s32 ixgbe_write_posted_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size,
- 	s32 ret_val;
- 
- 	/* exit if either we can't write or there isn't a defined timeout */
--	if (!mbx->ops.write || !mbx->timeout)
-+	if (!mbx->ops || !mbx->timeout)
- 		return IXGBE_ERR_MBX;
- 
- 	/* send msg */
--	ret_val = mbx->ops.write(hw, msg, size, mbx_id);
-+	ret_val = mbx->ops->write(hw, msg, size, mbx_id);
+ 	/* Setup flow control */
+-	ret_val = ixgbe_setup_fc(hw);
++	ret_val = hw->mac.ops.setup_fc(hw);
  	if (ret_val)
  		return ret_val;
  
-@@ -446,7 +446,7 @@ void ixgbe_init_mbx_params_pf(struct ixgbe_hw *hw)
- }
- #endif /* CONFIG_PCI_IOV */
- 
--struct ixgbe_mbx_operations mbx_ops_generic = {
-+const struct ixgbe_mbx_operations mbx_ops_generic = {
- 	.read                   = ixgbe_read_mbx_pf,
- 	.write                  = ixgbe_write_mbx_pf,
- 	.read_posted            = ixgbe_read_posted_mbx,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index 8daa95f..01c2667 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -123,6 +123,6 @@ s32 ixgbe_check_for_rst(struct ixgbe_hw *, u16);
- void ixgbe_init_mbx_params_pf(struct ixgbe_hw *);
- #endif /* CONFIG_PCI_IOV */
- 
--extern struct ixgbe_mbx_operations mbx_ops_generic;
-+extern const struct ixgbe_mbx_operations mbx_ops_generic;
- 
- #endif /* _IXGBE_MBX_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index bf7367a..29e0b0e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2015 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -3442,7 +3442,7 @@ struct ixgbe_mbx_stats {
- };
- 
- struct ixgbe_mbx_info {
--	struct ixgbe_mbx_operations ops;
-+	const struct ixgbe_mbx_operations *ops;
- 	struct ixgbe_mbx_stats stats;
- 	u32 timeout;
- 	u32 usec_delay;
-@@ -3475,10 +3475,10 @@ struct ixgbe_hw {
- struct ixgbe_info {
- 	enum ixgbe_mac_type		mac;
- 	s32 				(*get_invariants)(struct ixgbe_hw *);
--	struct ixgbe_mac_operations	*mac_ops;
--	struct ixgbe_eeprom_operations	*eeprom_ops;
--	struct ixgbe_phy_operations	*phy_ops;
--	struct ixgbe_mbx_operations	*mbx_ops;
-+	const struct ixgbe_mac_operations	*mac_ops;
-+	const struct ixgbe_eeprom_operations	*eeprom_ops;
-+	const struct ixgbe_phy_operations	*phy_ops;
-+	const struct ixgbe_mbx_operations	*mbx_ops;
- 	const u32			*mvals;
- };
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 2358c1b..0d69564 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 2b95631..2e29015 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
 @@ -1,7 +1,7 @@
  /*******************************************************************************
  
@@ -430,121 +109,196 @@ index 2358c1b..0d69564 100644
  
    This program is free software; you can redistribute it and/or modify it
    under the terms and conditions of the GNU General Public License,
-@@ -810,7 +810,7 @@ s32 ixgbe_blink_led_stop_X540(struct ixgbe_hw *hw, u32 index)
+@@ -81,6 +81,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
+ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
++s32 ixgbe_setup_fc_generic(struct ixgbe_hw *);
+ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
+ void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
  
- 	return 0;
- }
--static struct ixgbe_mac_operations mac_ops_X540 = {
-+static const struct ixgbe_mac_operations mac_ops_X540 = {
- 	.init_hw                = &ixgbe_init_hw_generic,
- 	.reset_hw               = &ixgbe_reset_hw_X540,
- 	.start_hw               = &ixgbe_start_hw_X540,
-@@ -863,7 +863,7 @@ static struct ixgbe_mac_operations mac_ops_X540 = {
- 	.disable_rx		= &ixgbe_disable_rx_generic,
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 29e0b0e..787d2b2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -3308,6 +3308,7 @@ struct ixgbe_mac_operations {
  
--static struct ixgbe_eeprom_operations eeprom_ops_X540 = {
-+static const struct ixgbe_eeprom_operations eeprom_ops_X540 = {
- 	.init_params            = &ixgbe_init_eeprom_params_X540,
- 	.read                   = &ixgbe_read_eerd_X540,
- 	.read_buffer		= &ixgbe_read_eerd_buffer_X540,
-@@ -874,7 +874,7 @@ static struct ixgbe_eeprom_operations eeprom_ops_X540 = {
- 	.update_checksum        = &ixgbe_update_eeprom_checksum_X540,
- };
+ 	/* Flow Control */
+ 	s32 (*fc_enable)(struct ixgbe_hw *);
++	s32 (*setup_fc)(struct ixgbe_hw *);
  
--static struct ixgbe_phy_operations phy_ops_X540 = {
-+static const struct ixgbe_phy_operations phy_ops_X540 = {
- 	.identify               = &ixgbe_identify_phy_generic,
- 	.identify_sfp           = &ixgbe_identify_sfp_module_generic,
- 	.init			= NULL,
-@@ -897,7 +897,7 @@ static const u32 ixgbe_mvals_X540[IXGBE_MVALS_IDX_LIMIT] = {
- 	IXGBE_MVALS_INIT(X540)
- };
+ 	/* Manageability interface */
+ 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
+@@ -3525,6 +3526,7 @@ struct ixgbe_info {
  
--struct ixgbe_info ixgbe_X540_info = {
-+const struct ixgbe_info ixgbe_X540_info = {
- 	.mac                    = ixgbe_mac_X540,
- 	.get_invariants         = &ixgbe_get_invariants_X540,
- 	.mac_ops                = &mac_ops_X540,
+ #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
+ #define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
++#define IXGBE_KRM_AN_CNTL_1(P)		((P) ? 0x822C : 0x422C)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P) ? 0x8638 : 0x4638)
+ #define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P) ? 0x8B00 : 0x4B00)
+@@ -3547,6 +3549,9 @@ struct ixgbe_info {
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE		(1 << 29)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_RESTART		(1 << 31)
+ 
++#define IXGBE_KRM_AN_CNTL_1_SYM_PAUSE			(1 << 28)
++#define IXGBE_KRM_AN_CNTL_1_ASM_PAUSE			(1 << 29)
++
+ #define IXGBE_KRM_DSP_TXFFE_STATE_C0_EN			(1 << 6)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_CP1_CN1_EN		(1 << 15)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_CO_ADAPT_EN		(1 << 16)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 0d69564..c00b67b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -846,6 +846,7 @@ static const struct ixgbe_mac_operations mac_ops_X540 = {
+ 	.clear_vfta             = &ixgbe_clear_vfta_generic,
+ 	.set_vfta               = &ixgbe_set_vfta_generic,
+ 	.fc_enable              = &ixgbe_fc_enable_generic,
++	.setup_fc		= ixgbe_setup_fc_generic,
+ 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
+ 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
+ 	.setup_sfp              = NULL,
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 68a9c64..26e0b8d 100644
+index 26e0b8d..972c9aa 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+@@ -27,6 +27,7 @@
+ #include "ixgbe_phy.h"
+ 
+ static s32 ixgbe_setup_kr_speed_x550em(struct ixgbe_hw *, ixgbe_link_speed);
++static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *);
+ 
+ static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
+ {
+@@ -1342,15 +1343,18 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ 		mac->ops.enable_tx_laser = NULL;
+ 		mac->ops.flap_tx_laser = NULL;
+ 		mac->ops.setup_link = ixgbe_setup_mac_link_multispeed_fiber;
++		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
+ 		mac->ops.setup_mac_link = ixgbe_setup_mac_link_sfp_x550em;
+ 		mac->ops.set_rate_select_speed =
+ 					ixgbe_set_soft_rate_select_speed;
+ 		break;
+ 	case ixgbe_media_type_copper:
+ 		mac->ops.setup_link = ixgbe_setup_mac_link_t_X550em;
++		mac->ops.setup_fc = ixgbe_setup_fc_generic;
+ 		mac->ops.check_link = ixgbe_check_link_t_X550em;
+ 		break;
+ 	default:
++		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
+ 		break;
+ 	}
+ }
+@@ -1842,6 +1846,82 @@ static s32 ixgbe_get_lcd_t_x550em(struct ixgbe_hw *hw,
+ 	return status;
+ }
+ 
++/**
++ * ixgbe_setup_fc_x550em - Set up flow control
++ * @hw: pointer to hardware structure
++ */
++static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
++{
++	bool pause, asm_dir;
++	u32 reg_val;
++	s32 rc;
++
++	/* Validate the requested mode */
++	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
++		hw_err(hw, "ixgbe_fc_rx_pause not valid in strict IEEE mode\n");
++		return IXGBE_ERR_INVALID_LINK_SETTINGS;
++	}
++
++	/* 10gig parts do not have a word in the EEPROM to determine the
++	 * default flow control setting, so we explicitly set it to full.
++	 */
++	if (hw->fc.requested_mode == ixgbe_fc_default)
++		hw->fc.requested_mode = ixgbe_fc_full;
++
++	/* Determine PAUSE and ASM_DIR bits. */
++	switch (hw->fc.requested_mode) {
++	case ixgbe_fc_none:
++		pause = false;
++		asm_dir = false;
++		break;
++	case ixgbe_fc_tx_pause:
++		pause = false;
++		asm_dir = true;
++		break;
++	case ixgbe_fc_rx_pause:
++		/* Rx Flow control is enabled and Tx Flow control is
++		 * disabled by software override. Since there really
++		 * isn't a way to advertise that we are capable of RX
++		 * Pause ONLY, we will advertise that we support both
++		 * symmetric and asymmetric Rx PAUSE, as such we fall
++		 * through to the fc_full statement.  Later, we will
++		 * disable the adapter's ability to send PAUSE frames.
++		 */
++		/* Fallthrough */
++	case ixgbe_fc_full:
++		pause = true;
++		asm_dir = true;
++		break;
++	default:
++		hw_err(hw, "Flow control param set incorrectly\n");
++		return IXGBE_ERR_CONFIG;
++	}
++
++	if (hw->device_id != IXGBE_DEV_ID_X550EM_X_KR)
++		return 0;
++
++	rc = ixgbe_read_iosf_sb_reg_x550(hw,
++					 IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
++					 IXGBE_SB_IOSF_TARGET_KR_PHY, &reg_val);
++	if (rc)
++		return rc;
++
++	reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
++		     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
++	if (pause)
++		reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
++	if (asm_dir)
++		reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
++	rc = ixgbe_write_iosf_sb_reg_x550(hw,
++					  IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
++					  IXGBE_SB_IOSF_TARGET_KR_PHY, reg_val);
++
++	/* This device does not fully support AN. */
++	hw->fc.disable_fc_autoneg = true;
++
++	return rc;
++}
++
+ /** ixgbe_enter_lplu_x550em - Transition to low power states
+  *  @hw: pointer to hardware structure
   *
-  *  Intel 10 Gigabit PCI Express Linux driver
-- *  Copyright(c) 1999 - 2015 Intel Corporation.
-+ *  Copyright(c) 1999 - 2016 Intel Corporation.
-  *
-  *  This program is free software; you can redistribute it and/or modify it
-  *  under the terms and conditions of the GNU General Public License,
-@@ -2342,7 +2342,7 @@ static void ixgbe_release_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
+@@ -2337,8 +2417,6 @@ static void ixgbe_release_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
+ 	.enable_rx_buff			= &ixgbe_enable_rx_buff_generic, \
+ 	.get_thermal_sensor_data	= NULL, \
+ 	.init_thermal_sensor_thresh	= NULL, \
+-	.prot_autoc_read		= &prot_autoc_read_generic, \
+-	.prot_autoc_write		= &prot_autoc_write_generic, \
  	.enable_rx			= &ixgbe_enable_rx_generic, \
  	.disable_rx			= &ixgbe_disable_rx_x550, \
  
--static struct ixgbe_mac_operations mac_ops_X550 = {
-+static const struct ixgbe_mac_operations mac_ops_X550 = {
- 	X550_COMMON_MAC
- 	.reset_hw		= &ixgbe_reset_hw_X540,
- 	.get_media_type		= &ixgbe_get_media_type_X540,
-@@ -2356,7 +2356,7 @@ static struct ixgbe_mac_operations mac_ops_X550 = {
+@@ -2354,6 +2432,9 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
+ 	.setup_sfp		= NULL,
+ 	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X540,
  	.release_swfw_sync	= &ixgbe_release_swfw_sync_X540,
++	.prot_autoc_read	= prot_autoc_read_generic,
++	.prot_autoc_write	= prot_autoc_write_generic,
++	.setup_fc		= ixgbe_setup_fc_generic,
  };
  
--static struct ixgbe_mac_operations mac_ops_X550EM_x = {
-+static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	X550_COMMON_MAC
- 	.reset_hw		= &ixgbe_reset_hw_X550em,
- 	.get_media_type		= &ixgbe_get_media_type_X550em,
-@@ -2379,12 +2379,12 @@ static struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	.update_checksum	= &ixgbe_update_eeprom_checksum_X550, \
- 	.calc_checksum		= &ixgbe_calc_eeprom_checksum_X550, \
- 
--static struct ixgbe_eeprom_operations eeprom_ops_X550 = {
-+static const struct ixgbe_eeprom_operations eeprom_ops_X550 = {
- 	X550_COMMON_EEP
- 	.init_params		= &ixgbe_init_eeprom_params_X550,
+ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
+@@ -2368,6 +2449,7 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
+ 	.setup_sfp		= ixgbe_setup_sfp_modules_X550em,
+ 	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X550em,
+ 	.release_swfw_sync	= &ixgbe_release_swfw_sync_X550em,
++	.setup_fc		= NULL, /* defined later */
  };
  
--static struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
-+static const struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
- 	X550_COMMON_EEP
- 	.init_params		= &ixgbe_init_eeprom_params_X540,
- };
-@@ -2405,13 +2405,13 @@ static struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
- 	.check_overtemp		= &ixgbe_tn_check_overtemp, \
- 	.get_firmware_version	= &ixgbe_get_phy_firmware_version_generic,
- 
--static struct ixgbe_phy_operations phy_ops_X550 = {
-+static const struct ixgbe_phy_operations phy_ops_X550 = {
- 	X550_COMMON_PHY
- 	.init			= NULL,
- 	.identify		= &ixgbe_identify_phy_generic,
- };
- 
--static struct ixgbe_phy_operations phy_ops_X550EM_x = {
-+static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
- 	X550_COMMON_PHY
- 	.init			= &ixgbe_init_phy_ops_X550em,
- 	.identify		= &ixgbe_identify_phy_x550em,
-@@ -2430,7 +2430,7 @@ static const u32 ixgbe_mvals_X550EM_x[IXGBE_MVALS_IDX_LIMIT] = {
- 	IXGBE_MVALS_INIT(X550EM_x)
- };
- 
--struct ixgbe_info ixgbe_X550_info = {
-+const struct ixgbe_info ixgbe_X550_info = {
- 	.mac			= ixgbe_mac_X550,
- 	.get_invariants		= &ixgbe_get_invariants_X540,
- 	.mac_ops		= &mac_ops_X550,
-@@ -2440,7 +2440,7 @@ struct ixgbe_info ixgbe_X550_info = {
- 	.mvals			= ixgbe_mvals_X550,
- };
- 
--struct ixgbe_info ixgbe_X550EM_x_info = {
-+const struct ixgbe_info ixgbe_X550EM_x_info = {
- 	.mac			= ixgbe_mac_X550EM_x,
- 	.get_invariants		= &ixgbe_get_invariants_X550_x,
- 	.mac_ops		= &mac_ops_X550EM_x,
+ #define X550_COMMON_EEP \
 -- 
 2.5.5
