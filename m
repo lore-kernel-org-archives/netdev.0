@@ -1,133 +1,154 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: Re: [net-next 08/14] ixgbe: Add support for generic Tx checksums
-Date: Mon, 4 Apr 2016 15:54:10 -0700
-Message-ID: <CAKgT0Uf1zT2uihC6e04nt_1MkwOBsnx4Yh-ZJ-1i2kEec_zJFQ@mail.gmail.com>
+Date: Mon, 04 Apr 2016 15:56:35 -0700
+Message-ID: <1459810595.4070.20.camel@intel.com>
 References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1459808097-26409-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	<5702EB85.5080307@intel.com>
+	 <1459808097-26409-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5702EB85.5080307@intel.com>
+	 <CAKgT0Uf1zT2uihC6e04nt_1MkwOBsnx4Yh-ZJ-1i2kEec_zJFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-mtHermk8CI46H2905Z6C"
+Cc: David Miller <davem@davemloft.net>,
 	Alexander Duyck <aduyck@mirantis.com>,
 	Netdev <netdev@vger.kernel.org>,
 	Neil Horman <nhorman@redhat.com>, sassmann@redhat.com,
 	John Greene <jogreene@redhat.com>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36789 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752175AbcDDWyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 18:54:11 -0400
-Received: by mail-io0-f177.google.com with SMTP id q128so164564713iof.3
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 15:54:11 -0700 (PDT)
-In-Reply-To: <5702EB85.5080307@intel.com>
+Received: from mga04.intel.com ([192.55.52.120]:54968 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752339AbcDDW4m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:56:42 -0400
+In-Reply-To: <CAKgT0Uf1zT2uihC6e04nt_1MkwOBsnx4Yh-ZJ-1i2kEec_zJFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 4, 2016 at 3:32 PM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
-> On 4/4/2016 3:14 PM, Jeff Kirsher wrote:
->>
->> From: Alexander Duyck <aduyck@mirantis.com>
->>
->> This patch adds support for generic Tx checksums to the ixgbe driver.  It
->> turns out this is actually pretty easy after going over the datasheet as
->> we
->> were doing a number of steps we didn't need to.
->>
->> In order to perform a Tx checksum for an L4 header we need to fill in the
->> following fields in the Tx descriptor:
->>    MACLEN (maximum of 127), retrieved from:
->>                 skb_network_offset()
->>    IPLEN  (maximum of 511), retrieved from:
->>                 skb_checksum_start_offset() - skb_network_offset()
->>    TUCMD.L4T indicates offset and if checksum or crc32c, based on:
->>                 skb->csum_offset
->>
->> The added advantage to doing this is that we can support inner checksum
->> offloads for tunnels and MPLS while still being able to transparently
->> insert VLAN tags.
->>
->> I also took the opportunity to clean-up many of the feature flag
->> configuration bits to make them a bit more consistent between drivers.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 164
->> +++++++++-----------------
->>   1 file changed, 59 insertions(+), 105 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index bce5737..8d248c8 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -7202,103 +7202,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
->>         return 1;
->>   }
->>
->
->
-> <snip>
->
->
->
->> @@ -9190,41 +9148,37 @@ skip_sriov:
->>     #endif
->>         netdev->features = NETIF_F_SG |
->> -                          NETIF_F_IP_CSUM |
->> -                          NETIF_F_IPV6_CSUM |
->> -                          NETIF_F_HW_VLAN_CTAG_TX |
->> -                          NETIF_F_HW_VLAN_CTAG_RX |
->>                            NETIF_F_TSO |
->>                            NETIF_F_TSO6 |
->>                            NETIF_F_RXHASH |
->> -                          NETIF_F_RXCSUM;
->> -
->> -       netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
->> +                          NETIF_F_RXCSUM |
->> +                          NETIF_F_HW_CSUM |
->> +                          NETIF_F_SCTP_CRC |
->> +                          NETIF_F_HW_VLAN_CTAG_TX |
->> +                          NETIF_F_HW_VLAN_CTAG_RX;
->>   -     switch (adapter->hw.mac.type) {
->> -       case ixgbe_mac_82599EB:
->> -       case ixgbe_mac_X540:
->> -       case ixgbe_mac_X550:
->> -       case ixgbe_mac_X550EM_x:
->> +       if (hw->mac.type >= ixgbe_mac_82599EB)
->>                 netdev->features |= NETIF_F_SCTP_CRC;
->> -               netdev->hw_features |= NETIF_F_SCTP_CRC |
->> -                                      NETIF_F_NTUPLE |
->> -                                      NETIF_F_HW_TC;
->> -               break;
->> -       default:
->> -               break;
->> -       }
->>   -     netdev->hw_features |= NETIF_F_RXALL;
->> +       /* copy netdev features into list of user selectable features */
->> +       netdev->hw_features |= netdev->features;
->> +       netdev->hw_features |= NETIF_F_RXALL |
->> +                              NETIF_F_HW_L2FW_DOFFLOAD;
->> +
->> +       if (hw->mac.type >= ixgbe_mac_82599EB)
->> +               netdev->hw_features |= NETIF_F_NTUPLE;
->
->
-> looks like the cleanup missed moving NETIF_F_HW_TC flag here that enables
-> cls_u32 offloads via TC.
 
-Back when I submitted this patch the NETIF_F_HW_TC flag didn't exist.
-I'm pretty sure this is probably a case of a patch getting mangled
-after sitting in the tree for so long.
+--=-mtHermk8CI46H2905Z6C
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
-In addition I just noticed there is a bug in the setting of the
-SCTP_CRC flag as well.  It is set twice when we should only be setting
-it in the if statement.  It is just a quick 2 line fix that is needed.
-I can either submit a follow-up or I can respin the original patch
-real quick so that it applies on top of the current ixgbe queue.
+T24gTW9uLCAyMDE2LTA0LTA0IGF0IDE1OjU0IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
+Cj4gT24gTW9uLCBBcHIgNCwgMjAxNiBhdCAzOjMyIFBNLCBTYW11ZHJhbGEsIFNyaWRoYXIKPiA8
+c3JpZGhhci5zYW11ZHJhbGFAaW50ZWwuY29tPiB3cm90ZToKPiA+IE9uIDQvNC8yMDE2IDM6MTQg
+UE0sIEplZmYgS2lyc2hlciB3cm90ZToKPiA+Pgo+ID4+IEZyb206IEFsZXhhbmRlciBEdXljayA8
+YWR1eWNrQG1pcmFudGlzLmNvbT4KPiA+Pgo+ID4+IFRoaXMgcGF0Y2ggYWRkcyBzdXBwb3J0IGZv
+ciBnZW5lcmljIFR4IGNoZWNrc3VtcyB0byB0aGUgaXhnYmUKPiBkcml2ZXIuwqAgSXQKPiA+PiB0
+dXJucyBvdXQgdGhpcyBpcyBhY3R1YWxseSBwcmV0dHkgZWFzeSBhZnRlciBnb2luZyBvdmVyIHRo
+ZQo+IGRhdGFzaGVldCBhcwo+ID4+IHdlCj4gPj4gd2VyZSBkb2luZyBhIG51bWJlciBvZiBzdGVw
+cyB3ZSBkaWRuJ3QgbmVlZCB0by4KPiA+Pgo+ID4+IEluIG9yZGVyIHRvIHBlcmZvcm0gYSBUeCBj
+aGVja3N1bSBmb3IgYW4gTDQgaGVhZGVyIHdlIG5lZWQgdG8gZmlsbAo+IGluIHRoZQo+ID4+IGZv
+bGxvd2luZyBmaWVsZHMgaW4gdGhlIFR4IGRlc2NyaXB0b3I6Cj4gPj7CoMKgwqAgTUFDTEVOICht
+YXhpbXVtIG9mIDEyNyksIHJldHJpZXZlZCBmcm9tOgo+ID4+wqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqAgc2tiX25ldHdvcmtfb2Zmc2V0KCkKPiA+PsKgwqDCoCBJUExFTsKgIChtYXhp
+bXVtIG9mIDUxMSksIHJldHJpZXZlZCBmcm9tOgo+ID4+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqAgc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldCgpIC0gc2tiX25ldHdvcmtfb2Zmc2V0
+KCkKPiA+PsKgwqDCoCBUVUNNRC5MNFQgaW5kaWNhdGVzIG9mZnNldCBhbmQgaWYgY2hlY2tzdW0g
+b3IgY3JjMzJjLCBiYXNlZCBvbjoKPiA+PsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+IHNrYi0+Y3N1bV9vZmZzZXQKPiA+Pgo+ID4+IFRoZSBhZGRlZCBhZHZhbnRhZ2UgdG8gZG9pbmcg
+dGhpcyBpcyB0aGF0IHdlIGNhbiBzdXBwb3J0IGlubmVyCj4gY2hlY2tzdW0KPiA+PiBvZmZsb2Fk
+cyBmb3IgdHVubmVscyBhbmQgTVBMUyB3aGlsZSBzdGlsbCBiZWluZyBhYmxlIHRvCj4gdHJhbnNw
+YXJlbnRseQo+ID4+IGluc2VydCBWTEFOIHRhZ3MuCj4gPj4KPiA+PiBJIGFsc28gdG9vayB0aGUg
+b3Bwb3J0dW5pdHkgdG8gY2xlYW4tdXAgbWFueSBvZiB0aGUgZmVhdHVyZSBmbGFnCj4gPj4gY29u
+ZmlndXJhdGlvbiBiaXRzIHRvIG1ha2UgdGhlbSBhIGJpdCBtb3JlIGNvbnNpc3RlbnQgYmV0d2Vl
+bgo+IGRyaXZlcnMuCj4gPj4KPiA+PiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFk
+dXlja0BtaXJhbnRpcy5jb20+Cj4gPj4gVGVzdGVkLWJ5OiBBbmRyZXcgQm93ZXJzIDxhbmRyZXd4
+LmJvd2Vyc0BpbnRlbC5jb20+Cj4gPj4gU2lnbmVkLW9mZi1ieTogSmVmZiBLaXJzaGVyIDxqZWZm
+cmV5LnQua2lyc2hlckBpbnRlbC5jb20+Cj4gPj4gLS0tCj4gPj7CoMKgIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyB8IDE2NAo+ID4+ICsrKysrKysrKy0tLS0t
+LS0tLS0tLS0tLS0tCj4gPj7CoMKgIDEgZmlsZSBjaGFuZ2VkLCA1OSBpbnNlcnRpb25zKCspLCAx
+MDUgZGVsZXRpb25zKC0pCj4gPj4KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jCj4gPj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9peGdiZS9peGdiZV9tYWluLmMKPiA+PiBpbmRleCBiY2U1NzM3Li44ZDI0OGM4IDEwMDY0
+NAo+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4u
+Ywo+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4u
+Ywo+ID4+IEBAIC03MjAyLDEwMyArNzIwMiw2MSBAQCBzdGF0aWMgaW50IGl4Z2JlX3RzbyhzdHJ1
+Y3QgaXhnYmVfcmluZwo+ICp0eF9yaW5nLAo+ID4+wqDCoMKgwqDCoMKgwqDCoCByZXR1cm4gMTsK
+PiA+PsKgwqAgfQo+ID4+Cj4gPgo+ID4KPiA+IDxzbmlwPgo+ID4KPiA+Cj4gPgo+ID4+IEBAIC05
+MTkwLDQxICs5MTQ4LDM3IEBAIHNraXBfc3Jpb3Y6Cj4gPj7CoMKgwqDCoCAjZW5kaWYKPiA+PsKg
+wqDCoMKgwqDCoMKgwqAgbmV0ZGV2LT5mZWF0dXJlcyA9IE5FVElGX0ZfU0cgfAo+ID4+IC3CoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBORVRJRl9GX0lQ
+X0NTVU0gfAo+ID4+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCBORVRJRl9GX0lQVjZfQ1NVTSB8Cj4gPj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIE5FVElGX0ZfSFdfVkxBTl9DVEFHX1RYIHwKPiA+
+PiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgTkVU
+SUZfRl9IV19WTEFOX0NUQUdfUlggfAo+ID4+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIE5FVElGX0ZfVFNPIHwKPiA+PsKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBORVRJRl9GX1RTTzYgfAo+
+ID4+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+IE5FVElGX0ZfUlhIQVNIIHwKPiA+PiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqAgTkVUSUZfRl9SWENTVU07Cj4gPj4gLQo+ID4+IC3CoMKgwqDCoMKg
+wqAgbmV0ZGV2LT5od19mZWF0dXJlcyA9IG5ldGRldi0+ZmVhdHVyZXMgfAo+IE5FVElGX0ZfSFdf
+TDJGV19ET0ZGTE9BRDsKPiA+PiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqAgTkVUSUZfRl9SWENTVU0gfAo+ID4+ICvCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBORVRJRl9GX0hXX0NTVU0gfAo+ID4+ICvC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBORVRJRl9G
+X1NDVFBfQ1JDIHwKPiA+PiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqAgTkVUSUZfRl9IV19WTEFOX0NUQUdfVFggfAo+ID4+ICvCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBORVRJRl9GX0hXX1ZMQU5fQ1RB
+R19SWDsKPiA+PsKgwqAgLcKgwqDCoMKgIHN3aXRjaCAoYWRhcHRlci0+aHcubWFjLnR5cGUpIHsK
+PiA+PiAtwqDCoMKgwqDCoMKgIGNhc2UgaXhnYmVfbWFjXzgyNTk5RUI6Cj4gPj4gLcKgwqDCoMKg
+wqDCoCBjYXNlIGl4Z2JlX21hY19YNTQwOgo+ID4+IC3CoMKgwqDCoMKgwqAgY2FzZSBpeGdiZV9t
+YWNfWDU1MDoKPiA+PiAtwqDCoMKgwqDCoMKgIGNhc2UgaXhnYmVfbWFjX1g1NTBFTV94Ogo+ID4+
+ICvCoMKgwqDCoMKgwqAgaWYgKGh3LT5tYWMudHlwZSA+PSBpeGdiZV9tYWNfODI1OTlFQikKPiA+
+PsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIG5ldGRldi0+ZmVhdHVyZXMgfD0gTkVU
+SUZfRl9TQ1RQX0NSQzsKPiA+PiAtwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBuZXRkZXYt
+Pmh3X2ZlYXR1cmVzIHw9IE5FVElGX0ZfU0NUUF9DUkMgfAo+ID4+IC3CoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oCBORVRJRl9GX05UVVBMRSB8Cj4gPj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIE5FVElGX0ZfSFdfVEM7
+Cj4gPj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgYnJlYWs7Cj4gPj4gLcKgwqDCoMKg
+wqDCoCBkZWZhdWx0Ogo+ID4+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIGJyZWFrOwo+
+ID4+IC3CoMKgwqDCoMKgwqAgfQo+ID4+wqDCoCAtwqDCoMKgwqAgbmV0ZGV2LT5od19mZWF0dXJl
+cyB8PSBORVRJRl9GX1JYQUxMOwo+ID4+ICvCoMKgwqDCoMKgwqAgLyogY29weSBuZXRkZXYgZmVh
+dHVyZXMgaW50byBsaXN0IG9mIHVzZXIgc2VsZWN0YWJsZQo+IGZlYXR1cmVzICovCj4gPj4gK8Kg
+wqDCoMKgwqDCoCBuZXRkZXYtPmh3X2ZlYXR1cmVzIHw9IG5ldGRldi0+ZmVhdHVyZXM7Cj4gPj4g
+K8KgwqDCoMKgwqDCoCBuZXRkZXYtPmh3X2ZlYXR1cmVzIHw9IE5FVElGX0ZfUlhBTEwgfAo+ID4+
+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgIE5FVElGX0ZfSFdfTDJGV19ET0ZGTE9BRDsKPiA+PiArCj4gPj4gK8KgwqDCoMKgwqDCoCBp
+ZiAoaHctPm1hYy50eXBlID49IGl4Z2JlX21hY184MjU5OUVCKQo+ID4+ICvCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgIG5ldGRldi0+aHdfZmVhdHVyZXMgfD0gTkVUSUZfRl9OVFVQTEU7Cj4g
+Pgo+ID4KPiA+IGxvb2tzIGxpa2UgdGhlIGNsZWFudXAgbWlzc2VkIG1vdmluZyBORVRJRl9GX0hX
+X1RDIGZsYWcgaGVyZSB0aGF0Cj4gZW5hYmxlcwo+ID4gY2xzX3UzMiBvZmZsb2FkcyB2aWEgVEMu
+Cj4gCj4gQmFjayB3aGVuIEkgc3VibWl0dGVkIHRoaXMgcGF0Y2ggdGhlIE5FVElGX0ZfSFdfVEMg
+ZmxhZyBkaWRuJ3QgZXhpc3QuCj4gSSdtIHByZXR0eSBzdXJlIHRoaXMgaXMgcHJvYmFibHkgYSBj
+YXNlIG9mIGEgcGF0Y2ggZ2V0dGluZyBtYW5nbGVkCj4gYWZ0ZXIgc2l0dGluZyBpbiB0aGUgdHJl
+ZSBmb3Igc28gbG9uZy4KPiAKPiBJbiBhZGRpdGlvbiBJIGp1c3Qgbm90aWNlZCB0aGVyZSBpcyBh
+IGJ1ZyBpbiB0aGUgc2V0dGluZyBvZiB0aGUKPiBTQ1RQX0NSQyBmbGFnIGFzIHdlbGwuwqAgSXQg
+aXMgc2V0IHR3aWNlIHdoZW4gd2Ugc2hvdWxkIG9ubHkgYmUKPiBzZXR0aW5nCj4gaXQgaW4gdGhl
+IGlmIHN0YXRlbWVudC7CoCBJdCBpcyBqdXN0IGEgcXVpY2sgMiBsaW5lIGZpeCB0aGF0IGlzCj4g
+bmVlZGVkLgo+IEkgY2FuIGVpdGhlciBzdWJtaXQgYSBmb2xsb3ctdXAgb3IgSSBjYW4gcmVzcGlu
+IHRoZSBvcmlnaW5hbCBwYXRjaAo+IHJlYWwgcXVpY2sgc28gdGhhdCBpdCBhcHBsaWVzIG9uIHRv
+cCBvZiB0aGUgY3VycmVudCBpeGdiZSBxdWV1ZS4KCkl0IHdhcyBiZWNhdXNlIFNyaWRoYXIgbmVl
+ZGVkIGhpcyBwYXRjaCBhcHBsaWVkIGJlZm9yZSB5b3VycyBhcyBhIGZpeCwKdGhhdCB3YXMgdGhl
+IGlzc3VlLiDCoEp1c3Qgc2VuZCBtZSB0aGUgdHdvIGxpbmUgZml4IHlvdSBoYXZlIGZvciB0aGUK
+cGF0Y2ggYW5kIEkgd2lsbCByZS1zcGluIHRoZSBwYXRjaCB3aXRoIFNyaWRoYXIncyBuZWVkZWQg
+Zml4IGFzIHdlbGwu
 
-- Alex
+
+--=-mtHermk8CI46H2905Z6C
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXAvEjAAoJEOVv75VaS+3Olh0P/0l8mq1BlRtqyp9ILaF1sx5q
+PQRG6rDKjhWHph4sEUcgPkvae83PdmpoaUJraYl3rxqGr8b18OPiQwStL7qKOYFG
+XPXvf57lUlv25RvB7pXIzc2OERUKKcMYqiK/PfSjb/Q5n80PIV3b2ugkWw+J09eI
+vt/eAd18M3ixzHyfB05chJ+CHXKVj8tuB2p5PssF1d+7uddmTpQmyZiS1dXZiy06
+10A3tgRk4F62L2u/e2NZjc7LPzFuyfo0oj1vSU/rG3e2a4uaNY6bXhUy5EeMl7IA
+VVL9XUIQ9souN3Nmhg2zhRnF8KkB7ZejUNuI7hyr457EIaFBNwH9UzGLP+AgWmjq
+O8TxTxbgyRxhdlT3L9sJNvQwUTh80UqkVuln8pdQMsrRRWx+LwY0RtSWOi9Q0xKa
+0qBn4aDWMWA9QNdJVEOtwsaUUfzA6FYXK9QrCAwLap72LsNsnkiaR2daEZm9kbFH
+ReY0NwODGf76N9Ttxt/E9NpmfP7UNFzs+g4kozEODO5LIQ54DB7ch9oT1AsTEhKQ
+J8Dpi0kWHFGUrtw5l8ve9FSFbSmBR5HS5Unq5RO3XmxpTLsqNvnpSN93ORDlrVNg
+LHS8i6IJ83xdwMQyWmmhckLWbW5BdDi6TfxlveoQYOl4Ucpa5vQtCpGotzuS6zFf
+pPROiCQ+YqtWu9ii+rGv
+=pdFO
+-----END PGP SIGNATURE-----
+
+--=-mtHermk8CI46H2905Z6C--
