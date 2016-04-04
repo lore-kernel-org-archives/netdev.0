@@ -1,127 +1,95 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Mon, 04 Apr 2016 09:31:21 -0700
-Message-ID: <20160404162818.14332.1076.stgit@localhost.localdomain>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCHv2 net 1/3] samples/bpf: Fix build breakage with map_perf_test_user.c
+Date: Mon,  4 Apr 2016 22:31:32 +0530
+Message-ID: <5ab5eec91d2d0bc7f221d714ef84afac83b2604b.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36660 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260AbcDDQbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 12:31:23 -0400
-Received: by mail-pf0-f178.google.com with SMTP id e128so125900034pfe.3
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 09:31:23 -0700 (PDT)
-In-Reply-To: <20160404162545.14332.653.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
+	Michael Ellerman <mpe@ellerman.id.au>
+To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes other
-than fragmentation and reassembly.  Currently we are looking at this field
-as a way of identifying what frames can be aggregated and  which cannot for
-GRO.  While this is valid for frames that do not have DF set, it is invalid
-to do so if the bit is set.
+Building BPF samples is failing with the below error:
 
-In addition we were generating IPv4 ID collisions when 2 or more flows were
-interleaved over the same tunnel.  To prevent that we store the result of
-all IP ID checks via a "|=" instead of overwriting previous values.
+samples/bpf/map_perf_test_user.c: In function =E2=80=98main=E2=80=99:
+samples/bpf/map_perf_test_user.c:134:9: error: variable =E2=80=98r=E2=80=
+=99 has
+initializer but incomplete type
+  struct rlimit r =3D {RLIM_INFINITY, RLIM_INFINITY};
+         ^
+samples/bpf/map_perf_test_user.c:134:21: error: =E2=80=98RLIM_INFINITY=E2=
+=80=99
+undeclared (first use in this function)
+  struct rlimit r =3D {RLIM_INFINITY, RLIM_INFINITY};
+                     ^
+samples/bpf/map_perf_test_user.c:134:21: note: each undeclared
+identifier is reported only once for each function it appears in
+samples/bpf/map_perf_test_user.c:134:9: warning: excess elements in
+struct initializer [enabled by default]
+  struct rlimit r =3D {RLIM_INFINITY, RLIM_INFINITY};
+         ^
+samples/bpf/map_perf_test_user.c:134:9: warning: (near initialization
+for =E2=80=98r=E2=80=99) [enabled by default]
+samples/bpf/map_perf_test_user.c:134:9: warning: excess elements in
+struct initializer [enabled by default]
+samples/bpf/map_perf_test_user.c:134:9: warning: (near initialization
+for =E2=80=98r=E2=80=99) [enabled by default]
+samples/bpf/map_perf_test_user.c:134:16: error: storage size of =E2=80=98=
+r=E2=80=99
+isn=E2=80=99t known
+  struct rlimit r =3D {RLIM_INFINITY, RLIM_INFINITY};
+                ^
+samples/bpf/map_perf_test_user.c:139:2: warning: implicit declaration o=
+f
+function =E2=80=98setrlimit=E2=80=99 [-Wimplicit-function-declaration]
+  setrlimit(RLIMIT_MEMLOCK, &r);
+  ^
+samples/bpf/map_perf_test_user.c:139:12: error: =E2=80=98RLIMIT_MEMLOCK=
+=E2=80=99
+undeclared (first use in this function)
+  setrlimit(RLIMIT_MEMLOCK, &r);
+            ^
+samples/bpf/map_perf_test_user.c:134:16: warning: unused variable =E2=80=
+=98r=E2=80=99
+[-Wunused-variable]
+  struct rlimit r =3D {RLIM_INFINITY, RLIM_INFINITY};
+                ^
+make[2]: *** [samples/bpf/map_perf_test_user.o] Error 1
 
-With this patch we support two different approaches for the IP ID field.
-The first is a non-incrementing IP ID with DF bit set.  In such a case we
-simply won't write to the flush_id field in the GRO context block.  The
-other option is the legacy option in which the IP ID must increment by 1
-for every packet we aggregate.
+=46ix this by including the necessary header file.
 
-In the case of the non-incrementing IP ID we will end up losing the data
-that the IP ID is fixed.  However as per RFC 6864 we should be able to
-write any value into the IP ID when the DF bit is set so this should cause
-minimal harm.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
+v2: no changes
 
-v2: Updated patch so that we now only support one of two options.  Either
-    the IP ID is fixed with DF bit set, or the IP ID is incrementing.  That
-    allows us to support the fixed ID case as occurs with IPv6 to IPv4
-    header translation and what is likely already out there for some
-    devices with tunnel headers.
+ samples/bpf/map_perf_test_user.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- net/core/dev.c         |    1 +
- net/ipv4/af_inet.c     |   25 ++++++++++++++++++-------
- net/ipv6/ip6_offload.c |    3 ---
- 3 files changed, 19 insertions(+), 10 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 77a71cd68535..3429632398a4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4352,6 +4352,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
- 		unsigned long diffs;
- 
- 		NAPI_GRO_CB(p)->flush = 0;
-+		NAPI_GRO_CB(p)->flush_id = 0;
- 
- 		if (hash != skb_get_hash_raw(p)) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 9e481992dbae..33f6335448a2 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1324,6 +1324,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 
- 	for (p = *head; p; p = p->next) {
- 		struct iphdr *iph2;
-+		u16 flush_id;
- 
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
-@@ -1347,14 +1348,24 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 			(iph->tos ^ iph2->tos) |
- 			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF));
- 
--		/* Save the IP ID check to be included later when we get to
--		 * the transport layer so only the inner most IP ID is checked.
--		 * This is because some GSO/TSO implementations do not
--		 * correctly increment the IP ID for the outer hdrs.
--		 */
--		NAPI_GRO_CB(p)->flush_id =
--			    ((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
- 		NAPI_GRO_CB(p)->flush |= flush;
-+
-+		/* We must save the offset as it is possible to have multiple
-+		 * flows using the same protocol and address pairs so we
-+		 * need to wait until we can validate this is part of the
-+		 * same flow with a 5-tuple or better to avoid unnecessary
-+		 * collisions between flows.  We can support one of two
-+		 * possible scenarios, either a fixed value with DF bit set
-+		 * or an incrementing value with DF either set or unset.
-+		 * In the case of a fixed value we will end up losing the
-+		 * data that the IP ID was a fixed value, however per RFC
-+		 * 6864 in such a case the actual value of the IP ID is
-+		 * meant to be ignored anyway.
-+		 */
-+		flush_id = (u16)(id - ntohs(iph2->id));
-+		if (flush_id || !(iph2->frag_off & htons(IP_DF)))
-+			NAPI_GRO_CB(p)->flush_id |= flush_id ^
-+						    NAPI_GRO_CB(p)->count;
- 	}
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 82e9f3076028..9aa53f64dffd 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -238,9 +238,6 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		/* flush if Traffic Class fields are different */
- 		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
- 		NAPI_GRO_CB(p)->flush |= flush;
--
--		/* Clear flush_id, there's really no concept of ID in IPv6. */
--		NAPI_GRO_CB(p)->flush_id = 0;
- 	}
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_te=
+st_user.c
+index 95af56e..3147377 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -17,6 +17,7 @@
+ #include <linux/bpf.h>
+ #include <string.h>
+ #include <time.h>
++#include <sys/resource.h>
+ #include "libbpf.h"
+ #include "bpf_load.h"
+=20
+--=20
+2.7.4
