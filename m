@@ -1,25 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] irda: sh_irda: remove driver
-Date: Mon, 04 Apr 2016 16:24:46 -0400 (EDT)
-Message-ID: <20160404.162446.1948874932802627722.davem@davemloft.net>
-References: <1459734279-6531-1-git-send-email-horms+renesas@verge.net.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, magnus.damm@gmail.com, netdev@vger.kernel.org,
-	linux-renesas-soc@vger.kernel.org
-To: horms+renesas@verge.net.au
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1459734279-6531-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Bastien Philbert <bastienphilbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] bluetooth: Fix locking issues in the function l2cap_connect_cfm
+Date: Mon,  4 Apr 2016 16:32:40 -0400
+Message-ID: <1459801960-8886-1-git-send-email-bastienphilbert@gmail.com>
+Cc: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms+renesas@verge.net.au>
-Date: Mon,  4 Apr 2016 10:44:39 +0900
+This fixes a locking issue in the function l2cap_connect_cfm for
+not locking the mutex lock for channels on the l2cap_conn structure
+pointer conn before calling __l2cap_get_chan_by_dcid as all callers
+need to lock and unlock this mutex before calling this function due
+to issues with either concurrent users or race conditions arising
 
-> Remove the sh-irda driver as it appears to be unused since
-> c0bb9b302769 ("ARCH: ARM: shmobile: Remove ag5evm board support").
-> 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Signed-off-by: Bastien Philbert <bastienphilbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/bluetooth/l2cap_core.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Looks good, applied, thanks Simon.
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index eb4f5f2..2ab103e 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -7308,6 +7308,7 @@ static void l2cap_connect_cfm(struct hci_conn *hcon, u8 status)
+ 		struct l2cap_chan *chan, *next;
+ 
+ 		/* Client fixed channels should override server ones */
++		mutex_lock(&conn->chan_lock);
+ 		if (__l2cap_get_chan_by_dcid(conn, pchan->scid))
+ 			goto next;
+ 
+@@ -7324,6 +7325,7 @@ static void l2cap_connect_cfm(struct hci_conn *hcon, u8 status)
+ 
+ 		l2cap_chan_unlock(pchan);
+ next:
++		mutex_unlock(&conn->chan_lock);
+ 		next = l2cap_global_fixed_chan(pchan, hcon);
+ 		l2cap_chan_put(pchan);
+ 		pchan = next;
+-- 
+2.5.0
