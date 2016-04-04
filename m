@@ -1,71 +1,65 @@
 From: Chen-Yu Tsai <wens@csie.org>
-Subject: [PATCH RFC 4/5] ARM: dts: sun8i-h3: Add Ethernet controller device
- node to sun8i-h3.dtsi
-Date: Tue,  5 Apr 2016 00:22:33 +0800
-Message-ID: <1459786954-12649-5-git-send-email-wens@csie.org>
+Subject: [PATCH RFC 5/5] ARM: dts: sun8i: Enable Ethernet controller on the Orange PI PC
+Date: Tue,  5 Apr 2016 00:22:34 +0800
+Message-ID: <1459786954-12649-6-git-send-email-wens@csie.org>
 References: <1459786954-12649-1-git-send-email-wens@csie.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Chen-Yu Tsai <wens@csie.org>,
- LABBE Corentin <clabbe.montjoie@gmail.com>,
- linux-arm-kernel@lists.infradead.org
+Cc: Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	LABBE Corentin <clabbe.montjoie@gmail.com>
 To: Maxime Ripard <maxime.ripard@free-electrons.com>,
- Florian Fainelli <f.fainelli@gmail.com>, Rob Herring <robh+dt@kernel.org>,
- Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Kumar Gala <galak@codeaurora.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1459786954-12649-1-git-send-email-wens@csie.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
+The Orange PI PC uses the H3's internal Ethernet PHY with the EMAC
+Ethernet controller.
 
-The Allwinner H3 SoC has a gigabit Ethernet controller.
+Set a proper address for the PHY and enable the EMAC.
 
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
-[wens@csie.org: drop pinmux; update clocks/resets]
 Signed-off-by: Chen-Yu Tsai <wens@csie.org>
 ---
 
-This is not a stable binding. Do not merge.
+This patch depends on "ARM: dts: sun8i-h3: Add Ethernet controller device",
+which uses an binding still in development.
+
+Do not merge.
 
 ---
- arch/arm/boot/dts/sun8i-h3.dtsi | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
-index 9a28aeba9bc6..7749af6354bb 100644
---- a/arch/arm/boot/dts/sun8i-h3.dtsi
-+++ b/arch/arm/boot/dts/sun8i-h3.dtsi
-@@ -635,6 +635,18 @@
- 			status = "disabled";
- 		};
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+index daf50b9a6657..f01e10df812a 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+@@ -102,6 +102,20 @@
+ 	status = "okay";
+ };
  
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			reg = <0x01c30000 0x1000>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			resets = <&ahb_rst 17>;
-+			reset-names = "ahb";
-+			clocks = <&bus_gates 17>, <&ephy>;
-+			clock-names = "ahb", "tx";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+		};
++&ephy {
++	allwinner,ephy-addr = <0x1>;
++};
 +
- 		gic: interrupt-controller@01c81000 {
- 			compatible = "arm,cortex-a7-gic", "arm,cortex-a15-gic";
- 			reg = <0x01c81000 0x1000>,
++&emac {
++	phy = <&phy1>;
++	phy-mode = "mii";
++	status = "okay";
++
++	phy1: ethernet-phy@1 {
++		reg = <1>;
++	};
++};
++
+ &ir {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&ir_pins_a>;
 -- 
 2.7.0
