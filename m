@@ -1,45 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Mon, 04 Apr 2016 07:33:40 -0700
-Message-ID: <1459780420.6473.337.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	 <1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
-	 <57022A85.6040002@iogearbox.net> <20160404150700.1456ae80@redhat.com>
+From: Guus Sliepen <guus@tinc-vpn.org>
+Subject: Re: Best way to reduce system call overhead for tun device I/O?
+Date: Mon, 4 Apr 2016 16:40:19 +0200
+Message-ID: <20160404144019.GN3771@sliepen.org>
+References: <20160329224043.GY3784@sliepen.org>
+ <CALx6S37xsTeDyMHOEiGzjpbR_5zFw6XSDEgPkZqpUzEa9WDStg@mail.gmail.com>
+ <20160331.172050.1423948167839485574.davem@davemloft.net>
+ <20160331222857.GH3771@sliepen.org>
+ <20160331163932.3617e7cd@xeon-e3>
+ <CAF=yD-LUaxsJMZiGXQdEDh-6UE11ApL89rjt=13oLK3FM1rerQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, gerlitz@mellanox.com,
-	john.fastabend@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <tom@herbertland.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:36081 "EHLO
-	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755978AbcDDOdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 10:33:47 -0400
-Received: by mail-vk0-f42.google.com with SMTP id c4so56547164vkb.3
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 07:33:47 -0700 (PDT)
-In-Reply-To: <20160404150700.1456ae80@redhat.com>
+Received: from arianus.sliepen.org ([92.243.30.131]:39148 "EHLO
+	arianus.sliepen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753143AbcDDOkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 10:40:22 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-LUaxsJMZiGXQdEDh-6UE11ApL89rjt=13oLK3FM1rerQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-04 at 15:07 +0200, Jesper Dangaard Brouer wrote:
+On Sun, Apr 03, 2016 at 07:03:09PM -0400, Willem de Bruijn wrote:
 
-> Argh... maybe the minimal pseudo/fake SKB is the wrong "signal" to send
-> to users of this API.
+> On Thu, Mar 31, 2016 at 7:39 PM, Stephen Hemminger <stephen@networkplumber.org> wrote:
+>
+> > Rather than bodge AF_PACKET onto TUN, why not just create a new device type
+> > and control it from something modern like netlink.
+
+Do we really want to introduce a whole new device type? The tun device
+is working perfectly fine, except for the fact that there is no way to
+send/receive multiple packets in one go.
+
+> Depending on the use-case, it may be sufficient to extend AF_PACKET
+> with limited tap functionality:
 > 
-> The hole idea is that an SKB is NOT allocated yet, and not needed at
-> this level.  If we start supporting calling underlying SKB functions,
-> then we will end-up in the same place (performance wise).
+> - add a po->xmit mode that reinjects into the kernel receive path,
+>   analogous to pktgen's M_NETIF_RECEIVE mode.
+> 
+> - optionally drop packets in __netif_receive_skb_core and xmit_one
+>   if any of the registered packet sockets accepted the packet and has
+>   a new intercept feature flag enabled.
+> 
+> This can be applied to a dummy device, but much more interesting
+> is to interpose on the flow of a normal nic. It is clearly not a drop-in
+> replacement for a tap (let alone tun) device. I have some preliminary
+> code.
 
-A BPF program can access many skb fields.
+It's not really tinc's use case, but I did try using socket(AF_PACKET)
+bound to a tun interface, just to see if sendmmsg()/recvmmsg() works
+then. It does, but indeed for packets that are sent to the socket, they
+need to be reinjected into the kernel receive path. So I'll be happy to
+test out your preliminary code.
 
-If you plan to support BPF, your fake skb needs to be populated like a
-real one. Looks like some code will be replicated in all drivers that
-want this facility...
-
-Or accept (document ?) that some BPF instructions are just not there.
-(hash, queue_mapping ...)
+-- 
+Met vriendelijke groet / with kind regards,
+     Guus Sliepen <guus@tinc-vpn.org>
