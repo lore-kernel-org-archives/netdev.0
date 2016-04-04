@@ -1,66 +1,35 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Mon, 4 Apr 2016 15:07:00 +0200
-Message-ID: <20160404150700.1456ae80@redhat.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	<1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
-	<57022A85.6040002@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] Marvell phy: add fiber status check for some
+ components
+Date: Mon, 4 Apr 2016 15:14:01 +0200
+Message-ID: <20160404131401.GG21828@lunn.ch>
+References: <56FE9B5C.6030509@nexvision.fr>
+ <56FEA2EC.2030303@nexvision.fr>
+ <20160401170838.GA21633@lunn.ch>
+ <570229B6.4090805@nexvision.fr>
+ <20160404122219.GD21828@lunn.ch>
+ <570266F3.4000400@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, gerlitz@mellanox.com,
-	john.fastabend@gmail.com, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51982 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:45792 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751534AbcDDNHG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 09:07:06 -0400
-In-Reply-To: <57022A85.6040002@iogearbox.net>
+	id S1754973AbcDDNOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 09:14:03 -0400
+Content-Disposition: inline
+In-Reply-To: <570266F3.4000400@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 04, 2016 at 03:06:59PM +0200, Charles-Antoine Couret wrote:
+> Hi,
+> I took into account previous remark from Andrew to return in MII_M1111_COPPER page in all cases.
+> I completed the description of patch.
 
-On Mon, 04 Apr 2016 10:49:09 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
+Hi Charles
 
-> On 04/02/2016 03:21 AM, Brenden Blanco wrote:
-> > Add a new bpf prog type that is intended to run in early stages of the
-> > packet rx path. Only minimal packet metadata will be available, hence a new
-> > context type, struct xdp_metadata, is exposed to userspace. So far only
-> > expose the readable packet length, and only in read mode.
-> >
-> > The PHYS_DEV name is chosen to represent that the program is meant only
-> > for physical adapters, rather than all netdevs.
-> >
-> > While the user visible struct is new, the underlying context must be
-> > implemented as a minimal skb in order for the packet load_* instructions
-> > to work. The skb filled in by the driver must have skb->len, skb->head,
-> > and skb->data set, and skb->data_len == 0.
-> >
-[...]
-> 
-> Do you plan to support bpf_skb_load_bytes() as well? I like using
-> this API especially when dealing with larger chunks (>4 bytes) to
-> load into stack memory, plus content is kept in network byte order.
-> 
-> What about other helpers such as bpf_skb_store_bytes() et al that
-> work on skbs. Do you intent to reuse them as is and thus populate
-> the per cpu skb with needed fields (faking linear data), or do you
-> see larger obstacles that prevent for this?
+Please do not send patches as attachments.
 
-Argh... maybe the minimal pseudo/fake SKB is the wrong "signal" to send
-to users of this API.
-
-The hole idea is that an SKB is NOT allocated yet, and not needed at
-this level.  If we start supporting calling underlying SKB functions,
-then we will end-up in the same place (performance wise).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+       Andrew
