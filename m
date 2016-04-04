@@ -1,45 +1,258 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Tue, 5 Apr 2016 00:07:14 +0200
-Message-ID: <20160404220714.GB9972@pox.localdomain>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
- <1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
- <CALx6S35N1W32e9fvAmEbPdZk1PK2eNUgd0uU7pteMkBoHUd36g@mail.gmail.com>
- <20160403070221.GF21980@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	ogerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] ixgbe: Add support for generic Tx checksums
+Date: Mon,  4 Apr 2016 15:14:51 -0700
+Message-ID: <1459808097-26409-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:35521 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753418AbcDDWHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 18:07:18 -0400
-Received: by mail-lb0-f172.google.com with SMTP id bc4so180349178lbc.2
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 15:07:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160403070221.GF21980@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:64563 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753204AbcDDWPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:15:06 -0400
+In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/03/16 at 12:02am, Brenden Blanco wrote:
-> On Sat, Apr 02, 2016 at 12:39:45PM -0400, Tom Herbert wrote:
-> > Is there a hard restriction that this could only work with physical devices?
-> I suppose not, but there wouldn't be much use case as compared to tc
-> ingress, no? Since I was imagining that this new hook would be more
-> restricted in functionality due to operating on descriptors rather than
-> with a full skb, I tried to think of an appropriate name.
-> 
-> If you think that this hook would spread, then a better name is needed.
+From: Alexander Duyck <aduyck@mirantis.com>
 
-The thing that comes to mind is that this prog type makes it easier to
-implement batched processing of packets in BPF which would require major
-surgery across the tc layer to make it available in cls_bpf. Batched
-processing will be beneficial for software devices as well.
+This patch adds support for generic Tx checksums to the ixgbe driver.  It
+turns out this is actually pretty easy after going over the datasheet as we
+were doing a number of steps we didn't need to.
+
+In order to perform a Tx checksum for an L4 header we need to fill in the
+following fields in the Tx descriptor:
+  MACLEN (maximum of 127), retrieved from:
+		skb_network_offset()
+  IPLEN  (maximum of 511), retrieved from:
+		skb_checksum_start_offset() - skb_network_offset()
+  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
+		skb->csum_offset
+
+The added advantage to doing this is that we can support inner checksum
+offloads for tunnels and MPLS while still being able to transparently
+insert VLAN tags.
+
+I also took the opportunity to clean-up many of the feature flag
+configuration bits to make them a bit more consistent between drivers.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 164 +++++++++-----------------
+ 1 file changed, 59 insertions(+), 105 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index bce5737..8d248c8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7202,103 +7202,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	return 1;
+ }
+ 
++static inline bool ixgbe_ipv6_csum_is_sctp(struct sk_buff *skb)
++{
++	unsigned int offset = 0;
++
++	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
++
++	return offset == skb_checksum_start_offset(skb);
++}
++
+ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 			  struct ixgbe_tx_buffer *first)
+ {
+ 	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens = 0;
+-	u32 mss_l4len_idx = 0;
+ 	u32 type_tucmd = 0;
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-		if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
+-		    !(first->tx_flags & IXGBE_TX_FLAGS_CC))
++csum_failed:
++		if (!(first->tx_flags & (IXGBE_TX_FLAGS_HW_VLAN |
++					 IXGBE_TX_FLAGS_CC)))
+ 			return;
+-		vlan_macip_lens = skb_network_offset(skb) <<
+-				  IXGBE_ADVTXD_MACLEN_SHIFT;
+-	} else {
+-		u8 l4_hdr = 0;
+-		union {
+-			struct iphdr *ipv4;
+-			struct ipv6hdr *ipv6;
+-			u8 *raw;
+-		} network_hdr;
+-		union {
+-			struct tcphdr *tcphdr;
+-			u8 *raw;
+-		} transport_hdr;
+-		__be16 frag_off;
+-
+-		if (skb->encapsulation) {
+-			network_hdr.raw = skb_inner_network_header(skb);
+-			transport_hdr.raw = skb_inner_transport_header(skb);
+-			vlan_macip_lens = skb_inner_network_offset(skb) <<
+-					  IXGBE_ADVTXD_MACLEN_SHIFT;
+-		} else {
+-			network_hdr.raw = skb_network_header(skb);
+-			transport_hdr.raw = skb_transport_header(skb);
+-			vlan_macip_lens = skb_network_offset(skb) <<
+-					  IXGBE_ADVTXD_MACLEN_SHIFT;
+-		}
++		goto no_csum;
++	}
+ 
+-		/* use first 4 bits to determine IP version */
+-		switch (network_hdr.ipv4->version) {
+-		case IPVERSION:
+-			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+-			l4_hdr = network_hdr.ipv4->protocol;
+-			break;
+-		case 6:
+-			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
+-			l4_hdr = network_hdr.ipv6->nexthdr;
+-			if (likely((transport_hdr.raw - network_hdr.raw) ==
+-				   sizeof(struct ipv6hdr)))
+-				break;
+-			ipv6_skip_exthdr(skb, network_hdr.raw - skb->data +
+-					      sizeof(struct ipv6hdr),
+-					 &l4_hdr, &frag_off);
+-			if (unlikely(frag_off))
+-				l4_hdr = NEXTHDR_FRAGMENT;
+-			break;
+-		default:
++	switch (skb->csum_offset) {
++	case offsetof(struct tcphdr, check):
++		type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
++		/* fall through */
++	case offsetof(struct udphdr, check):
++		break;
++	case offsetof(struct sctphdr, checksum):
++		/* validate that this is actually an SCTP request */
++		if (((first->protocol == htons(ETH_P_IP)) &&
++		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
++		    ((first->protocol == htons(ETH_P_IPV6)) &&
++		     ixgbe_ipv6_csum_is_sctp(skb))) {
++			type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
+ 			break;
+ 		}
+-
+-		switch (l4_hdr) {
+-		case IPPROTO_TCP:
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
+-			mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
+-			break;
+-		case IPPROTO_SCTP:
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
+-			mss_l4len_idx = sizeof(struct sctphdr) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
+-			break;
+-		case IPPROTO_UDP:
+-			mss_l4len_idx = sizeof(struct udphdr) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
+-			break;
+-		default:
+-			if (unlikely(net_ratelimit())) {
+-				dev_warn(tx_ring->dev,
+-					 "partial checksum, version=%d, l4 proto=%x\n",
+-					 network_hdr.ipv4->version, l4_hdr);
+-			}
+-			skb_checksum_help(skb);
+-			goto no_csum;
+-		}
+-
+-		/* update TX checksum flag */
+-		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
++		/* fall through */
++	default:
++		skb_checksum_help(skb);
++		goto csum_failed;
+ 	}
+ 
++	/* update TX checksum flag */
++	first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
++	vlan_macip_lens = skb_checksum_start_offset(skb) -
++			  skb_network_offset(skb);
+ no_csum:
+ 	/* vlan_macip_lens: MACLEN, VLAN tag */
++	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+ 
+-	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
+-			  type_tucmd, mss_l4len_idx);
++	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0, type_tucmd, 0);
+ }
+ 
+ #define IXGBE_SET_FLAG(_input, _flag, _result) \
+@@ -9190,41 +9148,37 @@ skip_sriov:
+ 
+ #endif
+ 	netdev->features = NETIF_F_SG |
+-			   NETIF_F_IP_CSUM |
+-			   NETIF_F_IPV6_CSUM |
+-			   NETIF_F_HW_VLAN_CTAG_TX |
+-			   NETIF_F_HW_VLAN_CTAG_RX |
+ 			   NETIF_F_TSO |
+ 			   NETIF_F_TSO6 |
+ 			   NETIF_F_RXHASH |
+-			   NETIF_F_RXCSUM;
+-
+-	netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
++			   NETIF_F_RXCSUM |
++			   NETIF_F_HW_CSUM |
++			   NETIF_F_SCTP_CRC |
++			   NETIF_F_HW_VLAN_CTAG_TX |
++			   NETIF_F_HW_VLAN_CTAG_RX;
+ 
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_82599EB:
+-	case ixgbe_mac_X540:
+-	case ixgbe_mac_X550:
+-	case ixgbe_mac_X550EM_x:
++	if (hw->mac.type >= ixgbe_mac_82599EB)
+ 		netdev->features |= NETIF_F_SCTP_CRC;
+-		netdev->hw_features |= NETIF_F_SCTP_CRC |
+-				       NETIF_F_NTUPLE |
+-				       NETIF_F_HW_TC;
+-		break;
+-	default:
+-		break;
+-	}
+ 
+-	netdev->hw_features |= NETIF_F_RXALL;
++	/* copy netdev features into list of user selectable features */
++	netdev->hw_features |= netdev->features;
++	netdev->hw_features |= NETIF_F_RXALL |
++			       NETIF_F_HW_L2FW_DOFFLOAD;
++
++	if (hw->mac.type >= ixgbe_mac_82599EB)
++		netdev->hw_features |= NETIF_F_NTUPLE;
++
++	/* set this bit last since it cannot be part of hw_features */
+ 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+-	netdev->vlan_features |= NETIF_F_TSO;
+-	netdev->vlan_features |= NETIF_F_TSO6;
+-	netdev->vlan_features |= NETIF_F_IP_CSUM;
+-	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
+-	netdev->vlan_features |= NETIF_F_SG;
++	netdev->vlan_features |= NETIF_F_SG |
++				 NETIF_F_TSO |
++				 NETIF_F_TSO6 |
++				 NETIF_F_HW_CSUM |
++				 NETIF_F_SCTP_CRC;
+ 
+-	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
++	netdev->mpls_features |= NETIF_F_HW_CSUM;
++	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
+ 
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->priv_flags |= IFF_SUPP_NOFCS;
+-- 
+2.5.5
