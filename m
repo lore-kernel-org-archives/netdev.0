@@ -1,304 +1,198 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] ixgbe: Fix flow control for Xeon D KR backplane
-Date: Mon,  4 Apr 2016 15:14:53 -0700
-Message-ID: <1459808097-26409-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] ixgbevf: Add support for generic Tx checksums
+Date: Mon,  4 Apr 2016 15:14:52 -0700
+Message-ID: <1459808097-26409-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24234 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:51308 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756303AbcDDWPH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 18:15:07 -0400
+	id S1754765AbcDDWPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:15:04 -0400
 In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Xeon D KR backplane is different from other backplanes,
-in that we can't use auto-negotiation to determine the
-mode. Instead, use whatever the user configured.
+This patch adds support for generic Tx checksums to the ixgbevf driver.  It
+turns out this is actually pretty easy after going over the datasheet as we
+were doing a number of steps we didn't need to.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+In order to perform a Tx checksum for an L4 header we need to fill in the
+following fields in the Tx descriptor:
+  MACLEN (maximum of 127), retrieved from:
+		skb_network_offset()
+  IPLEN  (maximum of 511), retrieved from:
+		skb_checksum_start_offset() - skb_network_offset()
+  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
+		skb->csum_offset
+
+The added advantage to doing this is that we can support inner checksum
+offloads for tunnels and MPLS while still being able to transparently
+insert VLAN tags.
+
+I also took the opportunity to clean-up many of the feature flag
+configuration bits to make them a bit more consistent between drivers.  In
+the case of the VF drivers this meant adding support for SCTP CRCs, and
+inner checksum offloads for MPLS and various tunnel types.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  8 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  5 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c   |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 86 ++++++++++++++++++++++++-
- 7 files changed, 98 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 104 +++++++++-------------
+ 1 file changed, 43 insertions(+), 61 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 9790d02..f47eb12 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1192,6 +1192,7 @@ static const struct ixgbe_mac_operations mac_ops_82598 = {
- 	.clear_vfta		= &ixgbe_clear_vfta_82598,
- 	.set_vfta		= &ixgbe_set_vfta_82598,
- 	.fc_enable		= &ixgbe_fc_enable_82598,
-+	.setup_fc		= ixgbe_setup_fc_generic,
- 	.set_fw_drv_ver         = NULL,
- 	.acquire_swfw_sync      = &ixgbe_acquire_swfw_sync,
- 	.release_swfw_sync      = &ixgbe_release_swfw_sync,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index b276fe0..c3ae5a7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2220,6 +2220,7 @@ static const struct ixgbe_mac_operations mac_ops_82599 = {
- 	.clear_vfta             = &ixgbe_clear_vfta_generic,
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
-+	.setup_fc		= ixgbe_setup_fc_generic,
- 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = &ixgbe_setup_sfp_modules_82599,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 6404505..8c7e78b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2015 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -111,12 +111,12 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 9a2eed0..50b6bff 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3334,76 +3334,55 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
+ 	return 1;
  }
  
- /**
-- *  ixgbe_setup_fc - Set up flow control
-+ *  ixgbe_setup_fc_generic - Set up flow control
-  *  @hw: pointer to hardware structure
-  *
-  *  Called at init time to set up flow control.
-  **/
--static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
-+s32 ixgbe_setup_fc_generic(struct ixgbe_hw *hw)
- {
- 	s32 ret_val = 0;
- 	u32 reg = 0, reg_bp = 0;
-@@ -296,7 +296,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_FLUSH(hw);
- 
- 	/* Setup flow control */
--	ret_val = ixgbe_setup_fc(hw);
-+	ret_val = hw->mac.ops.setup_fc(hw);
- 	if (ret_val)
- 		return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 2b95631..2e29015 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2014 Intel Corporation.
-+  Copyright(c) 1999 - 2016 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -81,6 +81,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
- s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_setup_fc_generic(struct ixgbe_hw *);
- bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
- void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 29e0b0e..787d2b2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3308,6 +3308,7 @@ struct ixgbe_mac_operations {
- 
- 	/* Flow Control */
- 	s32 (*fc_enable)(struct ixgbe_hw *);
-+	s32 (*setup_fc)(struct ixgbe_hw *);
- 
- 	/* Manageability interface */
- 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
-@@ -3525,6 +3526,7 @@ struct ixgbe_info {
- 
- #define IXGBE_KRM_PORT_CAR_GEN_CTRL(P)	((P) ? 0x8010 : 0x4010)
- #define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
-+#define IXGBE_KRM_AN_CNTL_1(P)		((P) ? 0x822C : 0x422C)
- #define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
- #define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P) ? 0x8638 : 0x4638)
- #define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P) ? 0x8B00 : 0x4B00)
-@@ -3547,6 +3549,9 @@ struct ixgbe_info {
- #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE		(1 << 29)
- #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_RESTART		(1 << 31)
- 
-+#define IXGBE_KRM_AN_CNTL_1_SYM_PAUSE			(1 << 28)
-+#define IXGBE_KRM_AN_CNTL_1_ASM_PAUSE			(1 << 29)
-+
- #define IXGBE_KRM_DSP_TXFFE_STATE_C0_EN			(1 << 6)
- #define IXGBE_KRM_DSP_TXFFE_STATE_CP1_CN1_EN		(1 << 15)
- #define IXGBE_KRM_DSP_TXFFE_STATE_CO_ADAPT_EN		(1 << 16)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 0d69564..c00b67b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -846,6 +846,7 @@ static const struct ixgbe_mac_operations mac_ops_X540 = {
- 	.clear_vfta             = &ixgbe_clear_vfta_generic,
- 	.set_vfta               = &ixgbe_set_vfta_generic,
- 	.fc_enable              = &ixgbe_fc_enable_generic,
-+	.setup_fc		= ixgbe_setup_fc_generic,
- 	.set_fw_drv_ver         = &ixgbe_set_fw_drv_ver_generic,
- 	.init_uta_tables        = &ixgbe_init_uta_tables_generic,
- 	.setup_sfp              = NULL,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 26e0b8d..972c9aa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -27,6 +27,7 @@
- #include "ixgbe_phy.h"
- 
- static s32 ixgbe_setup_kr_speed_x550em(struct ixgbe_hw *, ixgbe_link_speed);
-+static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *);
- 
- static s32 ixgbe_get_invariants_X550_x(struct ixgbe_hw *hw)
- {
-@@ -1342,15 +1343,18 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
- 		mac->ops.enable_tx_laser = NULL;
- 		mac->ops.flap_tx_laser = NULL;
- 		mac->ops.setup_link = ixgbe_setup_mac_link_multispeed_fiber;
-+		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
- 		mac->ops.setup_mac_link = ixgbe_setup_mac_link_sfp_x550em;
- 		mac->ops.set_rate_select_speed =
- 					ixgbe_set_soft_rate_select_speed;
- 		break;
- 	case ixgbe_media_type_copper:
- 		mac->ops.setup_link = ixgbe_setup_mac_link_t_X550em;
-+		mac->ops.setup_fc = ixgbe_setup_fc_generic;
- 		mac->ops.check_link = ixgbe_check_link_t_X550em;
- 		break;
- 	default:
-+		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
- 		break;
- 	}
- }
-@@ -1842,6 +1846,82 @@ static s32 ixgbe_get_lcd_t_x550em(struct ixgbe_hw *hw,
- 	return status;
- }
- 
-+/**
-+ * ixgbe_setup_fc_x550em - Set up flow control
-+ * @hw: pointer to hardware structure
-+ */
-+static s32 ixgbe_setup_fc_x550em(struct ixgbe_hw *hw)
++static inline bool ixgbevf_ipv6_csum_is_sctp(struct sk_buff *skb)
 +{
-+	bool pause, asm_dir;
-+	u32 reg_val;
-+	s32 rc;
++	unsigned int offset = 0;
 +
-+	/* Validate the requested mode */
-+	if (hw->fc.strict_ieee && hw->fc.requested_mode == ixgbe_fc_rx_pause) {
-+		hw_err(hw, "ixgbe_fc_rx_pause not valid in strict IEEE mode\n");
-+		return IXGBE_ERR_INVALID_LINK_SETTINGS;
-+	}
++	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
 +
-+	/* 10gig parts do not have a word in the EEPROM to determine the
-+	 * default flow control setting, so we explicitly set it to full.
-+	 */
-+	if (hw->fc.requested_mode == ixgbe_fc_default)
-+		hw->fc.requested_mode = ixgbe_fc_full;
-+
-+	/* Determine PAUSE and ASM_DIR bits. */
-+	switch (hw->fc.requested_mode) {
-+	case ixgbe_fc_none:
-+		pause = false;
-+		asm_dir = false;
-+		break;
-+	case ixgbe_fc_tx_pause:
-+		pause = false;
-+		asm_dir = true;
-+		break;
-+	case ixgbe_fc_rx_pause:
-+		/* Rx Flow control is enabled and Tx Flow control is
-+		 * disabled by software override. Since there really
-+		 * isn't a way to advertise that we are capable of RX
-+		 * Pause ONLY, we will advertise that we support both
-+		 * symmetric and asymmetric Rx PAUSE, as such we fall
-+		 * through to the fc_full statement.  Later, we will
-+		 * disable the adapter's ability to send PAUSE frames.
-+		 */
-+		/* Fallthrough */
-+	case ixgbe_fc_full:
-+		pause = true;
-+		asm_dir = true;
-+		break;
-+	default:
-+		hw_err(hw, "Flow control param set incorrectly\n");
-+		return IXGBE_ERR_CONFIG;
-+	}
-+
-+	if (hw->device_id != IXGBE_DEV_ID_X550EM_X_KR)
-+		return 0;
-+
-+	rc = ixgbe_read_iosf_sb_reg_x550(hw,
-+					 IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					 IXGBE_SB_IOSF_TARGET_KR_PHY, &reg_val);
-+	if (rc)
-+		return rc;
-+
-+	reg_val &= ~(IXGBE_KRM_AN_CNTL_1_SYM_PAUSE |
-+		     IXGBE_KRM_AN_CNTL_1_ASM_PAUSE);
-+	if (pause)
-+		reg_val |= IXGBE_KRM_AN_CNTL_1_SYM_PAUSE;
-+	if (asm_dir)
-+		reg_val |= IXGBE_KRM_AN_CNTL_1_ASM_PAUSE;
-+	rc = ixgbe_write_iosf_sb_reg_x550(hw,
-+					  IXGBE_KRM_AN_CNTL_1(hw->bus.lan_id),
-+					  IXGBE_SB_IOSF_TARGET_KR_PHY, reg_val);
-+
-+	/* This device does not fully support AN. */
-+	hw->fc.disable_fc_autoneg = true;
-+
-+	return rc;
++	return offset == skb_checksum_start_offset(skb);
 +}
 +
- /** ixgbe_enter_lplu_x550em - Transition to low power states
-  *  @hw: pointer to hardware structure
-  *
-@@ -2337,8 +2417,6 @@ static void ixgbe_release_swfw_sync_X550em(struct ixgbe_hw *hw, u32 mask)
- 	.enable_rx_buff			= &ixgbe_enable_rx_buff_generic, \
- 	.get_thermal_sensor_data	= NULL, \
- 	.init_thermal_sensor_thresh	= NULL, \
--	.prot_autoc_read		= &prot_autoc_read_generic, \
--	.prot_autoc_write		= &prot_autoc_write_generic, \
- 	.enable_rx			= &ixgbe_enable_rx_generic, \
- 	.disable_rx			= &ixgbe_disable_rx_x550, \
+ static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
+ 			    struct ixgbevf_tx_buffer *first)
+ {
+ 	struct sk_buff *skb = first->skb;
+ 	u32 vlan_macip_lens = 0;
+-	u32 mss_l4len_idx = 0;
+ 	u32 type_tucmd = 0;
  
-@@ -2354,6 +2432,9 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
- 	.setup_sfp		= NULL,
- 	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X540,
- 	.release_swfw_sync	= &ixgbe_release_swfw_sync_X540,
-+	.prot_autoc_read	= prot_autoc_read_generic,
-+	.prot_autoc_write	= prot_autoc_write_generic,
-+	.setup_fc		= ixgbe_setup_fc_generic,
- };
+-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		u8 l4_hdr = 0;
+-		__be16 frag_off;
+-
+-		switch (first->protocol) {
+-		case htons(ETH_P_IP):
+-			vlan_macip_lens |= skb_network_header_len(skb);
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+-			l4_hdr = ip_hdr(skb)->protocol;
+-			break;
+-		case htons(ETH_P_IPV6):
+-			vlan_macip_lens |= skb_network_header_len(skb);
+-			l4_hdr = ipv6_hdr(skb)->nexthdr;
+-			if (likely(skb_network_header_len(skb) ==
+-				   sizeof(struct ipv6hdr)))
+-				break;
+-			ipv6_skip_exthdr(skb, skb_network_offset(skb) +
+-					      sizeof(struct ipv6hdr),
+-					 &l4_hdr, &frag_off);
+-			if (unlikely(frag_off))
+-				l4_hdr = NEXTHDR_FRAGMENT;
+-			break;
+-		default:
+-			break;
+-		}
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		goto no_csum;
  
- static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
-@@ -2368,6 +2449,7 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	.setup_sfp		= ixgbe_setup_sfp_modules_X550em,
- 	.acquire_swfw_sync	= &ixgbe_acquire_swfw_sync_X550em,
- 	.release_swfw_sync	= &ixgbe_release_swfw_sync_X550em,
-+	.setup_fc		= NULL, /* defined later */
- };
+-		switch (l4_hdr) {
+-		case IPPROTO_TCP:
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
+-			mss_l4len_idx = tcp_hdrlen(skb) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
+-			break;
+-		case IPPROTO_SCTP:
+-			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
+-			mss_l4len_idx = sizeof(struct sctphdr) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
+-			break;
+-		case IPPROTO_UDP:
+-			mss_l4len_idx = sizeof(struct udphdr) <<
+-					IXGBE_ADVTXD_L4LEN_SHIFT;
++	switch (skb->csum_offset) {
++	case offsetof(struct tcphdr, check):
++		type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
++		/* fall through */
++	case offsetof(struct udphdr, check):
++		break;
++	case offsetof(struct sctphdr, checksum):
++		/* validate that this is actually an SCTP request */
++		if (((first->protocol == htons(ETH_P_IP)) &&
++		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
++		    ((first->protocol == htons(ETH_P_IPV6)) &&
++		     ixgbevf_ipv6_csum_is_sctp(skb))) {
++			type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
+ 			break;
+-		default:
+-			if (unlikely(net_ratelimit())) {
+-				dev_warn(tx_ring->dev,
+-					 "partial checksum, l3 proto=%x, l4 proto=%x\n",
+-					 first->protocol, l4_hdr);
+-			}
+-			skb_checksum_help(skb);
+-			goto no_csum;
+ 		}
+-
+-		/* update TX checksum flag */
+-		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
++		/* fall through */
++	default:
++		skb_checksum_help(skb);
++		goto no_csum;
+ 	}
+-
++	/* update TX checksum flag */
++	first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
++	vlan_macip_lens = skb_checksum_start_offset(skb) -
++			  skb_network_offset(skb);
+ no_csum:
+ 	/* vlan_macip_lens: MACLEN, VLAN tag */
+ 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
  
- #define X550_COMMON_EEP \
+-	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens,
+-			    type_tucmd, mss_l4len_idx);
++	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
+ }
+ 
+ static __le32 ixgbevf_tx_cmd_type(u32 tx_flags)
+@@ -4010,22 +3989,25 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	netdev->hw_features = NETIF_F_SG |
+-			      NETIF_F_IP_CSUM |
+-			      NETIF_F_IPV6_CSUM |
+ 			      NETIF_F_TSO |
+ 			      NETIF_F_TSO6 |
+-			      NETIF_F_RXCSUM;
++			      NETIF_F_RXCSUM |
++			      NETIF_F_HW_CSUM |
++			      NETIF_F_SCTP_CRC;
+ 
+ 	netdev->features = netdev->hw_features |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+ 			   NETIF_F_HW_VLAN_CTAG_RX |
+ 			   NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+-	netdev->vlan_features |= NETIF_F_TSO |
++	netdev->vlan_features |= NETIF_F_SG |
++				 NETIF_F_TSO |
+ 				 NETIF_F_TSO6 |
+-				 NETIF_F_IP_CSUM |
+-				 NETIF_F_IPV6_CSUM |
+-				 NETIF_F_SG;
++				 NETIF_F_HW_CSUM |
++				 NETIF_F_SCTP_CRC;
++
++	netdev->mpls_features |= NETIF_F_HW_CSUM;
++	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
+ 
+ 	if (pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
 -- 
 2.5.5
