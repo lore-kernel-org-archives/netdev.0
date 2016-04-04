@@ -1,234 +1,162 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v5 net-next] net: ipv4: Consider failed nexthops in
- multipath routes
-Date: Mon, 4 Apr 2016 09:29:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604040917390.2182@ja.home.ssi.bg>
-References: <1459728547-36371-1-git-send-email-dsa@cumulusnetworks.com>
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Subject: Re: Section 4 No. 9,10 Failed was occurred by IPv6 Ready Logo
+ Conformance Test
+Date: Mon, 4 Apr 2016 15:43:47 +0900
+Message-ID: <57020D23.9010403@jp.fujitsu.com>
+References: <56FE23C4.2000706@jp.fujitsu.com> <56FE26BE.2060209@windriver.com>
+ <56FE2A90.8080300@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+To: Rongqing Li <rongqing.li@windriver.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46410 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750953AbcDDG3y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 02:29:54 -0400
-In-Reply-To: <1459728547-36371-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:12031 "EHLO
+	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752105AbcDDGnz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 02:43:55 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+	by yt-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id D2558AC02B0
+	for <netdev@vger.kernel.org>; Mon,  4 Apr 2016 15:43:47 +0900 (JST)
+In-Reply-To: <56FE2A90.8080300@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Roy,
 
-	Hello,
+On 2016年04月01日 17:00, Yuki Machida wrote:
+> Hi Roy,
+> 
+> Thank you for your advice.
+> I am very glad.
+> 
+> Futher comment below.
+> 
+> On 2016年04月01日 16:43, Rongqing Li wrote:
+>>
+>>
+>> On 2016年04月01日 15:31, Yuki Machida wrote:
+>>> Hi all,
+>>>
+>>> I tested 4.6-rc1 by IPv6 Ready Logo Core Conformance Test.
+>>> 4.6-rc1 has some FAILs in Section 4 (RFC 1981: Path MTU Discovery for IP version 6).
+>>> I conformed that it was PASSed in 3.14.28 and it was FAILed in 4.1.17.
+>>> I will find a patch between 3.14 and 4.1.
+>>>
+>>> IPv6 Ready Logo
+>>> https://www.ipv6ready.org/
+>>> TAHI Project
+>>> http://www.tahi.org/
+>>>
+>>> I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
+>>> It is using userland build with yocto project.
+>>>
+>>> Test Environment
+>>> Test Specification          : 4.0.6
+>>> Tool Version                : REL_3_3_2
+>>> Test Program Version        : V6LC_5_0_0
+>>> Target Device               : Intel D510MO (Atom D510)
+>>>
+>>> List of FAILs
+>>>
+>>> Section 4: RFC 1981 - Path MTU Discovery for IPv6
+>>> - Test v6LC.4.1.6: Receiving MTU Below IPv6 Minimum Link MTU
+>>>      - No. 9 Part A: MTU equal to 56
+>>>      - No.10 Part B: MTU equal to 1279
+>>>
+>>
+>> apply this one
+>>
+>> commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4
+>> Author: Hangbin Liu <liuhangbin@gmail.com>
+>> Date:   Thu Jul 30 14:28:42 2015 +0800
+>>
+>>       net/ipv6: add sysctl option accept_ra_min_hop_limit
+>>
+>>       Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+>>       disabled accept hop limit from RA if it is smaller than the current hop
+>>       limit for security stuff. But this behavior kind of break the RFC
+>> definition.
+>>
+>>       RFC 4861, 6.3.4.  Processing Received Router Advertisements
+>>          A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
+>>          and Retrans Timer) may contain a value denoting that it is
+>>          unspecified.  In such cases, the parameter should be ignored and the
+>>          host should continue using whatever value it is already using.
+>>
+>>          If the received Cur Hop Limit value is non-zero, the host SHOULD set
+>>          its CurHopLimit variable to the received value.
+>>
+>>       So add sysctl option accept_ra_min_hop_limit to let user choose the
+>> minimum
+>>       hop limit value they can accept from RA. And set default to 1 to
+>> meet RFC
+>>       standards.
+>>
+>>       Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+>>       Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+>>       Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> I conformed that above patch has been applied at v4.3 in linux.git.
+> 
+> % git tag --contains=8013d1d7eafb0589ca766db6b74026f76b7f5cb4 | head
+> v4.3
+> v4.3-rc1
+> v4.3-rc2
+> v4.3-rc3
+> v4.3-rc4
+> v4.3-rc5
+> v4.3-rc6
+> v4.3-rc7
+> v4.4
+> v4.4-rc1
+> 
+>>
+>>
+>>
+>>
+>>
+>> and revert the below one, the TAHI should be updated
+>>
+>> commit 9d289715eb5c252ae15bd547cb252ca547a3c4f2
+>> Author: Hagen Paul Pfeifer <hagen@jauu.net>
+>> Date: Thu Jan 15 22:34:25 2015 +0100
+>>
+>>       ipv6: stop sending PTB packets for MTU < 1280
+>>
+>>       Reduce the attack vector and stop generating IPv6 Fragment Header for
+>>       paths with an MTU smaller than the minimum required IPv6 MTU
+>>       size (1280 byte) - called atomic fragments.
+>>
+>>       See IETF I-D "Deprecating the Generation of IPv6 Atomic Fragments" [1]
+>>       for more information and how this "feature" can be misused.
+>>
+>>       [1]
+>> https://tools.ietf.org/html/draft-ietf-6man-deprecate-atomfrag-generation-00
+>>
+>>       Signed-off-by: Fernando Gont <fgont@si6networks.com>
+>>       Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+>>       Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>       Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> I will try.
 
-On Sun, 3 Apr 2016, David Ahern wrote:
+I confirmed that v4.1.20 revert above patch is passed Section 4 No. 9 and 10 testcases
+in IPv6 Ready Logo Conformance Test.
+I can't immediately revert above patch from v4.6-rc1 by implementation has changed.
 
-> Multipath route lookups should consider knowledge about next hops and not
-> select a hop that is known to be failed.
-> 
-> Example:
-> 
->                      [h2]                   [h3]   15.0.0.5
->                       |                      |
->                      3|                     3|
->                     [SP1]                  [SP2]--+
->                      1  2                   1     2
->                      |  |     /-------------+     |
->                      |   \   /                    |
->                      |     X                      |
->                      |    / \                     |
->                      |   /   \---------------\    |
->                      1  2                     1   2
->          12.0.0.2  [TOR1] 3-----------------3 [TOR2] 12.0.0.3
->                      4                         4
->                       \                       /
->                         \                    /
->                          \                  /
->                           -------|   |-----/
->                                  1   2
->                                 [TOR3]
->                                   3|
->                                    |
->                                   [h1]  12.0.0.1
-> 
-> host h1 with IP 12.0.0.1 has 2 paths to host h3 at 15.0.0.5:
-> 
->     root@h1:~# ip ro ls
->     ...
->     12.0.0.0/24 dev swp1  proto kernel  scope link  src 12.0.0.1
->     15.0.0.0/16
->             nexthop via 12.0.0.2  dev swp1 weight 1
->             nexthop via 12.0.0.3  dev swp1 weight 1
->     ...
-> 
-> If the link between tor3 and tor1 is down and the link between tor1
-> and tor2 then tor1 is effectively cut-off from h1. Yet the route lookups
-> in h1 are alternating between the 2 routes: ping 15.0.0.5 gets one and
-> ssh 15.0.0.5 gets the other. Connections that attempt to use the
-> 12.0.0.2 nexthop fail since that neighbor is not reachable:
-> 
->     root@h1:~# ip neigh show
->     ...
->     12.0.0.3 dev swp1 lladdr 00:02:00:00:00:1b REACHABLE
->     12.0.0.2 dev swp1  FAILED
->     ...
-> 
-> The failed path can be avoided by considering known neighbor information
-> when selecting next hops. If the neighbor lookup fails we have no
-> knowledge about the nexthop, so give it a shot. If there is an entry
-> then only select the nexthop if the state is sane. This is similar to
-> what fib_detect_death does.
-> 
-> To maintain backward compatibility use of the neighbor information is
-> based on a new sysctl, fib_multipath_use_neigh.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+I am considering how to fix this problem for mainline.
 
-Reviewed-by: Julian Anastasov <ja@ssi.bg>
-
-	With one comment: the fallback strategy is simplified,
-we do not fallback to all possible reachable nexthops.
-
-> ---
-> v5
-> - returned comma that got lost in the ether and removed resetting of
->   nhsel at end of loop - again comments from Julian
 > 
-> v4
-> - remove NULL initializer and logic for fallback per Julian's comment
-> 
-> v3
-> - Julian comments: changed use of dead in documentation to failed,
->   init state to NUD_REACHABLE which simplifies fib_good_nh, use of
->   nh_dev for neighbor lookup, fallback to first entry which is what
->   current logic does
-> 
-> v2
-> - use rcu locking to avoid refcnts per Eric's suggestion
-> - only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
->   comment
-> - drop the 'state == NUD_REACHABLE' from the state check since it is
->   part of NUD_VALID (comment from Julian)
-> - wrapped the use of the neigh in a sysctl
-> 
->  Documentation/networking/ip-sysctl.txt | 10 ++++++++++
->  include/net/netns/ipv4.h               |  3 +++
->  net/ipv4/fib_semantics.c               | 34 +++++++++++++++++++++++++++++-----
->  net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
->  4 files changed, 53 insertions(+), 5 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index b183e2b606c8..6c7f365b1515 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
->  	fwmark of the packet they are replying to.
->  	Default: 0
->  
-> +fib_multipath_use_neigh - BOOLEAN
-> +	Use status of existing neighbor entry when determining nexthop for
-> +	multipath routes. If disabled, neighbor information is not used and
-> +	packets could be directed to a failed nexthop. Only valid for kernels
-> +	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
-> +	Default: 0 (disabled)
-> +	Possible values:
-> +	0 - disabled
-> +	1 - enabled
-> +
->  route/max_size - INTEGER
->  	Maximum number of routes allowed in the kernel.  Increase
->  	this when using large numbers of interfaces and/or routes.
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index a69cde3ce460..d061ffeb1e71 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -133,6 +133,9 @@ struct netns_ipv4 {
->  	struct fib_rules_ops	*mr_rules_ops;
->  #endif
->  #endif
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	int sysctl_fib_multipath_use_neigh;
-> +#endif
->  	atomic_t	rt_genid;
->  };
->  #endif
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index d97268e8ff10..5016676c9186 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -1559,21 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->  }
->  
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +static bool fib_good_nh(const struct fib_nh *nh)
-> +{
-> +	int state = NUD_REACHABLE;
-> +
-> +	if (nh->nh_scope == RT_SCOPE_LINK) {
-> +		struct neighbour *n;
-> +
-> +		rcu_read_lock_bh();
-> +
-> +		n = __neigh_lookup_noref(&arp_tbl, &nh->nh_gw, nh->nh_dev);
-> +		if (n)
-> +			state = n->nud_state;
-> +
-> +		rcu_read_unlock_bh();
-> +	}
-> +
-> +	return !!(state & NUD_VALID);
-> +}
->  
->  void fib_select_multipath(struct fib_result *res, int hash)
->  {
->  	struct fib_info *fi = res->fi;
-> +	struct net *net = fi->fib_net;
-> +	bool first = false;
->  
->  	for_nexthops(fi) {
->  		if (hash > atomic_read(&nh->nh_upper_bound))
->  			continue;
->  
-> -		res->nh_sel = nhsel;
-> -		return;
-> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
-> +		    fib_good_nh(nh)) {
-> +			res->nh_sel = nhsel;
-> +			return;
-> +		}
-> +		if (!first) {
-> +			res->nh_sel = nhsel;
-> +			first = true;
-> +		}
->  	} endfor_nexthops(fi);
-> -
-> -	/* Race condition: route has just become dead. */
-> -	res->nh_sel = 0;
->  }
->  #endif
->  
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 1e1fe6086dd9..bb0419582b8d 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -960,6 +960,17 @@ static struct ctl_table ipv4_net_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec,
->  	},
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	{
-> +		.procname	= "fib_multipath_use_neigh",
-> +		.data		= &init_net.ipv4.sysctl_fib_multipath_use_neigh,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_minmax,
-> +		.extra1		= &zero,
-> +		.extra2		= &one,
-> +	},
-> +#endif
->  	{ }
->  };
->  
-> -- 
-> 1.9.1
-
-Regards
+>>
+>>
+>>
+>> -Roy
+>>
+>>
+>>
+>>
+>>> Regards,
+>>> Yuki Machida
+>>>
+>>
