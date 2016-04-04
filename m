@@ -1,80 +1,62 @@
-From: Petr Kulhavy <petr@barix.com>
-Subject: davinci-mdio: failing to connect to PHY
-Date: Mon, 4 Apr 2016 10:18:30 +0200
-Message-ID: <57022356.6010309@barix.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Mon, 4 Apr 2016 10:33:14 +0200
+Message-ID: <20160404103314.56286d64@redhat.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+	<1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	daniel@iogearbox.net, john.fastabend@gmail.com, brouer@redhat.com
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:36670 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbcDDISc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 04:18:32 -0400
-Received: by mail-lf0-f41.google.com with SMTP id g184so83342302lfb.3
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 01:18:32 -0700 (PDT)
-Received: from [192.168.11.166] (dynamic-31-25-120-010.ftth.glattnet.ch. [31.25.120.10])
-        by smtp.gmail.com with ESMTPSA id by7sm27668016wjc.18.2016.04.04.01.18.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1/SSLv3 cipher=OTHER);
-        Mon, 04 Apr 2016 01:18:30 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:52135 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751310AbcDDIdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 04:33:20 -0400
+In-Reply-To: <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri,  1 Apr 2016 18:21:57 -0700
+Brenden Blanco <bblanco@plumgrid.com> wrote:
 
-I'm experiencing a peculiar problem with PHY communication in the 
-current davinci-mdio.c driver.
-After upgrading from kernel 3.17 to 4.5 my DT based AM1808 board started 
-having issues with the PHY communication.
-The MAC is detected, the MDIO is detected, the PHY is detected 
-(twice?!?!), however there is no data being sent/received and the after 
-issuing "ifdown -a" the MDIO starts spitting out messages that it cannot 
-connect to the PHY:
+> @@ -840,6 +843,21 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+>  			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+>  
+> +		/* A bpf program gets first chance to drop the packet. It may
+> +		 * read bytes but not past the end of the frag. A non-zero
+> +		 * return indicates packet should be dropped.
+> +		 */
+> +		if (prog) {
+> +			struct ethhdr *ethh;
+> +
+> +			ethh = (struct ethhdr *)(page_address(frags[0].page) +
+> +						 frags[0].page_offset);
+> +			if (mlx4_call_bpf(prog, ethh, length)) {
+> +				priv->stats.rx_dropped++;
+> +				goto next;
+> +			}
+> +		}
+> +
 
-net eth0: could not connect to phy davinci_mdio.0:00
-davinci_mdio davinci_mdio.0: resetting idled controller
+For future API, I can imagine more return codes being needed.
 
+For forwarding I could imagine returning "STOLEN", which should not
+increment rx_dropped.
 
-I'm using a single Micrel KSZ8081 PHY connected via RMII using the 
-default PHY address 0x01.
-Here is the dmesg excerpt related to mdio:
+One could also imagine supporting tcpdump/af_packet like facilities at
+this packet-page level (e.g. af_packet queue packets into a RX ring
+buffer, later processed/read async). It could return "SHARED", bumping
+refcnt on page, and indicate page is now read-only. Thus, affecting
+drivers processing flow.
 
-davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
-davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
-davinci_mdio davinci_mdio.0: detected phy mask fffffffc
-libphy: davinci_mdio.0: probed
-davinci_mdio davinci_mdio.0: phy[0]: device davinci_mdio.0:00, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: resetting idled controller
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: failed to disable NAND tree 
-mode
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: attached PHY driver [Micrel 
-KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:00, irq=-1)
-
-
-After a soft-reboot the MDIO uses a different PHY mask fffffffd, detects 
-correctly only one PHY at address 1 (this is the default address) and 
-the networking works:
-
-davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
-davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
-davinci_mdio davinci_mdio.0: detected phy mask fffffffd
-libphy: davinci_mdio.0: probed
-davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
-Micrel KSZ8081 or KSZ8091
-davinci_mdio davinci_mdio.0: resetting idled controller
-Micrel KSZ8081 or KSZ8091 davinci_mdio.0:01: attached PHY driver [Micrel 
-KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:01, irq=-1)
-
-
-I'm wondering what the problem is and why the PHY mask is different 
-after power-up and after a soft reboot.
-Also it's not clear to me why this set-up worked with kernel 3.17 even 
-if it was detecting the PHY twice exactly the same way.
-How does the mask relate to the PHY address and how is it calculated?
-
-Thanks
-Petr
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
