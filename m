@@ -1,62 +1,52 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
-Date: Mon, 4 Apr 2016 11:27:27 -0700
-Message-ID: <20160404182724.GB68392@ast-mbp.thefacebook.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
- <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
- <20160402102331.5aa3b3c2@redhat.com>
- <20160403061151.GC21980@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] net_sched: fix a memory leak in tc action
+Date: Mon, 4 Apr 2016 11:37:37 -0700
+Message-ID: <CAM_iQpX29_kzSt94_a+Jv_kmkK-XNA_ud7EtpNX3xGYwZJWFbA@mail.gmail.com>
+References: <1459791168-16675-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1459793263.6473.343.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, john.fastabend@gmail.com
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35221 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755557AbcDDS1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 14:27:31 -0400
-Received: by mail-pa0-f41.google.com with SMTP id td3so148676543pab.2
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 11:27:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160403061151.GC21980@gmail.com>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:35964 "EHLO
+	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754687AbcDDShi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 14:37:38 -0400
+Received: by mail-yw0-f172.google.com with SMTP id g3so264202076ywa.3
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 11:37:37 -0700 (PDT)
+In-Reply-To: <1459793263.6473.343.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 02, 2016 at 11:11:52PM -0700, Brenden Blanco wrote:
-> On Sat, Apr 02, 2016 at 10:23:31AM +0200, Jesper Dangaard Brouer wrote:
-> [...]
-> > 
-> > I think you need to DMA sync RX-page before you can safely access
-> > packet data in page (on all arch's).
-> > 
-> Thanks, I will give that a try in the next spin.
-> > > +			ethh = (struct ethhdr *)(page_address(frags[0].page) +
-> > > +						 frags[0].page_offset);
-> > > +			if (mlx4_call_bpf(prog, ethh, length)) {
-> > 
-> > AFAIK length here covers all the frags[n].page, thus potentially
-> > causing the BPF program to access memory out of bound (crash).
-> > 
-> > Having several page fragments is AFAIK an optimization for jumbo-frames
-> > on PowerPC (which is a bit annoying for you use-case ;-)).
-> > 
-> Yeah, this needs some more work. I can think of some options:
-> 1. limit pseudo skb.len to first frag's length only, and signal to
-> program that the packet is incomplete
-> 2. for nfrags>1 skip bpf processing, but this could be functionally
-> incorrect for some use cases
-> 3. run the program for each frag
-> 4. reject ndo_bpf_set when frags are possible (large mtu?)
-> 
-> My preference is to go with 1, thoughts?
+On Mon, Apr 4, 2016 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-04-04 at 10:32 -0700, Cong Wang wrote:
+>> Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+>> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> ---
+>>  include/net/act_api.h | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/include/net/act_api.h b/include/net/act_api.h
+>> index 2a19fe1..03e322b 100644
+>> --- a/include/net/act_api.h
+>> +++ b/include/net/act_api.h
+>> @@ -135,6 +135,7 @@ void tcf_hashinfo_destroy(const struct tc_action_ops *ops,
+>>  static inline void tc_action_net_exit(struct tc_action_net *tn)
+>>  {
+>>       tcf_hashinfo_destroy(tn->ops, tn->hinfo);
+>> +     kfree(tn->hinfo);
+>>  }
+>>
+>>  int tcf_generic_walker(struct tc_action_net *tn, struct sk_buff *skb,
+>
+> Looks good to me, although the kfree() might be put in
+> cf_hashinfo_destroy() (at one place instead of being inlined in all call
+> points)
 
-hmm and what program will do with 'incomplete' packet?
-imo option 4 is only way here. If phys_dev bpf program already
-attached to netdev then mlx4_en_change_mtu() can reject jumbo mtus.
-My understanding of mlx4_en_calc_rx_buf is that mtu < 1514
-will have num_frags==1. That's the common case and one we
-want to optimize for.
-If later we can find a way to change mlx4 driver to support
-phys_dev bpf programs with jumbo mtus, great.
+Putting it in tc_action_net_exit() makes it symmetric with tc_action_net_init().
