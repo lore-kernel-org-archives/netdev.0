@@ -1,87 +1,62 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
-Date: Mon, 4 Apr 2016 11:10:42 -0700
-Message-ID: <20160404181040.GA68392@ast-mbp.thefacebook.com>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Mon, 4 Apr 2016 11:27:27 -0700
+Message-ID: <20160404182724.GB68392@ast-mbp.thefacebook.com>
 References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
- <CALx6S37y8+kFh=04cceSpLWZMHkanwWREgoVKc7Edmyhe3qvzg@mail.gmail.com>
- <20160403054103.GB21980@gmail.com>
- <20160404094846.4df8defc@redhat.com>
+ <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
+ <20160402102331.5aa3b3c2@redhat.com>
+ <20160403061151.GC21980@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	Tom Herbert <tom@herbertland.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ogerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, john.fastabend@gmail.com
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34949 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751513AbcDDSKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 14:10:48 -0400
-Received: by mail-pf0-f173.google.com with SMTP id n1so44312123pfn.2
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 11:10:47 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35221 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755557AbcDDS1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 14:27:31 -0400
+Received: by mail-pa0-f41.google.com with SMTP id td3so148676543pab.2
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 11:27:31 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160404094846.4df8defc@redhat.com>
+In-Reply-To: <20160403061151.GC21980@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 04, 2016 at 09:48:46AM +0200, Jesper Dangaard Brouer wrote:
-> On Sat, 2 Apr 2016 22:41:04 -0700
-> Brenden Blanco <bblanco@plumgrid.com> wrote:
+On Sat, Apr 02, 2016 at 11:11:52PM -0700, Brenden Blanco wrote:
+> On Sat, Apr 02, 2016 at 10:23:31AM +0200, Jesper Dangaard Brouer wrote:
+> [...]
+> > 
+> > I think you need to DMA sync RX-page before you can safely access
+> > packet data in page (on all arch's).
+> > 
+> Thanks, I will give that a try in the next spin.
+> > > +			ethh = (struct ethhdr *)(page_address(frags[0].page) +
+> > > +						 frags[0].page_offset);
+> > > +			if (mlx4_call_bpf(prog, ethh, length)) {
+> > 
+> > AFAIK length here covers all the frags[n].page, thus potentially
+> > causing the BPF program to access memory out of bound (crash).
+> > 
+> > Having several page fragments is AFAIK an optimization for jumbo-frames
+> > on PowerPC (which is a bit annoying for you use-case ;-)).
+> > 
+> Yeah, this needs some more work. I can think of some options:
+> 1. limit pseudo skb.len to first frag's length only, and signal to
+> program that the packet is incomplete
+> 2. for nfrags>1 skip bpf processing, but this could be functionally
+> incorrect for some use cases
+> 3. run the program for each frag
+> 4. reject ndo_bpf_set when frags are possible (large mtu?)
 > 
-> > On Sat, Apr 02, 2016 at 12:47:16PM -0400, Tom Herbert wrote:
-> >
-> > > Very nice! Do you think this hook will be sufficient to implement a
-> > > fast forward patch also?
-> 
-> (DMA experts please verify and correct me!)
-> 
-> One of the gotchas is how DMA sync/unmap works.  For forwarding you
-> need to modify the headers.  The DMA sync API (DMA_FROM_DEVICE) specify
-> that the data is to be _considered_ read-only.  AFAIK you can write into
-> the data, BUT on DMA_unmap the API/DMA-engine is allowed to overwrite
-> data... note on most archs the DMA_unmap does not overwrite.
-> 
-> This DMA issue should not block the work on a hook for early packet drop.
-> Maybe we should add a flag option, that can specify to the hook if the
-> packet read-only? (e.g. if driver use page-fragments and DMA_sync)
-> 
-> 
-> We should have another track/thread on how to solve the DMA issue:
-> I see two solutions.
-> 
-> Solution 1: Simply use a "full" page per packet and do the DMA_unmap.
-> This result in a slowdown on arch's with expensive DMA-map/unmap.  And
-> we stress the page allocator more (can be solved with a page-pool-cache).
-> Eric will not like this due to memory usage, but we can just add a
-> "copy-break" step for normal stack hand-off.
-> 
-> Solution 2: (Due credit to Alex Duyck, this idea came up while
-> discussing issue with him).  Remember DMA_sync'ed data is only
-> considered read-only, because the DMA_unmap can be destructive.  In many
-> cases DMA_unmap is not.  Thus, we could take advantage of this, and
-> allow modifying DMA sync'ed data on those DMA setups.
+> My preference is to go with 1, thoughts?
 
-I bet on those device dma_sync is a noop as well.
-In ndo_bpf_set we can check
-if (sync_single_for_cpu != swiotlb_sync_single_for_cpu)
- return -ENOTSUPP;
-
-to avoid all these problems altogether. We're doing this to have
-as high as possible performance, so we have to sacrifice generality.
-
-This BPF_PROG_TYPE_PHYS_DEV program type is only applicable to physical
-ethernet networking device and the name clearly indicates that.
-Devices like taps or veth will not have such ndo.
-These are early architectural decisions that we have to make to
-actually hit our performance targets.
-This is not 'yet another hook in the stack'. We already have tc+cls_bpf
-that is pretty fast, but it's generic and works with veth, taps, phys dev
-and by design operates on skb.
-The BPF_PROG_TYPE_PHYS_DEV is operating on dma buffer. Virtual devices
-don't have dma buffers, so no ndo.
-Probably the confusion is due to 'pseudo skb' name in the patches.
-I guess we have to pick some other name.
+hmm and what program will do with 'incomplete' packet?
+imo option 4 is only way here. If phys_dev bpf program already
+attached to netdev then mlx4_en_change_mtu() can reject jumbo mtus.
+My understanding of mlx4_en_calc_rx_buf is that mtu < 1514
+will have num_frags==1. That's the common case and one we
+want to optimize for.
+If later we can find a way to change mlx4 driver to support
+phys_dev bpf programs with jumbo mtus, great.
