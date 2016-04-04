@@ -1,53 +1,131 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/14] ixgbe: on recv increment rx.ring->stats.yields
-Date: Mon,  4 Apr 2016 15:14:44 -0700
-Message-ID: <1459808097-26409-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] ixgbe: Do not allow PF to add VLVF entry unless it actually needs it
+Date: Mon,  4 Apr 2016 15:14:47 -0700
+Message-ID: <1459808097-26409-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:43863 "EHLO mga14.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:54610 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753043AbcDDWPC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 18:15:02 -0400
+	id S1752689AbcDDWPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 18:15:05 -0400
 In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-It seem to be non intentionally changed to Tx in
-commit adc810900a70 ("ixgbe: Refactor busy poll socket code to address
-multiple issues")
+While doing the work on igb I realized there were a few cases where we were
+still adding VLANs to the VLVF entries for the PF when they were not
+needed.  This patch cleans that up so that the only time we add a PF entry
+to the VLVF is either for VLAN 0 or if the PF has requested a VLAN that a VF
+is already using.
 
-Lock is taken from ixgbe_low_latency_recv, and there under this
-lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
-Tx counter.
-
-Yield stats can be shown through ethtool:
-ethtool -S enp129s0 | grep yield
-
-Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  8 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 31 ++++++++++++++------------
+ 2 files changed, 21 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index e4949af..9f64354 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -456,7 +456,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 				IXGBE_QV_STATE_POLL);
- #ifdef BP_EXTENDED_STATS
- 	if (rc != IXGBE_QV_STATE_IDLE)
--		q_vector->tx.ring->stats.yields++;
-+		q_vector->rx.ring->stats.yields++;
- #endif
- 	return rc == IXGBE_QV_STATE_IDLE;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 7df3fe2..a01a7f2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3908,7 +3908,9 @@ static int ixgbe_vlan_rx_add_vid(struct net_device *netdev,
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+ 	/* add VID to filter table */
+-	hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, true);
++	if (!vid || !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
++		hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, !!vid);
++
+ 	set_bit(vid, adapter->active_vlans);
+ 
+ 	return 0;
+@@ -3965,9 +3967,7 @@ static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+ 	/* remove VID from filter table */
+-	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
+-		ixgbe_update_pf_promisc_vlvf(adapter, vid);
+-	else
++	if (vid && !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
+ 		hw->mac.ops.set_vfta(hw, vid, VMDQ_P(0), false, true);
+ 
+ 	clear_bit(vid, adapter->active_vlans);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 80e47db..4bc24963 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -589,40 +589,40 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
+ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 i;
++	u32 vlvfb_mask, pool_mask, i;
++
++	/* create mask for VF and other pools */
++	pool_mask = ~(1 << (VMDQ_P(0) % 32));
++	vlvfb_mask = 1 << (vf % 32);
+ 
+ 	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
+ 	for (i = IXGBE_VLVF_ENTRIES; i--;) {
+ 		u32 bits[2], vlvfb, vid, vfta, vlvf;
+ 		u32 word = i * 2 + vf / 32;
+-		u32 mask = 1 << (vf % 32);
++		u32 mask;
+ 
+ 		vlvfb = IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
+ 
+ 		/* if our bit isn't set we can skip it */
+-		if (!(vlvfb & mask))
++		if (!(vlvfb & vlvfb_mask))
+ 			continue;
+ 
+ 		/* clear our bit from vlvfb */
+-		vlvfb ^= mask;
++		vlvfb ^= vlvfb_mask;
+ 
+ 		/* create 64b mask to chedk to see if we should clear VLVF */
+ 		bits[word % 2] = vlvfb;
+ 		bits[~word % 2] = IXGBE_READ_REG(hw, IXGBE_VLVFB(word ^ 1));
+ 
+-		/* if promisc is enabled, PF will be present, leave VFTA */
+-		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
+-			bits[VMDQ_P(0) / 32] &= ~(1 << (VMDQ_P(0) % 32));
+-
+-			if (bits[0] || bits[1])
+-				goto update_vlvfb;
+-			goto update_vlvf;
+-		}
+-
+ 		/* if other pools are present, just remove ourselves */
+-		if (bits[0] || bits[1])
++		if (bits[(VMDQ_P(0) / 32) ^ 1] ||
++		    (bits[VMDQ_P(0) / 32] & pool_mask))
+ 			goto update_vlvfb;
+ 
++		/* if PF is present, leave VFTA */
++		if (bits[0] || bits[1])
++			goto update_vlvf;
++
+ 		/* if we cannot determine VLAN just remove ourselves */
+ 		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
+ 		if (!vlvf)
+@@ -638,6 +638,9 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
+ update_vlvf:
+ 		/* clear POOL selection enable */
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
++
++		if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
++			vlvfb = 0;
+ update_vlvfb:
+ 		/* clear pool bits */
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
 -- 
 2.5.5
