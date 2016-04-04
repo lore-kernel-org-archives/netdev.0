@@ -1,46 +1,32 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH 0/5] Add driver bpf hook for early packet drop
-Date: Mon, 04 Apr 2016 09:37:47 +0200
-Message-ID: <1459755467.18188.16.camel@sipsolutions.net>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	 <1459622491.18188.6.camel@sipsolutions.net>
-	 <CALx6S35kK9eNk8r-fZmP-mOSB=Tb8udbaQeSUjmHWJagh+=i=A@mail.gmail.com>
-	 <CAKD1Yr351bEXwBOj8e8Hq=_u7J4Zi2-r=w3k9Z3XFe0AP4m5aw@mail.gmail.com>
-	 (sfid-20160403_042824_139777_98CD13EB)
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
+Date: Mon, 4 Apr 2016 00:39:29 -0700
+Message-ID: <20160404073929.GA23218@infradead.org>
+References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	gerlitz@mellanox.com, Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Lorenzo Colitti <lorenzo@google.com>,
-	Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:44808 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751386AbcDDHhw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 03:37:52 -0400
-In-Reply-To: <CAKD1Yr351bEXwBOj8e8Hq=_u7J4Zi2-r=w3k9Z3XFe0AP4m5aw@mail.gmail.com> (sfid-20160403_042824_139777_98CD13EB)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1453318816-21672-1-git-send-email-faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-04-03 at 11:28 +0900, Lorenzo Colitti wrote:
+On Wed, Jan 20, 2016 at 01:40:00PM -0600, Faisal Latif wrote:
+> This driver provides iWARP RDMA functionality for the Intel(R) X722 Ethernet
+> controller for PCI Physical Functions. It is in early product cycle
+> and having the driver in the kernel will allow users to have hardware support
+> when available for purchase.
 
-> That said, getting BPF to the driver is part of the picture. On the
-> chipsets we're targeting for APF, we're only seeing 2k-4k of memory
-> (that's 256-512 BPF instructions) available for filtering code, which
-> means that BPF might be too large.
+Just curious: how is this driver supposed to work?  It doesn't seem to
+support FRWRs despite the iWarp spec requiring support for it.  It also
+sets IB_DEVICE_MEM_MGT_EXTENSIONS despite the lack of this methods,
+which will lead to instant crashes when using any of the usual drivers.
 
-That's true, but I think that as far as the userspace API is concerned
-that shouldn't really be an issue. I think we can compile the BPF into
-APF, similar to how BPF can be compiled into machine code today.
-Additionally, I'm not sure we can realistically expect all devices to
-really implement APF "natively", I think there's a good chance but
-there's also a possibility of compiling to the native firmware
-environment, for example.
-
-johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
