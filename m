@@ -1,105 +1,107 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Mon, 04 Apr 2016 10:49:09 +0200
-Message-ID: <57022A85.6040002@iogearbox.net>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com> <1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
+From: Andrei Sharaev <aosharaev@telecom.by>
+Subject: Re: Backport patch from 4.2 to 3.18
+Date: Mon, 4 Apr 2016 12:05:12 +0300
+Message-ID: <57022E48.5030008@telecom.by>
+References: <56D9F2C3.3030204@telecom.by> <56D9FD6A.4060107@oracle.com>
+ <56E6EA59.5020302@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, gerlitz@mellanox.com,
-	john.fastabend@gmail.com, brouer@redhat.com
-To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48065 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbcDDItP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 04:49:15 -0400
-In-Reply-To: <1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sasha Levin <sasha.levin@oracle.com>,
+	stable <stable@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <56E6EA59.5020302@oracle.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/02/2016 03:21 AM, Brenden Blanco wrote:
-> Add a new bpf prog type that is intended to run in early stages of the
-> packet rx path. Only minimal packet metadata will be available, hence a new
-> context type, struct xdp_metadata, is exposed to userspace. So far only
-> expose the readable packet length, and only in read mode.
->
-> The PHYS_DEV name is chosen to represent that the program is meant only
-> for physical adapters, rather than all netdevs.
->
-> While the user visible struct is new, the underlying context must be
-> implemented as a minimal skb in order for the packet load_* instructions
-> to work. The skb filled in by the driver must have skb->len, skb->head,
-> and skb->data set, and skb->data_len == 0.
->
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> ---
->   include/uapi/linux/bpf.h |  5 ++++
->   kernel/bpf/verifier.c    |  1 +
->   net/core/filter.c        | 68 ++++++++++++++++++++++++++++++++++++++++++++++++
->   3 files changed, 74 insertions(+)
->
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 924f537..b8a4ef2 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -92,6 +92,7 @@ enum bpf_prog_type {
->   	BPF_PROG_TYPE_KPROBE,
->   	BPF_PROG_TYPE_SCHED_CLS,
->   	BPF_PROG_TYPE_SCHED_ACT,
-> +	BPF_PROG_TYPE_PHYS_DEV,
->   };
->
->   #define BPF_PSEUDO_MAP_FD	1
-> @@ -367,6 +368,10 @@ struct __sk_buff {
->   	__u32 tc_classid;
->   };
->
-> +struct xdp_metadata {
-> +	__u32 len;
-> +};
+Hi David,
 
-Should this consistently be called 'xdp' or rather 'phys dev',
-because currently it's a mixture of both everywhere?
+Could you help with this problem?
 
->   struct bpf_tunnel_key {
->   	__u32 tunnel_id;
->   	union {
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 2e08f8e..804ca70 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -1340,6 +1340,7 @@ static bool may_access_skb(enum bpf_prog_type type)
->   	case BPF_PROG_TYPE_SOCKET_FILTER:
->   	case BPF_PROG_TYPE_SCHED_CLS:
->   	case BPF_PROG_TYPE_SCHED_ACT:
-> +	case BPF_PROG_TYPE_PHYS_DEV:
->   		return true;
->   	default:
->   		return false;
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index b7177d0..c417db6 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2018,6 +2018,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
->   	}
->   }
->
-> +static const struct bpf_func_proto *
-> +phys_dev_func_proto(enum bpf_func_id func_id)
-> +{
-> +	return sk_filter_func_proto(func_id);
+--=20
+Best regards,
+Andrei Sharaev
+BYAS-RIPE
+ISP Atlant Telecom
+aosharaev@telecom.by
 
-Do you plan to support bpf_skb_load_bytes() as well? I like using
-this API especially when dealing with larger chunks (>4 bytes) to
-load into stack memory, plus content is kept in network byte order.
-
-What about other helpers such as bpf_skb_store_bytes() et al that
-work on skbs. Do you intent to reuse them as is and thus populate
-the per cpu skb with needed fields (faking linear data), or do you
-see larger obstacles that prevent for this?
-
-Thanks,
-Daniel
+14.03.2016 19:44, Sasha Levin =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 03/04/2016 04:26 PM, Sasha Levin wrote:
+>> On 03/04/2016 03:40 PM, Andrei Sharaev wrote:
+>>>> Hi Sasha,
+>>>>
+>>>> Can you backport this patch for "inet-frag-fixes" to linux kernel =
+3.18 LTS?
+>>>> http://kernel.suse.com/cgit/kernel/commit/?h=3Dv4.2-rc5&id=3D64b89=
+2ad2326348a5b8314167590d240e3bcc69e
+>>>>
+>>>> I get 1-5 kernel panics in month for linux kernels 3.18.24-3.18.26=
+ at my NAT server with big IPv4 traffic (10-15 Gbps).
+>>>> My kernel panics have similar symptoms:
+>>>>>> <82>general protection fault: 0000 [#1] SMP
+>>>>>> <82>Modules linked in: bonding ipt_NETFLOW(O) xt_recent configfs=
+ x86_pkg_temp_thermal ixgbe(O)
+>>>>>> <86>CPU: 13 PID: 29908 Comm: kworker/13:2 Tainted: G          IO=
+   3.18.26 #1
+>>>>>> <86>Hardware name: Intel Corporation S2600WT2/S2600WT2, BIOS SE5=
+C610.86B.01.01.0005.101720141054 10/17/2014
+>>>>>> <82>Workqueue: events inet_frag_worker
+>>>>>> <86>task: ffff88046cdba9a0 ti: ffff880454928000 task.ti: ffff880=
+454928000
+>>>>>> <82>RIP: 0010:[<ffffffff815b91d9>]  [<ffffffff815b91d9>] inet_ev=
+ict_bucket+0x109/0x160
+>>>>>> <86>RSP: 0018:ffff88045492bd38  EFLAGS: 00010286
+>>>>>> <86>RAX: ffff880441d0e001 RBX: dead0000001000c0 RCX: 00000001803=
+0002e
+>>>>>> <86>RDX: 000000018030002f RSI: ffff880441d0e000 RDI: dead0000001=
+000c0
+>>>>>> <86>RBP: ffff88045492bd88 R08: 0000000000000000 R09: ffff88086cc=
+88500
+>>>>>> <86>R10: ffff88046fdb5c50 R11: ffffea0011074380 R12: 00000000000=
+00002
+>>>>>> <86>R13: ffffffff81e02200 R14: 0000000000000000 R15: ffff88083f0=
+942a0
+>>>>>> <86>FS:  0000000000000000(0000) GS:ffff88046fda0000(0000) knlGS:=
+0000000000000000
+>>>>>> <86>CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>>>>> <86>CR2: 00007fab8f466000 CR3: 000000085f66d000 CR4: 00000000001=
+407e0
+>>>>>> <86>Stack:
+>>>>>> <82> ffffffff81e05a78 ffffffff81e05a70 ffff88046cdba9a0 ffff8808=
+3f0942e0
+>>>>>> <82> ffff88046f808c00 0000000000000079 ffffffff81e02200 ffffffff=
+81e06200
+>>>>>> <82> 0000000000000388 0000000000000007 ffff88045492bdf8 ffffffff=
+815b928a
+>>>>>> <86>Call Trace:
+>>>>>> <82> [<ffffffff815b928a>] inet_frag_worker+0x5a/0x230
+>>>>>> <82> [<ffffffff8105808d>] process_one_work+0x12d/0x330
+>>>>>> <82> [<ffffffff8105892b>] worker_thread+0x4b/0x450
+>>>>>> <82> [<ffffffff810588e0>] ? cancel_delayed_work_sync+0x10/0x10
+>>>>>> <82> [<ffffffff8105cd34>] kthread+0xc4/0xe0
+>>>>>> <82> [<ffffffff81060c59>] ? finish_task_switch+0x49/0xc0
+>>>>>> <82> [<ffffffff8105cc70>] ? kthread_create_on_node+0x170/0x170
+>>>>>> <82> [<ffffffff81603d88>] ret_from_fork+0x58/0x90
+>>>>>> <82> [<ffffffff8105cc70>] ? kthread_create_on_node+0x170/0x170
+>>>>>> <82>Code: f6 0f 85 73 ff ff ff 48 8b 45 b8 80 40 08 01 48 8b 7d =
+c8 48 85 ff 74 23 48 83 ef 40 75 0d eb 1b 66 90 48 83 eb 40 48 89 df 74=
+ 10 <48> 8b 5f 40 41 ff 95 70 40 00 00 48 85 db 75 e7 48 83 c4 28 44
+>>>>>> <22>RIP  [<ffffffff815b91d9>] inet_evict_bucket+0x109/0x160
+>>>>>> <82> RSP <ffff88045492bd38>
+>> Hey Andrei,
+>>
+>> Thanks for the report.
+>>
+>> Usually David Miller (Cc'ed) handles backporting network commits. In=
+ this case, I see
+>> that he has elected not to backport it into 4.1 or 3.18, so I don't =
+want to do it without
+>> getting an ack from him first.
+>>
+>> David, is it ok to backport these commits back to 3.18 (and probably=
+ 4.1)?
+> Ping?
