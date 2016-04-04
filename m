@@ -1,63 +1,71 @@
-From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
-Subject: Re: AP firmware for TI wl1251 wifi chip (wl1251-fw-ap.bin)
-Date: Mon, 4 Apr 2016 14:39:44 +0200
-Message-ID: <20160404123944.GA8413@pali>
-References: <201603200040.26045@pali>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] cxgb4/cxgb4vf: Deprecate module parameter
+ dflt_msg_enable
+Date: Mon, 4 Apr 2016 15:43:09 +0300
+Message-ID: <5702615D.6080905@cogentembedded.com>
+References: <1459745604-8093-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Woodhouse <dwmw2@infradead.org>, Pavel Machek <pavel@ucw.cz>,
-	Aaro Koskinen <aaro.koskinen@iki.fi>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Gnedt <david.gnedt@platinumzone24.at>,
-	Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-	Sebastian Reichel <sre@kernel.org>,
-	Tony Lindgren <tony@atomide.com>, Nishanth Menon <nm@ti.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Luciano Coelho <coelho@ti.com>, Felipe Balbi <balbi@ti.com>,
-	kev@ti.com, Shahar Levi <shahar_levi@ti.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"Andrew F. Davis" <afd@ti.com>, Guy Mishol <guym@ti.com>,
-	Yaniv Machani <yanivma@ti.com>, Arik Nemtsov <arik@wizery.com>,
-	Gery Kahn <geryk@ti.com>, Felipe Balbi <balbi@kernel.org>,
-	Luciano Coelho <luca@coelho.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201603200040.26045@pali>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:36713 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752323AbcDDMnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 08:43:12 -0400
+Received: by mail-lb0-f180.google.com with SMTP id qe11so159110221lbc.3
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 05:43:11 -0700 (PDT)
+In-Reply-To: <1459745604-8093-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 20 March 2016 00:40:25 Pali Roh=C3=A1r wrote:
-> Hi!
->=20
-> In linux-firmware repository [1] is missing AP firmware for TI wl1251=
-=20
-> chip. There is only STA firmware wl1251-fw.bin which supports managed=
-=20
-> and ad-hoc modes.
->=20
-> For other TI wilink chips there are <CHIP>-ap.bin firmware files=20
-> (wl1271-fw-ap.bin and wl128x-fw-ap.bin) which support AP mode. But fo=
-r=20
-> wl1251 firmware file with guessed name "wl1251-fw-ap.bin" is missing.
->=20
-> Do you have any idea what happened with AP firmware for ti wilink4=20
-> wl1251 wifi chip? Or where can be found? Guys from TI, can you help?
->=20
-> I see that STA firmware was added into linux-firmware tree in year 20=
-13=20
-> by this pull request [2].
->=20
-> [1] - https://git.kernel.org/cgit/linux/kernel/git/firmware/linux-fir=
-mware.git/tree/ti-connectivity
->=20
-> [2] - http://thread.gmane.org/gmane.linux.kernel/1566500/focus=3D1571=
-382
->=20
+Hello.
 
-Hi! Anybody has some idea about that AP firmware?
+On 4/4/2016 7:53 AM, Hariprasad Shenai wrote:
 
---=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+> Message level can be set through ethtool, so deprecate module parameter
+> which is used to set the same.
+>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> ---
+>   drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 3 ++-
+>   drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 3 ++-
+>   2 files changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index d1e3f0997d6b..acefa35b7250 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -168,7 +168,8 @@ MODULE_PARM_DESC(force_init, "Forcibly become Master PF and initialize adapter,"
+>   static int dflt_msg_enable = DFLT_MSG_ENABLE;
+>
+>   module_param(dflt_msg_enable, int, 0644);
+> -MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap");
+> +MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap,"
+
+    Need space after the last comma...
+
+> +		 "deprecated parameter");
+>
+>   /*
+>    * The driver uses the best interrupt scheme available on a platform in the
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> index 1cc8a7a69457..730fec73d5a6 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> @@ -74,7 +74,8 @@ static int dflt_msg_enable = DFLT_MSG_ENABLE;
+>
+>   module_param(dflt_msg_enable, int, 0644);
+>   MODULE_PARM_DESC(dflt_msg_enable,
+> -		 "default adapter ethtool message level bitmap");
+> +		 "default adapter ethtool message level bitmap, "
+
+    ... like here.
+
+> +		 "deprecated parameter");
+>
+>   /*
+>    * The driver uses the best interrupt scheme available on a platform in the
+
+MBR, Sergei
