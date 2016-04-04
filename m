@@ -1,40 +1,48 @@
-From: Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 00/16] add Intel X722 iWARP driver
-Date: Mon, 4 Apr 2016 12:59:21 -0500
-Message-ID: <20160404175921.GA10356@flatif-MOBL1>
-References: <1453318816-21672-1-git-send-email-faisal.latif@intel.com>
- <20160404073929.GA23218@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] net_sched: fix a memory leak in tc action
+Date: Mon, 04 Apr 2016 11:07:43 -0700
+Message-ID: <1459793263.6473.343.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1459791168-16675-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160404073929.GA23218-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dvyukov@google.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:34933 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751587AbcDDSHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 14:07:46 -0400
+Received: by mail-pf0-f172.google.com with SMTP id n1so44264945pfn.2
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 11:07:46 -0700 (PDT)
+In-Reply-To: <1459791168-16675-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 04, 2016 at 12:39:29AM -0700, Christoph Hellwig wrote:
-> On Wed, Jan 20, 2016 at 01:40:00PM -0600, Faisal Latif wrote:
-> > This driver provides iWARP RDMA functionality for the Intel(R) X722 Ethernet
-> > controller for PCI Physical Functions. It is in early product cycle
-> > and having the driver in the kernel will allow users to have hardware support
-> > when available for purchase.
+On Mon, 2016-04-04 at 10:32 -0700, Cong Wang wrote:
+> Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  include/net/act_api.h | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> Just curious: how is this driver supposed to work?  It doesn't seem to
-> support FRWRs despite the iWarp spec requiring support for it.  It also
-> sets IB_DEVICE_MEM_MGT_EXTENSIONS despite the lack of this methods,
-> which will lead to instant crashes when using any of the usual drivers.
-> 
+> diff --git a/include/net/act_api.h b/include/net/act_api.h
+> index 2a19fe1..03e322b 100644
+> --- a/include/net/act_api.h
+> +++ b/include/net/act_api.h
+> @@ -135,6 +135,7 @@ void tcf_hashinfo_destroy(const struct tc_action_ops *ops,
+>  static inline void tc_action_net_exit(struct tc_action_net *tn)
+>  {
+>  	tcf_hashinfo_destroy(tn->ops, tn->hinfo);
+> +	kfree(tn->hinfo);
+>  }
+>  
+>  int tcf_generic_walker(struct tc_action_net *tn, struct sk_buff *skb,
 
-Thank Christoph,
-
-We are addressing it in the next patch series.
-
-Faisal
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good to me, although the kfree() might be put in
+cf_hashinfo_destroy() (at one place instead of being inlined in all call
+points)
