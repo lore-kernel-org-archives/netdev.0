@@ -1,137 +1,105 @@
 From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCHv2 net 3/3] samples/bpf: Enable powerpc support
-Date: Mon,  4 Apr 2016 22:31:34 +0530
-Message-ID: <28d2e09a7db94a0a71b3222b3e5ffacb0d4a8dd7.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
-References: <5ab5eec91d2d0bc7f221d714ef84afac83b2604b.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
-Cc: Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"David S . Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
-	Michael Ellerman <mpe@ellerman.id.au>
-To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
+Subject: Re: [RFC PATCH 6/6] ppc: ebpf/jit: Implement JIT compiler for
+ extended BPF
+Date: Mon, 4 Apr 2016 22:39:11 +0530
+Message-ID: <20160404170911.GA15993@naverao1-tp.in.ibm.com>
+References: <cover.1459504222.git.naveen.n.rao@linux.vnet.ibm.com>
+ <b58a289b51bbce73f8539290b721a5d461b7cebb.1459504224.git.naveen.n.rao@linux.vnet.ibm.com>
+ <56FEB9AD.2080401@fb.com>
+ <56FEBF51.7090608@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, Matt Evans <matt@ozlabs.org>,
+	oss@buserror.net, Paul Mackerras <paulus@samba.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5ab5eec91d2d0bc7f221d714ef84afac83b2604b.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
-In-Reply-To: <5ab5eec91d2d0bc7f221d714ef84afac83b2604b.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
-References: <5ab5eec91d2d0bc7f221d714ef84afac83b2604b.1459789086.git.naveen.n.rao@linux.vnet.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <56FEBF51.7090608@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the necessary definitions for building bpf samples on ppc.
+On 2016/04/01 08:34PM, Daniel Borkmann wrote:
+> On 04/01/2016 08:10 PM, Alexei Starovoitov wrote:
+> >On 4/1/16 2:58 AM, Naveen N. Rao wrote:
+> >>PPC64 eBPF JIT compiler. Works for both ABIv1 and ABIv2.
+> >>
+> >>Enable with:
+> >>echo 1 > /proc/sys/net/core/bpf_jit_enable
+> >>or
+> >>echo 2 > /proc/sys/net/core/bpf_jit_enable
+> >>
+> >>... to see the generated JIT code. This can further be processed with
+> >>tools/net/bpf_jit_disasm.
+> >>
+> >>With CONFIG_TEST_BPF=m and 'modprobe test_bpf':
+> >>test_bpf: Summary: 291 PASSED, 0 FAILED, [234/283 JIT'ed]
+> >>
+> >>... on both ppc64 BE and LE.
+> >>
+> >>The details of the approach are documented through various comments in
+> >>the code, as are the TODOs. Some of the prominent TODOs include
+> >>implementing BPF tail calls and skb loads.
+> >>
+> >>Cc: Matt Evans <matt@ozlabs.org>
+> >>Cc: Michael Ellerman <mpe@ellerman.id.au>
+> >>Cc: Paul Mackerras <paulus@samba.org>
+> >>Cc: Alexei Starovoitov <ast@fb.com>
+> >>Cc: "David S. Miller" <davem@davemloft.net>
+> >>Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+> >>Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+> >>---
+> >>  arch/powerpc/include/asm/ppc-opcode.h |  19 +-
+> >>  arch/powerpc/net/Makefile             |   4 +
+> >>  arch/powerpc/net/bpf_jit.h            |  66 ++-
+> >>  arch/powerpc/net/bpf_jit64.h          |  58 +++
+> >>  arch/powerpc/net/bpf_jit_comp64.c     | 828 ++++++++++++++++++++++++++++++++++
+> >>  5 files changed, 973 insertions(+), 2 deletions(-)
+> >>  create mode 100644 arch/powerpc/net/bpf_jit64.h
+> >>  create mode 100644 arch/powerpc/net/bpf_jit_comp64.c
+> >...
+> >>-#ifdef CONFIG_PPC64
+> >>+#if defined(CONFIG_PPC64) && (!defined(_CALL_ELF) || _CALL_ELF != 2)
+> >
+> >impressive stuff!
+> 
+> +1, awesome to see another one!
 
-Since ppc doesn't store function return address on the stack, modify how
-PT_REGS_RET() and PT_REGS_FP() work.
+Thanks!
 
-Also, introduce PT_REGS_IP() to access the instruction pointer.
+> 
+> >Everything nicely documented. Could you add few words for the above
+> >condition as well ?
+> >Or may be a new macro, since it occurs many times?
+> >What are these _CALL_ELF == 2 and != 2 conditions mean? ppc ABIs ?
 
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
----
-v2: updated macros using ({ }) gcc extension as per Alexei
+Yes, there are 2 ABIs: ppc64 (ABIv1) -- big endian and the recently 
+introduced ppc64le (ABIv2) which is currently only little endian. There 
+is also ppc32...
 
- samples/bpf/bpf_helpers.h   | 26 ++++++++++++++++++++++++++
- samples/bpf/spintest_kern.c |  2 +-
- samples/bpf/tracex2_kern.c  |  4 ++--
- samples/bpf/tracex4_kern.c  |  2 +-
- 4 files changed, 30 insertions(+), 4 deletions(-)
+Good suggestion about using a macro. I will put out a patch for that.
 
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 9363500..7904a2a 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -82,6 +82,7 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
- #define PT_REGS_FP(x) ((x)->bp)
- #define PT_REGS_RC(x) ((x)->ax)
- #define PT_REGS_SP(x) ((x)->sp)
-+#define PT_REGS_IP(x) ((x)->ip)
- 
- #elif defined(__s390x__)
- 
-@@ -94,6 +95,7 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
- #define PT_REGS_FP(x) ((x)->gprs[11]) /* Works only with CONFIG_FRAME_POINTER */
- #define PT_REGS_RC(x) ((x)->gprs[2])
- #define PT_REGS_SP(x) ((x)->gprs[15])
-+#define PT_REGS_IP(x) ((x)->ip)
- 
- #elif defined(__aarch64__)
- 
-@@ -106,6 +108,30 @@ static int (*bpf_l4_csum_replace)(void *ctx, int off, int from, int to, int flag
- #define PT_REGS_FP(x) ((x)->regs[29]) /* Works only with CONFIG_FRAME_POINTER */
- #define PT_REGS_RC(x) ((x)->regs[0])
- #define PT_REGS_SP(x) ((x)->sp)
-+#define PT_REGS_IP(x) ((x)->pc)
-+
-+#elif defined(__powerpc__)
-+
-+#define PT_REGS_PARM1(x) ((x)->gpr[3])
-+#define PT_REGS_PARM2(x) ((x)->gpr[4])
-+#define PT_REGS_PARM3(x) ((x)->gpr[5])
-+#define PT_REGS_PARM4(x) ((x)->gpr[6])
-+#define PT_REGS_PARM5(x) ((x)->gpr[7])
-+#define PT_REGS_RC(x) ((x)->gpr[3])
-+#define PT_REGS_SP(x) ((x)->sp)
-+#define PT_REGS_IP(x) ((x)->nip)
- 
- #endif
-+
-+#ifdef __powerpc__
-+#define BPF_KPROBE_READ_RET_IP(ip, ctx)		({ (ip) = (ctx)->link; })
-+#define BPF_KRETPROBE_READ_RET_IP		BPF_KPROBE_READ_RET_IP
-+#else
-+#define BPF_KPROBE_READ_RET_IP(ip, ctx)		({				\
-+		bpf_probe_read(&(ip), sizeof(ip), (void *)PT_REGS_RET(ctx)); })
-+#define BPF_KRETPROBE_READ_RET_IP(ip, ctx)	({				\
-+		bpf_probe_read(&(ip), sizeof(ip),				\
-+				(void *)(PT_REGS_FP(ctx) + sizeof(ip))); })
-+#endif
-+
- #endif
-diff --git a/samples/bpf/spintest_kern.c b/samples/bpf/spintest_kern.c
-index 4b27619..ce0167d 100644
---- a/samples/bpf/spintest_kern.c
-+++ b/samples/bpf/spintest_kern.c
-@@ -34,7 +34,7 @@ struct bpf_map_def SEC("maps") stackmap = {
- #define PROG(foo) \
- int foo(struct pt_regs *ctx) \
- { \
--	long v = ctx->ip, *val; \
-+	long v = PT_REGS_IP(ctx), *val; \
- \
- 	val = bpf_map_lookup_elem(&my_map, &v); \
- 	bpf_map_update_elem(&my_map, &v, &v, BPF_ANY); \
-diff --git a/samples/bpf/tracex2_kern.c b/samples/bpf/tracex2_kern.c
-index 09c1adc..6d6eefd 100644
---- a/samples/bpf/tracex2_kern.c
-+++ b/samples/bpf/tracex2_kern.c
-@@ -27,10 +27,10 @@ int bpf_prog2(struct pt_regs *ctx)
- 	long init_val = 1;
- 	long *value;
- 
--	/* x64/s390x specific: read ip of kfree_skb caller.
-+	/* read ip of kfree_skb caller.
- 	 * non-portable version of __builtin_return_address(0)
- 	 */
--	bpf_probe_read(&loc, sizeof(loc), (void *)PT_REGS_RET(ctx));
-+	BPF_KPROBE_READ_RET_IP(loc, ctx);
- 
- 	value = bpf_map_lookup_elem(&my_map, &loc);
- 	if (value)
-diff --git a/samples/bpf/tracex4_kern.c b/samples/bpf/tracex4_kern.c
-index ac46714..6dd8e38 100644
---- a/samples/bpf/tracex4_kern.c
-+++ b/samples/bpf/tracex4_kern.c
-@@ -40,7 +40,7 @@ int bpf_prog2(struct pt_regs *ctx)
- 	long ip = 0;
- 
- 	/* get ip address of kmem_cache_alloc_node() caller */
--	bpf_probe_read(&ip, sizeof(ip), (void *)(PT_REGS_FP(ctx) + sizeof(ip)));
-+	BPF_KRETPROBE_READ_RET_IP(ip, ctx);
- 
- 	struct pair v = {
- 		.val = bpf_ktime_get_ns(),
--- 
-2.7.4
+> >Will there ever be v3 ?
+
+Hope not! ;)
+
+> 
+> Minor TODO would also be to convert to use bpf_jit_binary_alloc() and
+> bpf_jit_binary_free() API for the image, which is done by other eBPF
+> jits, too.
+
+Sure. I will make that change.
+
+> 
+> >So far most of the bpf jits were going via net-next tree, but if
+> >in this case no changes to the core is necessary then I guess it's fine
+> >to do it via powerpc tree. What's your plan?
+
+I initially thought this has to go through the powerpc tree. I don't 
+really have a preference and I'll allow the maintainers to take a call 
+on that. I do however need a review of the JIT code from Michael
+Ellerman/Paul Mackerras.
+
+
+- Naveen
