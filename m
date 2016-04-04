@@ -1,335 +1,71 @@
 From: Chen-Yu Tsai <wens@csie.org>
-Subject: [PATCH RFC 2/5] net: phy: sun8i-h3-ephy: Add driver for Allwinner H3 Ethernet PHY
-Date: Tue,  5 Apr 2016 00:22:31 +0800
-Message-ID: <1459786954-12649-3-git-send-email-wens@csie.org>
+Subject: [PATCH RFC 4/5] ARM: dts: sun8i-h3: Add Ethernet controller device
+ node to sun8i-h3.dtsi
+Date: Tue,  5 Apr 2016 00:22:33 +0800
+Message-ID: <1459786954-12649-5-git-send-email-wens@csie.org>
 References: <1459786954-12649-1-git-send-email-wens@csie.org>
-Cc: Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	LABBE Corentin <clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Chen-Yu Tsai <wens@csie.org>,
+ LABBE Corentin <clabbe.montjoie@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
 To: Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ Florian Fainelli <f.fainelli@gmail.com>, Rob Herring <robh+dt@kernel.org>,
+ Pawel Moll <pawel.moll@arm.com>, Mark Rutland <mark.rutland@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Kumar Gala <galak@codeaurora.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1459786954-12649-1-git-send-email-wens@csie.org>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
-configured through a memory mapped hardware register.
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
 
-This same register also configures the MAC interface mode and TX clock
-source. Also covered by the register, but not supported in this driver,
-are TX/RX clock delay chains and inverters, and an RMII module.
+The Allwinner H3 SoC has a gigabit Ethernet controller.
 
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+[wens@csie.org: drop pinmux; update clocks/resets]
 Signed-off-by: Chen-Yu Tsai <wens@csie.org>
 ---
- drivers/net/phy/Kconfig         |   8 ++
- drivers/net/phy/Makefile        |   1 +
- drivers/net/phy/sun8i-h3-ephy.c | 266 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 275 insertions(+)
- create mode 100644 drivers/net/phy/sun8i-h3-ephy.c
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 6dad9a9c356c..f4b9eb6e9114 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -276,3 +276,11 @@ endif # PHYLIB
- config MICREL_KS8995MA
- 	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
- 	depends on SPI
+This is not a stable binding. Do not merge.
+
+---
+ arch/arm/boot/dts/sun8i-h3.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/sun8i-h3.dtsi b/arch/arm/boot/dts/sun8i-h3.dtsi
+index 9a28aeba9bc6..7749af6354bb 100644
+--- a/arch/arm/boot/dts/sun8i-h3.dtsi
++++ b/arch/arm/boot/dts/sun8i-h3.dtsi
+@@ -635,6 +635,18 @@
+ 			status = "disabled";
+ 		};
+ 
++		emac: ethernet@1c30000 {
++			compatible = "allwinner,sun8i-h3-emac";
++			reg = <0x01c30000 0x1000>;
++			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++			resets = <&ahb_rst 17>;
++			reset-names = "ahb";
++			clocks = <&bus_gates 17>, <&ephy>;
++			clock-names = "ahb", "tx";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
 +
-+config SUN8I_H3_EPHY
-+	tristate "Allwinner sun8i H3 Ethernet PHY"
-+	depends on OF && HAS_IOMEM && COMMON_CLK && RESET_CONTROLLER
-+	depends on MACH_SUN8I || COMPILE_TEST
-+	help
-+	  This modules provides a driver for the internal Ethernet PHY
-+	  and Ethernet MAC controls found in the Allwinner H3 SoC.
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index fcdbb9299fab..7cec3aceb518 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -44,3 +44,4 @@ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
- obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
- obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
- obj-$(CONFIG_MDIO_BCM_IPROC)	+= mdio-bcm-iproc.o
-+obj-$(CONFIG_SUN8I_H3_EPHY)	+= sun8i-h3-ephy.o
-diff --git a/drivers/net/phy/sun8i-h3-ephy.c b/drivers/net/phy/sun8i-h3-ephy.c
-new file mode 100644
-index 000000000000..bf2703bee024
---- /dev/null
-+++ b/drivers/net/phy/sun8i-h3-ephy.c
-@@ -0,0 +1,266 @@
-+/*
-+ * Allwinner sun8i H3 E(thernet) PHY driver
-+ *
-+ * Copyright (C) 2016 Chen-Yu Tsai <wens@csie.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/clk.h>
-+#include <linux/clk-provider.h>
-+#include <linux/err.h>
-+#include <linux/io.h>
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
-+#include <linux/reset.h>
-+#include <linux/spinlock.h>
-+
-+#define REG_PHY_ADDR_SHIFT	20
-+#define REG_PHY_ADDR_MASK	GENMASK(4, 0)
-+#define REG_LED_POL		BIT(17)	/* 1: active low, 0: active high */
-+#define REG_SHUTDOWN		BIT(16)	/* 1: shutdown, 0: power up */
-+#define REG_PHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
-+
-+#define REG_DEFAULT_VALUE	0x58000
-+#define REG_DEFAULT_MASK	GENMASK(31, 15)
-+
-+#define REG_GPIT		2
-+#define REG_ETCS_MASK		0x3
-+#define SUN8I_H3_EMAC_PARENTS	2
-+#define MII_PHY_CLK_RATE	25000000
-+#define INT_TX_CLK_RATE		125000000
-+#define MII_PHY_CLK_NAME	"mii_phy_tx"
-+#define INT_TX_CLK_NAME		"int_tx"
-+
-+struct sun8i_h3_ephy {
-+	struct device *dev;
-+	void __iomem *reg;
-+	struct clk *clk;
-+	struct reset_control *reset;
-+	struct clk *mac_clks[SUN8I_H3_EMAC_PARENTS + 1];
-+};
-+
-+static DEFINE_SPINLOCK(sun8i_h3_ephy_lock);
-+
-+/* The EMAC clock/interface controls are much like those found on the A20,
-+ * which is supported by sun7i-a20-gmac-clk. The H3 adds an RMII module,
-+ * enabled by bit 13. Unfortunately vendor code and documentation don't
-+ * explain  how it should work with the other bits, and no hardware
-+ * actually uses it.
-+ */
-+static u32 sun8i_h3_emac_mux_table[SUN8I_H3_EMAC_PARENTS] = {
-+	0x0,	/* Select TX clock from MII PHY */
-+	0x2,	/* Select internal TX clock (for RGMII) */
-+};
-+
-+static const char *sun8i_h3_emac_mux_parents[SUN8I_H3_EMAC_PARENTS] = {
-+	MII_PHY_CLK_NAME,
-+	INT_TX_CLK_NAME,
-+};
-+
-+int sun8i_h3_ephy_register_clocks(struct sun8i_h3_ephy *phy)
-+{
-+	struct device *dev = phy->dev;
-+	struct device_node *np = dev->of_node;
-+	const char *clk_name;
-+	struct clk_mux *mux;
-+	struct clk_gate *gate;
-+	int ret;
-+
-+	if (of_property_read_string(np, "clock-output-names", &clk_name)) {
-+		dev_err(phy->dev, "No clock output name given\n");
-+		return -EINVAL;
-+	}
-+
-+	/* allocate mux and gate clock structs */
-+	mux = devm_kzalloc(dev, sizeof(struct clk_mux), GFP_KERNEL);
-+	if (!mux)
-+		return -ENOMEM;
-+
-+	gate = devm_kzalloc(dev, sizeof(struct clk_gate), GFP_KERNEL);
-+	if (!gate)
-+		return -ENOMEM;
-+
-+	/* Register fixed clocks to use as parents */
-+	phy->mac_clks[0] = clk_register_fixed_rate(dev, MII_PHY_CLK_NAME,
-+						   NULL, 0, MII_PHY_CLK_RATE);
-+	if (IS_ERR(phy->mac_clks[0]))
-+		return PTR_ERR(phy->mac_clks[0]);
-+
-+	phy->mac_clks[1] = clk_register_fixed_rate(dev, INT_TX_CLK_NAME,
-+						   NULL, 0, INT_TX_CLK_RATE);
-+	if (IS_ERR(phy->mac_clks[1])) {
-+		ret = PTR_ERR(phy->mac_clks[1]);
-+		goto err_int_tx_clk;
-+	}
-+
-+	/* set up gate and mux properties */
-+	gate->reg = phy->reg;
-+	gate->bit_idx = REG_GPIT;
-+	gate->lock = &sun8i_h3_ephy_lock;
-+	mux->reg = phy->reg;
-+	mux->mask = REG_ETCS_MASK;
-+	mux->table = sun8i_h3_emac_mux_table;
-+	mux->lock = &sun8i_h3_ephy_lock;
-+
-+	phy->mac_clks[2] = clk_register_composite(dev, clk_name,
-+						  sun8i_h3_emac_mux_parents,
-+						  SUN8I_H3_EMAC_PARENTS,
-+						  &mux->hw, &clk_mux_ops,
-+						  NULL, NULL,
-+						  &gate->hw, &clk_gate_ops,
-+						  0);
-+	if (IS_ERR(phy->mac_clks[2])) {
-+		ret = PTR_ERR(phy->mac_clks[2]);
-+		goto err_tx_clk;
-+	}
-+
-+	ret = of_clk_add_provider(dev->of_node, of_clk_src_simple_get,
-+				  phy->mac_clks[2]);
-+	if (ret)
-+		goto err_of_clk;
-+
-+	return 0;
-+
-+err_of_clk:
-+	/* TODO: switch to clk_unregister_composite when it's available */
-+	clk_unregister(phy->mac_clks[2]);
-+err_tx_clk:
-+	clk_unregister_fixed_rate(phy->mac_clks[1]);
-+err_int_tx_clk:
-+	clk_unregister_fixed_rate(phy->mac_clks[0]);
-+
-+	return ret;
-+}
-+
-+static void sun8i_h3_ephy_init_phy(struct sun8i_h3_ephy *phy, u32 addr)
-+{
-+	u32 val = readl(phy->reg);
-+
-+	/* set default values, but don't touch clock settings */
-+	val = (val & ~REG_DEFAULT_MASK) | REG_DEFAULT_VALUE;
-+
-+	if (addr < REG_PHY_ADDR_MASK) {
-+		dev_info(phy->dev, "Using interal PHY at 0x%x\n", addr);
-+
-+		val |= addr << REG_PHY_ADDR_SHIFT;
-+		val &= ~REG_SHUTDOWN;
-+		val |= REG_PHY_SELECT;
-+
-+		if (of_property_read_bool(phy->dev->of_node,
-+					  "allwinner,leds-active-low"))
-+			val |= REG_LED_POL;
-+	} else {
-+		dev_info(phy->dev, "Using external PHY\n");
-+	}
-+
-+	writel(val, phy->reg);
-+}
-+
-+static void sun8i_h3_ephy_reset_phy(struct sun8i_h3_ephy *phy)
-+{
-+	u32 val;
-+
-+	val = readl(phy->reg);
-+	val = (val & ~REG_DEFAULT_MASK) | REG_DEFAULT_VALUE;
-+	writel(val, phy->reg);
-+}
-+
-+int sun8i_h3_ephy_probe(struct platform_device *pdev)
-+{
-+	struct device *dev = &pdev->dev;
-+	struct device_node *np = dev->of_node;
-+	struct sun8i_h3_ephy *phy;
-+	struct resource *res;
-+	u32 addr = REG_PHY_ADDR_MASK;
-+	int ret;
-+
-+	ret = of_property_read_u32(np, "allwinner,ephy-addr", &addr);
-+	if (!ret && addr > REG_PHY_ADDR_MASK) {
-+		dev_err(dev, "invalid PHY address: 0x%x\n", addr);
-+		return -EINVAL;
-+	} else if (ret && ret != -EINVAL) {
-+		dev_err(dev, "could not get PHY address: %d\n", ret);
-+		return ret;
-+	}
-+
-+	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
-+	if (!phy)
-+		return -ENOMEM;
-+
-+	phy->dev = dev;
-+	platform_set_drvdata(pdev, phy);
-+
-+	phy->clk = devm_clk_get(dev, NULL);
-+	if (IS_ERR(phy->clk)) {
-+		dev_err(dev, "failed to get clock\n");
-+		return PTR_ERR(phy->clk);
-+	}
-+
-+	phy->reset = devm_reset_control_get(dev, NULL);
-+	if (IS_ERR(phy->reset)) {
-+		dev_err(dev, "failed to get reset control\n");
-+		return PTR_ERR(phy->reset);
-+	}
-+
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	phy->reg = devm_ioremap_resource(dev, res);
-+	if (IS_ERR(phy->reg)) {
-+		dev_err(dev, "failed to map registers\n");
-+		return PTR_ERR(phy->reg);
-+	}
-+
-+	ret = clk_prepare_enable(phy->clk);
-+	if (ret) {
-+		dev_err(dev, "failed to enable clock\n");
-+		return ret;
-+	}
-+
-+	ret = reset_control_deassert(phy->reset);
-+	if (ret) {
-+		dev_err(dev, "failed to deassert reset control\n");
-+		goto err_reset;
-+	}
-+
-+	sun8i_h3_ephy_init_phy(phy, addr);
-+
-+	ret = sun8i_h3_ephy_register_clocks(phy);
-+	if (ret)
-+		goto err_tx_clk;
-+
-+	return 0;
-+
-+err_tx_clk:
-+	sun8i_h3_ephy_reset_phy(phy);
-+	reset_control_assert(phy->reset);
-+err_reset:
-+	clk_disable_unprepare(phy->clk);
-+	return ret;
-+}
-+
-+static const struct of_device_id sun8i_h3_ephy_of_match[] = {
-+	{ .compatible = "allwinner,sun8i-h3-ephy", },
-+	{ },
-+};
-+MODULE_DEVICE_TABLE(of, sun8i_h3_ephy_of_match);
-+
-+static struct platform_driver sun8i_h3_ephy_driver = {
-+	.probe	= sun8i_h3_ephy_probe,
-+	.driver = {
-+		.of_match_table	= sun8i_h3_ephy_of_match,
-+		.name  = "sun8i-h3-ephy",
-+	}
-+};
-+module_platform_driver(sun8i_h3_ephy_driver);
-+
-+MODULE_DESCRIPTION("Allwinner sun8i H3 Ethernet PHY driver");
-+MODULE_AUTHOR("Chen-Yu Tsai <wens@csie.org>");
-+MODULE_LICENSE("GPL v2");
+ 		gic: interrupt-controller@01c81000 {
+ 			compatible = "arm,cortex-a7-gic", "arm,cortex-a15-gic";
+ 			reg = <0x01c81000 0x1000>,
 -- 
 2.7.0
