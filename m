@@ -1,47 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] ixgbe: Extend trust to allow guest to set unicast address
-Date: Mon,  4 Apr 2016 15:14:46 -0700
-Message-ID: <1459808097-26409-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: chas williams <3chas3@gmail.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next 0/4] udp: support SO_PEEK_OFFSET
+Date: Mon, 4 Apr 2016 18:23:25 -0400
+Message-ID: <CAF=yD-KNOafVon6LSVD+R4nLZT=j0Wdp8HJZ6skwpNdpaE1qkw@mail.gmail.com>
+References: <1459726193-20863-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <20160404.174947.926111909781290127.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Sam Kumar <samanthakumar@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:43863 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754578AbcDDWPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 18:15:03 -0400
-In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:33630 "EHLO
+	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753919AbcDDWYI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 18:24:08 -0400
+Received: by mail-lf0-f67.google.com with SMTP id r62so13424191lfd.0
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 15:24:06 -0700 (PDT)
+In-Reply-To: <20160404.174947.926111909781290127.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: chas williams <3chas3@gmail.com>
+On Mon, Apr 4, 2016 at 5:49 PM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+> Date: Sun,  3 Apr 2016 19:29:49 -0400
+>
+>> From: Willem de Bruijn <willemb@google.com>
+>>
+>> Support peeking at a non-zero offset for UDP sockets. Match the
+>> existing behavior on Unix datagram sockets.
+>>
+>> 1/4 makes the sk_peek_offset functions safe to use outside locks
+>> 2/4 removes udp headers before enqueue, to simplify offset arithmetic
+>> 3/4 introduces SO_PEEK_OFFSET support
+>> 4/4 moves sk->sk_peek_off on read, to match Unix socket semantics.
+>
+> I don't see how you can separate patches #3 and #4.
+>
+> Once you hook up the socket operation, the user can successfully use
+> the feature and therefore must receive the full set of semantics.
 
-When running certain routing protocols like VRRP, VF guests need the
-ability to set the unicast address of the interface.  Extend the new ndo
-trust feature to let the hypervisor trust a guest to set/update its own
-unicast address.
-
-Signed-off-by: Chas Williams <3chas3@gmail.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 8025a3f..80e47db 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -887,7 +887,7 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
- 
--	if (adapter->vfinfo[vf].pf_set_mac &&
-+	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
- 	    !ether_addr_equal(adapter->vfinfo[vf].vf_mac_addresses, new_mac)) {
- 		e_warn(drv,
- 		       "VF %d attempted to override administratively set MAC address\n"
--- 
-2.5.5
+Okay, I'll squash the two patches.
