@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] ixgbe: Do not allow PF to add VLVF entry unless it actually needs it
-Date: Mon,  4 Apr 2016 15:14:47 -0700
-Message-ID: <1459808097-26409-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] ixgbe: Add support for toggling VLAN filtering flag via ethtool
+Date: Mon,  4 Apr 2016 15:14:57 -0700
+Message-ID: <1459808097-26409-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54610 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:51308 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752689AbcDDWPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755616AbcDDWPF (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 4 Apr 2016 18:15:05 -0400
 In-Reply-To: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,114 +18,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-While doing the work on igb I realized there were a few cases where we were
-still adding VLANs to the VLVF entries for the PF when they were not
-needed.  This patch cleans that up so that the only time we add a PF entry
-to the VLVF is either for VLAN 0 or if the PF has requested a VLAN that a VF
-is already using.
+This change makes it so that we can use the ethtool rx-vlan-filter flag to
+toggle Rx VLAN filtering on and off.  This is basically just an extension
+of the existing VLAN promisc work in that it just adds support for the
+additional ethtool flag.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  8 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 31 ++++++++++++++------------
- 2 files changed, 21 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27 ++++++++++++++-------------
+ 1 file changed, 14 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7df3fe2..a01a7f2 100644
+index dcaac50..6b72f3b 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3908,7 +3908,9 @@ static int ixgbe_vlan_rx_add_vid(struct net_device *netdev,
+@@ -4447,6 +4447,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
  	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 fctrl, vmolr = IXGBE_VMOLR_BAM | IXGBE_VMOLR_AUPE;
++	netdev_features_t features = netdev->features;
+ 	int count;
  
- 	/* add VID to filter table */
--	hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, true);
-+	if (!vid || !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+		hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, !!vid);
+ 	/* Check for Promiscuous and All Multicast modes */
+@@ -4464,14 +4465,13 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		hw->addr_ctrl.user_set_promisc = true;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+ 		vmolr |= IXGBE_VMOLR_MPE;
+-		ixgbe_vlan_promisc_enable(adapter);
++		features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			fctrl |= IXGBE_FCTRL_MPE;
+ 			vmolr |= IXGBE_VMOLR_MPE;
+ 		}
+ 		hw->addr_ctrl.user_set_promisc = false;
+-		ixgbe_vlan_promisc_disable(adapter);
+ 	}
+ 
+ 	/*
+@@ -4504,7 +4504,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	}
+ 
+ 	/* This is useful for sniffing bad packets. */
+-	if (adapter->netdev->features & NETIF_F_RXALL) {
++	if (features & NETIF_F_RXALL) {
+ 		/* UPE and MPE will be handled by normal PROMISC logic
+ 		 * in e1000e_set_rx_mode */
+ 		fctrl |= (IXGBE_FCTRL_SBP | /* Receive bad packets */
+@@ -4517,10 +4517,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
+ 
+-	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++	if (features & NETIF_F_HW_VLAN_CTAG_RX)
+ 		ixgbe_vlan_strip_enable(adapter);
+ 	else
+ 		ixgbe_vlan_strip_disable(adapter);
 +
- 	set_bit(vid, adapter->active_vlans);
++	if (features & NETIF_F_HW_VLAN_CTAG_FILTER)
++		ixgbe_vlan_promisc_disable(adapter);
++	else
++		ixgbe_vlan_promisc_enable(adapter);
+ }
+ 
+ static void ixgbe_napi_enable_all(struct ixgbe_adapter *adapter)
+@@ -8495,11 +8500,6 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 	}
+ 
+-	if (features & NETIF_F_HW_VLAN_CTAG_RX)
+-		ixgbe_vlan_strip_enable(adapter);
+-	else
+-		ixgbe_vlan_strip_disable(adapter);
+-
+ 	if (changed & NETIF_F_RXALL)
+ 		need_reset = true;
+ 
+@@ -8516,6 +8516,9 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 
+ 	if (need_reset)
+ 		ixgbe_do_reset(netdev);
++	else if (changed & (NETIF_F_HW_VLAN_CTAG_RX |
++			    NETIF_F_HW_VLAN_CTAG_FILTER))
++		ixgbe_set_rx_mode(netdev);
  
  	return 0;
-@@ -3965,9 +3967,7 @@ static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
- 	struct ixgbe_hw *hw = &adapter->hw;
+ }
+@@ -9191,7 +9194,8 @@ skip_sriov:
+ 			   NETIF_F_HW_CSUM |
+ 			   NETIF_F_SCTP_CRC |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+-			   NETIF_F_HW_VLAN_CTAG_RX;
++			   NETIF_F_HW_VLAN_CTAG_RX |
++			   NETIF_F_HW_VLAN_CTAG_FILTER;
  
- 	/* remove VID from filter table */
--	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
--		ixgbe_update_pf_promisc_vlvf(adapter, vid);
--	else
-+	if (vid && !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
- 		hw->mac.ops.set_vfta(hw, vid, VMDQ_P(0), false, true);
+ 	if (hw->mac.type >= ixgbe_mac_82599EB)
+ 		netdev->features |= NETIF_F_SCTP_CRC;
+@@ -9204,9 +9208,6 @@ skip_sriov:
+ 	if (hw->mac.type >= ixgbe_mac_82599EB)
+ 		netdev->hw_features |= NETIF_F_NTUPLE;
  
- 	clear_bit(vid, adapter->active_vlans);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 80e47db..4bc24963 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -589,40 +589,40 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
- static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 i;
-+	u32 vlvfb_mask, pool_mask, i;
-+
-+	/* create mask for VF and other pools */
-+	pool_mask = ~(1 << (VMDQ_P(0) % 32));
-+	vlvfb_mask = 1 << (vf % 32);
- 
- 	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
- 	for (i = IXGBE_VLVF_ENTRIES; i--;) {
- 		u32 bits[2], vlvfb, vid, vfta, vlvf;
- 		u32 word = i * 2 + vf / 32;
--		u32 mask = 1 << (vf % 32);
-+		u32 mask;
- 
- 		vlvfb = IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
- 
- 		/* if our bit isn't set we can skip it */
--		if (!(vlvfb & mask))
-+		if (!(vlvfb & vlvfb_mask))
- 			continue;
- 
- 		/* clear our bit from vlvfb */
--		vlvfb ^= mask;
-+		vlvfb ^= vlvfb_mask;
- 
- 		/* create 64b mask to chedk to see if we should clear VLVF */
- 		bits[word % 2] = vlvfb;
- 		bits[~word % 2] = IXGBE_READ_REG(hw, IXGBE_VLVFB(word ^ 1));
- 
--		/* if promisc is enabled, PF will be present, leave VFTA */
--		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
--			bits[VMDQ_P(0) / 32] &= ~(1 << (VMDQ_P(0) % 32));
+-	/* set this bit last since it cannot be part of hw_features */
+-	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 -
--			if (bits[0] || bits[1])
--				goto update_vlvfb;
--			goto update_vlvf;
--		}
--
- 		/* if other pools are present, just remove ourselves */
--		if (bits[0] || bits[1])
-+		if (bits[(VMDQ_P(0) / 32) ^ 1] ||
-+		    (bits[VMDQ_P(0) / 32] & pool_mask))
- 			goto update_vlvfb;
- 
-+		/* if PF is present, leave VFTA */
-+		if (bits[0] || bits[1])
-+			goto update_vlvf;
-+
- 		/* if we cannot determine VLAN just remove ourselves */
- 		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
- 		if (!vlvf)
-@@ -638,6 +638,9 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
- update_vlvf:
- 		/* clear POOL selection enable */
- 		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
-+
-+		if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
-+			vlvfb = 0;
- update_vlvfb:
- 		/* clear pool bits */
- 		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
+ 	netdev->vlan_features |= NETIF_F_SG |
+ 				 NETIF_F_TSO |
+ 				 NETIF_F_TSO6 |
 -- 
 2.5.5
