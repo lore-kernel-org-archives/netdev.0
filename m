@@ -1,62 +1,97 @@
-From: Guus Sliepen <guus@tinc-vpn.org>
-Subject: Re: Best way to reduce system call overhead for tun device I/O?
-Date: Mon, 4 Apr 2016 16:40:19 +0200
-Message-ID: <20160404144019.GN3771@sliepen.org>
-References: <20160329224043.GY3784@sliepen.org>
- <CALx6S37xsTeDyMHOEiGzjpbR_5zFw6XSDEgPkZqpUzEa9WDStg@mail.gmail.com>
- <20160331.172050.1423948167839485574.davem@davemloft.net>
- <20160331222857.GH3771@sliepen.org>
- <20160331163932.3617e7cd@xeon-e3>
- <CAF=yD-LUaxsJMZiGXQdEDh-6UE11ApL89rjt=13oLK3FM1rerQ@mail.gmail.com>
+From: Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v5 2/4] Documentation: Bindings: Add STM32 DWMAC glue
+Date: Mon, 4 Apr 2016 16:40:47 +0200
+Message-ID: <CAJgp7zyQp4Hoh9fgjoYDCJ_+mBNOX1ZiZc5+AAN+9dfi=UGtiA@mail.gmail.com>
+References: <1458315428-10081-1-git-send-email-alexandre.torgue@gmail.com>
+	<1458315428-10081-3-git-send-email-alexandre.torgue@gmail.com>
+	<CAGb2v65SvVi0cJbaaD9cYrqC3pJ9eumwhTVk11_N7r_nTZhS9g@mail.gmail.com>
+	<20160321124043.GA26873@rob-hp-laptop>
+	<CAGhQ9VwS=YwgfeUuK+LzGjy3f9btVGV7bN=TATGHwQs+JW+iGA@mail.gmail.com>
+	<CAJgp7zxfFRhfNjcE23n+DKD0ffrvH4_sowPjK_-DZAS4ecH5dg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arianus.sliepen.org ([92.243.30.131]:39148 "EHLO
-	arianus.sliepen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753143AbcDDOkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 10:40:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-LUaxsJMZiGXQdEDh-6UE11ApL89rjt=13oLK3FM1rerQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Maxime Coquelin <mcoquelin.stm32-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJgp7zxfFRhfNjcE23n+DKD0ffrvH4_sowPjK_-DZAS4ecH5dg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 03, 2016 at 07:03:09PM -0400, Willem de Bruijn wrote:
+Hi Rob,
 
-> On Thu, Mar 31, 2016 at 7:39 PM, Stephen Hemminger <stephen@networkplumber.org> wrote:
+2016-03-22 17:11 GMT+01:00 Alexandre Torgue <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> Hi guys,
 >
-> > Rather than bodge AF_PACKET onto TUN, why not just create a new device type
-> > and control it from something modern like netlink.
+> I will fix typo issues (s/vesrion/version and ethernet @).
+>
+> Concerning compatible string. For sure "snps,dwmac-3.50a" string is
+> not used inside glue driver.
+> I perfere to keep it for information but if you really want that I
+> remove it I will not block ;)
+>
+> 2016-03-21 16:36 GMT+01:00 Joachim  Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+>> On 21 March 2016 at 13:40, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>>> On Sat, Mar 19, 2016 at 12:00:22AM +0800, Chen-Yu Tsai wrote:
+>>>> Hi,
+>>>>
+>>>> On Fri, Mar 18, 2016 at 11:37 PM, Alexandre TORGUE
+>>>> <alexandre.torgue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>>> > +- clocks: Must contain a phandle for each entry in clock-names.
+>>>> > +- clock-names: Should be "stmmaceth" for the host clock.
+>>>
+> We can remove host clock (stmmac eth) entry here and refer to
+> stmmac.txt binding for common entry
+>
+>>> This doesn't sound like the clock input signal name...
+>>>
+>>>> > +              Should be "tx-clk" for the MAC TX clock.
+>>>> > +              Should be "rx-clk" for the MAC RX clock.
+>>>
+>>> How can other DWMAC blocks not have these clocks? The glue can't really
+>>> add these clocks. It could combine them into one or a new version of
+>>> DWMAC could have a different number of clock inputs. So if there is
+>>> variation here, then some of the bindings are probably wrong. I guess
+>>> the only change I'm suggesting is possibly moving these into common
+>>> binding doc.
+>>
+>> The LPC18xx implementation probably have these clocks as well but the
+>> LPC1850 user manual only documents the main clock. Someone with access
+>> to the IP block doc from Synopsys should be able to check which clocks
+>> the MAC really needs.
+>>
+>> Rockchip bindings have two clocks named "mac_clk_rx" and "mac_clk_tx".
+>> These are probably the same as stm32 needs so maybe use these names
+>> and move them into the main doc and update the rockchip binding.
+>>
+> I think we can use same name. But I have a doubt on moving it in a
+> common bindings (maybe I don't well understood). When you say "common
+> binding file" is it "stmmac.txt" binding ? If yes does it mean that we
+> have to control it inside stmmac driver (no more in glue) ? In this
+> case those clocks will become "required" for stm32 and rockship but
+> not for others chip. It could create confusion?
 
-Do we really want to introduce a whole new device type? The tun device
-is working perfectly fine, except for the fact that there is no way to
-send/receive multiple packets in one go.
+A gentle ping. Can you give me your feedback please ?
+I will send next patchset version according to your answer.
 
-> Depending on the use-case, it may be sufficient to extend AF_PACKET
-> with limited tap functionality:
-> 
-> - add a po->xmit mode that reinjects into the kernel receive path,
->   analogous to pktgen's M_NETIF_RECEIVE mode.
-> 
-> - optionally drop packets in __netif_receive_skb_core and xmit_one
->   if any of the registered packet sockets accepted the packet and has
->   a new intercept feature flag enabled.
-> 
-> This can be applied to a dummy device, but much more interesting
-> is to interpose on the flow of a normal nic. It is clearly not a drop-in
-> replacement for a tap (let alone tun) device. I have some preliminary
-> code.
+Thanks in advance
 
-It's not really tinc's use case, but I did try using socket(AF_PACKET)
-bound to a tun interface, just to see if sendmmsg()/recvmmsg() works
-then. It does, but indeed for packets that are sent to the socket, they
-need to be reinjected into the kernel receive path. So I'll be happy to
-test out your preliminary code.
+Alex
 
--- 
-Met vriendelijke groet / with kind regards,
-     Guus Sliepen <guus@tinc-vpn.org>
+>
+> Best regards
+>
+> Alex
+>
+>>
+>> regards,
+>> Joachim Eastwood
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
