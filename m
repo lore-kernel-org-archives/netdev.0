@@ -1,56 +1,85 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
- connected datagram sk during pmtu update
-Date: Mon, 4 Apr 2016 13:45:02 -0700
-Message-ID: <CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
-References: <1459551391-69969-1-git-send-email-kafai@fb.com>
-	<1459551391-69969-4-git-send-email-kafai@fb.com>
-	<CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
-	<20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Mon, 04 Apr 2016 23:01:57 +0200
+Message-ID: <5702D645.1090401@iogearbox.net>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com> <1459560118-5582-5-git-send-email-bblanco@plumgrid.com> <1459622455.18188.5.camel@sipsolutions.net> <20160403063834.GE21980@gmail.com> <1459755310.18188.13.camel@sipsolutions.net> <57023AA0.5080600@iogearbox.net> <20160404184619.GC68392@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
+	john.fastabend@gmail.com, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:35751 "EHLO
-	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932459AbcDDUpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 16:45:03 -0400
-Received: by mail-yw0-f171.google.com with SMTP id g127so267160556ywf.2
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 13:45:03 -0700 (PDT)
-In-Reply-To: <20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+Received: from www62.your-server.de ([213.133.104.62]:55443 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbcDDVCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 17:02:06 -0400
+In-Reply-To: <20160404184619.GC68392@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 2, 2016 at 7:33 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> One thing to note is that this patch uses the addresses from the sk
-> instead of iph when updating sk->sk_dst_cache.  It is basically the
-> same logic that the __ip6_datagram_connect() is doing, so some
-> refactoring works in the first two patches.
+On 04/04/2016 08:46 PM, Alexei Starovoitov wrote:
+> On Mon, Apr 04, 2016 at 11:57:52AM +0200, Daniel Borkmann wrote:
+>> On 04/04/2016 09:35 AM, Johannes Berg wrote:
+>>> On Sat, 2016-04-02 at 23:38 -0700, Brenden Blanco wrote:
+>>>>
+>>>> Having a common check makes sense. The tricky thing is that the type can
+>>>> only be checked after taking the reference, and I wanted to keep the
+>>>> scope of the prog brief in the case of errors. I would have to move the
+>>>> bpf_prog_get logic into dev_change_bpf_fd and pass a bpf_prog * into the
+>>>> ndo instead. Would that API look fine to you?
+>>>
+>>> I can't really comment, I wasn't planning on using the API right now :)
+>>>
+>>> However, what else is there that the driver could possibly do with the
+>>> FD, other than getting the bpf_prog?
+>>>
+>>>> A possible extension of this is just to keep the bpf_prog * in the
+>>>> netdev itself and expose a feature flag from the driver rather than
+>>>> an ndo. But that would mean another 8 bytes in the netdev.
+>>>
+>>> That also misses the signal to the driver when the program is
+>>> set/removed, so I don't think that works. I'd argue it's not really
+>>> desirable anyway though since I wouldn't expect a majority of drivers
+>>> to start supporting this.
+>>
+>> I think ndo is probably fine for this purpose, see also my other mail. I
+>> think currently, the only really driver specific code would be to store
+>> the prog pointer somewhere and to pass needed meta data to populate the
+>> fake skb.
 >
-> AFAIK, a UDP socket can become connected after sending out some
-> datagrams in un-connected state.  or It can be connected
-> multiple times to different destinations.  I did some quick
-> tests but I could be wrong.
->
-> I am thinking if there could be a chance that the skb->data, which
-> has the original outgoing iph, is not related to the current
-> connected address.  If it is possible, we have to specifically
-> use the addresses in the sk instead of skb->data (i.e. iph) when
-> updating the sk->sk_dst_cache.
->
-> If we need to use the sk addresses (and other info) to find out a
-> new dst for a connected udp socket, it is better not doing it while
-> the userland is connecting to somewhere else.
->
-> If the above case is impossible, we can keep using the info from iph to
-> do the dst update for a connected-udp sk without taking the lock.
+> yes. I think ndo is better and having bpf_prog in the driver priv
+> part is likely better as well, since driver may decide to put it into
+> their ring struct for faster fetch or layout prog pointer next to other
+> priv fields for better cache.
+> Having prog in 'struct net_device' may look very sensible right now,
+> since there is not much code around it, but later it may be causing
+> some performance headachces. I think it's better to have complete
+> freedom in the drivers and later move code to generic part.
+> Same applies to your other comment about moving mlx4_bpf_set() and
+> mlx4_call_bpf() into generic. It's better for them to be driver
+> specific in the moment. Right now we have only mlx4 anyway.
 
-I see your point, but calling __ip6_datagram_connect() seems overkill
-here, we don't need to update so many things in the pmtu update context,
-at least IPv4 doesn't do that either. I don't think you have to do that.
+Sure, right now it's only mlx4, but we need to make sure that once this gets
+adapted/extended by others, that we won't end up with programs that can only
+be run by specific drivers e.g., due to meta data only available for this kind
+of driver but not others supporting XDP. So, some form of generic part will
+be needed in any case, also makes it easier for testing changes.
 
-So why just updating the dst cache (also some addr cache) here is not
-enough?
+>> Maybe mid-term drivers might want to reuse this hook/signal for offloading
+>> as well, not yet sure ... how would that relate to offloading of cls_bpf?
+>> Should these be considered two different things (although from an offloading
+>> perspective they are not really). _Conceptually_, XDP could also be seen
+>> as a software offload for the facilities we support with cls_bpf et al.
+>
+> agree. 'conceptually' phys_dev bpf program is similar to sched_cls bpf program.
+> If we can reuse some of the helpers that would be great...
+> but only if we can maintain highest performance.
+> hw offloading may be more convenient from cls_bpf side for some drivers,
+> but nothing obviously stops them from hw offloading of bpf_type_phys_dev
+
+Right, I assume such a f.e. JIT backend on driver side might be generic enough
+to be able to support both things as it will mostly boil down to different
+helpers and some subset of helpers are used by both anyway.
