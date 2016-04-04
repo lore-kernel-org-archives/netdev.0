@@ -1,127 +1,80 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: [RFC] ipv6: allow bypassing cross-intf routing limits
-Date: Mon,  4 Apr 2016 10:15:55 +0200
-Message-ID: <1459757755-25424-1-git-send-email-michal.kazior@tieto.com>
-References: <CA+BoTQnC-OKZ8eRohBYetfyW6-xo31kJtS8Lh+svxC=fkVsrXw@mail.gmail.com>
-Cc: Michal Kazior <michal.kazior@tieto.com>
+From: Petr Kulhavy <petr@barix.com>
+Subject: davinci-mdio: failing to connect to PHY
+Date: Mon, 4 Apr 2016 10:18:30 +0200
+Message-ID: <57022356.6010309@barix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:34303 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754682AbcDDIOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 04:14:34 -0400
-Received: by mail-lb0-f171.google.com with SMTP id vo2so148738329lbb.1
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 01:14:34 -0700 (PDT)
-In-Reply-To: <CA+BoTQnC-OKZ8eRohBYetfyW6-xo31kJtS8Lh+svxC=fkVsrXw@mail.gmail.com>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:36670 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbcDDISc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 04:18:32 -0400
+Received: by mail-lf0-f41.google.com with SMTP id g184so83342302lfb.3
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 01:18:32 -0700 (PDT)
+Received: from [192.168.11.166] (dynamic-31-25-120-010.ftth.glattnet.ch. [31.25.120.10])
+        by smtp.gmail.com with ESMTPSA id by7sm27668016wjc.18.2016.04.04.01.18.30
+        for <netdev@vger.kernel.org>
+        (version=TLSv1/SSLv3 cipher=OTHER);
+        Mon, 04 Apr 2016 01:18:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some use-cases to allow link-local
-routing for bridging purposes.
+Hi,
 
-One of these is allowing transparent 802.11
-bridging. Due to 802.11 framing limitations many
-Access Points make it impossible to create bridges
-on Client endpoints because they can't maintain
-Destination/Source/Transmitter/Receiver address
-distinction with only 3 addresses in frame header.
+I'm experiencing a peculiar problem with PHY communication in the 
+current davinci-mdio.c driver.
+After upgrading from kernel 3.17 to 4.5 my DT based AM1808 board started 
+having issues with the PHY communication.
+The MAC is detected, the MDIO is detected, the PHY is detected 
+(twice?!?!), however there is no data being sent/received and the after 
+issuing "ifdown -a" the MDIO starts spitting out messages that it cannot 
+connect to the PHY:
 
-The default behavior, i.e. link-local traffic
-being non-routable, remains. The user has to
-explicitly enable the bypass when defining a given
-route.
-
-Signed-off-by: Michal Kazior <michal.kazior@tieto.com>
----
-For more background see:
-
-  http://www.spinics.net/lists/netdev/msg371022.html
+net eth0: could not connect to phy davinci_mdio.0:00
+davinci_mdio davinci_mdio.0: resetting idled controller
 
 
+I'm using a single Micrel KSZ8081 PHY connected via RMII using the 
+default PHY address 0x01.
+Here is the dmesg excerpt related to mdio:
 
- include/uapi/linux/rtnetlink.h |  8 ++++++--
- net/ipv6/ip6_output.c          | 11 +++++++++--
- net/ipv6/route.c               |  4 ++++
- 3 files changed, 19 insertions(+), 4 deletions(-)
+davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
+davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
+davinci_mdio davinci_mdio.0: detected phy mask fffffffc
+libphy: davinci_mdio.0: probed
+davinci_mdio davinci_mdio.0: phy[0]: device davinci_mdio.0:00, driver 
+Micrel KSZ8081 or KSZ8091
+davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
+Micrel KSZ8081 or KSZ8091
+davinci_mdio davinci_mdio.0: resetting idled controller
+Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: failed to disable NAND tree 
+mode
+Micrel KSZ8081 or KSZ8091 davinci_mdio.0:00: attached PHY driver [Micrel 
+KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:00, irq=-1)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index ca764b5da86d..a577eec0e56e 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -424,9 +424,13 @@ enum {
- #define RTAX_FEATURE_SACK	(1 << 1)
- #define RTAX_FEATURE_TIMESTAMP	(1 << 2)
- #define RTAX_FEATURE_ALLFRAG	(1 << 3)
-+#define RTAX_FEATURE_XFACE	(1 << 4)
- 
--#define RTAX_FEATURE_MASK	(RTAX_FEATURE_ECN | RTAX_FEATURE_SACK | \
--				 RTAX_FEATURE_TIMESTAMP | RTAX_FEATURE_ALLFRAG)
-+#define RTAX_FEATURE_MASK	(RTAX_FEATURE_ECN | \
-+				 RTAX_FEATURE_SACK | \
-+				 RTAX_FEATURE_TIMESTAMP | \
-+				 RTAX_FEATURE_ALLFRAG | \
-+				 RTAX_FEATURE_XFACE)
- 
- struct rta_session {
- 	__u8	proto;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 9428345d3a07..9abb42acb6ad 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -283,6 +283,7 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
- 	u8 nexthdr = hdr->nexthdr;
- 	__be16 frag_off;
- 	int offset;
-+	int feat = dst_metric_raw(skb_dst(skb), RTAX_FEATURES);
- 
- 	if (ipv6_ext_hdr(nexthdr)) {
- 		offset = ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr, &frag_off);
-@@ -320,8 +321,11 @@ static int ip6_forward_proxy_check(struct sk_buff *skb)
- 	 * The proxying router can't forward traffic sent to a link-local
- 	 * address, so signal the sender and discard the packet. This
- 	 * behavior is clarified by the MIPv6 specification.
-+	 *
-+	 * It's useful to allow an override for transparent traffic relay.
- 	 */
--	if (ipv6_addr_type(&hdr->daddr) & IPV6_ADDR_LINKLOCAL) {
-+	if ((ipv6_addr_type(&hdr->daddr) & IPV6_ADDR_LINKLOCAL) &&
-+	    !(feat & RTAX_FEATURE_XFACE)) {
- 		dst_link_failure(skb);
- 		return -1;
- 	}
-@@ -485,12 +489,15 @@ int ip6_forward(struct sk_buff *skb)
- 			inet_putpeer(peer);
- 	} else {
- 		int addrtype = ipv6_addr_type(&hdr->saddr);
-+		int feat = dst_metric_raw(dst, RTAX_FEATURES);
- 
- 		/* This check is security critical. */
- 		if (addrtype == IPV6_ADDR_ANY ||
- 		    addrtype & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LOOPBACK))
- 			goto error;
--		if (addrtype & IPV6_ADDR_LINKLOCAL) {
-+
-+		if ((addrtype & IPV6_ADDR_LINKLOCAL) &&
-+		    !(feat & RTAX_FEATURE_XFACE)) {
- 			icmpv6_send(skb, ICMPV6_DEST_UNREACH,
- 				    ICMPV6_NOT_NEIGHBOUR, 0);
- 			goto error;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ed446639219c..560c99853907 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -629,8 +629,12 @@ static inline enum rt6_nud_state rt6_check_neigh(struct rt6_info *rt)
- static int rt6_score_route(struct rt6_info *rt, int oif,
- 			   int strict)
- {
-+	int feat = dst_metric_raw(&rt->dst, RTAX_FEATURES);
- 	int m;
- 
-+	if (feat & RTAX_FEATURE_XFACE)
-+		strict &= ~RT6_LOOKUP_F_IFACE;
-+
- 	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
- 		return RT6_NUD_FAIL_HARD;
--- 
-2.1.4
+
+After a soft-reboot the MDIO uses a different PHY mask fffffffd, detects 
+correctly only one PHY at address 1 (this is the default address) and 
+the networking works:
+
+davinci_mdio davinci_mdio.0: Runtime PM disabled, clock forced on.
+davinci_mdio davinci_mdio.0: davinci mdio revision 1.5
+davinci_mdio davinci_mdio.0: detected phy mask fffffffd
+libphy: davinci_mdio.0: probed
+davinci_mdio davinci_mdio.0: phy[1]: device davinci_mdio.0:01, driver 
+Micrel KSZ8081 or KSZ8091
+davinci_mdio davinci_mdio.0: resetting idled controller
+Micrel KSZ8081 or KSZ8091 davinci_mdio.0:01: attached PHY driver [Micrel 
+KSZ8081 or KSZ8091] (mii_bus:phy_addr=davinci_mdio.0:01, irq=-1)
+
+
+I'm wondering what the problem is and why the PHY mask is different 
+after power-up and after a soft reboot.
+Also it's not clear to me why this set-up worked with kernel 3.17 even 
+if it was detecting the PHY twice exactly the same way.
+How does the mask relate to the PHY address and how is it calculated?
+
+Thanks
+Petr
