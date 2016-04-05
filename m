@@ -1,125 +1,58 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 6/7] sctp: merge the seq_start/next/exits in remaddrs and assocs
-Date: Tue,  5 Apr 2016 12:06:31 +0800
-Message-ID: <90be0ff11d9675b484c5354ba0bec95b30bf269d.1459829123.git.lucien.xin@gmail.com>
-References: <cover.1459829123.git.lucien.xin@gmail.com>
- <c507274a984bd1b0a7e7a59d1e825352536efd25.1459829123.git.lucien.xin@gmail.com>
- <c99aafbc687328f783c0777e10df3e207004db10.1459829123.git.lucien.xin@gmail.com>
- <d16e3f12f689f28d8c3b62c7c2a15916177bd7c0.1459829123.git.lucien.xin@gmail.com>
- <123695bf6a49412e15b79049d088903a36538c53.1459829123.git.lucien.xin@gmail.com>
- <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next] cxgb4/cxgb4vf:  Deprecate module parameter dflt_msg_enable
+Date: Tue,  5 Apr 2016 09:52:21 +0530
+Message-ID: <1459830141-27224-1-git-send-email-hariprasad@chelsio.com>
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36720 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923AbcDEEHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:07:12 -0400
-In-Reply-To: <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1459829123.git.lucien.xin@gmail.com>
-References: <cover.1459829123.git.lucien.xin@gmail.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:51657 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750719AbcDEESq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:18:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sctp proc, these three functions in remaddrs and assocs are the
-same. we should merge them into one.
+Message level can be set through ethtool, so deprecate module parameter
+which is used to set the same.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- net/sctp/proc.c | 45 +++++++++------------------------------------
- 1 file changed, 9 insertions(+), 36 deletions(-)
 
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index dd8492f..9fe1393 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -282,7 +282,7 @@ struct sctp_ht_iter {
- 	struct rhashtable_iter hti;
- };
+V2: Fix grammar in module param description, based on review comment by
+    Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 3 ++-
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d1e3f0997d6b..a1e329ec24cd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -168,7 +168,8 @@ MODULE_PARM_DESC(force_init, "Forcibly become Master PF and initialize adapter,"
+ static int dflt_msg_enable = DFLT_MSG_ENABLE;
  
--static void *sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
-+static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
- {
- 	struct sctp_ht_iter *iter = seq->private;
- 	int err = sctp_transport_walk_start(&iter->hti);
-@@ -293,14 +293,14 @@ static void *sctp_assocs_seq_start(struct seq_file *seq, loff_t *pos)
- 	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
- }
+ module_param(dflt_msg_enable, int, 0644);
+-MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap");
++MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap, "
++		 "deprecated parameter");
  
--static void sctp_assocs_seq_stop(struct seq_file *seq, void *v)
-+static void sctp_transport_seq_stop(struct seq_file *seq, void *v)
- {
- 	struct sctp_ht_iter *iter = seq->private;
+ /*
+  * The driver uses the best interrupt scheme available on a platform in the
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 1cc8a7a69457..730fec73d5a6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -74,7 +74,8 @@ static int dflt_msg_enable = DFLT_MSG_ENABLE;
  
- 	sctp_transport_walk_stop(&iter->hti);
- }
+ module_param(dflt_msg_enable, int, 0644);
+ MODULE_PARM_DESC(dflt_msg_enable,
+-		 "default adapter ethtool message level bitmap");
++		 "default adapter ethtool message level bitmap, "
++		 "deprecated parameter");
  
--static void *sctp_assocs_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+static void *sctp_transport_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct sctp_ht_iter *iter = seq->private;
- 
-@@ -367,9 +367,9 @@ static int sctp_assocs_seq_show(struct seq_file *seq, void *v)
- }
- 
- static const struct seq_operations sctp_assoc_ops = {
--	.start = sctp_assocs_seq_start,
--	.next  = sctp_assocs_seq_next,
--	.stop  = sctp_assocs_seq_stop,
-+	.start = sctp_transport_seq_start,
-+	.next  = sctp_transport_seq_next,
-+	.stop  = sctp_transport_seq_stop,
- 	.show  = sctp_assocs_seq_show,
- };
- 
-@@ -406,33 +406,6 @@ void sctp_assocs_proc_exit(struct net *net)
- 	remove_proc_entry("assocs", net->sctp.proc_net_sctp);
- }
- 
--static void *sctp_remaddr_seq_start(struct seq_file *seq, loff_t *pos)
--{
--	struct sctp_ht_iter *iter = seq->private;
--	int err = sctp_transport_walk_start(&iter->hti);
--
--	if (err)
--		return ERR_PTR(err);
--
--	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
--}
--
--static void *sctp_remaddr_seq_next(struct seq_file *seq, void *v, loff_t *pos)
--{
--	struct sctp_ht_iter *iter = seq->private;
--
--	++*pos;
--
--	return sctp_transport_get_next(seq_file_net(seq), &iter->hti);
--}
--
--static void sctp_remaddr_seq_stop(struct seq_file *seq, void *v)
--{
--	struct sctp_ht_iter *iter = seq->private;
--
--	sctp_transport_walk_stop(&iter->hti);
--}
--
- static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- {
- 	struct sctp_association *assoc;
-@@ -506,9 +479,9 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- }
- 
- static const struct seq_operations sctp_remaddr_ops = {
--	.start = sctp_remaddr_seq_start,
--	.next  = sctp_remaddr_seq_next,
--	.stop  = sctp_remaddr_seq_stop,
-+	.start = sctp_transport_seq_start,
-+	.next  = sctp_transport_seq_next,
-+	.stop  = sctp_transport_seq_stop,
- 	.show  = sctp_remaddr_seq_show,
- };
- 
+ /*
+  * The driver uses the best interrupt scheme available on a platform in the
 -- 
-2.1.0
+2.3.4
