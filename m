@@ -1,58 +1,86 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next] cxgb4/cxgb4vf:  Deprecate module parameter dflt_msg_enable
-Date: Tue,  5 Apr 2016 09:52:21 +0530
-Message-ID: <1459830141-27224-1-git-send-email-hariprasad@chelsio.com>
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: davem@davemloft.net
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Mon, 4 Apr 2016 21:26:55 -0700
+Message-ID: <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
+References: <20160404162545.14332.653.stgit@localhost.localdomain>
+	<20160404162818.14332.1076.stgit@localhost.localdomain>
+	<20160405034437.GA9322@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:51657 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750719AbcDEESq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:18:46 -0400
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:33993 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbcDEE04 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:26:56 -0400
+Received: by mail-ig0-f170.google.com with SMTP id gy3so55754350igb.1
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 21:26:56 -0700 (PDT)
+In-Reply-To: <20160405034437.GA9322@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Message level can be set through ethtool, so deprecate module parameter
-which is used to set the same.
+On Mon, Apr 4, 2016 at 8:44 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Mon, Apr 04, 2016 at 09:31:21AM -0700, Alexander Duyck wrote:
+>> RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes other
+>> than fragmentation and reassembly.  Currently we are looking at this field
+>> as a way of identifying what frames can be aggregated and  which cannot for
+>> GRO.  While this is valid for frames that do not have DF set, it is invalid
+>> to do so if the bit is set.
+>
+> This justification is bogus.  GRO is a completely local optimisation
+> that should have zero visibility to third parties.  So it makes no
+> sense to talk about RFC compliance of GRO.  The Linux network stack
+> as a whole is subject to RFC compliance, but not GRO per se.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
+The problem is right now we are mangling the IP ID for outer headers
+on tunnels.  We end up totally ignoring the delta between the values
+so if you have two flows that get interleaved over the same tunnel GRO
+will currently mash the IP IDs for the two tunnels so that they end up
+overlapping.
 
-V2: Fix grammar in module param description, based on review comment by
-    Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+The reason why I keep referencing RFC 6864 is because it specifies
+that the IP ID field must not be read if the DF bit is set, and that
+if we are manipulating headers we can handle the IP ID as though we
+are the transmitting station.  What this means is that if DF is not
+set we have to have unique values per packet, otherwise we can ignore
+the values if DF is set.
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 3 ++-
- drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+>> In the case of the non-incrementing IP ID we will end up losing the data
+>> that the IP ID is fixed.  However as per RFC 6864 we should be able to
+>> write any value into the IP ID when the DF bit is set so this should cause
+>> minimal harm.
+>
+> No we should not do that, at least not by default.  GRO was designed
+> to be completely lossless, that is its main advantage of the various
+> forms of LRO which preceded it.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index d1e3f0997d6b..a1e329ec24cd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -168,7 +168,8 @@ MODULE_PARM_DESC(force_init, "Forcibly become Master PF and initialize adapter,"
- static int dflt_msg_enable = DFLT_MSG_ENABLE;
- 
- module_param(dflt_msg_enable, int, 0644);
--MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap");
-+MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T4 default message enable bitmap, "
-+		 "deprecated parameter");
- 
- /*
-  * The driver uses the best interrupt scheme available on a platform in the
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 1cc8a7a69457..730fec73d5a6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -74,7 +74,8 @@ static int dflt_msg_enable = DFLT_MSG_ENABLE;
- 
- module_param(dflt_msg_enable, int, 0644);
- MODULE_PARM_DESC(dflt_msg_enable,
--		 "default adapter ethtool message level bitmap");
-+		 "default adapter ethtool message level bitmap, "
-+		 "deprecated parameter");
- 
- /*
-  * The driver uses the best interrupt scheme available on a platform in the
--- 
-2.3.4
+Well the problem is it isn't right now.  Instead in the case of
+tunnels it allows you to generate overlapping sequences of IP IDs.
+
+> If you lose that people will start asking it to be disabled for
+> routers/bridges and we'll be back in the same old mess that we
+> had with LRO.
+
+The question I would have is what are you really losing with increment
+from 0 versus fixed 0?  From what I see it is essentially just garbage
+in/garbage out.
+
+> So please do this properly and preserve the information in the packet.
+> As I said earlier all it takes is one single bit, like we do with ECN.
+> If you put it in the feature bit you'll also allow us to distinguish
+> between TSO drivers that produce fixed IDs vs. incrementing IDs.
+
+Actually it will take at least 2.  One for the outer headers and one
+for the inner headers.  I'll also have to add tracking for each to the
+GRO code so that we don't merge frames that go from a fixed ID to
+incrementing one or visa-versa since I suspect that is probably
+floating around out there too as my GSO partial code was going to end
+up doing some of that.
+
+- Alex
