@@ -1,65 +1,118 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: document missing functions
-Date: Tue,  5 Apr 2016 11:22:40 -0400
-Message-ID: <1459869760-23295-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 7/8] geneve: change to use UDP socket GRO
+Date: Tue, 5 Apr 2016 08:22:55 -0700
+Message-ID: <1459869776-2090500-8-git-send-email-tom@herbertland.com>
+References: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:34839 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751615AbcDEPXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:23:20 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u35FIken013213
+	for <netdev@vger.kernel.org>; Tue, 5 Apr 2016 08:23:19 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 222xhgbear-2
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 08:23:18 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 51a2d8d6fb4211e5b9fc24be05956610-e6fc13f0 for <netdev@vger.kernel.org>;	Tue,
+ 05 Apr 2016 08:23:16 -0700
+In-Reply-To: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add description for the missing port_vlan_prepare, port_fdb_prepare,
-port_fdb_dump functions in the DSA documentation.
+Adapt geneve_gro_receive, geneve_gro_complete to take a socket argument.
+Set these functions in tunnel_config.  Don't set udp_offloads any more.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- Documentation/networking/dsa/dsa.txt | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/geneve.c | 28 ++++++++--------------------
+ 1 file changed, 8 insertions(+), 20 deletions(-)
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 3b196c3..8ba3369 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -542,6 +542,12 @@ Bridge layer
- Bridge VLAN filtering
- ---------------------
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index bc16889..a9fbf17 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -87,7 +87,6 @@ struct geneve_sock {
+ 	struct socket		*sock;
+ 	struct rcu_head		rcu;
+ 	int			refcnt;
+-	struct udp_offload	udp_offloads;
+ 	struct hlist_head	vni_list[VNI_HASH_SIZE];
+ 	u32			flags;
+ };
+@@ -409,14 +408,6 @@ static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+ 	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = geneve_get_sk_family(gs);
+ 	__be16 port = inet_sk(sk)->inet_sport;
+-	int err;
+-
+-	if (sa_family == AF_INET) {
+-		err = udp_add_offload(sock_net(sk), &gs->udp_offloads);
+-		if (err)
+-			pr_warn("geneve: udp_add_offload failed with status %d\n",
+-				err);
+-	}
  
-+- port_vlan_prepare: bridge layer function invoked when the bridge prepares the
-+  configuration of a VLAN on the given port. If the operation is not
-+  programmable, this function should return -EOPNOTSUPP to inform the bridge
-+  code to fallback to a software implementation. No hardware programmation
-+  must be done in this function. See port_vlan_add for this and details.
-+
- - port_vlan_add: bridge layer function invoked when a VLAN is configured
-   (tagged or untagged) for the given switch port
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+@@ -432,9 +423,9 @@ static int geneve_hlen(struct genevehdr *gh)
+ 	return sizeof(*gh) + gh->opt_len * 4;
+ }
  
-@@ -552,6 +558,12 @@ Bridge VLAN filtering
-   function that the driver has to call for each VLAN the given port is a member
-   of. A switchdev object is used to carry the VID and bridge flags.
+-static struct sk_buff **geneve_gro_receive(struct sk_buff **head,
+-					   struct sk_buff *skb,
+-					   struct udp_offload *uoff)
++static struct sk_buff **geneve_gro_receive(struct sock *sk,
++					   struct sk_buff **head,
++					   struct sk_buff *skb)
+ {
+ 	struct sk_buff *p, **pp = NULL;
+ 	struct genevehdr *gh, *gh2;
+@@ -495,8 +486,8 @@ out:
+ 	return pp;
+ }
  
-+- port_fdb_prepare: bridge layer function invoked when the bridge prepares the
-+  installation of a Forwarding Database entry. If the operation is not
-+  programmable, this function should return -EOPNOTSUPP to inform the bridge
-+  code to fallback to a software implementation. No hardware programmation
-+  must be done in this function. See port_fdb_add for this and details.
-+
- - port_fdb_add: bridge layer function invoked when the bridge wants to install a
-   Forwarding Database entry, the switch hardware should be programmed with the
-   specified address in the specified VLAN Id in the forwarding database
-@@ -565,6 +577,10 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
-   the specified MAC address from the specified VLAN ID if it was mapped into
-   this port forwarding database
+-static int geneve_gro_complete(struct sk_buff *skb, int nhoff,
+-			       struct udp_offload *uoff)
++static int geneve_gro_complete(struct sock *sk, struct sk_buff *skb,
++			       int nhoff)
+ {
+ 	struct genevehdr *gh;
+ 	struct packet_offload *ptype;
+@@ -545,14 +536,14 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
+ 		INIT_HLIST_HEAD(&gs->vni_list[h]);
  
-+- port_fdb_dump: bridge layer function invoked with a switchdev callback
-+  function that the driver has to call for each MAC address known to be behind
-+  the given port. A switchdev object is used to carry the VID and FDB info.
-+
- TODO
- ====
+ 	/* Initialize the geneve udp offloads structure */
+-	gs->udp_offloads.port = port;
+-	gs->udp_offloads.callbacks.gro_receive  = geneve_gro_receive;
+-	gs->udp_offloads.callbacks.gro_complete = geneve_gro_complete;
+ 	geneve_notify_add_rx_port(gs);
  
+ 	/* Mark socket as an encapsulation socket */
++	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
+ 	tunnel_cfg.sk_user_data = gs;
+ 	tunnel_cfg.encap_type = 1;
++	tunnel_cfg.gro_receive = geneve_gro_receive;
++	tunnel_cfg.gro_complete = geneve_gro_complete;
+ 	tunnel_cfg.encap_rcv = geneve_udp_encap_recv;
+ 	tunnel_cfg.encap_destroy = NULL;
+ 	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
+@@ -576,9 +567,6 @@ static void geneve_notify_del_rx_port(struct geneve_sock *gs)
+ 	}
+ 
+ 	rcu_read_unlock();
+-
+-	if (sa_family == AF_INET)
+-		udp_del_offload(&gs->udp_offloads);
+ }
+ 
+ static void __geneve_sock_release(struct geneve_sock *gs)
 -- 
-2.8.0
+2.8.0.rc2
