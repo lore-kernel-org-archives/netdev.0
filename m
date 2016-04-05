@@ -1,142 +1,210 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net PATCH v3] GRE: Disable segmentation offloads w/ CSUM and we
- are encapsulated via FOU
-Date: Tue, 05 Apr 2016 09:13:39 -0700
-Message-ID: <20160405161249.3861.1683.stgit@localhost.localdomain>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/3] tipc: eliminate buffer leak
+	in bearer layer
+Date: Tue,  5 Apr 2016 12:20:53 -0400
+Message-ID: <1459873255-32354-2-git-send-email-jon.maloy@ericsson.com>
+References: <1459873255-32354-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jesse@kernel.org, netdev@vger.kernel.org, davem@davemloft.net,
-	alexander.duyck@gmail.com, tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33385 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933353AbcDEQNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:13:44 -0400
-Received: by mail-pa0-f43.google.com with SMTP id zm5so13387673pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:13:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1459873255-32354-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch fixes an issue I found in which we were dropping frames if we
-had enabled checksums on GRE headers that were encapsulated by either FOU
-or GUE.  Without this patch I was barely able to get 1 Gb/s of throughput.
-With this patch applied I am now at least getting around 6 Gb/s.
+When enabling a bearer we create a 'neigbor discoverer' instance by
+calling the function tipc_disc_create() before the bearer is actually
+registered in the list of enabled bearers. Because of this, the very
+first discovery broadcast message, created by the mentioned function,
+is lost, since it cannot find any valid bearer to use. Furthermore,
+the used send function, tipc_bearer_xmit_skb() does not free the given
+buffer when it cannot find a  bearer, resulting in the leak of exactly
+one send buffer each time a bearer is enabled.
 
-The issue is due to the fact that with FOU or GUE applied we do not provide
-a transport offset pointing to the GRE header, nor do we offload it in
-software as the GRE header is completely skipped by GSO and treated like a
-VXLAN or GENEVE type header.  As such we need to prevent the stack from
-generating it and also prevent GRE from generating it via any interface we
-create.
+This commit fixes this problem by introducing two changes:
 
-Fixes: c3483384ee511 ("gro: Allow tunnel stacking in the case of FOU/GUE")
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+1) Instead of attemting to send the discovery message directly, we let
+   tipc_disc_create() return the discovery buffer to the calling
+   function, tipc_enable_bearer(), so that the latter can send it
+   when the enabling sequence is finished.
+
+2) In tipc_bearer_xmit_skb(), as well as in the two other transmit
+   functions at the bearer layer, we now free the indicated buffer or
+   buffer chain when a valid bearer cannot be found.
+
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
+ net/tipc/bearer.c   | 51 ++++++++++++++++++++++++++-------------------------
+ net/tipc/discover.c |  7 ++-----
+ net/tipc/discover.h |  2 +-
+ 3 files changed, 29 insertions(+), 31 deletions(-)
 
-v3: Basically the same patch as v1 and v2, but I am cutting it loose from
-    the IPv4 ID patch as that one will likely need to be resolved in
-    net-next.
-
- include/linux/netdevice.h |    5 ++++-
- net/core/dev.c            |    1 +
- net/ipv4/fou.c            |    6 ++++++
- net/ipv4/gre_offload.c    |    8 ++++++++
- net/ipv4/ip_gre.c         |   13 ++++++++++---
- 5 files changed, 29 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cb0d5d09c2e4..8395308a2445 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2120,7 +2120,10 @@ struct napi_gro_cb {
- 	/* Used in foo-over-udp, set in udp[46]_gro_receive */
- 	u8	is_ipv6:1;
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 27a5406..20566e9 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -205,6 +205,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 	struct tipc_bearer *b;
+ 	struct tipc_media *m;
+ 	struct tipc_bearer_names b_names;
++	struct sk_buff *skb;
+ 	char addr_string[16];
+ 	u32 bearer_id;
+ 	u32 with_this_prio;
+@@ -301,7 +302,7 @@ restart:
+ 	b->net_plane = bearer_id + 'A';
+ 	b->priority = priority;
  
--	/* 7 bit hole */
-+	/* Used in GRE, set in fou/gue_gro_receive */
-+	u8	is_fou:1;
-+
-+	/* 6 bit hole */
+-	res = tipc_disc_create(net, b, &b->bcast_addr);
++	res = tipc_disc_create(net, b, &b->bcast_addr, &skb);
+ 	if (res) {
+ 		bearer_disable(net, b);
+ 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
+@@ -310,7 +311,8 @@ restart:
+ 	}
  
- 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
- 	__wsum	csum;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b9bcbe77d913..77a71cd68535 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4439,6 +4439,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		NAPI_GRO_CB(skb)->flush = 0;
- 		NAPI_GRO_CB(skb)->free = 0;
- 		NAPI_GRO_CB(skb)->encap_mark = 0;
-+		NAPI_GRO_CB(skb)->is_fou = 0;
- 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
+ 	rcu_assign_pointer(tn->bearer_list[bearer_id], b);
+-
++	if (skb)
++		tipc_bearer_xmit_skb(net, bearer_id, skb, &b->bcast_addr);
+ 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
+ 		name,
+ 		tipc_addr_string_fill(addr_string, disc_domain), priority);
+@@ -450,6 +452,8 @@ void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+ 	if (likely(b))
+ 		b->media->send_msg(net, skb, b, dest);
++	else
++		kfree_skb(skb);
+ 	rcu_read_unlock();
+ }
  
- 		/* Setup for GRO checksum validation */
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 5a94aea280d3..a39068b4a4d9 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -203,6 +203,9 @@ static struct sk_buff **fou_gro_receive(struct sk_buff **head,
- 	 */
- 	NAPI_GRO_CB(skb)->encap_mark = 0;
- 
-+	/* Flag this frame as already having an outer encap header */
-+	NAPI_GRO_CB(skb)->is_fou = 1;
-+
- 	rcu_read_lock();
- 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
- 	ops = rcu_dereference(offloads[proto]);
-@@ -368,6 +371,9 @@ static struct sk_buff **gue_gro_receive(struct sk_buff **head,
- 	 */
- 	NAPI_GRO_CB(skb)->encap_mark = 0;
- 
-+	/* Flag this frame as already having an outer encap header */
-+	NAPI_GRO_CB(skb)->is_fou = 1;
-+
- 	rcu_read_lock();
- 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
- 	ops = rcu_dereference(offloads[guehdr->proto_ctype]);
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index c47539d04b88..6a5bd4317866 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -150,6 +150,14 @@ static struct sk_buff **gre_gro_receive(struct sk_buff **head,
- 	if ((greh->flags & ~(GRE_KEY|GRE_CSUM)) != 0)
- 		goto out;
- 
-+	/* We can only support GRE_CSUM if we can track the location of
-+	 * the GRE header.  In the case of FOU/GUE we cannot because the
-+	 * outer UDP header displaces the GRE header leaving us in a state
-+	 * of limbo.
-+	 */
-+	if ((greh->flags & GRE_CSUM) && NAPI_GRO_CB(skb)->is_fou)
-+		goto out;
-+
- 	type = greh->protocol;
+@@ -468,11 +472,11 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
  
  	rcu_read_lock();
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 31936d387cfd..af5d1f38217f 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -862,9 +862,16 @@ static void __gre_tunnel_init(struct net_device *dev)
- 	dev->hw_features	|= GRE_FEATURES;
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (likely(b)) {
+-		skb_queue_walk_safe(xmitq, skb, tmp) {
+-			__skb_dequeue(xmitq);
+-			b->media->send_msg(net, skb, b, dst);
+-		}
++	if (unlikely(!b))
++		__skb_queue_purge(xmitq);
++	skb_queue_walk_safe(xmitq, skb, tmp) {
++		__skb_dequeue(xmitq);
++		b->media->send_msg(net, skb, b, dst);
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -490,14 +494,14 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
  
- 	if (!(tunnel->parms.o_flags & TUNNEL_SEQ)) {
--		/* TCP offload with GRE SEQ is not supported. */
--		dev->features    |= NETIF_F_GSO_SOFTWARE;
--		dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-+		/* TCP offload with GRE SEQ is not supported, nor
-+		 * can we support 2 levels of outer headers requiring
-+		 * an update.
-+		 */
-+		if (!(tunnel->parms.o_flags & TUNNEL_CSUM) ||
-+		    (tunnel->encap.type == TUNNEL_ENCAP_NONE)) {
-+			dev->features    |= NETIF_F_GSO_SOFTWARE;
-+			dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-+		}
-+
- 		/* Can use a lockless transmit, unless we generate
- 		 * output sequences
- 		 */
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (likely(b)) {
+-		skb_queue_walk_safe(xmitq, skb, tmp) {
+-			hdr = buf_msg(skb);
+-			msg_set_non_seq(hdr, 1);
+-			msg_set_mc_netid(hdr, net_id);
+-			__skb_dequeue(xmitq);
+-			b->media->send_msg(net, skb, b, &b->bcast_addr);
+-		}
++	if (unlikely(!b))
++		__skb_queue_purge(xmitq);
++	skb_queue_walk_safe(xmitq, skb, tmp) {
++		hdr = buf_msg(skb);
++		msg_set_non_seq(hdr, 1);
++		msg_set_mc_netid(hdr, net_id);
++		__skb_dequeue(xmitq);
++		b->media->send_msg(net, skb, b, &b->bcast_addr);
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -513,24 +517,21 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+  * ignores packets sent using interface multicast, and traffic sent to other
+  * nodes (which can happen if interface is running in promiscuous mode).
+  */
+-static int tipc_l2_rcv_msg(struct sk_buff *buf, struct net_device *dev,
++static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
+ 			   struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(dev->tipc_ptr);
+-	if (likely(b)) {
+-		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
+-			buf->next = NULL;
+-			tipc_rcv(dev_net(dev), buf, b);
+-			rcu_read_unlock();
+-			return NET_RX_SUCCESS;
+-		}
++	if (likely(b && (skb->pkt_type <= PACKET_BROADCAST))) {
++		skb->next = NULL;
++		tipc_rcv(dev_net(dev), skb, b);
++		rcu_read_unlock();
++		return NET_RX_SUCCESS;
+ 	}
+ 	rcu_read_unlock();
+-
+-	kfree_skb(buf);
++	kfree_skb(skb);
+ 	return NET_RX_DROP;
+ }
+ 
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index f1e738e..ad9d477 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -268,10 +268,9 @@ exit:
+  * Returns 0 if successful, otherwise -errno.
+  */
+ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
+-		     struct tipc_media_addr *dest)
++		     struct tipc_media_addr *dest, struct sk_buff **skb)
+ {
+ 	struct tipc_link_req *req;
+-	struct sk_buff *skb;
+ 
+ 	req = kmalloc(sizeof(*req), GFP_ATOMIC);
+ 	if (!req)
+@@ -293,9 +292,7 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
+ 	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
+ 	mod_timer(&req->timer, jiffies + req->timer_intv);
+ 	b->link_req = req;
+-	skb = skb_clone(req->buf, GFP_ATOMIC);
+-	if (skb)
+-		tipc_bearer_xmit_skb(net, req->bearer_id, skb, &req->dest);
++	*skb = skb_clone(req->buf, GFP_ATOMIC);
+ 	return 0;
+ }
+ 
+diff --git a/net/tipc/discover.h b/net/tipc/discover.h
+index c9b1277..b80a335 100644
+--- a/net/tipc/discover.h
++++ b/net/tipc/discover.h
+@@ -40,7 +40,7 @@
+ struct tipc_link_req;
+ 
+ int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
+-		     struct tipc_media_addr *dest);
++		     struct tipc_media_addr *dest, struct sk_buff **skb);
+ void tipc_disc_delete(struct tipc_link_req *req);
+ void tipc_disc_reset(struct net *net, struct tipc_bearer *b_ptr);
+ void tipc_disc_add_dest(struct tipc_link_req *req);
+-- 
+1.9.1
+
+
+------------------------------------------------------------------------------
