@@ -1,665 +1,126 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 4/7] sctp: add the sctp_diag.c file
-Date: Tue,  5 Apr 2016 12:06:29 +0800
-Message-ID: <123695bf6a49412e15b79049d088903a36538c53.1459829123.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 7/7] sctp: fix some rhashtable functions using in sctp proc/diag
+Date: Tue,  5 Apr 2016 12:06:32 +0800
+Message-ID: <805be68474068ea7be3d215f78dcba302cd2520d.1459829123.git.lucien.xin@gmail.com>
 References: <cover.1459829123.git.lucien.xin@gmail.com>
  <c507274a984bd1b0a7e7a59d1e825352536efd25.1459829123.git.lucien.xin@gmail.com>
  <c99aafbc687328f783c0777e10df3e207004db10.1459829123.git.lucien.xin@gmail.com>
  <d16e3f12f689f28d8c3b62c7c2a15916177bd7c0.1459829123.git.lucien.xin@gmail.com>
+ <123695bf6a49412e15b79049d088903a36538c53.1459829123.git.lucien.xin@gmail.com>
+ <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
+ <90be0ff11d9675b484c5354ba0bec95b30bf269d.1459829123.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
 	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
 	davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33820 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbcDEEHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:07:03 -0400
-In-Reply-To: <d16e3f12f689f28d8c3b62c7c2a15916177bd7c0.1459829123.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35701 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753627AbcDEEHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:07:16 -0400
+In-Reply-To: <90be0ff11d9675b484c5354ba0bec95b30bf269d.1459829123.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1459829123.git.lucien.xin@gmail.com>
 References: <cover.1459829123.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This one will implement all the interface of inet_diag, inet_diag_handler.
-which includes sctp_diag_dump, sctp_diag_dump_one and sctp_diag_get_info.
+When rhashtable_walk_init return err, no release function should be
+called, and when rhashtable_walk_start return err, we should only invoke
+rhashtable_walk_exit to release the source.
 
-It will work as a modules, and register inet_diag_handler when loading.
+But now when sctp_transport_walk_start return err, we just call
+rhashtable_walk_stop/exit, and never care about if rhashtable_walk_init
+or start return err, which is so bad.
+
+We will fix it by calling rhashtable_walk_exit if rhashtable_walk_start
+return err in sctp_transport_walk_start, and if sctp_transport_walk_start
+return err, we do not need to call sctp_transport_walk_stop any more.
+
+For sctp proc, we will use 'iter->start_fail' to decide if we will call
+rhashtable_walk_stop/exit.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/uapi/linux/inet_diag.h |   2 +
- net/sctp/Kconfig               |   4 +
- net/sctp/Makefile              |   1 +
- net/sctp/sctp_diag.c           | 581 +++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 588 insertions(+)
- create mode 100644 net/sctp/sctp_diag.c
+ net/sctp/proc.c   |  7 ++++++-
+ net/sctp/socket.c | 15 ++++++++++-----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index 68a1f71..f5f3629 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -113,6 +113,8 @@ enum {
- 	INET_DIAG_DCTCPINFO,
- 	INET_DIAG_PROTOCOL,  /* response attribute only */
- 	INET_DIAG_SKV6ONLY,
-+	INET_DIAG_LOCALS,
-+	INET_DIAG_PEERS,
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 9fe1393..4cb5aed 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -280,6 +280,7 @@ void sctp_eps_proc_exit(struct net *net)
+ struct sctp_ht_iter {
+ 	struct seq_net_private p;
+ 	struct rhashtable_iter hti;
++	int start_fail;
  };
  
- #define INET_DIAG_MAX INET_DIAG_SKV6ONLY
-diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
-index 71c1a59..d9c04dc 100644
---- a/net/sctp/Kconfig
-+++ b/net/sctp/Kconfig
-@@ -99,5 +99,9 @@ config SCTP_COOKIE_HMAC_SHA1
- 	select CRYPTO_HMAC if SCTP_COOKIE_HMAC_SHA1
- 	select CRYPTO_SHA1 if SCTP_COOKIE_HMAC_SHA1
+ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
+@@ -287,8 +288,10 @@ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
+ 	struct sctp_ht_iter *iter = seq->private;
+ 	int err = sctp_transport_walk_start(&iter->hti);
  
-+config INET_SCTP_DIAG
-+	depends on INET_DIAG
-+	def_tristate INET_DIAG
-+
+-	if (err)
++	if (err) {
++		iter->start_fail = 1;
+ 		return ERR_PTR(err);
++	}
  
- endif # IP_SCTP
-diff --git a/net/sctp/Makefile b/net/sctp/Makefile
-index 3b4ffb0..0fca582 100644
---- a/net/sctp/Makefile
-+++ b/net/sctp/Makefile
-@@ -4,6 +4,7 @@
+ 	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
+ }
+@@ -297,6 +300,8 @@ static void sctp_transport_seq_stop(struct seq_file *seq, void *v)
+ {
+ 	struct sctp_ht_iter *iter = seq->private;
  
- obj-$(CONFIG_IP_SCTP) += sctp.o
- obj-$(CONFIG_NET_SCTPPROBE) += sctp_probe.o
-+obj-$(CONFIG_INET_SCTP_DIAG) += sctp_diag.o
++	if (iter->start_fail)
++		return;
+ 	sctp_transport_walk_stop(&iter->hti);
+ }
  
- sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
- 	  protocol.o endpointola.o associola.o \
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-new file mode 100644
-index 0000000..c32bad6
---- /dev/null
-+++ b/net/sctp/sctp_diag.c
-@@ -0,0 +1,581 @@
-+#include <linux/module.h>
-+#include <linux/inet_diag.h>
-+#include <linux/sock_diag.h>
-+#include <net/sctp/sctp.h>
-+
-+extern struct inet_diag_handler *inet_diag_get_handler(int proto);
-+extern void inet_diag_msg_common_fill(struct inet_diag_msg *r,
-+				      struct sock *sk);
-+
-+static int inet_sctp_fill_laddrs(struct sk_buff *skb,
-+				 struct list_head *address_list)
-+{
-+	struct sctp_sockaddr_entry *laddr;
-+	int addrlen = sizeof(struct sockaddr_storage);
-+	int addrcnt = 0;
-+	struct nlattr *attr;
-+	void *info = NULL;
-+
-+	list_for_each_entry_rcu(laddr, address_list, list)
-+		addrcnt++;
-+
-+	attr = nla_reserve(skb, INET_DIAG_LOCALS, addrlen * addrcnt);
-+	if (!attr)
-+		return -EMSGSIZE;
-+
-+	info = nla_data(attr);
-+	list_for_each_entry_rcu(laddr, address_list, list) {
-+		memcpy(info, &laddr->a, addrlen);
-+		info += addrlen;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index b0bf6c7..473a40c 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4298,8 +4298,12 @@ int sctp_transport_walk_start(struct rhashtable_iter *iter)
+ 		return err;
+ 
+ 	err = rhashtable_walk_start(iter);
++	if (err && err != -EAGAIN) {
++		rhashtable_walk_exit(iter);
++		return err;
 +	}
-+
+ 
+-	return err == -EAGAIN ? 0 : err;
 +	return 0;
-+}
-+
-+static int inet_sctp_fill_paddrs(struct sk_buff *skb,
-+				 struct sctp_association *asoc)
-+{
-+	int addrlen = sizeof(struct sockaddr_storage);
-+	struct sctp_transport *from;
-+	struct nlattr *attr;
-+	void *info = NULL;
-+
-+	attr = nla_reserve(skb, INET_DIAG_PEERS,
-+			   addrlen * asoc->peer.transport_count);
-+	if (!attr)
-+		return -EMSGSIZE;
-+
-+	info = nla_data(attr);
-+	list_for_each_entry(from, &asoc->peer.transport_addr_list,
-+			    transports) {
-+		memcpy(info, &from->ipaddr, addrlen);
-+		info += addrlen;
-+	}
-+
-+	return 0;
-+}
-+
-+static int inet_assoc_diag_fill(struct sock *sk,
-+				struct sctp_association *asoc,
-+				struct sk_buff *skb,
-+				const struct inet_diag_req_v2 *req,
-+				struct user_namespace *user_ns,
-+				int portid, u32 seq, u16 nlmsg_flags,
-+				const struct nlmsghdr *unlh)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct inet_diag_handler *handler;
-+	int ext = req->idiag_ext;
-+	struct inet_diag_msg *r;
-+	struct nlmsghdr  *nlh;
-+	struct nlattr *attr;
-+	void *info = NULL;
-+	union sctp_addr laddr, paddr;
-+	struct dst_entry *dst;
-+	struct sctp_infox infox;
-+
-+	handler = inet_diag_get_handler(req->sdiag_protocol);
-+	BUG_ON(!handler);
-+
-+	nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
-+			nlmsg_flags);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	r = nlmsg_data(nlh);
-+	BUG_ON(!sk_fullsock(sk));
-+
-+	laddr = list_entry(asoc->base.bind_addr.address_list.next,
-+			   struct sctp_sockaddr_entry, list)->a;
-+	paddr = asoc->peer.primary_path->ipaddr;
-+	dst = asoc->peer.primary_path->dst;
-+
-+	r->idiag_family = sk->sk_family;
-+	r->id.idiag_sport = htons(asoc->base.bind_addr.port);
-+	r->id.idiag_dport = htons(asoc->peer.port);
-+	r->id.idiag_if = dst ? dst->dev->ifindex : 0;
-+	sock_diag_save_cookie(sk, r->id.idiag_cookie);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sk->sk_family == AF_INET6) {
-+		*(struct in6_addr *)r->id.idiag_src = laddr.v6.sin6_addr;
-+		*(struct in6_addr *)r->id.idiag_dst = paddr.v6.sin6_addr;
-+	} else
-+#endif
-+	{
-+		memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
-+		memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
-+
-+		r->id.idiag_src[0] = laddr.v4.sin_addr.s_addr;
-+		r->id.idiag_dst[0] = paddr.v4.sin_addr.s_addr;
-+	}
-+
-+	r->idiag_state = asoc->state;
-+	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-+	r->idiag_retrans = asoc->rtx_data_chunks;
-+#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
-+	r->idiag_expires =
-+		EXPIRES_IN_MS(asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX]);
-+#undef EXPIRES_IN_MS
-+
-+	if (nla_put_u8(skb, INET_DIAG_SHUTDOWN, sk->sk_shutdown))
-+		goto errout;
-+
-+	/* IPv6 dual-stack sockets use inet->tos for IPv4 connections,
-+	 * hence this needs to be included regardless of socket family.
-+	 */
-+	if (ext & (1 << (INET_DIAG_TOS - 1)))
-+		if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
-+			goto errout;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (r->idiag_family == AF_INET6) {
-+		if (ext & (1 << (INET_DIAG_TCLASS - 1)))
-+			if (nla_put_u8(skb, INET_DIAG_TCLASS,
-+				       inet6_sk(sk)->tclass) < 0)
-+				goto errout;
-+
-+		if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
-+		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
-+			goto errout;
-+	}
-+#endif
-+
-+	r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
-+	r->idiag_inode = sock_i_ino(sk);
-+
-+	if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
-+		struct inet_diag_meminfo minfo = {
-+			.idiag_rmem = sk_rmem_alloc_get(sk),
-+			.idiag_wmem = sk->sk_wmem_queued,
-+			.idiag_fmem = sk->sk_forward_alloc,
-+			.idiag_tmem = sk_wmem_alloc_get(sk),
-+		};
-+
-+		if (nla_put(skb, INET_DIAG_MEMINFO, sizeof(minfo), &minfo) < 0)
-+			goto errout;
-+	}
-+
-+	if (ext & (1 << (INET_DIAG_SKMEMINFO - 1)))
-+		if (sock_diag_put_meminfo(sk, skb, INET_DIAG_SKMEMINFO))
-+			goto errout;
-+
-+	if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
-+		attr = nla_reserve(skb, INET_DIAG_INFO,
-+				   handler->idiag_info_size);
-+		if (!attr)
-+			goto errout;
-+
-+		info = nla_data(attr);
-+	}
-+	infox.sctpinfo = (struct sctp_info *)info;
-+	infox.asoc = asoc;
-+	handler->idiag_get_info(sk, r, &infox);
-+
-+	if (ext & (1 << (INET_DIAG_CONG - 1)))
-+		if (nla_put_string(skb, INET_DIAG_CONG, "reno") < 0)
-+			goto errout;
-+
-+	if (inet_sctp_fill_laddrs(skb, &asoc->base.bind_addr.address_list))
-+		goto errout;
-+
-+	if (inet_sctp_fill_paddrs(skb, asoc))
-+		goto errout;
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+
-+errout:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static int inet_ep_diag_fill(struct sock *sk, struct sctp_endpoint *ep,
-+			     struct sk_buff *skb,
-+			     const struct inet_diag_req_v2 *req,
-+			     struct user_namespace *user_ns,
-+			     u32 portid, u32 seq, u16 nlmsg_flags,
-+			     const struct nlmsghdr *unlh)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct inet_diag_handler *handler;
-+	int ext = req->idiag_ext;
-+	struct inet_diag_msg *r;
-+	struct nlmsghdr  *nlh;
-+	struct nlattr *attr;
-+	void *info = NULL;
-+	struct sctp_infox infox;
-+
-+	handler = inet_diag_get_handler(req->sdiag_protocol);
-+	BUG_ON(!handler);
-+
-+	nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
-+			nlmsg_flags);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	r = nlmsg_data(nlh);
-+	BUG_ON(!sk_fullsock(sk));
-+
-+	inet_diag_msg_common_fill(r, sk);
-+	r->idiag_state = sk->sk_state;
-+	r->idiag_timer = 0;
-+	r->idiag_retrans = 0;
-+
-+	if (nla_put_u8(skb, INET_DIAG_SHUTDOWN, sk->sk_shutdown))
-+		goto errout;
-+
-+	/* IPv6 dual-stack sockets use inet->tos for IPv4 connections,
-+	 * hence this needs to be included regardless of socket family.
-+	 */
-+	if (ext & (1 << (INET_DIAG_TOS - 1)))
-+		if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
-+			goto errout;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (r->idiag_family == AF_INET6) {
-+		if (ext & (1 << (INET_DIAG_TCLASS - 1)))
-+			if (nla_put_u8(skb, INET_DIAG_TCLASS,
-+				       inet6_sk(sk)->tclass) < 0)
-+				goto errout;
-+
-+		if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
-+		    nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
-+			goto errout;
-+	}
-+#endif
-+
-+	r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
-+	r->idiag_inode = sock_i_ino(sk);
-+
-+	if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
-+		struct inet_diag_meminfo minfo = {
-+			.idiag_rmem = sk_rmem_alloc_get(sk),
-+			.idiag_wmem = sk->sk_wmem_queued,
-+			.idiag_fmem = sk->sk_forward_alloc,
-+			.idiag_tmem = sk_wmem_alloc_get(sk),
-+		};
-+
-+		if (nla_put(skb, INET_DIAG_MEMINFO, sizeof(minfo), &minfo) < 0)
-+			goto errout;
-+	}
-+
-+	if (ext & (1 << (INET_DIAG_SKMEMINFO - 1)))
-+		if (sock_diag_put_meminfo(sk, skb, INET_DIAG_SKMEMINFO))
-+			goto errout;
-+
-+	if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
-+		attr = nla_reserve(skb, INET_DIAG_INFO,
-+				   handler->idiag_info_size);
-+		if (!attr)
-+			goto errout;
-+
-+		info = nla_data(attr);
-+	}
-+	infox.sctpinfo = (struct sctp_info *)info;
-+	infox.asoc = NULL;
-+	handler->idiag_get_info(sk, r, &infox);
-+
-+	if (inet_sctp_fill_laddrs(skb, &ep->base.bind_addr.address_list))
-+		goto errout;
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+
-+errout:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static size_t inet_assoc_attr_size(struct sctp_association *asoc)
-+{
-+	int addrlen = sizeof(struct sockaddr_storage);
-+	int addrcnt = 0;
-+	struct sctp_sockaddr_entry *laddr;
-+
-+	list_for_each_entry_rcu(laddr, &asoc->base.bind_addr.address_list,
-+				list)
-+		addrcnt++;
-+
-+	return	  nla_total_size(sizeof(struct tcp_info))
-+		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
-+		+ nla_total_size(1) /* INET_DIAG_TOS */
-+		+ nla_total_size(1) /* INET_DIAG_TCLASS */
-+		+ nla_total_size(addrlen * asoc->peer.transport_count)
-+		+ nla_total_size(addrlen * addrcnt)
-+		+ nla_total_size(sizeof(struct inet_diag_meminfo))
-+		+ nla_total_size(sizeof(struct inet_diag_msg))
-+		+ nla_total_size(sizeof(struct sctp_info))
-+		+ 64;
-+}
-+
-+/* callback and param */
-+struct sctp_comm_param {
-+	struct sk_buff *skb;
-+	struct netlink_callback *cb;
-+	const struct inet_diag_req_v2 *r;
-+	const struct nlmsghdr *nlh;
-+};
-+
-+static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
-+{
-+	struct sctp_association *assoc = tsp->asoc;
-+	struct sock *sk = tsp->asoc->base.sk;
-+	struct sctp_comm_param *commp = p;
-+	struct sk_buff *in_skb = commp->skb;
-+	const struct inet_diag_req_v2 *req = commp->r;
-+	const struct nlmsghdr *nlh = commp->nlh;
-+	struct net *net = sock_net(in_skb->sk);
-+	struct sk_buff *rep;
+ }
+ 
+ void sctp_transport_walk_stop(struct rhashtable_iter *iter)
+@@ -4388,11 +4392,12 @@ EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
+ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+ 			    struct net *net, int pos, void *p) {
+ 	struct rhashtable_iter hti;
+-	int err = 0;
+ 	void *obj;
 +	int err;
-+
-+	err = sock_diag_check_cookie(sk, req->id.idiag_cookie);
+ 
+-	if (sctp_transport_walk_start(&hti))
+-		goto out;
++	err = sctp_transport_walk_start(&hti);
 +	if (err)
-+		goto out;
++		return err;
+ 
+ 	sctp_transport_get_idx(net, &hti, pos);
+ 	obj = sctp_transport_get_next(net, &hti);
+@@ -4406,8 +4411,8 @@ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+ 		if (err)
+ 			break;
+ 	}
+-out:
+ 	sctp_transport_walk_stop(&hti);
 +
-+	err = -ENOMEM;
-+	rep = nlmsg_new(inet_assoc_attr_size(assoc), GFP_KERNEL);
-+	if (!rep)
-+		goto out;
-+
-+	err = inet_assoc_diag_fill(sk, assoc, rep, req,
-+				   sk_user_ns(NETLINK_CB(in_skb).sk),
-+				   NETLINK_CB(in_skb).portid,
-+				   nlh->nlmsg_seq, 0, nlh);
-+	if (err < 0) {
-+		WARN_ON(err == -EMSGSIZE);
-+		kfree_skb(rep);
-+		goto out;
-+	}
-+
-+	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).portid,
-+			      MSG_DONTWAIT);
-+	if (err > 0)
-+		err = 0;
-+out:
-+	return err;
-+}
-+
-+static int sctp_tsp_dump(struct sctp_transport *tsp, void *p)
-+{
-+	struct sctp_endpoint *ep = tsp->asoc->ep;
-+	struct sctp_comm_param *commp = p;
-+	struct sock *sk = ep->base.sk;
-+	struct sk_buff *skb = commp->skb;
-+	struct netlink_callback *cb = commp->cb;
-+	const struct inet_diag_req_v2 *r = commp->r;
-+	struct sctp_association *assoc =
-+		list_entry(ep->asocs.next, struct sctp_association, asocs);
-+	int err = 0;
-+
-+	if (tsp->asoc != assoc)
-+		goto out;
-+
-+	if (r->sdiag_family != AF_UNSPEC && sk->sk_family != r->sdiag_family)
-+		goto out;
-+
-+	lock_sock(sk);
-+	list_for_each_entry(assoc, &ep->asocs, asocs) {
-+		if (cb->args[4] < cb->args[1])
-+			goto next;
-+
-+		if (r->id.idiag_sport != htons(assoc->base.bind_addr.port) &&
-+		    r->id.idiag_sport)
-+			goto next;
-+		if (r->id.idiag_dport != htons(assoc->peer.port) &&
-+		    r->id.idiag_dport)
-+			goto next;
-+
-+		if (!cb->args[3] &&
-+		    inet_ep_diag_fill(sk, ep, skb, r,
-+				      sk_user_ns(NETLINK_CB(cb->skb).sk),
-+				      NETLINK_CB(cb->skb).portid,
-+				      cb->nlh->nlmsg_seq,
-+				      NLM_F_MULTI, cb->nlh) < 0) {
-+			cb->args[3] = 1;
-+			err = 2;
-+			goto release;
-+		}
-+		cb->args[3] = 1;
-+
-+		if (inet_assoc_diag_fill(sk, assoc, skb, r,
-+					 sk_user_ns(NETLINK_CB(cb->skb).sk),
-+					 NETLINK_CB(cb->skb).portid,
-+					 cb->nlh->nlmsg_seq, 0, cb->nlh) < 0) {
-+			err = 2;
-+			goto release;
-+		}
-+next:
-+		cb->args[4]++;
-+	}
-+	cb->args[1] = 0;
-+	cb->args[2]++;
-+	cb->args[3] = 0;
-+	cb->args[4] = 0;
-+release:
-+	release_sock(sk);
-+	return err;
-+out:
-+	cb->args[2]++;
-+	return err;
-+}
-+
-+static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
-+{
-+	struct sctp_comm_param *commp = p;
-+	struct sock *sk = ep->base.sk;
-+	struct sk_buff *skb = commp->skb;
-+	struct netlink_callback *cb = commp->cb;
-+	const struct inet_diag_req_v2 *r = commp->r;
-+	struct net *net = sock_net(skb->sk);
-+	struct inet_sock *inet = inet_sk(sk);
-+	int err = 0;
-+
-+	if (!net_eq(sock_net(sk), net))
-+		goto out;
-+
-+	if (cb->args[4] < cb->args[1])
-+		goto next;
-+
-+	if (r->sdiag_family != AF_UNSPEC &&
-+	    sk->sk_family != r->sdiag_family)
-+		goto next;
-+
-+	if (r->id.idiag_sport != inet->inet_sport &&
-+	    r->id.idiag_sport)
-+		goto next;
-+
-+	if (r->id.idiag_dport != inet->inet_dport &&
-+	    r->id.idiag_dport)
-+		goto next;
-+
-+	if (inet_ep_diag_fill(sk, ep, skb, r,
-+			      sk_user_ns(NETLINK_CB(cb->skb).sk),
-+			      NETLINK_CB(cb->skb).portid,
-+			      cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+			      cb->nlh) < 0) {
-+		err = 2;
-+		goto out;
-+	}
-+next:
-+	cb->args[4]++;
-+out:
-+	return err;
-+}
-+
-+/* define the functions for sctp_diag_handler*/
-+static void sctp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
-+			       void *info)
-+{
-+	struct sctp_infox *infox = (struct sctp_infox *)info;
-+
-+	if (infox->asoc) {
-+		r->idiag_rqueue = atomic_read(&infox->asoc->rmem_alloc);
-+		r->idiag_wqueue = infox->asoc->sndbuf_used;
-+	} else {
-+		r->idiag_rqueue = sk->sk_ack_backlog;
-+		r->idiag_wqueue = sk->sk_max_ack_backlog;
-+	}
-+	if (infox->sctpinfo)
-+		sctp_get_sctp_info(sk, infox->asoc, infox->sctpinfo);
-+}
-+
-+static int sctp_diag_dump_one(struct sk_buff *in_skb,
-+			      const struct nlmsghdr *nlh,
-+			      const struct inet_diag_req_v2 *req)
-+{
-+	struct net *net = sock_net(in_skb->sk);
-+	union sctp_addr laddr, paddr;
-+	struct sctp_comm_param commp = {
-+		.skb = in_skb,
-+		.r = req,
-+		.nlh = nlh,
-+	};
-+
-+	if (req->sdiag_family == AF_INET) {
-+		laddr.v4.sin_port = req->id.idiag_sport;
-+		laddr.v4.sin_addr.s_addr = req->id.idiag_src[0];
-+		laddr.v4.sin_family = AF_INET;
-+
-+		paddr.v4.sin_port = req->id.idiag_dport;
-+		paddr.v4.sin_addr.s_addr = req->id.idiag_dst[0];
-+		paddr.v4.sin_family = AF_INET;
-+	} else {
-+		laddr.v6.sin6_port = req->id.idiag_sport;
-+		memcpy(&laddr.v6.sin6_addr, req->id.idiag_src, 64);
-+		laddr.v6.sin6_family = AF_INET6;
-+
-+		paddr.v6.sin6_port = req->id.idiag_dport;
-+		memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst, 64);
-+		paddr.v6.sin6_family = AF_INET6;
-+	}
-+
-+	return sctp_transport_lookup_process(sctp_tsp_dump_one,
-+					     net, &laddr, &paddr, &commp);
-+}
-+
-+static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
-+			   const struct inet_diag_req_v2 *r, struct nlattr *bc)
-+{
-+	u32 idiag_states = r->idiag_states;
-+	struct net *net = sock_net(skb->sk);
-+	struct sctp_comm_param commp = {
-+		.skb = skb,
-+		.cb = cb,
-+		.r = r,
-+	};
-+
-+	/* eps hashtable dumps
-+	 * args:
-+	 * 0 : if it will traversal listen sock
-+	 * 1 : to record the sock pos of this time's traversal
-+	 * 4 : to work as a temporary variable to traversal list
-+	 */
-+	if (cb->args[0] == 0) {
-+		if (!(idiag_states & TCPF_LISTEN))
-+			goto skip;
-+		if (sctp_for_each_endpoint(sctp_ep_dump, &commp))
-+			goto done;
-+skip:
-+		cb->args[0] = 1;
-+		cb->args[1] = 0;
-+		cb->args[4] = 0;
-+	}
-+
-+	/* asocs by transport hashtable dump
-+	 * args:
-+	 * 1 : to record the assoc pos of this time's traversal
-+	 * 2 : to record the transport pos of this time's traversal
-+	 * 3 : to mark if we have dumped the ep info of the current asoc
-+	 * 4 : to work as a temporary variable to traversal list
-+	 */
-+	if (!(idiag_states & ~TCPF_LISTEN))
-+		goto done;
-+	sctp_for_each_transport(sctp_tsp_dump, net, cb->args[2], &commp);
-+done:
-+	cb->args[1] = cb->args[4];
-+	cb->args[4] = 0;
-+}
-+
-+static const struct inet_diag_handler sctp_diag_handler = {
-+	.dump		 = sctp_diag_dump,
-+	.dump_one	 = sctp_diag_dump_one,
-+	.idiag_get_info  = sctp_diag_get_info,
-+	.idiag_type	 = IPPROTO_SCTP,
-+	.idiag_info_size = sizeof(struct sctp_info),
-+};
-+
-+static int __init sctp_diag_init(void)
-+{
-+	return inet_diag_register(&sctp_diag_handler);
-+}
-+
-+static void __exit sctp_diag_exit(void)
-+{
-+	inet_diag_unregister(&sctp_diag_handler);
-+}
-+
-+module_init(sctp_diag_init);
-+module_exit(sctp_diag_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 2-132);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(sctp_for_each_transport);
 -- 
 2.1.0
