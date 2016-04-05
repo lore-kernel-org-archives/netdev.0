@@ -1,63 +1,76 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] sctp: Fix error handling for switch statement case in
- the function sctp_cmd_interprete
-Date: Tue, 5 Apr 2016 19:12:21 -0300
-Message-ID: <20160405221220.GA15005@localhost.localdomain>
-References: <1459892201-21397-1-git-send-email-bastienphilbert@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bastien Philbert <bastienphilbert@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1459892201-21397-1-git-send-email-bastienphilbert@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 3/3] e1000: Double Tx descriptors needed check for 82544
+Date: Tue,  5 Apr 2016 15:30:51 -0700
+Message-ID: <1459895451-45300-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459895451-45300-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:12327 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933820AbcDEWay (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 18:30:54 -0400
+In-Reply-To: <1459895451-45300-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2016 at 05:36:41PM -0400, Bastien Philbert wrote:
-> This fixes error handling for the switch statement case
-> SCTP_CMD_SEND_PKT by making the error value of the call
-> to sctp_packet_transmit equal the variable error due to
-> this function being able to fail with a error code. In
-> addition allow the call to sctp_ootb_pkt_free afterwards
-> to free up the no longer in use sctp packet even if the
-> call to the function sctp_packet_transmit fails in order
-> to avoid a memory leak here for not freeing the sctp
+From: Alexander Duyck <aduyck@mirantis.com>
 
-This leak shouldn't exist as sctp_packet_transmit() will free the packet
-if it returns ENOMEM, through the nomem: handling.
+The 82544 has code that adds one additional descriptor per data buffer.
+However we weren't taking that into account when determining the descriptors
+needed for the next transmit at the end of the xmit_frame path.
 
-But about making it visible to the user, that looks interesting to me
-although I cannot foresee yet its effects, like the comment at the end
-of sctp_packet_transmit() on not returning EHOSTUNREACH. Did you check
-it?
+This change takes that into account by doubling the number of descriptors
+needed for the 82544 so that we can avoid a potential issue where we could
+hang the Tx ring by loading frames with xmit_more enabled and then stopping
+the ring without writing the tail.
 
-> 
-> Signed-off-by: Bastien Philbert <bastienphilbert@gmail.com>
-> ---
->  net/sctp/sm_sideeffect.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 7fe56d0..f3a8b58 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -1434,7 +1434,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
->  		case SCTP_CMD_SEND_PKT:
->  			/* Send a full packet to our peer.  */
->  			packet = cmd->obj.packet;
-> -			sctp_packet_transmit(packet, gfp);
-> +			error = sctp_packet_transmit(packet, gfp);
->  			sctp_ootb_pkt_free(packet);
->  			break;
->  
-> -- 
-> 2.5.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+In addition it adds a few more descriptors to account for some additional
+workarounds that have been added over time.
+
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index d213fb4..ae90d4f 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3256,12 +3256,29 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 			     nr_frags, mss);
+ 
+ 	if (count) {
++		/* The descriptors needed is higher than other Intel drivers
++		 * due to a number of workarounds.  The breakdown is below:
++		 * Data descriptors: MAX_SKB_FRAGS + 1
++		 * Context Descriptor: 1
++		 * Keep head from touching tail: 2
++		 * Workarounds: 3
++		 */
++		int desc_needed = MAX_SKB_FRAGS + 7;
++
+ 		netdev_sent_queue(netdev, skb->len);
+ 		skb_tx_timestamp(skb);
+ 
+ 		e1000_tx_queue(adapter, tx_ring, tx_flags, count);
++
++		/* 82544 potentially requires twice as many data descriptors
++		 * in order to guarantee buffers don't end on evenly-aligned
++		 * dwords
++		 */
++		if (adapter->pcix_82544)
++			desc_needed += MAX_SKB_FRAGS + 1;
++
+ 		/* Make sure there is space in the ring for the next send. */
+-		e1000_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
++		e1000_maybe_stop_tx(netdev, tx_ring, desc_needed);
+ 
+ 		if (!skb->xmit_more ||
+ 		    netif_xmit_stopped(netdev_get_tx_queue(netdev, 0))) {
+-- 
+2.5.5
