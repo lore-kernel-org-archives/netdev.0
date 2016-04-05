@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/14] ixgbe: Add support for generic Tx checksums
-Date: Mon,  4 Apr 2016 17:58:59 -0700
-Message-ID: <1459817945-144915-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 04/14] ixgbe: Do not allow PF to add VLVF entry unless it actually needs it
+Date: Mon,  4 Apr 2016 17:58:55 -0700
+Message-ID: <1459817945-144915-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,252 +10,122 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:17837 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756740AbcDEA7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 20:59:11 -0400
+	id S1755093AbcDEA7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 20:59:10 -0400
 In-Reply-To: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <aduyck@mirantis.com>
 
-This patch adds support for generic Tx checksums to the ixgbe driver.  It
-turns out this is actually pretty easy after going over the datasheet as we
-were doing a number of steps we didn't need to.
-
-In order to perform a Tx checksum for an L4 header we need to fill in the
-following fields in the Tx descriptor:
-  MACLEN (maximum of 127), retrieved from:
-		skb_network_offset()
-  IPLEN  (maximum of 511), retrieved from:
-		skb_checksum_start_offset() - skb_network_offset()
-  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
-		skb->csum_offset
-
-The added advantage to doing this is that we can support inner checksum
-offloads for tunnels and MPLS while still being able to transparently
-insert VLAN tags.
-
-I also took the opportunity to clean-up many of the feature flag
-configuration bits to make them a bit more consistent between drivers.
+While doing the work on igb I realized there were a few cases where we were
+still adding VLANs to the VLVF entries for the PF when they were not
+needed.  This patch cleans that up so that the only time we add a PF entry
+to the VLVF is either for VLAN 0 or if the PF has requested a VLAN that a VF
+is already using.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2: updated patch 8 of the series to include a minor flags issue where
-    we had lost NETIF_F_HW_TC and we were setting NETIF_F_SCTP_CRC in
-    two different areas, when we only needed/wanted it in one spot.
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 162 +++++++++-----------------
- 1 file changed, 58 insertions(+), 104 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  8 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 31 ++++++++++++++------------
+ 2 files changed, 21 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bce5737..0f007d9 100644
+index 7df3fe2..a01a7f2 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7202,103 +7202,61 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
- 	return 1;
- }
+@@ -3908,7 +3908,9 @@ static int ixgbe_vlan_rx_add_vid(struct net_device *netdev,
+ 	struct ixgbe_hw *hw = &adapter->hw;
  
-+static inline bool ixgbe_ipv6_csum_is_sctp(struct sk_buff *skb)
-+{
-+	unsigned int offset = 0;
+ 	/* add VID to filter table */
+-	hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, true);
++	if (!vid || !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
++		hw->mac.ops.set_vfta(&adapter->hw, vid, VMDQ_P(0), true, !!vid);
 +
-+	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
-+
-+	return offset == skb_checksum_start_offset(skb);
-+}
-+
- static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
- 			  struct ixgbe_tx_buffer *first)
+ 	set_bit(vid, adapter->active_vlans);
+ 
+ 	return 0;
+@@ -3965,9 +3967,7 @@ static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+ 	/* remove VID from filter table */
+-	if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC)
+-		ixgbe_update_pf_promisc_vlvf(adapter, vid);
+-	else
++	if (vid && !(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
+ 		hw->mac.ops.set_vfta(hw, vid, VMDQ_P(0), false, true);
+ 
+ 	clear_bit(vid, adapter->active_vlans);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 80e47db..4bc24963 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -589,40 +589,40 @@ static void ixgbe_clear_vmvir(struct ixgbe_adapter *adapter, u32 vf)
+ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
  {
- 	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
--	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 i;
++	u32 vlvfb_mask, pool_mask, i;
++
++	/* create mask for VF and other pools */
++	pool_mask = ~(1 << (VMDQ_P(0) % 32));
++	vlvfb_mask = 1 << (vf % 32);
  
- 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
--		if (!(first->tx_flags & IXGBE_TX_FLAGS_HW_VLAN) &&
--		    !(first->tx_flags & IXGBE_TX_FLAGS_CC))
-+csum_failed:
-+		if (!(first->tx_flags & (IXGBE_TX_FLAGS_HW_VLAN |
-+					 IXGBE_TX_FLAGS_CC)))
- 			return;
--		vlan_macip_lens = skb_network_offset(skb) <<
--				  IXGBE_ADVTXD_MACLEN_SHIFT;
--	} else {
--		u8 l4_hdr = 0;
--		union {
--			struct iphdr *ipv4;
--			struct ipv6hdr *ipv6;
--			u8 *raw;
--		} network_hdr;
--		union {
--			struct tcphdr *tcphdr;
--			u8 *raw;
--		} transport_hdr;
--		__be16 frag_off;
--
--		if (skb->encapsulation) {
--			network_hdr.raw = skb_inner_network_header(skb);
--			transport_hdr.raw = skb_inner_transport_header(skb);
--			vlan_macip_lens = skb_inner_network_offset(skb) <<
--					  IXGBE_ADVTXD_MACLEN_SHIFT;
--		} else {
--			network_hdr.raw = skb_network_header(skb);
--			transport_hdr.raw = skb_transport_header(skb);
--			vlan_macip_lens = skb_network_offset(skb) <<
--					  IXGBE_ADVTXD_MACLEN_SHIFT;
--		}
-+		goto no_csum;
-+	}
+ 	/* post increment loop, covers VLVF_ENTRIES - 1 to 0 */
+ 	for (i = IXGBE_VLVF_ENTRIES; i--;) {
+ 		u32 bits[2], vlvfb, vid, vfta, vlvf;
+ 		u32 word = i * 2 + vf / 32;
+-		u32 mask = 1 << (vf % 32);
++		u32 mask;
  
--		/* use first 4 bits to determine IP version */
--		switch (network_hdr.ipv4->version) {
--		case IPVERSION:
--			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
--			l4_hdr = network_hdr.ipv4->protocol;
--			break;
--		case 6:
--			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
--			l4_hdr = network_hdr.ipv6->nexthdr;
--			if (likely((transport_hdr.raw - network_hdr.raw) ==
--				   sizeof(struct ipv6hdr)))
--				break;
--			ipv6_skip_exthdr(skb, network_hdr.raw - skb->data +
--					      sizeof(struct ipv6hdr),
--					 &l4_hdr, &frag_off);
--			if (unlikely(frag_off))
--				l4_hdr = NEXTHDR_FRAGMENT;
--			break;
--		default:
-+	switch (skb->csum_offset) {
-+	case offsetof(struct tcphdr, check):
-+		type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
-+		/* fall through */
-+	case offsetof(struct udphdr, check):
-+		break;
-+	case offsetof(struct sctphdr, checksum):
-+		/* validate that this is actually an SCTP request */
-+		if (((first->protocol == htons(ETH_P_IP)) &&
-+		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
-+		    ((first->protocol == htons(ETH_P_IPV6)) &&
-+		     ixgbe_ipv6_csum_is_sctp(skb))) {
-+			type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
- 			break;
- 		}
+ 		vlvfb = IXGBE_READ_REG(hw, IXGBE_VLVFB(word));
+ 
+ 		/* if our bit isn't set we can skip it */
+-		if (!(vlvfb & mask))
++		if (!(vlvfb & vlvfb_mask))
+ 			continue;
+ 
+ 		/* clear our bit from vlvfb */
+-		vlvfb ^= mask;
++		vlvfb ^= vlvfb_mask;
+ 
+ 		/* create 64b mask to chedk to see if we should clear VLVF */
+ 		bits[word % 2] = vlvfb;
+ 		bits[~word % 2] = IXGBE_READ_REG(hw, IXGBE_VLVFB(word ^ 1));
+ 
+-		/* if promisc is enabled, PF will be present, leave VFTA */
+-		if (adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC) {
+-			bits[VMDQ_P(0) / 32] &= ~(1 << (VMDQ_P(0) % 32));
 -
--		switch (l4_hdr) {
--		case IPPROTO_TCP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
--			mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_SCTP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
--			mss_l4len_idx = sizeof(struct sctphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_UDP:
--			mss_l4len_idx = sizeof(struct udphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		default:
--			if (unlikely(net_ratelimit())) {
--				dev_warn(tx_ring->dev,
--					 "partial checksum, version=%d, l4 proto=%x\n",
--					 network_hdr.ipv4->version, l4_hdr);
--			}
--			skb_checksum_help(skb);
--			goto no_csum;
+-			if (bits[0] || bits[1])
+-				goto update_vlvfb;
+-			goto update_vlvf;
 -		}
 -
--		/* update TX checksum flag */
--		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+		/* fall through */
-+	default:
-+		skb_checksum_help(skb);
-+		goto csum_failed;
- 	}
+ 		/* if other pools are present, just remove ourselves */
+-		if (bits[0] || bits[1])
++		if (bits[(VMDQ_P(0) / 32) ^ 1] ||
++		    (bits[VMDQ_P(0) / 32] & pool_mask))
+ 			goto update_vlvfb;
  
-+	/* update TX checksum flag */
-+	first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+	vlan_macip_lens = skb_checksum_start_offset(skb) -
-+			  skb_network_offset(skb);
- no_csum:
- 	/* vlan_macip_lens: MACLEN, VLAN tag */
-+	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
--	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
--			  type_tucmd, mss_l4len_idx);
-+	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0, type_tucmd, 0);
- }
- 
- #define IXGBE_SET_FLAG(_input, _flag, _result) \
-@@ -9190,41 +9148,37 @@ skip_sriov:
- 
- #endif
- 	netdev->features = NETIF_F_SG |
--			   NETIF_F_IP_CSUM |
--			   NETIF_F_IPV6_CSUM |
--			   NETIF_F_HW_VLAN_CTAG_TX |
--			   NETIF_F_HW_VLAN_CTAG_RX |
- 			   NETIF_F_TSO |
- 			   NETIF_F_TSO6 |
- 			   NETIF_F_RXHASH |
--			   NETIF_F_RXCSUM;
--
--	netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
-+			   NETIF_F_RXCSUM |
-+			   NETIF_F_HW_CSUM |
-+			   NETIF_F_HW_VLAN_CTAG_TX |
-+			   NETIF_F_HW_VLAN_CTAG_RX;
- 
--	switch (adapter->hw.mac.type) {
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X540:
--	case ixgbe_mac_X550:
--	case ixgbe_mac_X550EM_x:
-+	if (hw->mac.type >= ixgbe_mac_82599EB)
- 		netdev->features |= NETIF_F_SCTP_CRC;
--		netdev->hw_features |= NETIF_F_SCTP_CRC |
--				       NETIF_F_NTUPLE |
++		/* if PF is present, leave VFTA */
++		if (bits[0] || bits[1])
++			goto update_vlvf;
 +
-+	/* copy netdev features into list of user selectable features */
-+	netdev->hw_features |= netdev->features;
-+	netdev->hw_features |= NETIF_F_RXALL |
-+			       NETIF_F_HW_L2FW_DOFFLOAD;
+ 		/* if we cannot determine VLAN just remove ourselves */
+ 		vlvf = IXGBE_READ_REG(hw, IXGBE_VLVF(i));
+ 		if (!vlvf)
+@@ -638,6 +638,9 @@ static void ixgbe_clear_vf_vlans(struct ixgbe_adapter *adapter, u32 vf)
+ update_vlvf:
+ 		/* clear POOL selection enable */
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLVF(i), 0);
 +
-+	if (hw->mac.type >= ixgbe_mac_82599EB)
-+		netdev->hw_features |= NETIF_F_NTUPLE |
- 				       NETIF_F_HW_TC;
--		break;
--	default:
--		break;
--	}
- 
--	netdev->hw_features |= NETIF_F_RXALL;
-+	/* set this bit last since it cannot be part of hw_features */
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
--	netdev->vlan_features |= NETIF_F_TSO;
--	netdev->vlan_features |= NETIF_F_TSO6;
--	netdev->vlan_features |= NETIF_F_IP_CSUM;
--	netdev->vlan_features |= NETIF_F_IPV6_CSUM;
--	netdev->vlan_features |= NETIF_F_SG;
-+	netdev->vlan_features |= NETIF_F_SG |
-+				 NETIF_F_TSO |
-+				 NETIF_F_TSO6 |
-+				 NETIF_F_HW_CSUM |
-+				 NETIF_F_SCTP_CRC;
- 
--	netdev->hw_enc_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 	netdev->priv_flags |= IFF_SUPP_NOFCS;
++		if (!(adapter->flags2 & IXGBE_FLAG2_VLAN_PROMISC))
++			vlvfb = 0;
+ update_vlvfb:
+ 		/* clear pool bits */
+ 		IXGBE_WRITE_REG(hw, IXGBE_VLVFB(word), vlvfb);
 -- 
 2.5.5
