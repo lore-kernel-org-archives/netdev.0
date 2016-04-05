@@ -1,85 +1,50 @@
-From: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [v7, 0/5] Fix eSDHC host version register bug
-Date: Tue, 5 Apr 2016 13:27:58 +0200
-Message-ID: <CAPDyKFqgMCvbqMYZ-uM-rTnVvfJkCYbhv2kucCRyNyc9FWoR=Q@mail.gmail.com>
-References: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
+Date: Tue, 5 Apr 2016 14:06:26 +0200
+Message-ID: <20160405120626.GM3448@twins.programming.kicks-ass.net>
+References: <1459831974-2891931-1-git-send-email-ast@fb.com>
+ <1459831974-2891931-2-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	scott.wood-3arQi8VN3Tc@public.gmane.org, xiaobo.xie-3arQi8VN3Tc@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1459480051-3701-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1459831974-2891931-2-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1 April 2016 at 05:07, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org> wrote:
-> This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
-> eSDHC controller. To get the SoC version and revision, it's needed to add the
-> GUTS driver to access the global utilities registers.
->
-> So, the first three patches are to add the GUTS driver.
-> The following two patches are to enable GUTS driver support to get SVR in eSDHC
-> driver and fix host version for T4240.
->
-> Yangbo Lu (5):
->   ARM64: dts: ls2080a: add device configuration node
->   soc: fsl: add GUTS driver for QorIQ platforms
->   dt: move guts devicetree doc out of powerpc directory
->   powerpc/fsl: move mpc85xx.h to include/linux/fsl
->   mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
->
->  .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
->  arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 ++
->  arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
->  drivers/clk/clk-qoriq.c                            |   3 +-
->  drivers/i2c/busses/i2c-mpc.c                       |   2 +-
->  drivers/iommu/fsl_pamu.c                           |   3 +-
->  drivers/mmc/host/Kconfig                           |   1 +
->  drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
->  drivers/net/ethernet/freescale/gianfar.c           |   2 +-
->  drivers/soc/Kconfig                                |   2 +-
->  drivers/soc/fsl/Kconfig                            |   8 ++
->  drivers/soc/fsl/Makefile                           |   1 +
->  drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++++
->  include/linux/fsl/guts.h                           |  98 ++++++++---------
->  .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
->  15 files changed, 219 insertions(+), 58 deletions(-)
->  rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
->  create mode 100644 drivers/soc/fsl/Kconfig
->  create mode 100644 drivers/soc/fsl/guts.c
->  rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
->
-> --
-> 2.1.0.27.g96db324
->
+On Mon, Apr 04, 2016 at 09:52:47PM -0700, Alexei Starovoitov wrote:
+> avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
+> It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
+> with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc
 
-I was about to queue this for next, when I noticed that checkpatch is
-complaining/warning lots about these patches. Can you please a round
-of checkpatch and fix what makes sense.
+Its not actually allocated; but because its a static uninitialized
+variable we get .bss like behaviour and the initial value is copied to
+all CPUs when the per-cpu allocator thingy bootstraps SMP IIRC.
 
-Kind regards
-Uffe
+> and
+> subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
+> so we can safely drop memset from all of the above cases and 
+
+Indeed.
+
+> move it into
+> perf_ftrace_function_call that calls it with stack allocated pt_regs.
+
+Hmm, is there a reason that's still on-stack instead of using the
+per-cpu thing, Steve?
+
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+
+In any case,
+
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
