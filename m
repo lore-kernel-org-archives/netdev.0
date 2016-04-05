@@ -1,127 +1,72 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 02/10] bnxt_en: Improve flow control autoneg with Firmware 1.2.1 interface.
-Date: Tue,  5 Apr 2016 04:22:34 -0400
-Message-ID: <1459844562-24576-3-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 06/10] bnxt_en: Set async event bits when registering with the firmware.
+Date: Tue,  5 Apr 2016 04:22:38 -0400
+Message-ID: <1459844562-24576-7-git-send-email-michael.chan@broadcom.com>
 References: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8221 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757160AbcDEIWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:44 -0400
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:57168 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757500AbcDEIWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:47 -0400
 In-Reply-To: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make use of the new AUTONEG_PAUSE bit in the new interface to better
-control autoneg flow control settings, independent of RX and TX
-advertisement settings.
+Currently, the driver only sets bit 0 of the async_event_fwd fields.
+To be compatible with the latest spec, we need to set the
+appropriate event bits handled by the driver.  We should be handling
+link change and PF driver unload events, so these 2 bits should be
+set.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 28 +++++++++++++++++++----
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 10 ++++----
- 2 files changed, 27 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index bfe98cb..2b5a541 100644
+index 2c3c795..dd0b32c 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4557,6 +4557,9 @@ static void
- bnxt_hwrm_set_pause_common(struct bnxt *bp, struct hwrm_port_phy_cfg_input *req)
+@@ -118,6 +118,11 @@ static const u16 bnxt_vf_req_snif[] = {
+ 	HWRM_CFA_L2_FILTER_ALLOC,
+ };
+ 
++static const u16 bnxt_async_events_arr[] = {
++	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE,
++	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD,
++};
++
+ static bool bnxt_vf_pciid(enum board_idx idx)
  {
- 	if (bp->link_info.autoneg & BNXT_AUTONEG_FLOW_CTRL) {
-+		if (bp->hwrm_spec_code >= 0x10201)
-+			req->auto_pause =
-+				PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE;
- 		if (bp->link_info.req_flow_ctrl & BNXT_LINK_PAUSE_RX)
- 			req->auto_pause |= PORT_PHY_CFG_REQ_AUTO_PAUSE_RX;
- 		if (bp->link_info.req_flow_ctrl & BNXT_LINK_PAUSE_TX)
-@@ -4570,6 +4573,11 @@ bnxt_hwrm_set_pause_common(struct bnxt *bp, struct hwrm_port_phy_cfg_input *req)
- 			req->force_pause |= PORT_PHY_CFG_REQ_FORCE_PAUSE_TX;
- 		req->enables |=
- 			cpu_to_le32(PORT_PHY_CFG_REQ_ENABLES_FORCE_PAUSE);
-+		if (bp->hwrm_spec_code >= 0x10201) {
-+			req->auto_pause = req->force_pause;
-+			req->enables |= cpu_to_le32(
-+				PORT_PHY_CFG_REQ_ENABLES_AUTO_PAUSE);
-+		}
- 	}
- }
+ 	return (idx == BCM57304_VF || idx == BCM57404_VF);
+@@ -2751,6 +2756,8 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
+ {
+ 	struct hwrm_func_drv_rgtr_input req = {0};
+ 	int i;
++	DECLARE_BITMAP(async_events_bmap, 256);
++	u32 *events = (u32 *)async_events_bmap;
  
-@@ -4656,7 +4664,8 @@ static int bnxt_update_phy_setting(struct bnxt *bp)
- 		return rc;
- 	}
- 	if ((link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL) &&
--	    link_info->auto_pause_setting != link_info->req_flow_ctrl)
-+	    (link_info->auto_pause_setting & BNXT_LINK_PAUSE_BOTH) !=
-+	    link_info->req_flow_ctrl)
- 		update_pause = true;
- 	if (!(link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL) &&
- 	    link_info->force_pause_setting != link_info->req_flow_ctrl)
-@@ -5825,15 +5834,24 @@ static int bnxt_probe_phy(struct bnxt *bp)
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_DRV_RGTR, -1, -1);
  
- 	/*initialize the ethool setting copy with NVM settings */
- 	if (BNXT_AUTO_MODE(link_info->auto_mode)) {
--		link_info->autoneg = BNXT_AUTONEG_SPEED |
--				     BNXT_AUTONEG_FLOW_CTRL;
-+		link_info->autoneg = BNXT_AUTONEG_SPEED;
-+		if (bp->hwrm_spec_code >= 0x10201) {
-+			if (link_info->auto_pause_setting &
-+			    PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE)
-+				link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
-+		} else {
-+			link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
-+		}
- 		link_info->advertising = link_info->auto_link_speeds;
--		link_info->req_flow_ctrl = link_info->auto_pause_setting;
- 	} else {
- 		link_info->req_link_speed = link_info->force_link_speed;
- 		link_info->req_duplex = link_info->duplex_setting;
--		link_info->req_flow_ctrl = link_info->force_pause_setting;
- 	}
-+	if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
-+		link_info->req_flow_ctrl =
-+			link_info->auto_pause_setting & BNXT_LINK_PAUSE_BOTH;
-+	else
-+		link_info->req_flow_ctrl = link_info->force_pause_setting;
- 	return rc;
- }
+@@ -2759,10 +2766,13 @@ static int bnxt_hwrm_func_drv_rgtr(struct bnxt *bp)
+ 			    FUNC_DRV_RGTR_REQ_ENABLES_VER |
+ 			    FUNC_DRV_RGTR_REQ_ENABLES_ASYNC_EVENT_FWD);
  
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index f103f9b..99b1740 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -874,7 +874,9 @@ static int bnxt_set_pauseparam(struct net_device *dev,
- 			return -EINVAL;
- 
- 		link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
--		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_BOTH;
-+		if (bp->hwrm_spec_code >= 0x10201)
-+			link_info->req_flow_ctrl =
-+				PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE;
- 	} else {
- 		/* when transition from auto pause to force pause,
- 		 * force a link change
-@@ -882,17 +884,13 @@ static int bnxt_set_pauseparam(struct net_device *dev,
- 		if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
- 			link_info->force_link_chng = true;
- 		link_info->autoneg &= ~BNXT_AUTONEG_FLOW_CTRL;
--		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_BOTH;
-+		link_info->req_flow_ctrl = 0;
- 	}
- 	if (epause->rx_pause)
- 		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_RX;
--	else
--		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_RX;
- 
- 	if (epause->tx_pause)
- 		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_TX;
--	else
--		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_TX;
- 
- 	if (netif_running(dev))
- 		rc = bnxt_hwrm_set_pause(bp);
+-	/* TODO: current async event fwd bits are not defined and the firmware
+-	 * only checks if it is non-zero to enable async event forwarding
+-	 */
+-	req.async_event_fwd[0] |= cpu_to_le32(1);
++	memset(async_events_bmap, 0, sizeof(async_events_bmap));
++	for (i = 0; i < ARRAY_SIZE(bnxt_async_events_arr); i++)
++		__set_bit(bnxt_async_events_arr[i], async_events_bmap);
++
++	for (i = 0; i < 8; i++)
++		req.async_event_fwd[i] |= cpu_to_le32(events[i]);
++
+ 	req.os_type = cpu_to_le16(FUNC_DRV_RGTR_REQ_OS_TYPE_LINUX);
+ 	req.ver_maj = DRV_VER_MAJ;
+ 	req.ver_min = DRV_VER_MIN;
 -- 
 1.8.3.1
