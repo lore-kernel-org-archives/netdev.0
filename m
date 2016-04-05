@@ -1,45 +1,255 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/15] fm10k: prevent possibly uninitialized variable
-Date: Tue,  5 Apr 2016 13:02:24 -0700
-Message-ID: <1459886547-146445-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/15] fm10k: add helper functions to set strings and data for ethtool stats
+Date: Tue,  5 Apr 2016 13:02:23 -0700
+Message-ID: <1459886547-146445-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18249 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:46178 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759908AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759907AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2016 16:02:33 -0400
 In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-If 'attr_flag < (1 << (2 * FM10K_TEST_MSG_NESTED))' is ever false, err
-will be used uninitialized.
+Reduce duplicate code and the amount of indentation by adding
+fm10k_add_stat_strings and fm10k_add_ethtool_stats functions which help
+add fm10k_stat structures to the ethtool stats callbacks. This helps
+increase ease of use for future stat additions, and increases code
+readability. Skip handling of the per-queue stats as these will be
+reworked in a following patch.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 164 ++++++++++++-----------
+ 1 file changed, 83 insertions(+), 81 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index c67121c..2e4ea88 100644
+index 28837ae..c67121c 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -937,7 +937,7 @@ static int fm10k_mbx_test(struct fm10k_intfc *interface, u64 *data)
- 	struct fm10k_mbx_info *mbx = &hw->mbx;
- 	u32 attr_flag, test_msg[6];
- 	unsigned long timeout;
--	int err;
-+	int err = -EINVAL;
+@@ -153,57 +153,51 @@ static const char fm10k_prv_flags[FM10K_PRV_FLAG_LEN][ETH_GSTRING_LEN] = {
+ 	"debug-statistics",
+ };
  
- 	/* For now this is a VF only feature */
- 	if (hw->mac.type != fm10k_mac_vf)
++static void fm10k_add_stat_strings(char **p, const char *prefix,
++				   const struct fm10k_stats stats[],
++				   const unsigned int size)
++{
++	unsigned int i;
++
++	for (i = 0; i < size; i++) {
++		snprintf(*p, ETH_GSTRING_LEN, "%s%s",
++			 prefix, stats[i].stat_string);
++		*p += ETH_GSTRING_LEN;
++	}
++}
++
+ static void fm10k_get_stat_strings(struct net_device *dev, u8 *data)
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	struct fm10k_iov_data *iov_data = interface->iov_data;
+ 	char *p = (char *)data;
+ 	unsigned int i;
+-	unsigned int j;
+ 
+-	for (i = 0; i < FM10K_NETDEV_STATS_LEN; i++) {
+-		memcpy(p, fm10k_gstrings_net_stats[i].stat_string,
+-		       ETH_GSTRING_LEN);
+-		p += ETH_GSTRING_LEN;
+-	}
++	fm10k_add_stat_strings(&p, "", fm10k_gstrings_net_stats,
++			       FM10K_NETDEV_STATS_LEN);
+ 
+-	for (i = 0; i < FM10K_GLOBAL_STATS_LEN; i++) {
+-		memcpy(p, fm10k_gstrings_global_stats[i].stat_string,
+-		       ETH_GSTRING_LEN);
+-		p += ETH_GSTRING_LEN;
+-	}
++	fm10k_add_stat_strings(&p, "", fm10k_gstrings_global_stats,
++			       FM10K_GLOBAL_STATS_LEN);
+ 
+-	if (interface->flags & FM10K_FLAG_DEBUG_STATS) {
+-		for (i = 0; i < FM10K_DEBUG_STATS_LEN; i++) {
+-			memcpy(p, fm10k_gstrings_debug_stats[i].stat_string,
+-			       ETH_GSTRING_LEN);
+-			p += ETH_GSTRING_LEN;
+-		}
+-	}
++	if (interface->flags & FM10K_FLAG_DEBUG_STATS)
++		fm10k_add_stat_strings(&p, "", fm10k_gstrings_debug_stats,
++				       FM10K_DEBUG_STATS_LEN);
+ 
+-	for (i = 0; i < FM10K_MBX_STATS_LEN; i++) {
+-		memcpy(p, fm10k_gstrings_mbx_stats[i].stat_string,
+-		       ETH_GSTRING_LEN);
+-		p += ETH_GSTRING_LEN;
+-	}
++	fm10k_add_stat_strings(&p, "", fm10k_gstrings_mbx_stats,
++			       FM10K_MBX_STATS_LEN);
+ 
+-	if (interface->hw.mac.type != fm10k_mac_vf) {
+-		for (i = 0; i < FM10K_PF_STATS_LEN; i++) {
+-			memcpy(p, fm10k_gstrings_pf_stats[i].stat_string,
+-			       ETH_GSTRING_LEN);
+-			p += ETH_GSTRING_LEN;
+-		}
+-	}
++	if (interface->hw.mac.type != fm10k_mac_vf)
++		fm10k_add_stat_strings(&p, "", fm10k_gstrings_pf_stats,
++				       FM10K_PF_STATS_LEN);
+ 
+ 	if ((interface->flags & FM10K_FLAG_DEBUG_STATS) && iov_data) {
+ 		for (i = 0; i < iov_data->num_vfs; i++) {
+-			for (j = 0; j < FM10K_MBX_STATS_LEN; j++) {
+-				snprintf(p,
+-					 ETH_GSTRING_LEN,
+-					 "vf_%u_%s", i,
+-					 fm10k_gstrings_mbx_stats[j].stat_string);
+-				p += ETH_GSTRING_LEN;
+-			}
++			char prefix[ETH_GSTRING_LEN];
++
++			snprintf(prefix, ETH_GSTRING_LEN, "vf_%u_", i);
++			fm10k_add_stat_strings(&p, prefix,
++					       fm10k_gstrings_mbx_stats,
++					       FM10K_MBX_STATS_LEN);
+ 		}
+ 	}
+ 
+@@ -271,6 +265,41 @@ static int fm10k_get_sset_count(struct net_device *dev, int sset)
+ 	}
+ }
+ 
++static void fm10k_add_ethtool_stats(u64 **data, void *pointer,
++				    const struct fm10k_stats stats[],
++				    const unsigned int size)
++{
++	unsigned int i;
++	char *p;
++
++	/* simply skip forward if we were not given a valid pointer */
++	if (!pointer) {
++		*data += size;
++		return;
++	}
++
++	for (i = 0; i < size; i++) {
++		p = (char *)pointer + stats[i].stat_offset;
++
++		switch (stats[i].sizeof_stat) {
++		case sizeof(u64):
++			*((*data)++) = *(u64 *)p;
++			break;
++		case sizeof(u32):
++			*((*data)++) = *(u32 *)p;
++			break;
++		case sizeof(u16):
++			*((*data)++) = *(u16 *)p;
++			break;
++		case sizeof(u8):
++			*((*data)++) = *(u8 *)p;
++			break;
++		default:
++			*((*data)++) = 0;
++		}
++	}
++}
++
+ static void fm10k_get_ethtool_stats(struct net_device *netdev,
+ 				    struct ethtool_stats __always_unused *stats,
+ 				    u64 *data)
+@@ -279,47 +308,29 @@ static void fm10k_get_ethtool_stats(struct net_device *netdev,
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+ 	struct fm10k_iov_data *iov_data = interface->iov_data;
+ 	struct net_device_stats *net_stats = &netdev->stats;
+-	char *p;
+ 	int i, j;
+ 
+ 	fm10k_update_stats(interface);
+ 
+-	for (i = 0; i < FM10K_NETDEV_STATS_LEN; i++) {
+-		p = (char *)net_stats + fm10k_gstrings_net_stats[i].stat_offset;
+-		*(data++) = (fm10k_gstrings_net_stats[i].sizeof_stat ==
+-			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-	}
++	fm10k_add_ethtool_stats(&data, net_stats, fm10k_gstrings_net_stats,
++				FM10K_NETDEV_STATS_LEN);
+ 
+-	for (i = 0; i < FM10K_GLOBAL_STATS_LEN; i++) {
+-		p = (char *)interface +
+-		    fm10k_gstrings_global_stats[i].stat_offset;
+-		*(data++) = (fm10k_gstrings_global_stats[i].sizeof_stat ==
+-			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-	}
++	fm10k_add_ethtool_stats(&data, interface, fm10k_gstrings_global_stats,
++				FM10K_GLOBAL_STATS_LEN);
+ 
+-	if (interface->flags & FM10K_FLAG_DEBUG_STATS) {
+-		for (i = 0; i < FM10K_DEBUG_STATS_LEN; i++) {
+-			p = (char *)interface +
+-				fm10k_gstrings_debug_stats[i].stat_offset;
+-			*(data++) = (fm10k_gstrings_debug_stats[i].sizeof_stat ==
+-				     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-		}
+-	}
++	if (interface->flags & FM10K_FLAG_DEBUG_STATS)
++		fm10k_add_ethtool_stats(&data, interface,
++					fm10k_gstrings_debug_stats,
++					FM10K_DEBUG_STATS_LEN);
+ 
+-	for (i = 0; i < FM10K_MBX_STATS_LEN; i++) {
+-		p = (char *)&interface->hw.mbx +
+-			fm10k_gstrings_mbx_stats[i].stat_offset;
+-		*(data++) = (fm10k_gstrings_mbx_stats[i].sizeof_stat ==
+-			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-	}
++	fm10k_add_ethtool_stats(&data, &interface->hw.mbx,
++				fm10k_gstrings_mbx_stats,
++				FM10K_MBX_STATS_LEN);
+ 
+ 	if (interface->hw.mac.type != fm10k_mac_vf) {
+-		for (i = 0; i < FM10K_PF_STATS_LEN; i++) {
+-			p = (char *)interface +
+-			    fm10k_gstrings_pf_stats[i].stat_offset;
+-			*(data++) = (fm10k_gstrings_pf_stats[i].sizeof_stat ==
+-				     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-		}
++		fm10k_add_ethtool_stats(&data, interface,
++					fm10k_gstrings_pf_stats,
++					FM10K_PF_STATS_LEN);
+ 	}
+ 
+ 	if ((interface->flags & FM10K_FLAG_DEBUG_STATS) && iov_data) {
+@@ -328,18 +339,9 @@ static void fm10k_get_ethtool_stats(struct net_device *netdev,
+ 
+ 			vf_info = &iov_data->vf_info[i];
+ 
+-			/* skip stats if we don't have a vf info */
+-			if (!vf_info) {
+-				data += FM10K_MBX_STATS_LEN;
+-				continue;
+-			}
+-
+-			for (j = 0; j < FM10K_MBX_STATS_LEN; j++) {
+-				p = (char *)&vf_info->mbx +
+-					fm10k_gstrings_mbx_stats[j].stat_offset;
+-				*(data++) = (fm10k_gstrings_mbx_stats[j].sizeof_stat ==
+-					     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+-			}
++			fm10k_add_ethtool_stats(&data, &vf_info->mbx,
++						fm10k_gstrings_mbx_stats,
++						FM10K_MBX_STATS_LEN);
+ 		}
+ 	}
+ 
 -- 
 2.5.5
