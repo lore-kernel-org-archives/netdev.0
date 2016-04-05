@@ -1,110 +1,112 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 08/10] bnxt_en: Provide NVM information via Ethtool GEEPROM
-Date: Tue,  5 Apr 2016 04:22:40 -0400
-Message-ID: <1459844562-24576-9-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 09/10] bnxt_en: Check for valid forced speed during ethtool -s.
+Date: Tue,  5 Apr 2016 04:22:41 -0400
+Message-ID: <1459844562-24576-10-git-send-email-michael.chan@broadcom.com>
 References: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8221 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757504AbcDEIWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:47 -0400
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:24641 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757506AbcDEIWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:48 -0400
 In-Reply-To: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rob Swindell <swindell@broadcom.com>
+Check that the forced speed is a valid speed supported by firmware.
+If not supported, return -EINVAL.
 
-Provide details about the NVM device and the firmware version, etc, via
-the Ethtool GEEPROM command.
-
-Signed-off-by: Rob Swindell <rob.swindell@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 60 +++++++++++++++++++++--
- 1 file changed, 55 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 48 ++++++++++++++++++-----
+ 1 file changed, 38 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 3d5c64f..3b4db00 100644
+index 3b4db00..289895f 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -1311,8 +1311,18 @@ static int bnxt_get_eeprom(struct net_device *dev,
- 			   struct ethtool_eeprom *eeprom,
- 			   u8 *data)
+@@ -739,28 +739,49 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ static u32 bnxt_get_fw_speed(struct net_device *dev, u16 ethtool_speed)
  {
-+	int i;
-+	int rc;
- 	u32 index;
- 	u32 offset;
-+	u32 size;
 +	struct bnxt *bp = netdev_priv(dev);
-+	struct hwrm_fw_qstatus_input fw_status_req = {0};
-+	struct hwrm_fw_qstatus_output *fw_status_resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_nvm_get_dev_info_input dev_info_req = {0};
++	struct bnxt_link_info *link_info = &bp->link_info;
++	u16 support_spds = link_info->support_speeds;
++	u32 fw_speed = 0;
 +
-+	if (eeprom->len < 1)
-+		return -EINVAL;
- 
- 	if (eeprom->offset == 0) /* special offset value to get directory */
- 		return bnxt_get_nvram_directory(dev, eeprom->len, data);
-@@ -1320,12 +1330,52 @@ static int bnxt_get_eeprom(struct net_device *dev,
- 	index = eeprom->offset >> 24;
- 	offset = eeprom->offset & 0xffffff;
- 
--	if (index == 0) {
--		netdev_err(dev, "unsupported index value: %d\n", index);
--		return -EINVAL;
--	}
-+	if (index != 0)
-+		return bnxt_get_nvram_item(dev, index - 1, offset, eeprom->len,
-+					   data);
- 
--	return bnxt_get_nvram_item(dev, index - 1, offset, eeprom->len, data);
-+	switch (offset) {
-+	case 1:	/* Query firmware reset status */
-+		if (eeprom->len < 5)
-+			return -EINVAL;
-+		size = 4; /* procs: BOOT, MGMT, NETCTRL, and ROCE */
-+		*(data++) = size;
-+		mutex_lock(&bp->hwrm_cmd_lock);
-+		for (i = 0; i < size; i++) {
-+			bnxt_hwrm_cmd_hdr_init(bp, &fw_status_req,
-+					       HWRM_FW_QSTATUS, -1, -1);
-+			fw_status_req.embedded_proc_type = i;
-+			rc = _hwrm_send_message(bp, &fw_status_req,
-+						sizeof(fw_status_req),
-+						HWRM_CMD_TIMEOUT);
-+			if (rc == 0)
-+				*(data++) = fw_status_resp->selfrst_status;
-+			else
-+				break;
-+		}
-+		mutex_unlock(&bp->hwrm_cmd_lock);
-+		return rc;
-+	case 2: /* Query firmware version information */
-+		size = sizeof(bp->ver_resp);
-+		*(data++) = size;
-+		memcpy(data, &bp->ver_resp, min(size, eeprom->len - 1));
-+		return 0;
-+	case 3: /* Query NVM device information */
-+		bnxt_hwrm_cmd_hdr_init(bp, &dev_info_req,
-+				       HWRM_NVM_GET_DEV_INFO, -1, -1);
-+		mutex_lock(&bp->hwrm_cmd_lock);
-+		rc = _hwrm_send_message(bp, &dev_info_req, sizeof(dev_info_req),
-+					HWRM_CMD_TIMEOUT);
-+		if (rc == 0) {
-+			size = sizeof(struct hwrm_nvm_get_dev_info_output);
-+			*(data++) = size;
-+			memcpy(data, bp->hwrm_cmd_resp_addr,
-+			       min(size, eeprom->len - 1));
-+		}
-+		mutex_unlock(&bp->hwrm_cmd_lock);
-+		return rc;
-+	}
-+	return -EINVAL;
+ 	switch (ethtool_speed) {
+ 	case SPEED_100:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_100MB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
++		break;
+ 	case SPEED_1000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_1GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
++		break;
+ 	case SPEED_2500:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_2_5GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
++		break;
+ 	case SPEED_10000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_10GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
++		break;
+ 	case SPEED_20000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_20GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
++		break;
+ 	case SPEED_25000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_25GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
++		break;
+ 	case SPEED_40000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_40GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
++		break;
+ 	case SPEED_50000:
+-		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
++		if (support_spds & BNXT_LINK_SPEED_MSK_50GB)
++			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
++		break;
+ 	default:
+ 		netdev_err(dev, "unsupported speed!\n");
+ 		break;
+ 	}
+-	return 0;
++	return fw_speed;
  }
  
- static int bnxt_erase_nvram_directory(struct net_device *dev, u8 index)
+ u16 bnxt_get_fw_auto_link_speeds(u32 advertising)
+@@ -823,6 +844,8 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		 */
+ 		set_pause = true;
+ 	} else {
++		u16 fw_speed;
++
+ 		/* TODO: currently don't support half duplex */
+ 		if (cmd->duplex == DUPLEX_HALF) {
+ 			netdev_err(dev, "HALF DUPLEX is not supported!\n");
+@@ -833,7 +856,12 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		if (cmd->duplex == DUPLEX_UNKNOWN)
+ 			cmd->duplex = DUPLEX_FULL;
+ 		speed = ethtool_cmd_speed(cmd);
+-		link_info->req_link_speed = bnxt_get_fw_speed(dev, speed);
++		fw_speed = bnxt_get_fw_speed(dev, speed);
++		if (!fw_speed) {
++			rc = -EINVAL;
++			goto set_setting_exit;
++		}
++		link_info->req_link_speed = fw_speed;
+ 		link_info->req_duplex = BNXT_LINK_DUPLEX_FULL;
+ 		link_info->autoneg = 0;
+ 		link_info->advertising = 0;
 -- 
 1.8.3.1
