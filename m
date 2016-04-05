@@ -1,77 +1,50 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2 1/3] sock: convert sk_peek_offset functions to WRITE_ONCE
-Date: Tue,  5 Apr 2016 12:41:14 -0400
-Message-ID: <1459874476-92838-2-git-send-email-willemdebruijn.kernel@gmail.com>
-References: <1459874476-92838-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2 0/3] udp: support SO_PEEK_OFF
+Date: Tue,  5 Apr 2016 12:41:13 -0400
+Message-ID: <1459874476-92838-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Cc: davem@davemloft.net, samanthakumar@google.com, edumazet@google.com,
 	willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f65.google.com ([209.85.192.65]:35476 "EHLO
-	mail-qg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752908AbcDEQlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:41:22 -0400
-Received: by mail-qg0-f65.google.com with SMTP id b32so1717220qgf.2
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:41:21 -0700 (PDT)
-In-Reply-To: <1459874476-92838-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from mail-qg0-f68.google.com ([209.85.192.68]:34495 "EHLO
+	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752908AbcDEQlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:41:20 -0400
+Received: by mail-qg0-f68.google.com with SMTP id j35so1711341qge.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:41:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Make the peek offset interface safe to use in lockless environments.
-Use READ_ONCE and WRITE_ONCE to avoid race conditions between testing
-and updating the peek offset.
+Support peeking at a non-zero offset for UDP sockets. Match the
+existing behavior on Unix datagram sockets.
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- include/net/sock.h | 24 +++++++++++++-----------
- 1 file changed, 13 insertions(+), 11 deletions(-)
+1/3 makes the sk_peek_offset functions safe to use outside locks
+2/3 removes udp headers before enqueue, to simplify offset arithmetic
+3/3 introduces SO_PEEK_OFFSET support, with Unix socket peek semantics.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 310c436..09aec75 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -459,26 +459,28 @@ struct sock {
- 
- static inline int sk_peek_offset(struct sock *sk, int flags)
- {
--	if ((flags & MSG_PEEK) && (sk->sk_peek_off >= 0))
--		return sk->sk_peek_off;
--	else
--		return 0;
-+	if (unlikely(flags & MSG_PEEK)) {
-+		s32 off = READ_ONCE(sk->sk_peek_off);
-+		if (off >= 0)
-+			return off;
-+	}
-+
-+	return 0;
- }
- 
- static inline void sk_peek_offset_bwd(struct sock *sk, int val)
- {
--	if (sk->sk_peek_off >= 0) {
--		if (sk->sk_peek_off >= val)
--			sk->sk_peek_off -= val;
--		else
--			sk->sk_peek_off = 0;
-+	s32 off = READ_ONCE(sk->sk_peek_off);
-+
-+	if (unlikely(off >= 0)) {
-+		off = max_t(s32, off - val, 0);
-+		WRITE_ONCE(sk->sk_peek_off, off);
- 	}
- }
- 
- static inline void sk_peek_offset_fwd(struct sock *sk, int val)
- {
--	if (sk->sk_peek_off >= 0)
--		sk->sk_peek_off += val;
-+	sk_peek_offset_bwd(sk, -val);
- }
- 
- /*
+Changes
+  v1->v2
+    - squash patches 3 and 4
+
+Willem de Bruijn (1):
+  sock: convert sk_peek_offset functions to WRITE_ONCE
+
+samanthakumar (2):
+  udp: remove headers from UDP packets before queueing
+  udp: enable MSG_PEEK at non-zero offset
+
+ include/linux/skbuff.h |  7 ++++++-
+ include/net/sock.h     | 27 ++++++++++++++++-----------
+ include/net/udp.h      |  9 +++++++++
+ net/core/datagram.c    |  9 ++++++---
+ net/core/sock.c        | 28 ++++++++++++++++++++++------
+ net/ipv4/af_inet.c     |  1 +
+ net/ipv4/udp.c         | 38 ++++++++++++++++++++------------------
+ net/ipv6/af_inet6.c    |  1 +
+ net/ipv6/udp.c         | 30 ++++++++++++++++--------------
+ 9 files changed, 97 insertions(+), 53 deletions(-)
+
 -- 
 2.8.0.rc3.226.g39d4020
