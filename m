@@ -1,129 +1,168 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/15] fm10k: Move constants to the right of binary operators
-Date: Tue,  5 Apr 2016 13:02:13 -0700
-Message-ID: <1459886547-146445-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/15] fm10k: correctly clean up when init_queueing_scheme fails
+Date: Tue,  5 Apr 2016 13:02:25 -0700
+Message-ID: <1459886547-146445-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33656 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56328 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759875AbcDEUCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 16:02:31 -0400
+	id S1759913AbcDEUCe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 16:02:34 -0400
 In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The semantic patch that makes this change is available
-in scripts/coccinelle/misc/compare_const_fl.cocci.
+Fix a kernel panic that occurs during surprise removal. Clear the
+interface queue counts upon fm10k_init_msix_capability failure. This
+prevents further code (fm10k_update_stats etc.) from attempting to
+access unallocated queue vector or ring memory.
 
-More information about semantic patching is available at
-http://coccinelle.lip6.fr/
+[  628.692648] BUG: unable to handle kernel NULL pointer dereference at 0000000000000068
+[  628.692805] IP: [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.693173] PGD 0
+[  628.693759] Oops: 0000 [#1] SMP
+[  628.699321] CPU: 10 PID: 8164 Comm: kworker/10:0 Tainted: G           OE  ------------   3.10.0-327.el7.x86_64 #1
+[  628.700096] Hardware name: Supermicro X9DAi/X9DAi, BIOS 3.2 05/09/2015
+[  628.700894] Workqueue: pciehp-1 pciehp_power_thread
+[  628.701686] task: ffff88086559c500 ti: ffff8808593c0000 task.ti: ffff8808593c0000
+[  628.702493] RIP: 0010:[<ffffffffa0475caf>]  [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.703310] RSP: 0018:ffff8808593c3b00  EFLAGS: 00010282
+[  628.704132] RAX: 0000000000000000 RBX: ffff880860760000 RCX: 0000000000000000
+[  628.704963] RDX: ffff880860760b08 RSI: 0000000000000000 RDI: 0000000000000000
+[  628.705794] RBP: ffff8808593c3b40 R08: 0000000000000000 R09: 0000000000000000
+[  628.706604] R10: 0000000000000000 R11: ffff880860760c40 R12: 0000000000000080
+[  628.707420] R13: ffff8808607608c0 R14: ffff880860779ec0 R15: ffff880860779f40
+[  628.708238] FS:  0000000000000000(0000) GS:ffff88086f000000(0000) knlGS:0000000000000000
+[  628.709071] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  628.709923] CR2: 0000000000000068 CR3: 000000000194a000 CR4: 00000000001407e0
+[  628.710752] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  628.711596] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[  628.712438] Stack:
+[  628.713255]  ffff880860764458 ffff8808607608c0 ffff880860760000 ffff880860760000
+[  628.714088]  0000000000000080 ffff8808607608c0 ffff880860779ec0 ffff880860779f40
+[  628.714925]  ffff8808593c3b88 ffffffffa04780c5 ffff880860764458 0000000a8163cb5b
+[  628.715752] Call Trace:
+[  628.716560]  [<ffffffffa04780c5>] fm10k_down+0x155/0x1f0 [fm10k]
+[  628.717367]  [<ffffffffa0479958>] fm10k_close+0x28/0xd0 [fm10k]
+[  628.718184]  [<ffffffff81526365>] __dev_close_many+0x85/0xd0
+[  628.718986]  [<ffffffff815264d8>] dev_close_many+0x98/0x120
+[  628.719764]  [<ffffffff81527ab8>] rollback_registered_many+0xa8/0x230
+[  628.720527]  [<ffffffff81527c80>] rollback_registered+0x40/0x70
+[  628.721294]  [<ffffffff81529198>] unregister_netdevice_queue+0x48/0x80
+[  628.722052]  [<ffffffff815291ec>] unregister_netdev+0x1c/0x30
+[  628.722816]  [<ffffffffa04762b8>] fm10k_remove+0xd8/0xe0 [fm10k]
+[  628.723581]  [<ffffffff81328c7b>] pci_device_remove+0x3b/0xb0
+[  628.724340]  [<ffffffff813f5fbf>] __device_release_driver+0x7f/0xf0
+[  628.725088]  [<ffffffff813f6053>] device_release_driver+0x23/0x30
+[  628.725814]  [<ffffffff81321fe4>] pci_stop_bus_device+0x94/0xa0
+[  628.726535]  [<ffffffff813220d2>] pci_stop_and_remove_bus_device+0x12/0x20
+[  628.727249]  [<ffffffff8133de40>] pciehp_unconfigure_device+0xb0/0x1b0
+[  628.727964]  [<ffffffff8133d822>] pciehp_disable_slot+0x52/0xd0
+[  628.728664]  [<ffffffff8133d98a>] pciehp_power_thread+0xea/0x150
+[  628.729358]  [<ffffffff8109d5fb>] process_one_work+0x17b/0x470
+[  628.730036]  [<ffffffff8109e3cb>] worker_thread+0x11b/0x400
+[  628.730730]  [<ffffffff8109e2b0>] ? rescuer_thread+0x400/0x400
+[  628.731385]  [<ffffffff810a5aef>] kthread+0xcf/0xe0
+[  628.732036]  [<ffffffff810a5a20>] ? kthread_create_on_node+0x140/0x140
+[  628.732674]  [<ffffffff81645858>] ret_from_fork+0x58/0x90
+[  628.733289]  [<ffffffff810a5a20>] ? kthread_create_on_node+0x140/0x140
+[  628.733883] Code: 83 e8 01 48 8d 97 40 02 00 00 45 31 c0 4c 8d 9c c7 48 02 0
+[  628.735202] RIP  [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.735732]  RSP <ffff8808593c3b00>
+[  628.736285] CR2: 0000000000000068
+[  628.736846] ---[ end trace 9156088b311aff42 ]---
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_main.c |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 16 ++++++++--------
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c   |  6 +++---
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 35 ++++++++++++++++++++-------
+ 1 file changed, 26 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 4de17db..d411aa5 100644
+index b87401c38..31179af 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -420,7 +420,7 @@ static inline void fm10k_rx_hash(struct fm10k_ring *ring,
- 		return;
- 
- 	skb_set_hash(skb, le32_to_cpu(rx_desc->d.rss),
--		     (FM10K_RSS_L4_TYPES_MASK & (1ul << rss_type)) ?
-+		     ((1ul << rss_type) & FM10K_RSS_L4_TYPES_MASK) ?
- 		     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+@@ -1581,6 +1581,20 @@ static void fm10k_set_num_queues(struct fm10k_intfc *interface)
  }
  
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 4eb7a6f..86700a4 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -579,7 +579,7 @@ static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
- 	u64 tdba = ring->dma;
- 	u32 size = ring->count * sizeof(struct fm10k_tx_desc);
- 	u32 txint = FM10K_INT_MAP_DISABLE;
--	u32 txdctl = FM10K_TXDCTL_ENABLE | (1 << FM10K_TXDCTL_MAX_TIME_SHIFT);
-+	u32 txdctl = (1 << FM10K_TXDCTL_MAX_TIME_SHIFT) | FM10K_TXDCTL_ENABLE;
- 	u8 reg_idx = ring->reg_idx;
+ /**
++ * fm10k_reset_num_queues - Reset the number of queues to zero
++ * @interface: board private structure
++ *
++ * This function should be called whenever we need to reset the number of
++ * queues after an error condition.
++ */
++static void fm10k_reset_num_queues(struct fm10k_intfc *interface)
++{
++	interface->num_tx_queues = 0;
++	interface->num_rx_queues = 0;
++	interface->num_q_vectors = 0;
++}
++
++/**
+  * fm10k_alloc_q_vector - Allocate memory for a single interrupt vector
+  * @interface: board private structure to initialize
+  * @v_count: q_vectors allocated on interface, used for ring interleaving
+@@ -1763,9 +1777,7 @@ static int fm10k_alloc_q_vectors(struct fm10k_intfc *interface)
+ 	return 0;
  
- 	/* disable queue to avoid issues while updating state */
-@@ -903,8 +903,8 @@ static irqreturn_t fm10k_msix_mbx_vf(int __always_unused irq, void *data)
+ err_out:
+-	interface->num_tx_queues = 0;
+-	interface->num_rx_queues = 0;
+-	interface->num_q_vectors = 0;
++	fm10k_reset_num_queues(interface);
  
- 	/* re-enable mailbox interrupt and indicate 20us delay */
- 	fm10k_write_reg(hw, FM10K_VFITR(FM10K_MBX_VECTOR),
--			FM10K_ITR_ENABLE | (FM10K_MBX_INT_DELAY >>
--					    hw->mac.itr_scale));
-+			(FM10K_MBX_INT_DELAY >> hw->mac.itr_scale) |
-+			FM10K_ITR_ENABLE);
+ 	while (v_idx--)
+ 		fm10k_free_q_vector(interface, v_idx);
+@@ -1785,9 +1797,7 @@ static void fm10k_free_q_vectors(struct fm10k_intfc *interface)
+ {
+ 	int v_idx = interface->num_q_vectors;
  
- 	/* service upstream mailbox */
- 	if (fm10k_mbx_trylock(interface)) {
-@@ -1135,8 +1135,8 @@ static irqreturn_t fm10k_msix_mbx_pf(int __always_unused irq, void *data)
+-	interface->num_tx_queues = 0;
+-	interface->num_rx_queues = 0;
+-	interface->num_q_vectors = 0;
++	fm10k_reset_num_queues(interface);
  
- 	/* re-enable mailbox interrupt and indicate 20us delay */
- 	fm10k_write_reg(hw, FM10K_ITR(FM10K_MBX_VECTOR),
--			FM10K_ITR_ENABLE | (FM10K_MBX_INT_DELAY >>
--					    hw->mac.itr_scale));
-+			(FM10K_MBX_INT_DELAY >> hw->mac.itr_scale) |
-+			FM10K_ITR_ENABLE);
+ 	while (v_idx--)
+ 		fm10k_free_q_vector(interface, v_idx);
+@@ -1995,14 +2005,15 @@ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
+ 	if (err) {
+ 		dev_err(&interface->pdev->dev,
+ 			"Unable to initialize MSI-X capability\n");
+-		return err;
++		goto err_init_msix;
+ 	}
  
- 	return IRQ_HANDLED;
+ 	/* Allocate memory for queues */
+ 	err = fm10k_alloc_q_vectors(interface);
+ 	if (err) {
+-		fm10k_reset_msix_capability(interface);
+-		return err;
++		dev_err(&interface->pdev->dev,
++			"Unable to allocate queue vectors\n");
++		goto err_alloc_q_vectors;
+ 	}
+ 
+ 	/* Map rings to devices, and map devices to physical queues */
+@@ -2012,6 +2023,12 @@ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
+ 	fm10k_init_reta(interface);
+ 
+ 	return 0;
++
++err_alloc_q_vectors:
++	fm10k_reset_msix_capability(interface);
++err_init_msix:
++	fm10k_reset_num_queues(interface);
++	return err;
  }
-@@ -1253,7 +1253,7 @@ static int fm10k_mbx_request_irq_vf(struct fm10k_intfc *interface)
- 	int err;
  
- 	/* Use timer0 for interrupt moderation on the mailbox */
--	u32 itr = FM10K_INT_MAP_TIMER0 | entry->entry;
-+	u32 itr = entry->entry | FM10K_INT_MAP_TIMER0;
- 
- 	/* register mailbox handlers */
- 	err = hw->mbx.ops.register_handlers(&hw->mbx, vf_mbx_data);
-@@ -1420,8 +1420,8 @@ static int fm10k_mbx_request_irq_pf(struct fm10k_intfc *interface)
- 	int err;
- 
- 	/* Use timer0 for interrupt moderation on the mailbox */
--	u32 mbx_itr = FM10K_INT_MAP_TIMER0 | entry->entry;
--	u32 other_itr = FM10K_INT_MAP_IMMEDIATE | entry->entry;
-+	u32 mbx_itr = entry->entry | FM10K_INT_MAP_TIMER0;
-+	u32 other_itr = entry->entry | FM10K_INT_MAP_IMMEDIATE;
- 
- 	/* register mailbox handlers */
- 	err = hw->mbx.ops.register_handlers(&hw->mbx, pf_mbx_data);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 62ccebc..34a0b03 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -711,8 +711,8 @@ static s32 fm10k_iov_assign_resources_pf(struct fm10k_hw *hw, u16 num_vfs,
- 					FM10K_RXDCTL_WRITE_BACK_MIN_DELAY |
- 					FM10K_RXDCTL_DROP_ON_EMPTY);
- 			fm10k_write_reg(hw, FM10K_RXQCTL(vf_q_idx),
--					FM10K_RXQCTL_VF |
--					(i << FM10K_RXQCTL_VF_SHIFT));
-+					(i << FM10K_RXQCTL_VF_SHIFT) |
-+					FM10K_RXQCTL_VF);
- 
- 			/* map queue pair to VF */
- 			fm10k_write_reg(hw, FM10K_TQMAP(qmap_idx), vf_q_idx);
-@@ -987,7 +987,7 @@ static s32 fm10k_iov_reset_resources_pf(struct fm10k_hw *hw,
- 	txqctl = ((u32)vf_vid << FM10K_TXQCTL_VID_SHIFT) |
- 		 (vf_idx << FM10K_TXQCTL_TC_SHIFT) |
- 		 FM10K_TXQCTL_VF | vf_idx;
--	rxqctl = FM10K_RXQCTL_VF | (vf_idx << FM10K_RXQCTL_VF_SHIFT);
-+	rxqctl = (vf_idx << FM10K_RXQCTL_VF_SHIFT) | FM10K_RXQCTL_VF;
- 
- 	/* stop further DMA and reset queue ownership back to VF */
- 	for (i = vf_q_idx; i < (queues_per_pool + vf_q_idx); i++) {
+ /**
 -- 
 2.5.5
