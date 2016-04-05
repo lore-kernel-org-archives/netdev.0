@@ -1,107 +1,129 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 13/14] ixgbe: Extend cls_u32 offload to support UDP headers
-Date: Mon,  4 Apr 2016 17:59:04 -0700
-Message-ID: <1459817945-144915-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/14] ixgbe: Add support for toggling VLAN filtering flag via ethtool
+Date: Mon,  4 Apr 2016 17:59:05 -0700
+Message-ID: <1459817945-144915-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:7124 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:17837 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756775AbcDEA7O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756781AbcDEA7O (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 4 Apr 2016 20:59:14 -0400
 In-Reply-To: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Added support to match on UDP fields in the transport layer.
-Extended core logic to support multiple headers.
+This change makes it so that we can use the ethtool rx-vlan-filter flag to
+toggle Rx VLAN filtering on and off.  This is basically just an extension
+of the existing VLAN promisc work in that it just adds support for the
+additional ethtool flag.
 
-Verified with the following filters :
-
-	handle 1: u32 divisor 1
-	u32 ht 800: order 1 link 1: \
-	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 6 ff
-	u32 ht 1: order 2 \
-	match tcp src 1024 ffff match tcp dst 23 ffff action drop
-	handle 2: u32 divisor 1
-	u32 ht 800: order 3 link 2: \
-	offset at 0 mask 0f00 shift 6 plus 0 eat match ip protocol 17 ff
-	u32 ht 2: order 4 \
-	match udp src 1025 ffff match udp dst 24 ffff action drop
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 19 ++++++++++---------
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |  8 ++++++++
- 2 files changed, 18 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 27 ++++++++++++++-------------
+ 1 file changed, 14 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 77c1c85..359869c 100644
+index 359869c..19bf386 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8257,19 +8257,20 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 			return -EINVAL;
+@@ -4447,6 +4447,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 fctrl, vmolr = IXGBE_VMOLR_BAM | IXGBE_VMOLR_AUPE;
++	netdev_features_t features = netdev->features;
+ 	int count;
  
- 		for (i = 0; nexthdr[i].jump; i++) {
--			if (nexthdr->o != cls->knode.sel->offoff ||
--			    nexthdr->s != cls->knode.sel->offshift ||
--			    nexthdr->m != cls->knode.sel->offmask ||
-+			if (nexthdr[i].o != cls->knode.sel->offoff ||
-+			    nexthdr[i].s != cls->knode.sel->offshift ||
-+			    nexthdr[i].m != cls->knode.sel->offmask ||
- 			    /* do not support multiple key jumps its just mad */
- 			    cls->knode.sel->nkeys > 1)
- 				return -EINVAL;
- 
--			if (nexthdr->off != cls->knode.sel->keys[0].off ||
--			    nexthdr->val != cls->knode.sel->keys[0].val ||
--			    nexthdr->mask != cls->knode.sel->keys[0].mask)
--				return -EINVAL;
--
--			adapter->jump_tables[link_uhtid] = nexthdr->jump;
-+			if (nexthdr[i].off == cls->knode.sel->keys[0].off &&
-+			    nexthdr[i].val == cls->knode.sel->keys[0].val &&
-+			    nexthdr[i].mask == cls->knode.sel->keys[0].mask) {
-+				adapter->jump_tables[link_uhtid] =
-+								nexthdr[i].jump;
-+				break;
-+			}
+ 	/* Check for Promiscuous and All Multicast modes */
+@@ -4464,14 +4465,13 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		hw->addr_ctrl.user_set_promisc = true;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+ 		vmolr |= IXGBE_VMOLR_MPE;
+-		ixgbe_vlan_promisc_enable(adapter);
++		features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			fctrl |= IXGBE_FCTRL_MPE;
+ 			vmolr |= IXGBE_VMOLR_MPE;
  		}
- 		return 0;
+ 		hw->addr_ctrl.user_set_promisc = false;
+-		ixgbe_vlan_promisc_disable(adapter);
  	}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-index 74c53ad..60adde5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-@@ -82,6 +82,12 @@ static struct ixgbe_mat_field ixgbe_tcp_fields[] = {
- 	{ .val = NULL } /* terminal node */
- };
  
-+static struct ixgbe_mat_field ixgbe_udp_fields[] = {
-+	{.off = 0, .val = ixgbe_mat_prgm_ports,
-+	 .type = IXGBE_ATR_FLOW_TYPE_UDPV4},
-+	{ .val = NULL } /* terminal node */
-+};
+ 	/*
+@@ -4504,7 +4504,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	}
+ 
+ 	/* This is useful for sniffing bad packets. */
+-	if (adapter->netdev->features & NETIF_F_RXALL) {
++	if (features & NETIF_F_RXALL) {
+ 		/* UPE and MPE will be handled by normal PROMISC logic
+ 		 * in e1000e_set_rx_mode */
+ 		fctrl |= (IXGBE_FCTRL_SBP | /* Receive bad packets */
+@@ -4517,10 +4517,15 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
+ 
+-	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++	if (features & NETIF_F_HW_VLAN_CTAG_RX)
+ 		ixgbe_vlan_strip_enable(adapter);
+ 	else
+ 		ixgbe_vlan_strip_disable(adapter);
 +
- struct ixgbe_nexthdr {
- 	/* offset, shift, and mask of position to next header */
- 	unsigned int o;
-@@ -98,6 +104,8 @@ struct ixgbe_nexthdr {
- static struct ixgbe_nexthdr ixgbe_ipv4_jumps[] = {
- 	{ .o = 0, .s = 6, .m = 0xf,
- 	  .off = 8, .val = 0x600, .mask = 0xff00, .jump = ixgbe_tcp_fields},
-+	{ .o = 0, .s = 6, .m = 0xf,
-+	  .off = 8, .val = 0x1100, .mask = 0xff00, .jump = ixgbe_udp_fields},
- 	{ .jump = NULL } /* terminal node */
- };
- #endif /* _IXGBE_MODEL_H_ */
++	if (features & NETIF_F_HW_VLAN_CTAG_FILTER)
++		ixgbe_vlan_promisc_disable(adapter);
++	else
++		ixgbe_vlan_promisc_enable(adapter);
+ }
+ 
+ static void ixgbe_napi_enable_all(struct ixgbe_adapter *adapter)
+@@ -8495,11 +8500,6 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+ 	}
+ 
+-	if (features & NETIF_F_HW_VLAN_CTAG_RX)
+-		ixgbe_vlan_strip_enable(adapter);
+-	else
+-		ixgbe_vlan_strip_disable(adapter);
+-
+ 	if (changed & NETIF_F_RXALL)
+ 		need_reset = true;
+ 
+@@ -8516,6 +8516,9 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 
+ 	if (need_reset)
+ 		ixgbe_do_reset(netdev);
++	else if (changed & (NETIF_F_HW_VLAN_CTAG_RX |
++			    NETIF_F_HW_VLAN_CTAG_FILTER))
++		ixgbe_set_rx_mode(netdev);
+ 
+ 	return 0;
+ }
+@@ -9190,7 +9193,8 @@ skip_sriov:
+ 			   NETIF_F_RXCSUM |
+ 			   NETIF_F_HW_CSUM |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+-			   NETIF_F_HW_VLAN_CTAG_RX;
++			   NETIF_F_HW_VLAN_CTAG_RX |
++			   NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	if (hw->mac.type >= ixgbe_mac_82599EB)
+ 		netdev->features |= NETIF_F_SCTP_CRC;
+@@ -9204,9 +9208,6 @@ skip_sriov:
+ 		netdev->hw_features |= NETIF_F_NTUPLE |
+ 				       NETIF_F_HW_TC;
+ 
+-	/* set this bit last since it cannot be part of hw_features */
+-	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+-
+ 	netdev->vlan_features |= NETIF_F_SG |
+ 				 NETIF_F_TSO |
+ 				 NETIF_F_TSO6 |
 -- 
 2.5.5
