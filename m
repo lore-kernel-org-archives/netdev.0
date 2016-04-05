@@ -1,59 +1,43 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: [PATCH net-next] net: add the AF_KCM entries to family name tables
-Date: Tue,  5 Apr 2016 07:41:11 -0700
-Message-ID: <1459867271-14592-1-git-send-email-decui@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:42778
-	"EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754316AbcDEND3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 09:03:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Subject: Re: [PREEMPT-RT] [PATCH] net: mvneta: Remove superfluous SMP function
+ call
+Date: Tue, 5 Apr 2016 15:32:43 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1604051531060.12514@hypnos>
+References: <1459761639-176299-1-git-send-email-anna-maria@linutronix.de>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org, rt@linutronix.de
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459761639-176299-1-git-send-email-anna-maria@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is for the recent kcm driver, which introduces AF_KCM(41) in
-b7ac4eb(kcm: Kernel Connection Multiplexor module).
+On Mon, 4 Apr 2016, Anna-Maria Gleixner wrote:
 
-Signed-off-by: Dexuan Cui <decui@microsoft.com>
-Cc: Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/core/sock.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+> Since commit 1cf4f629d9d2 ("cpu/hotplug: Move online calls to
+> hotplugged cpu") it is ensured that callbacks of CPU_ONLINE and
+> CPU_DOWN_PREPARE are processed on the hotplugged cpu. Due to this SMP
+> function calls are no longer required.
+> 
+> Replace smp_call_function_single() with a direct call to
+> mvneta_percpu_enable() or mvneta_percpu_disable(). The functions do
+> not require to be called with interrupts disabled, therefore the
+> smp_call_function_single() calling convention is not preserved.
+> 
+> Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+> ---
+>  drivers/net/ethernet/marvell/mvneta.c |    6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+>
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b67b9ae..7e73c26 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -221,7 +221,8 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
-   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
--  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
-+  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_KCM"      ,
-+  "sk_lock-AF_MAX"
- };
- static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
-@@ -237,7 +238,8 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
-   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
--  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
-+  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_KCM"       ,
-+  "slock-AF_MAX"
- };
- static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
-@@ -253,7 +255,8 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
-   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
-   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
--  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
-+  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_KCM"      ,
-+  "clock-AF_MAX"
- };
- 
- /*
--- 
-2.1.0
+Please do not queue it. Heiko Carstens pointed out a problem: It isn't
+ensured, that the callbacks of CPU_DOWN_FAILED are always processed on
+the CPU that failed in CPU_DOWN_PREPARE (see
+http://marc.info/?l=linux-s390&m=145985621421250&w=2 ). Once this
+issue is fixed, I will resend the patch.
+
+Anna-Maria
