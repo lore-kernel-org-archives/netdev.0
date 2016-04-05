@@ -1,63 +1,71 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Tue, 5 Apr 2016 16:07:49 +0100
-Message-ID: <5703D4C5.9060305@solarflare.com>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
- <20160404162818.14332.1076.stgit@localhost.localdomain>
- <20160405034437.GA9322@gondor.apana.org.au>
- <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
- <20160405043209.GA9822@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next 1/3] sock: fix lockdep annotation in release_sock
+Date: Tue,  5 Apr 2016 17:10:14 +0200
+Message-ID: <1459869016-13896-2-git-send-email-hannes@stressinduktion.org>
+References: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
+Cc: daniel@iogearbox.net, Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:2808 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758692AbcDEPII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:08:08 -0400
-In-Reply-To: <20160405043209.GA9822@gondor.apana.org.au>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:35812 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758588AbcDEPKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:10:24 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 1B7D620AEA
+	for <netdev@vger.kernel.org>; Tue,  5 Apr 2016 11:10:23 -0400 (EDT)
+In-Reply-To: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/04/16 05:32, Herbert Xu wrote:
-> On Mon, Apr 04, 2016 at 09:26:55PM -0700, Alexander Duyck wrote:
->> The question I would have is what are you really losing with increment
->> from 0 versus fixed 0?  From what I see it is essentially just garbage
->> in/garbage out.
-> GRO is meant to be lossless, that is, you should not be able to
-> detect its presence from the outside.  If you lose information then
-> you're breaking this rule and people will soon start asking for it
-> to be disabled in various situations.
->
-> I'm not against doing this per se but it should not be part of the
-> default configuration.
-I'm certainly in favour of this being configurable - indeed IMHO it should
-also be possible to configure GRO with the 'looser' semantics of LRO, so
-that people who want that can get it without all the horrible "don't confuse
-Slow Start" hacks, and so that LRO can go away (AIUI the only reasons it
-exists are (a) improved performance from the 'loose' semantics and (b) old
-kernels without GRO.  We may not be able to kill (b) but we can certainly
-address (a)).
+During release_sock we use callbacks to finish the processing
+of outstanding skbs on the socket. We actually are still locked,
+sk_locked.owned == 1, but we already told lockdep that the mutex
+is released. This could lead to false positives in lockdep for
+lockdep_sock_is_held (we don't hold the slock spinlock during processing
+the outstanding skbs).
 
-But I don't agree that the default has to be totally lossless; anyone who is
-caring about the ID fields in atomic datagrams is breaking the RFCs, and can
-be assumed to Know What They're Doing sufficiently to configure this.
+I took over this patch from Eric Dumazet and tested it.
 
-On the gripping hand, I feel like GRO+TSO is the wrong model for speeding up
-forwarding/routing workloads.  Instead we should be looking into having lists
-of SKBs traverse the stack together, splitting the list whenever e.g. the
-destination changes.  That seems like it ought to be much more efficient than
-rewriting headers twice, once to coalesce a superframe and once to segment it
-again - and it also means this worry about GRO being lossless can go away.
-But until someone tries implementing skb batches, we won't know for sure if
-it works (and I don't have time right now ;)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/sock.h | 7 ++++++-
+ net/core/sock.c    | 5 -----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
--Ed
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 310c4367ea83f6..4654ad45e84e7f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1329,7 +1329,12 @@ static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ static inline void sock_release_ownership(struct sock *sk)
+ {
+-	sk->sk_lock.owned = 0;
++	if (sk->sk_lock.owned) {
++		sk->sk_lock.owned = 0;
++
++		/* The sk_lock has mutex_unlock() semantics: */
++		mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
++	}
+ }
+ 
+ /*
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 2f517ea5678612..f5923e9c92bb0d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2467,11 +2467,6 @@ EXPORT_SYMBOL(lock_sock_nested);
+ 
+ void release_sock(struct sock *sk)
+ {
+-	/*
+-	 * The sk_lock has mutex_unlock() semantics:
+-	 */
+-	mutex_release(&sk->sk_lock.dep_map, 1, _RET_IP_);
+-
+ 	spin_lock_bh(&sk->sk_lock.slock);
+ 	if (sk->sk_backlog.tail)
+ 		__release_sock(sk);
+-- 
+2.5.5
