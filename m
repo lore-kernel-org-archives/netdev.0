@@ -1,51 +1,77 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v3 0/4] vxlan: implement Generic Protocol Extension (GPE)
-Date: Tue,  5 Apr 2016 14:47:09 +0200
-Message-ID: <cover.1459860270.git.jbenc@redhat.com>
+Subject: [PATCH net-next v3 2/4] vxlan: move fdb code to common location in vxlan_xmit
+Date: Tue,  5 Apr 2016 14:47:11 +0200
+Message-ID: <5a92777074e01b12e6a1e8c91a09723e91a3e4f9.1459860270.git.jbenc@redhat.com>
+References: <cover.1459860270.git.jbenc@redhat.com>
 Cc: Tom Herbert <tom@herbertland.com>, Jesse Gross <jesse@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56021 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59898 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750835AbcDEMr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 08:47:28 -0400
+	id S1750835AbcDEMrb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 08:47:31 -0400
+In-Reply-To: <cover.1459860270.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3: just rebased on top of the current net-next, no changes
+Handle VXLAN_F_COLLECT_METADATA before VXLAN_F_PROXY. The latter does not
+make sense with the former, as it needs populated fdb which does not happen
+in metadata mode.
 
-This patchset implements VXLAN-GPE. It follows the same model as the tun/tap
-driver: depending on the chosen mode, the vxlan interface is created either
-as ARPHRD_ETHER (non-GPE) or ARPHRD_NONE (GPE).
+After this cleanup, the fdb code in vxlan_xmit is moved to a common location
+and can be later skipped for VXLAN-GPE which does not necessarily carry
+inner Ethernet header.
 
-Note that the internal fdb control plane cannot be used together with
-VXLAN-GPE and attempt to configure it will be rejected by the driver. In
-fact, COLLECT_METADATA is required to be set for now. This can be relaxed in
-the future by adding support for static PtP configuration; it will be
-backward compatible and won't affect existing users.
+v2: changed commit description to not reference L3 mode
 
-The previous version of the patchset supported two GPE modes, L2 and L3. The
-L2 mode (now called "ether mode" in the code) was removed from this version.
-It can be easily added later if there's demand. The L3 mode is now called
-"raw mode" and supports also encapsulated Ethernet headers (via ETH_P_TEB).
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ drivers/net/vxlan.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-The only limitation of not having "ether mode" for GPE is for ip route based
-encapsulation: with such setup, only IP packets can be encapsulated. Meaning
-no Ethernet encapsulation. It seems there's not much use for this, though.
-If it turns out to be useful, we'll add it.
-
-Jiri Benc (4):
-  vxlan: move Ethernet initialization to a separate function
-  vxlan: move fdb code to common location in vxlan_xmit
-  ip_tunnel: implement __iptunnel_pull_header
-  vxlan: implement GPE
-
- drivers/net/vxlan.c          | 210 ++++++++++++++++++++++++++++++++++++-------
- include/net/ip_tunnels.h     |  11 ++-
- include/net/vxlan.h          |  68 ++++++++++++++
- include/uapi/linux/if_link.h |   1 +
- net/ipv4/ip_tunnel_core.c    |   8 +-
- 5 files changed, 258 insertions(+), 40 deletions(-)
-
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 6bd5b874ead7..d62eebaa9720 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2106,9 +2106,17 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	info = skb_tunnel_info(skb);
+ 
+ 	skb_reset_mac_header(skb);
+-	eth = eth_hdr(skb);
+ 
+-	if ((vxlan->flags & VXLAN_F_PROXY)) {
++	if (vxlan->flags & VXLAN_F_COLLECT_METADATA) {
++		if (info && info->mode & IP_TUNNEL_INFO_TX)
++			vxlan_xmit_one(skb, dev, NULL, false);
++		else
++			kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
++	if (vxlan->flags & VXLAN_F_PROXY) {
++		eth = eth_hdr(skb);
+ 		if (ntohs(eth->h_proto) == ETH_P_ARP)
+ 			return arp_reduce(dev, skb);
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -2123,18 +2131,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
+ 					return neigh_reduce(dev, skb);
+ 		}
+-		eth = eth_hdr(skb);
+ #endif
+ 	}
+ 
+-	if (vxlan->flags & VXLAN_F_COLLECT_METADATA) {
+-		if (info && info->mode & IP_TUNNEL_INFO_TX)
+-			vxlan_xmit_one(skb, dev, NULL, false);
+-		else
+-			kfree_skb(skb);
+-		return NETDEV_TX_OK;
+-	}
+-
++	eth = eth_hdr(skb);
+ 	f = vxlan_find_mac(vxlan, eth->h_dest);
+ 	did_rsc = false;
+ 
 -- 
 1.8.3.1
