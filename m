@@ -1,71 +1,56 @@
-From: Daniel Walker <danielwa@cisco.com>
-Subject: [PATCH -v2] drivers: net: ethernet: intel: e1000e: fix ethtool autoneg off for non-copper
-Date: Tue,  5 Apr 2016 11:30:03 -0700
-Message-ID: <1459881004-13992-1-git-send-email-danielwa@cisco.com>
-Cc: Steve Shih <sshih@cisco.com>, xe-kernel@external.cisco.com,
-	Daniel Walker <dwalker@fifo99.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dima.ruinskiy@intel.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eran Ben Elisha <eranlinuxmellanox@gmail.com>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Tue, 5 Apr 2016 21:59:31 +0300
+Message-ID: <CAKHjkjmEwC=4WqqFkNJi8SUpQ4hFAob2PQY_EyYwYQwW=PcK9A@mail.gmail.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+	<1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
+	<1459562911.6473.299.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160403061536.GD21980@gmail.com>
+	<20160405022004.GA7677@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	tom@herbertland.com, alexei.starovoitov@gmail.com,
+	Or Gerlitz <ogerlitz@mellanox.com>, daniel@iogearbox.net,
+	john.fastabend@gmail.com, brouer@redhat.com
+To: Brenden Blanco <bblanco@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33737 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267AbcDES7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:59:33 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i204so6941578wmd.0
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 11:59:32 -0700 (PDT)
+In-Reply-To: <20160405022004.GA7677@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Steve Shih <sshih@cisco.com>
+On Tue, Apr 5, 2016 at 5:20 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> On Sat, Apr 02, 2016 at 11:15:38PM -0700, Brenden Blanco wrote:
+>> On Fri, Apr 01, 2016 at 07:08:31PM -0700, Eric Dumazet wrote:
+> [...]
+>> > 2) priv->stats.rx_dropped is shared by all the RX queues -> false
+>> > sharing.
+>> >
+>> >    This is probably the right time to add a rx_dropped field in struct
+>> > mlx4_en_rx_ring since you guys want to drop 14 Mpps, and 50 Mpps on
+>> > higher speed links.
+>> >
+>> This sounds reasonable! Will look into it for the next spin.
+> I looked into this, and it seems to me that both the rx and tx dropped
+> stats are buggy. With commit a3333b35da1634f49aca541f2574a084221e2616,
+> specifically with the line
+>   stats->rx_dropped = be32_to_cpu(mlx4_en_stats->RDROP);
+> that occurs during the periodic ethtool task, whatever ++ was happening
+> in the rx/tx code is overwritten with the HW value. Since the SW stats
+> are incremented mostly in edge (oom) cases, nobody probably noticed. To
+> me it doesn't seem right to mix hard and soft counters, especially at
+> the risk of making a bad situation worse, so I'm planning to omit the
+> new bpf dropped++ stat and we can discuss ways to fix this other bug
+> separately.
 
-This patch fixes the issues for disabling auto-negotiation and forcing
-speed and duplex settings for the non-copper media.
-
-For non-copper media, e1000_get_settings should return ETH_TP_MDI_INVALID for
-eth_tp_mdix_ctrl instead of ETH_TP_MDI_AUTO so subsequent e1000_set_settings
-call would not fail with -EOPNOTSUPP.
-
-e1000_set_spd_dplx should not automatically turn autoneg back on for forced
-1000 Mbps full duplex settings for non-copper media.
-
-Cc: xe-kernel@external.cisco.com
-Cc: Daniel Walker <dwalker@fifo99.com>
-Signed-off-by: Steve Shih <sshih@cisco.com>
----
- drivers/net/ethernet/intel/e1000e/ethtool.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 6cab1f3..b6b8290 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -201,6 +201,9 @@ static int e1000_get_settings(struct net_device *netdev,
- 	else
- 		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
- 
-+	if (hw->phy.media_type != e1000_media_type_copper)
-+		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
-+
- 	return 0;
- }
- 
-@@ -236,8 +239,12 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
- 		mac->forced_speed_duplex = ADVERTISE_100_FULL;
- 		break;
- 	case SPEED_1000 + DUPLEX_FULL:
--		mac->autoneg = 1;
--		adapter->hw.phy.autoneg_advertised = ADVERTISE_1000_FULL;
-+		if (adapter->hw.phy.media_type == e1000_media_type_copper) {
-+			mac->autoneg = 1;
-+			adapter->hw.phy.autoneg_advertised =
-+				ADVERTISE_1000_FULL;
-+		} else
-+			mac->forced_speed_duplex = ADVERTISE_1000_FULL;
- 		break;
- 	case SPEED_1000 + DUPLEX_HALF:	/* not supported */
- 	default:
--- 
-2.5.0
+Thanks Eric and Brenden,
+I will make a patch for mlx4_en RX dropped counters to fix the issues
+you raised here.
