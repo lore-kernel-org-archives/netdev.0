@@ -1,62 +1,145 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 1/8] net: Checks skb_dst to be NULL in inet_iif
-Date: Tue, 5 Apr 2016 08:22:49 -0700
-Message-ID: <1459869776-2090500-2-git-send-email-tom@herbertland.com>
-References: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60026 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758877AbcDEPXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:23:11 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u35FIrt0013280
-	for <netdev@vger.kernel.org>; Tue, 5 Apr 2016 08:23:09 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 222xhgbe9p-5
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 08:23:09 -0700
-Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 4b802828fb4211e5b9fc24be05956610-e6fc13f0 for <netdev@vger.kernel.org>;	Tue,
- 05 Apr 2016 08:23:06 -0700
-In-Reply-To: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/3] net: dsa: make the VLAN add function return void
+Date: Tue,  5 Apr 2016 11:24:35 -0400
+Message-ID: <1459869875-23815-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In inet_iif check if skb_rtable is NULL for the skb and return
-skb->skb_iif if it is.
+The switchdev design implies that a software error should not happen in
+the commit phase since it must have been previously reported in the
+prepare phase. If an hardware error occurs during the commit phase,
+there is nothing switchdev can do about it.
 
-This change allows inet_iif to be called before the dst
-information has been set in the skb (e.g. when doing socket based
-UDP GRO).
+The DSA layer separates port_vlan_prepare and port_vlan_add for
+simplicity and convenience. If an hardware error occurs during the
+commit phase, there is no need to report it outside the driver itself.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Make the DSA port_vlan_add routine return void for explicitness.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/route.h | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 26 +++++++++++---------------
+ drivers/net/dsa/mv88e6xxx.h |  6 +++---
+ include/net/dsa.h           |  2 +-
+ net/dsa/slave.c             | 11 +++--------
+ 4 files changed, 18 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/route.h b/include/net/route.h
-index 9b0a523..f4b11ee 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -322,10 +322,11 @@ static inline struct rtable *ip_route_newports(struct flowi4 *fl4, struct rtable
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index bca9a2c..2911f91 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1908,31 +1908,27 @@ static int _mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
+ 	return _mv88e6xxx_vtu_loadpurge(ds, &vlan);
+ }
  
- static inline int inet_iif(const struct sk_buff *skb)
+-int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+-			    const struct switchdev_obj_port_vlan *vlan,
+-			    struct switchdev_trans *trans)
++void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
++			     const struct switchdev_obj_port_vlan *vlan,
++			     struct switchdev_trans *trans)
  {
--	int iif = skb_rtable(skb)->rt_iif;
-+	struct rtable *rt = skb_rtable(skb);
-+
-+	if (rt && rt->rt_iif)
-+		return rt->rt_iif;
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
+ 	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
+ 	u16 vid;
+-	int err = 0;
  
--	if (iif)
--		return iif;
- 	return skb->skb_iif;
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid) {
+-		err = _mv88e6xxx_port_vlan_add(ds, port, vid, untagged);
+-		if (err)
+-			goto unlock;
+-	}
++	for (vid = vlan->vid_begin; vid <= vlan->vid_end; ++vid)
++		if (_mv88e6xxx_port_vlan_add(ds, port, vid, untagged))
++			netdev_warn(ds->ports[port], "cannot add VLAN %d%c\n",
++				    vid, untagged ? 'u' : 't');
+ 
+-	/* no PVID with ranges, otherwise it's a bug */
+-	if (pvid)
+-		err = _mv88e6xxx_port_pvid_set(ds, port, vlan->vid_end);
+-unlock:
+-	mutex_unlock(&ps->smi_mutex);
++	if (pvid && _mv88e6xxx_port_pvid_set(ds, port, vlan->vid_end))
++		netdev_warn(ds->ports[port], "cannot set PVID %d\n",
++			    vlan->vid_end);
+ 
+-	return err;
++	mutex_unlock(&ps->smi_mutex);
+ }
+ 
+ static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index ece008f..ad59022 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -503,9 +503,9 @@ int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
+ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_vlan *vlan,
+ 				struct switchdev_trans *trans);
+-int mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
+-			    const struct switchdev_obj_port_vlan *vlan,
+-			    struct switchdev_trans *trans);
++void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
++			     const struct switchdev_obj_port_vlan *vlan,
++			     struct switchdev_trans *trans);
+ int mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port,
+ 			    const struct switchdev_obj_port_vlan *vlan);
+ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index fa42b8c..071b50d 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -309,7 +309,7 @@ struct dsa_switch_driver {
+ 	int	(*port_vlan_prepare)(struct dsa_switch *ds, int port,
+ 				     const struct switchdev_obj_port_vlan *vlan,
+ 				     struct switchdev_trans *trans);
+-	int	(*port_vlan_add)(struct dsa_switch *ds, int port,
++	void	(*port_vlan_add)(struct dsa_switch *ds, int port,
+ 				 const struct switchdev_obj_port_vlan *vlan,
+ 				 struct switchdev_trans *trans);
+ 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 5a34bab..134b76e 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -207,21 +207,16 @@ static int dsa_slave_port_vlan_add(struct net_device *dev,
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	int err;
+ 
+ 	if (switchdev_trans_ph_prepare(trans)) {
+ 		if (!ds->drv->port_vlan_prepare || !ds->drv->port_vlan_add)
+ 			return -EOPNOTSUPP;
+ 
+-		err = ds->drv->port_vlan_prepare(ds, p->port, vlan, trans);
+-		if (err)
+-			return err;
+-	} else {
+-		err = ds->drv->port_vlan_add(ds, p->port, vlan, trans);
+-		if (err)
+-			return err;
++		return ds->drv->port_vlan_prepare(ds, p->port, vlan, trans);
+ 	}
+ 
++	ds->drv->port_vlan_add(ds, p->port, vlan, trans);
++
+ 	return 0;
  }
  
 -- 
-2.8.0.rc2
+2.8.0
