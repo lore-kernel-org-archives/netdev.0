@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to tracepoints
-Date: Mon, 4 Apr 2016 21:52:48 -0700
-Message-ID: <1459831974-2891931-3-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 8/8] samples/bpf: add tracepoint vs kprobe performance tests
+Date: Mon, 4 Apr 2016 21:52:54 -0700
+Message-ID: <1459831974-2891931-9-git-send-email-ast@fb.com>
 References: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -20,164 +20,336 @@ In-Reply-To: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-introduce BPF_PROG_TYPE_TRACEPOINT program type and allow it to be
-attached to tracepoints.
-The tracepoint will copy the arguments in the per-cpu buffer and pass
-it to the bpf program as its first argument.
-The layout of the fields can be discovered by doing
-'cat /sys/kernel/debug/tracing/events/sched/sched_switch/format'
-prior to the compilation of the program with exception that first 8 bytes
-are reserved and not accessible to the program. This area is used to store
-the pointer to 'struct pt_regs' which some of the bpf helpers will use:
-+---------+
-| 8 bytes | hidden 'struct pt_regs *' (inaccessible to bpf program)
-+---------+
-| N bytes | static tracepoint fields defined in tracepoint/format (bpf readonly)
-+---------+
-| dynamic | __dynamic_array bytes of tracepoint (inaccessible to bpf yet)
-+---------+
+the first microbenchmark does
+fd=open("/proc/self/comm");
+for() {
+  write(fd, "test");
+}
+and on 4 cpus in parallel:
+                                      writes per sec
+base (no tracepoints, no kprobes)         930k
+with kprobe at __set_task_comm()          420k
+with tracepoint at task:task_rename       730k
 
-Not that all of the fields are already dumped to user space via perf ring buffer
-and some application access it directly without consulting tracepoint/format.
-Same rule applies here: static tracepoint fields should only be accessed
-in a format defined in tracepoint/format. The order of fields and
-field sizes are not an ABI.
+For kprobe + full bpf program manully fetches oldcomm, newcomm via bpf_probe_read.
+For tracepint bpf program does nothing, since arguments are copied by tracepoint.
+
+2nd microbenchmark does:
+fd=open("/dev/urandom");
+for() {
+  read(fd, buf);
+}
+and on 4 cpus in parallel:
+                                       reads per sec
+base (no tracepoints, no kprobes)         300k
+with kprobe at urandom_read()             279k
+with tracepoint at random:urandom_read    290k
+
+bpf progs attached to kprobe and tracepoint are noop.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/trace/perf.h            | 18 ++++++++++++++----
- include/uapi/linux/bpf.h        |  1 +
- kernel/events/core.c            | 13 +++++++++----
- kernel/trace/trace_event_perf.c |  3 +++
- 4 files changed, 27 insertions(+), 8 deletions(-)
+ samples/bpf/Makefile                    |   5 +
+ samples/bpf/test_overhead_kprobe_kern.c |  41 ++++++++
+ samples/bpf/test_overhead_tp_kern.c     |  36 +++++++
+ samples/bpf/test_overhead_user.c        | 161 ++++++++++++++++++++++++++++++++
+ 4 files changed, 243 insertions(+)
+ create mode 100644 samples/bpf/test_overhead_kprobe_kern.c
+ create mode 100644 samples/bpf/test_overhead_tp_kern.c
+ create mode 100644 samples/bpf/test_overhead_user.c
 
-diff --git a/include/trace/perf.h b/include/trace/perf.h
-index 26486fcd74ce..55feb69c873f 100644
---- a/include/trace/perf.h
-+++ b/include/trace/perf.h
-@@ -37,18 +37,19 @@ perf_trace_##call(void *__data, proto)					\
- 	struct trace_event_call *event_call = __data;			\
- 	struct trace_event_data_offsets_##call __maybe_unused __data_offsets;\
- 	struct trace_event_raw_##call *entry;				\
-+	struct bpf_prog *prog = event_call->prog;			\
- 	struct pt_regs *__regs;						\
- 	u64 __addr = 0, __count = 1;					\
- 	struct task_struct *__task = NULL;				\
- 	struct hlist_head *head;					\
- 	int __entry_size;						\
- 	int __data_size;						\
--	int rctx;							\
-+	int rctx, event_type;						\
- 									\
- 	__data_size = trace_event_get_offsets_##call(&__data_offsets, args); \
- 									\
- 	head = this_cpu_ptr(event_call->perf_events);			\
--	if (__builtin_constant_p(!__task) && !__task &&			\
-+	if (!prog && __builtin_constant_p(!__task) && !__task &&	\
- 				hlist_empty(head))			\
- 		return;							\
- 									\
-@@ -56,8 +57,9 @@ perf_trace_##call(void *__data, proto)					\
- 			     sizeof(u64));				\
- 	__entry_size -= sizeof(u32);					\
- 									\
--	entry = perf_trace_buf_prepare(__entry_size,			\
--			event_call->event.type, &__regs, &rctx);	\
-+	event_type = prog ? TRACE_EVENT_TYPE_MAX : event_call->event.type; \
-+	entry = perf_trace_buf_prepare(__entry_size, event_type,	\
-+				       &__regs, &rctx);			\
- 	if (!entry)							\
- 		return;							\
- 									\
-@@ -67,6 +69,14 @@ perf_trace_##call(void *__data, proto)					\
- 									\
- 	{ assign; }							\
- 									\
-+	if (prog) {							\
-+		*(struct pt_regs **)entry = __regs;			\
-+		if (!trace_call_bpf(prog, entry) || hlist_empty(head)) { \
-+			perf_swevent_put_recursion_context(rctx);	\
-+			return;						\
-+		}							\
-+		memset(&entry->ent, 0, sizeof(entry->ent));		\
-+	}								\
- 	perf_trace_buf_submit(entry, __entry_size, rctx, __addr,	\
- 		__count, __regs, head, __task);				\
- }
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 23917bb47bf3..70eda5aeb304 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -92,6 +92,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_KPROBE,
- 	BPF_PROG_TYPE_SCHED_CLS,
- 	BPF_PROG_TYPE_SCHED_ACT,
-+	BPF_PROG_TYPE_TRACEPOINT,
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 502c9fc8db85..9959771bf808 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -19,6 +19,7 @@ hostprogs-y += lathist
+ hostprogs-y += offwaketime
+ hostprogs-y += spintest
+ hostprogs-y += map_perf_test
++hostprogs-y += test_overhead
  
- #define BPF_PSEUDO_MAP_FD	1
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index de24fbce5277..58fc9a7d1562 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -6725,12 +6725,13 @@ int perf_swevent_get_recursion_context(void)
- }
- EXPORT_SYMBOL_GPL(perf_swevent_get_recursion_context);
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -38,6 +39,7 @@ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
+ spintest-objs := bpf_load.o libbpf.o spintest_user.o
+ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
++test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
  
--inline void perf_swevent_put_recursion_context(int rctx)
-+void perf_swevent_put_recursion_context(int rctx)
- {
- 	struct swevent_htable *swhash = this_cpu_ptr(&swevent_htable);
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -56,6 +58,8 @@ always += lathist_kern.o
+ always += offwaketime_kern.o
+ always += spintest_kern.o
+ always += map_perf_test_kern.o
++always += test_overhead_tp_kern.o
++always += test_overhead_kprobe_kern.o
  
- 	put_recursion_context(swhash->recursion, rctx);
- }
-+EXPORT_SYMBOL_GPL(perf_swevent_put_recursion_context);
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
- void ___perf_sw_event(u32 event_id, u64 nr, struct pt_regs *regs, u64 addr)
- {
-@@ -7104,6 +7105,7 @@ static void perf_event_free_filter(struct perf_event *event)
+@@ -75,6 +79,7 @@ HOSTLOADLIBES_lathist += -lelf
+ HOSTLOADLIBES_offwaketime += -lelf
+ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
++HOSTLOADLIBES_test_overhead += -lelf -lrt
  
- static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- {
-+	bool is_kprobe, is_tracepoint;
- 	struct bpf_prog *prog;
- 
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
-@@ -7112,15 +7114,18 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- 	if (event->tp_event->prog)
- 		return -EEXIST;
- 
--	if (!(event->tp_event->flags & TRACE_EVENT_FL_UKPROBE))
--		/* bpf programs can only be attached to u/kprobes */
-+	is_kprobe = event->tp_event->flags & TRACE_EVENT_FL_UKPROBE;
-+	is_tracepoint = event->tp_event->flags & TRACE_EVENT_FL_TRACEPOINT;
-+	if (!is_kprobe && !is_tracepoint)
-+		/* bpf programs can only be attached to u/kprobe or tracepoint */
- 		return -EINVAL;
- 
- 	prog = bpf_prog_get(prog_fd);
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
- 
--	if (prog->type != BPF_PROG_TYPE_KPROBE) {
-+	if ((is_kprobe && prog->type != BPF_PROG_TYPE_KPROBE) ||
-+	    (is_tracepoint && prog->type != BPF_PROG_TYPE_TRACEPOINT)) {
- 		/* valid fd, but invalid bpf program type */
- 		bpf_prog_put(prog);
- 		return -EINVAL;
-diff --git a/kernel/trace/trace_event_perf.c b/kernel/trace/trace_event_perf.c
-index 7a68afca8249..7ada829029d3 100644
---- a/kernel/trace/trace_event_perf.c
-+++ b/kernel/trace/trace_event_perf.c
-@@ -284,6 +284,9 @@ void *perf_trace_buf_prepare(int size, unsigned short type,
- 		*regs = this_cpu_ptr(&__perf_regs[*rctxp]);
- 	raw_data = this_cpu_ptr(perf_trace_buf[*rctxp]);
- 
-+	if (type == TRACE_EVENT_TYPE_MAX)
-+		return raw_data;
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+diff --git a/samples/bpf/test_overhead_kprobe_kern.c b/samples/bpf/test_overhead_kprobe_kern.c
+new file mode 100644
+index 000000000000..468a66a92ef9
+--- /dev/null
++++ b/samples/bpf/test_overhead_kprobe_kern.c
+@@ -0,0 +1,41 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/version.h>
++#include <linux/ptrace.h>
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
 +
- 	/* zero the dead bytes from align to not leak stack to user */
- 	memset(&raw_data[size - sizeof(u64)], 0, sizeof(u64));
- 
++#define _(P) ({typeof(P) val = 0; bpf_probe_read(&val, sizeof(val), &P); val;})
++
++SEC("kprobe/__set_task_comm")
++int prog(struct pt_regs *ctx)
++{
++	struct signal_struct *signal;
++	struct task_struct *tsk;
++	char oldcomm[16] = {};
++	char newcomm[16] = {};
++	u16 oom_score_adj;
++	u32 pid;
++
++	tsk = (void *)PT_REGS_PARM1(ctx);
++
++	pid = _(tsk->pid);
++	bpf_probe_read(oldcomm, sizeof(oldcomm), &tsk->comm);
++	bpf_probe_read(newcomm, sizeof(newcomm), (void *)PT_REGS_PARM2(ctx));
++	signal = _(tsk->signal);
++	oom_score_adj = _(signal->oom_score_adj);
++	return 0;
++}
++
++SEC("kprobe/urandom_read")
++int prog2(struct pt_regs *ctx)
++{
++	return 0;
++}
++
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/test_overhead_tp_kern.c b/samples/bpf/test_overhead_tp_kern.c
+new file mode 100644
+index 000000000000..38f5c0b9da9f
+--- /dev/null
++++ b/samples/bpf/test_overhead_tp_kern.c
+@@ -0,0 +1,36 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <uapi/linux/bpf.h>
++#include "bpf_helpers.h"
++
++/* from /sys/kernel/debug/tracing/events/task/task_rename/format */
++struct task_rename {
++	__u64 pad;
++	__u32 pid;
++	char oldcomm[16];
++	char newcomm[16];
++	__u16 oom_score_adj;
++};
++SEC("tracepoint/task/task_rename")
++int prog(struct task_rename *ctx)
++{
++	return 0;
++}
++
++/* from /sys/kernel/debug/tracing/events/random/urandom_read/format */
++struct urandom_read {
++	__u64 pad;
++	int got_bits;
++	int pool_left;
++	int input_left;
++};
++SEC("tracepoint/random/urandom_read")
++int prog2(struct urandom_read *ctx)
++{
++	return 0;
++}
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/test_overhead_user.c b/samples/bpf/test_overhead_user.c
+new file mode 100644
+index 000000000000..6872d67e151d
+--- /dev/null
++++ b/samples/bpf/test_overhead_user.c
+@@ -0,0 +1,161 @@
++/* Copyright (c) 2016 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#define _GNU_SOURCE
++#include <sched.h>
++#include <stdio.h>
++#include <sys/types.h>
++#include <asm/unistd.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <assert.h>
++#include <sys/wait.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include <string.h>
++#include <time.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++
++#define MAX_CNT 1000000
++
++static __u64 time_get_ns(void)
++{
++	struct timespec ts;
++
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return ts.tv_sec * 1000000000ull + ts.tv_nsec;
++}
++
++static void test_task_rename(int cpu)
++{
++	__u64 start_time;
++	char buf[] = "test\n";
++	int i, fd;
++
++	fd = open("/proc/self/comm", O_WRONLY|O_TRUNC);
++	if (fd < 0) {
++		printf("couldn't open /proc\n");
++		exit(1);
++	}
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		write(fd, buf, sizeof(buf));
++	printf("task_rename:%d: %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++	close(fd);
++}
++
++static void test_urandom_read(int cpu)
++{
++	__u64 start_time;
++	char buf[4];
++	int i, fd;
++
++	fd = open("/dev/urandom", O_RDONLY);
++	if (fd < 0) {
++		printf("couldn't open /dev/urandom\n");
++		exit(1);
++	}
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		read(fd, buf, sizeof(buf));
++	printf("urandom_read:%d: %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
++	close(fd);
++}
++
++static void loop(int cpu, int flags)
++{
++	cpu_set_t cpuset;
++
++	CPU_ZERO(&cpuset);
++	CPU_SET(cpu, &cpuset);
++	sched_setaffinity(0, sizeof(cpuset), &cpuset);
++
++	if (flags & 1)
++		test_task_rename(cpu);
++	if (flags & 2)
++		test_urandom_read(cpu);
++}
++
++static void run_perf_test(int tasks, int flags)
++{
++	pid_t pid[tasks];
++	int i;
++
++	for (i = 0; i < tasks; i++) {
++		pid[i] = fork();
++		if (pid[i] == 0) {
++			loop(i, flags);
++			exit(0);
++		} else if (pid[i] == -1) {
++			printf("couldn't spawn #%d process\n", i);
++			exit(1);
++		}
++	}
++	for (i = 0; i < tasks; i++) {
++		int status;
++
++		assert(waitpid(pid[i], &status, 0) == pid[i]);
++		assert(status == 0);
++	}
++}
++
++static void unload_progs(void)
++{
++	close(prog_fd[0]);
++	close(prog_fd[1]);
++	close(event_fd[0]);
++	close(event_fd[1]);
++}
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	char filename[256];
++	int num_cpu = 8;
++	int test_flags = ~0;
++
++	setrlimit(RLIMIT_MEMLOCK, &r);
++
++	if (argc > 1)
++		test_flags = atoi(argv[1]) ? : test_flags;
++	if (argc > 2)
++		num_cpu = atoi(argv[2]) ? : num_cpu;
++
++	if (test_flags & 0x3) {
++		printf("BASE\n");
++		run_perf_test(num_cpu, test_flags);
++	}
++
++	if (test_flags & 0xC) {
++		snprintf(filename, sizeof(filename),
++			 "%s_kprobe_kern.o", argv[0]);
++		if (load_bpf_file(filename)) {
++			printf("%s", bpf_log_buf);
++			return 1;
++		}
++		printf("w/KPROBE\n");
++		run_perf_test(num_cpu, test_flags >> 2);
++		unload_progs();
++	}
++
++	if (test_flags & 0x30) {
++		snprintf(filename, sizeof(filename),
++			 "%s_tp_kern.o", argv[0]);
++		if (load_bpf_file(filename)) {
++			printf("%s", bpf_log_buf);
++			return 1;
++		}
++		printf("w/TRACEPOINT\n");
++		run_perf_test(num_cpu, test_flags >> 4);
++		unload_progs();
++	}
++
++	return 0;
++}
 -- 
 2.8.0
