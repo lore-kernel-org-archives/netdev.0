@@ -1,112 +1,60 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 09/10] bnxt_en: Check for valid forced speed during ethtool -s.
-Date: Tue,  5 Apr 2016 04:22:41 -0400
-Message-ID: <1459844562-24576-10-git-send-email-michael.chan@broadcom.com>
-References: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:24641 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757506AbcDEIWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:48 -0400
-In-Reply-To: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jorgen Hansen <jhansen@vmware.com>
+Subject: [PATCH] VSOCK: Detach QP check should filter out non matching QPs.
+Date: Tue,  5 Apr 2016 01:59:32 -0700
+Message-ID: <1459846772-14521-1-git-send-email-jhansen@vmware.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, gregkh@linuxfoundation.org, davem@davemloft.net,
+	Jorgen Hansen <jhansen@vmware.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Check that the forced speed is a valid speed supported by firmware.
-If not supported, return -EINVAL.
+The check in vmci_transport_peer_detach_cb should only allow a
+detach when the qp handle of the transport matches the one in
+the detach message.
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Testing: Before this change, a detach from a peer on a different
+socket would cause an active stream socket to register a detach.
+
+Reviewed-by: George Zhang <georgezhang@vmware.com>
+Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 48 ++++++++++++++++++-----
- 1 file changed, 38 insertions(+), 10 deletions(-)
+ net/vmw_vsock/vmci_transport.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 3b4db00..289895f 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -739,28 +739,49 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
+index 0a369bb..662bdd2 100644
+--- a/net/vmw_vsock/vmci_transport.c
++++ b/net/vmw_vsock/vmci_transport.c
+@@ -842,7 +842,7 @@ static void vmci_transport_peer_detach_cb(u32 sub_id,
+ 	 * qp_handle.
+ 	 */
+ 	if (vmci_handle_is_invalid(e_payload->handle) ||
+-	    vmci_handle_is_equal(trans->qp_handle, e_payload->handle))
++	    !vmci_handle_is_equal(trans->qp_handle, e_payload->handle))
+ 		return;
  
- static u32 bnxt_get_fw_speed(struct net_device *dev, u16 ethtool_speed)
- {
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_link_info *link_info = &bp->link_info;
-+	u16 support_spds = link_info->support_speeds;
-+	u32 fw_speed = 0;
-+
- 	switch (ethtool_speed) {
- 	case SPEED_100:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_100MB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
-+		break;
- 	case SPEED_1000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_1GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
-+		break;
- 	case SPEED_2500:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_2_5GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
-+		break;
- 	case SPEED_10000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_10GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
-+		break;
- 	case SPEED_20000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_20GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
-+		break;
- 	case SPEED_25000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_25GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
-+		break;
- 	case SPEED_40000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_40GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
-+		break;
- 	case SPEED_50000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_50GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
-+		break;
- 	default:
- 		netdev_err(dev, "unsupported speed!\n");
- 		break;
- 	}
--	return 0;
-+	return fw_speed;
- }
+ 	/* We don't ask for delayed CBs when we subscribe to this event (we
+@@ -2154,7 +2154,7 @@ module_exit(vmci_transport_exit);
  
- u16 bnxt_get_fw_auto_link_speeds(u32 advertising)
-@@ -823,6 +844,8 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		 */
- 		set_pause = true;
- 	} else {
-+		u16 fw_speed;
-+
- 		/* TODO: currently don't support half duplex */
- 		if (cmd->duplex == DUPLEX_HALF) {
- 			netdev_err(dev, "HALF DUPLEX is not supported!\n");
-@@ -833,7 +856,12 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		if (cmd->duplex == DUPLEX_UNKNOWN)
- 			cmd->duplex = DUPLEX_FULL;
- 		speed = ethtool_cmd_speed(cmd);
--		link_info->req_link_speed = bnxt_get_fw_speed(dev, speed);
-+		fw_speed = bnxt_get_fw_speed(dev, speed);
-+		if (!fw_speed) {
-+			rc = -EINVAL;
-+			goto set_setting_exit;
-+		}
-+		link_info->req_link_speed = fw_speed;
- 		link_info->req_duplex = BNXT_LINK_DUPLEX_FULL;
- 		link_info->autoneg = 0;
- 		link_info->advertising = 0;
+ MODULE_AUTHOR("VMware, Inc.");
+ MODULE_DESCRIPTION("VMCI transport for Virtual Sockets");
+-MODULE_VERSION("1.0.2.0-k");
++MODULE_VERSION("1.0.3.0-k");
+ MODULE_LICENSE("GPL v2");
+ MODULE_ALIAS("vmware_vsock");
+ MODULE_ALIAS_NETPROTO(PF_VSOCK);
 -- 
-1.8.3.1
+1.7.0
