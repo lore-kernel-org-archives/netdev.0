@@ -1,152 +1,96 @@
-From: subashab@codeaurora.org
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Mon, 04 Apr 2016 18:38:37 -0600
-Message-ID: <98efba2f85ac01ba988c62398d31bb77@codeaurora.org>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
- <20160404162818.14332.1076.stgit@localhost.localdomain>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [RFC PATCH 0/6] ppp: add rtnetlink support
+Date: Tue, 5 Apr 2016 02:56:17 +0200
+Message-ID: <cover.1459807527.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	netdev-owner@vger.kernel.org
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-ppp@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:47951 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752880AbcDEAim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 20:38:42 -0400
-In-Reply-To: <20160404162818.14332.1076.stgit@localhost.localdomain>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:55780 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbcDEA4W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 20:56:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-04-04 10:31, Alexander Duyck wrote:
-> RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes 
-> other
-> than fragmentation and reassembly.  Currently we are looking at this 
-> field
-> as a way of identifying what frames can be aggregated and  which cannot 
-> for
-> GRO.  While this is valid for frames that do not have DF set, it is 
-> invalid
-> to do so if the bit is set.
-> 
-> In addition we were generating IPv4 ID collisions when 2 or more flows 
-> were
-> interleaved over the same tunnel.  To prevent that we store the result 
-> of
-> all IP ID checks via a "|=" instead of overwriting previous values.
-> 
-> With this patch we support two different approaches for the IP ID 
-> field.
-> The first is a non-incrementing IP ID with DF bit set.  In such a case 
-> we
-> simply won't write to the flush_id field in the GRO context block.  The
-> other option is the legacy option in which the IP ID must increment by 
-> 1
-> for every packet we aggregate.
-> 
-> In the case of the non-incrementing IP ID we will end up losing the 
-> data
-> that the IP ID is fixed.  However as per RFC 6864 we should be able to
-> write any value into the IP ID when the DF bit is set so this should 
-> cause
-> minimal harm.
-> 
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
-> 
-> v2: Updated patch so that we now only support one of two options.  
-> Either
->     the IP ID is fixed with DF bit set, or the IP ID is incrementing.  
-> That
->     allows us to support the fixed ID case as occurs with IPv6 to IPv4
->     header translation and what is likely already out there for some
->     devices with tunnel headers.
-> 
->  net/core/dev.c         |    1 +
->  net/ipv4/af_inet.c     |   25 ++++++++++++++++++-------
->  net/ipv6/ip6_offload.c |    3 ---
->  3 files changed, 19 insertions(+), 10 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 77a71cd68535..3429632398a4 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4352,6 +4352,7 @@ static void gro_list_prepare(struct napi_struct
-> *napi, struct sk_buff *skb)
->  		unsigned long diffs;
-> 
->  		NAPI_GRO_CB(p)->flush = 0;
-> +		NAPI_GRO_CB(p)->flush_id = 0;
-> 
->  		if (hash != skb_get_hash_raw(p)) {
->  			NAPI_GRO_CB(p)->same_flow = 0;
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 9e481992dbae..33f6335448a2 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1324,6 +1324,7 @@ static struct sk_buff **inet_gro_receive(struct
-> sk_buff **head,
-> 
->  	for (p = *head; p; p = p->next) {
->  		struct iphdr *iph2;
-> +		u16 flush_id;
-> 
->  		if (!NAPI_GRO_CB(p)->same_flow)
->  			continue;
-> @@ -1347,14 +1348,24 @@ static struct sk_buff
-> **inet_gro_receive(struct sk_buff **head,
->  			(iph->tos ^ iph2->tos) |
->  			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF));
-> 
-> -		/* Save the IP ID check to be included later when we get to
-> -		 * the transport layer so only the inner most IP ID is checked.
-> -		 * This is because some GSO/TSO implementations do not
-> -		 * correctly increment the IP ID for the outer hdrs.
-> -		 */
-> -		NAPI_GRO_CB(p)->flush_id =
-> -			    ((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
->  		NAPI_GRO_CB(p)->flush |= flush;
-> +
-> +		/* We must save the offset as it is possible to have multiple
-> +		 * flows using the same protocol and address pairs so we
-> +		 * need to wait until we can validate this is part of the
-> +		 * same flow with a 5-tuple or better to avoid unnecessary
-> +		 * collisions between flows.  We can support one of two
-> +		 * possible scenarios, either a fixed value with DF bit set
-> +		 * or an incrementing value with DF either set or unset.
-> +		 * In the case of a fixed value we will end up losing the
-> +		 * data that the IP ID was a fixed value, however per RFC
-> +		 * 6864 in such a case the actual value of the IP ID is
-> +		 * meant to be ignored anyway.
-> +		 */
-> +		flush_id = (u16)(id - ntohs(iph2->id));
-> +		if (flush_id || !(iph2->frag_off & htons(IP_DF)))
-> +			NAPI_GRO_CB(p)->flush_id |= flush_id ^
-> +						    NAPI_GRO_CB(p)->count;
->  	}
-> 
->  	NAPI_GRO_CB(skb)->flush |= flush;
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index 82e9f3076028..9aa53f64dffd 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -238,9 +238,6 @@ static struct sk_buff **ipv6_gro_receive(struct
-> sk_buff **head,
->  		/* flush if Traffic Class fields are different */
->  		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
->  		NAPI_GRO_CB(p)->flush |= flush;
-> -
-> -		/* Clear flush_id, there's really no concept of ID in IPv6. */
-> -		NAPI_GRO_CB(p)->flush_id = 0;
->  	}
-> 
->  	NAPI_GRO_CB(skb)->flush |= flush;
+PPP devices lack the ability to be customised at creation time. In
+particular they can't be created in a given netns or with a particular
+name. Moving or renaming the device after creation is possible, but
+creates undesirable transient effects on servers where PPP devices are
+constantly created and removed, as users connect and disconnect.
+Implementing rtnetlink support solves this problem.
 
-I can see coalescing of packets which have IP ID=0 and DF=1 originating 
-from a IPv6 to IPv4 translator.
+The rtnetlink handlers implemented in this series are minimal, and can
+only replace the PPPIOCNEWUNIT ioctl. The rest of PPP ioctls remains
+necessary for any other operation on channels and units.
+It is perfectly to possible to mix PPP devices created by rtnl
+and by ioctl(PPPIOCNEWUNIT). Devices will behave in the same way,
+except for a few specific cases (as detailed in patch #6).
 
-Tested-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+
+I'm sending the series only as RFC this time, because there are a few
+points I'm unsatisfied with.
+
+First, I'm not fond of passing file descriptors as netlink attributes,
+as done with IFLA_PPP_DEV_FD (which is filled with a /dev/ppp fd). But
+given how PPP units work, we have to associate a /dev/ppp fd somehow.
+
+More importantly, the locking constraints of PPP are quite problematic.
+The rtnetlink handler has to associate the new PPP unit with the
+/dev/ppp file descriptor passed as parameter. This requires holding the
+ppp_mutex (see e8e56ffd9d29 "ppp: ensure file->private_data can't be
+overridden"), while the rtnetlink callback is already protected by
+rtnl_lock(). Since other parts of the module take these locks in
+reverse order, most of this series deals with preparing the code for
+inverting the dependency between rtnl_lock and ppp_mutex. Some more
+work is needed on that part (see patch #4 for details), but I wanted
+to be sure that approach it worth it before spending some more time on
+it.
+
+
+Other approach
+
+I've considered another approach where no /dev/ppp file descriptor
+is associated to the PPP unit at creation time. This removes all the
+problems described above. The PPP interface that is created behaves
+mostly like a dummy device until it gets associated with a /dev/ppp
+file descriptor (using the PPPIOCATTACH ioctl).
+The problem here is that, AFAIK, we can't return the unit identifier of
+the new PPP device to the user space program having issued the
+RTM_NEWLINK message. This identifier is required for the
+ioctl(PPPIOCATTACH) call. Of course we could return such information
+in an RTM_GETLINK message, but the user would need to query the device
+name that was created. This would only work for users that can set the
+IFLA_IFNAME attribute in their original RTM_NEWLINK message.
+
+
+Patch series
+
+Patches 1 to 3 prepare the code for inverting lock ordering between
+ppp_mutex and rtnl_lock. Patch #4 does the lock inversion.
+The actual infrastructure is implemented in patches #5 and #6.
+
+
+Changes since v1:
+  - Rebase on net-next.
+  - Invert locking order wrt. ppp_mutex and rtnl_lock and protect
+    file->private_data with ppp_mutex.
+
+
+Guillaume Nault (6):
+  ppp: simplify usage of ppp_create_interface()
+  ppp: don't hold ppp_mutex before calling ppp_unattached_ioctl()
+  ppp: don't lock ppp_mutex while handling PPPIOCDETACH
+  ppp: invert lock ordering between ppp_mutex and rtnl_lock
+  ppp: define reusable device creation functions
+  ppp: add rtnetlink device creation support
+
+ drivers/net/ppp/ppp_generic.c | 385 ++++++++++++++++++++++++++++++------------
+ include/uapi/linux/if_link.h  |   8 +
+ 2 files changed, 286 insertions(+), 107 deletions(-)
+
+-- 
+2.8.0.rc3
