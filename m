@@ -1,56 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/15] fm10k: prevent null pointer dereference of msix_entries table
-Date: Tue,  5 Apr 2016 13:02:18 -0700
-Message-ID: <1459886547-146445-7-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next v2 1/3] net: bcmgenet: cleanup for bcmgenet_xmit()
+Date: Tue,  5 Apr 2016 13:05:09 -0700
+Message-ID: <1459886711-72949-1-git-send-email-pgynther@google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, opendmb@gmail.com,
+	jaedon.shin@gmail.com, Petri Gynther <pgynther@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56328 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759865AbcDEUCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 16:02:31 -0400
-In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35051 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167AbcDEUFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 16:05:24 -0400
+Received: by mail-pa0-f51.google.com with SMTP id td3so17041293pab.2
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 13:05:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+1. Readability: Move nr_frags assignment a few lines down in order
+   to bundle index -> ring -> txq calculations together.
+2. Readability: Add parentheses around nr_frags + 1.
+3. Minor fix: Stop the Tx queue and throw the error message only if
+   the Tx queue hasn't already been stopped.
 
-According to the C standard dereferencing a variable before it is
-checked invokes undefined behavior, and thus compilers are free to
-assume the check for NULL isn't necessary. Prevent this by re-ordering
-the NULL check of msix_entries in fm10k_free_mbx_irq.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Petri Gynther <pgynther@google.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 6190a81..8c23fb3d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1143,14 +1143,16 @@ static irqreturn_t fm10k_msix_mbx_pf(int __always_unused irq, void *data)
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index cf6445d..7f85a84 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1447,15 +1447,19 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	else
+ 		index -= 1;
  
- void fm10k_mbx_free_irq(struct fm10k_intfc *interface)
- {
--	struct msix_entry *entry = &interface->msix_entries[FM10K_MBX_VECTOR];
- 	struct fm10k_hw *hw = &interface->hw;
-+	struct msix_entry *entry;
- 	int itr_reg;
+-	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	ring = &priv->tx_rings[index];
+ 	txq = netdev_get_tx_queue(dev, ring->queue);
  
- 	/* no mailbox IRQ to free if MSI-X is not enabled */
- 	if (!interface->msix_entries)
- 		return;
- 
-+	entry = &interface->msix_entries[FM10K_MBX_VECTOR];
++	nr_frags = skb_shinfo(skb)->nr_frags;
 +
- 	/* disconnect the mailbox */
- 	hw->mbx.ops.disconnect(hw, &hw->mbx);
- 
+ 	spin_lock_irqsave(&ring->lock, flags);
+-	if (ring->free_bds <= nr_frags + 1) {
+-		netif_tx_stop_queue(txq);
+-		netdev_err(dev, "%s: tx ring %d full when queue %d awake\n",
+-			   __func__, index, ring->queue);
++	if (ring->free_bds <= (nr_frags + 1)) {
++		if (!netif_tx_queue_stopped(txq)) {
++			netif_tx_stop_queue(txq);
++			netdev_err(dev,
++				   "%s: tx ring %d full when queue %d awake\n",
++				   __func__, index, ring->queue);
++		}
+ 		ret = NETDEV_TX_BUSY;
+ 		goto out;
+ 	}
 -- 
-2.5.5
+2.8.0.rc3.226.g39d4020
