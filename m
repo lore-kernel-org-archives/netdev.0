@@ -1,44 +1,114 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 00/10] bnxt_en: Updates for net-next.
-Date: Tue,  5 Apr 2016 04:22:32 -0400
-Message-ID: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 05/10] bnxt_en: Add get_eee() and set_eee() ethtool support.
+Date: Tue,  5 Apr 2016 04:22:37 -0400
+Message-ID: <1459844562-24576-6-git-send-email-michael.chan@broadcom.com>
+References: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8221 "EHLO
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:13135 "EHLO
 	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbcDEIWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:43 -0400
+	with ESMTP id S1757434AbcDEIWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:22:44 -0400
+In-Reply-To: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update to latest firmware interface, add EEE feature, unsupported SFP+
-module warning, GEEPROM support, and ethtool -s improvements.
+Allow users to get|set EEE parameters.
 
-Michael Chan (9):
-  bnxt_en: Update to Firmware 1.2.2 spec.
-  bnxt_en: Improve flow control autoneg with Firmware 1.2.1 interface.
-  bnxt_en: Add basic EEE support.
-  bnxt_en: Add EEE setup code.
-  bnxt_en: Add get_eee() and set_eee() ethtool support.
-  bnxt_en: Set async event bits when registering with the firmware.
-  bnxt_en: Add unsupported SFP+ module warnings.
-  bnxt_en: Check for valid forced speed during ethtool -s.
-  bnxt_en: Improve ethtool .get_settings().
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 73 +++++++++++++++++++++++
+ 1 file changed, 73 insertions(+)
 
-Rob Swindell (1):
-  bnxt_en: Provide NVM information via Ethtool GEEPROM
-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c          | 259 ++++++++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.h          |  17 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c  | 222 +++++++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h  |   4 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_fw_hdr.h   |   2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h      | 433 +++++++++++++++++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt_nvm_defs.h |   2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  14 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |   2 +-
- 9 files changed, 855 insertions(+), 100 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 14f0520..3d5c64f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -1379,6 +1379,77 @@ static int bnxt_set_eeprom(struct net_device *dev,
+ 				eeprom->len);
+ }
+ 
++static int bnxt_set_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ethtool_eee *eee = &bp->eee;
++	struct bnxt_link_info *link_info = &bp->link_info;
++	u32 advertising =
++		 _bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
++	int rc = 0;
++
++	if (BNXT_VF(bp))
++		return 0;
++
++	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
++		return -EOPNOTSUPP;
++
++	if (!edata->eee_enabled)
++		goto eee_ok;
++
++	if (!(link_info->autoneg & BNXT_AUTONEG_SPEED)) {
++		netdev_warn(dev, "EEE requires autoneg\n");
++		return -EINVAL;
++	}
++	if (edata->tx_lpi_enabled) {
++		if (bp->lpi_tmr_hi && (edata->tx_lpi_timer > bp->lpi_tmr_hi ||
++				       edata->tx_lpi_timer < bp->lpi_tmr_lo)) {
++			netdev_warn(dev, "Valid LPI timer range is %d and %d microsecs\n",
++				    bp->lpi_tmr_lo, bp->lpi_tmr_hi);
++			return -EINVAL;
++		} else if (!bp->lpi_tmr_hi) {
++			edata->tx_lpi_timer = eee->tx_lpi_timer;
++		}
++	}
++	if (!edata->advertised) {
++		edata->advertised = advertising & eee->supported;
++	} else if (edata->advertised & ~advertising) {
++		netdev_warn(dev, "EEE advertised %x must be a subset of autoneg advertised speeds %x\n",
++			    edata->advertised, advertising);
++		return -EINVAL;
++	}
++
++	eee->advertised = edata->advertised;
++	eee->tx_lpi_enabled = edata->tx_lpi_enabled;
++	eee->tx_lpi_timer = edata->tx_lpi_timer;
++eee_ok:
++	eee->eee_enabled = edata->eee_enabled;
++
++	if (netif_running(dev))
++		rc = bnxt_hwrm_set_link_setting(bp, false, true);
++
++	return rc;
++}
++
++static int bnxt_get_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnxt *bp = netdev_priv(dev);
++
++	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
++		return -EOPNOTSUPP;
++
++	*edata = bp->eee;
++	if (!bp->eee.eee_enabled) {
++		edata->advertised = 0;
++		edata->tx_lpi_enabled = 0;
++	}
++
++	if (!bp->eee.eee_active)
++		edata->lp_advertised = 0;
++
++	return 0;
++}
++
+ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.get_settings		= bnxt_get_settings,
+ 	.set_settings		= bnxt_set_settings,
+@@ -1407,4 +1478,6 @@ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.get_eeprom             = bnxt_get_eeprom,
+ 	.set_eeprom		= bnxt_set_eeprom,
+ 	.get_link		= bnxt_get_link,
++	.get_eee		= bnxt_get_eee,
++	.set_eee		= bnxt_set_eee,
+ };
 -- 
 1.8.3.1
