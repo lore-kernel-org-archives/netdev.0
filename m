@@ -1,50 +1,57 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
-Date: Tue, 5 Apr 2016 14:06:26 +0200
-Message-ID: <20160405120626.GM3448@twins.programming.kicks-ass.net>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
- <1459831974-2891931-2-git-send-email-ast@fb.com>
+From: Antoine Martin <antoine@nagafix.co.uk>
+Subject: AF_VSOCK status
+Date: Tue, 5 Apr 2016 19:34:59 +0700
+Message-ID: <5703B0F3.7050700@nagafix.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1459831974-2891931-2-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "stefanha@redhat.com >> Stefan Hajnoczi" <stefanha@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.nagafix.co.uk ([194.145.196.85]:57910 "EHLO
+	mail.nagafix.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757696AbcDEMlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 08:41:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 04, 2016 at 09:52:47PM -0700, Alexei Starovoitov wrote:
-> avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
-> It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
-> with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc
+Hi,
 
-Its not actually allocated; but because its a static uninitialized
-variable we get .bss like behaviour and the initial value is copied to
-all CPUs when the per-cpu allocator thingy bootstraps SMP IIRC.
+Forgive me if these questions are obvious, I am not a kernel developer.
+>From what I am reading here:
+http://lists.linuxfoundation.org/pipermail/virtualization/2015-December/030935.html
+The code has been removed from mainline, is it queued for 4.6? If not,
+when are you planning on re-submitting it?
 
-> and
-> subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
-> so we can safely drop memset from all of the above cases and 
+We now have a vsock transport merged into xpra, which works very well
+with the kernel and qemu versions found here:
+http://qemu-project.org/Features/VirtioVsock
+Congratulations on making this easy to use!
+Is the upcoming revised interface likely to cause incompatibilities with
+existing binaries?
 
-Indeed.
+It seems impossible for the host to connect to a guest: the guest has to
+initiate the connection. Is this a feature / known limitation or am I
+missing something? For some of our use cases, it would be more practical
+to connect in the other direction.
 
-> move it into
-> perf_ftrace_function_call that calls it with stack allocated pt_regs.
+In terms of raw performance, I am getting about 10Gbps on an Intel
+Skylake i7 (the data stream arrives from the OS socket recv syscall
+split into 256KB chunks), that's good but not much faster than
+virtio-net and since the packets are avoiding all sorts of OS layer
+overheads I was hoping to get a little bit closer to the ~200Gbps memory
+bandwidth that this CPU+RAM are capable of. Am I dreaming or just doing
+it wrong?
 
-Hmm, is there a reason that's still on-stack instead of using the
-per-cpu thing, Steve?
+In terms of bandwidth requirements, we're nowhere near that level per
+guest - but since there are lot of guests per host, I use this as a
+rough guesstimate of the efficiency and suitability of the transport.
 
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+How hard would it be to introduce a virtio mmap-like transport of some
+sort so that the guest and host could share some memory region?
+I assume this would give us the best possible performance when
+transferring large amounts of data? (we already have a local mmap
+transport we could adapt)
 
-In any case,
-
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Thanks
+Antoine
