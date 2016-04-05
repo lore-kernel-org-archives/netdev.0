@@ -1,33 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/9] bnxt_en: Updates for net-next.
-Date: Tue, 05 Apr 2016 16:15:39 -0400 (EDT)
-Message-ID: <20160405.161539.218834045380728411.davem@davemloft.net>
-References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/18] i40e: Added code to prevent double resets
+Date: Tue,  5 Apr 2016 13:17:31 -0700
+Message-ID: <1459887455-146634-15-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459887455-146634-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33465 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759922AbcDEUPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 16:15:42 -0400
-In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
+Received: from mga09.intel.com ([134.134.136.24]:28348 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759914AbcDEURl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 16:17:41 -0400
+In-Reply-To: <1459887455-146634-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Tue,  5 Apr 2016 14:08:54 -0400
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-> Update to latest firmware interface, add EEE feature, unsupported SFP+
-> module warning, and ethtool -s improvements.
-> 
-> v2: Removed the GEEPROM patch and added more comments to the get_eee patch.
+Clear the VFLR bit after reset processing, instead of before. This
+prevents double resets on VF init.
 
-Series applied, thanks Michael.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Please send updates if something comes from that dialogue you are having
-with Ben.
-
-Thanks.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 816c6bb..291d628 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -917,9 +917,9 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
+ {
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
++	u32 reg, reg_idx, bit_idx;
+ 	bool rsd = false;
+ 	int i;
+-	u32 reg;
+ 
+ 	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
+ 		return;
+@@ -988,6 +988,11 @@ complete_reset:
+ 	}
+ 	/* tell the VF the reset is done */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
++
++	/* clear the VFLR bit in GLGEN_VFLRSTAT */
++	reg_idx = (hw->func_caps.vf_base_id + vf->vf_id) / 32;
++	bit_idx = (hw->func_caps.vf_base_id + vf->vf_id) % 32;
++	wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), BIT(bit_idx));
+ 	i40e_flush(hw);
+ 	clear_bit(__I40E_VF_DISABLE, &pf->state);
+ }
+@@ -2293,9 +2298,7 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
+ 		vf = &pf->vf[vf_id];
+ 		reg = rd32(hw, I40E_GLGEN_VFLRSTAT(reg_idx));
+ 		if (reg & BIT(bit_idx)) {
+-			/* clear the bit in GLGEN_VFLRSTAT */
+-			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), BIT(bit_idx));
+-
++			/* i40e_reset_vf will clear the bit in GLGEN_VFLRSTAT */
+ 			if (!test_bit(__I40E_DOWN, &pf->state))
+ 				i40e_reset_vf(vf, true);
+ 		}
+-- 
+2.5.5
