@@ -1,114 +1,136 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 2/8] udp: Add udp6_lib_lookup_skb and udp4_lib_lookup_skb
-Date: Tue, 5 Apr 2016 08:22:50 -0700
-Message-ID: <1459869776-2090500-3-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 5/8] vxlan: change vxlan to use UDP socket GRO
+Date: Tue, 5 Apr 2016 08:22:53 -0700
+Message-ID: <1459869776-2090500-6-git-send-email-tom@herbertland.com>
 References: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49775 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758980AbcDEPXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:23:16 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u35FJElo021587
-	for <netdev@vger.kernel.org>; Tue, 5 Apr 2016 08:23:09 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:27349 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758977AbcDEPXP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:23:15 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u35FMPtq017975
+	for <netdev@vger.kernel.org>; Tue, 5 Apr 2016 08:23:14 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 222xhceky2-1
+	by mx0a-00082601.pphosted.com with ESMTP id 22483hakfy-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 08:23:09 -0700
+	for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 08:23:14 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 4cb3c0a6fb4211e5b9fc24be05956610-e6fc13f0 for <netdev@vger.kernel.org>;	Tue,
- 05 Apr 2016 08:23:08 -0700
+ 4fcb26e4fb4211e5b9fc24be05956610-e6fc13f0 for <netdev@vger.kernel.org>;	Tue,
+ 05 Apr 2016 08:23:13 -0700
 In-Reply-To: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add externally visible functions to lookup a UDP socket by skb. This
-will be used for GRO in UDP sockets. These functions also check
-if skb->dst is set, and if it is not skb->dev is used to get dev_net.
-This allows calling lookup functions before dst has been set on the
-skbuff.
+Adapt vxlan_gro_receive, vxlan_gro_complete to take a socket argument.
+Set these functions in tunnel_config.  Don't set udp_offloads any more.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/udp.h |  4 ++++
- net/ipv4/udp.c    | 13 +++++++++++++
- net/ipv6/udp.c    | 13 +++++++++++++
- 3 files changed, 30 insertions(+)
+ drivers/net/vxlan.c | 30 ++++++++----------------------
+ include/net/vxlan.h |  1 -
+ 2 files changed, 8 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index d870ec1..e2e3803 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -260,6 +260,8 @@ struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
- 			       __be32 daddr, __be16 dport, int dif,
- 			       struct udp_table *tbl, struct sk_buff *skb);
-+struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
-+				 __be16 sport, __be16 dport);
- struct sock *udp6_lib_lookup(struct net *net,
- 			     const struct in6_addr *saddr, __be16 sport,
- 			     const struct in6_addr *daddr, __be16 dport,
-@@ -269,6 +271,8 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 			       const struct in6_addr *daddr, __be16 dport,
- 			       int dif, struct udp_table *tbl,
- 			       struct sk_buff *skb);
-+struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
-+				 __be16 sport, __be16 dport);
- 
- /*
-  * 	SNMP statistics for UDP and UDP-Lite
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 355bdb2..b39c566 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -604,6 +604,19 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
- 				 udptable, skb);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1c0fa36..29e7269 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -551,16 +551,15 @@ static struct vxlanhdr *vxlan_gro_remcsum(struct sk_buff *skb,
+ 	return vh;
  }
  
-+struct sock *udp4_lib_lookup_skb(struct sk_buff *skb,
-+				 __be16 sport, __be16 dport)
-+{
-+	const struct iphdr *iph = ip_hdr(skb);
-+	const struct net_device *dev =
-+	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
-+
-+	return __udp4_lib_lookup(dev_net(dev), iph->saddr, sport,
-+				 iph->daddr, dport, inet_iif(skb),
-+				 &udp_table, skb);
-+}
-+EXPORT_SYMBOL_GPL(udp4_lib_lookup_skb);
-+
- /* Must be called under rcu_read_lock().
-  * Does increment socket refcount.
-  */
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 78a7dfd..33a58eb 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -326,6 +326,19 @@ static struct sock *__udp6_lib_lookup_skb(struct sk_buff *skb,
- 				 udptable, skb);
+-static struct sk_buff **vxlan_gro_receive(struct sk_buff **head,
+-					  struct sk_buff *skb,
+-					  struct udp_offload *uoff)
++static struct sk_buff **vxlan_gro_receive(struct sock *sk,
++					  struct sk_buff **head,
++					  struct sk_buff *skb)
+ {
+ 	struct sk_buff *p, **pp = NULL;
+ 	struct vxlanhdr *vh, *vh2;
+ 	unsigned int hlen, off_vx;
+ 	int flush = 1;
+-	struct vxlan_sock *vs = container_of(uoff, struct vxlan_sock,
+-					     udp_offloads);
++	struct vxlan_sock *vs = rcu_dereference_sk_user_data(sk);
+ 	__be32 flags;
+ 	struct gro_remcsum grc;
+ 
+@@ -613,8 +612,7 @@ out:
+ 	return pp;
  }
  
-+struct sock *udp6_lib_lookup_skb(struct sk_buff *skb,
-+				 __be16 sport, __be16 dport)
-+{
-+	const struct ipv6hdr *iph = ipv6_hdr(skb);
-+	const struct net_device *dev =
-+	    skb_dst(skb) ? skb_dst(skb)->dev : skb->dev;
-+
-+	return __udp6_lib_lookup(dev_net(dev), &iph->saddr, sport,
-+				 &iph->daddr, dport, inet6_iif(skb),
-+				 &udp_table, skb);
-+}
-+EXPORT_SYMBOL_GPL(udp6_lib_lookup_skb);
-+
- /* Must be called under rcu_read_lock().
-  * Does increment socket refcount.
-  */
+-static int vxlan_gro_complete(struct sk_buff *skb, int nhoff,
+-			      struct udp_offload *uoff)
++static int vxlan_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
+ {
+ 	udp_tunnel_gro_complete(skb, nhoff);
+ 
+@@ -629,13 +627,6 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+ 	struct net *net = sock_net(sk);
+ 	sa_family_t sa_family = vxlan_get_sk_family(vs);
+ 	__be16 port = inet_sk(sk)->inet_sport;
+-	int err;
+-
+-	if (sa_family == AF_INET) {
+-		err = udp_add_offload(net, &vs->udp_offloads);
+-		if (err)
+-			pr_warn("vxlan: udp_add_offload failed with status %d\n", err);
+-	}
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+@@ -662,9 +653,6 @@ static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+ 							    port);
+ 	}
+ 	rcu_read_unlock();
+-
+-	if (sa_family == AF_INET)
+-		udp_del_offload(&vs->udp_offloads);
+ }
+ 
+ /* Add new entry to forwarding table -- assumes lock held */
+@@ -2640,21 +2628,19 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, bool ipv6,
+ 	atomic_set(&vs->refcnt, 1);
+ 	vs->flags = (flags & VXLAN_F_RCV_FLAGS);
+ 
+-	/* Initialize the vxlan udp offloads structure */
+-	vs->udp_offloads.port = port;
+-	vs->udp_offloads.callbacks.gro_receive  = vxlan_gro_receive;
+-	vs->udp_offloads.callbacks.gro_complete = vxlan_gro_complete;
+-
+ 	spin_lock(&vn->sock_lock);
+ 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
+ 	vxlan_notify_add_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
+ 
+ 	/* Mark socket as an encapsulation socket. */
++	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
+ 	tunnel_cfg.sk_user_data = vs;
+ 	tunnel_cfg.encap_type = 1;
+ 	tunnel_cfg.encap_rcv = vxlan_rcv;
+ 	tunnel_cfg.encap_destroy = NULL;
++	tunnel_cfg.gro_receive = vxlan_gro_receive;
++	tunnel_cfg.gro_complete = vxlan_gro_complete;
+ 
+ 	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
+ 
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 73ed2e9..2ad2136 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -131,7 +131,6 @@ struct vxlan_sock {
+ 	struct rcu_head	  rcu;
+ 	struct hlist_head vni_list[VNI_HASH_SIZE];
+ 	atomic_t	  refcnt;
+-	struct udp_offload udp_offloads;
+ 	u32		  flags;
+ };
+ 
 -- 
 2.8.0.rc2
