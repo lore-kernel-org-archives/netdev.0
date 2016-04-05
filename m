@@ -1,37 +1,60 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v3 4/4] vxlan: implement GPE
-Date: Tue, 5 Apr 2016 15:57:12 +0200
-Message-ID: <20160405155712.3e8a578e@griffin>
-References: <cover.1459860270.git.jbenc@redhat.com>
-	<2f2080cbe948be319e5725b2aa484e8996ed36ae.1459860270.git.jbenc@redhat.com>
-	<CALx6S35gFDe+hiOtQqDUuzahkeh7vB3du3TN=noYefuDNGmCJw@mail.gmail.com>
+From: Connie Garrett <connieg@switchways.com>
+Subject: Hiking Enthusiasts List
+Date: Tue, 5 Apr 2016 09:45:58 -0400
+Message-ID: <5703C196.60300@switchways.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44097 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752957AbcDEN5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 09:57:16 -0400
-In-Reply-To: <CALx6S35gFDe+hiOtQqDUuzahkeh7vB3du3TN=noYefuDNGmCJw@mail.gmail.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33045 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933515AbcDEOKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 10:10:20 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 184so11652450pff.0
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 07:10:19 -0700 (PDT)
+Received: from [127.0.0.1] ([103.6.157.158])
+        by smtp.gmail.com with ESMTPSA id wy7sm8306424pab.5.2016.04.05.07.10.16
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 05 Apr 2016 07:10:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Apr 2016 10:50:57 -0300, Tom Herbert wrote:
-> I requested input from VXLAN protocol experts on whether RCO is
-> architecturally correct in VXLAN and whether we are using the right
-> fields both on the mailing list and in WG meeting yesterday @IETF.
-> Have not gotten any response, so I am going to assume all this is
-> reasonable. I will add explicit support to VXLAN-RCO draft for
-> VXLAN-GPE. The configuration option for RX RCO can be removed and RCO
-> can be supported for VXLAN/VXLAN-GPE in same way. Presumably, GBP
-> might make same assumptions but GBP format as defined for VXLAN isn't
-> compatible with VXLAN-GPE.
 
-Cool, thanks! We'll loosen the restriction after it's added to the RFC,
-it should be a simple one line patch.
+Hi,
 
- Jiri
+Hope this email finds you well!
+
+Would you be interested in acquiring an email list of "Hiking Enthusias=
+ts List" from USA?
+
+We also have data for  Fishing Enthusiasts, Sports Enthusiasts, Outdoor=
+ Enthusiasts, Spa and Resort visitors, Camping Enthusiasts, Food Enthus=
+iasts, Scuba Divers List, Cruise Travelers, Boat Owners, Foodies, Appar=
+el Buyers, travellers, Luxury Brand Buyers, Gift buyers and many more.
+
+Each record in the list contains Contact Name (First, Middle and Last N=
+ame), Mailing Address, List type and Opt-in email address.
+
+All the contacts are opt-in verified, 100% permission based and can be =
+used for unlimited multi-channel marketing.
+
+Please let me know your thoughts towards procuring the Hiking Enthusias=
+ts List.
+
+Best Regards,
+Connie Garrett
+Research Analyst
+
+
+
+We respect your privacy, if you do not wish to receive any further emai=
+ls from our end, please reply with a subject =E2=80=9CLeave Out=E2=80=9D=
+=2E
+
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
