@@ -1,112 +1,119 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 8/9] bnxt_en: Check for valid forced speed during ethtool -s.
-Date: Tue,  5 Apr 2016 14:09:02 -0400
-Message-ID: <1459879743-16960-9-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 5/9] bnxt_en: Add get_eee() and set_eee() ethtool support.
+Date: Tue,  5 Apr 2016 14:08:59 -0400
+Message-ID: <1459879743-16960-6-git-send-email-michael.chan@broadcom.com>
 References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:31443 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933578AbcDESJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:17 -0400
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:31747 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759601AbcDESJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:36 -0400
 In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check that the forced speed is a valid speed supported by firmware.
-If not supported, return -EINVAL.
+Allow users to get|set EEE parameters.
+
+v2: Added comment for preserving the tx_lpi_timer value in get_eee.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 48 ++++++++++++++++++-----
- 1 file changed, 38 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 76 +++++++++++++++++++++++
+ 1 file changed, 76 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 47e08a8..952b5ba 100644
+index 14f0520..47e08a8 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -739,28 +739,49 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- static u32 bnxt_get_fw_speed(struct net_device *dev, u16 ethtool_speed)
- {
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_link_info *link_info = &bp->link_info;
-+	u16 support_spds = link_info->support_speeds;
-+	u32 fw_speed = 0;
-+
- 	switch (ethtool_speed) {
- 	case SPEED_100:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_100MB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_100MB;
-+		break;
- 	case SPEED_1000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_1GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_1GB;
-+		break;
- 	case SPEED_2500:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_2_5GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_2_5GB;
-+		break;
- 	case SPEED_10000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_10GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_10GB;
-+		break;
- 	case SPEED_20000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_20GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_20GB;
-+		break;
- 	case SPEED_25000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_25GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_25GB;
-+		break;
- 	case SPEED_40000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_40GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_40GB;
-+		break;
- 	case SPEED_50000:
--		return PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
-+		if (support_spds & BNXT_LINK_SPEED_MSK_50GB)
-+			fw_speed = PORT_PHY_CFG_REQ_AUTO_LINK_SPEED_50GB;
-+		break;
- 	default:
- 		netdev_err(dev, "unsupported speed!\n");
- 		break;
- 	}
--	return 0;
-+	return fw_speed;
+@@ -1379,6 +1379,80 @@ static int bnxt_set_eeprom(struct net_device *dev,
+ 				eeprom->len);
  }
  
- u16 bnxt_get_fw_auto_link_speeds(u32 advertising)
-@@ -823,6 +844,8 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		 */
- 		set_pause = true;
- 	} else {
-+		u16 fw_speed;
++static int bnxt_set_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnxt *bp = netdev_priv(dev);
++	struct ethtool_eee *eee = &bp->eee;
++	struct bnxt_link_info *link_info = &bp->link_info;
++	u32 advertising =
++		 _bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
++	int rc = 0;
 +
- 		/* TODO: currently don't support half duplex */
- 		if (cmd->duplex == DUPLEX_HALF) {
- 			netdev_err(dev, "HALF DUPLEX is not supported!\n");
-@@ -833,7 +856,12 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		if (cmd->duplex == DUPLEX_UNKNOWN)
- 			cmd->duplex = DUPLEX_FULL;
- 		speed = ethtool_cmd_speed(cmd);
--		link_info->req_link_speed = bnxt_get_fw_speed(dev, speed);
-+		fw_speed = bnxt_get_fw_speed(dev, speed);
-+		if (!fw_speed) {
-+			rc = -EINVAL;
-+			goto set_setting_exit;
++	if (BNXT_VF(bp))
++		return 0;
++
++	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
++		return -EOPNOTSUPP;
++
++	if (!edata->eee_enabled)
++		goto eee_ok;
++
++	if (!(link_info->autoneg & BNXT_AUTONEG_SPEED)) {
++		netdev_warn(dev, "EEE requires autoneg\n");
++		return -EINVAL;
++	}
++	if (edata->tx_lpi_enabled) {
++		if (bp->lpi_tmr_hi && (edata->tx_lpi_timer > bp->lpi_tmr_hi ||
++				       edata->tx_lpi_timer < bp->lpi_tmr_lo)) {
++			netdev_warn(dev, "Valid LPI timer range is %d and %d microsecs\n",
++				    bp->lpi_tmr_lo, bp->lpi_tmr_hi);
++			return -EINVAL;
++		} else if (!bp->lpi_tmr_hi) {
++			edata->tx_lpi_timer = eee->tx_lpi_timer;
 +		}
-+		link_info->req_link_speed = fw_speed;
- 		link_info->req_duplex = BNXT_LINK_DUPLEX_FULL;
- 		link_info->autoneg = 0;
- 		link_info->advertising = 0;
++	}
++	if (!edata->advertised) {
++		edata->advertised = advertising & eee->supported;
++	} else if (edata->advertised & ~advertising) {
++		netdev_warn(dev, "EEE advertised %x must be a subset of autoneg advertised speeds %x\n",
++			    edata->advertised, advertising);
++		return -EINVAL;
++	}
++
++	eee->advertised = edata->advertised;
++	eee->tx_lpi_enabled = edata->tx_lpi_enabled;
++	eee->tx_lpi_timer = edata->tx_lpi_timer;
++eee_ok:
++	eee->eee_enabled = edata->eee_enabled;
++
++	if (netif_running(dev))
++		rc = bnxt_hwrm_set_link_setting(bp, false, true);
++
++	return rc;
++}
++
++static int bnxt_get_eee(struct net_device *dev, struct ethtool_eee *edata)
++{
++	struct bnxt *bp = netdev_priv(dev);
++
++	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
++		return -EOPNOTSUPP;
++
++	*edata = bp->eee;
++	if (!bp->eee.eee_enabled) {
++		/* Preserve tx_lpi_timer so that the last value will be used
++		 * by default when it is re-enabled.
++		 */
++		edata->advertised = 0;
++		edata->tx_lpi_enabled = 0;
++	}
++
++	if (!bp->eee.eee_active)
++		edata->lp_advertised = 0;
++
++	return 0;
++}
++
+ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.get_settings		= bnxt_get_settings,
+ 	.set_settings		= bnxt_set_settings,
+@@ -1407,4 +1481,6 @@ const struct ethtool_ops bnxt_ethtool_ops = {
+ 	.get_eeprom             = bnxt_get_eeprom,
+ 	.set_eeprom		= bnxt_set_eeprom,
+ 	.get_link		= bnxt_get_link,
++	.get_eee		= bnxt_get_eee,
++	.set_eee		= bnxt_set_eee,
+ };
 -- 
 1.8.3.1
