@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/3] mlxsw: spectrum: Add support for physical port names
-Date: Tue,  5 Apr 2016 10:20:04 +0200
-Message-ID: <1459844404-4698-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/3] switchdev: Use switch ID in suggested udev rule
+Date: Tue,  5 Apr 2016 10:20:03 +0200
+Message-ID: <1459844404-4698-3-git-send-email-jiri@resnulli.us>
 References: <1459844404-4698-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -10,110 +10,81 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	vivien.didelot@savoirfairelinux.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36156 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753550AbcDEIUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:20:12 -0400
-Received: by mail-wm0-f45.google.com with SMTP id 127so15722480wmu.1
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 01:20:12 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:36136 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757499AbcDEIUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:20:11 -0400
+Received: by mail-wm0-f46.google.com with SMTP id 127so15721890wmu.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 01:20:10 -0700 (PDT)
 In-Reply-To: <1459844404-4698-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Export to userspace the front panel name of the port, so that udev can
-rename the ports accordingly. The convention suggested by switchdev
-documentation is used:
+Since there can be multiple switch ASICs on the same system we should
+use the switch ID in order to differentiate between them and set the
+switch name (e.g. swX) accordingly.
 
-1) Non-split: pX
-2) Split: pXsY
+Also, replace the order of the "Switch ID" and "Port Netdev Naming"
+sections following the above change.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 45 ++++++++++++++++++++++++--
- 1 file changed, 42 insertions(+), 3 deletions(-)
+ Documentation/networking/switchdev.txt | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4afbc3e..cb5f36e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -305,9 +305,9 @@ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sspr), sspr_pl);
- }
+diff --git a/Documentation/networking/switchdev.txt b/Documentation/networking/switchdev.txt
+index 2f65912..31c3911 100644
+--- a/Documentation/networking/switchdev.txt
++++ b/Documentation/networking/switchdev.txt
+@@ -89,6 +89,18 @@ Typically, the management port is not participating in offloaded data plane and
+ is loaded with a different driver, such as a NIC driver, on the management port
+ device.
  
--static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
--					 u8 local_port, u8 *p_module,
--					 u8 *p_width)
-+static int __mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
-+					   u8 local_port, u8 *p_module,
-+					   u8 *p_width, u8 *p_lane)
- {
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
- 	int err;
-@@ -318,9 +318,20 @@ static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
- 		return err;
- 	*p_module = mlxsw_reg_pmlp_module_get(pmlp_pl, 0);
- 	*p_width = mlxsw_reg_pmlp_width_get(pmlp_pl);
-+	*p_lane = mlxsw_reg_pmlp_tx_lane_get(pmlp_pl, 0);
- 	return 0;
- }
++Switch ID
++^^^^^^^^^
++
++The switchdev driver must implement the switchdev op switchdev_port_attr_get
++for SWITCHDEV_ATTR_ID_PORT_PARENT_ID for each port netdev, returning the same
++physical ID for each port of a switch.  The ID must be unique between switches
++on the same system.  The ID does not need to be unique between switches on
++different systems.
++
++The switch ID is used to locate ports on a switch and to know if aggregated
++ports belong to the same switch.
++
+ Port Netdev Naming
+ ^^^^^^^^^^^^^^^^^^
  
-+static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
-+					 u8 local_port, u8 *p_module,
-+					 u8 *p_width)
-+{
-+	u8 lane;
-+
-+	return __mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, p_module,
-+					       p_width, &lane);
-+}
-+
- static int mlxsw_sp_port_module_map(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 				    u8 module, u8 width, u8 lane)
- {
-@@ -861,6 +872,33 @@ int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	return 0;
- }
+@@ -104,25 +116,13 @@ external configuration.  For example, if a physical 40G port is split logically
+ into 4 10G ports, resulting in 4 port netdevs, the device can give a unique
+ name for each port using port PHYS name.  The udev rule would be:
  
-+static int mlxsw_sp_port_get_phys_port_name(struct net_device *dev, char *name,
-+					    size_t len)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
-+	u8 module, width, lane;
-+	int err;
-+
-+	err = __mlxsw_sp_port_module_info_get(mlxsw_sp_port->mlxsw_sp,
-+					      mlxsw_sp_port->local_port,
-+					      &module, &width, &lane);
-+	if (err) {
-+		netdev_err(dev, "Failed to retrieve module information\n");
-+		return err;
-+	}
-+
-+	if (!mlxsw_sp_port->split)
-+		err = snprintf(name, len, "p%d", module + 1);
-+	else
-+		err = snprintf(name, len, "p%ds%d", module + 1,
-+			       lane / width);
-+
-+	if (err >= len)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
- 	.ndo_open		= mlxsw_sp_port_open,
- 	.ndo_stop		= mlxsw_sp_port_stop,
-@@ -877,6 +915,7 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
- 	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
-+	.ndo_get_phys_port_name	= mlxsw_sp_port_get_phys_port_name,
- };
+-SUBSYSTEM=="net", ACTION=="add", DRIVER="<driver>", ATTR{phys_port_name}!="", \
+-	NAME="$attr{phys_port_name}"
++SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
++	ATTR{phys_port_name}!="", NAME="swX$attr{phys_port_name}"
  
- static void mlxsw_sp_port_get_drvinfo(struct net_device *dev,
+ Suggested naming convention is "swXpYsZ", where X is the switch name or ID, Y
+ is the port name or ID, and Z is the sub-port name or ID.  For example, sw1p1s0
+ would be sub-port 0 on port 1 on switch 1.
+ 
+-Switch ID
+-^^^^^^^^^
+-
+-The switchdev driver must implement the switchdev op switchdev_port_attr_get
+-for SWITCHDEV_ATTR_ID_PORT_PARENT_ID for each port netdev, returning the same
+-physical ID for each port of a switch.  The ID must be unique between switches
+-on the same system.  The ID does not need to be unique between switches on
+-different systems.
+-
+-The switch ID is used to locate ports on a switch and to know if aggregated
+-ports belong to the same switch.
+-
+ Port Features
+ ^^^^^^^^^^^^^
+ 
 -- 
 2.5.5
