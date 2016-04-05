@@ -1,48 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] bridge, netem: mark mailing lists as moderated
-Date: Tue,  5 Apr 2016 13:43:53 -0700
-Message-ID: <1459889033-12411-1-git-send-email-stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36830 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933304AbcDEUnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 16:43:41 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bx7so1469762pad.3
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 13:43:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: [PATCH] Revert "netpoll: Fix extra refcount release in
+ netpoll_cleanup()"
+Date: Tue, 05 Apr 2016 15:58:22 -0500
+Message-ID: <20160405205822.24724.95522.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@redhat.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Bart Van Assche <bart.vanassche@sandisk.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I moderate these (lightly loaded) lists to block spam.
+This reverts commit 543e3a8da5a4c453e992d5351ef405d5e32f27d7.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Direct callers of __netpoll_setup() depend on it to set np->dev,
+so we can't simply move that assignment up to netpoll_stup().
+
+Reported-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- MAINTAINERS | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/core/netpoll.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 67d99dd..8355536 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4303,7 +4303,7 @@ F:	drivers/net/ethernet/agere/
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index a57bd17..94acfc8 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -603,6 +603,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
+ 	const struct net_device_ops *ops;
+ 	int err;
  
- ETHERNET BRIDGE
- M:	Stephen Hemminger <stephen@networkplumber.org>
--L:	bridge@lists.linux-foundation.org
-+L:	bridge@lists.linux-foundation.org (moderated for non-subscribers)
- L:	netdev@vger.kernel.org
- W:	http://www.linuxfoundation.org/en/Net:Bridge
- S:	Maintained
-@@ -7576,7 +7576,7 @@ F:	drivers/infiniband/hw/nes/
++	np->dev = ndev;
+ 	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
+ 	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
  
- NETEM NETWORK EMULATOR
- M:	Stephen Hemminger <stephen@networkplumber.org>
--L:	netem@lists.linux-foundation.org
-+L:	netem@lists.linux-foundation.org (moderated for non-subscribers)
- S:	Maintained
- F:	net/sched/sch_netem.c
+@@ -669,7 +670,6 @@ int netpoll_setup(struct netpoll *np)
+ 		goto unlock;
+ 	}
+ 	dev_hold(ndev);
+-	np->dev = ndev;
  
--- 
-2.1.4
+ 	if (netdev_master_upper_dev_get(ndev)) {
+ 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+@@ -770,7 +770,6 @@ int netpoll_setup(struct netpoll *np)
+ 	return 0;
+ 
+ put:
+-	np->dev = NULL;
+ 	dev_put(ndev);
+ unlock:
+ 	rtnl_unlock();
