@@ -1,71 +1,143 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 9/9] bnxt_en: Improve ethtool .get_settings().
-Date: Tue,  5 Apr 2016 14:09:03 -0400
-Message-ID: <1459879743-16960-10-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 7/9] bnxt_en: Add unsupported SFP+ module warnings.
+Date: Tue,  5 Apr 2016 14:09:01 -0400
+Message-ID: <1459879743-16960-8-git-send-email-michael.chan@broadcom.com>
 References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:31747 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759602AbcDESJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:36 -0400
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:31443 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933560AbcDESJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:16 -0400
 In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If autoneg is off, we should always report the speed and duplex settings
-even if it is link down so the user knows the current settings.  The
-unknown speed and duplex should only be used for autoneg when link is
-down.
+Add the PORT_CONN_NOT_ALLOWED async event handling logic.  The driver
+will print an appropriate warning to reflect the SFP+ module enforcement
+policy done in the firmware.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 55 +++++++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 ++
+ 2 files changed, 58 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 952b5ba..a2e9324 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -698,10 +698,23 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		if (link_info->phy_link_status == BNXT_LINK_LINK)
- 			cmd->lp_advertising =
- 				bnxt_fw_to_ethtool_lp_adv(link_info);
-+		ethtool_speed = bnxt_fw_to_ethtool_speed(link_info->link_speed);
-+		if (!netif_carrier_ok(dev))
-+			cmd->duplex = DUPLEX_UNKNOWN;
-+		else if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
-+			cmd->duplex = DUPLEX_FULL;
-+		else
-+			cmd->duplex = DUPLEX_HALF;
- 	} else {
- 		cmd->autoneg = AUTONEG_DISABLE;
- 		cmd->advertising = 0;
-+		ethtool_speed =
-+			bnxt_fw_to_ethtool_speed(link_info->req_link_speed);
-+		cmd->duplex = DUPLEX_HALF;
-+		if (link_info->req_duplex == BNXT_LINK_DUPLEX_FULL)
-+			cmd->duplex = DUPLEX_FULL;
- 	}
-+	ethtool_cmd_speed_set(cmd, ethtool_speed);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index dd0b32c..597e472 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -121,6 +121,7 @@ static const u16 bnxt_vf_req_snif[] = {
+ static const u16 bnxt_async_events_arr[] = {
+ 	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE,
+ 	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD,
++	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED,
+ };
  
- 	cmd->port = PORT_NONE;
- 	if (link_info->media_type == PORT_PHY_QCFG_RESP_MEDIA_TYPE_TP) {
-@@ -719,14 +732,6 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 			cmd->port = PORT_FIBRE;
+ static bool bnxt_vf_pciid(enum board_idx idx)
+@@ -1236,6 +1237,19 @@ next_rx_no_prod:
+ 	return rc;
+ }
+ 
++#define BNXT_GET_EVENT_PORT(data)	\
++	((data) &				\
++	 HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK)
++
++#define BNXT_EVENT_POLICY_MASK	\
++	HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_MASK
++
++#define BNXT_EVENT_POLICY_SFT	\
++	HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_SFT
++
++#define BNXT_GET_EVENT_POLICY(data)	\
++	(((data) & BNXT_EVENT_POLICY_MASK) >> BNXT_EVENT_POLICY_SFT)
++
+ static int bnxt_async_event_process(struct bnxt *bp,
+ 				    struct hwrm_async_event_cmpl *cmpl)
+ {
+@@ -1249,6 +1263,22 @@ static int bnxt_async_event_process(struct bnxt *bp,
+ 	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD:
+ 		set_bit(BNXT_HWRM_PF_UNLOAD_SP_EVENT, &bp->sp_event);
+ 		break;
++	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED: {
++		u32 data1 = le32_to_cpu(cmpl->event_data1);
++		u16 port_id = BNXT_GET_EVENT_PORT(data1);
++
++		if (BNXT_VF(bp))
++			break;
++
++		if (bp->pf.port_id != port_id)
++			break;
++
++		bp->link_info.last_port_module_event =
++			BNXT_GET_EVENT_POLICY(data1);
++
++		set_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event);
++		break;
++	}
+ 	default:
+ 		netdev_err(bp->dev, "unhandled ASYNC event (id 0x%x)\n",
+ 			   event_id);
+@@ -5447,6 +5477,28 @@ bnxt_restart_timer:
+ 	mod_timer(&bp->timer, jiffies + bp->current_interval);
+ }
+ 
++static void bnxt_port_module_event(struct bnxt *bp)
++{
++	struct bnxt_link_info *link_info = &bp->link_info;
++	struct hwrm_port_phy_qcfg_output *resp = &link_info->phy_qcfg_resp;
++
++	if (bnxt_update_link(bp, true))
++		return;
++
++	if (link_info->last_port_module_event != 0) {
++		netdev_warn(bp->dev, "Unqualified SFP+ module detected on port %d\n",
++			    bp->pf.port_id);
++		if (bp->hwrm_spec_code >= 0x10201) {
++			netdev_warn(bp->dev, "Module part number %s\n",
++				    resp->phy_vendor_partnumber);
++		}
++	}
++	if (link_info->last_port_module_event == 1)
++		netdev_warn(bp->dev, "TX is disabled\n");
++	if (link_info->last_port_module_event == 3)
++		netdev_warn(bp->dev, "Shutdown SFP+ module\n");
++}
++
+ static void bnxt_cfg_ntp_filters(struct bnxt *);
+ 
+ static void bnxt_sp_task(struct work_struct *work)
+@@ -5494,6 +5546,9 @@ static void bnxt_sp_task(struct work_struct *work)
+ 		rtnl_unlock();
  	}
  
--	if (link_info->phy_link_status == BNXT_LINK_LINK) {
--		if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
--			cmd->duplex = DUPLEX_FULL;
--	} else {
--		cmd->duplex = DUPLEX_UNKNOWN;
--	}
--	ethtool_speed = bnxt_fw_to_ethtool_speed(link_info->link_speed);
--	ethtool_cmd_speed_set(cmd, ethtool_speed);
- 	if (link_info->transceiver ==
- 	    PORT_PHY_QCFG_RESP_XCVR_PKG_TYPE_XCVR_INTERNAL)
- 		cmd->transceiver = XCVR_INTERNAL;
++	if (test_and_clear_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event))
++		bnxt_port_module_event(bp);
++
+ 	if (test_and_clear_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event))
+ 		bnxt_hwrm_port_qstats(bp);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index a981e2c..cc8e38a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -825,6 +825,8 @@ struct bnxt_link_info {
+ 	u16			req_link_speed;
+ 	u32			advertising;
+ 	bool			force_link_chng;
++
++	u8			last_port_module_event;
+ 	/* a copy of phy_qcfg output used to report link
+ 	 * info to VF
+ 	 */
+@@ -992,6 +994,7 @@ struct bnxt {
+ #define BNXT_RST_RING_SP_EVENT		7
+ #define BNXT_HWRM_PF_UNLOAD_SP_EVENT	8
+ #define BNXT_PERIODIC_STATS_SP_EVENT	9
++#define BNXT_HWRM_PORT_MODULE_SP_EVENT	10
+ 
+ 	struct bnxt_pf_info	pf;
+ #ifdef CONFIG_BNXT_SRIOV
 -- 
 1.8.3.1
