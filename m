@@ -1,119 +1,71 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 5/9] bnxt_en: Add get_eee() and set_eee() ethtool support.
-Date: Tue,  5 Apr 2016 14:08:59 -0400
-Message-ID: <1459879743-16960-6-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 9/9] bnxt_en: Improve ethtool .get_settings().
+Date: Tue,  5 Apr 2016 14:09:03 -0400
+Message-ID: <1459879743-16960-10-git-send-email-michael.chan@broadcom.com>
 References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:31747 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759601AbcDESJg (ORCPT
+	with ESMTP id S1759602AbcDESJg (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:36 -0400
 In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow users to get|set EEE parameters.
-
-v2: Added comment for preserving the tx_lpi_timer value in get_eee.
+If autoneg is off, we should always report the speed and duplex settings
+even if it is link down so the user knows the current settings.  The
+unknown speed and duplex should only be used for autoneg when link is
+down.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 76 +++++++++++++++++++++++
- 1 file changed, 76 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 14f0520..47e08a8 100644
+index 952b5ba..a2e9324 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -1379,6 +1379,80 @@ static int bnxt_set_eeprom(struct net_device *dev,
- 				eeprom->len);
- }
+@@ -698,10 +698,23 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		if (link_info->phy_link_status == BNXT_LINK_LINK)
+ 			cmd->lp_advertising =
+ 				bnxt_fw_to_ethtool_lp_adv(link_info);
++		ethtool_speed = bnxt_fw_to_ethtool_speed(link_info->link_speed);
++		if (!netif_carrier_ok(dev))
++			cmd->duplex = DUPLEX_UNKNOWN;
++		else if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
++			cmd->duplex = DUPLEX_FULL;
++		else
++			cmd->duplex = DUPLEX_HALF;
+ 	} else {
+ 		cmd->autoneg = AUTONEG_DISABLE;
+ 		cmd->advertising = 0;
++		ethtool_speed =
++			bnxt_fw_to_ethtool_speed(link_info->req_link_speed);
++		cmd->duplex = DUPLEX_HALF;
++		if (link_info->req_duplex == BNXT_LINK_DUPLEX_FULL)
++			cmd->duplex = DUPLEX_FULL;
+ 	}
++	ethtool_cmd_speed_set(cmd, ethtool_speed);
  
-+static int bnxt_set_eee(struct net_device *dev, struct ethtool_eee *edata)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+	struct ethtool_eee *eee = &bp->eee;
-+	struct bnxt_link_info *link_info = &bp->link_info;
-+	u32 advertising =
-+		 _bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
-+	int rc = 0;
-+
-+	if (BNXT_VF(bp))
-+		return 0;
-+
-+	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
-+		return -EOPNOTSUPP;
-+
-+	if (!edata->eee_enabled)
-+		goto eee_ok;
-+
-+	if (!(link_info->autoneg & BNXT_AUTONEG_SPEED)) {
-+		netdev_warn(dev, "EEE requires autoneg\n");
-+		return -EINVAL;
-+	}
-+	if (edata->tx_lpi_enabled) {
-+		if (bp->lpi_tmr_hi && (edata->tx_lpi_timer > bp->lpi_tmr_hi ||
-+				       edata->tx_lpi_timer < bp->lpi_tmr_lo)) {
-+			netdev_warn(dev, "Valid LPI timer range is %d and %d microsecs\n",
-+				    bp->lpi_tmr_lo, bp->lpi_tmr_hi);
-+			return -EINVAL;
-+		} else if (!bp->lpi_tmr_hi) {
-+			edata->tx_lpi_timer = eee->tx_lpi_timer;
-+		}
-+	}
-+	if (!edata->advertised) {
-+		edata->advertised = advertising & eee->supported;
-+	} else if (edata->advertised & ~advertising) {
-+		netdev_warn(dev, "EEE advertised %x must be a subset of autoneg advertised speeds %x\n",
-+			    edata->advertised, advertising);
-+		return -EINVAL;
-+	}
-+
-+	eee->advertised = edata->advertised;
-+	eee->tx_lpi_enabled = edata->tx_lpi_enabled;
-+	eee->tx_lpi_timer = edata->tx_lpi_timer;
-+eee_ok:
-+	eee->eee_enabled = edata->eee_enabled;
-+
-+	if (netif_running(dev))
-+		rc = bnxt_hwrm_set_link_setting(bp, false, true);
-+
-+	return rc;
-+}
-+
-+static int bnxt_get_eee(struct net_device *dev, struct ethtool_eee *edata)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
-+		return -EOPNOTSUPP;
-+
-+	*edata = bp->eee;
-+	if (!bp->eee.eee_enabled) {
-+		/* Preserve tx_lpi_timer so that the last value will be used
-+		 * by default when it is re-enabled.
-+		 */
-+		edata->advertised = 0;
-+		edata->tx_lpi_enabled = 0;
-+	}
-+
-+	if (!bp->eee.eee_active)
-+		edata->lp_advertised = 0;
-+
-+	return 0;
-+}
-+
- const struct ethtool_ops bnxt_ethtool_ops = {
- 	.get_settings		= bnxt_get_settings,
- 	.set_settings		= bnxt_set_settings,
-@@ -1407,4 +1481,6 @@ const struct ethtool_ops bnxt_ethtool_ops = {
- 	.get_eeprom             = bnxt_get_eeprom,
- 	.set_eeprom		= bnxt_set_eeprom,
- 	.get_link		= bnxt_get_link,
-+	.get_eee		= bnxt_get_eee,
-+	.set_eee		= bnxt_set_eee,
- };
+ 	cmd->port = PORT_NONE;
+ 	if (link_info->media_type == PORT_PHY_QCFG_RESP_MEDIA_TYPE_TP) {
+@@ -719,14 +732,6 @@ static int bnxt_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 			cmd->port = PORT_FIBRE;
+ 	}
+ 
+-	if (link_info->phy_link_status == BNXT_LINK_LINK) {
+-		if (link_info->duplex & BNXT_LINK_DUPLEX_FULL)
+-			cmd->duplex = DUPLEX_FULL;
+-	} else {
+-		cmd->duplex = DUPLEX_UNKNOWN;
+-	}
+-	ethtool_speed = bnxt_fw_to_ethtool_speed(link_info->link_speed);
+-	ethtool_cmd_speed_set(cmd, ethtool_speed);
+ 	if (link_info->transceiver ==
+ 	    PORT_PHY_QCFG_RESP_XCVR_PKG_TYPE_XCVR_INTERNAL)
+ 		cmd->transceiver = XCVR_INTERNAL;
 -- 
 1.8.3.1
