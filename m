@@ -1,106 +1,210 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] bpf, verifier: further improve search pruning
-Date: Tue,  5 Apr 2016 22:33:17 +0200
-Message-ID: <5ace6a7fbfd0da742cfaa2704d5eab7a7d0cea89.1459886148.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 1/3] tipc: eliminate buffer
+	leak in bearer layer
+Date: Tue,  5 Apr 2016 16:35:34 -0400
+Message-ID: <1459888536-22697-2-git-send-email-jon.maloy@ericsson.com>
+References: <1459888536-22697-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43140 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbcDEUd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 16:33:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1459888536-22697-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The verifier needs to go through every path of the program in
-order to check that it terminates safely, which can be quite a
-lot of instructions that need to be processed f.e. in cases with
-more branchy programs. With search pruning from f1bca824dabb ("bpf:
-add search pruning optimization to verifier") the search space can
-already be reduced significantly when the verifier detects that
-a previously walked path with same register and stack contents
-terminated already (see verifier's states_equal()), so the search
-can skip walking those states.
+When enabling a bearer we create a 'neigbor discoverer' instance by
+calling the function tipc_disc_create() before the bearer is actually
+registered in the list of enabled bearers. Because of this, the very
+first discovery broadcast message, created by the mentioned function,
+is lost, since it cannot find any valid bearer to use. Furthermore,
+the used send function, tipc_bearer_xmit_skb() does not free the given
+buffer when it cannot find a  bearer, resulting in the leak of exactly
+one send buffer each time a bearer is enabled.
 
-When working with larger programs of > ~2000 (out of max 4096)
-insns, we found that the current limit of 32k instructions is easily
-hit. For example, a case we ran into is that the search space cannot
-be pruned due to branches at the beginning of the program that make
-use of certain stack space slots (STACK_MISC), which are never used
-in the remaining program (STACK_INVALID). Therefore, the verifier
-needs to walk paths for the slots in STACK_INVALID state, but also
-all remaining paths with a stack structure, where the slots are in
-STACK_MISC, which can nearly double the search space needed. After
-various experiments, we find that a limit of 64k processed insns is
-a more reasonable choice when dealing with larger programs in practice.
-This still allows to reject extreme crafted cases that can have a
-much higher complexity (f.e. > ~300k) within the 4096 insns limit
-due to search pruning not being able to take effect.
+This commit fixes this problem by introducing two changes:
 
-Furthermore, we found that a lot of states can be pruned after a
-call instruction, f.e. we were able to reduce the search state by
-~35% in some cases with this heuristic, trade-off is to keep a bit
-more states in env->explored_states. Usually, call instructions
-have a number of preceding register assignments and/or stack stores,
-where search pruning has a better chance to suceed in states_equal()
-test. The current code marks the branch targets with STATE_LIST_MARK
-in case of conditional jumps, and the next (t + 1) instruction in
-case of unconditional jump so that f.e. a backjump will walk it. We
-also did experiments with using t + insns[t].off + 1 as a marker in
-the unconditionally jump case instead of t + 1 with the rationale
-that these two branches of execution that converge after the label
-might have more potential of pruning. We found that it was a bit
-better, but not necessarily significantly better than the current
-state, perhaps also due to clang not generating back jumps often.
-Hence, we left that as is for now.
+1) Instead of attemting to send the discovery message directly, we let
+   tipc_disc_create() return the discovery buffer to the calling
+   function, tipc_enable_bearer(), so that the latter can send it
+   when the enabling sequence is finished.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+2) In tipc_bearer_xmit_skb(), as well as in the two other transmit
+   functions at the bearer layer, we now free the indicated buffer or
+   buffer chain when a valid bearer cannot be found.
+
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- kernel/bpf/verifier.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ net/tipc/bearer.c   | 51 ++++++++++++++++++++++++++-------------------------
+ net/tipc/discover.c |  7 ++-----
+ net/tipc/discover.h |  2 +-
+ 3 files changed, 29 insertions(+), 31 deletions(-)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 2e08f8e..212e52a 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -202,6 +202,9 @@ struct verifier_env {
- 	bool allow_ptr_leaks;
- };
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 27a5406..20566e9 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -205,6 +205,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 	struct tipc_bearer *b;
+ 	struct tipc_media *m;
+ 	struct tipc_bearer_names b_names;
++	struct sk_buff *skb;
+ 	char addr_string[16];
+ 	u32 bearer_id;
+ 	u32 with_this_prio;
+@@ -301,7 +302,7 @@ restart:
+ 	b->net_plane = bearer_id + 'A';
+ 	b->priority = priority;
  
-+#define BPF_COMPLEXITY_LIMIT_INSNS	65536
-+#define BPF_COMPLEXITY_LIMIT_STACK	1024
-+
- /* verbose verifier prints what it's seeing
-  * bpf_check() is called under lock, so no race to access these global vars
-  */
-@@ -454,7 +457,7 @@ static struct verifier_state *push_stack(struct verifier_env *env, int insn_idx,
- 	elem->next = env->head;
- 	env->head = elem;
- 	env->stack_size++;
--	if (env->stack_size > 1024) {
-+	if (env->stack_size > BPF_COMPLEXITY_LIMIT_STACK) {
- 		verbose("BPF program is too complex\n");
- 		goto err;
+-	res = tipc_disc_create(net, b, &b->bcast_addr);
++	res = tipc_disc_create(net, b, &b->bcast_addr, &skb);
+ 	if (res) {
+ 		bearer_disable(net, b);
+ 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
+@@ -310,7 +311,8 @@ restart:
  	}
-@@ -1539,6 +1542,8 @@ peek_stack:
- 				goto peek_stack;
- 			else if (ret < 0)
- 				goto err_free;
-+			if (t + 1 < insn_cnt)
-+				env->explored_states[t + 1] = STATE_LIST_MARK;
- 		} else if (opcode == BPF_JA) {
- 			if (BPF_SRC(insns[t].code) != BPF_K) {
- 				ret = -EINVAL;
-@@ -1743,7 +1748,7 @@ static int do_check(struct verifier_env *env)
- 		insn = &insns[insn_idx];
- 		class = BPF_CLASS(insn->code);
  
--		if (++insn_processed > 32768) {
-+		if (++insn_processed > BPF_COMPLEXITY_LIMIT_INSNS) {
- 			verbose("BPF program is too large. Proccessed %d insn\n",
- 				insn_processed);
- 			return -E2BIG;
+ 	rcu_assign_pointer(tn->bearer_list[bearer_id], b);
+-
++	if (skb)
++		tipc_bearer_xmit_skb(net, bearer_id, skb, &b->bcast_addr);
+ 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
+ 		name,
+ 		tipc_addr_string_fill(addr_string, disc_domain), priority);
+@@ -450,6 +452,8 @@ void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+ 	if (likely(b))
+ 		b->media->send_msg(net, skb, b, dest);
++	else
++		kfree_skb(skb);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -468,11 +472,11 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (likely(b)) {
+-		skb_queue_walk_safe(xmitq, skb, tmp) {
+-			__skb_dequeue(xmitq);
+-			b->media->send_msg(net, skb, b, dst);
+-		}
++	if (unlikely(!b))
++		__skb_queue_purge(xmitq);
++	skb_queue_walk_safe(xmitq, skb, tmp) {
++		__skb_dequeue(xmitq);
++		b->media->send_msg(net, skb, b, dst);
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -490,14 +494,14 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+ 
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (likely(b)) {
+-		skb_queue_walk_safe(xmitq, skb, tmp) {
+-			hdr = buf_msg(skb);
+-			msg_set_non_seq(hdr, 1);
+-			msg_set_mc_netid(hdr, net_id);
+-			__skb_dequeue(xmitq);
+-			b->media->send_msg(net, skb, b, &b->bcast_addr);
+-		}
++	if (unlikely(!b))
++		__skb_queue_purge(xmitq);
++	skb_queue_walk_safe(xmitq, skb, tmp) {
++		hdr = buf_msg(skb);
++		msg_set_non_seq(hdr, 1);
++		msg_set_mc_netid(hdr, net_id);
++		__skb_dequeue(xmitq);
++		b->media->send_msg(net, skb, b, &b->bcast_addr);
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -513,24 +517,21 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+  * ignores packets sent using interface multicast, and traffic sent to other
+  * nodes (which can happen if interface is running in promiscuous mode).
+  */
+-static int tipc_l2_rcv_msg(struct sk_buff *buf, struct net_device *dev,
++static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
+ 			   struct packet_type *pt, struct net_device *orig_dev)
+ {
+ 	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(dev->tipc_ptr);
+-	if (likely(b)) {
+-		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
+-			buf->next = NULL;
+-			tipc_rcv(dev_net(dev), buf, b);
+-			rcu_read_unlock();
+-			return NET_RX_SUCCESS;
+-		}
++	if (likely(b && (skb->pkt_type <= PACKET_BROADCAST))) {
++		skb->next = NULL;
++		tipc_rcv(dev_net(dev), skb, b);
++		rcu_read_unlock();
++		return NET_RX_SUCCESS;
+ 	}
+ 	rcu_read_unlock();
+-
+-	kfree_skb(buf);
++	kfree_skb(skb);
+ 	return NET_RX_DROP;
+ }
+ 
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index f1e738e..ad9d477 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -268,10 +268,9 @@ exit:
+  * Returns 0 if successful, otherwise -errno.
+  */
+ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
+-		     struct tipc_media_addr *dest)
++		     struct tipc_media_addr *dest, struct sk_buff **skb)
+ {
+ 	struct tipc_link_req *req;
+-	struct sk_buff *skb;
+ 
+ 	req = kmalloc(sizeof(*req), GFP_ATOMIC);
+ 	if (!req)
+@@ -293,9 +292,7 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
+ 	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
+ 	mod_timer(&req->timer, jiffies + req->timer_intv);
+ 	b->link_req = req;
+-	skb = skb_clone(req->buf, GFP_ATOMIC);
+-	if (skb)
+-		tipc_bearer_xmit_skb(net, req->bearer_id, skb, &req->dest);
++	*skb = skb_clone(req->buf, GFP_ATOMIC);
+ 	return 0;
+ }
+ 
+diff --git a/net/tipc/discover.h b/net/tipc/discover.h
+index c9b1277..b80a335 100644
+--- a/net/tipc/discover.h
++++ b/net/tipc/discover.h
+@@ -40,7 +40,7 @@
+ struct tipc_link_req;
+ 
+ int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
+-		     struct tipc_media_addr *dest);
++		     struct tipc_media_addr *dest, struct sk_buff **skb);
+ void tipc_disc_delete(struct tipc_link_req *req);
+ void tipc_disc_reset(struct net *net, struct tipc_bearer *b_ptr);
+ void tipc_disc_add_dest(struct tipc_link_req *req);
 -- 
-1.9.3
+1.9.1
+
+
+------------------------------------------------------------------------------
