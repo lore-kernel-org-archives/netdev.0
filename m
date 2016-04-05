@@ -1,34 +1,51 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [RFC PATCH 5/6] ppp: define reusable device creation functions
-Date: Tue, 5 Apr 2016 23:14:56 +0200
-Message-ID: <20160405211456.GC1305@alphalink.fr>
+Subject: Re: [RFC PATCH 6/6] ppp: add rtnetlink device creation support
+Date: Tue, 5 Apr 2016 23:22:22 +0200
+Message-ID: <20160405212222.GD1305@alphalink.fr>
 References: <cover.1459807527.git.g.nault@alphalink.fr>
- <522658eb90148cb670fb4f5db1429c41788aa4d8.1459807527.git.g.nault@alphalink.fr>
- <20160405082832.534257df@xeon-e3>
+ <dc5fd88775581dba073d0051bbfb4c2c9c5c2d23.1459807527.git.g.nault@alphalink.fr>
+ <5703F356.6050107@bfs.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
 	Paul Mackerras <paulus@samba.org>,
 	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: walter harms <wharms@bfs.de>
 Return-path: <linux-ppp-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160405082832.534257df@xeon-e3>
+In-Reply-To: <5703F356.6050107@bfs.de>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2016 at 08:28:32AM -0700, Stephen Hemminger wrote:
-> On Tue, 5 Apr 2016 02:56:29 +0200
-> Guillaume Nault <g.nault@alphalink.fr> wrote:
+On Tue, Apr 05, 2016 at 07:18:14PM +0200, walter harms wrote:
 > 
-> > Move PPP device initialisation and registration out of
-> > ppp_create_interface().
-> > This prepares code for device registration with rtnetlink.
-> > 
 > 
-> Does PPP module autoload correctly based on the netlink attributes?
+> Am 05.04.2016 02:56, schrieb Guillaume Nault:
+> > @@ -1043,12 +1048,39 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
+> >  			     const struct ppp_config *conf)
+> >  {
+> >  	struct ppp *ppp = netdev_priv(dev);
+> > +	struct file *file;
+> >  	int indx;
+> > +	int err;
+> > +
+> > +	if (conf->fd < 0) {
+> > +		file = conf->file;
+> > +		if (!file) {
+> > +			err = -EBADF;
+> > +			goto out;
 > 
-Patch #6 has MODULE_ALIAS_RTNL_LINK("ppp"). This works fine for
-auto-loading ppp_generic when creating a PPP device with rtnetlink.
-Is there anything else required?
-
+> why not just return -EBADF;
+> 
+> > +		}
+> > +	} else {
+> > +		file = fget(conf->fd);
+> > +		if (!file) {
+> > +			err = -EBADF;
+> > +			goto out;
+> 	
+> why not just return -EBADF;
+> 
+Just because the 'out' label is declared anyway and because this
+centralises the return point. But I agree returning -EBADF directly
+could be more readable. I don't have strong opinion.
