@@ -1,92 +1,79 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Tue, 5 Apr 2016 09:45:51 -0700
-Message-ID: <CAKgT0UcfMeULGsh+EuJ+A1X7n5b6vYdn3eHY=+Ev17=5_cAQXA@mail.gmail.com>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
-	<20160404162818.14332.1076.stgit@localhost.localdomain>
-	<20160405034437.GA9322@gondor.apana.org.au>
-	<CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
-	<20160405043209.GA9822@gondor.apana.org.au>
-	<CAKgT0Uc=9MMzSHWgZib5+EwPCQokjSSnC9vfOtWKULvmwUQpdQ@mail.gmail.com>
-	<1459873806.6473.358.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
+Date: Tue, 5 Apr 2016 17:15:20 +0300
+Message-ID: <5703C878.7050307@mellanox.com>
+References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
+ <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
+ <1459562911.6473.299.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160402024710.GA59703@ast-mbp.thefacebook.com>
+ <20160404165701.2a25a17a@redhat.com>
+ <1459783323.6473.341.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160404185010.GD68392@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Brenden Blanco <bblanco@plumgrid.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <tom@herbertland.com>,
+	<daniel@iogearbox.net>, <john.fastabend@gmail.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:35391 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbcDEQpw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:45:52 -0400
-Received: by mail-io0-f179.google.com with SMTP id g185so25775607ioa.2
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:45:52 -0700 (PDT)
-In-Reply-To: <1459873806.6473.358.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-am1on0059.outbound.protection.outlook.com ([157.56.112.59]:17680
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752428AbcDEQtB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 12:49:01 -0400
+In-Reply-To: <20160404185010.GD68392@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 5, 2016 at 9:30 AM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> On Tue, 2016-04-05 at 08:52 -0700, Alexander Duyck wrote:
->
+On 4/4/2016 9:50 PM, Alexei Starovoitov wrote:
+> On Mon, Apr 04, 2016 at 08:22:03AM -0700, Eric Dumazet wrote:
+>> A single flow is able to use 40Gbit on those 40Gbit NIC, so there is not
+>> a single 10GB trunk used for a given flow.
 >>
->> I disagree I think it will have to be part of the default
->> configuration.  The problem is the IP ID is quickly becoming
->> meaningless.  When you consider that a 40Gb/s link can wrap the IP I=
-D
->> value nearly 50 times a second using a 1500 MTU the IP ID field shou=
-ld
->> just be ignored anyway because you cannot guarantee that it will be
->> unique without limiting the Tx window size.  That was the whole poin=
-t
->> of RFC6864.  Basically the IP ID field is so small that as we push
->> into the higher speeds you cannot guarantee that the field will have
->> any meaning so for any case where you don't need to use it you
->> shouldn't because it will likely not provide enough useful data.
+>> This 14Mpps thing seems to be a queue limitation on mlx4.
+> yeah, could be queueing related. Multiple cpus can send ~30Mpps of the same 64 byte packet,
+> but mlx4 can only receive 14.5Mpps. Odd.
 >
-> Just because a few flows reach 40Gbit , we should remind that vast
-> majority of the Internet runs with < 50Mbits flows.
->
-> I prefer the argument of IPv6 not having ID ;)
+> Or (and other mellanox guys), what is really going on inside 40G nic?
 
-Okay, maybe I'll try to use that argument more often then.. :-)
+Hi Alexei,
 
-> We should do our best to keep interoperability, this is the selling
-> point.
->
-> And quite frankly your last patch makes perfect sense to me :
+Not that I know everything that goes inside there, and not that if I 
+knew it all I could have posted that here (I heard HWs sometimes have 
+IP)... but, anyway, as for your questions:
 
-Yes.  It was a compromise, though I might still have to go through and
-refine it more.  It might make sense for the IP header associated with
-the TCP flow, but for outer headers it actually is worse because we
-end up blocking several different possibilities.  What I might need to
-do is capture the state of the DF bit as we work a flow up through the
-stack and once it is in the list of GRO SKBs use that DF bit as a flag
-to indicate if we support a incrementing or fixed pattern for the
-values.  That way tunnels can optionally ignore the IP ID if the DF
-bit is set since their values may not be as clean as that of TCP.
+ConnectX3 40Gbs NIC can receive > 10Gbs packet-worthy (14.5M) in single 
+ring and Mellanox
+100Gbs NICs can receive > 25Gbs packet-worthy (37.5M) in single ring, 
+people that use DPDK (...) even see this numbers and AFAIU we now 
+attempt to see that in the kernel with XDP :)
 
-> The aggregation is done only if the TCP headers of consecutive packet=
-s
-> matches. So who cares of IPv4 ID really ?
-> This is a very minor detail. The possible gains outperform the
-> theoretical 'problem'
->
-> GRO already reorder flows, it never had a guarantee of being '=C3=ADn=
-visible'
-> as Herbert claims.
+I realize that we might have some issues in the mlx4 driver reporting on 
+HW drops. Eran (cc-ed) and Co are looking on that.
 
-I can see what he is trying to get at.  I just think it is a bit too
-strict on the interpretation of what values have to be maintained.  My
-plan going forward is to add a sysctl that will probably allow us some
-wiggle room in regards to IP ID for GRO and GSO so that when it is
-disabled we will not perform GSO partial nor allow for repeating IP ID
-in GRO on devices that cannot get the IP ID right.
+In parallel to doing so, I would suggest you to do some experiments that 
+might shed some more light, if on the TX side you do
 
-- Alex
+$ ./pktgen_sample03_burst_single_flow.sh -i $DEV -d $IP -m $MAC -t 4
+
+On the RX side,  skip RSS and force the packets that match that traffic 
+pattern to go to (say) ring (==action) 0
+
+$ ethtool -U $DEV flow-type ip4 dst-mac $MAC dst-ip $IP action 0 loc 0
+
+to go back to RSS remove the rule
+
+$ ethtool -U $DEV delete action 0
+
+FWIW (not that I see how it helps you now), you can do HW drop on the RX 
+side with ring -1
+
+$ ethtool -U $DEV flow-type ip4 dst-mac $MAC dst-ip $IP action -1 loc 0
+
+Or.
