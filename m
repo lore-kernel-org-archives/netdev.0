@@ -1,54 +1,73 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/16] fm10k: base queue scheme covered by RSS
-Date: Tue,  5 Apr 2016 01:01:21 -0700
-Message-ID: <1459843288-40623-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/16][pull request] 100GbE Intel Wired LAN Driver Updates 2016-04-05
+Date: Tue,  5 Apr 2016 01:01:12 -0700
+Message-ID: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5422 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:25315 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754225AbcDEIBx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 04:01:53 -0400
-In-Reply-To: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1757549AbcDEICZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 04:02:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates to fm10k only.
 
-In fm10k_set_num_queues, we previously assigned the base template. This
-would always be overwritten by either fm10k_set_qos_queues or
-fm10k_set_rss_queues. In either case, we don't need the base values, so
-we can just remove them.
+Bruce provides nearly half of the patches in the series, most of which do
+general cleanup of the driver.  These include semantic cleanups,
+checkpatch.pl fixes, update driver to use BIT() kernel macro, use
+BUILD_BUG_ON() where appropriate and use ether_addr_copy() instead of
+memcpy().
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Jake provides the remaining patches in the series, starting with a fix
+for a possible NULL pointer deference.  Next delays initialization of the
+service timer and service task until late in probe().  If we do not wait,
+failures in probe do not properly cleanup the service timer or service
+task items which result in a kernel panic.  Added better reporting during
+error conditions.  Fixed another possible kernel panic where we were
+clearing the interrupt scheme before we freed the mailbox IRQ.  Added
+helper functions for setting strings and data for ethtool stats.  Fixed
+comment mis-spelled words.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index db4353b..b87401c38 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -1572,13 +1572,11 @@ static bool fm10k_set_rss_queues(struct fm10k_intfc *interface)
-  **/
- static void fm10k_set_num_queues(struct fm10k_intfc *interface)
- {
--	/* Start with base case */
--	interface->num_rx_queues = 1;
--	interface->num_tx_queues = 1;
--
-+	/* Attempt to setup QoS and RSS first */
- 	if (fm10k_set_qos_queues(interface))
- 		return;
- 
-+	/* If we don't have QoS, just fallback to only RSS. */
- 	fm10k_set_rss_queues(interface);
- }
- 
+The following are changes since commit 15f41e2ba13a6726632e44b1180e805a61e470ad:
+  Merge branch 'tcp-udp-misc'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 100GbE
+
+Bruce Allan (7):
+  fm10k: Move constants to the right of binary operators
+  fm10k: cleanup remaining right-bit-shifted 1
+  fm10k: Avoid crashing the kernel
+  fm10k: demote BUG_ON() to WARN_ON() where appropriate
+  fm10k: cleanup SPACE_BEFORE_TAB checkpatch warning
+  fm10k: use ether_addr_copy to copy MAC address
+  fm10k: prevent possibly uninitialized variable
+
+Jacob Keller (9):
+  fm10k: prevent null pointer dereference of msix_entries table
+  fm10k: don't initialize service task until later in probe
+  fm10k: base queue scheme covered by RSS
+  fm10k: print error message when stop_hw fails
+  fm10k: free MBX IRQ before clearing interrupt scheme
+  fm10k: add helper functions to set strings and data for ethtool stats
+  fm10k: correctly clean up when init_queueing_scheme fails
+  fm10k: fix a minor typo in some comments
+  fm10k: use ethtool_rxfh_indir_default for default redirection table
+
+ drivers/net/ethernet/intel/fm10k/fm10k.h         |  14 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 227 ++++++++++++-----------
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c     |   4 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c    |  85 +++++----
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |   6 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |  72 ++++---
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c      |  20 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_ptp.c     |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     |  24 +--
+ drivers/net/ethernet/intel/fm10k/fm10k_type.h    |   8 +-
+ 10 files changed, 247 insertions(+), 215 deletions(-)
+
 -- 
 2.5.5
