@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/15] fm10k: demote BUG_ON() to WARN_ON() where appropriate
-Date: Tue,  5 Apr 2016 13:02:15 -0700
-Message-ID: <1459886547-146445-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/15] fm10k: use ether_addr_copy to copy MAC address
+Date: Tue,  5 Apr 2016 13:02:17 -0700
+Message-ID: <1459886547-146445-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29525 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:56320 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759888AbcDEUCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759897AbcDEUCc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2016 16:02:32 -0400
 In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,28 +18,30 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-We don't need to crash the kernel in this instance so just warn about the
-condition and play on.
+Cleanup the remaining instances of using memcpy() instead of the preferred
+ether_addr_copy().
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index c9324c7..60a70e9 100644
+index 60a70e9..6190a81 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -99,7 +99,7 @@ void fm10k_service_event_schedule(struct fm10k_intfc *interface)
+@@ -1776,8 +1776,8 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		netdev->addr_assign_type |= NET_ADDR_RANDOM;
+ 	}
  
- static void fm10k_service_event_complete(struct fm10k_intfc *interface)
- {
--	BUG_ON(!test_bit(__FM10K_SERVICE_SCHED, &interface->state));
-+	WARN_ON(!test_bit(__FM10K_SERVICE_SCHED, &interface->state));
+-	memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, hw->mac.addr, netdev->addr_len);
++	ether_addr_copy(netdev->dev_addr, hw->mac.addr);
++	ether_addr_copy(netdev->perm_addr, hw->mac.addr);
  
- 	/* flush memory to make sure state is correct before next watchog */
- 	smp_mb__before_atomic();
+ 	if (!is_valid_ether_addr(netdev->perm_addr)) {
+ 		dev_err(&pdev->dev, "Invalid MAC Address\n");
 -- 
 2.5.5
