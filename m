@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 6/8] samples/bpf: add tracepoint support to bpf loader
-Date: Mon, 4 Apr 2016 21:52:52 -0700
-Message-ID: <1459831974-2891931-7-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to tracepoints
+Date: Mon, 4 Apr 2016 21:52:48 -0700
+Message-ID: <1459831974-2891931-3-git-send-email-ast@fb.com>
 References: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,99 +15,169 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35723 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751176AbcDEExA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:53:00 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u354mpQ6007372
-	for <netdev@vger.kernel.org>; Mon, 4 Apr 2016 21:52:59 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 222xhcb93m-1
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 21:52:58 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 4367dd50faea11e587b20002c992ebde-eabf93f0 for <netdev@vger.kernel.org>;	Mon,
- 04 Apr 2016 21:52:56 -0700
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1459831974-2891931-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recognize "tracepoint/" section name prefix and attach the program
-to that tracepoint.
+introduce BPF_PROG_TYPE_TRACEPOINT program type and allow it to be
+attached to tracepoints.
+The tracepoint will copy the arguments in the per-cpu buffer and pass
+it to the bpf program as its first argument.
+The layout of the fields can be discovered by doing
+'cat /sys/kernel/debug/tracing/events/sched/sched_switch/format'
+prior to the compilation of the program with exception that first 8 bytes
+are reserved and not accessible to the program. This area is used to store
+the pointer to 'struct pt_regs' which some of the bpf helpers will use:
++---------+
+| 8 bytes | hidden 'struct pt_regs *' (inaccessible to bpf program)
++---------+
+| N bytes | static tracepoint fields defined in tracepoint/format (bpf readonly)
++---------+
+| dynamic | __dynamic_array bytes of tracepoint (inaccessible to bpf yet)
++---------+
+
+Not that all of the fields are already dumped to user space via perf ring buffer
+and some application access it directly without consulting tracepoint/format.
+Same rule applies here: static tracepoint fields should only be accessed
+in a format defined in tracepoint/format. The order of fields and
+field sizes are not an ABI.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/bpf_load.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+ include/trace/perf.h            | 18 ++++++++++++++----
+ include/uapi/linux/bpf.h        |  1 +
+ kernel/events/core.c            | 13 +++++++++----
+ kernel/trace/trace_event_perf.c |  3 +++
+ 4 files changed, 27 insertions(+), 8 deletions(-)
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 58f86bd11b3d..022af71c2bb5 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -49,6 +49,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_socket = strncmp(event, "socket", 6) == 0;
- 	bool is_kprobe = strncmp(event, "kprobe/", 7) == 0;
- 	bool is_kretprobe = strncmp(event, "kretprobe/", 10) == 0;
-+	bool is_tracepoint = strncmp(event, "tracepoint/", 11) == 0;
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
- 	int fd, efd, err, id;
-@@ -63,6 +64,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
- 	} else if (is_kprobe || is_kretprobe) {
- 		prog_type = BPF_PROG_TYPE_KPROBE;
-+	} else if (is_tracepoint) {
-+		prog_type = BPF_PROG_TYPE_TRACEPOINT;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -111,12 +114,23 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 			       event, strerror(errno));
- 			return -1;
- 		}
--	}
+diff --git a/include/trace/perf.h b/include/trace/perf.h
+index 26486fcd74ce..55feb69c873f 100644
+--- a/include/trace/perf.h
++++ b/include/trace/perf.h
+@@ -37,18 +37,19 @@ perf_trace_##call(void *__data, proto)					\
+ 	struct trace_event_call *event_call = __data;			\
+ 	struct trace_event_data_offsets_##call __maybe_unused __data_offsets;\
+ 	struct trace_event_raw_##call *entry;				\
++	struct bpf_prog *prog = event_call->prog;			\
+ 	struct pt_regs *__regs;						\
+ 	u64 __addr = 0, __count = 1;					\
+ 	struct task_struct *__task = NULL;				\
+ 	struct hlist_head *head;					\
+ 	int __entry_size;						\
+ 	int __data_size;						\
+-	int rctx;							\
++	int rctx, event_type;						\
+ 									\
+ 	__data_size = trace_event_get_offsets_##call(&__data_offsets, args); \
+ 									\
+ 	head = this_cpu_ptr(event_call->perf_events);			\
+-	if (__builtin_constant_p(!__task) && !__task &&			\
++	if (!prog && __builtin_constant_p(!__task) && !__task &&	\
+ 				hlist_empty(head))			\
+ 		return;							\
+ 									\
+@@ -56,8 +57,9 @@ perf_trace_##call(void *__data, proto)					\
+ 			     sizeof(u64));				\
+ 	__entry_size -= sizeof(u32);					\
+ 									\
+-	entry = perf_trace_buf_prepare(__entry_size,			\
+-			event_call->event.type, &__regs, &rctx);	\
++	event_type = prog ? TRACE_EVENT_TYPE_MAX : event_call->event.type; \
++	entry = perf_trace_buf_prepare(__entry_size, event_type,	\
++				       &__regs, &rctx);			\
+ 	if (!entry)							\
+ 		return;							\
+ 									\
+@@ -67,6 +69,14 @@ perf_trace_##call(void *__data, proto)					\
+ 									\
+ 	{ assign; }							\
+ 									\
++	if (prog) {							\
++		*(struct pt_regs **)entry = __regs;			\
++		if (!trace_call_bpf(prog, entry) || hlist_empty(head)) { \
++			perf_swevent_put_recursion_context(rctx);	\
++			return;						\
++		}							\
++		memset(&entry->ent, 0, sizeof(entry->ent));		\
++	}								\
+ 	perf_trace_buf_submit(entry, __entry_size, rctx, __addr,	\
+ 		__count, __regs, head, __task);				\
+ }
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 23917bb47bf3..70eda5aeb304 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -92,6 +92,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_KPROBE,
+ 	BPF_PROG_TYPE_SCHED_CLS,
+ 	BPF_PROG_TYPE_SCHED_ACT,
++	BPF_PROG_TYPE_TRACEPOINT,
+ };
  
--	strcpy(buf, DEBUGFS);
--	strcat(buf, "events/kprobes/");
--	strcat(buf, event);
--	strcat(buf, "/id");
-+		strcpy(buf, DEBUGFS);
-+		strcat(buf, "events/kprobes/");
-+		strcat(buf, event);
-+		strcat(buf, "/id");
-+	} else if (is_tracepoint) {
-+		event += 11;
+ #define BPF_PSEUDO_MAP_FD	1
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index de24fbce5277..58fc9a7d1562 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -6725,12 +6725,13 @@ int perf_swevent_get_recursion_context(void)
+ }
+ EXPORT_SYMBOL_GPL(perf_swevent_get_recursion_context);
+ 
+-inline void perf_swevent_put_recursion_context(int rctx)
++void perf_swevent_put_recursion_context(int rctx)
+ {
+ 	struct swevent_htable *swhash = this_cpu_ptr(&swevent_htable);
+ 
+ 	put_recursion_context(swhash->recursion, rctx);
+ }
++EXPORT_SYMBOL_GPL(perf_swevent_put_recursion_context);
+ 
+ void ___perf_sw_event(u32 event_id, u64 nr, struct pt_regs *regs, u64 addr)
+ {
+@@ -7104,6 +7105,7 @@ static void perf_event_free_filter(struct perf_event *event)
+ 
+ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+ {
++	bool is_kprobe, is_tracepoint;
+ 	struct bpf_prog *prog;
+ 
+ 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
+@@ -7112,15 +7114,18 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+ 	if (event->tp_event->prog)
+ 		return -EEXIST;
+ 
+-	if (!(event->tp_event->flags & TRACE_EVENT_FL_UKPROBE))
+-		/* bpf programs can only be attached to u/kprobes */
++	is_kprobe = event->tp_event->flags & TRACE_EVENT_FL_UKPROBE;
++	is_tracepoint = event->tp_event->flags & TRACE_EVENT_FL_TRACEPOINT;
++	if (!is_kprobe && !is_tracepoint)
++		/* bpf programs can only be attached to u/kprobe or tracepoint */
+ 		return -EINVAL;
+ 
+ 	prog = bpf_prog_get(prog_fd);
+ 	if (IS_ERR(prog))
+ 		return PTR_ERR(prog);
+ 
+-	if (prog->type != BPF_PROG_TYPE_KPROBE) {
++	if ((is_kprobe && prog->type != BPF_PROG_TYPE_KPROBE) ||
++	    (is_tracepoint && prog->type != BPF_PROG_TYPE_TRACEPOINT)) {
+ 		/* valid fd, but invalid bpf program type */
+ 		bpf_prog_put(prog);
+ 		return -EINVAL;
+diff --git a/kernel/trace/trace_event_perf.c b/kernel/trace/trace_event_perf.c
+index 7a68afca8249..7ada829029d3 100644
+--- a/kernel/trace/trace_event_perf.c
++++ b/kernel/trace/trace_event_perf.c
+@@ -284,6 +284,9 @@ void *perf_trace_buf_prepare(int size, unsigned short type,
+ 		*regs = this_cpu_ptr(&__perf_regs[*rctxp]);
+ 	raw_data = this_cpu_ptr(perf_trace_buf[*rctxp]);
+ 
++	if (type == TRACE_EVENT_TYPE_MAX)
++		return raw_data;
 +
-+		if (*event == 0) {
-+			printf("event name cannot be empty\n");
-+			return -1;
-+		}
-+		strcpy(buf, DEBUGFS);
-+		strcat(buf, "events/");
-+		strcat(buf, event);
-+		strcat(buf, "/id");
-+	}
+ 	/* zero the dead bytes from align to not leak stack to user */
+ 	memset(&raw_data[size - sizeof(u64)], 0, sizeof(u64));
  
- 	efd = open(buf, O_RDONLY, 0);
- 	if (efd < 0) {
-@@ -304,6 +318,7 @@ int load_bpf_file(char *path)
- 
- 			if (memcmp(shname_prog, "kprobe/", 7) == 0 ||
- 			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
-+			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
- 			    memcmp(shname_prog, "socket", 6) == 0)
- 				load_and_attach(shname_prog, insns, data_prog->d_size);
- 		}
-@@ -320,6 +335,7 @@ int load_bpf_file(char *path)
- 
- 		if (memcmp(shname, "kprobe/", 7) == 0 ||
- 		    memcmp(shname, "kretprobe/", 10) == 0 ||
-+		    memcmp(shname, "tracepoint/", 11) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0)
- 			load_and_attach(shname, data->d_buf, data->d_size);
- 	}
 -- 
 2.8.0
