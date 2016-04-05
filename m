@@ -1,56 +1,72 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Tue, 5 Apr 2016 11:44:37 +0800
-Message-ID: <20160405034437.GA9322@gondor.apana.org.au>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
- <20160404162818.14332.1076.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@herbertland.com, jesse@kernel.org, alexander.duyck@gmail.com,
-	edumazet@google.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Alexander Duyck <aduyck@mirantis.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next 0/7] sctp: support sctp_diag in kernel
+Date: Tue,  5 Apr 2016 12:06:25 +0800
+Message-ID: <cover.1459829123.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:40665 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757157AbcDEDpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 23:45:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20160404162818.14332.1076.stgit@localhost.localdomain>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36580 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbcDEEGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:06:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 04, 2016 at 09:31:21AM -0700, Alexander Duyck wrote:
-> RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes other
-> than fragmentation and reassembly.  Currently we are looking at this field
-> as a way of identifying what frames can be aggregated and  which cannot for
-> GRO.  While this is valid for frames that do not have DF set, it is invalid
-> to do so if the bit is set.
+This patchset will add sctp_diag module to implement diag interface on
+sctp in kernel.
 
-This justification is bogus.  GRO is a completely local optimisation
-that should have zero visibility to third parties.  So it makes no
-sense to talk about RFC compliance of GRO.  The Linux network stack
-as a whole is subject to RFC compliance, but not GRO per se.
- 
-> In the case of the non-incrementing IP ID we will end up losing the data
-> that the IP ID is fixed.  However as per RFC 6864 we should be able to
-> write any value into the IP ID when the DF bit is set so this should cause
-> minimal harm.
+For a listening sctp endpoint, we will just dump it's ep info.
+For a sctp connection, we will the assoc info and it's ep info.
 
-No we should not do that, at least not by default.  GRO was designed
-to be completely lossless, that is its main advantage of the various
-forms of LRO which preceded it.
+The ss dump will looks like:
 
-If you lose that people will start asking it to be disabled for
-routers/bridges and we'll be back in the same old mess that we
-had with LRO.
+[iproute2]# ./misc/ss --sctp  -n -l
+State      Recv-Q Send-Q   Local Address:Port       Peer Address:Port
+LISTEN     0      128      172.16.254.254:8888      *:*
+LISTEN     0      5        127.0.0.1:1234           *:*
+LISTEN     0      5        127.0.0.1:1234           *:*
+  - ESTAB  0      0        127.0.0.1%lo:1234        127.0.0.1:4321
+LISTEN     0      128      172.16.254.254:8888      *:*
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.253.253:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.1.1:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.1.2:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.2.1:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.2.2:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.3.1:8888
+  - ESTAB  0      0        172.16.254.254%eth1:8888 172.16.3.2:8888
+LISTEN     0      0        127.0.0.1:4321           *:*
+  - ESTAB  0      0        127.0.0.1%lo:4321        127.0.0.1:1234
 
-So please do this properly and preserve the information in the packet.
-As I said earlier all it takes is one single bit, like we do with ECN.
-If you put it in the feature bit you'll also allow us to distinguish
-between TSO drivers that produce fixed IDs vs. incrementing IDs.
+The entries with '- ESTAB' are the assocs, some of them may belong to
+the same endpoint. So we will dump the parent endpoint first, like the
+entry with 'LISTEN'. then dump the assocs. ep and assocs entries will
+be dumped in right order so that ss can show them in tree format easily.
 
-Cheers,
+Besides, this patchset also simplifies sctp proc codes, cause it has
+some similar codes with sctp diag in sctp transport traversal.
+
+Xin Long (7):
+  sctp: add sctp_info dump api for sctp_diag
+  sctp: export some apis or variables for sctp_diag
+  sctp: export some functions for sctp_diag in inet_diag
+  sctp: add the sctp_diag.c file
+  sctp: reuse the some transport traversal functions in proc
+  sctp: merge the seq_start/next/exits in remaddrs and assocs
+  sctp: fix some rhashtable functions using in sctp proc/diag
+
+ include/linux/sctp.h           |  65 +++++
+ include/net/sctp/sctp.h        |  16 ++
+ include/uapi/linux/inet_diag.h |   2 +
+ net/ipv4/inet_diag.c           |   9 +-
+ net/sctp/Kconfig               |   4 +
+ net/sctp/Makefile              |   1 +
+ net/sctp/proc.c                | 104 ++------
+ net/sctp/sctp_diag.c           | 581 +++++++++++++++++++++++++++++++++++++++++
+ net/sctp/socket.c              | 215 +++++++++++++++
+ 9 files changed, 911 insertions(+), 86 deletions(-)
+ create mode 100644 net/sctp/sctp_diag.c
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0
