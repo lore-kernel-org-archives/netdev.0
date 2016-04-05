@@ -1,58 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Tue, 5 Apr 2016 10:19:40 +0200
-Message-ID: <20160405101940.74a10ba2@redhat.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	<1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
-	<CALx6S35N1W32e9fvAmEbPdZk1PK2eNUgd0uU7pteMkBoHUd36g@mail.gmail.com>
-	<20160403070221.GF21980@gmail.com>
-	<20160404220714.GB9972@pox.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	Tom Herbert <tom@herbertland.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	john fastabend <john.fastabend@gmail.com>, brouer@redhat.com
-To: Thomas Graf <tgraf@suug.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/3] mlxsw: spectrum: Reduce number of supported 802.1D bridges
+Date: Tue,  5 Apr 2016 10:20:02 +0200
+Message-ID: <1459844404-4698-2-git-send-email-jiri@resnulli.us>
+References: <1459844404-4698-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	corbet@lwn.net, sfeldma@gmail.com, nicolas.dichtel@6wind.com,
+	vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38248 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757456AbcDEITq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 04:19:46 -0400
-In-Reply-To: <20160404220714.GB9972@pox.localdomain>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34361 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756592AbcDEIUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 04:20:10 -0400
+Received: by mail-wm0-f42.google.com with SMTP id l6so12426808wml.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 01:20:09 -0700 (PDT)
+In-Reply-To: <1459844404-4698-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ido Schimmel <idosch@mellanox.com>
 
-On Tue, 5 Apr 2016 00:07:14 +0200 Thomas Graf <tgraf@suug.ch> wrote:
+Resources allocated for these bridges at init time cannot be later used
+for other purposes. While current number is supported by the device,
+it's mostly theoretical with regards to any real use case, which leads
+to poor utilization of device's resources. Solve that by reducing the
+number.
 
-> On 04/03/16 at 12:02am, Brenden Blanco wrote:
-> > On Sat, Apr 02, 2016 at 12:39:45PM -0400, Tom Herbert wrote:  
-> > > Is there a hard restriction that this could only work with physical devices?  
-> > I suppose not, but there wouldn't be much use case as compared to tc
-> > ingress, no? Since I was imagining that this new hook would be more
-> > restricted in functionality due to operating on descriptors rather than
-> > with a full skb, I tried to think of an appropriate name.
-> > 
-> > If you think that this hook would spread, then a better name is needed.  
-> 
-> The thing that comes to mind is that this prog type makes it easier to
-> implement batched processing of packets in BPF which would require major
-> surgery across the tc layer to make it available in cls_bpf. Batched
-> processing will be beneficial for software devices as well.
+The long term plan is to make this value (along with others) user
+configurable via devlink and write it to NVRAM, so that it can be used
+during the next init. Until then we must hardcode such values.
 
-+1 agreed, I would really like to see batched processing of packets in
-BPF, for this packet type, designed in from the start.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 4b8abaf..d58ab0c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -50,7 +50,7 @@
+ 
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
+ #define MLXSW_SP_VFID_PORT_MAX 512	/* Non-bridged VLAN interfaces */
+-#define MLXSW_SP_VFID_BR_MAX 8192	/* Bridged VLAN interfaces */
++#define MLXSW_SP_VFID_BR_MAX 6144	/* Bridged VLAN interfaces */
+ #define MLXSW_SP_VFID_MAX (MLXSW_SP_VFID_PORT_MAX + MLXSW_SP_VFID_BR_MAX)
+ 
+ #define MLXSW_SP_LAG_MAX 64
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.5.5
