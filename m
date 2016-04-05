@@ -1,42 +1,48 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
-Date: Tue, 5 Apr 2016 16:05:16 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D54DC5395@AcuExch.aculab.com>
-References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
-	 <87vb45brxc.fsf@kamboji.qca.qualcomm.com>
-	 <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
- <1459256320.6473.160.camel@edumazet-glaptop3.roam.corp.google.com>
- <4fa3762986eb4b848dbe7daf6871d7a8@SC-EXCH04.marvell.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 03/16] fm10k: Avoid crashing the kernel
+Date: Tue, 05 Apr 2016 12:12:34 -0400 (EDT)
+Message-ID: <20160405.121234.207383895896842448.davem@davemloft.net>
+References: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1459843288-40623-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Linux Wireless <linux-wireless@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Sameer Nanda <snanda@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sonny Rao <sonnyrao@chromium.org>,
-	Douglas Anderson <dianders@chromium.org>
-To: 'Amitkumar Karwar' <akarwar@marvell.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Wei-Ning Huang <wnhuang@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:57462 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663AbcDEQGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:06:36 -0400
-In-Reply-To: <4fa3762986eb4b848dbe7daf6871d7a8@SC-EXCH04.marvell.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:59478 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758327AbcDEQMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:12:43 -0400
+In-Reply-To: <1459843288-40623-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQW1pdGt1bWFyIEthcndhcg0KPiBTZW50OiAwNSBBcHJpbCAyMDE2IDA2OjQ4DQouLi4N
-Cj4gT3VyIG9uZSB0aW1lIGFsbG9jYXRlZCA2NGsgYnVmZmVyIHJlYWQgZnJvbSBmaXJtd2FyZSBj
-b250YWlucyBtdWx0aXBsZSBkYXRhIGNodW5rcy4gV2UgaGF2ZSBhIGZlYXR1cmUNCj4gY2FsbGVk
-IHNpbmdsZSBwb3J0IGFnZ3JlZ2F0aW9uIGluIHdoaWNoIGZpcm13YXJlIGF0dGFjaGVzIGFuIGFn
-Z3JlZ2F0ZWQgYnVmZmVyIHRvIHNpbmdsZSBwb3J0LiBTbw0KPiBzb21ldGltZXMgYSBzaW5nbGUg
-ZGF0YSBjaHVuayBjYW4gZXhjZWVkIDMyay4gZGV2X2tmcmVlX3NrYl9hbnkoKSBpcyBjYWxsZWQg
-dG8gZnJlZSB0aG9zZSBkYXRhIGNodW5rcy4NCg0KQWggeWVzLCB3aGljaCBwYXJ0aWN1bGFyIHBy
-b2JsZW0gZG9lcyBhZ2dyZWdhdGluZyBkYXRhIGludG8gYSBzaW5nbGUgYnVmZmVyIHNvbHZlPw0K
-DQoJRGF2aWQNCg0K
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  5 Apr 2016 01:01:15 -0700
+
+> diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+> index 28837ae..6a9f988 100644
+> --- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+> +++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+> @@ -398,7 +398,7 @@ static void fm10k_get_reg_q(struct fm10k_hw *hw, u32 *buff, int i)
+>  	buff[idx++] = fm10k_read_reg(hw, FM10K_TX_SGLORT(i));
+>  	buff[idx++] = fm10k_read_reg(hw, FM10K_PFVTCTL(i));
+>  
+> -	BUG_ON(idx != FM10K_REGS_LEN_Q);
+> +	BUILD_BUG_ON(idx != FM10K_REGS_LEN_Q);
+>  }
+>  
+>  /* If function above adds more registers this define needs to be updated */
+
+As Joe suggested, it is not reasonable to expect all compilers to be able to figure
+out the result of all of the index increments in this function lead to a specific
+constant value.
+
+Your only option is to either keep the code as-is, or add proper error reporting to
+this function and to all callers, in order to handle the situation at run time which
+I realize is exactly what you are trying to avoid.
+
+If this crashes at run time with the BUG_ON(), it's going to happen really quickly
+when you bring the interface up.  So I don't see the run time check as so tragic.
