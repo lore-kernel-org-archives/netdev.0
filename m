@@ -1,46 +1,152 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next 3/3] net: bcmgenet: fix dmadesc_set()
-Date: Mon,  4 Apr 2016 17:10:01 -0700
-Message-ID: <1459815001-91703-3-git-send-email-pgynther@google.com>
-References: <1459815001-91703-1-git-send-email-pgynther@google.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, jaedon.shin@gmail.com,
-	Petri Gynther <pgynther@google.com>
-To: netdev@vger.kernel.org
+From: subashab@codeaurora.org
+Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Mon, 04 Apr 2016 18:38:37 -0600
+Message-ID: <98efba2f85ac01ba988c62398d31bb77@codeaurora.org>
+References: <20160404162545.14332.653.stgit@localhost.localdomain>
+ <20160404162818.14332.1076.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
+	alexander.duyck@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	netdev-owner@vger.kernel.org
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33739 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753161AbcDEAK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 20:10:27 -0400
-Received: by mail-pa0-f51.google.com with SMTP id zm5so154526800pac.0
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 17:10:27 -0700 (PDT)
-In-Reply-To: <1459815001-91703-1-git-send-email-pgynther@google.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:47951 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880AbcDEAim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 20:38:42 -0400
+In-Reply-To: <20160404162818.14332.1076.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dmadesc_set() is used for setting the Tx buffer DMA address, length,
-and status bits on a Tx ring descriptor when a frame is being Tx'ed.
+On 2016-04-04 10:31, Alexander Duyck wrote:
+> RFC 6864 states that the IPv4 ID field MUST NOT be used for purposes 
+> other
+> than fragmentation and reassembly.  Currently we are looking at this 
+> field
+> as a way of identifying what frames can be aggregated and  which cannot 
+> for
+> GRO.  While this is valid for frames that do not have DF set, it is 
+> invalid
+> to do so if the bit is set.
+> 
+> In addition we were generating IPv4 ID collisions when 2 or more flows 
+> were
+> interleaved over the same tunnel.  To prevent that we store the result 
+> of
+> all IP ID checks via a "|=" instead of overwriting previous values.
+> 
+> With this patch we support two different approaches for the IP ID 
+> field.
+> The first is a non-incrementing IP ID with DF bit set.  In such a case 
+> we
+> simply won't write to the flush_id field in the GRO context block.  The
+> other option is the legacy option in which the IP ID must increment by 
+> 1
+> for every packet we aggregate.
+> 
+> In the case of the non-incrementing IP ID we will end up losing the 
+> data
+> that the IP ID is fixed.  However as per RFC 6864 we should be able to
+> write any value into the IP ID when the DF bit is set so this should 
+> cause
+> minimal harm.
+> 
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> ---
+> 
+> v2: Updated patch so that we now only support one of two options.  
+> Either
+>     the IP ID is fixed with DF bit set, or the IP ID is incrementing.  
+> That
+>     allows us to support the fixed ID case as occurs with IPv6 to IPv4
+>     header translation and what is likely already out there for some
+>     devices with tunnel headers.
+> 
+>  net/core/dev.c         |    1 +
+>  net/ipv4/af_inet.c     |   25 ++++++++++++++++++-------
+>  net/ipv6/ip6_offload.c |    3 ---
+>  3 files changed, 19 insertions(+), 10 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 77a71cd68535..3429632398a4 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4352,6 +4352,7 @@ static void gro_list_prepare(struct napi_struct
+> *napi, struct sk_buff *skb)
+>  		unsigned long diffs;
+> 
+>  		NAPI_GRO_CB(p)->flush = 0;
+> +		NAPI_GRO_CB(p)->flush_id = 0;
+> 
+>  		if (hash != skb_get_hash_raw(p)) {
+>  			NAPI_GRO_CB(p)->same_flow = 0;
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 9e481992dbae..33f6335448a2 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1324,6 +1324,7 @@ static struct sk_buff **inet_gro_receive(struct
+> sk_buff **head,
+> 
+>  	for (p = *head; p; p = p->next) {
+>  		struct iphdr *iph2;
+> +		u16 flush_id;
+> 
+>  		if (!NAPI_GRO_CB(p)->same_flow)
+>  			continue;
+> @@ -1347,14 +1348,24 @@ static struct sk_buff
+> **inet_gro_receive(struct sk_buff **head,
+>  			(iph->tos ^ iph2->tos) |
+>  			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF));
+> 
+> -		/* Save the IP ID check to be included later when we get to
+> -		 * the transport layer so only the inner most IP ID is checked.
+> -		 * This is because some GSO/TSO implementations do not
+> -		 * correctly increment the IP ID for the outer hdrs.
+> -		 */
+> -		NAPI_GRO_CB(p)->flush_id =
+> -			    ((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
+>  		NAPI_GRO_CB(p)->flush |= flush;
+> +
+> +		/* We must save the offset as it is possible to have multiple
+> +		 * flows using the same protocol and address pairs so we
+> +		 * need to wait until we can validate this is part of the
+> +		 * same flow with a 5-tuple or better to avoid unnecessary
+> +		 * collisions between flows.  We can support one of two
+> +		 * possible scenarios, either a fixed value with DF bit set
+> +		 * or an incrementing value with DF either set or unset.
+> +		 * In the case of a fixed value we will end up losing the
+> +		 * data that the IP ID was a fixed value, however per RFC
+> +		 * 6864 in such a case the actual value of the IP ID is
+> +		 * meant to be ignored anyway.
+> +		 */
+> +		flush_id = (u16)(id - ntohs(iph2->id));
+> +		if (flush_id || !(iph2->frag_off & htons(IP_DF)))
+> +			NAPI_GRO_CB(p)->flush_id |= flush_id ^
+> +						    NAPI_GRO_CB(p)->count;
+>  	}
+> 
+>  	NAPI_GRO_CB(skb)->flush |= flush;
+> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+> index 82e9f3076028..9aa53f64dffd 100644
+> --- a/net/ipv6/ip6_offload.c
+> +++ b/net/ipv6/ip6_offload.c
+> @@ -238,9 +238,6 @@ static struct sk_buff **ipv6_gro_receive(struct
+> sk_buff **head,
+>  		/* flush if Traffic Class fields are different */
+>  		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
+>  		NAPI_GRO_CB(p)->flush |= flush;
+> -
+> -		/* Clear flush_id, there's really no concept of ID in IPv6. */
+> -		NAPI_GRO_CB(p)->flush_id = 0;
+>  	}
+> 
+>  	NAPI_GRO_CB(skb)->flush |= flush;
 
-Always set the Tx buffer DMA address first, before updating the length
-and status bits, i.e. giving the Tx descriptor to the hardware.
+I can see coalescing of packets which have IP ID=0 and DF=1 originating 
+from a IPv6 to IPv4 translator.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index d77cd6d..f7b42b9 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -104,8 +104,8 @@ static inline void dmadesc_set_addr(struct bcmgenet_priv *priv,
- static inline void dmadesc_set(struct bcmgenet_priv *priv,
- 			       void __iomem *d, dma_addr_t addr, u32 val)
- {
--	dmadesc_set_length_status(priv, d, val);
- 	dmadesc_set_addr(priv, d, addr);
-+	dmadesc_set_length_status(priv, d, val);
- }
- 
- static inline dma_addr_t dmadesc_get_addr(struct bcmgenet_priv *priv,
--- 
-2.8.0.rc3.226.g39d4020
+Tested-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
