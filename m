@@ -1,54 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 4/5] mlx4: add support for fast rx drop bpf program
-Date: Mon, 04 Apr 2016 19:44:40 -0700
-Message-ID: <1459824280.6473.350.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	 <1459560118-5582-5-git-send-email-bblanco@plumgrid.com>
-	 <1459562911.6473.299.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160403061536.GD21980@gmail.com> <20160405022004.GA7677@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, john.fastabend@gmail.com, brouer@redhat.com
-To: Brenden Blanco <bblanco@plumgrid.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next 0/6] bridge: support sending rntl info when we set attributes through sysfs/ioctl
+Date: Tue,  5 Apr 2016 11:32:35 +0800
+Message-ID: <cover.1459827115.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	nikolay@cumulusnetworks.com
+To: network dev <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:35545 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753244AbcDECoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 22:44:44 -0400
-Received: by mail-yw0-f169.google.com with SMTP id g127so700692ywf.2
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 19:44:43 -0700 (PDT)
-In-Reply-To: <20160405022004.GA7677@gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36201 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752360AbcDEDcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 23:32:47 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q129so141386pfb.3
+        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 20:32:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-04 at 19:20 -0700, Brenden Blanco wrote:
-> On Sat, Apr 02, 2016 at 11:15:38PM -0700, Brenden Blanco wrote:
-> > On Fri, Apr 01, 2016 at 07:08:31PM -0700, Eric Dumazet wrote:
-> [...]
-> > > 2) priv->stats.rx_dropped is shared by all the RX queues -> false
-> > > sharing.
-> > > 
-> > >    This is probably the right time to add a rx_dropped field in struct
-> > > mlx4_en_rx_ring since you guys want to drop 14 Mpps, and 50 Mpps on
-> > > higher speed links.
-> > > 
-> > This sounds reasonable! Will look into it for the next spin.
-> I looked into this, and it seems to me that both the rx and tx dropped
-> stats are buggy. With commit a3333b35da1634f49aca541f2574a084221e2616,
-> specifically with the line
->   stats->rx_dropped = be32_to_cpu(mlx4_en_stats->RDROP);
-> that occurs during the periodic ethtool task, whatever ++ was happening
-> in the rx/tx code is overwritten with the HW value. Since the SW stats
-> are incremented mostly in edge (oom) cases, nobody probably noticed. To
-> me it doesn't seem right to mix hard and soft counters, especially at
-> the risk of making a bad situation worse, so I'm planning to omit the
-> new bpf dropped++ stat and we can discuss ways to fix this other bug
-> separately.
+This patchset is used to support sending rntl info to user in some places,
+and ensure that whenever those attributes change internally or from sysfs,
+that a netlink notification is sent out to listeners.
 
-Yes, soft stats should not be overwritten.
- 
-Also adding 32bit and 64bit fields is wrong, as SNMP software are most
-of the time not able to properly overflows.
+It also make some adjustment in bridge sysfs so that we can implement this
+easily.
+
+I've done some tests on this patchset, like:
+[br_sysfs]
+  1. change all the attribute values of br or brif:
+  $ echo $value > /sys/class/net/br0/bridge/{*}
+  $ echo $value > /sys/class/net/br0/brif/eth1/{*}
+
+  2. meanwhile, on another terminal to observe the msg:
+  $ bridge monitor
+
+[br_ioctl]
+  1. in bridge-utils package, do some changes in br_set, let brctl command
+  use ioctl to set attribute:
+         if ((ret = set_sysfs(path, value)) < 0) { -->
+         if (1) {
+
+  $ brctl set*
+
+  2. meanwhile, on another terminal to observe the msg:
+  $ bridge monitor
+
+This test covers all the attributes that brctl and sysfs support to set.
+
+Xin Long (6):
+  bridge: simplify the flush_store by calling store_bridge_parm
+  bridge: simplify the forward_delay_store by calling store_bridge_parm
+  bridge: simplify the stp_state_store by calling store_bridge_parm
+  bridge: a netlink notification should be sent when those attributes
+    are changed by br_sysfs_br
+  bridge: a netlink notification should be sent when those attributes
+    are changed by br_sysfs_if
+  bridge: a netlink notification should be sent when those attributes
+    are changed by ioctl
+
+ net/bridge/br_ioctl.c    | 40 +++++++++++++----------
+ net/bridge/br_sysfs_br.c | 83 +++++++++++++++++++-----------------------------
+ net/bridge/br_sysfs_if.c |  5 +--
+ net/bridge/br_vlan.c     | 30 +++--------------
+ 4 files changed, 65 insertions(+), 93 deletions(-)
+
+-- 
+2.1.0
