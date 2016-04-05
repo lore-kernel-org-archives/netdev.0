@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/3] net: dsa: make the STP state function return void
-Date: Tue,  5 Apr 2016 11:24:33 -0400
-Message-ID: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/3] net: dsa: make the FDB add function return void
+Date: Tue,  5 Apr 2016 11:24:34 -0400
+Message-ID: <1459869875-23815-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -10,265 +11,148 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Scott Feldman <sfeldma@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:47646 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758588AbcDEPZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:25:32 -0400
+In-Reply-To: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The DSA layer doesn't care about the return code of the port_stp_update
-routine, so make it void in the layer and the DSA drivers.
+The switchdev design implies that a software error should not happen in
+the commit phase since it must have been previously reported in the
+prepare phase. If an hardware error occurs during the commit phase,
+there is nothing switchdev can do about it.
 
-Replace the useless dsa_slave_stp_update function with a
-dsa_slave_stp_state function used to reply to the switchdev
-SWITCHDEV_ATTR_ID_PORT_STP_STATE attribute.
+The DSA layer separates port_fdb_prepare and port_fdb_add for simplicity
+and convenience. If an hardware error occurs during the commit phase,
+there is no need to report it outside the DSA driver itself.
 
-In the meantime, rename port_stp_update to port_stp_state to explicit
-the state change.
+Make the DSA port_fdb_add routine return void for explicitness.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- Documentation/networking/dsa/dsa.txt |  2 +-
- drivers/net/dsa/bcm_sf2.c            | 16 +++++-----------
- drivers/net/dsa/mv88e6171.c          |  2 +-
- drivers/net/dsa/mv88e6352.c          |  2 +-
- drivers/net/dsa/mv88e6xxx.c          |  6 ++----
- drivers/net/dsa/mv88e6xxx.h          |  2 +-
- include/net/dsa.h                    |  3 +--
- net/dsa/slave.c                      | 32 +++++++++++++++-----------------
- 8 files changed, 27 insertions(+), 38 deletions(-)
+ drivers/net/dsa/bcm_sf2.c   |  9 +++++----
+ drivers/net/dsa/mv88e6xxx.c | 12 +++++-------
+ drivers/net/dsa/mv88e6xxx.h |  6 +++---
+ include/net/dsa.h           |  2 +-
+ net/dsa/slave.c             | 16 ++++++++--------
+ 5 files changed, 22 insertions(+), 23 deletions(-)
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 8ba3369..4afa719 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -533,7 +533,7 @@ Bridge layer
-   out at the switch hardware for the switch to (re) learn MAC addresses behind
-   this port.
- 
--- port_stp_update: bridge layer function invoked when a given switch port STP
-+- port_stp_state: bridge layer function invoked when a given switch port STP
-   state is computed by the bridge layer and should be propagated to switch
-   hardware to forward/block/learn traffic. The switch driver is responsible for
-   computing a STP state change based on current and asked parameters and perform
 diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 95944d5..b847624 100644
+index b847624..feebeaa 100644
 --- a/drivers/net/dsa/bcm_sf2.c
 +++ b/drivers/net/dsa/bcm_sf2.c
-@@ -545,12 +545,11 @@ static void bcm_sf2_sw_br_leave(struct dsa_switch *ds, int port)
- 	priv->port_sts[port].bridge_dev = NULL;
- }
- 
--static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
--				       u8 state)
-+static void bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
-+					u8 state)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	u8 hw_state, cur_hw_state;
--	int ret = 0;
- 	u32 reg;
- 
- 	reg = core_readl(priv, CORE_G_PCTL_PORT(port));
-@@ -574,7 +573,7 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
- 		break;
- 	default:
- 		pr_err("%s: invalid STP state: %d\n", __func__, state);
--		return -EINVAL;
-+		return;
- 	}
- 
- 	/* Fast-age ARL entries if we are moving a port from Learning or
-@@ -584,11 +583,8 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
- 	if (cur_hw_state != hw_state) {
- 		if (cur_hw_state >= G_MISTP_LEARN_STATE &&
- 		    hw_state <= G_MISTP_LISTEN_STATE) {
--			ret = bcm_sf2_sw_fast_age_port(ds, port);
--			if (ret) {
-+			if (bcm_sf2_sw_fast_age_port(ds, port))
- 				pr_err("%s: fast-ageing failed\n", __func__);
--				return ret;
--			}
- 		}
- 	}
- 
-@@ -596,8 +592,6 @@ static int bcm_sf2_sw_br_set_stp_state(struct dsa_switch *ds, int port,
- 	reg &= ~(G_MISTP_STATE_MASK << G_MISTP_STATE_SHIFT);
- 	reg |= hw_state;
- 	core_writel(priv, reg, CORE_G_PCTL_PORT(port));
--
--	return 0;
- }
- 
- /* Address Resolution Logic routines */
-@@ -1387,7 +1381,7 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.set_eee		= bcm_sf2_sw_set_eee,
- 	.port_bridge_join	= bcm_sf2_sw_br_join,
- 	.port_bridge_leave	= bcm_sf2_sw_br_leave,
--	.port_stp_update	= bcm_sf2_sw_br_set_stp_state,
-+	.port_stp_state		= bcm_sf2_sw_br_set_stp_state,
- 	.port_fdb_prepare	= bcm_sf2_sw_fdb_prepare,
- 	.port_fdb_add		= bcm_sf2_sw_fdb_add,
- 	.port_fdb_del		= bcm_sf2_sw_fdb_del,
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index c0164b9..2f142cb 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -105,7 +105,7 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
- 	.get_regs		= mv88e6xxx_get_regs,
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
--	.port_stp_update        = mv88e6xxx_port_stp_update,
-+	.port_stp_state		= mv88e6xxx_port_stp_state,
- 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 5f528ab..756593a 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -326,7 +326,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.get_regs		= mv88e6xxx_get_regs,
- 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
- 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
--	.port_stp_update	= mv88e6xxx_port_stp_update,
-+	.port_stp_state		= mv88e6xxx_port_stp_state,
- 	.port_vlan_filtering	= mv88e6xxx_port_vlan_filtering,
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 0dda281..5a2e46d 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -1193,7 +1193,7 @@ static int _mv88e6xxx_port_based_vlan_map(struct dsa_switch *ds, int port)
- 	return _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_BASE_VLAN, reg);
- }
- 
--int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
-+void mv88e6xxx_port_stp_state(struct dsa_switch *ds, int port, u8 state)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int stp_state;
-@@ -1215,14 +1215,12 @@ int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state)
- 		break;
- 	}
- 
--	/* mv88e6xxx_port_stp_update may be called with softirqs disabled,
-+	/* mv88e6xxx_port_stp_state may be called with softirqs disabled,
- 	 * so we can not update the port state directly but need to schedule it.
- 	 */
- 	ps->ports[port].state = stp_state;
- 	set_bit(port, ps->port_state_update_mask);
- 	schedule_work(&ps->bridge_work);
--
--	return 0;
- }
- 
- static int _mv88e6xxx_port_pvid(struct dsa_switch *ds, int port, u16 *new,
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 26a424a..8a62afb 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -497,7 +497,7 @@ int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 			       struct net_device *bridge);
- void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port);
--int mv88e6xxx_port_stp_update(struct dsa_switch *ds, int port, u8 state);
-+void mv88e6xxx_port_stp_state(struct dsa_switch *ds, int port, u8 state);
- int mv88e6xxx_port_vlan_filtering(struct dsa_switch *ds, int port,
- 				  bool vlan_filtering);
- int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 6463bb2..eddd0f3 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -299,8 +299,7 @@ struct dsa_switch_driver {
- 	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
- 				    struct net_device *bridge);
- 	void	(*port_bridge_leave)(struct dsa_switch *ds, int port);
--	int	(*port_stp_update)(struct dsa_switch *ds, int port,
--				   u8 state);
-+	void	(*port_stp_state)(struct dsa_switch *ds, int port, u8 state);
- 
- 	/*
- 	 * VLAN support
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a575f03..1c55f96 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -104,8 +104,8 @@ static int dsa_slave_open(struct net_device *dev)
- 			goto clear_promisc;
- 	}
- 
--	if (ds->drv->port_stp_update)
--		ds->drv->port_stp_update(ds, p->port, stp_state);
-+	if (ds->drv->port_stp_state)
-+		ds->drv->port_stp_state(ds, p->port, stp_state);
- 
- 	if (p->phy)
- 		phy_start(p->phy);
-@@ -147,8 +147,8 @@ static int dsa_slave_close(struct net_device *dev)
- 	if (ds->drv->port_disable)
- 		ds->drv->port_disable(ds, p->port, p->phy);
- 
--	if (ds->drv->port_stp_update)
--		ds->drv->port_stp_update(ds, p->port, BR_STATE_DISABLED);
-+	if (ds->drv->port_stp_state)
-+		ds->drv->port_stp_state(ds, p->port, BR_STATE_DISABLED);
- 
+@@ -722,13 +722,14 @@ static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, int port,
  	return 0;
  }
-@@ -305,16 +305,19 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return -EOPNOTSUPP;
+ 
+-static int bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
+-			      const struct switchdev_obj_port_fdb *fdb,
+-			      struct switchdev_trans *trans)
++static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
++			       const struct switchdev_obj_port_fdb *fdb,
++			       struct switchdev_trans *trans)
+ {
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ 
+-	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true);
++	if (bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true))
++		pr_err("%s: failed to add address\n", __func__);
  }
  
--static int dsa_slave_stp_update(struct net_device *dev, u8 state)
-+static int dsa_slave_stp_state(struct net_device *dev,
-+			       const struct switchdev_attr *attr,
-+			       struct switchdev_trans *trans)
+ static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 5a2e46d..bca9a2c 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2090,21 +2090,19 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+-			   const struct switchdev_obj_port_fdb *fdb,
+-			   struct switchdev_trans *trans)
++void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
++			    const struct switchdev_obj_port_fdb *fdb,
++			    struct switchdev_trans *trans)
+ {
+ 	int state = is_multicast_ether_addr(fdb->addr) ?
+ 		GLOBAL_ATU_DATA_STATE_MC_STATIC :
+ 		GLOBAL_ATU_DATA_STATE_UC_STATIC;
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	int ret;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+-	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state);
++	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
++		netdev_warn(ds->ports[port], "cannot load address\n");
+ 	mutex_unlock(&ps->smi_mutex);
+-
+-	return ret;
+ }
+ 
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 8a62afb..ece008f 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -514,9 +514,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
+ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
+ 			       const struct switchdev_obj_port_fdb *fdb,
+ 			       struct switchdev_trans *trans);
+-int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
+-			   const struct switchdev_obj_port_fdb *fdb,
+-			   struct switchdev_trans *trans);
++void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
++			    const struct switchdev_obj_port_fdb *fdb,
++			    struct switchdev_trans *trans);
+ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ 			   const struct switchdev_obj_port_fdb *fdb);
+ int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index eddd0f3..fa42b8c 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -324,7 +324,7 @@ struct dsa_switch_driver {
+ 	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
+ 				    const struct switchdev_obj_port_fdb *fdb,
+ 				    struct switchdev_trans *trans);
+-	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
++	void	(*port_fdb_add)(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_fdb *fdb,
+ 				struct switchdev_trans *trans);
+ 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 1c55f96..5a34bab 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -256,17 +256,17 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
  {
  	struct dsa_slave_priv *p = netdev_priv(dev);
  	struct dsa_switch *ds = p->parent;
--	int ret = -EOPNOTSUPP;
+-	int ret;
  
--	if (ds->drv->port_stp_update)
--		ret = ds->drv->port_stp_update(ds, p->port, state);
-+	if (switchdev_trans_ph_prepare(trans))
-+		return ds->drv->port_stp_state ? 0 : -EOPNOTSUPP;
-+
-+	ds->drv->port_stp_state(ds, p->port, attr->u.stp_state);
+-	if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
+-		return -EOPNOTSUPP;
++	if (switchdev_trans_ph_prepare(trans)) {
++		if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
++			return -EOPNOTSUPP;
+ 
+-	if (switchdev_trans_ph_prepare(trans))
+-		ret = ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
+-	else
+-		ret = ds->drv->port_fdb_add(ds, p->port, fdb, trans);
++		return ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
++	}
  
 -	return ret;
++	ds->drv->port_fdb_add(ds, p->port, fdb, trans);
++
 +	return 0;
  }
  
- static int dsa_slave_vlan_filtering(struct net_device *dev,
-@@ -339,17 +342,11 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 				   const struct switchdev_attr *attr,
- 				   struct switchdev_trans *trans)
- {
--	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct dsa_switch *ds = p->parent;
- 	int ret;
- 
- 	switch (attr->id) {
- 	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
--		if (switchdev_trans_ph_prepare(trans))
--			ret = ds->drv->port_stp_update ? 0 : -EOPNOTSUPP;
--		else
--			ret = ds->drv->port_stp_update(ds, p->port,
--						       attr->u.stp_state);
-+		ret = dsa_slave_stp_state(dev, attr, trans);
- 		break;
- 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
- 		ret = dsa_slave_vlan_filtering(dev, attr, trans);
-@@ -468,7 +465,8 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
- 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
- 	 */
--	dsa_slave_stp_update(dev, BR_STATE_FORWARDING);
-+	if (ds->drv->port_stp_state)
-+		ds->drv->port_stp_state(ds, p->port, BR_STATE_FORWARDING);
- }
- 
- static int dsa_slave_port_attr_get(struct net_device *dev,
+ static int dsa_slave_port_fdb_del(struct net_device *dev,
 -- 
 2.8.0
