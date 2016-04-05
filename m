@@ -1,158 +1,84 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/3] net: dsa: make the FDB add function return void
-Date: Tue,  5 Apr 2016 11:24:34 -0400
-Message-ID: <1459869875-23815-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:47646 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758588AbcDEPZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:25:32 -0400
-In-Reply-To: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH 0/6] ppp: add rtnetlink support
+Date: Tue, 5 Apr 2016 08:27:45 -0700
+Message-ID: <20160405082745.6d2d2aa6@xeon-e3>
+References: <cover.1459807527.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <cover.1459807527.git.g.nault@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The switchdev design implies that a software error should not happen in
-the commit phase since it must have been previously reported in the
-prepare phase. If an hardware error occurs during the commit phase,
-there is nothing switchdev can do about it.
+On Tue, 5 Apr 2016 02:56:17 +0200
+Guillaume Nault <g.nault@alphalink.fr> wrote:
 
-The DSA layer separates port_fdb_prepare and port_fdb_add for simplicity
-and convenience. If an hardware error occurs during the commit phase,
-there is no need to report it outside the DSA driver itself.
+> PPP devices lack the ability to be customised at creation time. In
+> particular they can't be created in a given netns or with a particular
+> name. Moving or renaming the device after creation is possible, but
+> creates undesirable transient effects on servers where PPP devices are
+> constantly created and removed, as users connect and disconnect.
+> Implementing rtnetlink support solves this problem.
 
-Make the DSA port_fdb_add routine return void for explicitness.
+Good to see PPP behave like other tunnels.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/bcm_sf2.c   |  9 +++++----
- drivers/net/dsa/mv88e6xxx.c | 12 +++++-------
- drivers/net/dsa/mv88e6xxx.h |  6 +++---
- include/net/dsa.h           |  2 +-
- net/dsa/slave.c             | 16 ++++++++--------
- 5 files changed, 22 insertions(+), 23 deletions(-)
+> The rtnetlink handlers implemented in this series are minimal, and can
+> only replace the PPPIOCNEWUNIT ioctl. The rest of PPP ioctls remains
+> necessary for any other operation on channels and units.
+> It is perfectly to possible to mix PPP devices created by rtnl
+> and by ioctl(PPPIOCNEWUNIT). Devices will behave in the same way,
+> except for a few specific cases (as detailed in patch #6).
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index b847624..feebeaa 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -722,13 +722,14 @@ static int bcm_sf2_sw_fdb_prepare(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
--static int bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
--			      const struct switchdev_obj_port_fdb *fdb,
--			      struct switchdev_trans *trans)
-+static void bcm_sf2_sw_fdb_add(struct dsa_switch *ds, int port,
-+			       const struct switchdev_obj_port_fdb *fdb,
-+			       struct switchdev_trans *trans)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 
--	return bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true);
-+	if (bcm_sf2_arl_op(priv, 0, port, fdb->addr, fdb->vid, true))
-+		pr_err("%s: failed to add address\n", __func__);
- }
- 
- static int bcm_sf2_sw_fdb_del(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 5a2e46d..bca9a2c 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2090,21 +2090,19 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
--int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
--			   const struct switchdev_obj_port_fdb *fdb,
--			   struct switchdev_trans *trans)
-+void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
-+			    const struct switchdev_obj_port_fdb *fdb,
-+			    struct switchdev_trans *trans)
- {
- 	int state = is_multicast_ether_addr(fdb->addr) ?
- 		GLOBAL_ATU_DATA_STATE_MC_STATIC :
- 		GLOBAL_ATU_DATA_STATE_UC_STATIC;
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
--	int ret;
- 
- 	mutex_lock(&ps->smi_mutex);
--	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state);
-+	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
-+		netdev_warn(ds->ports[port], "cannot load address\n");
- 	mutex_unlock(&ps->smi_mutex);
--
--	return ret;
- }
- 
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 8a62afb..ece008f 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -514,9 +514,9 @@ int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 			       const struct switchdev_obj_port_fdb *fdb,
- 			       struct switchdev_trans *trans);
--int mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
--			   const struct switchdev_obj_port_fdb *fdb,
--			   struct switchdev_trans *trans);
-+void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
-+			    const struct switchdev_obj_port_fdb *fdb,
-+			    struct switchdev_trans *trans);
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb);
- int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index eddd0f3..fa42b8c 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -324,7 +324,7 @@ struct dsa_switch_driver {
- 	int	(*port_fdb_prepare)(struct dsa_switch *ds, int port,
- 				    const struct switchdev_obj_port_fdb *fdb,
- 				    struct switchdev_trans *trans);
--	int	(*port_fdb_add)(struct dsa_switch *ds, int port,
-+	void	(*port_fdb_add)(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_fdb *fdb,
- 				struct switchdev_trans *trans);
- 	int	(*port_fdb_del)(struct dsa_switch *ds, int port,
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 1c55f96..5a34bab 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -256,17 +256,17 @@ static int dsa_slave_port_fdb_add(struct net_device *dev,
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
--	int ret;
- 
--	if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
--		return -EOPNOTSUPP;
-+	if (switchdev_trans_ph_prepare(trans)) {
-+		if (!ds->drv->port_fdb_prepare || !ds->drv->port_fdb_add)
-+			return -EOPNOTSUPP;
- 
--	if (switchdev_trans_ph_prepare(trans))
--		ret = ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
--	else
--		ret = ds->drv->port_fdb_add(ds, p->port, fdb, trans);
-+		return ds->drv->port_fdb_prepare(ds, p->port, fdb, trans);
-+	}
- 
--	return ret;
-+	ds->drv->port_fdb_add(ds, p->port, fdb, trans);
-+
-+	return 0;
- }
- 
- static int dsa_slave_port_fdb_del(struct net_device *dev,
--- 
-2.8.0
+What blocks PPP from being fully netlink (use attributes),
+and work with same API set independent of how device was created.
+Special cases are nuisance and source of bugs.
+
+> I'm sending the series only as RFC this time, because there are a few
+> points I'm unsatisfied with.
+> 
+> First, I'm not fond of passing file descriptors as netlink attributes,
+> as done with IFLA_PPP_DEV_FD (which is filled with a /dev/ppp fd). But
+> given how PPP units work, we have to associate a /dev/ppp fd somehow.
+> 
+> More importantly, the locking constraints of PPP are quite problematic.
+> The rtnetlink handler has to associate the new PPP unit with the
+> /dev/ppp file descriptor passed as parameter. This requires holding the
+> ppp_mutex (see e8e56ffd9d29 "ppp: ensure file->private_data can't be
+> overridden"), while the rtnetlink callback is already protected by
+> rtnl_lock(). Since other parts of the module take these locks in
+> reverse order, most of this series deals with preparing the code for
+> inverting the dependency between rtnl_lock and ppp_mutex. Some more
+> work is needed on that part (see patch #4 for details), but I wanted
+> to be sure that approach it worth it before spending some more time on
+> it.
+
+One other way to handle the locking is to use trylock. Yes it justs
+pushs the problem back to userspace, but that is how lock reordering was
+handled in sysfs.
+
+> Other approach
+> 
+> I've considered another approach where no /dev/ppp file descriptor
+> is associated to the PPP unit at creation time. This removes all the
+> problems described above. The PPP interface that is created behaves
+> mostly like a dummy device until it gets associated with a /dev/ppp
+> file descriptor (using the PPPIOCATTACH ioctl).
+> The problem here is that, AFAIK, we can't return the unit identifier of
+> the new PPP device to the user space program having issued the
+> RTM_NEWLINK message. This identifier is required for the
+> ioctl(PPPIOCATTACH) call. Of course we could return such information
+> in an RTM_GETLINK message, but the user would need to query the device
+> name that was created. This would only work for users that can set the
+> IFLA_IFNAME attribute in their original RTM_NEWLINK message.
+> 
+> 
+> Patch series
+> 
+> Patches 1 to 3 prepare the code for inverting lock ordering between
+> ppp_mutex and rtnl_lock. Patch #4 does the lock inversion.
+> The actual infrastructure is implemented in patches #5 and #6.
