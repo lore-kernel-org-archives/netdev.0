@@ -1,72 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/6] net: skbuff: don't use union for napi_id
- and sender_cpu
-Date: Tue, 5 Apr 2016 18:05:31 +0300
-Message-ID: <20160405180230-mutt-send-email-mst@redhat.com>
-References: <1459403439-6011-1-git-send-email-jasowang@redhat.com>
- <1459403439-6011-2-git-send-email-jasowang@redhat.com>
- <1459420341.6473.225.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDD94E.8090908@redhat.com>
- <1459479325.6473.260.camel@edumazet-glaptop3.roam.corp.google.com>
- <56FDFDDB.7090606@redhat.com>
- <1459515859.6473.277.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Tue, 5 Apr 2016 16:07:49 +0100
+Message-ID: <5703D4C5.9060305@solarflare.com>
+References: <20160404162545.14332.653.stgit@localhost.localdomain>
+ <20160404162818.14332.1076.stgit@localhost.localdomain>
+ <20160405034437.GA9322@gondor.apana.org.au>
+ <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
+ <20160405043209.GA9822@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1459515859.6473.277.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:2808 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758692AbcDEPII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 11:08:08 -0400
+In-Reply-To: <20160405043209.GA9822@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 01, 2016 at 06:04:19AM -0700, Eric Dumazet wrote:
-> On Fri, 2016-04-01 at 12:49 +0800, Jason Wang wrote:
-> > 
-> > On 04/01/2016 10:55 AM, Eric Dumazet wrote:
-> > > On Fri, 2016-04-01 at 10:13 +0800, Jason Wang wrote:
-> > >
-> > >
-> > >> The problem is we want to support busy polling for tun. This needs
-> > >> napi_id to be passed to tun socket by sk_mark_napi_id() during
-> > >> tun_net_xmit(). But before reaching this, XPS will set sender_cpu will
-> > >> make us can't see correct napi_id.
-> > >>
-> > > Looks like napi_id should have precedence then ?
-> > 
-> > But then when busy polling is enabled, we may still hit the issue before
-> > commit 2bd82484bb4c5db1d5dc983ac7c409b2782e0154? So looks like sometimes
-> > (e.g for tun), we need both two fields.
-> 
-> You did not clearly show me the path you take where both fields would be
-> needed. If you expect me to do that, it wont happen.
-> 
-> > 
-> > >
-> > > Only forwarding should allow the field to be cleared to allow XPS to do
-> > > its job.
-> > >
-> > > Maybe skb_sender_cpu_clear() was removed too early (commit
-> > > 64d4e3431e686dc37ce388ba531c4c4e866fb141)
-> > 
-> > Not sure I get you, but this will clear napi_id too.
-> 
-> Only when allowed. In your case it would not be called.
-> 
-> Some people do not use tun, and want to forward or cook millions of
-> packets per second. sk_buff size is critical. 
-> 
-> If busy polling gives you 5 % of performance improvement, but cost
-> everyone else a performance decrease, this is a serious problem.
-> 
-> XPS is a sender problem, NAPI is a receiver problem. Fields should be
-> shared.
+On 05/04/16 05:32, Herbert Xu wrote:
+> On Mon, Apr 04, 2016 at 09:26:55PM -0700, Alexander Duyck wrote:
+>> The question I would have is what are you really losing with increment
+>> from 0 versus fixed 0?  From what I see it is essentially just garbage
+>> in/garbage out.
+> GRO is meant to be lossless, that is, you should not be able to
+> detect its presence from the outside.  If you lose information then
+> you're breaking this rule and people will soon start asking for it
+> to be disabled in various situations.
+>
+> I'm not against doing this per se but it should not be part of the
+> default configuration.
+I'm certainly in favour of this being configurable - indeed IMHO it should
+also be possible to configure GRO with the 'looser' semantics of LRO, so
+that people who want that can get it without all the horrible "don't confuse
+Slow Start" hacks, and so that LRO can go away (AIUI the only reasons it
+exists are (a) improved performance from the 'loose' semantics and (b) old
+kernels without GRO.  We may not be able to kill (b) but we can certainly
+address (a)).
 
-Right. The issue IIUC is the weird way tun behaves: it's a netdev
-so linux is a sender, but it has a socket in it and then linux
-is the receiver too. I guess we need to find a way to special-case
-tun somehow?
+But I don't agree that the default has to be totally lossless; anyone who is
+caring about the ID fields in atomic datagrams is breaking the RFCs, and can
+be assumed to Know What They're Doing sufficiently to configure this.
 
--- 
-MST
+On the gripping hand, I feel like GRO+TSO is the wrong model for speeding up
+forwarding/routing workloads.  Instead we should be looking into having lists
+of SKBs traverse the stack together, splitting the list whenever e.g. the
+destination changes.  That seems like it ought to be much more efficient than
+rewriting headers twice, once to coalesce a superframe and once to segment it
+again - and it also means this worry about GRO being lossless can go away.
+But until someone tries implementing skb batches, we won't know for sure if
+it works (and I don't have time right now ;)
+
+-Ed
