@@ -1,367 +1,168 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/16] fm10k: cleanup remaining right-bit-shifted 1
-Date: Tue,  5 Apr 2016 01:01:14 -0700
-Message-ID: <1459843288-40623-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/16] fm10k: correctly clean up when init_queueing_scheme fails
+Date: Tue,  5 Apr 2016 01:01:26 -0700
+Message-ID: <1459843288-40623-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5422 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:29908 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751433AbcDEIBv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 04:01:51 -0400
+	id S1751433AbcDEIBy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 04:01:54 -0400
 In-Reply-To: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Use BIT() macro instead.
+Fix a kernel panic that occurs during surprise removal. Clear the
+interface queue counts upon fm10k_init_msix_capability failure. This
+prevents further code (fm10k_update_stats etc.) from attempting to
+access unallocated queue vector or ring memory.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+[  628.692648] BUG: unable to handle kernel NULL pointer dereference at 0000000000000068
+[  628.692805] IP: [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.693173] PGD 0
+[  628.693759] Oops: 0000 [#1] SMP
+[  628.699321] CPU: 10 PID: 8164 Comm: kworker/10:0 Tainted: G           OE  ------------   3.10.0-327.el7.x86_64 #1
+[  628.700096] Hardware name: Supermicro X9DAi/X9DAi, BIOS 3.2 05/09/2015
+[  628.700894] Workqueue: pciehp-1 pciehp_power_thread
+[  628.701686] task: ffff88086559c500 ti: ffff8808593c0000 task.ti: ffff8808593c0000
+[  628.702493] RIP: 0010:[<ffffffffa0475caf>]  [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.703310] RSP: 0018:ffff8808593c3b00  EFLAGS: 00010282
+[  628.704132] RAX: 0000000000000000 RBX: ffff880860760000 RCX: 0000000000000000
+[  628.704963] RDX: ffff880860760b08 RSI: 0000000000000000 RDI: 0000000000000000
+[  628.705794] RBP: ffff8808593c3b40 R08: 0000000000000000 R09: 0000000000000000
+[  628.706604] R10: 0000000000000000 R11: ffff880860760c40 R12: 0000000000000080
+[  628.707420] R13: ffff8808607608c0 R14: ffff880860779ec0 R15: ffff880860779f40
+[  628.708238] FS:  0000000000000000(0000) GS:ffff88086f000000(0000) knlGS:0000000000000000
+[  628.709071] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  628.709923] CR2: 0000000000000068 CR3: 000000000194a000 CR4: 00000000001407e0
+[  628.710752] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  628.711596] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[  628.712438] Stack:
+[  628.713255]  ffff880860764458 ffff8808607608c0 ffff880860760000 ffff880860760000
+[  628.714088]  0000000000000080 ffff8808607608c0 ffff880860779ec0 ffff880860779f40
+[  628.714925]  ffff8808593c3b88 ffffffffa04780c5 ffff880860764458 0000000a8163cb5b
+[  628.715752] Call Trace:
+[  628.716560]  [<ffffffffa04780c5>] fm10k_down+0x155/0x1f0 [fm10k]
+[  628.717367]  [<ffffffffa0479958>] fm10k_close+0x28/0xd0 [fm10k]
+[  628.718184]  [<ffffffff81526365>] __dev_close_many+0x85/0xd0
+[  628.718986]  [<ffffffff815264d8>] dev_close_many+0x98/0x120
+[  628.719764]  [<ffffffff81527ab8>] rollback_registered_many+0xa8/0x230
+[  628.720527]  [<ffffffff81527c80>] rollback_registered+0x40/0x70
+[  628.721294]  [<ffffffff81529198>] unregister_netdevice_queue+0x48/0x80
+[  628.722052]  [<ffffffff815291ec>] unregister_netdev+0x1c/0x30
+[  628.722816]  [<ffffffffa04762b8>] fm10k_remove+0xd8/0xe0 [fm10k]
+[  628.723581]  [<ffffffff81328c7b>] pci_device_remove+0x3b/0xb0
+[  628.724340]  [<ffffffff813f5fbf>] __device_release_driver+0x7f/0xf0
+[  628.725088]  [<ffffffff813f6053>] device_release_driver+0x23/0x30
+[  628.725814]  [<ffffffff81321fe4>] pci_stop_bus_device+0x94/0xa0
+[  628.726535]  [<ffffffff813220d2>] pci_stop_and_remove_bus_device+0x12/0x20
+[  628.727249]  [<ffffffff8133de40>] pciehp_unconfigure_device+0xb0/0x1b0
+[  628.727964]  [<ffffffff8133d822>] pciehp_disable_slot+0x52/0xd0
+[  628.728664]  [<ffffffff8133d98a>] pciehp_power_thread+0xea/0x150
+[  628.729358]  [<ffffffff8109d5fb>] process_one_work+0x17b/0x470
+[  628.730036]  [<ffffffff8109e3cb>] worker_thread+0x11b/0x400
+[  628.730730]  [<ffffffff8109e2b0>] ? rescuer_thread+0x400/0x400
+[  628.731385]  [<ffffffff810a5aef>] kthread+0xcf/0xe0
+[  628.732036]  [<ffffffff810a5a20>] ? kthread_create_on_node+0x140/0x140
+[  628.732674]  [<ffffffff81645858>] ret_from_fork+0x58/0x90
+[  628.733289]  [<ffffffff810a5a20>] ? kthread_create_on_node+0x140/0x140
+[  628.733883] Code: 83 e8 01 48 8d 97 40 02 00 00 45 31 c0 4c 8d 9c c7 48 02 0
+[  628.735202] RIP  [<ffffffffa0475caf>] fm10k_update_stats+0x7f/0x2c0 [fm10k]
+[  628.735732]  RSP <ffff8808593c3b00>
+[  628.736285] CR2: 0000000000000068
+[  628.736846] ---[ end trace 9156088b311aff42 ]---
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h         | 12 ++++++------
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 20 +++++++++-----------
- drivers/net/ethernet/intel/fm10k/fm10k_main.c    | 20 ++++++++++----------
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c  |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c     |  8 ++++----
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c      | 12 ++++++------
- drivers/net/ethernet/intel/fm10k/fm10k_tlv.c     | 24 ++++++++++++------------
- drivers/net/ethernet/intel/fm10k/fm10k_type.h    |  8 ++++----
- 8 files changed, 52 insertions(+), 54 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 35 ++++++++++++++++++++-------
+ 1 file changed, 26 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index b34bb00..83f3867 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -262,12 +262,12 @@ struct fm10k_intfc {
- 	unsigned long state;
- 
- 	u32 flags;
--#define FM10K_FLAG_RESET_REQUESTED		(u32)(1 << 0)
--#define FM10K_FLAG_RSS_FIELD_IPV4_UDP		(u32)(1 << 1)
--#define FM10K_FLAG_RSS_FIELD_IPV6_UDP		(u32)(1 << 2)
--#define FM10K_FLAG_RX_TS_ENABLED		(u32)(1 << 3)
--#define FM10K_FLAG_SWPRI_CONFIG			(u32)(1 << 4)
--#define FM10K_FLAG_DEBUG_STATS			(u32)(1 << 5)
-+#define FM10K_FLAG_RESET_REQUESTED		(u32)(BIT(0))
-+#define FM10K_FLAG_RSS_FIELD_IPV4_UDP		(u32)(BIT(1))
-+#define FM10K_FLAG_RSS_FIELD_IPV6_UDP		(u32)(BIT(2))
-+#define FM10K_FLAG_RX_TS_ENABLED		(u32)(BIT(3))
-+#define FM10K_FLAG_SWPRI_CONFIG			(u32)(BIT(4))
-+#define FM10K_FLAG_DEBUG_STATS			(u32)(BIT(5))
- 	int xcast_mode;
- 
- 	/* Tx fast path data */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 2f6a05b..28837ae 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -425,7 +425,7 @@ static void fm10k_get_regs(struct net_device *netdev,
- 	u32 *buff = p;
- 	u16 i;
- 
--	regs->version = (1 << 24) | (hw->revision_id << 16) | hw->device_id;
-+	regs->version = BIT(24) | (hw->revision_id << 16) | hw->device_id;
- 
- 	switch (hw->mac.type) {
- 	case fm10k_mac_pf:
-@@ -942,8 +942,8 @@ static int fm10k_mbx_test(struct fm10k_intfc *interface, u64 *data)
- 		return 0;
- 
- 	/* loop through both nested and unnested attribute types */
--	for (attr_flag = (1 << FM10K_TEST_MSG_UNSET);
--	     attr_flag < (1 << (2 * FM10K_TEST_MSG_NESTED));
-+	for (attr_flag = BIT(FM10K_TEST_MSG_UNSET);
-+	     attr_flag < BIT(2 * FM10K_TEST_MSG_NESTED);
- 	     attr_flag += attr_flag) {
- 		/* generate message to be tested */
- 		fm10k_tlv_msg_test_create(test_msg, attr_flag);
-@@ -1005,7 +1005,7 @@ static u32 fm10k_get_priv_flags(struct net_device *netdev)
- 	u32 priv_flags = 0;
- 
- 	if (interface->flags & FM10K_FLAG_DEBUG_STATS)
--		priv_flags |= 1 << FM10K_PRV_FLAG_DEBUG_STATS;
-+		priv_flags |= BIT(FM10K_PRV_FLAG_DEBUG_STATS);
- 
- 	return priv_flags;
- }
-@@ -1014,10 +1014,10 @@ static int fm10k_set_priv_flags(struct net_device *netdev, u32 priv_flags)
- {
- 	struct fm10k_intfc *interface = netdev_priv(netdev);
- 
--	if (priv_flags >= (1 << FM10K_PRV_FLAG_LEN))
-+	if (priv_flags >= BIT(FM10K_PRV_FLAG_LEN))
- 		return -EINVAL;
- 
--	if (priv_flags & (1 << FM10K_PRV_FLAG_DEBUG_STATS))
-+	if (priv_flags & BIT(FM10K_PRV_FLAG_DEBUG_STATS))
- 		interface->flags |= FM10K_FLAG_DEBUG_STATS;
- 	else
- 		interface->flags &= ~FM10K_FLAG_DEBUG_STATS;
-@@ -1145,7 +1145,7 @@ static unsigned int fm10k_max_channels(struct net_device *dev)
- 
- 	/* For QoS report channels per traffic class */
- 	if (tcs > 1)
--		max_combined = 1 << (fls(max_combined / tcs) - 1);
-+		max_combined = BIT((fls(max_combined / tcs) - 1));
- 
- 	return max_combined;
- }
-@@ -1210,11 +1210,9 @@ static int fm10k_get_ts_info(struct net_device *dev,
- 	else
- 		info->phc_index = -1;
- 
--	info->tx_types = (1 << HWTSTAMP_TX_OFF) |
--			 (1 << HWTSTAMP_TX_ON);
-+	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
- 
--	info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
--			   (1 << HWTSTAMP_FILTER_ALL);
-+	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) | BIT(HWTSTAMP_FILTER_ALL);
- 
- 	return 0;
- }
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index d411aa5..db4353b 100644
+index b87401c38..31179af 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -401,10 +401,10 @@ static inline void fm10k_rx_checksum(struct fm10k_ring *ring,
+@@ -1581,6 +1581,20 @@ static void fm10k_set_num_queues(struct fm10k_intfc *interface)
  }
  
- #define FM10K_RSS_L4_TYPES_MASK \
--	((1ul << FM10K_RSSTYPE_IPV4_TCP) | \
--	 (1ul << FM10K_RSSTYPE_IPV4_UDP) | \
--	 (1ul << FM10K_RSSTYPE_IPV6_TCP) | \
--	 (1ul << FM10K_RSSTYPE_IPV6_UDP))
-+	(BIT(FM10K_RSSTYPE_IPV4_TCP) | \
-+	 BIT(FM10K_RSSTYPE_IPV4_UDP) | \
-+	 BIT(FM10K_RSSTYPE_IPV6_TCP) | \
-+	 BIT(FM10K_RSSTYPE_IPV6_UDP))
+ /**
++ * fm10k_reset_num_queues - Reset the number of queues to zero
++ * @interface: board private structure
++ *
++ * This function should be called whenever we need to reset the number of
++ * queues after an error condition.
++ */
++static void fm10k_reset_num_queues(struct fm10k_intfc *interface)
++{
++	interface->num_tx_queues = 0;
++	interface->num_rx_queues = 0;
++	interface->num_q_vectors = 0;
++}
++
++/**
+  * fm10k_alloc_q_vector - Allocate memory for a single interrupt vector
+  * @interface: board private structure to initialize
+  * @v_count: q_vectors allocated on interface, used for ring interleaving
+@@ -1763,9 +1777,7 @@ static int fm10k_alloc_q_vectors(struct fm10k_intfc *interface)
+ 	return 0;
  
- static inline void fm10k_rx_hash(struct fm10k_ring *ring,
- 				 union fm10k_rx_desc *rx_desc,
-@@ -420,7 +420,7 @@ static inline void fm10k_rx_hash(struct fm10k_ring *ring,
- 		return;
+ err_out:
+-	interface->num_tx_queues = 0;
+-	interface->num_rx_queues = 0;
+-	interface->num_q_vectors = 0;
++	fm10k_reset_num_queues(interface);
  
- 	skb_set_hash(skb, le32_to_cpu(rx_desc->d.rss),
--		     ((1ul << rss_type) & FM10K_RSS_L4_TYPES_MASK) ?
-+		     (BIT(rss_type) & FM10K_RSS_L4_TYPES_MASK) ?
- 		     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
- }
+ 	while (v_idx--)
+ 		fm10k_free_q_vector(interface, v_idx);
+@@ -1785,9 +1797,7 @@ static void fm10k_free_q_vectors(struct fm10k_intfc *interface)
+ {
+ 	int v_idx = interface->num_q_vectors;
  
-@@ -1409,7 +1409,7 @@ static void fm10k_update_itr(struct fm10k_ring_container *ring_container)
- 	 * accounts for changes in the ITR due to PCIe link speed.
- 	 */
- 	itr_round = ACCESS_ONCE(ring_container->itr_scale) + 8;
--	avg_wire_size += (1 << itr_round) - 1;
-+	avg_wire_size += BIT(itr_round) - 1;
- 	avg_wire_size >>= itr_round;
+-	interface->num_tx_queues = 0;
+-	interface->num_rx_queues = 0;
+-	interface->num_q_vectors = 0;
++	fm10k_reset_num_queues(interface);
  
- 	/* write back value and retain adaptive flag */
-@@ -1511,17 +1511,17 @@ static bool fm10k_set_qos_queues(struct fm10k_intfc *interface)
- 	/* set QoS mask and indices */
- 	f = &interface->ring_feature[RING_F_QOS];
- 	f->indices = pcs;
--	f->mask = (1 << fls(pcs - 1)) - 1;
-+	f->mask = BIT(fls(pcs - 1)) - 1;
- 
- 	/* determine the upper limit for our current DCB mode */
- 	rss_i = interface->hw.mac.max_queues / pcs;
--	rss_i = 1 << (fls(rss_i) - 1);
-+	rss_i = BIT(fls(rss_i) - 1);
- 
- 	/* set RSS mask and indices */
- 	f = &interface->ring_feature[RING_F_RSS];
- 	rss_i = min_t(u16, rss_i, f->limit);
- 	f->indices = rss_i;
--	f->mask = (1 << fls(rss_i - 1)) - 1;
-+	f->mask = BIT(fls(rss_i - 1)) - 1;
- 
- 	/* configure pause class to queue mapping */
- 	for (i = 0; i < pcs; i++)
-@@ -1551,7 +1551,7 @@ static bool fm10k_set_rss_queues(struct fm10k_intfc *interface)
- 
- 	/* record indices and power of 2 mask for RSS */
- 	f->indices = rss_i;
--	f->mask = (1 << fls(rss_i - 1)) - 1;
-+	f->mask = BIT(fls(rss_i - 1)) - 1;
- 
- 	interface->num_rx_queues = rss_i;
- 	interface->num_tx_queues = rss_i;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index d09a8dd..0ff6874 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1429,7 +1429,7 @@ struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info)
- 
- 	/* configure default debug level */
- 	interface = netdev_priv(dev);
--	interface->msg_enable = (1 << DEFAULT_DEBUG_LEVEL_SHIFT) - 1;
-+	interface->msg_enable = BIT(DEFAULT_DEBUG_LEVEL_SHIFT) - 1;
- 
- 	/* configure default features */
- 	dev->features |= NETIF_F_IP_CSUM |
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 86700a4..c9324c7 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -579,7 +579,7 @@ static void fm10k_configure_tx_ring(struct fm10k_intfc *interface,
- 	u64 tdba = ring->dma;
- 	u32 size = ring->count * sizeof(struct fm10k_tx_desc);
- 	u32 txint = FM10K_INT_MAP_DISABLE;
--	u32 txdctl = (1 << FM10K_TXDCTL_MAX_TIME_SHIFT) | FM10K_TXDCTL_ENABLE;
-+	u32 txdctl = BIT(FM10K_TXDCTL_MAX_TIME_SHIFT) | FM10K_TXDCTL_ENABLE;
- 	u8 reg_idx = ring->reg_idx;
- 
- 	/* disable queue to avoid issues while updating state */
-@@ -730,7 +730,7 @@ static void fm10k_configure_rx_ring(struct fm10k_intfc *interface,
- 	if (interface->pfc_en)
- 		rx_pause = interface->pfc_en;
- #endif
--	if (!(rx_pause & (1 << ring->qos_pc)))
-+	if (!(rx_pause & BIT(ring->qos_pc)))
- 		rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
- 
- 	fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
-@@ -779,7 +779,7 @@ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface)
- 		u32 rxdctl = FM10K_RXDCTL_WRITE_BACK_MIN_DELAY;
- 		u8 reg_idx = ring->reg_idx;
- 
--		if (!(rx_pause & (1 << ring->qos_pc)))
-+		if (!(rx_pause & BIT(ring->qos_pc)))
- 			rxdctl |= FM10K_RXDCTL_DROP_ON_EMPTY;
- 
- 		fm10k_write_reg(hw, FM10K_RXDCTL(reg_idx), rxdctl);
-@@ -1065,7 +1065,7 @@ static void fm10k_reset_drop_on_empty(struct fm10k_intfc *interface, u32 eicr)
- 	if (maxholdq)
- 		fm10k_write_reg(hw, FM10K_MAXHOLDQ(7), maxholdq);
- 	for (q = 255;;) {
--		if (maxholdq & (1 << 31)) {
-+		if (maxholdq & BIT(31)) {
- 			if (q < FM10K_MAX_QUEUES_PF) {
- 				interface->rx_overrun_pf++;
- 				fm10k_write_reg(hw, FM10K_RXDCTL(q), rxdctl);
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 34a0b03..23de956 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -527,8 +527,8 @@ static s32 fm10k_configure_dglort_map_pf(struct fm10k_hw *hw,
- 		return FM10K_ERR_PARAM;
- 
- 	/* determine count of VSIs and queues */
--	queue_count = 1 << (dglort->rss_l + dglort->pc_l);
--	vsi_count = 1 << (dglort->vsi_l + dglort->queue_l);
-+	queue_count = BIT(dglort->rss_l + dglort->pc_l);
-+	vsi_count = BIT(dglort->vsi_l + dglort->queue_l);
- 	glort = dglort->glort;
- 	q_idx = dglort->queue_b;
- 
-@@ -544,8 +544,8 @@ static s32 fm10k_configure_dglort_map_pf(struct fm10k_hw *hw,
+ 	while (v_idx--)
+ 		fm10k_free_q_vector(interface, v_idx);
+@@ -1995,14 +2005,15 @@ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
+ 	if (err) {
+ 		dev_err(&interface->pdev->dev,
+ 			"Unable to initialize MSI-X capability\n");
+-		return err;
++		goto err_init_msix;
  	}
  
- 	/* determine count of PCs and queues */
--	queue_count = 1 << (dglort->queue_l + dglort->rss_l + dglort->vsi_l);
--	pc_count = 1 << dglort->pc_l;
-+	queue_count = BIT(dglort->queue_l + dglort->rss_l + dglort->vsi_l);
-+	pc_count = BIT(dglort->pc_l);
+ 	/* Allocate memory for queues */
+ 	err = fm10k_alloc_q_vectors(interface);
+ 	if (err) {
+-		fm10k_reset_msix_capability(interface);
+-		return err;
++		dev_err(&interface->pdev->dev,
++			"Unable to allocate queue vectors\n");
++		goto err_alloc_q_vectors;
+ 	}
  
- 	/* configure PC for Tx queues */
- 	for (pc = 0; pc < pc_count; pc++) {
-@@ -952,7 +952,7 @@ static s32 fm10k_iov_reset_resources_pf(struct fm10k_hw *hw,
- 		return FM10K_ERR_PARAM;
+ 	/* Map rings to devices, and map devices to physical queues */
+@@ -2012,6 +2023,12 @@ int fm10k_init_queueing_scheme(struct fm10k_intfc *interface)
+ 	fm10k_init_reta(interface);
  
- 	/* clear event notification of VF FLR */
--	fm10k_write_reg(hw, FM10K_PFVFLREC(vf_idx / 32), 1 << (vf_idx % 32));
-+	fm10k_write_reg(hw, FM10K_PFVFLREC(vf_idx / 32), BIT(vf_idx % 32));
- 
- 	/* force timeout and then disconnect the mailbox */
- 	vf_info->mbx.timeout = 0;
-@@ -1370,7 +1370,7 @@ s32 fm10k_iov_msg_lport_state_pf(struct fm10k_hw *hw, u32 **results,
- 		mode = fm10k_iov_supported_xcast_mode_pf(vf_info, mode);
- 
- 		/* if mode is not currently enabled, enable it */
--		if (!(FM10K_VF_FLAG_ENABLED(vf_info) & (1 << mode)))
-+		if (!(FM10K_VF_FLAG_ENABLED(vf_info) & BIT(mode)))
- 			fm10k_update_xcast_mode_pf(hw, vf_info->glort, mode);
- 
- 		/* swap mode back to a bit flag */
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-index ab01bb3..b999897 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_tlv.c
-@@ -222,7 +222,7 @@ s32 fm10k_tlv_attr_put_value(u32 *msg, u16 attr_id, s64 value, u32 len)
- 	attr = &msg[FM10K_TLV_DWORD_LEN(*msg)];
- 
- 	if (len < 4) {
--		attr[1] = (u32)value & ((0x1ul << (8 * len)) - 1);
-+		attr[1] = (u32)value & (BIT(8 * len) - 1);
- 	} else {
- 		attr[1] = (u32)value;
- 		if (len > 4)
-@@ -652,29 +652,29 @@ const struct fm10k_tlv_attr fm10k_tlv_msg_test_attr[] = {
-  **/
- static void fm10k_tlv_msg_test_generate_data(u32 *msg, u32 attr_flags)
- {
--	if (attr_flags & (1 << FM10K_TEST_MSG_STRING))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_STRING))
- 		fm10k_tlv_attr_put_null_string(msg, FM10K_TEST_MSG_STRING,
- 					       test_str);
--	if (attr_flags & (1 << FM10K_TEST_MSG_MAC_ADDR))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_MAC_ADDR))
- 		fm10k_tlv_attr_put_mac_vlan(msg, FM10K_TEST_MSG_MAC_ADDR,
- 					    test_mac, test_vlan);
--	if (attr_flags & (1 << FM10K_TEST_MSG_U8))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_U8))
- 		fm10k_tlv_attr_put_u8(msg, FM10K_TEST_MSG_U8,  test_u8);
--	if (attr_flags & (1 << FM10K_TEST_MSG_U16))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_U16))
- 		fm10k_tlv_attr_put_u16(msg, FM10K_TEST_MSG_U16, test_u16);
--	if (attr_flags & (1 << FM10K_TEST_MSG_U32))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_U32))
- 		fm10k_tlv_attr_put_u32(msg, FM10K_TEST_MSG_U32, test_u32);
--	if (attr_flags & (1 << FM10K_TEST_MSG_U64))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_U64))
- 		fm10k_tlv_attr_put_u64(msg, FM10K_TEST_MSG_U64, test_u64);
--	if (attr_flags & (1 << FM10K_TEST_MSG_S8))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_S8))
- 		fm10k_tlv_attr_put_s8(msg, FM10K_TEST_MSG_S8,  test_s8);
--	if (attr_flags & (1 << FM10K_TEST_MSG_S16))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_S16))
- 		fm10k_tlv_attr_put_s16(msg, FM10K_TEST_MSG_S16, test_s16);
--	if (attr_flags & (1 << FM10K_TEST_MSG_S32))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_S32))
- 		fm10k_tlv_attr_put_s32(msg, FM10K_TEST_MSG_S32, test_s32);
--	if (attr_flags & (1 << FM10K_TEST_MSG_S64))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_S64))
- 		fm10k_tlv_attr_put_s64(msg, FM10K_TEST_MSG_S64, test_s64);
--	if (attr_flags & (1 << FM10K_TEST_MSG_LE_STRUCT))
-+	if (attr_flags & BIT(FM10K_TEST_MSG_LE_STRUCT))
- 		fm10k_tlv_attr_put_le_struct(msg, FM10K_TEST_MSG_LE_STRUCT,
- 					     test_le, 8);
+ 	return 0;
++
++err_alloc_q_vectors:
++	fm10k_reset_msix_capability(interface);
++err_init_msix:
++	fm10k_reset_num_queues(interface);
++	return err;
  }
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_type.h b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-index 854ebb1..5c05330 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_type.h
-@@ -617,10 +617,10 @@ struct fm10k_vf_info {
- 						 */
- };
  
--#define FM10K_VF_FLAG_ALLMULTI_CAPABLE	((u8)1 << FM10K_XCAST_MODE_ALLMULTI)
--#define FM10K_VF_FLAG_MULTI_CAPABLE	((u8)1 << FM10K_XCAST_MODE_MULTI)
--#define FM10K_VF_FLAG_PROMISC_CAPABLE	((u8)1 << FM10K_XCAST_MODE_PROMISC)
--#define FM10K_VF_FLAG_NONE_CAPABLE	((u8)1 << FM10K_XCAST_MODE_NONE)
-+#define FM10K_VF_FLAG_ALLMULTI_CAPABLE	(u8)(BIT(FM10K_XCAST_MODE_ALLMULTI))
-+#define FM10K_VF_FLAG_MULTI_CAPABLE	(u8)(BIT(FM10K_XCAST_MODE_MULTI))
-+#define FM10K_VF_FLAG_PROMISC_CAPABLE	(u8)(BIT(FM10K_XCAST_MODE_PROMISC))
-+#define FM10K_VF_FLAG_NONE_CAPABLE	(u8)(BIT(FM10K_XCAST_MODE_NONE))
- #define FM10K_VF_FLAG_CAPABLE(vf_info)	((vf_info)->vf_flags & (u8)0xF)
- #define FM10K_VF_FLAG_ENABLED(vf_info)	((vf_info)->vf_flags >> 4)
- #define FM10K_VF_FLAG_SET_MODE(mode)	((u8)0x10 << (mode))
+ /**
 -- 
 2.5.5
