@@ -1,71 +1,51 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Tue, 5 Apr 2016 11:29:05 +0200
-Message-ID: <20160405112905.66b84e13@redhat.com>
-References: <1459560118-5582-1-git-send-email-bblanco@plumgrid.com>
-	<1459560118-5582-2-git-send-email-bblanco@plumgrid.com>
-	<57022A85.6040002@iogearbox.net>
-	<20160404150700.1456ae80@redhat.com>
-	<57026DFA.3090201@iogearbox.net>
-	<CALx6S37aK79AbkUPBFTHkonUziSb7A1KV47vnG1OgciPD2qXcA@mail.gmail.com>
-	<20160404171227.1f862cb1@redhat.com>
-	<20160404152948.GA495@gmail.com>
-	<57029127.3040303@gmail.com>
-	<20160404161720.GB495@gmail.com>
-	<20160404200032.GA69842@ast-mbp.thefacebook.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: NETLINK_URELEASE non-bound socket problem (was: [PATCH] Fix local
+ DoS in cfg80211 subsystem)
+Date: Tue, 05 Apr 2016 11:56:28 +0200
+Message-ID: <1459850188.18188.38.camel@sipsolutions.net>
+References: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com>
+	 (sfid-20160404_171731_309095_517B9817)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ogerlitz@mellanox.com, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>, samuel <samuel@sortiz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Dmitrijs Ivanovs <dmitrijs.ivanovs@ubnt.com>,
+	linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36804 "EHLO mx1.redhat.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:53660 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755956AbcDEJ3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 05:29:11 -0400
-In-Reply-To: <20160404200032.GA69842@ast-mbp.thefacebook.com>
+	id S1757103AbcDEJ4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 05:56:32 -0400
+In-Reply-To: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com> (sfid-20160404_171731_309095_517B9817)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dmitrijs,
 
-On Mon, 4 Apr 2016 13:00:34 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+Thanks for reporting this problem.
 
-> As seen in 'perf report' from patch 5:
->   3.32%  ksoftirqd/1    [kernel.vmlinux]  [k] sk_load_byte_positive_offset
-> this is 14Mpps and 4 assembler instructions in the above function
-> are consuming 3% of the cpu.
+> The patch below corrects this problem in kernel space. 
 
-At this level we also need to take into account the cost/overhead of a
-function call.  Which I've measured to between 5-7 cycles, part of my
-time_bench_sample[1] test.
+I don't think that this is correct, there are four more users of
+NETLINK_URELEASE (nfnetlink, NFC), and afaict all of them have the same
+bug as nl80211.
 
-> Making new_load_byte to be single  x86 insn would be really cool.
-> 
-> Of course, there are other pieces to accelerate:
->  12.71%  ksoftirqd/1    [mlx4_en]         [k] mlx4_en_alloc_frags
->   6.87%  ksoftirqd/1    [mlx4_en]         [k] mlx4_en_free_frag
->   4.20%  ksoftirqd/1    [kernel.vmlinux]  [k] get_page_from_freelist
->   4.09%  swapper        [mlx4_en]         [k] mlx4_en_process_rx_cq
-> and I think Jesper's work on batch allocation is going help that a lot.
+Rather than fix all of them, I think we should simply not report
+NETLINK_URELEASE for netlink sockets that weren't bound; if any user
+comes up that requires them later we could add a new event instead.
 
-Actually, it looks like all of this "overhead" comes from the page
-alloc/free (+ dma unmap/map). We would need a page-pool recycle
-mechanism to solve/remove this overhead.  For the early drop case we
-might be able to hack recycle the page directly in the driver (and also
-avoid dma_unmap/map cycle).
+I can't find what commit introduced this code, it goes back before git
+history, so I don't have the commit log. Maybe it was done for
+nfnetlink log/queue? Certainly both nl80211 and NFC are much newer.
 
+> Also, it is
+> recommended to ensure that user-space applications are not using
+> user-supplied port_id for netlink sockets (which is default in
+> libnl-tiny for example).
 
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+This I think we should remove from the commit log - it's misleading and
+there's no point.
+
+johannes
