@@ -1,7 +1,11 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net] MAINTAINERS: intel-wired-lan list is moderated
-Date: Tue,  5 Apr 2016 16:39:37 +0200
-Message-ID: <f06d4636c53b68b5368bfc817511d36a13c4dc8b.1459867159.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next] net: intel: remove dead links
+Date: Tue, 5 Apr 2016 16:44:26 +0200
+Message-ID: <20160405164426.4e0d442d@griffin>
+References: <3c9f8ea384ba033f83ec360eef17732ff0a5a8dd.1459866280.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Shannon Nelson <shannon.nelson@intel.com>,
@@ -12,44 +16,33 @@ Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Mitch Williams <mitch.a.williams@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34526 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59461 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751336AbcDEOj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 10:39:56 -0400
+	id S1758507AbcDEOod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 10:44:33 -0400
+In-Reply-To: <3c9f8ea384ba033f83ec360eef17732ff0a5a8dd.1459866280.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I got the following message:
+[removing intel-wired-lan@lists.osuosl.org as I have no interest in the
+annoying "awaits moderator approval" emails]
 
-> Your mail to 'Intel-wired-lan' with the subject
->
->     [PATCH net-next] net: intel: remove dead links
->
-> Is being held until the list moderator can review it for approval.
->
-> The reason it is being held:
->
->     Post by non-member to a members-only list
+On Tue,  5 Apr 2016 16:25:07 +0200, Jiri Benc wrote:
+> The Kconfig for Intel NICs references two different URLs for the "Adapter
+> & Driver ID Guide". Neither of those two links works. The current URL seems
+> to be
+> http://www.intel.com/content/www/us/en/support/network-and-i-o/ethernet-products/000005584.html
+> but given it's apparently constantly changing, there's no point in having it
+> in the help text.
+> 
+> Just keep a generic pointer to http://support.intel.com. Hopefully, this one
+> will have a longer live. It still works, at least.
+> 
+> Futhermore, remove a link to "the latest Intel PRO/100 network driver for
+> Linux", this has no place in the mainline kernel and the latest Linux driver
+> it offers is from 2006, anyway.
 
-Mark the list as moderated.
+The patch also applies to net. It's probably better to apply it there
+than to net-next.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 7ba7bc485d74..1d8ce9b9e4f1 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5750,7 +5750,7 @@ R:	Don Skidmore <donald.c.skidmore@intel.com>
- R:	Bruce Allan <bruce.w.allan@intel.com>
- R:	John Ronciak <john.ronciak@intel.com>
- R:	Mitch Williams <mitch.a.williams@intel.com>
--L:	intel-wired-lan@lists.osuosl.org
-+L:	intel-wired-lan@lists.osuosl.org (moderated for non-subscribers)
- W:	http://www.intel.com/support/feedback.htm
- W:	http://e1000.sourceforge.net/
- Q:	http://patchwork.ozlabs.org/project/intel-wired-lan/list/
--- 
-1.8.3.1
+ Jiri
