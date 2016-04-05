@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 7/8] samples/bpf: tracepoint example
-Date: Mon, 4 Apr 2016 21:52:53 -0700
-Message-ID: <1459831974-2891931-8-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
+Date: Mon, 4 Apr 2016 21:52:47 -0700
+Message-ID: <1459831974-2891931-2-git-send-email-ast@fb.com>
 References: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,83 +15,48 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
 To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57067 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755164AbcDEEw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:52:59 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u354mt0a007390
-	for <netdev@vger.kernel.org>; Mon, 4 Apr 2016 21:52:58 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 222xhcb93d-7
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 21:52:58 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- 42e29154faea11e596ad0002c99293a0-6c5e23f0 for <netdev@vger.kernel.org>;	Mon,
- 04 Apr 2016 21:52:55 -0700
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1459831974-2891931-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-modify offwaketime to work with sched/sched_switch tracepoint
-instead of kprobe into finish_task_switch
+avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
+It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
+with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc and
+subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
+so we can safely drop memset from all of the above cases and move it into
+perf_ftrace_function_call that calls it with stack allocated pt_regs.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/offwaketime_kern.c | 26 ++++++++++++++++++++++----
- 1 file changed, 22 insertions(+), 4 deletions(-)
+ include/linux/perf_event.h      | 2 --
+ kernel/trace/trace_event_perf.c | 1 +
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/samples/bpf/offwaketime_kern.c b/samples/bpf/offwaketime_kern.c
-index c0aa5a9b9c48..983629a31c79 100644
---- a/samples/bpf/offwaketime_kern.c
-+++ b/samples/bpf/offwaketime_kern.c
-@@ -73,7 +73,7 @@ int waker(struct pt_regs *ctx)
- 	return 0;
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index f291275ffd71..e89f7199c223 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -882,8 +882,6 @@ static inline void perf_arch_fetch_caller_regs(struct pt_regs *regs, unsigned lo
+  */
+ static inline void perf_fetch_caller_regs(struct pt_regs *regs)
+ {
+-	memset(regs, 0, sizeof(*regs));
+-
+ 	perf_arch_fetch_caller_regs(regs, CALLER_ADDR0);
  }
  
--static inline int update_counts(struct pt_regs *ctx, u32 pid, u64 delta)
-+static inline int update_counts(void *ctx, u32 pid, u64 delta)
- {
- 	struct key_t key = {};
- 	struct wokeby_t *woke;
-@@ -100,15 +100,33 @@ static inline int update_counts(struct pt_regs *ctx, u32 pid, u64 delta)
- 	return 0;
- }
+diff --git a/kernel/trace/trace_event_perf.c b/kernel/trace/trace_event_perf.c
+index 00df25fd86ef..7a68afca8249 100644
+--- a/kernel/trace/trace_event_perf.c
++++ b/kernel/trace/trace_event_perf.c
+@@ -316,6 +316,7 @@ perf_ftrace_function_call(unsigned long ip, unsigned long parent_ip,
  
-+#if 1
-+/* taken from /sys/kernel/debug/tracing/events/sched/sched_switch/format */
-+struct sched_switch_args {
-+	unsigned long long pad;
-+	char prev_comm[16];
-+	int prev_pid;
-+	int prev_prio;
-+	long long prev_state;
-+	char next_comm[16];
-+	int next_pid;
-+	int next_prio;
-+};
-+SEC("tracepoint/sched/sched_switch")
-+int oncpu(struct sched_switch_args *ctx)
-+{
-+	/* record previous thread sleep time */
-+	u32 pid = ctx->prev_pid;
-+#else
- SEC("kprobe/finish_task_switch")
- int oncpu(struct pt_regs *ctx)
- {
- 	struct task_struct *p = (void *) PT_REGS_PARM1(ctx);
-+	/* record previous thread sleep time */
-+	u32 pid = _(p->pid);
-+#endif
- 	u64 delta, ts, *tsp;
--	u32 pid;
+ 	BUILD_BUG_ON(ENTRY_SIZE > PERF_MAX_TRACE_SIZE);
  
--	/* record previous thread sleep time */
--	pid = _(p->pid);
- 	ts = bpf_ktime_get_ns();
- 	bpf_map_update_elem(&start, &pid, &ts, BPF_ANY);
++	memset(&regs, 0, sizeof(regs));
+ 	perf_fetch_caller_regs(&regs);
  
+ 	entry = perf_trace_buf_prepare(ENTRY_SIZE, TRACE_FN, NULL, &rctx);
 -- 
 2.8.0
