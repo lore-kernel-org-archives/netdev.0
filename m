@@ -1,57 +1,76 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCHv2 net-next 3/6] bridge: simplify the
- stp_state_store by calling store_bridge_parm
-Date: Tue, 5 Apr 2016 14:08:13 +0900
-Message-ID: <5703483D.80109@lab.ntt.co.jp>
-References: <cover.1459827115.git.lucien.xin@gmail.com>
-	<6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1459827115.git.lucien.xin@gmail.com>
-	<6197a35a2eb6df2caf90edcbf1b49da12077f659.1459827115.git.lucien.xin@gmail.com>
-	<baf4788b6ac529a2132ace735fc1caf4989307da.1459827115.git.lucien.xin@gmail.com>
+From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH] mwifiex: add __GFP_REPEAT to skb allocation call
+Date: Tue, 5 Apr 2016 05:48:25 +0000
+Message-ID: <4fa3762986eb4b848dbe7daf6871d7a8@SC-EXCH04.marvell.com>
+References: <1459226840-36287-1-git-send-email-wnhuang@chromium.org>
+	 <87vb45brxc.fsf@kamboji.qca.qualcomm.com>
+	 <CABicQ-UJ1kniq6m86QcyVZBPznvNexfrUrTk3A_=GmZy69hvCA@mail.gmail.com>
+ <1459256320.6473.160.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <baf4788b6ac529a2132ace735fc1caf4989307da.1459827115.git.lucien.xin@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Linux Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Sameer Nanda <snanda-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sonny Rao <sonnyrao-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Douglas Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1459256320.6473.160.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/04/05 12:32, Xin Long wrote:
-> There are some repetitive codes in stp_state_store, we can remove
-> them by calling store_bridge_parm.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_sysfs_br.c | 24 +++++++-----------------
->  1 file changed, 7 insertions(+), 17 deletions(-)
-> 
-> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-> index 137cd3b..9918763 100644
-> --- a/net/bridge/br_sysfs_br.c
-> +++ b/net/bridge/br_sysfs_br.c
-> @@ -128,27 +128,17 @@ static ssize_t stp_state_show(struct device *d,
->  }
->  
->  
-> +static int set_stp_state(struct net_bridge *br, unsigned long val)
-> +{
-
-You forgot to add rtnl lock here?
-The missing lock is restored in patch 4, but at this point bisect could
-break..
-
-> +	br_stp_set_enabled(br, val);
-> +	return 0;
-> +}
-
-Toshiaki Makita
+SGkgRXJpYywNCg0KVGhhbmtzIGZvciB0aGUgY29tbWVudHMuDQoNCj4gRnJvbTogRXJpYyBEdW1h
+emV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWFy
+Y2ggMjksIDIwMTYgNjoyOSBQTQ0KPiBUbzogV2VpLU5pbmcgSHVhbmcNCj4gQ2M6IEthbGxlIFZh
+bG87IExpbnV4IFdpcmVsZXNzOyBMS01MOyBBbWl0a3VtYXIgS2Fyd2FyOyBOaXNoYW50DQo+IFNh
+cm11a2FkYW07IFNhbWVlciBOYW5kYTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgU29ubnkgUmFv
+OyBEb3VnbGFzDQo+IEFuZGVyc29uDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIG13aWZpZXg6IGFk
+ZCBfX0dGUF9SRVBFQVQgdG8gc2tiIGFsbG9jYXRpb24gY2FsbA0KPiANCj4gT24gVHVlLCAyMDE2
+LTAzLTI5IGF0IDE3OjI3ICswODAwLCBXZWktTmluZyBIdWFuZyB3cm90ZToNCj4gPiBBZGRpbmcg
+c29tZSBjaHJvbWl1bSBkZXZzIHRvIHRoZSB0aHJlYWQuDQo+ID4NCj4gPiBJbiwgaHR0cDovL2x4
+ci5mcmVlLWVsZWN0cm9ucy5jb20vc291cmNlL21tL3BhZ2VfYWxsb2MuYyNMMzE1Mg0KPiA+DQo+
+ID4gVGhlIGRlZmF1bHQgbW0gcmV0cnkgYWxsb2NhdGlvbiB3aGVuICdvcmRlciA8PQ0KPiA+IFBB
+R0VfQUxMT0NfQ09TVExZX09SREVSJyBvZiBnZnBfbWFzayBjb250YWlucyBfX0dGUF9SRVBFQVQu
+DQo+ID4gUEFHRV9BTExPQ19DT1NUTFlfT1JERVIgaXMgZGVmaW5lZCB0byBiZSAzLiBPbiBzeXN0
+ZW1zIHdpdGggcGFnZSBzaXplDQo+ID4gPSA0SywgdGhpcyBtZWFucyBtZW1vcnkgY29tcGFjdGlv
+biBhbmQgcmV0cnkgaXMgb25seSBkb25lIHdoZW4gdGhlDQo+ID4gc2l6ZSBvZiBhbGxvY2F0aW9u
+IGlzIDw9IDMySyBJbiBtd2lmaWV4LCB0aGUgYWxsb2NhdGlvbiBzaXplIGlzIDY0Sy4NCj4gDQo+
+IA0KPiANCj4gPiAgV2hlbiB3ZSBoYXZlIHN5c3RlbSB3aXRoDQo+ID4gbWVtb3J5IGZyYWdtZW50
+YXRpb24gYW5kIGFsbG9jYXRpb24gZmFpbGVkLCB0aGVyZSB3aWxsIGJlIG5vIHJldHJ5Lg0KPiA+
+IFRoaXMgaXMgd2h5IHdlIG5lZWQgdG8gYWRkIF9fR0ZQX1JFUEVBVCBoZXJlIHRvIGFsbG93IHRo
+ZSBzeXN0ZW0gdG8NCj4gPiBwZXJmb3JtIG1lbW9yeSBjb21wYWN0aW9uIGFuZCByZXRyeSBhbGxv
+Y2F0aW9uLg0KPiA+DQo+ID4gTWF5YmUgQW1pdEBtYXJ2ZWxsIGNhbiBjb21tZW50IG9uIGlmIHRo
+aXMgaXMgYSBnb29kIGZpeCBvbiB0aGlzIGlzc3VlLg0KPiA+IEknbSBhbHNvIGF3YXJlIHRoYXQg
+bWFydmVsbCBpcyB0aGUgcHJvZ3Jlc3Mgb2YgaW1wbGVtZW50aW5nDQo+ID4gc2NhdHRlci9nYXR0
+ZXIgZm9yIG13aWZpZXgsIHdoaWNoIGNhbiBhbHNvIGZpeCB0aGUgaXNzdWUuDQo+IA0KPiBCZWZv
+cmUgU0cgaXMgaW1wbGVtZW50ZWQsIHlvdSByZWFsbHkgbmVlZCB0byBjb3B5IGluY29taW5nIGZy
+YW1lcyBpbnRvDQo+IHNtYWxsZXN0IGNodW5rcyAodG8gZ2V0IGxvd2VzdCBza2ItPnRydWVzaXpl
+KSBhbmQgbGVhdmUgdGhlIDY0S0INCj4gYWxsb2NhdGVkIHN0dWZmIGZvcmV2ZXIgaW4gdGhlIGRy
+aXZlci4NCg0KV2UgZG8gaGF2ZSBhIDY0S0IgcHJlLWFsbG9jYXRlZCBidWZmZXIgZm9yIHJlY2Vp
+dmluZyBSeCBkYXRhIGluIG91ciBkcml2ZXIuDQoNCj4gDQo+IF9fR0ZQX1JFUEVBVCB3b250IHJl
+YWxseSBzb2x2ZSB0aGUgaXNzdWUuDQo+IA0KPiBJdCBzZWVtcyB0aGUgcHJvYmxlbSBjb21lcyBm
+cm9tIHRoZSBmYWN0IHRoYXQgdGhlIGRyaXZlcnMgY2FsbHMNCj4gZGV2X2tmcmVlX3NrYl9hbnko
+KSBhZnRlciBjYWxsaW5nIG13aWZpZXhfZGVhZ2dyX3NkaW9fcGt0KCksIGluc3RlYWQgb2YNCj4g
+cmVjeWNsaW5nIHRoaXMgdmVyeSBwcmVjaW91cyA2NEtCIHNrYiBvbmNlIG1lbW9yeSBnZXRzIGZy
+YWdtZW50ZWQuDQoNCk91ciBvbmUgdGltZSBhbGxvY2F0ZWQgNjRrIGJ1ZmZlciByZWFkIGZyb20g
+ZmlybXdhcmUgY29udGFpbnMgbXVsdGlwbGUgZGF0YSBjaHVua3MuIFdlIGhhdmUgYSBmZWF0dXJl
+IGNhbGxlZCBzaW5nbGUgcG9ydCBhZ2dyZWdhdGlvbiBpbiB3aGljaCBmaXJtd2FyZSBhdHRhY2hl
+cyBhbiBhZ2dyZWdhdGVkIGJ1ZmZlciB0byBzaW5nbGUgcG9ydC4gU28gc29tZXRpbWVzIGEgc2lu
+Z2xlIGRhdGEgY2h1bmsgY2FuIGV4Y2VlZCAzMmsuIGRldl9rZnJlZV9za2JfYW55KCkgaXMgY2Fs
+bGVkIHRvIGZyZWUgdGhvc2UgZGF0YSBjaHVua3MuDQoNCj4gDQo+IEFub3RoZXIgcHJvYmxlbSBp
+cyB0aGF0IG13aWZpZXhfZGVhZ2dyX3NkaW9fcGt0KCkgdXNlcw0KPiBtd2lmaWV4X2FsbG9jX2Rt
+YV9hbGlnbl9idWYoKSB3aXRoIEdGUF9LRVJORUwgfCBHRlBfRE1BDQo+IA0KPiBSZWFsbHkgR0ZQ
+X0RNQSBtYWtlcyBubyBzZW5zZSBoZXJlLCBzaW5jZSB0aGUgc2tiIGlzIGdvaW5nIHRvIGJlDQo+
+IHByb2Nlc3NlZCBieSB0aGUgc3RhY2ssIHdoaWNoIGhhcyBubyBzdWNoIHJlcXVpcmVtZW50Lg0K
+PiANCj4gUGxlYXNlIHVzZSBub3JtYWwgc2tiIGFsbG9jYXRpb25zIHRoZXJlLg0KDQpTdXJlLiBJ
+IHdpbGwgc3VibWl0IGEgcGF0Y2ggZm9yIHRoaXMuDQoNClJlZ2FyZHMsDQpBbWl0a3VtYXINCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
