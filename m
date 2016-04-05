@@ -1,51 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: NETLINK_URELEASE non-bound socket problem (was: [PATCH] Fix local
- DoS in cfg80211 subsystem)
-Date: Tue, 05 Apr 2016 11:56:28 +0200
-Message-ID: <1459850188.18188.38.camel@sipsolutions.net>
-References: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com>
-	 (sfid-20160404_171731_309095_517B9817)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, samuel <samuel@sortiz.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Dmitrijs Ivanovs <dmitrijs.ivanovs@ubnt.com>,
-	linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:53660 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757103AbcDEJ4c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 05:56:32 -0400
-In-Reply-To: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com> (sfid-20160404_171731_309095_517B9817)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCH net 1/4] lib/test_bpf: Fix JMP_JSET tests
+Date: Tue,  5 Apr 2016 15:32:53 +0530
+Message-ID: <5e3cf7c4a971e6d2ff7a2d50bbec2e6e26883b84.1459850410.git.naveen.n.rao@linux.vnet.ibm.com>
+Cc: Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Paul Mackerras <paulus@samba.org>
+To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dmitrijs,
+JMP_JSET tests incorrectly used BPF_JNE. Fix the same.
 
-Thanks for reporting this problem.
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+---
+ lib/test_bpf.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-> The patch below corrects this problem in kernel space. 
-
-I don't think that this is correct, there are four more users of
-NETLINK_URELEASE (nfnetlink, NFC), and afaict all of them have the same
-bug as nl80211.
-
-Rather than fix all of them, I think we should simply not report
-NETLINK_URELEASE for netlink sockets that weren't bound; if any user
-comes up that requires them later we could add a new event instead.
-
-I can't find what commit introduced this code, it goes back before git
-history, so I don't have the commit log. Maybe it was done for
-nfnetlink log/queue? Certainly both nl80211 and NFC are much newer.
-
-> Also, it is
-> recommended to ensure that user-space applications are not using
-> user-supplied port_id for netlink sockets (which is default in
-> libnl-tiny for example).
-
-This I think we should remove from the commit log - it's misleading and
-there's no point.
-
-johannes
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 27a7a26..e76fa4d 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -4303,7 +4303,7 @@ static struct bpf_test tests[] = {
+ 		.u.insns_int = {
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 0),
+ 			BPF_LD_IMM64(R1, 3),
+-			BPF_JMP_IMM(BPF_JNE, R1, 2, 1),
++			BPF_JMP_IMM(BPF_JSET, R1, 2, 1),
+ 			BPF_EXIT_INSN(),
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 1),
+ 			BPF_EXIT_INSN(),
+@@ -4317,7 +4317,7 @@ static struct bpf_test tests[] = {
+ 		.u.insns_int = {
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 0),
+ 			BPF_LD_IMM64(R1, 3),
+-			BPF_JMP_IMM(BPF_JNE, R1, 0xffffffff, 1),
++			BPF_JMP_IMM(BPF_JSET, R1, 0xffffffff, 1),
+ 			BPF_EXIT_INSN(),
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 1),
+ 			BPF_EXIT_INSN(),
+@@ -4474,7 +4474,7 @@ static struct bpf_test tests[] = {
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 0),
+ 			BPF_LD_IMM64(R1, 3),
+ 			BPF_LD_IMM64(R2, 2),
+-			BPF_JMP_REG(BPF_JNE, R1, R2, 1),
++			BPF_JMP_REG(BPF_JSET, R1, R2, 1),
+ 			BPF_EXIT_INSN(),
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 1),
+ 			BPF_EXIT_INSN(),
+@@ -4489,7 +4489,7 @@ static struct bpf_test tests[] = {
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 0),
+ 			BPF_LD_IMM64(R1, 3),
+ 			BPF_LD_IMM64(R2, 0xffffffff),
+-			BPF_JMP_REG(BPF_JNE, R1, R2, 1),
++			BPF_JMP_REG(BPF_JSET, R1, R2, 1),
+ 			BPF_EXIT_INSN(),
+ 			BPF_ALU32_IMM(BPF_MOV, R0, 1),
+ 			BPF_EXIT_INSN(),
+-- 
+2.7.4
