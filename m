@@ -1,57 +1,29 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: [PATCH] Revert "netpoll: Fix extra refcount release in
- netpoll_cleanup()"
-Date: Tue, 05 Apr 2016 15:58:22 -0500
-Message-ID: <20160405205822.24724.95522.stgit@bhelgaas-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@redhat.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Bart Van Assche <bart.vanassche@sandisk.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petri Gynther <pgynther@google.com>
+Subject: [RESEND PATCH net-next v2 0/3] bcmgenet cleanups
+Date: Tue,  5 Apr 2016 13:59:58 -0700
+Message-ID: <1459890001-78171-1-git-send-email-pgynther@google.com>
+Cc: davem@davemloft.net, f.fainelli@gmail.com, opendmb@gmail.com,
+	jaedon.shin@gmail.com, Petri Gynther <pgynther@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34037 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759797AbcDEVAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 17:00:16 -0400
+Received: by mail-pf0-f178.google.com with SMTP id c20so18156923pfc.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 14:00:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 543e3a8da5a4c453e992d5351ef405d5e32f27d7.
+Three cleanup patches for bcmgenet.
 
-Direct callers of __netpoll_setup() depend on it to set np->dev,
-so we can't simply move that assignment up to netpoll_stup().
+Petri Gynther (3):
+  net: bcmgenet: cleanup for bcmgenet_xmit()
+  net: bcmgenet: cleanup for bcmgenet_xmit_frag()
+  net: bcmgenet: cleanup for dmadesc_set()
 
-Reported-by: Bart Van Assche <bart.vanassche@sandisk.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
----
- net/core/netpoll.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 27 ++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index a57bd17..94acfc8 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -603,6 +603,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
- 	const struct net_device_ops *ops;
- 	int err;
- 
-+	np->dev = ndev;
- 	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
- 	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
- 
-@@ -669,7 +670,6 @@ int netpoll_setup(struct netpoll *np)
- 		goto unlock;
- 	}
- 	dev_hold(ndev);
--	np->dev = ndev;
- 
- 	if (netdev_master_upper_dev_get(ndev)) {
- 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
-@@ -770,7 +770,6 @@ int netpoll_setup(struct netpoll *np)
- 	return 0;
- 
- put:
--	np->dev = NULL;
- 	dev_put(ndev);
- unlock:
- 	rtnl_unlock();
+-- 
+2.8.0.rc3.226.g39d4020
