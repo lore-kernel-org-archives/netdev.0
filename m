@@ -1,47 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/14] ixgbe: Extend trust to allow guest to set unicast address
-Date: Mon,  4 Apr 2016 17:58:54 -0700
-Message-ID: <1459817945-144915-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 05/14] ixgbe: Avoid adding VLAN 0 twice to VLVF and VFTA
+Date: Mon,  4 Apr 2016 17:58:56 -0700
+Message-ID: <1459817945-144915-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: chas williams <3chas3@gmail.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:38979 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754665AbcDEA7J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Apr 2016 20:59:09 -0400
+	id S1753233AbcDEA7K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 20:59:10 -0400
 In-Reply-To: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: chas williams <3chas3@gmail.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-When running certain routing protocols like VRRP, VF guests need the
-ability to set the unicast address of the interface.  Extend the new ndo
-trust feature to let the hypervisor trust a guest to set/update its own
-unicast address.
+We were adding VLAN 0 twice each time we restored the VLAN configuration.
+Instead of doing it twice we can just start working through the active
+VLANs from ID 1 on and skip the double write.
 
-Signed-off-by: Chas Williams <3chas3@gmail.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 8025a3f..80e47db 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -887,7 +887,7 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index a01a7f2..297e7d3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4172,11 +4172,11 @@ static void ixgbe_vlan_promisc_disable(struct ixgbe_adapter *adapter)
  
--	if (adapter->vfinfo[vf].pf_set_mac &&
-+	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
- 	    !ether_addr_equal(adapter->vfinfo[vf].vf_mac_addresses, new_mac)) {
- 		e_warn(drv,
- 		       "VF %d attempted to override administratively set MAC address\n"
+ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+ {
+-	u16 vid;
++	u16 vid = 1;
+ 
+ 	ixgbe_vlan_rx_add_vid(adapter->netdev, htons(ETH_P_8021Q), 0);
+ 
+-	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++	for_each_set_bit_from(vid, adapter->active_vlans, VLAN_N_VID)
+ 		ixgbe_vlan_rx_add_vid(adapter->netdev, htons(ETH_P_8021Q), vid);
+ }
+ 
 -- 
 2.5.5
