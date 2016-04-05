@@ -1,59 +1,127 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
-Date: Tue, 5 Apr 2016 10:41:03 -0700
-Message-ID: <5703F8AF.7040503@fb.com>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
- <1459831974-2891931-2-git-send-email-ast@fb.com>
- <20160405120626.GM3448@twins.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160405120626.GM3448@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 2/9] bnxt_en: Improve flow control autoneg with Firmware 1.2.1 interface.
+Date: Tue,  5 Apr 2016 14:08:56 -0400
+Message-ID: <1459879743-16960-3-git-send-email-michael.chan@broadcom.com>
+References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:6049 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758763AbcDESJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:07 -0400
+In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/5/16 5:06 AM, Peter Zijlstra wrote:
-> On Mon, Apr 04, 2016 at 09:52:47PM -0700, Alexei Starovoitov wrote:
->> avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
->> It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
->> with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc
->
-> Its not actually allocated; but because its a static uninitialized
-> variable we get .bss like behaviour and the initial value is copied to
-> all CPUs when the per-cpu allocator thingy bootstraps SMP IIRC.
+Make use of the new AUTONEG_PAUSE bit in the new interface to better
+control autoneg flow control settings, independent of RX and TX
+advertisement settings.
 
-yes, it's .bss-like in a special section. I think static percpu still
-goes through some fancy boot time init similar to dynamic.
-What I tried to emphasize that either static or dynamic percpu areas
-are guaranteed to be zero initialized.
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 28 +++++++++++++++++++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 10 ++++----
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
->> and
->> subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
->> so we can safely drop memset from all of the above cases and
->
-> Indeed.
->
->> move it into
->> perf_ftrace_function_call that calls it with stack allocated pt_regs.
->
-> Hmm, is there a reason that's still on-stack instead of using the
-> per-cpu thing, Steve?
->
->> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
->
-> In any case,
->
-> Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-
-Thanks for the quick review.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index bfe98cb..2b5a541 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4557,6 +4557,9 @@ static void
+ bnxt_hwrm_set_pause_common(struct bnxt *bp, struct hwrm_port_phy_cfg_input *req)
+ {
+ 	if (bp->link_info.autoneg & BNXT_AUTONEG_FLOW_CTRL) {
++		if (bp->hwrm_spec_code >= 0x10201)
++			req->auto_pause =
++				PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE;
+ 		if (bp->link_info.req_flow_ctrl & BNXT_LINK_PAUSE_RX)
+ 			req->auto_pause |= PORT_PHY_CFG_REQ_AUTO_PAUSE_RX;
+ 		if (bp->link_info.req_flow_ctrl & BNXT_LINK_PAUSE_TX)
+@@ -4570,6 +4573,11 @@ bnxt_hwrm_set_pause_common(struct bnxt *bp, struct hwrm_port_phy_cfg_input *req)
+ 			req->force_pause |= PORT_PHY_CFG_REQ_FORCE_PAUSE_TX;
+ 		req->enables |=
+ 			cpu_to_le32(PORT_PHY_CFG_REQ_ENABLES_FORCE_PAUSE);
++		if (bp->hwrm_spec_code >= 0x10201) {
++			req->auto_pause = req->force_pause;
++			req->enables |= cpu_to_le32(
++				PORT_PHY_CFG_REQ_ENABLES_AUTO_PAUSE);
++		}
+ 	}
+ }
+ 
+@@ -4656,7 +4664,8 @@ static int bnxt_update_phy_setting(struct bnxt *bp)
+ 		return rc;
+ 	}
+ 	if ((link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL) &&
+-	    link_info->auto_pause_setting != link_info->req_flow_ctrl)
++	    (link_info->auto_pause_setting & BNXT_LINK_PAUSE_BOTH) !=
++	    link_info->req_flow_ctrl)
+ 		update_pause = true;
+ 	if (!(link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL) &&
+ 	    link_info->force_pause_setting != link_info->req_flow_ctrl)
+@@ -5825,15 +5834,24 @@ static int bnxt_probe_phy(struct bnxt *bp)
+ 
+ 	/*initialize the ethool setting copy with NVM settings */
+ 	if (BNXT_AUTO_MODE(link_info->auto_mode)) {
+-		link_info->autoneg = BNXT_AUTONEG_SPEED |
+-				     BNXT_AUTONEG_FLOW_CTRL;
++		link_info->autoneg = BNXT_AUTONEG_SPEED;
++		if (bp->hwrm_spec_code >= 0x10201) {
++			if (link_info->auto_pause_setting &
++			    PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE)
++				link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
++		} else {
++			link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
++		}
+ 		link_info->advertising = link_info->auto_link_speeds;
+-		link_info->req_flow_ctrl = link_info->auto_pause_setting;
+ 	} else {
+ 		link_info->req_link_speed = link_info->force_link_speed;
+ 		link_info->req_duplex = link_info->duplex_setting;
+-		link_info->req_flow_ctrl = link_info->force_pause_setting;
+ 	}
++	if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
++		link_info->req_flow_ctrl =
++			link_info->auto_pause_setting & BNXT_LINK_PAUSE_BOTH;
++	else
++		link_info->req_flow_ctrl = link_info->force_pause_setting;
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index f103f9b..99b1740 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -874,7 +874,9 @@ static int bnxt_set_pauseparam(struct net_device *dev,
+ 			return -EINVAL;
+ 
+ 		link_info->autoneg |= BNXT_AUTONEG_FLOW_CTRL;
+-		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_BOTH;
++		if (bp->hwrm_spec_code >= 0x10201)
++			link_info->req_flow_ctrl =
++				PORT_PHY_CFG_REQ_AUTO_PAUSE_AUTONEG_PAUSE;
+ 	} else {
+ 		/* when transition from auto pause to force pause,
+ 		 * force a link change
+@@ -882,17 +884,13 @@ static int bnxt_set_pauseparam(struct net_device *dev,
+ 		if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
+ 			link_info->force_link_chng = true;
+ 		link_info->autoneg &= ~BNXT_AUTONEG_FLOW_CTRL;
+-		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_BOTH;
++		link_info->req_flow_ctrl = 0;
+ 	}
+ 	if (epause->rx_pause)
+ 		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_RX;
+-	else
+-		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_RX;
+ 
+ 	if (epause->tx_pause)
+ 		link_info->req_flow_ctrl |= BNXT_LINK_PAUSE_TX;
+-	else
+-		link_info->req_flow_ctrl &= ~BNXT_LINK_PAUSE_TX;
+ 
+ 	if (netif_running(dev))
+ 		rc = bnxt_hwrm_set_pause(bp);
+-- 
+1.8.3.1
