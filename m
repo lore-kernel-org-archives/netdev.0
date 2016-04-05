@@ -1,114 +1,107 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: bcmgenet: fix dmadesc_set()
-Date: Mon, 4 Apr 2016 18:27:16 -0700
-Message-ID: <CAGVrzcYbX0FAu9oyrmCfHafyjuQdBKvAfj+iArsjpcO-z1PPDQ@mail.gmail.com>
-References: <1459815001-91703-1-git-send-email-pgynther@google.com>
- <1459815001-91703-3-git-send-email-pgynther@google.com> <CAGVrzca5=a3tewe=DGpYZwmk38NTWOjpZFyYxJGJue=OgDGo=w@mail.gmail.com>
- <CAGXr9JHXbZ2r4ci7V95+-VKmuv3DOgE4i==kUAVJEDbG__h-+w@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 08/14] ixgbe: Add support for generic Tx checksums
+Date: Mon, 04 Apr 2016 18:29:28 -0700
+Message-ID: <1459819768.2965.0.camel@intel.com>
+References: <1459808097-26409-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1459808097-26409-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <5702EB85.5080307@intel.com>
+	 <20160404.212739.417828551756386273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jaedon Shin <jaedon.shin@gmail.com>, opendmb@gmail.com,
-	Eric Dumazet <edumazet@google.com>
-To: Petri Gynther <pgynther@google.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-ibGpRSA0ijqB53cs+q6F"
+Cc: aduyck@mirantis.com, netdev@vger.kernel.org, nhorman@redhat.com,
+	sassmann@redhat.com, jogreene@redhat.com
+To: David Miller <davem@davemloft.net>, sridhar.samudrala@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:36762 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753799AbcDEB14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 21:27:56 -0400
-Received: by mail-io0-f180.google.com with SMTP id q128so1934956iof.3
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 18:27:56 -0700 (PDT)
-In-Reply-To: <CAGXr9JHXbZ2r4ci7V95+-VKmuv3DOgE4i==kUAVJEDbG__h-+w@mail.gmail.com>
+Received: from mga04.intel.com ([192.55.52.120]:39468 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751985AbcDEB3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 21:29:37 -0400
+In-Reply-To: <20160404.212739.417828551756386273.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-04-04 18:11 GMT-07:00 Petri Gynther <pgynther@google.com>:
-> Hi Florian,
->
-> On Mon, Apr 4, 2016 at 5:58 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->> 2016-04-04 17:10 GMT-07:00 Petri Gynther <pgynther@google.com>:
->> > dmadesc_set() is used for setting the Tx buffer DMA address, length,
->> > and status bits on a Tx ring descriptor when a frame is being Tx'ed.
->> >
->> > Always set the Tx buffer DMA address first, before updating the length
->> > and status bits, i.e. giving the Tx descriptor to the hardware.
->>
->> Does this fix any real bug you have observed? The hardware won't
->> transmit anything until you start writing the correct TDMA producer
->> index. Also, dmadesc_set_length_status and dmadesc_set_addr both use
->> I/O accessors which use a volatile, so they should not be re-ordered
->> relative to each other.
->>
->> I do agree that the change looks like how it should be done, I am just
->> questioning the qualification of this as a fix or not.
->>
->> Thanks!
->
-> You are right. Nothing is transmitted until TDMA producer index is
-> incremented, and that happens after dmadesc_set() has been called.
->
-> So, this is really just a cleanup. Perhaps not worth it, after all.
 
-OK, this is fine as a cleanup, and the typical logic is to write the
-address first and the length/status second in case of descriptor-based
-DMA-backed NICs, so why not.
+--=-ibGpRSA0ijqB53cs+q6F
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
->
-> But I do have a question -- do we need wmb() in bcmgenet_xmit(), just
-> before we kick the TDMA producer index, to ensure Tx descriptor writes
-> have been completed?
+On Mon, 2016-04-04 at 21:27 -0400, David Miller wrote:
+> From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+> Date: Mon, 04 Apr 2016 15:32:37 -0700
+>=20
+> >=20
+> > On 4/4/2016 3:14 PM, Jeff Kirsher wrote:
+> > >=20
+> > > @@ -9190,41 +9148,37 @@ skip_sriov:
+> > > =C2=A0=C2=A0=C2=A0=C2=A0#endif
+> > > =C2=A0=C2=A0	netdev->features =3D NETIF_F_SG |
+> > > -			=C2=A0=C2=A0=C2=A0NETIF_F_IP_CSUM |
+> > > -			=C2=A0=C2=A0=C2=A0NETIF_F_IPV6_CSUM |
+> > > -			=C2=A0=C2=A0=C2=A0NETIF_F_HW_VLAN_CTAG_TX |
+> > > -			=C2=A0=C2=A0=C2=A0NETIF_F_HW_VLAN_CTAG_RX |
+> > > =C2=A0=C2=A0			=C2=A0=C2=A0=C2=A0NETIF_F_TSO |
+> > > =C2=A0=C2=A0			=C2=A0=C2=A0=C2=A0NETIF_F_TSO6 |
+> > > =C2=A0=C2=A0			=C2=A0=C2=A0=C2=A0NETIF_F_RXHASH |
+> > > -			=C2=A0=C2=A0=C2=A0NETIF_F_RXCSUM;
+> > > -
+> > > -	netdev->hw_features =3D netdev->features |
+> > > NETIF_F_HW_L2FW_DOFFLOAD;
+> > > +			=C2=A0=C2=A0=C2=A0NETIF_F_RXCSUM |
+> > > +			=C2=A0=C2=A0=C2=A0NETIF_F_HW_CSUM |
+> > > +			=C2=A0=C2=A0=C2=A0NETIF_F_SCTP_CRC |
+> > > +			=C2=A0=C2=A0=C2=A0NETIF_F_HW_VLAN_CTAG_TX |
+> > > +			=C2=A0=C2=A0=C2=A0NETIF_F_HW_VLAN_CTAG_RX;
+> > > =C2=A0 -	switch (adapter->hw.mac.type) {
+> > > -	case ixgbe_mac_82599EB:
+> > > -	case ixgbe_mac_X540:
+> > > -	case ixgbe_mac_X550:
+> > > -	case ixgbe_mac_X550EM_x:
+> > > +	if (hw->mac.type >=3D ixgbe_mac_82599EB)
+> > > =C2=A0=C2=A0		netdev->features |=3D NETIF_F_SCTP_CRC;
+> > > -		netdev->hw_features |=3D NETIF_F_SCTP_CRC |
+> > > -				=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0NETIF_F_NTUPLE |
+> > > -				=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0NETIF_F_HW_TC;
+> > > -		break;
+> > > -	default:
+> > > -		break;
+> > > -	}
+> > > =C2=A0 -	netdev->hw_features |=3D NETIF_F_RXALL;
+> > > +	/* copy netdev features into list of user selectable
+> > > features */
+> > > +	netdev->hw_features |=3D netdev->features;
+> > > +	netdev->hw_features |=3D NETIF_F_RXALL |
+> > > +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0NETIF_F_HW_L2FW_DOFFLOA=
+D;
+> > > +
+> > > +	if (hw->mac.type >=3D ixgbe_mac_82599EB)
+> > > +		netdev->hw_features |=3D NETIF_F_NTUPLE;
+> > looks like the cleanup missed moving NETIF_F_HW_TC flag here that
+> > enables cls_u32 offloads via TC.
+> Indeed, this is a regression.
 
-Humm, that is a good question. We definitively need to make sure that
-the writes to prod_index completes, since that variable is stored in
-DRAM/normal memory, so subject to pre-fetching based on the memory
-attributes (at least on ARM). It seems to me like there is a direct
-dependency though, so by the time we use ring->prod_index, the CPU
-should have ensured that all writes are complete.
+I took care of it in v2.
+--=-ibGpRSA0ijqB53cs+q6F
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
->
-> @@ -1606,6 +1606,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff
-> *skb, struct net_device *dev)
->
->         if (!skb->xmit_more || netif_xmit_stopped(txq)) {
->                 /* Packets are ready, update producer index */
-> +               wmb();
->                 bcmgenet_tdma_ring_writel(priv, ring->index,
->                                           ring->prod_index, TDMA_PROD_INDEX);
->
->>
->>
->> >
->> > Signed-off-by: Petri Gynther <pgynther@google.com>
->> > ---
->> >  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
->> >  1 file changed, 1 insertion(+), 1 deletion(-)
->> >
->> > diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> > index d77cd6d..f7b42b9 100644
->> > --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> > +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
->> > @@ -104,8 +104,8 @@ static inline void dmadesc_set_addr(struct bcmgenet_priv *priv,
->> >  static inline void dmadesc_set(struct bcmgenet_priv *priv,
->> >                                void __iomem *d, dma_addr_t addr, u32 val)
->> >  {
->> > -       dmadesc_set_length_status(priv, d, val);
->> >         dmadesc_set_addr(priv, d, addr);
->> > +       dmadesc_set_length_status(priv, d, val);
->> >  }
->> >
->> >  static inline dma_addr_t dmadesc_get_addr(struct bcmgenet_priv *priv,
->> > --
->> > 2.8.0.rc3.226.g39d4020
->> >
->>
->>
->>
->> --
->> Florian
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
+iQIcBAABCgAGBQJXAxT5AAoJEOVv75VaS+3OCuEP/0jmlz6IEBUIQiAh4sHuggIx
+cLBnxtMVjc5ilL1iaQMjX4I/Zg0q1uESM51asE9TRahmLMCuhVTcK9b6et+dNa1W
+fM4rrQJ9IfjANbZt4NDzglgHwNDFsCT4EpZWCiqGLhs9pQP3h0ik0B/O8i4OBCYJ
+7QhqlKFfjHB6sbAQIOKTvx9YMzMAYVuSTsqMtjWGxoum6xFvK5la5Cw1psgBPawx
+pFQTp0u3/RTW31J2iL2RoXqCXzhdidOpmAkeeqjab+mCBCw8VLYF+PkVVdg9F1TD
+1J/y+wK9B0eXEFKO68gNQHdpKCJ5TG0qdFenxljZqoCj1zKZx0icTUbwKs9OpMbt
+dpXQx4NB877BXyK6AXqeLo9VvSjJhIrEdUupkaJC5rbDSNiQZ4ofMp/kR1c/EdRk
+Eyd1x/N8RrPVVah06R94CMayPy2KYyLW1TopzOTwx6PQe+xmhbkZSMb8CBu2M/gG
+fSOpAwfoZRtkXmAbXyo2rndt09xTdvwuERyPWVbEiAzFFIu1sVp5cUb+ioFZlqlb
+X1NoeE7ixGoHY8ktI1EXDpSXKizRwqtZFk2OSDFmNfEmhkEIccs4JR4o8EcPShQy
+ay/38MR27gXW6bFNkvAIU5ZVGvwOYUNwg6uD7851xT2VXvtiGfPwMFwsmRCvuKui
+erm2ARHGSX2A4i0pYQIe
+=iD34
+-----END PGP SIGNATURE-----
 
-
--- 
-Florian
+--=-ibGpRSA0ijqB53cs+q6F--
