@@ -1,69 +1,113 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 58/68] net/ipv4/udp.c:1693:9: sparse: incompatible
- types in comparison expression (different address spaces)
-Date: Tue, 5 Apr 2016 12:38:34 +0800
-Message-ID: <201604051231.l9wUsxHm%fengguang.wu@intel.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next 6/8] samples/bpf: add tracepoint support to bpf loader
+Date: Mon, 4 Apr 2016 21:52:52 -0700
+Message-ID: <1459831974-2891931-7-git-send-email-ast@fb.com>
+References: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:47002 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750830AbcDEEj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 00:39:27 -0400
-Content-Disposition: inline
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35723 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751176AbcDEExA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 00:53:00 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u354mpQ6007372
+	for <netdev@vger.kernel.org>; Mon, 4 Apr 2016 21:52:59 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 222xhcb93m-1
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 21:52:58 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 4367dd50faea11e587b20002c992ebde-eabf93f0 for <netdev@vger.kernel.org>;	Mon,
+ 04 Apr 2016 21:52:56 -0700
+In-Reply-To: <1459831974-2891931-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   15f41e2ba13a6726632e44b1180e805a61e470ad
-commit: ca065d0cf80fa547724440a8bf37f1e674d917c0 [58/68] udp: no longer use SLAB_DESTROY_BY_RCU
-reproduce:
-        # apt-get install sparse
-        git checkout ca065d0cf80fa547724440a8bf37f1e674d917c0
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+Recognize "tracepoint/" section name prefix and attach the program
+to that tracepoint.
 
-
-sparse warnings: (new ones prefixed by >>)
-
-   include/linux/compiler.h:232:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> net/ipv4/udp.c:1693:9: sparse: incompatible types in comparison expression (different address spaces)
->> net/ipv4/udp.c:1693:9: sparse: incompatible types in comparison expression (different address spaces)
---
-   include/linux/compiler.h:232:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> net/ipv6/udp.c:743:9: sparse: incompatible types in comparison expression (different address spaces)
->> net/ipv6/udp.c:743:9: sparse: incompatible types in comparison expression (different address spaces)
-
-vim +1693 net/ipv4/udp.c
-
-  1677		struct udp_hslot *hslot = udp_hashslot(udptable, net, hnum);
-  1678		unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-  1679		unsigned int offset = offsetof(typeof(*sk), sk_node);
-  1680		int dif = skb->dev->ifindex;
-  1681		struct hlist_node *node;
-  1682		struct sk_buff *nskb;
-  1683	
-  1684		if (use_hash2) {
-  1685			hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
-  1686				    udp_table.mask;
-  1687			hash2 = udp4_portaddr_hash(net, daddr, hnum) & udp_table.mask;
-  1688	start_lookup:
-  1689			hslot = &udp_table.hash2[hash2];
-  1690			offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
-  1691		}
-  1692	
-> 1693		sk_for_each_entry_offset_rcu(sk, node, &hslot->head, offset) {
-  1694			if (!__udp_is_mcast_sock(net, sk, uh->dest, daddr,
-  1695						 uh->source, saddr, dif, hnum))
-  1696				continue;
-  1697	
-  1698			if (!first) {
-  1699				first = sk;
-  1700				continue;
-  1701			}
-
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ samples/bpf/bpf_load.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 58f86bd11b3d..022af71c2bb5 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -49,6 +49,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_socket = strncmp(event, "socket", 6) == 0;
+ 	bool is_kprobe = strncmp(event, "kprobe/", 7) == 0;
+ 	bool is_kretprobe = strncmp(event, "kretprobe/", 10) == 0;
++	bool is_tracepoint = strncmp(event, "tracepoint/", 11) == 0;
+ 	enum bpf_prog_type prog_type;
+ 	char buf[256];
+ 	int fd, efd, err, id;
+@@ -63,6 +64,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
+ 	} else if (is_kprobe || is_kretprobe) {
+ 		prog_type = BPF_PROG_TYPE_KPROBE;
++	} else if (is_tracepoint) {
++		prog_type = BPF_PROG_TYPE_TRACEPOINT;
+ 	} else {
+ 		printf("Unknown event '%s'\n", event);
+ 		return -1;
+@@ -111,12 +114,23 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 			       event, strerror(errno));
+ 			return -1;
+ 		}
+-	}
+ 
+-	strcpy(buf, DEBUGFS);
+-	strcat(buf, "events/kprobes/");
+-	strcat(buf, event);
+-	strcat(buf, "/id");
++		strcpy(buf, DEBUGFS);
++		strcat(buf, "events/kprobes/");
++		strcat(buf, event);
++		strcat(buf, "/id");
++	} else if (is_tracepoint) {
++		event += 11;
++
++		if (*event == 0) {
++			printf("event name cannot be empty\n");
++			return -1;
++		}
++		strcpy(buf, DEBUGFS);
++		strcat(buf, "events/");
++		strcat(buf, event);
++		strcat(buf, "/id");
++	}
+ 
+ 	efd = open(buf, O_RDONLY, 0);
+ 	if (efd < 0) {
+@@ -304,6 +318,7 @@ int load_bpf_file(char *path)
+ 
+ 			if (memcmp(shname_prog, "kprobe/", 7) == 0 ||
+ 			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
++			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
+ 			    memcmp(shname_prog, "socket", 6) == 0)
+ 				load_and_attach(shname_prog, insns, data_prog->d_size);
+ 		}
+@@ -320,6 +335,7 @@ int load_bpf_file(char *path)
+ 
+ 		if (memcmp(shname, "kprobe/", 7) == 0 ||
+ 		    memcmp(shname, "kretprobe/", 10) == 0 ||
++		    memcmp(shname, "tracepoint/", 11) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0)
+ 			load_and_attach(shname, data->d_buf, data->d_size);
+ 	}
+-- 
+2.8.0
