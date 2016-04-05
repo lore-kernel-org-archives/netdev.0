@@ -1,29 +1,62 @@
 From: Petri Gynther <pgynther@google.com>
-Subject: [RESEND PATCH net-next v2 0/3] bcmgenet cleanups
-Date: Tue,  5 Apr 2016 13:59:58 -0700
-Message-ID: <1459890001-78171-1-git-send-email-pgynther@google.com>
+Subject: [RESEND PATCH net-next v2 1/3] net: bcmgenet: cleanup for bcmgenet_xmit()
+Date: Tue,  5 Apr 2016 13:59:59 -0700
+Message-ID: <1459890001-78171-2-git-send-email-pgynther@google.com>
+References: <1459890001-78171-1-git-send-email-pgynther@google.com>
 Cc: davem@davemloft.net, f.fainelli@gmail.com, opendmb@gmail.com,
 	jaedon.shin@gmail.com, Petri Gynther <pgynther@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34037 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759797AbcDEVAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 17:00:16 -0400
-Received: by mail-pf0-f178.google.com with SMTP id c20so18156923pfc.1
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 14:00:16 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34768 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759797AbcDEVAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 17:00:22 -0400
+Received: by mail-pa0-f48.google.com with SMTP id fe3so17878134pab.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 14:00:22 -0700 (PDT)
+In-Reply-To: <1459890001-78171-1-git-send-email-pgynther@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Three cleanup patches for bcmgenet.
+1. Readability: Move nr_frags assignment a few lines down in order
+   to bundle index -> ring -> txq calculations together.
+2. Readability: Add parentheses around nr_frags + 1.
+3. Minor fix: Stop the Tx queue and throw the error message only if
+   the Tx queue hasn't already been stopped.
 
-Petri Gynther (3):
-  net: bcmgenet: cleanup for bcmgenet_xmit()
-  net: bcmgenet: cleanup for bcmgenet_xmit_frag()
-  net: bcmgenet: cleanup for dmadesc_set()
+Signed-off-by: Petri Gynther <pgynther@google.com>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 27 ++++++++++++++++----------
- 1 file changed, 17 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index cf6445d..7f85a84 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1447,15 +1447,19 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	else
+ 		index -= 1;
+ 
+-	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	ring = &priv->tx_rings[index];
+ 	txq = netdev_get_tx_queue(dev, ring->queue);
+ 
++	nr_frags = skb_shinfo(skb)->nr_frags;
++
+ 	spin_lock_irqsave(&ring->lock, flags);
+-	if (ring->free_bds <= nr_frags + 1) {
+-		netif_tx_stop_queue(txq);
+-		netdev_err(dev, "%s: tx ring %d full when queue %d awake\n",
+-			   __func__, index, ring->queue);
++	if (ring->free_bds <= (nr_frags + 1)) {
++		if (!netif_tx_queue_stopped(txq)) {
++			netif_tx_stop_queue(txq);
++			netdev_err(dev,
++				   "%s: tx ring %d full when queue %d awake\n",
++				   __func__, index, ring->queue);
++		}
+ 		ret = NETDEV_TX_BUSY;
+ 		goto out;
+ 	}
 -- 
 2.8.0.rc3.226.g39d4020
