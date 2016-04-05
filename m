@@ -1,59 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/15] fm10k: print error message when stop_hw fails
-Date: Tue,  5 Apr 2016 13:02:21 -0700
-Message-ID: <1459886547-146445-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/15] fm10k: prevent possibly uninitialized variable
+Date: Tue,  5 Apr 2016 13:02:24 -0700
+Message-ID: <1459886547-146445-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56328 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18249 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759902AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759908AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2016 16:02:33 -0400
 In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-fm10k_stop_hw_generic calls fm10k_disable_queues_generic, which may
-return an error code indicating that the queues were not stopped within
-the time limit. Notify the user by displaying a message in the kernel
-message ring, in a similar way to how we notify the user when reset_hw
-fails. There isn't much we can do to recover from this error, so
-currently nothing else is done.
+If 'attr_flag < (1 << (2 * FM10K_TEST_MSG_NESTED))' is ever false, err
+will be used uninitialized.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index ed1f8cf..3c7c819 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1656,6 +1656,7 @@ void fm10k_down(struct fm10k_intfc *interface)
- {
- 	struct net_device *netdev = interface->netdev;
- 	struct fm10k_hw *hw = &interface->hw;
-+	int err;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+index c67121c..2e4ea88 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
+@@ -937,7 +937,7 @@ static int fm10k_mbx_test(struct fm10k_intfc *interface, u64 *data)
+ 	struct fm10k_mbx_info *mbx = &hw->mbx;
+ 	u32 attr_flag, test_msg[6];
+ 	unsigned long timeout;
+-	int err;
++	int err = -EINVAL;
  
- 	/* signal that we are down to the interrupt handler and service task */
- 	set_bit(__FM10K_DOWN, &interface->state);
-@@ -1680,7 +1681,9 @@ void fm10k_down(struct fm10k_intfc *interface)
- 	fm10k_update_stats(interface);
- 
- 	/* Disable DMA engine for Tx/Rx */
--	hw->mac.ops.stop_hw(hw);
-+	err = hw->mac.ops.stop_hw(hw);
-+	if (err)
-+		dev_err(&interface->pdev->dev, "stop_hw failed: %d\n", err);
- 
- 	/* free any buffers still on the rings */
- 	fm10k_clean_all_tx_rings(interface);
+ 	/* For now this is a VF only feature */
+ 	if (hw->mac.type != fm10k_mac_vf)
 -- 
 2.5.5
