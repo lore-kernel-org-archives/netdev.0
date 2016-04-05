@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 14/15] fm10k: fix a minor typo in some comments
-Date: Tue,  5 Apr 2016 13:02:26 -0700
-Message-ID: <1459886547-146445-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/15] fm10k: print error message when stop_hw fails
+Date: Tue,  5 Apr 2016 13:02:21 -0700
+Message-ID: <1459886547-146445-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29525 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56328 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759634AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1759902AbcDEUCd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Apr 2016 16:02:33 -0400
 In-Reply-To: <1459886547-146445-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,106 +18,42 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-s/funciton/function to resolve a typo, and cleanup grammar on a few
-comments regarding processing the VF mailboxes.
+fm10k_stop_hw_generic calls fm10k_disable_queues_generic, which may
+return an error code indicating that the queues were not stopped within
+the time limit. Notify the user by displaying a message in the kernel
+message ring, in a similar way to how we notify the user when reset_hw
+fails. There isn't much we can do to recover from this error, so
+currently nothing else is done.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c    | 4 ++--
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 4 ++--
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c    | 6 +++---
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c     | 2 +-
- 4 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-index acfb8b1f..bbf7c4b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -50,7 +50,7 @@ s32 fm10k_iov_event(struct fm10k_intfc *interface)
- 	s64 vflre;
- 	int i;
- 
--	/* if there is no iov_data then there is no mailboxes to process */
-+	/* if there is no iov_data then there is no mailbox to process */
- 	if (!ACCESS_ONCE(interface->iov_data))
- 		return 0;
- 
-@@ -98,7 +98,7 @@ s32 fm10k_iov_mbx(struct fm10k_intfc *interface)
- 	struct fm10k_iov_data *iov_data;
- 	int i;
- 
--	/* if there is no iov_data then there is no mailboxes to process */
-+	/* if there is no iov_data then there is no mailbox to process */
- 	if (!ACCESS_ONCE(interface->iov_data))
- 		return 0;
- 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 0ff6874..1d0f058 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -440,7 +440,7 @@ static void fm10k_restore_vxlan_port(struct fm10k_intfc *interface)
-  * @sa_family: Address family of new port
-  * @port: port number used for VXLAN
-  *
-- * This funciton is called when a new VXLAN interface has added a new port
-+ * This function is called when a new VXLAN interface has added a new port
-  * number to the range that is currently in use for VXLAN.  The new port
-  * number is always added to the tail so that the port number list should
-  * match the order in which the ports were allocated.  The head of the list
-@@ -484,7 +484,7 @@ insert_tail:
-  * @sa_family: Address family of freed port
-  * @port: port number used for VXLAN
-  *
-- * This funciton is called when a new VXLAN interface has freed a port
-+ * This function is called when a new VXLAN interface has freed a port
-  * number from the range that is currently in use for VXLAN.  The freed
-  * port is removed from the list and the new head is used to determine
-  * the port number for offloads.
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index da38af0..f099295 100644
+index ed1f8cf..3c7c819 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1379,7 +1379,7 @@ static s32 fm10k_1588_msg_pf(struct fm10k_hw *hw, u32 **results,
- 		return 0;
- 	}
- 
--	/* if there is no iov_data then there is no mailboxes to process */
-+	/* if there is no iov_data then there is no mailbox to process */
- 	if (!ACCESS_ONCE(interface->iov_data))
- 		return FM10K_ERR_PARAM;
- 
-@@ -2394,7 +2394,7 @@ static struct pci_driver fm10k_driver = {
- /**
-  * fm10k_register_pci_driver - register driver interface
-  *
-- * This funciton is called on module load in order to register the driver.
-+ * This function is called on module load in order to register the driver.
-  **/
- int fm10k_register_pci_driver(void)
+@@ -1656,6 +1656,7 @@ void fm10k_down(struct fm10k_intfc *interface)
  {
-@@ -2404,7 +2404,7 @@ int fm10k_register_pci_driver(void)
- /**
-  * fm10k_unregister_pci_driver - unregister driver interface
-  *
-- * This funciton is called on module unload in order to remove the driver.
-+ * This function is called on module unload in order to remove the driver.
-  **/
- void fm10k_unregister_pci_driver(void)
- {
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 23de956..ecc99f9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1604,7 +1604,7 @@ static s32 fm10k_request_lport_map_pf(struct fm10k_hw *hw)
-  *  @hw: pointer to hardware structure
-  *  @switch_ready: pointer to boolean value that will record switch state
-  *
-- *  This funciton will check the DMA_CTRL2 register and mailbox in order
-+ *  This function will check the DMA_CTRL2 register and mailbox in order
-  *  to determine if the switch is ready for the PF to begin requesting
-  *  addresses and mapping traffic to the local interface.
-  **/
+ 	struct net_device *netdev = interface->netdev;
+ 	struct fm10k_hw *hw = &interface->hw;
++	int err;
+ 
+ 	/* signal that we are down to the interrupt handler and service task */
+ 	set_bit(__FM10K_DOWN, &interface->state);
+@@ -1680,7 +1681,9 @@ void fm10k_down(struct fm10k_intfc *interface)
+ 	fm10k_update_stats(interface);
+ 
+ 	/* Disable DMA engine for Tx/Rx */
+-	hw->mac.ops.stop_hw(hw);
++	err = hw->mac.ops.stop_hw(hw);
++	if (err)
++		dev_err(&interface->pdev->dev, "stop_hw failed: %d\n", err);
+ 
+ 	/* free any buffers still on the rings */
+ 	fm10k_clean_all_tx_rings(interface);
 -- 
 2.5.5
