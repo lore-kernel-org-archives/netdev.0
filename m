@@ -1,68 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: bcmgenet: fix dmadesc_set()
-Date: Mon, 4 Apr 2016 17:58:15 -0700
-Message-ID: <CAGVrzca5=a3tewe=DGpYZwmk38NTWOjpZFyYxJGJue=OgDGo=w@mail.gmail.com>
-References: <1459815001-91703-1-git-send-email-pgynther@google.com> <1459815001-91703-3-git-send-email-pgynther@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jaedon Shin <jaedon.shin@gmail.com>, opendmb@gmail.com
-To: Petri Gynther <pgynther@google.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] ixgbe: on recv increment rx.ring->stats.yields
+Date: Mon,  4 Apr 2016 17:58:52 -0700
+Message-ID: <1459817945-144915-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:32853 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753233AbcDEA64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Apr 2016 20:58:56 -0400
-Received: by mail-io0-f179.google.com with SMTP id a129so1411673ioe.0
-        for <netdev@vger.kernel.org>; Mon, 04 Apr 2016 17:58:55 -0700 (PDT)
-In-Reply-To: <1459815001-91703-3-git-send-email-pgynther@google.com>
+Received: from mga03.intel.com ([134.134.136.65]:38979 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754238AbcDEA7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Apr 2016 20:59:09 -0400
+In-Reply-To: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-04-04 17:10 GMT-07:00 Petri Gynther <pgynther@google.com>:
-> dmadesc_set() is used for setting the Tx buffer DMA address, length,
-> and status bits on a Tx ring descriptor when a frame is being Tx'ed.
->
-> Always set the Tx buffer DMA address first, before updating the length
-> and status bits, i.e. giving the Tx descriptor to the hardware.
+From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
 
-Does this fix any real bug you have observed? The hardware won't
-transmit anything until you start writing the correct TDMA producer
-index. Also, dmadesc_set_length_status and dmadesc_set_addr both use
-I/O accessors which use a volatile, so they should not be re-ordered
-relative to each other.
+It seem to be non intentionally changed to Tx in
+commit adc810900a70 ("ixgbe: Refactor busy poll socket code to address
+multiple issues")
 
-I do agree that the change looks like how it should be done, I am just
-questioning the qualification of this as a fix or not.
+Lock is taken from ixgbe_low_latency_recv, and there under this
+lock we use ixgbe_clean_rx_irq so it looks wrong for me to increment
+Tx counter.
 
-Thanks!
+Yield stats can be shown through ethtool:
+ethtool -S enp129s0 | grep yield
 
->
-> Signed-off-by: Petri Gynther <pgynther@google.com>
-> ---
->  drivers/net/ethernet/broadcom/genet/bcmgenet.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> index d77cd6d..f7b42b9 100644
-> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-> @@ -104,8 +104,8 @@ static inline void dmadesc_set_addr(struct bcmgenet_priv *priv,
->  static inline void dmadesc_set(struct bcmgenet_priv *priv,
->                                void __iomem *d, dma_addr_t addr, u32 val)
->  {
-> -       dmadesc_set_length_status(priv, d, val);
->         dmadesc_set_addr(priv, d, addr);
-> +       dmadesc_set_length_status(priv, d, val);
->  }
->
->  static inline dma_addr_t dmadesc_get_addr(struct bcmgenet_priv *priv,
-> --
-> 2.8.0.rc3.226.g39d4020
->
+Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index e4949af..9f64354 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -456,7 +456,7 @@ static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+ 				IXGBE_QV_STATE_POLL);
+ #ifdef BP_EXTENDED_STATS
+ 	if (rc != IXGBE_QV_STATE_IDLE)
+-		q_vector->tx.ring->stats.yields++;
++		q_vector->rx.ring->stats.yields++;
+ #endif
+ 	return rc == IXGBE_QV_STATE_IDLE;
+ }
 -- 
-Florian
+2.5.5
