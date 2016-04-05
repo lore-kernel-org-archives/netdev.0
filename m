@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 2/3] tipc: stricter filtering
-	of packets in bearer layer
-Date: Tue,  5 Apr 2016 16:35:35 -0400
-Message-ID: <1459888536-22697-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 3/3] tipc: reduce transmission
+	rate of reset messages when link is down
+Date: Tue,  5 Apr 2016 16:35:36 -0400
+Message-ID: <1459888536-22697-4-git-send-email-jon.maloy@ericsson.com>
 References: <1459888536-22697-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,162 +23,77 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Resetting a bearer/interface, with the consequence of resetting all its
-pertaining links, is not an atomic action. This becomes particularly
-evident in very large clusters, where a lot of traffic may happen on the
-remaining links while we are busy shutting them down. In extreme cases,
-we may even see links being re-created and re-established before we are
-finished with the job.
+When a link is down, it will continuously try to re-establish contact
+with the peer by sending out a RESET or an ACTIVATE message at each
+timeout interval. The default value for this interval is currently
+375 ms. This is wasteful, and may become a problem in very large
+clusters with dozens or hundreds of nodes being down simultaneously.
 
-To solve this, we now introduce a solution where we temporarily detach
-the bearer from the interface when the bearer is reset. This inhibits
-all packet reception, while sending still is possible. For the latter,
-we use the fact that the device's user pointer now is zero to filter out
-which packets can be sent during this situation; i.e., outgoing RESET
-messages only.  This filtering serves to speed up the neighbors'
-detection of the loss event, and saves us from unnecessary probing.
+We now introduce a simple backoff algorithm for these cases. The
+first five messages are sent at default rate; thereafter a message
+is sent only each 16th timer interval.
+
+This will cover the vast majority of link recycling cases, since the
+endpoint starting last will transmit at the higher speed, and the link
+should normally be established well be before the rate needs to be
+reduced.
+
+The only case where we will see a degradation of link re-establishment
+is when the endpoints remain intact, and a glitch in the transmission
+media is causing the link reset. We will then experience a worst-case
+re-establishing time of 6 seconds, something we deem acceptable.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c | 50 +++++++++++++++++++++++++++++++++-----------------
- net/tipc/msg.h    |  5 +++++
- 2 files changed, 38 insertions(+), 17 deletions(-)
+ net/tipc/link.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 20566e9..6f11c62 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -337,23 +337,16 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 7d2bb3e..42cdbd1 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -140,6 +140,7 @@ struct tipc_link {
+ 	char if_name[TIPC_MAX_IF_NAME];
+ 	u32 priority;
+ 	char net_plane;
++	u16 rst_cnt;
+ 
+ 	/* Failover/synch */
+ 	u16 drop_point;
+@@ -701,8 +702,6 @@ static void link_profile_stats(struct tipc_link *l)
+ 
+ /* tipc_link_timeout - perform periodic task as instructed from node timeout
   */
- static void bearer_disable(struct net *net, struct tipc_bearer *b)
+-/* tipc_link_timeout - perform periodic task as instructed from node timeout
+- */
+ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
  {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	u32 i;
-+	struct tipc_net *tn = tipc_net(net);
-+	int bearer_id = b->identity;
- 
- 	pr_info("Disabling bearer <%s>\n", b->name);
- 	b->media->disable_media(b);
--
--	tipc_node_delete_links(net, b->identity);
-+	tipc_node_delete_links(net, bearer_id);
- 	RCU_INIT_POINTER(b->media_ptr, NULL);
- 	if (b->link_req)
- 		tipc_disc_delete(b->link_req);
--
--	for (i = 0; i < MAX_BEARERS; i++) {
--		if (b == rtnl_dereference(tn->bearer_list[i])) {
--			RCU_INIT_POINTER(tn->bearer_list[i], NULL);
--			break;
--		}
--	}
-+	RCU_INIT_POINTER(tn->bearer_list[bearer_id], NULL);
- 	kfree_rcu(b, rcu);
- }
- 
-@@ -396,7 +389,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
- 
- /**
-  * tipc_l2_send_msg - send a TIPC packet out over an L2 interface
-- * @buf: the packet to be sent
-+ * @skb: the packet to be sent
-  * @b: the bearer through which the packet is to be sent
-  * @dest: peer destination address
-  */
-@@ -405,17 +398,21 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
- {
- 	struct net_device *dev;
- 	int delta;
-+	void *tipc_ptr;
- 
- 	dev = (struct net_device *)rcu_dereference_rtnl(b->media_ptr);
- 	if (!dev)
- 		return 0;
- 
-+	/* Send RESET message even if bearer is detached from device */
-+	tipc_ptr = rtnl_dereference(dev->tipc_ptr);
-+	if (unlikely(!tipc_ptr && !msg_is_reset(buf_msg(skb))))
-+		goto drop;
-+
- 	delta = dev->hard_header_len - skb_headroom(skb);
- 	if ((delta > 0) &&
--	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC)) {
--		kfree_skb(skb);
--		return 0;
--	}
-+	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC))
-+		goto drop;
- 
- 	skb_reset_network_header(skb);
- 	skb->dev = dev;
-@@ -424,6 +421,9 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
- 			dev->dev_addr, skb->len);
- 	dev_queue_xmit(skb);
- 	return 0;
-+drop:
-+	kfree_skb(skb);
-+	return 0;
- }
- 
- int tipc_bearer_mtu(struct net *net, u32 bearer_id)
-@@ -549,9 +549,18 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	struct net *net = dev_net(dev);
-+	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_bearer *b;
-+	int i;
- 
- 	b = rtnl_dereference(dev->tipc_ptr);
-+	if (!b) {
-+		for (i = 0; i < MAX_BEARERS; b = NULL, i++) {
-+			b = rtnl_dereference(tn->bearer_list[i]);
-+			if (b && (b->media_ptr == dev))
-+				break;
-+		}
-+	}
- 	if (!b)
- 		return NOTIFY_DONE;
- 
-@@ -561,13 +570,20 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
- 			break;
-+	case NETDEV_UP:
-+		rcu_assign_pointer(dev->tipc_ptr, b);
-+		break;
- 	case NETDEV_GOING_DOWN:
-+		RCU_INIT_POINTER(dev->tipc_ptr, NULL);
-+		synchronize_net();
-+		tipc_reset_bearer(net, b);
-+		break;
- 	case NETDEV_CHANGEMTU:
- 		tipc_reset_bearer(net, b);
+ 	int rc = 0;
+@@ -730,11 +729,13 @@ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 		l->silent_intv_cnt++;
  		break;
- 	case NETDEV_CHANGEADDR:
- 		b->media->raw2addr(b, &b->addr,
--				       (char *)dev->dev_addr);
-+				   (char *)dev->dev_addr);
- 		tipc_reset_bearer(net, b);
+ 	case LINK_RESET:
+-		xmit = true;
++		if ((l->rst_cnt++ <= 4) || !(l->rst_cnt % 16))
++			xmit = true;
+ 		mtyp = RESET_MSG;
  		break;
- 	case NETDEV_UNREGISTER:
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 55778a0..f34f639 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -779,6 +779,11 @@ static inline bool msg_peer_node_is_up(struct tipc_msg *m)
- 	return msg_redundant_link(m);
- }
- 
-+static inline bool msg_is_reset(struct tipc_msg *hdr)
-+{
-+	return (msg_user(hdr) == LINK_PROTOCOL) && (msg_type(hdr) == RESET_MSG);
-+}
-+
- struct sk_buff *tipc_buf_acquire(u32 size);
- bool tipc_msg_validate(struct sk_buff *skb);
- bool tipc_msg_reverse(u32 own_addr, struct sk_buff **skb, int err);
+ 	case LINK_ESTABLISHING:
+-		xmit = true;
++		if ((l->rst_cnt++ <= 4) || !(l->rst_cnt % 16))
++			xmit = true;
+ 		mtyp = ACTIVATE_MSG;
+ 		break;
+ 	case LINK_PEER_RESET:
+@@ -833,6 +834,7 @@ void tipc_link_reset(struct tipc_link *l)
+ 	l->rcv_nxt = 1;
+ 	l->acked = 0;
+ 	l->silent_intv_cnt = 0;
++	l->rst_cnt = 0;
+ 	l->stats.recv_info = 0;
+ 	l->stale_count = 0;
+ 	l->bc_peer_is_up = false;
 -- 
 1.9.1
 
