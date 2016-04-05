@@ -1,70 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/18] i40e: Added code to prevent double resets
-Date: Tue,  5 Apr 2016 13:17:31 -0700
-Message-ID: <1459887455-146634-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/18] i40e: call ndo_stop() instead of dev_close() when running offline selftest
+Date: Tue,  5 Apr 2016 13:17:18 -0700
+Message-ID: <1459887455-146634-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459887455-146634-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28348 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10824 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759914AbcDEURl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 16:17:41 -0400
+	id S1759914AbcDEURi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 16:17:38 -0400
 In-Reply-To: <1459887455-146634-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Stefan Assmann <sassmann@kpanic.de>
 
-Clear the VFLR bit after reset processing, instead of before. This
-prevents double resets on VF init.
+Calling dev_close() causes IFF_UP to be cleared which will remove the
+interfaces routes and some addresses. That's probably not what the user
+intended when running the offline selftest. Besides this does not happen
+if the interface is brought down before the test, so the current
+behaviour is inconsistent.
+Instead call the net_device_ops ndo_stop function directly and avoid
+touching IFF_UP at all.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 4 ----
+ 3 files changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 816c6bb..291d628 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -917,9 +917,9 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- {
- 	struct i40e_pf *pf = vf->pf;
- 	struct i40e_hw *hw = &pf->hw;
-+	u32 reg, reg_idx, bit_idx;
- 	bool rsd = false;
- 	int i;
--	u32 reg;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 1ce6e9c..f208570 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -811,6 +811,7 @@ int i40e_vlan_rx_kill_vid(struct net_device *netdev,
+ 			  __always_unused __be16 proto, u16 vid);
+ #endif
+ int i40e_open(struct net_device *netdev);
++int i40e_close(struct net_device *netdev);
+ int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
+@@ -823,7 +824,6 @@ bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi);
+ struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, u8 *macaddr,
+ 				      bool is_vf, bool is_netdev);
+ #ifdef I40E_FCOE
+-int i40e_close(struct net_device *netdev);
+ int __i40e_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
+ 		    struct tc_to_netdev *tc);
+ void i40e_netpoll(struct net_device *netdev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 784b165..410d237 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1714,7 +1714,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		/* If the device is online then take it offline */
+ 		if (if_running)
+ 			/* indicate we're in test mode */
+-			dev_close(netdev);
++			i40e_close(netdev);
+ 		else
+ 			/* This reset does not affect link - if it is
+ 			 * changed to a type of reset that does affect
+@@ -1743,7 +1743,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED));
  
- 	if (test_and_set_bit(__I40E_VF_DISABLE, &pf->state))
- 		return;
-@@ -988,6 +988,11 @@ complete_reset:
- 	}
- 	/* tell the VF the reset is done */
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
-+
-+	/* clear the VFLR bit in GLGEN_VFLRSTAT */
-+	reg_idx = (hw->func_caps.vf_base_id + vf->vf_id) / 32;
-+	bit_idx = (hw->func_caps.vf_base_id + vf->vf_id) % 32;
-+	wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), BIT(bit_idx));
- 	i40e_flush(hw);
- 	clear_bit(__I40E_VF_DISABLE, &pf->state);
- }
-@@ -2293,9 +2298,7 @@ int i40e_vc_process_vflr_event(struct i40e_pf *pf)
- 		vf = &pf->vf[vf_id];
- 		reg = rd32(hw, I40E_GLGEN_VFLRSTAT(reg_idx));
- 		if (reg & BIT(bit_idx)) {
--			/* clear the bit in GLGEN_VFLRSTAT */
--			wr32(hw, I40E_GLGEN_VFLRSTAT(reg_idx), BIT(bit_idx));
--
-+			/* i40e_reset_vf will clear the bit in GLGEN_VFLRSTAT */
- 			if (!test_bit(__I40E_DOWN, &pf->state))
- 				i40e_reset_vf(vf, true);
- 		}
+ 		if (if_running)
+-			dev_open(netdev);
++			i40e_open(netdev);
+ 	} else {
+ 		/* Online tests */
+ 		netif_info(pf, drv, netdev, "online testing starting\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6700643..650336e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5509,11 +5509,7 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
+  *
+  * Returns 0, this is not allowed to fail
+  **/
+-#ifdef I40E_FCOE
+ int i40e_close(struct net_device *netdev)
+-#else
+-static int i40e_close(struct net_device *netdev)
+-#endif
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_vsi *vsi = np->vsi;
 -- 
 2.5.5
