@@ -1,143 +1,171 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 7/9] bnxt_en: Add unsupported SFP+ module warnings.
-Date: Tue,  5 Apr 2016 14:09:01 -0400
-Message-ID: <1459879743-16960-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 4/9] bnxt_en: Add EEE setup code.
+Date: Tue,  5 Apr 2016 14:08:58 -0400
+Message-ID: <1459879743-16960-5-git-send-email-michael.chan@broadcom.com>
 References: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:31443 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933560AbcDESJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:16 -0400
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3597 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757362AbcDESJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 14:09:07 -0400
 In-Reply-To: <1459879743-16960-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the PORT_CONN_NOT_ALLOWED async event handling logic.  The driver
-will print an appropriate warning to reflect the SFP+ module enforcement
-policy done in the firmware.
+1. Add bnxt_hwrm_set_eee() function to setup EEE firmware parameters based
+on the bp->eee settings.
+2. The new function bnxt_eee_config_ok() will check if EEE parameters need
+to be modified due to autoneg changes.
+3. bnxt_hwrm_set_link() has added a new parameter to update EEE.  If the
+parameter is set, it will call bnxt_hwrm_set_eee().
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 55 +++++++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 ++
- 2 files changed, 58 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 58 ++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  4 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h |  1 +
+ 4 files changed, 60 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index dd0b32c..597e472 100644
+index 7442e20..2c3c795 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -121,6 +121,7 @@ static const u16 bnxt_vf_req_snif[] = {
- static const u16 bnxt_async_events_arr[] = {
- 	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_LINK_STATUS_CHANGE,
- 	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD,
-+	HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED,
- };
- 
- static bool bnxt_vf_pciid(enum board_idx idx)
-@@ -1236,6 +1237,19 @@ next_rx_no_prod:
+@@ -4711,7 +4711,30 @@ int bnxt_hwrm_set_pause(struct bnxt *bp)
  	return rc;
  }
  
-+#define BNXT_GET_EVENT_PORT(data)	\
-+	((data) &				\
-+	 HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_PORT_ID_MASK)
-+
-+#define BNXT_EVENT_POLICY_MASK	\
-+	HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_MASK
-+
-+#define BNXT_EVENT_POLICY_SFT	\
-+	HWRM_ASYNC_EVENT_CMPL_PORT_CONN_NOT_ALLOWED_EVENT_DATA1_ENFORCEMENT_POLICY_SFT
-+
-+#define BNXT_GET_EVENT_POLICY(data)	\
-+	(((data) & BNXT_EVENT_POLICY_MASK) >> BNXT_EVENT_POLICY_SFT)
-+
- static int bnxt_async_event_process(struct bnxt *bp,
- 				    struct hwrm_async_event_cmpl *cmpl)
- {
-@@ -1249,6 +1263,22 @@ static int bnxt_async_event_process(struct bnxt *bp,
- 	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PF_DRVR_UNLOAD:
- 		set_bit(BNXT_HWRM_PF_UNLOAD_SP_EVENT, &bp->sp_event);
- 		break;
-+	case HWRM_ASYNC_EVENT_CMPL_EVENT_ID_PORT_CONN_NOT_ALLOWED: {
-+		u32 data1 = le32_to_cpu(cmpl->event_data1);
-+		u16 port_id = BNXT_GET_EVENT_PORT(data1);
-+
-+		if (BNXT_VF(bp))
-+			break;
-+
-+		if (bp->pf.port_id != port_id)
-+			break;
-+
-+		bp->link_info.last_port_module_event =
-+			BNXT_GET_EVENT_POLICY(data1);
-+
-+		set_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event);
-+		break;
-+	}
- 	default:
- 		netdev_err(bp->dev, "unhandled ASYNC event (id 0x%x)\n",
- 			   event_id);
-@@ -5447,6 +5477,28 @@ bnxt_restart_timer:
- 	mod_timer(&bp->timer, jiffies + bp->current_interval);
- }
- 
-+static void bnxt_port_module_event(struct bnxt *bp)
+-int bnxt_hwrm_set_link_setting(struct bnxt *bp, bool set_pause)
++static void bnxt_hwrm_set_eee(struct bnxt *bp,
++			      struct hwrm_port_phy_cfg_input *req)
 +{
-+	struct bnxt_link_info *link_info = &bp->link_info;
-+	struct hwrm_port_phy_qcfg_output *resp = &link_info->phy_qcfg_resp;
++	struct ethtool_eee *eee = &bp->eee;
 +
-+	if (bnxt_update_link(bp, true))
-+		return;
++	if (eee->eee_enabled) {
++		u16 eee_speeds;
++		u32 flags = PORT_PHY_CFG_REQ_FLAGS_EEE_ENABLE;
 +
-+	if (link_info->last_port_module_event != 0) {
-+		netdev_warn(bp->dev, "Unqualified SFP+ module detected on port %d\n",
-+			    bp->pf.port_id);
-+		if (bp->hwrm_spec_code >= 0x10201) {
-+			netdev_warn(bp->dev, "Module part number %s\n",
-+				    resp->phy_vendor_partnumber);
-+		}
++		if (eee->tx_lpi_enabled)
++			flags |= PORT_PHY_CFG_REQ_FLAGS_EEE_TX_LPI_ENABLE;
++		else
++			flags |= PORT_PHY_CFG_REQ_FLAGS_EEE_TX_LPI_DISABLE;
++
++		req->flags |= cpu_to_le32(flags);
++		eee_speeds = bnxt_get_fw_auto_link_speeds(eee->advertised);
++		req->eee_link_speed_mask = cpu_to_le16(eee_speeds);
++		req->tx_lpi_timer = cpu_to_le32(eee->tx_lpi_timer);
++	} else {
++		req->flags |= cpu_to_le32(PORT_PHY_CFG_REQ_FLAGS_EEE_DISABLE);
 +	}
-+	if (link_info->last_port_module_event == 1)
-+		netdev_warn(bp->dev, "TX is disabled\n");
-+	if (link_info->last_port_module_event == 3)
-+		netdev_warn(bp->dev, "Shutdown SFP+ module\n");
 +}
 +
- static void bnxt_cfg_ntp_filters(struct bnxt *);
++int bnxt_hwrm_set_link_setting(struct bnxt *bp, bool set_pause, bool set_eee)
+ {
+ 	struct hwrm_port_phy_cfg_input req = {0};
  
- static void bnxt_sp_task(struct work_struct *work)
-@@ -5494,6 +5546,9 @@ static void bnxt_sp_task(struct work_struct *work)
- 		rtnl_unlock();
+@@ -4720,14 +4743,42 @@ int bnxt_hwrm_set_link_setting(struct bnxt *bp, bool set_pause)
+ 		bnxt_hwrm_set_pause_common(bp, &req);
+ 
+ 	bnxt_hwrm_set_link_common(bp, &req);
++
++	if (set_eee)
++		bnxt_hwrm_set_eee(bp, &req);
+ 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+ }
+ 
++static bool bnxt_eee_config_ok(struct bnxt *bp)
++{
++	struct ethtool_eee *eee = &bp->eee;
++	struct bnxt_link_info *link_info = &bp->link_info;
++
++	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
++		return true;
++
++	if (eee->eee_enabled) {
++		u32 advertising =
++			_bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
++
++		if (!(link_info->autoneg & BNXT_AUTONEG_SPEED)) {
++			eee->eee_enabled = 0;
++			return false;
++		}
++		if (eee->advertised & ~advertising) {
++			eee->advertised = advertising & eee->supported;
++			return false;
++		}
++	}
++	return true;
++}
++
+ static int bnxt_update_phy_setting(struct bnxt *bp)
+ {
+ 	int rc;
+ 	bool update_link = false;
+ 	bool update_pause = false;
++	bool update_eee = false;
+ 	struct bnxt_link_info *link_info = &bp->link_info;
+ 
+ 	rc = bnxt_update_link(bp, true);
+@@ -4757,8 +4808,11 @@ static int bnxt_update_phy_setting(struct bnxt *bp)
+ 			update_link = true;
  	}
  
-+	if (test_and_clear_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event))
-+		bnxt_port_module_event(bp);
++	if (!bnxt_eee_config_ok(bp))
++		update_eee = true;
 +
- 	if (test_and_clear_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event))
- 		bnxt_hwrm_port_qstats(bp);
- 
+ 	if (update_link)
+-		rc = bnxt_hwrm_set_link_setting(bp, update_pause);
++		rc = bnxt_hwrm_set_link_setting(bp, update_pause, update_eee);
+ 	else if (update_pause)
+ 		rc = bnxt_hwrm_set_pause(bp);
+ 	if (rc) {
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index a981e2c..cc8e38a 100644
+index 5e83405..a981e2c 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -825,6 +825,8 @@ struct bnxt_link_info {
- 	u16			req_link_speed;
- 	u32			advertising;
- 	bool			force_link_chng;
-+
-+	u8			last_port_module_event;
- 	/* a copy of phy_qcfg output used to report link
- 	 * info to VF
- 	 */
-@@ -992,6 +994,7 @@ struct bnxt {
- #define BNXT_RST_RING_SP_EVENT		7
- #define BNXT_HWRM_PF_UNLOAD_SP_EVENT	8
- #define BNXT_PERIODIC_STATS_SP_EVENT	9
-+#define BNXT_HWRM_PORT_MODULE_SP_EVENT	10
+@@ -1112,7 +1112,7 @@ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_set_coal(struct bnxt *);
+ int bnxt_hwrm_func_qcaps(struct bnxt *);
+ int bnxt_hwrm_set_pause(struct bnxt *);
+-int bnxt_hwrm_set_link_setting(struct bnxt *, bool);
++int bnxt_hwrm_set_link_setting(struct bnxt *, bool, bool);
+ int bnxt_open_nic(struct bnxt *, bool, bool);
+ int bnxt_close_nic(struct bnxt *, bool, bool);
+ int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index bdc6220..14f0520 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -763,7 +763,7 @@ static u32 bnxt_get_fw_speed(struct net_device *dev, u16 ethtool_speed)
+ 	return 0;
+ }
  
- 	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
+-static u16 bnxt_get_fw_auto_link_speeds(u32 advertising)
++u16 bnxt_get_fw_auto_link_speeds(u32 advertising)
+ {
+ 	u16 fw_speed_mask = 0;
+ 
+@@ -840,7 +840,7 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	}
+ 
+ 	if (netif_running(dev))
+-		rc = bnxt_hwrm_set_link_setting(bp, set_pause);
++		rc = bnxt_hwrm_set_link_setting(bp, set_pause, false);
+ 
+ set_setting_exit:
+ 	return rc;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h
+index e061f8f..3abc03b 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h
+@@ -14,5 +14,6 @@ extern const struct ethtool_ops bnxt_ethtool_ops;
+ 
+ u32 _bnxt_fw_to_ethtool_adv_spds(u16, u8);
+ u32 bnxt_fw_to_ethtool_speed(u16);
++u16 bnxt_get_fw_auto_link_speeds(u32);
+ 
+ #endif
 -- 
 1.8.3.1
