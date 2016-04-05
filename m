@@ -1,83 +1,59 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next v3 3/4] ip_tunnel: implement __iptunnel_pull_header
-Date: Tue,  5 Apr 2016 14:47:12 +0200
-Message-ID: <bc1943cf408523cd466ebcc1e2444e0c7e2f77b7.1459860270.git.jbenc@redhat.com>
-References: <cover.1459860270.git.jbenc@redhat.com>
-Cc: Tom Herbert <tom@herbertland.com>, Jesse Gross <jesse@kernel.org>
-To: netdev@vger.kernel.org
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH net-next] net: add the AF_KCM entries to family name tables
+Date: Tue,  5 Apr 2016 07:41:11 -0700
+Message-ID: <1459867271-14592-1-git-send-email-decui@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48991 "EHLO mx1.redhat.com"
+Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:42778
+	"EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758457AbcDEMrc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 08:47:32 -0400
-In-Reply-To: <cover.1459860270.git.jbenc@redhat.com>
+	id S1754316AbcDEND3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 09:03:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow calling of iptunnel_pull_header without special casing ETH_P_TEB inner
-protocol.
+This is for the recent kcm driver, which introduces AF_KCM(41) in
+b7ac4eb(kcm: Kernel Connection Multiplexor module).
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Dexuan Cui <decui@microsoft.com>
+Cc: Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
-New in v2.
----
- include/net/ip_tunnels.h  | 11 +++++++++--
- net/ipv4/ip_tunnel_core.c |  8 ++++----
- 2 files changed, 13 insertions(+), 6 deletions(-)
+ net/core/sock.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 56050f913339..16435d8b1f93 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -295,8 +295,15 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
- 	return INET_ECN_encapsulate(tos, inner);
- }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b67b9ae..7e73c26 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -221,7 +221,8 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
+-  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
++  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_KCM"      ,
++  "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -237,7 +238,8 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
+-  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
++  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_KCM"       ,
++  "slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -253,7 +255,8 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
+-  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
++  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_KCM"      ,
++  "clock-AF_MAX"
+ };
  
--int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto,
--			 bool xnet);
-+int __iptunnel_pull_header(struct sk_buff *skb, int hdr_len,
-+			   __be16 inner_proto, bool raw_proto, bool xnet);
-+
-+static inline int iptunnel_pull_header(struct sk_buff *skb, int hdr_len,
-+				       __be16 inner_proto, bool xnet)
-+{
-+	return __iptunnel_pull_header(skb, hdr_len, inner_proto, false, xnet);
-+}
-+
- void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 		   __be32 src, __be32 dst, u8 proto,
- 		   u8 tos, u8 ttl, __be16 df, bool xnet);
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index b3ab1205dfdf..43445df61efd 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -86,15 +86,15 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- }
- EXPORT_SYMBOL_GPL(iptunnel_xmit);
- 
--int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto,
--			 bool xnet)
-+int __iptunnel_pull_header(struct sk_buff *skb, int hdr_len,
-+			   __be16 inner_proto, bool raw_proto, bool xnet)
- {
- 	if (unlikely(!pskb_may_pull(skb, hdr_len)))
- 		return -ENOMEM;
- 
- 	skb_pull_rcsum(skb, hdr_len);
- 
--	if (inner_proto == htons(ETH_P_TEB)) {
-+	if (!raw_proto && inner_proto == htons(ETH_P_TEB)) {
- 		struct ethhdr *eh;
- 
- 		if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
-@@ -117,7 +117,7 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto,
- 
- 	return iptunnel_pull_offloads(skb);
- }
--EXPORT_SYMBOL_GPL(iptunnel_pull_header);
-+EXPORT_SYMBOL_GPL(__iptunnel_pull_header);
- 
- struct metadata_dst *iptunnel_metadata_reply(struct metadata_dst *md,
- 					     gfp_t flags)
+ /*
 -- 
-1.8.3.1
+2.1.0
