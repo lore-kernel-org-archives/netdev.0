@@ -1,198 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/14] ixgbevf: Add support for generic Tx checksums
-Date: Mon,  4 Apr 2016 17:59:00 -0700
-Message-ID: <1459817945-144915-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/14] ixgbe: add a callback to set the maximum transmit bitrate
+Date: Mon,  4 Apr 2016 17:59:02 -0700
+Message-ID: <1459817945-144915-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Rostislav Pehlivanov <atomnuker@gmail.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:38979 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:7124 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754494AbcDEA7M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756759AbcDEA7M (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 4 Apr 2016 20:59:12 -0400
 In-Reply-To: <1459817945-144915-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Rostislav Pehlivanov <atomnuker@gmail.com>
 
-This patch adds support for generic Tx checksums to the ixgbevf driver.  It
-turns out this is actually pretty easy after going over the datasheet as we
-were doing a number of steps we didn't need to.
+This commit adds a callback which allows to adjust the maximum transmit
+bitrate the card can output. This makes it possible to get a smooth
+traffic instead of the default burst-y behaviour when trying to output
+e.g. a video stream.
 
-In order to perform a Tx checksum for an L4 header we need to fill in the
-following fields in the Tx descriptor:
-  MACLEN (maximum of 127), retrieved from:
-		skb_network_offset()
-  IPLEN  (maximum of 511), retrieved from:
-		skb_checksum_start_offset() - skb_network_offset()
-  TUCMD.L4T indicates offset and if checksum or crc32c, based on:
-		skb->csum_offset
+Much of the logic needed to get a correct bcnrc_val was taken from the
+ixgbe_set_vf_rate_limit() function.
 
-The added advantage to doing this is that we can support inner checksum
-offloads for tunnels and MPLS while still being able to transparently
-insert VLAN tags.
-
-I also took the opportunity to clean-up many of the feature flag
-configuration bits to make them a bit more consistent between drivers.  In
-the case of the VF drivers this meant adding support for SCTP CRCs, and
-inner checksum offloads for MPLS and various tunnel types.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Rostislav Pehlivanov <atomnuker@gmail.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 104 +++++++++-------------
- 1 file changed, 43 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 31 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  1 +
+ 3 files changed, 33 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 9a2eed0..50b6bff 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3334,76 +3334,55 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
- 	return 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0f007d9..115656c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1078,6 +1078,36 @@ static void ixgbe_tx_timeout_reset(struct ixgbe_adapter *adapter)
  }
  
-+static inline bool ixgbevf_ipv6_csum_is_sctp(struct sk_buff *skb)
+ /**
++ * ixgbe_tx_maxrate - callback to set the maximum per-queue bitrate
++ **/
++static int ixgbe_tx_maxrate(struct net_device *netdev,
++			    int queue_index, u32 maxrate)
 +{
-+	unsigned int offset = 0;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 bcnrc_val = ixgbe_link_mbps(adapter);
 +
-+	ipv6_find_hdr(skb, &offset, IPPROTO_SCTP, NULL, NULL);
++	if (!maxrate)
++		return 0;
 +
-+	return offset == skb_checksum_start_offset(skb);
++	/* Calculate the rate factor values to set */
++	bcnrc_val <<= IXGBE_RTTBCNRC_RF_INT_SHIFT;
++	bcnrc_val /= maxrate;
++
++	/* clear everything but the rate factor */
++	bcnrc_val &= IXGBE_RTTBCNRC_RF_INT_MASK |
++	IXGBE_RTTBCNRC_RF_DEC_MASK;
++
++	/* enable the rate scheduler */
++	bcnrc_val |= IXGBE_RTTBCNRC_RS_ENA;
++
++	IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, queue_index);
++	IXGBE_WRITE_REG(hw, IXGBE_RTTBCNRC, bcnrc_val);
++
++	return 0;
 +}
 +
- static void ixgbevf_tx_csum(struct ixgbevf_ring *tx_ring,
- 			    struct ixgbevf_tx_buffer *first)
- {
- 	struct sk_buff *skb = first->skb;
- 	u32 vlan_macip_lens = 0;
--	u32 mss_l4len_idx = 0;
- 	u32 type_tucmd = 0;
- 
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		u8 l4_hdr = 0;
--		__be16 frag_off;
--
--		switch (first->protocol) {
--		case htons(ETH_P_IP):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
--			l4_hdr = ip_hdr(skb)->protocol;
--			break;
--		case htons(ETH_P_IPV6):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			l4_hdr = ipv6_hdr(skb)->nexthdr;
--			if (likely(skb_network_header_len(skb) ==
--				   sizeof(struct ipv6hdr)))
--				break;
--			ipv6_skip_exthdr(skb, skb_network_offset(skb) +
--					      sizeof(struct ipv6hdr),
--					 &l4_hdr, &frag_off);
--			if (unlikely(frag_off))
--				l4_hdr = NEXTHDR_FRAGMENT;
--			break;
--		default:
--			break;
--		}
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		goto no_csum;
- 
--		switch (l4_hdr) {
--		case IPPROTO_TCP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
--			mss_l4len_idx = tcp_hdrlen(skb) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_SCTP:
--			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_SCTP;
--			mss_l4len_idx = sizeof(struct sctphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
--			break;
--		case IPPROTO_UDP:
--			mss_l4len_idx = sizeof(struct udphdr) <<
--					IXGBE_ADVTXD_L4LEN_SHIFT;
-+	switch (skb->csum_offset) {
-+	case offsetof(struct tcphdr, check):
-+		type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
-+		/* fall through */
-+	case offsetof(struct udphdr, check):
-+		break;
-+	case offsetof(struct sctphdr, checksum):
-+		/* validate that this is actually an SCTP request */
-+		if (((first->protocol == htons(ETH_P_IP)) &&
-+		     (ip_hdr(skb)->protocol == IPPROTO_SCTP)) ||
-+		    ((first->protocol == htons(ETH_P_IPV6)) &&
-+		     ixgbevf_ipv6_csum_is_sctp(skb))) {
-+			type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_SCTP;
- 			break;
--		default:
--			if (unlikely(net_ratelimit())) {
--				dev_warn(tx_ring->dev,
--					 "partial checksum, l3 proto=%x, l4 proto=%x\n",
--					 first->protocol, l4_hdr);
--			}
--			skb_checksum_help(skb);
--			goto no_csum;
- 		}
--
--		/* update TX checksum flag */
--		first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+		/* fall through */
-+	default:
-+		skb_checksum_help(skb);
-+		goto no_csum;
- 	}
--
-+	/* update TX checksum flag */
-+	first->tx_flags |= IXGBE_TX_FLAGS_CSUM;
-+	vlan_macip_lens = skb_checksum_start_offset(skb) -
-+			  skb_network_offset(skb);
- no_csum:
- 	/* vlan_macip_lens: MACLEN, VLAN tag */
- 	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
--	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens,
--			    type_tucmd, mss_l4len_idx);
-+	ixgbevf_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
++/**
+  * ixgbe_clean_tx_irq - Reclaim resources after transmit completes
+  * @q_vector: structure containing interrupt and ring information
+  * @tx_ring: tx ring to clean
+@@ -8807,6 +8837,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_mac_address	= ixgbe_set_mac,
+ 	.ndo_change_mtu		= ixgbe_change_mtu,
+ 	.ndo_tx_timeout		= ixgbe_tx_timeout,
++	.ndo_set_tx_maxrate	= ixgbe_tx_maxrate,
+ 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
+ 	.ndo_do_ioctl		= ixgbe_ioctl,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 4bc24963..adcf000 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1398,7 +1398,7 @@ out:
+ 	return err;
  }
  
- static __le32 ixgbevf_tx_cmd_type(u32 tx_flags)
-@@ -4010,22 +3989,25 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	netdev->hw_features = NETIF_F_SG |
--			      NETIF_F_IP_CSUM |
--			      NETIF_F_IPV6_CSUM |
- 			      NETIF_F_TSO |
- 			      NETIF_F_TSO6 |
--			      NETIF_F_RXCSUM;
-+			      NETIF_F_RXCSUM |
-+			      NETIF_F_HW_CSUM |
-+			      NETIF_F_SCTP_CRC;
- 
- 	netdev->features = netdev->hw_features |
- 			   NETIF_F_HW_VLAN_CTAG_TX |
- 			   NETIF_F_HW_VLAN_CTAG_RX |
- 			   NETIF_F_HW_VLAN_CTAG_FILTER;
- 
--	netdev->vlan_features |= NETIF_F_TSO |
-+	netdev->vlan_features |= NETIF_F_SG |
-+				 NETIF_F_TSO |
- 				 NETIF_F_TSO6 |
--				 NETIF_F_IP_CSUM |
--				 NETIF_F_IPV6_CSUM |
--				 NETIF_F_SG;
-+				 NETIF_F_HW_CSUM |
-+				 NETIF_F_SCTP_CRC;
-+
-+	netdev->mpls_features |= NETIF_F_HW_CSUM;
-+	netdev->hw_enc_features |= NETIF_F_HW_CSUM;
- 
- 	if (pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
+-static int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
++int ixgbe_link_mbps(struct ixgbe_adapter *adapter)
+ {
+ 	switch (adapter->link_speed) {
+ 	case IXGBE_LINK_SPEED_100_FULL:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index dad9257..47e65e2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -44,6 +44,7 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
+ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+ 			   u8 qos);
++int ixgbe_link_mbps(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ 			int max_tx_rate);
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
 -- 
 2.5.5
