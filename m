@@ -1,113 +1,85 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 05/10] bnxt_en: Add get_eee() and set_eee()
- ethtool support.
-Date: Tue, 5 Apr 2016 03:36:23 -0700
-Message-ID: <CACKFLinJMDC52Bbc_OFQLFAJuoC-DC5kdawkRo1J75Q5v3XOpA@mail.gmail.com>
-References: <1459844562-24576-1-git-send-email-michael.chan@broadcom.com>
-	<1459844562-24576-6-git-send-email-michael.chan@broadcom.com>
-	<1459850858.23351.45.camel@decadent.org.uk>
+From: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [v7, 0/5] Fix eSDHC host version register bug
+Date: Tue, 5 Apr 2016 13:27:58 +0200
+Message-ID: <CAPDyKFqgMCvbqMYZ-uM-rTnVvfJkCYbhv2kucCRyNyc9FWoR=Q@mail.gmail.com>
+References: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:34206 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757797AbcDEKgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 06:36:25 -0400
-Received: by mail-oi0-f54.google.com with SMTP id s79so11978089oie.1
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 03:36:24 -0700 (PDT)
-In-Reply-To: <1459850858.23351.45.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	scott.wood-3arQi8VN3Tc@public.gmane.org, xiaobo.xie-3arQi8VN3Tc@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1459480051-3701-1-git-send-email-yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 5, 2016 at 3:07 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Tue, 2016-04-05 at 04:22 -0400, Michael Chan wrote:
+On 1 April 2016 at 05:07, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org> wrote:
+> This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+> eSDHC controller. To get the SoC version and revision, it's needed to add the
+> GUTS driver to access the global utilities registers.
 >
->> Allow users to get|set EEE parameters.
->>
->> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
->> ---
->>  drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 73 +++++++++++++++++++++++
->>  1 file changed, 73 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
->> index 14f0520..3d5c64f 100644
->> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
->> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
->> @@ -1379,6 +1379,77 @@ static int bnxt_set_eeprom(struct net_device *dev,
->>                               eeprom->len);
->>  }
->>
->> +static int bnxt_set_eee(struct net_device *dev, struct ethtool_eee *edata)
->> +{
->> +     struct bnxt *bp = netdev_priv(dev);
->> +     struct ethtool_eee *eee = &bp->eee;
->> +     struct bnxt_link_info *link_info = &bp->link_info;
->> +     u32 advertising =
->> +              _bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
->> +     int rc = 0;
->> +
->> +     if (BNXT_VF(bp))
->> +             return 0;
->> +
->> +     if (!(bp->flags & BNXT_FLAG_EEE_CAP))
->> +             return -EOPNOTSUPP;
->> +
->> +     if (!edata->eee_enabled)
->> +             goto eee_ok;
-> [...]
->> +     eee->advertised = edata->advertised;
->> +     eee->tx_lpi_enabled = edata->tx_lpi_enabled;
->> +     eee->tx_lpi_timer = edata->tx_lpi_timer;
->> +eee_ok:
->> +     eee->eee_enabled = edata->eee_enabled;
->> +
->> +     if (netif_running(dev))
->> +             rc = bnxt_hwrm_set_link_setting(bp, false, true);
->> +
->> +     return rc;
->> +}
->> +
->> +static int bnxt_get_eee(struct net_device *dev, struct ethtool_eee *edata)
->> +{
->> +     struct bnxt *bp = netdev_priv(dev);
->> +
->> +     if (!(bp->flags & BNXT_FLAG_EEE_CAP))
->> +             return -EOPNOTSUPP;
->> +
->> +     *edata = bp->eee;
->> +     if (!bp->eee.eee_enabled) {
->> +             edata->advertised = 0;
->> +             edata->tx_lpi_enabled = 0;
+> So, the first three patches are to add the GUTS driver.
+> The following two patches are to enable GUTS driver support to get SVR in eSDHC
+> driver and fix host version for T4240.
 >
-> What about tx_lpi_timer?
-
-We want to keep the tx_lpi_timer value so that it can be used again
-when it is turned on again.
-
-The user doesn't have to figure out what value to use if he just wants
-to use the default or the last value.
-
+> Yangbo Lu (5):
+>   ARM64: dts: ls2080a: add device configuration node
+>   soc: fsl: add GUTS driver for QorIQ platforms
+>   dt: move guts devicetree doc out of powerpc directory
+>   powerpc/fsl: move mpc85xx.h to include/linux/fsl
+>   mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
 >
-> And, wouldn't it make more sense to do these fixups to the internal
-> state in bnxt_set_eee()?
-
-I don't understand.  If the user is enabling EEE, we take all the
-parameters.  If he is disabling, we don't take any of the parameters.
-
->
-> Ben.
->
->> +     }
->> +
->> +     if (!bp->eee.eee_active)
->> +             edata->lp_advertised = 0;
->> +
->> +     return 0;
->> +}
-> [...]
+>  .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+>  arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 ++
+>  arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+>  drivers/clk/clk-qoriq.c                            |   3 +-
+>  drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+>  drivers/iommu/fsl_pamu.c                           |   3 +-
+>  drivers/mmc/host/Kconfig                           |   1 +
+>  drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
+>  drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+>  drivers/soc/Kconfig                                |   2 +-
+>  drivers/soc/fsl/Kconfig                            |   8 ++
+>  drivers/soc/fsl/Makefile                           |   1 +
+>  drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++++
+>  include/linux/fsl/guts.h                           |  98 ++++++++---------
+>  .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+>  15 files changed, 219 insertions(+), 58 deletions(-)
+>  rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+>  create mode 100644 drivers/soc/fsl/Kconfig
+>  create mode 100644 drivers/soc/fsl/guts.c
+>  rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 >
 > --
-> Ben Hutchings
-> No political challenge can be met by shopping. - George Monbiot
+> 2.1.0.27.g96db324
+>
+
+I was about to queue this for next, when I noticed that checkpatch is
+complaining/warning lots about these patches. Can you please a round
+of checkpatch and fix what makes sense.
+
+Kind regards
+Uffe
