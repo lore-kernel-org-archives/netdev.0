@@ -1,65 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Tue, 05 Apr 2016 09:30:06 -0700
-Message-ID: <1459873806.6473.358.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160404162545.14332.653.stgit@localhost.localdomain>
-	 <20160404162818.14332.1076.stgit@localhost.localdomain>
-	 <20160405034437.GA9322@gondor.apana.org.au>
-	 <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
-	 <20160405043209.GA9822@gondor.apana.org.au>
-	 <CAKgT0Uc=9MMzSHWgZib5+EwPCQokjSSnC9vfOtWKULvmwUQpdQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 0/3] udp: support SO_PEEK_OF
+Date: Tue,  5 Apr 2016 12:38:18 -0400
+Message-ID: <1459874301-92389-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, samanthakumar@google.com, edumazet@google.com,
+	willemb@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:35016 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758746AbcDEQaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:30:09 -0400
-Received: by mail-yw0-f193.google.com with SMTP id v185so2612685ywd.2
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:30:09 -0700 (PDT)
-In-Reply-To: <CAKgT0Uc=9MMzSHWgZib5+EwPCQokjSSnC9vfOtWKULvmwUQpdQ@mail.gmail.com>
+Received: from mail-qg0-f67.google.com ([209.85.192.67]:33632 "EHLO
+	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755808AbcDEQiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 12:38:25 -0400
+Received: by mail-qg0-f67.google.com with SMTP id y89so1704315qge.0
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 09:38:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-05 at 08:52 -0700, Alexander Duyck wrote:
+From: Willem de Bruijn <willemb@google.com>
 
->=20
-> I disagree I think it will have to be part of the default
-> configuration.  The problem is the IP ID is quickly becoming
-> meaningless.  When you consider that a 40Gb/s link can wrap the IP ID
-> value nearly 50 times a second using a 1500 MTU the IP ID field shoul=
-d
-> just be ignored anyway because you cannot guarantee that it will be
-> unique without limiting the Tx window size.  That was the whole point
-> of RFC6864.  Basically the IP ID field is so small that as we push
-> into the higher speeds you cannot guarantee that the field will have
-> any meaning so for any case where you don't need to use it you
-> shouldn't because it will likely not provide enough useful data.
+Support peeking at a non-zero offset for UDP sockets. Match the
+existing behavior on Unix datagram sockets.
 
-Just because a few flows reach 40Gbit , we should remind that vast
-majority of the Internet runs with < 50Mbits flows.
+1/3 makes the sk_peek_offset functions safe to use outside locks
+2/3 removes udp headers before enqueue, to simplify offset arithmetic
+3/3 introduces SO_PEEK_OFFSET support, with Unix socket peek semantics.
 
-I prefer the argument of IPv6 not having ID ;)
+Changes
+  v1->v2
+    - squash patches 3 and 4
 
-We should do our best to keep interoperability, this is the selling
-point.=20
+Willem de Bruijn (1):
+  sock: convert sk_peek_offset functions to WRITE_ONCE
 
-And quite frankly your last patch makes perfect sense to me :
+samanthakumar (2):
+  udp: remove headers from UDP packets before queueing
+  udp: enable MSG_PEEK at non-zero offset
 
-The aggregation is done only if the TCP headers of consecutive packets
-matches. So who cares of IPv4 ID really ?
-This is a very minor detail. The possible gains outperform the
-theoretical 'problem'
+ include/linux/skbuff.h |  7 ++++++-
+ include/net/sock.h     | 27 ++++++++++++++++-----------
+ include/net/udp.h      |  9 +++++++++
+ net/core/datagram.c    |  9 ++++++---
+ net/core/sock.c        | 28 ++++++++++++++++++++++------
+ net/ipv4/af_inet.c     |  1 +
+ net/ipv4/udp.c         | 38 ++++++++++++++++++++------------------
+ net/ipv6/af_inet6.c    |  1 +
+ net/ipv6/udp.c         | 30 ++++++++++++++++--------------
+ 9 files changed, 97 insertions(+), 53 deletions(-)
 
-GRO already reorder flows, it never had a guarantee of being '=C3=ADnvi=
-sible'
-as Herbert claims.
+-- 
+2.8.0.rc3.226.g39d4020
