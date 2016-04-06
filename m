@@ -1,55 +1,65 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
- connected datagram sk during pmtu update
-Date: Wed, 6 Apr 2016 10:58:23 -0700
-Message-ID: <CAM_iQpUrcXwBH0BuCh-cjo0st6ykpUgdjRo3Cn-ViO40vtbHKA@mail.gmail.com>
-References: <1459551391-69969-1-git-send-email-kafai@fb.com>
-	<1459551391-69969-4-git-send-email-kafai@fb.com>
-	<CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
-	<20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
-	<CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
-	<20160406001141.GA97608@kafai-mba.local>
+From: Weongyo Jeong <weongyo.linux@gmail.com>
+Subject: Re: [PATCH] packet: uses kfree_skb() for drop.
+Date: Wed, 6 Apr 2016 11:10:11 -0700
+Message-ID: <20160406181010.GA17455@jwg>
+References: <1459961686-14281-1-git-send-email-weongyo.linux@gmail.com>
+ <CAF=yD-JrVXKsJTUcWSmuVmPbdZV=_h8hsVPQVQTPF64R1k684w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:35105 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507AbcDFR6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 13:58:24 -0400
-Received: by mail-yw0-f177.google.com with SMTP id i84so60383527ywc.2
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 10:58:23 -0700 (PDT)
-In-Reply-To: <20160406001141.GA97608@kafai-mba.local>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36110 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298AbcDFSKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 14:10:16 -0400
+Received: by mail-pf0-f196.google.com with SMTP id q129so4982958pfb.3
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 11:10:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-JrVXKsJTUcWSmuVmPbdZV=_h8hsVPQVQTPF64R1k684w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 5, 2016 at 5:11 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> On Mon, Apr 04, 2016 at 01:45:02PM -0700, Cong Wang wrote:
->> I see your point, but calling __ip6_datagram_connect() seems overkill
->> here, we don't need to update so many things in the pmtu update context,
->> at least IPv4 doesn't do that either. I don't think you have to do that.
->>
->> So why just updating the dst cache (also some addr cache) here is not
->> enough?
-> I am not sure I understand.  I could be missing something.
->
-> This patch uses ip6_datagram_dst_update() to do the route lookup and
-> sk->sk_dst_cache update.  ip6_datagram_dst_update() is
-> created in the first two refactoring patches and is also used by
-> __ip6_datagram_connect().
->
-> Which operations in ip6_datagram_dst_update() could be saved
-> during the pmtu update?
+On Wed, Apr 06, 2016 at 01:27:11PM -0400, Willem de Bruijn wrote:
+> On Wed, Apr 6, 2016 at 12:54 PM, Weongyo Jeong <weongyo.linux@gmail.com> wrote:
+> > consume_skb() isn't for drop or error cases.  kfree_skb() is more proper
+> > one.
+> > Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
+> > ---
+> >  net/packet/af_packet.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> > index 1ecfa71..a75d5bf 100644
+> > --- a/net/packet/af_packet.c
+> > +++ b/net/packet/af_packet.c
+> > @@ -2141,7 +2141,7 @@ drop_n_restore:
+> >                 skb->len = skb_len;
+> >         }
+> >  drop:
+> > -       consume_skb(skb);
+> > +       kfree_skb(skb);
+> 
+> This does show an inconsistency between packet_rcv and tpacket_rcv,
+> which calls kfree_skb.
+> 
+> A comment at consume_skb mentions that kfree_skb is intended for drops
+> that signal a failure condition, and indeed, that makes it a useful
+> way to track errors (e.g., with perf record -a -g -e skb:kfree_skb).
+> 
+> This drop path is not always an error path, though. These network taps
+> will legitimately drop references to any packets not destined to them.
+> To be precise, only the drop_n_acct label cases are delivery errors
+> (drops after the filter accepted the packet). Changing unconditionally
+> to kfree_skb does pollute that useful counter with false positives. A
+> pedantic solution is to change both functions to only call kfree_skb
+> on drop_n_acct and consume_skb otherwise.
+> 
+> This shorthand change does at least makes packet_rcv and tpacket_rcv more alike.
 
-I thought you call the same ip6_datagram_dst_update() for both
-pmtu update and __ip6_datagram_connect(), but you actually skip
-some sk operations for pmtu case, which means you don't need
-to worry about parallel ip6_datagram_connect().
+Thank you for comments.  I'll try to submit patch v2 for this case.
 
-IPv6 UDP sendmsg() path stores the dst without sock lock anyway,
-we don't cope with a concurrent connect() on another cpu. But
-still, I don't see this is a problem here, because even if we store
-an obsolete address in cache, it would be corrected later.
+Regards,
+Weongyo Jeong
