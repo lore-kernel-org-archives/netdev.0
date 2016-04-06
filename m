@@ -1,42 +1,35 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: btcoexist: Convert BTC_PRINTK to btc_<foo>_dbg
-Date: Wed,  6 Apr 2016 18:39:13 +0000 (UTC)
-Message-ID: <20160406183913.BE8E8615EF@smtp.codeaurora.org>
-References: <4672f9efb37df545ae504d51ca626bf34237fa63.1458258337.git.joe@perches.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: wl12xx: remove redundant null check on wl->scan.ssid
+Date: Wed,  6 Apr 2016 18:40:31 +0000 (UTC)
+Message-ID: <20160406184031.7925D615CF@smtp.codeaurora.org>
+References: <1458318048-28184-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4672f9efb37df545ae504d51ca626bf34237fa63.1458258337.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Arik Nemtsov <arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	Luca Coelho <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Avraham Stern <avraham.stern-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1458318048-28184-1-git-send-email-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-> Use a more common logging style.
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> Miscellanea:
+> ssid is an array of u8, so it can never be null, so the null check on
+> wl->scan.ssid is redundant and can be removed.
 > 
-> o Add specific logging macros for ALGORITHM and INTERFACE types
-> o Output the messages at KERN_DEBUG
-> o Coalesce formats
-> o Align arguments
-> o Whitespace style adjustments for only these changes
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Thanks, applied to wireless-drivers-next.git. There were some conflicts but
-3-way merge was able to fix them. Please double check still.
-
-Applying: rtlwifi: btcoexist: Convert BTC_PRINTK to btc_<foo>_dbg
-Using index info to reconstruct a base tree...
-Falling back to patching base and 3-way merge...
-Auto-merging drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.h
-Auto-merging drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-Auto-merging drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b2ant.c
+Thanks, applied to wireless-drivers-next.git.
 
 Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
