@@ -1,60 +1,57 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Wed, 6 Apr 2016 15:26:01 +0100
-Message-ID: <57051C79.7010303@solarflare.com>
-References: <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
- <20160405043209.GA9822@gondor.apana.org.au> <5703D4C5.9060305@solarflare.com>
- <20160405.194517.431351466693438399.davem@davemloft.net>
- <5704F156.8030804@solarflare.com>
- <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/3] net: dsa: make the FDB add function return void
+Date: Wed, 06 Apr 2016 10:26:57 -0400
+Message-ID: <8737qydd8u.fsf@ketchup.mtl.sfl>
+References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1459869875-23815-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20160405235119.GC19409@lunn.ch> <87egajxwb5.fsf@ketchup.mtl.sfl> <20160406125421.GF19409@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:3319 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750952AbcDFO0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 10:26:21 -0400
-In-Reply-To: <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160406125421.GF19409@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/04/16 14:53, Tom Herbert wrote:
-> But again, this scheme is optimizing for forwarding case and doesn't
-> help (and probably hurts) the use case of locally terminated
-> connections
-Not really.  I think this has a chance to outperform GRO for locally
-terminated connections, for a number of reasons:
-* Doesn't look at higher-layer or inner headers until later in packet
-  processing, for instance we (maybe) process every L3 header in a NAPI poll
-  before looking at a single L4.  This could delay touching the second
-  cacheline of some packets.
-* Doesn't have to re-write headers to produce a coherent superframe.
-  Instead, each segment carries its original headers around with it.  Also
-  means we can skip _checking_ some headers to see if we're 'allowed' to
-  coalesce (e.g. TCP TS differences, and the current fun with IP IDs).
-* Can be used for protocols like UDP where the original packet boundaries
-  are important (so you can't coalesce into a superframe).
-Really the last of those was the original reason for this idea, helping with
-forwarding is just another nice bonus that we (might) get from it.
-And it's all speculative and I don't know for sure what the performance
-would be like, but I won't know until I try it!
-> which I would claim is more important.
-No argument there :-)
-> Packets that are
-> forwarded really should not be GRO'ed in the first place because of
-> the loss of information and added latency. The difficultly is that we
-> don't currently make the forwarding decision before GRO,  if we can
-> change this to decide whether packets are to be forwarded earlier then
-> we can avoid doing GRO for those.
-That certainly would be nice, XDP is exciting and I look forward to it.
+Hi Andrew,
 
--Ed
+Andrew Lunn <andrew@lunn.ch> writes:
+
+>> >>  	mutex_lock(&ps->smi_mutex);
+>> >> -	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state);
+>> >> +	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
+>> >> +		netdev_warn(ds->ports[port], "cannot load address\n");
+>> >
+>> > In the SF2 driver you use pr_err, but here netdev_warn. We probably
+>> > should be consistent if we error or warn. I would use netdev_error,
+>> > since if this fails we probably have a real hardware problem.
+>> 
+>> I used pr_err in the SF2 driver to be consistent with the rest of the
+>> code which only uses pr_err and pr_info.
+>
+> O.K, good.
+>  
+>> I was thinking about adding ds_err and ds_port_err to print errors for
+>> ds->master_dev and ds->ports[port], but that might be overkill.
+>
+> I'm also trying to kill off the use of ds within the mv88e6xxx driver.
+>
+>> What do you think? Or local to the driver for the moment, like
+>> mvsw_err maybe?
+>
+> I would keep it local. Also, for this sort of error, it does not need
+> to differentiate on port. It is a hardware access error, something is
+> wrong with the mdio bus/switch. So i would even put the message in the
+> very low level reg_read/reg_write functions, and no where else.
+
+OK, so I will keep a netdev_err() in _mv88e6xxx_port_fdb_add since I
+don't like to ignore return values, and will send a future separate
+patch to add such message in low level functions as you suggested, and
+maybe voidify a few high level functions using them.
+
+Thanks,
+Vivien
