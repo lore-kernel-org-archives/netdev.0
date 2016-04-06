@@ -1,48 +1,56 @@
-From: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Subject: Re: [PATCH] macvlan: Support interface operstate properly
-Date: Wed, 6 Apr 2016 21:26:33 +0000
-Message-ID: <53A6C2CA-9C49-4F85-97F6-DD60276AFCC2@akamai.com>
-References: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
- <570579AA.6050400@cumulusnetworks.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Wed, 6 Apr 2016 14:37:30 -0700
+Message-ID: <5705819A.3030809@schaufler-ca.com>
+References: <cover.1459934322.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:13514 "EHLO
-	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753318AbcDFVfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:35:03 -0400
-In-Reply-To: <570579AA.6050400@cumulusnetworks.com>
-Content-Language: en-US
-Content-ID: <F291AC386431444E8F9C5CB27BCE8599@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>,
+	linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <cover.1459934322.git.pabeni@redhat.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gNC82LzE2LCA1OjAzIFBNLCAiTmlrb2xheSBBbGVrc2FuZHJvdiIgPG5pa29sYXlAY3VtdWx1
-c25ldHdvcmtzLmNvbT4gd3JvdGU6DQoNCg0KPk9uIDA0LzA2LzIwMTYgMTA6MzAgUE0sIERlYmFi
-cmF0YSBCYW5lcmplZSB3cm90ZToNCj4+IFNldCBhcHByb3ByaWF0ZSBtYWN2bGFuIGludGVyZmFj
-ZSBzdGF0dXMgYmFzZWQgb24gbG93ZXIgZGV2aWNlIGFuZCBvdXINCj4+IHN0YXR1cy4gQ2FuIGJl
-IHVwLCBkb3duLCBvciBsb3dlcmxheWVyZG93bi4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogRGVi
-YWJyYXRhIEJhbmVyamVlIDxkYmFuZXJqZUBha2FtYWkuY29tPg0KPj4gDQo+DQo+TWF5IEkgYXNr
-IHdoYXQgaXMgZXhhY3RseSB0aGF0IHlvdSdyZSBmaXhpbmcgaGVyZSA/IEkgcmVjZW50bHkgaGFk
-IHRvIG1ha2UgbWFjdmxhbidzDQo+b3BlcnN0YXRlcyBtb3JlIGFjY3VyYXRlIGFuZCBJIGhhdmVu
-J3QgZXhwZXJpZW5jZWQgYW55IHdyb25nIGJlaGF2aW91ciBzaW5jZSBjb21taXQNCj5kZTdkMjQ0
-ZDBhMzUgKCJtYWN2bGFuOiBtYWtlIG9wZXJzdGF0ZSBhbmQgY2FycmllciBtb3JlIGFjY3VyYXRl
-IikuDQoNClllcyBJIHNhdyB0aGUgb3RoZXIgcGF0Y2gsIGl0J3MgYW4gaW1wcm92ZW1lbnQgZnJv
-bSB3aGVuIEkgc3RhcnRlZCB3b3JraW5nIG9uIHRoaXMuIA0KDQoNCj5BbHNvIGl0J3MgdGhlIGxp
-bmt3YXRjaCdzIGpvYiB0byB0YWtlIGNhcmUgZm9yIHRoZSBwcm9wZXIgb3BlcnN0YXRlLCB3ZSBj
-YW4gdXNlDQo+bmV0aWZfc3RhY2tlZF90cmFuc2Zlcl9vcGVyc3RhdGUgdG8gaGVscCBpdCwgYnV0
-IEkgZG9uJ3QgdGhpbmsgZGlyZWN0bHkgc2V0dGluZw0KPm9wZXJzdGF0ZSBpcyBhIGdvb2QgaWRl
-YS4NCg0KVGhpcyBwYXRjaCB3YXMgbW9kZWxlZCBhZnRlciBfX2hzcl9zZXRfb3BlcnN0YXRlKCku
-IEJ1dCBJIGFncmVlIHRoZXJlJ3MgcHJvYmFibHkNCmJldHRlciB3YXlzIHRvIGRvIGl0LiBJJ20g
-bm90IHN1cmUgd2h5IG5ldGlmX3N0YWNrZWRfdHJhbnNmZXJfb3BlcnN0YXRlKCkgZG9lc24ndCBk
-bw0KaXQgaXRzZWxmLCBhbHRob3VnaCBpbiB0aGUgY2FzZSBvZiBhIGxheWVyZWQgZGV2aWNlLCBt
-eSBwYXRjaCBhY3R1YWxseSB1c2VzIHRoZSBvdGhlcg0KcG9zc2libGUgc3RhdGUsIHdoaWNoIGlz
-IGxvd2VybGF5ZXJkb3duLiBXaXRob3V0IHRoZSBwYXRjaCBvcGVyc3RhdGUgZ29lcyBkaXJlY3Rs
-eSB0bw0KZG93bi4NCg0KPg0KPk9uZSBtb3JlIHRoaW5nIC0geW91IGNhbm5vdCB1c2UgbmV0ZGV2
-X3N0YXRlX2NoYW5nZSgpIHVuZGVyIHRoZSB3cml0ZV9sb2NrIGFzIGl0DQo+bWF5IHNsZWVwLg0K
-DQpZb3UncmUgcmlnaHQsIEkgY2FuIHJlc3VibWl0IG1vdmluZyB0aGUgY2FsbCBvdXQgb2YgdGhl
-IGNyaXRpY2FsIHNlY3Rpb24sIGlmIHRoZSBwYXRjaA0Kd2lsbCBiZSB0YWtlbi4NCg0K
+On 4/6/2016 2:51 AM, Paolo Abeni wrote:
+> Currently, selinux always registers iptables POSTROUTING hooks regarless of
+> the running policy needs for any action to be performed by them.
+>
+> Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
+> depending on the current policy configuration.
+>
+> The above invocations in the kernel datapath are cause of measurable
+> overhead in networking performance test.
+>
+> This patch series adds explicit notification for netlabel status change 
+> (other relevant status change, like xfrm and secmark, are already notified to
+> LSM) and use this information in selinux to register the above hooks only when
+> the current status makes them relevant, deregistering them when no-op
+>
+> Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
+> gives about 5% performance improvement on rx and about 8% on tx.
+>
+> Paolo Abeni (2):
+>   security: add hook for netlabel status change notification
+>   selinux: implement support for dynamic net hook [de-]registration
+>
+>  include/linux/lsm_hooks.h           |  6 ++++
+>  include/linux/security.h            |  5 +++
+>  net/netlabel/netlabel_cipso_v4.c    |  8 +++--
+>  net/netlabel/netlabel_unlabeled.c   |  5 ++-
+>  security/security.c                 |  7 ++++
+>  security/selinux/hooks.c            | 72 +++++++++++++++++++++++++++++++------
+>  security/selinux/include/security.h |  1 +
+>  security/selinux/ss/services.c      |  1 +
+>  security/selinux/xfrm.c             |  4 +++
+>  9 files changed, 96 insertions(+), 13 deletions(-)
+>
+Is there a patch 1/2?
+
