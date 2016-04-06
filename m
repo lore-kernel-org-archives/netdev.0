@@ -1,182 +1,159 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 13/17] mlxsw: reg: Add Port Flow Control Configuration register
-Date: Wed,  6 Apr 2016 17:10:12 +0200
-Message-ID: <1459955416-23786-14-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 16/17] mlxsw: reg: Introduce per priority counters
+Date: Wed,  6 Apr 2016 17:10:15 +0200
+Message-ID: <1459955416-23786-17-git-send-email-jiri@resnulli.us>
 References: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33585 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754617AbcDFPKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:46 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i204so14158232wmd.0
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:40 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36044 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754585AbcDFPKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:44 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o129so4683934wmo.3
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:44 -0700 (PDT)
 In-Reply-To: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Add the Port Flow Control Configuration (PFCC) register, which
-configures both flow control and Priority-based Flow Control (PFC).
+We are going to add support for PFC as part of DCB ops, which requires us
+to report the number of PFC frames sent and received per priority.
+
+Add per priority counters in order to report number of PFC frames sent
+and received per priority.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 131 ++++++++++++++++++++++++++++++
- 1 file changed, 131 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 62 ++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  3 +-
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  3 +-
+ 3 files changed, 63 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 2e58c41..b83514a 100644
+index bcd38ff..84aacb3 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -2319,6 +2319,135 @@ static inline void mlxsw_reg_paos_pack(char *payload, u8 local_port,
- 	mlxsw_reg_paos_e_set(payload, 1);
- }
+@@ -2487,6 +2487,11 @@ MLXSW_ITEM32(reg, ppcnt, local_port, 0x00, 16, 8);
+  */
+ MLXSW_ITEM32(reg, ppcnt, pnat, 0x00, 14, 2);
  
-+/* PFCC - Ports Flow Control Configuration Register
-+ * ------------------------------------------------
-+ * Configures and retrieves the per port flow control configuration.
-+ */
-+#define MLXSW_REG_PFCC_ID 0x5007
-+#define MLXSW_REG_PFCC_LEN 0x20
-+
-+static const struct mlxsw_reg_info mlxsw_reg_pfcc = {
-+	.id = MLXSW_REG_PFCC_ID,
-+	.len = MLXSW_REG_PFCC_LEN,
++enum mlxsw_reg_ppcnt_grp {
++	MLXSW_REG_PPCNT_IEEE_8023_CNT = 0x0,
++	MLXSW_REG_PPCNT_PRIO_CNT = 0x10,
 +};
 +
-+/* reg_pfcc_local_port
-+ * Local port number.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, pfcc, local_port, 0x00, 16, 8);
+ /* reg_ppcnt_grp
+  * Performance counter group.
+  * Group 63 indicates all groups. Only valid on Set() operation with
+@@ -2522,6 +2527,8 @@ MLXSW_ITEM32(reg, ppcnt, clr, 0x04, 31, 1);
+  */
+ MLXSW_ITEM32(reg, ppcnt, prio_tc, 0x04, 0, 5);
+ 
++/* Ethernet IEEE 802.3 Counter Group */
 +
-+/* reg_pfcc_pnat
-+ * Port number access type. Determines the way local_port is interpreted:
-+ * 0 - Local port number.
-+ * 1 - IB / label port number.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, pfcc, pnat, 0x00, 14, 2);
+ /* reg_ppcnt_a_frames_transmitted_ok
+  * Access: RO
+  */
+@@ -2636,15 +2643,64 @@ MLXSW_ITEM64(reg, ppcnt, a_pause_mac_ctrl_frames_received,
+ MLXSW_ITEM64(reg, ppcnt, a_pause_mac_ctrl_frames_transmitted,
+ 	     0x08 + 0x90, 0, 64);
+ 
+-static inline void mlxsw_reg_ppcnt_pack(char *payload, u8 local_port)
++/* Ethernet Per Priority Group Counters */
 +
-+/* reg_pfcc_shl_cap
-+ * Send to higher layers capabilities:
-+ * 0 - No capability of sending Pause and PFC frames to higher layers.
-+ * 1 - Device has capability of sending Pause and PFC frames to higher
-+ *     layers.
++/* reg_ppcnt_rx_octets
 + * Access: RO
 + */
-+MLXSW_ITEM32(reg, pfcc, shl_cap, 0x00, 1, 1);
++MLXSW_ITEM64(reg, ppcnt, rx_octets, 0x08 + 0x00, 0, 64);
 +
-+/* reg_pfcc_shl_opr
-+ * Send to higher layers operation:
-+ * 0 - Pause and PFC frames are handled by the port (default).
-+ * 1 - Pause and PFC frames are handled by the port and also sent to
-+ *     higher layers. Only valid if shl_cap = 1.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, pfcc, shl_opr, 0x00, 0, 1);
-+
-+/* reg_pfcc_ppan
-+ * Pause policy auto negotiation.
-+ * 0 - Disabled. Generate / ignore Pause frames based on pptx / pprtx.
-+ * 1 - Enabled. When auto-negotiation is performed, set the Pause policy
-+ *     based on the auto-negotiation resolution.
-+ * Access: RW
-+ *
-+ * Note: The auto-negotiation advertisement is set according to pptx and
-+ * pprtx. When PFC is set on Tx / Rx, ppan must be set to 0.
-+ */
-+MLXSW_ITEM32(reg, pfcc, ppan, 0x04, 28, 4);
-+
-+/* reg_pfcc_prio_mask_tx
-+ * Bit per priority indicating if Tx flow control policy should be
-+ * updated based on bit pfctx.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, pfcc, prio_mask_tx, 0x04, 16, 8);
-+
-+/* reg_pfcc_prio_mask_rx
-+ * Bit per priority indicating if Rx flow control policy should be
-+ * updated based on bit pfcrx.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, pfcc, prio_mask_rx, 0x04, 0, 8);
-+
-+/* reg_pfcc_pptx
-+ * Admin Pause policy on Tx.
-+ * 0 - Never generate Pause frames (default).
-+ * 1 - Generate Pause frames according to Rx buffer threshold.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, pfcc, pptx, 0x08, 31, 1);
-+
-+/* reg_pfcc_aptx
-+ * Active (operational) Pause policy on Tx.
-+ * 0 - Never generate Pause frames.
-+ * 1 - Generate Pause frames according to Rx buffer threshold.
++/* reg_ppcnt_rx_frames
 + * Access: RO
 + */
-+MLXSW_ITEM32(reg, pfcc, aptx, 0x08, 30, 1);
++MLXSW_ITEM64(reg, ppcnt, rx_frames, 0x08 + 0x20, 0, 64);
 +
-+/* reg_pfcc_pfctx
-+ * Priority based flow control policy on Tx[7:0]. Per-priority bit mask:
-+ * 0 - Never generate priority Pause frames on the specified priority
-+ *     (default).
-+ * 1 - Generate priority Pause frames according to Rx buffer threshold on
-+ *     the specified priority.
-+ * Access: RW
-+ *
-+ * Note: pfctx and pptx must be mutually exclusive.
-+ */
-+MLXSW_ITEM32(reg, pfcc, pfctx, 0x08, 16, 8);
-+
-+/* reg_pfcc_pprx
-+ * Admin Pause policy on Rx.
-+ * 0 - Ignore received Pause frames (default).
-+ * 1 - Respect received Pause frames.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, pfcc, pprx, 0x0C, 31, 1);
-+
-+/* reg_pfcc_aprx
-+ * Active (operational) Pause policy on Rx.
-+ * 0 - Ignore received Pause frames.
-+ * 1 - Respect received Pause frames.
++/* reg_ppcnt_tx_octets
 + * Access: RO
 + */
-+MLXSW_ITEM32(reg, pfcc, aprx, 0x0C, 30, 1);
++MLXSW_ITEM64(reg, ppcnt, tx_octets, 0x08 + 0x28, 0, 64);
 +
-+/* reg_pfcc_pfcrx
-+ * Priority based flow control policy on Rx[7:0]. Per-priority bit mask:
-+ * 0 - Ignore incoming priority Pause frames on the specified priority
-+ *     (default).
-+ * 1 - Respect incoming priority Pause frames on the specified priority.
-+ * Access: RW
++/* reg_ppcnt_tx_frames
++ * Access: RO
 + */
-+MLXSW_ITEM32(reg, pfcc, pfcrx, 0x0C, 16, 8);
++MLXSW_ITEM64(reg, ppcnt, tx_frames, 0x08 + 0x48, 0, 64);
 +
-+static inline void mlxsw_reg_pfcc_pack(char *payload, u8 local_port)
-+{
-+	MLXSW_REG_ZERO(pfcc, payload);
-+	mlxsw_reg_pfcc_local_port_set(payload, local_port);
-+}
++/* reg_ppcnt_rx_pause
++ * Access: RO
++ */
++MLXSW_ITEM64(reg, ppcnt, rx_pause, 0x08 + 0x50, 0, 64);
 +
- /* PPCNT - Ports Performance Counters Register
-  * -------------------------------------------
-  * The PPCNT register retrieves per port performance counters.
-@@ -3558,6 +3687,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "PPAD";
- 	case MLXSW_REG_PAOS_ID:
- 		return "PAOS";
-+	case MLXSW_REG_PFCC_ID:
-+		return "PFCC";
- 	case MLXSW_REG_PPCNT_ID:
- 		return "PPCNT";
- 	case MLXSW_REG_PPTB_ID:
++/* reg_ppcnt_rx_pause_duration
++ * Access: RO
++ */
++MLXSW_ITEM64(reg, ppcnt, rx_pause_duration, 0x08 + 0x58, 0, 64);
++
++/* reg_ppcnt_tx_pause
++ * Access: RO
++ */
++MLXSW_ITEM64(reg, ppcnt, tx_pause, 0x08 + 0x60, 0, 64);
++
++/* reg_ppcnt_tx_pause_duration
++ * Access: RO
++ */
++MLXSW_ITEM64(reg, ppcnt, tx_pause_duration, 0x08 + 0x68, 0, 64);
++
++/* reg_ppcnt_rx_pause_transition
++ * Access: RO
++ */
++MLXSW_ITEM64(reg, ppcnt, tx_pause_transition, 0x08 + 0x70, 0, 64);
++
++static inline void mlxsw_reg_ppcnt_pack(char *payload, u8 local_port,
++					enum mlxsw_reg_ppcnt_grp grp,
++					u8 prio_tc)
+ {
+ 	MLXSW_REG_ZERO(ppcnt, payload);
+ 	mlxsw_reg_ppcnt_swid_set(payload, 0);
+ 	mlxsw_reg_ppcnt_local_port_set(payload, local_port);
+ 	mlxsw_reg_ppcnt_pnat_set(payload, 0);
+-	mlxsw_reg_ppcnt_grp_set(payload, 0);
++	mlxsw_reg_ppcnt_grp_set(payload, grp);
+ 	mlxsw_reg_ppcnt_clr_set(payload, 0);
+-	mlxsw_reg_ppcnt_prio_tc_set(payload, 0);
++	mlxsw_reg_ppcnt_prio_tc_set(payload, prio_tc);
+ }
+ 
+ /* PPTB - Port Prio To Buffer Register
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 086682e..36a94a9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1195,7 +1195,8 @@ static void mlxsw_sp_port_get_stats(struct net_device *dev,
+ 	int i;
+ 	int err;
+ 
+-	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port);
++	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port,
++			     MLXSW_REG_PPCNT_IEEE_8023_CNT, 0);
+ 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
+ 	for (i = 0; i < MLXSW_SP_PORT_HW_STATS_LEN; i++)
+ 		data[i] = !err ? mlxsw_sp_port_hw_stats[i].getter(ppcnt_pl) : 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 7a60a26..c49447f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -518,7 +518,8 @@ static void mlxsw_sx_port_get_stats(struct net_device *dev,
+ 	int i;
+ 	int err;
+ 
+-	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sx_port->local_port);
++	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sx_port->local_port,
++			     MLXSW_REG_PPCNT_IEEE_8023_CNT, 0);
+ 	err = mlxsw_reg_query(mlxsw_sx->core, MLXSW_REG(ppcnt), ppcnt_pl);
+ 	for (i = 0; i < MLXSW_SX_PORT_HW_STATS_LEN; i++)
+ 		data[i] = !err ? mlxsw_sx_port_hw_stats[i].getter(ppcnt_pl) : 0;
 -- 
 2.5.5
