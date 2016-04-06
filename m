@@ -1,78 +1,59 @@
-From: Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [v7, 0/5] Fix eSDHC host version register bug
-Date: Wed, 6 Apr 2016 10:14:36 +0200
-Message-ID: <CAPDyKFp8GDzSkpbTKoRL=rwiBrsWmsgN95zB-QJwfZTnq4M8BA@mail.gmail.com>
-References: <1459480051-3701-1-git-send-email-yangbo.lu@nxp.com>
-	<CAPDyKFqgMCvbqMYZ-uM-rTnVvfJkCYbhv2kucCRyNyc9FWoR=Q@mail.gmail.com>
-	<HE1PR04MB0889D75DC56E180D3508E7A1F89F0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+From: Dmitrijs Ivanovs <dmitrijs.ivanovs-NO1NBkfNQUg@public.gmane.org>
+Subject: Re: NETLINK_URELEASE non-bound socket problem (was: [PATCH] Fix local
+ DoS in cfg80211 subsystem)
+Date: Wed, 6 Apr 2016 11:20:24 +0300
+Message-ID: <CAFSVvRcMQx1Vjv=Qwyb525Qq5DzBBD6c=n=-i+pWFFVqHRyAxQ@mail.gmail.com>
+References: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com>
+	<1459850188.18188.38.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	linux-mmc <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
-	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM1dQTEkxZZdg@public.gmane.org
-To: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>, Scott Wood <scott.wood-3arQi8VN3Tc@public.gmane.org>
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <HE1PR04MB0889D75DC56E180D3508E7A1F89F0-6LN7OEpIatX1kPMWxTxe+c9NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	samuel <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
+	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
+	Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1459850188.18188.38.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
->>
->> I was about to queue this for next, when I noticed that checkpatch is
->> complaining/warning lots about these patches. Can you please a round of
->> checkpatch and fix what makes sense.
->>
->> Kind regards
->> Uffe
+Hi Johannes!
+
+I will prepare patch which does not send NETLINK_URELEASE for unbound
+sockets as you suggest. But I think protocol check in nl80211 is still
+needed because port_id is unique per-protocol.
+
+On Tue, Apr 5, 2016 at 12:56 PM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> Hi Dmitrijs,
 >
-> [Lu Yangbo-B47093] Sorry about this, Uffe...
-
-No worries!
-
-> Should I ignore the warnings that update MAINTAINERS?
-
-drivers/soc/fsl/guts.c isn't part of the MAINTAINERS file, it should be.
-
-I also realize that the FREESCALE QUICC ENGINE LIBRARY section
-drivers/soc/fsl/qe/* also need an active maintainer, as it's currently
-orphan.
-
-Perhaps we should have create a new section for drivers/soc/fsl/*
-instead that covers all of the above? Maybe you or Scott are
-interested to pick it up?
-
-I also noted that, "include/linux/fsl/" isn't present in MAINTAINERS,
-please add that as well.
-
-> Regarding the 'undocumented' warning, I will added a patch updates doc before all the patches, Ok?
-
-Yes, good!
-
+> Thanks for reporting this problem.
 >
-> Thanks a lot :)
+>> The patch below corrects this problem in kernel space.
 >
-
-Kind regards
-Uffe
+> I don't think that this is correct, there are four more users of
+> NETLINK_URELEASE (nfnetlink, NFC), and afaict all of them have the same
+> bug as nl80211.
+>
+> Rather than fix all of them, I think we should simply not report
+> NETLINK_URELEASE for netlink sockets that weren't bound; if any user
+> comes up that requires them later we could add a new event instead.
+>
+> I can't find what commit introduced this code, it goes back before git
+> history, so I don't have the commit log. Maybe it was done for
+> nfnetlink log/queue? Certainly both nl80211 and NFC are much newer.
+>
+>> Also, it is
+>> recommended to ensure that user-space applications are not using
+>> user-supplied port_id for netlink sockets (which is default in
+>> libnl-tiny for example).
+>
+> This I think we should remove from the commit log - it's misleading and
+> there's no point.
+>
+> johannes
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
