@@ -1,46 +1,44 @@
-From: zengzhaoxiu@163.com
-Subject: [PATCH v2 11/30] sunrpc: use parity8
-Date: Wed,  6 Apr 2016 17:27:03 +0800
-Message-ID: <1459934823-7277-1-git-send-email-zengzhaoxiu@163.com>
-References: <57031D9D.801@gmail.com>
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
-To: bfields@fieldses.org, jlayton@poochiereds.net,
-	trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
-	davem@davemloft.net, herbert@gondor.apana.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57031D9D.801@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: NETLINK_URELEASE non-bound socket problem (was: [PATCH] Fix
+ local DoS in cfg80211 subsystem)
+Date: Wed, 06 Apr 2016 11:34:41 +0200
+Message-ID: <1459935281.17504.69.camel@sipsolutions.net>
+References: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com>
+	 <1459850188.18188.38.camel@sipsolutions.net>
+	 <CAFSVvRcMQx1Vjv=Qwyb525Qq5DzBBD6c=n=-i+pWFFVqHRyAxQ@mail.gmail.com>
+	 (sfid-20160406_102025_380946_ED0DACD9)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	samuel <samuel@sortiz.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Dmitrijs Ivanovs <dmitrijs.ivanovs@ubnt.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:36254 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932159AbcDFJer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 05:34:47 -0400
+In-Reply-To: <CAFSVvRcMQx1Vjv=Qwyb525Qq5DzBBD6c=n=-i+pWFFVqHRyAxQ@mail.gmail.com> (sfid-20160406_102025_380946_ED0DACD9)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+On Wed, 2016-04-06 at 11:20 +0300, Dmitrijs Ivanovs wrote:
+> Hi Johannes!
+> 
+> I will prepare patch which does not send NETLINK_URELEASE for unbound
+> sockets as you suggest. But I think protocol check in nl80211 is
+> still needed because port_id is unique per-protocol.
+> 
 
-Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
----
- net/sunrpc/auth_gss/gss_krb5_keys.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+Yes, good point. Can you please send that as a separate patch? That one
+should have a
 
-diff --git a/net/sunrpc/auth_gss/gss_krb5_keys.c b/net/sunrpc/auth_gss/gss_krb5_keys.c
-index 8701331..c41b389 100644
---- a/net/sunrpc/auth_gss/gss_krb5_keys.c
-+++ b/net/sunrpc/auth_gss/gss_krb5_keys.c
-@@ -243,16 +243,12 @@ err_return:
- 	return ret;
- }
- 
--#define smask(step) ((1<<step)-1)
--#define pstep(x, step) (((x)&smask(step))^(((x)>>step)&smask(step)))
--#define parity_char(x) pstep(pstep(pstep((x), 4), 2), 1)
--
- static void mit_des_fixup_key_parity(u8 key[8])
- {
- 	int i;
- 	for (i = 0; i < 8; i++) {
- 		key[i] &= 0xfe;
--		key[i] |= 1^parity_char(key[i]);
-+		key[i] |= !parity8(key[i]);
- 	}
- }
- 
--- 
-2.5.0
+Fixes: 026331c4d9b5 ("cfg80211/mac80211: allow registering for and sending action frames")
+
+tag. I'll apply this one right away, but the other one should probably
+go through Dave's tree.
+
+Thanks,
+johannes
