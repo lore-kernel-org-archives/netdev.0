@@ -1,65 +1,127 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [RFC PATCH 6/6] ppp: add rtnetlink device creation support
-Date: Wed, 6 Apr 2016 10:21:07 +0200
-Message-ID: <20160406082107.GA1620@alphalink.fr>
-References: <cover.1459807527.git.g.nault@alphalink.fr>
- <dc5fd88775581dba073d0051bbfb4c2c9c5c2d23.1459807527.git.g.nault@alphalink.fr>
- <5703F356.6050107@bfs.de>
- <20160405212222.GD1305@alphalink.fr>
- <5704C2B0.6020504@bfs.de>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
+Date: Wed, 6 Apr 2016 08:51:42 +0000
+Message-ID: <VI1PR0401MB1855C389F2265E30252D62B5FF9F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	Paul Mackerras <paulus@samba.org>,
-	David Miller <davem@davemloft.net>
-To: walter harms <wharms@bfs.de>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5704C2B0.6020504@bfs.de>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Fabio Estevam <fabio.estevam@nxp.com>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"gerg@uclinux.org" <gerg@uclinux.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"arnd@arndb.de" <arnd@arndb.de>
+To: Troy Kisky <troy.kisky@boundarydevices.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"lznuaa@gmail.com" <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0083.outbound.protection.outlook.com ([157.55.234.83]:41985
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933347AbcDFIvw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 04:51:52 -0400
+In-Reply-To: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 06, 2016 at 10:02:56AM +0200, walter harms wrote:
+From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Wednesday, April 06, 2016 10:26 AM
+> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
+> <fugang.duan@nxp.com>; lznuaa@gmail.com
+> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+> kernel@lists.infradead.org; johannes@sipsolutions.net;
+> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+> arnd@arndb.de; Troy Kisky <troy.kisky@boundarydevices.com>
+> Subject: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
 > 
+> V3 has
 > 
-> Am 05.04.2016 23:22, schrieb Guillaume Nault:
-> > On Tue, Apr 05, 2016 at 07:18:14PM +0200, walter harms wrote:
-> >>
-> >>
-> >> Am 05.04.2016 02:56, schrieb Guillaume Nault:
-> >>> @@ -1043,12 +1048,39 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
-> >>>  			     const struct ppp_config *conf)
-> >>>  {
-> >>>  	struct ppp *ppp = netdev_priv(dev);
-> >>> +	struct file *file;
-> >>>  	int indx;
-> >>> +	int err;
-> >>> +
-> >>> +	if (conf->fd < 0) {
-> >>> +		file = conf->file;
-> >>> +		if (!file) {
-> >>> +			err = -EBADF;
-> >>> +			goto out;
-> >>
-> >> why not just return -EBADF;
-> >>
-> >>> +		}
-> >>> +	} else {
-> >>> +		file = fget(conf->fd);
-> >>> +		if (!file) {
-> >>> +			err = -EBADF;
-> >>> +			goto out;
-> >> 	
-> >> why not just return -EBADF;
-> >>
-> > Just because the 'out' label is declared anyway and because this
-> > centralises the return point. But I agree returning -EBADF directly
-> > could be more readable. I don't have strong opinion.
+> 1 dropped patch "net: fec: print more debug info in fec_timeout"
+> 2 new patches
+> 0002-net-fec-remove-unused-interrupt-FEC_ENET_TS_TIMER.patch
+> 0003-net-fec-return-IRQ_HANDLED-if-fec_ptp_check_pps_even.patch
 > 
-> in this special case i would go for readable. People tend to miss these
-> if
->  if
->   if
-> constructs.
+> 1 combined patch
+> 0004-net-fec-pass-rxq-txq-to-fec_enet_rx-tx_queue-instead.patch
 > 
-Ok, I'll do that in v3.
+> The changes are noted on individual patches
+> 
+> My measured performance of this series is
+> 
+> before patch set
+> 365 Mbits/sec Tx/407 RX
+> 
+> after patch set
+> 374 Tx/427 Rx
+> 
+
+I doubt the performance data,  I validate it on i.MX6q sabresd board on the latest commit(4da46cebbd3b) in net tree.
+The test log as below:
+
+root@imx6qdlsolo:~# uname -a
+Linux imx6qdlsolo 4.6.0-rc1-00318-g4da46ce #180 SMP Wed Apr 6 16:24:09 CST 2016 armv7l GNU/Linux
+root@imx6qdlsolo:~# cat /sys/devices/soc0/soc_id
+i.MX6Q
+root@imx6qdlsolo:~# echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+root@imx6qdlsolo:~# cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+996000
+root@imx6qdlsolo:~# iperf  -s &
+[1] 891
+root@imx6qdlsolo:~# ------------------------------------------------------------
+Server listening on TCP port 5001
+TCP window size: 85.3 KByte (default)
+------------------------------------------------------------
+
+root@imx6qdlsolo:~# [  4] local 10.192.242.107 port 5001 connected with 10.192.242.248 port 38409
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0-20.0 sec  1.40 GBytes   602 Mbits/sec
+
+root@imx6qdlsolo:~# iperf -c 10.192.242.248 -t 20
+------------------------------------------------------------
+Client connecting to 10.192.242.248, TCP port 5001
+TCP window size: 43.8 KByte (default)
+------------------------------------------------------------
+[  3] local 10.192.242.107 port 52124 connected with 10.192.242.248 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-20.0 sec   776 MBytes   325 Mbits/sec
+
+
+TCP RX performance is 602Mbps, TX is only 325Mbps,   TX path has some performance issue in net tree.
+I will dig out it.
+
+
+> 
+> Troy Kisky (16):
+>   net: fec: only check queue 0 if RXF_0/TXF_0 interrupt is set
+>   net: fec: remove unused interrupt FEC_ENET_TS_TIMER
+>   net: fec: return IRQ_HANDLED if fec_ptp_check_pps_event handled it
+>   net: fec: pass rxq/txq to fec_enet_rx/tx_queue instead of queue_id
+>   net: fec: reduce interrupts
+>   net: fec: split off napi routine with 3 queues
+>   net: fec: don't clear all rx queue bits when just one is being checked
+>   net: fec: set cbd_sc without relying on previous value
+>   net: fec: eliminate calls to fec_enet_get_prevdesc
+>   net: fec: move restart test for efficiency
+>   net: fec: clear cbd_sc after transmission to help with debugging
+>   net: fec: dump all tx queues in fec_dump
+>   net: fec: detect tx int lost
+>   net: fec: create subroutine reset_tx_queue
+>   net: fec: call dma_unmap_single on mapped tx buffers at restart
+>   net: fec: don't set cbd_bufaddr unless no mapping error
+> 
+>  drivers/net/ethernet/freescale/fec.h      |  10 +-
+>  drivers/net/ethernet/freescale/fec_main.c | 410 ++++++++++++++++------------
+> --
+>  2 files changed, 218 insertions(+), 202 deletions(-)
+> 
+> --
+> 2.5.0
