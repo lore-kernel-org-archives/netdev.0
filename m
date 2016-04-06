@@ -1,74 +1,118 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Thu, 7 Apr 2016 00:14:45 +0200
-Message-ID: <20160406221445.GA26807@breakpoint.cc>
-References: <cover.1459934322.git.pabeni@redhat.com>
- <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paolo Abeni <pabeni@redhat.com>,
-	linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Debabrata Banerjee <dbanerje@akamai.com>
+Subject: [PATCH net-next v2] macvlan: Support interface operstate properly
+Date: Wed,  6 Apr 2016 18:36:13 -0400
+Message-ID: <1459982173-791-1-git-send-email-dbanerje@akamai.com>
+Cc: Debabrata Banerjee <dbanerje@akamai.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:53629 "EHLO
+	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752233AbcDFWgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 18:36:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Paul Moore <paul@paul-moore.com> wrote:
-> On Wed, Apr 6, 2016 at 5:51 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > Currently, selinux always registers iptables POSTROUTING hooks regarless of
-> > the running policy needs for any action to be performed by them.
-> >
-> > Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
-> > depending on the current policy configuration.
-> >
-> > The above invocations in the kernel datapath are cause of measurable
-> > overhead in networking performance test.
-> >
-> > This patch series adds explicit notification for netlabel status change
-> > (other relevant status change, like xfrm and secmark, are already notified to
-> > LSM) and use this information in selinux to register the above hooks only when
-> > the current status makes them relevant, deregistering them when no-op
-> >
-> > Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
-> > gives about 5% performance improvement on rx and about 8% on tx.
-> 
-> [NOTE: added the SELinux mailing list to the CC line, please include
-> when submitting SELinux patches]
-> 
-> While I appreciate the patch and the work that went into development
-> and testing, I'm going to reject this patch on the grounds that it
-> conflicts with work we've just started thinking about which should
-> bring some tangible security benefit.
-> 
-> The recent addition of post-init read only memory opens up some
-> interesting possibilities for SELinux and LSMs in general, the thing
-> which we've just started looking at is marking the LSM hook structure
-> read only after init.  There are some complicating factors for
-> SELinux, but I'm confident those can be resolved, and from what I can
-> tell marking the hooks read only will have no effect on other LSMs.
-> While marking the LSM hook structure doesn't directly affect the
-> SELinux netfilter hooks, once we remove the ability to deregister the
-> LSM hooks we will have no need to support deregistering netfilter
-> hooks and I expect we will drop that functionality as well to help
-> decrease the risk of tampering.
+Set appropriate macvlan interface status based on lower device and our
+status. Can be up, down, or lowerlayerdown.
 
-netfilter hooks are per namespace -- so there is hook unregister when
-netns is destroyed.
+de7d244d0 improved operstate by setting it from unknown to up, however
+it did not handle transferring down or lowerlayerdown.
 
-Do you think it makes sense to rework the patch to delay registering
-of the netfiler hooks until the system is in a state where they're
-needed, without the 'unregister' aspect?
+Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
+---
+v2: Fix locking and update commit message
 
-Ideally this would even be per netns -- in perfect world we would
-be able to make it so that a new netns are created with an empty
-hook list.
+ drivers/net/macvlan.c | 47 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 2bcf1f3..306124ba 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -91,6 +91,7 @@ static struct macvlan_port *macvlan_port_get_rtnl(const struct net_device *dev)
+ }
+ 
+ #define macvlan_port_exists(dev) (dev->priv_flags & IFF_MACVLAN_PORT)
++#define is_macvlan(dev) (dev->priv_flags & IFF_MACVLAN)
+ 
+ static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
+ 					       const unsigned char *addr)
+@@ -1242,6 +1243,28 @@ static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 mode,
+ 	return 0;
+ }
+ 
++static void macvlan_set_operstate(struct net_device *lowerdev,
++				  struct net_device *dev)
++{
++	unsigned char newstate = dev->operstate;
++
++	if (!(dev->flags & IFF_UP))
++		newstate = IF_OPER_DOWN;
++	else if ((lowerdev->flags & IFF_UP) && netif_oper_up(lowerdev))
++		newstate = IF_OPER_UP;
++	else
++		newstate = IF_OPER_LOWERLAYERDOWN;
++
++	write_lock_bh(&dev_base_lock);
++	if (dev->operstate != newstate) {
++		dev->operstate = newstate;
++		write_unlock_bh(&dev_base_lock);
++		netdev_state_change(dev);
++	} else {
++		write_unlock_bh(&dev_base_lock);
++	}
++}
++
+ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[])
+ {
+@@ -1324,6 +1347,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	list_add_tail_rcu(&vlan->list, &port->vlans);
+ 	netif_stacked_transfer_operstate(lowerdev, dev);
++	macvlan_set_operstate(lowerdev, dev);
+ 	linkwatch_fire_event(dev);
+ 
+ 	return 0;
+@@ -1518,17 +1542,36 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 	struct macvlan_port *port;
+ 	LIST_HEAD(list_kill);
+ 
+-	if (!macvlan_port_exists(dev))
++	if (!macvlan_port_exists(dev) && !is_macvlan(dev))
++		return NOTIFY_DONE;
++
++	if (is_macvlan(dev)) {
++		vlan = netdev_priv(dev);
++
++		switch (event) {
++		case NETDEV_UP:
++		case NETDEV_DOWN:
++		case NETDEV_CHANGE:
++			netif_stacked_transfer_operstate(vlan->lowerdev,
++							 vlan->dev);
++			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
++			break;
++		}
++
+ 		return NOTIFY_DONE;
++	}
+ 
+ 	port = macvlan_port_get_rtnl(dev);
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
++	case NETDEV_DOWN:
+ 	case NETDEV_CHANGE:
+-		list_for_each_entry(vlan, &port->vlans, list)
++		list_for_each_entry(vlan, &port->vlans, list) {
+ 			netif_stacked_transfer_operstate(vlan->lowerdev,
+ 							 vlan->dev);
++			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
++		}
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		list_for_each_entry(vlan, &port->vlans, list) {
+-- 
+2.8.0
