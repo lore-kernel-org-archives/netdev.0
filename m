@@ -1,183 +1,178 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/17] mlxsw: reg: Add QoS ETS Element Configuration register
-Date: Wed,  6 Apr 2016 17:10:06 +0200
-Message-ID: <1459955416-23786-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 12/17] mlxsw: spectrum: Allow setting maximum rate for a TC
+Date: Wed,  6 Apr 2016 17:10:11 +0200
+Message-ID: <1459955416-23786-13-git-send-email-jiri@resnulli.us>
 References: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33443 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754359AbcDFPKk (ORCPT
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35950 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754381AbcDFPKk (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:40 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i204so14157168wmd.0
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:33 -0700 (PDT)
+Received: by mail-wm0-f65.google.com with SMTP id o129so4683226wmo.3
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:39 -0700 (PDT)
 In-Reply-To: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-We are going to introduce support for DCB, so we need to be able to
-configure the traffic selection algorithm (TSA) used by each traffic
-class (TC), as well as the bandwidth percentage allocated to each TC in
-case of ETS.
-
-Add the QoS ETS Element Configuration register, which controls the
-above parameters.
+Allow a user to set maximum rate for a particular TC using DCB ops.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 127 ++++++++++++++++++++++++++++++
- 1 file changed, 127 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  6 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c | 70 ++++++++++++++++++++++
+ 3 files changed, 77 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 370914e..bc08f8b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1805,6 +1805,131 @@ static inline void mlxsw_reg_spvmlr_pack(char *payload, u8 local_port,
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 1498e6a..5f4d44e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1513,9 +1513,9 @@ int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
  }
  
-+/* QEEC - QoS ETS Element Configuration Register
-+ * ---------------------------------------------
-+ * Configures the ETS elements.
-+ */
-+#define MLXSW_REG_QEEC_ID 0x400D
-+#define MLXSW_REG_QEEC_LEN 0x1C
-+
-+static const struct mlxsw_reg_info mlxsw_reg_qeec = {
-+	.id = MLXSW_REG_QEEC_ID,
-+	.len = MLXSW_REG_QEEC_LEN,
-+};
-+
-+/* reg_qeec_local_port
-+ * Local port number.
-+ * Access: Index
-+ *
-+ * Note: CPU port is supported.
-+ */
-+MLXSW_ITEM32(reg, qeec, local_port, 0x00, 16, 8);
-+
-+enum mlxsw_reg_qeec_hr {
-+	MLXSW_REG_QEEC_HIERARCY_PORT,
-+	MLXSW_REG_QEEC_HIERARCY_GROUP,
-+	MLXSW_REG_QEEC_HIERARCY_SUBGROUP,
-+	MLXSW_REG_QEEC_HIERARCY_TC,
-+};
-+
-+/* reg_qeec_element_hierarchy
-+ * 0 - Port
-+ * 1 - Group
-+ * 2 - Subgroup
-+ * 3 - Traffic Class
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, qeec, element_hierarchy, 0x04, 16, 4);
-+
-+/* reg_qeec_element_index
-+ * The index of the element in the hierarchy.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, qeec, element_index, 0x04, 0, 8);
-+
-+/* reg_qeec_next_element_index
-+ * The index of the next (lower) element in the hierarchy.
-+ * Access: RW
-+ *
-+ * Note: Reserved for element_hierarchy 0.
-+ */
-+MLXSW_ITEM32(reg, qeec, next_element_index, 0x08, 0, 8);
-+
-+enum {
-+	MLXSW_REG_QEEC_BYTES_MODE,
-+	MLXSW_REG_QEEC_PACKETS_MODE,
-+};
-+
-+/* reg_qeec_pb
-+ * Packets or bytes mode.
-+ * 0 - Bytes mode
-+ * 1 - Packets mode
-+ * Access: RW
-+ *
-+ * Note: Used for max shaper configuration. For Spectrum, packets mode
-+ * is supported only for traffic classes of CPU port.
-+ */
-+MLXSW_ITEM32(reg, qeec, pb, 0x0C, 28, 1);
-+
-+/* reg_qeec_mase
-+ * Max shaper configuration enable. Enables configuration of the max
-+ * shaper on this ETS element.
-+ * 0 - Disable
-+ * 1 - Enable
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, qeec, mase, 0x10, 31, 1);
-+
-+/* A large max rate will disable the max shaper. */
-+#define MLXSW_REG_QEEC_MAS_DIS	200000000	/* Kbps */
-+
-+/* reg_qeec_max_shaper_rate
-+ * Max shaper information rate.
-+ * For CPU port, can only be configured for port hierarchy.
-+ * When in bytes mode, value is specified in units of 1000bps.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, qeec, max_shaper_rate, 0x10, 0, 28);
-+
-+/* reg_qeec_de
-+ * DWRR configuration enable. Enables configuration of the dwrr and
-+ * dwrr_weight.
-+ * 0 - Disable
-+ * 1 - Enable
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, qeec, de, 0x18, 31, 1);
-+
-+/* reg_qeec_dwrr
-+ * Transmission selection algorithm to use on the link going down from
-+ * the ETS element.
-+ * 0 - Strict priority
-+ * 1 - DWRR
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, qeec, dwrr, 0x18, 15, 1);
-+
-+/* reg_qeec_dwrr_weight
-+ * DWRR weight on the link going down from the ETS element. The
-+ * percentage of bandwidth guaranteed to an ETS element within
-+ * its hierarchy. The sum of all weights across all ETS elements
-+ * within one hierarchy should be equal to 100. Reserved when
-+ * transmission selection algorithm is strict priority.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, qeec, dwrr_weight, 0x18, 0, 8);
-+
-+static inline void mlxsw_reg_qeec_pack(char *payload, u8 local_port,
-+				       enum mlxsw_reg_qeec_hr hr, u8 index,
-+				       u8 next_index)
+-static int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
+-					 enum mlxsw_reg_qeec_hr hr, u8 index,
+-					 u8 next_index, u32 maxrate)
++int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
++				  enum mlxsw_reg_qeec_hr hr, u8 index,
++				  u8 next_index, u32 maxrate)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	char qeec_pl[MLXSW_REG_QEEC_LEN];
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index ef02081..9e1e4fe 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -173,6 +173,7 @@ struct mlxsw_sp_port {
+ 	} vport;
+ 	struct {
+ 		struct ieee_ets *ets;
++		struct ieee_maxrate *maxrate;
+ 	} dcb;
+ 	/* 802.1Q bridge VLANs */
+ 	unsigned long *active_vlans;
+@@ -280,6 +281,9 @@ int mlxsw_sp_port_prio_tc_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			      u8 switch_prio, u8 tclass);
+ int __mlxsw_sp_port_headroom_set(struct mlxsw_sp_port *mlxsw_sp_port, int mtu,
+ 				 u8 *prio_tc);
++int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
++				  enum mlxsw_reg_qeec_hr hr, u8 index,
++				  u8 next_index, u32 maxrate);
+ 
+ #ifdef CONFIG_MLXSW_SPECTRUM_DCB
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
+index aa5b73a..257e2d4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
+@@ -250,9 +250,51 @@ static int mlxsw_sp_dcbnl_ieee_setets(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_dcbnl_ieee_getmaxrate(struct net_device *dev,
++					  struct ieee_maxrate *maxrate)
 +{
-+	MLXSW_REG_ZERO(qeec, payload);
-+	mlxsw_reg_qeec_local_port_set(payload, local_port);
-+	mlxsw_reg_qeec_element_hierarchy_set(payload, hr);
-+	mlxsw_reg_qeec_element_index_set(payload, index);
-+	mlxsw_reg_qeec_next_element_index_set(payload, next_index);
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++
++	memcpy(maxrate, mlxsw_sp_port->dcb.maxrate, sizeof(*maxrate));
++
++	return 0;
 +}
 +
- /* PMLP - Ports Module to Local Port Register
-  * ------------------------------------------
-  * Configures the assignment of modules to local ports.
-@@ -3366,6 +3491,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "SFMR";
- 	case MLXSW_REG_SPVMLR_ID:
- 		return "SPVMLR";
-+	case MLXSW_REG_QEEC_ID:
-+		return "QEEC";
- 	case MLXSW_REG_PMLP_ID:
- 		return "PMLP";
- 	case MLXSW_REG_PMTU_ID:
++static int mlxsw_sp_dcbnl_ieee_setmaxrate(struct net_device *dev,
++					  struct ieee_maxrate *maxrate)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct ieee_maxrate *my_maxrate = mlxsw_sp_port->dcb.maxrate;
++	int err, i;
++
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
++		err = mlxsw_sp_port_ets_maxrate_set(mlxsw_sp_port,
++						    MLXSW_REG_QEEC_HIERARCY_SUBGROUP,
++						    i, 0,
++						    maxrate->tc_maxrate[i]);
++		if (err) {
++			netdev_err(dev, "Failed to set maxrate for TC %d\n", i);
++			goto err_port_ets_maxrate_set;
++		}
++	}
++
++	memcpy(mlxsw_sp_port->dcb.maxrate, maxrate, sizeof(*maxrate));
++
++	return 0;
++
++err_port_ets_maxrate_set:
++	for (i--; i >= 0; i--)
++		mlxsw_sp_port_ets_maxrate_set(mlxsw_sp_port,
++					      MLXSW_REG_QEEC_HIERARCY_SUBGROUP,
++					      i, 0, my_maxrate->tc_maxrate[i]);
++	return err;
++}
++
+ static const struct dcbnl_rtnl_ops mlxsw_sp_dcbnl_ops = {
+ 	.ieee_getets		= mlxsw_sp_dcbnl_ieee_getets,
+ 	.ieee_setets		= mlxsw_sp_dcbnl_ieee_setets,
++	.ieee_getmaxrate	= mlxsw_sp_dcbnl_ieee_getmaxrate,
++	.ieee_setmaxrate	= mlxsw_sp_dcbnl_ieee_setmaxrate,
+ 
+ 	.getdcbx		= mlxsw_sp_dcbnl_getdcbx,
+ 	.setdcbx		= mlxsw_sp_dcbnl_setdcbx,
+@@ -275,6 +317,26 @@ static void mlxsw_sp_port_ets_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	kfree(mlxsw_sp_port->dcb.ets);
+ }
+ 
++static int mlxsw_sp_port_maxrate_init(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	int i;
++
++	mlxsw_sp_port->dcb.maxrate = kmalloc(sizeof(*mlxsw_sp_port->dcb.maxrate),
++					     GFP_KERNEL);
++	if (!mlxsw_sp_port->dcb.maxrate)
++		return -ENOMEM;
++
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		mlxsw_sp_port->dcb.maxrate->tc_maxrate[i] = MLXSW_REG_QEEC_MAS_DIS;
++
++	return 0;
++}
++
++static void mlxsw_sp_port_maxrate_fini(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	kfree(mlxsw_sp_port->dcb.maxrate);
++}
++
+ int mlxsw_sp_port_dcb_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ {
+ 	int err;
+@@ -282,13 +344,21 @@ int mlxsw_sp_port_dcb_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	err = mlxsw_sp_port_ets_init(mlxsw_sp_port);
+ 	if (err)
+ 		return err;
++	err = mlxsw_sp_port_maxrate_init(mlxsw_sp_port);
++	if (err)
++		goto err_port_maxrate_init;
+ 
+ 	mlxsw_sp_port->dev->dcbnl_ops = &mlxsw_sp_dcbnl_ops;
+ 
+ 	return 0;
++
++err_port_maxrate_init:
++	mlxsw_sp_port_ets_fini(mlxsw_sp_port);
++	return err;
+ }
+ 
+ void mlxsw_sp_port_dcb_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+ {
++	mlxsw_sp_port_maxrate_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_ets_fini(mlxsw_sp_port);
+ }
 -- 
 2.5.5
