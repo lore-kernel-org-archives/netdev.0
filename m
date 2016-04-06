@@ -1,144 +1,138 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/17] mlxsw: spectrum: Correctly configure headroom size
-Date: Wed,  6 Apr 2016 17:10:03 +0200
-Message-ID: <1459955416-23786-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/17] mlxsw: reg: Add Port Prio To Buffer register
+Date: Wed,  6 Apr 2016 17:10:00 +0200
+Message-ID: <1459955416-23786-2-git-send-email-jiri@resnulli.us>
 References: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36776 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33296 "EHLO
 	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754396AbcDFPKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:41 -0400
-Received: by mail-wm0-f66.google.com with SMTP id o129so4681646wmo.3
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:35 -0700 (PDT)
+	with ESMTP id S1751511AbcDFPKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:32 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i204so14156076wmd.0
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:31 -0700 (PDT)
 In-Reply-To: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When packets ingress the switch they are assigned a switch priority and
-directed to the corresponding priority group (PG) buffer in the port's
-headroom buffer.
+When packets ingress the switch they are assigned a switch priority
+number that dictates the packet's priority group (PG) buffer in the
+port's headroom buffer.
 
-Since we now map all switch priorities to priority group 0 (PG0) by
-default, there is no need to allocate the other priority groups during
-initialization. The only exception is PG9, which is used for control
-traffic.
-
-At minimum, the PG should be able to store the currently classified
-packet (pipeline latency isn't 0) and also the packets arriving during
-the classification time. However, an incoming packet will not be
-buffered if there is no available MTU-sized buffer space for storing it.
-
-The buffer needed to accommodate for pipeline latency is variable and
-needs to take into account both the current link speed and current
-latency of the pipeline, which is time-dependent. Testing showed that
-setting the PG's size to twice the current MTU is optimal.
-
-Since PG9 is used strictly for control packets and not subject to flow
-control, we are not going to resize it according to user configuration,
-so we simply set it according to worst case scenario, which is twice the
-maximum MTU.
-
-In any case, later patches in the series will allow a user to direct
-lossless flows to other PGs than PG0 and set their size to accommodate
-for round-trip propagation delay.
-
-The above change also requires us to resize the PG buffer whenever the
-port's MTU is changed.
+Add the Port Prio To Buffer (PPTB) register, which configures the switch
+priority to PG mapping.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 25 +++++++++++++++++++++-
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 19 ++++++++--------
- 2 files changed, 34 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 83 +++++++++++++++++++++++++++++++
+ 1 file changed, 83 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index cb5f36e..4576d59 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -449,16 +449,39 @@ static int mlxsw_sp_port_set_mac_address(struct net_device *dev, void *p)
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index ffe4c03..0995bee 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -2340,6 +2340,87 @@ static inline void mlxsw_reg_ppcnt_pack(char *payload, u8 local_port)
+ 	mlxsw_reg_ppcnt_prio_tc_set(payload, 0);
  }
  
-+static int mlxsw_sp_port_headroom_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				      int mtu)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	u16 pg_size = 2 * MLXSW_SP_BYTES_TO_CELLS(mtu);
-+	char pbmc_pl[MLXSW_REG_PBMC_LEN];
-+	int err;
++/* PPTB - Port Prio To Buffer Register
++ * -----------------------------------
++ * Configures the switch priority to buffer table.
++ */
++#define MLXSW_REG_PPTB_ID 0x500B
++#define MLXSW_REG_PPTB_LEN 0x0C
 +
-+	mlxsw_reg_pbmc_pack(pbmc_pl, mlxsw_sp_port->local_port, 0, 0);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(pbmc), pbmc_pl);
-+	if (err)
-+		return err;
-+	mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, 0, pg_size);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pbmc), pbmc_pl);
++static const struct mlxsw_reg_info mlxsw_reg_pptb = {
++	.id = MLXSW_REG_PPTB_ID,
++	.len = MLXSW_REG_PPTB_LEN,
++};
++
++enum {
++	MLXSW_REG_PPTB_MM_UM,
++	MLXSW_REG_PPTB_MM_UNICAST,
++	MLXSW_REG_PPTB_MM_MULTICAST,
++};
++
++/* reg_pptb_mm
++ * Mapping mode.
++ * 0 - Map both unicast and multicast packets to the same buffer.
++ * 1 - Map only unicast packets.
++ * 2 - Map only multicast packets.
++ * Access: Index
++ *
++ * Note: SwitchX-2 only supports the first option.
++ */
++MLXSW_ITEM32(reg, pptb, mm, 0x00, 28, 2);
++
++/* reg_pptb_local_port
++ * Local port number.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, pptb, local_port, 0x00, 16, 8);
++
++/* reg_pptb_um
++ * Enables the update of the untagged_buf field.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, pptb, um, 0x00, 8, 1);
++
++/* reg_pptb_pm
++ * Enables the update of the prio_to_buff field.
++ * Bit <i> is a flag for updating the mapping for switch priority <i>.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, pptb, pm, 0x00, 0, 8);
++
++/* reg_pptb_prio_to_buff
++ * Mapping of switch priority <i> to one of the allocated receive port
++ * buffers.
++ * Access: RW
++ */
++MLXSW_ITEM_BIT_ARRAY(reg, pptb, prio_to_buff, 0x04, 0x04, 4);
++
++/* reg_pptb_pm_msb
++ * Enables the update of the prio_to_buff field.
++ * Bit <i> is a flag for updating the mapping for switch priority <i+8>.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, pptb, pm_msb, 0x08, 24, 8);
++
++/* reg_pptb_untagged_buff
++ * Mapping of untagged frames to one of the allocated receive port buffers.
++ * Access: RW
++ *
++ * Note: In SwitchX-2 this field must be mapped to buffer 8. Reserved for
++ * Spectrum, as it maps untagged packets based on the default switch priority.
++ */
++MLXSW_ITEM32(reg, pptb, untagged_buff, 0x08, 0, 4);
++
++#define MLXSW_REG_PPTB_ALL_PRIO 0xFF
++
++static inline void mlxsw_reg_pptb_pack(char *payload, u8 local_port)
++{
++	MLXSW_REG_ZERO(pptb, payload);
++	mlxsw_reg_pptb_mm_set(payload, MLXSW_REG_PPTB_MM_UM);
++	mlxsw_reg_pptb_local_port_set(payload, local_port);
++	mlxsw_reg_pptb_pm_set(payload, MLXSW_REG_PPTB_ALL_PRIO);
 +}
 +
- static int mlxsw_sp_port_change_mtu(struct net_device *dev, int mtu)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	int err;
- 
--	err = mlxsw_sp_port_mtu_set(mlxsw_sp_port, mtu);
-+	err = mlxsw_sp_port_headroom_set(mlxsw_sp_port, mtu);
- 	if (err)
- 		return err;
-+	err = mlxsw_sp_port_mtu_set(mlxsw_sp_port, mtu);
-+	if (err)
-+		goto err_port_mtu_set;
- 	dev->mtu = mtu;
- 	return 0;
-+
-+err_port_mtu_set:
-+	mlxsw_sp_port_headroom_set(mlxsw_sp_port, dev->mtu);
-+	return err;
- }
- 
- static struct rtnl_link_stats64 *
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index dadb6e1..e7a5b73 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -35,6 +35,7 @@
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/dcbnl.h>
-+#include <linux/if_ether.h>
- 
- #include "spectrum.h"
- #include "core.h"
-@@ -53,15 +54,15 @@ struct mlxsw_sp_pb {
- 	}
- 
- static const struct mlxsw_sp_pb mlxsw_sp_pbs[] = {
--	MLXSW_SP_PB(0, 208),
--	MLXSW_SP_PB(1, 208),
--	MLXSW_SP_PB(2, 208),
--	MLXSW_SP_PB(3, 208),
--	MLXSW_SP_PB(4, 208),
--	MLXSW_SP_PB(5, 208),
--	MLXSW_SP_PB(6, 208),
--	MLXSW_SP_PB(7, 208),
--	MLXSW_SP_PB(9, 208),
-+	MLXSW_SP_PB(0, 2 * MLXSW_SP_BYTES_TO_CELLS(ETH_FRAME_LEN)),
-+	MLXSW_SP_PB(1, 0),
-+	MLXSW_SP_PB(2, 0),
-+	MLXSW_SP_PB(3, 0),
-+	MLXSW_SP_PB(4, 0),
-+	MLXSW_SP_PB(5, 0),
-+	MLXSW_SP_PB(6, 0),
-+	MLXSW_SP_PB(7, 0),
-+	MLXSW_SP_PB(9, 2 * MLXSW_SP_BYTES_TO_CELLS(MLXSW_PORT_MAX_MTU)),
- };
- 
- #define MLXSW_SP_PBS_LEN ARRAY_SIZE(mlxsw_sp_pbs)
+ /* PBMC - Port Buffer Management Control Register
+  * ----------------------------------------------
+  * The PBMC register configures and retrieves the port packet buffer
+@@ -3295,6 +3376,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "PAOS";
+ 	case MLXSW_REG_PPCNT_ID:
+ 		return "PPCNT";
++	case MLXSW_REG_PPTB_ID:
++		return "PPTB";
+ 	case MLXSW_REG_PBMC_ID:
+ 		return "PBMC";
+ 	case MLXSW_REG_PSPA_ID:
 -- 
 2.5.5
