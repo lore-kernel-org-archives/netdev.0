@@ -1,37 +1,27 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] macvlan: Support interface operstate properly
-Date: Wed, 6 Apr 2016 23:03:38 +0200
-Message-ID: <570579AA.6050400@cumulusnetworks.com>
-References: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-04-05
+Date: Wed, 06 Apr 2016 17:04:45 -0400 (EDT)
+Message-ID: <20160406.170445.481775232888653836.davem@davemloft.net>
+References: <1459913769-56510-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Debabrata Banerjee <dbanerje@akamai.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36853 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919AbcDFVDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:03:41 -0400
-Received: by mail-wm0-f47.google.com with SMTP id v188so36037507wme.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 14:03:40 -0700 (PDT)
-In-Reply-To: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45218 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754002AbcDFVEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:04:47 -0400
+In-Reply-To: <1459913769-56510-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2016 10:30 PM, Debabrata Banerjee wrote:
-> Set appropriate macvlan interface status based on lower device and our
-> status. Can be up, down, or lowerlayerdown.
-> 
-> Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
-> 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  5 Apr 2016 20:35:55 -0700
 
-May I ask what is exactly that you're fixing here ? I recently had to make macvlan's
-operstates more accurate and I haven't experienced any wrong behaviour since commit
-de7d244d0a35 ("macvlan: make operstate and carrier more accurate").
-Also it's the linkwatch's job to take care for the proper operstate, we can use
-netif_stacked_transfer_operstate to help it, but I don't think directly setting
-operstate is a good idea.
+> This series contains updates to i40e and i40evf only.
 
-One more thing - you cannot use netdev_state_change() under the write_lock as it
-may sleep.
+Pulled, thanks Jeff.
