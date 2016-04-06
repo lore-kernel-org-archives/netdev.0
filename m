@@ -1,112 +1,65 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v2] ARC: axs10x - add Ethernet PHY description in .dts
-Date: Wed, 6 Apr 2016 16:56:48 +0200
-Message-ID: <570523B0.6070600@st.com>
-References: <1458207712-29435-1-git-send-email-abrodkin@synopsys.com>
- <5704D2ED.4060507@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh@kernel.org>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Phil Reid <preid@electromag.com.au>,
- "David S. Miller" <davem@davemloft.net>,
- Gabriel Fernandez <gabriel.fernandez@linaro.org>
-To: Vineet Gupta <Vineet.Gupta1@synopsys.com>, Alexey Brodkin
- <Alexey.Brodkin@synopsys.com>, <linux-snps-arc@lists.infradead.org>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <5704D2ED.4060507@synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2] net: dsa: document missing functions
+Date: Wed,  6 Apr 2016 11:06:20 -0400
+Message-ID: <1459955180-12083-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/6/2016 11:12 AM, Vineet Gupta wrote:
-> Hi,
->
-> On Thursday 17 March 2016 03:11 PM, Alexey Brodkin wrote:
->> Following commit broke DW GMAC functionality on AXS10x boards:
->> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e34d65696d2ef13dc32f2a162556c86c461ed763
->>
->> That's what happens on eth0 up:
->> --------------------------->8------------------------
->> libphy: PHY stmmac-0:ffffffff not found
->> eth0: Could not attach to PHY
->> stmmac_open: Cannot attach to PHY (error: -19)
->> --------------------------->8------------------------
->>
->> Simplest solution is to add PHY description in board's .dts.
->> And so we do here.
->>
->> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
->> Cc: Rob Herring <robh@kernel.org>
->> Cc: Phil Reid <preid@electromag.com.au>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: linux-kernel@vger.kernel.org
->> Cc: netdev@vger.kernel.org
->> Cc: stable@vger.kernel.org # 4.5.x
->> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> ---
->>
->> Changes v1 -> v2:
->>   * PHY node name changed to match real PHY number being used (Sergei)
->>
->>   arch/arc/boot/dts/axs10x_mb.dtsi | 8 ++++++++
->>   1 file changed, 8 insertions(+)
->>
->> diff --git a/arch/arc/boot/dts/axs10x_mb.dtsi b/arch/arc/boot/dts/axs10x_mb.dtsi
->> index 44a578c..ab5d570 100644
->> --- a/arch/arc/boot/dts/axs10x_mb.dtsi
->> +++ b/arch/arc/boot/dts/axs10x_mb.dtsi
->> @@ -47,6 +47,14 @@
->>   			clocks = <&apbclk>;
->>   			clock-names = "stmmaceth";
->>   			max-speed = <100>;
->> +			mdio0 {
->> +				#address-cells = <1>;
->> +				#size-cells = <0>;
->> +				compatible = "snps,dwmac-mdio";
->> +				phy1: ethernet-phy@1 {
->> +					reg = <1>;
->> +				};
->> +			};
->>   		};
->>
->>   		ehci@0x40000 {
->
->
-> So above DT fix for ARC went into 4.6-rc1 and ethernet was still broken on axs103
-> board.
->
-> ---------->8-------------
-> libphy: PHY stmmac-0:ffffffff not found
-> eth0: Could not attach to PHY
-> stmmac_open: Cannot attach to PHY (error: -19)
-> ---------->8-------------
->
-> On 4.6-rc2 if I revert the DT change, ethernet works again.
->
-> @Giuseppe, @Phil, @Gabriel, I see you have made changes in that area. I presume
-> that above revert is the right/sufficient thing or do we need to do something else
-> as well.
+Add description for the missing port_vlan_prepare, port_fdb_prepare,
+port_fdb_dump functions in the DSA documentation.
 
-hmm I think so, we pushed all the changes in net-next to fix the MDIO
-initialization according to the different DT parameter settings. So
-unless there is some other case to cover, I think that the best
-approach is to do the revert.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ Documentation/networking/dsa/dsa.txt | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-pls, let me know
-
-peppe
-
->
-> TIA,
-> -Vineet
->
->
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 3b196c3..013b670 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -542,6 +542,12 @@ Bridge layer
+ Bridge VLAN filtering
+ ---------------------
+ 
++- port_vlan_prepare: bridge layer function invoked when the bridge prepares the
++  configuration of a VLAN on the given port. If the operation is not supported
++  by the hardware, this function should return -EOPNOTSUPP to inform the bridge
++  code to fallback to a software implementation. No hardware setup must be done
++  in this function. See port_vlan_add for this and details.
++
+ - port_vlan_add: bridge layer function invoked when a VLAN is configured
+   (tagged or untagged) for the given switch port
+ 
+@@ -552,6 +558,12 @@ Bridge VLAN filtering
+   function that the driver has to call for each VLAN the given port is a member
+   of. A switchdev object is used to carry the VID and bridge flags.
+ 
++- port_fdb_prepare: bridge layer function invoked when the bridge prepares the
++  installation of a Forwarding Database entry. If the operation is not
++  supported, this function should return -EOPNOTSUPP to inform the bridge code
++  to fallback to a software implementation. No hardware setup must be done in
++  this function. See port_fdb_add for this and details.
++
+ - port_fdb_add: bridge layer function invoked when the bridge wants to install a
+   Forwarding Database entry, the switch hardware should be programmed with the
+   specified address in the specified VLAN Id in the forwarding database
+@@ -565,6 +577,10 @@ of DSA, would be the its port-based VLAN, used by the associated bridge device.
+   the specified MAC address from the specified VLAN ID if it was mapped into
+   this port forwarding database
+ 
++- port_fdb_dump: bridge layer function invoked with a switchdev callback
++  function that the driver has to call for each MAC address known to be behind
++  the given port. A switchdev object is used to carry the VID and FDB info.
++
+ TODO
+ ====
+ 
+-- 
+2.8.0
