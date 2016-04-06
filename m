@@ -1,18 +1,40 @@
-From: =?utf-8?B?5oiR55qE5L+h5oGv5ZyoOg==?= <zhaoshang@topeak.net.cn>
-Subject: =?utf-8?B?5oiR55qE5L+h5oGv5ZyoOg==?=
-Date: Wed, 6 Apr 2016 07:59:38 +0800
-Message-ID: <20160406075943444836@topeak.net.cn>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH 5/6] ppp: define reusable device creation functions
+Date: Tue, 5 Apr 2016 17:30:01 -0700
+Message-ID: <20160405173001.231b7502@xeon-e3>
+References: <cover.1459807527.git.g.nault@alphalink.fr>
+	<522658eb90148cb670fb4f5db1429c41788aa4d8.1459807527.git.g.nault@alphalink.fr>
+	<20160405082832.534257df@xeon-e3>
+	<20160405211456.GC1305@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [118.123.16.235] ([118.123.16.235]:2115 "HELO mail.dns263.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751742AbcDFAOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 20:14:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20160405211456.GC1305@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-5L2g55qE6ICB5pyL5Y+L6YKA5L2g5p2lUee+pDozNDMyNTc3NTkNCg==
+On Tue, 5 Apr 2016 23:14:56 +0200
+Guillaume Nault <g.nault@alphalink.fr> wrote:
+
+> On Tue, Apr 05, 2016 at 08:28:32AM -0700, Stephen Hemminger wrote:
+> > On Tue, 5 Apr 2016 02:56:29 +0200
+> > Guillaume Nault <g.nault@alphalink.fr> wrote:
+> > 
+> > > Move PPP device initialisation and registration out of
+> > > ppp_create_interface().
+> > > This prepares code for device registration with rtnetlink.
+> > > 
+> > 
+> > Does PPP module autoload correctly based on the netlink attributes?
+> > 
+> Patch #6 has MODULE_ALIAS_RTNL_LINK("ppp"). This works fine for
+> auto-loading ppp_generic when creating a PPP device with rtnetlink.
+> Is there anything else required?
+> 
+
+That should be enough.
