@@ -1,67 +1,56 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Wed, 6 Apr 2016 08:33:37 -0400
-Message-ID: <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
-References: <cover.1459934322.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-security-module@vger.kernel.org,
+From: Abdelmajid Mlayeh <abdelmajidx.mlayeh@intel.com>
+Subject: [PATCH] neigh: remove duplicated log msg
+Date: Wed,  6 Apr 2016 14:42:06 +0200
+Message-ID: <1459946535-6015-1-git-send-email-abdelmajidx.mlayeh@intel.com>
+Cc: Abdelmajid MLAYEH <abdelmajidx.mlayeh@intel.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paolo Abeni <pabeni@redhat.com>
+	David Ahern <dsa@cumulusnetworks.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Martin Zhang <martinbj2008@gmail.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Julian Anastasov <ja@ssi.bg>, Rick Jones <rick.jones2@hp.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f194.google.com ([209.85.214.194]:35586 "EHLO
-	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932181AbcDFMdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 08:33:38 -0400
-Received: by mail-ob0-f194.google.com with SMTP id 4so3459996obi.2
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 05:33:38 -0700 (PDT)
-In-Reply-To: <cover.1459934322.git.pabeni@redhat.com>
+Received: from mga04.intel.com ([192.55.52.120]:36672 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932909AbcDFMmd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 08:42:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 6, 2016 at 5:51 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> Currently, selinux always registers iptables POSTROUTING hooks regarless of
-> the running policy needs for any action to be performed by them.
->
-> Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
-> depending on the current policy configuration.
->
-> The above invocations in the kernel datapath are cause of measurable
-> overhead in networking performance test.
->
-> This patch series adds explicit notification for netlabel status change
-> (other relevant status change, like xfrm and secmark, are already notified to
-> LSM) and use this information in selinux to register the above hooks only when
-> the current status makes them relevant, deregistering them when no-op
->
-> Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
-> gives about 5% performance improvement on rx and about 8% on tx.
+From: Abdelmajid MLAYEH <abdelmajidx.mlayeh@intel.com>
 
-[NOTE: added the SELinux mailing list to the CC line, please include
-when submitting SELinux patches]
+This will be printed anyways by neigh_suspect
 
-While I appreciate the patch and the work that went into development
-and testing, I'm going to reject this patch on the grounds that it
-conflicts with work we've just started thinking about which should
-bring some tangible security benefit.
+Signed-off-by: Abdelmajid Mlayeh <abdelmajidx.mlayeh@intel.com>
+---
+ net/core/neighbour.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-The recent addition of post-init read only memory opens up some
-interesting possibilities for SELinux and LSMs in general, the thing
-which we've just started looking at is marking the LSM hook structure
-read only after init.  There are some complicating factors for
-SELinux, but I'm confident those can be resolved, and from what I can
-tell marking the hooks read only will have no effect on other LSMs.
-While marking the LSM hook structure doesn't directly affect the
-SELinux netfilter hooks, once we remove the ability to deregister the
-LSM hooks we will have no need to support deregistering netfilter
-hooks and I expect we will drop that functionality as well to help
-decrease the risk of tampering.
-
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index f18ae91..bf20118 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -896,7 +896,6 @@ static void neigh_timer_handler(unsigned long arg)
+ 			neigh_suspect(neigh);
+ 			next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
+ 		} else {
+-			neigh_dbg(2, "neigh %p is suspected\n", neigh);
+ 			neigh->nud_state = NUD_STALE;
+ 			neigh->updated = jiffies;
+ 			neigh_suspect(neigh);
 -- 
-paul moore
-www.paul-moore.com
+1.9.1
+
+---------------------------------------------------------------------
+Intel Corporation SAS (French simplified joint stock company)
+Registered headquarters: "Les Montalets"- 2, rue de Paris, 
+92196 Meudon Cedex, France
+Registration Number:  302 456 199 R.C.S. NANTERRE
+Capital: 4,572,000 Euros
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
