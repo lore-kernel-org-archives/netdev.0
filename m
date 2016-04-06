@@ -1,55 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
-Date: Wed, 06 Apr 2016 15:30:07 -0400 (EDT)
-Message-ID: <20160406.153007.1347001580998282428.davem@davemloft.net>
-References: <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
-	<20160406.114339.1083222124758102992.davem@davemloft.net>
-	<CALx6S36h4nZy10=dzfjgEgyXzokEfiteSNM_L3k4jFgg9-kgYA@mail.gmail.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not
+ needed
+Date: Wed, 06 Apr 2016 15:39:55 -0400 (EDT)
+Message-ID: <20160406.153955.2244652846180310527.davem@davemloft.net>
+References: <CAHC9VhQS+LfPbj0UuKFiVCW7LKthJmgOt08MvCiwKjTZZYstxA@mail.gmail.com>
+	<20160406.142316.1728426867290841888.davem@davemloft.net>
+	<CAHC9VhT0444cEDKsfww7Yj22svSFOfY4ersVhh8up9ZrZ_8rng@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ecree@solarflare.com, herbert@gondor.apana.org.au,
-	alexander.duyck@gmail.com, aduyck@mirantis.com, jesse@kernel.org,
-	edumazet@google.com, netdev@vger.kernel.org
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44417 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057AbcDFTaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 15:30:10 -0400
-In-Reply-To: <CALx6S36h4nZy10=dzfjgEgyXzokEfiteSNM_L3k4jFgg9-kgYA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pabeni@redhat.com, linux-security-module@vger.kernel.org,
+	james.l.morris@oracle.com, agruenba@redhat.com, sds@tycho.nsa.gov,
+	fw@strlen.de, netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: paul@paul-moore.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CAHC9VhT0444cEDKsfww7Yj22svSFOfY4ersVhh8up9ZrZ_8rng@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Wed, 6 Apr 2016 14:42:26 -0300
+From: Paul Moore <paul@paul-moore.com>
+Date: Wed, 6 Apr 2016 14:36:43 -0400
 
-> On Wed, Apr 6, 2016 at 12:43 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Wed, 6 Apr 2016 10:53:52 -0300
+> On Wed, Apr 6, 2016 at 2:23 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Paul Moore <paul@paul-moore.com>
+>> Date: Wed, 6 Apr 2016 10:07:27 -0400
 >>
->>> Packets that are forwarded really should not be GRO'ed in the first
->>> place because of the loss of information and added latency.
+>>> "While marking the LSM hook structure doesn't directly affect the
+>>> SELinux netfilter hooks, once we remove the ability to deregister the
+>>> LSM hooks we will have no need to support deregistering netfilter
+>>> hooks and I expect we will drop that functionality as well to help
+>>> decrease the risk of tampering."
 >>
->> First of all GRO is supposed to be lossless, so please stop saying this
->> would be a reason to turn it off on a router.
+>> This is not a reasonable postiion.
 >>
->> Second of all, the biggest piece of overhead is the routing lookup,
->> therefore GRO batching helps enormously with routing workloads, and
->> therefore is appropriate to be enabled on routers.
->>
->> Yes, I agree that for locally terminated stuff it helps more, but don't
->> turn this into a "GRO on routers, meh..." type argument.  It simply is
->> not true at all.
->>
-> GRO on routers will help in a limited case where there is little load
-> and the traffic is nicely groomed high tput TCP connections. But for
-> routers with significant load, handling large quantities other
-> protocols like UDP, GRO is not necessarily helpful and presents a
-> nondeterministic performance improvement. For instance, I cannot
-> provision a router with any assumptions that GRO will be effective for
-> any % of packets to save any % of CPU, we need to provision based
-> purely on ability to forward by pps assuming no benefit from GRO.
+>> The performance implications are non-trivial for using netfilter hooks
+>> when they aren't actually needed.
+> 
+> With all due respect, I think you've taken what I consider to be some
+> unreasonable positions when it comes to the network stack and LSMs in
+> the past.  We have different perspectives and different priorities as
+> a result, from my perspective the security advantage gained by
+> eliminating the ability to disable SELinux at runtime is more
+> important.
 
-Just because you cannot predict how effective a facility will be,
-that doesn't mean you shouldn't use it at all.
+SELinux folks seem to get rather upset to people outright disabling
+the facility, but many users still do exactly that.
+
+In my opinion, it's uncompromising positions like the one you are
+having here is part of the reason that issue will continue.
+
+It is not AND, it's an OR, people want choice, and if you don't give
+it to them they will find a way to achieve what they want with or
+without your help.  And you might not like what they come up with.
+
+If distributions are turning SELinux on by default, then we have to
+care about whather netfilter performance should suffer for facilities
+which are unused.
