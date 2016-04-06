@@ -1,76 +1,54 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: document missing functions
-Date: Tue, 05 Apr 2016 22:02:25 -0400
-Message-ID: <87h9ffxzny.fsf@ketchup.mtl.sfl>
-References: <1459869760-23295-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20160405233943.GA19409@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160405233943.GA19409@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V3 02/16] net: fec: remove unused interrupt FEC_ENET_TS_TIMER
+Date: Tue,  5 Apr 2016 19:25:48 -0700
+Message-ID: <1459909562-22865-3-git-send-email-troy.kisky@boundarydevices.com>
+References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
+Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
+	tremyfr@gmail.com, gerg@uclinux.org,
+	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
+	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
+	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
+	lznuaa@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33595 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754462AbcDFC2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 22:28:13 -0400
+Received: by mail-pa0-f45.google.com with SMTP id zm5so22816653pac.0
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 19:28:12 -0700 (PDT)
+In-Reply-To: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+FEC_ENET_TS_TIMER is not checked in the interrupt routine
+so there is no need to enable it.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 
-> On Tue, Apr 05, 2016 at 11:22:40AM -0400, Vivien Didelot wrote:
->> Add description for the missing port_vlan_prepare, port_fdb_prepare,
->> port_fdb_dump functions in the DSA documentation.
->> 
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->
-> Hi Vivien
->
-> A few English improvements:
->
->> ---
->>  Documentation/networking/dsa/dsa.txt | 16 ++++++++++++++++
->>  1 file changed, 16 insertions(+)
->> 
->> diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
->> index 3b196c3..8ba3369 100644
->> --- a/Documentation/networking/dsa/dsa.txt
->> +++ b/Documentation/networking/dsa/dsa.txt
->> @@ -542,6 +542,12 @@ Bridge layer
->>  Bridge VLAN filtering
->>  ---------------------
->>  
->> +- port_vlan_prepare: bridge layer function invoked when the bridge prepares the
->> +  configuration of a VLAN on the given port. If the operation is not
->> +  programmable, this function should return -EOPNOTSUPP to inform the bridge
->
-> s/programmable/supported by the hardware
->
->> +  code to fallback to a software implementation. No hardware programmation
->
-> s/programmation/setup
->
->> +  must be done in this function. See port_vlan_add for this and details.
->> +
->>  - port_vlan_add: bridge layer function invoked when a VLAN is configured
->>    (tagged or untagged) for the given switch port
->>  
->> @@ -552,6 +558,12 @@ Bridge VLAN filtering
->>    function that the driver has to call for each VLAN the given port is a member
->>    of. A switchdev object is used to carry the VID and bridge flags.
->>  
->> +- port_fdb_prepare: bridge layer function invoked when the bridge prepares the
->> +  installation of a Forwarding Database entry. If the operation is not
->> +  programmable, this function should return -EOPNOTSUPP to inform the bridge
->
-> s/programmable/supported
->
->> +  code to fallback to a software implementation. No hardware programmation
->
-> s/programmation/setup
+---
+v3: New patch
 
-Done, v2 on its way.
+Frank Li said "TS_TIMER should never be triggered."
+when discussing another patch.
+---
+ drivers/net/ethernet/freescale/fec.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks,
-Vivien
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 195122e..6dd0ba8 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -374,8 +374,8 @@ struct bufdesc_ex {
+ #define FEC_ENET_TS_AVAIL       ((uint)0x00010000)
+ #define FEC_ENET_TS_TIMER       ((uint)0x00008000)
+ 
+-#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII | FEC_ENET_TS_TIMER)
+-#define FEC_NAPI_IMASK	(FEC_ENET_MII | FEC_ENET_TS_TIMER)
++#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
++#define FEC_NAPI_IMASK	FEC_ENET_MII
+ #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
+ 
+ /* ENET interrupt coalescing macro define */
+-- 
+2.5.0
