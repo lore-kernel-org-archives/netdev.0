@@ -1,56 +1,57 @@
-From: Abdelmajid Mlayeh <abdelmajidx.mlayeh@intel.com>
-Subject: [PATCH] neigh: remove duplicated log msg
-Date: Wed,  6 Apr 2016 14:42:06 +0200
-Message-ID: <1459946535-6015-1-git-send-email-abdelmajidx.mlayeh@intel.com>
-Cc: Abdelmajid MLAYEH <abdelmajidx.mlayeh@intel.com>,
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/3] net: dsa: make the FDB add function return
+ void
+Date: Wed, 6 Apr 2016 14:54:21 +0200
+Message-ID: <20160406125421.GF19409@lunn.ch>
+References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1459869875-23815-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <20160405235119.GC19409@lunn.ch>
+ <87egajxwb5.fsf@ketchup.mtl.sfl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Martin Zhang <martinbj2008@gmail.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>, Rick Jones <rick.jones2@hp.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:36672 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932909AbcDFMmd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 08:42:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87egajxwb5.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Abdelmajid MLAYEH <abdelmajidx.mlayeh@intel.com>
+On Tue, Apr 05, 2016 at 11:14:54PM -0400, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> >>  	mutex_lock(&ps->smi_mutex);
+> >> -	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state);
+> >> +	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
+> >> +		netdev_warn(ds->ports[port], "cannot load address\n");
+> >
+> > In the SF2 driver you use pr_err, but here netdev_warn. We probably
+> > should be consistent if we error or warn. I would use netdev_error,
+> > since if this fails we probably have a real hardware problem.
+> 
+> I used pr_err in the SF2 driver to be consistent with the rest of the
+> code which only uses pr_err and pr_info.
 
-This will be printed anyways by neigh_suspect
+O.K, good.
+ 
+> I was thinking about adding ds_err and ds_port_err to print errors for
+> ds->master_dev and ds->ports[port], but that might be overkill.
 
-Signed-off-by: Abdelmajid Mlayeh <abdelmajidx.mlayeh@intel.com>
----
- net/core/neighbour.c | 1 -
- 1 file changed, 1 deletion(-)
+I'm also trying to kill off the use of ds within the mv88e6xxx driver.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index f18ae91..bf20118 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -896,7 +896,6 @@ static void neigh_timer_handler(unsigned long arg)
- 			neigh_suspect(neigh);
- 			next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
- 		} else {
--			neigh_dbg(2, "neigh %p is suspected\n", neigh);
- 			neigh->nud_state = NUD_STALE;
- 			neigh->updated = jiffies;
- 			neigh_suspect(neigh);
--- 
-1.9.1
+> What do you think? Or local to the driver for the moment, like
+> mvsw_err maybe?
 
----------------------------------------------------------------------
-Intel Corporation SAS (French simplified joint stock company)
-Registered headquarters: "Les Montalets"- 2, rue de Paris, 
-92196 Meudon Cedex, France
-Registration Number:  302 456 199 R.C.S. NANTERRE
-Capital: 4,572,000 Euros
+I would keep it local. Also, for this sort of error, it does not need
+to differentiate on port. It is a hardware access error, something is
+wrong with the mdio bus/switch. So i would even put the message in the
+very low level reg_read/reg_write functions, and no where else.
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+     Andrew
