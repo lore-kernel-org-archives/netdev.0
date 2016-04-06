@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] vxlan: implement Generic Protocol
- Extension (GPE)
-Date: Wed, 06 Apr 2016 16:50:50 -0400 (EDT)
-Message-ID: <20160406.165050.2038144809203696976.davem@davemloft.net>
-References: <cover.1459860270.git.jbenc@redhat.com>
+Subject: Re: [PATCH net-next] net: intel: remove dead links
+Date: Wed, 06 Apr 2016 16:54:51 -0400 (EDT)
+Message-ID: <20160406.165451.42694079252458681.davem@davemloft.net>
+References: <3c9f8ea384ba033f83ec360eef17732ff0a5a8dd.1459866280.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, jesse@kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	bruce.w.allan@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org
 To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45086 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45113 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbcDFUuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 16:50:52 -0400
-In-Reply-To: <cover.1459860270.git.jbenc@redhat.com>
+	with ESMTP id S1753392AbcDFUyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 16:54:54 -0400
+In-Reply-To: <3c9f8ea384ba033f83ec360eef17732ff0a5a8dd.1459866280.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Benc <jbenc@redhat.com>
-Date: Tue,  5 Apr 2016 14:47:09 +0200
+Date: Tue,  5 Apr 2016 16:25:07 +0200
 
-> v3: just rebased on top of the current net-next, no changes
+> The Kconfig for Intel NICs references two different URLs for the "Adapter
+> & Driver ID Guide". Neither of those two links works. The current URL seems
+> to be
+> http://www.intel.com/content/www/us/en/support/network-and-i-o/ethernet-products/000005584.html
+> but given it's apparently constantly changing, there's no point in having it
+> in the help text.
 > 
-> This patchset implements VXLAN-GPE. It follows the same model as the tun/tap
-> driver: depending on the chosen mode, the vxlan interface is created either
-> as ARPHRD_ETHER (non-GPE) or ARPHRD_NONE (GPE).
+> Just keep a generic pointer to http://support.intel.com. Hopefully, this one
+> will have a longer live. It still works, at least.
 > 
-> Note that the internal fdb control plane cannot be used together with
-> VXLAN-GPE and attempt to configure it will be rejected by the driver. In
-> fact, COLLECT_METADATA is required to be set for now. This can be relaxed in
-> the future by adding support for static PtP configuration; it will be
-> backward compatible and won't affect existing users.
+> Futhermore, remove a link to "the latest Intel PRO/100 network driver for
+> Linux", this has no place in the mainline kernel and the latest Linux driver
+> it offers is from 2006, anyway.
 > 
-> The previous version of the patchset supported two GPE modes, L2 and L3. The
-> L2 mode (now called "ether mode" in the code) was removed from this version.
-> It can be easily added later if there's demand. The L3 mode is now called
-> "raw mode" and supports also encapsulated Ethernet headers (via ETH_P_TEB).
-> 
-> The only limitation of not having "ether mode" for GPE is for ip route based
-> encapsulation: with such setup, only IP packets can be encapsulated. Meaning
-> no Ethernet encapsulation. It seems there's not much use for this, though.
-> If it turns out to be useful, we'll add it.
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Series applied, thanks Jiri.
+I expect Jeff to pull this into his tree, thanks.
