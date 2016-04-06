@@ -1,44 +1,69 @@
-From: "Franklin S Cooper Jr." <fcooper@ti.com>
-Subject: Boot failure when using NFS on OMAP based evms
-Date: Wed, 6 Apr 2016 18:12:42 -0500
-Message-ID: <570597EA.3040902@ti.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Wed, 6 Apr 2016 19:15:23 -0400
+Message-ID: <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
+References: <cover.1459934322.git.pabeni@redhat.com>
+	<CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
+	<20160406221445.GA26807@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>, <nsekhar@ti.com>,
-	<linux-omap@vger.kernel.org>
-To: <samanthakumar@google.com>, <willemb@google.com>,
-	<edumazet@google.com>, <tony@atomide.com>, <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Paolo Abeni <pabeni@redhat.com>,
+	linux-security-module@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f196.google.com ([209.85.214.196]:35452 "EHLO
+	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754644AbcDFXPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 19:15:25 -0400
+Received: by mail-ob0-f196.google.com with SMTP id 4so4879539obi.2
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 16:15:24 -0700 (PDT)
+In-Reply-To: <20160406221445.GA26807@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
+> netfilter hooks are per namespace -- so there is hook unregister when
+> netns is destroyed.
 
-Currently linux-next is failing to boot via NFS on my AM335x GP evm,
-AM437x GP evm and Beagle X15. I bisected the problem down to the commit
-"udp: remove headers from UDP packets before queueing".
+Looking around, I see the global and per-namespace registration
+functions (nf_register_hook and nf_register_net_hook, respectively),
+but I'm looking to see if/how newly created namespace inherit
+netfilter hooks from the init network namespace ... if you can create
+a network namespace and dodge the SELinux hooks, that isn't a good
+thing from a SELinux point of view, although it might be a plus
+depending on where you view Paolo's original patches ;)
 
-I had to revert the following three commits to get things working again:
+> Do you think it makes sense to rework the patch to delay registering
+> of the netfiler hooks until the system is in a state where they're
+> needed, without the 'unregister' aspect?
 
-e6afc8ace6dd5cef5e812f26c72579da8806f5ac
-udp: remove headers from UDP packets before queueing
+I would need to see the patch to say for certain, but in principle
+that seems perfectly reasonable and I think would satisfy both the
+netdev and SELinux camps - good suggestion.  My main goal is to drop
+the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
 
-627d2d6b550094d88f9e518e15967e7bf906ebbf
-udp: enable MSG_PEEK at non-zero offset
+We might even be able to trim the secmark_active and peerlbl_active
+checks in the SELinux netfilter hooks (an earlier attempt at
+optimization; contrary to popular belief, I do care about SELinux
+performance), although that would mean that enabling the network
+access controls would be one way ... I guess you can disregard that
+last bit, I'm thinking aloud again.
 
-b9bb53f3836f4eb2bdeb3447be11042bd29c2408
-sock: convert sk_peek_offset functions to WRITE_ONCE
+> Ideally this would even be per netns -- in perfect world we would
+> be able to make it so that a new netns are created with an empty
+> hook list.
 
+In general SELinux doesn't care about namespaces, for reasons that are
+sorta beyond the scope of this conversation, so I would like to stick
+to a all or nothing approach to enabling the SELinux netfilter hooks
+across namespaces.  Perhaps we can revisit this at a later time, but
+let's keep it simple right now.
 
-I'm using omap2plus_defconfig for my config.
-
-Below bootlogs are from my AM335x GP evm:
-
-Working
-http://pastebin.ubuntu.com/15661989/ (Linux-next 3 patches reverted)
-
-Failing
-http://pastebin.ubuntu.com/15661318/ (Linux-next)
+-- 
+paul moore
+www.paul-moore.com
