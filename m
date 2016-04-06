@@ -1,59 +1,87 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2 1/2] sctp: compress bit-wide flags to a bitfield on sctp_sock
-Date: Wed,  6 Apr 2016 14:53:12 -0300
-Message-ID: <69a5ce012d9978ce73aade0004c5937964c54d61.1459952558.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v2 2/2] sctp: delay calls to sk_data_ready() as much as possible
+Date: Wed,  6 Apr 2016 14:53:13 -0300
+Message-ID: <703257ed516669b180fcce57e6745b1853da9a95.1459952558.git.marcelo.leitner@gmail.com>
 References: <cover.1459952558.git.marcelo.leitner@gmail.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43715 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46858 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751722AbcDFRxb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751811AbcDFRxb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Apr 2016 13:53:31 -0400
 In-Reply-To: <cover.1459952558.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It wastes space and gets worse as we add new flags, so convert bit-wide
-flags to a bitfield.
+Currently, the processing of multiple chunks in a single SCTP packet
+leads to multiple calls to sk_data_ready, causing multiple wake up
+signals which are costly and doesn't make it wake up any faster.
 
-Currently it already saves 4 bytes in sctp_sock, which are left as holes
-in it for now. The whole struct needs packing, which should be done in
-another patch.
+With this patch it will notice that the wake up is pending and will do it
+before leaving the state machine interpreter, latest place possible to
+do it realiably and cleanly.
 
-Note that do_auto_asconf cannot be merged, as explained in the comment
-before it.
+Note that sk_data_ready events are not dependent on asocs, unlike waking
+up writers.
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- include/net/sctp/structs.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/net/sctp/structs.h | 3 ++-
+ net/sctp/sm_sideeffect.c   | 5 +++++
+ net/sctp/ulpqueue.c        | 4 ++--
+ 3 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 6df1ce7a411c548bda4163840a90578b6e1b4cfe..1a6a626904bba4223b7921bbb4be41c2550271a7 100644
+index 1a6a626904bba4223b7921bbb4be41c2550271a7..21cb11107e378b4da1e7efde22fab4349496e35a 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -210,14 +210,14 @@ struct sctp_sock {
- 	int user_frag;
- 
- 	__u32 autoclose;
--	__u8 nodelay;
--	__u8 disable_fragments;
--	__u8 v4mapped;
--	__u8 frag_interleave;
- 	__u32 adaptation_ind;
- 	__u32 pd_point;
--	__u8 recvrcvinfo;
--	__u8 recvnxtinfo;
-+	__u16	nodelay:1,
-+		disable_fragments:1,
-+		v4mapped:1,
-+		frag_interleave:1,
-+		recvrcvinfo:1,
-+		recvnxtinfo:1;
+@@ -217,7 +217,8 @@ struct sctp_sock {
+ 		v4mapped:1,
+ 		frag_interleave:1,
+ 		recvrcvinfo:1,
+-		recvnxtinfo:1;
++		recvnxtinfo:1,
++		pending_data_ready:1;
  
  	atomic_t pd_mode;
  	/* Receive to here while partial delivery is in effect. */
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 7fe56d0acabf66cfd8fe29dfdb45f7620b470ac7..e7042f9ce63b0cfca50cae252f51b60b68cb5731 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -1742,6 +1742,11 @@ out:
+ 			error = sctp_outq_uncork(&asoc->outqueue, gfp);
+ 	} else if (local_cork)
+ 		error = sctp_outq_uncork(&asoc->outqueue, gfp);
++
++	if (sctp_sk(ep->base.sk)->pending_data_ready) {
++		ep->base.sk->sk_data_ready(ep->base.sk);
++		sctp_sk(ep->base.sk)->pending_data_ready = 0;
++	}
+ 	return error;
+ nomem:
+ 	error = -ENOMEM;
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index ce469d648ffbe166f9ae1c5650f481256f31a7f8..72e5b3e41cddf9d79371de8ab01484e4601b97b6 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -264,7 +264,7 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
+ 		sctp_ulpq_clear_pd(ulpq);
+ 
+ 	if (queue == &sk->sk_receive_queue)
+-		sk->sk_data_ready(sk);
++		sctp_sk(sk)->pending_data_ready = 1;
+ 	return 1;
+ 
+ out_free:
+@@ -1140,5 +1140,5 @@ void sctp_ulpq_abort_pd(struct sctp_ulpq *ulpq, gfp_t gfp)
+ 
+ 	/* If there is data waiting, send it up the socket now. */
+ 	if (sctp_ulpq_clear_pd(ulpq) || ev)
+-		sk->sk_data_ready(sk);
++		sctp_sk(sk)->pending_data_ready = 1;
+ }
 -- 
 2.5.0
