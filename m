@@ -1,79 +1,98 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net-next V3 03/16] net: fec: return IRQ_HANDLED if
- fec_ptp_check_pps_event handled it
-Date: Wed, 6 Apr 2016 09:12:31 +0000
-Message-ID: <VI1PR0401MB18556863D9FD7D4590D2DD38FF9F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
- <1459909562-22865-4-git-send-email-troy.kisky@boundarydevices.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Subject: Re: [PATCH v2] ARC: axs10x - add Ethernet PHY description in .dts
+Date: Wed, 6 Apr 2016 14:42:13 +0530
+Message-ID: <5704D2ED.4060507@synopsys.com>
+References: <1458207712-29435-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"lznuaa@gmail.com" <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0056.outbound.protection.outlook.com ([157.56.112.56]:47825
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933911AbcDFJMg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 05:12:36 -0400
-In-Reply-To: <1459909562-22865-4-git-send-email-troy.kisky@boundarydevices.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh@kernel.org>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+ Phil Reid <preid@electromag.com.au>, "David S. Miller" <davem@davemloft.net>,
+ Gabriel Fernandez <gabriel.fernandez@linaro.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+ <linux-snps-arc@lists.infradead.org>
+Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1458207712-29435-1-git-send-email-abrodkin@synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
+List-Post: <mailto:linux-snps-arc@lists.infradead.org>
+List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
+Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Wednesday, April 06, 2016 10:26 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
-> <fugang.duan@nxp.com>; lznuaa@gmail.com
-> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
-> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
-> kernel@lists.infradead.org; johannes@sipsolutions.net;
-> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
-> arnd@arndb.de; Troy Kisky <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net-next V3 03/16] net: fec: return IRQ_HANDLED if
-> fec_ptp_check_pps_event handled it
-> 
-> fec_ptp_check_pps_event will return 1 if FEC_T_TF_MASK caused an interrupt.
-> Don't return IRQ_NONE in this case.
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> 
-> ---
-> v3: New patch, came from feedback from another patch.
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index a011719..7993040 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1579,8 +1579,8 @@ fec_enet_interrupt(int irq, void *dev_id)
->  	}
-> 
->  	if (fep->ptp_clock)
-> -		fec_ptp_check_pps_event(fep);
-> -
-> +		if (fec_ptp_check_pps_event(fep))
-> +			ret = IRQ_HANDLED;
->  	return ret;
->  }
-> 
-> --
-> 2.5.0
+Hi,
 
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+On Thursday 17 March 2016 03:11 PM, Alexey Brodkin wrote:
+> Following commit broke DW GMAC functionality on AXS10x boards:
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=e34d65696d2ef13dc32f2a162556c86c461ed763
+> 
+> That's what happens on eth0 up:
+> --------------------------->8------------------------
+> libphy: PHY stmmac-0:ffffffff not found
+> eth0: Could not attach to PHY
+> stmmac_open: Cannot attach to PHY (error: -19)
+> --------------------------->8------------------------
+> 
+> Simplest solution is to add PHY description in board's .dts.
+> And so we do here.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+> Cc: Rob Herring <robh@kernel.org>
+> Cc: Phil Reid <preid@electromag.com.au>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: linux-kernel@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: stable@vger.kernel.org # 4.5.x
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> ---
+> 
+> Changes v1 -> v2:
+>  * PHY node name changed to match real PHY number being used (Sergei)
+> 
+>  arch/arc/boot/dts/axs10x_mb.dtsi | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/arch/arc/boot/dts/axs10x_mb.dtsi b/arch/arc/boot/dts/axs10x_mb.dtsi
+> index 44a578c..ab5d570 100644
+> --- a/arch/arc/boot/dts/axs10x_mb.dtsi
+> +++ b/arch/arc/boot/dts/axs10x_mb.dtsi
+> @@ -47,6 +47,14 @@
+>  			clocks = <&apbclk>;
+>  			clock-names = "stmmaceth";
+>  			max-speed = <100>;
+> +			mdio0 {
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				compatible = "snps,dwmac-mdio";
+> +				phy1: ethernet-phy@1 {
+> +					reg = <1>;
+> +				};
+> +			};
+>  		};
+>  
+>  		ehci@0x40000 {
+
+
+So above DT fix for ARC went into 4.6-rc1 and ethernet was still broken on axs103
+board.
+
+---------->8-------------
+libphy: PHY stmmac-0:ffffffff not found
+eth0: Could not attach to PHY
+stmmac_open: Cannot attach to PHY (error: -19)
+---------->8-------------
+
+On 4.6-rc2 if I revert the DT change, ethernet works again.
+
+@Giuseppe, @Phil, @Gabriel, I see you have made changes in that area. I presume
+that above revert is the right/sufficient thing or do we need to do something else
+as well.
+
+TIA,
+-Vineet
