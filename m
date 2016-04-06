@@ -1,104 +1,40 @@
-From: Debabrata Banerjee <dbanerje@akamai.com>
-Subject: [PATCH] macvlan: Support interface operstate properly
-Date: Wed,  6 Apr 2016 16:30:08 -0400
-Message-ID: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
-Cc: linux-kernel@vger.kernel.org,
-	Debabrata Banerjee <dbanerje@akamai.com>
-To: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH (net.git)] stmmac: fix adjust link call in case of a
+ switch is attached
+Date: Wed, 06 Apr 2016 16:35:03 -0400 (EDT)
+Message-ID: <20160406.163503.481176843308939572.davem@davemloft.net>
+References: <1459838817-24905-1-git-send-email-peppe.cavallaro@st.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexandre.torgue@st.com
+To: peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44921 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbcDFUfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 16:35:05 -0400
+In-Reply-To: <1459838817-24905-1-git-send-email-peppe.cavallaro@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Set appropriate macvlan interface status based on lower device and our
-status. Can be up, down, or lowerlayerdown.
+From: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Date: Tue, 5 Apr 2016 08:46:57 +0200
 
-Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
+> While initializing the phy, the stmmac driver sets the
+> PHY_IGNORE_INTERRUPT so the PAL won't call the adjust hook
+> that is needed, on some platforms, e.g. STi, to invoke the glue.
+> 
+> The patch allows the PAL to poll the stmmac_adjust_link just one time
+> in case of a switch is attached, setting later the PHY_IGNORE_INTERRUPT
+> flag.
+> Moving this kind of logic inside the adjust_link it makes sense to
+> anticipate the check for EEE that will never initialized in this
+> scenario.
+> 
+> Reported-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Tested-by: Gabriel Fernandez <gabriel.fernandez@linaro.org>
+> Cc: Alexandre TORGUE <alexandre.torgue@st.com>
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2bcf1f3..0f4b000 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -91,6 +91,7 @@ static struct macvlan_port *macvlan_port_get_rtnl(const struct net_device *dev)
- }
- 
- #define macvlan_port_exists(dev) (dev->priv_flags & IFF_MACVLAN_PORT)
-+#define is_macvlan(dev) (dev->priv_flags & IFF_MACVLAN)
- 
- static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
- 					       const unsigned char *addr)
-@@ -1242,6 +1243,26 @@ static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 mode,
- 	return 0;
- }
- 
-+static void macvlan_set_operstate(struct net_device *lowerdev,
-+				  struct net_device *dev)
-+{
-+	unsigned char newstate = dev->operstate;
-+
-+	if (!(dev->flags & IFF_UP))
-+		newstate = IF_OPER_DOWN;
-+	else if ((lowerdev->flags & IFF_UP) && netif_oper_up(lowerdev))
-+		newstate = IF_OPER_UP;
-+	else
-+		newstate = IF_OPER_LOWERLAYERDOWN;
-+
-+	if (dev->operstate != newstate) {
-+		write_lock_bh(&dev_base_lock);
-+		dev->operstate = newstate;
-+		netdev_state_change(dev);
-+		write_unlock_bh(&dev_base_lock);
-+	}
-+}
-+
- int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[])
- {
-@@ -1324,6 +1345,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 
- 	list_add_tail_rcu(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
-+	macvlan_set_operstate(lowerdev, dev);
- 	linkwatch_fire_event(dev);
- 
- 	return 0;
-@@ -1518,17 +1540,36 @@ static int macvlan_device_event(struct notifier_block *unused,
- 	struct macvlan_port *port;
- 	LIST_HEAD(list_kill);
- 
--	if (!macvlan_port_exists(dev))
-+	if (!macvlan_port_exists(dev) && !is_macvlan(dev))
- 		return NOTIFY_DONE;
- 
-+	if (is_macvlan(dev)) {
-+		vlan = netdev_priv(dev);
-+
-+		switch (event) {
-+		case NETDEV_UP:
-+		case NETDEV_DOWN:
-+		case NETDEV_CHANGE:
-+			netif_stacked_transfer_operstate(vlan->lowerdev,
-+							 vlan->dev);
-+			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
-+			break;
-+		}
-+
-+		return NOTIFY_DONE;
-+	}
-+
- 	port = macvlan_port_get_rtnl(dev);
- 
- 	switch (event) {
- 	case NETDEV_UP:
-+	case NETDEV_DOWN:
- 	case NETDEV_CHANGE:
--		list_for_each_entry(vlan, &port->vlans, list)
-+		list_for_each_entry(vlan, &port->vlans, list) {
- 			netif_stacked_transfer_operstate(vlan->lowerdev,
- 							 vlan->dev);
-+			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
-+		}
- 		break;
- 	case NETDEV_FEAT_CHANGE:
- 		list_for_each_entry(vlan, &port->vlans, list) {
--- 
-2.8.0
+Applied, thank you.
