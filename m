@@ -1,36 +1,64 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH net-next 0/7] sctp: support sctp_diag in kernel
-Date: Wed, 6 Apr 2016 18:42:45 -0300
-Message-ID: <20160406214245.GC15005@localhost.localdomain>
-References: <cover.1459829123.git.lucien.xin@gmail.com>
- <20160406.161312.1132930117025273561.davem@davemloft.net>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Wed, 6 Apr 2016 14:43:24 -0700
+Message-ID: <570582FC.7030807@schaufler-ca.com>
+References: <cover.1459934322.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Paul Moore <paul@paul-moore.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>,
+	linux-security-module@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753920AbcDFVmz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 17:42:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20160406.161312.1132930117025273561.davem@davemloft.net>
+Received: from nm40-vm2.bullet.mail.bf1.yahoo.com ([72.30.239.210]:51690 "EHLO
+	nm40-vm2.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753318AbcDFVnW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:43:22 -0400
+In-Reply-To: <cover.1459934322.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 06, 2016 at 04:13:12PM -0400, David Miller wrote:
-> From: Xin Long <lucien.xin@gmail.com>
-> Date: Tue,  5 Apr 2016 12:06:25 +0800
-> 
-> > This patchset will add sctp_diag module to implement diag interface on
-> > sctp in kernel.
->  ...
-> 
-> This series looks generally fine to me, but I'd like to see some review from
-> SCTP experts before I apply this series.
-> 
-> Thanks.
+On 4/6/2016 2:51 AM, Paolo Abeni wrote:
+> Currently, selinux always registers iptables POSTROUTING hooks regarless of
+> the running policy needs for any action to be performed by them.
+>
+> Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
+> depending on the current policy configuration.
+>
+> The above invocations in the kernel datapath are cause of measurable
+> overhead in networking performance test.
+>
+> This patch series adds explicit notification for netlabel status change 
+> (other relevant status change, like xfrm and secmark, are already notified to
+> LSM) and use this information in selinux to register the above hooks only when
+> the current status makes them relevant, deregistering them when no-op
+>
+> Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
+> gives about 5% performance improvement on rx and about 8% on tx.
+>
+> Paolo Abeni (2):
+>   security: add hook for netlabel status change notification
+>   selinux: implement support for dynamic net hook [de-]registration
 
-Will finish reviewing it tomorrow. Thanks for reviewing it already
+Did you consider the fact that netlabel and the LSM socket
+hooks are used by Smack as well as SELinux? Did you measure the
+impact that your changes have on Smack? Does Smack even work
+with your changes?
+
+>
+>  include/linux/lsm_hooks.h           |  6 ++++
+>  include/linux/security.h            |  5 +++
+>  net/netlabel/netlabel_cipso_v4.c    |  8 +++--
+>  net/netlabel/netlabel_unlabeled.c   |  5 ++-
+>  security/security.c                 |  7 ++++
+>  security/selinux/hooks.c            | 72 +++++++++++++++++++++++++++++++------
+>  security/selinux/include/security.h |  1 +
+>  security/selinux/ss/services.c      |  1 +
+>  security/selinux/xfrm.c             |  4 +++
+>  9 files changed, 96 insertions(+), 13 deletions(-)
+>
