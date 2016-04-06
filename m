@@ -1,56 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/17] mlxsw: Introduce support for Data
- Center Bridging
-Date: Wed, 06 Apr 2016 17:24:38 -0400 (EDT)
-Message-ID: <20160406.172438.2294254065768146784.davem@davemloft.net>
-References: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] macvlan: Support interface operstate properly
+Date: Wed, 6 Apr 2016 23:27:08 +0200
+Message-ID: <57057F2C.9030304@cumulusnetworks.com>
+References: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
+ <570579AA.6050400@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: jiri@resnulli.us
+To: Debabrata Banerjee <dbanerje@akamai.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45360 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753521AbcDFVYl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:24:41 -0400
-In-Reply-To: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36837 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137AbcDFV1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:27:12 -0400
+Received: by mail-wm0-f50.google.com with SMTP id v188so36540776wme.1
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 14:27:11 -0700 (PDT)
+In-Reply-To: <570579AA.6050400@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed,  6 Apr 2016 17:09:59 +0200
+On 04/06/2016 11:03 PM, Nikolay Aleksandrov wrote:
+> On 04/06/2016 10:30 PM, Debabrata Banerjee wrote:
+>> Set appropriate macvlan interface status based on lower device and our
+>> status. Can be up, down, or lowerlayerdown.
+>>
+>> Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
+>>
+> 
+> May I ask what is exactly that you're fixing here ? I recently had to make macvlan's
+> operstates more accurate and I haven't experienced any wrong behaviour since commit
+> de7d244d0a35 ("macvlan: make operstate and carrier more accurate").
+> Also it's the linkwatch's job to take care for the proper operstate, we can use
+> netif_stacked_transfer_operstate to help it, but I don't think directly setting
+> operstate is a good idea.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido says:
-> 
-> This patchset introduces support for Quality of Service (QoS) as part of the
-> IEEE Data Center Bridiging (DCB) standards.
-> 
-> Patches 1-9 do the required device initialization. Specifically, patches 1-6
-> initialize the ports' headroom buffers, which are used at ingress to store
-> incoming packets while they go through the switch's pipeline. Patches 7-9
-> complete them by initializing the egress scheduling.
-> 
-> The pipeline mentioned above determines the packet's egress port(s) and
-> traffic class. Ideally, once out of the pipeline the packet moves to the
-> switch's shared buffer (to be introduced in Jiri's patchset, currently
-> default values are used) and scheduled for transmission according to its
-> traffic class. The egress scheduling is configured according to the 802.1Qaz
-> standard, which is part of the DCB infrastructure supported by Linux. This
-> is introduced in patches 10-12.
-> 
-> Even after going through the pipeline packets are not always eligible to
-> enter the shared buffer. This is determined by the amount of available space
-> and the quotas associated with the packet. However, if flow control is
-> enabled and the packet is associated with the lossless flow, then it will
-> stay in the headroom and won't be discarded. This is introduced in patches
-> 13-17.
-> 
-> Please check individual commit messages for more info, as I tried to keep
-> them pretty detailed.
+Misread part of the change, got it now. My comment below still stands though,
 
-Series applied, thanks guys.
+> One more thing - you cannot use netdev_state_change() under the write_lock as it
+> may sleep.
+> 
