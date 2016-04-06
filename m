@@ -1,247 +1,49 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V3 05/16] net: fec: reduce interrupts
-Date: Tue,  5 Apr 2016 19:25:51 -0700
-Message-ID: <1459909562-22865-6-git-send-email-troy.kisky@boundarydevices.com>
-References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
-	tremyfr@gmail.com, gerg@uclinux.org,
-	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
-	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
-	arnd@arndb.de, Troy Kisky <troy.kisky@boundarydevices.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
-	lznuaa@gmail.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/3] net: dsa: make the FDB add function return void
+Date: Tue, 05 Apr 2016 23:14:54 -0400
+Message-ID: <87egajxwb5.fsf@ketchup.mtl.sfl>
+References: <1459869875-23815-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1459869875-23815-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20160405235119.GC19409@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34263 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757647AbcDFC2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 22:28:18 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fe3so22786662pab.1
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 19:28:17 -0700 (PDT)
-In-Reply-To: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:39112 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522AbcDFDO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 23:14:59 -0400
+In-Reply-To: <20160405235119.GC19409@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By clearing the NAPI interrupts in the NAPI routine
-and not in the interrupt handler, we can reduce the
-number of interrupts. We also don't need any status
-variables as the registers are still valid.
+Hi Andrew,
 
-Also, notice that if budget pkts are received, the
-next call to fec_enet_rx_napi will now continue to
-receive the previously pending packets.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-To test that this actually reduces interrupts, try
-this command before/after patch
+>>  	mutex_lock(&ps->smi_mutex);
+>> -	ret = _mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state);
+>> +	if (_mv88e6xxx_port_fdb_load(ds, port, fdb->addr, fdb->vid, state))
+>> +		netdev_warn(ds->ports[port], "cannot load address\n");
+>
+> In the SF2 driver you use pr_err, but here netdev_warn. We probably
+> should be consistent if we error or warn. I would use netdev_error,
+> since if this fails we probably have a real hardware problem.
 
-cat /proc/interrupts |grep ether; \
-ping -s2800 192.168.0.201 -f -c1000 ; \
-cat /proc/interrupts |grep ether
+I used pr_err in the SF2 driver to be consistent with the rest of the
+code which only uses pr_err and pr_info.
 
-For me, before this patch is 2996 interrupts.
-After patch is 2010 interrupts.
+I was thinking about adding ds_err and ds_port_err to print errors for
+ds->master_dev and ds->ports[port], but that might be overkill. What do
+you think? Or local to the driver for the moment, like mvsw_err maybe?
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+I tend to use warn for cases where the user cannot really do something
+about the situation, but an hardware problem is indeed critical, so I
+agree with you to use error over warn here.
 
----
-v3:
-Fix introduced bug of checking for FEC_ENET_TS_TIMER
-before calling fec_ptp_check_pps_event
-
-Changed commit message to show measured changes.
-
-Used netdev_info instead of pr_info.
-
-Fugang Duan suggested splitting TX and RX into two NAPI
-contexts, but that should be a separate patch as it
-is unrelated to what this patch does.
----
- drivers/net/ethernet/freescale/fec.h      |   6 +-
- drivers/net/ethernet/freescale/fec_main.c | 118 +++++++++++-------------------
- 2 files changed, 45 insertions(+), 79 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 6dd0ba8..9d5bdc6 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -505,11 +505,7 @@ struct fec_enet_private {
- 
- 	unsigned int total_tx_ring_size;
- 	unsigned int total_rx_ring_size;
--
--	unsigned long work_tx;
--	unsigned long work_rx;
--	unsigned long work_ts;
--	unsigned long work_mdio;
-+	uint	events;
- 
- 	struct	platform_device *pdev;
- 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b4d46f8..918ac82 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -70,8 +70,6 @@ static void fec_enet_itr_coal_init(struct net_device *ndev);
- 
- #define DRIVER_NAME	"fec"
- 
--#define FEC_ENET_GET_QUQUE(_x) ((_x == 0) ? 1 : ((_x == 1) ? 2 : 0))
--
- /* Pause frame feild and FIFO threshold */
- #define FEC_ENET_FCE	(1 << 5)
- #define FEC_ENET_RSEM_V	0x84
-@@ -1257,21 +1255,6 @@ static void fec_txq(struct net_device *ndev, struct fec_enet_priv_tx_q *txq)
- 		writel(0, txq->bd.reg_desc_active);
- }
- 
--static void
--fec_enet_tx(struct net_device *ndev)
--{
--	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct fec_enet_priv_tx_q *txq;
--	u16 queue_id;
--	/* First process class A queue, then Class B and Best Effort queue */
--	for_each_set_bit(queue_id, &fep->work_tx, FEC_ENET_MAX_TX_QS) {
--		clear_bit(queue_id, &fep->work_tx);
--		txq = fep->tx_queue[FEC_ENET_GET_QUQUE(queue_id)];
--		fec_txq(ndev, txq);
--	}
--	return;
--}
--
- static int
- fec_enet_new_rxbdp(struct net_device *ndev, struct bufdesc *bdp, struct sk_buff *skb)
- {
-@@ -1505,70 +1488,34 @@ rx_processing_done:
- 	return pkt_received;
- }
- 
--static int
--fec_enet_rx(struct net_device *ndev, int budget)
--{
--	int     pkt_received = 0;
--	u16	queue_id;
--	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct fec_enet_priv_rx_q *rxq;
--
--	for_each_set_bit(queue_id, &fep->work_rx, FEC_ENET_MAX_RX_QS) {
--		clear_bit(queue_id, &fep->work_rx);
--		rxq = fep->rx_queue[FEC_ENET_GET_QUQUE(queue_id)];
--		pkt_received += fec_rxq(ndev, rxq, budget - pkt_received);
--	}
--	return pkt_received;
--}
--
--static bool
--fec_enet_collect_events(struct fec_enet_private *fep, uint int_events)
--{
--	if (int_events == 0)
--		return false;
--
--	if (int_events & FEC_ENET_RXF_0)
--		fep->work_rx |= (1 << 2);
--	if (int_events & FEC_ENET_RXF_1)
--		fep->work_rx |= (1 << 0);
--	if (int_events & FEC_ENET_RXF_2)
--		fep->work_rx |= (1 << 1);
--
--	if (int_events & FEC_ENET_TXF_0)
--		fep->work_tx |= (1 << 2);
--	if (int_events & FEC_ENET_TXF_1)
--		fep->work_tx |= (1 << 0);
--	if (int_events & FEC_ENET_TXF_2)
--		fep->work_tx |= (1 << 1);
--
--	return true;
--}
--
- static irqreturn_t
- fec_enet_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *ndev = dev_id;
- 	struct fec_enet_private *fep = netdev_priv(ndev);
--	uint int_events;
- 	irqreturn_t ret = IRQ_NONE;
-+	uint eir = readl(fep->hwp + FEC_IEVENT);
-+	uint int_events = eir & readl(fep->hwp + FEC_IMASK);
- 
--	int_events = readl(fep->hwp + FEC_IEVENT);
--	writel(int_events, fep->hwp + FEC_IEVENT);
--	fec_enet_collect_events(fep, int_events);
--
--	if ((fep->work_tx || fep->work_rx) && fep->link) {
--		ret = IRQ_HANDLED;
--
-+	if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
- 		if (napi_schedule_prep(&fep->napi)) {
- 			/* Disable the NAPI interrupts */
- 			writel(FEC_NAPI_IMASK, fep->hwp + FEC_IMASK);
- 			__napi_schedule(&fep->napi);
-+			int_events &= ~(FEC_ENET_RXF | FEC_ENET_TXF);
-+			ret = IRQ_HANDLED;
-+		} else {
-+			fep->events |= int_events;
-+			netdev_info(ndev, "couldn't schedule NAPI\n");
- 		}
- 	}
- 
--	if (int_events & FEC_ENET_MII) {
-+	if (int_events) {
- 		ret = IRQ_HANDLED;
--		complete(&fep->mdio_done);
-+		writel(int_events, fep->hwp + FEC_IEVENT);
-+		if (int_events & FEC_ENET_MII) {
-+			complete(&fep->mdio_done);
-+		}
- 	}
- 
- 	if (fep->ptp_clock)
-@@ -1581,16 +1528,39 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
- {
- 	struct net_device *ndev = napi->dev;
- 	struct fec_enet_private *fep = netdev_priv(ndev);
--	int pkts;
--
--	pkts = fec_enet_rx(ndev, budget);
-+	int pkts = 0;
-+	uint events;
- 
--	fec_enet_tx(ndev);
-+	do {
-+		events = readl(fep->hwp + FEC_IEVENT);
-+		if (fep->events) {
-+			events |= fep->events;
-+			fep->events = 0;
-+		}
-+		events &= FEC_ENET_RXF | FEC_ENET_TXF;
-+		if (!events) {
-+			if (budget) {
-+				napi_complete(napi);
-+				writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
-+			}
-+			return pkts;
-+		}
- 
--	if (pkts < budget) {
--		napi_complete(napi);
--		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
--	}
-+		writel(events, fep->hwp + FEC_IEVENT);
-+		if (events & FEC_ENET_RXF_1)
-+			pkts += fec_rxq(ndev, fep->rx_queue[1], budget - pkts);
-+		if (events & FEC_ENET_RXF_2)
-+			pkts += fec_rxq(ndev, fep->rx_queue[2], budget - pkts);
-+		if (events & FEC_ENET_RXF_0)
-+			pkts += fec_rxq(ndev, fep->rx_queue[0], budget - pkts);
-+		if (events & FEC_ENET_TXF_1)
-+			fec_txq(ndev, fep->tx_queue[1]);
-+		if (events & FEC_ENET_TXF_2)
-+			fec_txq(ndev, fep->tx_queue[2]);
-+		if (events & FEC_ENET_TXF_0)
-+			fec_txq(ndev, fep->tx_queue[0]);
-+	} while (pkts < budget);
-+	fep->events |= events & FEC_ENET_RXF;	/* save for next callback */
- 	return pkts;
- }
- 
--- 
-2.5.0
+Thanks,
+Vivien
