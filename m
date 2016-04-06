@@ -1,170 +1,106 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/17] mlxsw: spectrum: Add bytes to cells helper
-Date: Wed,  6 Apr 2016 17:10:02 +0200
-Message-ID: <1459955416-23786-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/17] mlxsw: spectrum: Map all switch priorities to priority group 0
+Date: Wed,  6 Apr 2016 17:10:01 +0200
+Message-ID: <1459955416-23786-3-git-send-email-jiri@resnulli.us>
 References: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33345 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511AbcDFPKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:25 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i204so14156409wmd.0
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:24 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34655 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbcDFPK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 11:10:28 -0400
+Received: by mail-wm0-f68.google.com with SMTP id n3so14165355wmn.1
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 08:10:28 -0700 (PDT)
 In-Reply-To: <1459955416-23786-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Buffers in the switch store packets in units called buffer cells. Add a
-helper to convert from bytes to cells, so that the actual number of
-cells required (result is round up) is returned.
+During transmission, the skb's priority is used to map the skb to a
+traffic class, where the idea is to group priorities with similar
+characteristics (e.g. lossy, lossless) to the same traffic class. By
+default, all priorities are mapped to traffic class 0.
 
-Also, drop the SB (shared buffer) acronym from the BYTES_PER_CELL macro,
-as this unit is also used in the ports' buffers and not only the
-switch's shared buffer.
+In the device, we model the skb's priority as the switch priority, which
+is assigned to a packet according to its PCP value and ingress port
+(untagged packets are assigned the port's default switch priority - 0).
+
+At ingress, the packet is directed to a priority group (PG) buffer in
+the port's headroom buffer according to the packet's switch priority and
+switch priority to buffer mapping.
+
+While it's possible to configure the egress mapping between skb's
+priority (switch priority) and traffic class, there is no mechanism to
+configure the ingress mapping to a PG.
+
+In order to keep things simple and since grouping certain priorities into
+a traffic class at egress also implies they should be grouped the same
+at ingress, treat a PG as the ingress counterpart of an egress traffic
+class.
+
+Having established the above, during initialization map all the switch
+priorities to PG0 in accordance with the Linux defaults for traffic
+class mapping.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 64 ++++++++++------------
- 2 files changed, 34 insertions(+), 34 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 25 +++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index d58ab0c..84dddd4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -62,6 +62,10 @@
- 
- #define MLXSW_SP_PORT_BASE_SPEED 25000	/* Mb/s */
- 
-+#define MLXSW_SP_BYTES_PER_CELL 96
-+
-+#define MLXSW_SP_BYTES_TO_CELLS(b) DIV_ROUND_UP(b, MLXSW_SP_BYTES_PER_CELL)
-+
- struct mlxsw_sp_port;
- 
- struct mlxsw_sp_upper {
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index c3a275b..dadb6e1 100644
+index d59195e..c3a275b 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -105,8 +105,6 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return mlxsw_sp_port_pb_prio_init(mlxsw_sp_port);
+@@ -34,6 +34,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/types.h>
++#include <linux/dcbnl.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+@@ -82,6 +83,28 @@ static int mlxsw_sp_port_pb_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 			       MLXSW_REG(pbmc), pbmc_pl);
  }
  
--#define MLXSW_SP_SB_BYTES_PER_CELL 96
--
++static int mlxsw_sp_port_pb_prio_init(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	char pptb_pl[MLXSW_REG_PPTB_LEN];
++	int i;
++
++	mlxsw_reg_pptb_pack(pptb_pl, mlxsw_sp_port->local_port);
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		mlxsw_reg_pptb_prio_to_buff_set(pptb_pl, i, 0);
++	return mlxsw_reg_write(mlxsw_sp_port->mlxsw_sp->core, MLXSW_REG(pptb),
++			       pptb_pl);
++}
++
++static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	int err;
++
++	err = mlxsw_sp_port_pb_init(mlxsw_sp_port);
++	if (err)
++		return err;
++	return mlxsw_sp_port_pb_prio_init(mlxsw_sp_port);
++}
++
+ #define MLXSW_SP_SB_BYTES_PER_CELL 96
+ 
  struct mlxsw_sp_sb_pool {
- 	u8 pool;
- 	enum mlxsw_reg_sbpr_dir dir;
-@@ -115,11 +113,9 @@ struct mlxsw_sp_sb_pool {
- };
+@@ -410,7 +433,7 @@ int mlxsw_sp_port_buffers_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ {
+ 	int err;
  
- #define MLXSW_SP_SB_POOL_INGRESS_SIZE				\
--	((15000000 - (2 * 20000 * MLXSW_PORT_MAX_PORTS)) /	\
--	 MLXSW_SP_SB_BYTES_PER_CELL)
-+	(15000000 - (2 * 20000 * MLXSW_PORT_MAX_PORTS))
- #define MLXSW_SP_SB_POOL_EGRESS_SIZE				\
--	((14000000 - (8 * 1500 * MLXSW_PORT_MAX_PORTS)) /	\
--	 MLXSW_SP_SB_BYTES_PER_CELL)
-+	(14000000 - (8 * 1500 * MLXSW_PORT_MAX_PORTS))
- 
- #define MLXSW_SP_SB_POOL(_pool, _dir, _mode, _size)		\
- 	{							\
-@@ -138,14 +134,14 @@ struct mlxsw_sp_sb_pool {
- 			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
- 
- static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools[] = {
--	MLXSW_SP_SB_POOL_INGRESS(0, MLXSW_SP_SB_POOL_INGRESS_SIZE),
-+	MLXSW_SP_SB_POOL_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_INGRESS_SIZE)),
- 	MLXSW_SP_SB_POOL_INGRESS(1, 0),
- 	MLXSW_SP_SB_POOL_INGRESS(2, 0),
- 	MLXSW_SP_SB_POOL_INGRESS(3, 0),
--	MLXSW_SP_SB_POOL_EGRESS(0, MLXSW_SP_SB_POOL_EGRESS_SIZE),
-+	MLXSW_SP_SB_POOL_EGRESS(0, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
- 	MLXSW_SP_SB_POOL_EGRESS(1, 0),
- 	MLXSW_SP_SB_POOL_EGRESS(2, 0),
--	MLXSW_SP_SB_POOL_EGRESS(2, MLXSW_SP_SB_POOL_EGRESS_SIZE),
-+	MLXSW_SP_SB_POOL_EGRESS(2, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
- };
- 
- #define MLXSW_SP_SB_POOLS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools)
-@@ -201,7 +197,7 @@ struct mlxsw_sp_sb_cm {
- 	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBCM_DIR_EGRESS, 104, 2, 3)
- 
- static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms[] = {
--	MLXSW_SP_SB_CM_INGRESS(0, 10000 / MLXSW_SP_SB_BYTES_PER_CELL, 8),
-+	MLXSW_SP_SB_CM_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(10000), 8),
- 	MLXSW_SP_SB_CM_INGRESS(1, 0, 0),
- 	MLXSW_SP_SB_CM_INGRESS(2, 0, 0),
- 	MLXSW_SP_SB_CM_INGRESS(3, 0, 0),
-@@ -209,15 +205,15 @@ static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms[] = {
- 	MLXSW_SP_SB_CM_INGRESS(5, 0, 0),
- 	MLXSW_SP_SB_CM_INGRESS(6, 0, 0),
- 	MLXSW_SP_SB_CM_INGRESS(7, 0, 0),
--	MLXSW_SP_SB_CM_INGRESS(9, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff),
--	MLXSW_SP_SB_CM_EGRESS(0, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(1, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(2, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(3, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(4, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(5, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(6, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
--	MLXSW_SP_SB_CM_EGRESS(7, 1500 / MLXSW_SP_SB_BYTES_PER_CELL, 9),
-+	MLXSW_SP_SB_CM_INGRESS(9, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff),
-+	MLXSW_SP_SB_CM_EGRESS(0, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(1, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(2, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(3, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(4, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(5, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(6, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
-+	MLXSW_SP_SB_CM_EGRESS(7, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
- 	MLXSW_SP_SB_CM_EGRESS(8, 0, 0),
- 	MLXSW_SP_SB_CM_EGRESS(9, 0, 0),
- 	MLXSW_SP_SB_CM_EGRESS(10, 0, 0),
-@@ -376,21 +372,21 @@ struct mlxsw_sp_sb_mm {
- 	}
- 
- static const struct mlxsw_sp_sb_mm mlxsw_sp_sb_mms[] = {
--	MLXSW_SP_SB_MM(0, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(1, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(2, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(3, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(4, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(5, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(6, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(7, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(8, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(9, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(10, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(11, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(12, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(13, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
--	MLXSW_SP_SB_MM(14, 20000 / MLXSW_SP_SB_BYTES_PER_CELL, 0xff, 0),
-+	MLXSW_SP_SB_MM(0, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(1, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(2, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(3, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(4, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(5, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(6, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(7, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(8, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(9, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(10, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(11, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(12, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(13, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
-+	MLXSW_SP_SB_MM(14, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
- };
- 
- #define MLXSW_SP_SB_MMS_LEN ARRAY_SIZE(mlxsw_sp_sb_mms)
+-	err = mlxsw_sp_port_pb_init(mlxsw_sp_port);
++	err = mlxsw_sp_port_headroom_init(mlxsw_sp_port);
+ 	if (err)
+ 		return err;
+ 	err = mlxsw_sp_port_sb_cms_init(mlxsw_sp_port);
 -- 
 2.5.5
