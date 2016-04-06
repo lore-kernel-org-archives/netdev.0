@@ -1,87 +1,55 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v2 2/2] sctp: delay calls to sk_data_ready() as much as possible
-Date: Wed,  6 Apr 2016 14:53:13 -0300
-Message-ID: <703257ed516669b180fcce57e6745b1853da9a95.1459952558.git.marcelo.leitner@gmail.com>
-References: <cover.1459952558.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
+ connected datagram sk during pmtu update
+Date: Wed, 6 Apr 2016 10:58:23 -0700
+Message-ID: <CAM_iQpUrcXwBH0BuCh-cjo0st6ykpUgdjRo3Cn-ViO40vtbHKA@mail.gmail.com>
+References: <1459551391-69969-1-git-send-email-kafai@fb.com>
+	<1459551391-69969-4-git-send-email-kafai@fb.com>
+	<CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
+	<20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+	<CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
+	<20160406001141.GA97608@kafai-mba.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46858 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751811AbcDFRxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 13:53:31 -0400
-In-Reply-To: <cover.1459952558.git.marcelo.leitner@gmail.com>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:35105 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507AbcDFR6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 13:58:24 -0400
+Received: by mail-yw0-f177.google.com with SMTP id i84so60383527ywc.2
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 10:58:23 -0700 (PDT)
+In-Reply-To: <20160406001141.GA97608@kafai-mba.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the processing of multiple chunks in a single SCTP packet
-leads to multiple calls to sk_data_ready, causing multiple wake up
-signals which are costly and doesn't make it wake up any faster.
+On Tue, Apr 5, 2016 at 5:11 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Mon, Apr 04, 2016 at 01:45:02PM -0700, Cong Wang wrote:
+>> I see your point, but calling __ip6_datagram_connect() seems overkill
+>> here, we don't need to update so many things in the pmtu update context,
+>> at least IPv4 doesn't do that either. I don't think you have to do that.
+>>
+>> So why just updating the dst cache (also some addr cache) here is not
+>> enough?
+> I am not sure I understand.  I could be missing something.
+>
+> This patch uses ip6_datagram_dst_update() to do the route lookup and
+> sk->sk_dst_cache update.  ip6_datagram_dst_update() is
+> created in the first two refactoring patches and is also used by
+> __ip6_datagram_connect().
+>
+> Which operations in ip6_datagram_dst_update() could be saved
+> during the pmtu update?
 
-With this patch it will notice that the wake up is pending and will do it
-before leaving the state machine interpreter, latest place possible to
-do it realiably and cleanly.
+I thought you call the same ip6_datagram_dst_update() for both
+pmtu update and __ip6_datagram_connect(), but you actually skip
+some sk operations for pmtu case, which means you don't need
+to worry about parallel ip6_datagram_connect().
 
-Note that sk_data_ready events are not dependent on asocs, unlike waking
-up writers.
-
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- include/net/sctp/structs.h | 3 ++-
- net/sctp/sm_sideeffect.c   | 5 +++++
- net/sctp/ulpqueue.c        | 4 ++--
- 3 files changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 1a6a626904bba4223b7921bbb4be41c2550271a7..21cb11107e378b4da1e7efde22fab4349496e35a 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -217,7 +217,8 @@ struct sctp_sock {
- 		v4mapped:1,
- 		frag_interleave:1,
- 		recvrcvinfo:1,
--		recvnxtinfo:1;
-+		recvnxtinfo:1,
-+		pending_data_ready:1;
- 
- 	atomic_t pd_mode;
- 	/* Receive to here while partial delivery is in effect. */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 7fe56d0acabf66cfd8fe29dfdb45f7620b470ac7..e7042f9ce63b0cfca50cae252f51b60b68cb5731 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1742,6 +1742,11 @@ out:
- 			error = sctp_outq_uncork(&asoc->outqueue, gfp);
- 	} else if (local_cork)
- 		error = sctp_outq_uncork(&asoc->outqueue, gfp);
-+
-+	if (sctp_sk(ep->base.sk)->pending_data_ready) {
-+		ep->base.sk->sk_data_ready(ep->base.sk);
-+		sctp_sk(ep->base.sk)->pending_data_ready = 0;
-+	}
- 	return error;
- nomem:
- 	error = -ENOMEM;
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index ce469d648ffbe166f9ae1c5650f481256f31a7f8..72e5b3e41cddf9d79371de8ab01484e4601b97b6 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -264,7 +264,7 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *ulpq, struct sctp_ulpevent *event)
- 		sctp_ulpq_clear_pd(ulpq);
- 
- 	if (queue == &sk->sk_receive_queue)
--		sk->sk_data_ready(sk);
-+		sctp_sk(sk)->pending_data_ready = 1;
- 	return 1;
- 
- out_free:
-@@ -1140,5 +1140,5 @@ void sctp_ulpq_abort_pd(struct sctp_ulpq *ulpq, gfp_t gfp)
- 
- 	/* If there is data waiting, send it up the socket now. */
- 	if (sctp_ulpq_clear_pd(ulpq) || ev)
--		sk->sk_data_ready(sk);
-+		sctp_sk(sk)->pending_data_ready = 1;
- }
--- 
-2.5.0
+IPv6 UDP sendmsg() path stores the dst without sock lock anyway,
+we don't cope with a concurrent connect() on another cpu. But
+still, I don't see this is a problem here, because even if we store
+an obsolete address in cache, it would be corrected later.
