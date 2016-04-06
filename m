@@ -1,83 +1,74 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] net: intel: remove dead links
-Date: Wed, 06 Apr 2016 15:08:56 -0700
-Message-ID: <1459980536.2978.18.camel@intel.com>
-References: <3c9f8ea384ba033f83ec360eef17732ff0a5a8dd.1459866280.git.jbenc@redhat.com>
-	 <20160406.165451.42694079252458681.davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Thu, 7 Apr 2016 00:14:45 +0200
+Message-ID: <20160406221445.GA26807@breakpoint.cc>
+References: <cover.1459934322.git.pabeni@redhat.com>
+ <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dkrYtW+TlafYdsZemh1n"
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org
-To: David Miller <davem@davemloft.net>, jbenc@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:13065 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753411AbcDFWI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 18:08:58 -0400
-In-Reply-To: <20160406.165451.42694079252458681.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paolo Abeni <pabeni@redhat.com>,
+	linux-security-module@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Paul Moore <paul@paul-moore.com> wrote:
+> On Wed, Apr 6, 2016 at 5:51 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > Currently, selinux always registers iptables POSTROUTING hooks regarless of
+> > the running policy needs for any action to be performed by them.
+> >
+> > Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
+> > depending on the current policy configuration.
+> >
+> > The above invocations in the kernel datapath are cause of measurable
+> > overhead in networking performance test.
+> >
+> > This patch series adds explicit notification for netlabel status change
+> > (other relevant status change, like xfrm and secmark, are already notified to
+> > LSM) and use this information in selinux to register the above hooks only when
+> > the current status makes them relevant, deregistering them when no-op
+> >
+> > Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
+> > gives about 5% performance improvement on rx and about 8% on tx.
+> 
+> [NOTE: added the SELinux mailing list to the CC line, please include
+> when submitting SELinux patches]
+> 
+> While I appreciate the patch and the work that went into development
+> and testing, I'm going to reject this patch on the grounds that it
+> conflicts with work we've just started thinking about which should
+> bring some tangible security benefit.
+> 
+> The recent addition of post-init read only memory opens up some
+> interesting possibilities for SELinux and LSMs in general, the thing
+> which we've just started looking at is marking the LSM hook structure
+> read only after init.  There are some complicating factors for
+> SELinux, but I'm confident those can be resolved, and from what I can
+> tell marking the hooks read only will have no effect on other LSMs.
+> While marking the LSM hook structure doesn't directly affect the
+> SELinux netfilter hooks, once we remove the ability to deregister the
+> LSM hooks we will have no need to support deregistering netfilter
+> hooks and I expect we will drop that functionality as well to help
+> decrease the risk of tampering.
 
---=-dkrYtW+TlafYdsZemh1n
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+netfilter hooks are per namespace -- so there is hook unregister when
+netns is destroyed.
 
-On Wed, 2016-04-06 at 16:54 -0400, David Miller wrote:
-> From: Jiri Benc <jbenc@redhat.com>
-> Date: Tue,=C2=A0=C2=A05 Apr 2016 16:25:07 +0200
->=20
-> >=20
-> > The Kconfig for Intel NICs references two different URLs for the
-> > "Adapter
-> > & Driver ID Guide". Neither of those two links works. The current
-> > URL seems
-> > to be
-> > http://www.intel.com/content/www/us/en/support/network-and-i-o/ethe
-> > rnet-products/000005584.html
-> > but given it's apparently constantly changing, there's no point in
-> > having it
-> > in the help text.
-> >=20
-> > Just keep a generic pointer to http://support.intel.com. Hopefully,
-> > this one
-> > will have a longer live. It still works, at least.
-> >=20
-> > Futhermore, remove a link to "the latest Intel PRO/100 network
-> > driver for
-> > Linux", this has no place in the mainline kernel and the latest
-> > Linux driver
-> > it offers is from 2006, anyway.
-> >=20
-> > Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> I expect Jeff to pull this into his tree, thanks.
+Do you think it makes sense to rework the patch to delay registering
+of the netfiler hooks until the system is in a state where they're
+needed, without the 'unregister' aspect?
 
-Yep, got it queued up.
---=-dkrYtW+TlafYdsZemh1n
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Ideally this would even be per netns -- in perfect world we would
+be able to make it so that a new netns are created with an empty
+hook list.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXBYj4AAoJEOVv75VaS+3OQrwP/1xdcYmpQbw+FJ9lPNG+HVgT
-ll0HFkOf7wi7Ay/THmhdFJcUnh0mtuBmF6IUQmnbaWaXeY5hvgc4fk3EDHnGWdgo
-/sCrw+qgLUaR8WDssiGJlVQNiCDcVwjxbMF2WQ45DjATHKvEWSQZ2/kjoLkBtbG2
-IEGD+Ws+mI4uC4amsnTR0/Z7IAnGDI1gJD9H+W83gVCTRkgo+wXxAhUUj+dQwHoZ
-8dr8zrOButXlSzFNBND6i23bHzu0aymGnDDN59yBRS19xHjS2ThtRiPdVRet/YVM
-/Hc7Q+kqo2AV7YNFSd6K8+CFBcXal1DwqJcWyLwnnNNT7P1Ltj1qKG6/Z0m/6MAV
-AcRUexK5SJPbeyqmcN9eiKZ3TUI+GV2JfEy4Ok8h5SFrb69+WyH0rf46RsQ6C8IB
-kwqesPmMY01NDojLSZ+1feT0fdJYBje4ZgdHLxq0GWFkJz96qAqfvyIjKewWq1xm
-1Jzce4EITt/Zfxq7ITaeZF/rYuTFaKhoopukw7+8c62/6V8jNzy35EA/Kf3nSxgJ
-oLtUqVeZczFMYBz7UVOnqx9+yGPOvKeM9TajxNEfHFoBK91dvtzkjCqg24ntTe17
-jfprhmEjxc64v4qiqQAdyUfHgxXIXUq43UEs1h4n7XSGQ5+/CfwHydY0/PjyTRkm
-DvcsNljzDaiG3jtfNkm6
-=LP5+
------END PGP SIGNATURE-----
-
---=-dkrYtW+TlafYdsZemh1n--
+Thanks.
