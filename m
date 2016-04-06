@@ -1,135 +1,162 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
-Date: Wed, 6 Apr 2016 09:47:37 -0700
-Message-ID: <57053DA9.2090404@boundarydevices.com>
-References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB1855C389F2265E30252D62B5FF9F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
- <57053C94.2000009@boundarydevices.com>
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: [PATCH net-next] ibmvnic: Enable use of multiple tx/rx scrqs
+Date: Wed, 6 Apr 2016 11:49:55 -0500
+Message-ID: <57053E33.6020706@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>
-To: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"lznuaa@gmail.com" <lznuaa@gmail.com>
+Cc: linuxppc-dev@lists.ozlabs.org
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34663 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbcDFQrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 12:47:40 -0400
-Received: by mail-pf0-f178.google.com with SMTP id c20so37182243pfc.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 09:47:39 -0700 (PDT)
-In-Reply-To: <57053C94.2000009@boundarydevices.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:35506 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943AbcDFQuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 12:50:11 -0400
+Received: from localhost
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+	Wed, 6 Apr 2016 10:50:10 -0600
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 9777A3E40030
+	for <netdev@vger.kernel.org>; Wed,  6 Apr 2016 10:50:08 -0600 (MDT)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u36Go8ZY18088110
+	for <netdev@vger.kernel.org>; Wed, 6 Apr 2016 09:50:08 -0700
+Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u36Go6Bv010752
+	for <netdev@vger.kernel.org>; Wed, 6 Apr 2016 10:50:08 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/6/2016 9:43 AM, Troy Kisky wrote:
-> On 4/6/2016 1:51 AM, Fugang Duan wrote:
->> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Wednesday, April 06, 2016 10:26 AM
->>> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
->>> <fugang.duan@nxp.com>; lznuaa@gmail.com
->>> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
->>> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
->>> kernel@lists.infradead.org; johannes@sipsolutions.net;
->>> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
->>> arnd@arndb.de; Troy Kisky <troy.kisky@boundarydevices.com>
->>> Subject: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
->>>
->>> V3 has
->>>
->>> 1 dropped patch "net: fec: print more debug info in fec_timeout"
->>> 2 new patches
->>> 0002-net-fec-remove-unused-interrupt-FEC_ENET_TS_TIMER.patch
->>> 0003-net-fec-return-IRQ_HANDLED-if-fec_ptp_check_pps_even.patch
->>>
->>> 1 combined patch
->>> 0004-net-fec-pass-rxq-txq-to-fec_enet_rx-tx_queue-instead.patch
->>>
->>> The changes are noted on individual patches
->>>
->>> My measured performance of this series is
->>>
->>> before patch set
->>> 365 Mbits/sec Tx/407 RX
->>>
->>> after patch set
->>> 374 Tx/427 Rx
->>>
->>
->> I doubt the performance data,  I validate it on i.MX6q sabresd board on the latest commit(4da46cebbd3b) in net tree.
-> 
-> 
-> 
-> I was doing UDP tests, as outlined in my V2 cover letter. Also, my cpu is 1G. Is yours 1.2G?
-> 
-> 
-> 
-> 
->> root@imx6qdlsolo:~# uname -a
->> Linux imx6qdlsolo 4.6.0-rc1-00318-g4da46ce #180 SMP Wed Apr 6 16:24:09 CST 2016 armv7l GNU/Linux
-> 
-> 
-> This is the V2 patch that I dropped.
+Enables the use of multiple transmit and receive scrqs allowing the ibmvnic
+driver to take advantage of multiqueue functionality. To achieve this, the
+driver must implement the process of negotiating the maximum number of
+queues allowed by the server. Initially, the driver will attempt to login
+with the maximum number of tx and rx queues supported by the server. If
+the server fails to allocate the requested number of scrqs, it will return
+partial success in the login response. In this case, we must reinitiate
+the login process from the request capabilities stage and attempt to login
+requesting fewer scrqs.
 
+Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
+---
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 21bccf6..6e9b91d 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -800,11 +800,12 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 			ret = NETDEV_TX_BUSY;
+ 			goto out;
+ 		}
+-		lpar_rc = send_subcrq_indirect(adapter, handle_array[0],
++		lpar_rc = send_subcrq_indirect(adapter, handle_array[queue_num],
+ 					       (u64)tx_buff->indir_dma,
+ 					       (u64)num_entries);
+ 	} else {
+-		lpar_rc = send_subcrq(adapter, handle_array[0], &tx_crq);
++		lpar_rc = send_subcrq(adapter, handle_array[queue_num],
++				      &tx_crq);
+ 	}
+ 	if (lpar_rc != H_SUCCESS) {
+ 		dev_err(dev, "tx failed with code %ld\n", lpar_rc);
+@@ -989,7 +990,7 @@ restart_poll:
+ 		netdev->stats.rx_bytes += length;
+ 		frames_processed++;
+ 	}
+-	replenish_pools(adapter);
++	replenish_rx_pool(adapter, &adapter->rx_pool[scrq_num]);
 
-Sorry, your right. It is the current head, without this series.
+ 	if (frames_processed < budget) {
+ 		enable_scrq_irq(adapter, adapter->rx_scrq[scrq_num]);
+@@ -1426,9 +1427,9 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ 		    entries_page : adapter->max_rx_add_entries_per_subcrq;
 
+ 		/* Choosing the maximum number of queues supported by firmware*/
+-		adapter->req_tx_queues = adapter->min_tx_queues;
+-		adapter->req_rx_queues = adapter->min_rx_queues;
+-		adapter->req_rx_add_queues = adapter->min_rx_add_queues;
++		adapter->req_tx_queues = adapter->max_tx_queues;
++		adapter->req_rx_queues = adapter->max_rx_queues;
++		adapter->req_rx_add_queues = adapter->max_rx_add_queues;
 
-> 
-> I will force update my local net-next_master branch, to make testing this series easier.
-> Note that my local net-next_master branch has about 19 patches on top of this series.
-> so,
-> 
-> tkisky@office-server2:~/linux-imx6$ git reset --hard HEAD~19
-> HEAD is now at a125da7 net: fec: don't set cbd_bufaddr unless no mapping error
-> 
-> 
->>
->> TCP RX performance is 602Mbps, TX is only 325Mbps,   TX path has some performance issue in net tree.
->> I will dig out it.
->>
->>
-> 
-> 
-> More testing is always better. Thanks
-> 
-> 
->>>
->>> Troy Kisky (16):
->>>   net: fec: only check queue 0 if RXF_0/TXF_0 interrupt is set
->>>   net: fec: remove unused interrupt FEC_ENET_TS_TIMER
->>>   net: fec: return IRQ_HANDLED if fec_ptp_check_pps_event handled it
->>>   net: fec: pass rxq/txq to fec_enet_rx/tx_queue instead of queue_id
->>>   net: fec: reduce interrupts
->>>   net: fec: split off napi routine with 3 queues
->>>   net: fec: don't clear all rx queue bits when just one is being checked
->>>   net: fec: set cbd_sc without relying on previous value
->>>   net: fec: eliminate calls to fec_enet_get_prevdesc
->>>   net: fec: move restart test for efficiency
->>>   net: fec: clear cbd_sc after transmission to help with debugging
->>>   net: fec: dump all tx queues in fec_dump
->>>   net: fec: detect tx int lost
->>>   net: fec: create subroutine reset_tx_queue
->>>   net: fec: call dma_unmap_single on mapped tx buffers at restart
->>>   net: fec: don't set cbd_bufaddr unless no mapping error
->>>
->>>  drivers/net/ethernet/freescale/fec.h      |  10 +-
->>>  drivers/net/ethernet/freescale/fec_main.c | 410 ++++++++++++++++------------
->>> --
->>>  2 files changed, 218 insertions(+), 202 deletions(-)
->>>
->>> --
->>> 2.5.0
->>
+ 		adapter->req_mtu = adapter->max_mtu;
+ 	}
+@@ -1776,13 +1777,11 @@ static void send_login(struct ibmvnic_adapter *adapter)
+ 		goto buf_map_failed;
+ 	}
+
+-	rsp_buffer_size =
+-	    sizeof(struct ibmvnic_login_rsp_buffer) +
+-	    sizeof(u64) * (adapter->req_tx_queues +
+-			   adapter->req_rx_queues *
+-			   adapter->req_rx_add_queues + adapter->
+-			   req_rx_add_queues) +
+-	    sizeof(u8) * (IBMVNIC_TX_DESC_VERSIONS);
++	rsp_buffer_size = sizeof(struct ibmvnic_login_rsp_buffer) +
++			  sizeof(u64) * adapter->req_tx_queues +
++			  sizeof(u64) * adapter->req_rx_queues +
++			  sizeof(u64) * adapter->req_rx_queues +
++			  sizeof(u8) * IBMVNIC_TX_DESC_VERSIONS;
+
+ 	login_rsp_buffer = kmalloc(rsp_buffer_size, GFP_ATOMIC);
+ 	if (!login_rsp_buffer)
+@@ -2401,6 +2400,16 @@ static int handle_login_rsp(union ibmvnic_crq *login_rsp_crq,
+ 	dma_unmap_single(dev, adapter->login_rsp_buf_token,
+ 			 adapter->login_rsp_buf_sz, DMA_BIDIRECTIONAL);
+
++	/* If the number of queues requested can't be allocated by the
++	 * server, the login response will return with code 1. We will need
++	 * to resend the login buffer with fewer queues requested.
++	 */
++	if (login_rsp_crq->generic.rc.code) {
++		adapter->renegotiate = true;
++		complete(&adapter->init_done);
++		return 0;
++	}
++
+ 	netdev_dbg(adapter->netdev, "Login Response Buffer:\n");
+ 	for (i = 0; i < (adapter->login_rsp_buf_sz - 1) / 8 + 1; i++) {
+ 		netdev_dbg(adapter->netdev, "%016lx\n",
+@@ -3627,15 +3636,22 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+
+ 	init_completion(&adapter->init_done);
+ 	wait_for_completion(&adapter->init_done);
++
++	do {
++		adapter->renegotiate = false;
+
+-	/* needed to pull init_sub_crqs outside of an interrupt context
+-	 * because it creates IRQ mappings for the subCRQ queues, causing
+-	 * a kernel warning
+-	 */
+-	init_sub_crqs(adapter, 0);
++		init_sub_crqs(adapter, 0);
++		reinit_completion(&adapter->init_done);
++		wait_for_completion(&adapter->init_done);
+
+-	reinit_completion(&adapter->init_done);
+-	wait_for_completion(&adapter->init_done);
++		if (adapter->renegotiate) {
++			release_sub_crqs(adapter);
++			send_cap_queries(adapter);
++
++			reinit_completion(&adapter->init_done);
++			wait_for_completion(&adapter->init_done);
++		}
++	} while (adapter->renegotiate);
+
+ 	/* if init_sub_crqs is partially successful, retry */
+ 	while (!adapter->tx_scrq || !adapter->rx_scrq) {
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index 5af8a79..0b66a50 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -980,6 +980,7 @@ struct ibmvnic_adapter {
+ 	struct ibmvnic_sub_crq_queue **tx_scrq;
+ 	struct ibmvnic_sub_crq_queue **rx_scrq;
+ 	int requested_caps;
++	bool renegotiate;
+
+ 	/* rx structs */
+ 	struct napi_struct *napi;
