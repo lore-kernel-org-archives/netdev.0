@@ -1,66 +1,79 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [PATCH] Revert "netpoll: Fix extra refcount release in
- netpoll_cleanup()"
-Date: Wed, 6 Apr 2016 09:48:37 -0400
-Message-ID: <20160406134837.GD1955@hmsreliant.think-freely.org>
-References: <20160405205822.24724.95522.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Wed, 6 Apr 2016 10:53:52 -0300
+Message-ID: <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
+References: <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
+	<20160405043209.GA9822@gondor.apana.org.au>
+	<5703D4C5.9060305@solarflare.com>
+	<20160405.194517.431351466693438399.davem@davemloft.net>
+	<5704F156.8030804@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Bart Van Assche <bart.vanassche@sandisk.com>
-To: Bjorn Helgaas <bhelgaas@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45936 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751187AbcDFNsk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 09:48:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20160405205822.24724.95522.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:37227 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750792AbcDFNxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 09:53:54 -0400
+Received: by mail-ig0-f171.google.com with SMTP id g8so42552468igr.0
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 06:53:53 -0700 (PDT)
+In-Reply-To: <5704F156.8030804@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2016 at 03:58:22PM -0500, Bjorn Helgaas wrote:
-> This reverts commit 543e3a8da5a4c453e992d5351ef405d5e32f27d7.
-> 
-> Direct callers of __netpoll_setup() depend on it to set np->dev,
-> so we can't simply move that assignment up to netpoll_stup().
-> 
-> Reported-by: Bart Van Assche <bart.vanassche@sandisk.com>
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-> ---
->  net/core/netpoll.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index a57bd17..94acfc8 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -603,6 +603,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev)
->  	const struct net_device_ops *ops;
->  	int err;
->  
-> +	np->dev = ndev;
->  	strlcpy(np->dev_name, ndev->name, IFNAMSIZ);
->  	INIT_WORK(&np->cleanup_work, netpoll_async_cleanup);
->  
-> @@ -669,7 +670,6 @@ int netpoll_setup(struct netpoll *np)
->  		goto unlock;
->  	}
->  	dev_hold(ndev);
-> -	np->dev = ndev;
->  
->  	if (netdev_master_upper_dev_get(ndev)) {
->  		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
-> @@ -770,7 +770,6 @@ int netpoll_setup(struct netpoll *np)
->  	return 0;
->  
->  put:
-> -	np->dev = NULL;
->  	dev_put(ndev);
->  unlock:
->  	rtnl_unlock();
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On Wed, Apr 6, 2016 at 8:21 AM, Edward Cree <ecree@solarflare.com> wrote:
+> On 06/04/16 00:45, David Miller wrote:
+>> From: Edward Cree <ecree@solarflare.com>
+>> Date: Tue, 5 Apr 2016 16:07:49 +0100
+>>
+>>> On the gripping hand, I feel like GRO+TSO is the wrong model for
+>>> speeding up forwarding/routing workloads.  Instead we should be
+>>> looking into having lists of SKBs traverse the stack together,
+>>> splitting the list whenever e.g. the destination changes.
+>> "Destination" is a very complicated beast.  It's not just a
+>> destination IP address.
+>>
+>> It's not even just a full saddr/daddr/TOS triplet.
+>>
+>> Packets can be forwarded around based upon any key whatsoever in the
+>> headers.  Netfilter can mangle them based upon arbitrary bits in the
+>> packet, as can the packet scheduler classifier actions.
+>>
+>> It's therefore not profitable to try this at all, it's completely
+>> pointless unless all the keys match up exactly.
+> Possibly I wasn't completely clear (or maybe I was and I'm just
+> wrong...), but I meant that _each layer_ in the stack would split the
+> list whenever it wants to treat two packets differently.  Whether
+> that's a protocol receive handler, or a netfilter or tc operation.
+>
+> Obviously if you want to decide at the _beginning_ whether "all the
+> keys match", then you do essentially need GRO's flow-matching logic.
+> But even then, I find myself wondering if having GRO coalesce the
+> segments into a superpacket is really better than having it just make
+> lists of segments, and have that list traverse the stack as a single
+> entity.  That way lossless resegmentation remains easy.  But I suppose
+> that could make life difficult for things like BPF, if they want to
+> act upon the superframe (because we haven't built it).  If instead
+> they act on each of the segments, we might get different actions for
+> each segment and that might also be awkward; so you'd still need this
+> concept of 'any layer in the stack can decide to split lists up'.
+>
+But again, this scheme is optimizing for forwarding case and doesn't
+help (and probably hurts) the use case of locally terminated
+connections which I would claim is more important. Packets that are
+forwarded really should not be GRO'ed in the first place because of
+the loss of information and added latency. The difficultly is that we
+don't currently make the forwarding decision before GRO,  if we can
+change this to decide whether packets are to be forwarded earlier then
+we can avoid doing GRO for those.
+
+Tom
+
+> -Ed
