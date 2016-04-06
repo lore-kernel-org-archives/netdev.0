@@ -1,43 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 0/3] net: dsa: voidify STP setter and FDB/VLAN
- add ops
-Date: Wed, 6 Apr 2016 13:27:32 -0700
-Message-ID: <CAGVrzcbyi7O+OWXF=CG0FMdZxoq4YWdDmA+7x3HiZf48weKLOQ@mail.gmail.com>
-References: <1459958105-1090-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel <kernel@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:32931 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751649AbcDFU2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 16:28:12 -0400
-In-Reply-To: <1459958105-1090-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Debabrata Banerjee <dbanerje@akamai.com>
+Subject: [PATCH] macvlan: Support interface operstate properly
+Date: Wed,  6 Apr 2016 16:30:08 -0400
+Message-ID: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
+Cc: linux-kernel@vger.kernel.org,
+	Debabrata Banerjee <dbanerje@akamai.com>
+To: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-04-06 8:55 GMT-07:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
-> Neither the DSA layer nor the bridge code (see br_set_state) really care
-> about eventual errors from STP state setters, so make it void.
->
-> The DSA layer separates the prepare and commit phases of switchdev in
-> two different functions. Logical errors must not happen in commit
-> routines, so make them void.
->
-> Changes v1 -> v2:
->   - rename port_stp_update to port_stp_state_set
->   - don't change code flow of bcm_sf2_sw_br_set_stp_state
->   - prefer netdev_err over netdev_warn
->
-> Vivien Didelot (3):
->   net: dsa: make the STP state function return void
->   net: dsa: make the FDB add function return void
->   net: dsa: make the VLAN add function return void
+Set appropriate macvlan interface status based on lower device and our
+status. Can be up, down, or lowerlayerdown.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 2bcf1f3..0f4b000 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -91,6 +91,7 @@ static struct macvlan_port *macvlan_port_get_rtnl(const struct net_device *dev)
+ }
+ 
+ #define macvlan_port_exists(dev) (dev->priv_flags & IFF_MACVLAN_PORT)
++#define is_macvlan(dev) (dev->priv_flags & IFF_MACVLAN)
+ 
+ static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
+ 					       const unsigned char *addr)
+@@ -1242,6 +1243,26 @@ static int macvlan_changelink_sources(struct macvlan_dev *vlan, u32 mode,
+ 	return 0;
+ }
+ 
++static void macvlan_set_operstate(struct net_device *lowerdev,
++				  struct net_device *dev)
++{
++	unsigned char newstate = dev->operstate;
++
++	if (!(dev->flags & IFF_UP))
++		newstate = IF_OPER_DOWN;
++	else if ((lowerdev->flags & IFF_UP) && netif_oper_up(lowerdev))
++		newstate = IF_OPER_UP;
++	else
++		newstate = IF_OPER_LOWERLAYERDOWN;
++
++	if (dev->operstate != newstate) {
++		write_lock_bh(&dev_base_lock);
++		dev->operstate = newstate;
++		netdev_state_change(dev);
++		write_unlock_bh(&dev_base_lock);
++	}
++}
++
+ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[])
+ {
+@@ -1324,6 +1345,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	list_add_tail_rcu(&vlan->list, &port->vlans);
+ 	netif_stacked_transfer_operstate(lowerdev, dev);
++	macvlan_set_operstate(lowerdev, dev);
+ 	linkwatch_fire_event(dev);
+ 
+ 	return 0;
+@@ -1518,17 +1540,36 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 	struct macvlan_port *port;
+ 	LIST_HEAD(list_kill);
+ 
+-	if (!macvlan_port_exists(dev))
++	if (!macvlan_port_exists(dev) && !is_macvlan(dev))
+ 		return NOTIFY_DONE;
+ 
++	if (is_macvlan(dev)) {
++		vlan = netdev_priv(dev);
++
++		switch (event) {
++		case NETDEV_UP:
++		case NETDEV_DOWN:
++		case NETDEV_CHANGE:
++			netif_stacked_transfer_operstate(vlan->lowerdev,
++							 vlan->dev);
++			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
++			break;
++		}
++
++		return NOTIFY_DONE;
++	}
++
+ 	port = macvlan_port_get_rtnl(dev);
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
++	case NETDEV_DOWN:
+ 	case NETDEV_CHANGE:
+-		list_for_each_entry(vlan, &port->vlans, list)
++		list_for_each_entry(vlan, &port->vlans, list) {
+ 			netif_stacked_transfer_operstate(vlan->lowerdev,
+ 							 vlan->dev);
++			macvlan_set_operstate(vlan->lowerdev, vlan->dev);
++		}
+ 		break;
+ 	case NETDEV_FEAT_CHANGE:
+ 		list_for_each_entry(vlan, &port->vlans, list) {
+-- 
+2.8.0
