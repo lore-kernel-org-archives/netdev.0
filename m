@@ -1,97 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] i40e: Add new device ID for X722
-Date: Tue,  5 Apr 2016 20:36:00 -0700
-Message-ID: <1459913769-56510-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/14] i40e: remove redundant check on vsi->active_vlans
+Date: Tue,  5 Apr 2016 20:35:56 -0700
+Message-ID: <1459913769-56510-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459913769-56510-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Colin King <colin.king@canonical.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:61852 "EHLO mga01.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:48525 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760048AbcDFDgY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Apr 2016 23:36:24 -0400
+	id S1754342AbcDFDgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Apr 2016 23:36:17 -0400
 In-Reply-To: <1459913769-56510-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Colin King <colin.king@canonical.com>
 
-The new device ID is 0x37D3 and it should follow the same flows and
-branding string as for 0x37D0.
+active_vlans is an unsigned long array, hence a null check on this
+array is superfluous and can be removed.
 
-Change-ID: Ia5ad4a1910268c4666a3fd46a7afffbec55b4fc2
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Detected with static analysis by smatch:
+
+drivers/net/ethernet/intel/i40e/i40e_debugfs.c:386
+  i40e_dbg_dump_vsi_seid() warn: this array is probably
+  non-NULL. 'vsi->active_vlans'
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 1 +
- drivers/net/ethernet/intel/i40e/i40e_devids.h   | 1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_common.c | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_devids.h | 1 +
- 5 files changed, 5 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 8276a13..ebcc0d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -60,6 +60,7 @@ static i40e_status i40e_set_mac_type(struct i40e_hw *hw)
- 		case I40E_DEV_ID_SFP_X722:
- 		case I40E_DEV_ID_1G_BASE_T_X722:
- 		case I40E_DEV_ID_10G_BASE_T_X722:
-+		case I40E_DEV_ID_SFP_I_X722:
- 			hw->mac.type = I40E_MAC_X722;
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_devids.h b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-index 99257fc..dd4457d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_devids.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_devids.h
-@@ -44,6 +44,7 @@
- #define I40E_DEV_ID_SFP_X722		0x37D0
- #define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
- #define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
-+#define I40E_DEV_ID_SFP_I_X722		0x37D3
- 
- #define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
- 					 (d) == I40E_DEV_ID_QSFP_B  || \
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fdcb50a..73d4bea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -90,6 +90,7 @@ static const struct pci_device_id i40e_pci_tbl[] = {
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_X722), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_1G_BASE_T_X722), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_10G_BASE_T_X722), 0},
-+	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_I_X722), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_20G_KR2), 0},
- 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_20G_KR2_A), 0},
- 	/* required last entry */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 771ac6a..4db0c03 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -58,6 +58,7 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
- 		case I40E_DEV_ID_SFP_X722:
- 		case I40E_DEV_ID_1G_BASE_T_X722:
- 		case I40E_DEV_ID_10G_BASE_T_X722:
-+		case I40E_DEV_ID_SFP_I_X722:
- 			hw->mac.type = I40E_MAC_X722;
- 			break;
- 		case I40E_DEV_ID_X722_VF:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_devids.h b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-index ca8b58c..7023570 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
-@@ -44,6 +44,7 @@
- #define I40E_DEV_ID_SFP_X722		0x37D0
- #define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
- #define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
-+#define I40E_DEV_ID_SFP_I_X722		0x37D3
- #define I40E_DEV_ID_X722_VF		0x37CD
- #define I40E_DEV_ID_X722_VF_HV		0x37D9
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 0c97733..83dccf1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -147,9 +147,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
+ 		dev_info(&pf->pdev->dev, "        vlan_features = 0x%08lx\n",
+ 			 (unsigned long int)nd->vlan_features);
+ 	}
+-	if (vsi->active_vlans)
+-		dev_info(&pf->pdev->dev,
+-			 "    vlgrp: & = %p\n", vsi->active_vlans);
++	dev_info(&pf->pdev->dev,
++		 "    vlgrp: & = %p\n", vsi->active_vlans);
+ 	dev_info(&pf->pdev->dev,
+ 		 "    state = %li flags = 0x%08lx, netdev_registered = %i, current_netdev_flags = 0x%04x\n",
+ 		 vsi->state, vsi->flags,
 -- 
 2.5.5
