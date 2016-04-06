@@ -1,7 +1,7 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net-next V3 16/16] net: fec: don't set cbd_bufaddr unless no mapping error
-Date: Tue,  5 Apr 2016 19:26:02 -0700
-Message-ID: <1459909562-22865-17-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH net-next V3 09/16] net: fec: eliminate calls to fec_enet_get_prevdesc
+Date: Tue,  5 Apr 2016 19:25:55 -0700
+Message-ID: <1459909562-22865-10-git-send-email-troy.kisky@boundarydevices.com>
 References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
 	tremyfr@gmail.com, gerg@uclinux.org,
@@ -11,63 +11,131 @@ Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
 To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
 	lznuaa@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36638 "EHLO
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34351 "EHLO
 	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760262AbcDFC2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 22:28:36 -0400
-Received: by mail-pa0-f43.google.com with SMTP id bx7so6612290pad.3
-        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 19:28:35 -0700 (PDT)
+	with ESMTP id S1760175AbcDFC23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Apr 2016 22:28:29 -0400
+Received: by mail-pa0-f43.google.com with SMTP id fe3so22788522pab.1
+        for <netdev@vger.kernel.org>; Tue, 05 Apr 2016 19:28:24 -0700 (PDT)
 In-Reply-To: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Not assigning cbd_bufaddr on error will prevent trying to
-unmap the error in case the FEC is reset.
+Eliminating calls to fec_enet_get_prevdesc shrinks
+the code a little.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 
 ---
-v3: no change
+v3: Change commit message
+
+s/unsigned status/unsigned int status/ as requested
 ---
- drivers/net/ethernet/freescale/fec_main.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 37 +++++++++----------------------
+ 1 file changed, 11 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 101d820..c2ed8be 100644
+index 21d2cd0..349fda1 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -600,7 +600,7 @@ fec_enet_txq_put_hdr_tso(struct fec_enet_priv_tx_q *txq,
- 	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
- 	struct bufdesc_ex *ebdp = container_of(bdp, struct bufdesc_ex, desc);
- 	void *bufaddr;
--	unsigned long dmabuf;
-+	dma_addr_t dmabuf;
- 	unsigned int estatus = 0;
+@@ -758,6 +758,7 @@ static void fec_enet_bd_init(struct net_device *dev)
+ 	struct bufdesc *bdp;
+ 	unsigned int i;
+ 	unsigned int q;
++	unsigned int status;
  
- 	bufaddr = txq->tso_hdrs + index * TSO_HEADER_SIZE;
-@@ -1295,17 +1295,21 @@ fec_enet_new_rxbdp(struct net_device *ndev, struct bufdesc *bdp, struct sk_buff
- {
- 	struct  fec_enet_private *fep = netdev_priv(ndev);
- 	int off;
-+	dma_addr_t dmabuf;
+ 	for (q = 0; q < fep->num_rx_queues; q++) {
+ 		/* Initialize the receive buffer descriptors. */
+@@ -765,19 +766,13 @@ static void fec_enet_bd_init(struct net_device *dev)
+ 		bdp = rxq->bd.base;
  
- 	off = ((unsigned long)skb->data) & fep->rx_align;
- 	if (off)
- 		skb_reserve(skb, fep->rx_align + 1 - off);
- 
--	bdp->cbd_bufaddr = cpu_to_fec32(dma_map_single(&fep->pdev->dev, skb->data, FEC_ENET_RX_FRSIZE - fep->rx_align, DMA_FROM_DEVICE));
--	if (dma_mapping_error(&fep->pdev->dev, fec32_to_cpu(bdp->cbd_bufaddr))) {
-+	dmabuf = dma_map_single(&fep->pdev->dev, skb->data,
-+				FEC_ENET_RX_FRSIZE - fep->rx_align,
-+				DMA_FROM_DEVICE);
-+	if (dma_mapping_error(&fep->pdev->dev, dmabuf)) {
- 		if (net_ratelimit())
- 			netdev_err(ndev, "Rx DMA memory map failed\n");
- 		return -ENOMEM;
+ 		for (i = 0; i < rxq->bd.ring_size; i++) {
+-
+ 			/* Initialize the BD for every fragment in the page. */
+-			if (bdp->cbd_bufaddr)
+-				bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY);
+-			else
+-				bdp->cbd_sc = cpu_to_fec16(0);
++			status = bdp->cbd_bufaddr ? BD_ENET_RX_EMPTY : 0;
++			if (bdp == rxq->bd.last)
++				status |= BD_SC_WRAP;
++			bdp->cbd_sc = cpu_to_fec16(status);
+ 			bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
+ 		}
+-
+-		/* Set the last buffer to wrap */
+-		bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
+-		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
+-
+ 		rxq->bd.cur = rxq->bd.base;
  	}
-+	bdp->cbd_bufaddr = cpu_to_fec32(dmabuf);
  
- 	return 0;
+@@ -789,18 +784,16 @@ static void fec_enet_bd_init(struct net_device *dev)
+ 
+ 		for (i = 0; i < txq->bd.ring_size; i++) {
+ 			/* Initialize the BD for every fragment in the page. */
+-			bdp->cbd_sc = cpu_to_fec16(0);
+ 			if (txq->tx_skbuff[i]) {
+ 				dev_kfree_skb_any(txq->tx_skbuff[i]);
+ 				txq->tx_skbuff[i] = NULL;
+ 			}
+ 			bdp->cbd_bufaddr = cpu_to_fec32(0);
++			bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
++					BD_SC_WRAP : 0);
+ 			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+ 		}
+-
+-		/* Set the last buffer to wrap */
+ 		bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
+-		bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
+ 		txq->dirty_tx = bdp;
+ 	}
  }
+@@ -2717,19 +2710,16 @@ fec_enet_alloc_rxq_buffers(struct net_device *ndev, unsigned int queue)
+ 		}
+ 
+ 		rxq->rx_skbuff[i] = skb;
+-		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY);
+ 
+ 		if (fep->bufdesc_ex) {
+ 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+ 			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_RX_INT);
+ 		}
++		bdp->cbd_sc = cpu_to_fec16(BD_ENET_RX_EMPTY |
++				((bdp == rxq->bd.last) ? BD_SC_WRAP : 0));
+ 
+ 		bdp = fec_enet_get_nextdesc(bdp, &rxq->bd);
+ 	}
+-
+-	/* Set the last buffer to wrap. */
+-	bdp = fec_enet_get_prevdesc(bdp, &rxq->bd);
+-	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
+ 	return 0;
+ 
+  err_alloc:
+@@ -2752,21 +2742,16 @@ fec_enet_alloc_txq_buffers(struct net_device *ndev, unsigned int queue)
+ 		if (!txq->tx_bounce[i])
+ 			goto err_alloc;
+ 
+-		bdp->cbd_sc = cpu_to_fec16(0);
+ 		bdp->cbd_bufaddr = cpu_to_fec32(0);
+ 
+ 		if (fep->bufdesc_ex) {
+ 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+ 			ebdp->cbd_esc = cpu_to_fec32(BD_ENET_TX_INT);
+ 		}
+-
++		bdp->cbd_sc = cpu_to_fec16((bdp == txq->bd.last) ?
++				BD_SC_WRAP : 0);
+ 		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+ 	}
+-
+-	/* Set the last buffer to wrap. */
+-	bdp = fec_enet_get_prevdesc(bdp, &txq->bd);
+-	bdp->cbd_sc |= cpu_to_fec16(BD_SC_WRAP);
+-
+ 	return 0;
+ 
+  err_alloc:
 -- 
 2.5.0
