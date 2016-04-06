@@ -1,44 +1,100 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next 03/16] fm10k: Avoid crashing the kernel
-Date: Wed, 6 Apr 2016 23:24:12 +0000
-Message-ID: <1459985052.17828.22.camel@intel.com>
-References: <1459843288-40623-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1459843288-40623-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20160405.121234.207383895896842448.davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Thu, 7 Apr 2016 01:45:32 +0200
+Message-ID: <20160406234532.GA731@breakpoint.cc>
+References: <cover.1459934322.git.pabeni@redhat.com>
+ <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
+ <20160406221445.GA26807@breakpoint.cc>
+ <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:45466 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752352AbcDFXYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 19:24:15 -0400
-In-Reply-To: <20160405.121234.207383895896842448.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <0432712159ED9C43A43706E6790516C3@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, Paolo Abeni <pabeni@redhat.com>,
+	linux-security-module@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDE2LTA0LTA1IGF0IDEyOjEyIC0wNDAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
-IEFzIEpvZSBzdWdnZXN0ZWQsIGl0IGlzIG5vdCByZWFzb25hYmxlIHRvIGV4cGVjdCBhbGwgY29t
-cGlsZXJzIHRvIGJlDQo+IGFibGUgdG8gZmlndXJlDQo+IG91dCB0aGUgcmVzdWx0IG9mIGFsbCBv
-ZiB0aGUgaW5kZXggaW5jcmVtZW50cyBpbiB0aGlzIGZ1bmN0aW9uIGxlYWQNCj4gdG8gYSBzcGVj
-aWZpYw0KPiBjb25zdGFudCB2YWx1ZS4NCj4gDQo+IFlvdXIgb25seSBvcHRpb24gaXMgdG8gZWl0
-aGVyIGtlZXAgdGhlIGNvZGUgYXMtaXMsIG9yIGFkZCBwcm9wZXINCj4gZXJyb3IgcmVwb3J0aW5n
-IHRvDQo+IHRoaXMgZnVuY3Rpb24gYW5kIHRvIGFsbCBjYWxsZXJzLCBpbiBvcmRlciB0byBoYW5k
-bGUgdGhlIHNpdHVhdGlvbiBhdA0KPiBydW4gdGltZSB3aGljaA0KPiBJIHJlYWxpemUgaXMgZXhh
-Y3RseSB3aGF0IHlvdSBhcmUgdHJ5aW5nIHRvIGF2b2lkLg0KPiANCj4gSWYgdGhpcyBjcmFzaGVz
-IGF0IHJ1biB0aW1lIHdpdGggdGhlIEJVR19PTigpLCBpdCdzIGdvaW5nIHRvIGhhcHBlbg0KPiBy
-ZWFsbHkgcXVpY2tseQ0KPiB3aGVuIHlvdSBicmluZyB0aGUgaW50ZXJmYWNlIHVwLsKgwqBTbyBJ
-IGRvbid0IHNlZSANCj4gdGhlIHJ1biB0aW1lIGNoZWNrIGFzIHNvIHRyYWdpYy4NCg0KU28gd2Un
-cmUgb2sgd2l0aCBqdXN0IG5vdCBjaGFuZ2luZyB0aGlzIHRoZW4sIGFuZCBsaXZpbmcgd2l0aCBh
-IGNyYXNoPw0KVGhhdCdzIGZpbmUgd2l0aCBtZSwgSSBzdXBwb3NlLg0KDQpTaG91bGQgdGhlIHNl
-Y29uZCBXQVJOX09OQ0UgYmUgY2hhbmdlZCB0byBhIEJVR19PTiBhcyB3ZWxsIHRvIGdldCBhDQpj
-cmFzaCBpbnN0ZWFkIG9mIGp1c3QgYSB3YXJuaW5nP8KgDQoNClRoYW5rcywNCkpha2U=
+Paul Moore <paul@paul-moore.com> wrote:
+> On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
+> > netfilter hooks are per namespace -- so there is hook unregister when
+> > netns is destroyed.
+> 
+> Looking around, I see the global and per-namespace registration
+> functions (nf_register_hook and nf_register_net_hook, respectively),
+> but I'm looking to see if/how newly created namespace inherit
+> netfilter hooks from the init network namespace ... if you can create
+> a network namespace and dodge the SELinux hooks, that isn't a good
+> thing from a SELinux point of view, although it might be a plus
+> depending on where you view Paolo's original patches ;)
+
+Heh :-)
+
+If you use nf_register_net_hook, the hook is only registered in the
+namespace.
+
+If you use nf_register_hook, the hook is put on a global list and
+registed in all existing namespaces.
+
+New namespaces will have the hook added as well (see
+netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
+
+Since nf_register_hook is used it should be impossible to get a netns
+that doesn't call these hooks.
+
+> > Do you think it makes sense to rework the patch to delay registering
+> > of the netfiler hooks until the system is in a state where they're
+> > needed, without the 'unregister' aspect?
+> 
+> I would need to see the patch to say for certain, but in principle
+> that seems perfectly reasonable and I think would satisfy both the
+> netdev and SELinux camps - good suggestion.  My main goal is to drop
+> the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
+> 
+> We might even be able to trim the secmark_active and peerlbl_active
+> checks in the SELinux netfilter hooks (an earlier attempt at
+> optimization; contrary to popular belief, I do care about SELinux
+> performance), although that would mean that enabling the network
+> access controls would be one way ... I guess you can disregard that
+> last bit, I'm thinking aloud again.
+
+One way is fine I think.
+
+> > Ideally this would even be per netns -- in perfect world we would
+> > be able to make it so that a new netns are created with an empty
+> > hook list.
+> 
+> In general SELinux doesn't care about namespaces, for reasons that are
+> sorta beyond the scope of this conversation, so I would like to stick
+> to a all or nothing approach to enabling the SELinux netfilter hooks
+> across namespaces.  Perhaps we can revisit this at a later time, but
+> let's keep it simple right now.
+
+Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
+(Casey, I read your comment regarding smack. Noted, we don't want to
+break smack either...)
+
+I think that in this case the entire question is:
+
+In your experience, how likely is a config where
+selinux is enabled BUT the hooks are not needed (i.e., where we hit the
+
+if (!selinux_policycap_netpeer)
+    return NF_ACCEPT;
+
+if (!secmark_active && !peerlbl_active)
+   return NF_ACCEPT;
+
+tests inside the hooks)?  If such setups are uncommon we should just
+drop this idea or at least put it on the back burner until the more expensive
+netfilter hooks (conntrack, cough) are out of the way.
+
+Thanks,
+Florian
