@@ -1,42 +1,48 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: "Banerjee, Debabrata" <dbanerje@akamai.com>
 Subject: Re: [PATCH] macvlan: Support interface operstate properly
-Date: Wed, 6 Apr 2016 23:27:08 +0200
-Message-ID: <57057F2C.9030304@cumulusnetworks.com>
+Date: Wed, 6 Apr 2016 21:26:33 +0000
+Message-ID: <53A6C2CA-9C49-4F85-97F6-DD60276AFCC2@akamai.com>
 References: <1459974608-25324-1-git-send-email-dbanerje@akamai.com>
  <570579AA.6050400@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Debabrata Banerjee <dbanerje@akamai.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36837 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137AbcDFV1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:27:12 -0400
-Received: by mail-wm0-f50.google.com with SMTP id v188so36540776wme.1
-        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 14:27:11 -0700 (PDT)
+Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:13514 "EHLO
+	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753318AbcDFVfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 17:35:03 -0400
 In-Reply-To: <570579AA.6050400@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <F291AC386431444E8F9C5CB27BCE8599@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2016 11:03 PM, Nikolay Aleksandrov wrote:
-> On 04/06/2016 10:30 PM, Debabrata Banerjee wrote:
->> Set appropriate macvlan interface status based on lower device and our
->> status. Can be up, down, or lowerlayerdown.
->>
->> Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
->>
-> 
-> May I ask what is exactly that you're fixing here ? I recently had to make macvlan's
-> operstates more accurate and I haven't experienced any wrong behaviour since commit
-> de7d244d0a35 ("macvlan: make operstate and carrier more accurate").
-> Also it's the linkwatch's job to take care for the proper operstate, we can use
-> netif_stacked_transfer_operstate to help it, but I don't think directly setting
-> operstate is a good idea.
-
-Misread part of the change, got it now. My comment below still stands though,
-
-> One more thing - you cannot use netdev_state_change() under the write_lock as it
-> may sleep.
-> 
+T24gNC82LzE2LCA1OjAzIFBNLCAiTmlrb2xheSBBbGVrc2FuZHJvdiIgPG5pa29sYXlAY3VtdWx1
+c25ldHdvcmtzLmNvbT4gd3JvdGU6DQoNCg0KPk9uIDA0LzA2LzIwMTYgMTA6MzAgUE0sIERlYmFi
+cmF0YSBCYW5lcmplZSB3cm90ZToNCj4+IFNldCBhcHByb3ByaWF0ZSBtYWN2bGFuIGludGVyZmFj
+ZSBzdGF0dXMgYmFzZWQgb24gbG93ZXIgZGV2aWNlIGFuZCBvdXINCj4+IHN0YXR1cy4gQ2FuIGJl
+IHVwLCBkb3duLCBvciBsb3dlcmxheWVyZG93bi4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogRGVi
+YWJyYXRhIEJhbmVyamVlIDxkYmFuZXJqZUBha2FtYWkuY29tPg0KPj4gDQo+DQo+TWF5IEkgYXNr
+IHdoYXQgaXMgZXhhY3RseSB0aGF0IHlvdSdyZSBmaXhpbmcgaGVyZSA/IEkgcmVjZW50bHkgaGFk
+IHRvIG1ha2UgbWFjdmxhbidzDQo+b3BlcnN0YXRlcyBtb3JlIGFjY3VyYXRlIGFuZCBJIGhhdmVu
+J3QgZXhwZXJpZW5jZWQgYW55IHdyb25nIGJlaGF2aW91ciBzaW5jZSBjb21taXQNCj5kZTdkMjQ0
+ZDBhMzUgKCJtYWN2bGFuOiBtYWtlIG9wZXJzdGF0ZSBhbmQgY2FycmllciBtb3JlIGFjY3VyYXRl
+IikuDQoNClllcyBJIHNhdyB0aGUgb3RoZXIgcGF0Y2gsIGl0J3MgYW4gaW1wcm92ZW1lbnQgZnJv
+bSB3aGVuIEkgc3RhcnRlZCB3b3JraW5nIG9uIHRoaXMuIA0KDQoNCj5BbHNvIGl0J3MgdGhlIGxp
+bmt3YXRjaCdzIGpvYiB0byB0YWtlIGNhcmUgZm9yIHRoZSBwcm9wZXIgb3BlcnN0YXRlLCB3ZSBj
+YW4gdXNlDQo+bmV0aWZfc3RhY2tlZF90cmFuc2Zlcl9vcGVyc3RhdGUgdG8gaGVscCBpdCwgYnV0
+IEkgZG9uJ3QgdGhpbmsgZGlyZWN0bHkgc2V0dGluZw0KPm9wZXJzdGF0ZSBpcyBhIGdvb2QgaWRl
+YS4NCg0KVGhpcyBwYXRjaCB3YXMgbW9kZWxlZCBhZnRlciBfX2hzcl9zZXRfb3BlcnN0YXRlKCku
+IEJ1dCBJIGFncmVlIHRoZXJlJ3MgcHJvYmFibHkNCmJldHRlciB3YXlzIHRvIGRvIGl0LiBJJ20g
+bm90IHN1cmUgd2h5IG5ldGlmX3N0YWNrZWRfdHJhbnNmZXJfb3BlcnN0YXRlKCkgZG9lc24ndCBk
+bw0KaXQgaXRzZWxmLCBhbHRob3VnaCBpbiB0aGUgY2FzZSBvZiBhIGxheWVyZWQgZGV2aWNlLCBt
+eSBwYXRjaCBhY3R1YWxseSB1c2VzIHRoZSBvdGhlcg0KcG9zc2libGUgc3RhdGUsIHdoaWNoIGlz
+IGxvd2VybGF5ZXJkb3duLiBXaXRob3V0IHRoZSBwYXRjaCBvcGVyc3RhdGUgZ29lcyBkaXJlY3Rs
+eSB0bw0KZG93bi4NCg0KPg0KPk9uZSBtb3JlIHRoaW5nIC0geW91IGNhbm5vdCB1c2UgbmV0ZGV2
+X3N0YXRlX2NoYW5nZSgpIHVuZGVyIHRoZSB3cml0ZV9sb2NrIGFzIGl0DQo+bWF5IHNsZWVwLg0K
+DQpZb3UncmUgcmlnaHQsIEkgY2FuIHJlc3VibWl0IG1vdmluZyB0aGUgY2FsbCBvdXQgb2YgdGhl
+IGNyaXRpY2FsIHNlY3Rpb24sIGlmIHRoZSBwYXRjaA0Kd2lsbCBiZSB0YWtlbi4NCg0K
