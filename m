@@ -1,52 +1,64 @@
-From: QUALITY LOAN SERVICE CORPORATION
-	<ardiansyah.desputra@kalstaronline.com>
-Subject: Darlehen anbieten
-Date: Wed, 6 Apr 2016 14:51:17 +0700 (WIT)
-Message-ID: <823785303.225982.1459929077243.JavaMail.zimbra@kalstaronline.com>
-Reply-To: QUALITY LOAN SERVICE CORPORATION
-	  <qualityloanservicecorporation@gmail.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [RFC PATCH 6/6] ppp: add rtnetlink device creation support
+Date: Wed, 06 Apr 2016 10:02:56 +0200
+Message-ID: <5704C2B0.6020504@bfs.de>
+References: <cover.1459807527.git.g.nault@alphalink.fr> <dc5fd88775581dba073d0051bbfb4c2c9c5c2d23.1459807527.git.g.nault@alphalink.fr> <5703F356.6050107@bfs.de> <20160405212222.GD1305@alphalink.fr>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.kalstaronline.com ([202.43.163.170]:52953 "EHLO
-	mail2.kalstaronline.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731AbcDFHxG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 03:53:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20160405212222.GD1305@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sch=C3=B6nen Tag,
 
-  Ben=C3=B6tigen Sie eine finanzielle Unterst=C3=BCtzung? ein berechtig=
-tes Kredit f=C3=BCr Zinsen n=C3=B6tig? Sie ben=C3=B6tigen einen Busines=
-s-Darlehen? Sie ben=C3=B6tigen ein Darlehen ein Haus, Auto zu kaufen, u=
-m Ihre Rechnungen und Schulden zu bezahlen? Brauchen Sie Geld Probleme =
-zu l=C3=B6sen? Wenn so freundlich f=C3=BCr ein Darlehen mit uns um 3% Z=
-inssatz gelten, gelten nun durch die folgenden Details und R=C3=BCckkeh=
-r zu uns per E-Mail: qualityloanservicecorporation@gmail.com
 
-erforderlichen Informationen, um
+Am 05.04.2016 23:22, schrieb Guillaume Nault:
+> On Tue, Apr 05, 2016 at 07:18:14PM +0200, walter harms wrote:
+>>
+>>
+>> Am 05.04.2016 02:56, schrieb Guillaume Nault:
+>>> @@ -1043,12 +1048,39 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
+>>>  			     const struct ppp_config *conf)
+>>>  {
+>>>  	struct ppp *ppp = netdev_priv(dev);
+>>> +	struct file *file;
+>>>  	int indx;
+>>> +	int err;
+>>> +
+>>> +	if (conf->fd < 0) {
+>>> +		file = conf->file;
+>>> +		if (!file) {
+>>> +			err = -EBADF;
+>>> +			goto out;
+>>
+>> why not just return -EBADF;
+>>
+>>> +		}
+>>> +	} else {
+>>> +		file = fget(conf->fd);
+>>> +		if (!file) {
+>>> +			err = -EBADF;
+>>> +			goto out;
+>> 	
+>> why not just return -EBADF;
+>>
+> Just because the 'out' label is declared anyway and because this
+> centralises the return point. But I agree returning -EBADF directly
+> could be more readable. I don't have strong opinion.
 
-Deine Namen:
+in this special case i would go for readable. People tend to miss these
+if
+ if
+  if
+constructs.
 
-Adresse: ...........
-Telefon: ...........
-Ben=C3=B6tigte Menge: .......
-Dauer: ...............
-Beruf: ...........
-Monatliches Einkommen Level: ......
-Geschlecht: ..............
-Geburtsdatum: .......
-Bundesland: ...............
-Land: .........
-Zweck: .........
+NTL its up to you.
 
-Vielen dank f=C3=BCr ihr Verst=C3=A4ndnis
-
-Dringende Antwort von Ihnen ben=C3=B6tigt jetzt
-
-Mit freundlichen Gr=C3=BC=C3=9Fen
-
-=46rau Isabelle Morgan
+re,
+ wh
