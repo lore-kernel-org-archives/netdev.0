@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] cxgb4/cxgb4vf: Deprecate module parameter
- dflt_msg_enable
-Date: Wed, 06 Apr 2016 14:21:26 -0400 (EDT)
-Message-ID: <20160406.142126.1268519048694704258.davem@davemloft.net>
-References: <1459830141-27224-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not
+ needed
+Date: Wed, 06 Apr 2016 14:23:16 -0400 (EDT)
+Message-ID: <20160406.142316.1728426867290841888.davem@davemloft.net>
+References: <CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
+	<1459951424.5425.12.camel@redhat.com>
+	<CAHC9VhQS+LfPbj0UuKFiVCW7LKthJmgOt08MvCiwKjTZZYstxA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43907 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752646AbcDFSV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 14:21:28 -0400
-In-Reply-To: <1459830141-27224-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pabeni@redhat.com, linux-security-module@vger.kernel.org,
+	james.l.morris@oracle.com, agruenba@redhat.com, sds@tycho.nsa.gov,
+	fw@strlen.de, netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: paul@paul-moore.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CAHC9VhQS+LfPbj0UuKFiVCW7LKthJmgOt08MvCiwKjTZZYstxA@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue,  5 Apr 2016 09:52:21 +0530
+From: Paul Moore <paul@paul-moore.com>
+Date: Wed, 6 Apr 2016 10:07:27 -0400
 
-> Message level can be set through ethtool, so deprecate module parameter
-> which is used to set the same.
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> "While marking the LSM hook structure doesn't directly affect the
+> SELinux netfilter hooks, once we remove the ability to deregister the
+> LSM hooks we will have no need to support deregistering netfilter
+> hooks and I expect we will drop that functionality as well to help
+> decrease the risk of tampering."
 
-Applied, thank you.
+This is not a reasonable postiion.
+
+The performance implications are non-trivial for using netfilter hooks
+when they aren't actually needed.
