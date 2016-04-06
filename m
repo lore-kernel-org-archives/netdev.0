@@ -1,59 +1,65 @@
-From: Dmitrijs Ivanovs <dmitrijs.ivanovs-NO1NBkfNQUg@public.gmane.org>
-Subject: Re: NETLINK_URELEASE non-bound socket problem (was: [PATCH] Fix local
- DoS in cfg80211 subsystem)
-Date: Wed, 6 Apr 2016 11:20:24 +0300
-Message-ID: <CAFSVvRcMQx1Vjv=Qwyb525Qq5DzBBD6c=n=-i+pWFFVqHRyAxQ@mail.gmail.com>
-References: <CAFSVvRfjZszSfovXZ0piPqOgVKH=10sG7pvnvkoWJChL38ifqQ@mail.gmail.com>
-	<1459850188.18188.38.camel@sipsolutions.net>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [RFC PATCH 6/6] ppp: add rtnetlink device creation support
+Date: Wed, 6 Apr 2016 10:21:07 +0200
+Message-ID: <20160406082107.GA1620@alphalink.fr>
+References: <cover.1459807527.git.g.nault@alphalink.fr>
+ <dc5fd88775581dba073d0051bbfb4c2c9c5c2d23.1459807527.git.g.nault@alphalink.fr>
+ <5703F356.6050107@bfs.de>
+ <20160405212222.GD1305@alphalink.fr>
+ <5704C2B0.6020504@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	samuel <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>,
-	Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>,
-	Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1459850188.18188.38.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
+To: walter harms <wharms@bfs.de>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5704C2B0.6020504@bfs.de>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Johannes!
-
-I will prepare patch which does not send NETLINK_URELEASE for unbound
-sockets as you suggest. But I think protocol check in nl80211 is still
-needed because port_id is unique per-protocol.
-
-On Tue, Apr 5, 2016 at 12:56 PM, Johannes Berg
-<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-> Hi Dmitrijs,
->
-> Thanks for reporting this problem.
->
->> The patch below corrects this problem in kernel space.
->
-> I don't think that this is correct, there are four more users of
-> NETLINK_URELEASE (nfnetlink, NFC), and afaict all of them have the same
-> bug as nl80211.
->
-> Rather than fix all of them, I think we should simply not report
-> NETLINK_URELEASE for netlink sockets that weren't bound; if any user
-> comes up that requires them later we could add a new event instead.
->
-> I can't find what commit introduced this code, it goes back before git
-> history, so I don't have the commit log. Maybe it was done for
-> nfnetlink log/queue? Certainly both nl80211 and NFC are much newer.
->
->> Also, it is
->> recommended to ensure that user-space applications are not using
->> user-supplied port_id for netlink sockets (which is default in
->> libnl-tiny for example).
->
-> This I think we should remove from the commit log - it's misleading and
-> there's no point.
->
-> johannes
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, Apr 06, 2016 at 10:02:56AM +0200, walter harms wrote:
+> 
+> 
+> Am 05.04.2016 23:22, schrieb Guillaume Nault:
+> > On Tue, Apr 05, 2016 at 07:18:14PM +0200, walter harms wrote:
+> >>
+> >>
+> >> Am 05.04.2016 02:56, schrieb Guillaume Nault:
+> >>> @@ -1043,12 +1048,39 @@ static int ppp_dev_configure(struct net *src_net, struct net_device *dev,
+> >>>  			     const struct ppp_config *conf)
+> >>>  {
+> >>>  	struct ppp *ppp = netdev_priv(dev);
+> >>> +	struct file *file;
+> >>>  	int indx;
+> >>> +	int err;
+> >>> +
+> >>> +	if (conf->fd < 0) {
+> >>> +		file = conf->file;
+> >>> +		if (!file) {
+> >>> +			err = -EBADF;
+> >>> +			goto out;
+> >>
+> >> why not just return -EBADF;
+> >>
+> >>> +		}
+> >>> +	} else {
+> >>> +		file = fget(conf->fd);
+> >>> +		if (!file) {
+> >>> +			err = -EBADF;
+> >>> +			goto out;
+> >> 	
+> >> why not just return -EBADF;
+> >>
+> > Just because the 'out' label is declared anyway and because this
+> > centralises the return point. But I agree returning -EBADF directly
+> > could be more readable. I don't have strong opinion.
+> 
+> in this special case i would go for readable. People tend to miss these
+> if
+>  if
+>   if
+> constructs.
+> 
+Ok, I'll do that in v3.
