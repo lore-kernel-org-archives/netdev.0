@@ -1,81 +1,60 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Wed, 6 Apr 2016 10:07:27 -0400
-Message-ID: <CAHC9VhQS+LfPbj0UuKFiVCW7LKthJmgOt08MvCiwKjTZZYstxA@mail.gmail.com>
-References: <cover.1459934322.git.pabeni@redhat.com>
-	<CAHC9VhS6aJdPR6xTH2-ehikS5qvj6jFbZAUtzoBXp+WC9Ugi=Q@mail.gmail.com>
-	<1459951424.5425.12.camel@redhat.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [net PATCH v2 2/2] ipv4/GRO: Make GRO conform to RFC 6864
+Date: Wed, 6 Apr 2016 15:26:01 +0100
+Message-ID: <57051C79.7010303@solarflare.com>
+References: <CAKgT0UfcqBUTY1SxawwKdnzS7qW7XggjzpKNcfT3cTSZ9DHMmA@mail.gmail.com>
+ <20160405043209.GA9822@gondor.apana.org.au> <5703D4C5.9060305@solarflare.com>
+ <20160405.194517.431351466693438399.davem@davemloft.net>
+ <5704F156.8030804@solarflare.com>
+ <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1459951424.5425.12.camel@redhat.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:3319 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750952AbcDFO0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 10:26:21 -0400
+In-Reply-To: <CALx6S34Sqp7tnmkPRWH0RF_CKrBLLNWFjHbr6Uq2r=6=scMMow@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 6, 2016 at 10:03 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> On Wed, 2016-04-06 at 08:33 -0400, Paul Moore wrote:
->> On Wed, Apr 6, 2016 at 5:51 AM, Paolo Abeni <pabeni@redhat.com> wrote:
->> > Currently, selinux always registers iptables POSTROUTING hooks regarless of
->> > the running policy needs for any action to be performed by them.
->> >
->> > Even the socket_sock_rcv_skb() is always registered, but it can result in a no-op
->> > depending on the current policy configuration.
->> >
->> > The above invocations in the kernel datapath are cause of measurable
->> > overhead in networking performance test.
->> >
->> > This patch series adds explicit notification for netlabel status change
->> > (other relevant status change, like xfrm and secmark, are already notified to
->> > LSM) and use this information in selinux to register the above hooks only when
->> > the current status makes them relevant, deregistering them when no-op
->> >
->> > Avoiding the LSM hooks overhead, in netperf UDP_STREAM test with small packets,
->> > gives about 5% performance improvement on rx and about 8% on tx.
->>
->> [NOTE: added the SELinux mailing list to the CC line, please include
->> when submitting SELinux patches]
->>
->> While I appreciate the patch and the work that went into development
->> and testing, I'm going to reject this patch on the grounds that it
->> conflicts with work we've just started thinking about which should
->> bring some tangible security benefit.
->>
->> The recent addition of post-init read only memory opens up some
->> interesting possibilities for SELinux and LSMs in general, the thing
->> which we've just started looking at is marking the LSM hook structure
->> read only after init.  There are some complicating factors for
->> SELinux, but I'm confident those can be resolved, and from what I can
->> tell marking the hooks read only will have no effect on other LSMs.
->> While marking the LSM hook structure doesn't directly affect the
->> SELinux netfilter hooks, once we remove the ability to deregister the
->> LSM hooks we will have no need to support deregistering netfilter
->> hooks and I expect we will drop that functionality as well to help
->> decrease the risk of tampering.
->
-> What if we drops the selinux hook related changes in the second patch
-> (the on-demand socket_sock_rcv_skb() [de-]registration)?
->
-> The patch will not conflict with the LSM hook structure becoming
-> read-only, we still retain the ability of registering/de-registering the
-> netfilter hooks, and that will still affect positively the tx network
-> performance.
+On 06/04/16 14:53, Tom Herbert wrote:
+> But again, this scheme is optimizing for forwarding case and doesn't
+> help (and probably hurts) the use case of locally terminated
+> connections
+Not really.  I think this has a chance to outperform GRO for locally
+terminated connections, for a number of reasons:
+* Doesn't look at higher-layer or inner headers until later in packet
+  processing, for instance we (maybe) process every L3 header in a NAPI poll
+  before looking at a single L4.  This could delay touching the second
+  cacheline of some packets.
+* Doesn't have to re-write headers to produce a coherent superframe.
+  Instead, each segment carries its original headers around with it.  Also
+  means we can skip _checking_ some headers to see if we're 'allowed' to
+  coalesce (e.g. TCP TS differences, and the current fun with IP IDs).
+* Can be used for protocols like UDP where the original packet boundaries
+  are important (so you can't coalesce into a superframe).
+Really the last of those was the original reason for this idea, helping with
+forwarding is just another nice bonus that we (might) get from it.
+And it's all speculative and I don't know for sure what the performance
+would be like, but I won't know until I try it!
+> which I would claim is more important.
+No argument there :-)
+> Packets that are
+> forwarded really should not be GRO'ed in the first place because of
+> the loss of information and added latency. The difficultly is that we
+> don't currently make the forwarding decision before GRO,  if we can
+> change this to decide whether packets are to be forwarded earlier then
+> we can avoid doing GRO for those.
+That certainly would be nice, XDP is exciting and I look forward to it.
 
-As I already said above:
-
-"While marking the LSM hook structure doesn't directly affect the
-SELinux netfilter hooks, once we remove the ability to deregister the
-LSM hooks we will have no need to support deregistering netfilter
-hooks and I expect we will drop that functionality as well to help
-decrease the risk of tampering."
-
--- 
-paul moore
-www.paul-moore.com
+-Ed
