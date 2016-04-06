@@ -1,48 +1,43 @@
 From: zengzhaoxiu@163.com
-Subject: [PATCH v2 24/30] ethernet: use parity8 in sun/niu.c
-Date: Wed,  6 Apr 2016 18:11:40 +0800
-Message-ID: <1459937500-8246-1-git-send-email-zengzhaoxiu@163.com>
+Subject: [PATCH v2 30/30] ethernet: use parity8 in broadcom/tg3.c
+Date: Wed,  6 Apr 2016 18:21:14 +0800
+Message-ID: <1459938074-8654-1-git-send-email-zengzhaoxiu@163.com>
 References: <57031D9D.801@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
-To: iamjoonsoo.kim@lge.com, akpm@linux-foundation.org, vbabka@suse.cz,
-	davem@davemloft.net, jiri@resnulli.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: siva.kallam@broadcom.com, prashant@broadcom.com, mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m50-135.163.com ([123.125.50.135]:50668 "EHLO m50-135.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751476AbcDFKV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 06:21:58 -0400
 In-Reply-To: <57031D9D.801@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 
 Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 ---
- drivers/net/ethernet/sun/niu.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
-index 9cc4564..8c344ef 100644
---- a/drivers/net/ethernet/sun/niu.c
-+++ b/drivers/net/ethernet/sun/niu.c
-@@ -2742,18 +2742,12 @@ static int niu_set_alt_mac_rdc_table(struct niu *np, int idx,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 3010080..802a429 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -12939,11 +12939,7 @@ static int tg3_test_nvram(struct tg3 *tp)
  
- static u64 vlan_entry_set_parity(u64 reg_val)
- {
--	u64 port01_mask;
--	u64 port23_mask;
+ 		err = -EIO;
+ 		for (i = 0; i < NVRAM_SELFBOOT_DATA_SIZE; i++) {
+-			u8 hw8 = hweight8(data[i]);
 -
--	port01_mask = 0x00ff;
--	port23_mask = 0xff00;
--
--	if (hweight64(reg_val & port01_mask) & 1)
-+	if (parity8(reg_val))
- 		reg_val |= ENET_VLAN_TBL_PARITY0;
- 	else
- 		reg_val &= ~ENET_VLAN_TBL_PARITY0;
- 
--	if (hweight64(reg_val & port23_mask) & 1)
-+	if (parity8((unsigned int)reg_val >> 8))
- 		reg_val |= ENET_VLAN_TBL_PARITY1;
- 	else
- 		reg_val &= ~ENET_VLAN_TBL_PARITY1;
+-			if ((hw8 & 0x1) && parity[i])
+-				goto out;
+-			else if (!(hw8 & 0x1) && !parity[i])
++			if (parity8(data[i]) == !!parity[i])
+ 				goto out;
+ 		}
+ 		err = 0;
 -- 
 2.5.0
