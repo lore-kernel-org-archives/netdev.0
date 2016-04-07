@@ -1,101 +1,55 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 7 Apr 2016 22:10:09 +0200
-Message-ID: <20160407201009.GA16136@lunn.ch>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop>
- <56ABADEA.40801@codeaurora.org>
- <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
- <5706B4EF.2050600@codeaurora.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been
+ left enabled.
+Date: Thu, 07 Apr 2016 13:21:58 -0700
+Message-ID: <1460060518.1800.8.camel@perches.com>
+References: <1460049545.6715.98.camel@perches.com>
+	 <1460046677.6715.95.camel@perches.com>
+	 <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+	 <20160407162309.21283.11482.stgit@warthog.procyon.org.uk>
+	 <24286.1460048722@warthog.procyon.org.uk>
+	 <981.1460058224@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-msm <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sagar Dharia <sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5706B4EF.2050600-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <981.1460058224@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I'm back to working on this driver, and I need some more help with
-> how to handle the phy.  mdio-gpio.txt doesn't really tell me much.
-> I'm actually working on an ACPI system and not DT.
+On Thu, 2016-04-07 at 20:43 +0100, David Howells wrote:
+> Joe Perches <joe@perches.com> wrote:
+> > > Joe Perches <joe@perches.com> wrote:
+> > > > It might be better to remove kenter and _enter
+> > > > altogether and use function tracing instead.
+> > > Possibly - but not at this time.
+> > Swell.
+> I didn't say I wouldn't do it - it's just that I'm trying to fix othe=
+r stuff
+> at the moment and don't particularly want to add that to the list jus=
+t now.
+> kenter, _enter and co. are serving me very well.
 
-I can help you with DT, but not ACPI.
+No worries, I didn't mean to imply you wouldn't.
+It's your code, do what and when you want.
 
-The MDIO bus can be a separate Linux device. Since you have GPIO lines
-for the MDIO bus, it makes sense for this to be a mdio-gpio device. So
-in DT, you would have:
+> > > Besides, isn't the function tracing log lost
+> > > if the machine crashes?
+> > I believe yes, but would it matter?
+> Let's see...=A0=A0If the machine panics whilst I'm developing stuff (=
+quite likely
+> if something goes wrong in BH context), how do I get at the function =
+tracing
+> log to find out why it panicked if the log is then lost?=A0=A0With th=
+e serial
+> console, at least I automatically capture the output of kenter and co=
+=2E.
 
-mdio0: mdio {
-        compatible = "virtual,mdio-gpio";
-        #address-cells = <1>;
-        #size-cells = <0>;
-        gpios = <&qcomgpio 123 0
-                 &qcomgpio 124 0>;
+But you also don't get a bunch of other useful stuff.
 
-	phy0: ethernet-phy@8 {
-        	reg = <9>;
-	};
-};
+btw: there is ftrace_dump_on_oops
 
-Here i've assumed the PHY is using address 8 on the bus. Change as
-needed.
-
-In your MAC DT node, you then have phy-handle pointing to this phy:
-
-  emac0: qcom,emac@feb20000 {
-  	cell-index = <0>;
-	compatible = "qcom,emac";
-	reg-names = "base", "csr", "ptp", "sgmii";
-	reg =   <0xfeb20000 0x10000>,
-	    	<0xfeb36000 0x1000>,
-		<0xfeb3c000 0x4000>,
-		<0xfeb38000 0x400>;
-	#address-cells = <0>;
-	interrupt-parent = <&emac0>;
-	#interrupt-cells = <1>;
-	interrupts = <0 1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 76 0
-	 	         1 &intc 0 80 0>;
-       	interrupt-names = "emac_core0", "sgmii_irq";
-  	qcom,emac-tstamp-en;
-	qcom,emac-ptp-frac-ns-adj = <125000000 1>;
-
-	phy-handle = <&phy0>
-}
-
-In the driver, you need to connect the PHY to the MAC. You do this
-using something like:
-
-         if (dev->of_node) {
-                 phy_np = of_parse_phandle(dev->of_node, "phy-handle", 0);
-                 if (!phy_np) {
-                         netdev_dbg(ndev, "No phy-handle found in DT\n");
-                         return -ENODEV;
-                 }
- 
-                 phy_dev = of_phy_connect(ndev, phy_np, &xxxx_enet_adjust_link,
-                                          0, pdata->phy_mode);
-                 if (!phy_dev) {
-                         netdev_err(ndev, "Could not connect to PHY\n");
-                         return -ENODEV;
-                 }
-
-Do you have an ACPI table describing this hardware? What does it look
-like?
-
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://lwn.net/Articles/366796/
