@@ -1,94 +1,47 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH] possible bug in handling of ipv4 route caching
-Date: Fri, 8 Apr 2016 00:20:24 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg>
-References: <5706B250.1060303@windriver.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been left enabled.
+Date: Thu, 07 Apr 2016 22:24:53 +0100
+Message-ID: <8082.1460064293@warthog.procyon.org.uk>
+References: <20160407.165021.1271761992369838408.davem@davemloft.net> <1460046677.6715.95.camel@perches.com> <1091.1460058308@warthog.procyon.org.uk> <5702.1460062039@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>
-To: Chris Friesen <chris.friesen@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:59077 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757447AbcDGVU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 17:20:29 -0400
-In-Reply-To: <5706B250.1060303@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com, joe@perches.com,
+	linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160407.165021.1271761992369838408.davem@davemloft.net>
+Content-ID: <8081.1460064293.1@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+David Miller <davem@davemloft.net> wrote:
 
-	Hello,
+> As you can with the function tracer and tracepoints.
 
-On Thu, 7 Apr 2016, Chris Friesen wrote:
+I've had experience with tracepoints before (i2c and smbus).  It wasn't
+particularly fun.  There's got to be some easier way to write them.
 
-> Hi,
-> 
-> We think we may have found a bug in the handling of ipv4 route caching,
-> and are curious what you think.
-> 
-> For local routes that require a particular output interface we do not
-> want to cache the result.  Caching the result causes incorrect behaviour
-> when there are multiple source addresses on the interface.  The end
-> result being that if the intended recipient is waiting on that interface
-> for the packet he won't receive it because it will be delivered on the
-> loopback interface and the IP_PKTINFO ipi_ifindex will be set to the
-> loopback interface as well.
+Hmmm...
 
-	So, if we store some orig_oif in rt_iif that
-is specific (cached in nexthop) to some device, this
-orig_oif should match the device. The only case when
-this is violated is when we redirect traffic to lo.
-Any attempts to store eth1 in rt_iif for nexthop
-cache for lo should be avoided.
+Of the _enter() and _leave() macros in my tree at the moment, I have 261 that
+record more information than just the name of the function.  I presume each
+would need to be converted to a TRACE_EVENT*() macro as, as far as I can see
+with a cursory examination, the function tracer doesn't record arguments or the
+things arguments point to (which I do a lot of).  There are also another 84 of
+these macros that only record the name of the function which are simpler
+propositions.
 
-> This can be tested by running a program such as "dhcp_release" which
-> attempts to inject a packet on a particular interface so that it is
-> received by another program on the same board.  The receiving process
-> should see an IP_PKTINFO ipi_ifndex value of the source interface
-> (e.g., eth1) instead of the loopback interface (e.g., lo).  The packet
-> will still appear on the loopback interface in tcpdump but the important
-> aspect is that the CMSG info is correct.
-> 
-> For what it's worth, here's a patch that we've applied locally to deal
-> with the issue.
-> 
-> Chris
-> 
-> 
-> 
-> Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
-> Signed-off-by: Chris Friesen <chris.friesen@windriver.com>
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 02c6229..e965d4b 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2045,6 +2045,17 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
->  		 */
->  		if (fi && res->prefixlen < 4)
->  			fi = NULL;
-> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0)) {
+Add to that 286 _debug(), _net() and _proto() macros, all of which record more
+information than just the name of the calling function and don't have anything
+particularly to do with function trace.
 
-	So, we can be more specific. Can this work?:
+Now, I have been considering that the _net() and _proto() macros would probably
+work well as TRACE_EVENT()-type constructs, allowing the tracing of protocol
+flow.
 
-	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
-		   (orig_oif != dev_out->ifindex)) {
+I don't suppose you have a script for automatically converting something like
+a printk()-type thing into a TRACE_EVENT()?
 
-	I.e. we should allow to cache orig_oif=LOOPBACK_IFINDEX
-but eth1 should not be cached.
-
-> +		/* For local routes that require a particular output interface
-> +                 * we do not want to cache the result.  Caching the result
-> +                 * causes incorrect behaviour when there are multiple source
-> +                 * addresses on the interface, the end result being that if the
-> +                 * intended recipient is waiting on that interface for the
-> +                 * packet he won't receive it because it will be delivered on
-> +                 * the loopback interface and the IP_PKTINFO ipi_ifindex will
-> +                 * be set to the loopback interface as well.
-> +		 */
-> +		fi = NULL;
->  	}
->  
->  	fnhe = NULL;
-
-Regards
+David
