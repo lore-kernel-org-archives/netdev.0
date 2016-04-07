@@ -1,57 +1,42 @@
-From: Michael Hennerich <michael.hennerich@analog.com>
-Subject: Re: [PATCH] ieee802154/adf7242: fix memory leak of firmware
-Date: Thu, 7 Apr 2016 13:09:57 +0200
-Message-ID: <57064005.2040801@analog.com>
-References: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
-Reply-To: <michael.hennerich@analog.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <linux-wpan@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Alexander Aring <aar@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+Subject: [PATCH v4 2/2] RDS: fix congestion map corruption for PAGE_SIZE > 4k
+Date: Thu,  7 Apr 2016 07:57:36 -0400
+Message-ID: <1460030256-16791-2-git-send-email-shamir.rabinovitch@oracle.com>
+References: <1460030256-16791-1-git-send-email-shamir.rabinovitch@oracle.com>
+Cc: davem@davemloft.net, shamir.rabinovitch@oracle.com,
+	santosh.shilimkar@oracle.com
+To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:28747 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755418AbcDGL6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 07:58:00 -0400
+In-Reply-To: <1460030256-16791-1-git-send-email-shamir.rabinovitch@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2016 01:16 PM, Sudip Mukherjee wrote:
-> If the firmware upload or the firmware verification fails then we
-> printed the error message and exited but we missed releasing the
-> firmware.
->
-> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+When PAGE_SIZE > 4k single page can contain 2 RDS fragments. If
+'rds_ib_cong_recv' ignore the RDS fragment offset in to the page it
+then read the data fragment as far congestion map update and lead to
+corruption of the RDS connection far congestion map.
 
-Acked-by: Michael Hennerich <michael.hennerich@analog.com>
+Signed-off-by: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+---
+ net/rds/ib_recv.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> ---
->   drivers/net/ieee802154/adf7242.c | 2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
-> index 89154c0..91d4531 100644
-> --- a/drivers/net/ieee802154/adf7242.c
-> +++ b/drivers/net/ieee802154/adf7242.c
-> @@ -1030,6 +1030,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
->   	if (ret) {
->   		dev_err(&lp->spi->dev,
->   			"upload firmware failed with %d\n", ret);
-> +		release_firmware(fw);
->   		return ret;
->   	}
->
-> @@ -1037,6 +1038,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
->   	if (ret) {
->   		dev_err(&lp->spi->dev,
->   			"verify firmware failed with %d\n", ret);
-> +		release_firmware(fw);
->   		return ret;
->   	}
->
->
-
-
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 977fb86..abc8cc8 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -796,7 +796,7 @@ static void rds_ib_cong_recv(struct rds_connection *conn,
+ 
+ 		addr = kmap_atomic(sg_page(&frag->f_sg));
+ 
+-		src = addr + frag_off;
++		src = addr + frag->f_sg.offset + frag_off;
+ 		dst = (void *)map->m_page_addrs[map_page] + map_off;
+ 		for (k = 0; k < to_copy; k += 8) {
+ 			/* Record ports that became uncongested, ie
 -- 
-Greetings,
-Michael
+1.7.1
