@@ -1,72 +1,41 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 2/2] tipc: purge deferred updates from dead nodes
-Date: Thu,  7 Apr 2016 10:40:44 -0400
-Message-ID: <1460040044-30770-3-git-send-email-jon.maloy@ericsson.com>
-References: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Erik Hugne <erik.hugne@gmail.com>,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: Backport Security Fix for CVE-2015-8787 to v4.1
+Date: Thu, 7 Apr 2016 16:46:28 +0200
+Message-ID: <20160407144628.GA1137@salvia>
+References: <570600DE.2030001@jp.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kamatam@amazon.com
+To: Yuki Machida <machida.yuki@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:23845 "EHLO
-	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756616AbcDGOlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 10:41:23 -0400
-In-Reply-To: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail.us.es ([193.147.175.20]:53027 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756453AbcDGOqg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 10:46:36 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id C6A2515AEA9
+	for <netdev@vger.kernel.org>; Thu,  7 Apr 2016 16:46:30 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B70A3DA8F7
+	for <netdev@vger.kernel.org>; Thu,  7 Apr 2016 16:46:30 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B076BDA38E
+	for <netdev@vger.kernel.org>; Thu,  7 Apr 2016 16:46:28 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <570600DE.2030001@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@gmail.com>
+On Thu, Apr 07, 2016 at 03:40:30PM +0900, Yuki Machida wrote:
+> Hi David,
+> 
+> I conformed that a patch of CVE-2015-8787 not applied at v4.1.21.
+> Could you please apply a patch for 4.1-stable ?
+> 
+> CVE-2015-8787
+> Upstream commit 94f9cd81436c85d8c3a318ba92e236ede73752fc
 
-If a peer node becomes unavailable, in addition to removing the
-nametable entries from this node we also need to purge all deferred
-updates associated with this node.
+I'll request again, this time to Sasha Levin to include this in
+-stable 4.1.
 
-Signed-off-by: Erik Hugne <erik.hugne@gmail.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/name_distr.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
-
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 4f4f581..6b626a6 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -224,12 +224,31 @@ static void tipc_publ_purge(struct net *net, struct publication *publ, u32 addr)
- 	kfree_rcu(p, rcu);
- }
- 
-+/**
-+ * tipc_dist_queue_purge - remove deferred updates from a node that went down
-+ */
-+static void tipc_dist_queue_purge(struct net *net, u32 addr)
-+{
-+	struct tipc_net *tn = net_generic(net, tipc_net_id);
-+	struct distr_queue_item *e, *tmp;
-+
-+	spin_lock_bh(&tn->nametbl_lock);
-+	list_for_each_entry_safe(e, tmp, &tn->dist_queue, next) {
-+		if (e->node != addr)
-+			continue;
-+		list_del(&e->next);
-+		kfree(e);
-+	}
-+	spin_unlock_bh(&tn->nametbl_lock);
-+}
-+
- void tipc_publ_notify(struct net *net, struct list_head *nsub_list, u32 addr)
- {
- 	struct publication *publ, *tmp;
- 
- 	list_for_each_entry_safe(publ, tmp, nsub_list, nodesub_list)
- 		tipc_publ_purge(net, publ, addr);
-+	tipc_dist_queue_purge(net, addr);
- }
- 
- /**
--- 
-1.9.1
+Thanks.
