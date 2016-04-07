@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v3 1/2] tipc: eliminate buffer
-	leak in bearer layer
-Date: Thu,  7 Apr 2016 10:09:13 -0400
-Message-ID: <1460038154-26856-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v3 2/2] tipc: stricter filtering
+	of packets in bearer layer
+Date: Thu,  7 Apr 2016 10:09:14 -0400
+Message-ID: <1460038154-26856-3-git-send-email-jon.maloy@ericsson.com>
 References: <1460038154-26856-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,186 +23,162 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-When enabling a bearer we create a 'neigbor discoverer' instance by
-calling the function tipc_disc_create() before the bearer is actually
-registered in the list of enabled bearers. Because of this, the very
-first discovery broadcast message, created by the mentioned function,
-is lost, since it cannot find any valid bearer to use. Furthermore,
-the used send function, tipc_bearer_xmit_skb() does not free the given
-buffer when it cannot find a  bearer, resulting in the leak of exactly
-one send buffer each time a bearer is enabled.
+Resetting a bearer/interface, with the consequence of resetting all its
+pertaining links, is not an atomic action. This becomes particularly
+evident in very large clusters, where a lot of traffic may happen on the
+remaining links while we are busy shutting them down. In extreme cases,
+we may even see links being re-created and re-established before we are
+finished with the job.
 
-This commit fixes this problem by introducing two changes:
-
-1) Instead of attemting to send the discovery message directly, we let
-   tipc_disc_create() return the discovery buffer to the calling
-   function, tipc_enable_bearer(), so that the latter can send it
-   when the enabling sequence is finished.
-
-2) In tipc_bearer_xmit_skb(), as well as in the two other transmit
-   functions at the bearer layer, we now free the indicated buffer or
-   buffer chain when a valid bearer cannot be found.
+To solve this, we now introduce a solution where we temporarily detach
+the bearer from the interface when the bearer is reset. This inhibits
+all packet reception, while sending still is possible. For the latter,
+we use the fact that the device's user pointer now is zero to filter out
+which packets can be sent during this situation; i.e., outgoing RESET
+messages only.  This filtering serves to speed up the neighbors'
+detection of the loss event, and saves us from unnecessary probing.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c   | 51 ++++++++++++++++++++++++++-------------------------
- net/tipc/discover.c |  7 ++-----
- net/tipc/discover.h |  2 +-
- 3 files changed, 29 insertions(+), 31 deletions(-)
+ net/tipc/bearer.c | 50 +++++++++++++++++++++++++++++++++-----------------
+ net/tipc/msg.h    |  5 +++++
+ 2 files changed, 38 insertions(+), 17 deletions(-)
 
 diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 27a5406..20566e9 100644
+index 20566e9..6f11c62 100644
 --- a/net/tipc/bearer.c
 +++ b/net/tipc/bearer.c
-@@ -205,6 +205,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
- 	struct tipc_bearer *b;
- 	struct tipc_media *m;
- 	struct tipc_bearer_names b_names;
-+	struct sk_buff *skb;
- 	char addr_string[16];
- 	u32 bearer_id;
- 	u32 with_this_prio;
-@@ -301,7 +302,7 @@ restart:
- 	b->net_plane = bearer_id + 'A';
- 	b->priority = priority;
- 
--	res = tipc_disc_create(net, b, &b->bcast_addr);
-+	res = tipc_disc_create(net, b, &b->bcast_addr, &skb);
- 	if (res) {
- 		bearer_disable(net, b);
- 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
-@@ -310,7 +311,8 @@ restart:
- 	}
- 
- 	rcu_assign_pointer(tn->bearer_list[bearer_id], b);
--
-+	if (skb)
-+		tipc_bearer_xmit_skb(net, bearer_id, skb, &b->bcast_addr);
- 	pr_info("Enabled bearer <%s>, discovery domain %s, priority %u\n",
- 		name,
- 		tipc_addr_string_fill(addr_string, disc_domain), priority);
-@@ -450,6 +452,8 @@ void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
- 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
- 	if (likely(b))
- 		b->media->send_msg(net, skb, b, dest);
-+	else
-+		kfree_skb(skb);
- 	rcu_read_unlock();
- }
- 
-@@ -468,11 +472,11 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- 
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
--	if (likely(b)) {
--		skb_queue_walk_safe(xmitq, skb, tmp) {
--			__skb_dequeue(xmitq);
--			b->media->send_msg(net, skb, b, dst);
--		}
-+	if (unlikely(!b))
-+		__skb_queue_purge(xmitq);
-+	skb_queue_walk_safe(xmitq, skb, tmp) {
-+		__skb_dequeue(xmitq);
-+		b->media->send_msg(net, skb, b, dst);
- 	}
- 	rcu_read_unlock();
- }
-@@ -490,14 +494,14 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
- 
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
--	if (likely(b)) {
--		skb_queue_walk_safe(xmitq, skb, tmp) {
--			hdr = buf_msg(skb);
--			msg_set_non_seq(hdr, 1);
--			msg_set_mc_netid(hdr, net_id);
--			__skb_dequeue(xmitq);
--			b->media->send_msg(net, skb, b, &b->bcast_addr);
--		}
-+	if (unlikely(!b))
-+		__skb_queue_purge(xmitq);
-+	skb_queue_walk_safe(xmitq, skb, tmp) {
-+		hdr = buf_msg(skb);
-+		msg_set_non_seq(hdr, 1);
-+		msg_set_mc_netid(hdr, net_id);
-+		__skb_dequeue(xmitq);
-+		b->media->send_msg(net, skb, b, &b->bcast_addr);
- 	}
- 	rcu_read_unlock();
- }
-@@ -513,24 +517,21 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
-  * ignores packets sent using interface multicast, and traffic sent to other
-  * nodes (which can happen if interface is running in promiscuous mode).
+@@ -337,23 +337,16 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
   */
--static int tipc_l2_rcv_msg(struct sk_buff *buf, struct net_device *dev,
-+static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
- 			   struct packet_type *pt, struct net_device *orig_dev)
+ static void bearer_disable(struct net *net, struct tipc_bearer *b)
  {
- 	struct tipc_bearer *b;
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	u32 i;
++	struct tipc_net *tn = tipc_net(net);
++	int bearer_id = b->identity;
  
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(dev->tipc_ptr);
--	if (likely(b)) {
--		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
--			buf->next = NULL;
--			tipc_rcv(dev_net(dev), buf, b);
--			rcu_read_unlock();
--			return NET_RX_SUCCESS;
--		}
-+	if (likely(b && (skb->pkt_type <= PACKET_BROADCAST))) {
-+		skb->next = NULL;
-+		tipc_rcv(dev_net(dev), skb, b);
-+		rcu_read_unlock();
-+		return NET_RX_SUCCESS;
- 	}
- 	rcu_read_unlock();
+ 	pr_info("Disabling bearer <%s>\n", b->name);
+ 	b->media->disable_media(b);
 -
--	kfree_skb(buf);
-+	kfree_skb(skb);
- 	return NET_RX_DROP;
+-	tipc_node_delete_links(net, b->identity);
++	tipc_node_delete_links(net, bearer_id);
+ 	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	if (b->link_req)
+ 		tipc_disc_delete(b->link_req);
+-
+-	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (b == rtnl_dereference(tn->bearer_list[i])) {
+-			RCU_INIT_POINTER(tn->bearer_list[i], NULL);
+-			break;
+-		}
+-	}
++	RCU_INIT_POINTER(tn->bearer_list[bearer_id], NULL);
+ 	kfree_rcu(b, rcu);
  }
  
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index f1e738e..ad9d477 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -268,10 +268,9 @@ exit:
-  * Returns 0 if successful, otherwise -errno.
-  */
- int tipc_disc_create(struct net *net, struct tipc_bearer *b,
--		     struct tipc_media_addr *dest)
-+		     struct tipc_media_addr *dest, struct sk_buff **skb)
- {
- 	struct tipc_link_req *req;
--	struct sk_buff *skb;
+@@ -396,7 +389,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
  
- 	req = kmalloc(sizeof(*req), GFP_ATOMIC);
- 	if (!req)
-@@ -293,9 +292,7 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
- 	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
- 	mod_timer(&req->timer, jiffies + req->timer_intv);
- 	b->link_req = req;
--	skb = skb_clone(req->buf, GFP_ATOMIC);
--	if (skb)
--		tipc_bearer_xmit_skb(net, req->bearer_id, skb, &req->dest);
-+	*skb = skb_clone(req->buf, GFP_ATOMIC);
+ /**
+  * tipc_l2_send_msg - send a TIPC packet out over an L2 interface
+- * @buf: the packet to be sent
++ * @skb: the packet to be sent
+  * @b: the bearer through which the packet is to be sent
+  * @dest: peer destination address
+  */
+@@ -405,17 +398,21 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
+ {
+ 	struct net_device *dev;
+ 	int delta;
++	void *tipc_ptr;
+ 
+ 	dev = (struct net_device *)rcu_dereference_rtnl(b->media_ptr);
+ 	if (!dev)
+ 		return 0;
+ 
++	/* Send RESET message even if bearer is detached from device */
++	tipc_ptr = rtnl_dereference(dev->tipc_ptr);
++	if (unlikely(!tipc_ptr && !msg_is_reset(buf_msg(skb))))
++		goto drop;
++
+ 	delta = dev->hard_header_len - skb_headroom(skb);
+ 	if ((delta > 0) &&
+-	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC)) {
+-		kfree_skb(skb);
+-		return 0;
+-	}
++	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC))
++		goto drop;
+ 
+ 	skb_reset_network_header(skb);
+ 	skb->dev = dev;
+@@ -424,6 +421,9 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
+ 			dev->dev_addr, skb->len);
+ 	dev_queue_xmit(skb);
  	return 0;
++drop:
++	kfree_skb(skb);
++	return 0;
  }
  
-diff --git a/net/tipc/discover.h b/net/tipc/discover.h
-index c9b1277..b80a335 100644
---- a/net/tipc/discover.h
-+++ b/net/tipc/discover.h
-@@ -40,7 +40,7 @@
- struct tipc_link_req;
+ int tipc_bearer_mtu(struct net *net, u32 bearer_id)
+@@ -549,9 +549,18 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct net *net = dev_net(dev);
++	struct tipc_net *tn = tipc_net(net);
+ 	struct tipc_bearer *b;
++	int i;
  
- int tipc_disc_create(struct net *net, struct tipc_bearer *b_ptr,
--		     struct tipc_media_addr *dest);
-+		     struct tipc_media_addr *dest, struct sk_buff **skb);
- void tipc_disc_delete(struct tipc_link_req *req);
- void tipc_disc_reset(struct net *net, struct tipc_bearer *b_ptr);
- void tipc_disc_add_dest(struct tipc_link_req *req);
+ 	b = rtnl_dereference(dev->tipc_ptr);
++	if (!b) {
++		for (i = 0; i < MAX_BEARERS; b = NULL, i++) {
++			b = rtnl_dereference(tn->bearer_list[i]);
++			if (b && (b->media_ptr == dev))
++				break;
++		}
++	}
+ 	if (!b)
+ 		return NOTIFY_DONE;
+ 
+@@ -561,13 +570,20 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 	case NETDEV_CHANGE:
+ 		if (netif_carrier_ok(dev))
+ 			break;
++	case NETDEV_UP:
++		rcu_assign_pointer(dev->tipc_ptr, b);
++		break;
+ 	case NETDEV_GOING_DOWN:
++		RCU_INIT_POINTER(dev->tipc_ptr, NULL);
++		synchronize_net();
++		tipc_reset_bearer(net, b);
++		break;
+ 	case NETDEV_CHANGEMTU:
+ 		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_CHANGEADDR:
+ 		b->media->raw2addr(b, &b->addr,
+-				       (char *)dev->dev_addr);
++				   (char *)dev->dev_addr);
+ 		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_UNREGISTER:
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 55778a0..f34f639 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -779,6 +779,11 @@ static inline bool msg_peer_node_is_up(struct tipc_msg *m)
+ 	return msg_redundant_link(m);
+ }
+ 
++static inline bool msg_is_reset(struct tipc_msg *hdr)
++{
++	return (msg_user(hdr) == LINK_PROTOCOL) && (msg_type(hdr) == RESET_MSG);
++}
++
+ struct sk_buff *tipc_buf_acquire(u32 size);
+ bool tipc_msg_validate(struct sk_buff *skb);
+ bool tipc_msg_reverse(u32 own_addr, struct sk_buff **skb, int err);
 -- 
 1.9.1
 
