@@ -1,7 +1,7 @@
 From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 5/8] net: mediatek: fix mtk_pending_work
-Date: Thu,  7 Apr 2016 21:26:47 +0200
-Message-ID: <1460057210-55786-6-git-send-email-blogic@openwrt.org>
+Subject: [PATCH V2 6/8] net: mediatek: fix TX locking
+Date: Thu,  7 Apr 2016 21:26:48 +0200
+Message-ID: <1460057210-55786-7-git-send-email-blogic@openwrt.org>
 References: <1460057210-55786-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,60 +25,95 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The driver supports 2 MACs. Both run on the same DMA ring. If we hit a TX
-timeout we need to stop both netdevs before restarting them again. If we
-don't do this, mtk_stop() wont shutdown DMA and the consecutive call to
-mtk_open() wont restart DMA and enable IRQs.
+Inside the TX path there is a lock inside the tx_map function. This is
+however too late. The patch moves the lock to the start of the xmit
+function right before the free count check of the DMA ring happens.
+If we do not do this, the code becomes racy leading to TX stalls and
+dropped packets. This happens as there are 2 netdevs running on the
+same physical DMA ring.
 
 Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   31 ++++++++++++++++++---------
- 1 file changed, 21 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4ebc42e..60b66ab 100644
+index 60b66ab..8434355 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1430,19 +1430,30 @@ static int mtk_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -536,7 +536,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	struct mtk_eth *eth = mac->hw;
+ 	struct mtk_tx_dma *itxd, *txd;
+ 	struct mtk_tx_buf *tx_buf;
+-	unsigned long flags;
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+@@ -568,11 +567,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	if (unlikely(dma_mapping_error(&dev->dev, mapped_addr)))
+ 		return -ENOMEM;
  
- static void mtk_pending_work(struct work_struct *work)
- {
--	struct mtk_mac *mac = container_of(work, struct mtk_mac, pending_work);
--	struct mtk_eth *eth = mac->hw;
--	struct net_device *dev = eth->netdev[mac->id];
--	int err;
-+	struct mtk_eth *eth = container_of(work, struct mtk_eth, pending_work);
-+	int err, i;
-+	unsigned long restart = 0;
+-	/* normally we can rely on the stack not calling this more than once,
+-	 * however we have 2 queues running ont he same ring so we need to lock
+-	 * the ring access
+-	 */
+-	spin_lock_irqsave(&eth->page_lock, flags);
+ 	WRITE_ONCE(itxd->txd1, mapped_addr);
+ 	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
+ 	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
+@@ -632,8 +626,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+ 				(!nr_frags * TX_DMA_LS0)));
  
- 	rtnl_lock();
--	mtk_stop(dev);
+-	spin_unlock_irqrestore(&eth->page_lock, flags);
+-
+ 	netdev_sent_queue(dev, skb->len);
+ 	skb_tx_timestamp(skb);
  
--	err = mtk_open(dev);
--	if (err) {
--		netif_alert(eth, ifup, dev,
--			    "Driver up/down cycle failed, closing device.\n");
--		dev_close(dev);
-+	/* stop all devices to make sure that dma is properly shut down */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!netif_oper_up(eth->netdev[i]))
-+			continue;
-+		mtk_stop(eth->netdev[i]);
-+		__set_bit(i, &restart);
-+	}
-+
-+	/* restart DMA and enable IRQs */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!test_bit(i, &restart))
-+			continue;
-+		err = mtk_open(eth->netdev[i]);
-+		if (err) {
-+			netif_alert(eth, ifup, eth->netdev[i],
-+			      "Driver up/down cycle failed, closing device.\n");
-+			dev_close(eth->netdev[i]);
-+		}
- 	}
- 	rtnl_unlock();
+@@ -661,8 +653,6 @@ err_dma:
+ 		itxd = mtk_qdma_phys_to_virt(ring, itxd->txd2);
+ 	} while (itxd != txd);
+ 
+-	spin_unlock_irqrestore(&eth->page_lock, flags);
+-
+ 	return -ENOMEM;
  }
+ 
+@@ -712,14 +702,22 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct mtk_eth *eth = mac->hw;
+ 	struct mtk_tx_ring *ring = &eth->tx_ring;
+ 	struct net_device_stats *stats = &dev->stats;
++	unsigned long flags;
+ 	bool gso = false;
+ 	int tx_num;
+ 
++	/* normally we can rely on the stack not calling this more than once,
++	 * however we have 2 queues running ont he same ring so we need to lock
++	 * the ring access
++	 */
++	spin_lock_irqsave(&eth->page_lock, flags);
++
+ 	tx_num = mtk_cal_txd_req(skb);
+ 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
+ 		mtk_stop_queue(eth);
+ 		netif_err(eth, tx_queued, dev,
+ 			  "Tx Ring full when queue awake!\n");
++		spin_unlock_irqrestore(&eth->page_lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -747,10 +745,12 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			     ring->thresh))
+ 			mtk_wake_queue(eth);
+ 	}
++	spin_unlock_irqrestore(&eth->page_lock, flags);
+ 
+ 	return NETDEV_TX_OK;
+ 
+ drop:
++	spin_unlock_irqrestore(&eth->page_lock, flags);
+ 	stats->tx_dropped++;
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
 -- 
 1.7.10.4
