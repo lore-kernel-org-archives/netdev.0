@@ -1,7 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 0/9] RxRPC: 2nd rewrite part 1
-Date: Thu, 07 Apr 2016 17:22:56 +0100
-Message-ID: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+Subject: [PATCH 1/9] afs: Wait for outstanding async calls before closing
+ rxrpc socket
+Date: Thu, 07 Apr 2016 17:23:03 +0100
+Message-ID: <20160407162303.21283.63145.stgit@warthog.procyon.org.uk>
+References: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,81 +11,87 @@ Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: linux-afs@lists.infradead.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The afs filesystem needs to wait for any outstanding asynchronous calls
+(such as FS.GiveUpCallBacks cleaning up the callbacks lodged with a server)
+to complete before closing the AF_RXRPC socket when unloading the module.
 
-Okay, I'm in the process of rewriting the RxRPC rewrite.  The primary aim of
-this second rewrite is to strictly control the number of active connections we
-know about and to get rid of connections we don't need much more quickly.
+This may occur if the module is removed too quickly after unmounting all
+filesystems.  This will produce an error report that looks like:
 
-On top of this, there are fixes to the protocol handling which will all occur
-in later parts.
+	AFS: Assertion failed
+	1 == 0 is false
+	0x1 == 0x0 is false
+	------------[ cut here ]------------
+	kernel BUG at ../fs/afs/rxrpc.c:135!
+	...
+	RIP: 0010:[<ffffffffa004111c>] afs_close_socket+0xec/0x107 [kafs]
+	...
+	Call Trace:
+	 [<ffffffffa004a160>] afs_exit+0x1f/0x57 [kafs]
+	 [<ffffffff810c30a0>] SyS_delete_module+0xec/0x17d
+	 [<ffffffff81610417>] entry_SYSCALL_64_fastpath+0x12/0x6b
 
-Here's the first set of patches from the second go, aimed at net-next.  These
-are all fixes and cleanups preparatory to the main event.
-
-Notable parts of this set include:
-
- (1) A fix for the AFS filesystem to wait for outstanding calls to complete
-     before closing the RxRPC socket.
-
- (2) Differentiation of local and remote abort codes.  At a future point
-     userspace will get to see this via control message data on recvmsg().
-
- (3) Absorb the rxkad module into the af_rxrpc module to prevent a dependency
-     loop.
-
- (4) Create a null security module and unconditionalise calls into the
-     security module that's in force (there will always be a security module
-     applied to a connection, even if it's just the null one).
-
-
-The patches can be found here also:
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20160407
-
-This is based on net-next/master
-
-David
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-David Howells (9):
-      afs: Wait for outstanding async calls before closing rxrpc socket
-      rxrpc: Disable a debugging statement that has been left enabled.
-      rxrpc: Move some miscellaneous bits out into their own file
-      rxrpc: Static arrays of strings should be const char *const[]
-      rxrpc: Differentiate local and remote abort codes in structs
-      rxrpc: Don't pass gfp around in incoming call handling functions
-      rxrpc: Don't assume transport address family and size when using it
-      rxrpc: Absorb the rxkad security module
-      rxrpc: Create a null security type and get rid of conditional calls
 
+ fs/afs/rxrpc.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
- fs/afs/rxrpc.c            |   30 +++++++-
- include/net/af_rxrpc.h    |    4 +
- include/rxrpc/packet.h    |    2 -
- net/rxrpc/Kconfig         |    2 -
- net/rxrpc/Makefile        |    7 +-
- net/rxrpc/af_rxrpc.c      |    9 ++
- net/rxrpc/ar-accept.c     |    4 +
- net/rxrpc/ar-ack.c        |   81 ++--------------------
- net/rxrpc/ar-call.c       |   11 +--
- net/rxrpc/ar-connection.c |   14 ++--
- net/rxrpc/ar-connevent.c  |   27 +++----
- net/rxrpc/ar-input.c      |   14 +---
- net/rxrpc/ar-internal.h   |   70 ++++++++++++-------
- net/rxrpc/ar-output.c     |    6 +-
- net/rxrpc/ar-proc.c       |    2 -
- net/rxrpc/ar-recvmsg.c    |   18 ++++-
- net/rxrpc/ar-security.c   |  166 +++++++++------------------------------------
- net/rxrpc/insecure.c      |   83 +++++++++++++++++++++++
- net/rxrpc/misc.c          |   89 ++++++++++++++++++++++++
- net/rxrpc/rxkad.c         |   61 +++++++----------
- 20 files changed, 374 insertions(+), 326 deletions(-)
- create mode 100644 net/rxrpc/insecure.c
- create mode 100644 net/rxrpc/misc.c
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index b50642870a43..7c2567a711ea 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -65,6 +65,12 @@ static void afs_async_workfn(struct work_struct *work)
+ 	call->async_workfn(call);
+ }
+ 
++static int afs_wait_atomic_t(atomic_t *p)
++{
++	schedule();
++	return 0;
++}
++
+ /*
+  * open an RxRPC socket and bind it to be a server for callback notifications
+  * - the socket is left in blocking mode and non-blocking ops use MSG_DONTWAIT
+@@ -126,13 +132,16 @@ void afs_close_socket(void)
+ {
+ 	_enter("");
+ 
++	wait_on_atomic_t(&afs_outstanding_calls, afs_wait_atomic_t,
++			 TASK_UNINTERRUPTIBLE);
++	_debug("no outstanding calls");
++	
+ 	sock_release(afs_socket);
+ 
+ 	_debug("dework");
+ 	destroy_workqueue(afs_async_calls);
+ 
+ 	ASSERTCMP(atomic_read(&afs_outstanding_skbs), ==, 0);
+-	ASSERTCMP(atomic_read(&afs_outstanding_calls), ==, 0);
+ 	_leave("");
+ }
+ 
+@@ -178,8 +187,6 @@ static void afs_free_call(struct afs_call *call)
+ {
+ 	_debug("DONE %p{%s} [%d]",
+ 	       call, call->type->name, atomic_read(&afs_outstanding_calls));
+-	if (atomic_dec_return(&afs_outstanding_calls) == -1)
+-		BUG();
+ 
+ 	ASSERTCMP(call->rxcall, ==, NULL);
+ 	ASSERT(!work_pending(&call->async_work));
+@@ -188,6 +195,9 @@ static void afs_free_call(struct afs_call *call)
+ 
+ 	kfree(call->request);
+ 	kfree(call);
++
++	if (atomic_dec_and_test(&afs_outstanding_calls))
++		wake_up_atomic_t(&afs_outstanding_calls);
+ }
+ 
+ /*
