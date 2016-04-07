@@ -1,8 +1,7 @@
 From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V3 1/8] net: mediatek: watchdog_timeo was not set
-Date: Fri,  8 Apr 2016 00:54:04 +0200
-Message-ID: <1460069651-1234-2-git-send-email-blogic@openwrt.org>
-References: <1460069651-1234-1-git-send-email-blogic@openwrt.org>
+Subject: [PATCH V3 0/8] net: mediatek: make the driver pass stress tests
+Date: Fri,  8 Apr 2016 00:54:03 +0200
+Message-ID: <1460069651-1234-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +12,6 @@ Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL2
  John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1460069651-1234-1-git-send-email-blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
  <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
@@ -25,25 +23,33 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The original commit failed to set watchdog_timeo. This patch sets
-watchdog_timeo to HZ.
+While testing the driver we managed to get the TX path to stall and fail
+to recover. When dual MAC support was added to the driver, the whole queue
+stop/wake code was not properly adapted. There was also a regression in the
+locking of the xmit function. The fact that watchdog_timeo was not set and
+that the tx_timeout code failed to properly reset the dma, irq and queue
+just made the mess complete.
 
-Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    1 +
- 1 file changed, 1 insertion(+)
+This series make the driver pass stress testing. With this series applied
+the testbed has been running for several days and still has not locked up.
+We have a second setup that has a small hack patch applied to randomly stop
+irqs and/or one of the queues and successfully manages to recover from these
+simulated tx stalls.
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index e0b68af..bb10d57 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1645,6 +1645,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
- 	mac->hw_stats->reg_offset = id * MTK_STAT_OFFSET;
- 
- 	SET_NETDEV_DEV(eth->netdev[id], eth->dev);
-+	eth->netdev[id]->watchdog_timeo = HZ;
- 	eth->netdev[id]->netdev_ops = &mtk_netdev_ops;
- 	eth->netdev[id]->base_addr = (unsigned long)eth->base;
- 	eth->netdev[id]->vlan_features = MTK_HW_FEATURES &
+John Crispin (8):
+  net: mediatek: watchdog_timeo was not set
+  net: mediatek: mtk_cal_txd_req() returns bad value
+  net: mediatek: remove superfluous reset call
+  net: mediatek: fix stop and wakeup of queue
+  net: mediatek: fix TX locking
+  net: mediatek: fix mtk_pending_work
+  net: mediatek: move the pending_work struct to the device generic
+    struct
+  net: mediatek: do not set the QID field in the TX DMA descriptors
+
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |  106 ++++++++++++++++-----------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    4 +-
+ 2 files changed, 66 insertions(+), 44 deletions(-)
+
 -- 
 1.7.10.4
