@@ -1,126 +1,235 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Thu, 07 Apr 2016 14:55:29 -0400
-Message-ID: <2239567.jkCk1gtQAE@sifl>
-References: <cover.1459934322.git.pabeni@redhat.com> <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com> <20160406234532.GA731@breakpoint.cc>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v6 net-next] net: ipv4: Consider failed nexthops in
+ multipath routes
+Date: Thu, 7 Apr 2016 21:58:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1604072157230.2154@ja.home.ssi.bg>
+References: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Paolo Abeni <pabeni@redhat.com>,
-	linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Florian Westphal <fw@strlen.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f67.google.com ([209.85.192.67]:33555 "EHLO
-	mail-qg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932082AbcDGSzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:55:33 -0400
-Received: by mail-qg0-f67.google.com with SMTP id 7so5324618qgj.0
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:55:32 -0700 (PDT)
-In-Reply-To: <20160406234532.GA731@breakpoint.cc>
+Received: from ja.ssi.bg ([178.16.129.10]:59024 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932458AbcDGS7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 14:59:02 -0400
+In-Reply-To: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, April 07, 2016 01:45:32 AM Florian Westphal wrote:
-> Paul Moore <paul@paul-moore.com> wrote:
-> > On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
-> > > netfilter hooks are per namespace -- so there is hook unregister when
-> > > netns is destroyed.
-> > 
-> > Looking around, I see the global and per-namespace registration
-> > functions (nf_register_hook and nf_register_net_hook, respectively),
-> > but I'm looking to see if/how newly created namespace inherit
-> > netfilter hooks from the init network namespace ... if you can create
-> > a network namespace and dodge the SELinux hooks, that isn't a good
-> > thing from a SELinux point of view, although it might be a plus
-> > depending on where you view Paolo's original patches ;)
-> 
-> Heh :-)
-> 
-> If you use nf_register_net_hook, the hook is only registered in the
-> namespace.
-> 
-> If you use nf_register_hook, the hook is put on a global list and
-> registed in all existing namespaces.
-> 
-> New namespaces will have the hook added as well (see
-> netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
->
-> Since nf_register_hook is used it should be impossible to get a netns
-> that doesn't call these hooks.
 
-Great, thanks.
- 
-> > > Do you think it makes sense to rework the patch to delay registering
-> > > of the netfiler hooks until the system is in a state where they're
-> > > needed, without the 'unregister' aspect?
-> > 
-> > I would need to see the patch to say for certain, but in principle
-> > that seems perfectly reasonable and I think would satisfy both the
-> > netdev and SELinux camps - good suggestion.  My main goal is to drop
-> > the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
-> > 
-> > We might even be able to trim the secmark_active and peerlbl_active
-> > checks in the SELinux netfilter hooks (an earlier attempt at
-> > optimization; contrary to popular belief, I do care about SELinux
-> > performance), although that would mean that enabling the network
-> > access controls would be one way ... I guess you can disregard that
-> > last bit, I'm thinking aloud again.
-> 
-> One way is fine I think.
+	Hello,
 
-Yes, just disregard my second paragraph above.
- 
-> > > Ideally this would even be per netns -- in perfect world we would
-> > > be able to make it so that a new netns are created with an empty
-> > > hook list.
-> > 
-> > In general SELinux doesn't care about namespaces, for reasons that are
-> > sorta beyond the scope of this conversation, so I would like to stick
-> > to a all or nothing approach to enabling the SELinux netfilter hooks
-> > across namespaces.  Perhaps we can revisit this at a later time, but
-> > let's keep it simple right now.
-> 
-> Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
-> (Casey, I read your comment regarding smack. Noted, we don't want to
-> break smack either...)
-> 
-> I think that in this case the entire question is:
-> 
-> In your experience, how likely is a config where selinux is enabled BUT the
-> hooks are not needed (i.e., where we hit the
-> 
-> if (!selinux_policycap_netpeer)
->     return NF_ACCEPT;
-> 
-> if (!secmark_active && !peerlbl_active)
->    return NF_ACCEPT;
-> 
-> tests inside the hooks)?  If such setups are uncommon we should just
-> drop this idea or at least put it on the back burner until the more
-> expensive netfilter hooks (conntrack, cough) are out of the way.
+On Thu, 7 Apr 2016, David Ahern wrote:
 
-A few years ago I would have said that it is relatively uncommon for admins to 
-enable the SELinux network access controls; it was typically just 
-government/intelligence agencies who had very strict access control 
-requirements and represented a small portion of SELinux users.  However, over 
-the past few years I've been fielding more and more questions from admins/devs 
-in the virtualization space who are interested in some of these capabilities; 
-it isn't clear to me how many of these people are switching it on, but there 
-is definitely more interest than I have seen in the past and the interested is 
-centered around some rather common use cases.
+> Multipath route lookups should consider knowledge about next hops and not
+> select a hop that is known to be failed.
+> 
+> Example:
+> 
+>                      [h2]                   [h3]   15.0.0.5
+>                       |                      |
+>                      3|                     3|
+>                     [SP1]                  [SP2]--+
+>                      1  2                   1     2
+>                      |  |     /-------------+     |
+>                      |   \   /                    |
+>                      |     X                      |
+>                      |    / \                     |
+>                      |   /   \---------------\    |
+>                      1  2                     1   2
+>          12.0.0.2  [TOR1] 3-----------------3 [TOR2] 12.0.0.3
+>                      4                         4
+>                       \                       /
+>                         \                    /
+>                          \                  /
+>                           -------|   |-----/
+>                                  1   2
+>                                 [TOR3]
+>                                   3|
+>                                    |
+>                                   [h1]  12.0.0.1
+> 
+> host h1 with IP 12.0.0.1 has 2 paths to host h3 at 15.0.0.5:
+> 
+>     root@h1:~# ip ro ls
+>     ...
+>     12.0.0.0/24 dev swp1  proto kernel  scope link  src 12.0.0.1
+>     15.0.0.0/16
+>             nexthop via 12.0.0.2  dev swp1 weight 1
+>             nexthop via 12.0.0.3  dev swp1 weight 1
+>     ...
+> 
+> If the link between tor3 and tor1 is down and the link between tor1
+> and tor2 then tor1 is effectively cut-off from h1. Yet the route lookups
+> in h1 are alternating between the 2 routes: ping 15.0.0.5 gets one and
+> ssh 15.0.0.5 gets the other. Connections that attempt to use the
+> 12.0.0.2 nexthop fail since that neighbor is not reachable:
+> 
+>     root@h1:~# ip neigh show
+>     ...
+>     12.0.0.3 dev swp1 lladdr 00:02:00:00:00:1b REACHABLE
+>     12.0.0.2 dev swp1  FAILED
+>     ...
+> 
+> The failed path can be avoided by considering known neighbor information
+> when selecting next hops. If the neighbor lookup fails we have no
+> knowledge about the nexthop, so give it a shot. If there is an entry
+> then only select the nexthop if the state is sane. This is similar to
+> what fib_detect_death does.
+> 
+> To maintain backward compatibility use of the neighbor information is
+> based on a new sysctl, fib_multipath_use_neigh.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-So, to summarize, I don't know ;)
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
 
-If you've got bigger sources of overhead, my opinion would be to go tackle 
-those first.  Perhaps I can even find the time to work on the 
-SELinux/netfilter stuff while you are off slaying the bigger dragons, no 
-promises at the moment.
+> ---
+> v6
+> - changed __neigh_lookup_noref to __ipv4_neigh_lookup_noref per Dave's
+>   comment
+> 
+> v5
+> - returned comma that got lost in the ether and removed resetting of
+>   nhsel at end of loop - again comments from Julian
+> 
+> v4
+> - remove NULL initializer and logic for fallback per Julian's comment
+> 
+> v3
+> - Julian comments: changed use of dead in documentation to failed,
+>   init state to NUD_REACHABLE which simplifies fib_good_nh, use of
+>   nh_dev for neighbor lookup, fallback to first entry which is what
+>   current logic does
+> 
+> v2
+> - use rcu locking to avoid refcnts per Eric's suggestion
+> - only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
+>   comment
+> - drop the 'state == NUD_REACHABLE' from the state check since it is
+>   part of NUD_VALID (comment from Julian)
+> - wrapped the use of the neigh in a sysctl
+> 
+>  Documentation/networking/ip-sysctl.txt | 10 ++++++++++
+>  include/net/netns/ipv4.h               |  3 +++
+>  net/ipv4/fib_semantics.c               | 34 +++++++++++++++++++++++++++++-----
+>  net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
+>  4 files changed, 53 insertions(+), 5 deletions(-)
+> 
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index b183e2b606c8..6c7f365b1515 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
+>  	fwmark of the packet they are replying to.
+>  	Default: 0
+>  
+> +fib_multipath_use_neigh - BOOLEAN
+> +	Use status of existing neighbor entry when determining nexthop for
+> +	multipath routes. If disabled, neighbor information is not used and
+> +	packets could be directed to a failed nexthop. Only valid for kernels
+> +	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
+> +	Default: 0 (disabled)
+> +	Possible values:
+> +	0 - disabled
+> +	1 - enabled
+> +
+>  route/max_size - INTEGER
+>  	Maximum number of routes allowed in the kernel.  Increase
+>  	this when using large numbers of interfaces and/or routes.
+> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+> index a69cde3ce460..d061ffeb1e71 100644
+> --- a/include/net/netns/ipv4.h
+> +++ b/include/net/netns/ipv4.h
+> @@ -133,6 +133,9 @@ struct netns_ipv4 {
+>  	struct fib_rules_ops	*mr_rules_ops;
+>  #endif
+>  #endif
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +	int sysctl_fib_multipath_use_neigh;
+> +#endif
+>  	atomic_t	rt_genid;
+>  };
+>  #endif
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index d97268e8ff10..ab64d9f2eef9 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -1559,21 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+>  }
+>  
+>  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +static bool fib_good_nh(const struct fib_nh *nh)
+> +{
+> +	int state = NUD_REACHABLE;
+> +
+> +	if (nh->nh_scope == RT_SCOPE_LINK) {
+> +		struct neighbour *n;
+> +
+> +		rcu_read_lock_bh();
+> +
+> +		n = __ipv4_neigh_lookup_noref(nh->nh_dev, nh->nh_gw);
+> +		if (n)
+> +			state = n->nud_state;
+> +
+> +		rcu_read_unlock_bh();
+> +	}
+> +
+> +	return !!(state & NUD_VALID);
+> +}
+>  
+>  void fib_select_multipath(struct fib_result *res, int hash)
+>  {
+>  	struct fib_info *fi = res->fi;
+> +	struct net *net = fi->fib_net;
+> +	bool first = false;
+>  
+>  	for_nexthops(fi) {
+>  		if (hash > atomic_read(&nh->nh_upper_bound))
+>  			continue;
+>  
+> -		res->nh_sel = nhsel;
+> -		return;
+> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
+> +		    fib_good_nh(nh)) {
+> +			res->nh_sel = nhsel;
+> +			return;
+> +		}
+> +		if (!first) {
+> +			res->nh_sel = nhsel;
+> +			first = true;
+> +		}
+>  	} endfor_nexthops(fi);
+> -
+> -	/* Race condition: route has just become dead. */
+> -	res->nh_sel = 0;
+>  }
+>  #endif
+>  
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 1e1fe6086dd9..bb0419582b8d 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -960,6 +960,17 @@ static struct ctl_table ipv4_net_table[] = {
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec,
+>  	},
+> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
+> +	{
+> +		.procname	= "fib_multipath_use_neigh",
+> +		.data		= &init_net.ipv4.sysctl_fib_multipath_use_neigh,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec_minmax,
+> +		.extra1		= &zero,
+> +		.extra2		= &one,
+> +	},
+> +#endif
+>  	{ }
+>  };
+>  
+> -- 
+> 2.1.4
 
--- 
-paul moore
-www.paul-moore.com
+Regards
