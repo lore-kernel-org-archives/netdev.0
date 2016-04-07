@@ -1,53 +1,50 @@
-From: Vishnu Pratap Singh <vishu13285@gmail.com>
-Subject: How to get creatior PID information for the local tcp connection
-Date: Thu, 7 Apr 2016 23:01:33 +0530
-Message-ID: <CADCeU4NfNucPCqemSxr4SsMUgdOhxzM41zjsRDKfrhsFyMH0+Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been
+ left enabled.
+Date: Thu, 07 Apr 2016 13:38:43 -0400 (EDT)
+Message-ID: <20160407.133843.156901424652264502.davem@davemloft.net>
+References: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+	<20160407162309.21283.11482.stgit@warthog.procyon.org.uk>
+	<1460046677.6715.95.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: dccp@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"vishnu.ps@samsung.com" <vishnu.ps@samsung.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460046677.6715.95.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+=46rom: Joe Perches <joe@perches.com>
+Date: Thu, 07 Apr 2016 09:31:17 -0700
 
+> On Thu, 2016-04-07 at 17:23 +0100, David Howells wrote:
+>> Disable a debugging statement that has been left enabled
+>>=20
+>> Signed-off-by: David Howells <dhowells@redhat.com>
+>> ---
+>>=20
+>> =A0net/rxrpc/ar-ack.c |=A0=A0=A0=A02 +-
+>> =A01 file changed, 1 insertion(+), 1 deletion(-)
+>>=20
+>> diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
+>> index 16d967075eaf..01a017a05f14 100644
+>> --- a/net/rxrpc/ar-ack.c
+>> +++ b/net/rxrpc/ar-ack.c
+>> @@ -426,7 +426,7 @@ static void rxrpc_rotate_tx_window(struct rxrpc_=
+call *call, u32 hard)
+>> =A0	int tail =3D call->acks_tail, old_tail;
+>> =A0	int win =3D CIRC_CNT(call->acks_head, tail, call->acks_winsz);
+>> =A0
+>> -	kenter("{%u,%u},%u", call->acks_hard, win, hard);
+>> +	_enter("{%u,%u},%u", call->acks_hard, win, hard);
+>> =A0
+>> =A0	ASSERTCMP(hard - call->acks_hard, <=3D, win);
+>=20
+> It might be better to remove kenter and _enter
+> altogether and use function tracing instead.
 
-Issue -  How to get PID information for the local tcp connection
-
-
-
-i want to get the creator PID for each socket in user space for local
-tcp connection, i see in kernel there is support for returing PID with
-"SO_PEERCRED" ioctl to work across namespaces. it uses struct pid and
-struct cred to store the peer credentials on struct sock.
-cred_to_ucred(sk->sk_peer_pid, sk->sk_peer_cred, &peercred); Above
-function stores the PID information in ucred->pid = pid_vnr(pid); and
-same is returned via "SO_PEERCRED" ioctl .
-
-But for local tcp connection i get pid as 0, is there any way i can
-get the PID information. Any help or suggestion will be highly
-helpful.
-
-
-
-BR,
-
-Vishnu<div id="DDB4FAA8-2DD7-40BB-A1B8-4E2AA1F9FDF2"><br />
-<table style="border-top: 1px solid #aaabb6;">
-	<tr>
-        <td style="width: 55px; padding-top: 13px;"><a
-href="https://www.avast.com/sig-email?utm_medium=email&utm_source=link&utm_campaign=sig-email&utm_content=webmail"
-target="_blank"><img
-src="https://ipmcdn.avast.com/images/2016/icons/icon-envelope-open-tick-round-orange-v1.png"
-/></a></td>
-		<td style="width: 470px; padding-top: 15px; color: #41424e;
-font-size: 13px; font-family: Arial, Helvetica, sans-serif;
-line-height: 18px;">Virus-free. <a
-href="https://www.avast.com/sig-email?utm_medium=email&utm_source=link&utm_campaign=sig-email&utm_content=webmail"
-target="_blank" style="color: #4453ea;">www.avast.com</a>
-		</td>
-	</tr>
-</table><a href="#DDB4FAA8-2DD7-40BB-A1B8-4E2AA1F9FDF2" width="1"
-height="1"></a></div>
+Yeah this custom stuff is really inappropriate given the excellent
+infrastructure we have these days...
