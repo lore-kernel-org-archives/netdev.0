@@ -1,98 +1,70 @@
-From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Subject: RE: [PATCH] wlcore: spi: add wl18xx support
-Date: Thu, 7 Apr 2016 12:45:13 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360B5430@DFRE01.ent.ti.com>
-References: <1459343218-24536-1-git-send-email-eyalr@ti.com>
- <87shyx38tz.fsf@purkki.adurom.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 5/7] sctp: reuse the some transport traversal
+ functions in proc
+Date: Thu, 7 Apr 2016 09:09:30 -0400
+Message-ID: <20160407130930.GA4573@hmsreliant.think-freely.org>
+References: <cover.1459829123.git.lucien.xin@gmail.com>
+ <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87shyx38tz.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35999 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756047AbcDGNJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 09:09:49 -0400
+Content-Disposition: inline
+In-Reply-To: <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 05, 2016 at 12:06:30PM +0800, Xin Long wrote:
+> There are some transport traversal functions for sctp_diag, we can also
+> use it for sctp_proc. cause they have the similar situation to traversal
+> transport.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/proc.c | 80 +++++++++++++--------------------------------------------
+>  1 file changed, 18 insertions(+), 62 deletions(-)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 5cfac8d..dd8492f 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -282,80 +282,31 @@ struct sctp_ht_iter {
+>  	struct rhashtable_iter hti;
+>  };
+>  
+> -static struct sctp_transport *sctp_transport_get_next(struct seq_file *seq)
+> -{
+> -	struct sctp_ht_iter *iter = seq->private;
+> -	struct sctp_transport *t;
+> -
+> -	t = rhashtable_walk_next(&iter->hti);
+> -	for (; t; t = rhashtable_walk_next(&iter->hti)) {
+> -		if (IS_ERR(t)) {
+> -			if (PTR_ERR(t) == -EAGAIN)
+> -				continue;
+> -			break;
+> -		}
+> -
+> -		if (net_eq(sock_net(t->asoc->base.sk), seq_file_net(seq)) &&
+> -		    t->asoc->peer.primary_path == t)
+> -			break;
+> -	}
+> -
+> -	return t;
+> -}
+> -
 
+this may just be a nit, but you defined the new sctp_transport_get_next in patch
+2 of this series, and didn't remove this private version until here.  Is that
+going to cause some behavioral issue, if someone builds a kernel between patch 2
+and 7?  Seems like perhaps those two patches should be merged.
 
-> -----Original Message-----
-> From: Kalle Valo [mailto:kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org]
-> Sent: Thursday, April 07, 2016 3:25 PM
-> To: Eyal Reizer
-> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Reizer, Eyal; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Subject: Re: [PATCH] wlcore: spi: add wl18xx support
-> 
-> Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-> 
-> > Add support for using with both wl12xx and wl18xx.
-> >
-> > - all wilink family needs special init command for entering wspi mode.
-> >   extra clock cycles should be sent after the spi init command while the
-> >   cs pin is high.
-> > - switch to controling the cs pin from the spi driver for achieveing the
-> >   above.
-> > - the selected cs gpio is read from the spi device-tree node using the
-> >   cs-gpios field and setup as a gpio.
-> > - See the example below for specifying the cs gpio using the cs-gpios
-> > entry
-> >
-> > &spi0	{
-> >  	status = "okay";
-> > 	pinctrl-names = "default";
-> > 	pinctrl-0 = <&spi0_pins>;
-> > 	cs-gpios = <&gpio0 5 0>;
-> > 	#address-cells = <1>;
-> > 	#size-cells = <0>;
-> >  	wlcore: wlcore@0 {
-> > 		compatible = "ti,wl1835";
-> > 		vwlan-supply = <&wlan_en_reg>;
-> > 		spi-max-frequency = <48000000>;
-> > 		reg = <0>;      /* chip select 0 on spi0, ie spi0.0 */
-> > 		interrupt-parent = <&gpio0>;
-> > 		interrupts = <27 IRQ_TYPE_EDGE_RISING>;
-> >  	};
-> > };
-> >
-> > Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-> 
-> [...]
-> 
-> >  static const struct of_device_id wlcore_spi_of_match_table[] = {
-> > -	{ .compatible = "ti,wl1271" },
-> > +	{ .compatible = "ti,wl1271", .data = &wl12xx_data},
-> > +	{ .compatible = "ti,wl1273", .data = &wl12xx_data},
-> > +	{ .compatible = "ti,wl1281", .data = &wl12xx_data},
-> > +	{ .compatible = "ti,wl1283", .data = &wl12xx_data},
-> > +	{ .compatible = "ti,wl1801", .data = &wl18xx_data},
-> > +	{ .compatible = "ti,wl1805", .data = &wl18xx_data},
-> > +	{ .compatible = "ti,wl1807", .data = &wl18xx_data},
-> > +	{ .compatible = "ti,wl1831", .data = &wl18xx_data},
-> > +	{ .compatible = "ti,wl1835", .data = &wl18xx_data},
-> > +	{ .compatible = "ti,wl1837", .data = &wl18xx_data},
-> >  	{ }
-> 
-> Shouldn't you also update bindings/net/wireless/ti,wlcore,spi.txt? Now it only
-> mentions about ti,wl1271 and not anything about the rest.
-
-You are right! 
-Will be fixed in v2
-
-> 
-> Adding devicetree list for further comments.
-> 
-> --
-> Kalle Valo
-
-Best Regards,
-Eyal
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Neil
