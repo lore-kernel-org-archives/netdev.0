@@ -1,235 +1,49 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v6 net-next] net: ipv4: Consider failed nexthops in
- multipath routes
-Date: Thu, 7 Apr 2016 21:58:55 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604072157230.2154@ja.home.ssi.bg>
-References: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
+ connected datagram sk during pmtu update
+Date: Thu, 7 Apr 2016 12:09:28 -0700
+Message-ID: <20160407190928.GA31235@kafai-mba.local>
+References: <1459551391-69969-1-git-send-email-kafai@fb.com>
+ <1459551391-69969-4-git-send-email-kafai@fb.com>
+ <CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
+ <20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
+ <CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
+ <20160406001141.GA97608@kafai-mba.local>
+ <CAM_iQpUrcXwBH0BuCh-cjo0st6ykpUgdjRo3Cn-ViO40vtbHKA@mail.gmail.com>
+ <20160406184851.GA14894@kafai-mba.local>
+ <CAM_iQpXbOj_zuQqHUie_yBOXqBEehHhF2FU8FA+tr7hgYY4QZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:59024 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932458AbcDGS7C (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 14:59:02 -0400
-In-Reply-To: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:31631 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932078AbcDGTJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:09:44 -0400
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXbOj_zuQqHUie_yBOXqBEehHhF2FU8FA+tr7hgYY4QZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 07, 2016 at 11:37:10AM -0700, Cong Wang wrote:
+> You are lost in discussion
+Indeed. :(
 
-	Hello,
+>
+> I still think it is okay without the lock, because even if you take the lock,
+> the pmtu update could still happen after you release it, so there is no
+> essential difference here. The only reason I can think of for taking
+> the sock lock is protecting parallel pmtu update, but it looks safe for
+> this case too.
+>
+> So which case do you want to protect by taking the sock lock?
+When the pmtu-update is doing route lookup and another connect is
+happening, what sk->sk_v6_daddr will this route lookup use?
+the old one, new one or neither of them?
 
-On Thu, 7 Apr 2016, David Ahern wrote:
-
-> Multipath route lookups should consider knowledge about next hops and not
-> select a hop that is known to be failed.
-> 
-> Example:
-> 
->                      [h2]                   [h3]   15.0.0.5
->                       |                      |
->                      3|                     3|
->                     [SP1]                  [SP2]--+
->                      1  2                   1     2
->                      |  |     /-------------+     |
->                      |   \   /                    |
->                      |     X                      |
->                      |    / \                     |
->                      |   /   \---------------\    |
->                      1  2                     1   2
->          12.0.0.2  [TOR1] 3-----------------3 [TOR2] 12.0.0.3
->                      4                         4
->                       \                       /
->                         \                    /
->                          \                  /
->                           -------|   |-----/
->                                  1   2
->                                 [TOR3]
->                                   3|
->                                    |
->                                   [h1]  12.0.0.1
-> 
-> host h1 with IP 12.0.0.1 has 2 paths to host h3 at 15.0.0.5:
-> 
->     root@h1:~# ip ro ls
->     ...
->     12.0.0.0/24 dev swp1  proto kernel  scope link  src 12.0.0.1
->     15.0.0.0/16
->             nexthop via 12.0.0.2  dev swp1 weight 1
->             nexthop via 12.0.0.3  dev swp1 weight 1
->     ...
-> 
-> If the link between tor3 and tor1 is down and the link between tor1
-> and tor2 then tor1 is effectively cut-off from h1. Yet the route lookups
-> in h1 are alternating between the 2 routes: ping 15.0.0.5 gets one and
-> ssh 15.0.0.5 gets the other. Connections that attempt to use the
-> 12.0.0.2 nexthop fail since that neighbor is not reachable:
-> 
->     root@h1:~# ip neigh show
->     ...
->     12.0.0.3 dev swp1 lladdr 00:02:00:00:00:1b REACHABLE
->     12.0.0.2 dev swp1  FAILED
->     ...
-> 
-> The failed path can be avoided by considering known neighbor information
-> when selecting next hops. If the neighbor lookup fails we have no
-> knowledge about the nexthop, so give it a shot. If there is an entry
-> then only select the nexthop if the state is sane. This is similar to
-> what fib_detect_death does.
-> 
-> To maintain backward compatibility use of the neighbor information is
-> based on a new sysctl, fib_multipath_use_neigh.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-
-Reviewed-by: Julian Anastasov <ja@ssi.bg>
-
-> ---
-> v6
-> - changed __neigh_lookup_noref to __ipv4_neigh_lookup_noref per Dave's
->   comment
-> 
-> v5
-> - returned comma that got lost in the ether and removed resetting of
->   nhsel at end of loop - again comments from Julian
-> 
-> v4
-> - remove NULL initializer and logic for fallback per Julian's comment
-> 
-> v3
-> - Julian comments: changed use of dead in documentation to failed,
->   init state to NUD_REACHABLE which simplifies fib_good_nh, use of
->   nh_dev for neighbor lookup, fallback to first entry which is what
->   current logic does
-> 
-> v2
-> - use rcu locking to avoid refcnts per Eric's suggestion
-> - only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
->   comment
-> - drop the 'state == NUD_REACHABLE' from the state check since it is
->   part of NUD_VALID (comment from Julian)
-> - wrapped the use of the neigh in a sysctl
-> 
->  Documentation/networking/ip-sysctl.txt | 10 ++++++++++
->  include/net/netns/ipv4.h               |  3 +++
->  net/ipv4/fib_semantics.c               | 34 +++++++++++++++++++++++++++++-----
->  net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
->  4 files changed, 53 insertions(+), 5 deletions(-)
-> 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index b183e2b606c8..6c7f365b1515 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
->  	fwmark of the packet they are replying to.
->  	Default: 0
->  
-> +fib_multipath_use_neigh - BOOLEAN
-> +	Use status of existing neighbor entry when determining nexthop for
-> +	multipath routes. If disabled, neighbor information is not used and
-> +	packets could be directed to a failed nexthop. Only valid for kernels
-> +	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
-> +	Default: 0 (disabled)
-> +	Possible values:
-> +	0 - disabled
-> +	1 - enabled
-> +
->  route/max_size - INTEGER
->  	Maximum number of routes allowed in the kernel.  Increase
->  	this when using large numbers of interfaces and/or routes.
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index a69cde3ce460..d061ffeb1e71 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -133,6 +133,9 @@ struct netns_ipv4 {
->  	struct fib_rules_ops	*mr_rules_ops;
->  #endif
->  #endif
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	int sysctl_fib_multipath_use_neigh;
-> +#endif
->  	atomic_t	rt_genid;
->  };
->  #endif
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index d97268e8ff10..ab64d9f2eef9 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -1559,21 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
->  }
->  
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +static bool fib_good_nh(const struct fib_nh *nh)
-> +{
-> +	int state = NUD_REACHABLE;
-> +
-> +	if (nh->nh_scope == RT_SCOPE_LINK) {
-> +		struct neighbour *n;
-> +
-> +		rcu_read_lock_bh();
-> +
-> +		n = __ipv4_neigh_lookup_noref(nh->nh_dev, nh->nh_gw);
-> +		if (n)
-> +			state = n->nud_state;
-> +
-> +		rcu_read_unlock_bh();
-> +	}
-> +
-> +	return !!(state & NUD_VALID);
-> +}
->  
->  void fib_select_multipath(struct fib_result *res, int hash)
->  {
->  	struct fib_info *fi = res->fi;
-> +	struct net *net = fi->fib_net;
-> +	bool first = false;
->  
->  	for_nexthops(fi) {
->  		if (hash > atomic_read(&nh->nh_upper_bound))
->  			continue;
->  
-> -		res->nh_sel = nhsel;
-> -		return;
-> +		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
-> +		    fib_good_nh(nh)) {
-> +			res->nh_sel = nhsel;
-> +			return;
-> +		}
-> +		if (!first) {
-> +			res->nh_sel = nhsel;
-> +			first = true;
-> +		}
->  	} endfor_nexthops(fi);
-> -
-> -	/* Race condition: route has just become dead. */
-> -	res->nh_sel = 0;
->  }
->  #endif
->  
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 1e1fe6086dd9..bb0419582b8d 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -960,6 +960,17 @@ static struct ctl_table ipv4_net_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec,
->  	},
-> +#ifdef CONFIG_IP_ROUTE_MULTIPATH
-> +	{
-> +		.procname	= "fib_multipath_use_neigh",
-> +		.data		= &init_net.ipv4.sysctl_fib_multipath_use_neigh,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec_minmax,
-> +		.extra1		= &zero,
-> +		.extra2		= &one,
-> +	},
-> +#endif
->  	{ }
->  };
->  
-> -- 
-> 2.1.4
-
-Regards
+Is it acceptable that getsockopt() is returning something that it
+is not currently connected to? and potentially somewhere that it
+is never connected to?
