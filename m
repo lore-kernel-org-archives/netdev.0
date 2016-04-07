@@ -1,97 +1,169 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] i40evf: properly handle VLAN features
-Date: Wed,  6 Apr 2016 20:29:39 -0700
-Message-ID: <1459999779-22254-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] i40e: Move NVM variable out of AQ struct
+Date: Wed,  6 Apr 2016 20:29:34 -0700
+Message-ID: <1459999779-22254-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23097 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:9491 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752024AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754627AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Apr 2016 23:29:45 -0400
 In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Correctly set the VLAN feature flags after setting the rest of the
-netdev flags. And don't set them in hw_features, because these can't be
-controlled by the VF driver.
+The NVM update status info should stay collected together, not
+spread across different structs.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Ic16f9e9fd79945d865bb7226184c889884585025
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 27 +++++++++++--------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   |  6 +++---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c      | 12 ++++++------
+ drivers/net/ethernet/intel/i40e/i40e_type.h     |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_type.h   |  1 +
+ 6 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 4659ac2..9110319 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2323,29 +2323,20 @@ static int i40evf_check_reset_complete(struct i40e_hw *hw)
-  **/
- int i40evf_process_config(struct i40evf_adapter *adapter)
- {
-+	struct i40e_virtchnl_vf_resource *vfres = adapter->vf_res;
- 	struct net_device *netdev = adapter->netdev;
- 	int i;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index df8e2fd..e8278e1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -624,7 +624,7 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
  
- 	/* got VF config message back from PF, now we can parse it */
--	for (i = 0; i < adapter->vf_res->num_vsis; i++) {
--		if (adapter->vf_res->vsi_res[i].vsi_type == I40E_VSI_SRIOV)
--			adapter->vsi_res = &adapter->vf_res->vsi_res[i];
-+	for (i = 0; i < vfres->num_vsis; i++) {
-+		if (vfres->vsi_res[i].vsi_type == I40E_VSI_SRIOV)
-+			adapter->vsi_res = &vfres->vsi_res[i];
- 	}
- 	if (!adapter->vsi_res) {
- 		dev_err(&adapter->pdev->dev, "No LAN VSI found\n");
- 		return -ENODEV;
- 	}
+ 	/* pre-emptive resource lock release */
+ 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
+-	hw->aq.nvm_release_on_done = false;
++	hw->nvm_release_on_done = false;
+ 	hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
  
--	if (adapter->vf_res->vf_offload_flags
--	    & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
--		netdev->vlan_features = netdev->features &
--					~(NETIF_F_HW_VLAN_CTAG_TX |
--					  NETIF_F_HW_VLAN_CTAG_RX |
--					  NETIF_F_HW_VLAN_CTAG_FILTER);
--		netdev->features |= NETIF_F_HW_VLAN_CTAG_TX |
--				    NETIF_F_HW_VLAN_CTAG_RX |
--				    NETIF_F_HW_VLAN_CTAG_FILTER;
--	}
- 	netdev->features |= NETIF_F_HIGHDMA |
- 			    NETIF_F_SG |
- 			    NETIF_F_IP_CSUM |
-@@ -2354,7 +2345,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 			    NETIF_F_TSO |
- 			    NETIF_F_TSO6 |
- 			    NETIF_F_TSO_ECN |
--			    NETIF_F_GSO_GRE	       |
-+			    NETIF_F_GSO_GRE |
- 			    NETIF_F_GSO_UDP_TUNNEL |
- 			    NETIF_F_RXCSUM |
- 			    NETIF_F_GRO;
-@@ -2371,9 +2362,15 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	if (adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE)
- 		netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+ 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
+@@ -1024,9 +1024,9 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
+ 	hw->aq.arq.next_to_use = ntu;
  
-+	/* always clear VLAN features because they can change at every reset */
-+	netdev->features &= ~(I40EVF_VLAN_FEATURES);
- 	/* copy netdev features into list of user selectable features */
- 	netdev->hw_features |= netdev->features;
--	netdev->hw_features &= ~NETIF_F_RXCSUM;
-+
-+	if (vfres->vf_offload_flags & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
-+		netdev->vlan_features = netdev->features;
-+		netdev->features |= I40EVF_VLAN_FEATURES;
-+	}
+ 	if (i40e_is_nvm_update_op(&e->desc)) {
+-		if (hw->aq.nvm_release_on_done) {
++		if (hw->nvm_release_on_done) {
+ 			i40e_release_nvm(hw);
+-			hw->aq.nvm_release_on_done = false;
++			hw->nvm_release_on_done = false;
+ 		}
  
- 	adapter->vsi.id = adapter->vsi_res->vsi_id;
+ 		switch (hw->nvmupd_state) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 12fbbdd..d92aad3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -97,7 +97,6 @@ struct i40e_adminq_info {
+ 	u32 fw_build;                   /* firmware build number */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
+-	bool nvm_release_on_done;
  
+ 	struct mutex asq_mutex; /* Send queue lock */
+ 	struct mutex arq_mutex; /* Receive queue lock */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 5730f80..1ae29ac 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -696,7 +696,7 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
+ 	i40e_debug(hw, I40E_DEBUG_NVM, "%s state %d nvm_release_on_hold %d cmd 0x%08x config 0x%08x offset 0x%08x data_size 0x%08x\n",
+ 		   i40e_nvm_update_state_str[upd_cmd],
+ 		   hw->nvmupd_state,
+-		   hw->aq.nvm_release_on_done,
++		   hw->nvm_release_on_done,
+ 		   cmd->command, cmd->config, cmd->offset, cmd->data_size);
+ 
+ 	if (upd_cmd == I40E_NVMUPD_INVALID) {
+@@ -799,7 +799,7 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 			if (status) {
+ 				i40e_release_nvm(hw);
+ 			} else {
+-				hw->aq.nvm_release_on_done = true;
++				hw->nvm_release_on_done = true;
+ 				hw->nvmupd_state = I40E_NVMUPD_STATE_INIT_WAIT;
+ 			}
+ 		}
+@@ -815,7 +815,7 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 			if (status) {
+ 				i40e_release_nvm(hw);
+ 			} else {
+-				hw->aq.nvm_release_on_done = true;
++				hw->nvm_release_on_done = true;
+ 				hw->nvmupd_state = I40E_NVMUPD_STATE_INIT_WAIT;
+ 			}
+ 		}
+@@ -849,7 +849,7 @@ static i40e_status i40e_nvmupd_state_init(struct i40e_hw *hw,
+ 				   -EIO;
+ 				i40e_release_nvm(hw);
+ 			} else {
+-				hw->aq.nvm_release_on_done = true;
++				hw->nvm_release_on_done = true;
+ 				hw->nvmupd_state = I40E_NVMUPD_STATE_INIT_WAIT;
+ 			}
+ 		}
+@@ -953,7 +953,7 @@ retry:
+ 				   -EIO;
+ 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ 		} else {
+-			hw->aq.nvm_release_on_done = true;
++			hw->nvm_release_on_done = true;
+ 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT_WAIT;
+ 		}
+ 		break;
+@@ -980,7 +980,7 @@ retry:
+ 				   -EIO;
+ 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT;
+ 		} else {
+-			hw->aq.nvm_release_on_done = true;
++			hw->nvm_release_on_done = true;
+ 			hw->nvmupd_state = I40E_NVMUPD_STATE_INIT_WAIT;
+ 		}
+ 		break;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 3335f9d..bf693580 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -549,6 +549,7 @@ struct i40e_hw {
+ 	enum i40e_nvmupd_state nvmupd_state;
+ 	struct i40e_aq_desc nvm_wb_desc;
+ 	struct i40e_virt_mem nvm_buff;
++	bool nvm_release_on_done;
+ 
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index a3eae5d..1f9b3b5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -97,7 +97,6 @@ struct i40e_adminq_info {
+ 	u32 fw_build;                   /* firmware build number */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
+-	bool nvm_release_on_done;
+ 
+ 	struct mutex asq_mutex; /* Send queue lock */
+ 	struct mutex arq_mutex; /* Receive queue lock */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 301fe2b..d68e017 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -522,6 +522,7 @@ struct i40e_hw {
+ 	enum i40e_nvmupd_state nvmupd_state;
+ 	struct i40e_aq_desc nvm_wb_desc;
+ 	struct i40e_virt_mem nvm_buff;
++	bool nvm_release_on_done;
+ 
+ 	/* HMC info */
+ 	struct i40e_hmc_info hmc; /* HMC info struct */
 -- 
 2.5.5
