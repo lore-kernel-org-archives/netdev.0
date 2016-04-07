@@ -1,46 +1,46 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Thu, 7 Apr 2016 12:14:18 +0930
-Message-ID: <20160407024417.GE17921@marvin.atrad.com.au>
-References: <20151118050919.GR25216@marvin.atrad.com.au>
- <20151119005608.GB4882@electric-eye.fr.zoreil.com>
- <20151120024616.GL7136@marvin.atrad.com.au>
- <20151120224534.GA25025@electric-eye.fr.zoreil.com>
- <20151121223627.GA3493@electric-eye.fr.zoreil.com>
- <20151122225039.GE2957@marvin.atrad.com.au>
- <20151122230244.GA12249@electric-eye.fr.zoreil.com>
- <20151130064255.GL5537@marvin.atrad.com.au>
- <20151201235852.GA16429@electric-eye.fr.zoreil.com>
- <20160208023318.GJ9174@marvin.atrad.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/14] i40e: Inserting a HW capability display info
+Date: Wed,  6 Apr 2016 20:29:26 -0700
+Message-ID: <1459999779-22254-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Deepthi Kavalur <deepthi.kavalur@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:59076 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755163AbcDGCxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 22:53:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20160208023318.GJ9174@marvin.atrad.com.au>
+Received: from mga02.intel.com ([134.134.136.20]:9491 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751612AbcDGD3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 23:29:42 -0400
+In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 08, 2016 at 01:03:19PM +1030, Jonathan Woithe wrote:
-> On Wed, Dec 02, 2015 at 12:58:52AM +0100, Francois Romieu wrote:
-> > Jonathan Woithe <jwoithe@atrad.com.au> :
-> > [...]
-> > > Any thoughts or progress at this stage?  Are there further tests you need me
-> > > to do ?
-> > 
-> > Yes but you should expect two more days without signal.
-> 
-> FYI I am now back from annual leave and linux.conf.au.  This means I am in
-> a position to test possible solutions to this problem once you are able to
-> make them available.
+From: Deepthi Kavalur <deepthi.kavalur@intel.com>
 
-Has there been any further progress on this problem?  I still have access to
-the hardware and systems if further tests are required.
+Display MSIx vector count for HW capabilities.
 
-Regards
-  jonathan
+Change-ID: I4b41e9b50360cf660e7fbcb85b9390fedcf313b1
+Signed-off-by: Deepthi Kavalur <deepthi.kavalur@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index ebcc0d3..f3c1d88 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -3080,6 +3080,9 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
+ 			break;
+ 		case I40E_AQ_CAP_ID_MSIX:
+ 			p->num_msix_vectors = number;
++			i40e_debug(hw, I40E_DEBUG_INIT,
++				   "HW Capability: MSIX vector count = %d\n",
++				   p->num_msix_vectors);
+ 			break;
+ 		case I40E_AQ_CAP_ID_VF_MSIX:
+ 			p->num_msix_vectors_vf = number;
+-- 
+2.5.5
