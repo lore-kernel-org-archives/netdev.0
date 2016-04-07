@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 08/10] samples/bpf: add tracepoint support to bpf loader
-Date: Wed, 6 Apr 2016 18:43:29 -0700
-Message-ID: <1459993411-2754735-9-git-send-email-ast@fb.com>
+Subject: [PATCH v2 net-next 01/10] perf: optimize perf_fetch_caller_regs
+Date: Wed, 6 Apr 2016 18:43:22 -0700
+Message-ID: <1459993411-2754735-2-git-send-email-ast@fb.com>
 References: <1459993411-2754735-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,98 +16,63 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
 	<kernel-team@fb.com>
 To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:5762 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:6752 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753173AbcDGBnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 21:43:37 -0400
+	by vger.kernel.org with ESMTP id S1753974AbcDGBng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 21:43:36 -0400
 Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u371hPaO031778
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u371hPaL031778
 	for <netdev@vger.kernel.org>; Wed, 6 Apr 2016 18:43:36 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22596yh2tb-5
+	by mx0a-00082601.pphosted.com with ESMTP id 22596yh2tb-2
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 18:43:36 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 241b56c4fc6211e59da024be05956610-ed3df3f0 for <netdev@vger.kernel.org>;	Wed,
- 06 Apr 2016 18:43:34 -0700
+ mx-out.facebook.com (10.223.101.97) with ESMTP	id
+ 2352cd12fc6211e5b20d24be0595f910-e88d63f0 for <netdev@vger.kernel.org>;	Wed,
+ 06 Apr 2016 18:43:33 -0700
 In-Reply-To: <1459993411-2754735-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recognize "tracepoint/" section name prefix and attach the program
-to that tracepoint.
+avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
+It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
+with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu init logic and
+subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
+so we can safely drop memset from all of the above cases and move it into
+perf_ftrace_function_call that calls it with stack allocated pt_regs.
 
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/bpf_load.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+ include/linux/perf_event.h      | 2 --
+ kernel/trace/trace_event_perf.c | 1 +
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 58f86bd11b3d..022af71c2bb5 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -49,6 +49,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	bool is_socket = strncmp(event, "socket", 6) == 0;
- 	bool is_kprobe = strncmp(event, "kprobe/", 7) == 0;
- 	bool is_kretprobe = strncmp(event, "kretprobe/", 10) == 0;
-+	bool is_tracepoint = strncmp(event, "tracepoint/", 11) == 0;
- 	enum bpf_prog_type prog_type;
- 	char buf[256];
- 	int fd, efd, err, id;
-@@ -63,6 +64,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 		prog_type = BPF_PROG_TYPE_SOCKET_FILTER;
- 	} else if (is_kprobe || is_kretprobe) {
- 		prog_type = BPF_PROG_TYPE_KPROBE;
-+	} else if (is_tracepoint) {
-+		prog_type = BPF_PROG_TYPE_TRACEPOINT;
- 	} else {
- 		printf("Unknown event '%s'\n", event);
- 		return -1;
-@@ -111,12 +114,23 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 			       event, strerror(errno));
- 			return -1;
- 		}
--	}
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index f291275ffd71..e89f7199c223 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -882,8 +882,6 @@ static inline void perf_arch_fetch_caller_regs(struct pt_regs *regs, unsigned lo
+  */
+ static inline void perf_fetch_caller_regs(struct pt_regs *regs)
+ {
+-	memset(regs, 0, sizeof(*regs));
+-
+ 	perf_arch_fetch_caller_regs(regs, CALLER_ADDR0);
+ }
  
--	strcpy(buf, DEBUGFS);
--	strcat(buf, "events/kprobes/");
--	strcat(buf, event);
--	strcat(buf, "/id");
-+		strcpy(buf, DEBUGFS);
-+		strcat(buf, "events/kprobes/");
-+		strcat(buf, event);
-+		strcat(buf, "/id");
-+	} else if (is_tracepoint) {
-+		event += 11;
-+
-+		if (*event == 0) {
-+			printf("event name cannot be empty\n");
-+			return -1;
-+		}
-+		strcpy(buf, DEBUGFS);
-+		strcat(buf, "events/");
-+		strcat(buf, event);
-+		strcat(buf, "/id");
-+	}
+diff --git a/kernel/trace/trace_event_perf.c b/kernel/trace/trace_event_perf.c
+index 00df25fd86ef..7a68afca8249 100644
+--- a/kernel/trace/trace_event_perf.c
++++ b/kernel/trace/trace_event_perf.c
+@@ -316,6 +316,7 @@ perf_ftrace_function_call(unsigned long ip, unsigned long parent_ip,
  
- 	efd = open(buf, O_RDONLY, 0);
- 	if (efd < 0) {
-@@ -304,6 +318,7 @@ int load_bpf_file(char *path)
+ 	BUILD_BUG_ON(ENTRY_SIZE > PERF_MAX_TRACE_SIZE);
  
- 			if (memcmp(shname_prog, "kprobe/", 7) == 0 ||
- 			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
-+			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
- 			    memcmp(shname_prog, "socket", 6) == 0)
- 				load_and_attach(shname_prog, insns, data_prog->d_size);
- 		}
-@@ -320,6 +335,7 @@ int load_bpf_file(char *path)
++	memset(&regs, 0, sizeof(regs));
+ 	perf_fetch_caller_regs(&regs);
  
- 		if (memcmp(shname, "kprobe/", 7) == 0 ||
- 		    memcmp(shname, "kretprobe/", 10) == 0 ||
-+		    memcmp(shname, "tracepoint/", 11) == 0 ||
- 		    memcmp(shname, "socket", 6) == 0)
- 			load_and_attach(shname, data->d_buf, data->d_size);
- 	}
+ 	entry = perf_trace_buf_prepare(ENTRY_SIZE, TRACE_FN, NULL, &rctx);
 -- 
 2.8.0
