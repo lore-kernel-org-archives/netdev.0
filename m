@@ -1,60 +1,38 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net-next 3/6] bridge: simplify the
- stp_state_store by calling store_bridge_parm
-Date: Thu, 7 Apr 2016 11:49:23 +0800
-Message-ID: <CADvbK_cc3a8g-8AVEK4GuQXhq9zUgJh72vq3MARiDYNN-2B-qw@mail.gmail.com>
-References: <6197a35a2eb6df2caf90edcbf1b49da12077f659.1459827115.git.lucien.xin@gmail.com>
-	<baf4788b6ac529a2132ace735fc1caf4989307da.1459827115.git.lucien.xin@gmail.com>
-	<5703483D.80109@lab.ntt.co.jp>
-	<20160406.161043.260012491646006960.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V3 05/16] net: fec: reduce interrupts
+Date: Wed, 06 Apr 2016 23:57:31 -0400 (EDT)
+Message-ID: <20160406.235731.57253886354009409.davem@davemloft.net>
+References: <1459909562-22865-6-git-send-email-troy.kisky@boundarydevices.com>
+	<20160406.172008.266926707628676037.davem@davemloft.net>
+	<5705AD07.10009@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	network dev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160406.161043.260012491646006960.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fugang.duan@nxp.com, lznuaa@gmail.com,
+	fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
+	tremyfr@gmail.com, gerg@uclinux.org,
+	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
+	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
+	arnd@arndb.de
+To: troy.kisky@boundarydevices.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbcDGD5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Apr 2016 23:57:38 -0400
+In-Reply-To: <5705AD07.10009@boundarydevices.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 7, 2016 at 4:10 AM, David Miller <davem@davemloft.net> wrote:
-> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Date: Tue, 5 Apr 2016 14:08:13 +0900
->
->> On 2016/04/05 12:32, Xin Long wrote:
->>> There are some repetitive codes in stp_state_store, we can remove
->>> them by calling store_bridge_parm.
->>>
->>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>> ---
->>>  net/bridge/br_sysfs_br.c | 24 +++++++-----------------
->>>  1 file changed, 7 insertions(+), 17 deletions(-)
->>>
->>> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
->>> index 137cd3b..9918763 100644
->>> --- a/net/bridge/br_sysfs_br.c
->>> +++ b/net/bridge/br_sysfs_br.c
->>> @@ -128,27 +128,17 @@ static ssize_t stp_state_show(struct device *d,
->>>  }
->>>
->>>
->>> +static int set_stp_state(struct net_bridge *br, unsigned long val)
->>> +{
->>
->> You forgot to add rtnl lock here?
->> The missing lock is restored in patch 4, but at this point bisect could
->> break..
-OK, if I will fix this, if there's no other issues on this patchset,
-I will post v3 later.
-Thanks.
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Date: Wed, 6 Apr 2016 17:42:47 -0700
 
->
-> Agreed, this has to be fixed.
+> Sure, that's an easy change. But if a TX int is what caused the
+> interrupt and masks them, and then a RX packet happens before napi
+> runs, do you want the TX serviced 1st, or RX ?
+
+If you properly split your driver up into seperate interrupt/poll
+instances, one for TX one for RX, you wouldn't need to ask me
+that question now would you?
+
+:-)
