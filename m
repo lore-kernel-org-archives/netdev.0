@@ -1,40 +1,122 @@
-From: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
-Subject: [PATCH v4 1/2] RDS: memory allocated must be align to 8
-Date: Thu,  7 Apr 2016 07:57:35 -0400
-Message-ID: <1460030256-16791-1-git-send-email-shamir.rabinovitch@oracle.com>
-Cc: davem@davemloft.net, shamir.rabinovitch@oracle.com,
-	santosh.shilimkar@oracle.com
-To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50493 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755418AbcDGL57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 07:57:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH 1/2] drivers: net: cpsw: fix port_mask parameters in ale calls
+Date: Thu, 7 Apr 2016 15:16:43 +0300
+Message-ID: <1460031404-28594-2-git-send-email-grygorii.strashko@ti.com>
+References: <1460031404-28594-1-git-send-email-grygorii.strashko@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460031404-28594-1-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix issue in 'rds_ib_cong_recv' when accessing unaligned memory
-allocated by 'rds_page_remainder_alloc' using uint64_t pointer.
+ALE APIs expect to receive port masks as input values for arguments
+port_mask, untag, reg_mcast, unreg_mcast. But there are few places in
+code where port masks are passed left-shifted by cpsw_priv->host_port,
+like below:
 
-Signed-off-by: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+ cpsw_ale_add_vlan(priv->ale, priv->data.default_vlan,
+		  ALE_ALL_PORTS << priv->host_port,
+		  ALE_ALL_PORTS << priv->host_port, 0, 0);
+
+and cpsw is still working just because priv->host_port == 0
+and has never ever been changed.
+
+Hence, fix port_mask parameters in ALE APIs calls and drop
+"<< priv->host_port" from all places where it's used to
+shift valid port mask.
+
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- net/rds/page.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 22 +++++++++-------------
+ 1 file changed, 9 insertions(+), 13 deletions(-)
 
-diff --git a/net/rds/page.c b/net/rds/page.c
-index 616f21f..e2b5a58 100644
---- a/net/rds/page.c
-+++ b/net/rds/page.c
-@@ -135,8 +135,8 @@ int rds_page_remainder_alloc(struct scatterlist *scat, unsigned long bytes,
- 			if (rem->r_offset != 0)
- 				rds_stats_inc(s_page_remainder_hit);
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 42fdfd4..5292e70 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -535,7 +535,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
+ 				ALE_VLAN, slave->port_vlan, 0);		\
+ 		} else {						\
+ 			cpsw_ale_add_mcast(priv->ale, addr,		\
+-				ALE_ALL_PORTS << priv->host_port,	\
++				ALE_ALL_PORTS,				\
+ 				0, 0, 0);				\
+ 		}							\
+ 	} while (0)
+@@ -602,8 +602,7 @@ static void cpsw_set_promiscious(struct net_device *ndev, bool enable)
+ 			cpsw_ale_control_set(ale, 0, ALE_AGEOUT, 1);
  
--			rem->r_offset += bytes;
--			if (rem->r_offset == PAGE_SIZE) {
-+			rem->r_offset += ALIGN(bytes, 8);
-+			if (rem->r_offset >= PAGE_SIZE) {
- 				__free_page(rem->r_page);
- 				rem->r_page = NULL;
- 			}
+ 			/* Clear all mcast from ALE */
+-			cpsw_ale_flush_multicast(ale, ALE_ALL_PORTS <<
+-						 priv->host_port, -1);
++			cpsw_ale_flush_multicast(ale, ALE_ALL_PORTS, -1);
+ 
+ 			/* Flood All Unicast Packets to Host port */
+ 			cpsw_ale_control_set(ale, 0, ALE_P0_UNI_FLOOD, 1);
+@@ -648,8 +647,7 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ 	cpsw_ale_set_allmulti(priv->ale, priv->ndev->flags & IFF_ALLMULTI);
+ 
+ 	/* Clear all mcast from ALE */
+-	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port,
+-				 vid);
++	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS, vid);
+ 
+ 	if (!netdev_mc_empty(ndev)) {
+ 		struct netdev_hw_addr *ha;
+@@ -1172,7 +1170,6 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
+ {
+ 	const int vlan = priv->data.default_vlan;
+-	const int port = priv->host_port;
+ 	u32 reg;
+ 	int i;
+ 	int unreg_mcast_mask;
+@@ -1190,9 +1187,9 @@ static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
+ 	else
+ 		unreg_mcast_mask = ALE_PORT_1 | ALE_PORT_2;
+ 
+-	cpsw_ale_add_vlan(priv->ale, vlan, ALE_ALL_PORTS << port,
+-			  ALE_ALL_PORTS << port, ALE_ALL_PORTS << port,
+-			  unreg_mcast_mask << port);
++	cpsw_ale_add_vlan(priv->ale, vlan, ALE_ALL_PORTS,
++			  ALE_ALL_PORTS, ALE_ALL_PORTS,
++			  unreg_mcast_mask);
+ }
+ 
+ static void cpsw_init_host_port(struct cpsw_priv *priv)
+@@ -1273,8 +1270,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		cpsw_add_default_vlan(priv);
+ 	else
+ 		cpsw_ale_add_vlan(priv->ale, priv->data.default_vlan,
+-				  ALE_ALL_PORTS << priv->host_port,
+-				  ALE_ALL_PORTS << priv->host_port, 0, 0);
++				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+ 
+ 	if (!cpsw_common_res_usage_state(priv)) {
+ 		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
+@@ -1666,7 +1662,7 @@ static inline int cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
+ 	}
+ 
+ 	ret = cpsw_ale_add_vlan(priv->ale, vid, port_mask, 0, port_mask,
+-				unreg_mcast_mask << priv->host_port);
++				unreg_mcast_mask);
+ 	if (ret != 0)
+ 		return ret;
+ 
+@@ -1738,7 +1734,7 @@ static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
+ 		return ret;
+ 
+ 	ret = cpsw_ale_del_ucast(priv->ale, priv->mac_addr,
+-				 priv->host_port, ALE_VLAN, vid);
++				 HOST_PORT_NUM, ALE_VLAN, vid);
+ 	if (ret != 0)
+ 		return ret;
+ 
 -- 
-1.7.1
+2.8.0
