@@ -1,70 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 5/7] sctp: reuse the some transport traversal
- functions in proc
-Date: Thu, 7 Apr 2016 09:09:30 -0400
-Message-ID: <20160407130930.GA4573@hmsreliant.think-freely.org>
-References: <cover.1459829123.git.lucien.xin@gmail.com>
- <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: optimizations to sk_buff handling in rds_tcp_data_ready
+Date: Thu, 7 Apr 2016 09:11:01 -0400
+Message-ID: <20160407130859.GA2818@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
+To: alexei.starovoitov@gmail.com, tom@herbertland.com,
+	netdev@vger.kernel.org, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35999 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756047AbcDGNJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 09:09:49 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:27340 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684AbcDGNLJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 09:11:09 -0400
 Content-Disposition: inline
-In-Reply-To: <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2016 at 12:06:30PM +0800, Xin Long wrote:
-> There are some transport traversal functions for sctp_diag, we can also
-> use it for sctp_proc. cause they have the similar situation to traversal
-> transport.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/proc.c | 80 +++++++++++++--------------------------------------------
->  1 file changed, 18 insertions(+), 62 deletions(-)
-> 
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index 5cfac8d..dd8492f 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -282,80 +282,31 @@ struct sctp_ht_iter {
->  	struct rhashtable_iter hti;
->  };
->  
-> -static struct sctp_transport *sctp_transport_get_next(struct seq_file *seq)
-> -{
-> -	struct sctp_ht_iter *iter = seq->private;
-> -	struct sctp_transport *t;
-> -
-> -	t = rhashtable_walk_next(&iter->hti);
-> -	for (; t; t = rhashtable_walk_next(&iter->hti)) {
-> -		if (IS_ERR(t)) {
-> -			if (PTR_ERR(t) == -EAGAIN)
-> -				continue;
-> -			break;
-> -		}
-> -
-> -		if (net_eq(sock_net(t->asoc->base.sk), seq_file_net(seq)) &&
-> -		    t->asoc->peer.primary_path == t)
-> -			break;
-> -	}
-> -
-> -	return t;
-> -}
-> -
 
-this may just be a nit, but you defined the new sctp_transport_get_next in patch
-2 of this series, and didn't remove this private version until here.  Is that
-going to cause some behavioral issue, if someone builds a kernel between patch 2
-and 7?  Seems like perhaps those two patches should be merged.
+I was going back to Alexei's comment here:
+  http://permalink.gmane.org/gmane.linux.network/387806
+In rds-stress profiling,  we are indeed seeing the pksb_pull 
+(from rds_tcp_data_recv) show up in the perf profile.
 
-Neil
+At least for rds-tcp, we cannot re-use the skb even if
+it is not shared, because what we need to do is to carve out
+the interesting bits (start at offset, and trim it to to_copy)
+and queue up those interesting bits on the PF_RDS socket,
+while allowing tcp_data_read to go back and read the next 
+tcp segment (which may be part of the next rds dgram).
+
+But, when  pskb_expand_head is invoked in the call-stack
+  pskb_pull(.., offset) -> ... -> __pskb_pull_tail(.., delta) 
+it will memcpy the offset bytes to the start of data. At least 
+for the rds_tcp_data_recv, we are not interested in being able 
+to do a *skb_push after the *skb_pull, so we dont really care 
+about the intactness of these bytes in offset.
+Thus what I am finding is that when delta > 0, if we skip the 
+following in pskb_expand_head (for the rds-tcp recv case only!)
+
+        /* Copy only real data... and, alas, header. This should be
+         * optimized for the cases when header is void.
+         */
+        memcpy(data + nhead, skb->head, skb_tail_pointer(skb) - skb->head);
+
+and also (only for this case!) this one in __pskb_pull_tail
+
+ if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
+                BUG();
+
+I am able to get a 40% improvement in the measured IOPS (req/response 
+transactions per second, using 8K byte requests, 256 byte responses,
+16 concurrent threads), so this optimization seems worth doing.
+
+Does my analysis above make sense? If yes, the question is, how to
+achieve this bypass in a neat way.  Clearly there are many callers of
+pskb_expand_head who will expect to find the skb_header_len bytes at
+the start of data, but we also dont want to duplicate code in these
+functions. One thought I had is to pass a flag arouund saying "caller
+doesnt care about retaining offset bytes", and use this flag
+- in __pskb_pull_tail, to avoid skb_copy_bits() above,  and to
+  pass delta to pskb_expand_head,
+- in pskb_expand_head, only do the memcpy listed above 
+  if delta <= 0
+Any other ideas for how to achieve this?
+
+--Sowmini
