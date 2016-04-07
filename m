@@ -1,57 +1,113 @@
 From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH 1/9] net: mediatek: update the IRQ part of the binding document
-Date: Thu,  7 Apr 2016 19:57:48 +0200
-Message-ID: <1460051876-53135-1-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 7/9] net: mediatek: fix TX locking
+Date: Thu,  7 Apr 2016 19:57:54 +0200
+Message-ID: <1460051876-53135-7-git-send-email-blogic@openwrt.org>
+References: <1460051876-53135-1-git-send-email-blogic@openwrt.org>
 Cc: Felix Fietkau <nbd@openwrt.org>,
 	Matthias Brugger <matthias.bgg@gmail.com>,
 	=?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
 	<sean.wang@mediatek.com>, netdev@vger.kernel.org,
 	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	John Crispin <blogic@openwrt.org>, devicetree@vger.kernel.org
+	John Crispin <blogic@openwrt.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caladan.dune.hu ([78.24.191.180]:38736 "EHLO arrakis.dune.hu"
+Received: from caladan.dune.hu ([78.24.191.180]:38834 "EHLO arrakis.dune.hu"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932386AbcDGR6K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 13:58:10 -0400
+	id S932473AbcDGR6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 13:58:19 -0400
+In-Reply-To: <1460051876-53135-1-git-send-email-blogic@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current binding document only describes a single interrupt. Update the
-document by adding the 2 other interrupts.
-
-The driver currently only uses a single interrupt. The HW is however able
-to using IRQ grouping to split TX and RX onto separate GIC irqs.
+Inside the TX path there is a lock inside the tx_map function. This is
+however too late. The patch moves the lock to the start of the xmit
+function right before the free count check of the DMA ring happens.
+If we do not do this, the code becomes racy leading to TX stalls and
+dropped packets. This happens as there are 2 netdevs running on the
+same physical DMA ring.
 
 Signed-off-by: John Crispin <blogic@openwrt.org>
-Cc: devicetree@vger.kernel.org
 ---
- Documentation/devicetree/bindings/net/mediatek-net.txt |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-index 5ca7929..2f142be 100644
---- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-+++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-@@ -9,7 +9,7 @@ have dual GMAC each represented by a child node..
- Required properties:
- - compatible: Should be "mediatek,mt7623-eth"
- - reg: Address and length of the register set for the device
--- interrupts: Should contain the frame engines interrupt
-+- interrupts: Should contain the three frame engines interrupts
- - clocks: the clock used by the core
- - clock-names: the names of the clock listed in the clocks property. These are
- 	"ethif", "esw", "gp2", "gp1"
-@@ -42,7 +42,9 @@ eth: ethernet@1b100000 {
- 		 <&ethsys CLK_ETHSYS_GP2>,
- 		 <&ethsys CLK_ETHSYS_GP1>;
- 	clock-names = "ethif", "esw", "gp2", "gp1";
--	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW>;
-+	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW
-+		      GIC_SPI 199 IRQ_TYPE_LEVEL_LOW
-+		      GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>;
- 	power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
- 	resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
- 	reset-names = "eth";
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 60b66ab..8434355 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -536,7 +536,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	struct mtk_eth *eth = mac->hw;
+ 	struct mtk_tx_dma *itxd, *txd;
+ 	struct mtk_tx_buf *tx_buf;
+-	unsigned long flags;
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+@@ -568,11 +567,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	if (unlikely(dma_mapping_error(&dev->dev, mapped_addr)))
+ 		return -ENOMEM;
+ 
+-	/* normally we can rely on the stack not calling this more than once,
+-	 * however we have 2 queues running ont he same ring so we need to lock
+-	 * the ring access
+-	 */
+-	spin_lock_irqsave(&eth->page_lock, flags);
+ 	WRITE_ONCE(itxd->txd1, mapped_addr);
+ 	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
+ 	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
+@@ -632,8 +626,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+ 				(!nr_frags * TX_DMA_LS0)));
+ 
+-	spin_unlock_irqrestore(&eth->page_lock, flags);
+-
+ 	netdev_sent_queue(dev, skb->len);
+ 	skb_tx_timestamp(skb);
+ 
+@@ -661,8 +653,6 @@ err_dma:
+ 		itxd = mtk_qdma_phys_to_virt(ring, itxd->txd2);
+ 	} while (itxd != txd);
+ 
+-	spin_unlock_irqrestore(&eth->page_lock, flags);
+-
+ 	return -ENOMEM;
+ }
+ 
+@@ -712,14 +702,22 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct mtk_eth *eth = mac->hw;
+ 	struct mtk_tx_ring *ring = &eth->tx_ring;
+ 	struct net_device_stats *stats = &dev->stats;
++	unsigned long flags;
+ 	bool gso = false;
+ 	int tx_num;
+ 
++	/* normally we can rely on the stack not calling this more than once,
++	 * however we have 2 queues running ont he same ring so we need to lock
++	 * the ring access
++	 */
++	spin_lock_irqsave(&eth->page_lock, flags);
++
+ 	tx_num = mtk_cal_txd_req(skb);
+ 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
+ 		mtk_stop_queue(eth);
+ 		netif_err(eth, tx_queued, dev,
+ 			  "Tx Ring full when queue awake!\n");
++		spin_unlock_irqrestore(&eth->page_lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -747,10 +745,12 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			     ring->thresh))
+ 			mtk_wake_queue(eth);
+ 	}
++	spin_unlock_irqrestore(&eth->page_lock, flags);
+ 
+ 	return NETDEV_TX_OK;
+ 
+ drop:
++	spin_unlock_irqrestore(&eth->page_lock, flags);
+ 	stats->tx_dropped++;
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
 -- 
 1.7.10.4
