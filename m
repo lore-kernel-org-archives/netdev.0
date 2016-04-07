@@ -1,222 +1,50 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v6 net-next] net: ipv4: Consider failed nexthops in multipath routes
-Date: Thu,  7 Apr 2016 07:21:00 -0700
-Message-ID: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33622 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755419AbcDGOVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 10:21:11 -0400
-Received: by mail-pa0-f43.google.com with SMTP id zm5so55891707pac.0
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 07:21:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] wlcore: spi: add wl18xx support
+Date: Thu, 07 Apr 2016 17:32:08 +0300
+Message-ID: <87wpo97amv.fsf@kamboji.qca.qualcomm.com>
+References: <1459343218-24536-1-git-send-email-eyalr@ti.com>
+	<87shyx38tz.fsf@purkki.adurom.net>
+	<8665E2433BC68541A24DFFCA87B70F5B360B5430@DFRE01.ent.ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree\@vger.kernel.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Reizer\, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B360B5430-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+	(Eyal Reizer's message of "Thu, 7 Apr 2016 12:45:13 +0000")
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Multipath route lookups should consider knowledge about next hops and not
-select a hop that is known to be failed.
+"Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org> writes:
 
-Example:
+>> >  static const struct of_device_id wlcore_spi_of_match_table[] = {
+>> > -	{ .compatible = "ti,wl1271" },
+>> > +	{ .compatible = "ti,wl1271", .data = &wl12xx_data},
+>> > +	{ .compatible = "ti,wl1273", .data = &wl12xx_data},
+>> > +	{ .compatible = "ti,wl1281", .data = &wl12xx_data},
+>> > +	{ .compatible = "ti,wl1283", .data = &wl12xx_data},
+>> > +	{ .compatible = "ti,wl1801", .data = &wl18xx_data},
+>> > +	{ .compatible = "ti,wl1805", .data = &wl18xx_data},
+>> > +	{ .compatible = "ti,wl1807", .data = &wl18xx_data},
+>> > +	{ .compatible = "ti,wl1831", .data = &wl18xx_data},
+>> > +	{ .compatible = "ti,wl1835", .data = &wl18xx_data},
+>> > +	{ .compatible = "ti,wl1837", .data = &wl18xx_data},
+>> >  	{ }
+>> 
+>> Shouldn't you also update bindings/net/wireless/ti,wlcore,spi.txt? Now it only
+>> mentions about ti,wl1271 and not anything about the rest.
+>
+> You are right! Will be fixed in v2
 
-                     [h2]                   [h3]   15.0.0.5
-                      |                      |
-                     3|                     3|
-                    [SP1]                  [SP2]--+
-                     1  2                   1     2
-                     |  |     /-------------+     |
-                     |   \   /                    |
-                     |     X                      |
-                     |    / \                     |
-                     |   /   \---------------\    |
-                     1  2                     1   2
-         12.0.0.2  [TOR1] 3-----------------3 [TOR2] 12.0.0.3
-                     4                         4
-                      \                       /
-                        \                    /
-                         \                  /
-                          -------|   |-----/
-                                 1   2
-                                [TOR3]
-                                  3|
-                                   |
-                                  [h1]  12.0.0.1
+Thanks. Also remember to CC devicetree list.
 
-host h1 with IP 12.0.0.1 has 2 paths to host h3 at 15.0.0.5:
-
-    root@h1:~# ip ro ls
-    ...
-    12.0.0.0/24 dev swp1  proto kernel  scope link  src 12.0.0.1
-    15.0.0.0/16
-            nexthop via 12.0.0.2  dev swp1 weight 1
-            nexthop via 12.0.0.3  dev swp1 weight 1
-    ...
-
-If the link between tor3 and tor1 is down and the link between tor1
-and tor2 then tor1 is effectively cut-off from h1. Yet the route lookups
-in h1 are alternating between the 2 routes: ping 15.0.0.5 gets one and
-ssh 15.0.0.5 gets the other. Connections that attempt to use the
-12.0.0.2 nexthop fail since that neighbor is not reachable:
-
-    root@h1:~# ip neigh show
-    ...
-    12.0.0.3 dev swp1 lladdr 00:02:00:00:00:1b REACHABLE
-    12.0.0.2 dev swp1  FAILED
-    ...
-
-The failed path can be avoided by considering known neighbor information
-when selecting next hops. If the neighbor lookup fails we have no
-knowledge about the nexthop, so give it a shot. If there is an entry
-then only select the nexthop if the state is sane. This is similar to
-what fib_detect_death does.
-
-To maintain backward compatibility use of the neighbor information is
-based on a new sysctl, fib_multipath_use_neigh.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v6
-- changed __neigh_lookup_noref to __ipv4_neigh_lookup_noref per Dave's
-  comment
-
-v5
-- returned comma that got lost in the ether and removed resetting of
-  nhsel at end of loop - again comments from Julian
-
-v4
-- remove NULL initializer and logic for fallback per Julian's comment
-
-v3
-- Julian comments: changed use of dead in documentation to failed,
-  init state to NUD_REACHABLE which simplifies fib_good_nh, use of
-  nh_dev for neighbor lookup, fallback to first entry which is what
-  current logic does
-
-v2
-- use rcu locking to avoid refcnts per Eric's suggestion
-- only consider neighbor info for nh_scope == RT_SCOPE_LINK per Julian's
-  comment
-- drop the 'state == NUD_REACHABLE' from the state check since it is
-  part of NUD_VALID (comment from Julian)
-- wrapped the use of the neigh in a sysctl
-
- Documentation/networking/ip-sysctl.txt | 10 ++++++++++
- include/net/netns/ipv4.h               |  3 +++
- net/ipv4/fib_semantics.c               | 34 +++++++++++++++++++++++++++++-----
- net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
- 4 files changed, 53 insertions(+), 5 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index b183e2b606c8..6c7f365b1515 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -63,6 +63,16 @@ fwmark_reflect - BOOLEAN
- 	fwmark of the packet they are replying to.
- 	Default: 0
- 
-+fib_multipath_use_neigh - BOOLEAN
-+	Use status of existing neighbor entry when determining nexthop for
-+	multipath routes. If disabled, neighbor information is not used and
-+	packets could be directed to a failed nexthop. Only valid for kernels
-+	built with CONFIG_IP_ROUTE_MULTIPATH enabled.
-+	Default: 0 (disabled)
-+	Possible values:
-+	0 - disabled
-+	1 - enabled
-+
- route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index a69cde3ce460..d061ffeb1e71 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -133,6 +133,9 @@ struct netns_ipv4 {
- 	struct fib_rules_ops	*mr_rules_ops;
- #endif
- #endif
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	int sysctl_fib_multipath_use_neigh;
-+#endif
- 	atomic_t	rt_genid;
- };
- #endif
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d97268e8ff10..ab64d9f2eef9 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1559,21 +1559,45 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
- }
- 
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
-+static bool fib_good_nh(const struct fib_nh *nh)
-+{
-+	int state = NUD_REACHABLE;
-+
-+	if (nh->nh_scope == RT_SCOPE_LINK) {
-+		struct neighbour *n;
-+
-+		rcu_read_lock_bh();
-+
-+		n = __ipv4_neigh_lookup_noref(nh->nh_dev, nh->nh_gw);
-+		if (n)
-+			state = n->nud_state;
-+
-+		rcu_read_unlock_bh();
-+	}
-+
-+	return !!(state & NUD_VALID);
-+}
- 
- void fib_select_multipath(struct fib_result *res, int hash)
- {
- 	struct fib_info *fi = res->fi;
-+	struct net *net = fi->fib_net;
-+	bool first = false;
- 
- 	for_nexthops(fi) {
- 		if (hash > atomic_read(&nh->nh_upper_bound))
- 			continue;
- 
--		res->nh_sel = nhsel;
--		return;
-+		if (!net->ipv4.sysctl_fib_multipath_use_neigh ||
-+		    fib_good_nh(nh)) {
-+			res->nh_sel = nhsel;
-+			return;
-+		}
-+		if (!first) {
-+			res->nh_sel = nhsel;
-+			first = true;
-+		}
- 	} endfor_nexthops(fi);
--
--	/* Race condition: route has just become dead. */
--	res->nh_sel = 0;
- }
- #endif
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1e1fe6086dd9..bb0419582b8d 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -960,6 +960,17 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	{
-+		.procname	= "fib_multipath_use_neigh",
-+		.data		= &init_net.ipv4.sysctl_fib_multipath_use_neigh,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &one,
-+	},
-+#endif
- 	{ }
- };
- 
 -- 
-2.1.4
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
