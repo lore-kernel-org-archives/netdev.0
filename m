@@ -1,7 +1,8 @@
 From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V3 6/8] net: mediatek: fix mtk_pending_work
-Date: Fri,  8 Apr 2016 00:54:09 +0200
-Message-ID: <1460069651-1234-7-git-send-email-blogic@openwrt.org>
+Subject: [PATCH V3 8/8] net: mediatek: do not set the QID field in the TX DMA
+ descriptors
+Date: Fri,  8 Apr 2016 00:54:11 +0200
+Message-ID: <1460069651-1234-9-git-send-email-blogic@openwrt.org>
 References: <1460069651-1234-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,61 +26,33 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The driver supports 2 MACs. Both run on the same DMA ring. If we hit a TX
-timeout we need to stop both netdevs before restarting them again. If we
-don't do this, mtk_stop() wont shutdown DMA and the consecutive call to
-mtk_open() wont restart DMA and enable IRQs.
+The QID field gets set to the mac id. This made the DMA linked list queue
+the traffic of each MAC on a different internal queue. However during long
+term testing we found that this will cause traffic stalls as the multi
+queue setup requires a more complete initialisation which is not part of
+the upstream driver yet.
+
+This patch removes the code setting the QID field, resulting in all
+traffic ending up in queue 0 which works without any special setup.
 
 Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-
 ---
-Changes in V3
-* make the patch bisectable
-
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   28 +++++++++++++++++++--------
- 1 file changed, 20 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 7b76075..cd5d0c9 100644
+index eb0d554..c984462 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1432,17 +1432,29 @@ static void mtk_pending_work(struct work_struct *work)
- {
- 	struct mtk_mac *mac = container_of(work, struct mtk_mac, pending_work);
- 	struct mtk_eth *eth = mac->hw;
--	struct net_device *dev = eth->netdev[mac->id];
--	int err;
-+	int err, i;
-+	unsigned long restart = 0;
+@@ -603,8 +603,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 			WRITE_ONCE(txd->txd1, mapped_addr);
+ 			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
+ 					       TX_DMA_PLEN0(frag_map_size) |
+-					       last_frag * TX_DMA_LS0) |
+-					       mac->id);
++					       last_frag * TX_DMA_LS0));
+ 			WRITE_ONCE(txd->txd4, 0);
  
- 	rtnl_lock();
--	mtk_stop(dev);
- 
--	err = mtk_open(dev);
--	if (err) {
--		netif_alert(eth, ifup, dev,
--			    "Driver up/down cycle failed, closing device.\n");
--		dev_close(dev);
-+	/* stop all devices to make sure that dma is properly shut down */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!netif_oper_up(eth->netdev[i]))
-+			continue;
-+		mtk_stop(eth->netdev[i]);
-+		__set_bit(i, &restart);
-+	}
-+
-+	/* restart DMA and enable IRQs */
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!test_bit(i, &restart))
-+			continue;
-+		err = mtk_open(eth->netdev[i]);
-+		if (err) {
-+			netif_alert(eth, ifup, eth->netdev[i],
-+			      "Driver up/down cycle failed, closing device.\n");
-+			dev_close(eth->netdev[i]);
-+		}
- 	}
- 	rtnl_unlock();
- }
+ 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
 -- 
 1.7.10.4
