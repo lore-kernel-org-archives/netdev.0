@@ -1,119 +1,99 @@
-From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 6/8] net: mediatek: fix TX locking
-Date: Thu,  7 Apr 2016 21:26:48 +0200
-Message-ID: <1460057210-55786-7-git-send-email-blogic@openwrt.org>
-References: <1460057210-55786-1-git-send-email-blogic@openwrt.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 7 Apr 2016 14:28:47 -0500
+Message-ID: <5706B4EF.2050600@codeaurora.org>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+ <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
+ <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- =?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
- <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1460057210-55786-1-git-send-email-blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Gilad Avidov <gavidov@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
+To: Rob Herring <robh@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:46859 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932567AbcDGT2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:28:51 -0400
+In-Reply-To: <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Inside the TX path there is a lock inside the tx_map function. This is
-however too late. The patch moves the lock to the start of the xmit
-function right before the free count check of the DMA ring happens.
-If we do not do this, the code becomes racy leading to TX stalls and
-dropped packets. This happens as there are 2 netdevs running on the
-same physical DMA ring.
+Rob Herring wrote:
 
-Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+>>>> >>>+- reg : Offset and length of the register regions for the device
+>>>> >>>+- reg-names : Register region names referenced in 'reg' above.
+>>>> >>>+       Required register resource entries are:
+>>>> >>>+       "base"   : EMAC controller base register block.
+>>>> >>>+       "csr"    : EMAC wrapper register block.
+>>>> >>>+       Optional register resource entries are:
+>>>> >>>+       "ptp"    : EMAC PTP (1588) register block.
+>>>> >>>+                  Required if 'qcom,emac-tstamp-en' is present.
+>>>> >>>+       "sgmii"  : EMAC SGMII PHY register block.
+>>>> >>>+- interrupts : Interrupt numbers used by this controller
+>>>> >>>+- interrupt-names : Interrupt resource names referenced in 'interrupts'
+>>>> >>>above.
+>>>> >>>+       Required interrupt resource entries are:
+>>>> >>>+       "emac_core0"   : EMAC core0 interrupt.
+>>>> >>>+       "sgmii_irq"   : EMAC SGMII interrupt.
+>>>> >>>+- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
+>>>> >>>+- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
+>>> >>
+>>> >>
+>>> >>Use the standard binding for GPIO controlled MDIO bus.
+>> >
+>> >
+>> >I'm not familiar with that one.  Are you talking about
+>> >bindings/net/mdio-gpio.txt?
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 60b66ab..8434355 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -536,7 +536,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	struct mtk_eth *eth = mac->hw;
- 	struct mtk_tx_dma *itxd, *txd;
- 	struct mtk_tx_buf *tx_buf;
--	unsigned long flags;
- 	dma_addr_t mapped_addr;
- 	unsigned int nr_frags;
- 	int i, n_desc = 1;
-@@ -568,11 +567,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	if (unlikely(dma_mapping_error(&dev->dev, mapped_addr)))
- 		return -ENOMEM;
- 
--	/* normally we can rely on the stack not calling this more than once,
--	 * however we have 2 queues running ont he same ring so we need to lock
--	 * the ring access
--	 */
--	spin_lock_irqsave(&eth->page_lock, flags);
- 	WRITE_ONCE(itxd->txd1, mapped_addr);
- 	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
- 	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
-@@ -632,8 +626,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
- 				(!nr_frags * TX_DMA_LS0)));
- 
--	spin_unlock_irqrestore(&eth->page_lock, flags);
--
- 	netdev_sent_queue(dev, skb->len);
- 	skb_tx_timestamp(skb);
- 
-@@ -661,8 +653,6 @@ err_dma:
- 		itxd = mtk_qdma_phys_to_virt(ring, itxd->txd2);
- 	} while (itxd != txd);
- 
--	spin_unlock_irqrestore(&eth->page_lock, flags);
--
- 	return -ENOMEM;
- }
- 
-@@ -712,14 +702,22 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct mtk_eth *eth = mac->hw;
- 	struct mtk_tx_ring *ring = &eth->tx_ring;
- 	struct net_device_stats *stats = &dev->stats;
-+	unsigned long flags;
- 	bool gso = false;
- 	int tx_num;
- 
-+	/* normally we can rely on the stack not calling this more than once,
-+	 * however we have 2 queues running ont he same ring so we need to lock
-+	 * the ring access
-+	 */
-+	spin_lock_irqsave(&eth->page_lock, flags);
-+
- 	tx_num = mtk_cal_txd_req(skb);
- 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
- 		mtk_stop_queue(eth);
- 		netif_err(eth, tx_queued, dev,
- 			  "Tx Ring full when queue awake!\n");
-+		spin_unlock_irqrestore(&eth->page_lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
- 
-@@ -747,10 +745,12 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			     ring->thresh))
- 			mtk_wake_queue(eth);
- 	}
-+	spin_unlock_irqrestore(&eth->page_lock, flags);
- 
- 	return NETDEV_TX_OK;
- 
- drop:
-+	spin_unlock_irqrestore(&eth->page_lock, flags);
- 	stats->tx_dropped++;
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
+> Yes.
+>
+>
+>>>> >>>+- phy-addr            : Specifies phy address on MDIO bus.
+>>>> >>>+                       Required if the optional property
+>>>> >>>"qcom,no-external-phy"
+>>>> >>>+                       is not specified.
+>>> >>
+>>> >>
+>>> >>Don't you think you will need to know the specific phy device or other
+>>> >>properties of the phy?
+>> >
+>> >
+>> >That, I can't answer.  Aren't all MDIO devices basically the same?  It's
+>> >been a while since I've worked on them.
+
+> No. There was some discussion just this week about needing to require
+> phy devices to have compatible strings.
+
+I'm back to working on this driver, and I need some more help with how 
+to handle the phy.  mdio-gpio.txt doesn't really tell me much. I'm 
+actually working on an ACPI system and not DT.  I don't want to strip 
+out the DT code, but I can't really test it.  I want to keep changes to 
+Gilad's patch to a minimum.
+
+Part of the problem with the Emac (and Gilad tried to explain this) is 
+that it has an internal phy.  Technically, you can connect this internal 
+phy directly to another internal phy on another SOC, and use this as an 
+SOC interconnect.  However, I don't know of anyone actually doing that.
+
+Instead, most systems have the internal phy connect to an external phy. 
+  This connection is how the Emac receives packets from the external phy.
+
+So I don't understand how I'm supposed to use the binding in 
+mdio-gpio.txt.  For one thing, there is no such binding on ACPI systems. 
+  On my ACPI system, firmware has set up the GPIOs.  The driver never 
+actually makes any gpio_xxx calls.  At this point, I'm tempted to just 
+remove all the GPIO stuff from Gilad's patch, if I can't help enough 
+help to figure out how to modify the driver the way you think I should.
+
 -- 
-1.7.10.4
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
