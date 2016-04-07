@@ -1,112 +1,98 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH iproute2 4/4] vxlan: add support for VXLAN-GPE
-Date: Thu,  7 Apr 2016 14:36:29 +0200
-Message-ID: <5651716fdc3cb54ffe9b9016f99b9a35ea89a62e.1460032274.git.jbenc@redhat.com>
-References: <cover.1460032274.git.jbenc@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47544 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755633AbcDGMhY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 08:37:24 -0400
-In-Reply-To: <cover.1460032274.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Subject: RE: [PATCH] wlcore: spi: add wl18xx support
+Date: Thu, 7 Apr 2016 12:45:13 +0000
+Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360B5430@DFRE01.ent.ti.com>
+References: <1459343218-24536-1-git-send-email-eyalr@ti.com>
+ <87shyx38tz.fsf@purkki.adurom.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87shyx38tz.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Adds support to create a VXLAN-GPE interface.
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- ip/iplink_vxlan.c     | 13 +++++++++++--
- man/man8/ip-link.8.in |  9 +++++++++
- 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index e9d64b451677..49a40befa5d5 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -31,7 +31,7 @@ static void print_explain(FILE *f)
- 	fprintf(f, "                 [ ageing SECONDS ] [ maxaddress NUMBER ]\n");
- 	fprintf(f, "                 [ [no]udpcsum ] [ [no]udp6zerocsumtx ] [ [no]udp6zerocsumrx ]\n");
- 	fprintf(f, "                 [ [no]remcsumtx ] [ [no]remcsumrx ]\n");
--	fprintf(f, "                 [ [no]external ] [ gbp ]\n");
-+	fprintf(f, "                 [ [no]external ] [ gbp ] [ gpe ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: VNI   := 0-16777215\n");
- 	fprintf(f, "       ADDR  := { IP_ADDRESS | any }\n");
-@@ -79,6 +79,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 remcsumrx = 0;
- 	__u8 metadata = 0;
- 	__u8 gbp = 0;
-+	__u8 gpe = 0;
- 	int dst_port_set = 0;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
- 
-@@ -239,6 +240,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			metadata = 0;
- 		} else if (!matches(*argv, "gbp")) {
- 			gbp = 1;
-+		} else if (!matches(*argv, "gpe")) {
-+			gpe = 1;
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -267,7 +270,9 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		return -1;
- 	}
- 
--	if (!dst_port_set) {
-+	if (!dst_port_set && gpe) {
-+		dstport = 4790;
-+	} else if (!dst_port_set) {
- 		fprintf(stderr, "vxlan: destination port not specified\n"
- 			"Will use Linux kernel default (non-standard value)\n");
- 		fprintf(stderr,
-@@ -324,6 +329,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 
- 	if (gbp)
- 		addattr_l(n, 1024, IFLA_VXLAN_GBP, NULL, 0);
-+	if (gpe)
-+		addattr_l(n, 1024, IFLA_VXLAN_GPE, NULL, 0);
- 
- 
- 	return 0;
-@@ -490,6 +497,8 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 
- 	if (tb[IFLA_VXLAN_GBP])
- 		fputs("gbp ", f);
-+	if (tb[IFLA_VXLAN_GPE])
-+		fputs("gpe ", f);
- }
- 
- static void vxlan_print_help(struct link_util *lu, int argc, char **argv,
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index f677f8c55365..984fb2eb0d63 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -425,6 +425,8 @@ the following additional arguments are supported:
- .RI "[no]external "
- ] [
- .B gbp
-+] [
-+.B gpe
- ]
- 
- .in +8
-@@ -566,6 +568,13 @@ Example:
- 
- .in -4
- 
-+.sp
-+.B gpe
-+- enables the Generic Protocol extension (VXLAN-GPE). Currently, this is
-+only supported together with the
-+.B external
-+keyword.
-+
- .in -8
- 
- .TP
--- 
-1.8.3.1
+> -----Original Message-----
+> From: Kalle Valo [mailto:kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org]
+> Sent: Thursday, April 07, 2016 3:25 PM
+> To: Eyal Reizer
+> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Reizer, Eyal; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: Re: [PATCH] wlcore: spi: add wl18xx support
+> 
+> Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+> 
+> > Add support for using with both wl12xx and wl18xx.
+> >
+> > - all wilink family needs special init command for entering wspi mode.
+> >   extra clock cycles should be sent after the spi init command while the
+> >   cs pin is high.
+> > - switch to controling the cs pin from the spi driver for achieveing the
+> >   above.
+> > - the selected cs gpio is read from the spi device-tree node using the
+> >   cs-gpios field and setup as a gpio.
+> > - See the example below for specifying the cs gpio using the cs-gpios
+> > entry
+> >
+> > &spi0	{
+> >  	status = "okay";
+> > 	pinctrl-names = "default";
+> > 	pinctrl-0 = <&spi0_pins>;
+> > 	cs-gpios = <&gpio0 5 0>;
+> > 	#address-cells = <1>;
+> > 	#size-cells = <0>;
+> >  	wlcore: wlcore@0 {
+> > 		compatible = "ti,wl1835";
+> > 		vwlan-supply = <&wlan_en_reg>;
+> > 		spi-max-frequency = <48000000>;
+> > 		reg = <0>;      /* chip select 0 on spi0, ie spi0.0 */
+> > 		interrupt-parent = <&gpio0>;
+> > 		interrupts = <27 IRQ_TYPE_EDGE_RISING>;
+> >  	};
+> > };
+> >
+> > Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
+> 
+> [...]
+> 
+> >  static const struct of_device_id wlcore_spi_of_match_table[] = {
+> > -	{ .compatible = "ti,wl1271" },
+> > +	{ .compatible = "ti,wl1271", .data = &wl12xx_data},
+> > +	{ .compatible = "ti,wl1273", .data = &wl12xx_data},
+> > +	{ .compatible = "ti,wl1281", .data = &wl12xx_data},
+> > +	{ .compatible = "ti,wl1283", .data = &wl12xx_data},
+> > +	{ .compatible = "ti,wl1801", .data = &wl18xx_data},
+> > +	{ .compatible = "ti,wl1805", .data = &wl18xx_data},
+> > +	{ .compatible = "ti,wl1807", .data = &wl18xx_data},
+> > +	{ .compatible = "ti,wl1831", .data = &wl18xx_data},
+> > +	{ .compatible = "ti,wl1835", .data = &wl18xx_data},
+> > +	{ .compatible = "ti,wl1837", .data = &wl18xx_data},
+> >  	{ }
+> 
+> Shouldn't you also update bindings/net/wireless/ti,wlcore,spi.txt? Now it only
+> mentions about ti,wl1271 and not anything about the rest.
+
+You are right! 
+Will be fixed in v2
+
+> 
+> Adding devicetree list for further comments.
+> 
+> --
+> Kalle Valo
+
+Best Regards,
+Eyal
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
