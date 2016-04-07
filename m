@@ -1,73 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: optimizations to sk_buff handling in rds_tcp_data_ready
-Date: Thu, 07 Apr 2016 07:16:00 -0700
-Message-ID: <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160407130859.GA2818@oracle.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Thu, 7 Apr 2016 16:17:15 +0200
+Message-ID: <20160407161715.52635cac@redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tom@herbertland.com,
-	netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33390 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089AbcDGOQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 10:16:06 -0400
-Received: by mail-pa0-f42.google.com with SMTP id zm5so55816346pac.0
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 07:16:05 -0700 (PDT)
-In-Reply-To: <20160407130859.GA2818@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: brouer@redhat.com,
+        James Bottomley
+ <James.Bottomley@HansenPartnership.com>,
+        "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Alexei
+ Starovoitov <alexei.starovoitov@gmail.com>,
+        Brenden Blanco
+ <bblanco@plumgrid.com>,
+        lsf-pc@lists.linux-foundation.org
+To: lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1460034425.20949.7.camel@HansenPartnership.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-07 at 09:11 -0400, Sowmini Varadhan wrote:
-> I was going back to Alexei's comment here:
->   http://permalink.gmane.org/gmane.linux.network/387806
-> In rds-stress profiling,  we are indeed seeing the pksb_pull 
-> (from rds_tcp_data_recv) show up in the perf profile.
-> 
-> At least for rds-tcp, we cannot re-use the skb even if
-> it is not shared, because what we need to do is to carve out
-> the interesting bits (start at offset, and trim it to to_copy)
-> and queue up those interesting bits on the PF_RDS socket,
-> while allowing tcp_data_read to go back and read the next 
-> tcp segment (which may be part of the next rds dgram).
-> 
-> But, when  pskb_expand_head is invoked in the call-stack
->   pskb_pull(.., offset) -> ... -> __pskb_pull_tail(.., delta) 
-> it will memcpy the offset bytes to the start of data. At least 
-> for the rds_tcp_data_recv, we are not interested in being able 
-> to do a *skb_push after the *skb_pull, so we dont really care 
-> about the intactness of these bytes in offset.
-> Thus what I am finding is that when delta > 0, if we skip the 
-> following in pskb_expand_head (for the rds-tcp recv case only!)
-> 
->         /* Copy only real data... and, alas, header. This should be
->          * optimized for the cases when header is void.
->          */
->         memcpy(data + nhead, skb->head, skb_tail_pointer(skb) - skb->head);
-> 
-> and also (only for this case!) this one in __pskb_pull_tail
-> 
->  if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
->                 BUG();
-> 
-> I am able to get a 40% improvement in the measured IOPS (req/response 
-> transactions per second, using 8K byte requests, 256 byte responses,
-> 16 concurrent threads), so this optimization seems worth doing.
-> 
-> Does my analysis above make sense? If yes, the question is, how to
-> achieve this bypass in a neat way.  Clearly there are many callers of
-> pskb_expand_head who will expect to find the skb_header_len bytes at
-> the start of data, but we also dont want to duplicate code in these
-> functions. One thought I had is to pass a flag arouund saying "caller
-> doesnt care about retaining offset bytes", and use this flag
-> - in __pskb_pull_tail, to avoid skb_copy_bits() above,  and to
->   pass delta to pskb_expand_head,
-> - in pskb_expand_head, only do the memcpy listed above 
->   if delta <= 0
-> Any other ideas for how to achieve this?
+(Topic proposal for MM-summit)
 
-Use skb split like TCP in output path ?
+Network Interface Cards (NIC) drivers, and increasing speeds stress
+the page-allocator (and DMA APIs).  A number of driver specific
+open-coded approaches exists that work-around these bottlenecks in the
+page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
+allocating larger pages and handing-out page "fragments".
 
-Really, pskb_expand_head() is not supposed to copy payload ;)
+I'm proposing a generic page-pool recycle facility, that can cover the
+driver use-cases, increase performance and open up for zero-copy RX.
+
+
+The basic performance problem is that pages (containing packets at RX)
+are cycled through the page allocator (freed at TX DMA completion
+time).  While a system in a steady state, could avoid calling the page
+allocator, when having a pool of pages equal to the size of the RX
+ring plus the number of outstanding frames in the TX ring (waiting for
+DMA completion).
+
+The motivation for quick page recycling came primarily for performance
+reasons.  But returning pages to the same pool also benefit other
+use-cases.  If a NIC HW RX ring is strictly bound (e.g. to a process
+or guest/KVM) then pages can be shared/mmap'ed (RX zero-copy) as
+information leaking does not occur.  (Obviously for this use-case,
+when adding pages into the pool these need to zero'ed out).
+
+
+The motivation behind implemeting this (extremely fast page-pool) is
+because we need it as a building block in the network stack, but
+hopefully other areas could also benefit from this.
+
+
+[Resources/Links]: It is specifically related to:
+
+What Facebook calls XDP (eXpress Data Path)
+ * https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
+ * RFC patchset thread: http://thread.gmane.org/gmane.linux.network/406288
+
+And what I call the "packet-page" level:
+ * BoF on kernel network performance: http://lwn.net/Articles/676806/
+ * http://people.netfilter.org/hawk/presentations/NetDev1.1_2016/links.html
+
+
+See you soon at LFS/MM-summit :-)
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
