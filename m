@@ -1,47 +1,57 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH RFC 1/5] net: phy: sun8i-h3-ephy: Add bindings for
- Allwinner H3 Ethernet PHY
-Date: Thu, 7 Apr 2016 12:57:25 -0500
-Message-ID: <20160407175725.GG32257@rob-hp-laptop>
-References: <1459786954-12649-1-git-send-email-wens@csie.org>
- <1459786954-12649-2-git-send-email-wens@csie.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>, Pawel Moll <pawel.moll@arm.com>,
- Ian Campbell <ijc+devicetree@hellion.org.uk>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, LABBE Corentin <clabbe.montjoie@gmail.com>,
- Kumar Gala <galak@codeaurora.org>,
- Maxime Ripard <maxime.ripard@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1459786954-12649-2-git-send-email-wens@csie.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <blogic@openwrt.org>
+Subject: [PATCH 1/9] net: mediatek: update the IRQ part of the binding document
+Date: Thu,  7 Apr 2016 19:57:48 +0200
+Message-ID: <1460051876-53135-1-git-send-email-blogic@openwrt.org>
+Cc: Felix Fietkau <nbd@openwrt.org>,
+	Matthias Brugger <matthias.bgg@gmail.com>,
+	=?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
+	<sean.wang@mediatek.com>, netdev@vger.kernel.org,
+	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+	John Crispin <blogic@openwrt.org>, devicetree@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caladan.dune.hu ([78.24.191.180]:38736 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932386AbcDGR6K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 13:58:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 05, 2016 at 12:22:30AM +0800, Chen-Yu Tsai wrote:
-> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
-> configured through a memory mapped hardware register.
-> 
-> This same register also configures the MAC interface mode and TX clock
-> source. Also covered by the register, but not supported in these bindings,
-> are TX/RX clock delay chains and inverters, and an RMII module.
-> 
-> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-> ---
->  .../bindings/net/allwinner,sun8i-h3-ephy.txt       | 44 ++++++++++++++++++++++
->  1 file changed, 44 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
+The current binding document only describes a single interrupt. Update the
+document by adding the 2 other interrupts.
 
-Acked-by: Rob Herring <robh@kernel.org>
+The driver currently only uses a single interrupt. The HW is however able
+to using IRQ grouping to split TX and RX onto separate GIC irqs.
+
+Signed-off-by: John Crispin <blogic@openwrt.org>
+Cc: devicetree@vger.kernel.org
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index 5ca7929..2f142be 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -9,7 +9,7 @@ have dual GMAC each represented by a child node..
+ Required properties:
+ - compatible: Should be "mediatek,mt7623-eth"
+ - reg: Address and length of the register set for the device
+-- interrupts: Should contain the frame engines interrupt
++- interrupts: Should contain the three frame engines interrupts
+ - clocks: the clock used by the core
+ - clock-names: the names of the clock listed in the clocks property. These are
+ 	"ethif", "esw", "gp2", "gp1"
+@@ -42,7 +42,9 @@ eth: ethernet@1b100000 {
+ 		 <&ethsys CLK_ETHSYS_GP2>,
+ 		 <&ethsys CLK_ETHSYS_GP1>;
+ 	clock-names = "ethif", "esw", "gp2", "gp1";
+-	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW>;
++	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW
++		      GIC_SPI 199 IRQ_TYPE_LEVEL_LOW
++		      GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>;
+ 	power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
+ 	resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
+ 	reset-names = "eth";
+-- 
+1.7.10.4
