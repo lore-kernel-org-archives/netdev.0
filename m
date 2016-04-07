@@ -1,27 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/8][pull request] 1GbE Intel Wired LAN Driver
- Updates 2016-04-06
-Date: Thu, 07 Apr 2016 11:50:58 -0400 (EDT)
-Message-ID: <20160407.115058.666982256082319450.davem@davemloft.net>
-References: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: Boot failure when using NFS on OMAP based evms
+Date: Thu, 7 Apr 2016 11:52:40 -0400
+Message-ID: <CAF=yD-JHbCOLOMZNwEjGwVosd8=zJ5DbdLP2dV_zWk7irQBN2w@mail.gmail.com>
+References: <570597EA.3040902@ti.com> <CAF=yD-L=HZtD+LaKt1y4OcY0CQKOk_jmXZcQcyXjdfrPLpAhEQ@mail.gmail.com>
+ <57067089.4080406@ti.com> <CA+FuTSeNJZPN70S_4UWt_68Wjo5Oks0swKRwVdwLLtYvgWDk+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53525 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756552AbcDGPvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 11:51:03 -0400
-In-Reply-To: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Franklin S Cooper Jr." <fcooper@ti.com>,
+	Sam Kumar <samanthakumar@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tony Lindgren <tony@atomide.com>, mugunthanvnm@ti.com,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	nsekhar@ti.com, linux-omap@vger.kernel.org
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTSeNJZPN70S_4UWt_68Wjo5Oks0swKRwVdwLLtYvgWDk+A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  6 Apr 2016 21:37:25 -0700
+>>>> Currently linux-next is failing to boot via NFS on my AM335x GP evm,
+>>>> AM437x GP evm and Beagle X15. I bisected the problem down to the commit
+>>>> "udp: remove headers from UDP packets before queueing".
+>>>
+>>> Thanks for the report, and apologies for breaking your configuration.
+>>> I had missed that sunrpc can dequeue skbs from a udp receive
+>>> queue and makes assumptions about the layout of those packets. rxrpc
+>>> does the same. From what I can tell so far, those are the only two
+>>> protocols that do this. I have verified that the following fixes rxrpc for me
+>>>
+>>
+>> Thank you for your quick response. I verified with all of the above
+>> suggested changes that NFS works again on my 3 evms.
+>
+> Thanks a lot for testing, Franklin. I will send out the two patches.
 
-> This series contains updates to e1000, e1000e, igb and Kconfig.
-
-All looks sane, pulled, thanks Jeff.
+Patches sent to netdev. I'll do another scan to verify that there are
+no additional protocols that dequeue skbs from udp receive queues
+and expect udp headers present.
