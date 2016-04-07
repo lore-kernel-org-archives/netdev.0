@@ -1,56 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] i40e/i40evf: Bump patch from 1.5.2 to 1.5.5
-Date: Wed,  6 Apr 2016 20:29:38 -0700
-Message-ID: <1459999779-22254-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40e: Restrict VF poll mode to only single function mode devices
+Date: Wed,  6 Apr 2016 20:29:33 -0700
+Message-ID: <1459999779-22254-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23097 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47670 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754501AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754555AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Apr 2016 23:29:45 -0400
 In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+The VFs can request their queues to be set up into polling mode, rather
+than interrupt mode, which works well for supporting things like DPDK,
+but this should not be available when working in an multi-function
+support device.
+
+Change-ID: Id36792e4e7422db8f2033336507211f68f14ff6f
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 627acf0..dc3b393 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -46,7 +46,7 @@ static const char i40e_driver_string[] =
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index b353966..30f8cbe 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1362,8 +1362,16 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 				I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
+ 	}
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 5
--#define DRV_VERSION_BUILD 2
-+#define DRV_VERSION_BUILD 5
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index f4dada0..4659ac2 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -38,7 +38,7 @@ static const char i40evf_driver_string[] =
+-	if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING)
++	if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING) {
++		if (pf->flags & I40E_FLAG_MFP_ENABLED) {
++			dev_err(&pf->pdev->dev,
++				"VF %d requested polling mode: this feature is supported only when the device is running in single function per port (SFP) mode\n",
++				 vf->vf_id);
++			ret = I40E_ERR_PARAM;
++			goto err;
++		}
+ 		vfres->vf_offload_flags |= I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING;
++	}
  
- #define DRV_VERSION_MAJOR 1
- #define DRV_VERSION_MINOR 5
--#define DRV_VERSION_BUILD 2
-+#define DRV_VERSION_BUILD 5
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD) \
+ 	if (pf->flags & I40E_FLAG_WB_ON_ITR_CAPABLE) {
+ 		if (vf->driver_caps & I40E_VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
 -- 
 2.5.5
