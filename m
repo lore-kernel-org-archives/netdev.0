@@ -1,86 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Thu, 07 Apr 2016 08:18:29 -0700
-Message-ID: <1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	 <20160407161715.52635cac@redhat.com>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
+Date: Thu, 7 Apr 2016 08:35:32 -0700
+Message-ID: <57067E44.8090906@boundarydevices.com>
+References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
+ <20160406.172029.2094647648319882709.davem@davemloft.net>
+ <5705B33D.7060808@boundarydevices.com>
+ <20160406.235804.2223760831702758803.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	lsf-pc@lists.linux-foundation.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fugang.duan@nxp.com, lznuaa@gmail.com,
+	fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
+	tremyfr@gmail.com, gerg@uclinux.org,
+	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
+	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
+	arnd@arndb.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:35128 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756157AbcDGPSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 11:18:32 -0400
-Received: by mail-pa0-f42.google.com with SMTP id td3so56703608pab.2
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 08:18:31 -0700 (PDT)
-In-Reply-To: <20160407161715.52635cac@redhat.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:32943 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbcDGPff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 11:35:35 -0400
+Received: by mail-pa0-f48.google.com with SMTP id zm5so56991339pac.0
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 08:35:35 -0700 (PDT)
+In-Reply-To: <20160406.235804.2223760831702758803.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-04-07 at 16:17 +0200, Jesper Dangaard Brouer wrote:
-> (Topic proposal for MM-summit)
->=20
-> Network Interface Cards (NIC) drivers, and increasing speeds stress
-> the page-allocator (and DMA APIs).  A number of driver specific
-> open-coded approaches exists that work-around these bottlenecks in th=
-e
-> page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
-> allocating larger pages and handing-out page "fragments".
->=20
-> I'm proposing a generic page-pool recycle facility, that can cover th=
-e
-> driver use-cases, increase performance and open up for zero-copy RX.
->=20
->=20
-> The basic performance problem is that pages (containing packets at RX=
-)
-> are cycled through the page allocator (freed at TX DMA completion
-> time).  While a system in a steady state, could avoid calling the pag=
-e
-> allocator, when having a pool of pages equal to the size of the RX
-> ring plus the number of outstanding frames in the TX ring (waiting fo=
-r
-> DMA completion).
+On 4/6/2016 8:58 PM, David Miller wrote:
+> From: Troy Kisky <troy.kisky@boundarydevices.com>
+> Date: Wed, 6 Apr 2016 18:09:17 -0700
+> 
+>> On 4/6/2016 2:20 PM, David Miller wrote:
+>>>
+>>> This is a way too large patch series.
+>>>
+>>> Please split it up into smaller, more logical, pieces.
+>>>
+>>> Thanks.
+>>>
+>>
+>> If you apply the 1st 3 that have been acked, I'll be at 13.
+>>
+>> Would I then send the next 5 for  V4, and when that is applied
+>> send another V4 with the next 8 that have been already been acked?
+> 
+> What other reasonable option is there?  I can't think of any.
+> 
 
-
-We certainly used this at Google for quite a while.
-
-The thing is : in steady state, the number of pages being 'in tx queues=
-'
-is lower than number of pages that were allocated for RX queues.
-
-The page allocator is hardly hit, once you have big enough RX ring
-buffers. (Nothing fancy, simply the default number of slots)
-
-The 'hard coded=C2=B4 code is quite small actually
-
-if (page_count(page) !=3D 1) {
-    free the page and allocate another one,=20
-    since we are not the exclusive owner.
-    Prefer __GFP_COLD pages btw.
-}
-page_ref_inc(page);
-
-Problem of a 'pool' is that it matches a router workload, not host one.
-
-With existing code, new pages are automatically allocated on demand, if
-say previous pages are still used by skb stored in sockets receive
-queues and consumers are slow to react to the presence of this data.
-
-But in most cases (steady state), the refcount on the page is released
-by the application reading the data before the driver cycled through th=
-e
-RX ring buffer and drivers only increments the page count.
-
-I also played with grouping pages into the same 2MB pages, but got mixe=
-d
-results.
+A V1 for the next 8 would not be too unreasonable.
