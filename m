@@ -1,245 +1,144 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH v5 net-next 15/15] nfp: allow ring size reconfiguration at runtime
-Date: Thu,  7 Apr 2016 19:39:48 +0100
-Message-ID: <1460054388-471-16-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH v5 net-next 09/15] nfp: move filling ring information to FW config
+Date: Thu,  7 Apr 2016 19:39:42 +0100
+Message-ID: <1460054388-471-10-git-send-email-jakub.kicinski@netronome.com>
 References: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:33386 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757412AbcDGSkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:37 -0400
-Received: by mail-qg0-f51.google.com with SMTP id j35so71156140qge.0
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:36 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:34897 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757388AbcDGSka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:30 -0400
+Received: by mail-qk0-f171.google.com with SMTP id o6so34594885qkc.2
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:29 -0700 (PDT)
 In-Reply-To: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since much of the required changes have already been made for
-changing MTU at runtime let's use it for ring size changes as
-well.
+nfp_net_[rt]x_ring_{alloc,free} should only allocate or free
+ring resources without touching the device.  Move setting
+parameters in the BAR to separate functions.  This will make
+it possible to reuse alloc/free functions to allocate new
+rings while the device is running.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |   1 +
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 126 +++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  30 ++---
- 3 files changed, 136 insertions(+), 21 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 50 ++++++++++++++--------
+ 1 file changed, 32 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 9ab8e3967dc9..3d53fcf323eb 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -724,6 +724,7 @@ void nfp_net_rss_write_key(struct nfp_net *nn);
- void nfp_net_coalesce_write_cfg(struct nfp_net *nn);
- int nfp_net_irqs_alloc(struct nfp_net *nn);
- void nfp_net_irqs_disable(struct nfp_net *nn);
-+int nfp_net_set_ring_size(struct nfp_net *nn, u32 rxd_cnt, u32 txd_cnt);
- 
- #ifdef CONFIG_NFP_NET_DEBUG
- void nfp_net_debugfs_create(void);
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index c4f0c70e77ce..0bdff390c958 100644
+index a6a917fe8e31..342335d09fb2 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1444,6 +1444,59 @@ err_alloc:
- 	return -ENOMEM;
+@@ -1387,10 +1387,6 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
+ 	struct nfp_net *nn = r_vec->nfp_net;
+ 	struct pci_dev *pdev = nn->pdev;
+ 
+-	nn_writeq(nn, NFP_NET_CFG_TXR_ADDR(tx_ring->idx), 0);
+-	nn_writeb(nn, NFP_NET_CFG_TXR_SZ(tx_ring->idx), 0);
+-	nn_writeb(nn, NFP_NET_CFG_TXR_VEC(tx_ring->idx), 0);
+-
+ 	kfree(tx_ring->txbufs);
+ 
+ 	if (tx_ring->txds)
+@@ -1430,11 +1426,6 @@ static int nfp_net_tx_ring_alloc(struct nfp_net_tx_ring *tx_ring)
+ 	if (!tx_ring->txbufs)
+ 		goto err_alloc;
+ 
+-	/* Write the DMA address, size and MSI-X info to the device */
+-	nn_writeq(nn, NFP_NET_CFG_TXR_ADDR(tx_ring->idx), tx_ring->dma);
+-	nn_writeb(nn, NFP_NET_CFG_TXR_SZ(tx_ring->idx), ilog2(tx_ring->cnt));
+-	nn_writeb(nn, NFP_NET_CFG_TXR_VEC(tx_ring->idx), r_vec->irq_idx);
+-
+ 	netif_set_xps_queue(nn->netdev, &r_vec->affinity_mask, tx_ring->idx);
+ 
+ 	nn_dbg(nn, "TxQ%02d: QCidx=%02d cnt=%d dma=%#llx host=%p\n",
+@@ -1458,10 +1449,6 @@ static void nfp_net_rx_ring_free(struct nfp_net_rx_ring *rx_ring)
+ 	struct nfp_net *nn = r_vec->nfp_net;
+ 	struct pci_dev *pdev = nn->pdev;
+ 
+-	nn_writeq(nn, NFP_NET_CFG_RXR_ADDR(rx_ring->idx), 0);
+-	nn_writeb(nn, NFP_NET_CFG_RXR_SZ(rx_ring->idx), 0);
+-	nn_writeb(nn, NFP_NET_CFG_RXR_VEC(rx_ring->idx), 0);
+-
+ 	kfree(rx_ring->rxbufs);
+ 
+ 	if (rx_ring->rxds)
+@@ -1501,11 +1488,6 @@ static int nfp_net_rx_ring_alloc(struct nfp_net_rx_ring *rx_ring)
+ 	if (!rx_ring->rxbufs)
+ 		goto err_alloc;
+ 
+-	/* Write the DMA address, size and MSI-X info to the device */
+-	nn_writeq(nn, NFP_NET_CFG_RXR_ADDR(rx_ring->idx), rx_ring->dma);
+-	nn_writeb(nn, NFP_NET_CFG_RXR_SZ(rx_ring->idx), ilog2(rx_ring->cnt));
+-	nn_writeb(nn, NFP_NET_CFG_RXR_VEC(rx_ring->idx), r_vec->irq_idx);
+-
+ 	nn_dbg(nn, "RxQ%02d: FlQCidx=%02d RxQCidx=%02d cnt=%d dma=%#llx host=%p\n",
+ 	       rx_ring->idx, rx_ring->fl_qcidx, rx_ring->rx_qcidx,
+ 	       rx_ring->cnt, (unsigned long long)rx_ring->dma, rx_ring->rxds);
+@@ -1630,6 +1612,17 @@ static void nfp_net_write_mac_addr(struct nfp_net *nn, const u8 *mac)
+ 		  get_unaligned_be16(nn->netdev->dev_addr + 4) << 16);
  }
  
-+static struct nfp_net_tx_ring *
-+nfp_net_shadow_tx_rings_prepare(struct nfp_net *nn, u32 buf_cnt)
++static void nfp_net_vec_clear_ring_data(struct nfp_net *nn, unsigned int idx)
 +{
-+	struct nfp_net_tx_ring *rings;
-+	unsigned int r;
++	nn_writeq(nn, NFP_NET_CFG_RXR_ADDR(idx), 0);
++	nn_writeb(nn, NFP_NET_CFG_RXR_SZ(idx), 0);
++	nn_writeb(nn, NFP_NET_CFG_RXR_VEC(idx), 0);
 +
-+	rings = kcalloc(nn->num_tx_rings, sizeof(*rings), GFP_KERNEL);
-+	if (!rings)
-+		return NULL;
-+
-+	for (r = 0; r < nn->num_tx_rings; r++) {
-+		nfp_net_tx_ring_init(&rings[r], nn->tx_rings[r].r_vec, r);
-+
-+		if (nfp_net_tx_ring_alloc(&rings[r], buf_cnt))
-+			goto err_free_prev;
-+	}
-+
-+	return rings;
-+
-+err_free_prev:
-+	while (r--)
-+		nfp_net_tx_ring_free(&rings[r]);
-+	kfree(rings);
-+	return NULL;
-+}
-+
-+static struct nfp_net_tx_ring *
-+nfp_net_shadow_tx_rings_swap(struct nfp_net *nn, struct nfp_net_tx_ring *rings)
-+{
-+	struct nfp_net_tx_ring *old = nn->tx_rings;
-+	unsigned int r;
-+
-+	for (r = 0; r < nn->num_tx_rings; r++)
-+		old[r].r_vec->tx_ring = &rings[r];
-+
-+	nn->tx_rings = rings;
-+	return old;
-+}
-+
-+static void
-+nfp_net_shadow_tx_rings_free(struct nfp_net *nn, struct nfp_net_tx_ring *rings)
-+{
-+	unsigned int r;
-+
-+	if (!rings)
-+		return;
-+
-+	for (r = 0; r < nn->num_tx_rings; r++)
-+		nfp_net_tx_ring_free(&rings[r]);
-+
-+	kfree(rings);
++	nn_writeq(nn, NFP_NET_CFG_TXR_ADDR(idx), 0);
++	nn_writeb(nn, NFP_NET_CFG_TXR_SZ(idx), 0);
++	nn_writeb(nn, NFP_NET_CFG_TXR_VEC(idx), 0);
 +}
 +
  /**
-  * nfp_net_rx_ring_free() - Free resources allocated to a RX ring
-  * @rx_ring:  RX ring to free
-@@ -1560,6 +1613,9 @@ nfp_net_shadow_rx_rings_free(struct nfp_net *nn, struct nfp_net_rx_ring *rings)
+  * nfp_net_clear_config_and_disable() - Clear control BAR and disable NFP
+  * @nn:      NFP Net device to reconfigure
+@@ -1637,6 +1630,7 @@ static void nfp_net_write_mac_addr(struct nfp_net *nn, const u8 *mac)
+ static void nfp_net_clear_config_and_disable(struct nfp_net *nn)
  {
- 	unsigned int r;
+ 	u32 new_ctrl, update;
++	unsigned int r;
+ 	int err;
  
-+	if (!rings)
-+		return;
+ 	new_ctrl = nn->ctrl;
+@@ -1658,9 +1652,26 @@ static void nfp_net_clear_config_and_disable(struct nfp_net *nn)
+ 		return;
+ 	}
+ 
++	for (r = 0; r < nn->num_r_vecs; r++)
++		nfp_net_vec_clear_ring_data(nn, r);
 +
- 	for (r = 0; r < nn->num_r_vecs; r++) {
- 		nfp_net_rx_ring_bufs_free(nn, &rings[r]);
- 		nfp_net_rx_ring_free(&rings[r]);
-@@ -2104,6 +2160,76 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- 	return err;
+ 	nn->ctrl = new_ctrl;
  }
  
-+int nfp_net_set_ring_size(struct nfp_net *nn, u32 rxd_cnt, u32 txd_cnt)
++static void
++nfp_net_vec_write_ring_data(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
++			    unsigned int idx)
 +{
-+	struct nfp_net_tx_ring *tx_rings = NULL;
-+	struct nfp_net_rx_ring *rx_rings = NULL;
-+	u32 old_rxd_cnt, old_txd_cnt;
-+	int err;
++	/* Write the DMA address, size and MSI-X info to the device */
++	nn_writeq(nn, NFP_NET_CFG_RXR_ADDR(idx), r_vec->rx_ring->dma);
++	nn_writeb(nn, NFP_NET_CFG_RXR_SZ(idx), ilog2(r_vec->rx_ring->cnt));
++	nn_writeb(nn, NFP_NET_CFG_RXR_VEC(idx), r_vec->irq_idx);
 +
-+	if (!netif_running(nn->netdev)) {
-+		nn->rxd_cnt = rxd_cnt;
-+		nn->txd_cnt = txd_cnt;
-+		return 0;
-+	}
-+
-+	old_rxd_cnt = nn->rxd_cnt;
-+	old_txd_cnt = nn->txd_cnt;
-+
-+	/* Prepare new rings */
-+	if (nn->rxd_cnt != rxd_cnt) {
-+		rx_rings = nfp_net_shadow_rx_rings_prepare(nn, nn->fl_bufsz,
-+							   rxd_cnt);
-+		if (!rx_rings)
-+			return -ENOMEM;
-+	}
-+	if (nn->txd_cnt != txd_cnt) {
-+		tx_rings = nfp_net_shadow_tx_rings_prepare(nn, txd_cnt);
-+		if (!tx_rings) {
-+			nfp_net_shadow_rx_rings_free(nn, rx_rings);
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	/* Stop device, swap in new rings, try to start the firmware */
-+	nfp_net_close_stack(nn);
-+	nfp_net_clear_config_and_disable(nn);
-+
-+	if (rx_rings)
-+		rx_rings = nfp_net_shadow_rx_rings_swap(nn, rx_rings);
-+	if (tx_rings)
-+		tx_rings = nfp_net_shadow_tx_rings_swap(nn, tx_rings);
-+
-+	nn->rxd_cnt = rxd_cnt;
-+	nn->txd_cnt = txd_cnt;
-+
-+	err = nfp_net_set_config_and_enable(nn);
-+	if (err) {
-+		const int err_new = err;
-+
-+		/* Try with old configuration and old rings */
-+		if (rx_rings)
-+			rx_rings = nfp_net_shadow_rx_rings_swap(nn, rx_rings);
-+		if (tx_rings)
-+			tx_rings = nfp_net_shadow_tx_rings_swap(nn, tx_rings);
-+
-+		nn->rxd_cnt = old_rxd_cnt;
-+		nn->txd_cnt = old_txd_cnt;
-+
-+		err = __nfp_net_set_config_and_enable(nn);
-+		if (err)
-+			nn_err(nn, "Can't restore ring config - FW communication failed (%d,%d)\n",
-+			       err_new, err);
-+	}
-+
-+	nfp_net_shadow_rx_rings_free(nn, rx_rings);
-+	nfp_net_shadow_tx_rings_free(nn, tx_rings);
-+
-+	nfp_net_open_stack(nn);
-+
-+	return err;
++	nn_writeq(nn, NFP_NET_CFG_TXR_ADDR(idx), r_vec->tx_ring->dma);
++	nn_writeb(nn, NFP_NET_CFG_TXR_SZ(idx), ilog2(r_vec->tx_ring->cnt));
++	nn_writeb(nn, NFP_NET_CFG_TXR_VEC(idx), r_vec->irq_idx);
 +}
 +
- static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
- 						struct rtnl_link_stats64 *stats)
- {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 9a4084a68db5..ccfef1f17627 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-@@ -153,37 +153,25 @@ static int nfp_net_set_ringparam(struct net_device *netdev,
- 	struct nfp_net *nn = netdev_priv(netdev);
- 	u32 rxd_cnt, txd_cnt;
- 
--	if (netif_running(netdev)) {
--		/* Some NIC drivers allow reconfiguration on the fly,
--		 * some down the interface, change and then up it
--		 * again.  For now we don't allow changes when the
--		 * device is up.
--		 */
--		nn_warn(nn, "Can't change rings while device is up\n");
--		return -EBUSY;
--	}
--
- 	/* We don't have separate queues/rings for small/large frames. */
- 	if (ring->rx_mini_pending || ring->rx_jumbo_pending)
- 		return -EINVAL;
- 
- 	/* Round up to supported values */
- 	rxd_cnt = roundup_pow_of_two(ring->rx_pending);
--	rxd_cnt = max_t(u32, rxd_cnt, NFP_NET_MIN_RX_DESCS);
--	rxd_cnt = min_t(u32, rxd_cnt, NFP_NET_MAX_RX_DESCS);
--
- 	txd_cnt = roundup_pow_of_two(ring->tx_pending);
--	txd_cnt = max_t(u32, txd_cnt, NFP_NET_MIN_TX_DESCS);
--	txd_cnt = min_t(u32, txd_cnt, NFP_NET_MAX_TX_DESCS);
- 
--	if (nn->rxd_cnt != rxd_cnt || nn->txd_cnt != txd_cnt)
--		nn_dbg(nn, "Change ring size: RxQ %u->%u, TxQ %u->%u\n",
--		       nn->rxd_cnt, rxd_cnt, nn->txd_cnt, txd_cnt);
-+	if (rxd_cnt < NFP_NET_MIN_RX_DESCS || rxd_cnt > NFP_NET_MAX_RX_DESCS ||
-+	    txd_cnt < NFP_NET_MIN_TX_DESCS || txd_cnt > NFP_NET_MAX_TX_DESCS)
-+		return -EINVAL;
- 
--	nn->rxd_cnt = rxd_cnt;
--	nn->txd_cnt = txd_cnt;
-+	if (nn->rxd_cnt == rxd_cnt && nn->txd_cnt == txd_cnt)
-+		return 0;
- 
--	return 0;
-+	nn_dbg(nn, "Change ring size: RxQ %u->%u, TxQ %u->%u\n",
-+	       nn->rxd_cnt, rxd_cnt, nn->txd_cnt, txd_cnt);
+ /**
+  * nfp_net_start_vec() - Start ring vector
+  * @nn:      NFP Net device structure
+@@ -1768,6 +1779,9 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 	 * - Set the Freelist buffer size
+ 	 * - Enable the FW
+ 	 */
++	for (r = 0; r < nn->num_r_vecs; r++)
++		nfp_net_vec_write_ring_data(nn, &nn->r_vecs[r], r);
 +
-+	return nfp_net_set_ring_size(nn, rxd_cnt, txd_cnt);
- }
+ 	nn_writeq(nn, NFP_NET_CFG_TXRS_ENABLE, nn->num_tx_rings == 64 ?
+ 		  0xffffffffffffffffULL : ((u64)1 << nn->num_tx_rings) - 1);
  
- static void nfp_net_get_strings(struct net_device *netdev,
 -- 
 1.9.1
