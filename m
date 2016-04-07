@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 07/11] GENEVE: Add option to mangle IP IDs on inner
- headers when using TSO
-Date: Thu, 07 Apr 2016 18:32:37 -0400
-Message-ID: <20160407223237.11142.33072.stgit@ahduyck-xeon-server>
+Subject: [RFC PATCH 08/11] Documentation: Add documentation for TSO and GSO
+ features
+Date: Thu, 07 Apr 2016 18:32:43 -0400
+Message-ID: <20160407223243.11142.35749.stgit@ahduyck-xeon-server>
 References: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,155 +11,156 @@ To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
 	alexander.duyck@gmail.com, edumazet@google.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34503 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932141AbcDGWcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:45 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fe3so62582789pab.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:40 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34563 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932149AbcDGWcq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:46 -0400
+Received: by mail-pa0-f45.google.com with SMTP id fe3so62584182pab.1
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:46 -0700 (PDT)
 In-Reply-To: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for a feature I am calling IP ID mangling.  It is
-basically just another way of saying the IP IDs that are transmitted by the
-tunnel may not match up with what would normally be expected.  Specifically
-what will happen is in the case of TSO the IP IDs on the headers will be a
-fixed value so a given TSO will repeat the same inner IP ID value gso_segs
-number of times.
+This document is a starting point for defining the TSO and GSO features.
+The whole thing is starting to get a bit messy so I wanted to make sure we
+have notes somwhere to start describing what does and doesn't work.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/geneve.c         |   24 ++++++++++++++++++++++--
- include/net/udp_tunnel.h     |    8 --------
- include/uapi/linux/if_link.h |    1 +
- 3 files changed, 23 insertions(+), 10 deletions(-)
+ Documentation/networking/segmentation-offloads.txt |  127 ++++++++++++++++++++
+ 1 file changed, 127 insertions(+)
+ create mode 100644 Documentation/networking/segmentation-offloads.txt
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index bc168894bda3..6352223d80c3 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -80,6 +80,7 @@ struct geneve_dev {
- #define GENEVE_F_UDP_ZERO_CSUM_TX	BIT(0)
- #define GENEVE_F_UDP_ZERO_CSUM6_TX	BIT(1)
- #define GENEVE_F_UDP_ZERO_CSUM6_RX	BIT(2)
-+#define GENEVE_F_TCP_FIXEDID		BIT(3)
- 
- struct geneve_sock {
- 	bool			collect_md;
-@@ -702,9 +703,14 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
- 	int min_headroom;
- 	int err;
- 	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM_TX);
-+	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 
- 	skb_scrub_packet(skb, xnet);
- 
-+	if ((flags & GENEVE_F_TCP_FIXEDID) && skb_is_gso(skb) &&
-+	    (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4))
-+		type |= SKB_GSO_TCP_FIXEDID;
+diff --git a/Documentation/networking/segmentation-offloads.txt b/Documentation/networking/segmentation-offloads.txt
+new file mode 100644
+index 000000000000..b06dd9b65ab3
+--- /dev/null
++++ b/Documentation/networking/segmentation-offloads.txt
+@@ -0,0 +1,127 @@
++Segmentation Offloads in the Linux Networking Stack
 +
- 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
- 			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr);
- 	err = skb_cow_head(skb, min_headroom);
-@@ -713,7 +719,7 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
- 		goto free_rt;
- 	}
- 
--	skb = udp_tunnel_handle_offloads(skb, udp_sum);
-+	skb = iptunnel_handle_offloads(skb, type);
- 	if (IS_ERR(skb)) {
- 		err = PTR_ERR(skb);
- 		goto free_rt;
-@@ -739,9 +745,14 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
- 	int min_headroom;
- 	int err;
- 	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM6_TX);
-+	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 
- 	skb_scrub_packet(skb, xnet);
- 
-+	if ((flags & GENEVE_F_TCP_FIXEDID) && skb_is_gso(skb) &&
-+	    (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4))
-+		type |= SKB_GSO_TCP_FIXEDID;
++Introduction
++============
 +
- 	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
- 			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct ipv6hdr);
- 	err = skb_cow_head(skb, min_headroom);
-@@ -750,7 +761,7 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
- 		goto free_dst;
- 	}
- 
--	skb = udp_tunnel_handle_offloads(skb, udp_sum);
-+	skb = iptunnel_handle_offloads(skb, type);
- 	if (IS_ERR(skb)) {
- 		err = PTR_ERR(skb);
- 		goto free_dst;
-@@ -1249,6 +1260,7 @@ static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
- 	[IFLA_GENEVE_UDP_CSUM]		= { .type = NLA_U8 },
- 	[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
- 	[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]	= { .type = NLA_U8 },
-+	[IFLA_GENEVE_IPID_MANGLE]	= { .type = NLA_FLAG },
- };
- 
- static int geneve_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -1436,6 +1448,9 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
- 	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
- 		flags |= GENEVE_F_UDP_ZERO_CSUM6_RX;
- 
-+	if (data[IFLA_GENEVE_IPID_MANGLE])
-+		flags |= GENEVE_F_TCP_FIXEDID;
++This document describes a set of techniques in the Linux networking stack
++to take advantage of segmentation offload capabilities of various NICs.
 +
- 	return geneve_configure(net, dev, &remote, vni, ttl, tos, label,
- 				dst_port, metadata, flags);
- }
-@@ -1460,6 +1475,7 @@ static size_t geneve_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_CSUM */
- 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_TX */
- 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_RX */
-+		nla_total_size(0) +	 /* IFLA_GENEVE_IPID_MANGLE */
- 		0;
- }
- 
-@@ -1505,6 +1521,10 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 		       !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_RX)))
- 		goto nla_put_failure;
- 
-+	if ((geneve->flags & GENEVE_F_TCP_FIXEDID) &&
-+	    nla_put_flag(skb, IFLA_GENEVE_IPID_MANGLE))
-+		goto nla_put_failure;
++The following technologies are described:
++ * TCP Segmentation Offload - TSO
++ * UDP Fragmentation Offload - UFO
++ * IPIP, SIT, GRE, and UDP Tunnel Offloads
++ * Generic Segmentation Offload - GSO
++ * Generic Receive Offload - GRO
++ * Partial Generic Segmentation Offload - GSO_PARTIAL
 +
- 	return 0;
- 
- nla_put_failure:
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index b83114077cee..c44d04259665 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -98,14 +98,6 @@ struct metadata_dst *udp_tun_rx_dst(struct sk_buff *skb, unsigned short family,
- 				    __be16 flags, __be64 tunnel_id,
- 				    int md_size);
- 
--static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
--							 bool udp_csum)
--{
--	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
--
--	return iptunnel_handle_offloads(skb, type);
--}
--
- static inline void udp_tunnel_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	struct udphdr *uh;
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index a3bc3f2a63d3..38acf49c818b 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -513,6 +513,7 @@ enum {
- 	IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
- 	IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
- 	IFLA_GENEVE_LABEL,
-+	IFLA_GENEVE_IPID_MANGLE,
- 	__IFLA_GENEVE_MAX
- };
- #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
++TCP Segmentation Offload
++========================
++
++TCP segmentation allows a device to segment a single frame into multiple
++frames with a data payload size specified in skb_shinfo()->gso_size.
++When TCP segmentation requested the bit for either SKB_GSO_TCP or
++SKB_GSO_TCP6 should be set in skb_shinfo()->gso_type and
++skb_shinfo()->gso_size should be set to a non-zero value.
++
++TCP segmentation is dependent on support for the use of partial checksum
++offload.  For this reason TSO is normally disabled if the Tx checksum
++offload for a given device is disabled.
++
++In order to support TCP segmentation offload it is necessary to populate
++the network and transport header offsets of the skbuff so that the device
++drivers will be able determine the offsets of the IP or IPv6 header and the
++TCP header.  In addition as CHECKSUM_PARTIAL is required csum_start should
++also point to the TCP header of the packet.
++
++For IPv4 segmentation we support one of two types in terms of the IP ID.
++The default behavior is to increment the IP ID with every segment.  If the
++GSO type SKB_GSO_TCP_FIXEDID is specified then we will not increment the IP
++ID and all segments will use the same IP ID.
++
++UDP Fragmentation Offload
++=========================
++
++UDP fragmentation offload allows a device to fragment an oversized UDP
++datagram into multiple IPv4 fragments.  Many of the requirements for UDP
++fragmentation offload are the same as TSO.  However the IPv4 ID for
++fragments should not increment as a single IPv4 datagram is fragmented.
++
++IPIP, SIT, GRE, UDP Tunnel, and Remote Checksum Offloads
++========================================================
++
++In addition to the offloads described above it is possible for a frame to
++contain additional headers such as an outer tunnel.  In order to account
++for such instances an additional set of segmentation offload types were
++introduced including SKB_GSO_IPIP, SKB_GSO_SIT, SKB_GSO_GRE, and
++SKB_GSO_UDP_TUNNEL.  These extra segmentation types are used to identify
++cases where there are more than just 1 set of headers.  For example in the
++case of IPIP and SIT we should have the network and transport headers moved
++from the standard list of headers to "inner" header offsets.
++
++Currently only two levels of headers are supported.  The convention is to
++refer to the tunnel headers as the outer headers, while the encapsulated
++data is normally referred to as the inner headers.  Below is the list of
++calls to access the given headers:
++
++IPIP/SIT Tunnel:
++		Outer			Inner
++MAC		skb_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header
++
++UDP/GRE Tunnel:
++		Outer			Inner
++MAC		skb_mac_header		skb_inner_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header	skb_inner_transport_header
++
++In addition to the above tunnel types there are also SKB_GSO_GRE_CSUM and
++SKB_GSO_UDP_TUNNEL_CSUM.  These two additional tunnel types reflect the
++fact that the outer header also requests to have a non-zero checksum
++included in the outer header.
++
++Finally there is SKB_GSO_REMCSUM which indicates that a given tunnel header
++has requested a remote checksum offload.  In this case the inner headers
++will be left with a partial checksum and only the outer header checksum
++will be computed.
++
++Generic Segmentation Offload
++============================
++
++Generic segmentation offload is a pure software offload that is meant to
++deal with cases where device drivers cannot perform the offloads described
++above.  What occurs in GSO is that a given skbuff will have its data broken
++out over multiple skbuffs that have been resized to match the MSS provided
++via skb_shinfo()->gso_size.
++
++Before enabling any hardware segmentation offload a corresponding software
++offload is required in GSO.  Otherwise it becomes possible for a frame to
++be re-routed between devices and end up being unable to be transmitted.
++
++Generic Receive Offload
++=======================
++
++Generic receive offload is the complement to GSO.  Ideally any frame
++assembled by GRO should be segmented to create an identical sequence of
++frames using GSO, and any sequence of frames segmented by GSO should be
++able to be reassembled back to the original by GRO.  The only exception to
++this is IPv4 ID in the case that the DF bit is set for a given IP header.
++If the value of the IPv4 ID is not sequentially incrementing it will be
++altered so that it is when a frame assembled via GRO is segmented via GSO.
++
++Partial Generic Segmentation Offload
++====================================
++
++Partial generic segmentation offload is a hybrid between TSO and GSO.  What
++it effectively does is take advantage of certain traits of TCP and tunnels
++so that instead of having to rewrite the packet headers for each segment
++only the inner-most transport header and possibly the outer-most network
++header need to be updated.  This allows devices that do not support tunnel
++offloads or tunnel offloads with checksum to still make use of segmentation.
++
++With the partial offload what occurs is that all headers excluding the
++inner transport header are updated such that they will contain the correct
++values for if the header was simply duplicated.  The one exception to this
++is the outer IPv4 ID field.  It is up to the device drivers to guarantee
++that the IPv4 ID field is incremented in the case that a given header does
++not have the DF bit set.
