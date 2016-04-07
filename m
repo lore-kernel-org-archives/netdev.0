@@ -1,39 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 194/196] include/net/sock.h:1367:9: error:
- implicit declaration of function 'lockdep_is_held'
-Date: Thu, 07 Apr 2016 17:09:37 -0400 (EDT)
-Message-ID: <20160407.170937.292677537698351913.davem@davemloft.net>
-References: <201604080541.jzrX1awl%fengguang.wu@intel.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH] possible bug in handling of ipv4 route caching
+Date: Fri, 8 Apr 2016 00:20:24 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg>
+References: <5706B250.1060303@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, kbuild-all@01.org,
-	netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbcDGVJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 17:09:39 -0400
-In-Reply-To: <201604080541.jzrX1awl%fengguang.wu@intel.com>
+Received: from ja.ssi.bg ([178.16.129.10]:59077 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757447AbcDGVU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 17:20:29 -0400
+In-Reply-To: <5706B250.1060303@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Fri, 8 Apr 2016 05:00:42 +0800
 
->    include/net/sock.h: In function 'lockdep_sock_is_held':
->>> include/net/sock.h:1367:9: error: implicit declaration of function 'lockdep_is_held' [-Werror=implicit-function-declaration]
->      return lockdep_is_held(&sk->sk_lock) ||
-...
->   1361	} while (0)
->   1362	
->   1363	static bool lockdep_sock_is_held(const struct sock *csk)
->   1364	{
->   1365		struct sock *sk = (struct sock *)csk;
->   1366	
->> 1367		return lockdep_is_held(&sk->sk_lock) ||
->   1368		       lockdep_is_held(&sk->sk_lock.slock);
->   1369	}
+	Hello,
 
-Hmmm, Hannes to we need to make this a macro just like lockdep_is_held() is?
+On Thu, 7 Apr 2016, Chris Friesen wrote:
+
+> Hi,
+> 
+> We think we may have found a bug in the handling of ipv4 route caching,
+> and are curious what you think.
+> 
+> For local routes that require a particular output interface we do not
+> want to cache the result.  Caching the result causes incorrect behaviour
+> when there are multiple source addresses on the interface.  The end
+> result being that if the intended recipient is waiting on that interface
+> for the packet he won't receive it because it will be delivered on the
+> loopback interface and the IP_PKTINFO ipi_ifindex will be set to the
+> loopback interface as well.
+
+	So, if we store some orig_oif in rt_iif that
+is specific (cached in nexthop) to some device, this
+orig_oif should match the device. The only case when
+this is violated is when we redirect traffic to lo.
+Any attempts to store eth1 in rt_iif for nexthop
+cache for lo should be avoided.
+
+> This can be tested by running a program such as "dhcp_release" which
+> attempts to inject a packet on a particular interface so that it is
+> received by another program on the same board.  The receiving process
+> should see an IP_PKTINFO ipi_ifndex value of the source interface
+> (e.g., eth1) instead of the loopback interface (e.g., lo).  The packet
+> will still appear on the loopback interface in tcpdump but the important
+> aspect is that the CMSG info is correct.
+> 
+> For what it's worth, here's a patch that we've applied locally to deal
+> with the issue.
+> 
+> Chris
+> 
+> 
+> 
+> Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
+> Signed-off-by: Chris Friesen <chris.friesen@windriver.com>
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 02c6229..e965d4b 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2045,6 +2045,17 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+>  		 */
+>  		if (fi && res->prefixlen < 4)
+>  			fi = NULL;
+> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0)) {
+
+	So, we can be more specific. Can this work?:
+
+	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
+		   (orig_oif != dev_out->ifindex)) {
+
+	I.e. we should allow to cache orig_oif=LOOPBACK_IFINDEX
+but eth1 should not be cached.
+
+> +		/* For local routes that require a particular output interface
+> +                 * we do not want to cache the result.  Caching the result
+> +                 * causes incorrect behaviour when there are multiple source
+> +                 * addresses on the interface, the end result being that if the
+> +                 * intended recipient is waiting on that interface for the
+> +                 * packet he won't receive it because it will be delivered on
+> +                 * the loopback interface and the IP_PKTINFO ipi_ifindex will
+> +                 * be set to the loopback interface as well.
+> +		 */
+> +		fi = NULL;
+>  	}
+>  
+>  	fnhe = NULL;
+
+Regards
