@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 06/11] VXLAN: Add option to mangle IP IDs on inner
+Subject: [RFC PATCH 07/11] GENEVE: Add option to mangle IP IDs on inner
  headers when using TSO
-Date: Thu, 07 Apr 2016 18:32:30 -0400
-Message-ID: <20160407223230.11142.93193.stgit@ahduyck-xeon-server>
+Date: Thu, 07 Apr 2016 18:32:37 -0400
+Message-ID: <20160407223237.11142.33072.stgit@ahduyck-xeon-server>
 References: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,12 +11,12 @@ To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
 	alexander.duyck@gmail.com, edumazet@google.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36815 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932107AbcDGWce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:34 -0400
-Received: by mail-pa0-f43.google.com with SMTP id bx7so46402137pad.3
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:34 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34503 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932141AbcDGWcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:45 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fe3so62582789pab.1
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:40 -0700 (PDT)
 In-Reply-To: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -30,87 +30,136 @@ number of times.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/vxlan.c          |   16 ++++++++++++++++
- include/net/vxlan.h          |    1 +
+ drivers/net/geneve.c         |   24 ++++++++++++++++++++++--
+ include/net/udp_tunnel.h     |    8 --------
  include/uapi/linux/if_link.h |    1 +
- 3 files changed, 18 insertions(+)
+ 3 files changed, 23 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 51cccddfe403..cc903ab832c2 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1783,6 +1783,10 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- 			type |= SKB_GSO_TUNNEL_REMCSUM;
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index bc168894bda3..6352223d80c3 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -80,6 +80,7 @@ struct geneve_dev {
+ #define GENEVE_F_UDP_ZERO_CSUM_TX	BIT(0)
+ #define GENEVE_F_UDP_ZERO_CSUM6_TX	BIT(1)
+ #define GENEVE_F_UDP_ZERO_CSUM6_RX	BIT(2)
++#define GENEVE_F_TCP_FIXEDID		BIT(3)
+ 
+ struct geneve_sock {
+ 	bool			collect_md;
+@@ -702,9 +703,14 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
+ 	int min_headroom;
+ 	int err;
+ 	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM_TX);
++	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
++	if ((flags & GENEVE_F_TCP_FIXEDID) && skb_is_gso(skb) &&
++	    (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4))
++		type |= SKB_GSO_TCP_FIXEDID;
++
+ 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+ 			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr);
+ 	err = skb_cow_head(skb, min_headroom);
+@@ -713,7 +719,7 @@ static int geneve_build_skb(struct rtable *rt, struct sk_buff *skb,
+ 		goto free_rt;
  	}
  
-+	if ((vxflags & VXLAN_F_TCP_FIXEDID) && skb_is_gso(skb) &&
+-	skb = udp_tunnel_handle_offloads(skb, udp_sum);
++	skb = iptunnel_handle_offloads(skb, type);
+ 	if (IS_ERR(skb)) {
+ 		err = PTR_ERR(skb);
+ 		goto free_rt;
+@@ -739,9 +745,14 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
+ 	int min_headroom;
+ 	int err;
+ 	bool udp_sum = !(flags & GENEVE_F_UDP_ZERO_CSUM6_TX);
++	int type = udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
++	if ((flags & GENEVE_F_TCP_FIXEDID) && skb_is_gso(skb) &&
 +	    (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV4))
 +		type |= SKB_GSO_TCP_FIXEDID;
 +
  	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
- 			+ VXLAN_HLEN + iphdr_len
- 			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
-@@ -2635,6 +2639,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
- 	[IFLA_VXLAN_GBP]	= { .type = NLA_FLAG, },
- 	[IFLA_VXLAN_GPE]	= { .type = NLA_FLAG, },
- 	[IFLA_VXLAN_REMCSUM_NOPARTIAL]	= { .type = NLA_FLAG },
-+	[IFLA_VXLAN_IPID_MANGLE]	= { .type = NLA_FLAG },
+ 			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct ipv6hdr);
+ 	err = skb_cow_head(skb, min_headroom);
+@@ -750,7 +761,7 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
+ 		goto free_dst;
+ 	}
+ 
+-	skb = udp_tunnel_handle_offloads(skb, udp_sum);
++	skb = iptunnel_handle_offloads(skb, type);
+ 	if (IS_ERR(skb)) {
+ 		err = PTR_ERR(skb);
+ 		goto free_dst;
+@@ -1249,6 +1260,7 @@ static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
+ 	[IFLA_GENEVE_UDP_CSUM]		= { .type = NLA_U8 },
+ 	[IFLA_GENEVE_UDP_ZERO_CSUM6_TX]	= { .type = NLA_U8 },
+ 	[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]	= { .type = NLA_U8 },
++	[IFLA_GENEVE_IPID_MANGLE]	= { .type = NLA_FLAG },
  };
  
- static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -3092,6 +3097,9 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
- 	if (data[IFLA_VXLAN_REMCSUM_NOPARTIAL])
- 		conf.flags |= VXLAN_F_REMCSUM_NOPARTIAL;
+ static int geneve_validate(struct nlattr *tb[], struct nlattr *data[])
+@@ -1436,6 +1448,9 @@ static int geneve_newlink(struct net *net, struct net_device *dev,
+ 	    nla_get_u8(data[IFLA_GENEVE_UDP_ZERO_CSUM6_RX]))
+ 		flags |= GENEVE_F_UDP_ZERO_CSUM6_RX;
  
-+	if (data[IFLA_VXLAN_IPID_MANGLE])
-+		conf.flags |= VXLAN_F_TCP_FIXEDID;
++	if (data[IFLA_GENEVE_IPID_MANGLE])
++		flags |= GENEVE_F_TCP_FIXEDID;
 +
- 	err = vxlan_dev_configure(src_net, dev, &conf);
- 	switch (err) {
- 	case -ENODEV:
-@@ -3154,6 +3162,10 @@ static size_t vxlan_get_size(const struct net_device *dev)
- 		nla_total_size(sizeof(__u8)) + /* IFLA_VXLAN_UDP_ZERO_CSUM6_RX */
- 		nla_total_size(sizeof(__u8)) + /* IFLA_VXLAN_REMCSUM_TX */
- 		nla_total_size(sizeof(__u8)) + /* IFLA_VXLAN_REMCSUM_RX */
-+		nla_total_size(0) +	       /* IFLA_VXLAN_GBP */
-+		nla_total_size(0) +	       /* IFLA_VXLAN_GPE */
-+		nla_total_size(0) +	       /* IFLA_VXLAN_REMCSUM_NOPARTIAL */
-+		nla_total_size(0) +	       /* IFLA_VXLAN_IPID_MANGLE */
+ 	return geneve_configure(net, dev, &remote, vni, ttl, tos, label,
+ 				dst_port, metadata, flags);
+ }
+@@ -1460,6 +1475,7 @@ static size_t geneve_get_size(const struct net_device *dev)
+ 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_CSUM */
+ 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_TX */
+ 		nla_total_size(sizeof(__u8)) + /* IFLA_GENEVE_UDP_ZERO_CSUM6_RX */
++		nla_total_size(0) +	 /* IFLA_GENEVE_IPID_MANGLE */
  		0;
  }
  
-@@ -3244,6 +3256,10 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_flag(skb, IFLA_VXLAN_REMCSUM_NOPARTIAL))
+@@ -1505,6 +1521,10 @@ static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 		       !!(geneve->flags & GENEVE_F_UDP_ZERO_CSUM6_RX)))
  		goto nla_put_failure;
  
-+	if (vxlan->flags & VXLAN_F_TCP_FIXEDID &&
-+	    nla_put_flag(skb, IFLA_VXLAN_IPID_MANGLE))
++	if ((geneve->flags & GENEVE_F_TCP_FIXEDID) &&
++	    nla_put_flag(skb, IFLA_GENEVE_IPID_MANGLE))
 +		goto nla_put_failure;
 +
  	return 0;
  
  nla_put_failure:
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index dcc6f4057115..5c2dc9ecea59 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -265,6 +265,7 @@ struct vxlan_dev {
- #define VXLAN_F_REMCSUM_NOPARTIAL	0x1000
- #define VXLAN_F_COLLECT_METADATA	0x2000
- #define VXLAN_F_GPE			0x4000
-+#define VXLAN_F_TCP_FIXEDID		0x8000
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index b83114077cee..c44d04259665 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -98,14 +98,6 @@ struct metadata_dst *udp_tun_rx_dst(struct sk_buff *skb, unsigned short family,
+ 				    __be16 flags, __be64 tunnel_id,
+ 				    int md_size);
  
- /* Flags that are used in the receive path. These flags must match in
-  * order for a socket to be shareable
+-static inline struct sk_buff *udp_tunnel_handle_offloads(struct sk_buff *skb,
+-							 bool udp_csum)
+-{
+-	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
+-
+-	return iptunnel_handle_offloads(skb, type);
+-}
+-
+ static inline void udp_tunnel_gro_complete(struct sk_buff *skb, int nhoff)
+ {
+ 	struct udphdr *uh;
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 9427f17d06d6..a3bc3f2a63d3 100644
+index a3bc3f2a63d3..38acf49c818b 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -489,6 +489,7 @@ enum {
- 	IFLA_VXLAN_COLLECT_METADATA,
- 	IFLA_VXLAN_LABEL,
- 	IFLA_VXLAN_GPE,
-+	IFLA_VXLAN_IPID_MANGLE,
- 	__IFLA_VXLAN_MAX
+@@ -513,6 +513,7 @@ enum {
+ 	IFLA_GENEVE_UDP_ZERO_CSUM6_TX,
+ 	IFLA_GENEVE_UDP_ZERO_CSUM6_RX,
+ 	IFLA_GENEVE_LABEL,
++	IFLA_GENEVE_IPID_MANGLE,
+ 	__IFLA_GENEVE_MAX
  };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+ #define IFLA_GENEVE_MAX	(__IFLA_GENEVE_MAX - 1)
