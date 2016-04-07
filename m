@@ -1,78 +1,62 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: [PATCH 1/1] net: stmmac: socfgpa: Ensure emac bit set in System Manger for PTP
-Date: Thu,  7 Apr 2016 15:55:35 +0800
-Message-ID: <1460015735-8946-2-git-send-email-preid@electromag.com.au>
-References: <1460015735-8946-1-git-send-email-preid@electromag.com.au>
-Cc: Phil Reid <preid@electromag.com.au>
-To: peppe.cavallaro@st.com, netdev@vger.kernel.org
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH v2 2/2] sctp: delay calls to sk_data_ready() as much as possible
+Date: Thu, 07 Apr 2016 10:05:32 +0200
+Message-ID: <87egah3ktv.fsf@beetle.home>
+References: <cover.1459952558.git.marcelo.leitner@gmail.com> <703257ed516669b180fcce57e6745b1853da9a95.1459952558.git.marcelo.leitner@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 203-59-230-133.perm.iinet.net.au ([203.59.230.133]:53495 "EHLO
-	preid-centos7.electromag.com.au" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753713AbcDGIEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 04:04:53 -0400
-In-Reply-To: <1460015735-8946-1-git-send-email-preid@electromag.com.au>
+Received: from mx1.redhat.com ([209.132.183.28]:57315 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752175AbcDGIFk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 04:05:40 -0400
+In-reply-to: <703257ed516669b180fcce57e6745b1853da9a95.1459952558.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using the PTP fpga to hps clock source for the stmmac module
-the appropriate bit in the System Manager FPGA Interface Group register
-needs to be set. This is not set by the bootloader setup  when the
-HPS emac pins are being for this emac module.
+On Wed, Apr 06, 2016 at 07:53 PM CEST, Marcelo Ricardo Leitner <marcelo.leitner@gmail.com> wrote:
+> Currently, the processing of multiple chunks in a single SCTP packet
+> leads to multiple calls to sk_data_ready, causing multiple wake up
+> signals which are costly and doesn't make it wake up any faster.
+>
+> With this patch it will notice that the wake up is pending and will do it
+> before leaving the state machine interpreter, latest place possible to
+> do it realiably and cleanly.
+>
+> Note that sk_data_ready events are not dependent on asocs, unlike waking
+> up writers.
+>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
 
-This allows the PTP clock to be sourced from the FPGA and also connects
-the PTP pps and ext trig signals to the stmmac PTP hardware.
+[...]
 
-Patch proposed by Phil Collins.
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 7fe56d0acabf66cfd8fe29dfdb45f7620b470ac7..e7042f9ce63b0cfca50cae252f51b60b68cb5731 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -1742,6 +1742,11 @@ out:
+>  			error = sctp_outq_uncork(&asoc->outqueue, gfp);
+>  	} else if (local_cork)
+>  		error = sctp_outq_uncork(&asoc->outqueue, gfp);
+> +
+> +	if (sctp_sk(ep->base.sk)->pending_data_ready) {
+> +		ep->base.sk->sk_data_ready(ep->base.sk);
+> +		sctp_sk(ep->base.sk)->pending_data_ready = 0;
+> +	}
+>  	return error;
+>  nomem:
+>  	error = -ENOMEM;
 
-Signed-off-by: Phil Reid <preid@electromag.com.au>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+Would it make sense to introduce a local variable for ep->base.sk (and
+make this function 535+1 lines long ;-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index f0d797a..44022b1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -34,6 +34,9 @@
- #define SYSMGR_EMACGRP_CTRL_PHYSEL_MASK 0x00000003
- #define SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK 0x00000010
- 
-+#define SYSMGR_FPGAGRP_MODULE_REG  0x00000028
-+#define SYSMGR_FPGAGRP_MODULE_EMAC 0x00000004
-+
- #define EMAC_SPLITTER_CTRL_REG			0x0
- #define EMAC_SPLITTER_CTRL_SPEED_MASK		0x3
- #define EMAC_SPLITTER_CTRL_SPEED_10		0x2
-@@ -148,7 +151,7 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 	int phymode = dwmac->interface;
- 	u32 reg_offset = dwmac->reg_offset;
- 	u32 reg_shift = dwmac->reg_shift;
--	u32 ctrl, val;
-+	u32 ctrl, val, module;
- 
- 	switch (phymode) {
- 	case PHY_INTERFACE_MODE_RGMII:
-@@ -175,12 +178,19 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
- 	ctrl |= val << reg_shift;
- 
--	if (dwmac->f2h_ptp_ref_clk)
-+	if (dwmac->f2h_ptp_ref_clk) {
- 		ctrl |= SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2);
--	else
-+		regmap_read(sys_mgr_base_addr, SYSMGR_FPGAGRP_MODULE_REG,
-+			    &module);
-+		module |= (SYSMGR_FPGAGRP_MODULE_EMAC << (reg_shift / 2));
-+		regmap_write(sys_mgr_base_addr, SYSMGR_FPGAGRP_MODULE_REG,
-+			     module);
-+	} else {
- 		ctrl &= ~(SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2));
-+	}
- 
- 	regmap_write(sys_mgr_base_addr, reg_offset, ctrl);
-+
- 	return 0;
- }
- 
--- 
-1.8.3.1
+      struct sock *sk = ep->base.sk;
+
+... like sctp_ulpq_tail_event() does?
+
+Thanks,
+Jakub
