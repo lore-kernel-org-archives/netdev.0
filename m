@@ -1,25 +1,29 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [netfilter-core] [PATCH] netfilter: unnecessary to check whether
- ip6_route_output() returns NULL
-Date: Thu, 7 Apr 2016 18:53:42 +0200
-Message-ID: <20160407165342.GA5598@salvia>
-References: <1459692213-3948-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been left enabled.
+Date: Thu, 07 Apr 2016 18:05:22 +0100
+Message-ID: <24286.1460048722@warthog.procyon.org.uk>
+References: <1460046677.6715.95.camel@perches.com> <20160407162256.21283.47849.stgit@warthog.procyon.org.uk> <20160407162309.21283.11482.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>, netdev@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1459692213-3948-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42150 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440AbcDGRFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 13:05:25 -0400
+In-Reply-To: <1460046677.6715.95.camel@perches.com>
+Content-ID: <24285.1460048722.1@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 03, 2016 at 10:03:33PM +0800, Haishuang Yan wrote:
-> ip6_route_output() never returns NULL, so it is not appropriate to
-> check if the return value is NULL.
+Joe Perches <joe@perches.com> wrote:
 
-Applied, thanks.
+> It might be better to remove kenter and _enter
+> altogether and use function tracing instead.
+
+Possibly - but not at this time.  Besides, isn't the function tracing log lost
+if the machine crashes?
+
+David
