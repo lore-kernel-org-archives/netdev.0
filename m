@@ -1,45 +1,28 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been left enabled.
-Date: Thu, 07 Apr 2016 21:42:34 +0100
-Message-ID: <5417.1460061754@warthog.procyon.org.uk>
-References: <1460060518.1800.8.camel@perches.com> <1460049545.6715.98.camel@perches.com> <1460046677.6715.95.camel@perches.com> <20160407162256.21283.47849.stgit@warthog.procyon.org.uk> <20160407162309.21283.11482.stgit@warthog.procyon.org.uk> <24286.1460048722@warthog.procyon.org.uk> <981.1460058224@warthog.procyon.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] sock: lockdep tightening
+Date: Thu, 07 Apr 2016 16:44:33 -0400 (EDT)
+Message-ID: <20160407.164433.1018956939607816921.davem@davemloft.net>
+References: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37798 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756795AbcDGUmh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 16:42:37 -0400
-In-Reply-To: <1460060518.1800.8.camel@perches.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55609 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753278AbcDGUok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 16:44:40 -0400
+In-Reply-To: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> wrote:
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue,  5 Apr 2016 17:10:13 +0200
 
-> > Let's see...=C2=A0=C2=A0If the machine panics whilst I'm developing=
- stuff (quite
-> > likely if something goes wrong in BH context), how do I get at the
-> > function tracing log to find out why it panicked if the log is then
-> > lost?=C2=A0=C2=A0With the serial console, at least I automatically =
-capture the
-> > output of kenter and co..
->=20
-> But you also don't get a bunch of other useful stuff.
->=20
-> btw: there is ftrace_dump_on_oops
->=20
-> https://lwn.net/Articles/366796/
+> First patch is from Eric Dumazet and improves lockdep accuracy for
+> socket locks. After that, second patch introduces lockdep_sock_is_held
+> and uses it. Final patch reverts and reworks the lockdep fix from Daniel
+> in the filter code, as we now have tighter lockdep support.
 
-Cute.
-
-How do I get at the argument values and suchlike that kenter() and co p=
-rint?
-I presume I would need to replace any kenter() or suchlike that printed=
- more
-than just the address with a tracing hook?
-
-David
+Series applied, thanks Hannes.
