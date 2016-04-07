@@ -1,119 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/14] i40e: Patch to support trusted VF
-Date: Wed,  6 Apr 2016 20:29:32 -0700
-Message-ID: <1459999779-22254-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] i40evf: properly handle VLAN features
+Date: Wed,  6 Apr 2016 20:29:39 -0700
+Message-ID: <1459999779-22254-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:26073 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:23097 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751802AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752024AbcDGD3p (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Apr 2016 23:29:45 -0400
 In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch adds hook to support changing a VF from not-trusted
-to trusted and vice-versa. Fixed the wrappers and function prototype.
-Changed the dmesg to reflex the current state better. This patch also
-disables turning on/off trusted VF in MFP mode.
+Correctly set the VLAN feature flags after setting the rest of the
+netdev flags. And don't set them in hw_features, because these can't be
+controlled by the VF driver.
 
-Change-ID: Ibcd910935c01f0be1f3fdd6d427230291ee92ebe
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 42 ++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  2 ++
- 3 files changed, 45 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 27 +++++++++++--------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 86abd08..627acf0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9069,6 +9069,7 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_get_vf_config	= i40e_ndo_get_vf_config,
- 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
- 	.ndo_set_vf_spoofchk	= i40e_ndo_set_vf_spoofchk,
-+	.ndo_set_vf_trust	= i40e_ndo_set_vf_trust,
- #if IS_ENABLED(CONFIG_VXLAN)
- 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
- 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f2a9c14..b353966 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2763,3 +2763,45 @@ int i40e_ndo_set_vf_spoofchk(struct net_device *netdev, int vf_id, bool enable)
- out:
- 	return ret;
- }
-+
-+/**
-+ * i40e_ndo_set_vf_trust
-+ * @netdev: network interface device structure of the pf
-+ * @vf_id: VF identifier
-+ * @setting: trust setting
-+ *
-+ * Enable or disable VF trust setting
-+ **/
-+int i40e_ndo_set_vf_trust(struct net_device *netdev, int vf_id, bool setting)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_vf *vf;
-+	int ret = 0;
-+
-+	/* validate the request */
-+	if (vf_id >= pf->num_alloc_vfs) {
-+		dev_err(&pf->pdev->dev, "Invalid VF Identifier %d\n", vf_id);
-+		return -EINVAL;
-+	}
-+
-+	if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-+		dev_err(&pf->pdev->dev, "Trusted VF not supported in MFP mode.\n");
-+		return -EINVAL;
-+	}
-+
-+	vf = &pf->vf[vf_id];
-+
-+	if (!vf)
-+		return -EINVAL;
-+	if (setting == vf->trusted)
-+		goto out;
-+
-+	vf->trusted = setting;
-+	i40e_vc_notify_vf_reset(vf);
-+	i40e_reset_vf(vf, false);
-+	dev_info(&pf->pdev->dev, "VF %u is now %strusted\n",
-+		 vf_id, setting ? "" : "un");
-+out:
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index e7b2fba..838cbd2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -88,6 +88,7 @@ struct i40e_vf {
- 	struct i40e_virtchnl_ether_addr default_fcoe_addr;
- 	u16 port_vlan_id;
- 	bool pf_set_mac;	/* The VMM admin set the VF MAC address */
-+	bool trusted;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 4659ac2..9110319 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2323,29 +2323,20 @@ static int i40evf_check_reset_complete(struct i40e_hw *hw)
+  **/
+ int i40evf_process_config(struct i40evf_adapter *adapter)
+ {
++	struct i40e_virtchnl_vf_resource *vfres = adapter->vf_res;
+ 	struct net_device *netdev = adapter->netdev;
+ 	int i;
  
- 	/* VSI indices - actual VSI pointers are maintained in the PF structure
- 	 * When assigned, these will be non-zero, because VSI 0 is always
-@@ -127,6 +128,7 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
- 			      int vf_id, u16 vlan_id, u8 qos);
- int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
- 		       int max_tx_rate);
-+int i40e_ndo_set_vf_trust(struct net_device *netdev, int vf_id, bool setting);
- int i40e_ndo_get_vf_config(struct net_device *netdev,
- 			   int vf_id, struct ifla_vf_info *ivi);
- int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link);
+ 	/* got VF config message back from PF, now we can parse it */
+-	for (i = 0; i < adapter->vf_res->num_vsis; i++) {
+-		if (adapter->vf_res->vsi_res[i].vsi_type == I40E_VSI_SRIOV)
+-			adapter->vsi_res = &adapter->vf_res->vsi_res[i];
++	for (i = 0; i < vfres->num_vsis; i++) {
++		if (vfres->vsi_res[i].vsi_type == I40E_VSI_SRIOV)
++			adapter->vsi_res = &vfres->vsi_res[i];
+ 	}
+ 	if (!adapter->vsi_res) {
+ 		dev_err(&adapter->pdev->dev, "No LAN VSI found\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	if (adapter->vf_res->vf_offload_flags
+-	    & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
+-		netdev->vlan_features = netdev->features &
+-					~(NETIF_F_HW_VLAN_CTAG_TX |
+-					  NETIF_F_HW_VLAN_CTAG_RX |
+-					  NETIF_F_HW_VLAN_CTAG_FILTER);
+-		netdev->features |= NETIF_F_HW_VLAN_CTAG_TX |
+-				    NETIF_F_HW_VLAN_CTAG_RX |
+-				    NETIF_F_HW_VLAN_CTAG_FILTER;
+-	}
+ 	netdev->features |= NETIF_F_HIGHDMA |
+ 			    NETIF_F_SG |
+ 			    NETIF_F_IP_CSUM |
+@@ -2354,7 +2345,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 			    NETIF_F_TSO |
+ 			    NETIF_F_TSO6 |
+ 			    NETIF_F_TSO_ECN |
+-			    NETIF_F_GSO_GRE	       |
++			    NETIF_F_GSO_GRE |
+ 			    NETIF_F_GSO_UDP_TUNNEL |
+ 			    NETIF_F_RXCSUM |
+ 			    NETIF_F_GRO;
+@@ -2371,9 +2362,15 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 	if (adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE)
+ 		netdev->features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
+ 
++	/* always clear VLAN features because they can change at every reset */
++	netdev->features &= ~(I40EVF_VLAN_FEATURES);
+ 	/* copy netdev features into list of user selectable features */
+ 	netdev->hw_features |= netdev->features;
+-	netdev->hw_features &= ~NETIF_F_RXCSUM;
++
++	if (vfres->vf_offload_flags & I40E_VIRTCHNL_VF_OFFLOAD_VLAN) {
++		netdev->vlan_features = netdev->features;
++		netdev->features |= I40EVF_VLAN_FEATURES;
++	}
+ 
+ 	adapter->vsi.id = adapter->vsi_res->vsi_id;
+ 
 -- 
 2.5.5
