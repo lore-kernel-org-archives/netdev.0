@@ -1,46 +1,101 @@
-From: "Waskiewicz, PJ" <PJ.Waskiewicz@netapp.com>
-Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Thu, 7 Apr 2016 19:48:50 +0000
-Message-ID: <1460058531.13579.12.camel@netapp.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	 <20160407161715.52635cac@redhat.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 7 Apr 2016 22:10:09 +0200
+Message-ID: <20160407201009.GA16136@lunn.ch>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+ <20151231231039.GA8886@rob-hp-laptop>
+ <56ABADEA.40801@codeaurora.org>
+ <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+ <5706B4EF.2050600@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bblanco@plumgrid.com" <bblanco@plumgrid.com>,
-	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-	"James.Bottomley@HansenPartnership.com"
-	<James.Bottomley@HansenPartnership.com>,
-	"tom@herbertland.com" <tom@herbertland.com>,
-	"lsf-pc@lists.linux-foundation.org"
-	<lsf-pc@lists.linux-foundation.org>
-To: "lsf@lists.linux-foundation.org" <lsf@lists.linux-foundation.org>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	"brouer@redhat.com" <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx141.netapp.com ([216.240.21.12]:12126 "EHLO mx141.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755300AbcDGTsx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 15:48:53 -0400
-In-Reply-To: <20160407161715.52635cac@redhat.com>
-Content-Language: en-US
-Content-ID: <A66DB2D3F274B84D9660316A70387620@hq.netapp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-msm <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sagar Dharia <sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5706B4EF.2050600-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCAyMDE2LTA0LTA3IGF0IDE2OjE3ICswMjAwLCBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVy
-IHdyb3RlOg0KPiAoVG9waWMgcHJvcG9zYWwgZm9yIE1NLXN1bW1pdCkNCj4gDQo+IE5ldHdvcmsg
-SW50ZXJmYWNlIENhcmRzIChOSUMpIGRyaXZlcnMsIGFuZCBpbmNyZWFzaW5nIHNwZWVkcyBzdHJl
-c3MNCj4gdGhlIHBhZ2UtYWxsb2NhdG9yIChhbmQgRE1BIEFQSXMpLsKgwqBBIG51bWJlciBvZiBk
-cml2ZXIgc3BlY2lmaWMNCj4gb3Blbi1jb2RlZCBhcHByb2FjaGVzIGV4aXN0cyB0aGF0IHdvcmst
-YXJvdW5kIHRoZXNlIGJvdHRsZW5lY2tzIGluDQo+IHRoZQ0KPiBwYWdlIGFsbG9jYXRvciBhbmQg
-RE1BIEFQSXMuIEUuZy4gb3Blbi1jb2RlZCByZWN5Y2xlIG1lY2hhbmlzbXMsIGFuZA0KPiBhbGxv
-Y2F0aW5nIGxhcmdlciBwYWdlcyBhbmQgaGFuZGluZy1vdXQgcGFnZSAiZnJhZ21lbnRzIi4NCj4g
-DQo+IEknbSBwcm9wb3NpbmcgYSBnZW5lcmljIHBhZ2UtcG9vbCByZWN5Y2xlIGZhY2lsaXR5LCB0
-aGF0IGNhbiBjb3Zlcg0KPiB0aGUNCj4gZHJpdmVyIHVzZS1jYXNlcywgaW5jcmVhc2UgcGVyZm9y
-bWFuY2UgYW5kIG9wZW4gdXAgZm9yIHplcm8tY29weSBSWC4NCg0KSXMgdGhpcyBiYXNlZCBvbiB0
-aGUgcGFnZSByZWN5Y2xlIHN0dWZmIGZyb20gaXhnYmUgdGhhdCB1c2VkIHRvIGJlIGluDQp0aGUg
-ZHJpdmVyPyDCoElmIHNvIEknZCByZWFsbHkgbGlrZSB0byBiZSBwYXJ0IG9mIHRoZSBkaXNjdXNz
-aW9uLg0KDQotUEoNCg0KDQotLSANClBKIFdhc2tpZXdpY3oNClByaW5jaXBhbCBFbmdpbmVlciwg
-TmV0QXBwDQplOiBwai53YXNraWV3aWN6QG5ldGFwcC5jb20NCmQ6IDUwMy45NjEuMzcwNQ0K
+> I'm back to working on this driver, and I need some more help with
+> how to handle the phy.  mdio-gpio.txt doesn't really tell me much.
+> I'm actually working on an ACPI system and not DT.
+
+I can help you with DT, but not ACPI.
+
+The MDIO bus can be a separate Linux device. Since you have GPIO lines
+for the MDIO bus, it makes sense for this to be a mdio-gpio device. So
+in DT, you would have:
+
+mdio0: mdio {
+        compatible = "virtual,mdio-gpio";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        gpios = <&qcomgpio 123 0
+                 &qcomgpio 124 0>;
+
+	phy0: ethernet-phy@8 {
+        	reg = <9>;
+	};
+};
+
+Here i've assumed the PHY is using address 8 on the bus. Change as
+needed.
+
+In your MAC DT node, you then have phy-handle pointing to this phy:
+
+  emac0: qcom,emac@feb20000 {
+  	cell-index = <0>;
+	compatible = "qcom,emac";
+	reg-names = "base", "csr", "ptp", "sgmii";
+	reg =   <0xfeb20000 0x10000>,
+	    	<0xfeb36000 0x1000>,
+		<0xfeb3c000 0x4000>,
+		<0xfeb38000 0x400>;
+	#address-cells = <0>;
+	interrupt-parent = <&emac0>;
+	#interrupt-cells = <1>;
+	interrupts = <0 1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 76 0
+	 	         1 &intc 0 80 0>;
+       	interrupt-names = "emac_core0", "sgmii_irq";
+  	qcom,emac-tstamp-en;
+	qcom,emac-ptp-frac-ns-adj = <125000000 1>;
+
+	phy-handle = <&phy0>
+}
+
+In the driver, you need to connect the PHY to the MAC. You do this
+using something like:
+
+         if (dev->of_node) {
+                 phy_np = of_parse_phandle(dev->of_node, "phy-handle", 0);
+                 if (!phy_np) {
+                         netdev_dbg(ndev, "No phy-handle found in DT\n");
+                         return -ENODEV;
+                 }
+ 
+                 phy_dev = of_phy_connect(ndev, phy_np, &xxxx_enet_adjust_link,
+                                          0, pdata->phy_mode);
+                 if (!phy_dev) {
+                         netdev_err(ndev, "Could not connect to PHY\n");
+                         return -ENODEV;
+                 }
+
+Do you have an ACPI table describing this hardware? What does it look
+like?
+
+	Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
