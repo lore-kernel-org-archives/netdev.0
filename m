@@ -1,47 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] udp: GRO in UDP sockets
-Date: Thu, 07 Apr 2016 16:54:01 -0400 (EDT)
-Message-ID: <20160407.165401.1543999509717183827.davem@davemloft.net>
-References: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 net-next 02/10] perf: remove unused __addr variable
+Date: Thu, 7 Apr 2016 22:54:30 +0200
+Message-ID: <20160407205430.GG3448@twins.programming.kicks-ass.net>
+References: <1459993411-2754735-1-git-send-email-ast@fb.com>
+ <1459993411-2754735-3-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55672 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753278AbcDGUyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 16:54:03 -0400
-In-Reply-To: <1459869776-2090500-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1459993411-2754735-3-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Tue, 5 Apr 2016 08:22:48 -0700
+On Wed, Apr 06, 2016 at 06:43:23PM -0700, Alexei Starovoitov wrote:
+> now all calls to perf_trace_buf_submit() pass 0 as 4th
+> argument which will be repurposed in the next patch which will
+> change the meaning of 1st arg of perf_tp_event() to event_type
+> 
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+>  include/trace/perf.h         | 7 ++-----
+>  include/trace/trace_events.h | 3 ---
+>  2 files changed, 2 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/trace/perf.h b/include/trace/perf.h
+> index 26486fcd74ce..6f7e37869065 100644
+> --- a/include/trace/perf.h
+> +++ b/include/trace/perf.h
+> @@ -20,9 +20,6 @@
+>  #undef __get_bitmask
+>  #define __get_bitmask(field) (char *)__get_dynamic_array(field)
+>  
+> -#undef __perf_addr
+> -#define __perf_addr(a)	(__addr = (a))
+> -
 
-> This patch set adds GRO functions (gro_receive and gro_complete) to UDP
-> sockets and removes udp_offload infrastructure.
-> 
-> Add GRO functions (gro_receive and gro_complete) to UDP sockets. In
-> udp_gro_receive and udp_gro_complete a socket lookup is done instead of
-> looking up the port number in udp_offloads.  If a socket is found and
-> there are GRO functions for it then those are called. This feature
-> allows binding GRO functions to more than just a port number.
-> Eventually, we will be able to use this technique to allow application
-> defined GRO for an application protocol by attaching BPF porgrams to UDP
-> sockets for doing GRO.
-> 
-> In order to implement these functions, we added exported
-> udp6_lib_lookup_skb and udp4_lib_lookup_skb functions in ipv4/udp.c and
-> ipv6/udp.c. Also, inet_iif and references to skb_dst() were changed to
-> check that dst is set in skbuf before derefencing. In the GRO path there
-> is now a UDP socket lookup performed before dst is set, to the get the
-> device in that case we simply use skb->dev.
-> 
-> Tested:
-> 
-> Ran various combinations of VXLAN and GUE TCP_STREAM and TCP_RR tests.
-> Did not see any material regression.
+Ah, we're not using that anylonger..
 
-Series applied thanks Tom.
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
