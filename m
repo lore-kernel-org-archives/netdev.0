@@ -1,113 +1,85 @@
-From: John Crispin <blogic@openwrt.org>
-Subject: [PATCH V3 5/8] net: mediatek: fix TX locking
-Date: Fri,  8 Apr 2016 00:54:08 +0200
-Message-ID: <1460069651-1234-6-git-send-email-blogic@openwrt.org>
+From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH V3 6/8] net: mediatek: fix mtk_pending_work
+Date: Fri,  8 Apr 2016 00:54:09 +0200
+Message-ID: <1460069651-1234-7-git-send-email-blogic@openwrt.org>
 References: <1460069651-1234-1-git-send-email-blogic@openwrt.org>
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	=?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
-	<sean.wang@mediatek.com>, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-	John Crispin <blogic@openwrt.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460069651-1234-1-git-send-email-blogic@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ =?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
+ <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1460069651-1234-1-git-send-email-blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Inside the TX path there is a lock inside the tx_map function. This is
-however too late. The patch moves the lock to the start of the xmit
-function right before the free count check of the DMA ring happens.
-If we do not do this, the code becomes racy leading to TX stalls and
-dropped packets. This happens as there are 2 netdevs running on the
-same physical DMA ring.
+The driver supports 2 MACs. Both run on the same DMA ring. If we hit a TX
+timeout we need to stop both netdevs before restarting them again. If we
+don't do this, mtk_stop() wont shutdown DMA and the consecutive call to
+mtk_open() wont restart DMA and enable IRQs.
 
-Signed-off-by: John Crispin <blogic@openwrt.org>
+Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 
 ---
 Changes in V3
-* fix a typo in the comment
+* make the patch bisectable
 
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   28 +++++++++++++++++++--------
+ 1 file changed, 20 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4ebc42e..7b76075 100644
+index 7b76075..cd5d0c9 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -536,7 +536,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+@@ -1432,17 +1432,29 @@ static void mtk_pending_work(struct work_struct *work)
+ {
+ 	struct mtk_mac *mac = container_of(work, struct mtk_mac, pending_work);
  	struct mtk_eth *eth = mac->hw;
- 	struct mtk_tx_dma *itxd, *txd;
- 	struct mtk_tx_buf *tx_buf;
--	unsigned long flags;
- 	dma_addr_t mapped_addr;
- 	unsigned int nr_frags;
- 	int i, n_desc = 1;
-@@ -568,11 +567,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	if (unlikely(dma_mapping_error(&dev->dev, mapped_addr)))
- 		return -ENOMEM;
+-	struct net_device *dev = eth->netdev[mac->id];
+-	int err;
++	int err, i;
++	unsigned long restart = 0;
  
--	/* normally we can rely on the stack not calling this more than once,
--	 * however we have 2 queues running ont he same ring so we need to lock
--	 * the ring access
--	 */
--	spin_lock_irqsave(&eth->page_lock, flags);
- 	WRITE_ONCE(itxd->txd1, mapped_addr);
- 	tx_buf->flags |= MTK_TX_FLAGS_SINGLE0;
- 	dma_unmap_addr_set(tx_buf, dma_addr0, mapped_addr);
-@@ -632,8 +626,6 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
- 	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
- 				(!nr_frags * TX_DMA_LS0)));
+ 	rtnl_lock();
+-	mtk_stop(dev);
  
--	spin_unlock_irqrestore(&eth->page_lock, flags);
--
- 	netdev_sent_queue(dev, skb->len);
- 	skb_tx_timestamp(skb);
- 
-@@ -661,8 +653,6 @@ err_dma:
- 		itxd = mtk_qdma_phys_to_virt(ring, itxd->txd2);
- 	} while (itxd != txd);
- 
--	spin_unlock_irqrestore(&eth->page_lock, flags);
--
- 	return -ENOMEM;
- }
- 
-@@ -712,14 +702,22 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct mtk_eth *eth = mac->hw;
- 	struct mtk_tx_ring *ring = &eth->tx_ring;
- 	struct net_device_stats *stats = &dev->stats;
-+	unsigned long flags;
- 	bool gso = false;
- 	int tx_num;
- 
-+	/* normally we can rely on the stack not calling this more than once,
-+	 * however we have 2 queues running on the same ring so we need to lock
-+	 * the ring access
-+	 */
-+	spin_lock_irqsave(&eth->page_lock, flags);
+-	err = mtk_open(dev);
+-	if (err) {
+-		netif_alert(eth, ifup, dev,
+-			    "Driver up/down cycle failed, closing device.\n");
+-		dev_close(dev);
++	/* stop all devices to make sure that dma is properly shut down */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!netif_oper_up(eth->netdev[i]))
++			continue;
++		mtk_stop(eth->netdev[i]);
++		__set_bit(i, &restart);
++	}
 +
- 	tx_num = mtk_cal_txd_req(skb);
- 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
- 		mtk_stop_queue(eth);
- 		netif_err(eth, tx_queued, dev,
- 			  "Tx Ring full when queue awake!\n");
-+		spin_unlock_irqrestore(&eth->page_lock, flags);
- 		return NETDEV_TX_BUSY;
++	/* restart DMA and enable IRQs */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!test_bit(i, &restart))
++			continue;
++		err = mtk_open(eth->netdev[i]);
++		if (err) {
++			netif_alert(eth, ifup, eth->netdev[i],
++			      "Driver up/down cycle failed, closing device.\n");
++			dev_close(eth->netdev[i]);
++		}
  	}
- 
-@@ -747,10 +745,12 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			     ring->thresh))
- 			mtk_wake_queue(eth);
- 	}
-+	spin_unlock_irqrestore(&eth->page_lock, flags);
- 
- 	return NETDEV_TX_OK;
- 
- drop:
-+	spin_unlock_irqrestore(&eth->page_lock, flags);
- 	stats->tx_dropped++;
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
+ 	rtnl_unlock();
+ }
 -- 
 1.7.10.4
