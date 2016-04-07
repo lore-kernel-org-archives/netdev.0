@@ -1,101 +1,193 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2016-04-06
-Date: Wed,  6 Apr 2016 20:29:25 -0700
-Message-ID: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	john.ronciak@intel.com
+Subject: [net-next 10/14] i40e: Add RSS configuration to virtual channel
+Date: Wed,  6 Apr 2016 20:29:35 -0700
+Message-ID: <1459999779-22254-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23097 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47670 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753346AbcDGD3n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 23:29:43 -0400
+	id S1754663AbcDGD3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 23:29:46 -0400
+In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Deepthi adds a debug message to display the MSIx vector count for hardware
-capabilities.
+Add opcodes and structures to support RSS configuration by PF driver on
+behalf of the VF drivers. This reduces complexity in the VF driver and
+allows us to support future hardware designs without modifying the VF
+driver.
 
-Shannon removed the setting of debug_mask at startup to take care of an
-issue where all the device capabilities getting printed when we had not
-asked for it.  Moved the NVM status out of the admin queue structure,
-since it should really stay with the other NVM data structures.
+Change-ID: I8c75765c630eacb71f95967f1109a198542593ac
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 45 +++++++++++++++++++++--
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 45 +++++++++++++++++++++--
+ 2 files changed, 84 insertions(+), 6 deletions(-)
 
-Akeem added the flush routine to the end of the reset flow to avoid
-problems in the pass-through routines.
-
-Jesse moves a local variable deeper into the depths of the driver
-where the light is low and the context is great.  Then cleaned up
-the tx_ring argument since it was not making good arguments.  Improved
-performance by not "checking for FCoE" by re-ordering the FCoE checks.
-
-Anjali adds the support for changing a VF from non-trusted to trusted
-and vice-versa.
-
-Mitch adds opcodes and structures to support RSS configuration by PF
-driver on behalf of the VF driver.  Fixed how the VLAN feature flags
-are set.
-
-Kiran added defines for RSS, flow director, flexible payload and IPv6.
-
-The following are changes since commit 58a01d4dc43e60208b70ce08604b5bcbb907f0d1:
-  Merge branch 'mlxsw-dcb'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Akeem G Abodunrin (1):
-  i40e: Move HW flush
-
-Anjali Singhai Jain (1):
-  i40e: Patch to support trusted VF
-
-Deepthi Kavalur (1):
-  i40e: Inserting a HW capability display info
-
-Harshitha Ramamurthy (1):
-  i40e/i40evf: Bump patch from 1.5.2 to 1.5.5
-
-Jesse Brandeburg (3):
-  i40e/i40evf: Move stack var deeper
-  i40e/i40evf: Drop unused tx_ring argument
-  i40e/i40evf: Faster RX via avoiding FCoE
-
-Kiran Patil (1):
-  i40e: Input set mask constants for RSS, flow director, and flex bytes
-
-Mitch Williams (2):
-  i40e: Add RSS configuration to virtual channel
-  i40evf: properly handle VLAN features
-
-Shannon Nelson (4):
-  i40e: Leave debug_mask cleared at init
-  i40e: Restrict VF poll mode to only single function mode devices
-  i40e: Move NVM variable out of AQ struct
-  i40e: Move NVM event wait check to NVM code
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 33 +-------------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  1 -
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  3 ++
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        | 12 +----
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         | 43 +++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  1 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 17 ++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 10 ++++
- drivers/net/ethernet/intel/i40e/i40e_type.h        | 34 ++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    | 45 ++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 53 +++++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  2 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 13 +++---
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      | 10 ++++
- drivers/net/ethernet/intel/i40evf/i40e_type.h      | 43 ++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  | 45 ++++++++++++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 29 ++++++------
- 19 files changed, 311 insertions(+), 88 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+index ab866cf..c92a3bd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
+@@ -80,10 +80,15 @@ enum i40e_virtchnl_ops {
+ 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
+ 	I40E_VIRTCHNL_OP_GET_STATS = 15,
+ 	I40E_VIRTCHNL_OP_FCOE = 16,
+-	I40E_VIRTCHNL_OP_EVENT = 17,
++	I40E_VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
+ 	I40E_VIRTCHNL_OP_IWARP = 20,
+ 	I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21,
+ 	I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22,
++	I40E_VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
++	I40E_VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
++	I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
++	I40E_VIRTCHNL_OP_SET_RSS_HENA = 26,
++
+ };
+ 
+ /* Virtual channel message descriptor. This overlays the admin queue
+@@ -157,6 +162,7 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
++#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
+ 
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
+@@ -165,8 +171,8 @@ struct i40e_virtchnl_vf_resource {
+ 	u16 max_mtu;
+ 
+ 	u32 vf_offload_flags;
+-	u32 max_fcoe_contexts;
+-	u32 max_fcoe_filters;
++	u32 rss_key_size;
++	u32 rss_lut_size;
+ 
+ 	struct i40e_virtchnl_vsi_resource vsi_res[1];
+ };
+@@ -325,6 +331,39 @@ struct i40e_virtchnl_promisc_info {
+  * PF replies with struct i40e_eth_stats in an external buffer.
+  */
+ 
++/* I40E_VIRTCHNL_OP_CONFIG_RSS_KEY
++ * I40E_VIRTCHNL_OP_CONFIG_RSS_LUT
++ * VF sends these messages to configure RSS. Only supported if both PF
++ * and VF drivers set the I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF bit during
++ * configuration negotiation. If this is the case, then the RSS fields in
++ * the VF resource struct are valid.
++ * Both the key and LUT are initialized to 0 by the PF, meaning that
++ * RSS is effectively disabled until set up by the VF.
++ */
++struct i40e_virtchnl_rss_key {
++	u16 vsi_id;
++	u16 key_len;
++	u8 key[1];         /* RSS hash key, packed bytes */
++};
++
++struct i40e_virtchnl_rss_lut {
++	u16 vsi_id;
++	u16 lut_entries;
++	u8 lut[1];        /* RSS lookup table*/
++};
++
++/* I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS
++ * I40E_VIRTCHNL_OP_SET_RSS_HENA
++ * VF sends these messages to get and set the hash filter enable bits for RSS.
++ * By default, the PF sets these to all possible traffic types that the
++ * hardware supports. The VF can query this value if it wants to change the
++ * traffic types that are hashed by the hardware.
++ * Traffic types are defined in the i40e_filter_pctype enum in i40e_type.h
++ */
++struct i40e_virtchnl_rss_hena {
++	u64 hena;
++};
++
+ /* I40E_VIRTCHNL_OP_EVENT
+  * PF sends this message to inform the VF driver of events that may affect it.
+  * No direct response is expected from the VF, though it may generate other
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+index 3b9d203..f04ce6c 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
+@@ -80,7 +80,12 @@ enum i40e_virtchnl_ops {
+ 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
+ 	I40E_VIRTCHNL_OP_GET_STATS = 15,
+ 	I40E_VIRTCHNL_OP_FCOE = 16,
+-	I40E_VIRTCHNL_OP_EVENT = 17,
++	I40E_VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
++	I40E_VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
++	I40E_VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
++	I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
++	I40E_VIRTCHNL_OP_SET_RSS_HENA = 26,
++
+ };
+ 
+ /* Virtual channel message descriptor. This overlays the admin queue
+@@ -154,6 +159,7 @@ struct i40e_virtchnl_vsi_resource {
+ #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
+ #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
++#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
+ 
+ struct i40e_virtchnl_vf_resource {
+ 	u16 num_vsis;
+@@ -162,8 +168,8 @@ struct i40e_virtchnl_vf_resource {
+ 	u16 max_mtu;
+ 
+ 	u32 vf_offload_flags;
+-	u32 max_fcoe_contexts;
+-	u32 max_fcoe_filters;
++	u32 rss_key_size;
++	u32 rss_lut_size;
+ 
+ 	struct i40e_virtchnl_vsi_resource vsi_res[1];
+ };
+@@ -322,6 +328,39 @@ struct i40e_virtchnl_promisc_info {
+  * PF replies with struct i40e_eth_stats in an external buffer.
+  */
+ 
++/* I40E_VIRTCHNL_OP_CONFIG_RSS_KEY
++ * I40E_VIRTCHNL_OP_CONFIG_RSS_LUT
++ * VF sends these messages to configure RSS. Only supported if both PF
++ * and VF drivers set the I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF bit during
++ * configuration negotiation. If this is the case, then the RSS fields in
++ * the VF resource struct are valid.
++ * Both the key and LUT are initialized to 0 by the PF, meaning that
++ * RSS is effectively disabled until set up by the VF.
++ */
++struct i40e_virtchnl_rss_key {
++	u16 vsi_id;
++	u16 key_len;
++	u8 key[1];         /* RSS hash key, packed bytes */
++};
++
++struct i40e_virtchnl_rss_lut {
++	u16 vsi_id;
++	u16 lut_entries;
++	u8 lut[1];        /* RSS lookup table*/
++};
++
++/* I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS
++ * I40E_VIRTCHNL_OP_SET_RSS_HENA
++ * VF sends these messages to get and set the hash filter enable bits for RSS.
++ * By default, the PF sets these to all possible traffic types that the
++ * hardware supports. The VF can query this value if it wants to change the
++ * traffic types that are hashed by the hardware.
++ * Traffic types are defined in the i40e_filter_pctype enum in i40e_type.h
++ */
++struct i40e_virtchnl_rss_hena {
++	u64 hena;
++};
++
+ /* I40E_VIRTCHNL_OP_EVENT
+  * PF sends this message to inform the VF driver of events that may affect it.
+  * No direct response is expected from the VF, though it may generate other
 -- 
 2.5.5
