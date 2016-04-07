@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 08/11] Documentation: Add documentation for TSO and GSO
- features
-Date: Thu, 07 Apr 2016 18:32:43 -0400
-Message-ID: <20160407223243.11142.35749.stgit@ahduyck-xeon-server>
+Subject: [RFC PATCH 09/11] i40e/i40evf: Add support for GSO partial with
+ UDP_TUNNEL_CSUM and GRE_CSUM
+Date: Thu, 07 Apr 2016 18:32:49 -0400
+Message-ID: <20160407223249.11142.77910.stgit@ahduyck-xeon-server>
 References: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,156 +11,143 @@ To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
 	alexander.duyck@gmail.com, edumazet@google.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34563 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932149AbcDGWcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:46 -0400
-Received: by mail-pa0-f45.google.com with SMTP id fe3so62584182pab.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:46 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36217 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932149AbcDGWcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 18:32:53 -0400
+Received: by mail-pf0-f181.google.com with SMTP id e128so63612898pfe.3
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 15:32:52 -0700 (PDT)
 In-Reply-To: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This document is a starting point for defining the TSO and GSO features.
-The whole thing is starting to get a bit messy so I wanted to make sure we
-have notes somwhere to start describing what does and doesn't work.
+This patch makes it so that i40e and i40evf can use GSO_PARTIAL to support
+segmentation for frames with checksums enabled in outer headers.  As a
+result we can now send data over these types of tunnels at over 20Gb/s
+versus the 12Gb/s that was previously possible on my system.
+
+The advantage with the i40e parts is that this offload is mostly
+transparent as the hardware still deals with the inner and/or outer IPv4
+headers so the IP ID is still incrementing for both when this offload is
+performed.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- Documentation/networking/segmentation-offloads.txt |  127 ++++++++++++++++++++
- 1 file changed, 127 insertions(+)
- create mode 100644 Documentation/networking/segmentation-offloads.txt
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |    6 +++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c     |    7 ++++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c   |    7 ++++++-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |    6 +++++-
+ 4 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/Documentation/networking/segmentation-offloads.txt b/Documentation/networking/segmentation-offloads.txt
-new file mode 100644
-index 000000000000..b06dd9b65ab3
---- /dev/null
-+++ b/Documentation/networking/segmentation-offloads.txt
-@@ -0,0 +1,127 @@
-+Segmentation Offloads in the Linux Networking Stack
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 07a70c4ac49f..6c095b07ce82 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9119,17 +9119,21 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 				   NETIF_F_TSO_ECN		|
+ 				   NETIF_F_TSO6			|
+ 				   NETIF_F_GSO_GRE		|
++				   NETIF_F_GSO_GRE_CSUM		|
+ 				   NETIF_F_GSO_IPIP		|
+ 				   NETIF_F_GSO_SIT		|
+ 				   NETIF_F_GSO_UDP_TUNNEL	|
+ 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
++				   NETIF_F_GSO_PARTIAL		|
+ 				   NETIF_F_SCTP_CRC		|
+ 				   NETIF_F_RXHASH		|
+ 				   NETIF_F_RXCSUM		|
+ 				   0;
+ 
+ 	if (!(pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE))
+-		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++		netdev->gso_partial_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
 +
-+Introduction
-+============
++	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
+ 
+ 	/* record features VLANs can make use of */
+ 	netdev->vlan_features |= netdev->hw_enc_features;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 6e44cf118843..ede4183468b9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2300,11 +2300,15 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 	}
+ 
+ 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
++					 SKB_GSO_GRE_CSUM |
+ 					 SKB_GSO_IPIP |
+ 					 SKB_GSO_SIT |
+ 					 SKB_GSO_UDP_TUNNEL |
+ 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
+-		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM) {
++		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
++		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)) {
++			l4.udp->len = 0;
 +
-+This document describes a set of techniques in the Linux networking stack
-+to take advantage of segmentation offload capabilities of various NICs.
+ 			/* determine offset of outer transport header */
+ 			l4_offset = l4.hdr - skb->data;
+ 
+@@ -2481,6 +2485,7 @@ static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
+ 
+ 		/* indicate if we need to offload outer UDP header */
+ 		if ((*tx_flags & I40E_TX_FLAGS_TSO) &&
++		    !(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
+ 		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM))
+ 			tunnel |= I40E_TXD_CTX_QW0_L4T_CS_MASK;
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index f101895ecf4a..6ce00547c13e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1565,11 +1565,15 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 	}
+ 
+ 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
++					 SKB_GSO_GRE_CSUM |
+ 					 SKB_GSO_IPIP |
+ 					 SKB_GSO_SIT |
+ 					 SKB_GSO_UDP_TUNNEL |
+ 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
+-		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM) {
++		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
++		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)) {
++			l4.udp->len = 0;
 +
-+The following technologies are described:
-+ * TCP Segmentation Offload - TSO
-+ * UDP Fragmentation Offload - UFO
-+ * IPIP, SIT, GRE, and UDP Tunnel Offloads
-+ * Generic Segmentation Offload - GSO
-+ * Generic Receive Offload - GRO
-+ * Partial Generic Segmentation Offload - GSO_PARTIAL
+ 			/* determine offset of outer transport header */
+ 			l4_offset = l4.hdr - skb->data;
+ 
+@@ -1704,6 +1708,7 @@ static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
+ 
+ 		/* indicate if we need to offload outer UDP header */
+ 		if ((*tx_flags & I40E_TX_FLAGS_TSO) &&
++		    !(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
+ 		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM))
+ 			tunnel |= I40E_TXD_CTX_QW0_L4T_CS_MASK;
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 806da2686623..9c78c6d6afcb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2346,17 +2346,21 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
+ 				   NETIF_F_TSO_ECN		|
+ 				   NETIF_F_TSO6			|
+ 				   NETIF_F_GSO_GRE		|
++				   NETIF_F_GSO_GRE_CSUM		|
+ 				   NETIF_F_GSO_IPIP		|
+ 				   NETIF_F_GSO_SIT		|
+ 				   NETIF_F_GSO_UDP_TUNNEL	|
+ 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
++				   NETIF_F_GSO_PARTIAL		|
+ 				   NETIF_F_SCTP_CRC		|
+ 				   NETIF_F_RXHASH		|
+ 				   NETIF_F_RXCSUM		|
+ 				   0;
+ 
+ 	if (!(adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE))
+-		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
++		netdev->gso_partial_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
 +
-+TCP Segmentation Offload
-+========================
-+
-+TCP segmentation allows a device to segment a single frame into multiple
-+frames with a data payload size specified in skb_shinfo()->gso_size.
-+When TCP segmentation requested the bit for either SKB_GSO_TCP or
-+SKB_GSO_TCP6 should be set in skb_shinfo()->gso_type and
-+skb_shinfo()->gso_size should be set to a non-zero value.
-+
-+TCP segmentation is dependent on support for the use of partial checksum
-+offload.  For this reason TSO is normally disabled if the Tx checksum
-+offload for a given device is disabled.
-+
-+In order to support TCP segmentation offload it is necessary to populate
-+the network and transport header offsets of the skbuff so that the device
-+drivers will be able determine the offsets of the IP or IPv6 header and the
-+TCP header.  In addition as CHECKSUM_PARTIAL is required csum_start should
-+also point to the TCP header of the packet.
-+
-+For IPv4 segmentation we support one of two types in terms of the IP ID.
-+The default behavior is to increment the IP ID with every segment.  If the
-+GSO type SKB_GSO_TCP_FIXEDID is specified then we will not increment the IP
-+ID and all segments will use the same IP ID.
-+
-+UDP Fragmentation Offload
-+=========================
-+
-+UDP fragmentation offload allows a device to fragment an oversized UDP
-+datagram into multiple IPv4 fragments.  Many of the requirements for UDP
-+fragmentation offload are the same as TSO.  However the IPv4 ID for
-+fragments should not increment as a single IPv4 datagram is fragmented.
-+
-+IPIP, SIT, GRE, UDP Tunnel, and Remote Checksum Offloads
-+========================================================
-+
-+In addition to the offloads described above it is possible for a frame to
-+contain additional headers such as an outer tunnel.  In order to account
-+for such instances an additional set of segmentation offload types were
-+introduced including SKB_GSO_IPIP, SKB_GSO_SIT, SKB_GSO_GRE, and
-+SKB_GSO_UDP_TUNNEL.  These extra segmentation types are used to identify
-+cases where there are more than just 1 set of headers.  For example in the
-+case of IPIP and SIT we should have the network and transport headers moved
-+from the standard list of headers to "inner" header offsets.
-+
-+Currently only two levels of headers are supported.  The convention is to
-+refer to the tunnel headers as the outer headers, while the encapsulated
-+data is normally referred to as the inner headers.  Below is the list of
-+calls to access the given headers:
-+
-+IPIP/SIT Tunnel:
-+		Outer			Inner
-+MAC		skb_mac_header
-+Network		skb_network_header	skb_inner_network_header
-+Transport	skb_transport_header
-+
-+UDP/GRE Tunnel:
-+		Outer			Inner
-+MAC		skb_mac_header		skb_inner_mac_header
-+Network		skb_network_header	skb_inner_network_header
-+Transport	skb_transport_header	skb_inner_transport_header
-+
-+In addition to the above tunnel types there are also SKB_GSO_GRE_CSUM and
-+SKB_GSO_UDP_TUNNEL_CSUM.  These two additional tunnel types reflect the
-+fact that the outer header also requests to have a non-zero checksum
-+included in the outer header.
-+
-+Finally there is SKB_GSO_REMCSUM which indicates that a given tunnel header
-+has requested a remote checksum offload.  In this case the inner headers
-+will be left with a partial checksum and only the outer header checksum
-+will be computed.
-+
-+Generic Segmentation Offload
-+============================
-+
-+Generic segmentation offload is a pure software offload that is meant to
-+deal with cases where device drivers cannot perform the offloads described
-+above.  What occurs in GSO is that a given skbuff will have its data broken
-+out over multiple skbuffs that have been resized to match the MSS provided
-+via skb_shinfo()->gso_size.
-+
-+Before enabling any hardware segmentation offload a corresponding software
-+offload is required in GSO.  Otherwise it becomes possible for a frame to
-+be re-routed between devices and end up being unable to be transmitted.
-+
-+Generic Receive Offload
-+=======================
-+
-+Generic receive offload is the complement to GSO.  Ideally any frame
-+assembled by GRO should be segmented to create an identical sequence of
-+frames using GSO, and any sequence of frames segmented by GSO should be
-+able to be reassembled back to the original by GRO.  The only exception to
-+this is IPv4 ID in the case that the DF bit is set for a given IP header.
-+If the value of the IPv4 ID is not sequentially incrementing it will be
-+altered so that it is when a frame assembled via GRO is segmented via GSO.
-+
-+Partial Generic Segmentation Offload
-+====================================
-+
-+Partial generic segmentation offload is a hybrid between TSO and GSO.  What
-+it effectively does is take advantage of certain traits of TCP and tunnels
-+so that instead of having to rewrite the packet headers for each segment
-+only the inner-most transport header and possibly the outer-most network
-+header need to be updated.  This allows devices that do not support tunnel
-+offloads or tunnel offloads with checksum to still make use of segmentation.
-+
-+With the partial offload what occurs is that all headers excluding the
-+inner transport header are updated such that they will contain the correct
-+values for if the header was simply duplicated.  The one exception to this
-+is the outer IPv4 ID field.  It is up to the device drivers to guarantee
-+that the IPv4 ID field is incremented in the case that a given header does
-+not have the DF bit set.
++	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
+ 
+ 	/* record features VLANs can make use of */
+ 	netdev->vlan_features |= netdev->hw_enc_features;
