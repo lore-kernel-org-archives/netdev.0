@@ -1,7 +1,7 @@
 From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 4/9] net: mediatek: remove superfluous reset call
-Date: Thu,  7 Apr 2016 19:57:51 +0200
-Message-ID: <1460051876-53135-4-git-send-email-blogic@openwrt.org>
+Subject: [PATCH 2/9] net: mediatek: watchdog_timeo was not set
+Date: Thu,  7 Apr 2016 19:57:49 +0200
+Message-ID: <1460051876-53135-2-git-send-email-blogic@openwrt.org>
 References: <1460051876-53135-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,28 +25,25 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-HW reset is triggered in the mtk_hw_init() function. There is no need to
-also reset the core during probe.
+The original commit failed to set watchdog_timeo. This patch sets
+watchdog_timeo to HZ.
 
 Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 94cceb8..a4982e4 100644
+index e0b68af..bb10d57 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1679,10 +1679,6 @@ static int mtk_probe(struct platform_device *pdev)
- 	struct mtk_eth *eth;
- 	int err;
+@@ -1645,6 +1645,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
+ 	mac->hw_stats->reg_offset = id * MTK_STAT_OFFSET;
  
--	err = device_reset(&pdev->dev);
--	if (err)
--		return err;
--
- 	match = of_match_device(of_mtk_match, &pdev->dev);
- 	soc = (struct mtk_soc_data *)match->data;
- 
+ 	SET_NETDEV_DEV(eth->netdev[id], eth->dev);
++	eth->netdev[id]->watchdog_timeo = HZ;
+ 	eth->netdev[id]->netdev_ops = &mtk_netdev_ops;
+ 	eth->netdev[id]->base_addr = (unsigned long)eth->base;
+ 	eth->netdev[id]->vlan_features = MTK_HW_FEATURES &
 -- 
 1.7.10.4
