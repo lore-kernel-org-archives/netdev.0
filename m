@@ -1,99 +1,67 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 7 Apr 2016 14:28:47 -0500
-Message-ID: <5706B4EF.2050600@codeaurora.org>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
- <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH V2] net: mediatek: update the IRQ part of the binding document
+Date: Thu,  7 Apr 2016 21:28:33 +0200
+Message-ID: <1460057313-55885-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Gilad Avidov <gavidov@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46859 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932567AbcDGT2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:28:51 -0400
-In-Reply-To: <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ =?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
+ <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Rob Herring wrote:
+The current binding document only describes a single interrupt. Update the
+document by adding the 2 other interrupts.
 
->>>> >>>+- reg : Offset and length of the register regions for the device
->>>> >>>+- reg-names : Register region names referenced in 'reg' above.
->>>> >>>+       Required register resource entries are:
->>>> >>>+       "base"   : EMAC controller base register block.
->>>> >>>+       "csr"    : EMAC wrapper register block.
->>>> >>>+       Optional register resource entries are:
->>>> >>>+       "ptp"    : EMAC PTP (1588) register block.
->>>> >>>+                  Required if 'qcom,emac-tstamp-en' is present.
->>>> >>>+       "sgmii"  : EMAC SGMII PHY register block.
->>>> >>>+- interrupts : Interrupt numbers used by this controller
->>>> >>>+- interrupt-names : Interrupt resource names referenced in 'interrupts'
->>>> >>>above.
->>>> >>>+       Required interrupt resource entries are:
->>>> >>>+       "emac_core0"   : EMAC core0 interrupt.
->>>> >>>+       "sgmii_irq"   : EMAC SGMII interrupt.
->>>> >>>+- qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
->>>> >>>+- qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
->>> >>
->>> >>
->>> >>Use the standard binding for GPIO controlled MDIO bus.
->> >
->> >
->> >I'm not familiar with that one.  Are you talking about
->> >bindings/net/mdio-gpio.txt?
+The driver currently only uses a single interrupt. The HW is however able
+to using IRQ grouping to split TX and RX onto separate GIC irqs.
 
-> Yes.
->
->
->>>> >>>+- phy-addr            : Specifies phy address on MDIO bus.
->>>> >>>+                       Required if the optional property
->>>> >>>"qcom,no-external-phy"
->>>> >>>+                       is not specified.
->>> >>
->>> >>
->>> >>Don't you think you will need to know the specific phy device or other
->>> >>properties of the phy?
->> >
->> >
->> >That, I can't answer.  Aren't all MDIO devices basically the same?  It's
->> >been a while since I've worked on them.
+Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
+Changes in V2:
+* split this patch out of the series that fixes tx stalls in the driver
 
-> No. There was some discussion just this week about needing to require
-> phy devices to have compatible strings.
+ Documentation/devicetree/bindings/net/mediatek-net.txt |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-I'm back to working on this driver, and I need some more help with how 
-to handle the phy.  mdio-gpio.txt doesn't really tell me much. I'm 
-actually working on an ACPI system and not DT.  I don't want to strip 
-out the DT code, but I can't really test it.  I want to keep changes to 
-Gilad's patch to a minimum.
-
-Part of the problem with the Emac (and Gilad tried to explain this) is 
-that it has an internal phy.  Technically, you can connect this internal 
-phy directly to another internal phy on another SOC, and use this as an 
-SOC interconnect.  However, I don't know of anyone actually doing that.
-
-Instead, most systems have the internal phy connect to an external phy. 
-  This connection is how the Emac receives packets from the external phy.
-
-So I don't understand how I'm supposed to use the binding in 
-mdio-gpio.txt.  For one thing, there is no such binding on ACPI systems. 
-  On my ACPI system, firmware has set up the GPIOs.  The driver never 
-actually makes any gpio_xxx calls.  At this point, I'm tempted to just 
-remove all the GPIO stuff from Gilad's patch, if I can't help enough 
-help to figure out how to modify the driver the way you think I should.
-
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index 5ca7929..2f142be 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -9,7 +9,7 @@ have dual GMAC each represented by a child node..
+ Required properties:
+ - compatible: Should be "mediatek,mt7623-eth"
+ - reg: Address and length of the register set for the device
+-- interrupts: Should contain the frame engines interrupt
++- interrupts: Should contain the three frame engines interrupts
+ - clocks: the clock used by the core
+ - clock-names: the names of the clock listed in the clocks property. These are
+ 	"ethif", "esw", "gp2", "gp1"
+@@ -42,7 +42,9 @@ eth: ethernet@1b100000 {
+ 		 <&ethsys CLK_ETHSYS_GP2>,
+ 		 <&ethsys CLK_ETHSYS_GP1>;
+ 	clock-names = "ethif", "esw", "gp2", "gp1";
+-	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW>;
++	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW
++		      GIC_SPI 199 IRQ_TYPE_LEVEL_LOW
++		      GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>;
+ 	power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
+ 	resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
+ 	reset-names = "eth";
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+1.7.10.4
