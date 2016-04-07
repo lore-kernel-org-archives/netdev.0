@@ -1,56 +1,201 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH v5 net-next 01/15] nfp: correct RX buffer length calculation
-Date: Thu,  7 Apr 2016 19:39:34 +0100
-Message-ID: <1460054388-471-2-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH v5 net-next 03/15] nfp: break up nfp_net_{alloc|free}_rings
+Date: Thu,  7 Apr 2016 19:39:36 +0100
+Message-ID: <1460054388-471-4-git-send-email-jakub.kicinski@netronome.com>
 References: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:36649 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756577AbcDGSkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:21 -0400
-Received: by mail-qk0-f177.google.com with SMTP id i4so34627728qkc.3
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:20 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33042 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757348AbcDGSkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:22 -0400
+Received: by mail-qk0-f171.google.com with SMTP id k135so30781478qke.0
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:22 -0700 (PDT)
 In-Reply-To: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When calculating the RX buffer length we need to account
-for up to 2 VLAN tags.  Rounding up to 1k is an relic of
-a distant past and can be removed.  While at it also remove
-trivial print statement.
+nfp_net_{alloc|free}_rings contained strange mix of allocations
+and vector initialization.  Remove it, declare vector init as
+a separate function and handle allocations explicitly.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 126 ++++++++-------------
+ 1 file changed, 47 insertions(+), 79 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 43c618bafdb6..0dae81454e77 100644
+index 5da1199e7afb..8692587904c5 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1911,9 +1911,6 @@ static void nfp_net_set_rx_mode(struct net_device *netdev)
- static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct nfp_net *nn = netdev_priv(netdev);
--	u32 tmp;
--
--	nn_dbg(nn, "New MTU = %d\n", new_mtu);
+@@ -1488,91 +1488,40 @@ err_alloc:
+ 	return -ENOMEM;
+ }
  
- 	if (new_mtu < 68 || new_mtu > nn->max_mtu) {
- 		nn_err(nn, "New MTU (%d) is not valid\n", new_mtu);
-@@ -1921,10 +1918,7 @@ static int nfp_net_change_mtu(struct net_device *netdev, int new_mtu)
+-static void __nfp_net_free_rings(struct nfp_net *nn, unsigned int n_free)
++static int
++nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
++		       int idx)
+ {
+-	struct nfp_net_r_vector *r_vec;
+-	struct msix_entry *entry;
++	struct msix_entry *entry = &nn->irq_entries[r_vec->irq_idx];
++	int err;
+ 
+-	while (n_free--) {
+-		r_vec = &nn->r_vecs[n_free];
+-		entry = &nn->irq_entries[r_vec->irq_idx];
++	snprintf(r_vec->name, sizeof(r_vec->name),
++		 "%s-rxtx-%d", nn->netdev->name, idx);
++	err = request_irq(entry->vector, r_vec->handler, 0, r_vec->name, r_vec);
++	if (err) {
++		nn_err(nn, "Error requesting IRQ %d\n", entry->vector);
++		return err;
++	}
+ 
+-		nfp_net_rx_ring_free(r_vec->rx_ring);
+-		nfp_net_tx_ring_free(r_vec->tx_ring);
++	/* Setup NAPI */
++	netif_napi_add(nn->netdev, &r_vec->napi,
++		       nfp_net_poll, NAPI_POLL_WEIGHT);
+ 
+-		irq_set_affinity_hint(entry->vector, NULL);
+-		free_irq(entry->vector, r_vec);
++	irq_set_affinity_hint(entry->vector, &r_vec->affinity_mask);
+ 
+-		netif_napi_del(&r_vec->napi);
+-	}
+-}
++	nn_dbg(nn, "RV%02d: irq=%03d/%03d\n", idx, entry->vector, entry->entry);
+ 
+-/**
+- * nfp_net_free_rings() - Free all ring resources
+- * @nn:      NFP Net device to reconfigure
+- */
+-static void nfp_net_free_rings(struct nfp_net *nn)
+-{
+-	__nfp_net_free_rings(nn, nn->num_r_vecs);
++	return 0;
+ }
+ 
+-/**
+- * nfp_net_alloc_rings() - Allocate resources for RX and TX rings
+- * @nn:      NFP Net device to reconfigure
+- *
+- * Return: 0 on success or negative errno on error.
+- */
+-static int nfp_net_alloc_rings(struct nfp_net *nn)
++static void
++nfp_net_cleanup_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec)
+ {
+-	struct nfp_net_r_vector *r_vec;
+-	struct msix_entry *entry;
+-	int err;
+-	int r;
++	struct msix_entry *entry = &nn->irq_entries[r_vec->irq_idx];
+ 
+-	for (r = 0; r < nn->num_r_vecs; r++) {
+-		r_vec = &nn->r_vecs[r];
+-		entry = &nn->irq_entries[r_vec->irq_idx];
+-
+-		/* Setup NAPI */
+-		netif_napi_add(nn->netdev, &r_vec->napi,
+-			       nfp_net_poll, NAPI_POLL_WEIGHT);
+-
+-		snprintf(r_vec->name, sizeof(r_vec->name),
+-			 "%s-rxtx-%d", nn->netdev->name, r);
+-		err = request_irq(entry->vector, r_vec->handler, 0,
+-				  r_vec->name, r_vec);
+-		if (err) {
+-			nn_dbg(nn, "Error requesting IRQ %d\n", entry->vector);
+-			goto err_napi_del;
+-		}
+-
+-		irq_set_affinity_hint(entry->vector, &r_vec->affinity_mask);
+-
+-		nn_dbg(nn, "RV%02d: irq=%03d/%03d\n",
+-		       r, entry->vector, entry->entry);
+-
+-		/* Allocate TX ring resources */
+-		err = nfp_net_tx_ring_alloc(r_vec->tx_ring);
+-		if (err)
+-			goto err_free_irq;
+-
+-		/* Allocate RX ring resources */
+-		err = nfp_net_rx_ring_alloc(r_vec->rx_ring);
+-		if (err)
+-			goto err_free_tx;
+-	}
+-
+-	return 0;
+-
+-err_free_tx:
+-	nfp_net_tx_ring_free(r_vec->tx_ring);
+-err_free_irq:
+ 	irq_set_affinity_hint(entry->vector, NULL);
+-	free_irq(entry->vector, r_vec);
+-err_napi_del:
+ 	netif_napi_del(&r_vec->napi);
+-	__nfp_net_free_rings(nn, r);
+-	return err;
++	free_irq(entry->vector, r_vec);
+ }
+ 
+ /**
+@@ -1736,9 +1685,19 @@ static int nfp_net_netdev_open(struct net_device *netdev)
+ 		goto err_free_exn;
+ 	disable_irq(nn->irq_entries[NFP_NET_CFG_LSC].vector);
+ 
+-	err = nfp_net_alloc_rings(nn);
+-	if (err)
+-		goto err_free_lsc;
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		err = nfp_net_prepare_vector(nn, &nn->r_vecs[r], r);
++		if (err)
++			goto err_free_prev_vecs;
++
++		err = nfp_net_tx_ring_alloc(nn->r_vecs[r].tx_ring);
++		if (err)
++			goto err_cleanup_vec_p;
++
++		err = nfp_net_rx_ring_alloc(nn->r_vecs[r].rx_ring);
++		if (err)
++			goto err_free_tx_ring_p;
++	}
+ 
+ 	err = netif_set_real_num_tx_queues(netdev, nn->num_tx_rings);
+ 	if (err)
+@@ -1831,8 +1790,15 @@ err_disable_napi:
+ err_clear_config:
+ 	nfp_net_clear_config_and_disable(nn);
+ err_free_rings:
+-	nfp_net_free_rings(nn);
+-err_free_lsc:
++	r = nn->num_r_vecs;
++err_free_prev_vecs:
++	while (r--) {
++		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
++err_free_tx_ring_p:
++		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
++err_cleanup_vec_p:
++		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
++	}
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
+ err_free_exn:
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
+@@ -1873,9 +1839,11 @@ static int nfp_net_netdev_close(struct net_device *netdev)
+ 	for (r = 0; r < nn->num_r_vecs; r++) {
+ 		nfp_net_rx_flush(nn->r_vecs[r].rx_ring);
+ 		nfp_net_tx_flush(nn->r_vecs[r].tx_ring);
++		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
++		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
++		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
  	}
  
- 	netdev->mtu = new_mtu;
--
--	/* Freelist buffer size rounded up to the nearest 1K */
--	tmp = new_mtu + ETH_HLEN + VLAN_HLEN + NFP_NET_MAX_PREPEND;
--	nn->fl_bufsz = roundup(tmp, 1024);
-+	nn->fl_bufsz = NFP_NET_MAX_PREPEND + ETH_HLEN + VLAN_HLEN * 2 + new_mtu;
+-	nfp_net_free_rings(nn);
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_LSC, NFP_NET_IRQ_LSC_IDX);
+ 	nfp_net_aux_irq_free(nn, NFP_NET_CFG_EXN, NFP_NET_IRQ_EXN_IDX);
  
- 	/* restart if running */
- 	if (netif_running(netdev)) {
 -- 
 1.9.1
