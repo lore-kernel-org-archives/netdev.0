@@ -1,58 +1,81 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] igb: Fix sparse warning about passing __beXX into leXX_to_cpup
-Date: Wed,  6 Apr 2016 21:37:26 -0700
-Message-ID: <1460003853-133949-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Subject: [net-next 0/8][pull request] 1GbE Intel Wired LAN Driver Updates 2016-04-06
+Date: Wed,  6 Apr 2016 21:37:25 -0700
+Message-ID: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	john.ronciak@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:7189 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751802AbcDGEhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 00:37:36 -0400
-In-Reply-To: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1751758AbcDGEhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 00:37:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+This series contains updates to e1000, e1000e, igb and Kconfig.
 
-We were casting the addr as __beXX and then passing it into le32_to_cpu
-because the device expects the MAC address to be in network order even
-though the register set is little endian.  Instead of casting it as __beXX
-we can just cast it as __leXX in order to maintain consistency since the
-region of memory is already in little endian order as far as we are
-concerned.
+Alex fixes igb where we were casting the MAC address as __beXX and then
+passing it into le32_to_cpu, when we could simply cast as __lexx to
+maintain consistency since it is already little endian.  Then enabled
+bulk free in transmit cleanup for igb.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+John Holland enables igb to pickup the MAC address from a device tree
+blob when CONFIG_OF has been enabled.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 55a1405c..36814a2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7845,11 +7845,13 @@ static void igb_rar_set_qsel(struct igb_adapter *adapter, u8 *addr, u32 index,
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 rar_low, rar_high;
- 
--	/* HW expects these in little endian so we reverse the byte order
--	 * from network order (big endian) to CPU endian
-+	/* HW expects these to be in network order when they are plugged
-+	 * into the registers which are little endian.  In order to guarantee
-+	 * that ordering we need to do an leXX_to_cpup here in order to be
-+	 * ready for the byteswap that occurs with writel
- 	 */
--	rar_low = le32_to_cpup((__be32 *)(addr));
--	rar_high = le16_to_cpup((__be16 *)(addr + 4));
-+	rar_low = le32_to_cpup((__le32 *)(addr));
-+	rar_high = le16_to_cpup((__le16 *)(addr + 4));
- 
- 	/* Indicate to hardware the Address is Valid. */
- 	rar_high |= E1000_RAH_AV;
+Doron Shikmoni fixes a bug in the output of "ethtool -m ethX" where
+the data byte appeared duplicated.
+
+Stefan fixes up e1000 and e1000e ethtool offline tests which were calling
+dev_close() which causes IFF_UP to be cleared which removes teh interface
+routes and some addresses, so use ndo_stop() instead.
+
+Jiri Benc cleans up some old links in the Kconfig for Intel drivers where
+we referred to a URL which is no longer valid.  I am so glad Jiri has the
+time in his day to spend clicking on and testing all the URL links in the
+the kernel.
+
+Arika Chen reverts the addition of a 'rtnl_unlock()' which had a unmatched
+'rtnl_lock()' call before it.
+
+The following are changes since commit 58a01d4dc43e60208b70ce08604b5bcbb907f0d1:
+  Merge branch 'mlxsw-dcb'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Alexander Duyck (2):
+  igb: Fix sparse warning about passing __beXX into leXX_to_cpup
+  igb: Add support for bulk Tx cleanup & cleanup boolean logic
+
+Arika Chen (1):
+  Revert "igb: Fix a deadlock in igb_sriov_reinit"
+
+Doron Shikmoni (1):
+  igb: Garbled output for "ethtool -m"
+
+Jiri Benc (1):
+  net: intel: remove dead links
+
+John Holland (1):
+  igb: allow setting MAC address on i211 using a device tree blob
+
+Stefan Assmann (2):
+  e1000e: call ndo_stop() instead of dev_close() when running offline
+    selftest
+  e1000: call ndo_stop() instead of dev_close() when running offline
+    selftest
+
+ drivers/net/ethernet/intel/Kconfig               | 80 +++++-------------------
+ drivers/net/ethernet/intel/e1000/e1000.h         |  2 +
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c |  4 +-
+ drivers/net/ethernet/intel/e1000/e1000_main.c    |  8 +--
+ drivers/net/ethernet/intel/e1000e/e1000.h        |  2 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c      |  4 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c       | 12 ++--
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c        | 32 ++++++----
+ 9 files changed, 53 insertions(+), 94 deletions(-)
+
 -- 
 2.5.5
