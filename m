@@ -1,54 +1,82 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v2] packet: uses kfree_skb() for drops or errors.
-Date: Thu, 7 Apr 2016 12:06:12 -0400
-Message-ID: <CAF=yD-K9f_kPB5itNW_xdg8LOuSGhNsmb0B1Ur8fR12LN=_Syw@mail.gmail.com>
-References: <1459977298-16670-1-git-send-email-weongyo.linux@gmail.com>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [Lsf-pc] [Lsf] [LSF/MM TOPIC] Generic page-pool recycle
+ facility?
+Date: Thu, 07 Apr 2016 12:14:00 -0400
+Message-ID: <1460045640.30063.3.camel@redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	 <20160407161715.52635cac@redhat.com> <20160407143854.GA7685@infradead.org>
+	 <2816CC0C-686E-43CA-8689-027085255703@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>
-To: Weongyo Jeong <weongyo.linux@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f196.google.com ([209.85.217.196]:33588 "EHLO
-	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756821AbcDGQG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 12:06:58 -0400
-Received: by mail-lb0-f196.google.com with SMTP id ot1so1093231lbb.0
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 09:06:58 -0700 (PDT)
-In-Reply-To: <1459977298-16670-1-git-send-email-weongyo.linux@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-UsUylZjyd8DzUzsJ2NSn"
+Cc: lsf@lists.linux-foundation.org, Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        James Bottomley
+ <James.Bottomley@HansenPartnership.com>,
+        linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jesper Dangaard Brouer
+ <brouer@redhat.com>,
+        lsf-pc@lists.linux-foundation.org,
+        Alexei Starovoitov
+ <alexei.starovoitov@gmail.com>
+To: Chuck Lever <chuck.lever@oracle.com>,
+        Christoph Hellwig
+ <hch@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <2816CC0C-686E-43CA-8689-027085255703@oracle.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 6, 2016 at 5:14 PM, Weongyo Jeong <weongyo.linux@gmail.com> wrote:
-> consume_skb() isn't for drop or error cases
 
-for drop or error -> for error
+--=-UsUylZjyd8DzUzsJ2NSn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> that  kfree_skb() is more proper
-> one.  At this patch, it fixed tpacket_rcv() and packet_rcv() to be
-> consistent for error or non-error cases letting perf trace its event
-> properly.
->
-> Signed-off-by: Weongyo Jeong <weongyo.linux@gmail.com>
+On Thu, 2016-04-07 at 08:48 -0700, Chuck Lever wrote:
+> >=20
+> > On Apr 7, 2016, at 7:38 AM, Christoph Hellwig <hch@infradead.org>
+> > wrote:
+> >=20
+> > This is also very interesting for storage targets, which face the
+> > same
+> > issue.=C2=A0=C2=A0SCST has a mode where it caches some fully constructe=
+d
+> > SGLs,
+> > which is probably very similar to what NICs want to do.
+> +1 for NFS server.
 
-Don't forget to add the target to your subject line: PATCH net-next v3.
+I have swapped around my slot (into the MM track)
+with Jesper's slot (now a plenary session), since
+there seems to be a fair amount of interest in
+Jesper's proposal from IO and FS people, and my
+topic is more MM specific.
 
-> ---
->  net/packet/af_packet.c | 16 ++++++++++++----
->  1 file changed, 12 insertions(+), 4 deletions(-)
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 1ecfa71..cd100cf 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -2040,7 +2040,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
->         struct sockaddr_ll *sll;
->         struct packet_sock *po;
->         u8 *skb_head = skb->data;
-> -       int skb_len = skb->len;
-> +       int err = 0, skb_len = skb->len;
+--=20
+All Rights Reversed.
 
-bool
 
-Otherwise looks good.
+--=-UsUylZjyd8DzUzsJ2NSn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAABCAAGBQJXBodIAAoJEM553pKExN6D454IALC5jqiIbLVMGRBwiOvNBus+
+1dylF98TNkuiHOqurG/X5ipRmisWO61uhls/64+jWBz6GhwWCPw456rM7WGoNEK6
+ewEuVuspKTJqkTDcek5bLUE3a3QznfZMO2NnIVi2s+VNfIL+23fWNxDO2S5YN08P
+x0Ru6FDzqAm6pqmddIgka+463utaKS7OMpbC6ak0aFNGh/LDmEHXb5Ap6OZ6gHKY
+OgF8Ce7Acd51ISRRa6wgIR3PYjgYBhJidSPmbbDtYkYjr/7N7tqVa9gnz0wa45yK
+oj2MpG2WBr4fhGMD0C3f+sZS2KqcOs6Pl1hB7tkce/XMXi6n7FsPPOwtywsHIaA=
+=lFk5
+-----END PGP SIGNATURE-----
+
+--=-UsUylZjyd8DzUzsJ2NSn--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
