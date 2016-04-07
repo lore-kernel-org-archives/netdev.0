@@ -1,67 +1,36 @@
-From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2] net: mediatek: update the IRQ part of the binding document
-Date: Thu,  7 Apr 2016 21:28:33 +0200
-Message-ID: <1460057313-55885-1-git-send-email-blogic@openwrt.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: optimizations to sk_buff handling in rds_tcp_data_ready
+Date: Thu, 7 Apr 2016 15:29:46 -0400
+Message-ID: <20160407192946.GA10957@oracle.com>
+References: <20160407130859.GA2818@oracle.com>
+ <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- =?UTF-8?q?Sean=20Wang=20=28=E7=8E=8B=E5=BF=97=E4=BA=98=29?=
- <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, tom@herbertland.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:27393 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753791AbcDGT36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:29:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current binding document only describes a single interrupt. Update the
-document by adding the 2 other interrupts.
+On (04/07/16 07:16), Eric Dumazet wrote:
+> Use skb split like TCP in output path ?
 
-The driver currently only uses a single interrupt. The HW is however able
-to using IRQ grouping to split TX and RX onto separate GIC irqs.
+That almost looks like what I want, but skb_split modifies both
+skb and skb1, and I want to leave skb untouched (otherwise 
+I will mess up the book-keeping in tcp_read_sock). But skb_split 
+is a good template- I think it could even be extended to avoid copying
+the frags that we'd later trim off in rds_tcp_data_recv anyway, 
+let me see what I can come up with, based on that code.
 
-Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
-Changes in V2:
-* split this patch out of the series that fixes tx stalls in the driver
+> Really, pskb_expand_head() is not supposed to copy payload ;)
 
- Documentation/devicetree/bindings/net/mediatek-net.txt |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-index 5ca7929..2f142be 100644
---- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-+++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-@@ -9,7 +9,7 @@ have dual GMAC each represented by a child node..
- Required properties:
- - compatible: Should be "mediatek,mt7623-eth"
- - reg: Address and length of the register set for the device
--- interrupts: Should contain the frame engines interrupt
-+- interrupts: Should contain the three frame engines interrupts
- - clocks: the clock used by the core
- - clock-names: the names of the clock listed in the clocks property. These are
- 	"ethif", "esw", "gp2", "gp1"
-@@ -42,7 +42,9 @@ eth: ethernet@1b100000 {
- 		 <&ethsys CLK_ETHSYS_GP2>,
- 		 <&ethsys CLK_ETHSYS_GP1>;
- 	clock-names = "ethif", "esw", "gp2", "gp1";
--	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW>;
-+	interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_LOW
-+		      GIC_SPI 199 IRQ_TYPE_LEVEL_LOW
-+		      GIC_SPI 198 IRQ_TYPE_LEVEL_LOW>;
- 	power-domains = <&scpsys MT2701_POWER_DOMAIN_ETH>;
- 	resets = <&ethsys MT2701_ETHSYS_ETH_RST>;
- 	reset-names = "eth";
--- 
-1.7.10.4
+That would make my world very easy! But it has callers from all
+over the kernel, e.g., skb_realloc_headroom, and changing it is
+obviously risky
