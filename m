@@ -1,53 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: How to get creatior PID information for the local tcp connection
-Date: Thu, 07 Apr 2016 11:26:42 -0700
-Message-ID: <1460053602.6473.415.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CADCeU4NfNucPCqemSxr4SsMUgdOhxzM41zjsRDKfrhsFyMH0+Q@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 5/7] sctp: reuse the some transport traversal
+ functions in proc
+Date: Thu, 7 Apr 2016 15:29:54 -0300
+Message-ID: <20160407182954.GF15005@localhost.localdomain>
+References: <cover.1459829123.git.lucien.xin@gmail.com>
+ <cdc77cc7b894aab62dad372f0018c571e33cf16e.1459829123.git.lucien.xin@gmail.com>
+ <20160407130930.GA4573@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"vishnu.ps@samsung.com" <vishnu.ps@samsung.com>
-To: Vishnu Pratap Singh <vishu13285@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	daniel@iogearbox.net, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35638 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689AbcDGS0p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:26:45 -0400
-In-Reply-To: <CADCeU4NfNucPCqemSxr4SsMUgdOhxzM41zjsRDKfrhsFyMH0+Q@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59670 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757271AbcDGS36 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 14:29:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20160407130930.GA4573@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-04-07 at 23:01 +0530, Vishnu Pratap Singh wrote:
-> Hi,
-> 
-> 
-> Issue -  How to get PID information for the local tcp connection
-> 
-> 
-> 
-> i want to get the creator PID for each socket in user space for local
-> tcp connection, i see in kernel there is support for returing PID with
-> "SO_PEERCRED" ioctl to work across namespaces. it uses struct pid and
-> struct cred to store the peer credentials on struct sock.
-> cred_to_ucred(sk->sk_peer_pid, sk->sk_peer_cred, &peercred); Above
-> function stores the PID information in ucred->pid = pid_vnr(pid); and
-> same is returned via "SO_PEERCRED" ioctl .
-> 
-> But for local tcp connection i get pid as 0, is there any way i can
-> get the PID information. Any help or suggestion will be highly
-> helpful.
-> 
-> 
+On Thu, Apr 07, 2016 at 09:09:30AM -0400, Neil Horman wrote:
+> On Tue, Apr 05, 2016 at 12:06:30PM +0800, Xin Long wrote:
+> > There are some transport traversal functions for sctp_diag, we can =
+also
+> > use it for sctp_proc. cause they have the similar situation to trav=
+ersal
+> > transport.
+> >=20
+> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> > ---
+> >  net/sctp/proc.c | 80 +++++++++++++--------------------------------=
+------------
+> >  1 file changed, 18 insertions(+), 62 deletions(-)
+> >=20
+> > diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> > index 5cfac8d..dd8492f 100644
+> > --- a/net/sctp/proc.c
+> > +++ b/net/sctp/proc.c
+> > @@ -282,80 +282,31 @@ struct sctp_ht_iter {
+> >  	struct rhashtable_iter hti;
+> >  };
+> > =20
+> > -static struct sctp_transport *sctp_transport_get_next(struct seq_f=
+ile *seq)
+> > -{
+> > -	struct sctp_ht_iter *iter =3D seq->private;
+> > -	struct sctp_transport *t;
+> > -
+> > -	t =3D rhashtable_walk_next(&iter->hti);
+> > -	for (; t; t =3D rhashtable_walk_next(&iter->hti)) {
+> > -		if (IS_ERR(t)) {
+> > -			if (PTR_ERR(t) =3D=3D -EAGAIN)
+> > -				continue;
+> > -			break;
+> > -		}
+> > -
+> > -		if (net_eq(sock_net(t->asoc->base.sk), seq_file_net(seq)) &&
+> > -		    t->asoc->peer.primary_path =3D=3D t)
+> > -			break;
+> > -	}
+> > -
+> > -	return t;
+> > -}
+> > -
+>=20
+> this may just be a nit, but you defined the new sctp_transport_get_ne=
+xt in patch
+> 2 of this series, and didn't remove this private version until here. =
+ Is that
+> going to cause some behavioral issue, if someone builds a kernel betw=
+een patch 2
 
-man 7 socket
+Yes, it causes issues:
 
-       SO_PEERCRED
-              Return the credentials of the foreign  process  connected  to  this  socket.
-              This  is  possible  only  for  connected  AF_UNIX stream sockets and AF_UNIX
-              stream and datagram socket pairs created using socketpair(2);  see  unix(7).
-              The  returned  credentials  are those that were in effect at the time of the
-              call to connect(2) or socketpair(2).  The argument  is  a  ucred  structure;
-              define  the  GNU_SOURCE  feature test macro to obtain the definition of that
-              structure from <sys/socket.h>.  This socket option is read-only.
+=2E..net/sctp/proc.c:285:31: error: conflicting types for =E2=80=98sctp=
+_transport_get_next=E2=80=99
+ static struct sctp_transport *sctp_transport_get_next(struct seq_file =
+*seq)
+                               ^
+
+> and 7?  Seems like perhaps those two patches should be merged.
+
+Agreed.
+
+  Marcelo
