@@ -1,125 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/8] e1000e: call ndo_stop() instead of dev_close() when running offline selftest
-Date: Wed,  6 Apr 2016 21:37:30 -0700
-Message-ID: <1460003853-133949-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/8] igb: Fix sparse warning about passing __beXX into leXX_to_cpup
+Date: Wed,  6 Apr 2016 21:37:26 -0700
+Message-ID: <1460003853-133949-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18813 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:7189 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752075AbcDGEhh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 00:37:37 -0400
+	id S1751802AbcDGEhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 00:37:36 -0400
 In-Reply-To: <1460003853-133949-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Calling dev_close() causes IFF_UP to be cleared which will remove the
-interfaces routes and some addresses. That's probably not what the user
-intended when running the offline selftest. Besides this does not happen
-if the interface is brought down before the test, so the current
-behaviour is inconsistent.
-Instead call the net_device_ops ndo_stop function directly and avoid
-touching IFF_UP at all.
+We were casting the addr as __beXX and then passing it into le32_to_cpu
+because the device expects the MAC address to be in network order even
+though the register set is little endian.  Instead of casting it as __beXX
+we can just cast it as __leXX in order to maintain consistency since the
+region of memory is already in little endian order as far as we are
+concerned.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
- drivers/net/ethernet/intel/e1000e/ethtool.c |  4 ++--
- drivers/net/ethernet/intel/e1000e/netdev.c  | 12 ++++++------
- 3 files changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 1dc293b..52eb641 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -480,6 +480,8 @@ extern const char e1000e_driver_version[];
- void e1000e_check_options(struct e1000_adapter *adapter);
- void e1000e_set_ethtool_ops(struct net_device *netdev);
- 
-+int e1000e_open(struct net_device *netdev);
-+int e1000e_close(struct net_device *netdev);
- void e1000e_up(struct e1000_adapter *adapter);
- void e1000e_down(struct e1000_adapter *adapter, bool reset);
- void e1000e_reinit_locked(struct e1000_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 6cab1f3..1e3973a 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -1816,7 +1816,7 @@ static void e1000_diag_test(struct net_device *netdev,
- 
- 		if (if_running)
- 			/* indicate we're in test mode */
--			dev_close(netdev);
-+			e1000e_close(netdev);
- 
- 		if (e1000_reg_test(adapter, &data[0]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
-@@ -1849,7 +1849,7 @@ static void e1000_diag_test(struct net_device *netdev,
- 
- 		clear_bit(__E1000_TESTING, &adapter->state);
- 		if (if_running)
--			dev_open(netdev);
-+			e1000e_open(netdev);
- 	} else {
- 		/* Online tests */
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 9b4ec13..a7f16c3 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4495,7 +4495,7 @@ static int e1000_test_msi(struct e1000_adapter *adapter)
- }
- 
- /**
-- * e1000_open - Called when a network interface is made active
-+ * e1000e_open - Called when a network interface is made active
-  * @netdev: network interface device structure
-  *
-  * Returns 0 on success, negative value on failure
-@@ -4506,7 +4506,7 @@ static int e1000_test_msi(struct e1000_adapter *adapter)
-  * handler is registered with the OS, the watchdog timer is started,
-  * and the stack is notified that the interface is ready.
-  **/
--static int e1000_open(struct net_device *netdev)
-+int e1000e_open(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 55a1405c..36814a2 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -7845,11 +7845,13 @@ static void igb_rar_set_qsel(struct igb_adapter *adapter, u8 *addr, u32 index,
  	struct e1000_hw *hw = &adapter->hw;
-@@ -4604,7 +4604,7 @@ err_setup_tx:
- }
+ 	u32 rar_low, rar_high;
  
- /**
-- * e1000_close - Disables a network interface
-+ * e1000e_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-  * Returns 0, this is not allowed to fail
-@@ -4614,7 +4614,7 @@ err_setup_tx:
-  * needs to be disabled.  A global MAC reset is issued to stop the
-  * hardware, and all transmit and receive resources are freed.
-  **/
--static int e1000_close(struct net_device *netdev)
-+int e1000e_close(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct pci_dev *pdev = adapter->pdev;
-@@ -6920,8 +6920,8 @@ static int e1000_set_features(struct net_device *netdev,
- }
+-	/* HW expects these in little endian so we reverse the byte order
+-	 * from network order (big endian) to CPU endian
++	/* HW expects these to be in network order when they are plugged
++	 * into the registers which are little endian.  In order to guarantee
++	 * that ordering we need to do an leXX_to_cpup here in order to be
++	 * ready for the byteswap that occurs with writel
+ 	 */
+-	rar_low = le32_to_cpup((__be32 *)(addr));
+-	rar_high = le16_to_cpup((__be16 *)(addr + 4));
++	rar_low = le32_to_cpup((__le32 *)(addr));
++	rar_high = le16_to_cpup((__le16 *)(addr + 4));
  
- static const struct net_device_ops e1000e_netdev_ops = {
--	.ndo_open		= e1000_open,
--	.ndo_stop		= e1000_close,
-+	.ndo_open		= e1000e_open,
-+	.ndo_stop		= e1000e_close,
- 	.ndo_start_xmit		= e1000_xmit_frame,
- 	.ndo_get_stats64	= e1000e_get_stats64,
- 	.ndo_set_rx_mode	= e1000e_set_rx_mode,
+ 	/* Indicate to hardware the Address is Valid. */
+ 	rar_high |= E1000_RAH_AV;
 -- 
 2.5.5
