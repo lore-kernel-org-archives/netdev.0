@@ -1,38 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sock: make lockdep_sock_is_held static inline
-Date: Thu, 07 Apr 2016 16:08:48 -0700
-Message-ID: <1460070528.6473.425.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460066015-22105-1-git-send-email-hannes@stressinduktion.org>
-	 <1460068227.6473.422.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1460068652.6473.423.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <5706E39D.3060206@stressinduktion.org>
+Subject: [PATCH ipoute2] iplink: display number of rx/tx queues
+Date: Thu, 07 Apr 2016 16:11:39 -0700
+Message-ID: <1460070699.6473.428.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34933 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752627AbcDGXIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 19:08:51 -0400
-Received: by mail-pa0-f50.google.com with SMTP id td3so63063993pab.2
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 16:08:51 -0700 (PDT)
-In-Reply-To: <5706E39D.3060206@stressinduktion.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:36569 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752627AbcDGXLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 19:11:41 -0400
+Received: by mail-pf0-f176.google.com with SMTP id e128so64119822pfe.3
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 16:11:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-08 at 00:47 +0200, Hannes Frederic Sowa wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> I see... hmpf.
-> 
-> Wouldn't it be nicer if I include a helper a la:
-> 
-> #define lockdep_is_held(lock)  1
-> 
-> in lockdep.h in case lockdep is globally not enabled? I do actually have 
-> already another user for this outside of PROVE_RCU.
+We can set the attributes, so would be nice to display them when
+provided by the kernel.
 
-It probably had been discussed on lkml a long time ago.
-
-My guess is that you can not do that, but am too lazy to tell you why ;)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 3998d8c..f7bd1c7 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -894,6 +894,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (do_link && tb[IFLA_AF_SPEC] && show_details)
+ 		print_af_spec(fp, tb[IFLA_AF_SPEC]);
+ 
++	if (tb[IFLA_NUM_TX_QUEUES] && show_details)
++		fprintf(fp, "numtxqueues %u ", rta_getattr_u32(tb[IFLA_NUM_TX_QUEUES]));
++
++	if (tb[IFLA_NUM_RX_QUEUES] && show_details)
++		fprintf(fp, "numrxqueues %u ", rta_getattr_u32(tb[IFLA_NUM_RX_QUEUES]));
++
+ 	if ((do_link || show_details) && tb[IFLA_IFALIAS]) {
+ 		fprintf(fp, "%s    alias %s", _SL_,
+ 			rta_getattr_str(tb[IFLA_IFALIAS]));
