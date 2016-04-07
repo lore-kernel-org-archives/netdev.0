@@ -1,355 +1,241 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH v2 3/5] net: w5100: enable to support sleepable register access interface
-Date: Fri,  8 Apr 2016 01:16:30 +0900
-Message-ID: <1460045792-30594-3-git-send-email-akinobu.mita@gmail.com>
-References: <1460045792-30594-1-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH v2 1/5] net: w5100: move mmiowb into register access callbacks
+Date: Fri,  8 Apr 2016 01:16:28 +0900
+Message-ID: <1460045792-30594-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
 	Mike Sinkovsky <msink@permonline.ru>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34735 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755498AbcDGQQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 12:16:54 -0400
-Received: by mail-pa0-f67.google.com with SMTP id hb4so7164850pac.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 09:16:54 -0700 (PDT)
-In-Reply-To: <1460045792-30594-1-git-send-email-akinobu.mita@gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36221 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751397AbcDGQQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 12:16:49 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q129so7463007pfb.3
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 09:16:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SPI transfer routines are callable only from contexts that can sleep.
+Instead of sprinkle mmiowb over the driver code, move it into primary
+register write callbacks. (w5100_write, w5100_write16, w5100_writebuf)
 
-This adds ability to tell the core driver that the interface mode
-cannot access w5100 register on atomic contexts.  In this case,
-workqueue and threaded irq are required.
-
-This also corrects timeout period waiting for command register to be
-automatically cleared because the latency of the register access with
-SPI transfer can be interfered by other contexts.
+This is a preparation for supporting SPI interface which doesn't use
+MMIO for accessing w5100 registers.
 
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 Cc: Mike Sinkovsky <msink@permonline.ru>
 Cc: David S. Miller <davem@davemloft.net>
 ---
-* v2
-- Use a plain single pointer instead of SKB queue, spotted by David S. Miller
-- Correct timeout period in w5100_command
+* No changes from v1
 
- drivers/net/ethernet/wiznet/w5100.c | 190 ++++++++++++++++++++++++++++--------
- drivers/net/ethernet/wiznet/w5100.h |   1 +
- 2 files changed, 153 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/wiznet/w5100.c | 44 +++++++++++++------------------------
+ 1 file changed, 15 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 7290096..c13f43d 100644
+index 8b282d0..f4b7200 100644
 --- a/drivers/net/ethernet/wiznet/w5100.c
 +++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -102,6 +102,13 @@ struct w5100_priv {
- 	bool promisc;
- 	u32 msg_enable;
+@@ -122,10 +122,17 @@ static inline u8 w5100_read_direct(struct w5100_priv *priv, u16 addr)
+ 	return ioread8(priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
+ }
  
-+	struct workqueue_struct *xfer_wq;
-+	struct work_struct rx_work;
-+	struct sk_buff *tx_skb;
-+	struct work_struct tx_work;
-+	struct work_struct setrx_work;
-+	struct work_struct restart_work;
++static inline void __w5100_write_direct(struct w5100_priv *priv, u16 addr,
++					u8 data)
++{
++	iowrite8(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
++}
 +
- 	struct w5100_mmio_priv mmio_priv;
- };
- 
-@@ -505,10 +512,12 @@ static int w5100_reset(struct w5100_priv *priv)
- 
- static int w5100_command(struct w5100_priv *priv, u16 cmd)
+ static inline void w5100_write_direct(struct w5100_priv *priv,
+ 				      u16 addr, u8 data)
  {
--	unsigned long timeout = jiffies + msecs_to_jiffies(100);
-+	unsigned long timeout;
+-	iowrite8(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
++	__w5100_write_direct(priv, addr, data);
++	mmiowb();
+ }
+ 
+ static u16 w5100_read16_direct(struct w5100_priv *priv, u16 addr)
+@@ -138,8 +145,9 @@ static u16 w5100_read16_direct(struct w5100_priv *priv, u16 addr)
+ 
+ static void w5100_write16_direct(struct w5100_priv *priv, u16 addr, u16 data)
+ {
+-	w5100_write_direct(priv, addr, data >> 8);
+-	w5100_write_direct(priv, addr + 1, data);
++	__w5100_write_direct(priv, addr, data >> 8);
++	__w5100_write_direct(priv, addr + 1, data);
++	mmiowb();
+ }
+ 
+ static void w5100_readbuf_direct(struct w5100_priv *priv,
+@@ -164,8 +172,9 @@ static void w5100_writebuf_direct(struct w5100_priv *priv,
+ 	for (i = 0; i < len; i++, addr++) {
+ 		if (unlikely(addr > W5100_TX_MEM_END))
+ 			addr = W5100_TX_MEM_START;
+-		w5100_write_direct(priv, addr, *buf++);
++		__w5100_write_direct(priv, addr, *buf++);
+ 	}
++	mmiowb();
+ }
+ 
+ /*
+@@ -186,7 +195,6 @@ static u8 w5100_read_indirect(struct w5100_priv *priv, u16 addr)
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+ 	data = w5100_read_direct(priv, W5100_IDM_DR);
+ 	spin_unlock_irqrestore(&priv->reg_lock, flags);
+ 
+@@ -199,9 +207,7 @@ static void w5100_write_indirect(struct w5100_priv *priv, u16 addr, u8 data)
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+ 	w5100_write_direct(priv, W5100_IDM_DR, data);
+-	mmiowb();
+ 	spin_unlock_irqrestore(&priv->reg_lock, flags);
+ }
+ 
+@@ -212,7 +218,6 @@ static u16 w5100_read16_indirect(struct w5100_priv *priv, u16 addr)
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+ 	data  = w5100_read_direct(priv, W5100_IDM_DR) << 8;
+ 	data |= w5100_read_direct(priv, W5100_IDM_DR);
+ 	spin_unlock_irqrestore(&priv->reg_lock, flags);
+@@ -226,10 +231,8 @@ static void w5100_write16_indirect(struct w5100_priv *priv, u16 addr, u16 data)
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+-	w5100_write_direct(priv, W5100_IDM_DR, data >> 8);
++	__w5100_write_direct(priv, W5100_IDM_DR, data >> 8);
+ 	w5100_write_direct(priv, W5100_IDM_DR, data);
+-	mmiowb();
+ 	spin_unlock_irqrestore(&priv->reg_lock, flags);
+ }
+ 
+@@ -242,13 +245,11 @@ static void w5100_readbuf_indirect(struct w5100_priv *priv,
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+ 
+ 	for (i = 0; i < len; i++, addr++) {
+ 		if (unlikely(addr > W5100_RX_MEM_END)) {
+ 			addr = W5100_RX_MEM_START;
+ 			w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-			mmiowb();
+ 		}
+ 		*buf++ = w5100_read_direct(priv, W5100_IDM_DR);
+ 	}
+@@ -265,15 +266,13 @@ static void w5100_writebuf_indirect(struct w5100_priv *priv,
+ 
+ 	spin_lock_irqsave(&priv->reg_lock, flags);
+ 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-	mmiowb();
+ 
+ 	for (i = 0; i < len; i++, addr++) {
+ 		if (unlikely(addr > W5100_TX_MEM_END)) {
+ 			addr = W5100_TX_MEM_START;
+ 			w5100_write16_direct(priv, W5100_IDM_AR, addr);
+-			mmiowb();
+ 		}
+-		w5100_write_direct(priv, W5100_IDM_DR, *buf++);
++		__w5100_write_direct(priv, W5100_IDM_DR, *buf++);
+ 	}
+ 	mmiowb();
+ 	spin_unlock_irqrestore(&priv->reg_lock, flags);
+@@ -309,7 +308,6 @@ static int w5100_command(struct w5100_priv *priv, u16 cmd)
+ 	unsigned long timeout = jiffies + msecs_to_jiffies(100);
  
  	w5100_write(priv, W5100_S0_CR, cmd);
+-	mmiowb();
  
-+	timeout = jiffies + msecs_to_jiffies(100);
-+
  	while (w5100_read(priv, W5100_S0_CR) != 0) {
  		if (time_after(jiffies, timeout))
- 			return -EIO;
-@@ -608,7 +617,7 @@ static void w5100_get_regs(struct net_device *ndev,
- 	w5100_readbulk(priv, W5100_S0_REGS, buf, W5100_S0_REGS_LEN);
+@@ -327,18 +325,15 @@ static void w5100_write_macaddr(struct w5100_priv *priv)
+ 
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		w5100_write(priv, W5100_SHAR + i, ndev->dev_addr[i]);
+-	mmiowb();
  }
  
--static void w5100_tx_timeout(struct net_device *ndev)
-+static void w5100_restart(struct net_device *ndev)
+ static void w5100_hw_reset(struct w5100_priv *priv)
  {
- 	struct w5100_priv *priv = netdev_priv(ndev);
+ 	w5100_write_direct(priv, W5100_MR, MR_RST);
+-	mmiowb();
+ 	mdelay(5);
+ 	w5100_write_direct(priv, W5100_MR, priv->indirect ?
+ 				  MR_PB | MR_AI | MR_IND :
+ 				  MR_PB);
+-	mmiowb();
+ 	w5100_write(priv, W5100_IMR, 0);
+ 	w5100_write_macaddr(priv);
  
-@@ -620,12 +629,28 @@ static void w5100_tx_timeout(struct net_device *ndev)
- 	netif_wake_queue(ndev);
+@@ -347,23 +342,19 @@ static void w5100_hw_reset(struct w5100_priv *priv)
+ 	 */
+ 	w5100_write(priv, W5100_RMSR, 0x03);
+ 	w5100_write(priv, W5100_TMSR, 0x03);
+-	mmiowb();
  }
  
--static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
-+static void w5100_restart_work(struct work_struct *work)
-+{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       restart_work);
-+
-+	w5100_restart(priv->ndev);
-+}
-+
-+static void w5100_tx_timeout(struct net_device *ndev)
+ static void w5100_hw_start(struct w5100_priv *priv)
  {
- 	struct w5100_priv *priv = netdev_priv(ndev);
--	u16 offset;
+ 	w5100_write(priv, W5100_S0_MR, priv->promisc ?
+ 			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
+-	mmiowb();
+ 	w5100_command(priv, S0_CR_OPEN);
+ 	w5100_write(priv, W5100_IMR, IR_S0);
+-	mmiowb();
+ }
  
--	netif_stop_queue(ndev);
-+	if (priv->ops->may_sleep)
-+		schedule_work(&priv->restart_work);
-+	else
-+		w5100_restart(ndev);
-+}
-+
-+static void w5100_tx_skb(struct net_device *ndev, struct sk_buff *skb)
-+{
-+	struct w5100_priv *priv = netdev_priv(ndev);
-+	u16 offset;
+ static void w5100_hw_close(struct w5100_priv *priv)
+ {
+ 	w5100_write(priv, W5100_IMR, 0);
+-	mmiowb();
+ 	w5100_command(priv, S0_CR_CLOSE);
+ }
  
+@@ -447,7 +438,6 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
  	offset = w5100_read16(priv, W5100_S0_TX_WR);
  	w5100_writebuf(priv, offset, skb->data, skb->len);
-@@ -635,47 +660,98 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
+ 	w5100_write16(priv, W5100_S0_TX_WR, offset + skb->len);
+-	mmiowb();
+ 	ndev->stats.tx_bytes += skb->len;
+ 	ndev->stats.tx_packets++;
  	dev_kfree_skb(skb);
- 
- 	w5100_command(priv, S0_CR_SEND);
-+}
-+
-+static void w5100_tx_work(struct work_struct *work)
-+{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       tx_work);
-+	struct sk_buff *skb = priv->tx_skb;
-+
-+	priv->tx_skb = NULL;
-+
-+	if (WARN_ON(!skb))
-+		return;
-+	w5100_tx_skb(priv->ndev, skb);
-+}
-+
-+static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
-+{
-+	struct w5100_priv *priv = netdev_priv(ndev);
-+
-+	netif_stop_queue(ndev);
-+
-+	if (priv->ops->may_sleep) {
-+		WARN_ON(priv->tx_skb);
-+		priv->tx_skb = skb;
-+		queue_work(priv->xfer_wq, &priv->tx_work);
-+	} else {
-+		w5100_tx_skb(ndev, skb);
-+	}
- 
- 	return NETDEV_TX_OK;
- }
- 
--static int w5100_napi_poll(struct napi_struct *napi, int budget)
-+static struct sk_buff *w5100_rx_skb(struct net_device *ndev)
- {
--	struct w5100_priv *priv = container_of(napi, struct w5100_priv, napi);
--	struct net_device *ndev = priv->ndev;
-+	struct w5100_priv *priv = netdev_priv(ndev);
- 	struct sk_buff *skb;
--	int rx_count;
- 	u16 rx_len;
- 	u16 offset;
- 	u8 header[2];
-+	u16 rx_buf_len = w5100_read16(priv, W5100_S0_RX_RSR);
- 
--	for (rx_count = 0; rx_count < budget; rx_count++) {
--		u16 rx_buf_len = w5100_read16(priv, W5100_S0_RX_RSR);
--		if (rx_buf_len == 0)
--			break;
-+	if (rx_buf_len == 0)
-+		return NULL;
- 
--		offset = w5100_read16(priv, W5100_S0_RX_RD);
--		w5100_readbuf(priv, offset, header, 2);
--		rx_len = get_unaligned_be16(header) - 2;
--
--		skb = netdev_alloc_skb_ip_align(ndev, rx_len);
--		if (unlikely(!skb)) {
--			w5100_write16(priv, W5100_S0_RX_RD,
--					    offset + rx_buf_len);
--			w5100_command(priv, S0_CR_RECV);
--			ndev->stats.rx_dropped++;
--			return -ENOMEM;
--		}
-+	offset = w5100_read16(priv, W5100_S0_RX_RD);
-+	w5100_readbuf(priv, offset, header, 2);
-+	rx_len = get_unaligned_be16(header) - 2;
- 
--		skb_put(skb, rx_len);
--		w5100_readbuf(priv, offset + 2, skb->data, rx_len);
--		w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
-+	skb = netdev_alloc_skb_ip_align(ndev, rx_len);
-+	if (unlikely(!skb)) {
-+		w5100_write16(priv, W5100_S0_RX_RD, offset + rx_buf_len);
+@@ -488,7 +478,6 @@ static int w5100_napi_poll(struct napi_struct *napi, int budget)
+ 		skb_put(skb, rx_len);
+ 		w5100_readbuf(priv, offset + 2, skb->data, rx_len);
+ 		w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
+-		mmiowb();
  		w5100_command(priv, S0_CR_RECV);
--		skb->protocol = eth_type_trans(skb, ndev);
-+		ndev->stats.rx_dropped++;
-+		return NULL;
-+	}
-+
-+	skb_put(skb, rx_len);
-+	w5100_readbuf(priv, offset + 2, skb->data, rx_len);
-+	w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
-+	w5100_command(priv, S0_CR_RECV);
-+	skb->protocol = eth_type_trans(skb, ndev);
-+
-+	ndev->stats.rx_packets++;
-+	ndev->stats.rx_bytes += rx_len;
-+
-+	return skb;
-+}
-+
-+static void w5100_rx_work(struct work_struct *work)
-+{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       rx_work);
-+	struct sk_buff *skb;
-+
-+	while ((skb = w5100_rx_skb(priv->ndev)))
-+		netif_rx_ni(skb);
-+
-+	w5100_write(priv, W5100_IMR, IR_S0);
-+}
-+
-+static int w5100_napi_poll(struct napi_struct *napi, int budget)
-+{
-+	struct w5100_priv *priv = container_of(napi, struct w5100_priv, napi);
-+	int rx_count;
-+
-+	for (rx_count = 0; rx_count < budget; rx_count++) {
-+		struct sk_buff *skb = w5100_rx_skb(priv->ndev);
+ 		skb->protocol = eth_type_trans(skb, ndev);
  
--		netif_receive_skb(skb);
--		ndev->stats.rx_packets++;
--		ndev->stats.rx_bytes += rx_len;
-+		if (skb)
-+			netif_receive_skb(skb);
-+		else
-+			break;
- 	}
- 
+@@ -500,7 +489,6 @@ static int w5100_napi_poll(struct napi_struct *napi, int budget)
  	if (rx_count < budget) {
-@@ -702,10 +778,12 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
+ 		napi_complete(napi);
+ 		w5100_write(priv, W5100_IMR, IR_S0);
+-		mmiowb();
  	}
  
+ 	return rx_count;
+@@ -515,7 +503,6 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
+ 	if (!ir)
+ 		return IRQ_NONE;
+ 	w5100_write(priv, W5100_S0_IR, ir);
+-	mmiowb();
+ 
+ 	if (ir & S0_IR_SENDOK) {
+ 		netif_dbg(priv, tx_done, ndev, "tx done\n");
+@@ -525,7 +512,6 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
  	if (ir & S0_IR_RECV) {
--		if (napi_schedule_prep(&priv->napi)) {
--			w5100_write(priv, W5100_IMR, 0);
-+		w5100_write(priv, W5100_IMR, 0);
-+
-+		if (priv->ops->may_sleep)
-+			queue_work(priv->xfer_wq, &priv->rx_work);
-+		else if (napi_schedule_prep(&priv->napi))
+ 		if (napi_schedule_prep(&priv->napi)) {
+ 			w5100_write(priv, W5100_IMR, 0);
+-			mmiowb();
  			__napi_schedule(&priv->napi);
--		}
+ 		}
  	}
- 
- 	return IRQ_HANDLED;
-@@ -729,6 +807,14 @@ static irqreturn_t w5100_detect_link(int irq, void *ndev_instance)
- 	return IRQ_HANDLED;
- }
- 
-+static void w5100_setrx_work(struct work_struct *work)
-+{
-+	struct w5100_priv *priv = container_of(work, struct w5100_priv,
-+					       setrx_work);
-+
-+	w5100_hw_start(priv);
-+}
-+
- static void w5100_set_rx_mode(struct net_device *ndev)
- {
- 	struct w5100_priv *priv = netdev_priv(ndev);
-@@ -736,7 +822,11 @@ static void w5100_set_rx_mode(struct net_device *ndev)
- 
- 	if (priv->promisc != set_promisc) {
- 		priv->promisc = set_promisc;
--		w5100_hw_start(priv);
-+
-+		if (priv->ops->may_sleep)
-+			schedule_work(&priv->setrx_work);
-+		else
-+			w5100_hw_start(priv);
- 	}
- }
- 
-@@ -860,6 +950,17 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- 	if (err < 0)
- 		goto err_register;
- 
-+	priv->xfer_wq = create_workqueue(netdev_name(ndev));
-+	if (!priv->xfer_wq) {
-+		err = -ENOMEM;
-+		goto err_wq;
-+	}
-+
-+	INIT_WORK(&priv->rx_work, w5100_rx_work);
-+	INIT_WORK(&priv->tx_work, w5100_tx_work);
-+	INIT_WORK(&priv->setrx_work, w5100_setrx_work);
-+	INIT_WORK(&priv->restart_work, w5100_restart_work);
-+
- 	if (mac_addr)
- 		memcpy(ndev->dev_addr, mac_addr, ETH_ALEN);
- 	else
-@@ -877,8 +978,14 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- 		goto err_hw;
- 	}
- 
--	err = request_irq(priv->irq, w5100_interrupt, IRQF_TRIGGER_LOW,
--			  netdev_name(ndev), ndev);
-+	if (ops->may_sleep) {
-+		err = request_threaded_irq(priv->irq, NULL, w5100_interrupt,
-+					   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-+					   netdev_name(ndev), ndev);
-+	} else {
-+		err = request_irq(priv->irq, w5100_interrupt,
-+				  IRQF_TRIGGER_LOW, netdev_name(ndev), ndev);
-+	}
- 	if (err)
- 		goto err_hw;
- 
-@@ -903,6 +1010,8 @@ int w5100_probe(struct device *dev, const struct w5100_ops *ops, u8 *mac_addr,
- err_gpio:
- 	free_irq(priv->irq, ndev);
- err_hw:
-+	destroy_workqueue(priv->xfer_wq);
-+err_wq:
- 	unregister_netdev(ndev);
- err_register:
- 	free_netdev(ndev);
-@@ -920,6 +1029,11 @@ int w5100_remove(struct device *dev)
- 	if (gpio_is_valid(priv->link_gpio))
- 		free_irq(priv->link_irq, ndev);
- 
-+	flush_work(&priv->setrx_work);
-+	flush_work(&priv->restart_work);
-+	flush_workqueue(priv->xfer_wq);
-+	destroy_workqueue(priv->xfer_wq);
-+
- 	unregister_netdev(ndev);
- 	free_netdev(ndev);
- 	return 0;
-diff --git a/drivers/net/ethernet/wiznet/w5100.h b/drivers/net/ethernet/wiznet/w5100.h
-index 368862d..292fbd5 100644
---- a/drivers/net/ethernet/wiznet/w5100.h
-+++ b/drivers/net/ethernet/wiznet/w5100.h
-@@ -8,6 +8,7 @@
-  */
- 
- struct w5100_ops {
-+	bool may_sleep;
- 	int (*read)(struct net_device *ndev, u16 addr);
- 	int (*write)(struct net_device *ndev, u16 addr, u8 data);
- 	int (*read16)(struct net_device *ndev, u16 addr);
 -- 
 2.5.0
