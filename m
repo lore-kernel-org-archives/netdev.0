@@ -1,152 +1,133 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH v5 net-next 06/15] nfp: cleanup tx ring flush and rename to reset
-Date: Thu,  7 Apr 2016 19:39:39 +0100
-Message-ID: <1460054388-471-7-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH v5 net-next 11/15] nfp: sync ring state during FW reconfiguration
+Date: Thu,  7 Apr 2016 19:39:44 +0100
+Message-ID: <1460054388-471-12-git-send-email-jakub.kicinski@netronome.com>
 References: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:33942 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757344AbcDGSk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:26 -0400
-Received: by mail-qg0-f45.google.com with SMTP id c6so71088062qga.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:26 -0700 (PDT)
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:33118 "EHLO
+	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757390AbcDGSkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:40:32 -0400
+Received: by mail-qk0-f175.google.com with SMTP id k135so30783690qke.0
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:40:31 -0700 (PDT)
 In-Reply-To: <1460054388-471-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we never used flush without freeing the ring later
-the functionality of the two operations is mixed.
-Rename flush to ring reset and move there all the things
-which have to be done after FW ring state is cleared.
-While at it do some clean-ups.
+FW reconfiguration in .ndo_open()/.ndo_stop() should reset/
+restore queue state.  Since we need IRQs to be disabled when
+filling rings on RX path we have to move disable_irq() from
+.ndo_open() all the way up to IRQ allocation.
+
+nfp_net_start_vec() becomes trivial now so it's inlined.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 81 ++++++++++------------
- 1 file changed, 37 insertions(+), 44 deletions(-)
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 45 ++++++++--------------
+ 1 file changed, 16 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 66fab7162b7c..61f243760ee0 100644
+index 6c1ed8914416..ed23b9d348c3 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -867,61 +867,59 @@ static void nfp_net_tx_complete(struct nfp_net_tx_ring *tx_ring)
+@@ -1519,6 +1519,7 @@ nfp_net_prepare_vector(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
+ 		nn_err(nn, "Error requesting IRQ %d\n", entry->vector);
+ 		return err;
+ 	}
++	disable_irq(entry->vector);
+ 
+ 	/* Setup NAPI */
+ 	netif_napi_add(nn->netdev, &r_vec->napi,
+@@ -1647,13 +1648,14 @@ static void nfp_net_clear_config_and_disable(struct nfp_net *nn)
+ 
+ 	nn_writel(nn, NFP_NET_CFG_CTRL, new_ctrl);
+ 	err = nfp_net_reconfig(nn, update);
+-	if (err) {
++	if (err)
+ 		nn_err(nn, "Could not disable device: %d\n", err);
+-		return;
+-	}
+ 
+-	for (r = 0; r < nn->num_r_vecs; r++)
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		nfp_net_rx_ring_reset(nn->r_vecs[r].rx_ring);
++		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
+ 		nfp_net_vec_clear_ring_data(nn, r);
++	}
+ 
+ 	nn->ctrl = new_ctrl;
+ }
+@@ -1721,6 +1723,9 @@ static int __nfp_net_set_config_and_enable(struct nfp_net *nn)
+ 
+ 	nn->ctrl = new_ctrl;
+ 
++	for (r = 0; r < nn->num_r_vecs; r++)
++		nfp_net_rx_ring_fill_freelist(nn->r_vecs[r].rx_ring);
++
+ 	/* Since reconfiguration requests while NFP is down are ignored we
+ 	 * have to wipe the entire VXLAN configuration and reinitialize it.
+ 	 */
+@@ -1749,26 +1754,6 @@ static int nfp_net_set_config_and_enable(struct nfp_net *nn)
  }
  
  /**
-- * nfp_net_tx_flush() - Free any untransmitted buffers currently on the TX ring
-- * @tx_ring:     TX ring structure
-+ * nfp_net_tx_ring_reset() - Free any untransmitted buffers and reset pointers
-+ * @nn:		NFP Net device
-+ * @tx_ring:	TX ring structure
-  *
-  * Assumes that the device is stopped
+- * nfp_net_start_vec() - Start ring vector
+- * @nn:      NFP Net device structure
+- * @r_vec:   Ring vector to be started
+- */
+-static void
+-nfp_net_start_vec(struct nfp_net *nn, struct nfp_net_r_vector *r_vec)
+-{
+-	unsigned int irq_vec;
+-
+-	irq_vec = nn->irq_entries[r_vec->irq_idx].vector;
+-
+-	disable_irq(irq_vec);
+-
+-	nfp_net_rx_ring_fill_freelist(r_vec->rx_ring);
+-	napi_enable(&r_vec->napi);
+-
+-	enable_irq(irq_vec);
+-}
+-
+-/**
+  * nfp_net_open_stack() - Start the device from stack's perspective
+  * @nn:      NFP Net device to reconfigure
   */
--static void nfp_net_tx_flush(struct nfp_net_tx_ring *tx_ring)
-+static void
-+nfp_net_tx_ring_reset(struct nfp_net *nn, struct nfp_net_tx_ring *tx_ring)
+@@ -1776,8 +1761,10 @@ static void nfp_net_open_stack(struct nfp_net *nn)
  {
--	struct nfp_net_r_vector *r_vec = tx_ring->r_vec;
--	struct nfp_net *nn = r_vec->nfp_net;
--	struct pci_dev *pdev = nn->pdev;
- 	const struct skb_frag_struct *frag;
- 	struct netdev_queue *nd_q;
--	struct sk_buff *skb;
--	int nr_frags;
--	int fidx;
--	int idx;
-+	struct pci_dev *pdev = nn->pdev;
+ 	unsigned int r;
  
- 	while (tx_ring->rd_p != tx_ring->wr_p) {
--		idx = tx_ring->rd_p % tx_ring->cnt;
-+		int nr_frags, fidx, idx;
-+		struct sk_buff *skb;
+-	for (r = 0; r < nn->num_r_vecs; r++)
+-		nfp_net_start_vec(nn, &nn->r_vecs[r]);
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		napi_enable(&nn->r_vecs[r].napi);
++		enable_irq(nn->irq_entries[nn->r_vecs[r].irq_idx].vector);
++	}
  
-+		idx = tx_ring->rd_p % tx_ring->cnt;
- 		skb = tx_ring->txbufs[idx].skb;
--		if (skb) {
--			nr_frags = skb_shinfo(skb)->nr_frags;
--			fidx = tx_ring->txbufs[idx].fidx;
--
--			if (fidx == -1) {
--				/* unmap head */
--				dma_unmap_single(&pdev->dev,
--						 tx_ring->txbufs[idx].dma_addr,
--						 skb_headlen(skb),
--						 DMA_TO_DEVICE);
--			} else {
--				/* unmap fragment */
--				frag = &skb_shinfo(skb)->frags[fidx];
--				dma_unmap_page(&pdev->dev,
--					       tx_ring->txbufs[idx].dma_addr,
--					       skb_frag_size(frag),
--					       DMA_TO_DEVICE);
--			}
--
--			/* check for last gather fragment */
--			if (fidx == nr_frags - 1)
--				dev_kfree_skb_any(skb);
--
--			tx_ring->txbufs[idx].dma_addr = 0;
--			tx_ring->txbufs[idx].skb = NULL;
--			tx_ring->txbufs[idx].fidx = -2;
-+		nr_frags = skb_shinfo(skb)->nr_frags;
-+		fidx = tx_ring->txbufs[idx].fidx;
-+
-+		if (fidx == -1) {
-+			/* unmap head */
-+			dma_unmap_single(&pdev->dev,
-+					 tx_ring->txbufs[idx].dma_addr,
-+					 skb_headlen(skb), DMA_TO_DEVICE);
-+		} else {
-+			/* unmap fragment */
-+			frag = &skb_shinfo(skb)->frags[fidx];
-+			dma_unmap_page(&pdev->dev,
-+				       tx_ring->txbufs[idx].dma_addr,
-+				       skb_frag_size(frag), DMA_TO_DEVICE);
- 		}
+ 	netif_tx_wake_all_queues(nn->netdev);
  
--		memset(&tx_ring->txds[idx], 0, sizeof(tx_ring->txds[idx]));
-+		/* check for last gather fragment */
-+		if (fidx == nr_frags - 1)
-+			dev_kfree_skb_any(skb);
-+
-+		tx_ring->txbufs[idx].dma_addr = 0;
-+		tx_ring->txbufs[idx].skb = NULL;
-+		tx_ring->txbufs[idx].fidx = -2;
+@@ -1902,8 +1889,10 @@ static void nfp_net_close_stack(struct nfp_net *nn)
+ 	netif_carrier_off(nn->netdev);
+ 	nn->link_up = false;
  
- 		tx_ring->qcp_rd_p++;
- 		tx_ring->rd_p++;
- 	}
+-	for (r = 0; r < nn->num_r_vecs; r++)
++	for (r = 0; r < nn->num_r_vecs; r++) {
++		disable_irq(nn->irq_entries[nn->r_vecs[r].irq_idx].vector);
+ 		napi_disable(&nn->r_vecs[r].napi);
++	}
  
-+	memset(tx_ring->txds, 0, sizeof(*tx_ring->txds) * tx_ring->cnt);
-+	tx_ring->wr_p = 0;
-+	tx_ring->rd_p = 0;
-+	tx_ring->qcp_rd_p = 0;
-+	tx_ring->wr_ptr_add = 0;
-+
- 	nd_q = netdev_get_tx_queue(nn->netdev, tx_ring->idx);
- 	netdev_tx_reset_queue(nd_q);
+ 	netif_tx_disable(nn->netdev);
  }
-@@ -1362,11 +1360,6 @@ static void nfp_net_tx_ring_free(struct nfp_net_tx_ring *tx_ring)
- 				  tx_ring->txds, tx_ring->dma);
+@@ -1917,9 +1906,7 @@ static void nfp_net_close_free_all(struct nfp_net *nn)
+ 	unsigned int r;
  
- 	tx_ring->cnt = 0;
--	tx_ring->wr_p = 0;
--	tx_ring->rd_p = 0;
--	tx_ring->qcp_rd_p = 0;
--	tx_ring->wr_ptr_add = 0;
--
- 	tx_ring->txbufs = NULL;
- 	tx_ring->txds = NULL;
- 	tx_ring->dma = 0;
-@@ -1859,7 +1852,7 @@ static int nfp_net_netdev_close(struct net_device *netdev)
- 	 */
  	for (r = 0; r < nn->num_r_vecs; r++) {
- 		nfp_net_rx_flush(nn->r_vecs[r].rx_ring);
--		nfp_net_tx_flush(nn->r_vecs[r].tx_ring);
-+		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
+-		nfp_net_rx_ring_reset(nn->r_vecs[r].rx_ring);
+ 		nfp_net_rx_ring_bufs_free(nn, nn->r_vecs[r].rx_ring);
+-		nfp_net_tx_ring_reset(nn, nn->r_vecs[r].tx_ring);
  		nfp_net_rx_ring_free(nn->r_vecs[r].rx_ring);
  		nfp_net_tx_ring_free(nn->r_vecs[r].tx_ring);
  		nfp_net_cleanup_vector(nn, &nn->r_vecs[r]);
