@@ -1,49 +1,73 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH net 3/4] ipv6: datagram: Update dst cache of a
- connected datagram sk during pmtu update
-Date: Thu, 7 Apr 2016 12:09:28 -0700
-Message-ID: <20160407190928.GA31235@kafai-mba.local>
-References: <1459551391-69969-1-git-send-email-kafai@fb.com>
- <1459551391-69969-4-git-send-email-kafai@fb.com>
- <CAM_iQpVeOKtTJ=oc9z6=SEaHDBTfpaPLKa-43TH1b_A3+TdWwA@mail.gmail.com>
- <20160403023349.GA57008@lichen-mbp.local.DHCP.thefacebook.com>
- <CAM_iQpXV8UrBycmmTn3-FFEoR69OSvc4cWZMGbPnGiHF5aF7Dg@mail.gmail.com>
- <20160406001141.GA97608@kafai-mba.local>
- <CAM_iQpUrcXwBH0BuCh-cjo0st6ykpUgdjRo3Cn-ViO40vtbHKA@mail.gmail.com>
- <20160406184851.GA14894@kafai-mba.local>
- <CAM_iQpXbOj_zuQqHUie_yBOXqBEehHhF2FU8FA+tr7hgYY4QZg@mail.gmail.com>
+From: Chris Friesen <chris.friesen@windriver.com>
+Subject: [RFC PATCH] possible bug in handling of ipv4 route caching
+Date: Thu, 7 Apr 2016 13:17:36 -0600
+Message-ID: <5706B250.1060303@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:31631 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932078AbcDGTJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:09:44 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpXbOj_zuQqHUie_yBOXqBEehHhF2FU8FA+tr7hgYY4QZg@mail.gmail.com>
+Received: from mail1.windriver.com ([147.11.146.13]:35939 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516AbcDGTRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:17:39 -0400
+Received: from ALA-HCA.corp.ad.wrs.com (ala-hca.corp.ad.wrs.com [147.11.189.40])
+	by mail1.windriver.com (8.15.2/8.15.1) with ESMTPS id u37JHbPJ016675
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 7 Apr 2016 12:17:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 07, 2016 at 11:37:10AM -0700, Cong Wang wrote:
-> You are lost in discussion
-Indeed. :(
+Hi,
 
->
-> I still think it is okay without the lock, because even if you take the lock,
-> the pmtu update could still happen after you release it, so there is no
-> essential difference here. The only reason I can think of for taking
-> the sock lock is protecting parallel pmtu update, but it looks safe for
-> this case too.
->
-> So which case do you want to protect by taking the sock lock?
-When the pmtu-update is doing route lookup and another connect is
-happening, what sk->sk_v6_daddr will this route lookup use?
-the old one, new one or neither of them?
+We think we may have found a bug in the handling of ipv4 route caching,
+and are curious what you think.
 
-Is it acceptable that getsockopt() is returning something that it
-is not currently connected to? and potentially somewhere that it
-is never connected to?
+For local routes that require a particular output interface we do not
+want to cache the result.  Caching the result causes incorrect behaviour
+when there are multiple source addresses on the interface.  The end
+result being that if the intended recipient is waiting on that interface
+for the packet he won't receive it because it will be delivered on the
+loopback interface and the IP_PKTINFO ipi_ifindex will be set to the
+loopback interface as well.
+
+This can be tested by running a program such as "dhcp_release" which
+attempts to inject a packet on a particular interface so that it is
+received by another program on the same board.  The receiving process
+should see an IP_PKTINFO ipi_ifndex value of the source interface
+(e.g., eth1) instead of the loopback interface (e.g., lo).  The packet
+will still appear on the loopback interface in tcpdump but the important
+aspect is that the CMSG info is correct.
+
+For what it's worth, here's a patch that we've applied locally to deal
+with the issue.
+
+Chris
+
+
+
+Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
+Signed-off-by: Chris Friesen <chris.friesen@windriver.com>
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 02c6229..e965d4b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2045,6 +2045,17 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 		 */
+ 		if (fi && res->prefixlen < 4)
+ 			fi = NULL;
++	} else if ((type == RTN_LOCAL) && (orig_oif != 0)) {
++		/* For local routes that require a particular output interface
++                 * we do not want to cache the result.  Caching the result
++                 * causes incorrect behaviour when there are multiple source
++                 * addresses on the interface, the end result being that if the
++                 * intended recipient is waiting on that interface for the
++                 * packet he won't receive it because it will be delivered on
++                 * the loopback interface and the IP_PKTINFO ipi_ifindex will
++                 * be set to the loopback interface as well.
++		 */
++		fi = NULL;
+ 	}
+ 
+ 	fnhe = NULL;
