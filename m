@@ -1,52 +1,72 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH net-next] net: add the AF_KCM entries to family name
- tables
-Date: Thu, 7 Apr 2016 04:52:30 +0000
-Message-ID: <BLUPR03MB14108769385C992B84F3C4AFBF900@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <1459867271-14592-1-git-send-email-decui@microsoft.com>
-	<20160406.165939.2239653335603964561.davem@davemloft.net>
-	<BLUPR03MB1410E0524104C8211C7C3559BF900@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160406.235914.1353594601077158951.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp/dccp: fix inet_reuseport_add_sock()
+Date: Wed, 06 Apr 2016 22:07:34 -0700
+Message-ID: <1460005654.6473.377.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <5705A392.2000207@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	edumazet@google.com
+To: David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0138.outbound.protection.outlook.com ([65.55.169.138]:62645
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750817AbcDGEwf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 00:52:35 -0400
-In-Reply-To: <20160406.235914.1353594601077158951.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:33525 "EHLO
+	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbcDGFHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 01:07:37 -0400
+Received: by mail-yw0-f180.google.com with SMTP id t10so83697175ywa.0
+        for <netdev@vger.kernel.org>; Wed, 06 Apr 2016 22:07:37 -0700 (PDT)
+In-Reply-To: <5705A392.2000207@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 7, 2016 11:59
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next] net: add the AF_KCM entries to family name
-> tables
-> 
-> From: Dexuan Cui <decui@microsoft.com>
-> Date: Thu, 7 Apr 2016 01:54:18 +0000
-> 
-> > Can you please apply this to net-next too?
-> 
-> That will happen transparently the next time I merge 'net' into
-> 'net-next'.
-> 
-> It will happen at a time of my own choosing, and usually occurs
-> when I do a push of my 'net' tree to Linus and he takes it in,
-> and I know people need some 'net' things in 'net-next'.
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks for the explanation!
+David Ahern reported panics in __inet_hash() caused by my recent commit.
 
-So, at present, let me only post the single AF_HYPERV patch to
-net-next and hold the patch that adds AF_HYPERV entries to the family
-name tables.
+The reason is inet_reuseport_add_sock() was still using
+sk_nulls_for_each_rcu() instead of sk_for_each_rcu().
+SO_REUSEPORT enabled listeners were causing an instant crash.
 
-Thanks,
--- Dexuan
+While chasing this bug, I found that I forgot to clear SOCK_RCU_FREE
+flag, as it is inherited from the parent at clone time.
+
+Fixes: 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/inet_connection_sock.c |    3 +++
+ net/ipv4/inet_hashtables.c      |    3 +--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index bc5196ea1bdf..ab69da2d2a77 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -661,6 +661,9 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
+ 		inet_sk(newsk)->inet_sport = htons(inet_rsk(req)->ir_num);
+ 		newsk->sk_write_space = sk_stream_write_space;
+ 
++		/* listeners have SOCK_RCU_FREE, not the children */
++		sock_reset_flag(newsk, SOCK_RCU_FREE);
++
+ 		newsk->sk_mark = inet_rsk(req)->ir_mark;
+ 		atomic64_set(&newsk->sk_cookie,
+ 			     atomic64_read(&inet_rsk(req)->ir_cookie));
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index 98ba03b6f87d..fcadb670f50b 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -439,10 +439,9 @@ static int inet_reuseport_add_sock(struct sock *sk,
+ 						     bool match_wildcard))
+ {
+ 	struct sock *sk2;
+-	struct hlist_nulls_node *node;
+ 	kuid_t uid = sock_i_uid(sk);
+ 
+-	sk_nulls_for_each_rcu(sk2, node, &ilb->head) {
++	sk_for_each_rcu(sk2, &ilb->head) {
+ 		if (sk2 != sk &&
+ 		    sk2->sk_family == sk->sk_family &&
+ 		    ipv6_only_sock(sk2) == ipv6_only_sock(sk) &&
