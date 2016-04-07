@@ -1,66 +1,78 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: optimizations to sk_buff handling in rds_tcp_data_ready
-Date: Thu, 7 Apr 2016 09:11:01 -0400
-Message-ID: <20160407130859.GA2818@oracle.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH v2 2/2] sctp: delay calls to sk_data_ready() as much as
+ possible
+Date: Thu, 7 Apr 2016 10:35:25 -0300
+Message-ID: <20160407133525.GD15005@localhost.localdomain>
+References: <cover.1459952558.git.marcelo.leitner@gmail.com>
+ <703257ed516669b180fcce57e6745b1853da9a95.1459952558.git.marcelo.leitner@gmail.com>
+ <87egah3ktv.fsf@beetle.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: alexei.starovoitov@gmail.com, tom@herbertland.com,
-	netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Jakub Sitnicki <jkbs@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:27340 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753684AbcDGNLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 09:11:09 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:34280 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752627AbcDGNf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 09:35:29 -0400
 Content-Disposition: inline
+In-Reply-To: <87egah3ktv.fsf@beetle.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 07, 2016 at 10:05:32AM +0200, Jakub Sitnicki wrote:
+> On Wed, Apr 06, 2016 at 07:53 PM CEST, Marcelo Ricardo Leitner <marce=
+lo.leitner@gmail.com> wrote:
+> > Currently, the processing of multiple chunks in a single SCTP packe=
+t
+> > leads to multiple calls to sk_data_ready, causing multiple wake up
+> > signals which are costly and doesn't make it wake up any faster.
+> >
+> > With this patch it will notice that the wake up is pending and will=
+ do it
+> > before leaving the state machine interpreter, latest place possible=
+ to
+> > do it realiably and cleanly.
+> >
+> > Note that sk_data_ready events are not dependent on asocs, unlike w=
+aking
+> > up writers.
+> >
+> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > ---
+>=20
+> [...]
+>=20
+> > diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> > index 7fe56d0acabf66cfd8fe29dfdb45f7620b470ac7..e7042f9ce63b0cfca50=
+cae252f51b60b68cb5731 100644
+> > --- a/net/sctp/sm_sideeffect.c
+> > +++ b/net/sctp/sm_sideeffect.c
+> > @@ -1742,6 +1742,11 @@ out:
+> >  			error =3D sctp_outq_uncork(&asoc->outqueue, gfp);
+> >  	} else if (local_cork)
+> >  		error =3D sctp_outq_uncork(&asoc->outqueue, gfp);
+> > +
+> > +	if (sctp_sk(ep->base.sk)->pending_data_ready) {
+> > +		ep->base.sk->sk_data_ready(ep->base.sk);
+> > +		sctp_sk(ep->base.sk)->pending_data_ready =3D 0;
+> > +	}
+> >  	return error;
+> >  nomem:
+> >  	error =3D -ENOMEM;
+>=20
+> Would it make sense to introduce a local variable for ep->base.sk (an=
+d
+> make this function 535+1 lines long ;-)
+>=20
+>       struct sock *sk =3D ep->base.sk;
+>=20
+> ... like sctp_ulpq_tail_event() does?
 
-I was going back to Alexei's comment here:
-  http://permalink.gmane.org/gmane.linux.network/387806
-In rds-stress profiling,  we are indeed seeing the pksb_pull 
-(from rds_tcp_data_recv) show up in the perf profile.
+I guess so, yes. Same for sctp_sk() cast then. I=B4ll post a new versio=
+n
+later, thanks.
 
-At least for rds-tcp, we cannot re-use the skb even if
-it is not shared, because what we need to do is to carve out
-the interesting bits (start at offset, and trim it to to_copy)
-and queue up those interesting bits on the PF_RDS socket,
-while allowing tcp_data_read to go back and read the next 
-tcp segment (which may be part of the next rds dgram).
-
-But, when  pskb_expand_head is invoked in the call-stack
-  pskb_pull(.., offset) -> ... -> __pskb_pull_tail(.., delta) 
-it will memcpy the offset bytes to the start of data. At least 
-for the rds_tcp_data_recv, we are not interested in being able 
-to do a *skb_push after the *skb_pull, so we dont really care 
-about the intactness of these bytes in offset.
-Thus what I am finding is that when delta > 0, if we skip the 
-following in pskb_expand_head (for the rds-tcp recv case only!)
-
-        /* Copy only real data... and, alas, header. This should be
-         * optimized for the cases when header is void.
-         */
-        memcpy(data + nhead, skb->head, skb_tail_pointer(skb) - skb->head);
-
-and also (only for this case!) this one in __pskb_pull_tail
-
- if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
-                BUG();
-
-I am able to get a 40% improvement in the measured IOPS (req/response 
-transactions per second, using 8K byte requests, 256 byte responses,
-16 concurrent threads), so this optimization seems worth doing.
-
-Does my analysis above make sense? If yes, the question is, how to
-achieve this bypass in a neat way.  Clearly there are many callers of
-pskb_expand_head who will expect to find the skb_header_len bytes at
-the start of data, but we also dont want to duplicate code in these
-functions. One thought I had is to pass a flag arouund saying "caller
-doesnt care about retaining offset bytes", and use this flag
-- in __pskb_pull_tail, to avoid skb_copy_bits() above,  and to
-  pass delta to pskb_expand_head,
-- in pskb_expand_head, only do the memcpy listed above 
-  if delta <= 0
-Any other ideas for how to achieve this?
-
---Sowmini
+  Marcelo
