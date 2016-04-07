@@ -1,85 +1,123 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH] net: vrf: Fix dev refcnt leak due to IPv6 prefix route
-Date: Thu,  7 Apr 2016 11:10:41 -0700
-Message-ID: <1460052641-1155-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ipv6: Use passed in table for nexthop lookups
+Date: Thu,  7 Apr 2016 11:11:14 -0700
+Message-ID: <1460052674-1204-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35025 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756790AbcDGSKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:10:49 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n1so60116389pfn.2
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:10:49 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33566 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757089AbcDGSLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 14:11:22 -0400
+Received: by mail-pf0-f180.google.com with SMTP id 184so60255503pff.0
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 11:11:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ifupdown2 found a kernel bug with IPv6 routes and movement from the main
-table to the VRF table. Sequence of events:
+Similar to 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
+for IPv4, if the route spec contains a table id use that to lookup the
+next hop first and fall back to a full lookup if it fails (per the fix
+4c9bcd117918b ("net: Fix nexthop lookups")).
 
-Create the interface and add addresses:
-    ip link add dev eth4.105 link eth4 type vlan id 105
-    ip addr add dev eth4.105 8.105.105.10/24
-    ip -6 addr add dev eth4.105 2008:105:105::10/64
+Example:
 
-At this point IPv6 has inserted a prefix route in the main table even
-though the interface is 'down'. From there the VRF device is created:
-    ip link add dev vrf105 type vrf table 105
-    ip addr add dev vrf105 9.9.105.10/32
-    ip -6 addr add dev vrf105 2000:9:105::10/128
-    ip link set vrf105 up
+    root@kenny:~# ip -6 ro ls table red
+    local 2100:1::1 dev lo  proto none  metric 0  pref medium
+    2100:1::/120 dev eth1  proto kernel  metric 256  pref medium
+    local 2100:2::1 dev lo  proto none  metric 0  pref medium
+    2100:2::/120 dev eth2  proto kernel  metric 256  pref medium
+    local fe80::e0:f9ff:fe09:3cac dev lo  proto none  metric 0  pref medium
+    local fe80::e0:f9ff:fe1c:b974 dev lo  proto none  metric 0  pref medium
+    fe80::/64 dev eth1  proto kernel  metric 256  pref medium
+    fe80::/64 dev eth2  proto kernel  metric 256  pref medium
+    ff00::/8 dev red  metric 256  pref medium
+    ff00::/8 dev eth1  metric 256  pref medium
+    ff00::/8 dev eth2  metric 256  pref medium
+    unreachable default dev lo  metric 240  error -113 pref medium
 
-Then the interface is enslaved, while still in the 'down' state:
-    ip link set dev eth4.105 master vrf105
+    root@kenny:~# ip -6 ro add table red 2100:3::/64 via 2100:1::64
+    RTNETLINK answers: No route to host
 
-Since the device is down the VRF driver cycling the device does not
-send the NETDEV_UP and NETDEV_DOWN but rather the NETDEV_CHANGE event
-which does not flush the routes inserted prior.
+Route add fails even though 2100:1::64 is a reachable next hop:
+    root@kenny:~# ping6 -I red  2100:1::64
+    ping6: Warning: source address might be selected on device other than red.
+    PING 2100:1::64(2100:1::64) from 2100:1::1 red: 56 data bytes
+    64 bytes from 2100:1::64: icmp_seq=1 ttl=64 time=1.33 ms
 
-When the link is brought up
-    ip link set dev eth4.105 up
-
-the prefix route is added in the VRF table, but does not remove
-the route from the main table.
-
-Fix by handling the NETDEV_CHANGEUPPER event similar what was implemented
-for IPv4 in 7f49e7a38b77 ("net: Flush local routes when device changes vrf
-association")
-
-Fixes: 35402e3136634 ("net: Add IPv6 support to VRF device")
+With this patch:
+    root@kenny:~# ip -6 ro add table red 2100:3::/64 via 2100:1::64
+    root@kenny:~# ip -6 ro ls table red
+    local 2100:1::1 dev lo  proto none  metric 0  pref medium
+    2100:1::/120 dev eth1  proto kernel  metric 256  pref medium
+    local 2100:2::1 dev lo  proto none  metric 0  pref medium
+    2100:2::/120 dev eth2  proto kernel  metric 256  pref medium
+    2100:3::/64 via 2100:1::64 dev eth1  metric 1024  pref medium
+    local fe80::e0:f9ff:fe09:3cac dev lo  proto none  metric 0  pref medium
+    local fe80::e0:f9ff:fe1c:b974 dev lo  proto none  metric 0  pref medium
+    fe80::/64 dev eth1  proto kernel  metric 256  pref medium
+    fe80::/64 dev eth2  proto kernel  metric 256  pref medium
+    ff00::/8 dev red  metric 256  pref medium
+    ff00::/8 dev eth1  metric 256  pref medium
+    ff00::/8 dev eth2  metric 256  pref medium
+    unreachable default dev lo  metric 240  error -113 pref medium
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv6/addrconf.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ net/ipv6/route.c | 35 +++++++++++++++++++++++++++++++++--
+ 1 file changed, 33 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 27aed1afcf81..2db2116d3e6b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3255,6 +3255,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			   void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct netdev_notifier_changeupper_info *info;
- 	struct inet6_dev *idev = __in6_dev_get(dev);
- 	int run_pending = 0;
- 	int err;
-@@ -3413,6 +3414,15 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 		if (idev)
- 			addrconf_type_change(dev, event);
- 		break;
-+
-+	case NETDEV_CHANGEUPPER:
-+		info = ptr;
-+
-+		/* flush all routes if dev is linked to or unlinked from
-+		 * an L3 master device (e.g., VRF)
-+		 */
-+		if (info->upper_dev && netif_is_l3_master(info->upper_dev))
-+			addrconf_ifdown(dev, 0);
- 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1d8871a5ed20..3e699dc199f3 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1928,7 +1928,7 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 		rt->rt6i_gateway = *gw_addr;
  
- 	return NOTIFY_OK;
+ 		if (gwa_type != (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST)) {
+-			struct rt6_info *grt;
++			struct rt6_info *grt = NULL;
+ 
+ 			/* IPv6 strictly inhibits using not link-local
+ 			   addresses as nexthop address.
+@@ -1940,7 +1940,38 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+ 			if (!(gwa_type & IPV6_ADDR_UNICAST))
+ 				goto out;
+ 
+-			grt = rt6_lookup(net, gw_addr, NULL, cfg->fc_ifindex, 1);
++			if (cfg->fc_table) {
++				struct flowi6 fl6 = {
++					.flowi6_oif = cfg->fc_ifindex,
++					.daddr = *gw_addr,
++					.saddr = cfg->fc_prefsrc,
++				};
++				struct fib6_table *table;
++				int flags = 0;
++
++				err = -EHOSTUNREACH;
++				table = fib6_get_table(net, cfg->fc_table);
++				if (!table)
++					goto out;
++
++				if (!ipv6_addr_any(&cfg->fc_prefsrc))
++					flags |= RT6_LOOKUP_F_HAS_SADDR;
++
++				grt = ip6_pol_route(net, table, cfg->fc_ifindex,
++						    &fl6, flags);
++
++				/* if table lookup failed, fall back
++				 * to full lookup
++				 */
++				if (grt == net->ipv6.ip6_null_entry) {
++					ip6_rt_put(grt);
++					grt = NULL;
++				}
++			}
++
++			if (!grt)
++				grt = rt6_lookup(net, gw_addr, NULL,
++						 cfg->fc_ifindex, 1);
+ 
+ 			err = -EHOSTUNREACH;
+ 			if (!grt)
 -- 
 2.1.4
