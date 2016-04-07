@@ -1,40 +1,38 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been left enabled.
-Date: Thu, 07 Apr 2016 21:47:19 +0100
-Message-ID: <5702.1460062039@warthog.procyon.org.uk>
-References: <20160407.163616.385449823878901734.davem@davemloft.net> <20160407162309.21283.11482.stgit@warthog.procyon.org.uk> <1460046677.6715.95.camel@perches.com> <1091.1460058308@warthog.procyon.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been
+ left enabled.
+Date: Thu, 07 Apr 2016 16:50:21 -0400 (EDT)
+Message-ID: <20160407.165021.1271761992369838408.davem@davemloft.net>
+References: <1460046677.6715.95.camel@perches.com>
+	<1091.1460058308@warthog.procyon.org.uk>
+	<5702.1460062039@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, joe@perches.com,
-	linux-afs@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160407.163616.385449823878901734.davem@davemloft.net>
-Content-ID: <5701.1460062039.1@warthog.procyon.org.uk>
+In-Reply-To: <5702.1460062039@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 07 Apr 2016 21:47:19 +0100
 
-> > Excellent only if I can get at it to find out why the something went wrong.
-> > If it's lost because the machine panics, then it is worthless.
+> David Miller <davem@davemloft.net> wrote:
 > 
-> If you're ok with these kenter things spewing into the logs with the
-> current facility, you can run the function tracer and have it record
-> into the logs all the time too.
+>> > Excellent only if I can get at it to find out why the something went wrong.
+>> > If it's lost because the machine panics, then it is worthless.
+>> 
+>> If you're ok with these kenter things spewing into the logs with the
+>> current facility, you can run the function tracer and have it record
+>> into the logs all the time too.
+> 
+> They don't do that unless you enable them.  And I can enable them individually
+> at compile time or by set at runtime.
 
-They don't do that unless you enable them.  And I can enable them individually
-at compile time or by set at runtime.
+As you can with the function tracer and tracepoints.
 
-> I don't see any argument which is appropriate for keeping this stuff
-> around.
-
-Sigh.
-
-As I said to Joe: I don't want to deal with converting to using ftrace at the
-moment whilst I'm towards the end of reworking the rewrite of the code.  I
-have a stack of patches that would need reworking yet again.
-
-David
+We're not telling you to kill this now, we're just saying that you should
+thinking about tossing this custom stuff when you have a chance.
