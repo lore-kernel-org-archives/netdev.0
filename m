@@ -1,7 +1,7 @@
 From: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 4/8] net: mediatek: fix stop and wakeup of queue
-Date: Thu,  7 Apr 2016 21:26:46 +0200
-Message-ID: <1460057210-55786-5-git-send-email-blogic@openwrt.org>
+Subject: [PATCH V2 3/8] net: mediatek: remove superfluous reset call
+Date: Thu,  7 Apr 2016 21:26:45 +0200
+Message-ID: <1460057210-55786-4-git-send-email-blogic@openwrt.org>
 References: <1460057210-55786-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,86 +25,28 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The driver supports 2 MACs. Both run on the same DMA ring. If we go
-above/below the TX rings threshold value, we always need to wake/stop
-the queue of both devices. Not doing to can cause TX stalls and packet
-drops on one of the devices.
+HW reset is triggered in the mtk_hw_init() function. There is no need to
+also reset the core during probe.
 
 Signed-off-by: John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   37 +++++++++++++++++++--------
- 1 file changed, 27 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index a4982e4..4ebc42e 100644
+index 94cceb8..a4982e4 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -684,6 +684,28 @@ static inline int mtk_cal_txd_req(struct sk_buff *skb)
- 	return nfrags;
- }
+@@ -1679,10 +1679,6 @@ static int mtk_probe(struct platform_device *pdev)
+ 	struct mtk_eth *eth;
+ 	int err;
  
-+static void mtk_wake_queue(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+		netif_wake_queue(eth->netdev[i]);
-+	}
-+}
-+
-+static void mtk_stop_queue(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+		netif_stop_queue(eth->netdev[i]);
-+	}
-+}
-+
- static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct mtk_mac *mac = netdev_priv(dev);
-@@ -695,7 +717,7 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	err = device_reset(&pdev->dev);
+-	if (err)
+-		return err;
+-
+ 	match = of_match_device(of_mtk_match, &pdev->dev);
+ 	soc = (struct mtk_soc_data *)match->data;
  
- 	tx_num = mtk_cal_txd_req(skb);
- 	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
--		netif_stop_queue(dev);
-+		mtk_stop_queue(eth);
- 		netif_err(eth, tx_queued, dev,
- 			  "Tx Ring full when queue awake!\n");
- 		return NETDEV_TX_BUSY;
-@@ -720,10 +742,10 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		goto drop;
- 
- 	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh)) {
--		netif_stop_queue(dev);
-+		mtk_stop_queue(eth);
- 		if (unlikely(atomic_read(&ring->free_count) >
- 			     ring->thresh))
--			netif_wake_queue(dev);
-+			mtk_wake_queue(eth);
- 	}
- 
- 	return NETDEV_TX_OK;
-@@ -897,13 +919,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 	if (!total)
- 		return 0;
- 
--	for (i = 0; i < MTK_MAC_COUNT; i++) {
--		if (!eth->netdev[i] ||
--		    unlikely(!netif_queue_stopped(eth->netdev[i])))
--			continue;
--		if (atomic_read(&ring->free_count) > ring->thresh)
--			netif_wake_queue(eth->netdev[i]);
--	}
-+	if (atomic_read(&ring->free_count) > ring->thresh)
-+		mtk_wake_queue(eth);
- 
- 	return total;
- }
 -- 
 1.7.10.4
