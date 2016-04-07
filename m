@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] sock: lockdep tightening
-Date: Thu, 07 Apr 2016 16:44:33 -0400 (EDT)
-Message-ID: <20160407.164433.1018956939607816921.davem@davemloft.net>
-References: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next 00/10] allow bpf attach to tracepoints
+Date: Thu, 07 Apr 2016 16:46:12 -0400 (EDT)
+Message-ID: <20160407.164612.2170118478994016875.davem@davemloft.net>
+References: <1459993411-2754735-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55609 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753278AbcDGUok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 16:44:40 -0400
-In-Reply-To: <1459869016-13896-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rostedt@goodmis.org, peterz@infradead.org, mingo@kernel.org,
+	daniel@iogearbox.net, acme@infradead.org, wangnan0@huawei.com,
+	jbacik@fb.com, brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459993411-2754735-1-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue,  5 Apr 2016 17:10:13 +0200
+From: Alexei Starovoitov <ast@fb.com>
+Date: Wed, 6 Apr 2016 18:43:21 -0700
 
-> First patch is from Eric Dumazet and improves lockdep accuracy for
-> socket locks. After that, second patch introduces lockdep_sock_is_held
-> and uses it. Final patch reverts and reworks the lockdep fix from Daniel
-> in the filter code, as we now have tighter lockdep support.
+> Hi Steven, Peter,
 
-Series applied, thanks Hannes.
+Steven/Peter, can you give this series a review?
+
+Thanks!
