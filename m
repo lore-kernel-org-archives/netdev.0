@@ -1,41 +1,68 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: simplify verifier register state assignments
-Date: Thu, 07 Apr 2016 09:39:58 +0200
-Message-ID: <57060ECE.9020300@iogearbox.net>
-References: <1459996761-2926623-1-git-send-email-ast@fb.com>
+From: James Cameron <quozl@laptop.org>
+Subject: Re: [PATCH] net: mark DECnet as broken
+Date: Thu, 7 Apr 2016 17:50:17 +1000
+Message-ID: <20160407075017.GI28117@us.netrek.org>
+References: <1460013763-22985-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: Vegard Nossum <vegard.nossum@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60420 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbcDGHkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 03:40:05 -0400
-In-Reply-To: <1459996761-2926623-1-git-send-email-ast@fb.com>
+Received: from zimbra.real-time.com ([63.170.91.9]:55600 "EHLO
+	zimbra.real-time.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751260AbcDGHuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 03:50:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1460013763-22985-1-git-send-email-vegard.nossum@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2016 04:39 AM, Alexei Starovoitov wrote:
-> verifier is using the following structure to track the state of registers:
-> struct reg_state {
->      enum bpf_reg_type type;
->      union {
->          int imm;
->          struct bpf_map *map_ptr;
->      };
-> };
-> and later on in states_equal() does memcmp(&old->regs[i], &cur->regs[i],..)
-> to find equivalent states.
-> Throughout the code of verifier there are assignements to 'imm' and 'map_ptr'
-> fields and it's not obvious that most of the assignments into 'imm' don't
-> need to clear extra 4 bytes (like mark_reg_unknown_value() does) to make sure
-> that memcmp doesn't go over junk left from 'map_ptr' assignment.
->
-> Simplify the code by converting 'int' into 'long'
->
-> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+On Thu, Apr 07, 2016 at 09:22:43AM +0200, Vegard Nossum wrote:
+> There are NULL pointer dereference bugs in DECnet which can be triggered
+> by unprivileged users and have been reported multiple times to LKML,
+> however nobody seems confident enough in the proposed fixes to merge them
+> and the consensus seems to be that nobody cares enough about DECnet to
+> see it fixed anyway.
+> 
+> To shield unsuspecting users from the possible DOS, we should mark this
+> BROKEN until somebody who actually uses this code can fix it.
+> 
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> Link: https://lkml.org/lkml/2015/12/17/666
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Cc: David Miller <davem@davemloft.net>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Reviewed-by: James Cameron <quozl@laptop.org>
+
+(An old DECnet application programmer from way back, ah what fun!)
+
+> ---
+>  net/decnet/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/decnet/Kconfig b/net/decnet/Kconfig
+> index f3393e1..b040172 100644
+> --- a/net/decnet/Kconfig
+> +++ b/net/decnet/Kconfig
+> @@ -3,6 +3,7 @@
+>  #
+>  config DECNET
+>  	tristate "DECnet Support"
+> +	depends on BROKEN
+>  	---help---
+>  	  The DECnet networking protocol was used in many products made by
+>  	  Digital (now Compaq).  It provides reliable stream and sequenced
+
+fwiw, then Compaq merged into HP.
+
+> -- 
+> 1.9.1
+> 
+
+-- 
+James Cameron
+http://quozl.netrek.org/
