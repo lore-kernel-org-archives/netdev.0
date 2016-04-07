@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/2] tipc: make dist queue pernet
-Date: Thu,  7 Apr 2016 10:40:43 -0400
-Message-ID: <1460040044-30770-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 2/2] tipc: purge deferred updates from dead nodes
+Date: Thu,  7 Apr 2016 10:40:44 -0400
+Message-ID: <1460040044-30770-3-git-send-email-jon.maloy@ericsson.com>
 References: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -12,115 +12,61 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:23825 "EHLO
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:23845 "EHLO
 	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756487AbcDGOlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 10:41:22 -0400
+	by vger.kernel.org with ESMTP id S1756616AbcDGOlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 10:41:23 -0400
 In-Reply-To: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Erik Hugne <erik.hugne@gmail.com>
 
-Nametable updates received from the network that cannot be applied
-immediately are placed on a defer queue. This queue is global to the
-TIPC module, which might cause problems when using TIPC in containers.
-To prevent nametable updates from escaping into the wrong namespace,
-we make the queue pernet instead.
+If a peer node becomes unavailable, in addition to removing the
+nametable entries from this node we also need to purge all deferred
+updates associated with this node.
 
 Signed-off-by: Erik Hugne <erik.hugne@gmail.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/core.c       |  1 +
- net/tipc/core.h       |  3 +++
- net/tipc/name_distr.c | 16 +++++++---------
- 3 files changed, 11 insertions(+), 9 deletions(-)
+ net/tipc/name_distr.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 03a8428..e2bdb07a 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -69,6 +69,7 @@ static int __net_init tipc_init_net(struct net *net)
- 	if (err)
- 		goto out_nametbl;
- 
-+	INIT_LIST_HEAD(&tn->dist_queue);
- 	err = tipc_topsrv_start(net);
- 	if (err)
- 		goto out_subscr;
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 5504d63..eff58dc 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -103,6 +103,9 @@ struct tipc_net {
- 	spinlock_t nametbl_lock;
- 	struct name_table *nametbl;
- 
-+	/* Name dist queue */
-+	struct list_head dist_queue;
-+
- 	/* Topology subscription server */
- 	struct tipc_server *topsrv;
- 	atomic_t subscription_count;
 diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index ebe9d0f..4f4f581 100644
+index 4f4f581..6b626a6 100644
 --- a/net/tipc/name_distr.c
 +++ b/net/tipc/name_distr.c
-@@ -40,11 +40,6 @@
+@@ -224,12 +224,31 @@ static void tipc_publ_purge(struct net *net, struct publication *publ, u32 addr)
+ 	kfree_rcu(p, rcu);
+ }
  
- int sysctl_tipc_named_timeout __read_mostly = 2000;
- 
--/**
-- * struct tipc_dist_queue - queue holding deferred name table updates
-- */
--static struct list_head tipc_dist_queue = LIST_HEAD_INIT(tipc_dist_queue);
--
- struct distr_queue_item {
- 	struct distr_item i;
- 	u32 dtype;
-@@ -279,9 +274,11 @@ static bool tipc_update_nametbl(struct net *net, struct distr_item *i,
-  * tipc_named_add_backlog - add a failed name table update to the backlog
-  *
-  */
--static void tipc_named_add_backlog(struct distr_item *i, u32 type, u32 node)
-+static void tipc_named_add_backlog(struct net *net, struct distr_item *i,
-+				   u32 type, u32 node)
- {
- 	struct distr_queue_item *e;
++/**
++ * tipc_dist_queue_purge - remove deferred updates from a node that went down
++ */
++static void tipc_dist_queue_purge(struct net *net, u32 addr)
++{
 +	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	unsigned long now = get_jiffies_64();
++	struct distr_queue_item *e, *tmp;
++
++	spin_lock_bh(&tn->nametbl_lock);
++	list_for_each_entry_safe(e, tmp, &tn->dist_queue, next) {
++		if (e->node != addr)
++			continue;
++		list_del(&e->next);
++		kfree(e);
++	}
++	spin_unlock_bh(&tn->nametbl_lock);
++}
++
+ void tipc_publ_notify(struct net *net, struct list_head *nsub_list, u32 addr)
+ {
+ 	struct publication *publ, *tmp;
  
- 	e = kzalloc(sizeof(*e), GFP_ATOMIC);
-@@ -291,7 +288,7 @@ static void tipc_named_add_backlog(struct distr_item *i, u32 type, u32 node)
- 	e->node = node;
- 	e->expires = now + msecs_to_jiffies(sysctl_tipc_named_timeout);
- 	memcpy(e, i, sizeof(*i));
--	list_add_tail(&e->next, &tipc_dist_queue);
-+	list_add_tail(&e->next, &tn->dist_queue);
+ 	list_for_each_entry_safe(publ, tmp, nsub_list, nodesub_list)
+ 		tipc_publ_purge(net, publ, addr);
++	tipc_dist_queue_purge(net, addr);
  }
  
  /**
-@@ -301,10 +298,11 @@ static void tipc_named_add_backlog(struct distr_item *i, u32 type, u32 node)
- void tipc_named_process_backlog(struct net *net)
- {
- 	struct distr_queue_item *e, *tmp;
-+	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	char addr[16];
- 	unsigned long now = get_jiffies_64();
- 
--	list_for_each_entry_safe(e, tmp, &tipc_dist_queue, next) {
-+	list_for_each_entry_safe(e, tmp, &tn->dist_queue, next) {
- 		if (time_after(e->expires, now)) {
- 			if (!tipc_update_nametbl(net, &e->i, e->node, e->dtype))
- 				continue;
-@@ -344,7 +342,7 @@ void tipc_named_rcv(struct net *net, struct sk_buff_head *inputq)
- 		node = msg_orignode(msg);
- 		while (count--) {
- 			if (!tipc_update_nametbl(net, item, node, mtype))
--				tipc_named_add_backlog(item, mtype, node);
-+				tipc_named_add_backlog(net, item, mtype, node);
- 			item++;
- 		}
- 		kfree_skb(skb);
 -- 
 1.9.1
