@@ -1,193 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] i40e: Add RSS configuration to virtual channel
-Date: Wed,  6 Apr 2016 20:29:35 -0700
-Message-ID: <1459999779-22254-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] i40e: Input set mask constants for RSS, flow director, and flex bytes
+Date: Wed,  6 Apr 2016 20:29:37 -0700
+Message-ID: <1459999779-22254-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47670 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:51123 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754663AbcDGD3q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Apr 2016 23:29:46 -0400
+	id S1754843AbcDGD3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Apr 2016 23:29:50 -0400
 In-Reply-To: <1459999779-22254-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Kiran Patil <kiran.patil@intel.com>
 
-Add opcodes and structures to support RSS configuration by PF driver on
-behalf of the VF drivers. This reduces complexity in the VF driver and
-allows us to support future hardware designs without modifying the VF
-driver.
+Add defines for input set mask (RSS, flow director, flexible payload),
+including defines specific to IPv6.
 
-Change-ID: I8c75765c630eacb71f95967f1109a198542593ac
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Ie95ef7d0916a4d6ca011c194283f959774c8dce9
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 45 +++++++++++++++++++++--
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 45 +++++++++++++++++++++--
- 2 files changed, 84 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 33 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 42 +++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-index ab866cf..c92a3bd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-@@ -80,10 +80,15 @@ enum i40e_virtchnl_ops {
- 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
- 	I40E_VIRTCHNL_OP_GET_STATS = 15,
- 	I40E_VIRTCHNL_OP_FCOE = 16,
--	I40E_VIRTCHNL_OP_EVENT = 17,
-+	I40E_VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
- 	I40E_VIRTCHNL_OP_IWARP = 20,
- 	I40E_VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21,
- 	I40E_VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22,
-+	I40E_VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
-+	I40E_VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
-+	I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
-+	I40E_VIRTCHNL_OP_SET_RSS_HENA = 26,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index bf693580..793036b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1534,4 +1534,37 @@ struct i40e_lldp_variables {
+ 
+ /* RSS Hash Table Size */
+ #define I40E_PFQF_CTL_0_HASHLUTSIZE_512	0x00010000
 +
- };
- 
- /* Virtual channel message descriptor. This overlays the admin queue
-@@ -157,6 +162,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
- #define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
- 
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
-@@ -165,8 +171,8 @@ struct i40e_virtchnl_vf_resource {
- 	u16 max_mtu;
- 
- 	u32 vf_offload_flags;
--	u32 max_fcoe_contexts;
--	u32 max_fcoe_filters;
-+	u32 rss_key_size;
-+	u32 rss_lut_size;
- 
- 	struct i40e_virtchnl_vsi_resource vsi_res[1];
- };
-@@ -325,6 +331,39 @@ struct i40e_virtchnl_promisc_info {
-  * PF replies with struct i40e_eth_stats in an external buffer.
-  */
- 
-+/* I40E_VIRTCHNL_OP_CONFIG_RSS_KEY
-+ * I40E_VIRTCHNL_OP_CONFIG_RSS_LUT
-+ * VF sends these messages to configure RSS. Only supported if both PF
-+ * and VF drivers set the I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF bit during
-+ * configuration negotiation. If this is the case, then the RSS fields in
-+ * the VF resource struct are valid.
-+ * Both the key and LUT are initialized to 0 by the PF, meaning that
-+ * RSS is effectively disabled until set up by the VF.
-+ */
-+struct i40e_virtchnl_rss_key {
-+	u16 vsi_id;
-+	u16 key_len;
-+	u8 key[1];         /* RSS hash key, packed bytes */
-+};
++/* INPUT SET MASK for RSS, flow director, and flexible payload */
++#define I40E_L3_SRC_SHIFT		47
++#define I40E_L3_SRC_MASK		(0x3ULL << I40E_L3_SRC_SHIFT)
++#define I40E_L3_V6_SRC_SHIFT		43
++#define I40E_L3_V6_SRC_MASK		(0xFFULL << I40E_L3_V6_SRC_SHIFT)
++#define I40E_L3_DST_SHIFT		35
++#define I40E_L3_DST_MASK		(0x3ULL << I40E_L3_DST_SHIFT)
++#define I40E_L3_V6_DST_SHIFT		35
++#define I40E_L3_V6_DST_MASK		(0xFFULL << I40E_L3_V6_DST_SHIFT)
++#define I40E_L4_SRC_SHIFT		34
++#define I40E_L4_SRC_MASK		(0x1ULL << I40E_L4_SRC_SHIFT)
++#define I40E_L4_DST_SHIFT		33
++#define I40E_L4_DST_MASK		(0x1ULL << I40E_L4_DST_SHIFT)
++#define I40E_VERIFY_TAG_SHIFT		31
++#define I40E_VERIFY_TAG_MASK		(0x3ULL << I40E_VERIFY_TAG_SHIFT)
 +
-+struct i40e_virtchnl_rss_lut {
-+	u16 vsi_id;
-+	u16 lut_entries;
-+	u8 lut[1];        /* RSS lookup table*/
-+};
-+
-+/* I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS
-+ * I40E_VIRTCHNL_OP_SET_RSS_HENA
-+ * VF sends these messages to get and set the hash filter enable bits for RSS.
-+ * By default, the PF sets these to all possible traffic types that the
-+ * hardware supports. The VF can query this value if it wants to change the
-+ * traffic types that are hashed by the hardware.
-+ * Traffic types are defined in the i40e_filter_pctype enum in i40e_type.h
-+ */
-+struct i40e_virtchnl_rss_hena {
-+	u64 hena;
-+};
-+
- /* I40E_VIRTCHNL_OP_EVENT
-  * PF sends this message to inform the VF driver of events that may affect it.
-  * No direct response is expected from the VF, though it may generate other
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-index 3b9d203..f04ce6c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-@@ -80,7 +80,12 @@ enum i40e_virtchnl_ops {
- 	I40E_VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
- 	I40E_VIRTCHNL_OP_GET_STATS = 15,
- 	I40E_VIRTCHNL_OP_FCOE = 16,
--	I40E_VIRTCHNL_OP_EVENT = 17,
-+	I40E_VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
-+	I40E_VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
-+	I40E_VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
-+	I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
-+	I40E_VIRTCHNL_OP_SET_RSS_HENA = 26,
-+
- };
++#define I40E_FLEX_50_SHIFT		13
++#define I40E_FLEX_50_MASK		(0x1ULL << I40E_FLEX_50_SHIFT)
++#define I40E_FLEX_51_SHIFT		12
++#define I40E_FLEX_51_MASK		(0x1ULL << I40E_FLEX_51_SHIFT)
++#define I40E_FLEX_52_SHIFT		11
++#define I40E_FLEX_52_MASK		(0x1ULL << I40E_FLEX_52_SHIFT)
++#define I40E_FLEX_53_SHIFT		10
++#define I40E_FLEX_53_MASK		(0x1ULL << I40E_FLEX_53_SHIFT)
++#define I40E_FLEX_54_SHIFT		9
++#define I40E_FLEX_54_MASK		(0x1ULL << I40E_FLEX_54_SHIFT)
++#define I40E_FLEX_55_SHIFT		8
++#define I40E_FLEX_55_MASK		(0x1ULL << I40E_FLEX_55_SHIFT)
++#define I40E_FLEX_56_SHIFT		7
++#define I40E_FLEX_56_MASK		(0x1ULL << I40E_FLEX_56_SHIFT)
++#define I40E_FLEX_57_SHIFT		6
++#define I40E_FLEX_57_MASK		(0x1ULL << I40E_FLEX_57_SHIFT)
+ #endif /* _I40E_TYPE_H_ */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index d68e017..4a78c18 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -1330,4 +1330,46 @@ enum i40e_reset_type {
  
- /* Virtual channel message descriptor. This overlays the admin queue
-@@ -154,6 +159,7 @@ struct i40e_virtchnl_vsi_resource {
- #define I40E_VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
- #define I40E_VIRTCHNL_VF_OFFLOAD_RX_POLLING	0x00020000
- #define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
-+#define I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF		0X00080000
- 
- struct i40e_virtchnl_vf_resource {
- 	u16 num_vsis;
-@@ -162,8 +168,8 @@ struct i40e_virtchnl_vf_resource {
- 	u16 max_mtu;
- 
- 	u32 vf_offload_flags;
--	u32 max_fcoe_contexts;
--	u32 max_fcoe_filters;
-+	u32 rss_key_size;
-+	u32 rss_lut_size;
- 
- 	struct i40e_virtchnl_vsi_resource vsi_res[1];
- };
-@@ -322,6 +328,39 @@ struct i40e_virtchnl_promisc_info {
-  * PF replies with struct i40e_eth_stats in an external buffer.
-  */
- 
-+/* I40E_VIRTCHNL_OP_CONFIG_RSS_KEY
-+ * I40E_VIRTCHNL_OP_CONFIG_RSS_LUT
-+ * VF sends these messages to configure RSS. Only supported if both PF
-+ * and VF drivers set the I40E_VIRTCHNL_VF_OFFLOAD_RSS_PF bit during
-+ * configuration negotiation. If this is the case, then the RSS fields in
-+ * the VF resource struct are valid.
-+ * Both the key and LUT are initialized to 0 by the PF, meaning that
-+ * RSS is effectively disabled until set up by the VF.
-+ */
-+struct i40e_virtchnl_rss_key {
-+	u16 vsi_id;
-+	u16 key_len;
-+	u8 key[1];         /* RSS hash key, packed bytes */
-+};
+ /* RSS Hash Table Size */
+ #define I40E_PFQF_CTL_0_HASHLUTSIZE_512	0x00010000
 +
-+struct i40e_virtchnl_rss_lut {
-+	u16 vsi_id;
-+	u16 lut_entries;
-+	u8 lut[1];        /* RSS lookup table*/
-+};
++/* INPUT SET MASK for RSS, flow director and flexible payload */
++#define I40E_FD_INSET_L3_SRC_SHIFT		47
++#define I40E_FD_INSET_L3_SRC_WORD_MASK		(0x3ULL << \
++						 I40E_FD_INSET_L3_SRC_SHIFT)
++#define I40E_FD_INSET_L3_DST_SHIFT		35
++#define I40E_FD_INSET_L3_DST_WORD_MASK		(0x3ULL << \
++						 I40E_FD_INSET_L3_DST_SHIFT)
++#define I40E_FD_INSET_L4_SRC_SHIFT		34
++#define I40E_FD_INSET_L4_SRC_WORD_MASK		(0x1ULL << \
++						 I40E_FD_INSET_L4_SRC_SHIFT)
++#define I40E_FD_INSET_L4_DST_SHIFT		33
++#define I40E_FD_INSET_L4_DST_WORD_MASK		(0x1ULL << \
++						 I40E_FD_INSET_L4_DST_SHIFT)
++#define I40E_FD_INSET_VERIFY_TAG_SHIFT		31
++#define I40E_FD_INSET_VERIFY_TAG_WORD_MASK	(0x3ULL << \
++						 I40E_FD_INSET_VERIFY_TAG_SHIFT)
 +
-+/* I40E_VIRTCHNL_OP_GET_RSS_HENA_CAPS
-+ * I40E_VIRTCHNL_OP_SET_RSS_HENA
-+ * VF sends these messages to get and set the hash filter enable bits for RSS.
-+ * By default, the PF sets these to all possible traffic types that the
-+ * hardware supports. The VF can query this value if it wants to change the
-+ * traffic types that are hashed by the hardware.
-+ * Traffic types are defined in the i40e_filter_pctype enum in i40e_type.h
-+ */
-+struct i40e_virtchnl_rss_hena {
-+	u64 hena;
-+};
-+
- /* I40E_VIRTCHNL_OP_EVENT
-  * PF sends this message to inform the VF driver of events that may affect it.
-  * No direct response is expected from the VF, though it may generate other
++#define I40E_FD_INSET_FLEX_WORD50_SHIFT		17
++#define I40E_FD_INSET_FLEX_WORD50_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD50_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD51_SHIFT		16
++#define I40E_FD_INSET_FLEX_WORD51_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD51_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD52_SHIFT		15
++#define I40E_FD_INSET_FLEX_WORD52_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD52_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD53_SHIFT		14
++#define I40E_FD_INSET_FLEX_WORD53_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD53_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD54_SHIFT		13
++#define I40E_FD_INSET_FLEX_WORD54_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD54_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD55_SHIFT		12
++#define I40E_FD_INSET_FLEX_WORD55_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD55_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD56_SHIFT		11
++#define I40E_FD_INSET_FLEX_WORD56_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD56_SHIFT)
++#define I40E_FD_INSET_FLEX_WORD57_SHIFT		10
++#define I40E_FD_INSET_FLEX_WORD57_MASK		(0x1ULL << \
++					I40E_FD_INSET_FLEX_WORD57_SHIFT)
+ #endif /* _I40E_TYPE_H_ */
 -- 
 2.5.5
