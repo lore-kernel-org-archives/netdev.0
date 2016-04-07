@@ -1,44 +1,62 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] ieee802154/adf7242: fix memory leak of firmware
-Date: Thu,  7 Apr 2016 16:46:04 +0530
-Message-ID: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: Michael Hennerich <michael.hennerich@analog.com>,
-	Alexander Aring <aar@pengutronix.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v7 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Thu, 07 Apr 2016 04:29:33 -0700
+Message-ID: <1460028573.6715.88.camel@perches.com>
+References: <1460033410-28710-1-git-send-email-decui@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vkuznets@redhat.com
+To: Dexuan Cui <decui@microsoft.com>, gregkh@linuxfoundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
+	kys@microsoft.com, haiyangz@microsoft.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460033410-28710-1-git-send-email-decui@microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the firmware upload or the firmware verification fails then we
-printed the error message and exited but we missed releasing the
-firmware.
+On Thu, 2016-04-07 at 05:50 -0700, Dexuan Cui wrote:
+> Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
+> mechanism between the host and the guest. It's somewhat like TCP over
+> VMBus, but the transportation layer (VMBus) is much simpler than IP.
 
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
- drivers/net/ieee802154/adf7242.c | 2 ++
- 1 file changed, 2 insertions(+)
+style trivia:
 
-diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
-index 89154c0..91d4531 100644
---- a/drivers/net/ieee802154/adf7242.c
-+++ b/drivers/net/ieee802154/adf7242.c
-@@ -1030,6 +1030,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
- 	if (ret) {
- 		dev_err(&lp->spi->dev,
- 			"upload firmware failed with %d\n", ret);
-+		release_firmware(fw);
- 		return ret;
- 	}
- 
-@@ -1037,6 +1038,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
- 	if (ret) {
- 		dev_err(&lp->spi->dev,
- 			"verify firmware failed with %d\n", ret);
-+		release_firmware(fw);
- 		return ret;
- 	}
- 
--- 
-1.9.1
+> diff --git a/net/hv_sock/af_hvsock.c b/net/hv_sock/af_hvsock.c
+[]
+> +static struct sock *__hvsock_find_bound_socket(const struct sockaddr=
+_hv *addr)
+> +{
+> +	struct hvsock_sock *hvsk;
+> +=20
+> +	list_for_each_entry(hvsk, &hvsock_bound_list, bound_list)
+> +		if (uuid_equals(addr->shv_service_id,
+> +				hvsk->local_addr.shv_service_id))
+> +			return hvsock_to_sk(hvsk);
+
+Because there's an if, it's generally nicer to use
+braces in the list_for_each
+> +static struct sock *__hvsock_find_connected_socket_by_channel(
+> +	const struct vmbus_channel *channel)
+> +{
+> +	struct hvsock_sock *hvsk;
+> +
+> +	list_for_each_entry(hvsk, &hvsock_connected_list, connected_list)
+> +		if (hvsk->channel =3D=3D channel)
+> +			return hvsock_to_sk(hvsk);
+> +	return NULL;
+
+here too
+
+> +static int hvsock_sendmsg(struct socket *sock, struct msghdr *msg, s=
+ize_t len)
+> +{
+[]
+> +	if (msg->msg_flags & ~MSG_DONTWAIT) {
+> +		pr_err("hvsock_sendmsg: unsupported flags=3D0x%x\n",
+> +		=A0=A0=A0=A0=A0=A0=A0msg->msg_flags);
+
+All the pr_<level> messages with embedded function
+names could use "%s:", __func__
