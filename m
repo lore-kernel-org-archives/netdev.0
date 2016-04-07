@@ -1,99 +1,57 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v7 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Thu, 7 Apr 2016 11:47:26 +0000
-Message-ID: <BLUPR03MB1410D45626651C78FD8C3918BF900@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <1460033410-28710-1-git-send-email-decui@microsoft.com>
- <1460028573.6715.88.camel@perches.com>
+From: Michael Hennerich <michael.hennerich@analog.com>
+Subject: Re: [PATCH] ieee802154/adf7242: fix memory leak of firmware
+Date: Thu, 7 Apr 2016 13:09:57 +0200
+Message-ID: <57064005.2040801@analog.com>
+References: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
+Reply-To: <michael.hennerich@analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Joe Perches <joe@perches.com>, "gregkh@linuxfoundation.org"
- <gregkh@linuxfoundation.org>, "davem@davemloft.net" <davem@davemloft.net>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>, KY Srinivasan
- <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1460028573.6715.88.camel@perches.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-wpan@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	Alexander Aring <aar@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Joe Perches [mailto:joe@perches.com]
-> Sent: Thursday, April 7, 2016 19:30
-> To: Dexuan Cui <decui@microsoft.com>; gregkh@linuxfoundation.org;
-> davem@davemloft.net; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com; KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>
-> Cc: vkuznets@redhat.com
-> Subject: Re: [PATCH v7 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-> =
+On 04/07/2016 01:16 PM, Sudip Mukherjee wrote:
+> If the firmware upload or the firmware verification fails then we
+> printed the error message and exited but we missed releasing the
+> firmware.
+>
+> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
 
-> On Thu, 2016-04-07 at 05:50 -0700, Dexuan Cui wrote:
-> > Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
-> > mechanism between the host and the guest. It's somewhat like TCP over
-> > VMBus, but the transportation layer (VMBus) is much simpler than IP.
-> =
+Acked-by: Michael Hennerich <michael.hennerich@analog.com>
 
-> style trivia:
-> =
+> ---
+>   drivers/net/ieee802154/adf7242.c | 2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/drivers/net/ieee802154/adf7242.c b/drivers/net/ieee802154/adf7242.c
+> index 89154c0..91d4531 100644
+> --- a/drivers/net/ieee802154/adf7242.c
+> +++ b/drivers/net/ieee802154/adf7242.c
+> @@ -1030,6 +1030,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
+>   	if (ret) {
+>   		dev_err(&lp->spi->dev,
+>   			"upload firmware failed with %d\n", ret);
+> +		release_firmware(fw);
+>   		return ret;
+>   	}
+>
+> @@ -1037,6 +1038,7 @@ static int adf7242_hw_init(struct adf7242_local *lp)
+>   	if (ret) {
+>   		dev_err(&lp->spi->dev,
+>   			"verify firmware failed with %d\n", ret);
+> +		release_firmware(fw);
+>   		return ret;
+>   	}
+>
+>
 
-> > diff --git a/net/hv_sock/af_hvsock.c b/net/hv_sock/af_hvsock.c
-> []
-> > +static struct sock *__hvsock_find_bound_socket(const struct sockaddr_hv
-> *addr)
-> > +{
-> > +	struct hvsock_sock *hvsk;
-> > +
-> > +	list_for_each_entry(hvsk, &hvsock_bound_list, bound_list)
-> > +		if (uuid_equals(addr->shv_service_id,
-> > +				hvsk->local_addr.shv_service_id))
-> > +			return hvsock_to_sk(hvsk);
-> =
 
-> Because there's an if, it's generally nicer to use
-> braces in the list_for_each
-
-Thanks for the suggestion, Joe!
-I'll add {}.
-
-> > +static struct sock *__hvsock_find_connected_socket_by_channel(
-> > +	const struct vmbus_channel *channel)
-> > +{
-> > +	struct hvsock_sock *hvsk;
-> > +
-> > +	list_for_each_entry(hvsk, &hvsock_connected_list, connected_list)
-> > +		if (hvsk->channel =3D=3D channel)
-> > +			return hvsock_to_sk(hvsk);
-> > +	return NULL;
-> =
-
-> here too
-I'll fix this too.
-
-> > +static int hvsock_sendmsg(struct socket *sock, struct msghdr *msg, siz=
-e_t len)
-> > +{
-> []
-> > +	if (msg->msg_flags & ~MSG_DONTWAIT) {
-> > +		pr_err("hvsock_sendmsg: unsupported flags=3D0x%x\n",
-> > +		=A0=A0=A0=A0=A0=A0=A0msg->msg_flags);
-> =
-
-> All the pr_<level> messages with embedded function
-> names could use "%s:", __func__
-I'll fix this.
-
-Thanks,
--- Dexuan
+-- 
+Greetings,
+Michael
