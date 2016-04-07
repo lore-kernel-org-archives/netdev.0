@@ -1,36 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: optimizations to sk_buff handling in rds_tcp_data_ready
-Date: Thu, 7 Apr 2016 15:29:46 -0400
-Message-ID: <20160407192946.GA10957@oracle.com>
-References: <20160407130859.GA2818@oracle.com>
- <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been left enabled.
+Date: Thu, 07 Apr 2016 20:43:44 +0100
+Message-ID: <981.1460058224@warthog.procyon.org.uk>
+References: <1460049545.6715.98.camel@perches.com> <1460046677.6715.95.camel@perches.com> <20160407162256.21283.47849.stgit@warthog.procyon.org.uk> <20160407162309.21283.11482.stgit@warthog.procyon.org.uk> <24286.1460048722@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, tom@herbertland.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:27393 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753791AbcDGT36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 15:29:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49306 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757219AbcDGTnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 15:43:47 -0400
+In-Reply-To: <1460049545.6715.98.camel@perches.com>
+Content-ID: <980.1460058224.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (04/07/16 07:16), Eric Dumazet wrote:
-> Use skb split like TCP in output path ?
+Joe Perches <joe@perches.com> wrote:
 
-That almost looks like what I want, but skb_split modifies both
-skb and skb1, and I want to leave skb untouched (otherwise 
-I will mess up the book-keeping in tcp_read_sock). But skb_split 
-is a good template- I think it could even be extended to avoid copying
-the frags that we'd later trim off in rds_tcp_data_recv anyway, 
-let me see what I can come up with, based on that code.
+> > Joe Perches <joe@perches.com> wrote:
+> > > It might be better to remove kenter and _enter
+> > > altogether and use function tracing instead.
+> > Possibly - but not at this time.
+> 
+> Swell.
 
-> Really, pskb_expand_head() is not supposed to copy payload ;)
+I didn't say I wouldn't do it - it's just that I'm trying to fix other stuff
+at the moment and don't particularly want to add that to the list just now.
+kenter, _enter and co. are serving me very well.
 
-That would make my world very easy! But it has callers from all
-over the kernel, e.g., skb_realloc_headroom, and changing it is
-obviously risky
+> > Besides, isn't the function tracing log lost
+> > if the machine crashes?
+> 
+> I believe yes, but would it matter?
+
+Let's see...  If the machine panics whilst I'm developing stuff (quite likely
+if something goes wrong in BH context), how do I get at the function tracing
+log to find out why it panicked if the log is then lost?  With the serial
+console, at least I automatically capture the output of kenter and co..
+
+David
