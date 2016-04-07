@@ -1,50 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/9] rxrpc: Disable a debugging statement that has been
- left enabled.
-Date: Thu, 07 Apr 2016 13:38:43 -0400 (EDT)
-Message-ID: <20160407.133843.156901424652264502.davem@davemloft.net>
-References: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
-	<20160407162309.21283.11482.stgit@warthog.procyon.org.uk>
-	<1460046677.6715.95.camel@perches.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH RFC 1/5] net: phy: sun8i-h3-ephy: Add bindings for
+ Allwinner H3 Ethernet PHY
+Date: Thu, 7 Apr 2016 12:57:25 -0500
+Message-ID: <20160407175725.GG32257@rob-hp-laptop>
+References: <1459786954-12649-1-git-send-email-wens@csie.org>
+ <1459786954-12649-2-git-send-email-wens@csie.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460046677.6715.95.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>, Pawel Moll <pawel.moll@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, LABBE Corentin <clabbe.montjoie@gmail.com>,
+ Kumar Gala <galak@codeaurora.org>,
+ Maxime Ripard <maxime.ripard@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Chen-Yu Tsai <wens@csie.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1459786954-12649-2-git-send-email-wens@csie.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Joe Perches <joe@perches.com>
-Date: Thu, 07 Apr 2016 09:31:17 -0700
+On Tue, Apr 05, 2016 at 12:22:30AM +0800, Chen-Yu Tsai wrote:
+> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
+> configured through a memory mapped hardware register.
+> 
+> This same register also configures the MAC interface mode and TX clock
+> source. Also covered by the register, but not supported in these bindings,
+> are TX/RX clock delay chains and inverters, and an RMII module.
+> 
+> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+> ---
+>  .../bindings/net/allwinner,sun8i-h3-ephy.txt       | 44 ++++++++++++++++++++++
+>  1 file changed, 44 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
 
-> On Thu, 2016-04-07 at 17:23 +0100, David Howells wrote:
->> Disable a debugging statement that has been left enabled
->>=20
->> Signed-off-by: David Howells <dhowells@redhat.com>
->> ---
->>=20
->> =A0net/rxrpc/ar-ack.c |=A0=A0=A0=A02 +-
->> =A01 file changed, 1 insertion(+), 1 deletion(-)
->>=20
->> diff --git a/net/rxrpc/ar-ack.c b/net/rxrpc/ar-ack.c
->> index 16d967075eaf..01a017a05f14 100644
->> --- a/net/rxrpc/ar-ack.c
->> +++ b/net/rxrpc/ar-ack.c
->> @@ -426,7 +426,7 @@ static void rxrpc_rotate_tx_window(struct rxrpc_=
-call *call, u32 hard)
->> =A0	int tail =3D call->acks_tail, old_tail;
->> =A0	int win =3D CIRC_CNT(call->acks_head, tail, call->acks_winsz);
->> =A0
->> -	kenter("{%u,%u},%u", call->acks_hard, win, hard);
->> +	_enter("{%u,%u},%u", call->acks_hard, win, hard);
->> =A0
->> =A0	ASSERTCMP(hard - call->acks_hard, <=3D, win);
->=20
-> It might be better to remove kenter and _enter
-> altogether and use function tracing instead.
-
-Yeah this custom stuff is really inappropriate given the excellent
-infrastructure we have these days...
+Acked-by: Rob Herring <robh@kernel.org>
