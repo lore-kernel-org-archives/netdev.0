@@ -1,169 +1,55 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 5/5] Documentation: Add documentation for TSO and
- GSO features
-Date: Fri, 08 Apr 2016 16:33:37 -0400
-Message-ID: <20160408203337.12838.69667.stgit@ahduyck-xeon-server>
-References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH] net: thunderx: Fix broken of_node_put() code.
+Date: Fri, 8 Apr 2016 13:34:26 -0700
+Message-ID: <570815D2.5050608@caviumnetworks.com>
+References: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com> <5707DF3F.3000508@caviumnetworks.com> <20160408.161557.850174112269792582.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33636 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758934AbcDHUdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:33:46 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 184so82225072pff.0
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 13:33:41 -0700 (PDT)
-In-Reply-To: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <rric@kernel.org>,
+	<sgoutham@cavium.com>, <david.daney@cavium.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160408.161557.850174112269792582.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This document is a starting point for defining the TSO and GSO features.
-The whole thing is starting to get a bit messy so I wanted to make sure we
-have notes somwhere to start describing what does and doesn't work.
+On 04/08/2016 01:15 PM, David Miller wrote:
+> From: David Daney <ddaney@caviumnetworks.com>
+> Date: Fri, 8 Apr 2016 09:41:35 -0700
+>
+>> Due to mail server malfunction, this patch was sent twice.  Please
+>> ignore this duplicate.
+>
+> This submission had another problem too.
+>
+> Do not use the date of your commit as the date that gets put into
+> your email headers.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- Documentation/networking/segmentation-offloads.txt |  130 ++++++++++++++++++++
- 1 file changed, 130 insertions(+)
- create mode 100644 Documentation/networking/segmentation-offloads.txt
+I don't.  This is standard git-send-email 1.7.11.7.
 
-diff --git a/Documentation/networking/segmentation-offloads.txt b/Documentation/networking/segmentation-offloads.txt
-new file mode 100644
-index 000000000000..f200467ade38
---- /dev/null
-+++ b/Documentation/networking/segmentation-offloads.txt
-@@ -0,0 +1,130 @@
-+Segmentation Offloads in the Linux Networking Stack
-+
-+Introduction
-+============
-+
-+This document describes a set of techniques in the Linux networking stack
-+to take advantage of segmentation offload capabilities of various NICs.
-+
-+The following technologies are described:
-+ * TCP Segmentation Offload - TSO
-+ * UDP Fragmentation Offload - UFO
-+ * IPIP, SIT, GRE, and UDP Tunnel Offloads
-+ * Generic Segmentation Offload - GSO
-+ * Generic Receive Offload - GRO
-+ * Partial Generic Segmentation Offload - GSO_PARTIAL
-+
-+TCP Segmentation Offload
-+========================
-+
-+TCP segmentation allows a device to segment a single frame into multiple
-+frames with a data payload size specified in skb_shinfo()->gso_size.
-+When TCP segmentation requested the bit for either SKB_GSO_TCP or
-+SKB_GSO_TCP6 should be set in skb_shinfo()->gso_type and
-+skb_shinfo()->gso_size should be set to a non-zero value.
-+
-+TCP segmentation is dependent on support for the use of partial checksum
-+offload.  For this reason TSO is normally disabled if the Tx checksum
-+offload for a given device is disabled.
-+
-+In order to support TCP segmentation offload it is necessary to populate
-+the network and transport header offsets of the skbuff so that the device
-+drivers will be able determine the offsets of the IP or IPv6 header and the
-+TCP header.  In addition as CHECKSUM_PARTIAL is required csum_start should
-+also point to the TCP header of the packet.
-+
-+For IPv4 segmentation we support one of two types in terms of the IP ID.
-+The default behavior is to increment the IP ID with every segment.  If the
-+GSO type SKB_GSO_TCP_FIXEDID is specified then we will not increment the IP
-+ID and all segments will use the same IP ID.  If a device has
-+NETIF_F_TSO_MANGLEID set then the IP ID can be ignored when performing TSO
-+and we will either increment the IP ID for all frames, or leave it at a
-+static value based on driver preference.
-+
-+UDP Fragmentation Offload
-+=========================
-+
-+UDP fragmentation offload allows a device to fragment an oversized UDP
-+datagram into multiple IPv4 fragments.  Many of the requirements for UDP
-+fragmentation offload are the same as TSO.  However the IPv4 ID for
-+fragments should not increment as a single IPv4 datagram is fragmented.
-+
-+IPIP, SIT, GRE, UDP Tunnel, and Remote Checksum Offloads
-+========================================================
-+
-+In addition to the offloads described above it is possible for a frame to
-+contain additional headers such as an outer tunnel.  In order to account
-+for such instances an additional set of segmentation offload types were
-+introduced including SKB_GSO_IPIP, SKB_GSO_SIT, SKB_GSO_GRE, and
-+SKB_GSO_UDP_TUNNEL.  These extra segmentation types are used to identify
-+cases where there are more than just 1 set of headers.  For example in the
-+case of IPIP and SIT we should have the network and transport headers moved
-+from the standard list of headers to "inner" header offsets.
-+
-+Currently only two levels of headers are supported.  The convention is to
-+refer to the tunnel headers as the outer headers, while the encapsulated
-+data is normally referred to as the inner headers.  Below is the list of
-+calls to access the given headers:
-+
-+IPIP/SIT Tunnel:
-+		Outer			Inner
-+MAC		skb_mac_header
-+Network		skb_network_header	skb_inner_network_header
-+Transport	skb_transport_header
-+
-+UDP/GRE Tunnel:
-+		Outer			Inner
-+MAC		skb_mac_header		skb_inner_mac_header
-+Network		skb_network_header	skb_inner_network_header
-+Transport	skb_transport_header	skb_inner_transport_header
-+
-+In addition to the above tunnel types there are also SKB_GSO_GRE_CSUM and
-+SKB_GSO_UDP_TUNNEL_CSUM.  These two additional tunnel types reflect the
-+fact that the outer header also requests to have a non-zero checksum
-+included in the outer header.
-+
-+Finally there is SKB_GSO_REMCSUM which indicates that a given tunnel header
-+has requested a remote checksum offload.  In this case the inner headers
-+will be left with a partial checksum and only the outer header checksum
-+will be computed.
-+
-+Generic Segmentation Offload
-+============================
-+
-+Generic segmentation offload is a pure software offload that is meant to
-+deal with cases where device drivers cannot perform the offloads described
-+above.  What occurs in GSO is that a given skbuff will have its data broken
-+out over multiple skbuffs that have been resized to match the MSS provided
-+via skb_shinfo()->gso_size.
-+
-+Before enabling any hardware segmentation offload a corresponding software
-+offload is required in GSO.  Otherwise it becomes possible for a frame to
-+be re-routed between devices and end up being unable to be transmitted.
-+
-+Generic Receive Offload
-+=======================
-+
-+Generic receive offload is the complement to GSO.  Ideally any frame
-+assembled by GRO should be segmented to create an identical sequence of
-+frames using GSO, and any sequence of frames segmented by GSO should be
-+able to be reassembled back to the original by GRO.  The only exception to
-+this is IPv4 ID in the case that the DF bit is set for a given IP header.
-+If the value of the IPv4 ID is not sequentially incrementing it will be
-+altered so that it is when a frame assembled via GRO is segmented via GSO.
-+
-+Partial Generic Segmentation Offload
-+====================================
-+
-+Partial generic segmentation offload is a hybrid between TSO and GSO.  What
-+it effectively does is take advantage of certain traits of TCP and tunnels
-+so that instead of having to rewrite the packet headers for each segment
-+only the inner-most transport header and possibly the outer-most network
-+header need to be updated.  This allows devices that do not support tunnel
-+offloads or tunnel offloads with checksum to still make use of segmentation.
-+
-+With the partial offload what occurs is that all headers excluding the
-+inner transport header are updated such that they will contain the correct
-+values for if the header was simply duplicated.  The one exception to this
-+is the outer IPv4 ID field.  It is up to the device drivers to guarantee
-+that the IPv4 ID field is incremented in the case that a given header does
-+not have the DF bit set.
+
+>
+> This makes all of your patch submissions look like they occurred in
+> the past, and this mixes up the ordering of patches in patchwork.
+
+
+They did occur in the past.  Just like all e-mail you read, they were 
+sent before you read them.
+
+I ran git-send-email for this on  Thu, 31 Mar 2016 18:01:57 -0700.  I 
+observed that the patch didn't seem to make it to the public lists, so I 
+figured I screwed something up and I sent it again, with the same results.
+
+Then I went on vacation, and came back today to sort everything out.  My 
+MTA had died, so I restarted it, and ... the backlog of messages was 
+sent and you read it.
+
+
+>
+> So please resubmit this properly with a normal, current, date in your
+> email headers.
+
+OK, I will resend the identical patch for the third time...
