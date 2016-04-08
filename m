@@ -1,75 +1,46 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH] net: thunderx: Fix broken of_node_put() code.
-Date: Fri,  8 Apr 2016 13:37:27 -0700
-Message-ID: <1460147847-6963-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Robert Richter <rric@kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	David Daney <david.daney@cavium.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] vxlan: synchronously and race-free destruction of
+ vxlan sockets
+Date: Fri, 08 Apr 2016 13:40:28 -0700
+Message-ID: <1460148028.6473.446.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460041060-8619-1-git-send-email-hannes@stressinduktion.org>
+	 <20160408185114.GA1920@localhost.localdomain>
+	 <570814EF.8060308@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:34633 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758837AbcDHUka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:40:30 -0400
+Received: by mail-pf0-f170.google.com with SMTP id c20so82204207pfc.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 13:40:30 -0700 (PDT)
+In-Reply-To: <570814EF.8060308@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On Fri, 2016-04-08 at 22:30 +0200, Hannes Frederic Sowa wrote:
+> Hi Marcelo,
+> ng rtnl?
+> 
+> I thought about that and try not to use synchronize_rcu, but I don't see 
+> any other way. Anyway, ndo_stop isn't really fast path and is used to 
+> shut the interface down. Also since we have lwtunnels we don't really 
+> need a lot of interfaces created and torn down.
+> 
+> But I could switch to synchronize_rcu_expedited here.
+> 
+> Also we have another synchronize_rcu during device dismantling, maybe we 
+> can split ndo_stop into two callbacks, one preparing for stopping and 
+> the other one after the synchronize_rcu when we safely can free resources.
+> 
+> I will investigate this but for the mean time I think this patch is 
+> already improving things as user space can bind the socket again when 
+> the dellink command returned.
 
-commit b7d3e3d3d21a ("net: thunderx: Don't leak phy device references
-on -EPROBE_DEFER condition.") incorrectly moved the call to
-of_node_put() outside of the loop.  Under normal loop exit, the node
-has already had of_node_put() called, so the extra call results in:
-
-[    8.228020] ERROR: Bad of_node_put() on /soc@0/pci@848000000000/mrml-bridge0@1,0/bgx0/xlaui00
-[    8.239433] CPU: 16 PID: 608 Comm: systemd-udevd Not tainted 4.6.0-rc1-numa+ #157
-[    8.247380] Hardware name: www.cavium.com EBB8800/EBB8800, BIOS 0.3 Mar  2 2016
-[    8.273541] Call trace:
-[    8.273550] [<fffffc0008097364>] dump_backtrace+0x0/0x210
-[    8.273557] [<fffffc0008097598>] show_stack+0x24/0x2c
-[    8.273560] [<fffffc0008399ed0>] dump_stack+0x8c/0xb4
-[    8.273566] [<fffffc00085aa828>] of_node_release+0xa8/0xac
-[    8.273570] [<fffffc000839cad8>] kobject_cleanup+0x8c/0x194
-[    8.273573] [<fffffc000839c97c>] kobject_put+0x44/0x6c
-[    8.273576] [<fffffc00085a9ab0>] of_node_put+0x24/0x30
-[    8.273587] [<fffffc0000bd0f74>] bgx_probe+0x17c/0xcd8 [thunder_bgx]
-[    8.273591] [<fffffc00083ed220>] pci_device_probe+0xa0/0x114
-[    8.273596] [<fffffc0008473fbc>] driver_probe_device+0x178/0x418
-[    8.273599] [<fffffc000847435c>] __driver_attach+0x100/0x118
-[    8.273602] [<fffffc0008471b58>] bus_for_each_dev+0x6c/0xac
-[    8.273605] [<fffffc0008473884>] driver_attach+0x30/0x38
-[    8.273608] [<fffffc00084732f4>] bus_add_driver+0x1f8/0x29c
-[    8.273611] [<fffffc0008475028>] driver_register+0x70/0x110
-[    8.273617] [<fffffc00083ebf08>] __pci_register_driver+0x60/0x6c
-[    8.273623] [<fffffc0000bf0040>] bgx_init_module+0x40/0x48 [thunder_bgx]
-[    8.273626] [<fffffc0008090d04>] do_one_initcall+0xcc/0x1c0
-[    8.273631] [<fffffc0008198abc>] do_init_module+0x68/0x1c8
-[    8.273635] [<fffffc0008125668>] load_module+0xf44/0x11f4
-[    8.273638] [<fffffc0008125b64>] SyS_finit_module+0xb8/0xe0
-[    8.273641] [<fffffc0008093b30>] el0_svc_naked+0x24/0x28
-
-Go back to the previous (correct) code that only did the extra
-of_node_put() call on early exit from the loop.
-
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 9679515..d20539a 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1011,10 +1011,11 @@ static int bgx_init_of_phy(struct bgx *bgx)
- 		}
- 
- 		lmac++;
--		if (lmac == MAX_LMAC_PER_BGX)
-+		if (lmac == MAX_LMAC_PER_BGX) {
-+			of_node_put(node);
- 			break;
-+		}
- 	}
--	of_node_put(node);
- 	return 0;
- 
- defer:
--- 
-1.8.3.1
+Of course, we have synchronize_net() which specifically put in a single
+point the knowledge (rtnl being held or not)
