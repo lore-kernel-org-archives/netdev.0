@@ -1,79 +1,27 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH] net: thunderx: Fix broken of_node_put() code.
-Date: Thu, 31 Mar 2016 18:01:57 -0700
-Message-ID: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Robert Richter <rric@kernel.org>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	David Daney <david.daney@cavium.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/18][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2016-04-07
+Date: Fri, 08 Apr 2016 12:32:57 -0400 (EDT)
+Message-ID: <20160408.123257.1955025316081400581.davem@davemloft.net>
+References: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35555 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753864AbcDHQ3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 12:29:02 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:34774 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825AbcDHQdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 12:33:03 -0400
+In-Reply-To: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu,  7 Apr 2016 20:20:55 -0700
 
-commit b7d3e3d3d21a ("net: thunderx: Don't leak phy device references
-on -EPROBE_DEFER condition.") incorrectly moved the call to
-of_node_put() outside of the loop.  Under normal loop exit, the node
-has already had of_node_put() called, so the extra call results in:
+> This series contains updates to ixgbe and ixgbevf.
 
-[    8.228020] ERROR: Bad of_node_put() on /soc@0/pci@848000000000/mrml-bridge0@1,0/bgx0/xlaui00
-[    8.239433] CPU: 16 PID: 608 Comm: systemd-udevd Not tainted 4.6.0-rc1-numa+ #157
-[    8.247380] Hardware name: www.cavium.com EBB8800/EBB8800, BIOS 0.3 Mar  2 2016
-[    8.273541] Call trace:
-[    8.273550] [<fffffc0008097364>] dump_backtrace+0x0/0x210
-[    8.273557] [<fffffc0008097598>] show_stack+0x24/0x2c
-[    8.273560] [<fffffc0008399ed0>] dump_stack+0x8c/0xb4
-[    8.273566] [<fffffc00085aa828>] of_node_release+0xa8/0xac
-[    8.273570] [<fffffc000839cad8>] kobject_cleanup+0x8c/0x194
-[    8.273573] [<fffffc000839c97c>] kobject_put+0x44/0x6c
-[    8.273576] [<fffffc00085a9ab0>] of_node_put+0x24/0x30
-[    8.273587] [<fffffc0000bd0f74>] bgx_probe+0x17c/0xcd8 [thunder_bgx]
-[    8.273591] [<fffffc00083ed220>] pci_device_probe+0xa0/0x114
-[    8.273596] [<fffffc0008473fbc>] driver_probe_device+0x178/0x418
-[    8.273599] [<fffffc000847435c>] __driver_attach+0x100/0x118
-[    8.273602] [<fffffc0008471b58>] bus_for_each_dev+0x6c/0xac
-[    8.273605] [<fffffc0008473884>] driver_attach+0x30/0x38
-[    8.273608] [<fffffc00084732f4>] bus_add_driver+0x1f8/0x29c
-[    8.273611] [<fffffc0008475028>] driver_register+0x70/0x110
-[    8.273617] [<fffffc00083ebf08>] __pci_register_driver+0x60/0x6c
-[    8.273623] [<fffffc0000bf0040>] bgx_init_module+0x40/0x48 [thunder_bgx]
-[    8.273626] [<fffffc0008090d04>] do_one_initcall+0xcc/0x1c0
-[    8.273631] [<fffffc0008198abc>] do_init_module+0x68/0x1c8
-[    8.273635] [<fffffc0008125668>] load_module+0xf44/0x11f4
-[    8.273638] [<fffffc0008125b64>] SyS_finit_module+0xb8/0xe0
-[    8.273641] [<fffffc0008093b30>] el0_svc_naked+0x24/0x28
-
-Go back to the previous (correct) code that only did the extra
-of_node_put() call on early exit from the loop.
-
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 9679515..d20539a 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -1011,10 +1011,11 @@ static int bgx_init_of_phy(struct bgx *bgx)
- 		}
- 
- 		lmac++;
--		if (lmac == MAX_LMAC_PER_BGX)
-+		if (lmac == MAX_LMAC_PER_BGX) {
-+			of_node_put(node);
- 			break;
-+		}
- 	}
--	of_node_put(node);
- 	return 0;
- 
- defer:
--- 
-1.8.3.1
+Pulled, thanks Jeff.
