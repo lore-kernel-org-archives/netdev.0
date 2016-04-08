@@ -1,89 +1,36 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2] route: do not cache fib route info on local routes
- with oif
-Date: Fri, 8 Apr 2016 22:14:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
-References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>
-To: Chris Friesen <chris.friesen@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33267 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753260AbcDHTOi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2016 15:14:38 -0400
-In-Reply-To: <5707C950.6060806@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emrah Demir <ed@abdsec.com>
+Subject: [PATCH] mISDN: Fixing missing validation in base_sock_bind()
+Date: Fri,  8 Apr 2016 22:16:11 +0300
+Message-ID: <1460142971-16459-1-git-send-email-ed@abdsec.com>
+Cc: netdev@vger.kernel.org, isdn@linux-pingi.de,
+	Emrah Demir <ed@abdsec.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Emrah Demir <ed@abdsec.com>
 
-	Hello,
+Add validation code into mISDN/socket.c
 
-On Fri, 8 Apr 2016, Chris Friesen wrote:
+Signed-off-by: Emrah Demir <ed@abdsec.com>
+---
+ drivers/isdn/mISDN/socket.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-> For local routes that require a particular output interface we do not want to
-> cache the result.  Caching the result causes incorrect behaviour when there
-> are
-> multiple source addresses on the interface.  The end result being that if the
-> intended recipient is waiting on that interface for the packet he won't
-> receive
-> it because it will be delivered on the loopback interface and the IP_PKTINFO
-> ipi_ifindex will be set to the loopback interface as well.
-> 
-> This can be tested by running a program such as "dhcp_release" which attempts
-> to inject a packet on a particular interface so that it is received by another
-> program on the same board.  The receiving process should see an IP_PKTINFO
-> ipi_ifndex value of the source interface (e.g., eth1) instead of the loopback
-> interface (e.g., lo).  The packet will still appear on the loopback interface
-> in tcpdump but the important aspect is that the CMSG info is correct.
-> 
-> Sample dhcp_release command line:
-> 
->    dhcp_release eth1 192.168.204.222 02:11:33:22:44:66
-> 
-> Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
-> Signed off-by: Chris Friesen <chris.friesen@windriver.com>
-> ---
->  net/ipv4/route.c | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 02c6229..437a377 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -2045,6 +2045,18 @@ static struct rtable *__mkroute_output(const struct
-> fib_result *res,
-
-	Your patch is corrupted. I was in the same trap
-some time ago but with different client:
-
->From Documentation/email-clients.txt:
-
-Don't send patches with "format=flowed".  This can cause unexpected
-and unwanted line breaks.
-
-	Anyways, the change looks good to me and I'll add my
-Reviewed-by tag the next time.
-
->  		*/
->  		if (fi && res->prefixlen < 4)
->  			fi = NULL;
-> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
-> +		   (orig_oif != dev_out->ifindex)) {
-> +		/* For local routes that require a particular output interface
-> +		 * we do not want to cache the result.  Caching the result
-> +		 * causes incorrect behaviour when there are multiple source
-> +		 * addresses on the interface, the end result being that if
-> the
-> +		 * intended recipient is waiting on that interface for the
-> +		 * packet he won't receive it because it will be delivered on
-> +		 * the loopback interface and the IP_PKTINFO ipi_ifindex will
-> +		 * be set to the loopback interface as well.
-> +		 */
-> +		fi = NULL;
->  	}
-> 
->  	fnhe = NULL;
-
-Regards
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index 0d29b5a..99e5f97 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -715,6 +715,9 @@ base_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
+ 	if (!maddr || maddr->family != AF_ISDN)
+ 		return -EINVAL;
+ 
++	if (addr_len < sizeof(struct sockaddr_mISDN))
++		return -EINVAL;
++
+ 	lock_sock(sk);
+ 
+ 	if (_pms(sk)->dev) {
+-- 
+2.8.0.rc3
