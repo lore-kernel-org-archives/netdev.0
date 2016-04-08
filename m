@@ -1,51 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Thu, 07 Apr 2016 18:15:09 -0700
-Message-ID: <1460078109.1800.16.camel@perches.com>
-References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by
+ an assignment in ath9k_htc_set_channel()
+Date: Fri, 8 Apr 2016 11:40:45 +1000
+Message-ID: <CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net> <5686C390.5060600@users.sourceforge.net>
+ <5686C47E.1040906@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: vkuznets@redhat.com
-To: Dexuan Cui <decui@microsoft.com>, gregkh@linuxfoundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
-	cavery@redhat.com, kys@microsoft.com, haiyangz@microsoft.com
+Content-Type: text/plain; charset=UTF-8
+Cc: ath9k-devel@lists.ath9k.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	SF Markus Elfring <elfring@users.sourceforge.net>,
+	kernel-janitors <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460079411-31982-1-git-send-email-decui@microsoft.com>
+In-Reply-To: <5686C47E.1040906@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-07 at 18:36 -0700, Dexuan Cui wrote:
-> Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
-> mechanism between the host and the guest. It's somewhat like TCP over
-> VMBus, but the transportation layer (VMBus) is much simpler than IP.
-[]
-> diff --git a/include/net/af_hvsock.h b/include/net/af_hvsock.h
-[]
-> +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV (5 * PAGE_SIZE)
-> +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_SEND (5 * PAGE_SIZE)
-> +
-> +#define HVSOCK_RCV_BUF_SZ	VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV
-> +#define HVSOCK_SND_BUF_SZ	PAGE_SIZE
-[]
-> +struct hvsock_sock {
-[]
-> +	struct {
-> +		struct vmpipe_proto_header hdr;
-> +		char buf[HVSOCK_SND_BUF_SZ];
-> +	} __packed send;
-> +
-> +	struct {
-> +		struct vmpipe_proto_header hdr;
-> +		char buf[HVSOCK_RCV_BUF_SZ];
-> +		unsigned int data_len;
-> +		unsigned int data_offset;
-> +	} __packed recv;
-> +};
+Hi Kalle,
 
-These bufs are not page aligned and so can span pages.
+On Sat, Jan 2, 2016 at 5:25 AM, SF Markus Elfring
+<elfring@users.sourceforge.net> wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 1 Jan 2016 19:09:32 +0100
+>
+> Replace an explicit initialisation for one local variable at the beginning
+> by a conditional assignment.
+>
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-Is there any value in allocating these bufs separately
-as pages instead of as a kmalloc?
+This looks sane to me.
+
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
+Thanks,
+
+Julian Calaby
+
+> ---
+>  drivers/net/wireless/ath/ath9k/htc_drv_main.c | 7 ++-----
+>  1 file changed, 2 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+> index a680a97..30bd59e 100644
+> --- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+> +++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
+> @@ -246,7 +246,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
+>         struct ieee80211_conf *conf = &common->hw->conf;
+>         bool fastcc;
+>         struct ieee80211_channel *channel = hw->conf.chandef.chan;
+> -       struct ath9k_hw_cal_data *caldata = NULL;
+> +       struct ath9k_hw_cal_data *caldata;
+>         enum htc_phymode mode;
+>         __be16 htc_mode;
+>         u8 cmd_rsp;
+> @@ -274,10 +274,7 @@ static int ath9k_htc_set_channel(struct ath9k_htc_priv *priv,
+>                 priv->ah->curchan->channel,
+>                 channel->center_freq, conf_is_ht(conf), conf_is_ht40(conf),
+>                 fastcc);
+> -
+> -       if (!fastcc)
+> -               caldata = &priv->caldata;
+> -
+> +       caldata = fastcc ? NULL : &priv->caldata;
+>         ret = ath9k_hw_reset(ah, hchan, caldata, fastcc);
+>         if (ret) {
+>                 ath_err(common,
+> --
+> 2.6.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
