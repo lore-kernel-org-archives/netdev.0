@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] devlink: share user_ptr pointer for both
- devlink and devlink_port
-Date: Fri, 08 Apr 2016 15:40:49 -0400 (EDT)
-Message-ID: <20160408.154049.2116825484232145586.davem@davemloft.net>
-References: <1460135568-16168-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: jiri@resnulli.us
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as possible
+Date: Fri,  8 Apr 2016 16:41:26 -0300
+Message-ID: <cover.1460144373.git.marcelo.leitner@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Jakub Sitnicki <jkbs@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36343 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750908AbcDHTkw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:40:52 -0400
-In-Reply-To: <1460135568-16168-1-git-send-email-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:55828 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758663AbcDHTlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 15:41:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  8 Apr 2016 19:12:48 +0200
+1st patch is a preparation for the 2nd. The idea is to not call
+->sk_data_ready() for every data chunk processed while processing
+packets but only once before releasing the socket.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ptr to devlink structure can be easily obtained from
-> devlink_port->devlink. So share user_ptr[0] pointer for both and leave
-> user_ptr[1] free for other users.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+v2: patchset re-checked, small changelog fixes
+v3: on patch 2, make use of local vars to make it more readable
 
-Applied, thanks again Jiri.
+Marcelo Ricardo Leitner (2):
+  sctp: compress bit-wide flags to a bitfield on sctp_sock
+  sctp: delay calls to sk_data_ready() as much as possible
+
+ include/net/sctp/structs.h | 13 +++++++------
+ net/sctp/sm_sideeffect.c   |  7 +++++++
+ net/sctp/ulpqueue.c        |  4 ++--
+ 3 files changed, 16 insertions(+), 8 deletions(-)
+
+-- 
+2.5.0
