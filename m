@@ -1,7 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 2/5] GSO: Add GSO type for fixed IPv4 ID
-Date: Fri, 08 Apr 2016 16:33:18 -0400
-Message-ID: <20160408203318.12838.59720.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH 5/5] Documentation: Add documentation for TSO and
+ GSO features
+Date: Fri, 08 Apr 2016 16:33:37 -0400
+Message-ID: <20160408203337.12838.69667.stgit@ahduyck-xeon-server>
 References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,260 +11,159 @@ To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
 	alexander.duyck@gmail.com, edumazet@google.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34116 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751244AbcDHUd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:33:27 -0400
-Received: by mail-pf0-f177.google.com with SMTP id c20so82106790pfc.1
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 13:33:22 -0700 (PDT)
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33636 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758934AbcDHUdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:33:46 -0400
+Received: by mail-pf0-f173.google.com with SMTP id 184so82225072pff.0
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 13:33:41 -0700 (PDT)
 In-Reply-To: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for TSO using IPv4 headers with a fixed IP ID
-field.  This is meant to allow us to do a lossless GRO in the case of TCP
-flows that use a fixed IP ID such as those that convert IPv6 header to IPv4
-headers.
-
-In addition I am adding a feature that for now I am referring to TSO with
-IP ID mangling.  Basically when this flag is enabled the device has the
-option to either output the flow with incrementing IP IDs or with a fixed
-IP ID regardless of what the original IP ID ordering was.  This is useful
-in cases where the DF bit is set and we do not care if the original IP ID
-value is maintained.
+This document is a starting point for defining the TSO and GSO features.
+The whole thing is starting to get a bit messy so I wanted to make sure we
+have notes somwhere to start describing what does and doesn't work.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- include/linux/netdev_features.h |    3 +++
- include/linux/netdevice.h       |    1 +
- include/linux/skbuff.h          |   20 +++++++++++---------
- net/core/dev.c                  |    6 ++++--
- net/core/ethtool.c              |    1 +
- net/ipv4/af_inet.c              |   19 +++++++++++--------
- net/ipv4/gre_offload.c          |    1 +
- net/ipv4/tcp_offload.c          |    4 +++-
- net/ipv6/ip6_offload.c          |    3 ++-
- 9 files changed, 37 insertions(+), 21 deletions(-)
+ Documentation/networking/segmentation-offloads.txt |  130 ++++++++++++++++++++
+ 1 file changed, 130 insertions(+)
+ create mode 100644 Documentation/networking/segmentation-offloads.txt
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index a734bf43d190..7cf272a4b5c8 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -39,6 +39,7 @@ enum {
- 	NETIF_F_UFO_BIT,		/* ... UDPv4 fragmentation */
- 	NETIF_F_GSO_ROBUST_BIT,		/* ... ->SKB_GSO_DODGY */
- 	NETIF_F_TSO_ECN_BIT,		/* ... TCP ECN support */
-+	NETIF_F_TSO_MANGLEID_BIT,	/* ... IPV4 ID mangling allowed */
- 	NETIF_F_TSO6_BIT,		/* ... TCPv6 segmentation */
- 	NETIF_F_FSO_BIT,		/* ... FCoE segmentation */
- 	NETIF_F_GSO_GRE_BIT,		/* ... GRE with TSO */
-@@ -120,6 +121,7 @@ enum {
- #define NETIF_F_GSO_SIT		__NETIF_F(GSO_SIT)
- #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
- #define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
-+#define NETIF_F_TSO_MANGLEID	__NETIF_F(TSO_MANGLEID)
- #define NETIF_F_GSO_TUNNEL_REMCSUM __NETIF_F(GSO_TUNNEL_REMCSUM)
- #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
- #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
-@@ -147,6 +149,7 @@ enum {
- 
- /* List of features with software fallbacks. */
- #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
-+				 NETIF_F_TSO_MANGLEID | \
- 				 NETIF_F_TSO6 | NETIF_F_UFO)
- 
- /* List of IP checksum features. Note that NETIF_F_ HW_CSUM should not be
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 166402ae3324..ffc12f565ed9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3994,6 +3994,7 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- 	BUILD_BUG_ON(SKB_GSO_UDP     != (NETIF_F_UFO >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_DODGY   != (NETIF_F_GSO_ROBUST >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_TCP_ECN != (NETIF_F_TSO_ECN >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_TCP_FIXEDID != (NETIF_F_TSO_MANGLEID >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_TCPV6   != (NETIF_F_TSO6 >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_FCOE    != (NETIF_F_FSO >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_GRE     != (NETIF_F_GSO_GRE >> NETIF_F_GSO_SHIFT));
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 007381270ff8..5fba16658f9d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -465,23 +465,25 @@ enum {
- 	/* This indicates the tcp segment has CWR set. */
- 	SKB_GSO_TCP_ECN = 1 << 3,
- 
--	SKB_GSO_TCPV6 = 1 << 4,
-+	SKB_GSO_TCP_FIXEDID = 1 << 4,
- 
--	SKB_GSO_FCOE = 1 << 5,
-+	SKB_GSO_TCPV6 = 1 << 5,
- 
--	SKB_GSO_GRE = 1 << 6,
-+	SKB_GSO_FCOE = 1 << 6,
- 
--	SKB_GSO_GRE_CSUM = 1 << 7,
-+	SKB_GSO_GRE = 1 << 7,
- 
--	SKB_GSO_IPIP = 1 << 8,
-+	SKB_GSO_GRE_CSUM = 1 << 8,
- 
--	SKB_GSO_SIT = 1 << 9,
-+	SKB_GSO_IPIP = 1 << 9,
- 
--	SKB_GSO_UDP_TUNNEL = 1 << 10,
-+	SKB_GSO_SIT = 1 << 10,
- 
--	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 11,
-+	SKB_GSO_UDP_TUNNEL = 1 << 11,
- 
--	SKB_GSO_TUNNEL_REMCSUM = 1 << 12,
-+	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 12,
+diff --git a/Documentation/networking/segmentation-offloads.txt b/Documentation/networking/segmentation-offloads.txt
+new file mode 100644
+index 000000000000..f200467ade38
+--- /dev/null
++++ b/Documentation/networking/segmentation-offloads.txt
+@@ -0,0 +1,130 @@
++Segmentation Offloads in the Linux Networking Stack
 +
-+	SKB_GSO_TUNNEL_REMCSUM = 1 << 13,
- };
- 
- #if BITS_PER_LONG > 32
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d51343a821ed..16def40dfbe8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6976,9 +6976,11 @@ int register_netdevice(struct net_device *dev)
- 	dev->features |= NETIF_F_SOFT_FEATURES;
- 	dev->wanted_features = dev->features & dev->hw_features;
- 
--	if (!(dev->flags & IFF_LOOPBACK)) {
-+	if (!(dev->flags & IFF_LOOPBACK))
- 		dev->hw_features |= NETIF_F_NOCACHE_COPY;
--	}
++Introduction
++============
 +
-+	if (dev->hw_features & NETIF_F_TSO)
-+		dev->hw_features |= NETIF_F_TSO_MANGLEID;
- 
- 	/* Make NETIF_F_HIGHDMA inheritable to VLAN devices.
- 	 */
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 6a7f99661c2f..9494c41cc77c 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -79,6 +79,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_UFO_BIT] =              "tx-udp-fragmentation",
- 	[NETIF_F_GSO_ROBUST_BIT] =       "tx-gso-robust",
- 	[NETIF_F_TSO_ECN_BIT] =          "tx-tcp-ecn-segmentation",
-+	[NETIF_F_TSO_MANGLEID_BIT] =	 "tx-tcp-mangleid-segmentation",
- 	[NETIF_F_TSO6_BIT] =             "tx-tcp6-segmentation",
- 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
- 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8217cd22f921..5bbea9a0ce96 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1195,10 +1195,10 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
- static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 					netdev_features_t features)
- {
-+	bool udpfrag = false, fixedid = false, encap;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	const struct net_offload *ops;
- 	unsigned int offset = 0;
--	bool udpfrag, encap;
- 	struct iphdr *iph;
- 	int proto;
- 	int nhoff;
-@@ -1217,6 +1217,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_TCPV6 |
- 		       SKB_GSO_UDP_TUNNEL |
- 		       SKB_GSO_UDP_TUNNEL_CSUM |
-+		       SKB_GSO_TCP_FIXEDID |
- 		       SKB_GSO_TUNNEL_REMCSUM |
- 		       0)))
- 		goto out;
-@@ -1248,11 +1249,14 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 
- 	segs = ERR_PTR(-EPROTONOSUPPORT);
- 
--	if (skb->encapsulation &&
--	    skb_shinfo(skb)->gso_type & (SKB_GSO_SIT|SKB_GSO_IPIP))
--		udpfrag = proto == IPPROTO_UDP && encap;
--	else
--		udpfrag = proto == IPPROTO_UDP && !skb->encapsulation;
-+	if (!skb->encapsulation || encap) {
-+		udpfrag = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP);
-+		fixedid = !!(skb_shinfo(skb)->gso_type & SKB_GSO_TCP_FIXEDID);
++This document describes a set of techniques in the Linux networking stack
++to take advantage of segmentation offload capabilities of various NICs.
 +
-+		/* fixed ID is invalid if DF bit is not set */
-+		if (fixedid && !(iph->frag_off & htons(IP_DF)))
-+			goto out;
-+	}
- 
- 	ops = rcu_dereference(inet_offloads[proto]);
- 	if (likely(ops && ops->callbacks.gso_segment))
-@@ -1265,12 +1269,11 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	do {
- 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
- 		if (udpfrag) {
--			iph->id = htons(id);
- 			iph->frag_off = htons(offset >> 3);
- 			if (skb->next)
- 				iph->frag_off |= htons(IP_MF);
- 			offset += skb->len - nhoff - ihl;
--		} else {
-+		} else if (!fixedid) {
- 			iph->id = htons(id++);
- 		}
- 		iph->tot_len = htons(skb->len - nhoff);
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index 6a5bd4317866..6376b0cdf693 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -32,6 +32,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 				  SKB_GSO_UDP |
- 				  SKB_GSO_DODGY |
- 				  SKB_GSO_TCP_ECN |
-+				  SKB_GSO_TCP_FIXEDID |
- 				  SKB_GSO_GRE |
- 				  SKB_GSO_GRE_CSUM |
- 				  SKB_GSO_IPIP |
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 773083b7f1e9..08dd25d835af 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -89,6 +89,7 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 			     ~(SKB_GSO_TCPV4 |
- 			       SKB_GSO_DODGY |
- 			       SKB_GSO_TCP_ECN |
-+			       SKB_GSO_TCP_FIXEDID |
- 			       SKB_GSO_TCPV6 |
- 			       SKB_GSO_GRE |
- 			       SKB_GSO_GRE_CSUM |
-@@ -98,7 +99,8 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 			       SKB_GSO_UDP_TUNNEL_CSUM |
- 			       SKB_GSO_TUNNEL_REMCSUM |
- 			       0) ||
--			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
-+			     !(type & (SKB_GSO_TCPV4 |
-+				       SKB_GSO_TCPV6))))
- 			goto out;
- 
- 		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 204af2219471..b3a779393d71 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -73,6 +73,8 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_UDP |
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
-+		       SKB_GSO_TCP_FIXEDID |
-+		       SKB_GSO_TCPV6 |
- 		       SKB_GSO_GRE |
- 		       SKB_GSO_GRE_CSUM |
- 		       SKB_GSO_IPIP |
-@@ -80,7 +82,6 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_UDP_TUNNEL |
- 		       SKB_GSO_UDP_TUNNEL_CSUM |
- 		       SKB_GSO_TUNNEL_REMCSUM |
--		       SKB_GSO_TCPV6 |
- 		       0)))
- 		goto out;
- 
++The following technologies are described:
++ * TCP Segmentation Offload - TSO
++ * UDP Fragmentation Offload - UFO
++ * IPIP, SIT, GRE, and UDP Tunnel Offloads
++ * Generic Segmentation Offload - GSO
++ * Generic Receive Offload - GRO
++ * Partial Generic Segmentation Offload - GSO_PARTIAL
++
++TCP Segmentation Offload
++========================
++
++TCP segmentation allows a device to segment a single frame into multiple
++frames with a data payload size specified in skb_shinfo()->gso_size.
++When TCP segmentation requested the bit for either SKB_GSO_TCP or
++SKB_GSO_TCP6 should be set in skb_shinfo()->gso_type and
++skb_shinfo()->gso_size should be set to a non-zero value.
++
++TCP segmentation is dependent on support for the use of partial checksum
++offload.  For this reason TSO is normally disabled if the Tx checksum
++offload for a given device is disabled.
++
++In order to support TCP segmentation offload it is necessary to populate
++the network and transport header offsets of the skbuff so that the device
++drivers will be able determine the offsets of the IP or IPv6 header and the
++TCP header.  In addition as CHECKSUM_PARTIAL is required csum_start should
++also point to the TCP header of the packet.
++
++For IPv4 segmentation we support one of two types in terms of the IP ID.
++The default behavior is to increment the IP ID with every segment.  If the
++GSO type SKB_GSO_TCP_FIXEDID is specified then we will not increment the IP
++ID and all segments will use the same IP ID.  If a device has
++NETIF_F_TSO_MANGLEID set then the IP ID can be ignored when performing TSO
++and we will either increment the IP ID for all frames, or leave it at a
++static value based on driver preference.
++
++UDP Fragmentation Offload
++=========================
++
++UDP fragmentation offload allows a device to fragment an oversized UDP
++datagram into multiple IPv4 fragments.  Many of the requirements for UDP
++fragmentation offload are the same as TSO.  However the IPv4 ID for
++fragments should not increment as a single IPv4 datagram is fragmented.
++
++IPIP, SIT, GRE, UDP Tunnel, and Remote Checksum Offloads
++========================================================
++
++In addition to the offloads described above it is possible for a frame to
++contain additional headers such as an outer tunnel.  In order to account
++for such instances an additional set of segmentation offload types were
++introduced including SKB_GSO_IPIP, SKB_GSO_SIT, SKB_GSO_GRE, and
++SKB_GSO_UDP_TUNNEL.  These extra segmentation types are used to identify
++cases where there are more than just 1 set of headers.  For example in the
++case of IPIP and SIT we should have the network and transport headers moved
++from the standard list of headers to "inner" header offsets.
++
++Currently only two levels of headers are supported.  The convention is to
++refer to the tunnel headers as the outer headers, while the encapsulated
++data is normally referred to as the inner headers.  Below is the list of
++calls to access the given headers:
++
++IPIP/SIT Tunnel:
++		Outer			Inner
++MAC		skb_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header
++
++UDP/GRE Tunnel:
++		Outer			Inner
++MAC		skb_mac_header		skb_inner_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header	skb_inner_transport_header
++
++In addition to the above tunnel types there are also SKB_GSO_GRE_CSUM and
++SKB_GSO_UDP_TUNNEL_CSUM.  These two additional tunnel types reflect the
++fact that the outer header also requests to have a non-zero checksum
++included in the outer header.
++
++Finally there is SKB_GSO_REMCSUM which indicates that a given tunnel header
++has requested a remote checksum offload.  In this case the inner headers
++will be left with a partial checksum and only the outer header checksum
++will be computed.
++
++Generic Segmentation Offload
++============================
++
++Generic segmentation offload is a pure software offload that is meant to
++deal with cases where device drivers cannot perform the offloads described
++above.  What occurs in GSO is that a given skbuff will have its data broken
++out over multiple skbuffs that have been resized to match the MSS provided
++via skb_shinfo()->gso_size.
++
++Before enabling any hardware segmentation offload a corresponding software
++offload is required in GSO.  Otherwise it becomes possible for a frame to
++be re-routed between devices and end up being unable to be transmitted.
++
++Generic Receive Offload
++=======================
++
++Generic receive offload is the complement to GSO.  Ideally any frame
++assembled by GRO should be segmented to create an identical sequence of
++frames using GSO, and any sequence of frames segmented by GSO should be
++able to be reassembled back to the original by GRO.  The only exception to
++this is IPv4 ID in the case that the DF bit is set for a given IP header.
++If the value of the IPv4 ID is not sequentially incrementing it will be
++altered so that it is when a frame assembled via GRO is segmented via GSO.
++
++Partial Generic Segmentation Offload
++====================================
++
++Partial generic segmentation offload is a hybrid between TSO and GSO.  What
++it effectively does is take advantage of certain traits of TCP and tunnels
++so that instead of having to rewrite the packet headers for each segment
++only the inner-most transport header and possibly the outer-most network
++header need to be updated.  This allows devices that do not support tunnel
++offloads or tunnel offloads with checksum to still make use of segmentation.
++
++With the partial offload what occurs is that all headers excluding the
++inner transport header are updated such that they will contain the correct
++values for if the header was simply duplicated.  The one exception to this
++is the outer IPv4 ID field.  It is up to the device drivers to guarantee
++that the IPv4 ID field is incremented in the case that a given header does
++not have the DF bit set.
