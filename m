@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tuntap: restore default qdisc
-Date: Fri, 08 Apr 2016 15:53:24 -0400 (EDT)
-Message-ID: <20160408.155324.1589940627843005867.davem@davemloft.net>
-References: <1460093208-4364-1-git-send-email-jasowang@redhat.com>
+From: Chris Friesen <chris.friesen@windriver.com>
+Subject: Re: [PATCH v2] route: do not cache fib route info on local routes
+ with oif
+Date: Fri, 8 Apr 2016 14:06:37 -0600
+Message-ID: <57080F4D.7040101@windriver.com>
+References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com> <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, phil@nwl.cc
-To: jasowang@redhat.com
+Cc: netdev <netdev@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36420 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090AbcDHTx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:53:27 -0400
-In-Reply-To: <1460093208-4364-1-git-send-email-jasowang@redhat.com>
+Received: from mail.windriver.com ([147.11.1.11]:55138 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754160AbcDHUGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:06:52 -0400
+In-Reply-To: <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri,  8 Apr 2016 13:26:48 +0800
+On 04/08/2016 01:14 PM, Julian Anastasov wrote:
 
-> After commit f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using
-> alloc_netdev"), default qdisc was changed to noqueue because
-> tuntap does not set tx_queue_len during .setup(). This patch restores
-> default qdisc by setting tx_queue_len in tun_setup().
-> 
-> Fixes: f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using alloc_netdev")
-> Cc: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> 	Your patch is corrupted. I was in the same trap
+> some time ago but with different client:
+>
+>  From Documentation/email-clients.txt:
+>
+> Don't send patches with "format=flowed".  This can cause unexpected
+> and unwanted line breaks.
+>
+> 	Anyways, the change looks good to me and I'll add my
+> Reviewed-by tag the next time.
 
-Applied and queued up for -stable, thanks Jason.
+
+Doh...forgot to turn off word wrapping.  New patch coming.
+
+Chris
