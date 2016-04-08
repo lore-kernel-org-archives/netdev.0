@@ -1,46 +1,20 @@
-From: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Subject: Re: [PATCH net-next v2] macvlan: Support interface operstate properly
-Date: Fri, 8 Apr 2016 01:03:14 +0000
-Message-ID: <79B09DA9-65D1-405A-BF6F-A46E9FBEE74F@akamai.com>
-References: <1459982173-791-1-git-send-email-dbanerje@akamai.com>
- <57063EDD.3040406@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 00/10] allow bpf attach to tracepoints
+Date: Thu, 07 Apr 2016 21:04:57 -0400 (EDT)
+Message-ID: <20160407.210457.12977515510954360.davem@davemloft.net>
+References: <1459993411-2754735-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:60888 "EHLO
-	prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753186AbcDHBDT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 21:03:19 -0400
-In-Reply-To: <57063EDD.3040406@cumulusnetworks.com>
-Content-Language: en-US
-Content-ID: <08AC513ADA3BFD48823EBBD2A9B511C7@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rostedt@goodmis.org, peterz@infradead.org, mingo@kernel.org,
+	daniel@iogearbox.net, acme@infradead.org, wangnan0@huawei.com,
+	jbacik@fb.com, brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459993411-2754735-1-git-send-email-ast@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gNC83LzE2LCA3OjA1IEFNLCAiTmlrb2xheSBBbGVrc2FuZHJvdiIgPG5pa29sYXlAY3VtdWx1
-c25ldHdvcmtzLmNvbT4gd3JvdGU6DQoNCg0KDQo+T24gMDQvMDcvMjAxNiAxMjozNiBBTSwgRGVi
-YWJyYXRhIEJhbmVyamVlIHdyb3RlOg0KPj4gU2V0IGFwcHJvcHJpYXRlIG1hY3ZsYW4gaW50ZXJm
-YWNlIHN0YXR1cyBiYXNlZCBvbiBsb3dlciBkZXZpY2UgYW5kIG91cg0KPj4gc3RhdHVzLiBDYW4g
-YmUgdXAsIGRvd24sIG9yIGxvd2VybGF5ZXJkb3duLg0KPldoYXQgYWJvdXQgZG9ybWFudCA/DQo+
-DQo+VGhhdCBiZWluZyBzYWlkIEkgdW5kZXJzdGFuZCB0aGUgbmVlZCB0byBzd2l0Y2ggdG8gbG93
-ZXJsYXllcmRvd24gd2hlbiB0aGUgbG93ZXINCj5kZXZpY2UgaXMgaW4gImRvd24iLCB3aGljaCBp
-cyBiYXNpY2FsbHkgdGhlIG1vc3QgaW1wb3J0YW50IGNoYW5nZSBvZiB0aGlzIHBhdGNoLg0KPlRo
-ZSByZXN0IGlzIGFscmVhZHkgaGFuZGxlZCBieSBsaW5rIHdhdGNoIGJhc2VkIG9uIGNhcnJpZXIg
-c3RhdGUuIEJ5IG5vdyBwZW9wbGUNCj5hcmUgdXNlZCB0byBoYXZpbmcgbG93ZXJsYXllcmRvd24g
-d2hlbiB0aGVyZSdzIG5vIGNhcnJpZXIsIG5vdyBpdCBjYW4gYWxzbyBtZWFuDQo+dGhhdCB0aGUg
-bG93ZXIgZGV2aWNlIGhhcyBiZWVuIGJyb3VnaHQgYWRtaW4gZG93bi4NCj4NCj5IZXJlJ3MgYW5v
-dGhlciBpbnRlcmVzdGluZyBzdGF0ZToNCj42OiBtYWMxQGV0aDI6IDxOTy1DQVJSSUVSLEJST0FE
-Q0FTVCxNVUxUSUNBU1QsVVAsTE9XRVJfVVAsRE9STUFOVCxNLURPV04+IG10dSAxNTAwIHFkaXNj
-IG5vcXVldWUgc3RhdGUgTE9XRVJMQVlFUkRPV04gbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQg
-cWxlbiAxMDAwDQo+UHJpb3IgdG8gdGhpcyBwYXRjaCB0aGUgbWFjdmxhbiB3b3VsZCBzdGF5IGlu
-IGRvcm1hbnQgc3RhdGUgYW5kIGl0IHdpbGwgYWxzbyBwcm9wYWdhdGUNCj50byBkZXZpY2VzIHN0
-YWNrZWQgb24gdG9wIG9mIGl0Lg0KDQpUaGUgbm8gY2FycmllciBpc3N1ZSBnYXZlIG1lIGFuIGlk
-ZWEuIFdoYXQgaWYgd2UganVzdCBzZXQgbm8gY2FycmllciBvbiB0aGUgbWFjdmxhbiBkZXZpY2U/
-DQpUaGlzIHNlZW1zIGFwcHJvcHJpYXRlLCBidXQgaXQgZG9lc24ndCBkaXJlY3RseSBhZGRyZXNz
-IHRoZSBkb3JtYW50IGlzc3VlLCBhbHRob3VnaCB0aGF0IGNvdWxkDQpiZSBhIHNlcGFyYXRlIHBh
-dGNoLiBXaWxsIHRoaXMgY2F1c2UgYW55IG5ldyBpc3N1ZXM/IEl0J3MgdmVyeSBzaW1wbGUsIG5l
-dyBwYXRjaCBpbmNvbWluZy4NCg0KDQo=
+
+Series applied, thanks Alexei.
