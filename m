@@ -1,33 +1,25 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] iproute2: tc_bpf.c: fix building with musl libc
-Date: Fri, 08 Apr 2016 15:14:37 +0200
-Message-ID: <5707AEBD.4050101@iogearbox.net>
-References: <1460120373-32096-1-git-send-email-gustavo@zacarias.com.ar>
+From: " Nawal" <sd@hfhfghf.jp.tn>
+Subject: Please get back to me.
+Date: Fri, 8 Apr 2016 14:29:42 +0100
+Message-ID: <BN3PR18MB06251793D0751C81545796F484910@BN3PR18MB0625.namprd18.prod.outlook.com>
+Reply-To: <nawaldenison@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Gustavo Zacarias <gustavo@zacarias.com.ar>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <sd@hfhfghf.jp.tn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46759 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754297AbcDHNOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 09:14:45 -0400
-In-Reply-To: <1460120373-32096-1-git-send-email-gustavo@zacarias.com.ar>
+Received: from mail-bl2hn0250.outbound.protection.outlook.com ([65.55.169.250]:19616
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755378AbcDHNaN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 09:30:13 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2016 02:59 PM, Gustavo Zacarias wrote:
-> We need limits.h for PATH_MAX, fixes:
->
-> tc_bpf.c: In function =E2=80=98bpf_map_selfcheck_pinned=E2=80=99:
-> tc_bpf.c:222:12: error: =E2=80=98PATH_MAX=E2=80=99 undeclared (first =
-use in this
-> function)
->    char file[PATH_MAX], buff[4096];
->
-> Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Hi, my name is Nawal denison, i need your assistance to move my family
+out of Egypt to your country due to the conflict and killings going on here . I have $3. million dollars. which i will use to Establish A
+viable joint company with you for your help, attach is my pic and my daughter
 
-=46ine with me, thanks!
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Thank you.
+Nawal denison
