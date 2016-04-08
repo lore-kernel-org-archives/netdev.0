@@ -1,79 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Sat, 09 Apr 2016 01:25:03 +0300
-Message-ID: <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org
-To: nicolas.ferre@atmel.com, netdev@vger.kernel.org
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH 1/2] RDS: fix endianness for dp_ack_seq
+Date: Fri,  8 Apr 2016 15:26:39 -0700
+Message-ID: <1460154400-14546-2-git-send-email-santosh.shilimkar@oracle.com>
+References: <1460154400-14546-1-git-send-email-santosh.shilimkar@oracle.com>
+Cc: linux-kernel@vger.kernel.org,
+	Santosh Shilimkar <santosh.shilimkar@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+In-Reply-To: <1460154400-14546-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With  the 'phylib' now  being aware of  the "reset-gpios" PHY node property,
-there should be no need to frob the PHY reset in this  driver anymore...
+From: Qing Huang <qing.huang@oracle.com>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+dp->dp_ack_seq is used in big endian format. We need to do the
+big endianness conversion when we assign a value in host format
+to it.
 
+Signed-off-by: Qing Huang <qing.huang@oracle.com>
+Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   17 -----------------
- drivers/net/ethernet/cadence/macb.h |    1 -
- 2 files changed, 18 deletions(-)
+ net/rds/ib_cm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: net-next/drivers/net/ethernet/cadence/macb.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/cadence/macb.c
-+++ net-next/drivers/net/ethernet/cadence/macb.c
-@@ -2884,7 +2884,6 @@ static int macb_probe(struct platform_de
- 					      = macb_clk_init;
- 	int (*init)(struct platform_device *) = macb_init;
- 	struct device_node *np = pdev->dev.of_node;
--	struct device_node *phy_node;
- 	const struct macb_config *macb_config = NULL;
- 	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
- 	unsigned int queue_mask, num_queues;
-@@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
- 	else
- 		macb_get_hwaddr(bp);
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 8764970..310cabc 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -194,7 +194,7 @@ static void rds_ib_cm_fill_conn_param(struct rds_connection *conn,
+ 		dp->dp_protocol_major = RDS_PROTOCOL_MAJOR(protocol_version);
+ 		dp->dp_protocol_minor = RDS_PROTOCOL_MINOR(protocol_version);
+ 		dp->dp_protocol_minor_mask = cpu_to_be16(RDS_IB_SUPPORTED_PROTOCOLS);
+-		dp->dp_ack_seq = rds_ib_piggyb_ack(ic);
++		dp->dp_ack_seq = cpu_to_be64(rds_ib_piggyb_ack(ic));
  
--	/* Power up the PHY if there is a GPIO reset */
--	phy_node =  of_get_next_available_child(np, NULL);
--	if (phy_node) {
--		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
--
--		if (gpio_is_valid(gpio)) {
--			bp->reset_gpio = gpio_to_desc(gpio);
--			gpiod_direction_output(bp->reset_gpio, 1);
--		}
--	}
--	of_node_put(phy_node);
--
- 	err = of_get_phy_mode(np);
- 	if (err < 0) {
- 		pdata = dev_get_platdata(&pdev->dev);
-@@ -3054,10 +3041,6 @@ static int macb_remove(struct platform_d
- 		mdiobus_unregister(bp->mii_bus);
- 		mdiobus_free(bp->mii_bus);
- 
--		/* Shutdown the PHY if there is a GPIO reset */
--		if (bp->reset_gpio)
--			gpiod_set_value(bp->reset_gpio, 0);
--
- 		unregister_netdev(dev);
- 		clk_disable_unprepare(bp->tx_clk);
- 		clk_disable_unprepare(bp->hclk);
-Index: net-next/drivers/net/ethernet/cadence/macb.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/cadence/macb.h
-+++ net-next/drivers/net/ethernet/cadence/macb.h
-@@ -832,7 +832,6 @@ struct macb {
- 	unsigned int		dma_burst_length;
- 
- 	phy_interface_t		phy_interface;
--	struct gpio_desc	*reset_gpio;
- 
- 	/* AT91RM9200 transmit */
- 	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
+ 		/* Advertise flow control */
+ 		if (ic->i_flowctl) {
+-- 
+1.9.1
