@@ -1,180 +1,114 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/5] mlxsw: reg: Share direction enum between SBPR, SBCM, SBPM
-Date: Fri,  8 Apr 2016 17:45:24 +0200
-Message-ID: <1460130325-14931-5-git-send-email-jiri@resnulli.us>
-References: <1460130325-14931-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/2] devlink: share user_ptr pointer for both devlink and devlink_port
+Date: Fri,  8 Apr 2016 17:47:17 +0200
+Message-ID: <1460130437-15015-2-git-send-email-jiri@resnulli.us>
+References: <1460130437-15015-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34236 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757825AbcDHPpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 11:45:45 -0400
-Received: by mail-wm0-f66.google.com with SMTP id n3so5300217wmn.1
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 08:45:39 -0700 (PDT)
-In-Reply-To: <1460130325-14931-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36672 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756456AbcDHPrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 11:47:22 -0400
+Received: by mail-wm0-f68.google.com with SMTP id l6so5284154wml.3
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 08:47:21 -0700 (PDT)
+In-Reply-To: <1460130437-15015-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Same field, same values, so share the same enum.
+Ptr to devlink structure can be easily obtained from
+devlink_port->devlink. So share user_ptr[0] pointer for both and leave
+user_ptr[1] free for other users.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h          | 23 +++++++---------------
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 20 +++++++++----------
- 2 files changed, 17 insertions(+), 26 deletions(-)
+ net/core/devlink.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 28f5b99..19bdc82 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3476,9 +3476,10 @@ static const struct mlxsw_reg_info mlxsw_reg_sbpr = {
- 	.len = MLXSW_REG_SBPR_LEN,
- };
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 44f880d..b84cf0d 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -119,7 +119,8 @@ static struct devlink_port *devlink_port_get_from_info(struct devlink *devlink,
+ 	return devlink_port_get_from_attrs(devlink, info->attrs);
+ }
  
--enum mlxsw_reg_sbpr_dir {
--	MLXSW_REG_SBPR_DIR_INGRESS,
--	MLXSW_REG_SBPR_DIR_EGRESS,
-+/* shared direstion enum for SBPR, SBCM, SBPM */
-+enum mlxsw_reg_sbxx_dir {
-+	MLXSW_REG_SBXX_DIR_INGRESS,
-+	MLXSW_REG_SBXX_DIR_EGRESS,
- };
+-#define DEVLINK_NL_FLAG_NEED_PORT	BIT(0)
++#define DEVLINK_NL_FLAG_NEED_DEVLINK	BIT(0)
++#define DEVLINK_NL_FLAG_NEED_PORT	BIT(1)
  
- /* reg_sbpr_dir
-@@ -3511,7 +3512,7 @@ enum mlxsw_reg_sbpr_mode {
- MLXSW_ITEM32(reg, sbpr, mode, 0x08, 0, 4);
- 
- static inline void mlxsw_reg_sbpr_pack(char *payload, u8 pool,
--				       enum mlxsw_reg_sbpr_dir dir,
-+				       enum mlxsw_reg_sbxx_dir dir,
- 				       enum mlxsw_reg_sbpr_mode mode, u32 size)
- {
- 	MLXSW_REG_ZERO(sbpr, payload);
-@@ -3553,11 +3554,6 @@ MLXSW_ITEM32(reg, sbcm, local_port, 0x00, 16, 8);
-  */
- MLXSW_ITEM32(reg, sbcm, pg_buff, 0x00, 8, 6);
- 
--enum mlxsw_reg_sbcm_dir {
--	MLXSW_REG_SBCM_DIR_INGRESS,
--	MLXSW_REG_SBCM_DIR_EGRESS,
--};
--
- /* reg_sbcm_dir
-  * Direction.
-  * Access: Index
-@@ -3590,7 +3586,7 @@ MLXSW_ITEM32(reg, sbcm, max_buff, 0x1C, 0, 24);
- MLXSW_ITEM32(reg, sbcm, pool, 0x24, 0, 4);
- 
- static inline void mlxsw_reg_sbcm_pack(char *payload, u8 local_port, u8 pg_buff,
--				       enum mlxsw_reg_sbcm_dir dir,
-+				       enum mlxsw_reg_sbxx_dir dir,
- 				       u32 min_buff, u32 max_buff, u8 pool)
- {
- 	MLXSW_REG_ZERO(sbcm, payload);
-@@ -3630,11 +3626,6 @@ MLXSW_ITEM32(reg, sbpm, local_port, 0x00, 16, 8);
-  */
- MLXSW_ITEM32(reg, sbpm, pool, 0x00, 8, 4);
- 
--enum mlxsw_reg_sbpm_dir {
--	MLXSW_REG_SBPM_DIR_INGRESS,
--	MLXSW_REG_SBPM_DIR_EGRESS,
--};
--
- /* reg_sbpm_dir
-  * Direction.
-  * Access: Index
-@@ -3661,7 +3652,7 @@ MLXSW_ITEM32(reg, sbpm, min_buff, 0x18, 0, 24);
- MLXSW_ITEM32(reg, sbpm, max_buff, 0x1C, 0, 24);
- 
- static inline void mlxsw_reg_sbpm_pack(char *payload, u8 local_port, u8 pool,
--				       enum mlxsw_reg_sbpm_dir dir,
-+				       enum mlxsw_reg_sbxx_dir dir,
- 				       u32 min_buff, u32 max_buff)
- {
- 	MLXSW_REG_ZERO(sbpm, payload);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index 97c8d53..f58b1d3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -110,7 +110,7 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
- 
- struct mlxsw_sp_sb_pool {
- 	u8 pool;
--	enum mlxsw_reg_sbpr_dir dir;
-+	enum mlxsw_reg_sbxx_dir dir;
- 	enum mlxsw_reg_sbpr_mode mode;
- 	u32 size;
- };
-@@ -129,11 +129,11 @@ struct mlxsw_sp_sb_pool {
+ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 			       struct sk_buff *skb, struct genl_info *info)
+@@ -132,8 +133,9 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 		mutex_unlock(&devlink_mutex);
+ 		return PTR_ERR(devlink);
  	}
+-	info->user_ptr[0] = devlink;
+-	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
++	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_DEVLINK) {
++		info->user_ptr[0] = devlink;
++	} else if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
+ 		struct devlink_port *devlink_port;
  
- #define MLXSW_SP_SB_POOL_INGRESS(_pool, _size)			\
--	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBPR_DIR_INGRESS,	\
-+	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
- 			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
- 
- #define MLXSW_SP_SB_POOL_EGRESS(_pool, _size)			\
--	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBPR_DIR_EGRESS,	\
-+	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
- 			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
- 
- static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools[] = {
-@@ -173,7 +173,7 @@ struct mlxsw_sp_sb_cm {
- 		u8 pg;
- 		u8 tc;
- 	} u;
--	enum mlxsw_reg_sbcm_dir dir;
-+	enum mlxsw_reg_sbxx_dir dir;
- 	u32 min_buff;
- 	u32 max_buff;
- 	u8 pool;
-@@ -189,15 +189,15 @@ struct mlxsw_sp_sb_cm {
+ 		mutex_lock(&devlink_port_mutex);
+@@ -143,7 +145,7 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 			mutex_unlock(&devlink_mutex);
+ 			return PTR_ERR(devlink_port);
+ 		}
+-		info->user_ptr[1] = devlink_port;
++		info->user_ptr[0] = devlink_port;
  	}
+ 	return 0;
+ }
+@@ -356,8 +358,8 @@ out:
+ static int devlink_nl_cmd_port_get_doit(struct sk_buff *skb,
+ 					struct genl_info *info)
+ {
+-	struct devlink *devlink = info->user_ptr[0];
+-	struct devlink_port *devlink_port = info->user_ptr[1];
++	struct devlink_port *devlink_port = info->user_ptr[0];
++	struct devlink *devlink = devlink_port->devlink;
+ 	struct sk_buff *msg;
+ 	int err;
  
- #define MLXSW_SP_SB_CM_INGRESS(_pg, _min_buff, _max_buff)		\
--	MLXSW_SP_SB_CM(_pg, MLXSW_REG_SBCM_DIR_INGRESS,			\
-+	MLXSW_SP_SB_CM(_pg, MLXSW_REG_SBXX_DIR_INGRESS,			\
- 		       _min_buff, _max_buff, 0)
+@@ -436,8 +438,8 @@ static int devlink_port_type_set(struct devlink *devlink,
+ static int devlink_nl_cmd_port_set_doit(struct sk_buff *skb,
+ 					struct genl_info *info)
+ {
+-	struct devlink *devlink = info->user_ptr[0];
+-	struct devlink_port *devlink_port = info->user_ptr[1];
++	struct devlink_port *devlink_port = info->user_ptr[0];
++	struct devlink *devlink = devlink_port->devlink;
+ 	int err;
  
- #define MLXSW_SP_SB_CM_EGRESS(_tc, _min_buff, _max_buff)		\
--	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBCM_DIR_EGRESS,			\
-+	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS,			\
- 		       _min_buff, _max_buff, 0)
- 
- #define MLXSW_SP_CPU_PORT_SB_CM_EGRESS(_tc)				\
--	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBCM_DIR_EGRESS, 104, 2, 3)
-+	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS, 104, 2, 3)
- 
- static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms[] = {
- 	MLXSW_SP_SB_CM_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(10000), 8),
-@@ -304,7 +304,7 @@ static int mlxsw_sp_cpu_port_sb_cms_init(struct mlxsw_sp *mlxsw_sp)
- 
- struct mlxsw_sp_sb_pm {
- 	u8 pool;
--	enum mlxsw_reg_sbpm_dir dir;
-+	enum mlxsw_reg_sbxx_dir dir;
- 	u32 min_buff;
- 	u32 max_buff;
+ 	if (info->attrs[DEVLINK_ATTR_PORT_TYPE]) {
+@@ -511,6 +513,7 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.doit = devlink_nl_cmd_get_doit,
+ 		.dumpit = devlink_nl_cmd_get_dumpit,
+ 		.policy = devlink_nl_policy,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 		/* can be retrieved by unprivileged users */
+ 	},
+ 	{
+@@ -533,12 +536,14 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.doit = devlink_nl_cmd_port_split_doit,
+ 		.policy = devlink_nl_policy,
+ 		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 	},
+ 	{
+ 		.cmd = DEVLINK_CMD_PORT_UNSPLIT,
+ 		.doit = devlink_nl_cmd_port_unsplit_doit,
+ 		.policy = devlink_nl_policy,
+ 		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 	},
  };
-@@ -318,11 +318,11 @@ struct mlxsw_sp_sb_pm {
- 	}
  
- #define MLXSW_SP_SB_PM_INGRESS(_pool, _min_buff, _max_buff)	\
--	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBPM_DIR_INGRESS,	\
-+	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
- 		       _min_buff, _max_buff)
- 
- #define MLXSW_SP_SB_PM_EGRESS(_pool, _min_buff, _max_buff)	\
--	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBPM_DIR_EGRESS,	\
-+	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
- 		       _min_buff, _max_buff)
- 
- static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms[] = {
 -- 
 2.5.5
