@@ -1,130 +1,176 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/18] ixgbe: Add definitions for x550em_a 10G MAC
-Date: Thu,  7 Apr 2016 20:21:03 -0700
-Message-ID: <1460085673-87056-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/18] ixgbe: Add support for SGMII backplane interface
+Date: Thu,  7 Apr 2016 20:21:11 -0700
+Message-ID: <1460085673-87056-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:63152 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5938 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756958AbcDHDVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 23:21:20 -0400
+	id S932281AbcDHDVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 23:21:24 -0400
 In-Reply-To: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Add definitions for a x550em_a 10G MAC device with a native SFP
-interface.
+Add support for an SGMII backplane interface.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  9 +++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 58 +++++++++++++++++++++++++++
+ 3 files changed, 69 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 93db4bf..c96af3f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -132,6 +132,8 @@ static const struct pci_device_id ixgbe_pci_tbl[] = {
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_10G_T), board_X550EM_x},
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_SFP), board_X550EM_x},
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SFP_N), board_x550em_a },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SGMII), board_x550em_a },
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SGMII_L), board_x550em_a },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SFP), board_x550em_a },
+ 	/* required last entry */
+ 	{0, }
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index bd95be2..b505da3 100644
+index fbbc132..50e8bc0 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -81,16 +81,18 @@
- #define IXGBE_DEV_ID_X550EM_X_SFP	0x15AC
+@@ -82,6 +82,8 @@
  #define IXGBE_DEV_ID_X550EM_X_10G_T	0x15AD
  #define IXGBE_DEV_ID_X550EM_X_1G_T	0x15AE
-+#define IXGBE_DEV_ID_X550EM_A_SFP_N	0x15C4
-+
-+/* VF Device IDs */
- #define IXGBE_DEV_ID_X550_VF_HV	0x1564
- #define IXGBE_DEV_ID_X550_VF		0x1565
- #define IXGBE_DEV_ID_X550EM_X_VF	0x15A8
- #define IXGBE_DEV_ID_X550EM_X_VF_HV	0x15A9
--
--/* VF Device IDs */
- #define IXGBE_DEV_ID_82599_VF           0x10ED
- #define IXGBE_DEV_ID_X540_VF            0x1515
- #define IXGBE_DEV_ID_X550_VF		0x1565
- #define IXGBE_DEV_ID_X550EM_X_VF	0x15A8
-+#define IXGBE_DEV_ID_X550EM_A_VF	0x15C5
+ #define IXGBE_DEV_ID_X550EM_A_SFP_N	0x15C4
++#define IXGBE_DEV_ID_X550EM_A_SGMII	0x15C6
++#define IXGBE_DEV_ID_X550EM_A_SGMII_L	0x15C7
+ #define IXGBE_DEV_ID_X550EM_A_SFP	0x15CE
  
- #define IXGBE_CAT(r, m)	IXGBE_##r##_##m
- 
-@@ -129,7 +131,7 @@
- #define IXGBE_FLA_X540		IXGBE_FLA_8259X
- #define IXGBE_FLA_X550		IXGBE_FLA_8259X
- #define IXGBE_FLA_X550EM_x	IXGBE_FLA_8259X
--#define IXGBE_FLA_X550EM_a	0x15F6C
-+#define IXGBE_FLA_X550EM_a	0x15F68
- #define IXGBE_FLA(_hw)		IXGBE_BY_MAC((_hw), FLA)
- #define IXGBE_EEMNGCTL  0x10110
- #define IXGBE_EEMNGDATA 0x10114
-@@ -369,6 +371,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_MRCTL(_i)      (0x0F600 + ((_i) * 4))
- #define IXGBE_VMRVLAN(_i)    (0x0F610 + ((_i) * 4))
- #define IXGBE_VMRVM(_i)      (0x0F630 + ((_i) * 4))
-+#define IXGBE_WQBR_RX(_i)    (0x2FB0 + ((_i) * 4)) /* 4 total */
-+#define IXGBE_WQBR_TX(_i)    (0x8130 + ((_i) * 4)) /* 4 total */
- #define IXGBE_L34T_IMIR(_i)  (0x0E800 + ((_i) * 4)) /*128 of these (0-127)*/
- #define IXGBE_RXFECCERR0         0x051B8
- #define IXGBE_LLITHRESH 0x0EC90
-@@ -440,6 +444,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_DMATXCTL_TE       0x1 /* Transmit Enable */
- #define IXGBE_DMATXCTL_NS       0x2 /* No Snoop LSO hdr buffer */
- #define IXGBE_DMATXCTL_GDV      0x8 /* Global Double VLAN */
-+#define IXGBE_DMATXCTL_MDP_EN   0x20 /* Bit 5 */
-+#define IXGBE_DMATXCTL_MBINTEN  0x40 /* Bit 6 */
- #define IXGBE_DMATXCTL_VT_SHIFT 16  /* VLAN EtherType */
- 
- #define IXGBE_PFDTXGSWC_VT_LBEN 0x1 /* Local L2 VT switch enable */
-@@ -548,7 +554,6 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_TDPT2TCCR(_i)     (0x0CD20 + ((_i) * 4)) /* 8 of these (0-7) */
- #define IXGBE_TDPT2TCSR(_i)     (0x0CD40 + ((_i) * 4)) /* 8 of these (0-7) */
- 
--
- /* Security Control Registers */
- #define IXGBE_SECTXCTRL         0x08800
- #define IXGBE_SECTXSTAT         0x08804
-@@ -1197,6 +1202,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_RDRXCTL_RSCLLIDIS     0x00800000 /* Disable RSC compl on LLI */
- #define IXGBE_RDRXCTL_RSCACKC       0x02000000 /* must set 1 when RSC enabled */
- #define IXGBE_RDRXCTL_FCOE_WRFIX    0x04000000 /* must set 1 when RSC enabled */
-+#define IXGBE_RDRXCTL_MBINTEN       0x10000000
-+#define IXGBE_RDRXCTL_MDP_EN        0x20000000
- 
- /* RQTC Bit Masks and Shifts */
- #define IXGBE_RQTC_SHIFT_TC(_i)     ((_i) * 4)
-@@ -1951,7 +1958,9 @@ enum {
- #define IXGBE_GSSR_PHY1_SM		0x0004
- #define IXGBE_GSSR_MAC_CSR_SM		0x0008
- #define IXGBE_GSSR_FLASH_SM		0x0010
-+#define IXGBE_GSSR_NVM_UPDATE_SM	0x0200
- #define IXGBE_GSSR_SW_MNG_SM		0x0400
-+#define IXGBE_GSSR_TOKEN_SM	0x40000000 /* SW bit for shared access */
- #define IXGBE_GSSR_SHARED_I2C_SM	0x1806 /* Wait for both phys & I2Cs */
- #define IXGBE_GSSR_I2C_MASK		0x1800
- #define IXGBE_GSSR_NVM_PHY_MASK		0xF
-@@ -2524,6 +2533,10 @@ enum ixgbe_fdir_pballoc_type {
- #define IXGBE_FDIRCTRL_REPORT_STATUS_ALWAYS     0x00000080
- #define IXGBE_FDIRCTRL_DROP_Q_SHIFT             8
- #define IXGBE_FDIRCTRL_FLEX_SHIFT               16
-+#define IXGBE_FDIRCTRL_DROP_NO_MATCH		0x00008000
-+#define IXGBE_FDIRCTRL_FILTERMODE_SHIFT		21
-+#define IXGBE_FDIRCTRL_FILTERMODE_MACVLAN	0x0001 /* bit 23:21, 001b */
-+#define IXGBE_FDIRCTRL_FILTERMODE_CLOUD		0x0002 /* bit 23:21, 010b */
- #define IXGBE_FDIRCTRL_SEARCHLIM                0x00800000
- #define IXGBE_FDIRCTRL_MAX_LENGTH_SHIFT         24
- #define IXGBE_FDIRCTRL_FULL_THRESH_MASK         0xF0000000
-@@ -2982,6 +2995,7 @@ enum ixgbe_mac_type {
- 	ixgbe_mac_X540,
- 	ixgbe_mac_X550,
- 	ixgbe_mac_X550EM_x,
-+	ixgbe_mac_x550em_a,
- 	ixgbe_num_macs
+ /* VF Device IDs */
+@@ -3065,6 +3067,7 @@ enum ixgbe_phy_type {
+ 	ixgbe_phy_qsfp_intel,
+ 	ixgbe_phy_qsfp_unknown,
+ 	ixgbe_phy_sfp_unsupported,
++	ixgbe_phy_sgmii,
+ 	ixgbe_phy_generic
  };
  
+@@ -3582,6 +3585,7 @@ struct ixgbe_info {
+ #define IXGBE_KRM_LINK_CTRL_1(P)	((P) ? 0x820C : 0x420C)
+ #define IXGBE_KRM_AN_CNTL_1(P)		((P) ? 0x822C : 0x422C)
+ #define IXGBE_KRM_AN_CNTL_8(P)		((P) ? 0x8248 : 0x4248)
++#define IXGBE_KRM_SGMII_CTRL(P)		((P) ? 0x82A0 : 0x42A0)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_4(P)	((P) ? 0x8634 : 0x4634)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_5(P)	((P) ? 0x8638 : 0x4638)
+ #define IXGBE_KRM_RX_TRN_LINKUP_CTRL(P)	((P) ? 0x8B00 : 0x4B00)
+@@ -3595,6 +3599,8 @@ struct ixgbe_info {
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_FORCE_SPEED_MASK	(0x7 << 8)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_FORCE_SPEED_1G	(2 << 8)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_FORCE_SPEED_10G	(4 << 8)
++#define IXGBE_KRM_LINK_CTRL_1_TETH_AN_SGMII_EN		BIT(12)
++#define IXGBE_KRM_LINK_CTRL_1_TETH_AN_CLAUSE_37_EN	BIT(13)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_FEC_REQ		(1 << 14)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_FEC		(1 << 15)
+ #define IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KX		(1 << 16)
+@@ -3610,6 +3616,9 @@ struct ixgbe_info {
+ #define IXGBE_KRM_AN_CNTL_8_LINEAR			BIT(0)
+ #define IXGBE_KRM_AN_CNTL_8_LIMITING			BIT(1)
+ 
++#define IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_100_D	BIT(12)
++#define IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_10_D		BIT(19)
++
+ #define IXGBE_KRM_DSP_TXFFE_STATE_C0_EN			(1 << 6)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_CP1_CN1_EN		(1 << 15)
+ #define IXGBE_KRM_DSP_TXFFE_STATE_CO_ADAPT_EN		(1 << 16)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index a9d86b3..81e5d54 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1558,6 +1558,57 @@ static s32 ixgbe_check_link_t_X550em(struct ixgbe_hw *hw,
+ 	return 0;
+ }
+ 
++/**
++ * ixgbe_setup_sgmii - Set up link for sgmii
++ * @hw: pointer to hardware structure
++ */
++static s32
++ixgbe_setup_sgmii(struct ixgbe_hw *hw, __always_unused ixgbe_link_speed speed,
++		  __always_unused bool autoneg_wait_to_complete)
++{
++	struct ixgbe_mac_info *mac = &hw->mac;
++	u32 lval, sval;
++	s32 rc;
++
++	rc = mac->ops.read_iosf_sb_reg(hw,
++				       IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
++				       IXGBE_SB_IOSF_TARGET_KR_PHY, &lval);
++	if (rc)
++		return rc;
++
++	lval &= ~IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE;
++	lval &= ~IXGBE_KRM_LINK_CTRL_1_TETH_FORCE_SPEED_MASK;
++	lval |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_SGMII_EN;
++	lval |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_CLAUSE_37_EN;
++	lval |= IXGBE_KRM_LINK_CTRL_1_TETH_FORCE_SPEED_1G;
++	rc = mac->ops.write_iosf_sb_reg(hw,
++					IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
++					IXGBE_SB_IOSF_TARGET_KR_PHY, lval);
++	if (rc)
++		return rc;
++
++	rc = mac->ops.read_iosf_sb_reg(hw,
++				       IXGBE_KRM_SGMII_CTRL(hw->bus.lan_id),
++				       IXGBE_SB_IOSF_TARGET_KR_PHY, &sval);
++	if (rc)
++		return rc;
++
++	sval |= IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_10_D;
++	sval |= IXGBE_KRM_SGMII_CTRL_MAC_TAR_FORCE_100_D;
++	rc = mac->ops.write_iosf_sb_reg(hw,
++					IXGBE_KRM_SGMII_CTRL(hw->bus.lan_id),
++					IXGBE_SB_IOSF_TARGET_KR_PHY, sval);
++	if (rc)
++		return rc;
++
++	lval |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_RESTART;
++	rc = mac->ops.write_iosf_sb_reg(hw,
++					IXGBE_KRM_LINK_CTRL_1(hw->bus.lan_id),
++					IXGBE_SB_IOSF_TARGET_KR_PHY, lval);
++
++	return rc;
++}
++
+ /** ixgbe_init_mac_link_ops_X550em - init mac link function pointers
+  *  @hw: pointer to hardware structure
+  **/
+@@ -1597,6 +1648,9 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ 		mac->ops.check_link = ixgbe_check_link_t_X550em;
+ 		return;
+ 	case ixgbe_media_type_backplane:
++		if (hw->device_id == IXGBE_DEV_ID_X550EM_A_SGMII ||
++		    hw->device_id == IXGBE_DEV_ID_X550EM_A_SGMII_L)
++			mac->ops.setup_link = ixgbe_setup_sgmii;
+ 		break;
+ 	default:
+ 		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
+@@ -2377,6 +2431,10 @@ static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
+ 
+ 	/* Detect if there is a copper PHY attached. */
+ 	switch (hw->device_id) {
++	case IXGBE_DEV_ID_X550EM_A_SGMII:
++	case IXGBE_DEV_ID_X550EM_A_SGMII_L:
++		hw->phy.type = ixgbe_phy_sgmii;
++		/* Fallthrough */
+ 	case IXGBE_DEV_ID_X550EM_X_KR:
+ 	case IXGBE_DEV_ID_X550EM_X_KX4:
+ 		media_type = ixgbe_media_type_backplane;
 -- 
 2.5.5
