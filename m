@@ -1,76 +1,41 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Fri, 8 Apr 2016 01:56:06 +0000
-Message-ID: <BLUPR03MB1410C2ECCBDEFC62CDA9928CBF910@BLUPR03MB1410.namprd03.prod.outlook.com>
-References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
- <1460078109.1800.16.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: Count in extension headers in
+ skb->network_header
+Date: Thu, 07 Apr 2016 22:44:55 -0400 (EDT)
+Message-ID: <20160407.224455.695892175098979019.davem@davemloft.net>
+References: <4697d0324d0b4313cbc2053b49ac85ec955b81cb.1459872592.git.jkbs@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>, "gregkh@linuxfoundation.org"
- <gregkh@linuxfoundation.org>, "davem@davemloft.net" <davem@davemloft.net>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>, "cavery@redhat.com"
- <cavery@redhat.com>, KY Srinivasan <kys@microsoft.com>, Haiyang Zhang
- <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1460078109.1800.16.camel@perches.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jiji@redhat.com, hannes@stressinduktion.org
+To: jkbs@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbcDHCo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 22:44:59 -0400
+In-Reply-To: <4697d0324d0b4313cbc2053b49ac85ec955b81cb.1459872592.git.jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Joe Perches [mailto:joe@perches.com]
-> Sent: Friday, April 8, 2016 9:15
-> On Thu, 2016-04-07 at 18:36 -0700, Dexuan Cui wrote:
-> > diff --git a/include/net/af_hvsock.h b/include/net/af_hvsock.h
-> []
-> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV (5 * PAGE_SIZE)
-> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_SEND (5 * PAGE_SIZE)
-> > +
-> > +#define HVSOCK_RCV_BUF_SZ
-> 	VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV
-> > +#define HVSOCK_SND_BUF_SZ	PAGE_SIZE
-> []
-> > +struct hvsock_sock {
-> []
-> > +	struct {
-> > +		struct vmpipe_proto_header hdr;
-> > +		char buf[HVSOCK_SND_BUF_SZ];
-> > +	} __packed send;
-> > +
-> > +	struct {
-> > +		struct vmpipe_proto_header hdr;
-> > +		char buf[HVSOCK_RCV_BUF_SZ];
-> > +		unsigned int data_len;
-> > +		unsigned int data_offset;
-> > +	} __packed recv;
-> > +};
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Tue,  5 Apr 2016 18:41:08 +0200
+
+> When sending a UDPv6 message longer than MTU, account for the length
+> of fragmentable IPv6 extension headers in skb->network_header offset.
+> Same as we do in alloc_new_skb path in __ip6_append_data().
 > 
-> These bufs are not page aligned and so can span pages.
+> This ensures that later on __ip6_make_skb() will make space in
+> headroom for fragmentable extension headers:
 > 
-> Is there any value in allocating these bufs separately
-> as pages instead of as a kmalloc?
+> 	/* move skb->data to ip header from ext header */
+> 	if (skb->data < skb_network_header(skb))
+> 		__skb_pull(skb, skb_network_offset(skb));
+> 
+> Prevents a splat due to skb_under_panic:
+ ...
+> Reported-by: Ji Jianwen <jiji@redhat.com>
+> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-The bufs are not required to be page aligned.
-Here the 'hdr' and the 'buf' must be consecutive, i.e., the 'buf' must be
-an array rather than a pointer: please see hvsock_send_data().
-
-It looks to me there is no big value to make sure the 'buf' is page
-aligned: on x86_64, at least it should already be 8-byte aligned due to the
-adjacent channel pointer, so memcpy_from_msg() should work
-enough good and in hvsock_send_data() -> vmbus_sendpacket(),
-we don't copy the 'buf'.
-
-Thanks,
--- Dexuan
+Applied and queued up for -stable, thanks.
