@@ -1,214 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/18] ixgbe: Clean up interface for firmware commands
-Date: Thu,  7 Apr 2016 20:20:59 -0700
-Message-ID: <1460085673-87056-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/18] ixgbe: Read and set instance id
+Date: Thu,  7 Apr 2016 20:21:07 -0700
+Message-ID: <1460085673-87056-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9519 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:63152 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756556AbcDHDVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 23:21:18 -0400
+	id S932076AbcDHDVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 23:21:21 -0400
 In-Reply-To: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Clean up the interface for issuing firmware commands to use a
-void * instead of a u32 *. This eliminates a number of casts.
-Also clean up ixgbe_host_interface_command in a few other ways,
-eliminating comparisons with 0, redundant parens and minor
-formatting issues.
+Read the instance number from EEPROM and save it for later use.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 39 +++++++++++++------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  4 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 13 ++++-----
- 3 files changed, 28 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 8 ++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 5 +++++
+ 2 files changed, 13 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index a2ca9ef..b8cdff7 100644
+index 11450bd..737443a 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3483,15 +3483,19 @@ static u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
-  *  Communicates with the manageability block.  On success return 0
-  *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-  **/
--s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
-+s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
- 				 u32 length, u32 timeout,
- 				 bool return_data)
+@@ -682,6 +682,7 @@ s32 ixgbe_get_bus_info_generic(struct ixgbe_hw *hw)
+ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw)
  {
--	u32 hicr, i, bi, fwsts;
- 	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
-+	u32 hicr, i, bi, fwsts;
- 	u16 buf_len, dword_len;
-+	union {
-+		struct ixgbe_hic_hdr hdr;
-+		u32 u32arr[1];
-+	} *bp = buffer;
+ 	struct ixgbe_bus_info *bus = &hw->bus;
++	u16 ee_ctrl_4;
+ 	u32 reg;
  
--	if (length == 0 || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
-+	if (!length || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
- 		hw_dbg(hw, "Buffer length failure buffersize-%d.\n", length);
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
-@@ -3502,26 +3506,25 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 
- 	/* Check that the host interface is enabled. */
- 	hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
--	if ((hicr & IXGBE_HICR_EN) == 0) {
-+	if (!(hicr & IXGBE_HICR_EN)) {
- 		hw_dbg(hw, "IXGBE_HOST_EN bit disabled.\n");
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
- 
- 	/* Calculate length in DWORDs. We must be DWORD aligned */
--	if ((length % (sizeof(u32))) != 0) {
-+	if (length % sizeof(u32)) {
- 		hw_dbg(hw, "Buffer length failure, not aligned to dword");
- 		return IXGBE_ERR_INVALID_ARGUMENT;
- 	}
- 
- 	dword_len = length >> 2;
- 
--	/*
--	 * The device driver writes the relevant command block
-+	/* The device driver writes the relevant command block
- 	 * into the ram area.
- 	 */
- 	for (i = 0; i < dword_len; i++)
- 		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_FLEX_MNG,
--				      i, cpu_to_le32(buffer[i]));
-+				      i, cpu_to_le32(bp->u32arr[i]));
- 
- 	/* Setting this bit tells the ARC that a new command is pending. */
- 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
-@@ -3534,8 +3537,8 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 	}
- 
- 	/* Check command successful completion. */
--	if ((timeout != 0 && i == timeout) ||
--	    (!(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV))) {
-+	if ((timeout && i == timeout) ||
-+	    !(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV)) {
- 		hw_dbg(hw, "Command has failed with no status valid.\n");
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
-@@ -3548,13 +3551,13 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 
- 	/* first pull in the header so we know the buffer length */
- 	for (bi = 0; bi < dword_len; bi++) {
--		buffer[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
--		le32_to_cpus(&buffer[bi]);
-+		bp->u32arr[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
-+		le32_to_cpus(&bp->u32arr[bi]);
- 	}
- 
- 	/* If there is any thing in data position pull it in */
--	buf_len = ((struct ixgbe_hic_hdr *)buffer)->buf_len;
--	if (buf_len == 0)
-+	buf_len = bp->hdr.buf_len;
-+	if (!buf_len)
- 		return 0;
- 
- 	if (length < round_up(buf_len, 4) + hdr_size) {
-@@ -3565,10 +3568,10 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
- 	/* Calculate length in DWORDs, add 3 for odd lengths */
- 	dword_len = (buf_len + 3) >> 2;
- 
--	/* Pull in the rest of the buffer (bi is where we left off)*/
-+	/* Pull in the rest of the buffer (bi is where we left off) */
- 	for (; bi <= dword_len; bi++) {
--		buffer[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
--		le32_to_cpus(&buffer[bi]);
-+		bp->u32arr[bi] = IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG, bi);
-+		le32_to_cpus(&bp->u32arr[bi]);
- 	}
- 
- 	return 0;
-@@ -3612,7 +3615,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 	fw_cmd.pad2 = 0;
- 
- 	for (i = 0; i <= FW_CEM_MAX_RETRIES; i++) {
--		ret_val = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
-+		ret_val = ixgbe_host_interface_command(hw, &fw_cmd,
- 						       sizeof(fw_cmd),
- 						       IXGBE_HI_COMMAND_TIMEOUT,
- 						       true);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 2e29015..6f8e6a5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -111,8 +111,8 @@ void ixgbe_set_vlan_anti_spoofing(struct ixgbe_hw *hw, bool enable, int vf);
- s32 ixgbe_get_device_caps_generic(struct ixgbe_hw *hw, u16 *device_caps);
- s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 				 u8 build, u8 ver);
--s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, u32 *buffer,
--				 u32 length, u32 timeout, bool return_data);
-+s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *, u32 length,
-+				 u32 timeout, bool return_data);
- void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- bool ixgbe_mng_present(struct ixgbe_hw *hw);
- bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 5affac1..65832fa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -437,8 +437,7 @@ static s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
- 	/* one word */
- 	buffer.length = cpu_to_be16(sizeof(u16));
- 
--	status = ixgbe_host_interface_command(hw, (u32 *)&buffer,
--					      sizeof(buffer),
-+	status = ixgbe_host_interface_command(hw, &buffer, sizeof(buffer),
- 					      IXGBE_HI_COMMAND_TIMEOUT, false);
- 	if (status)
- 		return status;
-@@ -488,7 +487,7 @@ static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
- 		buffer.address = cpu_to_be32((offset + current_word) * 2);
- 		buffer.length = cpu_to_be16(words_to_read * 2);
- 
--		status = ixgbe_host_interface_command(hw, (u32 *)&buffer,
-+		status = ixgbe_host_interface_command(hw, &buffer,
- 						      sizeof(buffer),
- 						      IXGBE_HI_COMMAND_TIMEOUT,
- 						      false);
-@@ -771,8 +770,7 @@ static s32 ixgbe_write_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
- 	buffer.data = data;
- 	buffer.address = cpu_to_be32(offset * 2);
- 
--	status = ixgbe_host_interface_command(hw, (u32 *)&buffer,
--					      sizeof(buffer),
-+	status = ixgbe_host_interface_command(hw, &buffer, sizeof(buffer),
- 					      IXGBE_HI_COMMAND_TIMEOUT, false);
- 	return status;
+ 	reg = IXGBE_READ_REG(hw, IXGBE_STATUS);
+@@ -692,6 +693,13 @@ void ixgbe_set_lan_id_multi_port_pcie(struct ixgbe_hw *hw)
+ 	reg = IXGBE_READ_REG(hw, IXGBE_FACTPS(hw));
+ 	if (reg & IXGBE_FACTPS_LFS)
+ 		bus->func ^= 0x1;
++
++	/* Get MAC instance from EEPROM for configuring CS4227 */
++	if (hw->device_id == IXGBE_DEV_ID_X550EM_A_SFP) {
++		hw->eeprom.ops.read(hw, IXGBE_EEPROM_CTRL_4, &ee_ctrl_4);
++		bus->instance_id = (ee_ctrl_4 & IXGBE_EE_CTRL_4_INST_ID) >>
++				   IXGBE_EE_CTRL_4_INST_ID_SHIFT;
++	}
  }
-@@ -814,8 +812,7 @@ static s32 ixgbe_update_flash_X550(struct ixgbe_hw *hw)
- 	buffer.req.buf_lenl = FW_SHADOW_RAM_DUMP_LEN;
- 	buffer.req.checksum = FW_DEFAULT_CHECKSUM;
  
--	status = ixgbe_host_interface_command(hw, (u32 *)&buffer,
--					      sizeof(buffer),
-+	status = ixgbe_host_interface_command(hw, &buffer, sizeof(buffer),
- 					      IXGBE_HI_COMMAND_TIMEOUT, false);
- 	return status;
- }
-@@ -864,7 +861,7 @@ static void ixgbe_disable_rx_x550(struct ixgbe_hw *hw)
- 		fw_cmd.hdr.checksum = FW_DEFAULT_CHECKSUM;
- 		fw_cmd.port_number = hw->bus.lan_id;
+ /**
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index ced38c1..a5c789e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -82,6 +82,7 @@
+ #define IXGBE_DEV_ID_X550EM_X_10G_T	0x15AD
+ #define IXGBE_DEV_ID_X550EM_X_1G_T	0x15AE
+ #define IXGBE_DEV_ID_X550EM_A_SFP_N	0x15C4
++#define IXGBE_DEV_ID_X550EM_A_SFP	0x15CE
  
--		status = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
-+		status = ixgbe_host_interface_command(hw, &fw_cmd,
- 					sizeof(struct ixgbe_hic_disable_rxen),
- 					IXGBE_HI_COMMAND_TIMEOUT, true);
+ /* VF Device IDs */
+ #define IXGBE_DEV_ID_X550_VF_HV	0x1564
+@@ -2000,6 +2001,9 @@ enum {
+ #define IXGBE_PBANUM_PTR_GUARD		0xFAFA
+ #define IXGBE_EEPROM_CHECKSUM		0x3F
+ #define IXGBE_EEPROM_SUM		0xBABA
++#define IXGBE_EEPROM_CTRL_4		0x45
++#define IXGBE_EE_CTRL_4_INST_ID		0x10
++#define IXGBE_EE_CTRL_4_INST_ID_SHIFT	4
+ #define IXGBE_PCIE_ANALOG_PTR		0x03
+ #define IXGBE_ATLAS0_CONFIG_PTR		0x04
+ #define IXGBE_PHY_PTR			0x04
+@@ -3175,6 +3179,7 @@ struct ixgbe_bus_info {
  
+ 	u8 func;
+ 	u8 lan_id;
++	u8 instance_id;
+ };
+ 
+ /* Flow control parameters */
 -- 
 2.5.5
