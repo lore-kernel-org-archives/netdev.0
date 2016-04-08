@@ -1,49 +1,65 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 2/5] GSO: Add GSO type for fixed IPv4 ID
-Date: Fri, 8 Apr 2016 15:12:22 -0700
-Message-ID: <CAKgT0Ud-m1i0n1Dnbagpkii8jDYb-Wq43UQi+Dvv6b585jcJnQ@mail.gmail.com>
-References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
-	<20160408203318.12838.59720.stgit@ahduyck-xeon-server>
-	<CAEh+42j21N+3ScmR9D9P3esgUL-G0kWxNT1x2zfGi_9M-bPKzw@mail.gmail.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
+Date: Fri, 8 Apr 2016 18:12:19 -0400
+Message-ID: <20160408181219.036c1216@gandalf.local.home>
+References: <1459831974-2891931-1-git-send-email-ast@fb.com>
+	<1459831974-2891931-2-git-send-email-ast@fb.com>
+	<20160405120626.GM3448@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <tom@herbertland.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jesse Gross <jesse@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:33364 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755131AbcDHWMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 18:12:23 -0400
-Received: by mail-ig0-f182.google.com with SMTP id kb1so45617058igb.0
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 15:12:23 -0700 (PDT)
-In-Reply-To: <CAEh+42j21N+3ScmR9D9P3esgUL-G0kWxNT1x2zfGi_9M-bPKzw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-team@fb.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160405120626.GM3448@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 8, 2016 at 2:41 PM, Jesse Gross <jesse@kernel.org> wrote:
-> On Fri, Apr 8, 2016 at 5:33 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch adds support for TSO using IPv4 headers with a fixed IP ID
->> field.  This is meant to allow us to do a lossless GRO in the case of TCP
->> flows that use a fixed IP ID such as those that convert IPv6 header to IPv4
->> headers.
->>
->> In addition I am adding a feature that for now I am referring to TSO with
->> IP ID mangling.  Basically when this flag is enabled the device has the
->> option to either output the flow with incrementing IP IDs or with a fixed
->> IP ID regardless of what the original IP ID ordering was.  This is useful
->> in cases where the DF bit is set and we do not care if the original IP ID
->> value is maintained.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->
-> I think SKB_GSO_TCP_FIXEDID would also need to be added to the list of
-> enumerated OK GSO types for MPLS GSO.
+On Tue, 5 Apr 2016 14:06:26 +0200
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-I'll have that fixed for v2.
+> On Mon, Apr 04, 2016 at 09:52:47PM -0700, Alexei Starovoitov wrote:
+> > avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
+> > It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
+> > with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc  
+> 
+> Its not actually allocated; but because its a static uninitialized
+> variable we get .bss like behaviour and the initial value is copied to
+> all CPUs when the per-cpu allocator thingy bootstraps SMP IIRC.
+> 
+> > and
+> > subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
+> > so we can safely drop memset from all of the above cases and   
+> 
+> Indeed.
+> 
+> > move it into
+> > perf_ftrace_function_call that calls it with stack allocated pt_regs.  
+> 
+> Hmm, is there a reason that's still on-stack instead of using the
+> per-cpu thing, Steve?
 
-- Alex
+Well, what do you do when you are tracing with regs in an interrupt
+that already set the per cpu regs field? We could create our own
+per-cpu one as well, but then that would require checking which level
+we are in, as we can have one for normal context, one for softirq
+context, one for irq context and one for nmi context.
+
+-- Steve
+
+
+
+> 
+> > Signed-off-by: Alexei Starovoitov <ast@kernel.org>  
+> 
+> In any case,
+> 
+> Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
