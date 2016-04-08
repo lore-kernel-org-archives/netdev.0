@@ -1,104 +1,79 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] ipv6: rework the lock in addrconf_permanent_addr
-Date: Fri,  8 Apr 2016 17:22:39 +0800
-Message-ID: <1460107359-8937-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH v2 2/5] net: add ndo to set bpf prog in adapter rx
+Date: Fri, 8 Apr 2016 11:38:58 +0200
+Message-ID: <20160408113858.4d39b274@redhat.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+	<1460090930-11219-2-git-send-email-bblanco@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
+	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
+	eranlinuxmellanox@gmail.com, lorenzo@google.com, brouer@redhat.com
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35282 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047AbcDHJWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 05:22:42 -0400
-Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
-	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u389MdhV011639
-	for <netdev@vger.kernel.org>; Fri, 8 Apr 2016 02:22:40 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:56138 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758004AbcDHJjV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 05:39:21 -0400
+In-Reply-To: <1460090930-11219-2-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
 
-1. nothing of idev is changed, so read lock is enough
-2. ifp is changed, so used ifp->lock or cmpxchg to protect it
+On Thu,  7 Apr 2016 21:48:47 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv6/addrconf.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
+> Add two new set/get netdev ops for drivers implementing the
+> BPF_PROG_TYPE_PHYS_DEV filter.
+> 
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+[...]
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index cb4e508..3acf732 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+[...]
+> @@ -1102,6 +1103,14 @@ struct tc_to_netdev {
+>   *	appropriate rx headroom value allows avoiding skb head copy on
+>   *	forward. Setting a negative value resets the rx headroom to the
+>   *	default value.
+> + * int  (*ndo_bpf_set)(struct net_device *dev, struct bpf_prog *prog);
+> + *	This function is used to set or clear a bpf program used in the
+> + *	earliest stages of packet rx. The prog will have been loaded as
+> + *	BPF_PROG_TYPE_PHYS_DEV. The callee is responsible for calling
+> + *	bpf_prog_put on any old progs that are stored, but not on the passed
+> + *	in prog.
+> + * bool (*ndo_bpf_get)(struct net_device *dev);
+> + *	This function is used to check if a bpf program is set on the device.
+>   *
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 27aed1a..f6e7605b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3184,14 +3184,21 @@ static void addrconf_gre_config(struct net_device *dev)
- static void l3mdev_check_host_rt(struct inet6_dev *idev,
- 				  struct inet6_ifaddr *ifp)
- {
-+	struct rt6_info *rt = NULL;
-+
-+	spin_lock(&ifp->lock);
- 	if (ifp->rt) {
- 		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
- 
- 		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
--			ip6_del_rt(ifp->rt);
-+			rt = ifp->rt;
- 			ifp->rt = NULL;
- 		}
- 	}
-+	spin_unlock(&ifp->lock);
-+
-+	if (rt)
-+		ip6_del_rt(rt);
- }
- #else
- static void l3mdev_check_host_rt(struct inet6_dev *idev,
-@@ -3203,6 +3210,8 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
- static int fixup_permanent_addr(struct inet6_dev *idev,
- 				struct inet6_ifaddr *ifp)
- {
-+	struct rt6_info *prev;
-+
- 	l3mdev_check_host_rt(idev, ifp);
- 
- 	if (!ifp->rt) {
-@@ -3212,7 +3221,12 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
- 		if (unlikely(IS_ERR(rt)))
- 			return PTR_ERR(rt);
- 
--		ifp->rt = rt;
-+		prev = cmpxchg(&ifp->rt, NULL, rt);
-+
-+		/*if cmpxchg failed*/
-+		if (prev) {
-+			ip6_rt_put(rt);
-+		}
- 	}
- 
- 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
-@@ -3234,21 +3248,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 	if (!idev)
- 		return;
- 
--	write_lock_bh(&idev->lock);
-+	read_lock_bh(&idev->lock);
- 
- 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
--			write_unlock_bh(&idev->lock);
-+			read_unlock_bh(&idev->lock);
- 			ipv6_del_addr(ifp);
--			write_lock_bh(&idev->lock);
-+			read_lock_bh(&idev->lock);
- 
- 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
- 					     idev->dev->name, &ifp->addr);
- 		}
- 	}
- 
--	write_unlock_bh(&idev->lock);
-+	read_unlock_bh(&idev->lock);
- }
- 
- static int addrconf_notify(struct notifier_block *this, unsigned long event,
+This interface for the entire device, right.  I can imagine that users
+want to attach a eBPF program per RX queue.  Can we adapt the interface
+to support this? (could default to adding it all queues)
+
+
+I'm also wondering if we should add a "flags" parameter.  Or maybe we
+can extend 'struct bpf_prog' with I have in mind.
+
+When the eBPF program is attached to a RX queue, I want to know if the
+program want to modify packet-data, up-front.
+
+The problem is that most drivers use dma_sync, which means that data is
+considered 'read-only' (the "considered" part depend on DMA engine, and
+we might find a DMA loop-hole for some configs).
+  If the program want to write, the driver have the option of
+reconfiguring the driver routine to use dma_unmap, before handing over
+the page.  Or driver can also choose to realloc the specific RX ring
+queue pages as single pages (using dma_map/unmap consistently).
+ This also allow us to give a return code indicating given driver does
+not support writable packet-pages (rejecting program).
+
 -- 
-2.1.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
