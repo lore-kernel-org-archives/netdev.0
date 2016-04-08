@@ -1,102 +1,34 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Fri, 8 Apr 2016 10:26:53 -0700
-Message-ID: <20160408172651.GA38264@ast-mbp.thefacebook.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <20160408123614.2a15a346@redhat.com>
- <20160408143340.10e5b1d0@redhat.com>
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] ieee802154/adf7242: fix memory leak of firmware
+Date: Fri, 8 Apr 2016 10:34:16 -0700
+Message-ID: <F14084BA-6B7A-400C-A90F-A202C6E6848A@holtmann.org>
+References: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
 Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
-	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
-	eranlinuxmellanox@gmail.com, lorenzo@google.com,
-	linux-mm <linux-mm@kvack.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160408143340.10e5b1d0@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Transfer-Encoding: 7bit
+Cc: Michael Hennerich <michael.hennerich@analog.com>,
+	Alexander Aring <aar@pengutronix.de>,
+	linux-kernel@vger.kernel.org, linux-wpan@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460027764-27428-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
-> 
-> On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> 
-> > > +/* user return codes for PHYS_DEV prog type */
-> > > +enum bpf_phys_dev_action {
-> > > +	BPF_PHYS_DEV_DROP,
-> > > +	BPF_PHYS_DEV_OK,
-> > > +};  
-> > 
-> > I can imagine these extra return codes:
-> > 
-> >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
-> >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
-> >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
-> > 
-> > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
-> > which we can look at when we get that far...
-> 
-> I want to point out something which is quite FUNDAMENTAL, for
-> understanding these return codes (and network stack).
-> 
-> 
-> At driver RX time, the network stack basically have two ways of
-> building an SKB, which is send up the stack.
-> 
-> Option-A (fastest): The packet page is writable. The SKB can be
-> allocated and skb->data/head can point directly to the page.  And
-> we place/write skb_shared_info in the end/tail-room. (This is done by
-> calling build_skb()).
-> 
-> Option-B (slower): The packet page is read-only.  The SKB cannot point
-> skb->data/head directly to the page, because skb_shared_info need to be
-> written into skb->end (slightly hidden via skb_shinfo() casting).  To
-> get around this, a separate piece of memory is allocated (speedup by
-> __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
-> be written. (This is done when calling netdev/napi_alloc_skb()).
->   Drivers then need to copy over packet headers, and assign + adjust
-> skb_shinfo(skb)->frags[0] offset to skip copied headers.
-> 
-> 
-> Unfortunately most drivers use option-B.  Due to cost of calling the
-> page allocator.  It is only slightly most expensive to get a larger
-> compound page from the page allocator, which then can be partitioned into
-> page-fragments, thus amortizing the page alloc cost.  Unfortunately the
-> cost is added later, when constructing the SKB.
->  Another reason for option-B, is that archs with expensive IOMMU
-> requirements (like PowerPC), don't need to dma_unmap on every packet,
-> but only on the compound page level.
-> 
-> Side-note: Most drivers have a "copy-break" optimization.  Especially
-> for option-B, when copying header data anyhow. For small packet, one
-> might as well free (or recycle) the RX page, if header size fits into
-> the newly allocated memory (for skb_shared_info).
+Hi Sudip,
 
-I think you guys are going into overdesign territory, so
-. nack on read-only pages
-. nack on copy-break approach
-. nack on per-ring programs
-. nack on modified/stolen/shared return codes
+> If the firmware upload or the firmware verification fails then we
+> printed the error message and exited but we missed releasing the
+> firmware.
+> 
+> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+> ---
+> drivers/net/ieee802154/adf7242.c | 2 ++
+> 1 file changed, 2 insertions(+)
 
-The whole thing must be dead simple to use. Above is not simple by any means.
-The programs must see writeable pages only and return codes:
-drop, pass to stack, redirect to xmit.
-If program wishes to modify packets before passing it to stack, it
-shouldn't need to deal with different return values.
-No special things to deal with small or large packets. No header splits.
-Program must not be aware of any such things.
-Drivers can use DMA_BIDIRECTIONAL to allow received page to be
-modified by the program and immediately sent to xmit. 
-No dma map/unmap/sync per packet. If some odd architectures/dma setups
-cannot do it, then XDP will not be applicable there.
-We are not going to sacrifice performance for generality.
+patch has been applied to bluetooth-next tree.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards
+
+Marcel
