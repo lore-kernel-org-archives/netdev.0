@@ -1,48 +1,56 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [linux-next] Doc: networking: Fix typo in dsa
-Date: Sat,  9 Apr 2016 00:00:25 +0900
-Message-ID: <1460127625-6956-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: linux-kernel@vger.kernel.org, corbet@lwn.net,
-	linux-doc@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Friesen <chris.friesen@windriver.com>
+Subject: Re: [RFC PATCH] possible bug in handling of ipv4 route caching
+Date: Fri, 8 Apr 2016 09:00:51 -0600
+Message-ID: <5707C7A3.2040904@windriver.com>
+References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:50934 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932725AbcDHPBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 11:01:22 -0400
+In-Reply-To: <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fix typos in Documentation/networking/dsa.
+On 04/07/2016 03:20 PM, Julian Anastasov wrote:
+> On Thu, 7 Apr 2016, Chris Friesen wrote:
+>
+>> Hi,
+>>
+>> We think we may have found a bug in the handling of ipv4 route caching,
+>> and are curious what you think.
+>>
+>> For local routes that require a particular output interface we do not
+>> want to cache the result.  Caching the result causes incorrect behaviour
+>> when there are multiple source addresses on the interface.  The end
+>> result being that if the intended recipient is waiting on that interface
+>> for the packet he won't receive it because it will be delivered on the
+>> loopback interface and the IP_PKTINFO ipi_ifindex will be set to the
+>> loopback interface as well.
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- Documentation/networking/dsa/bcm_sf2.txt | 2 +-
- Documentation/networking/dsa/dsa.txt     | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+>> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+>> index 02c6229..e965d4b 100644
+>> --- a/net/ipv4/route.c
+>> +++ b/net/ipv4/route.c
+>> @@ -2045,6 +2045,17 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+>>   		 */
+>>   		if (fi && res->prefixlen < 4)
+>>   			fi = NULL;
+>> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0)) {
+>
+> 	So, we can be more specific. Can this work?:
+>
+> 	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
+> 		   (orig_oif != dev_out->ifindex)) {
+>
+> 	I.e. we should allow to cache orig_oif=LOOPBACK_IFINDEX
+> but eth1 should not be cached.
 
-diff --git a/Documentation/networking/dsa/bcm_sf2.txt b/Documentation/networking/dsa/bcm_sf2.txt
-index d999d0c1c5b8..eba3a2431e91 100644
---- a/Documentation/networking/dsa/bcm_sf2.txt
-+++ b/Documentation/networking/dsa/bcm_sf2.txt
-@@ -38,7 +38,7 @@ Implementation details
- ======================
- 
- The driver is located in drivers/net/dsa/bcm_sf2.c and is implemented as a DSA
--driver; see Documentation/networking/dsa/dsa.txt for details on the subsytem
-+driver; see Documentation/networking/dsa/dsa.txt for details on the subsystem
- and what it provides.
- 
- The SF2 switch is configured to enable a Broadcom specific 4-bytes switch tag
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 3b196c304b73..36f905d9c77c 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -334,7 +334,7 @@ more specifically with its VLAN filtering portion when configuring VLANs on top
- of per-port slave network devices. Since DSA primarily deals with
- MDIO-connected switches, although not exclusively, SWITCHDEV's
- prepare/abort/commit phases are often simplified into a prepare phase which
--checks whether the operation is supporte by the DSA switch driver, and a commit
-+checks whether the operation is supported by the DSA switch driver, and a commit
- phase which applies the changes.
- 
- As of today, the only SWITCHDEV objects supported by DSA are the FDB and VLAN
--- 
-2.8.0
+Yes, we think that will work.  New patch to follow.
+
+Chris
