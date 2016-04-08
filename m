@@ -1,67 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] tuntap: restore default qdisc
-Date: Fri, 8 Apr 2016 10:47:57 +0300
-Message-ID: <20160408104751-mutt-send-email-mst@redhat.com>
-References: <1460093208-4364-1-git-send-email-jasowang@redhat.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Subject: Re: [net-next,2/2] rxrpc: do not pull udp headers on receive
+Date: Fri, 8 Apr 2016 09:48:10 +0200
+Message-ID: <20160408074810.GB30924@ulmo.ba.sec>
+References: <1460043899-56894-3-git-send-email-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="3lcZGd9BuhuYXNfi"
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fcooper@ti.com,
+	samanthakumar@google.com, Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43368 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757858AbcDHHsB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2016 03:48:01 -0400
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38488 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757858AbcDHHsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 03:48:18 -0400
+Received: by mail-wm0-f42.google.com with SMTP id u206so11722878wme.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 00:48:18 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1460093208-4364-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1460043899-56894-3-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 08, 2016 at 01:26:48PM +0800, Jason Wang wrote:
-> After commit f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using
-> alloc_netdev"), default qdisc was changed to noqueue because
-> tuntap does not set tx_queue_len during .setup(). This patch restores
-> default qdisc by setting tx_queue_len in tun_setup().
-> 
-> Fixes: f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using alloc_netdev")
-> Cc: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+--3lcZGd9BuhuYXNfi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On Thu, Apr 07, 2016 at 11:44:59AM -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+>=20
+> Commit e6afc8ace6dd modified the udp receive path by pulling the udp
+> header before queuing an skbuff onto the receive queue.
+>=20
+> Rxrpc also calls skb_recv_datagram to dequeue an skb from a udp
+> socket. Modify this receive path to also no longer expect udp
+> headers.
+>=20
+> Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queuein=
+g")
+>=20
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 > ---
->  drivers/net/tun.c | 4 ++--
+>  net/rxrpc/ar-input.c | 4 ++--
 >  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 510e90a..2c9e45f5 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1015,7 +1015,6 @@ static void tun_net_init(struct net_device *dev)
->  		/* Zero header length */
->  		dev->type = ARPHRD_NONE;
->  		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-> -		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
->  		break;
->  
->  	case IFF_TAP:
-> @@ -1027,7 +1026,6 @@ static void tun_net_init(struct net_device *dev)
->  
->  		eth_hw_addr_random(dev);
->  
-> -		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
->  		break;
->  	}
->  }
-> @@ -1481,6 +1479,8 @@ static void tun_setup(struct net_device *dev)
->  
->  	dev->ethtool_ops = &tun_ethtool_ops;
->  	dev->destructor = tun_free_netdev;
-> +	/* We prefer our own queue length */
-> +	dev->tx_queue_len = TUN_READQ_SIZE;
->  }
->  
->  /* Trivial set of netlink ops to allow deleting tun or tap
-> -- 
-> 2.5.0
+
+To be explicit:
+
+Tested-by: Thierry Reding <treding@nvidia.com>
+
+--3lcZGd9BuhuYXNfi
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJXB2I6AAoJEN0jrNd/PrOhYuAP/RkS53TPS9bkQNtt4iLlwVDy
+hk7wxpLR25p8zvWvCxJ61e3+plk0jTmdX54YBtLQ7uk8uX8xMQIaQKU9tKzCwyIz
+WhGeATAfQIZBq7IA9YxuFzc7yTwnXWy5Dh/mMQ3DOnk4MMTG5B98k/IDu9UM5cem
+xfk/1KZCWUOgsJe+9OKnqZluYb1oN+fX6SlwyNPXMW1aX3q5qxJPoCOoHfdQZ4Wl
+EtLjMGSkaaBSK9swZD5ltTetYbvzefgPFKo3RR9oKzCK4F9/5OeRululR56oJag8
++pb5Jegv0VAuT2gy7ms/YWnAoUzSQ4Z8Z3BaCI7cZBk1NrwZIg6Ey5GBeBeSefJR
+lKCs/72lPHkPszKcpyMDZ+JmtvWyVXtL/H1rujK75ojnTgv+QIT+LfM2FfIl1sIy
+rGZRzdcpRckjFfjl+DXzBb/OLabrbTQwOWeevOqV5lv6vfzcaOruD4UQ6MQ+lc6a
+87hoMNz3wxhHK/mre0wTRk0MPQyt4RfFpZu7clhEoowHMaFbkbmcYh6sWXUCQt7s
+nTkilnOaKR2MvrzwKsVV1VaBxI1Dh2Q2/qLYgVTJ/GEjUbrOEg6iFUCU86d5UZWx
+zoToeMcQNL0ZY6SpszOMgvR552wb5Zyd8C4XGJL8Tx4TtAG9N3O+m0Q0dqJL3uIu
+R/aAtI0+kCchxSHy037p
+=Gloi
+-----END PGP SIGNATURE-----
+
+--3lcZGd9BuhuYXNfi--
