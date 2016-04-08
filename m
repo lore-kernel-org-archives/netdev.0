@@ -1,35 +1,61 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as possible
-Date: Fri,  8 Apr 2016 16:41:26 -0300
-Message-ID: <cover.1460144373.git.marcelo.leitner@gmail.com>
+Subject: [PATCH v3 1/2] sctp: compress bit-wide flags to a bitfield on sctp_sock
+Date: Fri,  8 Apr 2016 16:41:27 -0300
+Message-ID: <1d6d26426e6f1eee2851aed47b77ffe8bc335210.1460144373.git.marcelo.leitner@gmail.com>
+References: <cover.1460144373.git.marcelo.leitner@gmail.com>
 Cc: Vlad Yasevich <vyasevich@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>,
 	linux-sctp@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
 	Jakub Sitnicki <jkbs@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55828 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34143 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758663AbcDHTlj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2016 15:41:39 -0400
+	id S1758663AbcDHTll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 15:41:41 -0400
+In-Reply-To: <cover.1460144373.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1st patch is a preparation for the 2nd. The idea is to not call
-->sk_data_ready() for every data chunk processed while processing
-packets but only once before releasing the socket.
+It wastes space and gets worse as we add new flags, so convert bit-wide
+flags to a bitfield.
 
-v2: patchset re-checked, small changelog fixes
-v3: on patch 2, make use of local vars to make it more readable
+Currently it already saves 4 bytes in sctp_sock, which are left as holes
+in it for now. The whole struct needs packing, which should be done in
+another patch.
 
-Marcelo Ricardo Leitner (2):
-  sctp: compress bit-wide flags to a bitfield on sctp_sock
-  sctp: delay calls to sk_data_ready() as much as possible
+Note that do_auto_asconf cannot be merged, as explained in the comment
+before it.
 
- include/net/sctp/structs.h | 13 +++++++------
- net/sctp/sm_sideeffect.c   |  7 +++++++
- net/sctp/ulpqueue.c        |  4 ++--
- 3 files changed, 16 insertions(+), 8 deletions(-)
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ include/net/sctp/structs.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 6df1ce7a411c548bda4163840a90578b6e1b4cfe..1a6a626904bba4223b7921bbb4be41c2550271a7 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -210,14 +210,14 @@ struct sctp_sock {
+ 	int user_frag;
+ 
+ 	__u32 autoclose;
+-	__u8 nodelay;
+-	__u8 disable_fragments;
+-	__u8 v4mapped;
+-	__u8 frag_interleave;
+ 	__u32 adaptation_ind;
+ 	__u32 pd_point;
+-	__u8 recvrcvinfo;
+-	__u8 recvnxtinfo;
++	__u16	nodelay:1,
++		disable_fragments:1,
++		v4mapped:1,
++		frag_interleave:1,
++		recvrcvinfo:1,
++		recvnxtinfo:1;
+ 
+ 	atomic_t pd_mode;
+ 	/* Receive to here while partial delivery is in effect. */
 -- 
 2.5.0
