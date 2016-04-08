@@ -1,65 +1,33 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH net-next 1/8] perf: optimize perf_fetch_caller_regs
-Date: Fri, 8 Apr 2016 18:12:19 -0400
-Message-ID: <20160408181219.036c1216@gandalf.local.home>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
-	<1459831974-2891931-2-git-send-email-ast@fb.com>
-	<20160405120626.GM3448@twins.programming.kicks-ass.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH RFT 0/2] Teach phylib hard-resetting devices
+Date: Sat, 09 Apr 2016 01:21:12 +0300
+Message-ID: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-team@fb.com
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160405120626.GM3448@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org
+To: grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:34075 "EHLO
+	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178AbcDHWVR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 18:21:17 -0400
+Received: by mail-lf0-f44.google.com with SMTP id j11so93106533lfb.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 15:21:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Apr 2016 14:06:26 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+Hello.
 
-> On Mon, Apr 04, 2016 at 09:52:47PM -0700, Alexei Starovoitov wrote:
-> > avoid memset in perf_fetch_caller_regs, since it's the critical path of all tracepoints.
-> > It's called from perf_sw_event_sched, perf_event_task_sched_in and all of perf_trace_##call
-> > with this_cpu_ptr(&__perf_regs[..]) which are zero initialized by perpcu_alloc  
-> 
-> Its not actually allocated; but because its a static uninitialized
-> variable we get .bss like behaviour and the initial value is copied to
-> all CPUs when the per-cpu allocator thingy bootstraps SMP IIRC.
-> 
-> > and
-> > subsequent call to perf_arch_fetch_caller_regs initializes the same fields on all archs,
-> > so we can safely drop memset from all of the above cases and   
-> 
-> Indeed.
-> 
-> > move it into
-> > perf_ftrace_function_call that calls it with stack allocated pt_regs.  
-> 
-> Hmm, is there a reason that's still on-stack instead of using the
-> per-cpu thing, Steve?
+   Here's the set of 2 patches against DaveM's 'net-next.git' repo. They add to
+'phylib' support for resetting devices via GPIO and do some clean up after
+doing that...
 
-Well, what do you do when you are tracing with regs in an interrupt
-that already set the per cpu regs field? We could create our own
-per-cpu one as well, but then that would require checking which level
-we are in, as we can have one for normal context, one for softirq
-context, one for irq context and one for nmi context.
+[1/2] phylib: add device reset GPIO support
+[2/2] macb: kill PHY reset code
 
--- Steve
-
-
-
-> 
-> > Signed-off-by: Alexei Starovoitov <ast@kernel.org>  
-> 
-> In any case,
-> 
-> Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+MBR, Sergei
