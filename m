@@ -1,69 +1,158 @@
-From: Chris Friesen <chris.friesen@windriver.com>
-Subject: [PATCH v4] route: do not cache fib route info on local routes with
- oif
-Date: Fri, 8 Apr 2016 15:21:30 -0600
-Message-ID: <570820DA.2070007@windriver.com>
-References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com> <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg> <57080F7E.809@windriver.com> <alpine.LFD.2.11.1604082328460.2124@ja.home.ssi.bg>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
+ filter
+Date: Fri, 8 Apr 2016 14:34:16 -0700
+Message-ID: <20160408213414.GA43408@ast-mbp.thefacebook.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+ <20160408123614.2a15a346@redhat.com>
+ <20160408143340.10e5b1d0@redhat.com>
+ <20160408172651.GA38264@ast-mbp.thefacebook.com>
+ <20160408220808.682630d7@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:57520 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753964AbcDHVVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 17:21:38 -0400
-In-Reply-To: <alpine.LFD.2.11.1604082328460.2124@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
+	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
+	eranlinuxmellanox@gmail.com, lorenzo@google.com,
+	linux-mm <linux-mm@kvack.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160408220808.682630d7@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-For local routes that require a particular output interface we do not want
-to cache the result.  Caching the result causes incorrect behaviour when
-there are multiple source addresses on the interface.  The end result
-being that if the intended recipient is waiting on that interface for the
-packet he won't receive it because it will be delivered on the loopback
-interface and the IP_PKTINFO ipi_ifindex will be set to the loopback
-interface as well.
+On Fri, Apr 08, 2016 at 10:08:08PM +0200, Jesper Dangaard Brouer wrote:
+> On Fri, 8 Apr 2016 10:26:53 -0700
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> 
+> > On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
+> > > 
+> > > On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> > >   
+> > > > > +/* user return codes for PHYS_DEV prog type */
+> > > > > +enum bpf_phys_dev_action {
+> > > > > +	BPF_PHYS_DEV_DROP,
+> > > > > +	BPF_PHYS_DEV_OK,
+> > > > > +};    
+> > > > 
+> > > > I can imagine these extra return codes:
+> > > > 
+> > > >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
+> > > >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
+> > > >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
+> > > > 
+> > > > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
+> > > > which we can look at when we get that far...  
+> > > 
+> > > I want to point out something which is quite FUNDAMENTAL, for
+> > > understanding these return codes (and network stack).
+> > > 
+> > > 
+> > > At driver RX time, the network stack basically have two ways of
+> > > building an SKB, which is send up the stack.
+> > > 
+> > > Option-A (fastest): The packet page is writable. The SKB can be
+> > > allocated and skb->data/head can point directly to the page.  And
+> > > we place/write skb_shared_info in the end/tail-room. (This is done by
+> > > calling build_skb()).
+> > > 
+> > > Option-B (slower): The packet page is read-only.  The SKB cannot point
+> > > skb->data/head directly to the page, because skb_shared_info need to be
+> > > written into skb->end (slightly hidden via skb_shinfo() casting).  To
+> > > get around this, a separate piece of memory is allocated (speedup by
+> > > __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
+> > > be written. (This is done when calling netdev/napi_alloc_skb()).
+> > >   Drivers then need to copy over packet headers, and assign + adjust
+> > > skb_shinfo(skb)->frags[0] offset to skip copied headers.
+> > > 
+> > > 
+> > > Unfortunately most drivers use option-B.  Due to cost of calling the
+> > > page allocator.  It is only slightly most expensive to get a larger
+> > > compound page from the page allocator, which then can be partitioned into
+> > > page-fragments, thus amortizing the page alloc cost.  Unfortunately the
+> > > cost is added later, when constructing the SKB.
+> > >  Another reason for option-B, is that archs with expensive IOMMU
+> > > requirements (like PowerPC), don't need to dma_unmap on every packet,
+> > > but only on the compound page level.
+> > > 
+> > > Side-note: Most drivers have a "copy-break" optimization.  Especially
+> > > for option-B, when copying header data anyhow. For small packet, one
+> > > might as well free (or recycle) the RX page, if header size fits into
+> > > the newly allocated memory (for skb_shared_info).  
+> > 
+> > I think you guys are going into overdesign territory, so
+> > . nack on read-only pages
+> 
+> Unfortunately you cannot just ignore or nack read-only pages. They are
+> a fact in the current drivers.
+> 
+> Most drivers today (at-least the ones we care about) only deliver
+> read-only pages.  If you don't accept read-only pages day-1, then you
+> first have to rewrite a lot of drivers... and that will stall the
+> project!  How will you deal with this fact?
+> 
+> The early drop filter use-case in this patchset, can ignore read-only
+> pages.  But ABI wise we need to deal with the future case where we do
+> need/require writeable pages.  A simple need-writable pages in the API
+> could help us move forward.
 
-This can be tested by running a program such as "dhcp_release" which
-attempts to inject a packet on a particular interface so that it is
-received by another program on the same board.  The receiving process
-should see an IP_PKTINFO ipi_ifndex value of the source interface
-(e.g., eth1) instead of the loopback interface (e.g., lo).  The packet
-will still appear on the loopback interface in tcpdump but the important
-aspect is that the CMSG info is correct.
+the program should never need to worry about whether dma buffer is
+writeable or not. Complicating drivers, api, abi, usability
+for the single use case of fast packet drop is not acceptable.
+XDP is not going to be a fit for all drivers and all architectures.
+That is cruicial 'performance vs generality' aspect of the design.
+All kernel-bypasses are taking advantage of specific architecture.
+We have to take advantage of it as well. If it doesn't fit
+powerpc with iommu, so be it. XDP will return -enotsupp.
+That is fundamental point. We have to cut such corners and avoid
+all cases where unnecessary generality hurts performance.
+Read-only pages is clearly such thing.
 
-Sample dhcp_release command line:
+> > The whole thing must be dead simple to use. Above is not simple by any means.
+> 
+> Maybe you missed that the above was a description of how the current
+> network stack handles this, which is not simple... which is root of the
+> hole performance issue.
 
-   dhcp_release eth1 192.168.204.222 02:11:33:22:44:66
+Disagree. The stack has copy-break, gro, gso and everything else because
+it's serving _host_ use case. XDP is packet forwarder use case.
+The requirements are completely different. Ex. the host needs gso
+in the core and drivers. It needs to deliver data all the way
+to user space and back. That is hard and that's where complexity
+comes from. For packet forwarder none of it is needed. So saying,
+look we have this complexity, so XDP needs it too, is flawed argument.
+The kernel is serving host and applications.
+XDP is pure packet-in/packet-out framework to achieve better
+performance than kernel-bypass, since kernel is the right
+place to do it. It has clean access to interrupts, per-cpu,
+scheduler, device registers and so on.
+Though there are only two broad use cases packet drop and forward,
+they cover a ton of real cases: firewalls, dos prevention,
+load balancer, nat, etc. In other words mostly stateless.
+As soon as packet needs to be queued somewhere we have to
+instantiate skb and pass it to the stack.
+So no queues in XDP and no 'stolen' and 'shared' return codes.
+The program always runs to completion with single packet.
+There is no header vs payload split. There is no header
+from program point of view. It's raw bytes in dma buffer.
 
-Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
-Signed off-by: Chris Friesen <chris.friesen@windriver.com>
----
- net/ipv4/route.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+> I do like the idea of rejecting XDP eBPF programs based on the DMA
+> setup is not compatible, or if the driver does not implement e.g.
+> writable DMA pages.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 02c6229..b050cf9 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2045,6 +2045,18 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		 */
- 		if (fi && res->prefixlen < 4)
- 			fi = NULL;
-+	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
-+		   (orig_oif != dev_out->ifindex)) {
-+		/* For local routes that require a particular output interface
-+		 * we do not want to cache the result.  Caching the result
-+		 * causes incorrect behaviour when there are multiple source
-+		 * addresses on the interface, the end result being that if the
-+		 * intended recipient is waiting on that interface for the
-+		 * packet he won't receive it because it will be delivered on
-+		 * the loopback interface and the IP_PKTINFO ipi_ifindex will
-+		 * be set to the loopback interface as well.
-+		 */
-+		fi = NULL;
- 	}
- 
- 	fnhe = NULL;
+exactly.
+
+> Customers wanting this feature will then go buy the NIC which support
+> this feature.  There is nothing more motivating for NIC vendors seeing
+> customers buying the competitors hardware. And it only require a driver
+> change to get this market...
+
+exactly.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
