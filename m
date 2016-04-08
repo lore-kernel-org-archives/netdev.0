@@ -1,76 +1,122 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net-next 3/6] bridge: simplify the stp_state_store by calling store_bridge_parm
-Date: Sat,  9 Apr 2016 00:03:30 +0800
-Message-ID: <8c14a891d0a8bcea071d4e5305776a5c5cd9fd17.1460131308.git.lucien.xin@gmail.com>
-References: <cover.1460131308.git.lucien.xin@gmail.com>
- <6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
- <6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	nikolay@cumulusnetworks.com
-To: network dev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f196.google.com ([209.85.213.196]:35843 "EHLO
-	mail-ig0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932688AbcDHQD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 12:03:58 -0400
-Received: by mail-ig0-f196.google.com with SMTP id kb1so2989811igb.3
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 09:03:57 -0700 (PDT)
-In-Reply-To: <6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1460131308.git.lucien.xin@gmail.com>
-References: <cover.1460131308.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Fri, 8 Apr 2016 09:12:26 -0700
+Message-ID: <CAKgT0UdaTbwvA+Q2t-yri1HqHzMdfMecL3Dqf1MMq39kF96ZKQ@mail.gmail.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	<20160407161715.52635cac@redhat.com>
+	<1460058531.13579.12.camel@netapp.com>
+	<20160407223853.6f4c7dbd@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Waskiewicz, PJ" <PJ.Waskiewicz@netapp.com>,
+	"lsf@lists.linux-foundation.org" <lsf@lists.linux-foundation.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "bblanco@plumgrid.com" <bblanco@plumgrid.com>,
+	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+	"James.Bottomley@HansenPartnership.com" <James.Bottomley@hansenpartnership.com>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160407223853.6f4c7dbd@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-There are some repetitive codes in stp_state_store, we can remove
-them by calling store_bridge_parm.
+On Thu, Apr 7, 2016 at 1:38 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Thu, 7 Apr 2016 19:48:50 +0000
+> "Waskiewicz, PJ" <PJ.Waskiewicz@netapp.com> wrote:
+>
+>> On Thu, 2016-04-07 at 16:17 +0200, Jesper Dangaard Brouer wrote:
+>> > (Topic proposal for MM-summit)
+>> >
+>> > Network Interface Cards (NIC) drivers, and increasing speeds stress
+>> > the page-allocator (and DMA APIs).  A number of driver specific
+>> > open-coded approaches exists that work-around these bottlenecks in
+>> > the
+>> > page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
+>> > allocating larger pages and handing-out page "fragments".
+>> >
+>> > I'm proposing a generic page-pool recycle facility, that can cover
+>> > the
+>> > driver use-cases, increase performance and open up for zero-copy RX.
+>>
+>> Is this based on the page recycle stuff from ixgbe that used to be in
+>> the driver?  If so I'd really like to be part of the discussion.
+>
+> Okay, so it is not part of the driver any-longer?  I've studied the
+> current ixgbe driver (and other NIC drivers) closely.  Do you have some
+> code pointers, to this older code?
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/bridge/br_sysfs_br.c | 24 +++++++++---------------
- 1 file changed, 9 insertions(+), 15 deletions(-)
+No, it is still in the driver.  I think when PJ said "used to" he was
+referring to the fact that the code was present in the driver back
+when he was working on it at Intel.
 
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 137cd3b..f9d484e 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -128,27 +128,21 @@ static ssize_t stp_state_show(struct device *d,
- }
- 
- 
--static ssize_t stp_state_store(struct device *d,
--			       struct device_attribute *attr, const char *buf,
--			       size_t len)
-+static int set_stp_state(struct net_bridge *br, unsigned long val)
- {
--	struct net_bridge *br = to_bridge(d);
--	char *endp;
--	unsigned long val;
--
--	if (!ns_capable(dev_net(br->dev)->user_ns, CAP_NET_ADMIN))
--		return -EPERM;
--
--	val = simple_strtoul(buf, &endp, 0);
--	if (endp == buf)
--		return -EINVAL;
--
- 	if (!rtnl_trylock())
- 		return restart_syscall();
- 	br_stp_set_enabled(br, val);
- 	rtnl_unlock();
- 
--	return len;
-+	return 0;
-+}
-+
-+static ssize_t stp_state_store(struct device *d,
-+			       struct device_attribute *attr, const char *buf,
-+			       size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_stp_state);
- }
- static DEVICE_ATTR_RW(stp_state);
- 
--- 
-2.1.0
+You have to realize that the page reuse code has been in the Intel
+drivers for a long time.  I think I introduced it originally on igb in
+July of 2008 as page recycling, commit bf36c1a0040c ("igb: add page
+recycling support"), and it was copied over to ixgbe in September,
+commit 762f4c571058 ("ixgbe: recycle pages in packet split mode").
+
+> The likely-fastest recycle code I've see is in the bnx2x driver.  If
+> you are interested see: bnx2x_reuse_rx_data().  Again is it a bit
+> open-coded produce/consumer ring queue (which would be nice to also
+> cleanup).
+
+Yeah, that is essentially the same kind of code we have in
+ixgbe_reuse_rx_page().  From what I can tell though the bnx2x doesn't
+actually reuse the buffers in the common case.  That function is only
+called in the copy-break and error cases to recycle the buffer so that
+it doesn't have to be freed.
+
+> To amortize the cost of allocating a single page, most other drivers
+> use the trick of allocating a larger (compound) page, and partition
+> this page into smaller "fragments".  Which also amortize the cost of
+> dma_map/unmap (important on non-x86).
+
+Right.  The only reason why I went the reuse route instead of the
+compound page route is that I had speculated that you could still
+bottleneck yourself since the issue I was trying to avoid was the
+dma_map call hitting a global lock in IOMMU enabled systems.  With the
+larger page route I could at best reduce the number of map calls to
+1/16 or 1/32 of what it was.  By doing the page reuse I actually bring
+it down to something approaching 0 as long as the buffers are being
+freed in a reasonable timeframe.  This way the code would scale so I
+wouldn't have to worry about how many rings were active at the same
+time.
+
+As PJ can attest we even saw bugs where the page reuse actually was
+too effective in some cases leading to us carrying memory from one
+node to another when the interrupt was migrated.  That was why we had
+to add the code to force us to free the page if it came from another
+node.
+
+> This is actually problematic performance wise, because packet-data
+> (in these page fragments) only get DMA_sync'ed, and is thus considered
+> "read-only".  As netstack need to write packet headers, yet-another
+> (writable) memory area is allocated per packet (plus the SKB meta-data
+> struct).
+
+Have you done any actual testing with build_skb recently that shows
+how much of a gain there is to be had?  I'm just curious as I know I
+saw a gain back in the day, but back when I ran that test we didn't
+have things like napi_alloc_skb running around which should be a
+pretty big win.  It might be useful to hack a driver such as ixgbe to
+use build_skb and see if it is even worth the trouble to do it
+properly.
+
+Here is a patch I had generated back in 2013 to convert ixgbe over to
+using build_skb, https://patchwork.ozlabs.org/patch/236044/.  You
+might be able to updated to make it work against current ixgbe and
+then could come back to us with data on what the actual gain is.  My
+thought is the gain should have significantly decreased since back in
+the day as we optimized napi_alloc_skb to the point where I think the
+only real difference is probably the memcpy to pull the headers from
+the page.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
