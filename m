@@ -1,180 +1,59 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [next-queue PATCH 1/3] i40e/i40evf: Add support for GSO partial
- with UDP_TUNNEL_CSUM and GRE_CSUM
-Date: Fri, 08 Apr 2016 17:06:41 -0400
-Message-ID: <20160408210641.13096.8972.stgit@ahduyck-xeon-server>
-References: <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
+From: Vikram Sethi <vikrams@codeaurora.org>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Fri, 08 Apr 2016 16:07:34 -0500
+Message-ID: <57081D96.902@codeaurora.org>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org> <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org> <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com> <5706B4EF.2050600@codeaurora.org> <20160407201009.GA16136@lunn.ch> <5706D493.8020700@codeaurora.org> <20160408005317.GA28125@lunn.ch> <5708013F.90207@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
-	alexander.duyck@gmail.com, edumazet@google.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35058 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758423AbcDHVGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 17:06:50 -0400
-Received: by mail-pf0-f170.google.com with SMTP id n1so82524029pfn.2
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 14:06:50 -0700 (PDT)
-In-Reply-To: <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rob Herring <robh@kernel.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Christopher Covington <cov@codeaurora.org>
+To: Timur Tabi <timur@codeaurora.org>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <5708013F.90207@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch makes it so that i40e and i40evf can use GSO_PARTIAL to support
-segmentation for frames with checksums enabled in outer headers.  As a
-result we can now send data over these types of tunnels at over 20Gb/s
-versus the 12Gb/s that was previously possible on my system.
+On 04/08/2016 02:06 PM, Timur Tabi wrote:
+> Andrew Lunn wrote:
+>
+>> There are two different things here. One is configuring the pin to be
+>> a GPIO. The second is using the GPIO as a GPIO. In this case,
+>> bit-banging the MDIO bus.
+>>
+>> The firmware could be doing the configuration, setting the pin as a
+>> GPIO. However, the firmware cannot be doing the MDIO bit-banging to
+>> make an MDIO bus available. Linux has to do that.
+>>
+>> Or it could be we have all completely misunderstood the hardware, and
+>> we are not doing bit-banging GPIO MDIO. There is a real MDIO
+>> controller there, we don't use these pins as GPIOs, etc....
+>
+> Actually, I think there is a misunderstanding.
+>
+> On the FSM9900 SOC (which uses device-tree), the two pins that connect to the external PHY are gpio pins.  However, the driver needs to reprogram the pinmux so that those pins are wired to the Emac controller.  That's what the the gpio code in this driver is doing: it's just configuring the pins so that they connect directly between the Emac and the external PHY.  After that, they are no longer GPIO pins, and you cannot use the "GPIO controlled MDIO bus".  There is no MDIO controller on the SOC.  The external PHY is controlled directly from the Emac and also from the internal PHY.  It is screwy, I know, but that's what Gilad was trying to explain.
+It is incorrect to say there's no MDIO controller on the SoC. The EMAC Core on the SoC itself has a MDIO controller which talks to the external PHY. The internal SGMII is not on MDIO however.
+Please see the EMAC specification.
+>
+> On the QDF2432 (which uses ACPI), those two wires are now dedicated. There are not muxed GPIOs any more -- they are hard wired between Emac and the external PHY.
+>
+> In both cases, you need to use Emac registers to communicate with the external PHY.  Stuff like link detect and link speed are configured by programming the Emac and/or the internal phy.
+You need to use EMAC *MDIO* registers to communicate with external PHY.
+>
+> And the internal phy isn't really an internal phy.  It's an SGMII-like device that's connected to the Emac and handles various phy-related tasks.  It has its own register block, but you still have to program it in concert with the Emac.  You can't really treat it separately.
+>
+> So I'm beginning to believe that Gilad's driver is actually correct as-is.  There are a few minor bug fixes, but in general it's correct.  I would like to post a V4 soon that has those minor fixes.
+>
 
-The advantage with the i40e parts is that this offload is mostly
-transparent as the hardware still deals with the inner and/or outer IPv4
-headers so the IP ID is still incrementing for both when this offload is
-performed.
 
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c     |   10 ++++++++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.c     |    7 ++++++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c   |    7 ++++++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c |   10 ++++++++--
- 4 files changed, 28 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 07a70c4ac49f..6342fab4d177 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9119,20 +9119,25 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 				   NETIF_F_TSO_ECN		|
- 				   NETIF_F_TSO6			|
- 				   NETIF_F_GSO_GRE		|
-+				   NETIF_F_GSO_GRE_CSUM		|
- 				   NETIF_F_GSO_IPIP		|
- 				   NETIF_F_GSO_SIT		|
- 				   NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
-+				   NETIF_F_GSO_PARTIAL		|
- 				   NETIF_F_SCTP_CRC		|
- 				   NETIF_F_RXHASH		|
- 				   NETIF_F_RXCSUM		|
- 				   0;
- 
- 	if (!(pf->flags & I40E_FLAG_OUTER_UDP_CSUM_CAPABLE))
--		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+		netdev->gso_partial_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+
-+	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
- 
- 	/* record features VLANs can make use of */
--	netdev->vlan_features |= netdev->hw_enc_features;
-+	netdev->vlan_features |= netdev->hw_enc_features |
-+				 NETIF_F_TSO_MANGLEID;
- 
- 	if (!(pf->flags & I40E_FLAG_MFP_ENABLED))
- 		netdev->hw_features |= NETIF_F_NTUPLE;
-@@ -9142,6 +9147,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 			       NETIF_F_HW_VLAN_CTAG_RX;
- 
- 	netdev->features |= netdev->hw_features | NETIF_F_HW_VLAN_CTAG_FILTER;
-+	netdev->hw_enc_features |= NETIF_F_TSO_MANGLEID;
- 
- 	if (vsi->type == I40E_VSI_MAIN) {
- 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 6e44cf118843..ede4183468b9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2300,11 +2300,15 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
- 	}
- 
- 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
-+					 SKB_GSO_GRE_CSUM |
- 					 SKB_GSO_IPIP |
- 					 SKB_GSO_SIT |
- 					 SKB_GSO_UDP_TUNNEL |
- 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM) {
-+		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
-+		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)) {
-+			l4.udp->len = 0;
-+
- 			/* determine offset of outer transport header */
- 			l4_offset = l4.hdr - skb->data;
- 
-@@ -2481,6 +2485,7 @@ static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 
- 		/* indicate if we need to offload outer UDP header */
- 		if ((*tx_flags & I40E_TX_FLAGS_TSO) &&
-+		    !(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
- 		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM))
- 			tunnel |= I40E_TXD_CTX_QW0_L4T_CS_MASK;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index f101895ecf4a..6ce00547c13e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1565,11 +1565,15 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
- 	}
- 
- 	if (skb_shinfo(skb)->gso_type & (SKB_GSO_GRE |
-+					 SKB_GSO_GRE_CSUM |
- 					 SKB_GSO_IPIP |
- 					 SKB_GSO_SIT |
- 					 SKB_GSO_UDP_TUNNEL |
- 					 SKB_GSO_UDP_TUNNEL_CSUM)) {
--		if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM) {
-+		if (!(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
-+		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM)) {
-+			l4.udp->len = 0;
-+
- 			/* determine offset of outer transport header */
- 			l4_offset = l4.hdr - skb->data;
- 
-@@ -1704,6 +1708,7 @@ static int i40e_tx_enable_csum(struct sk_buff *skb, u32 *tx_flags,
- 
- 		/* indicate if we need to offload outer UDP header */
- 		if ((*tx_flags & I40E_TX_FLAGS_TSO) &&
-+		    !(skb_shinfo(skb)->gso_type & SKB_GSO_PARTIAL) &&
- 		    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM))
- 			tunnel |= I40E_TXD_CTX_QW0_L4T_CS_MASK;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 806da2686623..42be838ce77e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2346,20 +2346,25 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 				   NETIF_F_TSO_ECN		|
- 				   NETIF_F_TSO6			|
- 				   NETIF_F_GSO_GRE		|
-+				   NETIF_F_GSO_GRE_CSUM		|
- 				   NETIF_F_GSO_IPIP		|
- 				   NETIF_F_GSO_SIT		|
- 				   NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_UDP_TUNNEL_CSUM	|
-+				   NETIF_F_GSO_PARTIAL		|
- 				   NETIF_F_SCTP_CRC		|
- 				   NETIF_F_RXHASH		|
- 				   NETIF_F_RXCSUM		|
- 				   0;
- 
- 	if (!(adapter->flags & I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE))
--		netdev->hw_enc_features ^= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+		netdev->gso_partial_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+
-+	netdev->gso_partial_features |= NETIF_F_GSO_GRE_CSUM;
- 
- 	/* record features VLANs can make use of */
--	netdev->vlan_features |= netdev->hw_enc_features;
-+	netdev->vlan_features |= netdev->hw_enc_features |
-+				 NETIF_F_TSO_MANGLEID;
- 
- 	/* Write features and hw_features separately to avoid polluting
- 	 * with, or dropping, features that are set when we registgered.
-@@ -2367,6 +2372,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	netdev->hw_features |= netdev->hw_enc_features;
- 
- 	netdev->features |= netdev->hw_enc_features | I40EVF_VLAN_FEATURES;
-+	netdev->hw_enc_features |= NETIF_F_TSO_MANGLEID;
- 
- 	/* disable VLAN features if not supported */
- 	if (!(vfres->vf_offload_flags & I40E_VIRTCHNL_VF_OFFLOAD_VLAN))
+-- 
+Vikram Sethi
+Qualcomm Technologies Inc, on behalf of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
