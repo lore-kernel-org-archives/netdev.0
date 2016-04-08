@@ -1,169 +1,36 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Fri, 8 Apr 2016 22:08:08 +0200
-Message-ID: <20160408220808.682630d7@redhat.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
-	<20160408123614.2a15a346@redhat.com>
-	<20160408143340.10e5b1d0@redhat.com>
-	<20160408172651.GA38264@ast-mbp.thefacebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 1/2] RDS: memory allocated must be align to 8
+Date: Fri, 08 Apr 2016 16:10:55 -0400 (EDT)
+Message-ID: <20160408.161055.212162741537870508.davem@davemloft.net>
+References: <1460030256-16791-1-git-send-email-shamir.rabinovitch@oracle.com>
+	<57080A27.8050509@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
-        daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
-        john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
-        eranlinuxmellanox@gmail.com, lorenzo@google.com,
-        linux-mm
- <linux-mm@kvack.org>, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160408172651.GA38264@ast-mbp.thefacebook.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: shamir.rabinovitch@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
+To: santosh.shilimkar@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36558 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932169AbcDHUK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:10:57 -0400
+In-Reply-To: <57080A27.8050509@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Apr 2016 10:26:53 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Date: Fri, 8 Apr 2016 12:44:39 -0700
 
-> On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> >   
-> > > > +/* user return codes for PHYS_DEV prog type */
-> > > > +enum bpf_phys_dev_action {
-> > > > +	BPF_PHYS_DEV_DROP,
-> > > > +	BPF_PHYS_DEV_OK,
-> > > > +};    
-> > > 
-> > > I can imagine these extra return codes:
-> > > 
-> > >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
-> > >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
-> > >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
-> > > 
-> > > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
-> > > which we can look at when we get that far...  
-> > 
-> > I want to point out something which is quite FUNDAMENTAL, for
-> > understanding these return codes (and network stack).
-> > 
-> > 
-> > At driver RX time, the network stack basically have two ways of
-> > building an SKB, which is send up the stack.
-> > 
-> > Option-A (fastest): The packet page is writable. The SKB can be
-> > allocated and skb->data/head can point directly to the page.  And
-> > we place/write skb_shared_info in the end/tail-room. (This is done by
-> > calling build_skb()).
-> > 
-> > Option-B (slower): The packet page is read-only.  The SKB cannot point
-> > skb->data/head directly to the page, because skb_shared_info need to be
-> > written into skb->end (slightly hidden via skb_shinfo() casting).  To
-> > get around this, a separate piece of memory is allocated (speedup by
-> > __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
-> > be written. (This is done when calling netdev/napi_alloc_skb()).
-> >   Drivers then need to copy over packet headers, and assign + adjust
-> > skb_shinfo(skb)->frags[0] offset to skip copied headers.
-> > 
-> > 
-> > Unfortunately most drivers use option-B.  Due to cost of calling the
-> > page allocator.  It is only slightly most expensive to get a larger
-> > compound page from the page allocator, which then can be partitioned into
-> > page-fragments, thus amortizing the page alloc cost.  Unfortunately the
-> > cost is added later, when constructing the SKB.
-> >  Another reason for option-B, is that archs with expensive IOMMU
-> > requirements (like PowerPC), don't need to dma_unmap on every packet,
-> > but only on the compound page level.
-> > 
-> > Side-note: Most drivers have a "copy-break" optimization.  Especially
-> > for option-B, when copying header data anyhow. For small packet, one
-> > might as well free (or recycle) the RX page, if header size fits into
-> > the newly allocated memory (for skb_shared_info).  
-> 
-> I think you guys are going into overdesign territory, so
-> . nack on read-only pages
+> On 4/7/2016 4:57 AM, Shamir Rabinovitch wrote:
+>> Fix issue in 'rds_ib_cong_recv' when accessing unaligned memory
+>> allocated by 'rds_page_remainder_alloc' using uint64_t pointer.
+>>
+> Sorry I still didn't follow this change still. What exactly is the
+> problem.
 
-Unfortunately you cannot just ignore or nack read-only pages. They are
-a fact in the current drivers.
+You can't stop the offset at non-8byte intervals, because the chunks
+being used in these arenas can have 64-bit values in it, which must be
+8-byte aligned.
 
-Most drivers today (at-least the ones we care about) only deliver
-read-only pages.  If you don't accept read-only pages day-1, then you
-first have to rewrite a lot of drivers... and that will stall the
-project!  How will you deal with this fact?
-
-The early drop filter use-case in this patchset, can ignore read-only
-pages.  But ABI wise we need to deal with the future case where we do
-need/require writeable pages.  A simple need-writable pages in the API
-could help us move forward.
-
-
-> . nack on copy-break approach
-
-Copy-break can be ignored.  It sort of happens at a higher-level in the
-driver. (Eric likely want/care this happens for local socket delivery).
-
-
-> . nack on per-ring programs
-
-Hmmm... I don't see it as a lot more complicated to attach the program
-to the ring.  But maybe we can extend the API later, and thus postpone that
-discussion.
-
-> . nack on modified/stolen/shared return codes
-> 
-> The whole thing must be dead simple to use. Above is not simple by any means.
-
-Maybe you missed that the above was a description of how the current
-network stack handles this, which is not simple... which is root of the
-hole performance issue.
-
-
-> The programs must see writeable pages only and return codes:
-> drop, pass to stack, redirect to xmit.
-> If program wishes to modify packets before passing it to stack, it
-> shouldn't need to deal with different return values.
-
-> No special things to deal with small or large packets. No header splits.
-> Program must not be aware of any such things.
-
-I agree on this.  This layer only deals with packets at the page level,
-single packets stored in continuous memory.
-
-
-> Drivers can use DMA_BIDIRECTIONAL to allow received page to be
-> modified by the program and immediately sent to xmit.
-
-We just have to verify that DMA_BIDIRECTIONAL does not add extra
-overhead (which is explicitly stated that it likely does on the
-DMA-API-HOWTO.txt, but I like to verify this with a micro benchmark)
-
-> No dma map/unmap/sync per packet. If some odd architectures/dma setups
-> cannot do it, then XDP will not be applicable there.
-
-I do like the idea of rejecting XDP eBPF programs based on the DMA
-setup is not compatible, or if the driver does not implement e.g.
-writable DMA pages.
-
-Customers wanting this feature will then go buy the NIC which support
-this feature.  There is nothing more motivating for NIC vendors seeing
-customers buying the competitors hardware. And it only require a driver
-change to get this market...
-
-
-> We are not going to sacrifice performance for generality.
-
-Agree.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+It looks extremely obvious to me.
