@@ -1,67 +1,169 @@
-From: Chris Friesen <chris.friesen@windriver.com>
-Subject: [PATCH v3] route: do not cache fib route info on local routes with
- oif
-Date: Fri, 8 Apr 2016 14:07:26 -0600
-Message-ID: <57080F7E.809@windriver.com>
-References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com> <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
+ filter
+Date: Fri, 8 Apr 2016 22:08:08 +0200
+Message-ID: <20160408220808.682630d7@redhat.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+	<20160408123614.2a15a346@redhat.com>
+	<20160408143340.10e5b1d0@redhat.com>
+	<20160408172651.GA38264@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:57020 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753090AbcDHUHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2016 16:07:38 -0400
-In-Reply-To: <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
+        daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
+        john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
+        eranlinuxmellanox@gmail.com, lorenzo@google.com,
+        linux-mm
+ <linux-mm@kvack.org>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160408172651.GA38264@ast-mbp.thefacebook.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-For local routes that require a particular output interface we do not want to
-cache the result.  Caching the result causes incorrect behaviour when there are
-multiple source addresses on the interface.  The end result being that if the
-intended recipient is waiting on that interface for the packet he won't receive
-it because it will be delivered on the loopback interface and the IP_PKTINFO
-ipi_ifindex will be set to the loopback interface as well.
+On Fri, 8 Apr 2016 10:26:53 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-This can be tested by running a program such as "dhcp_release" which attempts
-to inject a packet on a particular interface so that it is received by another
-program on the same board.  The receiving process should see an IP_PKTINFO
-ipi_ifndex value of the source interface (e.g., eth1) instead of the loopback
-interface (e.g., lo).  The packet will still appear on the loopback interface
-in tcpdump but the important aspect is that the CMSG info is correct.
+> On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
+> > 
+> > On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> >   
+> > > > +/* user return codes for PHYS_DEV prog type */
+> > > > +enum bpf_phys_dev_action {
+> > > > +	BPF_PHYS_DEV_DROP,
+> > > > +	BPF_PHYS_DEV_OK,
+> > > > +};    
+> > > 
+> > > I can imagine these extra return codes:
+> > > 
+> > >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
+> > >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
+> > >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
+> > > 
+> > > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
+> > > which we can look at when we get that far...  
+> > 
+> > I want to point out something which is quite FUNDAMENTAL, for
+> > understanding these return codes (and network stack).
+> > 
+> > 
+> > At driver RX time, the network stack basically have two ways of
+> > building an SKB, which is send up the stack.
+> > 
+> > Option-A (fastest): The packet page is writable. The SKB can be
+> > allocated and skb->data/head can point directly to the page.  And
+> > we place/write skb_shared_info in the end/tail-room. (This is done by
+> > calling build_skb()).
+> > 
+> > Option-B (slower): The packet page is read-only.  The SKB cannot point
+> > skb->data/head directly to the page, because skb_shared_info need to be
+> > written into skb->end (slightly hidden via skb_shinfo() casting).  To
+> > get around this, a separate piece of memory is allocated (speedup by
+> > __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
+> > be written. (This is done when calling netdev/napi_alloc_skb()).
+> >   Drivers then need to copy over packet headers, and assign + adjust
+> > skb_shinfo(skb)->frags[0] offset to skip copied headers.
+> > 
+> > 
+> > Unfortunately most drivers use option-B.  Due to cost of calling the
+> > page allocator.  It is only slightly most expensive to get a larger
+> > compound page from the page allocator, which then can be partitioned into
+> > page-fragments, thus amortizing the page alloc cost.  Unfortunately the
+> > cost is added later, when constructing the SKB.
+> >  Another reason for option-B, is that archs with expensive IOMMU
+> > requirements (like PowerPC), don't need to dma_unmap on every packet,
+> > but only on the compound page level.
+> > 
+> > Side-note: Most drivers have a "copy-break" optimization.  Especially
+> > for option-B, when copying header data anyhow. For small packet, one
+> > might as well free (or recycle) the RX page, if header size fits into
+> > the newly allocated memory (for skb_shared_info).  
+> 
+> I think you guys are going into overdesign territory, so
+> . nack on read-only pages
 
-Sample dhcp_release command line:
+Unfortunately you cannot just ignore or nack read-only pages. They are
+a fact in the current drivers.
 
-   dhcp_release eth1 192.168.204.222 02:11:33:22:44:66
+Most drivers today (at-least the ones we care about) only deliver
+read-only pages.  If you don't accept read-only pages day-1, then you
+first have to rewrite a lot of drivers... and that will stall the
+project!  How will you deal with this fact?
 
-Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
-Signed off-by: Chris Friesen <chris.friesen@windriver.com>
----
- net/ipv4/route.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+The early drop filter use-case in this patchset, can ignore read-only
+pages.  But ABI wise we need to deal with the future case where we do
+need/require writeable pages.  A simple need-writable pages in the API
+could help us move forward.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 02c6229..437a377 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2045,6 +2045,18 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 		 */
- 		if (fi && res->prefixlen < 4)
- 			fi = NULL;
-+	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
-+		   (orig_oif != dev_out->ifindex)) {
-+		/* For local routes that require a particular output interface
-+                 * we do not want to cache the result.  Caching the result
-+                 * causes incorrect behaviour when there are multiple source
-+                 * addresses on the interface, the end result being that if the
-+                 * intended recipient is waiting on that interface for the
-+                 * packet he won't receive it because it will be delivered on
-+                 * the loopback interface and the IP_PKTINFO ipi_ifindex will
-+                 * be set to the loopback interface as well.
-+		 */
-+		fi = NULL;
- 	}
- 
- 	fnhe = NULL;
+
+> . nack on copy-break approach
+
+Copy-break can be ignored.  It sort of happens at a higher-level in the
+driver. (Eric likely want/care this happens for local socket delivery).
+
+
+> . nack on per-ring programs
+
+Hmmm... I don't see it as a lot more complicated to attach the program
+to the ring.  But maybe we can extend the API later, and thus postpone that
+discussion.
+
+> . nack on modified/stolen/shared return codes
+> 
+> The whole thing must be dead simple to use. Above is not simple by any means.
+
+Maybe you missed that the above was a description of how the current
+network stack handles this, which is not simple... which is root of the
+hole performance issue.
+
+
+> The programs must see writeable pages only and return codes:
+> drop, pass to stack, redirect to xmit.
+> If program wishes to modify packets before passing it to stack, it
+> shouldn't need to deal with different return values.
+
+> No special things to deal with small or large packets. No header splits.
+> Program must not be aware of any such things.
+
+I agree on this.  This layer only deals with packets at the page level,
+single packets stored in continuous memory.
+
+
+> Drivers can use DMA_BIDIRECTIONAL to allow received page to be
+> modified by the program and immediately sent to xmit.
+
+We just have to verify that DMA_BIDIRECTIONAL does not add extra
+overhead (which is explicitly stated that it likely does on the
+DMA-API-HOWTO.txt, but I like to verify this with a micro benchmark)
+
+> No dma map/unmap/sync per packet. If some odd architectures/dma setups
+> cannot do it, then XDP will not be applicable there.
+
+I do like the idea of rejecting XDP eBPF programs based on the DMA
+setup is not compatible, or if the driver does not implement e.g.
+writable DMA pages.
+
+Customers wanting this feature will then go buy the NIC which support
+this feature.  There is nothing more motivating for NIC vendors seeing
+customers buying the competitors hardware. And it only require a driver
+change to get this market...
+
+
+> We are not going to sacrifice performance for generality.
+
+Agree.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
