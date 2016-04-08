@@ -1,7 +1,8 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver filter
-Date: Thu,  7 Apr 2016 21:48:46 -0700
-Message-ID: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+Subject: [RFC PATCH v2 2/5] net: add ndo to set bpf prog in adapter rx
+Date: Thu,  7 Apr 2016 21:48:47 -0700
+Message-ID: <1460090930-11219-2-git-send-email-bblanco@plumgrid.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>, netdev@vger.kernel.org,
 	tom@herbertland.com, alexei.starovoitov@gmail.com,
 	ogerlitz@mellanox.com, daniel@iogearbox.net, brouer@redhat.com,
@@ -10,190 +11,125 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>, netdev@vger.kernel.org,
 	eranlinuxmellanox@gmail.com, lorenzo@google.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34690 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbcDHEs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 00:48:56 -0400
-Received: by mail-pa0-f44.google.com with SMTP id fe3so67865238pab.1
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 21:48:55 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34368 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754861AbcDHEs5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 00:48:57 -0400
+Received: by mail-pf0-f177.google.com with SMTP id c20so69090758pfc.1
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 21:48:56 -0700 (PDT)
+In-Reply-To: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new bpf prog type that is intended to run in early stages of the
-packet rx path. Only minimal packet metadata will be available, hence a
-new context type, struct bpf_phys_dev_md, is exposed to userspace. So
-far only expose the readable packet length, and only in read mode.
-
-The PHYS_DEV name is chosen to represent that the program is meant only
-for physical adapters, rather than all netdevs.
-
-While the user visible struct is new, the underlying context must be
-implemented as a minimal skb in order for the packet load_* instructions
-to work. The skb filled in by the driver must have skb->len, skb->head,
-and skb->data set, and skb->data_len == 0.
+Add two new set/get netdev ops for drivers implementing the
+BPF_PROG_TYPE_PHYS_DEV filter.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- include/uapi/linux/bpf.h | 14 ++++++++++
- kernel/bpf/verifier.c    |  1 +
- net/core/filter.c        | 68 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 83 insertions(+)
+ include/linux/netdevice.h | 13 +++++++++++++
+ net/core/dev.c            | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 51 insertions(+)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 70eda5a..3018d83 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -93,6 +93,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_CLS,
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
-+	BPF_PROG_TYPE_PHYS_DEV,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb4e508..3acf732 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -61,6 +61,7 @@ struct wireless_dev;
+ /* 802.15.4 specific */
+ struct wpan_dev;
+ struct mpls_dev;
++struct bpf_prog;
+ 
+ void netdev_set_default_ethtool_ops(struct net_device *dev,
+ 				    const struct ethtool_ops *ops);
+@@ -1102,6 +1103,14 @@ struct tc_to_netdev {
+  *	appropriate rx headroom value allows avoiding skb head copy on
+  *	forward. Setting a negative value resets the rx headroom to the
+  *	default value.
++ * int  (*ndo_bpf_set)(struct net_device *dev, struct bpf_prog *prog);
++ *	This function is used to set or clear a bpf program used in the
++ *	earliest stages of packet rx. The prog will have been loaded as
++ *	BPF_PROG_TYPE_PHYS_DEV. The callee is responsible for calling
++ *	bpf_prog_put on any old progs that are stored, but not on the passed
++ *	in prog.
++ * bool (*ndo_bpf_get)(struct net_device *dev);
++ *	This function is used to check if a bpf program is set on the device.
+  *
+  */
+ struct net_device_ops {
+@@ -1292,6 +1301,9 @@ struct net_device_ops {
+ 						       struct sk_buff *skb);
+ 	void			(*ndo_set_rx_headroom)(struct net_device *dev,
+ 						       int needed_headroom);
++	int			(*ndo_bpf_set)(struct net_device *dev,
++					       struct bpf_prog *prog);
++	bool			(*ndo_bpf_get)(struct net_device *dev);
  };
  
- #define BPF_PSEUDO_MAP_FD	1
-@@ -368,6 +369,19 @@ struct __sk_buff {
- 	__u32 tc_classid;
- };
+ /**
+@@ -3251,6 +3263,7 @@ int dev_get_phys_port_id(struct net_device *dev,
+ int dev_get_phys_port_name(struct net_device *dev,
+ 			   char *name, size_t len);
+ int dev_change_proto_down(struct net_device *dev, bool proto_down);
++int dev_change_bpf_fd(struct net_device *dev, int fd);
+ struct sk_buff *validate_xmit_skb_list(struct sk_buff *skb, struct net_device *dev);
+ struct sk_buff *dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 				    struct netdev_queue *txq, int *ret);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 273f10d..7cf749c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -94,6 +94,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/notifier.h>
+ #include <linux/skbuff.h>
++#include <linux/bpf.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/busy_poll.h>
+@@ -6483,6 +6484,43 @@ int dev_change_proto_down(struct net_device *dev, bool proto_down)
+ EXPORT_SYMBOL(dev_change_proto_down);
  
-+/* user return codes for PHYS_DEV prog type */
-+enum bpf_phys_dev_action {
-+	BPF_PHYS_DEV_DROP,
-+	BPF_PHYS_DEV_OK,
-+};
-+
-+/* user accessible metadata for PHYS_DEV packet hook
-+ * new fields must be added to the end of this structure
+ /**
++ *	dev_change_bpf_fd - set or clear a bpf program for a device
++ *	@dev: device
++ *	@fd: new program fd or negative value to clear
++ *
++ *	Set or clear a bpf program for a device
 + */
-+struct bpf_phys_dev_md {
-+	__u32 len;
-+};
-+
- struct bpf_tunnel_key {
- 	__u32 tunnel_id;
- 	union {
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 58792fe..877542d 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1344,6 +1344,7 @@ static bool may_access_skb(enum bpf_prog_type type)
- 	case BPF_PROG_TYPE_SOCKET_FILTER:
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
-+	case BPF_PROG_TYPE_PHYS_DEV:
- 		return true;
- 	default:
- 		return false;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index e8486ba..4f73fb9 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2021,6 +2021,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 	}
- }
- 
-+static const struct bpf_func_proto *
-+phys_dev_func_proto(enum bpf_func_id func_id)
++int dev_change_bpf_fd(struct net_device *dev, int fd)
 +{
-+	return sk_filter_func_proto(func_id);
-+}
++	const struct net_device_ops *ops = dev->netdev_ops;
++	struct bpf_prog *prog = NULL;
++	int err;
 +
- static bool __is_valid_access(int off, int size, enum bpf_access_type type)
- {
- 	/* check bounds */
-@@ -2076,6 +2082,36 @@ static bool tc_cls_act_is_valid_access(int off, int size,
- 	return __is_valid_access(off, size, type);
- }
- 
-+static bool __is_valid_phys_dev_access(int off, int size,
-+				       enum bpf_access_type type)
-+{
-+	if (off < 0 || off >= sizeof(struct bpf_phys_dev_md))
-+		return false;
++	if (!ops->ndo_bpf_set)
++		return -EOPNOTSUPP;
++	if (!netif_device_present(dev))
++		return -ENODEV;
 +
-+	if (off % size != 0)
-+		return false;
++	if (fd >= 0) {
++		prog = bpf_prog_get(fd);
++		if (IS_ERR(prog))
++			return PTR_ERR(prog);
 +
-+	if (size != 4)
-+		return false;
-+
-+	return true;
-+}
-+
-+static bool phys_dev_is_valid_access(int off, int size,
-+				     enum bpf_access_type type)
-+{
-+	if (type == BPF_WRITE)
-+		return false;
-+
-+	switch (off) {
-+	case offsetof(struct bpf_phys_dev_md, len):
-+		break;
-+	default:
-+		return false;
-+	}
-+	return __is_valid_phys_dev_access(off, size, type);
-+}
-+
- static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 				      int src_reg, int ctx_off,
- 				      struct bpf_insn *insn_buf,
-@@ -2213,6 +2249,26 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 	return insn - insn_buf;
- }
- 
-+static u32 bpf_phys_dev_convert_ctx_access(enum bpf_access_type type,
-+					   int dst_reg, int src_reg,
-+					   int ctx_off,
-+					   struct bpf_insn *insn_buf,
-+					   struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	switch (ctx_off) {
-+	case offsetof(struct bpf_phys_dev_md, len):
-+		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, len) != 4);
-+
-+		*insn++ = BPF_LDX_MEM(BPF_W, dst_reg, src_reg,
-+				      offsetof(struct sk_buff, len));
-+		break;
++		if (prog->type != BPF_PROG_TYPE_PHYS_DEV) {
++			bpf_prog_put(prog);
++			return -EINVAL;
++		}
 +	}
 +
-+	return insn - insn_buf;
++	err = ops->ndo_bpf_set(dev, prog);
++	if (err < 0 && prog)
++		bpf_prog_put(prog);
++
++	return err;
 +}
++EXPORT_SYMBOL(dev_change_bpf_fd);
 +
- static const struct bpf_verifier_ops sk_filter_ops = {
- 	.get_func_proto = sk_filter_func_proto,
- 	.is_valid_access = sk_filter_is_valid_access,
-@@ -2225,6 +2281,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
- 	.convert_ctx_access = bpf_net_convert_ctx_access,
- };
- 
-+static const struct bpf_verifier_ops phys_dev_ops = {
-+	.get_func_proto = phys_dev_func_proto,
-+	.is_valid_access = phys_dev_is_valid_access,
-+	.convert_ctx_access = bpf_phys_dev_convert_ctx_access,
-+};
-+
- static struct bpf_prog_type_list sk_filter_type __read_mostly = {
- 	.ops = &sk_filter_ops,
- 	.type = BPF_PROG_TYPE_SOCKET_FILTER,
-@@ -2240,11 +2302,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
- 	.type = BPF_PROG_TYPE_SCHED_ACT,
- };
- 
-+static struct bpf_prog_type_list phys_dev_type __read_mostly = {
-+	.ops = &phys_dev_ops,
-+	.type = BPF_PROG_TYPE_PHYS_DEV,
-+};
-+
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
- 	bpf_register_prog_type(&sched_cls_type);
- 	bpf_register_prog_type(&sched_act_type);
-+	bpf_register_prog_type(&phys_dev_type);
- 
- 	return 0;
- }
++/**
+  *	dev_new_index	-	allocate an ifindex
+  *	@net: the applicable net namespace
+  *
 -- 
 2.8.0
