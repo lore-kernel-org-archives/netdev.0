@@ -1,46 +1,104 @@
-From: Alexandre TORGUE <alexandre.torgue@st.com>
-Subject: [PATCH net-next] net: ethernet: stmmac: GMAC4.xx: Fix TX descriptor preparation
-Date: Fri, 8 Apr 2016 11:18:03 +0200
-Message-ID: <1460107083-25577-1-git-send-email-alexandre.torgue@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dan.carpenter@oracle.com>, <kernel-janitors@vger.kernel.org>
-To: <netdev@vger.kernel.org>, <peppe.cavallaro@st.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] ipv6: rework the lock in addrconf_permanent_addr
+Date: Fri,  8 Apr 2016 17:22:39 +0800
+Message-ID: <1460107359-8937-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:26836 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757142AbcDHJSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 05:18:20 -0400
+Received: from mail.windriver.com ([147.11.1.11]:35282 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047AbcDHJWm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 05:22:42 -0400
+Received: from localhost (lrq.corp.ad.wrs.com [128.224.162.186])
+	by mail.windriver.com (8.15.2/8.15.1) with ESMTP id u389MdhV011639
+	for <netdev@vger.kernel.org>; Fri, 8 Apr 2016 02:22:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On GMAC4.xx each descriptor contains 2 buffers of 16KB (each).
-Initially, those 2 buffers was filled in dwmac4_rd_prepare_tx_desc but
-it is actually not needed. Indeed, stmmac driver supports frame up to
-9000 bytes (jumbo). So only one buffer is needed.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
+1. nothing of idev is changed, so read lock is enough
+2. ifp is changed, so used ifp->lock or cmpxchg to protect it
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-index d4952c7..4ec7397 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-@@ -254,14 +254,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/addrconf.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 27aed1a..f6e7605b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3184,14 +3184,21 @@ static void addrconf_gre_config(struct net_device *dev)
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ 				  struct inet6_ifaddr *ifp)
  {
- 	unsigned int tdes3 = p->des3;
++	struct rt6_info *rt = NULL;
++
++	spin_lock(&ifp->lock);
+ 	if (ifp->rt) {
+ 		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
  
--	if (unlikely(len > BUF_SIZE_16KiB)) {
--		p->des2 |= (((len - BUF_SIZE_16KiB) <<
--			     TDES2_BUFFER2_SIZE_MASK_SHIFT)
--			    & TDES2_BUFFER2_SIZE_MASK)
--			    | (BUF_SIZE_16KiB & TDES2_BUFFER1_SIZE_MASK);
--	} else {
--		p->des2 |= (len & TDES2_BUFFER1_SIZE_MASK);
--	}
-+	p->des2 |= (len & TDES2_BUFFER1_SIZE_MASK);
+ 		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
+-			ip6_del_rt(ifp->rt);
++			rt = ifp->rt;
+ 			ifp->rt = NULL;
+ 		}
+ 	}
++	spin_unlock(&ifp->lock);
++
++	if (rt)
++		ip6_del_rt(rt);
+ }
+ #else
+ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+@@ -3203,6 +3210,8 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
++	struct rt6_info *prev;
++
+ 	l3mdev_check_host_rt(idev, ifp);
  
- 	if (is_fs)
- 		tdes3 |= TDES3_FIRST_DESCRIPTOR;
+ 	if (!ifp->rt) {
+@@ -3212,7 +3221,12 @@ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 		if (unlikely(IS_ERR(rt)))
+ 			return PTR_ERR(rt);
+ 
+-		ifp->rt = rt;
++		prev = cmpxchg(&ifp->rt, NULL, rt);
++
++		/*if cmpxchg failed*/
++		if (prev) {
++			ip6_rt_put(rt);
++		}
+ 	}
+ 
+ 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
+@@ -3234,21 +3248,21 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 	if (!idev)
+ 		return;
+ 
+-	write_lock_bh(&idev->lock);
++	read_lock_bh(&idev->lock);
+ 
+ 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+-			write_unlock_bh(&idev->lock);
++			read_unlock_bh(&idev->lock);
+ 			ipv6_del_addr(ifp);
+-			write_lock_bh(&idev->lock);
++			read_lock_bh(&idev->lock);
+ 
+ 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
+ 					     idev->dev->name, &ifp->addr);
+ 		}
+ 	}
+ 
+-	write_unlock_bh(&idev->lock);
++	read_unlock_bh(&idev->lock);
+ }
+ 
+ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 -- 
-1.9.1
+2.1.4
