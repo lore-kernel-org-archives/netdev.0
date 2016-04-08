@@ -1,50 +1,46 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [net-next PATCH 2/5] GSO: Add GSO type for fixed IPv4 ID
-Date: Fri, 8 Apr 2016 18:41:00 -0300
-Message-ID: <CAEh+42j21N+3ScmR9D9P3esgUL-G0kWxNT1x2zfGi_9M-bPKzw@mail.gmail.com>
-References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server> <20160408203318.12838.59720.stgit@ahduyck-xeon-server>
+From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Fri, 8 Apr 2016 16:45:31 -0500
+Message-ID: <5708267B.8050503@codeaurora.org>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+ <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
+ <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+ <5706B4EF.2050600@codeaurora.org> <20160407201009.GA16136@lunn.ch>
+ <5706D493.8020700@codeaurora.org> <20160408005317.GA28125@lunn.ch>
+ <5708013F.90207@codeaurora.org> <57081D96.902@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <tom@herbertland.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Alexander Duyck <aduyck@mirantis.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:34739 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759067AbcDHVlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Apr 2016 17:41:18 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 0839320328
-	for <netdev@vger.kernel.org>; Fri,  8 Apr 2016 21:41:17 +0000 (UTC)
-Received: from mail-qg0-f46.google.com (mail-qg0-f46.google.com [209.85.192.46])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id D7A91202EB
-	for <netdev@vger.kernel.org>; Fri,  8 Apr 2016 21:41:15 +0000 (UTC)
-Received: by mail-qg0-f46.google.com with SMTP id f52so101691124qga.3
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 14:41:15 -0700 (PDT)
-In-Reply-To: <20160408203318.12838.59720.stgit@ahduyck-xeon-server>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-msm <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sagar Dharia <sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Vikram Sethi <vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57081D96.902-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 8, 2016 at 5:33 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch adds support for TSO using IPv4 headers with a fixed IP ID
-> field.  This is meant to allow us to do a lossless GRO in the case of TCP
-> flows that use a fixed IP ID such as those that convert IPv6 header to IPv4
-> headers.
->
-> In addition I am adding a feature that for now I am referring to TSO with
-> IP ID mangling.  Basically when this flag is enabled the device has the
-> option to either output the flow with incrementing IP IDs or with a fixed
-> IP ID regardless of what the original IP ID ordering was.  This is useful
-> in cases where the DF bit is set and we do not care if the original IP ID
-> value is maintained.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Vikram Sethi wrote:
 
-I think SKB_GSO_TCP_FIXEDID would also need to be added to the list of
-enumerated OK GSO types for MPLS GSO.
+>> On the FSM9900 SOC (which uses device-tree), the two pins that connect to the external PHY are gpio pins.  However, the driver needs to reprogram the pinmux so that those pins are wired to the Emac controller.  That's what the the gpio code in this driver is doing: it's just configuring the pins so that they connect directly between the Emac and the external PHY.  After that, they are no longer GPIO pins, and you cannot use the "GPIO controlled MDIO bus".  There is no MDIO controller on the SOC.  The external PHY is controlled directly from the Emac and also from the internal PHY.  It is screwy, I know, but that's what Gilad was trying to explain.
+> It is incorrect to say there's no MDIO controller on the SoC. The EMAC Core on the SoC itself has a MDIO controller which talks to the external PHY. The internal SGMII is not on MDIO however.
+> Please see the EMAC specification.
+
+Sorry, I should have said that there is no *independent* MDIO controller 
+(one that has its own driver).  As you said, you can only talk to the 
+external PHY through the Emac.
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
