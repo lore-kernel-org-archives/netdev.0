@@ -1,69 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 1/2] net: socket: return EADDRNOTAVAIL when source
- address becomes nonlocal
-Date: Thu, 07 Apr 2016 21:48:14 -0400 (EDT)
-Message-ID: <20160407.214814.1682483805978131113.davem@davemloft.net>
-References: <1459865986-18271-1-git-send-email-zlpnobody@163.com>
-	<1459865986-18271-2-git-send-email-zlpnobody@163.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Fri, 8 Apr 2016 01:56:06 +0000
+Message-ID: <BLUPR03MB1410C2ECCBDEFC62CDA9928CBF910@BLUPR03MB1410.namprd03.prod.outlook.com>
+References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
+ <1460078109.1800.16.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, liping.zhang@spreadtrum.com
-To: zlpnobody@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57651 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965AbcDHBsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 21:48:16 -0400
-In-Reply-To: <1459865986-18271-2-git-send-email-zlpnobody@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Joe Perches <joe@perches.com>, "gregkh@linuxfoundation.org"
+ <gregkh@linuxfoundation.org>, "davem@davemloft.net" <davem@davemloft.net>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
+ "jasowang@redhat.com" <jasowang@redhat.com>, "cavery@redhat.com"
+ <cavery@redhat.com>, KY Srinivasan <kys@microsoft.com>, Haiyang Zhang
+ <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1460078109.1800.16.camel@perches.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <zlpnobody@163.com>
-Date: Tue,  5 Apr 2016 22:19:45 +0800
-
-> From: Liping Zhang <liping.zhang@spreadtrum.com>
+> From: Joe Perches [mailto:joe@perches.com]
+> Sent: Friday, April 8, 2016 9:15
+> On Thu, 2016-04-07 at 18:36 -0700, Dexuan Cui wrote:
+> > diff --git a/include/net/af_hvsock.h b/include/net/af_hvsock.h
+> []
+> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV (5 * PAGE_SIZE)
+> > +#define VMBUS_RINGBUFFER_SIZE_HVSOCK_SEND (5 * PAGE_SIZE)
+> > +
+> > +#define HVSOCK_RCV_BUF_SZ
+> 	VMBUS_RINGBUFFER_SIZE_HVSOCK_RECV
+> > +#define HVSOCK_SND_BUF_SZ	PAGE_SIZE
+> []
+> > +struct hvsock_sock {
+> []
+> > +	struct {
+> > +		struct vmpipe_proto_header hdr;
+> > +		char buf[HVSOCK_SND_BUF_SZ];
+> > +	} __packed send;
+> > +
+> > +	struct {
+> > +		struct vmpipe_proto_header hdr;
+> > +		char buf[HVSOCK_RCV_BUF_SZ];
+> > +		unsigned int data_len;
+> > +		unsigned int data_offset;
+> > +	} __packed recv;
+> > +};
 > 
-> A socket can use bind(directly) or connect(indirectly) to bind to a local
-> ip address, and later if the network becomes down, that cause the source
-> address becomes nonlocal, then send() call will fail and return EINVAL.
-> But this error code is confusing, acctually we did not pass any invalid
-> arguments. Furthermore, send() maybe return ok at first, it now returns
-> fail just because of a temporary network problem, i.e. when the network
-> recovery, send() call will become ok. Return EADDRNOTAVAIL instead of
-> EINVAL in such situation is better.
+> These bufs are not page aligned and so can span pages.
 > 
-> Take the ping utility for example, we can use -I option to specify the
-> source address (e.g ping -I 10.19.145.26 117.135.169.41), when network
-> becomes down, error message will be printed out as follows:
->     64 bytes from  (117.135.169.41): icmp_seq=9 ttl=54 time=46.7 ms
->     ping: sendmsg: Invalid argument
->     ping: sendmsg: Invalid argument
-> 
-> Apply this patch, error message will become:
->     64 bytes from  (117.135.169.41): icmp_seq=5 ttl=54 time=47.5 ms
->     ping: sendmsg: Cannot assign requested address
->     ping: sendmsg: Cannot assign requested address
-> 
-> Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+> Is there any value in allocating these bufs separately
+> as pages instead of as a kmalloc?
 
-Changing the behavior of such a core, and fundamental function, with
-hundreds of direct and indirect call sites is extremely dangerous.
+The bufs are not required to be page aligned.
+Here the 'hdr' and the 'buf' must be consecutive, i.e., the 'buf' must be
+an array rather than a pointer: please see hvsock_send_data().
 
-I was worried that someone might depend upon the -EINVAL return value,
-and indeed I quickly found that the code in net/netfilter/ipvs/ip_vs_xmit.c
-does want to see EINVAL in this case.
+It looks to me there is no big value to make sure the 'buf' is page
+aligned: on x86_64, at least it should already be 8-byte aligned due to the
+adjacent channel pointer, so memcpy_from_msg() should work
+enough good and in hvsock_send_data() -> vmbus_sendpacket(),
+we don't copy the 'buf'.
 
-I refuse to audit the entire call chain of all users of this helper
-function, as I said there are hundreds.  But there are potentially
-many other call sites, either direct or indirect, that have this
-problem as well.
-
-And furthermore, USERSPACE itself might depend upon the error code
-being -EINVAL since we've been returning it for several decades.
-
-To be quite honest I think the value of this change is very low and
-with the risk factors involved here I really would rather not make
-this change at all.
-
-Sorry.
+Thanks,
+-- Dexuan
