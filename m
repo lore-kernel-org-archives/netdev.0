@@ -1,58 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Fri, 8 Apr 2016 02:53:17 +0200
-Message-ID: <20160408005317.GA28125@lunn.ch>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop>
- <56ABADEA.40801@codeaurora.org>
- <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
- <5706B4EF.2050600@codeaurora.org>
- <20160407201009.GA16136@lunn.ch>
- <5706D493.8020700@codeaurora.org>
+From: "Banerjee, Debabrata" <dbanerje@akamai.com>
+Subject: Re: [PATCH net-next v2] macvlan: Support interface operstate properly
+Date: Fri, 8 Apr 2016 01:03:14 +0000
+Message-ID: <79B09DA9-65D1-405A-BF6F-A46E9FBEE74F@akamai.com>
+References: <1459982173-791-1-git-send-email-dbanerje@akamai.com>
+ <57063EDD.3040406@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh@kernel.org>,
-	Gilad Avidov <gavidov@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5706D493.8020700@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:60888 "EHLO
+	prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753186AbcDHBDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 21:03:19 -0400
+In-Reply-To: <57063EDD.3040406@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <08AC513ADA3BFD48823EBBD2A9B511C7@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 07, 2016 at 04:43:47PM -0500, Timur Tabi wrote:
-> On my platform, firmware (UEFI) configures all of the GPIOs.  I need
-> to get confirmation, but it appears that we don't actually make any
-> GPIO calls at all.  I see code that looks like this:
-> 
-> 	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
-> 		gpio_info = &adpt->gpio_info[i];
-> 		retval = of_get_named_gpio(node, gpio_info->name, 0);
-> 		if (retval < 0)
-> 			return retval;
-> 
-> And on our ACPI system, adpt->no_mdio_gpio is always true:
-> 
-> 	/* Assume GPIOs required for MDC/MDIO are enabled in firmware */
-> 	adpt->no_mdio_gpio = true;
-
-There are two different things here. One is configuring the pin to be
-a GPIO. The second is using the GPIO as a GPIO. In this case,
-bit-banging the MDIO bus.
-
-The firmware could be doing the configuration, setting the pin as a
-GPIO. However, the firmware cannot be doing the MDIO bit-banging to
-make an MDIO bus available. Linux has to do that.
-
-Or it could be we have all completely misunderstood the hardware, and
-we are not doing bit-banging GPIO MDIO. There is a real MDIO
-controller there, we don't use these pins as GPIOs, etc....
-
-	   Andrew
+T24gNC83LzE2LCA3OjA1IEFNLCAiTmlrb2xheSBBbGVrc2FuZHJvdiIgPG5pa29sYXlAY3VtdWx1
+c25ldHdvcmtzLmNvbT4gd3JvdGU6DQoNCg0KDQo+T24gMDQvMDcvMjAxNiAxMjozNiBBTSwgRGVi
+YWJyYXRhIEJhbmVyamVlIHdyb3RlOg0KPj4gU2V0IGFwcHJvcHJpYXRlIG1hY3ZsYW4gaW50ZXJm
+YWNlIHN0YXR1cyBiYXNlZCBvbiBsb3dlciBkZXZpY2UgYW5kIG91cg0KPj4gc3RhdHVzLiBDYW4g
+YmUgdXAsIGRvd24sIG9yIGxvd2VybGF5ZXJkb3duLg0KPldoYXQgYWJvdXQgZG9ybWFudCA/DQo+
+DQo+VGhhdCBiZWluZyBzYWlkIEkgdW5kZXJzdGFuZCB0aGUgbmVlZCB0byBzd2l0Y2ggdG8gbG93
+ZXJsYXllcmRvd24gd2hlbiB0aGUgbG93ZXINCj5kZXZpY2UgaXMgaW4gImRvd24iLCB3aGljaCBp
+cyBiYXNpY2FsbHkgdGhlIG1vc3QgaW1wb3J0YW50IGNoYW5nZSBvZiB0aGlzIHBhdGNoLg0KPlRo
+ZSByZXN0IGlzIGFscmVhZHkgaGFuZGxlZCBieSBsaW5rIHdhdGNoIGJhc2VkIG9uIGNhcnJpZXIg
+c3RhdGUuIEJ5IG5vdyBwZW9wbGUNCj5hcmUgdXNlZCB0byBoYXZpbmcgbG93ZXJsYXllcmRvd24g
+d2hlbiB0aGVyZSdzIG5vIGNhcnJpZXIsIG5vdyBpdCBjYW4gYWxzbyBtZWFuDQo+dGhhdCB0aGUg
+bG93ZXIgZGV2aWNlIGhhcyBiZWVuIGJyb3VnaHQgYWRtaW4gZG93bi4NCj4NCj5IZXJlJ3MgYW5v
+dGhlciBpbnRlcmVzdGluZyBzdGF0ZToNCj42OiBtYWMxQGV0aDI6IDxOTy1DQVJSSUVSLEJST0FE
+Q0FTVCxNVUxUSUNBU1QsVVAsTE9XRVJfVVAsRE9STUFOVCxNLURPV04+IG10dSAxNTAwIHFkaXNj
+IG5vcXVldWUgc3RhdGUgTE9XRVJMQVlFUkRPV04gbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQg
+cWxlbiAxMDAwDQo+UHJpb3IgdG8gdGhpcyBwYXRjaCB0aGUgbWFjdmxhbiB3b3VsZCBzdGF5IGlu
+IGRvcm1hbnQgc3RhdGUgYW5kIGl0IHdpbGwgYWxzbyBwcm9wYWdhdGUNCj50byBkZXZpY2VzIHN0
+YWNrZWQgb24gdG9wIG9mIGl0Lg0KDQpUaGUgbm8gY2FycmllciBpc3N1ZSBnYXZlIG1lIGFuIGlk
+ZWEuIFdoYXQgaWYgd2UganVzdCBzZXQgbm8gY2FycmllciBvbiB0aGUgbWFjdmxhbiBkZXZpY2U/
+DQpUaGlzIHNlZW1zIGFwcHJvcHJpYXRlLCBidXQgaXQgZG9lc24ndCBkaXJlY3RseSBhZGRyZXNz
+IHRoZSBkb3JtYW50IGlzc3VlLCBhbHRob3VnaCB0aGF0IGNvdWxkDQpiZSBhIHNlcGFyYXRlIHBh
+dGNoLiBXaWxsIHRoaXMgY2F1c2UgYW55IG5ldyBpc3N1ZXM/IEl0J3MgdmVyeSBzaW1wbGUsIG5l
+dyBwYXRjaCBpbmNvbWluZy4NCg0KDQo=
