@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2016-04-06
-Date: Fri, 08 Apr 2016 16:43:05 -0400 (EDT)
-Message-ID: <20160408.164305.725259829266062197.davem@davemloft.net>
-References: <1459949159-22399-1-git-send-email-johannes@sipsolutions.net>
-	<1459949210.17504.77.camel@sipsolutions.net>
+Subject: Re: [PATCH net-next v2 0/3] net: dsa: voidify STP setter and
+ FDB/VLAN add ops
+Date: Fri, 08 Apr 2016 16:51:00 -0400 (EDT)
+Message-ID: <20160408.165100.1546798904754346458.davem@davemloft.net>
+References: <1459958105-1090-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	jiri@resnulli.us, sfeldma@gmail.com
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36797 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36828 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755306AbcDHUnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:43:07 -0400
-In-Reply-To: <1459949210.17504.77.camel@sipsolutions.net>
+	with ESMTP id S1753699AbcDHUvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 16:51:04 -0400
+In-Reply-To: <1459958105-1090-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Wed, 06 Apr 2016 15:26:50 +0200
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed,  6 Apr 2016 11:55:02 -0400
 
-> On Wed, 2016-04-06 at 15:25 +0200, Johannes Berg wrote:
->> Hi Dave,
->> 
->> For the 4.6 cycle, there's of course much more. The few things that
->> 
+> Neither the DSA layer nor the bridge code (see br_set_state) really care
+> about eventual errors from STP state setters, so make it void.
 > 
-> Err, -next, so that's 4.7.
+> The DSA layer separates the prepare and commit phases of switchdev in
+> two different functions. Logical errors must not happen in commit
+> routines, so make them void.
+> 
+> Changes v1 -> v2:
+>   - rename port_stp_update to port_stp_state_set
+>   - don't change code flow of bcm_sf2_sw_br_set_stp_state
+>   - prefer netdev_err over netdev_warn
 
-Pulled, and I fixed the version number in the merge commit message.
-
-Thanks.
+Series applied.
