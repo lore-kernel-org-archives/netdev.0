@@ -1,130 +1,94 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net] mpls: find_outdev: check for err ptr in addition to NULL check
-Date: Thu,  7 Apr 2016 21:28:38 -0700
-Message-ID: <1460089718-25788-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: [RFC PATCH v2 0/5] Add driver bpf hook for early packet drop
+Date: Thu,  7 Apr 2016 21:47:54 -0700
+Message-ID: <1460090874-10497-1-git-send-email-bblanco@plumgrid.com>
+Cc: Brenden Blanco <bblanco@plumgrid.com>, netdev@vger.kernel.org,
+	tom@herbertland.com, alexei.starovoitov@gmail.com,
+	ogerlitz@mellanox.com, daniel@iogearbox.net, brouer@redhat.com,
+	eric.dumazet@gmail.com, ecree@solarflare.com,
+	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
+	eranlinuxmellanox@gmail.com, lorenzo@google.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35285 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932281AbcDHE2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 00:28:43 -0400
-Received: by mail-pa0-f53.google.com with SMTP id td3so67591070pab.2
-        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 21:28:42 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33041 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbcDHEsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 00:48:05 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 184so69154187pff.0
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 21:48:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+This patch set introduces new infrastructure for programmatically
+processing packets in the earliest stages of rx, as part of an effort
+others are calling Express Data Path (XDP) [1]. Start this effort by
+introducing a new bpf program type for early packet filtering, before even
+an skb has been allocated.
 
-find_outdev calls inet{,6}_fib_lookup_dev() or dev_get_by_index() to
-find the output device. In case of an error, inet{,6}_fib_lookup_dev()
-returns error pointer and dev_get_by_index() returns NULL. But the function
-only checks for NULL and thus can end up calling dev_put on an ERR_PTR.
-This patch adds an additional check for err ptr after the NULL check.
+With this, hope to enable line rate filtering, with this initial
+implementation providing drop/allow action only.
 
-Before: Trying to add an mpls route with no oif from user, no available
-path to 10.1.1.8 and no default route:
-$ip -f mpls route add 100 as 200 via inet 10.1.1.8
-[  822.337195] BUG: unable to handle kernel NULL pointer dereference at
-00000000000003a3
-[  822.340033] IP: [<ffffffff8148781e>] mpls_nh_assign_dev+0x10b/0x182
-[  822.340033] PGD 1db38067 PUD 1de9e067 PMD 0
-[  822.340033] Oops: 0000 [#1] SMP
-[  822.340033] Modules linked in:
-[  822.340033] CPU: 0 PID: 11148 Comm: ip Not tainted 4.5.0-rc7+ #54
-[  822.340033] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-BIOS rel-1.7.5.1-0-g8936dbb-20141113_115728-nilsson.home.kraxel.org
-04/01/2014
-[  822.340033] task: ffff88001db82580 ti: ffff88001dad4000 task.ti:
-ffff88001dad4000
-[  822.340033] RIP: 0010:[<ffffffff8148781e>]  [<ffffffff8148781e>]
-mpls_nh_assign_dev+0x10b/0x182
-[  822.340033] RSP: 0018:ffff88001dad7a88  EFLAGS: 00010282
-[  822.340033] RAX: ffffffffffffff9b RBX: ffffffffffffff9b RCX:
-0000000000000002
-[  822.340033] RDX: 00000000ffffff9b RSI: 0000000000000008 RDI:
-0000000000000000
-[  822.340033] RBP: ffff88001ddc9ea0 R08: ffff88001e9f1768 R09:
-0000000000000000
-[  822.340033] R10: ffff88001d9c1100 R11: ffff88001e3c89f0 R12:
-ffffffff8187e0c0
-[  822.340033] R13: ffffffff8187e0c0 R14: ffff88001ddc9e80 R15:
-0000000000000004
-[  822.340033] FS:  00007ff9ed798700(0000) GS:ffff88001fc00000(0000)
-knlGS:0000000000000000
-[  822.340033] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  822.340033] CR2: 00000000000003a3 CR3: 000000001de89000 CR4:
-00000000000006f0
-[  822.340033] Stack:
-[  822.340033]  0000000000000000 0000000100000000 0000000000000000
-0000000000000000
-[  822.340033]  0000000000000000 0801010a00000000 0000000000000000
-0000000000000000
-[  822.340033]  0000000000000004 ffffffff8148749b ffffffff8187e0c0
-000000000000001c
-[  822.340033] Call Trace:
-[  822.340033]  [<ffffffff8148749b>] ? mpls_rt_alloc+0x2b/0x3e
-[  822.340033]  [<ffffffff81488e66>] ? mpls_rtm_newroute+0x358/0x3e2
-[  822.340033]  [<ffffffff810e7bbc>] ? get_page+0x5/0xa
-[  822.340033]  [<ffffffff813b7d94>] ? rtnetlink_rcv_msg+0x17e/0x191
-[  822.340033]  [<ffffffff8111794e>] ? __kmalloc_track_caller+0x8c/0x9e
-[  822.340033]  [<ffffffff813c9393>] ?
-rht_key_hashfn.isra.20.constprop.57+0x14/0x1f
-[  822.340033]  [<ffffffff813b7c16>] ? __rtnl_unlock+0xc/0xc
-[  822.340033]  [<ffffffff813cb794>] ? netlink_rcv_skb+0x36/0x82
-[  822.340033]  [<ffffffff813b4507>] ? rtnetlink_rcv+0x1f/0x28
-[  822.340033]  [<ffffffff813cb2b1>] ? netlink_unicast+0x106/0x189
-[  822.340033]  [<ffffffff813cb5b3>] ? netlink_sendmsg+0x27f/0x2c8
-[  822.340033]  [<ffffffff81392ede>] ? sock_sendmsg_nosec+0x10/0x1b
-[  822.340033]  [<ffffffff81393df1>] ? ___sys_sendmsg+0x182/0x1e3
-[  822.340033]  [<ffffffff810e4f35>] ?
-__alloc_pages_nodemask+0x11c/0x1e4
-[  822.340033]  [<ffffffff8110619c>] ? PageAnon+0x5/0xd
-[  822.340033]  [<ffffffff811062fe>] ? __page_set_anon_rmap+0x45/0x52
-[  822.340033]  [<ffffffff810e7bbc>] ? get_page+0x5/0xa
-[  822.340033]  [<ffffffff810e85ab>] ? __lru_cache_add+0x1a/0x3a
-[  822.340033]  [<ffffffff81087ea9>] ? current_kernel_time64+0x9/0x30
-[  822.340033]  [<ffffffff813940c4>] ? __sys_sendmsg+0x3c/0x5a
-[  822.340033]  [<ffffffff8148f597>] ?
-entry_SYSCALL_64_fastpath+0x12/0x6a
-[  822.340033] Code: 83 08 04 00 00 65 ff 00 48 8b 3c 24 e8 40 7c f2 ff
-eb 13 48 c7 c3 9f ff ff ff eb 0f 89 ce e8 f1 ae f1 ff 48 89 c3 48 85 db
-74 15 <48> 8b 83 08 04 00 00 65 ff 08 48 81 fb 00 f0 ff ff 76 0d eb 07
-[  822.340033] RIP  [<ffffffff8148781e>] mpls_nh_assign_dev+0x10b/0x182
-[  822.340033]  RSP <ffff88001dad7a88>
-[  822.340033] CR2: 00000000000003a3
-[  822.435363] ---[ end trace 98cc65e6f6b8bf11 ]---
+Patch 1 introduces the new prog type and helpers for validating the bpf
+program. A new userspace struct is defined containing only len as a field,
+with others to follow in the future.
+In patch 2, create a new ndo to pass the fd to support drivers. 
+In patch 3, expose a new rtnl option to userspace.
+In patch 4, enable support in mlx4 driver. No skb allocation is required,
+instead a static percpu skb is kept in the driver and minimally initialized
+for each driver frag.
+In patch 5, create a sample drop and count program. With single core,
+achieved ~20 Mpps drop rate on a 40G mlx4. This includes packet data
+access, bpf array lookup, and increment.
 
-After patch:
-$ip -f mpls route add 100 as 200 via inet 10.1.1.8
-RTNETLINK answers: Network is unreachable
+Interestingly, accessing packet data from the program did not have a
+noticeable impact on performance. Even so, future enhancements to
+prefetching / batching / page-allocs should hopefully improve the
+performance in this path.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-Reported-by: David Miller <davem@davemloft.net>
----
-I completely missed this during negative testing of my original
-submission because of a default route always present. It was always
-picking the default device in the failure case and no crash. This time
-tested with no default route.
+[1] https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
 
-Thanks for catching it.
+v2:
+  1/5: Drop xdp from types, instead consistently use bpf_phys_dev_.
+    Introduce enum for return values from phys_dev hook.
+  2/5: Move prog->type check to just before invoking ndo.
+    Change ndo to take a bpf_prog * instead of fd.
+    Add ndo_bpf_get rather than keeping a bool in the netdev struct.
+  3/5: Use ndo_bpf_get to fetch bool.
+  4/5: Enforce that only 1 frag is ever given to bpf prog by disallowing
+    mtu to increase beyond FRAG_SZ0 when bpf prog is running, or conversely
+    to set a bpf prog when priv->num_frags > 1.
+    Rename pseudo_skb to bpf_phys_dev_md.
+    Implement ndo_bpf_get.
+    Add dma sync just before invoking prog.
+    Check for explicit bpf return code rather than nonzero.
+    Remove increment of rx_dropped.
+  5/5: Use explicit bpf return code in example.
+    Update commit log with higher pps numbers.
 
- net/mpls/af_mpls.c | 3 +++
- 1 file changed, 3 insertions(+)
+Brenden Blanco (5):
+  bpf: add PHYS_DEV prog type for early driver filter
+  net: add ndo to set bpf prog in adapter rx
+  rtnl: add option for setting link bpf prog
+  mlx4: add support for fast rx drop bpf program
+  Add sample for adding simple drop program to link
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index b18c5ed..0b80a71 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -543,6 +543,9 @@ static struct net_device *find_outdev(struct net *net,
- 	if (!dev)
- 		return ERR_PTR(-ENODEV);
- 
-+	if (IS_ERR(dev))
-+		return dev;
-+
- 	/* The caller is holding rtnl anyways, so release the dev reference */
- 	dev_put(dev);
- 
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  65 +++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     |  25 +++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |   6 +
+ include/linux/netdevice.h                      |  13 +++
+ include/uapi/linux/bpf.h                       |  14 +++
+ include/uapi/linux/if_link.h                   |   1 +
+ kernel/bpf/verifier.c                          |   1 +
+ net/core/dev.c                                 |  38 ++++++
+ net/core/filter.c                              |  68 +++++++++++
+ net/core/rtnetlink.c                           |  12 ++
+ samples/bpf/Makefile                           |   4 +
+ samples/bpf/bpf_load.c                         |   8 ++
+ samples/bpf/netdrvx1_kern.c                    |  26 +++++
+ samples/bpf/netdrvx1_user.c                    | 155 +++++++++++++++++++++++++
+ 14 files changed, 432 insertions(+), 4 deletions(-)
+ create mode 100644 samples/bpf/netdrvx1_kern.c
+ create mode 100644 samples/bpf/netdrvx1_user.c
+
 -- 
-1.9.1
+2.8.0
