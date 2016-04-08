@@ -1,43 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: optimizations to sk_buff handling in rds_tcp_data_ready
-Date: Sun, 10 Apr 2016 16:54:40 -0700
-Message-ID: <1460332480.6473.536.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160407130859.GA2818@oracle.com>
-	 <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160410001853.GA30364@oracle.com>
+From: =?utf-8?B?0JPQsNC70LjQvdCwICjQutC+0YTQtdC50L3QsNGPINC60L7QvNC/0LDQvdC40Y8p?=
+	<gulyaeva.086@mail.ru>
+Subject: =?utf-8?B?0JLRiyDRgdGN0LrQvtC90L7QvNC40YLQtSDRgdGA0LXQtNGB0YLQstCwINC90LAg0LrQvtGE0LUg0Lgg0YfQsNC5?=
+Date: Fri, 8 Apr 2016 06:33:36 -0500
+Message-ID: <201604081133.u38BXatd029713@430248-web3.jewelrypayless.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset=UTF-8;
+Content-Transfer-Encoding: base64
+To: midiza@mail.ru, losb9111@rambler.ru, n.oborina00@mail.ru,
+	maestrowinever@hotmail.com, piratk0@mail.ru, olgavm84@mail.ru,
+	pincer@mail.ru, phoenix-fire@yandex.ru, pylatik@mail.ru,
+	mileninagv@mail.ru, notthatkind@mailinator.com,
+	maystrov2000@mail.ru, nariste-1993@mail.ru, m.n.makaroff@mail.ru,
+	master-union@mail.ru, ovt69@mail.ru, netdev@vger.kernel.org,
+	podruga.lp@mail.ru, oukca@mail.ru, olgak12071979@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:34351 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750912AbcDJXyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 19:54:44 -0400
-Received: by mail-qg0-f44.google.com with SMTP id c6so131949718qga.1
-        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 16:54:43 -0700 (PDT)
-In-Reply-To: <20160410001853.GA30364@oracle.com>
+Received: from [72.32.161.232] ([72.32.161.232]:39431 "EHLO
+	430248-web3.jewelrypayless.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751189AbcDKALv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 20:11:51 -0400
+Subject: =?utf-8?B?0JLRiyDRgdGN0LrQvtC90L7QvNC40YLQtSDRgdGA0LXQtNGB0YLQstCwINC90LAg0LrQvtGE0LUg0Lgg0YfQsNC5?=
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-04-09 at 20:18 -0400, Sowmini Varadhan wrote:
-> On (04/07/16 07:16), Eric Dumazet wrote:
-> > Use skb split like TCP in output path ?
-> > Really, pskb_expand_head() is not supposed to copy payload ;)
-> 
-> Question- how come skb_split doesnt have to deal with frag_list
-> and do a skb_walk_frags()? Couldn't the split-line be somewhere
-> in the frag_list? Also even for the skb_split_inside_header,
-> dont we have to set
->   skb_shinfo(skb1)->frag_list = skb_shinfo(skb)->frag_list;
-> and cut loose the skb_shinfo(skb)->frag_list?
-> 
-> As I try to mimic skb_split in some new set of "skb_carve"
-> funtions, I'm running into all  the various frag_list cases. I'm 
-> afraid I might end up needing most of the stuff under the "Pure 
-> masohism" (sic) comment in __pskb_pull_tail(). 
-> 
 
-The helper was written for TCP I guess. TCP in output path never uses
-skb_shinfo(skb)->frag_list : It is guaranteed to be NULL for all skbs.
+0JTQvtCx0YDRi9C5INC00LXQvdGMLgoK0J/QvtGB0YLQsNCy0LvRj9C10Lwg0JLQsNGI0LXQvNGDINC+0YTQuNGB0YMg0LrQvtGE0LUt0LzQsNGI0LjQvdGDINCw0LHRgdC+0LvRjtGC0L3QviDQsdC10YHQv9C70LDRgtC90L4o0LTQtdC50YHRgtCy0LjRgtC10LvRjNC90L4g0LHQtdGB0L/Qu9Cw0YLQvdC+KSEKCtCa0LDQutCw0Y8g0LLRi9Cz0L7QtNCwINC00LvRjyDQvdCw0YEgLSDQktCw0YjQuCDRgdC+0YLRgNGD0LTQvdC40LrQuCDQsdGD0LTRg9GCINC/0L7QutGD0L/QsNGC0Ywg0LrQvtGE0LUg0LIg0L3QsNGI0LXQuSDQutC+0YTQtS3QvNCw0YjQuNC90LUuCgrQkiDRh9C10Lwg0LLRi9Cz0L7QtNCwINGDINCS0LDRgToKLSDQmtC+0YTQtSDRgNCw0LfQsdGD0LTQuNGCINGB0L7QvdC90YvRhSDRgNCw0LHQvtGC0L3QuNC60L7QsjsKLSDQktGLINGB0Y3QutC+0L3QvtC80LjRgtC1INC00LXQvdGM0LPQuCDQvdCwINCx0LXRgdC/0LvQsNGC0L3Ri9C1INGH0LDQuSDQuCDQutC+0YTQtSwg0LrQvtGC0L7RgNGL0LUg0L7QvdC4INC/0L7RgtGA0LXQsdC70Y/Qu9C4INC30LAg0YHRh9C10YIg0YTQuNGA0LzRiy4KLSDQmtC+0YTQtS3QsNC/0L/QsNGA0LDR
+ giDQv9C+0YDQsNC00YPQtdGCINC10YnQtSDQuCDQktCw0YjQuNGFINC/0L7QutGD0L/QsNGC0LXQu9C10LksINC/0L7RgdC10YLQuNCy0YjQuNGFINC+0YTQuNGBLgoK0JTQsNC90L3Ri9C5INC60L7RhNC1LdCw0L/Qv9Cw0YDQsNGCINGA0LDQsdC+0!
+ YLQsNC10YIg0LIg0LIg0LDQstGC0L7QvdC+0LzQvdC+0Lwg0YDQtdC20LjQvNC1LgoK0J/RgNC10LjQvNGD0YnQtdGB0YLQstCwINC90LDRiNC10LPQviDQutC+0YTQtS3QsNC/0L/QsNGA0LDRgtCwOgotINCh0L7QstGA0LXQvNC10L3QvdGL0Lkg0LLQvdC10YjQvdC40Lkg0LLQuNC0OwotINCS0YvRgdC+0LrQsNGPINGB0LrQvtGA0L7RgdGC0Ywg0LrQvtGE0LUgLSDQvtGCIDE1INGB0LXQutGD0L3QtDsKLSDQkdC10YHQv9C70LDRgtC90YvQuSDRgdC10YDQstC40YE7Ci0g0JDQv9C/0LDRgNCw0YIg0LPQvtGC0L7QstC40YI6INGN0YHQv9GA0LXRgdGB0L4sINCw0LzQtdGA0LjQutCw0L3Qviwg0LrQsNC/0YPRh9C40L3Qviwg0LvQsNGC0YLQtSwg0LzQvtC60LDRh9C40L3Qviwg0LPQvtGA0Y/Rh9C40Lkg0YjQvtC60L7Qu9Cw0LQsINC80L7Qu9C+0YfQvdGL0Lkg0YjQvtC60L7Qu9Cw0LQsINCy0LDQvdC40LvRjNC90YvQuSDQutCw0L/Rg9GH0LjQvdC+LgoK0JXRgdC70Lgg0L/RgNC40L3RhtC40L/QuNCw0LvRjNC90YvQuSDQuNC90YLQtdGA0LXRgSDRgyDQktCw0YEg0LXRgdGC0YwgLSDRjyDQstGL0YjQu9GOINCS0LDQvCDRhNC+0YLQvtCz0YDQsNGE
+ 0LjQuCDQvdCw0YjQuNGFINCw0L/Qv9Cw0YDQsNGC0L7QsiDQuCDQuNGFINGF0LDRgNCw0LrRgtC10YDQuNGB0YLQuNC60LguCtCd0LDQv9C40YjQuNGC0LUg0L/QvtC20LDQu9GD0LnRgdGC0LAgLSDRgdC60L7Qu9GM0LrQviDRh9C10LvQvtCy0LXQu!
+ iDQsiDQktCw0YjQtdC8INC+0YTQuNGB0LUsINGH0YLQvtCx0Ysg0Y8g0LzQvtC!
+ z0LvQsCDRgdC+0YDQuNC10L3RgtC40YDQvtCy0LDRgtGM0YHRjyAtINC60LDQutC+0LPQviDQvtCx0YrQtdC80LAg0LDQv9C/0LDRgNCw0YLRiyDQktCw0Lwg0LzQvtC20L3QviDQv9GA0LXQtNC70L7QttC40YLRjC4KCtChINGD0LLQsNC20LXQvdC40LXQvCwg0JPQsNC70LjQvdCwLgoK0JHRg9C00YMg0LbQtNCw0YLRjCDQvtGC0LLQtdGCINC+0YIg0JLQsNGBLgoKUC5TLiDQn9GA0LXQtNC70L7QttC10L3QuNC1INC00LXQudGB0YLQstC40YLQtdC70YzQvdC+INC00LvRjyDRhNC40YDQvCAg0YHQviDRiNGC0LDRgtC+0Lwg0L7RgiA1MCDRh9C10LvQvtCy0LXQuiDQvdCw0YXQvtC00Y/RidC40YXRgdGPINCyINCc0L7RgdC60LLQtS4=
