@@ -1,107 +1,81 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Fri, 8 Apr 2016 10:02:00 -0700
-Message-ID: <20160408170159.GC28353@gmail.com>
+Subject: Re: [RFC PATCH v2 4/5] mlx4: add support for fast rx drop bpf program
+Date: Fri, 8 Apr 2016 10:04:25 -0700
+Message-ID: <20160408170424.GD28353@gmail.com>
 References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <20160408123614.2a15a346@redhat.com>
- <20160408143340.10e5b1d0@redhat.com>
+ <1460090930-11219-4-git-send-email-bblanco@plumgrid.com>
+ <20160408134158.0f153ff9@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
 	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
 	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
 	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
-	eranlinuxmellanox@gmail.com, lorenzo@google.com,
-	linux-mm <linux-mm@kvack.org>
+	eranlinuxmellanox@gmail.com, lorenzo@google.com
 To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33837 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754046AbcDHRE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 13:04:29 -0400
+Received: by mail-pf0-f170.google.com with SMTP id c20so79326647pfc.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 10:04:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160408143340.10e5b1d0@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160408134158.0f153ff9@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
+On Fri, Apr 08, 2016 at 01:41:58PM +0200, Jesper Dangaard Brouer wrote:
 > 
-> On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> On Thu,  7 Apr 2016 21:48:49 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
 > 
-> > > +/* user return codes for PHYS_DEV prog type */
-> > > +enum bpf_phys_dev_action {
-> > > +	BPF_PHYS_DEV_DROP,
-> > > +	BPF_PHYS_DEV_OK,
-> > > +};  
-> > 
-> > I can imagine these extra return codes:
-> > 
-> >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
-> >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
-> >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
-> > 
-> > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
-> > which we can look at when we get that far...
+> > +int mlx4_call_bpf(struct bpf_prog *prog, void *data, unsigned int length)
+> > +{
+> > +	struct sk_buff *skb = this_cpu_ptr(&percpu_bpf_phys_dev_md);
+> > +	int ret;
+> > +
+> > +	build_bpf_phys_dev_md(skb, data, length);
+> > +
+> > +	rcu_read_lock();
+> > +	ret = BPF_PROG_RUN(prog, (void *)skb);
+> > +	rcu_read_unlock();
+> > +
+> > +	return ret;
+> > +}
+> [...]
 > 
-> I want to point out something which is quite FUNDAMENTAL, for
-> understanding these return codes (and network stack).
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > index 86bcfe5..287da02 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> > @@ -840,6 +843,23 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+> >  		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+> >  			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+> >  
+> > +		/* A bpf program gets first chance to drop the packet. It may
+> > +		 * read bytes but not past the end of the frag.
+> > +		 */
+> > +		if (prog) {
+> > +			struct ethhdr *ethh;
+> > +			dma_addr_t dma;
+> > +
+> > +			dma = be64_to_cpu(rx_desc->data[0].addr);
+> > +			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
+> > +						DMA_FROM_DEVICE);
+> > +			ethh = page_address(frags[0].page) +
+> > +							frags[0].page_offset;
+> > +			if (mlx4_call_bpf(prog, ethh, frags[0].page_size) ==
+> > +							BPF_PHYS_DEV_DROP)
+> > +				goto next;
+> > +		}
+> > +
 > 
-> 
-> At driver RX time, the network stack basically have two ways of
-> building an SKB, which is send up the stack.
-> 
-> Option-A (fastest): The packet page is writable. The SKB can be
-> allocated and skb->data/head can point directly to the page.  And
-> we place/write skb_shared_info in the end/tail-room. (This is done by
-> calling build_skb()).
-> 
-> Option-B (slower): The packet page is read-only.  The SKB cannot point
-> skb->data/head directly to the page, because skb_shared_info need to be
-> written into skb->end (slightly hidden via skb_shinfo() casting).  To
-> get around this, a separate piece of memory is allocated (speedup by
-> __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
-> be written. (This is done when calling netdev/napi_alloc_skb()).
->   Drivers then need to copy over packet headers, and assign + adjust
-> skb_shinfo(skb)->frags[0] offset to skip copied headers.
-> 
-> 
-> Unfortunately most drivers use option-B.  Due to cost of calling the
-> page allocator.  It is only slightly most expensive to get a larger
-> compound page from the page allocator, which then can be partitioned into
-> page-fragments, thus amortizing the page alloc cost.  Unfortunately the
-> cost is added later, when constructing the SKB.
->  Another reason for option-B, is that archs with expensive IOMMU
-> requirements (like PowerPC), don't need to dma_unmap on every packet,
-> but only on the compound page level.
-> 
-> Side-note: Most drivers have a "copy-break" optimization.  Especially
-> for option-B, when copying header data anyhow. For small packet, one
-> might as well free (or recycle) the RX page, if header size fits into
-> the newly allocated memory (for skb_shared_info).
-> 
-> 
-> For the early filter drop (DDoS use-case), it does not matter that the
-> packet-page is read-only.
-> 
-> BUT for the future XDP (eXpress Data Path) use-case it does matter.  If
-> we ever want to see speeds comparable to DPDK, then drivers to
-> need to implement option-A, as this allow forwarding at the packet-page
-> level.
-> 
-> I hope, my future page-pool facility can remove/hide the cost calling
-> the page allocator.
-> 
-Can't wait! This will open up a lot of doors.
-> 
-> Back to the return codes, thus:
-> -------------------------------
-> BPF_PHYS_DEV_SHARED requires driver use option-B, when constructing
-> the SKB, and treat packet data as read-only.
-> 
-> BPF_PHYS_DEV_MODIFIED requires driver to provide a writable packet-page.
-I understand the driver/hw requirement, but the codes themselves I think
-need some tweaking. For instance, if the packet is both modified and
-forwarded, should the flags be ORed together? Or is the need for this
-return code made obsolete if the driver knows ahead of time via struct
-bpf_prog flags that the prog intends to modify the packet, and can set
-up the page accordingly?
+> Do the program need to know if the packet-page we handover is
+> considered 'read-only' at the call site?  Or do we rely on my idea
+> requiring the registration to "know" this...
+Seems that we're leaning towards the latter at this point. In either
+case, we won't allow buggy situations, and let's see which approach
+works better when we have RFC code in hand.
 > 
 > -- 
 > Best regards,
@@ -109,9 +83,3 @@ up the page accordingly?
 >   MSc.CS, Principal Kernel Engineer at Red Hat
 >   Author of http://www.iptv-analyzer.org
 >   LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
