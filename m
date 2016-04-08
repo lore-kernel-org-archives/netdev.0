@@ -1,158 +1,61 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Fri, 8 Apr 2016 14:34:16 -0700
-Message-ID: <20160408213414.GA43408@ast-mbp.thefacebook.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <20160408123614.2a15a346@redhat.com>
- <20160408143340.10e5b1d0@redhat.com>
- <20160408172651.GA38264@ast-mbp.thefacebook.com>
- <20160408220808.682630d7@redhat.com>
+From: Jesse Gross <jesse@kernel.org>
+Subject: Re: [RFC PATCH 07/11] GENEVE: Add option to mangle IP IDs on inner
+ headers when using TSO
+Date: Fri, 8 Apr 2016 18:40:47 -0300
+Message-ID: <CAEh+42gjqeGK94xvVQFuiUF=c3YKY2SCWOL=y=2gBsHyUxQ+GA@mail.gmail.com>
+References: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
+ <20160407223237.11142.33072.stgit@ahduyck-xeon-server> <CAEh+42jyh0EWwaOAu3KNSQKEv3NRgjPT_4QRYUmLRSXtsMgWJw@mail.gmail.com>
+ <CAKgT0Ufc8EiqCR5opSFUCE2v3hFCmnS641o+epyi+G92bD+yww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, tom@herbertland.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
-	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
-	eranlinuxmellanox@gmail.com, lorenzo@google.com,
-	linux-mm <linux-mm@kvack.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160408220808.682630d7@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:34684 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759046AbcDHVlF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 17:41:05 -0400
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 068452034E
+	for <netdev@vger.kernel.org>; Fri,  8 Apr 2016 21:41:04 +0000 (UTC)
+Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 8E679202FF
+	for <netdev@vger.kernel.org>; Fri,  8 Apr 2016 21:41:02 +0000 (UTC)
+Received: by mail-qg0-f49.google.com with SMTP id f52so101687160qga.3
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 14:41:02 -0700 (PDT)
+In-Reply-To: <CAKgT0Ufc8EiqCR5opSFUCE2v3hFCmnS641o+epyi+G92bD+yww@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 08, 2016 at 10:08:08PM +0200, Jesper Dangaard Brouer wrote:
-> On Fri, 8 Apr 2016 10:26:53 -0700
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> 
-> > On Fri, Apr 08, 2016 at 02:33:40PM +0200, Jesper Dangaard Brouer wrote:
-> > > 
-> > > On Fri, 8 Apr 2016 12:36:14 +0200 Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > >   
-> > > > > +/* user return codes for PHYS_DEV prog type */
-> > > > > +enum bpf_phys_dev_action {
-> > > > > +	BPF_PHYS_DEV_DROP,
-> > > > > +	BPF_PHYS_DEV_OK,
-> > > > > +};    
-> > > > 
-> > > > I can imagine these extra return codes:
-> > > > 
-> > > >  BPF_PHYS_DEV_MODIFIED,   /* Packet page/payload modified */
-> > > >  BPF_PHYS_DEV_STOLEN,     /* E.g. forward use-case */
-> > > >  BPF_PHYS_DEV_SHARED,     /* Queue for async processing, e.g. tcpdump use-case */
-> > > > 
-> > > > The "STOLEN" and "SHARED" use-cases require some refcnt manipulations,
-> > > > which we can look at when we get that far...  
-> > > 
-> > > I want to point out something which is quite FUNDAMENTAL, for
-> > > understanding these return codes (and network stack).
-> > > 
-> > > 
-> > > At driver RX time, the network stack basically have two ways of
-> > > building an SKB, which is send up the stack.
-> > > 
-> > > Option-A (fastest): The packet page is writable. The SKB can be
-> > > allocated and skb->data/head can point directly to the page.  And
-> > > we place/write skb_shared_info in the end/tail-room. (This is done by
-> > > calling build_skb()).
-> > > 
-> > > Option-B (slower): The packet page is read-only.  The SKB cannot point
-> > > skb->data/head directly to the page, because skb_shared_info need to be
-> > > written into skb->end (slightly hidden via skb_shinfo() casting).  To
-> > > get around this, a separate piece of memory is allocated (speedup by
-> > > __alloc_page_frag) for pointing skb->data/head, so skb_shared_info can
-> > > be written. (This is done when calling netdev/napi_alloc_skb()).
-> > >   Drivers then need to copy over packet headers, and assign + adjust
-> > > skb_shinfo(skb)->frags[0] offset to skip copied headers.
-> > > 
-> > > 
-> > > Unfortunately most drivers use option-B.  Due to cost of calling the
-> > > page allocator.  It is only slightly most expensive to get a larger
-> > > compound page from the page allocator, which then can be partitioned into
-> > > page-fragments, thus amortizing the page alloc cost.  Unfortunately the
-> > > cost is added later, when constructing the SKB.
-> > >  Another reason for option-B, is that archs with expensive IOMMU
-> > > requirements (like PowerPC), don't need to dma_unmap on every packet,
-> > > but only on the compound page level.
-> > > 
-> > > Side-note: Most drivers have a "copy-break" optimization.  Especially
-> > > for option-B, when copying header data anyhow. For small packet, one
-> > > might as well free (or recycle) the RX page, if header size fits into
-> > > the newly allocated memory (for skb_shared_info).  
-> > 
-> > I think you guys are going into overdesign territory, so
-> > . nack on read-only pages
-> 
-> Unfortunately you cannot just ignore or nack read-only pages. They are
-> a fact in the current drivers.
-> 
-> Most drivers today (at-least the ones we care about) only deliver
-> read-only pages.  If you don't accept read-only pages day-1, then you
-> first have to rewrite a lot of drivers... and that will stall the
-> project!  How will you deal with this fact?
-> 
-> The early drop filter use-case in this patchset, can ignore read-only
-> pages.  But ABI wise we need to deal with the future case where we do
-> need/require writeable pages.  A simple need-writable pages in the API
-> could help us move forward.
+On Thu, Apr 7, 2016 at 8:52 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> Just a thought.  What if I replaced NETIF_F_TSO_FIXEDID with something
+> that meant we could mange the IP ID like a NETIF_F_TSO_IPID_MANGLE
+> (advice for better name welcome).  Instead of the feature flag meaning
+> we are going to transmit packets with a fixed ID it would mean we
+> don't care about the ID and are free to mangle it as we see fit.  The
+> GSO type can retain the same meaning as far as that requiring the same
+> ID for all, but the feature would mean we will take fixed and convert
+> it to incrementing, or incrementing and convert it to fixed.
 
-the program should never need to worry about whether dma buffer is
-writeable or not. Complicating drivers, api, abi, usability
-for the single use case of fast packet drop is not acceptable.
-XDP is not going to be a fit for all drivers and all architectures.
-That is cruicial 'performance vs generality' aspect of the design.
-All kernel-bypasses are taking advantage of specific architecture.
-We have to take advantage of it as well. If it doesn't fit
-powerpc with iommu, so be it. XDP will return -enotsupp.
-That is fundamental point. We have to cut such corners and avoid
-all cases where unnecessary generality hurts performance.
-Read-only pages is clearly such thing.
+I saw the new version of the code that you posted with this idea and
+now that I understand it better, it seems like a reasonable choice to
+me - it's nice that it is consistent with GRO and not tunnel specific.
+It also makes behavior consistent across drivers in regards to
+incrementing IDs in the default case, which was one of my concerns
+from before.
 
-> > The whole thing must be dead simple to use. Above is not simple by any means.
-> 
-> Maybe you missed that the above was a description of how the current
-> network stack handles this, which is not simple... which is root of the
-> hole performance issue.
-
-Disagree. The stack has copy-break, gro, gso and everything else because
-it's serving _host_ use case. XDP is packet forwarder use case.
-The requirements are completely different. Ex. the host needs gso
-in the core and drivers. It needs to deliver data all the way
-to user space and back. That is hard and that's where complexity
-comes from. For packet forwarder none of it is needed. So saying,
-look we have this complexity, so XDP needs it too, is flawed argument.
-The kernel is serving host and applications.
-XDP is pure packet-in/packet-out framework to achieve better
-performance than kernel-bypass, since kernel is the right
-place to do it. It has clean access to interrupts, per-cpu,
-scheduler, device registers and so on.
-Though there are only two broad use cases packet drop and forward,
-they cover a ton of real cases: firewalls, dos prevention,
-load balancer, nat, etc. In other words mostly stateless.
-As soon as packet needs to be queued somewhere we have to
-instantiate skb and pass it to the stack.
-So no queues in XDP and no 'stolen' and 'shared' return codes.
-The program always runs to completion with single packet.
-There is no header vs payload split. There is no header
-from program point of view. It's raw bytes in dma buffer.
-
-> I do like the idea of rejecting XDP eBPF programs based on the DMA
-> setup is not compatible, or if the driver does not implement e.g.
-> writable DMA pages.
-
-exactly.
-
-> Customers wanting this feature will then go buy the NIC which support
-> this feature.  There is nothing more motivating for NIC vendors seeing
-> customers buying the competitors hardware. And it only require a driver
-> change to get this market...
-
-exactly.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Maybe I missed it but I didn't see any checks for the DF bit being set
+when we transmit a packet with NETIF_F_TSO_MANGLEID. Even if I am
+comfortable mangling my IDs in the DF case, I don't think this would
+ever extend to non-DF packets. In the documentation you noted that it
+is the driver's responsibility to do this check but I couldn't find it
+in either ixgbe or igb. It would also be nice if the core stack could
+enforce it somehow as well rather than each driver.
