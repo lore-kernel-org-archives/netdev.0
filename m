@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/6] mlxsw: small driver update + one tiny
- devlink dependency
-Date: Fri, 08 Apr 2016 15:39:02 -0400 (EDT)
-Message-ID: <20160408.153902.105941562543395870.davem@davemloft.net>
-References: <1460135485-16095-1-git-send-email-jiri@resnulli.us>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH v4 2/2] RDS: fix congestion map corruption for PAGE_SIZE >
+ 4k
+Date: Fri, 8 Apr 2016 12:39:49 -0700
+Message-ID: <57080905.4000506@oracle.com>
+References: <1460030256-16791-1-git-send-email-shamir.rabinovitch@oracle.com>
+ <1460030256-16791-2-git-send-email-shamir.rabinovitch@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: jiri@resnulli.us
+Cc: davem@davemloft.net
+To: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>,
+	rds-devel@oss.oracle.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36305 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753428AbcDHTjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:39:04 -0400
-In-Reply-To: <1460135485-16095-1-git-send-email-jiri@resnulli.us>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29026 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755053AbcDHTj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:39:56 -0400
+In-Reply-To: <1460030256-16791-2-git-send-email-shamir.rabinovitch@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  8 Apr 2016 19:11:19 +0200
-
-> Cosmetics, in preparation to sharedbuffer patchset.
-> First patch is here to allow patch number two.
-
-Series applied, thanks Jiri.
+On 4/7/2016 4:57 AM, Shamir Rabinovitch wrote:
+> When PAGE_SIZE > 4k single page can contain 2 RDS fragments. If
+> 'rds_ib_cong_recv' ignore the RDS fragment offset in to the page it
+> then read the data fragment as far congestion map update and lead to
+> corruption of the RDS connection far congestion map.
+>
+> Signed-off-by: Shamir Rabinovitch <shamir.rabinovitch@oracle.com>
+> ---
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
