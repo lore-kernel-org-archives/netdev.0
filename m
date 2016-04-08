@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/18] ixgbe: Change the lan_id and func fields to a u8 to avoid casts
-Date: Thu,  7 Apr 2016 20:20:57 -0700
-Message-ID: <1460085673-87056-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/18] ixgbe: Use new methods for PHY access
+Date: Thu,  7 Apr 2016 20:21:06 -0700
+Message-ID: <1460085673-87056-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,66 +10,135 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:9519 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754042AbcDHDVR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 23:21:17 -0400
+	id S1756974AbcDHDVV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 23:21:21 -0400
 In-Reply-To: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mark Rustad <mark.d.rustad@intel.com>
 
-Since the lan_id and func fields only ever hold small values, make
-them u8 to avoid casts used to silence warnings.
+Now x550em_a devices will use a new method for PHY access that will
+get the firmware token for each access.
 
 Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 67 +++++++++++++++++++++++++--
+ 1 file changed, 64 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 8c7e78b..dfdb114 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3600,7 +3600,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- 	fw_cmd.hdr.cmd = FW_CEM_CMD_DRIVER_INFO;
- 	fw_cmd.hdr.buf_len = FW_CEM_CMD_DRIVER_INFO_LEN;
- 	fw_cmd.hdr.cmd_or_resp.cmd_resv = FW_CEM_CMD_RESERVED;
--	fw_cmd.port_num = (u8)hw->bus.func;
-+	fw_cmd.port_num = hw->bus.func;
- 	fw_cmd.ver_maj = maj;
- 	fw_cmd.ver_min = min;
- 	fw_cmd.ver_build = build;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index d02a0a3..7ae4bbd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3122,8 +3122,8 @@ struct ixgbe_bus_info {
- 	enum ixgbe_bus_width width;
- 	enum ixgbe_bus_type type;
- 
--	u16 func;
--	u16 lan_id;
-+	u8 func;
-+	u8 lan_id;
- };
- 
- /* Flow control parameters */
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 9d3f765..5affac1 100644
+index ba161b5..ef1dc3b 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -862,7 +862,7 @@ static void ixgbe_disable_rx_x550(struct ixgbe_hw *hw)
- 		fw_cmd.hdr.cmd = FW_DISABLE_RXEN_CMD;
- 		fw_cmd.hdr.buf_len = FW_DISABLE_RXEN_LEN;
- 		fw_cmd.hdr.checksum = FW_DEFAULT_CHECKSUM;
--		fw_cmd.port_number = (u8)hw->bus.lan_id;
-+		fw_cmd.port_number = hw->bus.lan_id;
+@@ -2548,6 +2548,57 @@ static void ixgbe_release_swfw_sync_x550em_a(struct ixgbe_hw *hw, u32 mask)
+ 		ixgbe_release_swfw_sync_X540(hw, hmask);
+ }
  
- 		status = ixgbe_host_interface_command(hw, (u32 *)&fw_cmd,
- 					sizeof(struct ixgbe_hic_disable_rxen),
++/**
++ * ixgbe_read_phy_reg_x550a - Reads specified PHY register
++ * @hw: pointer to hardware structure
++ * @reg_addr: 32 bit address of PHY register to read
++ * @phy_data: Pointer to read data from PHY register
++ *
++ * Reads a value from a specified PHY register using the SWFW lock and PHY
++ * Token. The PHY Token is needed since the MDIO is shared between to MAC
++ * instances.
++ */
++static s32 ixgbe_read_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
++				    u32 device_type, u16 *phy_data)
++{
++	u32 mask = hw->phy.phy_semaphore_mask | IXGBE_GSSR_TOKEN_SM;
++	s32 status;
++
++	if (hw->mac.ops.acquire_swfw_sync(hw, mask))
++		return IXGBE_ERR_SWFW_SYNC;
++
++	status = hw->phy.ops.read_reg_mdi(hw, reg_addr, device_type, phy_data);
++
++	hw->mac.ops.release_swfw_sync(hw, mask);
++
++	return status;
++}
++
++/**
++ * ixgbe_write_phy_reg_x550a - Writes specified PHY register
++ * @hw: pointer to hardware structure
++ * @reg_addr: 32 bit PHY register to write
++ * @device_type: 5 bit device type
++ * @phy_data: Data to write to the PHY register
++ *
++ * Writes a value to specified PHY register using the SWFW lock and PHY Token.
++ * The PHY Token is needed since the MDIO is shared between to MAC instances.
++ */
++static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
++				     u32 device_type, u16 phy_data)
++{
++	u32 mask = hw->phy.phy_semaphore_mask | IXGBE_GSSR_TOKEN_SM;
++	s32 status;
++
++	if (hw->mac.ops.acquire_swfw_sync(hw, mask))
++		return IXGBE_ERR_SWFW_SYNC;
++
++	status = ixgbe_write_phy_reg_mdi(hw, reg_addr, device_type, phy_data);
++	hw->mac.ops.release_swfw_sync(hw, mask);
++
++	return status;
++}
++
+ #define X550_COMMON_MAC \
+ 	.init_hw			= &ixgbe_init_hw_generic, \
+ 	.start_hw			= &ixgbe_start_hw_X540, \
+@@ -2673,8 +2724,6 @@ static const struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
+ 	.read_i2c_sff8472	= &ixgbe_read_i2c_sff8472_generic, \
+ 	.read_i2c_eeprom	= &ixgbe_read_i2c_eeprom_generic, \
+ 	.write_i2c_eeprom	= &ixgbe_write_i2c_eeprom_generic, \
+-	.read_reg		= &ixgbe_read_phy_reg_generic, \
+-	.write_reg		= &ixgbe_write_phy_reg_generic, \
+ 	.setup_link		= &ixgbe_setup_phy_link_generic, \
+ 	.set_phy_power		= NULL, \
+ 	.check_overtemp		= &ixgbe_tn_check_overtemp, \
+@@ -2684,12 +2733,16 @@ static const struct ixgbe_phy_operations phy_ops_X550 = {
+ 	X550_COMMON_PHY
+ 	.init			= NULL,
+ 	.identify		= &ixgbe_identify_phy_generic,
++	.read_reg		= &ixgbe_read_phy_reg_generic,
++	.write_reg		= &ixgbe_write_phy_reg_generic,
+ };
+ 
+ static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
+ 	X550_COMMON_PHY
+ 	.init			= &ixgbe_init_phy_ops_X550em,
+ 	.identify		= &ixgbe_identify_phy_x550em,
++	.read_reg		= &ixgbe_read_phy_reg_generic,
++	.write_reg		= &ixgbe_write_phy_reg_generic,
+ 	.read_i2c_combined	= &ixgbe_read_i2c_combined_generic,
+ 	.write_i2c_combined	= &ixgbe_write_i2c_combined_generic,
+ 	.read_i2c_combined_unlocked = &ixgbe_read_i2c_combined_generic_unlocked,
+@@ -2697,6 +2750,14 @@ static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
+ 				     &ixgbe_write_i2c_combined_generic_unlocked,
+ };
+ 
++static const struct ixgbe_phy_operations phy_ops_x550em_a = {
++	X550_COMMON_PHY
++	.init			= &ixgbe_init_phy_ops_X550em,
++	.identify		= &ixgbe_identify_phy_x550em,
++	.read_reg		= &ixgbe_read_phy_reg_x550a,
++	.write_reg		= &ixgbe_write_phy_reg_x550a,
++};
++
+ static const u32 ixgbe_mvals_X550[IXGBE_MVALS_IDX_LIMIT] = {
+ 	IXGBE_MVALS_INIT(X550)
+ };
+@@ -2734,7 +2795,7 @@ const struct ixgbe_info ixgbe_x550em_a_info = {
+ 	.get_invariants		= &ixgbe_get_invariants_X550_x,
+ 	.mac_ops		= &mac_ops_x550em_a,
+ 	.eeprom_ops		= &eeprom_ops_X550EM_x,
+-	.phy_ops		= &phy_ops_X550EM_x,
++	.phy_ops		= &phy_ops_x550em_a,
+ 	.mbx_ops		= &mbx_ops_generic,
+ 	.mvals			= ixgbe_mvals_x550em_a,
+ };
 -- 
 2.5.5
