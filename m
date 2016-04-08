@@ -1,214 +1,180 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/5] mlxsw: Do not pass around driver_priv directly
-Date: Fri,  8 Apr 2016 17:45:23 +0200
-Message-ID: <1460130325-14931-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 4/5] mlxsw: reg: Share direction enum between SBPR, SBCM, SBPM
+Date: Fri,  8 Apr 2016 17:45:24 +0200
+Message-ID: <1460130325-14931-5-git-send-email-jiri@resnulli.us>
 References: <1460130325-14931-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
 	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36492 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754540AbcDHPpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 11:45:34 -0400
-Received: by mail-wm0-f68.google.com with SMTP id l6so5272714wml.3
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 08:45:33 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34236 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757825AbcDHPpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 11:45:45 -0400
+Received: by mail-wm0-f66.google.com with SMTP id n3so5300217wmn.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 08:45:39 -0700 (PDT)
 In-Reply-To: <1460130325-14931-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Instead of that, pass mlxsw_core and use a helper to get driver priv
-from driver code. Looks much cleaner that way.
+Same field, same values, so share the same enum.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c     | 19 +++++++++++--------
- drivers/net/ethernet/mellanox/mlxsw/core.h     | 11 +++++++----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 17 +++++++++--------
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  8 ++++----
- 4 files changed, 31 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          | 23 +++++++---------------
+ .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 20 +++++++++----------
+ 2 files changed, 17 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 39161fb..3958195 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -114,6 +114,12 @@ struct mlxsw_core {
- 	/* driver_priv has to be always the last item */
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 28f5b99..19bdc82 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3476,9 +3476,10 @@ static const struct mlxsw_reg_info mlxsw_reg_sbpr = {
+ 	.len = MLXSW_REG_SBPR_LEN,
  };
  
-+void *mlxsw_core_driver_priv(struct mlxsw_core *mlxsw_core)
-+{
-+	return mlxsw_core->driver_priv;
-+}
-+EXPORT_SYMBOL(mlxsw_core_driver_priv);
-+
- struct mlxsw_rx_listener_item {
- 	struct list_head list;
- 	struct mlxsw_rx_listener rxl;
-@@ -795,8 +801,7 @@ static int mlxsw_devlink_port_split(struct devlink *devlink,
- 		return -EINVAL;
- 	if (!mlxsw_core->driver->port_split)
- 		return -EOPNOTSUPP;
--	return mlxsw_core->driver->port_split(mlxsw_core->driver_priv,
--					      port_index, count);
-+	return mlxsw_core->driver->port_split(mlxsw_core, port_index, count);
- }
+-enum mlxsw_reg_sbpr_dir {
+-	MLXSW_REG_SBPR_DIR_INGRESS,
+-	MLXSW_REG_SBPR_DIR_EGRESS,
++/* shared direstion enum for SBPR, SBCM, SBPM */
++enum mlxsw_reg_sbxx_dir {
++	MLXSW_REG_SBXX_DIR_INGRESS,
++	MLXSW_REG_SBXX_DIR_EGRESS,
+ };
  
- static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
-@@ -808,8 +813,7 @@ static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
- 		return -EINVAL;
- 	if (!mlxsw_core->driver->port_unsplit)
- 		return -EOPNOTSUPP;
--	return mlxsw_core->driver->port_unsplit(mlxsw_core->driver_priv,
--						port_index);
-+	return mlxsw_core->driver->port_unsplit(mlxsw_core, port_index);
- }
+ /* reg_sbpr_dir
+@@ -3511,7 +3512,7 @@ enum mlxsw_reg_sbpr_mode {
+ MLXSW_ITEM32(reg, sbpr, mode, 0x08, 0, 4);
  
- static const struct devlink_ops mlxsw_devlink_ops = {
-@@ -880,8 +884,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_devlink_register;
- 
--	err = mlxsw_driver->init(mlxsw_core->driver_priv, mlxsw_core,
--				 mlxsw_bus_info);
-+	err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
- 	if (err)
- 		goto err_driver_init;
- 
-@@ -892,7 +895,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	return 0;
- 
- err_debugfs_init:
--	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_core->driver->fini(mlxsw_core);
- err_driver_init:
- 	devlink_unregister(devlink);
- err_devlink_register:
-@@ -918,7 +921,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
- 	struct devlink *devlink = priv_to_devlink(mlxsw_core);
- 
- 	mlxsw_core_debugfs_fini(mlxsw_core);
--	mlxsw_core->driver->fini(mlxsw_core->driver_priv);
-+	mlxsw_core->driver->fini(mlxsw_core);
- 	devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 0454212..f3cebef 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -62,6 +62,8 @@ struct mlxsw_driver;
- struct mlxsw_bus;
- struct mlxsw_bus_info;
- 
-+void *mlxsw_core_driver_priv(struct mlxsw_core *mlxsw_core);
-+
- int mlxsw_core_driver_register(struct mlxsw_driver *mlxsw_driver);
- void mlxsw_core_driver_unregister(struct mlxsw_driver *mlxsw_driver);
- 
-@@ -192,11 +194,12 @@ struct mlxsw_driver {
- 	const char *kind;
- 	struct module *owner;
- 	size_t priv_size;
--	int (*init)(void *driver_priv, struct mlxsw_core *mlxsw_core,
-+	int (*init)(struct mlxsw_core *mlxsw_core,
- 		    const struct mlxsw_bus_info *mlxsw_bus_info);
--	void (*fini)(void *driver_priv);
--	int (*port_split)(void *driver_priv, u8 local_port, unsigned int count);
--	int (*port_unsplit)(void *driver_priv, u8 local_port);
-+	void (*fini)(struct mlxsw_core *mlxsw_core);
-+	int (*port_split)(struct mlxsw_core *mlxsw_core, u8 local_port,
-+			  unsigned int count);
-+	int (*port_unsplit)(struct mlxsw_core *mlxsw_core, u8 local_port);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 8abe1a6..19b3c14 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1948,9 +1948,10 @@ static u8 mlxsw_sp_cluster_base_port_get(u8 local_port)
- 	return local_port - offset;
- }
- 
--static int mlxsw_sp_port_split(void *priv, u8 local_port, unsigned int count)
-+static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
-+			       unsigned int count)
+ static inline void mlxsw_reg_sbpr_pack(char *payload, u8 pool,
+-				       enum mlxsw_reg_sbpr_dir dir,
++				       enum mlxsw_reg_sbxx_dir dir,
+ 				       enum mlxsw_reg_sbpr_mode mode, u32 size)
  {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	u8 width = MLXSW_PORT_MODULE_MAX_WIDTH / count;
- 	u8 module, cur_width, base_port;
-@@ -2022,9 +2023,9 @@ err_port_create:
- 	return err;
- }
+ 	MLXSW_REG_ZERO(sbpr, payload);
+@@ -3553,11 +3554,6 @@ MLXSW_ITEM32(reg, sbcm, local_port, 0x00, 16, 8);
+  */
+ MLXSW_ITEM32(reg, sbcm, pg_buff, 0x00, 8, 6);
  
--static int mlxsw_sp_port_unsplit(void *priv, u8 local_port)
-+static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
+-enum mlxsw_reg_sbcm_dir {
+-	MLXSW_REG_SBCM_DIR_INGRESS,
+-	MLXSW_REG_SBCM_DIR_EGRESS,
+-};
+-
+ /* reg_sbcm_dir
+  * Direction.
+  * Access: Index
+@@ -3590,7 +3586,7 @@ MLXSW_ITEM32(reg, sbcm, max_buff, 0x1C, 0, 24);
+ MLXSW_ITEM32(reg, sbcm, pool, 0x24, 0, 4);
+ 
+ static inline void mlxsw_reg_sbcm_pack(char *payload, u8 local_port, u8 pg_buff,
+-				       enum mlxsw_reg_sbcm_dir dir,
++				       enum mlxsw_reg_sbxx_dir dir,
+ 				       u32 min_buff, u32 max_buff, u8 pool)
  {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	u8 module, cur_width, base_port;
- 	unsigned int count;
-@@ -2369,10 +2370,10 @@ static int mlxsw_sp_lag_init(struct mlxsw_sp *mlxsw_sp)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(slcr), slcr_pl);
- }
+ 	MLXSW_REG_ZERO(sbcm, payload);
+@@ -3630,11 +3626,6 @@ MLXSW_ITEM32(reg, sbpm, local_port, 0x00, 16, 8);
+  */
+ MLXSW_ITEM32(reg, sbpm, pool, 0x00, 8, 4);
  
--static int mlxsw_sp_init(void *priv, struct mlxsw_core *mlxsw_core,
-+static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
+-enum mlxsw_reg_sbpm_dir {
+-	MLXSW_REG_SBPM_DIR_INGRESS,
+-	MLXSW_REG_SBPM_DIR_EGRESS,
+-};
+-
+ /* reg_sbpm_dir
+  * Direction.
+  * Access: Index
+@@ -3661,7 +3652,7 @@ MLXSW_ITEM32(reg, sbpm, min_buff, 0x18, 0, 24);
+ MLXSW_ITEM32(reg, sbpm, max_buff, 0x1C, 0, 24);
+ 
+ static inline void mlxsw_reg_sbpm_pack(char *payload, u8 local_port, u8 pool,
+-				       enum mlxsw_reg_sbpm_dir dir,
++				       enum mlxsw_reg_sbxx_dir dir,
+ 				       u32 min_buff, u32 max_buff)
  {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	int err;
+ 	MLXSW_REG_ZERO(sbpm, payload);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+index 97c8d53..f58b1d3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+@@ -110,7 +110,7 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
  
- 	mlxsw_sp->core = mlxsw_core;
-@@ -2443,9 +2444,9 @@ err_event_register:
- 	return err;
- }
+ struct mlxsw_sp_sb_pool {
+ 	u8 pool;
+-	enum mlxsw_reg_sbpr_dir dir;
++	enum mlxsw_reg_sbxx_dir dir;
+ 	enum mlxsw_reg_sbpr_mode mode;
+ 	u32 size;
+ };
+@@ -129,11 +129,11 @@ struct mlxsw_sp_sb_pool {
+ 	}
  
--static void mlxsw_sp_fini(void *priv)
-+static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- {
--	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+ #define MLXSW_SP_SB_POOL_INGRESS(_pool, _size)			\
+-	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBPR_DIR_INGRESS,	\
++	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
+ 			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
  
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 2518c84..3842eab 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -1447,10 +1447,10 @@ static int mlxsw_sx_flood_init(struct mlxsw_sx *mlxsw_sx)
- 	return mlxsw_reg_write(mlxsw_sx->core, MLXSW_REG(sgcr), sgcr_pl);
- }
+ #define MLXSW_SP_SB_POOL_EGRESS(_pool, _size)			\
+-	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBPR_DIR_EGRESS,	\
++	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
+ 			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
  
--static int mlxsw_sx_init(void *priv, struct mlxsw_core *mlxsw_core,
-+static int mlxsw_sx_init(struct mlxsw_core *mlxsw_core,
- 			 const struct mlxsw_bus_info *mlxsw_bus_info)
- {
--	struct mlxsw_sx *mlxsw_sx = priv;
-+	struct mlxsw_sx *mlxsw_sx = mlxsw_core_driver_priv(mlxsw_core);
- 	int err;
+ static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools[] = {
+@@ -173,7 +173,7 @@ struct mlxsw_sp_sb_cm {
+ 		u8 pg;
+ 		u8 tc;
+ 	} u;
+-	enum mlxsw_reg_sbcm_dir dir;
++	enum mlxsw_reg_sbxx_dir dir;
+ 	u32 min_buff;
+ 	u32 max_buff;
+ 	u8 pool;
+@@ -189,15 +189,15 @@ struct mlxsw_sp_sb_cm {
+ 	}
  
- 	mlxsw_sx->core = mlxsw_core;
-@@ -1497,9 +1497,9 @@ err_event_register:
- 	return err;
- }
+ #define MLXSW_SP_SB_CM_INGRESS(_pg, _min_buff, _max_buff)		\
+-	MLXSW_SP_SB_CM(_pg, MLXSW_REG_SBCM_DIR_INGRESS,			\
++	MLXSW_SP_SB_CM(_pg, MLXSW_REG_SBXX_DIR_INGRESS,			\
+ 		       _min_buff, _max_buff, 0)
  
--static void mlxsw_sx_fini(void *priv)
-+static void mlxsw_sx_fini(struct mlxsw_core *mlxsw_core)
- {
--	struct mlxsw_sx *mlxsw_sx = priv;
-+	struct mlxsw_sx *mlxsw_sx = mlxsw_core_driver_priv(mlxsw_core);
+ #define MLXSW_SP_SB_CM_EGRESS(_tc, _min_buff, _max_buff)		\
+-	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBCM_DIR_EGRESS,			\
++	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS,			\
+ 		       _min_buff, _max_buff, 0)
  
- 	mlxsw_sx_traps_fini(mlxsw_sx);
- 	mlxsw_sx_event_unregister(mlxsw_sx, MLXSW_TRAP_ID_PUDE);
+ #define MLXSW_SP_CPU_PORT_SB_CM_EGRESS(_tc)				\
+-	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBCM_DIR_EGRESS, 104, 2, 3)
++	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS, 104, 2, 3)
+ 
+ static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms[] = {
+ 	MLXSW_SP_SB_CM_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(10000), 8),
+@@ -304,7 +304,7 @@ static int mlxsw_sp_cpu_port_sb_cms_init(struct mlxsw_sp *mlxsw_sp)
+ 
+ struct mlxsw_sp_sb_pm {
+ 	u8 pool;
+-	enum mlxsw_reg_sbpm_dir dir;
++	enum mlxsw_reg_sbxx_dir dir;
+ 	u32 min_buff;
+ 	u32 max_buff;
+ };
+@@ -318,11 +318,11 @@ struct mlxsw_sp_sb_pm {
+ 	}
+ 
+ #define MLXSW_SP_SB_PM_INGRESS(_pool, _min_buff, _max_buff)	\
+-	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBPM_DIR_INGRESS,	\
++	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
+ 		       _min_buff, _max_buff)
+ 
+ #define MLXSW_SP_SB_PM_EGRESS(_pool, _min_buff, _max_buff)	\
+-	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBPM_DIR_EGRESS,	\
++	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
+ 		       _min_buff, _max_buff)
+ 
+ static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms[] = {
 -- 
 2.5.5
