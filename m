@@ -1,112 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] devlink: share user_ptr pointer for both devlink and devlink_port
-Date: Fri,  8 Apr 2016 19:12:48 +0200
-Message-ID: <1460135568-16168-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] ipv6, token: allow for clearing the current
+ device token
+Date: Fri, 08 Apr 2016 19:13:02 +0200
+Message-ID: <5707E69E.1090200@iogearbox.net>
+References: <307b4d32099f606d0fbe0ce9fecd3a039b796361.1460123261.git.daniel@iogearbox.net> <878u0otc96.fsf@nemi.mork.no> <1460126038.1452331.572938089.68D8127C@webmail.messagingengine.com> <874mbct95a.fsf@nemi.mork.no> <5707CFF6.6090707@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, robbat2@gentoo.org, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	=?UTF-8?B?QmrDuHJu?= =?UTF-8?B?IE1vcms=?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35753 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758741AbcDHRMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 13:12:51 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a140so5820546wma.2
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 10:12:51 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:33365 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758325AbcDHRNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 13:13:16 -0400
+In-Reply-To: <5707CFF6.6090707@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On 04/08/2016 05:36 PM, Hannes Frederic Sowa wrote:
+> On 08.04.2016 17:25, Bj=C3=B8rn Mork wrote:
+>> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+>>> On Fri, Apr 8, 2016, at 16:18, Bj=C3=B8rn Mork wrote:
+>>>> Daniel Borkmann <daniel@iogearbox.net> writes:
+>>>>
+>>>>>       if (!token)
+>>>>>           return -EINVAL;
+>>>>> -    if (ipv6_addr_any(token))
+>>>>> -        return -EINVAL;
+>>>>>       if (dev->flags & (IFF_LOOPBACK | IFF_NOARP))
+>>>>>           return -EINVAL;
+>>>>
+>>>> Not directly related to the patch in question.  It just made me aw=
+are of
+>>>> this restriction...
+>>>>
+>>>> I realize that I'm a few years late here, but what's with the IFF_=
+NOARP?
+>>>> Is that just because we can't do DAD for the token based addresses=
+?  How
+>>>> is that different from manually configuring the whole address?
+>>>
+>>> IFF_NOARP is kind of the equivalent to no neighbor discovery. If yo=
+u set
+>>> a token and never get in a router advertisement you never create a
+>>> tokenized ip address, thus the feature is useless.
+>>
+>> You can get router advertisements with IFF_NOARP. You cannot lookup =
+L2
+>> addresses, but the L3 prefix info is still as useful as with any oth=
+er
+>> interface.
+>
+> Of course router advertisements can be send and received with IFF_NOA=
+RP and probably we act on them as usual, as you showed. Looking in the =
+source we don't really specify what those flags mean/do for IPv6. So I =
+think you can assume that it is in there because of history.
+>
+> I would absolutely not mind if you remove the limitation for IFF_ARP.
 
-Ptr to devlink structure can be easily obtained from
-devlink_port->devlink. So share user_ptr[0] pointer for both and leave
-user_ptr[1] free for other users.
+Agreed me neither, the code should be able to handle it as far as I see=
+=2E
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- net/core/devlink.c | 21 +++++++++++++--------
- 1 file changed, 13 insertions(+), 8 deletions(-)
-
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 44f880d..b84cf0d 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -119,7 +119,8 @@ static struct devlink_port *devlink_port_get_from_info(struct devlink *devlink,
- 	return devlink_port_get_from_attrs(devlink, info->attrs);
- }
- 
--#define DEVLINK_NL_FLAG_NEED_PORT	BIT(0)
-+#define DEVLINK_NL_FLAG_NEED_DEVLINK	BIT(0)
-+#define DEVLINK_NL_FLAG_NEED_PORT	BIT(1)
- 
- static int devlink_nl_pre_doit(const struct genl_ops *ops,
- 			       struct sk_buff *skb, struct genl_info *info)
-@@ -132,8 +133,9 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
- 		mutex_unlock(&devlink_mutex);
- 		return PTR_ERR(devlink);
- 	}
--	info->user_ptr[0] = devlink;
--	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
-+	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_DEVLINK) {
-+		info->user_ptr[0] = devlink;
-+	} else if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT) {
- 		struct devlink_port *devlink_port;
- 
- 		mutex_lock(&devlink_port_mutex);
-@@ -143,7 +145,7 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
- 			mutex_unlock(&devlink_mutex);
- 			return PTR_ERR(devlink_port);
- 		}
--		info->user_ptr[1] = devlink_port;
-+		info->user_ptr[0] = devlink_port;
- 	}
- 	return 0;
- }
-@@ -356,8 +358,8 @@ out:
- static int devlink_nl_cmd_port_get_doit(struct sk_buff *skb,
- 					struct genl_info *info)
- {
--	struct devlink *devlink = info->user_ptr[0];
--	struct devlink_port *devlink_port = info->user_ptr[1];
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink *devlink = devlink_port->devlink;
- 	struct sk_buff *msg;
- 	int err;
- 
-@@ -436,8 +438,8 @@ static int devlink_port_type_set(struct devlink *devlink,
- static int devlink_nl_cmd_port_set_doit(struct sk_buff *skb,
- 					struct genl_info *info)
- {
--	struct devlink *devlink = info->user_ptr[0];
--	struct devlink_port *devlink_port = info->user_ptr[1];
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink *devlink = devlink_port->devlink;
- 	int err;
- 
- 	if (info->attrs[DEVLINK_ATTR_PORT_TYPE]) {
-@@ -511,6 +513,7 @@ static const struct genl_ops devlink_nl_ops[] = {
- 		.doit = devlink_nl_cmd_get_doit,
- 		.dumpit = devlink_nl_cmd_get_dumpit,
- 		.policy = devlink_nl_policy,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 		/* can be retrieved by unprivileged users */
- 	},
- 	{
-@@ -533,12 +536,14 @@ static const struct genl_ops devlink_nl_ops[] = {
- 		.doit = devlink_nl_cmd_port_split_doit,
- 		.policy = devlink_nl_policy,
- 		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 	},
- 	{
- 		.cmd = DEVLINK_CMD_PORT_UNSPLIT,
- 		.doit = devlink_nl_cmd_port_unsplit_doit,
- 		.policy = devlink_nl_policy,
- 		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 	},
- };
- 
--- 
-2.5.5
+Thanks,
+Daniel
