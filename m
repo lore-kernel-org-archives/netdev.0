@@ -1,70 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] sock: make lockdep_sock_is_held inline and
- conditional on LOCKDEP
-Date: Thu, 07 Apr 2016 20:40:54 -0400 (EDT)
-Message-ID: <20160407.204054.1721184100791312803.davem@davemloft.net>
-References: <1460066015-22105-1-git-send-email-hannes@stressinduktion.org>
-	<1460072118-10006-1-git-send-email-hannes@stressinduktion.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
+Date: Fri, 8 Apr 2016 02:53:17 +0200
+Message-ID: <20160408005317.GA28125@lunn.ch>
+References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
+ <20151231231039.GA8886@rob-hp-laptop>
+ <56ABADEA.40801@codeaurora.org>
+ <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
+ <5706B4EF.2050600@codeaurora.org>
+ <20160407201009.GA16136@lunn.ch>
+ <5706D493.8020700@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57205 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244AbcDHAk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 20:40:57 -0400
-In-Reply-To: <1460072118-10006-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh@kernel.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5706D493.8020700@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri,  8 Apr 2016 01:35:18 +0200
-
-> lockdep_is_held is only specified if CONFIG_LOCKDEP is defined, so make
-> it depending on it.
+On Thu, Apr 07, 2016 at 04:43:47PM -0500, Timur Tabi wrote:
+> On my platform, firmware (UEFI) configures all of the GPIOs.  I need
+> to get confirmation, but it appears that we don't actually make any
+> GPIO calls at all.  I see code that looks like this:
 > 
-> Also add the missing inline keyword, so no warnings about unused functions
-> show up during complilation.
+> 	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
+> 		gpio_info = &adpt->gpio_info[i];
+> 		retval = of_get_named_gpio(node, gpio_info->name, 0);
+> 		if (retval < 0)
+> 			return retval;
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> And on our ACPI system, adpt->no_mdio_gpio is always true:
+> 
+> 	/* Assume GPIOs required for MDC/MDIO are enabled in firmware */
+> 	adpt->no_mdio_gpio = true;
 
-I already applied your inline patch, I applied the following:
+There are two different things here. One is configuring the pin to be
+a GPIO. The second is using the GPIO as a GPIO. In this case,
+bit-banging the MDIO bus.
 
-====================
-[PATCH] net: Fix build failure due to lockdep_sock_is_held().
+The firmware could be doing the configuration, setting the pin as a
+GPIO. However, the firmware cannot be doing the MDIO bit-banging to
+make an MDIO bus available. Linux has to do that.
 
-Needs to be protected with CONFIG_LOCKDEP.
+Or it could be we have all completely misunderstood the hardware, and
+we are not doing bit-banging GPIO MDIO. There is a real MDIO
+controller there, we don't use these pins as GPIOs, etc....
 
-Based upon a patch by Hannes Frederic Sowa.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/sock.h | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 46b2937..81d6fec 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1360,6 +1360,7 @@ do {									\
- 	lockdep_init_map(&(sk)->sk_lock.dep_map, (name), (key), 0);	\
- } while (0)
- 
-+#ifdef CONFIG_LOCKDEP
- static inline bool lockdep_sock_is_held(const struct sock *csk)
- {
- 	struct sock *sk = (struct sock *)csk;
-@@ -1367,6 +1368,7 @@ static inline bool lockdep_sock_is_held(const struct sock *csk)
- 	return lockdep_is_held(&sk->sk_lock) ||
- 	       lockdep_is_held(&sk->sk_lock.slock);
- }
-+#endif
- 
- void lock_sock_nested(struct sock *sk, int subclass);
- 
--- 
-2.1.0
+	   Andrew
