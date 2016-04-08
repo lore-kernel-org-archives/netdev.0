@@ -1,61 +1,41 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH V3] net: emac: emac gigabit ethernet controller driver
-Date: Fri, 8 Apr 2016 18:01:08 -0500
-Message-ID: <57083834.2060102@codeaurora.org>
-References: <1451440135-25771-1-git-send-email-gavidov@codeaurora.org>
- <20151231231039.GA8886@rob-hp-laptop> <56ABADEA.40801@codeaurora.org>
- <CAL_JsqLnJt+mdL==-qP-EJhMa2rA6i-AyDESj69wNVt7D5JJUQ@mail.gmail.com>
- <5706B4EF.2050600@codeaurora.org> <20160407201009.GA16136@lunn.ch>
- <5706D493.8020700@codeaurora.org> <20160408005317.GA28125@lunn.ch>
- <5708013F.90207@codeaurora.org>
- <CAOCOHw5R=PnkafRqx2eGKKm10eLgD4H3u7TjbbhdZMbqVR7LrA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v2] vxlan: synchronously and race-free
+ destruction of vxlan sockets
+Date: Fri, 8 Apr 2016 16:24:28 -0700
+Message-ID: <CAM_iQpUbTz2dRS+ZTZSSL0AvkOb_2_HEfXo+ap9__aQZmajMjA@mail.gmail.com>
+References: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Rob Herring <robh@kernel.org>,
-	Gilad Avidov <gavidov@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-	Sagar Dharia <sdharia@codeaurora.org>, shankerd@codeaurora.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	vikrams@codeaurora.org, Christopher Covington <cov@codeaurora.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <CAOCOHw5R=PnkafRqx2eGKKm10eLgD4H3u7TjbbhdZMbqVR7LrA@mail.gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:34017 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519AbcDHXY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 19:24:29 -0400
+Received: by mail-yw0-f171.google.com with SMTP id d68so151958341ywe.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 16:24:28 -0700 (PDT)
+In-Reply-To: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bjorn Andersson wrote:
+On Fri, Apr 8, 2016 at 1:55 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Due to the fact that the udp socket is destructed asynchronously in a
+> work queue, we have some nondeterministic behavior during shutdown of
+> vxlan tunnels and creating new ones. Fix this by keeping the destruction
+> process synchronous in regards to the user space process so IFF_UP can
+> be reliably set.
+>
+> udp_tunnel_sock_release destroys vs->sock->sk if reference counter
+> indicates so. We expect to have the same lifetime of vxlan_sock and
+> vxlan_sock->sock->sk even in fast paths with only rcu locks held. So
+> only destruct the whole socket after we can be sure it cannot be found
+> by searching vxlan_net->sock_list.
+>
 
-> It sounds like you're trying to say that the pins used can be are
-> muxed as GPIO or MDIO, in the TLMM.
-
-I'm not 100% sure, but I think that's correct.  If you don't want to 
-have normal networking, you could connect those external pins to some 
-GPIO device (like an LED or whatever), and then configure the pin muxing 
-for GPIO purposes.  But if that's true, it's only true on the FSM9900. 
-On the QDF2432, those lines are not connected to the TLMM.  They are 
-instead hard-wired to the Emac.
-
-> In the downstream kernel this is often seen with the drivers calling
-> gpio_request() to "reserve" said pins, but all you should do is
-> described the desired configuration and muxing in the pinctrl node,
-> reference that from your driver and simply ignore the fact that those
-> pins could have been used as GPIO pins.
-
-That makes sense, but I think the driver already does that.
-
-https://patchwork.ozlabs.org/patch/561667/
-
-Function emac_probe_resources() has a call to of_get_named_gpio().  And 
-then emac_mac_up() calls gpio_request().  As far as I can tell, that's it.
-
-I'm guessing that the of_get_named_gpio() call needs to be changed 
-somehow, but I'm not sure how.
-
--- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+I am wondering what is the reason why we used work queue from
+the beginning?
