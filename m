@@ -1,94 +1,89 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [RFC PATCH v2 2/5] net: add ndo to set bpf prog in adapter rx
-Date: Fri, 8 Apr 2016 09:39:55 -0700
-Message-ID: <20160408163954.GA28353@gmail.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <1460090930-11219-2-git-send-email-bblanco@plumgrid.com>
- <20160408113858.4d39b274@redhat.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH] net: thunderx: Fix broken of_node_put() code.
+Date: Fri, 8 Apr 2016 09:41:35 -0700
+Message-ID: <5707DF3F.3000508@caviumnetworks.com>
+References: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
-	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
-	eranlinuxmellanox@gmail.com, lorenzo@google.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35148 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbcDHQj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 12:39:59 -0400
-Received: by mail-pf0-f180.google.com with SMTP id n1so78936265pfn.2
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 09:39:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160408113858.4d39b274@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Robert Richter <rric@kernel.org>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	David Daney <david.daney@cavium.com>
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 08, 2016 at 11:38:58AM +0200, Jesper Dangaard Brouer wrote:
-> 
-> On Thu,  7 Apr 2016 21:48:47 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
-> 
-> > Add two new set/get netdev ops for drivers implementing the
-> > BPF_PROG_TYPE_PHYS_DEV filter.
-> > 
-> > Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> [...]
-> > 
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index cb4e508..3acf732 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> [...]
-> > @@ -1102,6 +1103,14 @@ struct tc_to_netdev {
-> >   *	appropriate rx headroom value allows avoiding skb head copy on
-> >   *	forward. Setting a negative value resets the rx headroom to the
-> >   *	default value.
-> > + * int  (*ndo_bpf_set)(struct net_device *dev, struct bpf_prog *prog);
-> > + *	This function is used to set or clear a bpf program used in the
-> > + *	earliest stages of packet rx. The prog will have been loaded as
-> > + *	BPF_PROG_TYPE_PHYS_DEV. The callee is responsible for calling
-> > + *	bpf_prog_put on any old progs that are stored, but not on the passed
-> > + *	in prog.
-> > + * bool (*ndo_bpf_get)(struct net_device *dev);
-> > + *	This function is used to check if a bpf program is set on the device.
-> >   *
-> 
-> This interface for the entire device, right.  I can imagine that users
-> want to attach a eBPF program per RX queue.  Can we adapt the interface
-> to support this? (could default to adding it all queues)
-> 
-Currently yes, for the entire device. I don't see rx queue exposed in
-common setlink APIs. Wouldn't this be available only through ethtool,
-generally? That would be a significant change to the api, but not a lot
-of code. I would defer to others on which is cleaner. An alternative
-could be to always run the program, but expose the queue number in
-struct bpf_phys_dev_md. That is not as flexible since the program is
-still shared, but maybe still useful.
-> 
-> I'm also wondering if we should add a "flags" parameter.  Or maybe we
-> can extend 'struct bpf_prog' with I have in mind.
-> 
-> When the eBPF program is attached to a RX queue, I want to know if the
-> program want to modify packet-data, up-front.
-> 
-> The problem is that most drivers use dma_sync, which means that data is
-> considered 'read-only' (the "considered" part depend on DMA engine, and
-> we might find a DMA loop-hole for some configs).
->   If the program want to write, the driver have the option of
-> reconfiguring the driver routine to use dma_unmap, before handing over
-> the page.  Or driver can also choose to realloc the specific RX ring
-> queue pages as single pages (using dma_map/unmap consistently).
->  This also allow us to give a return code indicating given driver does
-> not support writable packet-pages (rejecting program).
-When write-mode is enabled for this prog type, we'll add the flag. I
-don't want to add unused flags prematurely. When we add such support, it
-should be available in the bpf_prog struct, similar to the cb_access or
-dst_needed bool fields.
-> 
-> -- 
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+Due to mail server malfunction, this patch was sent twice.  Please 
+ignore this duplicate.
+
+Thanks,
+David Daney
+
+
+On 03/31/2016 06:01 PM, David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
+>
+> commit b7d3e3d3d21a ("net: thunderx: Don't leak phy device references
+> on -EPROBE_DEFER condition.") incorrectly moved the call to
+> of_node_put() outside of the loop.  Under normal loop exit, the node
+> has already had of_node_put() called, so the extra call results in:
+>
+> [    8.228020] ERROR: Bad of_node_put() on /soc@0/pci@848000000000/mrml-bridge0@1,0/bgx0/xlaui00
+> [    8.239433] CPU: 16 PID: 608 Comm: systemd-udevd Not tainted 4.6.0-rc1-numa+ #157
+> [    8.247380] Hardware name: www.cavium.com EBB8800/EBB8800, BIOS 0.3 Mar  2 2016
+> [    8.273541] Call trace:
+> [    8.273550] [<fffffc0008097364>] dump_backtrace+0x0/0x210
+> [    8.273557] [<fffffc0008097598>] show_stack+0x24/0x2c
+> [    8.273560] [<fffffc0008399ed0>] dump_stack+0x8c/0xb4
+> [    8.273566] [<fffffc00085aa828>] of_node_release+0xa8/0xac
+> [    8.273570] [<fffffc000839cad8>] kobject_cleanup+0x8c/0x194
+> [    8.273573] [<fffffc000839c97c>] kobject_put+0x44/0x6c
+> [    8.273576] [<fffffc00085a9ab0>] of_node_put+0x24/0x30
+> [    8.273587] [<fffffc0000bd0f74>] bgx_probe+0x17c/0xcd8 [thunder_bgx]
+> [    8.273591] [<fffffc00083ed220>] pci_device_probe+0xa0/0x114
+> [    8.273596] [<fffffc0008473fbc>] driver_probe_device+0x178/0x418
+> [    8.273599] [<fffffc000847435c>] __driver_attach+0x100/0x118
+> [    8.273602] [<fffffc0008471b58>] bus_for_each_dev+0x6c/0xac
+> [    8.273605] [<fffffc0008473884>] driver_attach+0x30/0x38
+> [    8.273608] [<fffffc00084732f4>] bus_add_driver+0x1f8/0x29c
+> [    8.273611] [<fffffc0008475028>] driver_register+0x70/0x110
+> [    8.273617] [<fffffc00083ebf08>] __pci_register_driver+0x60/0x6c
+> [    8.273623] [<fffffc0000bf0040>] bgx_init_module+0x40/0x48 [thunder_bgx]
+> [    8.273626] [<fffffc0008090d04>] do_one_initcall+0xcc/0x1c0
+> [    8.273631] [<fffffc0008198abc>] do_init_module+0x68/0x1c8
+> [    8.273635] [<fffffc0008125668>] load_module+0xf44/0x11f4
+> [    8.273638] [<fffffc0008125b64>] SyS_finit_module+0xb8/0xe0
+> [    8.273641] [<fffffc0008093b30>] el0_svc_naked+0x24/0x28
+>
+> Go back to the previous (correct) code that only did the extra
+> of_node_put() call on early exit from the loop.
+>
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>   drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> index 9679515..d20539a 100644
+> --- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> +++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+> @@ -1011,10 +1011,11 @@ static int bgx_init_of_phy(struct bgx *bgx)
+>   		}
+>
+>   		lmac++;
+> -		if (lmac == MAX_LMAC_PER_BGX)
+> +		if (lmac == MAX_LMAC_PER_BGX) {
+> +			of_node_put(node);
+>   			break;
+> +		}
+>   	}
+> -	of_node_put(node);
+>   	return 0;
+>
+>   defer:
+>
