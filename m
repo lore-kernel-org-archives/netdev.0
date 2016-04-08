@@ -1,31 +1,69 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH v2 1/5] net: w5100: move mmiowb into register access callbacks
-Date: Sat, 9 Apr 2016 03:54:46 +0900
-Message-ID: <CAC5umyg4feW=XeNuOPBYDU8Ph5+AzWWnx+Wk3FDS5vWZLU5Zog@mail.gmail.com>
-References: <1460045792-30594-1-git-send-email-akinobu.mita@gmail.com>
-	<20160407.122951.1457426147075873743.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Mike Sinkovsky <msink@permonline.ru>
-To: David Miller <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: ipv6: Do not keep linklocal and loopback addresses
+Date: Fri,  8 Apr 2016 12:01:21 -0700
+Message-ID: <1460142081-16675-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:34197 "EHLO
-	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751046AbcDHSyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 14:54:52 -0400
-Received: by mail-vk0-f65.google.com with SMTP id a6so6951869vkh.1
-        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 11:54:52 -0700 (PDT)
-In-Reply-To: <20160407.122951.1457426147075873743.davem@davemloft.net>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34062 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752365AbcDHTB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:01:29 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c20so80875028pfc.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 12:01:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-04-08 1:29 GMT+09:00 David Miller <davem@davemloft.net>:
->
-> Where is your "[PATCH v2 0/5] ..." header posting explaing what this series
-> is doing, at a high level, how it is doing that, and why it is doing it
-> that way?
->
-> This is mandator for patch series submissions.
+f1705ec197e7 added the option to retain user configured addresses on an
+admin down. A comment to one of the later revisions suggested using the
+IFA_F_PERMANENT flag rather than adding a user_managed boolean to the
+ifaddr struct. A side effect of this change is that link local and
+loopback addresses are also retained which is not part of the objective
+of f1705ec197e7. Add check to drop those addresses.
 
-I see.  I'll surely include the explanations at the v3 submission.
+Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv6/addrconf.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 27aed1afcf81..2dd8c1ca3287 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3438,6 +3438,12 @@ static void addrconf_type_change(struct net_device *dev, unsigned long event)
+ 		ipv6_mc_unmap(idev);
+ }
+ 
++static bool addr_is_local(const struct in6_addr *addr)
++{
++	return ipv6_addr_type(addr) &
++		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
++}
++
+ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+@@ -3495,7 +3501,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 				 * address is retained on a down event
+ 				 */
+ 				if (!keep_addr ||
+-				    !(ifa->flags & IFA_F_PERMANENT)) {
++				    !(ifa->flags & IFA_F_PERMANENT) ||
++				    addr_is_local(&ifa->addr)) {
+ 					hlist_del_init_rcu(&ifa->addr_lst);
+ 					goto restart;
+ 				}
+@@ -3544,7 +3551,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 		write_unlock_bh(&idev->lock);
+ 		spin_lock_bh(&ifa->lock);
+ 
+-		if (keep_addr && (ifa->flags & IFA_F_PERMANENT)) {
++		if (keep_addr && (ifa->flags & IFA_F_PERMANENT) &&
++		    !addr_is_local(&ifa->addr)) {
+ 			/* set state to skip the notifier below */
+ 			state = INET6_IFADDR_STATE_DEAD;
+ 			ifa->state = 0;
+-- 
+2.1.4
