@@ -1,41 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: Count in extension headers in
- skb->network_header
-Date: Thu, 07 Apr 2016 22:44:55 -0400 (EDT)
-Message-ID: <20160407.224455.695892175098979019.davem@davemloft.net>
-References: <4697d0324d0b4313cbc2053b49ac85ec955b81cb.1459872592.git.jkbs@redhat.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: mpls's find_outdev()
+Date: Thu, 07 Apr 2016 19:50:27 -0700
+Message-ID: <57071C73.5080206@cumulusnetworks.com>
+References: <20160407.214109.32624032556886158.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiji@redhat.com, hannes@stressinduktion.org
-To: jkbs@redhat.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751495AbcDHCo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 22:44:59 -0400
-In-Reply-To: <4697d0324d0b4313cbc2053b49ac85ec955b81cb.1459872592.git.jkbs@redhat.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36697 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbcDHCua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Apr 2016 22:50:30 -0400
+Received: by mail-pa0-f51.google.com with SMTP id bx7so49995403pad.3
+        for <netdev@vger.kernel.org>; Thu, 07 Apr 2016 19:50:29 -0700 (PDT)
+In-Reply-To: <20160407.214109.32624032556886158.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Sitnicki <jkbs@redhat.com>
-Date: Tue,  5 Apr 2016 18:41:08 +0200
-
-> When sending a UDPv6 message longer than MTU, account for the length
-> of fragmentable IPv6 extension headers in skb->network_header offset.
-> Same as we do in alloc_new_skb path in __ip6_append_data().
-> 
-> This ensures that later on __ip6_make_skb() will make space in
-> headroom for fragmentable extension headers:
-> 
-> 	/* move skb->data to ip header from ext header */
-> 	if (skb->data < skb_network_header(skb))
-> 		__skb_pull(skb, skb_network_offset(skb));
-> 
-> Prevents a splat due to skb_under_panic:
- ...
-> Reported-by: Ji Jianwen <jiji@redhat.com>
-> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Applied and queued up for -stable, thanks.
+On 4/7/16, 6:41 PM, David Miller wrote:
+> While auditing something unrelated, I noticed that this function seems
+> to potentially dev_put() on an error pointer.
+>
+> I guess the problem comes from the fact that there are two methods
+> by which the device pointer is obtained.
+>
+> First, inet{,6}_fib_lookup_dev() which uses error pointers.
+>
+> Second, dev_get_by_index() which returns a valid device or NULL,
+> and therefore does not use error pointers.
+>
+> If inet{,6}_fib_lookup_dev() returns an error pointer, the !dev check
+> will not pass and dev_put() will operate on an error pointer and
+> crash.
+>
+> If you agree with my analysis, could you please cook up and test a
+> fix?
+>
+> Thank you!
+certainly!. I see it. Thanks for catching it.
+I will test and post a fix in a few hours.
