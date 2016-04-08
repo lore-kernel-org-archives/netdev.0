@@ -1,32 +1,89 @@
-From: AKINWUMI <urr@adminnfo3.website.tk>
-Subject: FROM: MR. OLIVER SENO!!
-Date: Fri, 8 Apr 2016 11:53:33 -0700
-Message-ID: <BLUPR17MB0484BD34C5B012F7320F8709D0910@BLUPR17MB0484.namprd17.prod.outlook.com>
-Reply-To: <officeosenol@yahoo.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2] route: do not cache fib route info on local routes
+ with oif
+Date: Fri, 8 Apr 2016 22:14:31 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg>
+References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <urr@adminnfo3.website.tk>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bhn0248.outbound.protection.outlook.com ([157.56.111.248]:19718
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932765AbcDHTJF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 15:09:05 -0400
-Content-Description: Mail message body
+Received: from ja.ssi.bg ([178.16.129.10]:33267 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753260AbcDHTOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 15:14:38 -0400
+In-Reply-To: <5707C950.6060806@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir.
 
-I bring you greetings. My name is Mr.Oliver Seno Lim, I am a staff of Abbey National Plc. London and heading our regional office in West Africa. Our late customer named Engr.Ben W.westland, made a fixed deposit amount of US$7Million.He did not declare any next of kin in any of his paper work, I want you as a foreigner to stand as the beneficiary to transfer this funds out of my bank into your account, after the successful transfer, we shall share in the ratio of 30% for you, 70%for me. Should you be interested please send me your information:
+	Hello,
 
-1,Full names.
-2,current residential address.
-3,Tele/Fax numbers./your work.
- 
-   
-All I need from you is your readiness, trustworthiness and edication. Please email me directly on my private email address: officeosenol@yahoo.com) so we can begin arrangements and I would give you more information on how we would handle this venture and once i hear from you i will give you information of the bank for the transferring funds on your name.
+On Fri, 8 Apr 2016, Chris Friesen wrote:
 
-Regards,
-Mr.Oliver Seno Lim 
+> For local routes that require a particular output interface we do not want to
+> cache the result.  Caching the result causes incorrect behaviour when there
+> are
+> multiple source addresses on the interface.  The end result being that if the
+> intended recipient is waiting on that interface for the packet he won't
+> receive
+> it because it will be delivered on the loopback interface and the IP_PKTINFO
+> ipi_ifindex will be set to the loopback interface as well.
+> 
+> This can be tested by running a program such as "dhcp_release" which attempts
+> to inject a packet on a particular interface so that it is received by another
+> program on the same board.  The receiving process should see an IP_PKTINFO
+> ipi_ifndex value of the source interface (e.g., eth1) instead of the loopback
+> interface (e.g., lo).  The packet will still appear on the loopback interface
+> in tcpdump but the important aspect is that the CMSG info is correct.
+> 
+> Sample dhcp_release command line:
+> 
+>    dhcp_release eth1 192.168.204.222 02:11:33:22:44:66
+> 
+> Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
+> Signed off-by: Chris Friesen <chris.friesen@windriver.com>
+> ---
+>  net/ipv4/route.c | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 02c6229..437a377 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2045,6 +2045,18 @@ static struct rtable *__mkroute_output(const struct
+> fib_result *res,
+
+	Your patch is corrupted. I was in the same trap
+some time ago but with different client:
+
+>From Documentation/email-clients.txt:
+
+Don't send patches with "format=flowed".  This can cause unexpected
+and unwanted line breaks.
+
+	Anyways, the change looks good to me and I'll add my
+Reviewed-by tag the next time.
+
+>  		*/
+>  		if (fi && res->prefixlen < 4)
+>  			fi = NULL;
+> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
+> +		   (orig_oif != dev_out->ifindex)) {
+> +		/* For local routes that require a particular output interface
+> +		 * we do not want to cache the result.  Caching the result
+> +		 * causes incorrect behaviour when there are multiple source
+> +		 * addresses on the interface, the end result being that if
+> the
+> +		 * intended recipient is waiting on that interface for the
+> +		 * packet he won't receive it because it will be delivered on
+> +		 * the loopback interface and the IP_PKTINFO ipi_ifindex will
+> +		 * be set to the loopback interface as well.
+> +		 */
+> +		fi = NULL;
+>  	}
+> 
+>  	fnhe = NULL;
+
+Regards
