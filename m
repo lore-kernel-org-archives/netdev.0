@@ -1,55 +1,83 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH] net: thunderx: Fix broken of_node_put() code.
-Date: Fri, 8 Apr 2016 13:34:26 -0700
-Message-ID: <570815D2.5050608@caviumnetworks.com>
-References: <1459472517-5696-1-git-send-email-ddaney.cavm@gmail.com> <5707DF3F.3000508@caviumnetworks.com> <20160408.161557.850174112269792582.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v3] route: do not cache fib route info on local routes
+ with oif
+Date: Fri, 8 Apr 2016 23:35:58 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1604082328460.2124@ja.home.ssi.bg>
+References: <5706B250.1060303@windriver.com> <alpine.LFD.2.11.1604072305400.2154@ja.home.ssi.bg> <5707C950.6060806@windriver.com> <alpine.LFD.2.11.1604082207330.2124@ja.home.ssi.bg> <57080F7E.809@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <rric@kernel.org>,
-	<sgoutham@cavium.com>, <david.daney@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160408.161557.850174112269792582.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 04/08/2016 01:15 PM, David Miller wrote:
-> From: David Daney <ddaney@caviumnetworks.com>
-> Date: Fri, 8 Apr 2016 09:41:35 -0700
->
->> Due to mail server malfunction, this patch was sent twice.  Please
->> ignore this duplicate.
->
-> This submission had another problem too.
->
-> Do not use the date of your commit as the date that gets put into
-> your email headers.
-
-I don't.  This is standard git-send-email 1.7.11.7.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:35234 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753927AbcDHUgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Apr 2016 16:36:08 -0400
+In-Reply-To: <57080F7E.809@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
->
-> This makes all of your patch submissions look like they occurred in
-> the past, and this mixes up the ordering of patches in patchwork.
+	Hello,
 
+On Fri, 8 Apr 2016, Chris Friesen wrote:
 
-They did occur in the past.  Just like all e-mail you read, they were 
-sent before you read them.
+> For local routes that require a particular output interface we do not want to
+> cache the result.  Caching the result causes incorrect behaviour when there are
+> multiple source addresses on the interface.  The end result being that if the
+> intended recipient is waiting on that interface for the packet he won't receive
+> it because it will be delivered on the loopback interface and the IP_PKTINFO
+> ipi_ifindex will be set to the loopback interface as well.
+> 
+> This can be tested by running a program such as "dhcp_release" which attempts
+> to inject a packet on a particular interface so that it is received by another
+> program on the same board.  The receiving process should see an IP_PKTINFO
+> ipi_ifndex value of the source interface (e.g., eth1) instead of the loopback
+> interface (e.g., lo).  The packet will still appear on the loopback interface
+> in tcpdump but the important aspect is that the CMSG info is correct.
+> 
+> Sample dhcp_release command line:
+> 
+>    dhcp_release eth1 192.168.204.222 02:11:33:22:44:66
+> 
+> Signed-off-by: Allain Legacy <allain.legacy@windriver.com>
+> Signed off-by: Chris Friesen <chris.friesen@windriver.com>
 
-I ran git-send-email for this on  Thu, 31 Mar 2016 18:01:57 -0700.  I 
-observed that the patch didn't seem to make it to the public lists, so I 
-figured I screwed something up and I sent it again, with the same results.
+	Sorry, forgot to mention that patch has other errors:
 
-Then I went on vacation, and came back today to sort everything out.  My 
-MTA had died, so I restarted it, and ... the backlog of messages was 
-sent and you read it.
+scripts/checkpatch.pl --strict /tmp/file3.patch
 
+	Its recommendations:
 
->
-> So please resubmit this properly with a normal, current, date in your
-> email headers.
+- prefer a maximum 75 chars per line
+- code indent should use tabs where possible
 
-OK, I will resend the identical patch for the third time...
+> ---
+>  net/ipv4/route.c | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 02c6229..437a377 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -2045,6 +2045,18 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+>  		 */
+>  		if (fi && res->prefixlen < 4)
+>  			fi = NULL;
+> +	} else if ((type == RTN_LOCAL) && (orig_oif != 0) &&
+> +		   (orig_oif != dev_out->ifindex)) {
+> +		/* For local routes that require a particular output interface
+> +                 * we do not want to cache the result.  Caching the result
+> +                 * causes incorrect behaviour when there are multiple source
+> +                 * addresses on the interface, the end result being that if the
+> +                 * intended recipient is waiting on that interface for the
+> +                 * packet he won't receive it because it will be delivered on
+> +                 * the loopback interface and the IP_PKTINFO ipi_ifindex will
+> +                 * be set to the loopback interface as well.
+> +		 */
+> +		fi = NULL;
+>  	}
+>  
+>  	fnhe = NULL;
+
+Regards
