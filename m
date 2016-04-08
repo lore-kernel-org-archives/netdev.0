@@ -1,144 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/18] ixgbe: Use new methods for PHY access
-Date: Thu,  7 Apr 2016 20:21:06 -0700
-Message-ID: <1460085673-87056-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/18] ixgbe/ixgbevf: Add support for bulk free in Tx cleanup & cleanup boolean logic
+Date: Thu,  7 Apr 2016 20:21:01 -0700
+Message-ID: <1460085673-87056-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9519 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:5938 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756974AbcDHDVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Apr 2016 23:21:21 -0400
+	id S1756948AbcDHDVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Apr 2016 23:21:20 -0400
 In-Reply-To: <1460085673-87056-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Now x550em_a devices will use a new method for PHY access that will
-get the firmware token for each access.
+This patch enables bulk free in Tx cleanup for ixgbevf and cleans up the
+boolean logic in the polling routines for ixgbe and ixgbevf in the hopes of
+avoiding any mix-ups similar to what occurred with i40e and i40evf.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 67 +++++++++++++++++++++++++--
- 1 file changed, 64 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 10 +++++++---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 14 +++++++++-----
+ 2 files changed, 16 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index ba161b5..ef1dc3b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2548,6 +2548,57 @@ static void ixgbe_release_swfw_sync_x550em_a(struct ixgbe_hw *hw, u32 mask)
- 		ixgbe_release_swfw_sync_X540(hw, hmask);
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 19bf386..d5509cc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1111,6 +1111,7 @@ static int ixgbe_tx_maxrate(struct net_device *netdev,
+  * ixgbe_clean_tx_irq - Reclaim resources after transmit completes
+  * @q_vector: structure containing interrupt and ring information
+  * @tx_ring: tx ring to clean
++ * @napi_budget: Used to determine if we are in netpoll
+  **/
+ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 			       struct ixgbe_ring *tx_ring, int napi_budget)
+@@ -2807,8 +2808,10 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
+ 		ixgbe_update_dca(q_vector);
+ #endif
  
-+/**
-+ * ixgbe_read_phy_reg_x550a - Reads specified PHY register
-+ * @hw: pointer to hardware structure
-+ * @reg_addr: 32 bit address of PHY register to read
-+ * @phy_data: Pointer to read data from PHY register
-+ *
-+ * Reads a value from a specified PHY register using the SWFW lock and PHY
-+ * Token. The PHY Token is needed since the MDIO is shared between to MAC
-+ * instances.
-+ */
-+static s32 ixgbe_read_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
-+				    u32 device_type, u16 *phy_data)
-+{
-+	u32 mask = hw->phy.phy_semaphore_mask | IXGBE_GSSR_TOKEN_SM;
-+	s32 status;
-+
-+	if (hw->mac.ops.acquire_swfw_sync(hw, mask))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = hw->phy.ops.read_reg_mdi(hw, reg_addr, device_type, phy_data);
-+
-+	hw->mac.ops.release_swfw_sync(hw, mask);
-+
-+	return status;
-+}
-+
-+/**
-+ * ixgbe_write_phy_reg_x550a - Writes specified PHY register
-+ * @hw: pointer to hardware structure
-+ * @reg_addr: 32 bit PHY register to write
-+ * @device_type: 5 bit device type
-+ * @phy_data: Data to write to the PHY register
-+ *
-+ * Writes a value to specified PHY register using the SWFW lock and PHY Token.
-+ * The PHY Token is needed since the MDIO is shared between to MAC instances.
-+ */
-+static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
-+				     u32 device_type, u16 phy_data)
-+{
-+	u32 mask = hw->phy.phy_semaphore_mask | IXGBE_GSSR_TOKEN_SM;
-+	s32 status;
-+
-+	if (hw->mac.ops.acquire_swfw_sync(hw, mask))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = ixgbe_write_phy_reg_mdi(hw, reg_addr, device_type, phy_data);
-+	hw->mac.ops.release_swfw_sync(hw, mask);
-+
-+	return status;
-+}
-+
- #define X550_COMMON_MAC \
- 	.init_hw			= &ixgbe_init_hw_generic, \
- 	.start_hw			= &ixgbe_start_hw_X540, \
-@@ -2673,8 +2724,6 @@ static const struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
- 	.read_i2c_sff8472	= &ixgbe_read_i2c_sff8472_generic, \
- 	.read_i2c_eeprom	= &ixgbe_read_i2c_eeprom_generic, \
- 	.write_i2c_eeprom	= &ixgbe_write_i2c_eeprom_generic, \
--	.read_reg		= &ixgbe_read_phy_reg_generic, \
--	.write_reg		= &ixgbe_write_phy_reg_generic, \
- 	.setup_link		= &ixgbe_setup_phy_link_generic, \
- 	.set_phy_power		= NULL, \
- 	.check_overtemp		= &ixgbe_tn_check_overtemp, \
-@@ -2684,12 +2733,16 @@ static const struct ixgbe_phy_operations phy_ops_X550 = {
- 	X550_COMMON_PHY
- 	.init			= NULL,
- 	.identify		= &ixgbe_identify_phy_generic,
-+	.read_reg		= &ixgbe_read_phy_reg_generic,
-+	.write_reg		= &ixgbe_write_phy_reg_generic,
- };
+-	ixgbe_for_each_ring(ring, q_vector->tx)
+-		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring, budget);
++	ixgbe_for_each_ring(ring, q_vector->tx) {
++		if (!ixgbe_clean_tx_irq(q_vector, ring, budget))
++			clean_complete = false;
++	}
  
- static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
- 	X550_COMMON_PHY
- 	.init			= &ixgbe_init_phy_ops_X550em,
- 	.identify		= &ixgbe_identify_phy_x550em,
-+	.read_reg		= &ixgbe_read_phy_reg_generic,
-+	.write_reg		= &ixgbe_write_phy_reg_generic,
- 	.read_i2c_combined	= &ixgbe_read_i2c_combined_generic,
- 	.write_i2c_combined	= &ixgbe_write_i2c_combined_generic,
- 	.read_i2c_combined_unlocked = &ixgbe_read_i2c_combined_generic_unlocked,
-@@ -2697,6 +2750,14 @@ static const struct ixgbe_phy_operations phy_ops_X550EM_x = {
- 				     &ixgbe_write_i2c_combined_generic_unlocked,
- };
+ 	/* Exit if we are called by netpoll or busy polling is active */
+ 	if ((budget <= 0) || !ixgbe_qv_lock_napi(q_vector))
+@@ -2826,7 +2829,8 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
+ 						 per_ring_budget);
  
-+static const struct ixgbe_phy_operations phy_ops_x550em_a = {
-+	X550_COMMON_PHY
-+	.init			= &ixgbe_init_phy_ops_X550em,
-+	.identify		= &ixgbe_identify_phy_x550em,
-+	.read_reg		= &ixgbe_read_phy_reg_x550a,
-+	.write_reg		= &ixgbe_write_phy_reg_x550a,
-+};
-+
- static const u32 ixgbe_mvals_X550[IXGBE_MVALS_IDX_LIMIT] = {
- 	IXGBE_MVALS_INIT(X550)
- };
-@@ -2734,7 +2795,7 @@ const struct ixgbe_info ixgbe_x550em_a_info = {
- 	.get_invariants		= &ixgbe_get_invariants_X550_x,
- 	.mac_ops		= &mac_ops_x550em_a,
- 	.eeprom_ops		= &eeprom_ops_X550EM_x,
--	.phy_ops		= &phy_ops_X550EM_x,
-+	.phy_ops		= &phy_ops_x550em_a,
- 	.mbx_ops		= &mbx_ops_generic,
- 	.mvals			= ixgbe_mvals_x550em_a,
- };
+ 		work_done += cleaned;
+-		clean_complete &= (cleaned < per_ring_budget);
++		if (cleaned >= per_ring_budget)
++			clean_complete = false;
+ 	}
+ 
+ 	ixgbe_qv_unlock_napi(q_vector);
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 50b6bff..007cbe0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -288,9 +288,10 @@ static void ixgbevf_tx_timeout(struct net_device *netdev)
+  * ixgbevf_clean_tx_irq - Reclaim resources after transmit completes
+  * @q_vector: board private structure
+  * @tx_ring: tx ring to clean
++ * @napi_budget: Used to determine if we are in netpoll
+  **/
+ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+-				 struct ixgbevf_ring *tx_ring)
++				 struct ixgbevf_ring *tx_ring, int napi_budget)
+ {
+ 	struct ixgbevf_adapter *adapter = q_vector->adapter;
+ 	struct ixgbevf_tx_buffer *tx_buffer;
+@@ -328,7 +329,7 @@ static bool ixgbevf_clean_tx_irq(struct ixgbevf_q_vector *q_vector,
+ 		total_packets += tx_buffer->gso_segs;
+ 
+ 		/* free the skb */
+-		dev_kfree_skb_any(tx_buffer->skb);
++		napi_consume_skb(tx_buffer->skb, napi_budget);
+ 
+ 		/* unmap skb header data */
+ 		dma_unmap_single(tx_ring->dev,
+@@ -1013,8 +1014,10 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 	int per_ring_budget, work_done = 0;
+ 	bool clean_complete = true;
+ 
+-	ixgbevf_for_each_ring(ring, q_vector->tx)
+-		clean_complete &= ixgbevf_clean_tx_irq(q_vector, ring);
++	ixgbevf_for_each_ring(ring, q_vector->tx) {
++		if (!ixgbevf_clean_tx_irq(q_vector, ring, budget))
++			clean_complete = false;
++	}
+ 
+ 	if (budget <= 0)
+ 		return budget;
+@@ -1035,7 +1038,8 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
+ 		int cleaned = ixgbevf_clean_rx_irq(q_vector, ring,
+ 						   per_ring_budget);
+ 		work_done += cleaned;
+-		clean_complete &= (cleaned < per_ring_budget);
++		if (cleaned >= per_ring_budget)
++			clean_complete = false;
+ 	}
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
 -- 
 2.5.5
