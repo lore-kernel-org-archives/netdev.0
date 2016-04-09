@@ -1,90 +1,48 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Sat, 9 Apr 2016 10:00:02 -0700
-Message-ID: <20160409170000.GA53526@ast-mbp.thefacebook.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <CALx6S34m8cVNgvuGp845bicixodfavH9cj-rARSwwEAvFCjd7g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 net-next 1/6] sctp: add sctp_info dump api for
+ sctp_diag
+Date: Sat, 09 Apr 2016 10:21:47 -0700
+Message-ID: <1460222507.6473.493.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1460177331.git.lucien.xin@gmail.com>
+	 <c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
+	 <1460178984.6473.473.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <57091D90.4030905@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Edward Cree <ecree@solarflare.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	eranlinuxmellanox@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33177 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753818AbcDIRAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 13:00:08 -0400
-Received: by mail-pf0-f170.google.com with SMTP id 184so95217236pff.0
-        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 10:00:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S34m8cVNgvuGp845bicixodfavH9cj-rARSwwEAvFCjd7g@mail.gmail.com>
+Received: from mail-qg0-f41.google.com ([209.85.192.41]:35886 "EHLO
+	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753384AbcDIRVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 13:21:51 -0400
+In-Reply-To: <57091D90.4030905@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 09, 2016 at 08:17:04AM -0300, Tom Herbert wrote:
+On Sat, 2016-04-09 at 11:19 -0400, Jamal Hadi Salim wrote:
+> On 16-04-09 01:16 AM, Eric Dumazet wrote:
+> 
 > >
-> > +/* user return codes for PHYS_DEV prog type */
-> > +enum bpf_phys_dev_action {
-> > +       BPF_PHYS_DEV_DROP,
-> > +       BPF_PHYS_DEV_OK,
+> > Lots of holes in this structure...
+> >
+> >
 > 
-> I don't like OK. Maybe this mean LOCAL. We also need FORWARD (not sure
-> how to handle GRO yet).
 > 
-> I would suggest that we format the return code as code:subcode, where
-> the above are codes. subcode is relevant to major code. For instance
-> in forwarding the subcodes indicate a forwarding instruction (maybe a
-> queue). DROP subcodes might answer why.
+> I may have mentioned to you that there is 8 bit hole in tcp_info too ;->
+> (above tcpi_rto). Adding an 8 bit explicit pad seems useful
+> since it is already in the wild. I was going to send the patch after
+> netdev11 but  forgot.
 
-for tc redirect we use hidden percpu variable to pass additional
-info together with return code. The cost of it is extra bpf_redirect() call.
-Here we can do better and embed such info for xmit,
-but subcodes for drop is slippery slop, since it's adding concepts
-to design that are not going to be used by everyone.
-If necessary bpf programs can count drop reasons internally.
-Drops due to protocol!=ipv6 or drops due to ip frags present
-will be program internal reasons. No need to expose them in api.
+Well, once a hole is there, nothing we can do really, because of
+compatibility with old kernels / old binaries.
 
-We need to get xmit part implemented first and see how it looks
-before deciding on this part of api.
-Right now I think we do not need tx queue number actually.
-The prog should just return 'XMIT' and xdp(driver) side will decide
-which tx queue to use.
 
-> One other API issue is how to deal with encapsulation. In this case a
-> header may be prepended to the packet, I assume there are BPF helper
-> functions and we don't need to return a new length or start?
-
-a bit of history:
-for tc+bpf we've been trying to come up with clean helpers to do
-header push/pop and it was very difficult, since skb keeps a ton
-of metedata about header offsets, csum offsets, encap flag, etc
-we've lost the count on number of different approaches we've
-implemented and discarded.
-For XDP there is no such issue.
-Likely we'll have single bpf_packet_change(ctx, off, len) helper
-that will grow(len) or trim(-len) bytes at offset(off) in the packet.
-ctx->len will be adjusted automatically by the helper.
-The headroom, tailroom will not be exposed and will never be known
-to the bpf side. It's up to the helper and the driver to decide how to
-insert N bytes at offset M. If the driver reserved headroom in dma
-buffer, it can grow into it, if not it can grow tail and move
-the whole packet. For performance reasons we obviously want some
-headroom in dma buffer, but it's not exposed to bpf.
-
-But it could be that directly adjusting ctx->len and ctx->data is faster.
-For cls_bpf ctx->data is hidden and packet access is done via
-special instructions and helpers. For XDP we can hopefully do better
-and do packet access with direct loads. I outlined that plan
-in the previous thread.
+But when a _new_ structure is defined, this is the time where we can ask
+for doing sensible things ;)
