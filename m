@@ -1,36 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net-next 1/6] sctp: add sctp_info dump api for
- sctp_diag
-Date: Sat, 09 Apr 2016 10:31:15 -0700
-Message-ID: <1460223075.6473.499.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1460177331.git.lucien.xin@gmail.com>
-	 <c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
-	 <1460179179.6473.476.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CADvbK_dzvjT=pFYP8uRDa8naNWUp+dkUHSVXP+Y8P0U3=nQM8g@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 07/11] GENEVE: Add option to mangle IP IDs on inner
+ headers when using TSO
+Date: Sat, 9 Apr 2016 10:36:03 -0700
+Message-ID: <CAKgT0UdR863RBgkMMuT=Db1D1YQUpXOFLh6Bz7nVQxoMuDzuzQ@mail.gmail.com>
+References: <20160407222211.11142.41024.stgit@ahduyck-xeon-server>
+	<20160407223237.11142.33072.stgit@ahduyck-xeon-server>
+	<CAEh+42jyh0EWwaOAu3KNSQKEv3NRgjPT_4QRYUmLRSXtsMgWJw@mail.gmail.com>
+	<CAKgT0Ufc8EiqCR5opSFUCE2v3hFCmnS641o+epyi+G92bD+yww@mail.gmail.com>
+	<CAEh+42gjqeGK94xvVQFuiUF=c3YKY2SCWOL=y=2gBsHyUxQ+GA@mail.gmail.com>
+	<CAKgT0UcehJaKhEQCATuyp48Q0gqofk7JjwsakNo1KgJd2YH-TA@mail.gmail.com>
+	<CAEh+42j5_SKku5EWexLi+1Ch4Eu=SoijMGSCYyZAd39GeMq8GQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jesse Gross <jesse@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:35925 "EHLO
-	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754613AbcDIRbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 13:31:19 -0400
-In-Reply-To: <CADvbK_dzvjT=pFYP8uRDa8naNWUp+dkUHSVXP+Y8P0U3=nQM8g@mail.gmail.com>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:35242 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754308AbcDIRgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 13:36:05 -0400
+Received: by mail-io0-f180.google.com with SMTP id g185so165515428ioa.2
+        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 10:36:04 -0700 (PDT)
+In-Reply-To: <CAEh+42j5_SKku5EWexLi+1Ch4Eu=SoijMGSCYyZAd39GeMq8GQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-04-10 at 00:10 +0800, Xin Long wrote:
+On Sat, Apr 9, 2016 at 8:52 AM, Jesse Gross <jesse@kernel.org> wrote:
+> On Fri, Apr 8, 2016 at 7:04 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Fri, Apr 8, 2016 at 2:40 PM, Jesse Gross <jesse@kernel.org> wrote:
+>>> Maybe I missed it but I didn't see any checks for the DF bit being set
+>>> when we transmit a packet with NETIF_F_TSO_MANGLEID. Even if I am
+>>> comfortable mangling my IDs in the DF case, I don't think this would
+>>> ever extend to non-DF packets. In the documentation you noted that it
+>>> is the driver's responsibility to do this check but I couldn't find it
+>>> in either ixgbe or igb. It would also be nice if the core stack could
+>>> enforce it somehow as well rather than each driver.
+>>
+>> Yeah I had glossed over that in the igb and ixgbe patches.  A check is
+>> only really needed for the incrementing to non-incrementing case and I
+>> wasn't sure how common it was to have TCP with an IP header that
+>> didn't set the DF bit.  In the case of the outer headers igb and ixgbe
+>> will increment the IP ID always so we don't have to worry about if DF
+>> is set of not there.  For the inner headers I had fudged it a bit and
+>> didn't add the validation.  If needed I can see about adding that
+>> shortly.
+>
+> TCP without the DF bit set is not the default but it is possible (it
+> can be enabled by setting /proc/sys/net/ipv4/ip_no_pmtu_disc). I also
+> did a quick check of some Internet services and at least some of them
+> seem to return TCP without DF, so it's not too rare.
 
-> 1. sctp_diag_dump_one -> sctp_transport_lookup_process-> sctp_tsp_dump_one
-> this one just holds the tsp. and we're using  list_for_each_safe here now,
-> isn't it enough ?
+For next version I plan to include a check in netif_skb_features that
+will clear NETIF_F_TSO_MANGLEID if the DF bit is not set.
 
-list_for_each_safe is 'safe' if you do a list_del() yourself.
-
-It is not safe if other cpus are adding/deleting items in the list while
-this thread is iterating it.
+- Alex
