@@ -1,11 +1,12 @@
 From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCHv3 net-next 2/6] bridge: simplify the
- forward_delay_store by calling store_bridge_parm
-Date: Sat, 9 Apr 2016 14:31:00 +0200
-Message-ID: <5708F604.6080201@cumulusnetworks.com>
+Subject: Re: [PATCHv3 net-next 3/6] bridge: simplify the
+ stp_state_store by calling store_bridge_parm
+Date: Sat, 9 Apr 2016 14:33:53 +0200
+Message-ID: <5708F6B1.1010109@cumulusnetworks.com>
 References: <cover.1460131308.git.lucien.xin@gmail.com>
 	<6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
 	<6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
+	<8c14a891d0a8bcea071d4e5305776a5c5cd9fd17.1460131308.git.lucien.xin@gmail.com>
 Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
@@ -14,7 +15,7 @@ Cc: davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
 	bridge@lists.linux-foundation.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
+In-Reply-To: <8c14a891d0a8bcea071d4e5305776a5c5cd9fd17.1460131308.git.lucien.xin@gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -27,13 +28,13 @@ Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 On 04/08/2016 06:03 PM, Xin Long wrote:
-> There are some repetitive codes in forward_delay_store, we can remove
+> There are some repetitive codes in stp_state_store, we can remove
 > them by calling store_bridge_parm.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > ---
->  net/bridge/br_sysfs_br.c | 27 ++++++++++-----------------
->  1 file changed, 10 insertions(+), 17 deletions(-)
+>  net/bridge/br_sysfs_br.c | 24 +++++++++---------------
+>  1 file changed, 9 insertions(+), 15 deletions(-)
 > 
 
 Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
