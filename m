@@ -1,68 +1,33 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH net-next 1/6] net: Make vxlan/geneve default udp ports
- public
-Date: Sat, 9 Apr 2016 20:46:31 +0000
-Message-ID: <BLUPR11MB011432C1D124F762CC278E9E93920@BLUPR11MB0114.namprd11.prod.outlook.com>
-References: <1460207825-3622-1-git-send-email-manish.chopra@qlogic.com>
- <1460207825-3622-2-git-send-email-manish.chopra@qlogic.com>
- <CAEh+42j+y=cKUDNMQrPdHTozz5=P9pmbQOyKir6DOf=wDJvHSg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: fix inet6_lookup_listener()
+Date: Sat, 09 Apr 2016 16:54:24 -0400 (EDT)
+Message-ID: <20160409.165424.225726402019731091.davem@davemloft.net>
+References: <1460214073.6473.491.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Ariel Elior" <Ariel.Elior@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: Jesse Gross <jesse@kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, maze@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0116.outbound.protection.outlook.com ([65.55.169.116]:25317
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759121AbcDIUqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Apr 2016 16:46:36 -0400
-In-Reply-To: <CAEh+42j+y=cKUDNMQrPdHTozz5=P9pmbQOyKir6DOf=wDJvHSg@mail.gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:45067 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751150AbcDIVHi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 17:07:38 -0400
+In-Reply-To: <1460214073.6473.491.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZXNzZSBHcm9zcyBbbWFpbHRv
-Omplc3NlQGtlcm5lbC5vcmddDQo+IFNlbnQ6IFNhdHVyZGF5LCBBcHJpbCAwOSwgMjAxNiA5OjM2
-IFBNDQo+IFRvOiBNYW5pc2ggQ2hvcHJhIDxtYW5pc2guY2hvcHJhQHFsb2dpYy5jb20+DQo+IENj
-OiBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+OyBuZXRkZXYgPG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc+Ow0KPiBBcmllbCBFbGlvciA8QXJpZWwuRWxpb3JAcWxvZ2ljLmNvbT47IFl1
-dmFsIE1pbnR6IDxZdXZhbC5NaW50ekBxbG9naWMuY29tPg0KPiBTdWJqZWN0OiBSZTogW1BBVENI
-IG5ldC1uZXh0IDEvNl0gbmV0OiBNYWtlIHZ4bGFuL2dlbmV2ZSBkZWZhdWx0IHVkcCBwb3J0cw0K
-PiBwdWJsaWMNCj4gDQo+IE9uIFNhdCwgQXByIDksIDIwMTYgYXQgMTA6MTcgQU0sIE1hbmlzaCBD
-aG9wcmEgPG1hbmlzaC5jaG9wcmFAcWxvZ2ljLmNvbT4NCj4gd3JvdGU6DQo+ID4gUmF0aW9uYWxl
-IGJlaGluZCB0aGlzIGNoYW5nZSBpcyB0aGF0IHdpdGggc29tZSBPVlMgY29uZmlndXJhdGlvbg0K
-PiA+IFVEUCBwb3J0cyBkb2Vzbid0IGdldCBub3RpZmllZCB0byB0aGUgZHJpdmVyIHVzaW5nDQo+
-ID4gLm5kb19bYWRkfGRlbF1fdnhsYW5fcG9ydC4gU28gZm9yIHRoZSBkcml2ZXIgdG8gd29yayB3
-aXRoDQo+ID4gdGhlc2Ugc3BlY2lmaWMgcG9ydHMgaW4gdGhhdCBlbnZpcm9ubWVudCB3ZSBuZWVk
-IHRvIGhhdmUgdGhlbSBjb25maWd1cmVkDQo+ID4gb24gYWRhcHRlciBieSBkZWZhdWx0IGZvciB0
-aGUgcmVxdWlyZWQgaGFyZHdhcmUgb2ZmbG9hZCBzdXBwb3J0Lg0KPiANCj4gSSB0aGluayB5b3Ug
-YXJlIHJlZmVycmluZyB0byBvbGQgb3V0IG9mIHRyZWUgY29kZSAtIG5vIHZlcnNpb24gb2YNCj4g
-dXBzdHJlYW0gT1ZTIGRvZXMgdGhpcy4gSW4gYWRkaXRpb24sIGFueSBvbGQgY29kZSB3b24ndCB3
-b3JrIGFnYWluc3QNCj4gdGhlIG5ldyBrZXJuZWxzIHRoYXQgd291bGQgaW5jbHVkZSB0aGlzIGRy
-aXZlciB1cGRhdGUgYW55d2F5cyBzbyB0aGVyZQ0KPiB3b24ndCBiZSBhIGJlbmVmaXQgaW4gYW55
-IGNhc2UuDQo+IA0KPiBQbGVhc2UganVzdCB1c2UgdGhlIG5vcm1hbCByZWdpc3RyYXRpb24gbWVj
-aGFuaXNtIHRoYXQgaXMgYWxyZWFkeQ0KPiBleHBvc2VkLiBJIGFsc28gbm90aWNlZCB0aGF0IGlu
-IHRoZSBHZW5ldmUgY2FzZSB5b3UgYXJlbid0IGN1cnJlbnRseQ0KPiByZWdpc3RlcmluZyBmb3Ig
-cG9ydCBub3RpZmljYXRpb25zIGFuZCBqdXN0IHVzaW5nIHRoZSBhc3NpZ25lZCBwb3J0DQo+IG51
-bWJlciBpbiBhbGwgY2FzZXMsIHdoaWNoIGlzbid0IHJpZ2h0Lg0KDQpJbiB0aGUgcGFzdCBJIGhh
-dmUgdHJpZWQgb3BlbnZzd2l0Y2ggcmVsZWFzZSBwYWNrYWdlIFtWMi40LjBdIGZyb20gb3BlbnZz
-d2l0Y2gub3JnDQpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL3JlbGVhc2VzLw0KDQpJIGhhdmUgdHJp
-ZWQgY29uZmlndXJpbmcgb3ZzIHRoZXJlIG9uIHNvbWUgcmVkaGF0IDcueCBrZXJuZWwgd2l0aCBh
-Ym92ZSBtZW50aW9uZWQgcGFja2FnZSB1dGlsaXR5ICJvdnMtdnNjdGwiIHdoZXJlIHBvcnRzIHdl
-cmUgbm90IG5vdGlmaWVkIHRvIGRyaXZlcnMuDQpUaWxsIGVhcmxpZXIgdmVyc2lvbnMgb2Ygb3Bl
-bnZzd2l0Y2ggcGFja2FnZSBbVjIuMy4yXSAtIEl0IHdhcyBmaW5lIGFuZCBVRFAgcG9ydHMgd2Vy
-ZSB1c2VkIHRvIGJlIG5vdGlmaWVkIHRvIHRoZSBkcml2ZXINCg0KSSB0aG91Z2h0IHRoYXQgdGhl
-IHNhbWUgW05vIHBvcnQgY29uZmlnIG5vdGlmaWNhdGlvbiB0byB0aGUgZHJpdmVyc10gcHJvYmxl
-bSB3b3VsZCBiZSB3aXRoIGxhdGVzdCB1cHN0cmVhbSBPVlMsICBpc24ndCBpdCA/IHdoaWNoIGlz
-IHdoeSBjb25maWd1cmF0aW9uIG9mIGF0IGxlYXN0IGRlZmF1bHQgcG9ydHMgaXMgZG9uZSBieSBk
-ZWZhdWx0IGluIGRyaXZlcnMuDQpGb3IgdXBzdHJlYW0gT1ZTLCBpcyB0aGVyZSBhbnkgb3RoZXIg
-b3BlbnZzd2l0Y2ggcGFja2FnZSB1c2VkID8gQ2FuJ3QgdGhlIGFib3ZlIHJlbGVhc2UgcGFja2Fn
-ZSBiZSB1c2VkIG92ZXIgbmV0LW5leHQvdXBzdHJlYW0ga2VybmVsID8NCg0KSWYgbGF0ZXN0IE9W
-UyBub3RpZmllcyB0byBjb25maWd1cmUgVURQIHBvcnRzIHRvIHRoZSBkcml2ZXIgLSBJIHdvdWxk
-IHNpbXBseSBza2lwIGRlZmF1bHQgcG9ydHMgY29uZmlndXJhdGlvbiBieSBkZWZhdWx0IGFuZCBp
-bnN0ZWFkIHVzZSAubmRvX1thZGR8ZGVsXV94eHh4IGZvciBib3RoIHZ4bGFuIGFuZCBnZW5ldmUu
-DQoNClRoYW5rcywNCk1hbmlzaA0KDQoNCg0K
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 09 Apr 2016 08:01:13 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> A stupid refactoring bug in inet6_lookup_listener() needs to be fixed
+> in order to get proper SO_REUSEPORT behavior.
+>=20
+> Fixes: 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under=
+ synflood")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Maciej =AFenczykowski <maze@google.com>
+
+Applied, thanks Eric.
