@@ -1,66 +1,100 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] qdisc: constify meta_type_ops structures
-Date: Sat,  9 Apr 2016 10:49:22 +0200
-Message-ID: <1460191762-10986-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:7665 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751574AbcDIJEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 05:04:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Sat, 9 Apr 2016 11:11:32 +0200
+Message-ID: <20160409111132.781a11b6@redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	<20160407161715.52635cac@redhat.com>
+	<1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Tom Herbert
+ <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>, lsf@lists.linux-foundation.org,
+        linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        lsf-pc@lists.linux-foundation.org,
+        Alexei Starovoitov
+ <alexei.starovoitov@gmail.com>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The meta_type_ops structures are never modified, so declare them as const.
+Hi Eric,
 
-Done with the help of Coccinelle.
+On Thu, 07 Apr 2016 08:18:29 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> On Thu, 2016-04-07 at 16:17 +0200, Jesper Dangaard Brouer wrote:
+> > (Topic proposal for MM-summit)
+> >=20
+> > Network Interface Cards (NIC) drivers, and increasing speeds stress
+> > the page-allocator (and DMA APIs).  A number of driver specific
+> > open-coded approaches exists that work-around these bottlenecks in the
+> > page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
+> > allocating larger pages and handing-out page "fragments".
+> >=20
+> > I'm proposing a generic page-pool recycle facility, that can cover the
+> > driver use-cases, increase performance and open up for zero-copy RX.
+> >=20
+> >=20
+> > The basic performance problem is that pages (containing packets at RX)
+> > are cycled through the page allocator (freed at TX DMA completion
+> > time).  While a system in a steady state, could avoid calling the page
+> > allocator, when having a pool of pages equal to the size of the RX
+> > ring plus the number of outstanding frames in the TX ring (waiting for
+> > DMA completion). =20
+>=20
+>=20
+> We certainly used this at Google for quite a while.
+>=20
+> The thing is : in steady state, the number of pages being 'in tx queues'
+> is lower than number of pages that were allocated for RX queues.
 
----
- net/sched/em_meta.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+That was also my expectation, thanks for confirming my expectation.
 
-diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index f2aabc0..a309a07 100644
---- a/net/sched/em_meta.c
-+++ b/net/sched/em_meta.c
-@@ -796,7 +796,7 @@ struct meta_type_ops {
- 	int	(*dump)(struct sk_buff *, struct meta_value *, int);
- };
- 
--static struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
-+static const struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
- 	[TCF_META_TYPE_VAR] = {
- 		.destroy = meta_var_destroy,
- 		.compare = meta_var_compare,
-@@ -812,7 +812,7 @@ static struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
- 	}
- };
- 
--static inline struct meta_type_ops *meta_type_ops(struct meta_value *v)
-+static inline const struct meta_type_ops *meta_type_ops(struct meta_value *v)
- {
- 	return &__meta_type_ops[meta_type(v)];
- }
-@@ -870,7 +870,7 @@ static int em_meta_match(struct sk_buff *skb, struct tcf_ematch *m,
- static void meta_delete(struct meta_match *meta)
- {
- 	if (meta) {
--		struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
-+		const struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
- 
- 		if (ops && ops->destroy) {
- 			ops->destroy(&meta->lvalue);
-@@ -964,7 +964,7 @@ static int em_meta_dump(struct sk_buff *skb, struct tcf_ematch *em)
- {
- 	struct meta_match *meta = (struct meta_match *) em->data;
- 	struct tcf_meta_hdr hdr;
--	struct meta_type_ops *ops;
-+	const struct meta_type_ops *ops;
- 
- 	memset(&hdr, 0, sizeof(hdr));
- 	memcpy(&hdr.left, &meta->lvalue.hdr, sizeof(hdr.left));
+> The page allocator is hardly hit, once you have big enough RX ring
+> buffers. (Nothing fancy, simply the default number of slots)
+>=20
+> The 'hard coded=C2=B4 code is quite small actually
+>=20
+> if (page_count(page) !=3D 1) {
+>     free the page and allocate another one,=20
+>     since we are not the exclusive owner.
+>     Prefer __GFP_COLD pages btw.
+> }
+> page_ref_inc(page);
+
+Above code is okay.  But do you think we also can get away with the same
+trick we do with the SKB refcnf?  Where we avoid an atomic operation if
+refcnt=3D=3D1.
+
+void kfree_skb(struct sk_buff *skb)
+{
+	if (unlikely(!skb))
+		return;
+	if (likely(atomic_read(&skb->users) =3D=3D 1))
+		smp_rmb();
+	else if (likely(!atomic_dec_and_test(&skb->users)))
+		return;
+	trace_kfree_skb(skb, __builtin_return_address(0));
+	__kfree_skb(skb);
+}
+EXPORT_SYMBOL(kfree_skb);
+
+
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
