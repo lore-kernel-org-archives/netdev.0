@@ -1,100 +1,88 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Sat, 9 Apr 2016 11:11:32 +0200
-Message-ID: <20160409111132.781a11b6@redhat.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	<20160407161715.52635cac@redhat.com>
-	<1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
-        Tom Herbert
- <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>, lsf@lists.linux-foundation.org,
-        linux-mm <linux-mm@kvack.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        lsf-pc@lists.linux-foundation.org,
-        Alexei Starovoitov
- <alexei.starovoitov@gmail.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] vxlan: reduce usage of synchronize_net in ndo_stop
+Date: Sat,  9 Apr 2016 12:46:23 +0200
+Message-ID: <1460198783-10026-1-git-send-email-hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:53764 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751344AbcDIKqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 06:46:32 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id D6CA620A9A
+	for <netdev@vger.kernel.org>; Sat,  9 Apr 2016 06:46:30 -0400 (EDT)
+Received: from z.localhost.localdomain (unknown [213.55.184.192])
+	by mail.messagingengine.com (Postfix) with ESMTPA id 13967C00012
+	for <netdev@vger.kernel.org>; Sat,  9 Apr 2016 06:46:29 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+We only need to do the synchronize_net dance once for both, ipv4 and
+ipv6 sockets, thus removing one synchronize_net in case both sockets get
+dismantled.
 
-On Thu, 07 Apr 2016 08:18:29 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+Based on patch: [net-next,v2] vxlan: synchronously and race-free destruction of vxlan sockets
 
-> On Thu, 2016-04-07 at 16:17 +0200, Jesper Dangaard Brouer wrote:
-> > (Topic proposal for MM-summit)
-> >=20
-> > Network Interface Cards (NIC) drivers, and increasing speeds stress
-> > the page-allocator (and DMA APIs).  A number of driver specific
-> > open-coded approaches exists that work-around these bottlenecks in the
-> > page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
-> > allocating larger pages and handing-out page "fragments".
-> >=20
-> > I'm proposing a generic page-pool recycle facility, that can cover the
-> > driver use-cases, increase performance and open up for zero-copy RX.
-> >=20
-> >=20
-> > The basic performance problem is that pages (containing packets at RX)
-> > are cycled through the page allocator (freed at TX DMA completion
-> > time).  While a system in a steady state, could avoid calling the page
-> > allocator, when having a pool of pages equal to the size of the RX
-> > ring plus the number of outstanding frames in the TX ring (waiting for
-> > DMA completion). =20
->=20
->=20
-> We certainly used this at Google for quite a while.
->=20
-> The thing is : in steady state, the number of pages being 'in tx queues'
-> is lower than number of pages that were allocated for RX queues.
+ drivers/net/vxlan.c | 28 ++++++++++++++++++++--------
+ 1 file changed, 20 insertions(+), 8 deletions(-)
 
-That was also my expectation, thanks for confirming my expectation.
-
-> The page allocator is hardly hit, once you have big enough RX ring
-> buffers. (Nothing fancy, simply the default number of slots)
->=20
-> The 'hard coded=C2=B4 code is quite small actually
->=20
-> if (page_count(page) !=3D 1) {
->     free the page and allocate another one,=20
->     since we are not the exclusive owner.
->     Prefer __GFP_COLD pages btw.
-> }
-> page_ref_inc(page);
-
-Above code is okay.  But do you think we also can get away with the same
-trick we do with the SKB refcnf?  Where we avoid an atomic operation if
-refcnt=3D=3D1.
-
-void kfree_skb(struct sk_buff *skb)
-{
-	if (unlikely(!skb))
-		return;
-	if (likely(atomic_read(&skb->users) =3D=3D 1))
-		smp_rmb();
-	else if (likely(!atomic_dec_and_test(&skb->users)))
-		return;
-	trace_kfree_skb(skb, __builtin_return_address(0));
-	__kfree_skb(skb);
-}
-EXPORT_SYMBOL(kfree_skb);
-
-
---=20
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 77ba31a0e44f97..c417bbfa3ab49f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1037,14 +1037,14 @@ static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
+ 	return false;
+ }
+ 
+-static void __vxlan_sock_release(struct vxlan_sock *vs)
++static bool __vxlan_sock_release_prep(struct vxlan_sock *vs)
+ {
+ 	struct vxlan_net *vn;
+ 
+ 	if (!vs)
+-		return;
++		return false;
+ 	if (!atomic_dec_and_test(&vs->refcnt))
+-		return;
++		return false;
+ 
+ 	vn = net_generic(sock_net(vs->sock->sk), vxlan_net_id);
+ 	spin_lock(&vn->sock_lock);
+@@ -1052,16 +1052,28 @@ static void __vxlan_sock_release(struct vxlan_sock *vs)
+ 	vxlan_notify_del_rx_port(vs);
+ 	spin_unlock(&vn->sock_lock);
+ 
+-	synchronize_net();
+-	udp_tunnel_sock_release(vs->sock);
+-	kfree(vs);
++	return true;
+ }
+ 
+ static void vxlan_sock_release(struct vxlan_dev *vxlan)
+ {
+-	__vxlan_sock_release(vxlan->vn4_sock);
++	bool ipv4 = __vxlan_sock_release_prep(vxlan->vn4_sock);
+ #if IS_ENABLED(CONFIG_IPV6)
+-	__vxlan_sock_release(vxlan->vn6_sock);
++	bool ipv6 = __vxlan_sock_release_prep(vxlan->vn6_sock);
++#endif
++
++	synchronize_net();
++
++	if (ipv4) {
++		udp_tunnel_sock_release(vxlan->vn4_sock->sock);
++		kfree(vxlan->vn4_sock);
++	}
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (ipv6) {
++		udp_tunnel_sock_release(vxlan->vn6_sock->sock);
++		kfree(vxlan->vn6_sock);
++	}
+ #endif
+ }
+ 
+-- 
+2.5.5
