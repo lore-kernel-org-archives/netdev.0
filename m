@@ -1,75 +1,66 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: [PATCH net-next v2] net: bcmgenet: add BQL support
-Date: Sat,  9 Apr 2016 00:20:36 -0700
-Message-ID: <1460186436-84848-1-git-send-email-pgynther@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, f.fainelli@gmail.com,
-	opendmb@gmail.com, jaedon.shin@gmail.com,
-	Petri Gynther <pgynther@google.com>
-To: netdev@vger.kernel.org
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] qdisc: constify meta_type_ops structures
+Date: Sat,  9 Apr 2016 10:49:22 +0200
+Message-ID: <1460191762-10986-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36848 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbcDIHUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 03:20:49 -0400
-Received: by mail-pf0-f177.google.com with SMTP id e128so89395999pfe.3
-        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 00:20:49 -0700 (PDT)
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:7665 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751574AbcDIJEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 05:04:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Byte Queue Limits (BQL) support to bcmgenet driver.
+The meta_type_ops structures are never modified, so declare them as const.
 
-Signed-off-by: Petri Gynther <pgynther@google.com>
+Done with the help of Coccinelle.
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ net/sched/em_meta.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index f7b42b9..c286ae8 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1221,8 +1221,10 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
- 	dev->stats.tx_packets += pkts_compl;
- 	dev->stats.tx_bytes += bytes_compl;
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index f2aabc0..a309a07 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -796,7 +796,7 @@ struct meta_type_ops {
+ 	int	(*dump)(struct sk_buff *, struct meta_value *, int);
+ };
  
-+	txq = netdev_get_tx_queue(dev, ring->queue);
-+	netdev_tx_completed_queue(txq, pkts_compl, bytes_compl);
-+
- 	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
--		txq = netdev_get_tx_queue(dev, ring->queue);
- 		if (netif_tx_queue_stopped(txq))
- 			netif_tx_wake_queue(txq);
+-static struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
++static const struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
+ 	[TCF_META_TYPE_VAR] = {
+ 		.destroy = meta_var_destroy,
+ 		.compare = meta_var_compare,
+@@ -812,7 +812,7 @@ static struct meta_type_ops __meta_type_ops[TCF_META_TYPE_MAX + 1] = {
  	}
-@@ -1516,6 +1518,8 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 	ring->prod_index += nr_frags + 1;
- 	ring->prod_index &= DMA_P_INDEX_MASK;
+ };
  
-+	netdev_tx_sent_queue(txq, GENET_CB(skb)->bytes_sent);
-+
- 	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
- 		netif_tx_stop_queue(txq);
- 
-@@ -2364,6 +2368,7 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
- static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+-static inline struct meta_type_ops *meta_type_ops(struct meta_value *v)
++static inline const struct meta_type_ops *meta_type_ops(struct meta_value *v)
  {
- 	int i;
-+	struct netdev_queue *txq;
+ 	return &__meta_type_ops[meta_type(v)];
+ }
+@@ -870,7 +870,7 @@ static int em_meta_match(struct sk_buff *skb, struct tcf_ematch *m,
+ static void meta_delete(struct meta_match *meta)
+ {
+ 	if (meta) {
+-		struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
++		const struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
  
- 	bcmgenet_fini_rx_napi(priv);
- 	bcmgenet_fini_tx_napi(priv);
-@@ -2378,6 +2383,14 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
- 		}
- 	}
+ 		if (ops && ops->destroy) {
+ 			ops->destroy(&meta->lvalue);
+@@ -964,7 +964,7 @@ static int em_meta_dump(struct sk_buff *skb, struct tcf_ematch *em)
+ {
+ 	struct meta_match *meta = (struct meta_match *) em->data;
+ 	struct tcf_meta_hdr hdr;
+-	struct meta_type_ops *ops;
++	const struct meta_type_ops *ops;
  
-+	for (i = 0; i < priv->hw_params->tx_queues; i++) {
-+		txq = netdev_get_tx_queue(priv->dev, priv->tx_rings[i].queue);
-+		netdev_tx_reset_queue(txq);
-+	}
-+
-+	txq = netdev_get_tx_queue(priv->dev, priv->tx_rings[DESC_INDEX].queue);
-+	netdev_tx_reset_queue(txq);
-+
- 	bcmgenet_free_rx_buffers(priv);
- 	kfree(priv->rx_cbs);
- 	kfree(priv->tx_cbs);
--- 
-2.8.0.rc3.226.g39d4020
+ 	memset(&hdr, 0, sizeof(hdr));
+ 	memcpy(&hdr.left, &meta->lvalue.hdr, sizeof(hdr.left));
