@@ -1,69 +1,99 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
- filter
-Date: Sat, 9 Apr 2016 10:26:37 -0700
-Message-ID: <20160409172634.GA55330@ast-mbp.thefacebook.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC PATCH v2 5/5] Add sample for adding simple drop program to
+ link
+Date: Sat, 9 Apr 2016 13:27:03 -0400
+Message-ID: <57093B67.1080604@mojatatu.com>
 References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
- <20160408123614.2a15a346@redhat.com>
- <20160408143340.10e5b1d0@redhat.com>
- <20160408172651.GA38264@ast-mbp.thefacebook.com>
- <20160408220808.682630d7@redhat.com>
- <20160408213414.GA43408@ast-mbp.thefacebook.com>
- <CALx6S36d74D-8Rx762nmNwb1TF0M0sBfojBhUF96prJiYmDYiQ@mail.gmail.com>
- <57091FCE.50104@mojatatu.com>
+ <1460090930-11219-5-git-send-email-bblanco@plumgrid.com>
+ <57091625.1010206@mojatatu.com> <20160409164308.GA5750@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Edward Cree <ecree@solarflare.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	eranlinuxmellanox@gmail.com, Lorenzo Colitti <lorenzo@google.com>,
-	linux-mm <linux-mm@kvack.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <57091FCE.50104@mojatatu.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, brouer@redhat.com, eric.dumazet@gmail.com,
+	ecree@solarflare.com, john.fastabend@gmail.com, tgraf@suug.ch,
+	johannes@sipsolutions.net, eranlinuxmellanox@gmail.com,
+	lorenzo@google.com
+To: Brenden Blanco <bblanco@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34640 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753884AbcDIR1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 13:27:11 -0400
+Received: by mail-io0-f193.google.com with SMTP id z133so20302237iod.1
+        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 10:27:10 -0700 (PDT)
+In-Reply-To: <20160409164308.GA5750@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 09, 2016 at 11:29:18AM -0400, Jamal Hadi Salim wrote:
-> On 16-04-09 07:29 AM, Tom Herbert wrote:
-> 
-> >+1. Forwarding which will be a common application almost always
-> >requires modification (decrement TTL), and header data split has
-> >always been a weak feature since the device has to have some arbitrary
-> >rules about what headers needs to be split out (either implements
-> >protocol specific parsing or some fixed length).
-> 
-> Then this is sensible. I was cruising the threads and
-> confused by your earlier emails Tom because you talked
-> about XPS etc. It sounded like the idea evolved into putting
-> the whole freaking stack on bpf.
+On 16-04-09 12:43 PM, Brenden Blanco wrote:
+> On Sat, Apr 09, 2016 at 10:48:05AM -0400, Jamal Hadi Salim wrote:
 
-yeah, no stack, no queues in bpf.
 
-> If this is _forwarding only_ it maybe useful to look at
-> Alexey's old code in particular the DMA bits;
-> he built his own lookup algorithm but sounds like bpf is
-> a much better fit today.
+>> Ok, sorry - should have looked this far before sending earlier email.
+>> So when you run concurently you see about 5Mpps per core but if you
+>> shoot all traffic at a single core you see 20Mpps?
+> No, only sender is multiple, receiver is still single core. The flow is
+> the same in all 4 of the send threads. Note that only ksoftirqd/6 is
+> active.
 
-a link to these old bits?
+Got it.
+The sender was limited to the 20Mpps and you are able to keep up
+if i understand correctly.
 
-Just to be clear: this rfc is not the only thing we're considering.
-In particular huawei guys did a monster effort to improve performance
-in this area as well. We'll try to blend all the code together and
-pick what's the best.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>>
+>> Devil's advocate question:
+>> If the bottleneck is the driver - is there an advantage in adding the
+>> bpf code at all in the driver?
+> Only by adding this hook into the driver has it become the bottleneck.
+ >
+> Prior to this, the bottleneck was later in the codepath, primarily in
+> allocations.
+>
+
+Maybe useful in your commit log to show the prior and after.
+Looking at both your and Daniel's profile you show in this email
+mlx4_en_process_rx_cq() seems to be where the action is on both, no?
+
+> If a packet is to be dropped, and a determination can be made with fewer
+> cpu cycles spent, then there is more time for the goodput.
+>
+
+Agreed.
+
+> Beyond that, even if the skb allocation gets 10x or 100x or whatever
+> improvement, there is still a non-zero cost associated, and dropping bad
+> packets with minimal time spent has value. The same argument holds for
+> physical nic forwarding decisions.
+>
+
+I always go for the lowest hanging fruit.
+It seemed it was the driver path in your case. When we removed
+the driver overhead (as demoed at the tc workshop in netdev11) we saw
+__netif_receive_skb_core() at the top of the profile.
+So in this case seems it was mlx4_en_process_rx_cq() - thats why i
+was saying the bottleneck is the driver.
+Having said that: I agree that early drop is useful if not for anything
+else to avoid the longer code path (but was worried after reading on
+thread this was going to get into a messy stack-in-the-driver and i am
+not sure it is avoidable either given a new ops interface is showing
+  up).
+
+>> I am curious than before to see the comparison for the same bpf code
+>> running at tc level vs in the driver..
+> Here is a perf report for drop in the clsact qdisc with direct-action,
+> which Daniel earlier showed to have the best performance to-date. On my
+> machine, this gets about 6.5Mpps drop single core. Drop due to failed
+> IP lookup (not shown here) is worse @4.5Mpps.
+>
+
+Nice.
+However, still for this to be orange/orange comparison you have to
+run it on the _same receiver machine_ as opposed to Daniel doing
+it on his for the one case. And two different kernels booted up
+one patched  with your changes and another virgin without them.
+
+cheers,
+jamal
