@@ -1,33 +1,20 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: fix inet6_lookup_listener()
-Date: Sat, 09 Apr 2016 16:54:24 -0400 (EDT)
-Message-ID: <20160409.165424.225726402019731091.davem@davemloft.net>
-References: <1460214073.6473.491.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?utf-8?B?5oiR55qE55u45YaM5Zyo?= <admin@myzcm.com>
+Subject: =?utf-8?B?5oiR55qE55u45YaM5Zyo?=
+Date: Sun, 10 Apr 2016 04:53:31 +0800
+Message-ID: <20160410045341361664@myzcm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, maze@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45067 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbcDIVHi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 17:07:38 -0400
-In-Reply-To: <1460214073.6473.491.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from [61.133.41.37] ([61.133.41.37]:63549 "HELO myzcm.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751114AbcDIVI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2016 17:08:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 09 Apr 2016 08:01:13 -0700
-
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> A stupid refactoring bug in inet6_lookup_listener() needs to be fixed
-> in order to get proper SO_REUSEPORT behavior.
->=20
-> Fixes: 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under=
- synflood")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Maciej =AFenczykowski <maze@google.com>
-
-Applied, thanks Eric.
+5L2g55qE6ICB5pyL5Y+L6YKA5L2g5p2lUee+pDozNDMyNTc3NTkg5oqi57qi5YyFIOaKouenkuad
+gCDmiqJ2aXAg5LuA5LmI6YO96KaB5oqi44CC5aSq5Yi65r+A5LqG44CC5LiN6Z2g5omL5rCU5Y+q
+5ou85omL6YCfDQo=
