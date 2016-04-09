@@ -1,39 +1,48 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCHv3 net-next 1/6] bridge: simplify the
- flush_store by calling store_bridge_parm
-Date: Sat, 9 Apr 2016 14:27:32 +0200
-Message-ID: <5708F534.4000308@cumulusnetworks.com>
-References: <cover.1460131308.git.lucien.xin@gmail.com>
-	<6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
+ filter
+Date: Sat, 9 Apr 2016 14:27:59 +0200
+Message-ID: <20160409142759.25d8464a@redhat.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+	<CALx6S34m8cVNgvuGp845bicixodfavH9cj-rARSwwEAvFCjd7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Edward Cree <ecree@solarflare.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	eranlinuxmellanox@gmail.com, Lorenzo Colitti <lorenzo@google.com>,
+	brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54075 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753659AbcDIM2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2016 08:28:08 -0400
+In-Reply-To: <CALx6S34m8cVNgvuGp845bicixodfavH9cj-rARSwwEAvFCjd7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2016 06:03 PM, Xin Long wrote:
-> There are some repetitive codes in flush_store, we can remove
-> them by calling store_bridge_parm, also, it would send rtnl notification
-> after we add it in store_bridge_parm in the following patches.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_sysfs_br.c | 14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
+On Sat, 9 Apr 2016 08:17:04 -0300
+Tom Herbert <tom@herbertland.com> wrote:
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> One other API issue is how to deal with encapsulation. In this case a
+> header may be prepended to the packet, I assume there are BPF helper
+> functions and we don't need to return a new length or start?
+
+That reminds me.  Do the BPF program need to know the head-room, then?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
