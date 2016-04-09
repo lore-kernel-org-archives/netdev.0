@@ -1,146 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [next-queue PATCH 2/3] ixgbe/ixgbevf: Add support for GSO
- partial
-Date: Fri, 08 Apr 2016 23:53:01 -0700
-Message-ID: <1460184781.2982.2.camel@intel.com>
-References: <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
-	 <20160408210647.13096.55323.stgit@ahduyck-xeon-server>
+Subject: Re: [next-queue PATCH 0/3] Add support for GSO partial to Intel NIC
+ drivers
+Date: Fri, 08 Apr 2016 23:59:09 -0700
+Message-ID: <1460185149.2982.6.camel@intel.com>
+References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
+	 <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VS2YcFoUzB3V2WG5Bv5+"
+	protocol="application/pgp-signature"; boundary="=-IWL3pagRtGbCgRmbM4s0"
 To: Alexander Duyck <aduyck@mirantis.com>, herbert@gondor.apana.org.au,
 	tom@herbertland.com, jesse@kernel.org, alexander.duyck@gmail.com,
 	edumazet@google.com, intel-wired-lan@lists.osuosl.org,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:63571 "EHLO mga02.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:32795 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751987AbcDIGxD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Apr 2016 02:53:03 -0400
-In-Reply-To: <20160408210647.13096.55323.stgit@ahduyck-xeon-server>
+	id S1751774AbcDIG7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2016 02:59:20 -0400
+In-Reply-To: <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-VS2YcFoUzB3V2WG5Bv5+
+--=-IWL3pagRtGbCgRmbM4s0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 
-On Fri, 2016-04-08 at 17:06 -0400, Alexander Duyck wrote:
-> This patch adds support for partial GSO segmentation in the case of
-> tunnels.=C2=A0 Specifically with this change the driver an perform
-> segmenation
-> as long as the frame either has IPv6 inner headers, or we are allowed
-> to
-> mangle the IP IDs on the inner header.=C2=A0 This is needed because we
-> will not
-> be modifying any fields from the start of the start of the outer
-> transport
-> header to the start of the inner transport header as we are treating
-> them
-> like they are just a block of IP options.
->=20
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/ixgbe/ixgbe_main.c=C2=A0=C2=A0=C2=A0=C2=
-=A0 |=C2=A0 105
-> +++++++++++++-----
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |=C2=A0 123
-> ++++++++++++++++-----
-> =C2=A02 files changed, 172 insertions(+), 56 deletions(-)
+T24gRnJpLCAyMDE2LTA0LTA4IGF0IDE3OjA2IC0wNDAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
+Cj4gU28gdGhlc2UgYXJlIHRoZSBwYXRjaGVzIG5lZWRlZCB0byBlbmFibGUgdHVubmVsIHNlZ21l
+bnRhdGlvbgo+IG9mZmxvYWRzIG9uCj4gdGhlIGlnYiwgaWdidmYsIGl4Z2JlLCBhbmQgaXhnYmV2
+ZiBkcml2ZXJzLsKgIEluIGFkZGl0aW9uIHRoaXMgcGF0Y2gKPiBleHRlbmRzCj4gdGhlIGk0MGUg
+YW5kIGk0MGV2ZiBkcml2ZXJzIHRvIGluY2x1ZGUgc2VnbWVudGF0aW9uIHN1cHBvcnQgZm9yCj4g
+dHVubmVscwo+IHdpdGggb3V0ZXIgY2hlY2tzdW1zLgo+IAo+IFRoZSBuZXQgcGVyZm9ybWFuY2Ug
+Z2FpbiBmb3IgdGhlc2UgcGF0Y2hlcyBhcmUgcHJldHR5IHNpZ25pZmljYW50LsKgCj4gSW4gdGhl
+Cj4gY2FzZSBvZiBpNDBlIGEgdHVubmVsIHdpdGggb3V0ZXIgY2hlY2tzdW1zIHNob3dlZCB0aGUg
+Zm9sbG93aW5nCj4gaW1wcm92ZW1lbnQ6Cj4gVGhyb3VnaHB1dCBUaHJvdWdocHV0wqAgTG9jYWwg
+TG9jYWzCoMKgIFJlc3VsdMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAgVW5pdHPCoMKgwqDCoMKg
+wqAgQ1BVwqDCoCBTZXJ2aWNlIFRhZ8KgwqDCoMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqAgVXRpbMKgIERlbWFuZMKgwqDCoMKgwqDCoMKgwqDCoAo+IMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICXCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgCj4gMTQwNjYuMjnCoMKgIDEwXjZiaXRzL3PCoCAz
+LjQ5wqAgMC42NTHCoMKgICJiZWZvcmUiwqAKPiAyMDYxOC4xNsKgwqAgMTBeNmJpdHMvc8KgIDMu
+MDnCoCAwLjM5M8KgwqAgImFmdGVyIgo+IAo+IEZvciBpeGdiZSBzaW1pbGFyIHJlc3VsdHMgd2Vy
+ZSBzZWVuOgo+IFRocm91Z2hwdXQgVGhyb3VnaHB1dMKgIExvY2FswqAgTG9jYWzCoMKgIFJlc3Vs
+dMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAgVW5pdHPCoMKgwqDCoMKgwqAgQ1BVwqDCoMKgIFNl
+cnZpY2UgVGFnwqDCoMKgwqAKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCBVdGlswqDCoCBEZW1hbmTCoMKgwqDCoMKgwqDCoMKgwqAKPiDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAlwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgCj4gMTI4NzkuODnCoMKgIDEwXjZiaXRzL3PCoCAxMC4wMMKgIDAuNzYzwqDCoCAiYmVm
+b3JlIgo+IDE0Mjg2Ljc3wqDCoCAxMF42Yml0cy9zwqAgNS43NMKgwqAgMC4zOTXCoMKgICJhZnRl
+ciLCoAo+IAo+IFRoZXNlIHBhdGNoZXMgYWxsIHJlbHkgb24gdGhlIFRTT19NQU5HTEVJRCBhbmQg
+R1NPX1BBUlRJQUwgcGF0Y2hlcyBzbwo+IEkKPiB3b3VsZCBub3QgcmVjb21tZW5kIGFwcGx5aW5n
+IHRoZW0gdW50aWwgdGhvc2UgcGF0Y2hlcyBoYXZlIGZpcnN0IGJlZW4KPiBhcHBsaWVkLgoKU29y
+cnkgSSBkaWQgbm90IHNlZSB0aGlzIHVudGlsIGFmdGVyIEkgdHJpZWQgYXBwbHlpbmcgeW91ciBz
+ZXJpZXMuIDotKAoKTWF5YmUgdGhlIHR3byBkZXBlbmRlbnQgcGF0Y2hlcyBzaG91bGQgaGF2ZSBi
+ZWVuIGluIHRoZSBzZXJpZXMsIHNvIEkKYW5kIG90aGVycyBkbyBub3Qgd2FzdGUgdGhlaXIgdGlt
+ZS4gwqBPciBub3Qgc2VuZCB0aGlzIHVudGlsIHRoZSB0d28KcGF0Y2hlcyB3ZXJlIGFjY2VwdGVk
+Lg==
 
-Dropping this patch (and now the series) because this does not
-compile...
 
-[23:51:49 @jtkirshe-linux:next-queue]$ make -j 77 -s
-Makefile:679: Cannot use CONFIG_KCOV: -fsanitize-coverage=3Dtrace-pc is
-not supported by compiler
-=C2=A0 DESCEND=C2=A0=C2=A0objtool
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c: In function
-=E2=80=98ixgbevf_set_features=E2=80=99:
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:3892:17: error:
-=E2=80=98NETIF_F_TSO_MANGLEID=E2=80=99 undeclared (first use in this functi=
-on)
-=C2=A0 if (features & NETIF_F_TSO_MANGLEID)
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:3892:17: note: each
-undeclared identifier is reported only once for each function it
-appears in
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c: In function
-=E2=80=98ixgbevf_probe=E2=80=99:
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:4062:8: error:
-=E2=80=98struct net_device=E2=80=99 has no member named =E2=80=98gso_partia=
-l_features=E2=80=99
-=C2=A0 netdev->gso_partial_features =3D IXGBEVF_GSO_PARTIAL_FEATURES;
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:4063:25: error:
-=E2=80=98NETIF_F_GSO_PARTIAL=E2=80=99 undeclared (first use in this functio=
-n)
-=C2=A0 netdev->hw_features |=3D NETIF_F_GSO_PARTIAL |
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-^
-drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c:4073:6: error:
-=E2=80=98NETIF_F_TSO_MANGLEID=E2=80=99 undeclared (first use in this functi=
-on)
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0NETIF_F_TSO_MANGLEID |
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-scripts/Makefile.build:291: recipe for target
-'drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.o' failed
-make[5]: *** [drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.o] Error
-1
-scripts/Makefile.build:440: recipe for target
-'drivers/net/ethernet/intel/ixgbevf' failed
-make[4]: *** [drivers/net/ethernet/intel/ixgbevf] Error 2
-make[4]: *** Waiting for unfinished jobs....
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function
-=E2=80=98ixgbe_set_features=E2=80=99:
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:8635:17: error:
-=E2=80=98NETIF_F_TSO_MANGLEID=E2=80=99 undeclared (first use in this functi=
-on)
-=C2=A0 if (features & NETIF_F_TSO_MANGLEID)
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:8635:17: note: each
-undeclared identifier is reported only once for each function it
-appears in
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c: In function
-=E2=80=98ixgbe_probe=E2=80=99:
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:9350:8: error: =E2=80=98struc=
-t
-net_device=E2=80=99 has no member named =E2=80=98gso_partial_features=E2=80=
-=99
-=C2=A0 netdev->gso_partial_features =3D IXGBE_GSO_PARTIAL_FEATURES;
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:9351:22: error:
-=E2=80=98NETIF_F_GSO_PARTIAL=E2=80=99 undeclared (first use in this functio=
-n)
-=C2=A0 netdev->features |=3D NETIF_F_GSO_PARTIAL |
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:9368:6: error:
-=E2=80=98NETIF_F_TSO_MANGLEID=E2=80=99 undeclared (first use in this functi=
-on)
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0NETIF_F_TSO_MANGLEID |
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^
-scripts/Makefile.build:291: recipe for target
-'drivers/net/ethernet/intel/ixgbe/ixgbe_main.o' failed
-make[5]: *** [drivers/net/ethernet/intel/ixgbe/ixgbe_main.o] Error 1
-scripts/Makefile.build:440: recipe for target
-'drivers/net/ethernet/intel/ixgbe' failed
-make[4]: *** [drivers/net/ethernet/intel/ixgbe] Error 2
-scripts/Makefile.build:440: recipe for target
-'drivers/net/ethernet/intel' failed
-make[3]: *** [drivers/net/ethernet/intel] Error 2
-scripts/Makefile.build:440: recipe for target 'drivers/net/ethernet'
-failed
-make[2]: *** [drivers/net/ethernet] Error 2
-scripts/Makefile.build:440: recipe for target 'drivers/net' failed
-make[1]: *** [drivers/net] Error 2
-Makefile:962: recipe for target 'drivers' failed
-make: *** [drivers] Error 2
---=-VS2YcFoUzB3V2WG5Bv5+
+--=-IWL3pagRtGbCgRmbM4s0
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -148,19 +67,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCgAGBQJXCKbNAAoJEOVv75VaS+3OX7kP/iBJj6F8IO5qWdsik0Cci4t/
-5fCdUlBvlB5f85liEaLggX/77QezgjwkVeVmJvstfrBF/vxmzZ3RQ8724/CYZeBP
-3emF2rO2uxZKI2SoIDblD9b1mUBSFhyGlj85nKCk53rF99J1pvikAbKmUd1DqR7b
-NfnV0qF0MH9xgF4U98N7YNzjSiIA83lhnEyXHoGYi4Qw3HPjL7GaLALEoesZWsHU
-mleFpawjDW1rCQDPlsZ3x3Qb6ixr/sW1HjQK9dKMz2GTrkl17K6/X4aMepEqjAcH
-kXKP1ofFjLCmbIQ2LqS/JVaqld8cyrllBNtZ7dRbK4NKv4K9IQhTOl51tkeEWFEE
-T5/4yhv88bEYPVlYDeOCx/Gq4FZCU68+Sd/SjcXsmdey8jr1RFH5OBq5ccpsvTXr
-oZK3wPYCwqAzqygmsuNguzcENYcmmjCfrMWkcWeaqTZ8kw+fTll6U10bvm9UOfD3
-CuDUdpbS+wSFbk/1SrS9gg0CpP90NqGU4gA8r5XZOP5x7mIe7twj05vuIuKlKn4Z
-u7xUD75/jjkNOeLrAVVRGhGIUaNhz+NC425WqcmJZN4OnKGACSjbHFcUQGTWfeaH
-BpfDhp5QHJPMpVWew2I+LGhsDrag7lYpRf246dWv+17fNXjXcrrfp9jiy5miTyZk
-Gcg4Uy8aDPAkzxK1BsZ0
-=prpX
+iQIcBAABCgAGBQJXCKg9AAoJEOVv75VaS+3OY7AP/jRrM9a7fgchgA1EiGCPppCT
+fC5gD+MZTKSfMQXM+NyDJDAijGX9wVw1VQBZqG20RW/mfQkC4BVudqoIpfFfvXAU
+oqvpO+bBcRu9zvgyhjqG7q9yeGLNV59QzXiaf63Hwdikq7WZuF2PFKrHTD+rbBtm
+boUeI6udBX5Sfddv04BMt++oqKrNicMg5FP90AH9789AXxp6QxqO/LA1HHQG1Q9T
+kNFamIcrewNPsOh+a4/yUC85jaL1k5OjkDZ28DGVHN3AyWTjj2V4s82dlKRwfU3f
+GWTFdINauOxXfCi/SwPghZBa5DW/pAE0y26CxCCnzjgTeOkIEI2FODkEHS7OyETc
+02OfiusP6KZFgytvCaI9pCLO8zB1PeEKvK7ABZKQM2BSiCNzFmdDrBuyPyZbN4t9
+H2GVAOkM1qEOHGaT//PV3o0xG5YfdBc/L5ZbhFjEK1yNU35qoGClb9BPbrpAKTha
+mwpOP/t7RR6yB0sXBWpbm2gkbFneNy2Tbr+Bic2XMR4lnSMiVvOAkQqyRzAwvjlH
+h8lFh/Pq92vkrL0ygyfNCBI7OAW33pwGcr7pBzRRfwuYJOhcC9vMYWvZ5q58DF7P
+qoH0wCXYyQWq95W3lyPOiuhOjyQdsx0oTAjdKx+Np6Y9t8ucZXGjTybALaYzqpyK
+CEgFBlhAor19OZxpkeJE
+=Dfm3
 -----END PGP SIGNATURE-----
 
---=-VS2YcFoUzB3V2WG5Bv5+--
+--=-IWL3pagRtGbCgRmbM4s0--
