@@ -1,54 +1,79 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2] vxlan: synchronously and race-free destruction
- of vxlan sockets
-Date: Sat, 09 Apr 2016 01:55:06 +0200
-Message-ID: <1460159706.2880965.573380353.39845928@webmail.messagingengine.com>
-References: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
- <CAM_iQpUbTz2dRS+ZTZSSL0AvkOb_2_HEfXo+ap9__aQZmajMjA@mail.gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: How do I avoid recvmsg races with IP_RECVERR?
+Date: Fri, 8 Apr 2016 17:02:10 -0700
+Message-ID: <CALCETrVyzOFU9cF0raDOmFxcSOmOWxBGhBEmjE3=PjM7pT+Mag@mail.gmail.com>
+References: <CALCETrW-jkMrEjidwCTraeAaHCHA_+9eExQAz2phvn=OB8RMhQ@mail.gmail.com>
+ <1433279822.2479038.285136017.7DD69CC6@webmail.messagingengine.com>
+ <CALCETrXHLZKVuhSRdi1NvqjFbRf0-PKTt1PYPN6Dw=sXeRA4iw@mail.gmail.com>
+ <1433281373.2485127.285160441.6F17A081@webmail.messagingengine.com>
+ <1433281844.2487226.285170105.063B7084@webmail.messagingengine.com>
+ <CALCETrU3EXkxANKQYHYpB-cELeOGKAwB-8wTxX+xJ0Ms+kx4Bg@mail.gmail.com> <1433291591.3300318.285256449.713A7E1E@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:47519 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754211AbcDHXzH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 19:55:07 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 8593A213AE
-	for <netdev@vger.kernel.org>; Fri,  8 Apr 2016 19:55:06 -0400 (EDT)
-In-Reply-To: <CAM_iQpUbTz2dRS+ZTZSSL0AvkOb_2_HEfXo+ap9__aQZmajMjA@mail.gmail.com>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:34594 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686AbcDIACb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Apr 2016 20:02:31 -0400
+Received: by mail-oi0-f43.google.com with SMTP id s79so153522683oie.1
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 17:02:31 -0700 (PDT)
+In-Reply-To: <1433291591.3300318.285256449.713A7E1E@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jun 2, 2015 at 5:33 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Wed, Jun 3, 2015, at 02:03, Andy Lutomirski wrote:
+>> On Tue, Jun 2, 2015 at 2:50 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>> >> My proposal would be to make the error conversion lazy:
+>> >>
+>> >> Keeping duplicate data is not a good idea in general: So we shouldn't
+>> >> use sk->sk_err if IP_RECVERR is set at all but let sock_error just use
+>> >> the sk_error_queue and extract the error code from there.
+>> >>
+>> >> Only if IP_RECVERR was not set, we use sk->sk_err logic.
+>> >>
+>> >> What do you think?
+>> >
+>> > I just noticed that this will probably break existing user space
+>> > applications which require that icmp errors are transient even with
+>> > IP_RECVERR. We can mark that with a bit in the sk_error_queue pointer
+>> > and xchg the pointer, hmmm....
+>>
+>> Do you mean to fix the race like this but to otherwise leave the
+>> semantics
+>> alone?  That would be an improvement, but it might be nice to also add
+>> a non-crappy API for this, too.
+>
+> Yes, keep current semantics but fix the race you reported.
+>
+> I currently don't have good proposals for a decent API to handle this
+> besides adding some ancillary cmsg data to msg_control. This still would
+> not solve the problem fundamentally, as a -EFAULT/-EINVAL return value
+> could also mean that msg_control should not be touched, thus we end up
+> again relying on errno checking. :/ Thus checking error queue after
+> receiving an error indications is my best hunch so far.
+>
+> Your proposal with MSG_IGNORE_ERROR seems reasonable so far for ping or
+> udp, but I haven't fully grasped the TCP semantics of sk->sk_err, yet.
 
+I was looking at this a bit, and I was thinking about adding a new
+socket option, but I'm a bit vague on how all this fits together.
 
-On Sat, Apr 9, 2016, at 01:24, Cong Wang wrote:
-> On Fri, Apr 8, 2016 at 1:55 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > Due to the fact that the udp socket is destructed asynchronously in a
-> > work queue, we have some nondeterministic behavior during shutdown of
-> > vxlan tunnels and creating new ones. Fix this by keeping the destruction
-> > process synchronous in regards to the user space process so IFF_UP can
-> > be reliably set.
-> >
-> > udp_tunnel_sock_release destroys vs->sock->sk if reference counter
-> > indicates so. We expect to have the same lifetime of vxlan_sock and
-> > vxlan_sock->sock->sk even in fast paths with only rcu locks held. So
-> > only destruct the whole socket after we can be sure it cannot be found
-> > by searching vxlan_net->sock_list.
-> >
-> 
-> I am wondering what is the reason why we used work queue from
-> the beginning?
+One option would be a socket option that simply causes sock_error to
+return 0 (and change SO_ERROR to peek at sk_err directly).  But there
+seem to be sock_error callers all over the place, and maybe this
+change would cause problems.
 
-I actually don't know. It was like that from the beginning. I cc'ed
-Stephen, maybe he remembers?
+Another option would be to add a socket option that explicitly turns
+off everything that queues soft errors to sk_err.
 
-Bye,
-Hannes
+I think that, for IP datagrams at least, the ideal semantics would be
+for soft errors not to affect sk_err and for POLLERR to be set if the
+error queue is nonempty.
+
+--Andy
