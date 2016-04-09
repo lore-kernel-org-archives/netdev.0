@@ -1,79 +1,110 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [next-queue PATCH 0/3] Add support for GSO partial to Intel NIC drivers
-Date: Sat, 9 Apr 2016 08:41:41 -0700
-Message-ID: <CAKgT0UeBjhSpnpFz++0bWy8D4wFCLHE5iFSUy1WS_QHCG8BchQ@mail.gmail.com>
-References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
-	<20160408210103.13096.77973.stgit@ahduyck-xeon-server>
-	<1460185149.2982.6.camel@intel.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net-next 1/6] sctp: add sctp_info dump api for sctp_diag
+Date: Sat, 9 Apr 2016 23:45:12 +0800
+Message-ID: <CADvbK_erep67V6Px8Z3dUVLttxfawHL5NpvxBqJxAMTb9uGY1A@mail.gmail.com>
+References: <cover.1460177331.git.lucien.xin@gmail.com>
+	<c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
+	<1460178984.6473.473.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <tom@herbertland.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:35304 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753393AbcDIPlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 11:41:42 -0400
-Received: by mail-io0-f172.google.com with SMTP id g185so163681561ioa.2
-        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 08:41:42 -0700 (PDT)
-In-Reply-To: <1460185149.2982.6.camel@intel.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:33255 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753393AbcDIPpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 11:45:14 -0400
+In-Reply-To: <1460178984.6473.473.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 8, 2016 at 11:59 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> On Fri, 2016-04-08 at 17:06 -0400, Alexander Duyck wrote:
->> So these are the patches needed to enable tunnel segmentation
->> offloads on
->> the igb, igbvf, ixgbe, and ixgbevf drivers.  In addition this patch
->> extends
->> the i40e and i40evf drivers to include segmentation support for
->> tunnels
->> with outer checksums.
+On Sat, Apr 9, 2016 at 1:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sat, 2016-04-09 at 12:53 +0800, Xin Long wrote:
+>> sctp_diag will dump some important details of sctp's assoc or ep, we use
+>> sctp_info to describe them,  sctp_get_sctp_info to get them, and export
+>> it to sctp_diag.ko.
 >>
->> The net performance gain for these patches are pretty significant.
->> In the
->> case of i40e a tunnel with outer checksums showed the following
->> improvement:
->> Throughput Throughput  Local Local   Result
->>            Units       CPU   Service Tag
->>                        Util  Demand
->>                        %
->> 14066.29   10^6bits/s  3.49  0.651   "before"
->> 20618.16   10^6bits/s  3.09  0.393   "after"
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  include/linux/sctp.h    | 65 +++++++++++++++++++++++++++++++++++++
+>>  include/net/sctp/sctp.h |  3 ++
+>>  net/sctp/socket.c       | 86 +++++++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 154 insertions(+)
 >>
->> For ixgbe similar results were seen:
->> Throughput Throughput  Local  Local   Result
->>            Units       CPU    Service Tag
->>                        Util   Demand
->>                        %
->> 12879.89   10^6bits/s  10.00  0.763   "before"
->> 14286.77   10^6bits/s  5.74   0.395   "after"
+>> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+>> index a9414fd..a448ebc 100644
+>> --- a/include/linux/sctp.h
+>> +++ b/include/linux/sctp.h
+>> @@ -705,4 +705,69 @@ typedef struct sctp_auth_chunk {
+>>       sctp_authhdr_t auth_hdr;
+>>  } __packed sctp_auth_chunk_t;
 >>
->> These patches all rely on the TSO_MANGLEID and GSO_PARTIAL patches so
->> I
->> would not recommend applying them until those patches have first been
->> applied.
+>> +struct sctp_info {
+>> +     __u32   sctpi_tag;
+>> +     __u32   sctpi_state;
+>> +     __u32   sctpi_rwnd;
+>> +     __u16   sctpi_unackdata;
+>> +     __u16   sctpi_penddata;
+>> +     __u16   sctpi_instrms;
+>> +     __u16   sctpi_outstrms;
+>> +     __u32   sctpi_fragmentation_point;
+>> +     __u32   sctpi_inqueue;
+>> +     __u32   sctpi_outqueue;
+>> +     __u32   sctpi_overall_error;
+>> +     __u32   sctpi_max_burst;
+>> +     __u32   sctpi_maxseg;
+>> +     __u32   sctpi_peer_rwnd;
+>> +     __u32   sctpi_peer_tag;
+>> +     __u8    sctpi_peer_capable;
+>> +     __u8    sctpi_peer_sack;
+>> +
+>> +     /* assoc status info */
+>> +     __u64   sctpi_isacks;
+>> +     __u64   sctpi_osacks;
+>> +     __u64   sctpi_opackets;
+>> +     __u64   sctpi_ipackets;
+>> +     __u64   sctpi_rtxchunks;
+>> +     __u64   sctpi_outofseqtsns;
+>> +     __u64   sctpi_idupchunks;
+>> +     __u64   sctpi_gapcnt;
+>> +     __u64   sctpi_ouodchunks;
+>> +     __u64   sctpi_iuodchunks;
+>> +     __u64   sctpi_oodchunks;
+>> +     __u64   sctpi_iodchunks;
+>> +     __u64   sctpi_octrlchunks;
+>> +     __u64   sctpi_ictrlchunks;
+>> +
+>> +     /* primary transport info */
+>> +     struct sockaddr_storage sctpi_p_address;
+>> +     __s32   sctpi_p_state;
+>> +     __u32   sctpi_p_cwnd;
+>> +     __u32   sctpi_p_srtt;
+>> +     __u32   sctpi_p_rto;
+>> +     __u32   sctpi_p_hbinterval;
+>> +     __u32   sctpi_p_pathmaxrxt;
+>> +     __u32   sctpi_p_sackdelay;
+>> +     __u32   sctpi_p_sackfreq;
+>> +     __u32   sctpi_p_ssthresh;
+>> +     __u32   sctpi_p_partial_bytes_acked;
+>> +     __u32   sctpi_p_flight_size;
+>> +     __u16   sctpi_p_error;
+>> +
+>> +     /* sctp sock info */
+>> +     __u32   sctpi_s_autoclose;
+>> +     __u32   sctpi_s_adaptation_ind;
+>> +     __u32   sctpi_s_pd_point;
+>> +     __u8    sctpi_s_nodelay;
+>> +     __u8    sctpi_s_disable_fragments;
+>> +     __u8    sctpi_s_v4mapped;
+>> +     __u8    sctpi_s_frag_interleave;
+>> +};
+>> +
 >
-> Sorry I did not see this until after I tried applying your series. :-(
+> Lots of holes in this structure...
 >
-> Maybe the two dependent patches should have been in the series, so I
-> and others do not waste their time.  Or not send this until the two
-> patches were accepted.
-
-Sorry I meant to send these as an RFC but sent it out with the
-next-queue tag as I had gotten a bit distracted.
-
-I shouldn't need to resubmit these until the other patches are
-accepted so I will probably follow that route.
-
-Thanks.
-
-- Alex
+>
+will check and improve it later.
+thanks.
