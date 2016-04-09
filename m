@@ -1,321 +1,79 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net-next 4/6] sctp: add the sctp_diag.c file
-Date: Sat, 9 Apr 2016 23:40:20 +0800
-Message-ID: <CADvbK_dZDDCpEm-RF_Zv3Xq6kvnfGnnk822cON5rUJPo-R8Y4Q@mail.gmail.com>
-References: <cover.1460177331.git.lucien.xin@gmail.com>
-	<c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
-	<a3703f4379eeb3a385d3cc000dd621f77540608e.1460177331.git.lucien.xin@gmail.com>
-	<5408d667c2a83b8917a501b92810c82f9a66f584.1460177331.git.lucien.xin@gmail.com>
-	<ac19f4966c7df6399c2a3bfa0f7f9589b9ff536f.1460177331.git.lucien.xin@gmail.com>
-	<1460181116.6473.483.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [next-queue PATCH 0/3] Add support for GSO partial to Intel NIC drivers
+Date: Sat, 9 Apr 2016 08:41:41 -0700
+Message-ID: <CAKgT0UeBjhSpnpFz++0bWy8D4wFCLHE5iFSUy1WS_QHCG8BchQ@mail.gmail.com>
+References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
+	<20160408210103.13096.77973.stgit@ahduyck-xeon-server>
+	<1460185149.2982.6.camel@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <tom@herbertland.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:32850 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753337AbcDIPkV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 11:40:21 -0400
-In-Reply-To: <1460181116.6473.483.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:35304 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753393AbcDIPlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 11:41:42 -0400
+Received: by mail-io0-f172.google.com with SMTP id g185so163681561ioa.2
+        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 08:41:42 -0700 (PDT)
+In-Reply-To: <1460185149.2982.6.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 9, 2016 at 1:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2016-04-09 at 12:53 +0800, Xin Long wrote:
->> This one will implement all the interface of inet_diag, inet_diag_handler.
->> which includes sctp_diag_dump, sctp_diag_dump_one and sctp_diag_get_info.
+On Fri, Apr 8, 2016 at 11:59 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> On Fri, 2016-04-08 at 17:06 -0400, Alexander Duyck wrote:
+>> So these are the patches needed to enable tunnel segmentation
+>> offloads on
+>> the igb, igbvf, ixgbe, and ixgbevf drivers.  In addition this patch
+>> extends
+>> the i40e and i40evf drivers to include segmentation support for
+>> tunnels
+>> with outer checksums.
+>>
+>> The net performance gain for these patches are pretty significant.
+>> In the
+>> case of i40e a tunnel with outer checksums showed the following
+>> improvement:
+>> Throughput Throughput  Local Local   Result
+>>            Units       CPU   Service Tag
+>>                        Util  Demand
+>>                        %
+>> 14066.29   10^6bits/s  3.49  0.651   "before"
+>> 20618.16   10^6bits/s  3.09  0.393   "after"
+>>
+>> For ixgbe similar results were seen:
+>> Throughput Throughput  Local  Local   Result
+>>            Units       CPU    Service Tag
+>>                        Util   Demand
+>>                        %
+>> 12879.89   10^6bits/s  10.00  0.763   "before"
+>> 14286.77   10^6bits/s  5.74   0.395   "after"
+>>
+>> These patches all rely on the TSO_MANGLEID and GSO_PARTIAL patches so
+>> I
+>> would not recommend applying them until those patches have first been
+>> applied.
 >
+> Sorry I did not see this until after I tried applying your series. :-(
 >
->> +static int inet_assoc_diag_fill(struct sock *sk,
->> +                             struct sctp_association *asoc,
->> +                             struct sk_buff *skb,
->> +                             const struct inet_diag_req_v2 *req,
->> +                             struct user_namespace *user_ns,
->> +                             int portid, u32 seq, u16 nlmsg_flags,
->> +                             const struct nlmsghdr *unlh)
->> +{
->> +     const struct inet_sock *inet = inet_sk(sk);
->> +     const struct inet_diag_handler *handler;
->> +     int ext = req->idiag_ext;
->> +     struct inet_diag_msg *r;
->> +     struct nlmsghdr  *nlh;
->> +     struct nlattr *attr;
->> +     void *info = NULL;
->> +     union sctp_addr laddr, paddr;
->> +     struct dst_entry *dst;
->> +     struct sctp_infox infox;
->> +
->> +     handler = inet_diag_get_handler(req->sdiag_protocol);
->> +     BUG_ON(!handler);
->> +
->> +     nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
->> +                     nlmsg_flags);
->> +     if (!nlh)
->> +             return -EMSGSIZE;
->> +
->> +     r = nlmsg_data(nlh);
->> +     BUG_ON(!sk_fullsock(sk));
->> +
->> +     laddr = list_entry(asoc->base.bind_addr.address_list.next,
->> +                        struct sctp_sockaddr_entry, list)->a;
->> +     paddr = asoc->peer.primary_path->ipaddr;
->> +     dst = asoc->peer.primary_path->dst;
->> +
->> +     r->idiag_family = sk->sk_family;
->> +     r->id.idiag_sport = htons(asoc->base.bind_addr.port);
->> +     r->id.idiag_dport = htons(asoc->peer.port);
->> +     r->id.idiag_if = dst ? dst->dev->ifindex : 0;
->> +     sock_diag_save_cookie(sk, r->id.idiag_cookie);
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +     if (sk->sk_family == AF_INET6) {
->> +             *(struct in6_addr *)r->id.idiag_src = laddr.v6.sin6_addr;
->> +             *(struct in6_addr *)r->id.idiag_dst = paddr.v6.sin6_addr;
->> +     } else
->> +#endif
->> +     {
->> +             memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
->> +             memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
->> +
->> +             r->id.idiag_src[0] = laddr.v4.sin_addr.s_addr;
->> +             r->id.idiag_dst[0] = paddr.v4.sin_addr.s_addr;
->> +     }
->> +
->> +     r->idiag_state = asoc->state;
->> +     r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
->> +     r->idiag_retrans = asoc->rtx_data_chunks;
->> +#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
->> +     r->idiag_expires =
->> +             EXPIRES_IN_MS(asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX]);
->> +#undef EXPIRES_IN_MS
->> +
->> +     if (nla_put_u8(skb, INET_DIAG_SHUTDOWN, sk->sk_shutdown))
->> +             goto errout;
->> +
->> +     /* IPv6 dual-stack sockets use inet->tos for IPv4 connections,
->> +      * hence this needs to be included regardless of socket family.
->> +      */
->> +     if (ext & (1 << (INET_DIAG_TOS - 1)))
->> +             if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
->> +                     goto errout;
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +     if (r->idiag_family == AF_INET6) {
->> +             if (ext & (1 << (INET_DIAG_TCLASS - 1)))
->> +                     if (nla_put_u8(skb, INET_DIAG_TCLASS,
->> +                                    inet6_sk(sk)->tclass) < 0)
->> +                             goto errout;
->> +
->> +             if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
->> +                 nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
->> +                     goto errout;
->> +     }
->> +#endif
->> +
->> +     r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
->> +     r->idiag_inode = sock_i_ino(sk);
->> +
->> +     if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
->> +             struct inet_diag_meminfo minfo = {
->> +                     .idiag_rmem = sk_rmem_alloc_get(sk),
->> +                     .idiag_wmem = sk->sk_wmem_queued,
->> +                     .idiag_fmem = sk->sk_forward_alloc,
->> +                     .idiag_tmem = sk_wmem_alloc_get(sk),
->> +             };
->> +
->
-> All this code looks familiar.
->
-> Why inet_sk_diag_fill() is not used instead ?
->
-it's hard to reuse  inet_sk_diag_fill(), cause some of them are from
-assoc.
+> Maybe the two dependent patches should have been in the series, so I
+> and others do not waste their time.  Or not send this until the two
+> patches were accepted.
 
-yes, there are some duplicate codes. if we want to avoid this.
-we have to extract new function for this part, and it will change
-more in inet_diag.
+Sorry I meant to send these as an RFC but sent it out with the
+next-queue tag as I had gotten a bit distracted.
 
+I shouldn't need to resubmit these until the other patches are
+accepted so I will probably follow that route.
 
->> +             if (nla_put(skb, INET_DIAG_MEMINFO, sizeof(minfo), &minfo) < 0)
->> +                     goto errout;
->> +     }
->> +
->> +     if (ext & (1 << (INET_DIAG_SKMEMINFO - 1)))
->> +             if (sock_diag_put_meminfo(sk, skb, INET_DIAG_SKMEMINFO))
->> +                     goto errout;
->> +
->> +     if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
->> +             attr = nla_reserve(skb, INET_DIAG_INFO,
->> +                                handler->idiag_info_size);
->> +             if (!attr)
->> +                     goto errout;
->> +
->> +             info = nla_data(attr);
->> +     }
->> +     infox.sctpinfo = (struct sctp_info *)info;
->> +     infox.asoc = asoc;
->> +     handler->idiag_get_info(sk, r, &infox);
->> +
->> +     if (ext & (1 << (INET_DIAG_CONG - 1)))
->> +             if (nla_put_string(skb, INET_DIAG_CONG, "reno") < 0)
->> +                     goto errout;
->> +
->> +     if (inet_sctp_fill_laddrs(skb, &asoc->base.bind_addr.address_list))
->> +             goto errout;
->> +
->> +     if (inet_sctp_fill_paddrs(skb, asoc))
->> +             goto errout;
->> +
->> +     nlmsg_end(skb, nlh);
->> +     return 0;
->> +
->> +errout:
->> +     nlmsg_cancel(skb, nlh);
->> +     return -EMSGSIZE;
->> +}
->> +
->> +static int inet_ep_diag_fill(struct sock *sk, struct sctp_endpoint *ep,
->> +                          struct sk_buff *skb,
->> +                          const struct inet_diag_req_v2 *req,
->> +                          struct user_namespace *user_ns,
->> +                          u32 portid, u32 seq, u16 nlmsg_flags,
->> +                          const struct nlmsghdr *unlh)
->> +{
->> +     const struct inet_sock *inet = inet_sk(sk);
->> +     const struct inet_diag_handler *handler;
->> +     int ext = req->idiag_ext;
->> +     struct inet_diag_msg *r;
->> +     struct nlmsghdr  *nlh;
->> +     struct nlattr *attr;
->> +     void *info = NULL;
->> +     struct sctp_infox infox;
->> +
->> +     handler = inet_diag_get_handler(req->sdiag_protocol);
->> +     BUG_ON(!handler);
->> +
->> +     nlh = nlmsg_put(skb, portid, seq, unlh->nlmsg_type, sizeof(*r),
->> +                     nlmsg_flags);
->> +     if (!nlh)
->> +             return -EMSGSIZE;
->> +
->> +     r = nlmsg_data(nlh);
->> +     BUG_ON(!sk_fullsock(sk));
->> +
->> +     inet_diag_msg_common_fill(r, sk);
->> +     r->idiag_state = sk->sk_state;
->> +     r->idiag_timer = 0;
->> +     r->idiag_retrans = 0;
->> +
->> +     if (nla_put_u8(skb, INET_DIAG_SHUTDOWN, sk->sk_shutdown))
->> +             goto errout;
->> +
->> +     /* IPv6 dual-stack sockets use inet->tos for IPv4 connections,
->> +      * hence this needs to be included regardless of socket family.
->> +      */
->> +     if (ext & (1 << (INET_DIAG_TOS - 1)))
->> +             if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
->> +                     goto errout;
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +     if (r->idiag_family == AF_INET6) {
->> +             if (ext & (1 << (INET_DIAG_TCLASS - 1)))
->> +                     if (nla_put_u8(skb, INET_DIAG_TCLASS,
->> +                                    inet6_sk(sk)->tclass) < 0)
->> +                             goto errout;
->> +
->> +             if (((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE)) &&
->> +                 nla_put_u8(skb, INET_DIAG_SKV6ONLY, ipv6_only_sock(sk)))
->> +                     goto errout;
->> +     }
->> +#endif
->> +
->> +     r->idiag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
->> +     r->idiag_inode = sock_i_ino(sk);
->> +
->> +     if (ext & (1 << (INET_DIAG_MEMINFO - 1))) {
->> +             struct inet_diag_meminfo minfo = {
->> +                     .idiag_rmem = sk_rmem_alloc_get(sk),
->> +                     .idiag_wmem = sk->sk_wmem_queued,
->> +                     .idiag_fmem = sk->sk_forward_alloc,
->> +                     .idiag_tmem = sk_wmem_alloc_get(sk),
->> +             };
->> +
->
-> Again, looks a lot of duplication.
->
-> Also you missed that INET_DIAG_MEMINFO is kind of obsolete,
-> now we have sock_diag_put_meminfo()
->
-you meant we can remove it here ?
-yes, it seems similar with INET_DIAG_SKMEMINFO.
-but I do not know if userpace may use  INET_DIAG_MEMINFO now.
+Thanks.
 
->
->> +             if (nla_put(skb, INET_DIAG_MEMINFO, sizeof(minfo), &minfo) < 0)
->> +                     goto errout;
->> +     }
->> +
->> +     if (ext & (1 << (INET_DIAG_SKMEMINFO - 1)))
->> +             if (sock_diag_put_meminfo(sk, skb, INET_DIAG_SKMEMINFO))
->> +                     goto errout;
->> +
->> +     if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
->> +             attr = nla_reserve(skb, INET_DIAG_INFO,
->> +                                handler->idiag_info_size);
->> +             if (!attr)
->> +                     goto errout;
->> +
->> +             info = nla_data(attr);
->> +     }
->> +     infox.sctpinfo = (struct sctp_info *)info;
->> +     infox.asoc = NULL;
->> +     handler->idiag_get_info(sk, r, &infox);
->> +
->> +     if (inet_sctp_fill_laddrs(skb, &ep->base.bind_addr.address_list))
->> +             goto errout;
->> +
->> +     nlmsg_end(skb, nlh);
->> +     return 0;
->> +
->> +errout:
->> +     nlmsg_cancel(skb, nlh);
->> +     return -EMSGSIZE;
->> +}
->> +
->> +static size_t inet_assoc_attr_size(struct sctp_association *asoc)
->> +{
->> +     int addrlen = sizeof(struct sockaddr_storage);
->> +     int addrcnt = 0;
->> +     struct sctp_sockaddr_entry *laddr;
->> +
->> +     list_for_each_entry_rcu(laddr, &asoc->base.bind_addr.address_list,
->> +                             list)
->> +             addrcnt++;
->> +
->> +     return    nla_total_size(sizeof(struct tcp_info))
->
-> Are you sure you want to use tcp_info ???
-here is a mistake, it should be:
-    nla_total_size(sizeof(struct sctp_info))
-
-thanks.
->
->> +             + nla_total_size(1) /* INET_DIAG_SHUTDOWN */
->> +             + nla_total_size(1) /* INET_DIAG_TOS */
->> +             + nla_total_size(1) /* INET_DIAG_TCLASS */
->> +             + nla_total_size(addrlen * asoc->peer.transport_count)
->> +             + nla_total_size(addrlen * addrcnt)
->> +             + nla_total_size(sizeof(struct inet_diag_meminfo))
->> +             + nla_total_size(sizeof(struct inet_diag_msg))
->> +             + nla_total_size(sizeof(struct sctp_info))
-and will remove this one.
-
->> +             + 64;
->> +}
->
->
->
+- Alex
