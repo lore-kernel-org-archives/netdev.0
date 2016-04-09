@@ -1,56 +1,216 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver filter
-Date: Sat, 9 Apr 2016 10:17:27 -0300
-Message-ID: <CALx6S37x7FMfsn=T5e+=f7mz47nPgRBNpYYnA=NwmB-3cny1eg@mail.gmail.com>
-References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
-	<CALx6S34m8cVNgvuGp845bicixodfavH9cj-rARSwwEAvFCjd7g@mail.gmail.com>
-	<20160409142759.25d8464a@redhat.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net-next 6/6] qede: Add fastpath support for tunneling
+Date: Sat, 9 Apr 2016 09:17:05 -0400
+Message-ID: <1460207825-3622-7-git-send-email-manish.chopra@qlogic.com>
+References: <1460207825-3622-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Edward Cree <ecree@solarflare.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	eranlinuxmellanox@gmail.com, Lorenzo Colitti <lorenzo@google.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35426 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752323AbcDINR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 09:17:28 -0400
-Received: by mail-io0-f181.google.com with SMTP id g185so161286349ioa.2
-        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 06:17:27 -0700 (PDT)
-In-Reply-To: <20160409142759.25d8464a@redhat.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39060 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752942AbcDIN6d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 09:58:33 -0400
+In-Reply-To: <1460207825-3622-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 9, 2016 at 9:27 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Sat, 9 Apr 2016 08:17:04 -0300
-> Tom Herbert <tom@herbertland.com> wrote:
->
->> One other API issue is how to deal with encapsulation. In this case a
->> header may be prepended to the packet, I assume there are BPF helper
->> functions and we don't need to return a new length or start?
->
-> That reminds me.  Do the BPF program need to know the head-room, then?
->
-Right, that is basically my question. Can we have a helper function in
-BPF that will prepend n bytes to the buffer? (I don't think we want
-expose a notion of headroom).
+This patch enables netdev tunneling features and adds
+TX/RX fastpath support for tunneling in driver.
 
-Tom
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede.h      |   1 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 101 ++++++++++++++++++++++++---
+ 2 files changed, 92 insertions(+), 10 deletions(-)
 
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 0b66d4a..71a0066 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -287,6 +287,7 @@ struct qede_fastpath {
+ 
+ #define QEDE_CSUM_ERROR			BIT(0)
+ #define QEDE_CSUM_UNNECESSARY		BIT(1)
++#define QEDE_TUNN_CSUM_UNNECESSARY	BIT(2)
+ 
+ #define QEDE_SP_RX_MODE			1
+ #define QEDE_SP_VXLAN_PORT_ADD		2
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index b2cde75..b041a76 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -320,6 +320,9 @@ static u32 qede_xmit_type(struct qede_dev *edev,
+ 	    (ipv6_hdr(skb)->nexthdr == NEXTHDR_IPV6))
+ 		*ipv6_ext = 1;
+ 
++	if (skb->encapsulation)
++		rc |= XMIT_ENC;
++
+ 	if (skb_is_gso(skb))
+ 		rc |= XMIT_LSO;
+ 
+@@ -381,6 +384,16 @@ static int map_frag_to_bd(struct qede_dev *edev,
+ 	return 0;
+ }
+ 
++static u16 qede_get_skb_hlen(struct sk_buff *skb, bool is_encap_pkt)
++{
++	if (is_encap_pkt)
++		return (skb_inner_transport_header(skb) +
++			inner_tcp_hdrlen(skb) - skb->data);
++	else
++		return (skb_transport_header(skb) +
++			tcp_hdrlen(skb) - skb->data);
++}
++
+ /* +2 for 1st BD for headers and 2nd BD for headlen (if required) */
+ #if ((MAX_SKB_FRAGS + 2) > ETH_TX_MAX_BDS_PER_NON_LSO_PACKET)
+ static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
+@@ -391,8 +404,7 @@ static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
+ 	if (xmit_type & XMIT_LSO) {
+ 		int hlen;
+ 
+-		hlen = skb_transport_header(skb) +
+-		       tcp_hdrlen(skb) - skb->data;
++		hlen = qede_get_skb_hlen(skb, xmit_type & XMIT_ENC);
+ 
+ 		/* linear payload would require its own BD */
+ 		if (skb_headlen(skb) > hlen)
+@@ -500,7 +512,18 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 		first_bd->data.bd_flags.bitfields |=
+ 			1 << ETH_TX_1ST_BD_FLAGS_L4_CSUM_SHIFT;
+ 
+-		first_bd->data.bitfields |= cpu_to_le16(temp);
++		if (xmit_type & XMIT_ENC) {
++			first_bd->data.bd_flags.bitfields |=
++				1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
++		} else {
++			/* In cases when OS doesn't indicate for inner offloads
++			 * when packet is tunnelled, we need to override the HW
++			 * tunnel configuration so that packets are treated as
++			 * regular non tunnelled packets and no inner offloads
++			 * are done by the hardware.
++			 */
++			first_bd->data.bitfields |= cpu_to_le16(temp);
++		}
+ 
+ 		/* If the packet is IPv6 with extension header, indicate that
+ 		 * to FW and pass few params, since the device cracker doesn't
+@@ -516,10 +539,15 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 		third_bd->data.lso_mss =
+ 			cpu_to_le16(skb_shinfo(skb)->gso_size);
+ 
+-		first_bd->data.bd_flags.bitfields |=
+-		1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
+-		hlen = skb_transport_header(skb) +
+-		       tcp_hdrlen(skb) - skb->data;
++		if (unlikely(xmit_type & XMIT_ENC)) {
++			first_bd->data.bd_flags.bitfields |=
++				1 << ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_SHIFT;
++			hlen = qede_get_skb_hlen(skb, true);
++		} else {
++			first_bd->data.bd_flags.bitfields |=
++				1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
++			hlen = qede_get_skb_hlen(skb, false);
++		}
+ 
+ 		/* @@@TBD - if will not be removed need to check */
+ 		third_bd->data.bitfields |=
+@@ -853,6 +881,9 @@ static void qede_set_skb_csum(struct sk_buff *skb, u8 csum_flag)
+ 
+ 	if (csum_flag & QEDE_CSUM_UNNECESSARY)
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	if (csum_flag & QEDE_TUNN_CSUM_UNNECESSARY)
++		skb->csum_level = 1;
+ }
+ 
+ static inline void qede_skb_receive(struct qede_dev *edev,
+@@ -1142,13 +1173,47 @@ err:
+ 	tpa_info->skb = NULL;
+ }
+ 
+-static u8 qede_check_csum(u16 flag)
++static bool qede_tunn_exist(u16 flag)
++{
++	return !!(flag & (PARSING_AND_ERR_FLAGS_TUNNELEXIST_MASK <<
++			  PARSING_AND_ERR_FLAGS_TUNNELEXIST_SHIFT));
++}
++
++static u8 qede_check_tunn_csum(u16 flag)
++{
++	u16 csum_flag = 0;
++	u8 tcsum = 0;
++
++	if (flag & (PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMWASCALCULATED_MASK <<
++		    PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMWASCALCULATED_SHIFT))
++		csum_flag |= PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMERROR_MASK <<
++			     PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMERROR_SHIFT;
++
++	if (flag & (PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
++		    PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT)) {
++		csum_flag |= PARSING_AND_ERR_FLAGS_L4CHKSMERROR_MASK <<
++			     PARSING_AND_ERR_FLAGS_L4CHKSMERROR_SHIFT;
++		tcsum = QEDE_TUNN_CSUM_UNNECESSARY;
++	}
++
++	csum_flag |= PARSING_AND_ERR_FLAGS_TUNNELIPHDRERROR_MASK <<
++		     PARSING_AND_ERR_FLAGS_TUNNELIPHDRERROR_SHIFT |
++		     PARSING_AND_ERR_FLAGS_IPHDRERROR_MASK <<
++		     PARSING_AND_ERR_FLAGS_IPHDRERROR_SHIFT;
++
++	if (csum_flag & flag)
++		return QEDE_CSUM_ERROR;
++
++	return QEDE_CSUM_UNNECESSARY | tcsum;
++}
++
++static u8 qede_check_notunn_csum(u16 flag)
+ {
+ 	u16 csum_flag = 0;
+ 	u8 csum = 0;
+ 
+-	if ((PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
+-	     PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT) & flag) {
++	if (flag & (PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
++		    PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT)) {
+ 		csum_flag |= PARSING_AND_ERR_FLAGS_L4CHKSMERROR_MASK <<
+ 			     PARSING_AND_ERR_FLAGS_L4CHKSMERROR_SHIFT;
+ 		csum = QEDE_CSUM_UNNECESSARY;
+@@ -1163,6 +1228,14 @@ static u8 qede_check_csum(u16 flag)
+ 	return csum;
+ }
+ 
++static u8 qede_check_csum(u16 flag)
++{
++	if (!qede_tunn_exist(flag))
++		return qede_check_notunn_csum(flag);
++	else
++		return qede_check_tunn_csum(flag);
++}
++
+ static int qede_rx_int(struct qede_fastpath *fp, int budget)
+ {
+ 	struct qede_dev *edev = fp->edev;
+@@ -1985,6 +2058,14 @@ static void qede_init_ndev(struct qede_dev *edev)
+ 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		      NETIF_F_TSO | NETIF_F_TSO6;
+ 
++	/* Encap features*/
++	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
++		       NETIF_F_TSO_ECN;
++	ndev->hw_enc_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO_ECN |
++				NETIF_F_TSO6 | NETIF_F_GSO_GRE |
++				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM;
++
+ 	ndev->vlan_features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
+ 			      NETIF_F_HIGHDMA;
+ 	ndev->features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
+-- 
+2.7.2
