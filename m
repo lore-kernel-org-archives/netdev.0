@@ -1,129 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net-next 1/6] sctp: add sctp_info dump api for
- sctp_diag
-Date: Fri, 08 Apr 2016 22:19:39 -0700
-Message-ID: <1460179179.6473.476.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1460177331.git.lucien.xin@gmail.com>
-	 <c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: use napi_complete_done()
+Date: Fri, 08 Apr 2016 22:19:25 -0700
+Message-ID: <5B66FA2B-6AAE-4FEB-B5FB-C5C9DF48FDB5@gmail.com>
+References: <1460178400.6473.469.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Petri Gynther <pgynther@google.com>, opendmb@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35558 "EHLO
-	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbcDIFTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 01:19:43 -0400
-In-Reply-To: <c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33731 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbcDIFTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 01:19:41 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 184so88272687pff.0
+        for <netdev@vger.kernel.org>; Fri, 08 Apr 2016 22:19:41 -0700 (PDT)
+In-Reply-To: <1460178400.6473.469.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2016-04-09 at 12:53 +0800, Xin Long wrote:
-> sctp_diag will dump some important details of sctp's assoc or ep, we use
-> sctp_info to describe them,  sctp_get_sctp_info to get them, and export
-> it to sctp_diag.ko.
+On April 8, 2016 10:06:40 PM PDT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>From: Eric Dumazet <edumazet@google.com>
+>
+>By using napi_complete_done(), we allow fine tuning
+>of /sys/class/net/ethX/gro_flush_timeout for higher GRO aggregation
+>efficiency for a Gbit NIC.
+>
+>Check commit 24d2e4a50737 ("tg3: use napi_complete_done()") for
+>details.
+>
+>Signed-off-by: Eric Dumazet <edumazet@google.com>
+>Cc: Petri Gynther <pgynther@google.com>
+>Cc: Florian Fainelli <f.fainelli@gmail.com>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Along the same line of changes, we could use napi_schedule_irqoff since NAPI is always scheduled from ISR context.
+
+
+>---
+> drivers/net/ethernet/broadcom/genet/bcmgenet.c |    2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>index f7b42b9fc979..e823013d3125 100644
+>--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+>@@ -1735,7 +1735,7 @@ static int bcmgenet_rx_poll(struct napi_struct
+>*napi, int budget)
+> 	work_done = bcmgenet_desc_rx(ring, budget);
+> 
+> 	if (work_done < budget) {
+>-		napi_complete(napi);
+>+		napi_complete_done(napi, work_done);
+> 		ring->int_enable(ring);
+> 	}
 > 
 
 
-> +int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
-> +		       struct sctp_info *info)
-> +{
-> +	struct sctp_transport *prim;
-> +	struct list_head *pos, *temp;
-> +	int mask;
-> +
-> +	memset(info, 0, sizeof(*info));
-> +	if (!asoc) {
-> +		struct sctp_sock *sp = sctp_sk(sk);
-> +
-> +		info->sctpi_s_autoclose = sp->autoclose;
-> +		info->sctpi_s_adaptation_ind = sp->adaptation_ind;
-> +		info->sctpi_s_pd_point = sp->pd_point;
-> +		info->sctpi_s_nodelay = sp->nodelay;
-> +		info->sctpi_s_disable_fragments = sp->disable_fragments;
-> +		info->sctpi_s_v4mapped = sp->v4mapped;
-> +		info->sctpi_s_frag_interleave = sp->frag_interleave;
-> +
-> +		return 0;
-> +	}
-> +
-> +	info->sctpi_tag = asoc->c.my_vtag;
-> +	info->sctpi_state = asoc->state;
-> +	info->sctpi_rwnd = asoc->a_rwnd;
-> +	info->sctpi_unackdata = asoc->unack_data;
-> +	info->sctpi_penddata = sctp_tsnmap_pending(&asoc->peer.tsn_map);
-> +	info->sctpi_instrms = asoc->c.sinit_max_instreams;
-> +	info->sctpi_outstrms = asoc->c.sinit_num_ostreams;
-> +	list_for_each_safe(pos, temp, &asoc->base.inqueue.in_chunk_list)
-> +		info->sctpi_inqueue++;
-> +	list_for_each_safe(pos, temp, &asoc->outqueue.out_chunk_list)
-> +		info->sctpi_outqueue++;
-
-Is this safe ?
-
-Do you own the lock on socket or whatever lock protecting this list ?
-
-
-> +	info->sctpi_overall_error = asoc->overall_error_count;
-> +	info->sctpi_max_burst = asoc->max_burst;
-> +	info->sctpi_maxseg = asoc->frag_point;
-> +	info->sctpi_peer_rwnd = asoc->peer.rwnd;
-> +	info->sctpi_peer_tag = asoc->c.peer_vtag;
-> +
-> +	mask = asoc->peer.ecn_capable << 1;
-> +	mask = (mask | asoc->peer.ipv4_address) << 1;
-> +	mask = (mask | asoc->peer.ipv6_address) << 1;
-> +	mask = (mask | asoc->peer.hostname_address) << 1;
-> +	mask = (mask | asoc->peer.asconf_capable) << 1;
-> +	mask = (mask | asoc->peer.prsctp_capable) << 1;
-> +	mask = (mask | asoc->peer.auth_capable);
-> +	info->sctpi_peer_capable = mask;
-> +	mask = asoc->peer.sack_needed << 1;
-> +	mask = (mask | asoc->peer.sack_generation) << 1;
-> +	mask = (mask | asoc->peer.zero_window_announced);
-> +	info->sctpi_peer_sack = mask;
-> +
-> +	info->sctpi_isacks = asoc->stats.isacks;
-> +	info->sctpi_osacks = asoc->stats.osacks;
-> +	info->sctpi_opackets = asoc->stats.opackets;
-> +	info->sctpi_ipackets = asoc->stats.ipackets;
-> +	info->sctpi_rtxchunks = asoc->stats.rtxchunks;
-> +	info->sctpi_outofseqtsns = asoc->stats.outofseqtsns;
-> +	info->sctpi_idupchunks = asoc->stats.idupchunks;
-> +	info->sctpi_gapcnt = asoc->stats.gapcnt;
-> +	info->sctpi_ouodchunks = asoc->stats.ouodchunks;
-> +	info->sctpi_iuodchunks = asoc->stats.iuodchunks;
-> +	info->sctpi_oodchunks = asoc->stats.oodchunks;
-> +	info->sctpi_iodchunks = asoc->stats.iodchunks;
-> +	info->sctpi_octrlchunks = asoc->stats.octrlchunks;
-> +	info->sctpi_ictrlchunks = asoc->stats.ictrlchunks;
-> +
-> +	prim = asoc->peer.primary_path;
-> +	memcpy(&info->sctpi_p_address, &prim->ipaddr,
-> +	       sizeof(struct sockaddr_storage));
-> +	info->sctpi_p_state = prim->state;
-> +	info->sctpi_p_cwnd = prim->cwnd;
-> +	info->sctpi_p_srtt = prim->srtt;
-> +	info->sctpi_p_rto = jiffies_to_msecs(prim->rto);
-> +	info->sctpi_p_hbinterval = prim->hbinterval;
-> +	info->sctpi_p_pathmaxrxt = prim->pathmaxrxt;
-> +	info->sctpi_p_sackdelay = jiffies_to_msecs(prim->sackdelay);
-> +	info->sctpi_p_ssthresh = prim->ssthresh;
-> +	info->sctpi_p_partial_bytes_acked = prim->partial_bytes_acked;
-> +	info->sctpi_p_flight_size = prim->flight_size;
-> +	info->sctpi_p_error = prim->error_count;
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(sctp_get_sctp_info);
-
-info is not guaranteed to be aligned on 8 bytes.
-
-You need to use put_unaligned()
-
-Check commit ff5d749772018 ("tcp: beware of alignments in
-tcp_get_info()") for details.
+-- 
+Florian
