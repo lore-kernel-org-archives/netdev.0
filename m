@@ -1,58 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Sat, 09 Apr 2016 05:34:38 -0700
-Message-ID: <1460205278.6473.486.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	 <20160407161715.52635cac@redhat.com>
-	 <1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160409111132.781a11b6@redhat.com>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCHv3 net-next 4/6] bridge: a netlink notification
+ should be sent when those attributes are changed by br_sysfs_br
+Date: Sat, 9 Apr 2016 14:41:10 +0200
+Message-ID: <5708F866.9060302@cumulusnetworks.com>
+References: <cover.1460131308.git.lucien.xin@gmail.com>
+	<6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
+	<6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
+	<8c14a891d0a8bcea071d4e5305776a5c5cd9fd17.1460131308.git.lucien.xin@gmail.com>
+	<1dd5e14c7f042753a4d70b585de407a4e388262a.1460131308.git.lucien.xin@gmail.com>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>, Tom Herbert
- <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
- lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- lsf-pc@lists.linux-foundation.org, Alexei Starovoitov
- <alexei.starovoitov@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160409111132.781a11b6@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Cc: davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1dd5e14c7f042753a4d70b585de407a4e388262a.1460131308.git.lucien.xin@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-04-09 at 11:11 +0200, Jesper Dangaard Brouer wrote:
-> Hi Eric,
-
-
-> Above code is okay.  But do you think we also can get away with the same
-> trick we do with the SKB refcnf?  Where we avoid an atomic operation if
-> refcnt==1.
+On 04/08/2016 06:03 PM, Xin Long wrote:
+> Now when we change the attributes of bridge or br_port by netlink,
+> a relevant netlink notification will be sent, but if we change them
+> by ioctl or sysfs, no notification will be sent.
 > 
-> void kfree_skb(struct sk_buff *skb)
-> {
-> 	if (unlikely(!skb))
-> 		return;
-> 	if (likely(atomic_read(&skb->users) == 1))
-> 		smp_rmb();
-> 	else if (likely(!atomic_dec_and_test(&skb->users)))
-> 		return;
-> 	trace_kfree_skb(skb, __builtin_return_address(0));
-> 	__kfree_skb(skb);
-> }
-> EXPORT_SYMBOL(kfree_skb);
+> We should ensure that whenever those attributes change internally or from
+> sysfs/ioctl, that a netlink notification is sent out to listeners.
+> 
+> Also, NetworkManager will use this in the future to listen for out-of-band
+> bridge master attribute updates and incorporate them into the runtime
+> configuration.
+> 
+> This patch is used for br_sysfs_br. and we also need to remove some
+> rtnl_trylock in old functions so that we can call it in a common one.
+> 
+> For group_addr_store, we cannot make it use store_bridge_parm, because
+> it's not a string-to-long convert, we will add notification on it
+> individually.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/bridge/br_sysfs_br.c | 21 +++++++++------------
+>  net/bridge/br_vlan.c     | 30 +++++-------------------------
+>  2 files changed, 14 insertions(+), 37 deletions(-)
+> 
 
-No we can not use this trick this for pages :
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ec91698360b3818ff426488a1529811f7a7ab87f
-
-
-
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
