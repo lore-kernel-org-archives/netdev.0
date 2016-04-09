@@ -1,52 +1,33 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] qlge: Replace create_singlethread_workqueue with
- alloc_ordered_workqueue
-Date: Sat, 9 Apr 2016 17:27:45 +0530
-Message-ID: <20160409115744.GA30104@amitoj-Inspiron-3542>
+From: "Jeff Allen" <jinjerdinss@zoho.com>
+Subject: about our marketing solutions
+Date: Sat, 09 Apr 2016 10:18:30 +0200
+Message-ID: <b89ca752276a9c1499df7fef571db91d@grampianfishing.com>
+Reply-To: hanmeimei10@aliyun.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tj@kernel.org
-To: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; format=flowed; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from biner.404646.com ([192.34.52.158]:47326 "EHLO biner.404646.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753178AbcDIL7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Apr 2016 07:59:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace deprecated create_singlethread_workqueue with
-alloc_ordered_workqueue.
+Hey,
 
-Work items include getting tx/rx frame sizes, resetting MPI processor,
-setting asic recovery bit so ordering seems necessary as only one work
-item should be in queue/executing at any given time, hence the use of
-alloc_ordered_workqueue.
+Greeting!!
 
-WQ_MEM_RECLAIM flag has been set since ethernet devices seem to sit in
-memory reclaim path, so to guarantee forward progress regardless of 
-memory pressure.
+Do you need to increase your sales?
+Do you need more clients leads?
+Do you need our marketing services?
 
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Acked-by: Tejun Heo <tj@kernel.org>
----
-Not sure if the assumption of requiring ordering of work items
-is correct.
+No matter you are selling products or services, we can generate you new
+leads from our marketing service.
 
- drivers/net/ethernet/qlogic/qlge/qlge_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If you need more information please contact us today.
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index b28e73e..83d7210 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -4687,7 +4687,7 @@ static int ql_init_device(struct pci_dev *pdev, struct net_device *ndev,
- 	/*
- 	 * Set up the operating parameters.
- 	 */
--	qdev->workqueue = create_singlethread_workqueue(ndev->name);
-+	qdev->workqueue = alloc_ordered_workqueue(ndev->name, WQ_MEM_RECLAIM);
- 	INIT_DELAYED_WORK(&qdev->asic_reset_work, ql_asic_reset_work);
- 	INIT_DELAYED_WORK(&qdev->mpi_reset_work, ql_mpi_reset_work);
- 	INIT_DELAYED_WORK(&qdev->mpi_work, ql_mpi_work);
--- 
-1.9.1
+Thanks,
+Jeff Allen
+Contact: xxianyus@sina.com
