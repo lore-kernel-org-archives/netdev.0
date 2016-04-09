@@ -1,15 +1,9 @@
 From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCHv3 net-next 6/6] bridge: a netlink notification
- should be sent when those attributes are changed by ioctl
-Date: Sat, 9 Apr 2016 14:49:46 +0200
-Message-ID: <5708FA6A.3030006@cumulusnetworks.com>
+Subject: Re: [PATCHv3 net-next 0/6] bridge: support sending rntl
+ info when we set attributes through sysfs/ioctl
+Date: Sat, 9 Apr 2016 14:55:24 +0200
+Message-ID: <5708FBBC.7000106@cumulusnetworks.com>
 References: <cover.1460131308.git.lucien.xin@gmail.com>
-	<6e2cf6821542a253904dfc7d8ec431d6bbda2b4e.1460131308.git.lucien.xin@gmail.com>
-	<6197a35a2eb6df2caf90edcbf1b49da12077f659.1460131308.git.lucien.xin@gmail.com>
-	<8c14a891d0a8bcea071d4e5305776a5c5cd9fd17.1460131308.git.lucien.xin@gmail.com>
-	<1dd5e14c7f042753a4d70b585de407a4e388262a.1460131308.git.lucien.xin@gmail.com>
-	<8c87a70b3c214f90b7345edb68536429fdaad096.1460131308.git.lucien.xin@gmail.com>
-	<412ca1bb5690dfd7a73a37d7e821784f24edd059.1460131308.git.lucien.xin@gmail.com>
 Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
@@ -18,7 +12,7 @@ Cc: davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
 	bridge@lists.linux-foundation.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <412ca1bb5690dfd7a73a37d7e821784f24edd059.1460131308.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1460131308.git.lucien.xin@gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -31,25 +25,40 @@ Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 On 04/08/2016 06:03 PM, Xin Long wrote:
-> Now when we change the attributes of bridge or br_port by netlink,
-> a relevant netlink notification will be sent, but if we change them
-> by ioctl or sysfs, no notification will be sent.
+> This patchset is used to support sending rntl info to user in some places,
+> and ensure that whenever those attributes change internally or from sysfs,
+> that a netlink notification is sent out to listeners.
 > 
-> We should ensure that whenever those attributes change internally or from
-> sysfs/ioctl, that a netlink notification is sent out to listeners.
+> It also make some adjustment in bridge sysfs so that we can implement this
+> easily.
 > 
-> Also, NetworkManager will use this in the future to listen for out-of-band
-> bridge master attribute updates and incorporate them into the runtime
-> configuration.
+> I've done some tests on this patchset, like:
+> [br_sysfs]
+>   1. change all the attribute values of br or brif:
+>   $ echo $value > /sys/class/net/br0/bridge/{*}
+>   $ echo $value > /sys/class/net/br0/brif/eth1/{*}
 > 
-> This patch is used for ioctl.
+>   2. meanwhile, on another terminal to observe the msg:
+>   $ bridge monitor
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/bridge/br_ioctl.c | 40 ++++++++++++++++++++++++----------------
->  1 file changed, 24 insertions(+), 16 deletions(-)
+> [br_ioctl]
+>   1. in bridge-utils package, do some changes in br_set, let brctl command
+>   use ioctl to set attribute:
+>          if ((ret = set_sysfs(path, value)) < 0) { -->
+>          if (1) {
+> 
+>   $ brctl set*
+> 
+>   2. meanwhile, on another terminal to observe the msg:
+>   $ bridge monitor
+> 
+> This test covers all the attributes that brctl and sysfs support to set.
 > 
 
-LGTM,
+Overall the set looks good to me, just one comment for future posts - please
+include the changes between versions of the set in your cover letter and 
+individual patches. I had to go back to your previous postings and read my
+own comments and compare them with this set.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Thank you,
+ Nik
