@@ -1,64 +1,37 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCHv3 net-next 0/6] bridge: support sending rntl
- info when we set attributes through sysfs/ioctl
-Date: Sat, 9 Apr 2016 14:55:24 +0200
-Message-ID: <5708FBBC.7000106@cumulusnetworks.com>
-References: <cover.1460131308.git.lucien.xin@gmail.com>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Paul Lukas <paulluk70@gmail.com>
+Subject: Hello....!!
+Date: Sat, 9 Apr 2016 13:01:25 +0000 (UTC)
+Message-ID: <1268439650.3324787.1460206885379.JavaMail.yahoo@mail.yahoo.com>
+References: <1268439650.3324787.1460206885379.JavaMail.yahoo.ref@mail.yahoo.com>
+Reply-To: Paul Lukas <paull8728@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>, network dev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <cover.1460131308.git.lucien.xin@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm29-vm1.bullet.mail.ir2.yahoo.com ([212.82.97.70]:41318 "EHLO
+	nm29-vm1.bullet.mail.ir2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752839AbcDINIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 09:08:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2016 06:03 PM, Xin Long wrote:
-> This patchset is used to support sending rntl info to user in some places,
-> and ensure that whenever those attributes change internally or from sysfs,
-> that a netlink notification is sent out to listeners.
-> 
-> It also make some adjustment in bridge sysfs so that we can implement this
-> easily.
-> 
-> I've done some tests on this patchset, like:
-> [br_sysfs]
->   1. change all the attribute values of br or brif:
->   $ echo $value > /sys/class/net/br0/bridge/{*}
->   $ echo $value > /sys/class/net/br0/brif/eth1/{*}
-> 
->   2. meanwhile, on another terminal to observe the msg:
->   $ bridge monitor
-> 
-> [br_ioctl]
->   1. in bridge-utils package, do some changes in br_set, let brctl command
->   use ioctl to set attribute:
->          if ((ret = set_sysfs(path, value)) < 0) { -->
->          if (1) {
-> 
->   $ brctl set*
-> 
->   2. meanwhile, on another terminal to observe the msg:
->   $ bridge monitor
-> 
-> This test covers all the attributes that brctl and sysfs support to set.
-> 
+PEASE URGENT RESPONSE,
 
-Overall the set looks good to me, just one comment for future posts - please
-include the changes between versions of the set in your cover letter and 
-individual patches. I had to go back to your previous postings and read my
-own comments and compare them with this set.
+I am Dr Paul Lukas,the Audit and Account Manager (A.D.B)Bank in Ouagadougou Burkina Faso,west africa
 
-Thank you,
- Nik
+I have a business transaction for you.In my department i discovered an abandoned Sum of US$10.2 Million Dollars.In an account that belongs to one of our late foreign customer who died on Air crash with his family member. ever Since he died,Nobody to claim the left over balance in the account.
+It is therefore upon this discovery that I decided to seek your assistance to present you as his business associate for my bank to transfer the funds to your account.
+
+If you accept i would give you the guide lines of how we can achieve this transfer of the balance $10.2 Million Dollars to your account.
+the fund will be share 50-50%. by both of us
+
+if you are capable to handle this transaction please furnish me the following information for more details.
+
+Full names:...
+Country:..
+Your pravite phone number:...
+Your Age/Sex:..
+
+Regards,
+Dr Paul Lukas.
