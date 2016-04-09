@@ -1,85 +1,63 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Sat, 9 Apr 2016 10:30:37 -0400
-Message-ID: <5709120D.9010107@mojatatu.com>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH v2 0/5] Add driver bpf hook for early packet drop
+Date: Sat, 9 Apr 2016 10:37:51 -0400
+Message-ID: <570913BF.1010007@mojatatu.com>
+References: <1460090874-10497-1-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, brouer@redhat.com, eric.dumazet@gmail.com,
+	ecree@solarflare.com, john.fastabend@gmail.com, tgraf@suug.ch,
+	johannes@sipsolutions.net, eranlinuxmellanox@gmail.com,
+	lorenzo@google.com
+To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:37857 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751534AbcDIOap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 10:30:45 -0400
-Received: by mail-ig0-f175.google.com with SMTP id g8so38832032igr.0
-        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 07:30:44 -0700 (PDT)
-In-Reply-To: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:34022 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751598AbcDIOhy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 10:37:54 -0400
+Received: by mail-io0-f195.google.com with SMTP id z133so19879204iod.1
+        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 07:37:54 -0700 (PDT)
+In-Reply-To: <1460090874-10497-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Thanks for doing the work Roopa and I apologize for late comments
-below:
-
-On 16-04-09 02:38 AM, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On 16-04-08 12:47 AM, Brenden Blanco wrote:
+> This patch set introduces new infrastructure for programmatically
+> processing packets in the earliest stages of rx, as part of an effort
+> others are calling Express Data Path (XDP) [1]. Start this effort by
+> introducing a new bpf program type for early packet filtering, before even
+> an skb has been allocated.
 >
-
-> This patch also allows for af family stats (an example af stats for IPV6
-> is available with the second patch in the series).
+> With this, hope to enable line rate filtering, with this initial
+> implementation providing drop/allow action only.
 >
-> Like any other rtnetlink message, RTM_GETSTATS can be used to get stats of
-> a single interface or all interfaces with NLM_F_DUMP.
->
-> Future possible new types of stat attributes:
-> - IFLA_MPLS_STATS  (nested. for mpls/mdev stats)
-> - IFLA_EXTENDED_STATS (nested. extended software netdev stats like bridge,
->    vlan, vxlan etc)
-> - IFLA_EXTENDED_HW_STATS (nested. extended hardware stats which are
->    available via ethtool today)
->
+> Patch 1 introduces the new prog type and helpers for validating the bpf
+> program. A new userspace struct is defined containing only len as a field,
+> with others to follow in the future.
+> In patch 2, create a new ndo to pass the fd to support drivers.
+> In patch 3, expose a new rtnl option to userspace.
+> In patch 4, enable support in mlx4 driver. No skb allocation is required,
+> instead a static percpu skb is kept in the driver and minimally initialized
+> for each driver frag.
+> In patch 5, create a sample drop and count program. With single core,
+> achieved ~20 Mpps drop rate on a 40G mlx4. This includes packet data
+> access, bpf array lookup, and increment.
 
-I got the extended_hw_stats (which are very common in a lot of ASICS) if
-you mean stats on packet sizes. But would the other extended stats not
-just be per netdev kind specific? We have concept of XSTATS which maybe
-a fit.
-
-> This patch also declares a filter mask for all stat attributes.
-> User has to provide a mask of stats attributes to query. This will be
-> specified in a new hdr 'struct if_stats_msg' for stats messages.
->
-> Without any attributes in the filter_mask, no stats will be returned.
->
-
-Should such a command then not be rejected with an error code?
-
-> +/* STATS section */
-> +
-> +struct if_stats_msg {
-> +	__u8  family;
-> +	__u32 ifindex;
-> +	__u32 filter_mask;
-> +};
-
-Needs to be 32 bit aligned.
-Do you need 32 bits for the filter mask?
-Perhaps a 16bit mask and an 8bit pad for future use.
-
-struct if_stats_msg {
-            __u32 ifindex;
-	   __u16 filter_mask;
-	   __u8  family;
-            __u8 pad; /* future use */
-};
-
-Or you could reverse those (from smallest to largest).
-BTW, any plans to do the cool feature where i inject a timeout period
-and i just get STATS events ;-> The filter struct would have to be more
-sophisticated - user would need to pass a list of ifindices and
-filter_mask as well as timeout.
+Hrm. This doesnt sound very high (less than 50%?).
+Is the driver the main overhead?
+I'd be curious, for comparison, if you just dropped everything
+without bpf and alternatively with tc + bpf of the same program
+on the one cpu.
+Numbers we had for the NUC with tc on single core were a bit higher
+than 20Mpps but there was no driver overhead - so i expected
+to see much higher numbers if you did it at the driver...
+Note back in the day Alexey(not Alexei;->) had a built-in driver
+level forwarder;
+however the advantage there was derived out of packets being DMAed
+from ingress to egress port after some simple lookup.
 
 cheers,
 jamal
