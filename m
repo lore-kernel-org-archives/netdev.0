@@ -1,85 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [next-queue PATCH 0/3] Add support for GSO partial to Intel NIC
- drivers
-Date: Fri, 08 Apr 2016 23:59:09 -0700
-Message-ID: <1460185149.2982.6.camel@intel.com>
-References: <20160408203013.12838.63429.stgit@ahduyck-xeon-server>
-	 <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-IWL3pagRtGbCgRmbM4s0"
-To: Alexander Duyck <aduyck@mirantis.com>, herbert@gondor.apana.org.au,
-	tom@herbertland.com, jesse@kernel.org, alexander.duyck@gmail.com,
-	edumazet@google.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, davem@davemloft.net
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH net-next v2] net: bcmgenet: add BQL support
+Date: Sat,  9 Apr 2016 00:20:36 -0700
+Message-ID: <1460186436-84848-1-git-send-email-pgynther@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, f.fainelli@gmail.com,
+	opendmb@gmail.com, jaedon.shin@gmail.com,
+	Petri Gynther <pgynther@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:32795 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751774AbcDIG7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Apr 2016 02:59:20 -0400
-In-Reply-To: <20160408210103.13096.77973.stgit@ahduyck-xeon-server>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:36848 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbcDIHUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 03:20:49 -0400
+Received: by mail-pf0-f177.google.com with SMTP id e128so89395999pfe.3
+        for <netdev@vger.kernel.org>; Sat, 09 Apr 2016 00:20:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add Byte Queue Limits (BQL) support to bcmgenet driver.
 
---=-IWL3pagRtGbCgRmbM4s0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-T24gRnJpLCAyMDE2LTA0LTA4IGF0IDE3OjA2IC0wNDAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-Cj4gU28gdGhlc2UgYXJlIHRoZSBwYXRjaGVzIG5lZWRlZCB0byBlbmFibGUgdHVubmVsIHNlZ21l
-bnRhdGlvbgo+IG9mZmxvYWRzIG9uCj4gdGhlIGlnYiwgaWdidmYsIGl4Z2JlLCBhbmQgaXhnYmV2
-ZiBkcml2ZXJzLsKgIEluIGFkZGl0aW9uIHRoaXMgcGF0Y2gKPiBleHRlbmRzCj4gdGhlIGk0MGUg
-YW5kIGk0MGV2ZiBkcml2ZXJzIHRvIGluY2x1ZGUgc2VnbWVudGF0aW9uIHN1cHBvcnQgZm9yCj4g
-dHVubmVscwo+IHdpdGggb3V0ZXIgY2hlY2tzdW1zLgo+IAo+IFRoZSBuZXQgcGVyZm9ybWFuY2Ug
-Z2FpbiBmb3IgdGhlc2UgcGF0Y2hlcyBhcmUgcHJldHR5IHNpZ25pZmljYW50LsKgCj4gSW4gdGhl
-Cj4gY2FzZSBvZiBpNDBlIGEgdHVubmVsIHdpdGggb3V0ZXIgY2hlY2tzdW1zIHNob3dlZCB0aGUg
-Zm9sbG93aW5nCj4gaW1wcm92ZW1lbnQ6Cj4gVGhyb3VnaHB1dCBUaHJvdWdocHV0wqAgTG9jYWwg
-TG9jYWzCoMKgIFJlc3VsdMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAgVW5pdHPCoMKgwqDCoMKg
-wqAgQ1BVwqDCoCBTZXJ2aWNlIFRhZ8KgwqDCoMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqAgVXRpbMKgIERlbWFuZMKgwqDCoMKgwqDCoMKgwqDCoAo+IMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgICXCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgCj4gMTQwNjYuMjnCoMKgIDEwXjZiaXRzL3PCoCAz
-LjQ5wqAgMC42NTHCoMKgICJiZWZvcmUiwqAKPiAyMDYxOC4xNsKgwqAgMTBeNmJpdHMvc8KgIDMu
-MDnCoCAwLjM5M8KgwqAgImFmdGVyIgo+IAo+IEZvciBpeGdiZSBzaW1pbGFyIHJlc3VsdHMgd2Vy
-ZSBzZWVuOgo+IFRocm91Z2hwdXQgVGhyb3VnaHB1dMKgIExvY2FswqAgTG9jYWzCoMKgIFJlc3Vs
-dMKgCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqAgVW5pdHPCoMKgwqDCoMKgwqAgQ1BVwqDCoMKgIFNl
-cnZpY2UgVGFnwqDCoMKgwqAKPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoCBVdGlswqDCoCBEZW1hbmTCoMKgwqDCoMKgwqDCoMKgwqAKPiDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCAlwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgCj4gMTI4NzkuODnCoMKgIDEwXjZiaXRzL3PCoCAxMC4wMMKgIDAuNzYzwqDCoCAiYmVm
-b3JlIgo+IDE0Mjg2Ljc3wqDCoCAxMF42Yml0cy9zwqAgNS43NMKgwqAgMC4zOTXCoMKgICJhZnRl
-ciLCoAo+IAo+IFRoZXNlIHBhdGNoZXMgYWxsIHJlbHkgb24gdGhlIFRTT19NQU5HTEVJRCBhbmQg
-R1NPX1BBUlRJQUwgcGF0Y2hlcyBzbwo+IEkKPiB3b3VsZCBub3QgcmVjb21tZW5kIGFwcGx5aW5n
-IHRoZW0gdW50aWwgdGhvc2UgcGF0Y2hlcyBoYXZlIGZpcnN0IGJlZW4KPiBhcHBsaWVkLgoKU29y
-cnkgSSBkaWQgbm90IHNlZSB0aGlzIHVudGlsIGFmdGVyIEkgdHJpZWQgYXBwbHlpbmcgeW91ciBz
-ZXJpZXMuIDotKAoKTWF5YmUgdGhlIHR3byBkZXBlbmRlbnQgcGF0Y2hlcyBzaG91bGQgaGF2ZSBi
-ZWVuIGluIHRoZSBzZXJpZXMsIHNvIEkKYW5kIG90aGVycyBkbyBub3Qgd2FzdGUgdGhlaXIgdGlt
-ZS4gwqBPciBub3Qgc2VuZCB0aGlzIHVudGlsIHRoZSB0d28KcGF0Y2hlcyB3ZXJlIGFjY2VwdGVk
-Lg==
-
-
---=-IWL3pagRtGbCgRmbM4s0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXCKg9AAoJEOVv75VaS+3OY7AP/jRrM9a7fgchgA1EiGCPppCT
-fC5gD+MZTKSfMQXM+NyDJDAijGX9wVw1VQBZqG20RW/mfQkC4BVudqoIpfFfvXAU
-oqvpO+bBcRu9zvgyhjqG7q9yeGLNV59QzXiaf63Hwdikq7WZuF2PFKrHTD+rbBtm
-boUeI6udBX5Sfddv04BMt++oqKrNicMg5FP90AH9789AXxp6QxqO/LA1HHQG1Q9T
-kNFamIcrewNPsOh+a4/yUC85jaL1k5OjkDZ28DGVHN3AyWTjj2V4s82dlKRwfU3f
-GWTFdINauOxXfCi/SwPghZBa5DW/pAE0y26CxCCnzjgTeOkIEI2FODkEHS7OyETc
-02OfiusP6KZFgytvCaI9pCLO8zB1PeEKvK7ABZKQM2BSiCNzFmdDrBuyPyZbN4t9
-H2GVAOkM1qEOHGaT//PV3o0xG5YfdBc/L5ZbhFjEK1yNU35qoGClb9BPbrpAKTha
-mwpOP/t7RR6yB0sXBWpbm2gkbFneNy2Tbr+Bic2XMR4lnSMiVvOAkQqyRzAwvjlH
-h8lFh/Pq92vkrL0ygyfNCBI7OAW33pwGcr7pBzRRfwuYJOhcC9vMYWvZ5q58DF7P
-qoH0wCXYyQWq95W3lyPOiuhOjyQdsx0oTAjdKx+Np6Y9t8ucZXGjTybALaYzqpyK
-CEgFBlhAor19OZxpkeJE
-=Dfm3
------END PGP SIGNATURE-----
-
---=-IWL3pagRtGbCgRmbM4s0--
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index f7b42b9..c286ae8 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1221,8 +1221,10 @@ static unsigned int __bcmgenet_tx_reclaim(struct net_device *dev,
+ 	dev->stats.tx_packets += pkts_compl;
+ 	dev->stats.tx_bytes += bytes_compl;
+ 
++	txq = netdev_get_tx_queue(dev, ring->queue);
++	netdev_tx_completed_queue(txq, pkts_compl, bytes_compl);
++
+ 	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
+-		txq = netdev_get_tx_queue(dev, ring->queue);
+ 		if (netif_tx_queue_stopped(txq))
+ 			netif_tx_wake_queue(txq);
+ 	}
+@@ -1516,6 +1518,8 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	ring->prod_index += nr_frags + 1;
+ 	ring->prod_index &= DMA_P_INDEX_MASK;
+ 
++	netdev_tx_sent_queue(txq, GENET_CB(skb)->bytes_sent);
++
+ 	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+ 		netif_tx_stop_queue(txq);
+ 
+@@ -2364,6 +2368,7 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ {
+ 	int i;
++	struct netdev_queue *txq;
+ 
+ 	bcmgenet_fini_rx_napi(priv);
+ 	bcmgenet_fini_tx_napi(priv);
+@@ -2378,6 +2383,14 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ 		}
+ 	}
+ 
++	for (i = 0; i < priv->hw_params->tx_queues; i++) {
++		txq = netdev_get_tx_queue(priv->dev, priv->tx_rings[i].queue);
++		netdev_tx_reset_queue(txq);
++	}
++
++	txq = netdev_get_tx_queue(priv->dev, priv->tx_rings[DESC_INDEX].queue);
++	netdev_tx_reset_queue(txq);
++
+ 	bcmgenet_free_rx_buffers(priv);
+ 	kfree(priv->rx_cbs);
+ 	kfree(priv->tx_cbs);
+-- 
+2.8.0.rc3.226.g39d4020
