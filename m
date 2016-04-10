@@ -1,37 +1,28 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: optimizations to sk_buff handling in rds_tcp_data_ready
-Date: Sat, 9 Apr 2016 20:18:53 -0400
-Message-ID: <20160410001853.GA30364@oracle.com>
-References: <20160407130859.GA2818@oracle.com>
- <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sh_eth: re-enable-E-MAC interrupts in
+ sh_eth_set_ringparam()
+Date: Sat, 09 Apr 2016 21:27:25 -0400 (EDT)
+Message-ID: <20160409.212725.649496142802966013.davem@davemloft.net>
+References: <2542968.R3YjY2kHV4@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38236 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298AbcDJATD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Apr 2016 20:19:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1460038560.6473.397.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <2542968.R3YjY2kHV4@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (04/07/16 07:16), Eric Dumazet wrote:
-> Use skb split like TCP in output path ?
-> Really, pskb_expand_head() is not supposed to copy payload ;)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 10 Apr 2016 02:28:41 +0300
 
-Question- how come skb_split doesnt have to deal with frag_list
-and do a skb_walk_frags()? Couldn't the split-line be somewhere
-in the frag_list? Also even for the skb_split_inside_header,
-dont we have to set
-  skb_shinfo(skb1)->frag_list = skb_shinfo(skb)->frag_list;
-and cut loose the skb_shinfo(skb)->frag_list?
+> The E-MAC interrupts are left disabled when the ring parameters are changed
+> via 'ethtool'. In order to fix this, it's enough to call sh_eth_dev_init()
+> with 'true' instead of 'false' for the second argument (which conveniently
+> allows us to remove the following code re-enabling E-DMAC interrupts and
+> reception).
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-As I try to mimic skb_split in some new set of "skb_carve"
-funtions, I'm running into all  the various frag_list cases. I'm 
-afraid I might end up needing most of the stuff under the "Pure 
-masohism" (sic) comment in __pskb_pull_tail(). 
-
---Sowmini
+Applied, thanks.
