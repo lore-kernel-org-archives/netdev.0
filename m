@@ -1,59 +1,73 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCHv2 net-next 1/6] sctp: add sctp_info dump api for sctp_diag
-Date: Sun, 10 Apr 2016 09:02:27 -0400
-Message-ID: <570A4EE3.9090302@mojatatu.com>
-References: <cover.1460177331.git.lucien.xin@gmail.com>
- <c507274a984bd1b0a7e7a59d1e825352536efd25.1460177331.git.lucien.xin@gmail.com>
- <1460178984.6473.473.camel@edumazet-glaptop3.roam.corp.google.com>
- <57091D90.4030905@mojatatu.com>
- <1460222507.6473.493.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [RFC PATCH v2 1/5] bpf: add PHYS_DEV prog type for early driver
+ filter
+Date: Sun, 10 Apr 2016 09:07:54 -0400
+Message-ID: <570A502A.3050006@mojatatu.com>
+References: <1460090930-11219-1-git-send-email-bblanco@plumgrid.com>
+ <20160408123614.2a15a346@redhat.com> <20160408143340.10e5b1d0@redhat.com>
+ <20160408172651.GA38264@ast-mbp.thefacebook.com>
+ <20160408220808.682630d7@redhat.com>
+ <20160408213414.GA43408@ast-mbp.thefacebook.com>
+ <CALx6S36d74D-8Rx762nmNwb1TF0M0sBfojBhUF96prJiYmDYiQ@mail.gmail.com>
+ <57091FCE.50104@mojatatu.com>
+ <20160409172634.GA55330@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:34824 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbcDJNCb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 09:02:31 -0400
-Received: by mail-oi0-f47.google.com with SMTP id p188so180718074oih.2
-        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 06:02:31 -0700 (PDT)
-In-Reply-To: <1460222507.6473.493.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <tom@herbertland.com>,
+ Jesper Dangaard Brouer <brouer@redhat.com>,
+ Brenden Blanco <bblanco@plumgrid.com>, "David S. Miller"
+ <davem@davemloft.net>,
+ Linux Kernel Network Developers <netdev@vger.kernel.org>,
+ Or Gerlitz <ogerlitz@mellanox.com>, Daniel Borkmann <daniel@iogearbox.net>,
+ Eric Dumazet <eric.dumazet@gmail.com>, Edward Cree <ecree@solarflare.com>,
+ john fastabend <john.fastabend@gmail.com>, Thomas Graf <tgraf@suug.ch>,
+ Johannes Berg <johannes@sipsolutions.net>, eranlinuxmellanox@gmail.com,
+ Lorenzo Colitti <lorenzo@google.com>, linux-mm <linux-mm@kvack.org>,
+ Robert Olsson <robert@herjulf.net>, kuznet@ms2.inr.ac.ru
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160409172634.GA55330@ast-mbp.thefacebook.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 16-04-09 01:21 PM, Eric Dumazet wrote:
+On 16-04-09 01:26 PM, Alexei Starovoitov wrote:
 
-
-> Well, once a hole is there, nothing we can do really, because of
-> compatibility with old kernels / old binaries.
 >
+> yeah, no stack, no queues in bpf.
+
+Thanks.
+
 >
-> But when a _new_ structure is defined, this is the time where we can ask
-> for doing sensible things ;)
+>> If this is _forwarding only_ it maybe useful to look at
+>> Alexey's old code in particular the DMA bits;
+>> he built his own lookup algorithm but sounds like bpf is
+>> a much better fit today.
+>
+> a link to these old bits?
 >
 
-This one is fixable. sizeof() already includes the accounting of
-the pad. something like:
+Dang. Trying to remember exact name (I think it has been gone for at
+least 10 years now). I know it is not CONFIG_NET_FASTROUTE although
+it could have been that depending on the driver (tulip had some
+nice DMA properties - which by todays standards would be considered
+primitive ;->).
++Cc Robert and Alexey (Trying to figure out name of driver based
+routing code that DMAed from ingress to egress port)
 
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index fe95446..52542eb 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -158,6 +158,7 @@ struct tcp_info {
-         __u8    tcpi_options;
-         __u8    tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
+> Just to be clear: this rfc is not the only thing we're considering.
+> In particular huawei guys did a monster effort to improve performance
+> in this area as well. We'll try to blend all the code together and
+> pick what's the best.
+>
 
-+       __u8    pad;    /*reuse this space if you need 8bits for something*/
-         __u32   tcpi_rto;
-         __u32   tcpi_ato;
-         __u32   tcpi_snd_mss;
+Sounds very interesting.
 
 cheers,
 jamal
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
