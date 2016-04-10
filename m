@@ -1,74 +1,159 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Sun, 10 Apr 2016 10:16:50 +0200
-Message-ID: <20160410081650.GB22873@pox.localdomain>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 1/4] qed*: remove version dependency
+Date: Sun, 10 Apr 2016 12:42:59 +0300
+Message-ID: <1460281382-13656-2-git-send-email-Yuval.Mintz@qlogic.com>
+References: <1460281382-13656-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain
+Cc: Rahul Verma <rahul.verma@qlogic.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37619 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751845AbcDJIQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 04:16:53 -0400
-Received: by mail-wm0-f52.google.com with SMTP id n3so67867598wmn.0
-        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 01:16:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37914 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752485AbcDJJnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 05:43:11 -0400
+In-Reply-To: <1460281382-13656-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/16 at 11:38pm, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch adds a new RTM_GETSTATS message to query link stats via netlink
-> from the kernel. RTM_NEWLINK also dumps stats today, but RTM_NEWLINK
-> returns a lot more than just stats and is expensive in some cases when
-> frequent polling for stats from userspace is a common operation.
-> 
-> RTM_GETSTATS is an attempt to provide a light weight netlink message
-> to explicity query only link stats from the kernel on an interface.
-> The idea is to also keep it extensible so that new kinds of stats can be
-> added to it in the future.
-> 
-> This patch adds the following attribute for NETDEV stats:
-> struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
->         [IFLA_STATS_LINK64]  = { .len = sizeof(struct rtnl_link_stats64) },
-> };
-> 
-> This patch also allows for af family stats (an example af stats for IPV6
-> is available with the second patch in the series).
-> 
-> Like any other rtnetlink message, RTM_GETSTATS can be used to get stats of
-> a single interface or all interfaces with NLM_F_DUMP.
+From: Rahul Verma <rahul.verma@qlogic.com>
 
-Awesome stuff Roopa.
+Inbox drivers don't need versioning scheme in order to guarantee
+compatibility, as both qed and qede are compiled from same codebase.
 
-This currently ties everything to a net_device with a selector to
-include certain bits of that net_device. How about we take it half a
-step further and allow for non net_device stats such as IP, TCP,
-routing or ipsec stats to be retrieved as well?
+Signed-off-by: Rahul Verma <rahul.verma@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed.h        |  2 --
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     |  8 +-------
+ drivers/net/ethernet/qlogic/qed/qed_main.c   | 11 -----------
+ drivers/net/ethernet/qlogic/qede/qede.h      |  2 --
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 11 +----------
+ include/linux/qed/qed_eth_if.h               |  2 +-
+ include/linux/qed/qed_if.h                   |  9 ---------
+ 7 files changed, 3 insertions(+), 42 deletions(-)
 
-A simple array of nested attributes replacing IFLA_STATS_* would
-allow for that, e.g.
-
-1. {.type = ST_IPSTATS, value = { ...} }
-
-2. {.type = ST_LINK, .value = {
-    {.type = ST_LINK_NAME, .value = "eth0"},
-    {.type = ST_LINK_Q, .value = 10}
-  }}
-
-3. ...
-
-So for your initial patch, you'd simply add a new top level attribute
-which ties all the net_device specific statistics to a top level
-attribute and we can add the non net_device specific stats later on.
-We can't do that later on though without breaking ABI so that would
-have to go in with the first iteration.
-
-We can preserve all the existing attribute formats, we simply have
-to introduce new attribute types which don't overlap and document
-which statistic identifier maps to which existing attribute id.
+diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
+index fcb8e9b..a3ee9df 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed.h
++++ b/drivers/net/ethernet/qlogic/qed/qed.h
+@@ -507,6 +507,4 @@ u32 qed_unzip_data(struct qed_hwfn *p_hwfn,
+ 
+ int qed_slowpath_irq_req(struct qed_hwfn *hwfn);
+ 
+-#define QED_ETH_INTERFACE_VERSION       300
+-
+ #endif /* _QED_H */
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index 3f35c6c..e848d5a 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -2043,14 +2043,8 @@ static const struct qed_eth_ops qed_eth_ops_pass = {
+ 	.get_vport_stats = &qed_get_vport_stats,
+ };
+ 
+-const struct qed_eth_ops *qed_get_eth_ops(u32 version)
++const struct qed_eth_ops *qed_get_eth_ops(void)
+ {
+-	if (version != QED_ETH_INTERFACE_VERSION) {
+-		pr_notice("Cannot supply ethtool operations [%08x != %08x]\n",
+-			  version, QED_ETH_INTERFACE_VERSION);
+-		return NULL;
+-	}
+-
+ 	return &qed_eth_ops_pass;
+ }
+ EXPORT_SYMBOL(qed_get_eth_ops);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 26d40db..c31d485 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -1172,14 +1172,3 @@ const struct qed_common_ops qed_common_ops_pass = {
+ 	.chain_free = &qed_chain_free,
+ 	.set_led = &qed_set_led,
+ };
+-
+-u32 qed_get_protocol_version(enum qed_protocol protocol)
+-{
+-	switch (protocol) {
+-	case QED_PROTOCOL_ETH:
+-		return QED_ETH_INTERFACE_VERSION;
+-	default:
+-		return 0;
+-	}
+-}
+-EXPORT_SYMBOL(qed_get_protocol_version);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index d023251..e0a696a 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -32,8 +32,6 @@
+ 		__stringify(QEDE_REVISION_VERSION) "."		\
+ 		__stringify(QEDE_ENGINEERING_VERSION)
+ 
+-#define QEDE_ETH_INTERFACE_VERSION	300
+-
+ #define DRV_MODULE_SYM		qede
+ 
+ struct qede_stats {
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 518af32..a55d93e 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -141,19 +141,10 @@ static
+ int __init qede_init(void)
+ {
+ 	int ret;
+-	u32 qed_ver;
+ 
+ 	pr_notice("qede_init: %s\n", version);
+ 
+-	qed_ver = qed_get_protocol_version(QED_PROTOCOL_ETH);
+-	if (qed_ver !=  QEDE_ETH_INTERFACE_VERSION) {
+-		pr_notice("Version mismatch [%08x != %08x]\n",
+-			  qed_ver,
+-			  QEDE_ETH_INTERFACE_VERSION);
+-		return -EINVAL;
+-	}
+-
+-	qed_ops = qed_get_eth_ops(QEDE_ETH_INTERFACE_VERSION);
++	qed_ops = qed_get_eth_ops();
+ 	if (!qed_ops) {
+ 		pr_notice("Failed to get qed ethtool operations\n");
+ 		return -EINVAL;
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index e1d6983..e00c8db 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -167,7 +167,7 @@ struct qed_eth_ops {
+ 				struct qed_eth_stats *stats);
+ };
+ 
+-const struct qed_eth_ops *qed_get_eth_ops(u32 version);
++const struct qed_eth_ops *qed_get_eth_ops(void);
+ void qed_put_eth_ops(void);
+ 
+ #endif
+diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
+index 1f7599c7..b007011 100644
+--- a/include/linux/qed/qed_if.h
++++ b/include/linux/qed/qed_if.h
+@@ -271,15 +271,6 @@ struct qed_common_ops {
+ 		       enum qed_led_mode mode);
+ };
+ 
+-/**
+- * @brief qed_get_protocol_version
+- *
+- * @param protocol
+- *
+- * @return version supported by qed for given protocol driver
+- */
+-u32 qed_get_protocol_version(enum qed_protocol protocol);
+-
+ #define MASK_FIELD(_name, _value) \
+ 	((_value) &= (_name ## _MASK))
+ 
+-- 
+1.9.3
