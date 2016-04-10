@@ -1,50 +1,38 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH net] packet: fix heap info leak in PACKET_DIAG_MCLIST sock_diag interface
-Date: Sun, 10 Apr 2016 12:52:28 +0200
-Message-ID: <1460285548-832-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32794 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285AbcDJKxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 06:53:02 -0400
-Received: by mail-wm0-f68.google.com with SMTP id y144so14771401wmd.0
-        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 03:53:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ath9k: remove duplicate assignment of variable ah
+Date: Sun, 10 Apr 2016 12:25:31 +0100
+Message-ID: <1460287531-17385-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Because we miss to wipe the remainder of i->addr[] in packet_mc_add(),
-pdiag_put_mclist() leaks uninitialized heap bytes via the
-PACKET_DIAG_MCLIST netlink attribute.
+From: Colin Ian King <colin.king@canonical.com>
 
-Fix this by explicitly memset(0)ing the remaining bytes in i->addr[].
+ah is written twice with the same value, remove one of the
+redundant assignments to ah.
 
-Fixes: eea68e2f1a00 ("packet: Report socket mclist info via diag module")
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Pavel Emelyanov <xemul@parallels.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
-The bug itself precedes commit eea68e2f1a00 but the list wasn't exposed
-to userland before the introduction of the packet_diag interface.
-Therefore the "Fixes:" line on that commit.
+ drivers/net/wireless/ath/ath9k/init.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/packet/af_packet.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 992396aa635c..86a408cf38d5 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3441,6 +3441,7 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
- 	i->ifindex = mreq->mr_ifindex;
- 	i->alen = mreq->mr_alen;
- 	memcpy(i->addr, mreq->mr_address, i->alen);
-+	memset(i->addr + i->alen, 0, sizeof(i->addr) - i->alen);
- 	i->count = 1;
- 	i->next = po->mclist;
- 	po->mclist = i;
+diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
+index 77ace8d..fb702c4 100644
+--- a/drivers/net/wireless/ath/ath9k/init.c
++++ b/drivers/net/wireless/ath/ath9k/init.c
+@@ -477,7 +477,7 @@ static void ath9k_eeprom_request_cb(const struct firmware *eeprom_blob,
+ static int ath9k_eeprom_request(struct ath_softc *sc, const char *name)
+ {
+ 	struct ath9k_eeprom_ctx ec;
+-	struct ath_hw *ah = ah = sc->sc_ah;
++	struct ath_hw *ah = sc->sc_ah;
+ 	int err;
+ 
+ 	/* try to load the EEPROM content asynchronously */
 -- 
-1.7.10.4
+2.7.4
