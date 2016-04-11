@@ -1,39 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH] devlink: add missing install of header
-Date: Mon, 11 Apr 2016 13:39:08 -0700
-Message-ID: <1460407148-24228-1-git-send-email-stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net, jiri@mellanox.com
+From: David Howells <dhowells@redhat.com>
+Subject: Getting at the UDP headers from ->data_ready()
+Date: Mon, 11 Apr 2016 22:04:09 +0100
+Message-ID: <19466.1460408649@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, netdev@vger.kernel.org
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35571 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754539AbcDKUjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 16:39:11 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n1so130683745pfn.2
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 13:39:06 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:51498 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750925AbcDKVEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2016 17:04:11 -0400
+Content-ID: <19465.1460408649.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new devlink.h in uapi was not being installed by
-make headers_install
+Hi Willem,
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
----
- include/uapi/linux/Kbuild | 1 +
- 1 file changed, 1 insertion(+)
+With regards to:
 
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index b71fd0b..813ffb2e 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -96,6 +96,7 @@ header-y += cyclades.h
- header-y += cycx_cfm.h
- header-y += dcbnl.h
- header-y += dccp.h
-+header-y += devlink.h
- header-y += dlmconstants.h
- header-y += dlm_device.h
- header-y += dlm.h
--- 
-2.1.4
+    commit 4d0fc73ebe94ac984a187f21fbf4f3a1ac846f5a
+    Author: Willem de Bruijn <willemb@google.com>
+    Date:   Thu Apr 7 11:44:59 2016 -0400
+
+    rxrpc: do not pull udp headers on receive
+    
+    Commit e6afc8ace6dd modified the udp receive path by pulling the udp
+    header before queuing an skbuff onto the receive queue.
+ 
+Does that mean that I can no longer access the UDP header via udp_hdr(skb)
+from with the ->data_ready() handler?
+
+I'm guessing that's not actually the case since ip_hdr(skb) seems to work - or
+is that something I shouldn't be using since the part of the buffer containing
+the IP header might've been discarded?
+
+David
