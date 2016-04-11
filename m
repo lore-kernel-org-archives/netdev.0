@@ -1,59 +1,87 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC 2/5] net: phy: sun8i-h3-ephy: Add driver for Allwinner
- H3 Ethernet PHY
-Date: Mon, 11 Apr 2016 12:23:18 -0700
-Message-ID: <570BF9A6.2040109@gmail.com>
-References: <1459786954-12649-1-git-send-email-wens@csie.org>
- <1459786954-12649-3-git-send-email-wens@csie.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Mon, 11 Apr 2016 14:25:21 -0500
+Message-ID: <20160411192521.GA6896@rob-hp-laptop>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3381543.SDQLqND8Pp@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1459786954-12649-3-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: grant.likely@linaro.org, devicetree@vger.kernel.org,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
+	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3381543.SDQLqND8Pp@wasted.cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/04/16 09:22, Chen-Yu Tsai wrote:
-> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
-> configured through a memory mapped hardware register.
+On Sat, Apr 09, 2016 at 01:22:47AM +0300, Sergei Shtylyov wrote:
+> The PHY  devices sometimes do have their reset signal (maybe even power
+> supply?) tied to some GPIO and sometimes it also does happen that a boot
+> loader does not leave it deasserted. So far this issue has been attacked
+> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
+> the GPIO in question;  that solution, when  applied to the device trees,
+> led to adding the PHY reset GPIO properties to the MAC device node, with
+> one exception: Cadence MACB driver which could handle the "reset-gpios"
+> prop  in a PHY device  subnode.  I believe that the correct approach is to
+> teach the 'phylib' to get the MDIO device reset GPIO from the device tree
+> node corresponding to this device -- which this patch is doing...
 > 
-> This same register also configures the MAC interface mode and TX clock
-> source. Also covered by the register, but not supported in this driver,
-> are TX/RX clock delay chains and inverters, and an RMII module.
+> Note that I had to modify the  AT803x PHY driver as it would stop working
+> otherwise as it made use of the reset GPIO for its own purposes...
 
-This is not really a PHY driver, more a driver for a special piece of
-hardware responsible for properly configuring a more standard integrated
-PHY which is then driven via standard MDIO accesses, right?
+Lots of double spaces in here. Please fix.
 
-The intention to make this driver re-usable is fine, but still makes me
-wonder if it should not be put in a file which is linked into the
-Ethernet MAC driver, and utilized by this one in a way that may be more
-"ad-hoc" than what you are proposing here.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt |    2 +
+>  drivers/net/phy/at803x.c                      |   19 ++------------
+>  drivers/net/phy/mdio_bus.c                    |    4 +++
+>  drivers/net/phy/mdio_device.c                 |   27 +++++++++++++++++++--
+>  drivers/net/phy/phy_device.c                  |   33 ++++++++++++++++++++++++--
+>  drivers/of/of_mdio.c                          |   16 ++++++++++++
+>  include/linux/mdio.h                          |    3 ++
+>  include/linux/phy.h                           |    5 +++
+>  8 files changed, 89 insertions(+), 20 deletions(-)
 
-One thing that is not obvious here, is how is the device parenting done?
-Are we able to associate a phy_device to this SUN8I_H3_EPHY platform
-device here?
+[...]
 
-Another thing is that the Ethernet MAC driver is fully aware of when
-putting an Ethernet PHY into suspend, shutdown, or fully functional
-power state should occur, if you have a separate platform driver here
-which does not listen for such kinds of events (hint: none are generated
-right now), then you cannot implement a working power state interface
-between the MAC, SHIM and PHY here, even though you would want that.
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Index: net-next/drivers/of/of_mdio.c
+> ===================================================================
+> --- net-next.orig/drivers/of/of_mdio.c
+> +++ net-next/drivers/of/of_mdio.c
+> @@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
+>  static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
+>  				   u32 addr)
+>  {
+> +	struct gpio_desc *gpiod;
+>  	struct phy_device *phy;
+>  	bool is_c45;
+>  	int rc;
+> @@ -52,10 +53,17 @@ static int of_mdiobus_register_phy(struc
+>  	is_c45 = of_device_is_compatible(child,
+>  					 "ethernet-phy-ieee802.3-c45");
+>  
+> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
+
+Calling fwnode_* functions in a DT specific file/function? That doesn't 
+make sense.
+
+> +	/* Deassert the reset signal */
+> +	if (!IS_ERR(gpiod))
+> +		gpiod_direction_output(gpiod, 0);
+>  	if (!is_c45 && !of_get_phy_id(child, &phy_id))
+>  		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
+>  	else
+>  		phy = get_phy_device(mdio, addr, is_c45);
+> +	/* Assert the reset signal again */
+> +	if (!IS_ERR(gpiod))
+> +		gpiod_set_value(gpiod, 1);
+>  	if (IS_ERR_OR_NULL(phy))
+>  		return 1;
+>  
