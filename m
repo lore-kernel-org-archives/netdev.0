@@ -1,48 +1,41 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] mwifiex: fix possible NULL dereference
-Date: Mon, 11 Apr 2016 20:57:39 +0530
-Message-ID: <1460388459-21090-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
-To: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 0/3] bridge: filtering by vlan id
+Date: Mon, 11 Apr 2016 17:30:05 +0200
+Message-ID: <570BC2FD.8010201@cumulusnetworks.com>
+References: <1460380710-29583-1-git-send-email-nikolay@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33413 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbcDKP1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 11:27:54 -0400
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:36530 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702AbcDKPaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 11:30:08 -0400
+Received: by mail-wm0-f54.google.com with SMTP id v188so91397013wme.1
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 08:30:07 -0700 (PDT)
+In-Reply-To: <1460380710-29583-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+On 04/11/2016 03:18 PM, Nikolay Aleksandrov wrote:
+> Hi,
+> This set adds support for filtering by a vlan id when showing fdb/mdb/vlan
+> entries. Currently the filtering is implemented entirely in user-space, but
+> the plan is to add kernel support as well. The vlan show part is also needed
+> for the future per-vlan statistics in order to be able to show them only for
+> a specific vlan. I plan to update the bridge man page soon as it's missing
+> other options too and it seemed inconsistent to add this given that there're
+> potential paragraphs missing, thus I'll post a separate patch for that.
+> 
+> Thank you,
+>  Nik
+> 
 
-We have a check for card just after dereferencing it. So if it is NULL
-we have already dereferenced it before its check. Lets dereference it
-after checking card for NULL.
+Self-NAK, after discussing with colleagues, we think it'd be better not to print
+the non-matching ports at all (right now they're printed with empty "vlan ids"
+column). I'll post a v2 with updated patch 03.
 
-Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
----
- drivers/net/wireless/marvell/mwifiex/pcie.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-index edf8b07..84562d0 100644
---- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-+++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-@@ -2884,10 +2884,11 @@ static void mwifiex_unregister_dev(struct mwifiex_adapter *adapter)
- {
- 	struct pcie_service_card *card = adapter->card;
- 	const struct mwifiex_pcie_card_reg *reg;
--	struct pci_dev *pdev = card->dev;
-+	struct pci_dev *pdev;
- 	int i;
- 
- 	if (card) {
-+		pdev = card->dev;
- 		if (card->msix_enable) {
- 			for (i = 0; i < MWIFIEX_NUM_MSIX_VECTORS; i++)
- 				synchronize_irq(card->msix_entries[i].vector);
--- 
-1.9.1
+Cheers,
+ Nik
