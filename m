@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next] net: ipv4: Consider failed nexthops in
- multipath routes
-Date: Mon, 11 Apr 2016 15:18:53 -0400 (EDT)
-Message-ID: <20160411.151853.799647031209557799.davem@davemloft.net>
-References: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net 0/2] tipc: name distributor pernet queue
+Date: Mon, 11 Apr 2016 15:22:59 -0400 (EDT)
+Message-ID: <20160411.152259.1584867440804866074.davem@davemloft.net>
+References: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ja@ssi.bg
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36072 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36106 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754169AbcDKTSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 15:18:55 -0400
-In-Reply-To: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1754087AbcDKTXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 15:23:01 -0400
+In-Reply-To: <1460040044-30770-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu,  7 Apr 2016 07:21:00 -0700
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu,  7 Apr 2016 10:40:42 -0400
 
-> Multipath route lookups should consider knowledge about next hops and not
-> select a hop that is known to be failed.
+> Commit #1 fixes a potential issue with deferred binding table 
+> updates being pushed to the wrong namespace.
 > 
-> Example:
- ...
-> The failed path can be avoided by considering known neighbor information
-> when selecting next hops. If the neighbor lookup fails we have no
-> knowledge about the nexthop, so give it a shot. If there is an entry
-> then only select the nexthop if the state is sane. This is similar to
-> what fib_detect_death does.
-> 
-> To maintain backward compatibility use of the neighbor information is
-> based on a new sysctl, fib_multipath_use_neigh.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Commit #2 solves a problem with deferred binding table updates
+> remaining in the the defer queue after the issuing node has gone
+> down.
 
-Applied, thanks.
+Series applied, thanks.
