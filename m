@@ -1,74 +1,118 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Subject: Unhandled fault during system suspend in sky2_shutdown
-Date: Mon, 11 Apr 2016 17:24:37 +0100
-Message-ID: <570BCFC5.4070208@arm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Mon, 11 Apr 2016 19:31:57 +0300
+Message-ID: <20160411182111-mutt-send-email-mst@redhat.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <20140822073653.GA7372@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sudeep Holla <sudeep.holla@arm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Mirko Lindner <mlindner@marvell.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140822073653.GA7372@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, Aug 22, 2014 at 09:36:53AM +0200, Ingo Molnar wrote:
+> 
+> > > diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+> > > index 1d67fb6..8a33fb2 100644
+> > > --- a/include/net/busy_poll.h
+> > > +++ b/include/net/busy_poll.h
+> > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
+> > >  		cpu_relax();
+> > >  
+> > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+> > > -		 !need_resched() && !busy_loop_timeout(end_time));
+> > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
+> > > +		 nr_running_this_cpu() < 2);
+> 
+> So it's generally a bad idea to couple to the scheduler through 
+> such a low level, implementation dependent value like 
+> 'nr_running', causing various problems:
+> 
+>  - It misses important work that might be pending on this CPU,
+>    like RCU callbacks.
+> 
+>  - It will also over-credit task contexts that might be
+>    runnable, but which are less important than the currently
+>    running one: such as a SCHED_IDLE task
+> 
+>  - It will also over-credit even regular SCHED_NORMAL tasks, if
+>    this current task is more important than them: say
+>    SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
+>    with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
+>    on an otherwise idle system.
+> 
+> So what you want is a more sophisticated query to the 
+> scheduler, a sched_expected_runtime() method that returns the 
+> number of nsecs this task is expected to run in the future, 
+> which returns 0 if you will be scheduled away on the next 
+> schedule(), and returns infinity for a high prio SCHED_FIFO 
+> task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
+> 
+> It will return a regular time slice value in other cases, when 
+> there's some load on the CPU.
+> 
+> The polling logic can then do its decision based on that time 
+> value.
+> 
+> All this can be done reasonably fast and lockless in most 
+> cases, so that it can be called from busy-polling code.
+>
+> An added advantage would be that this approach consolidates the 
+> somewhat random need_resched() checks into this method as well.
+> 
+> In any case I don't agree with the nr_running_this_cpu() 
+> method.
+> 
+> (Please Cc: me and lkml to future iterations of this patchset.)
+> 
+> Thanks,
+> 
+> 	Ingo
 
-I am seeing unhandled fault during system suspend in sky2_shutdown.
-I am not sure if it's something missing in the firmware, but just wanted
-to check. I see that networkmanager is invoking calling to 
-netlink_sendmsg which calls sky2_get_stats after the device is shutdown.
+I tried to look into this: it might be even nicer to add
+sched_expected_to_run(time) which tells us whether we expect the current
+task to keep running for the next XX nsecs.
 
-Unhandled fault: synchronous external abort (0x96000210) at 
-0xffff0000091c2918
-Internal error: : 96000210 [#1] PREEMPT SMP
-Modules linked in:
-CPU: 3 PID: 2029 Comm: NetworkManager Not tainted 4.6.0-rc3 #126
-Hardware name: ARM Juno development board (r2) (DT)
-task: ffff80007a673000 ti: ffff800940b5c000 task.ti: ffff800940b5c000
-PC is at sky2_get_stats+0x44/0x3b8
-LR is at dev_get_stats+0x58/0xc8
-  sky2_get_stats+0x44/0x3b8
-  rtnl_fill_stats+0x20/0x138
-  rtnl_fill_ifinfo+0x440/0xb38
-  rtnl_getlink+0xe8/0x198
-  rtnetlink_rcv_msg+0xe4/0x220
-  netlink_rcv_skb+0xc4/0xf8
-  rtnetlink_rcv+0x2c/0x40
-  netlink_unicast+0x160/0x238
-  netlink_sendmsg+0x2f0/0x358
-  sock_sendmsg+0x18/0x30
-  ___sys_sendmsg+0x204/0x218
-  __sys_sendmsg+0x44/0x88
-  SyS_sendmsg+0xc/0x18
-  el0_svc_naked+0x24/0x28
+For the fair scheduler, it seems that it could be as simple as
 
-The below patch is the hack I came up to check if the netdev is detached 
-and unregistered, I no longer see the issue.
-
-Regards,
-Sudeep
-
--->8
-
-diff --git i/drivers/net/ethernet/marvell/sky2.c 
-w/drivers/net/ethernet/marvell/sky2.c
-index ec0a22119e09..0ff0434e32fc 100644
---- i/drivers/net/ethernet/marvell/sky2.c
-+++ w/drivers/net/ethernet/marvell/sky2.c
-@@ -5220,6 +5220,13 @@ static SIMPLE_DEV_PM_OPS(sky2_pm_ops, 
-sky2_suspend, sky2_resume);
-
-  static void sky2_shutdown(struct pci_dev *pdev)
-  {
-+       struct sky2_hw *hw = pci_get_drvdata(pdev);
-+       int i;
++static bool expected_to_run_fair(struct cfs_rq *cfs_rq, s64 t)
++{
++       struct sched_entity *left;
++       struct sched_entity *curr = cfs_rq->curr;
 +
-+       for (i = hw->ports - 1; i >= 0; --i) {
-+               sky2_detach(hw->dev[i]);
-+               unregister_netdev(hw->dev[i]);
-+       }
-         sky2_suspend(&pdev->dev);
-         pci_wake_from_d3(pdev, device_may_wakeup(&pdev->dev));
-         pci_set_power_state(pdev, PCI_D3hot);
++       if (!curr || !curr->on_rq)
++               return false;
++
++       left = __pick_first_entity(cfs_rq);
++       if (!left)
++               return true;
++
++       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
++                    left->vruntime) < 0;
++}
+
+The reason it seems easier is because that way we can reuse
+calc_delta_fair and don't have to do the reverse translation
+from vruntime to nsec.
+
+And I guess if we do this with interrupts disabled, and only poke
+at the current CPU's rq, we know first entity
+won't go away so we don't need locks? 
+
+Is this close to what you had in mind?
+
+Thanks,
+
+-- 
+MST
