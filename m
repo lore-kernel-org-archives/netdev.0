@@ -1,55 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle
- facility?
-Date: Mon, 11 Apr 2016 09:53:54 -0700
-Message-ID: <1460393634.6473.560.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	 <20160407161715.52635cac@redhat.com> <20160411085819.GE21128@suse.de>
-	 <20160411142639.1c5e520b@redhat.com>
-	 <20160411130826.GB32073@techsingularity.net>
-	 <20160411181907.15fdb8b9@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: re-enable-E-MAC interrupts in
+ sh_eth_set_ringparam()
+Date: Mon, 11 Apr 2016 20:10:50 +0300
+Message-ID: <570BDA9A.4030107@cogentembedded.com>
+References: <2542968.R3YjY2kHV4@wasted.cogentembedded.com>
+ <20160409.212725.649496142802966013.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@techsingularity.net>, James Bottomley
-	 <James.Bottomley@HansenPartnership.com>, "netdev@vger.kernel.org"
-	 <netdev@vger.kernel.org>, Brenden Blanco <bblanco@plumgrid.com>,
-	lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>, Mel Gorman
-	 <mgorman@suse.de>, Tom Herbert <tom@herbertland.com>,
-	lsf-pc@lists.linux-foundation.org, Alexei Starovoitov
-	 <alexei.starovoitov@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160411181907.15fdb8b9@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:32967 "EHLO
+	mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753994AbcDKRKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 13:10:55 -0400
+Received: by mail-lf0-f42.google.com with SMTP id e190so164710422lfe.0
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 10:10:54 -0700 (PDT)
+In-Reply-To: <20160409.212725.649496142802966013.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-11 at 18:19 +0200, Jesper Dangaard Brouer wrote:
+Hello.
 
-> Drivers also do tricks where they fallback to smaller order pages. E.g.
-> lookup function mlx4_alloc_pages().  I've tried to simulate that
-> function here:
-> https://github.com/netoptimizer/prototype-kernel/blob/91d323fc53/kernel/mm/bench/page_bench01.c#L69
+On 04/10/2016 04:27 AM, David Miller wrote:
 
-We use order-0 pages on mlx4 at Google, as order-3 pages are very
-dangerous for some kind of attacks...
+>> The E-MAC interrupts are left disabled when the ring parameters are changed
+>> via 'ethtool'. In order to fix this, it's enough to call sh_eth_dev_init()
+>> with 'true' instead of 'false' for the second argument (which conveniently
+>> allows us to remove the following code re-enabling E-DMAC interrupts and
+>> reception).
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>
+> Applied, thanks.
 
-An out of order TCP packet can hold an order-3 pages, while claiming to
-use 1.5 KBvia skb->truesize.
+    Thanks!
+    Unfortunately, this patch isn't fit for the stable kernels because there's 
+a prerequisite cleanup (most recent patch merged to this driver). I clearly 
+hadn't thought this out well -- should have enabled the E-MAC interrupts 
+outside sh_eth_dev_init() and then removed the duplicate code like I did here.
 
-order-0 only pages allow the page recycle trick used by Intel driver,
-and we hardly see any page allocations in typical workloads.
-
-While order-3 pages are 'nice' for friendly datacenter kind of traffic,
-they also are a higher risk on hosts connected to the wild Internet.
-
-Maybe I should upstream this patch ;)
-
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+MBR, Sergei
