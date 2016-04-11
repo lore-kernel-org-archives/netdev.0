@@ -1,177 +1,249 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH net-next 09/11] fjes: Enhance changing MTU related work
-Date: Mon, 11 Apr 2016 17:10:46 +0900
-Message-ID: <1460362246-15380-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH net-next 03/11] fjes: Add debugs facility for fjes module
+Date: Mon, 11 Apr 2016 17:10:11 +0900
+Message-ID: <1460362211-15122-1-git-send-email-izumi.taku@jp.fujitsu.com>
 References: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:60048 "EHLO
-	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbcDKITJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 04:19:09 -0400
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 910BCAC01BC
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 17:19:02 +0900 (JST)
+Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:19067 "EHLO
+	mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753133AbcDKISe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 04:18:34 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+	by yt-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 01CC1AC00AC
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 17:18:28 +0900 (JST)
 In-Reply-To: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enhances the fjes_change_mtu() method
-by introducing new flag named FJES_RX_MTU_CHANGING_DONE
-in rx_status. At the same time, default MTU value is
-changed into 65510 bytes.
+This patch introduces debugfs facility for fjes module.
+You can get EP status information by reading
+/sys/kernel/debug/fjes/fjes.N/status file.
+This is useful for debugging.
 
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 ---
- drivers/net/fjes/fjes_hw.c   |  8 +++++-
- drivers/net/fjes/fjes_hw.h   |  1 +
- drivers/net/fjes/fjes_main.c | 60 ++++++++++++++++++++++++++++++++++++--------
- 3 files changed, 58 insertions(+), 11 deletions(-)
+ drivers/net/fjes/Makefile       |   2 +-
+ drivers/net/fjes/fjes.h         |  16 ++++++
+ drivers/net/fjes/fjes_debugfs.c | 113 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/fjes/fjes_main.c    |  12 ++++-
+ 4 files changed, 141 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/fjes/fjes_debugfs.c
 
-diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index b2b11c3..4861e36 100644
---- a/drivers/net/fjes/fjes_hw.c
-+++ b/drivers/net/fjes/fjes_hw.c
-@@ -179,6 +179,8 @@ void fjes_hw_setup_epbuf(struct epbuf_handler *epbh, u8 *mac_addr, u32 mtu)
+diff --git a/drivers/net/fjes/Makefile b/drivers/net/fjes/Makefile
+index 523e3d7..51c20ce 100644
+--- a/drivers/net/fjes/Makefile
++++ b/drivers/net/fjes/Makefile
+@@ -27,4 +27,4 @@
  
- 	for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++)
- 		info->v1i.vlan_id[i] = vlan_id[i];
+ obj-$(CONFIG_FUJITSU_ES) += fjes.o
+ 
+-fjes-objs := fjes_main.o fjes_hw.o fjes_ethtool.o
++fjes-objs := fjes_main.o fjes_hw.o fjes_ethtool.o fjes_debugfs.o
+diff --git a/drivers/net/fjes/fjes.h b/drivers/net/fjes/fjes.h
+index a592fe2..a528f75 100644
+--- a/drivers/net/fjes/fjes.h
++++ b/drivers/net/fjes/fjes.h
+@@ -66,6 +66,10 @@ struct fjes_adapter {
+ 	bool interrupt_watch_enable;
+ 
+ 	struct fjes_hw hw;
 +
-+	info->v1i.rx_status |= FJES_RX_MTU_CHANGING_DONE;
- }
++#ifdef CONFIG_DEBUG_FS
++	struct dentry *dbg_adapter;
++#endif /* CONFIG_DEBUG_FS */
+ };
  
- void
-@@ -811,7 +813,8 @@ bool fjes_hw_check_mtu(struct epbuf_handler *epbh, u32 mtu)
- {
- 	union ep_buffer_info *info = epbh->info;
+ extern char fjes_driver_name[];
+@@ -74,4 +78,16 @@ extern const u32 fjes_support_mtu[];
  
--	return (info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu));
-+	return ((info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu)) &&
-+		info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE);
- }
+ void fjes_set_ethtool_ops(struct net_device *);
  
- bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
-@@ -864,6 +867,9 @@ bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
- {
- 	union ep_buffer_info *info = epbh->info;
- 
-+	if (!(info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE))
-+		return true;
++#ifdef CONFIG_DEBUG_FS
++void fjes_dbg_adapter_init(struct fjes_adapter *adapter);
++void fjes_dbg_adapter_exit(struct fjes_adapter *adapter);
++void fjes_dbg_init(void);
++void fjes_dbg_exit(void);
++#else
++static inline void fjes_dbg_adapter_init(struct fjes_adapter *adapter) {}
++static inline void fjes_dbg_adapter_exit(struct fjes_adapter *adapter) {}
++static inline void fjes_dbg_init(void) {}
++static inline void fjes_dbg_exit(void) {}
++#endif /* CONFIG_DEBUF_FS */
 +
- 	if (info->v1i.count_max == 0)
- 		return true;
- 
-diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-index a1c3d65..66cefd1 100644
---- a/drivers/net/fjes/fjes_hw.h
-+++ b/drivers/net/fjes/fjes_hw.h
-@@ -58,6 +58,7 @@ struct fjes_hw;
- #define FJES_RX_STOP_REQ_DONE		(0x1)
- #define FJES_RX_STOP_REQ_REQUEST	(0x2)
- #define FJES_RX_POLL_WORK		(0x4)
-+#define FJES_RX_MTU_CHANGING_DONE	(0x8)
- 
- #define EP_BUFFER_SIZE \
- 	(((sizeof(union ep_buffer_info) + (128 * (64 * 1024))) \
+ #endif /* FJES_H_ */
+diff --git a/drivers/net/fjes/fjes_debugfs.c b/drivers/net/fjes/fjes_debugfs.c
+new file mode 100644
+index 0000000..d2fd892
+--- /dev/null
++++ b/drivers/net/fjes/fjes_debugfs.c
+@@ -0,0 +1,113 @@
++/*
++ *  FUJITSU Extended Socket Network Device driver
++ *  Copyright (c) 2015 FUJITSU LIMITED
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, see <http://www.gnu.org/licenses/>.
++ *
++ * The full GNU General Public License is included in this distribution in
++ * the file called "COPYING".
++ *
++ */
++
++/* debugfs support for fjes */
++
++#ifdef CONFIG_DEBUG_FS
++
++#include <linux/debugfs.h>
++#include <linux/seq_file.h>
++#include <linux/platform_device.h>
++
++#include "fjes.h"
++
++static struct dentry *fjes_debug_root;
++
++static int fjes_dbg_status_show(struct seq_file *m, void *v)
++{
++	struct fjes_adapter *adapter = m->private;
++	struct fjes_hw *hw = &adapter->hw;
++	int max_epid = hw->max_epid;
++	int my_epid = hw->my_epid;
++	int epidx;
++
++	seq_printf(m,
++		   "status debug EP ID(n) n is partner status: UNSHARE(%d), SHARED(%d), WAITING(%d), COMPLETE(%d)\n",
++		   EP_PARTNER_UNSHARE, EP_PARTNER_SHARED, EP_PARTNER_WAITING,
++		   EP_PARTNER_COMPLETE);
++	seq_printf(m, "EP ID          SAME ZONE        CONNECTED\n");
++	for (epidx = 0; epidx < max_epid; epidx++) {
++		seq_printf(m, "%d", epidx);
++		if (epidx == my_epid)
++			seq_printf(m, "(self)        %c                %c\n",
++				   '-', '-');
++		else
++			seq_printf(m, "(%d)           %c                %c\n",
++				   fjes_hw_get_partner_ep_status(hw, epidx),
++				   fjes_hw_epid_is_same_zone(hw, epidx) ? 'Y' : 'N',
++				   fjes_hw_epid_is_shared(hw->hw_info.share, epidx) ? 'Y' : 'N');
++	}
++
++	return 0;
++}
++
++static int fjes_dbg_status_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, fjes_dbg_status_show, inode->i_private);
++}
++
++static const struct file_operations fjes_dbg_status_fops = {
++	.owner		= THIS_MODULE,
++	.open		= fjes_dbg_status_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
++void fjes_dbg_adapter_init(struct fjes_adapter *adapter)
++{
++	const char *name = dev_name(&adapter->plat_dev->dev);
++	struct dentry *pfile;
++
++	adapter->dbg_adapter = debugfs_create_dir(name, fjes_debug_root);
++	if (!adapter->dbg_adapter) {
++		dev_err(&adapter->plat_dev->dev,
++			"debugfs entry for %s failed\n", name);
++		return;
++	}
++
++	pfile = debugfs_create_file("status", 0444, adapter->dbg_adapter,
++				    adapter, &fjes_dbg_status_fops);
++	if (!pfile)
++		dev_err(&adapter->plat_dev->dev,
++			"debugfs status for %s failed\n", name);
++}
++
++void fjes_dbg_adapter_exit(struct fjes_adapter *adapter)
++{
++	debugfs_remove_recursive(adapter->dbg_adapter);
++	adapter->dbg_adapter = NULL;
++}
++
++void fjes_dbg_init(void)
++{
++	fjes_debug_root = debugfs_create_dir(fjes_driver_name, NULL);
++	if (!fjes_debug_root)
++		pr_info("init of debugfs failed\n");
++}
++
++void fjes_dbg_exit(void)
++{
++	debugfs_remove_recursive(fjes_debug_root);
++	fjes_debug_root = NULL;
++}
++
++#endif /* CONFIG_DEBUG_FS */
 diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index 8c7a8b0..8ab0523 100644
+index 40cf65d..7595415 100644
 --- a/drivers/net/fjes/fjes_main.c
 +++ b/drivers/net/fjes/fjes_main.c
-@@ -492,6 +492,9 @@ static void fjes_tx_stall_task(struct work_struct *work)
+@@ -1359,6 +1359,8 @@ static int fjes_probe(struct platform_device *plat_dev)
  
- 			info = adapter->hw.ep_shm_info[epid].tx.info;
+ 	netif_carrier_off(netdev);
  
-+			if (!(info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE))
-+				return;
++	fjes_dbg_adapter_init(adapter);
 +
- 			if (EP_RING_FULL(info->v1i.head, info->v1i.tail,
- 					 info->v1i.count_max)) {
- 				all_queue_available = 0;
-@@ -783,9 +786,11 @@ fjes_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
+ 	return 0;
  
- static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
+ err_hw_exit:
+@@ -1376,6 +1378,8 @@ static int fjes_remove(struct platform_device *plat_dev)
+ 	struct fjes_adapter *adapter = netdev_priv(netdev);
+ 	struct fjes_hw *hw = &adapter->hw;
+ 
++	fjes_dbg_adapter_exit(adapter);
++
+ 	cancel_delayed_work_sync(&adapter->interrupt_watch_task);
+ 	cancel_work_sync(&adapter->unshare_watch_task);
+ 	cancel_work_sync(&adapter->raise_intr_rxdata_task);
+@@ -1566,9 +1570,13 @@ static int __init fjes_init_module(void)
+ 	pr_info("%s - version %s - %s\n",
+ 		fjes_driver_string, fjes_driver_version, fjes_copyright);
+ 
++	fjes_dbg_init();
++
+ 	result = platform_driver_register(&fjes_driver);
+-	if (result < 0)
++	if (result < 0) {
++		fjes_dbg_exit();
+ 		return result;
++	}
+ 
+ 	result = acpi_bus_register_driver(&fjes_acpi_driver);
+ 	if (result < 0)
+@@ -1578,6 +1586,7 @@ static int __init fjes_init_module(void)
+ 
+ fail_acpi_driver:
+ 	platform_driver_unregister(&fjes_driver);
++	fjes_dbg_exit();
+ 	return result;
+ }
+ 
+@@ -1588,6 +1597,7 @@ static void __exit fjes_exit_module(void)
  {
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
- 	bool running = netif_running(netdev);
--	int ret = 0;
--	int idx;
-+	struct fjes_hw *hw = &adapter->hw;
-+	int ret = -EINVAL;
-+	int idx, epidx;
- 
- 	for (idx = 0; fjes_support_mtu[idx] != 0; idx++) {
- 		if (new_mtu <= fjes_support_mtu[idx]) {
-@@ -793,19 +798,54 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
- 			if (new_mtu == netdev->mtu)
- 				return 0;
- 
--			if (running)
--				fjes_close(netdev);
-+			ret = 0;
-+			break;
-+		}
-+	}
-+
-+	if (ret)
-+		return ret;
- 
--			netdev->mtu = new_mtu;
-+	if (running) {
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx == hw->my_epid)
-+				continue;
-+			hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
-+				~FJES_RX_MTU_CHANGING_DONE;
-+		}
-+		netif_tx_stop_all_queues(netdev);
-+		netif_carrier_off(netdev);
-+		cancel_work_sync(&adapter->tx_stall_task);
-+		napi_disable(&adapter->napi);
- 
--			if (running)
--				ret = fjes_open(netdev);
-+		msleep(1000);
- 
--			return ret;
-+		netif_tx_stop_all_queues(netdev);
-+	}
-+
-+	netdev->mtu = new_mtu;
-+
-+	if (running) {
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx == hw->my_epid)
-+				continue;
-+
-+			local_irq_disable();
-+			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+					    netdev->dev_addr,
-+					    netdev->mtu);
-+			local_irq_enable();
-+
-+			hw->ep_shm_info[epidx].tx.info->v1i.rx_status |=
-+				FJES_RX_MTU_CHANGING_DONE;
- 		}
-+
-+		netif_tx_wake_all_queues(netdev);
-+		netif_carrier_on(netdev);
-+		napi_enable(&adapter->napi);
- 	}
- 
--	return -EINVAL;
-+	return ret;
+ 	acpi_bus_unregister_driver(&fjes_acpi_driver);
+ 	platform_driver_unregister(&fjes_driver);
++	fjes_dbg_exit();
  }
  
- static int fjes_vlan_rx_add_vid(struct net_device *netdev,
-@@ -1450,7 +1490,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
- 	netdev->watchdog_timeo = FJES_TX_RETRY_INTERVAL;
- 	netdev->netdev_ops = &fjes_netdev_ops;
- 	fjes_set_ethtool_ops(netdev);
--	netdev->mtu = fjes_support_mtu[0];
-+	netdev->mtu = fjes_support_mtu[3];
- 	netdev->flags |= IFF_BROADCAST;
- 	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
- }
+ module_exit(fjes_exit_module);
 -- 
 2.4.3
