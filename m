@@ -1,36 +1,46 @@
-From: Pavel Emelyanov <xemul@virtuozzo.com>
-Subject: Re: [PATCH net] packet: fix heap info leak in PACKET_DIAG_MCLIST
- sock_diag interface
-Date: Mon, 11 Apr 2016 11:58:35 +0300
-Message-ID: <570B673B.7020705@virtuozzo.com>
-References: <1460285548-832-1-git-send-email-minipli@googlemail.com>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: Inconsistent use of size argument in kzalloc and memcpy in
+ 'drivers/net/ethernet/toshiba/ps3_gelic_wireless.c'
+Date: Mon, 11 Apr 2016 12:00:04 +0200
+Message-ID: <570B75A4.5070904@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Mathias Krause <minipli@googlemail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0107.outbound.protection.outlook.com ([157.56.112.107]:63247
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752497AbcDKJaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2016 05:30:30 -0400
-In-Reply-To: <1460285548-832-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: geoff@infradead.org, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, kernel-janitors@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/10/2016 01:52 PM, Mathias Krause wrote:
-> Because we miss to wipe the remainder of i->addr[] in packet_mc_add(),
-> pdiag_put_mclist() leaks uninitialized heap bytes via the
-> PACKET_DIAG_MCLIST netlink attribute.
-> 
-> Fix this by explicitly memset(0)ing the remaining bytes in i->addr[].
-> 
-> Fixes: eea68e2f1a00 ("packet: Report socket mclist info via diag module")
-> Signed-off-by: Mathias Krause <minipli@googlemail.com>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Pavel Emelyanov <xemul@parallels.com>
+Hi,
 
-Acked-by: Pavel Emelyanov <xemul@virtuozzo.com>
+while looking at potential clean-up, I ended on the following code which 
+looks spurious to me.
+
+We allocate 'be16_to_cpu(scan_info->size)' bytes, but then copy 
+'scan_info->size'.
+This is not consistent.
+
+
+I don't know which one is the correct one.
+
+
+CJ
+
+--- drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
++++ /tmp/cocci-output-24201-0dddbd-ps3_gelic_wireless.c
+@@ -1616,13 +1616,10 @@ static void gelic_wl_scan_complete_event
+          target->valid = 1;
+          target->eurus_index = i;
+          kfree(target->hwinfo);
+-        target->hwinfo = kzalloc(be16_to_cpu(scan_info->size),
+-                     GFP_KERNEL);
+          if (!target->hwinfo)
+              continue;
+
+          /* copy hw scan info */
+-        memcpy(target->hwinfo, scan_info, scan_info->size);
+          target->essid_len = strnlen(scan_info->essid,
+                          sizeof(scan_info->essid));
+          target->rate_len = 0;
+
