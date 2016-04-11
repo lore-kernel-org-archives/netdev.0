@@ -1,167 +1,59 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 1/7] net: dsa: Pass the dsa device to the switch drivers
-Date: Mon, 11 Apr 2016 21:50:03 +0200
-Message-ID: <1460404209-32083-2-git-send-email-andrew@lunn.ch>
-References: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 0/7] DSA refactoring: set 1
+Date: Mon, 11 Apr 2016 21:50:02 +0200
+Message-ID: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53422 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:53427 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753611AbcDKTvK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2016 15:51:10 -0400
-In-Reply-To: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
+	id S1752883AbcDKTv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2016 15:51:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By passing a device structure to the switch devices, it allows them
-to use devm_* methods for resource management.
+There has been a long running effort to refractor DSA probing to make
+the switches true linux devices. Here are a small collection of
+patches moving in this direction. Most have been seen before.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c   | 3 ++-
- drivers/net/dsa/mv88e6060.c | 3 ++-
- drivers/net/dsa/mv88e6123.c | 3 ++-
- drivers/net/dsa/mv88e6131.c | 3 ++-
- drivers/net/dsa/mv88e6171.c | 3 ++-
- drivers/net/dsa/mv88e6352.c | 3 ++-
- include/net/dsa.h           | 3 ++-
- net/dsa/dsa.c               | 7 ++++---
- 8 files changed, 18 insertions(+), 10 deletions(-)
+We take a little step forward by passing the dsa device point to the
+driver, thus allowing it to perform resource allocations using the
+normal mechanisms. This device structure will later be replaced by the
+devices own device structure.
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 780f22876538..18a79579141f 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -135,7 +135,8 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
- 	return BCM_SF2_STATS_SIZE;
- }
- 
--static char *bcm_sf2_sw_probe(struct device *host_dev, int sw_addr)
-+static char *bcm_sf2_sw_probe(struct device *dsa_dev, struct device *host_dev,
-+			      int sw_addr)
- {
- 	return "Broadcom Starfighter 2";
- }
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 0527f485c3dc..34d0f9fe19db 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -57,7 +57,8 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
- 			return __ret;				\
- 	})
- 
--static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6060_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr)
- {
- 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
- 	int ret;
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 69a6f79dcb10..ede4c6f0b31a 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -29,7 +29,8 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
- 	{ PORT_SWITCH_ID_6165_A2, "Marvell 88e6165 (A2)" },
- };
- 
--static char *mv88e6123_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6123_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr)
- {
- 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
- 				     ARRAY_SIZE(mv88e6123_table));
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 24070287c2bc..bfadfd2cbb8d 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -25,7 +25,8 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
- 	{ PORT_SWITCH_ID_6185, "Marvell 88E6185" },
- };
- 
--static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6131_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr)
- {
- 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
- 				     ARRAY_SIZE(mv88e6131_table));
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 0e62f3b5bc81..fb35d3ac1644 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -24,7 +24,8 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
- 	{ PORT_SWITCH_ID_6351, "Marvell 88E6351" },
- };
- 
--static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6171_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr)
- {
- 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
- 				     ARRAY_SIZE(mv88e6171_table));
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 7f452e4a04a5..577ab2cfa944 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -37,7 +37,8 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
- 	{ PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)" },
- };
- 
--static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6352_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr)
- {
- 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
- 				     ARRAY_SIZE(mv88e6352_table));
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 18d1be3ad62d..0f9f6f38f255 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -212,7 +212,8 @@ struct dsa_switch_driver {
- 	/*
- 	 * Probing and setup.
- 	 */
--	char	*(*probe)(struct device *host_dev, int sw_addr);
-+	char	*(*probe)(struct device *dsa_dev, struct device *host_dev,
-+			  int sw_addr);
- 	int	(*setup)(struct dsa_switch *ds);
- 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
- 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index c28c47463b7e..c06275311cb2 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -51,7 +51,8 @@ void unregister_switch_driver(struct dsa_switch_driver *drv)
- EXPORT_SYMBOL_GPL(unregister_switch_driver);
- 
- static struct dsa_switch_driver *
--dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
-+dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
-+		 char **_name)
- {
- 	struct dsa_switch_driver *ret;
- 	struct list_head *list;
-@@ -66,7 +67,7 @@ dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
- 
- 		drv = list_entry(list, struct dsa_switch_driver, list);
- 
--		name = drv->probe(host_dev, sw_addr);
-+		name = drv->probe(parent, host_dev, sw_addr);
- 		if (name != NULL) {
- 			ret = drv;
- 			break;
-@@ -387,7 +388,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	/*
- 	 * Probe for switch model.
- 	 */
--	drv = dsa_switch_probe(host_dev, pd->sw_addr, &name);
-+	drv = dsa_switch_probe(parent, host_dev, pd->sw_addr, &name);
- 	if (drv == NULL) {
- 		netdev_err(dst->master_netdev, "[%d]: could not detect attached switch\n",
- 			   index);
+Future patches will add a true driver probe function, so we rename the
+current probe function, cleaning up the namespace.
+
+phys_port_mask continually confuses me, thinking it is about PHYs. But
+it is actually about ports to the outside world, user ports. So rename
+it.
+
+Lots more patches yet to follow, this is just doing some ground work.
+
+Andrew Lunn (7):
+  net: dsa: Pass the dsa device to the switch drivers
+  net: dsa: Have the switch driver allocate there own private memory
+  net: dsa: Remove allocation of driver private memory
+  net: dsa: Keep the mii bus and address in the private structure
+  net: dsa: Rename DSA probe function.
+  dsa: Rename phys_port_mask to user_port_mask
+  dsa: mv88e6xxx: Use bus in mv88e6xxx_lookup_name()
+
+ drivers/net/dsa/bcm_sf2.c   | 24 +++++++++++++-------
+ drivers/net/dsa/mv88e6060.c | 47 +++++++++++++++++++++++---------------
+ drivers/net/dsa/mv88e6060.h | 11 +++++++++
+ drivers/net/dsa/mv88e6123.c | 14 +++++++-----
+ drivers/net/dsa/mv88e6131.c | 14 +++++++-----
+ drivers/net/dsa/mv88e6171.c | 14 +++++++-----
+ drivers/net/dsa/mv88e6352.c | 14 +++++++-----
+ drivers/net/dsa/mv88e6xxx.c | 55 +++++++++++++++++++++++++++++++--------------
+ drivers/net/dsa/mv88e6xxx.h | 17 +++++++++++---
+ include/net/dsa.h           | 16 ++++++++-----
+ net/dsa/dsa.c               | 19 +++++++++-------
+ 11 files changed, 166 insertions(+), 79 deletions(-)
+
 -- 
 2.7.0
