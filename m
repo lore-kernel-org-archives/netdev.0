@@ -1,47 +1,113 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH net-next 00/11] FUJITSU Extended Socket driver version 1.1
-Date: Mon, 11 Apr 2016 17:08:56 +0900
-Message-ID: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Subject: [PATCH net-next 02/11] fjes: Add setting/getting register value feature via ioctl
+Date: Mon, 11 Apr 2016 17:10:04 +0900
+Message-ID: <1460362204-15078-1-git-send-email-izumi.taku@jp.fujitsu.com>
+References: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Cc: Taku Izumi <izumi.taku@jp.fujitsu.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym02.jp.fujitsu.com ([211.128.242.41]:36171 "EHLO
-	mgwym02.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136AbcDKIRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 04:17:20 -0400
+Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:59838 "EHLO
+	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbcDKIS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 04:18:27 -0400
 Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
-	by yt-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 2BC1AAC0057
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 17:17:15 +0900 (JST)
+	by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 53E50AC00D3
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 17:18:21 +0900 (JST)
+In-Reply-To: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchsets update FUJITSU Extended Socket network driver into version 1.1.
-This mainly includes debugging feature and some minor bugfix. 
+This patch introduces setting/getting register value feature
+via ioctl. This feature is useful for debugging.
 
+Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+---
+ drivers/net/fjes/fjes_ioctl.h |  7 +++++++
+ drivers/net/fjes/fjes_main.c  | 39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
 
-Taku Izumi (11):
-  fjes: Add trace-gathering facility
-  fjes: Add setting/getting register value feature via ioctl
-  fjes: Add debugs facility for fjes module
-  fjes: Add debugfs entry for statistics
-  fjes: show EP stats at statistics file in debugfs
-  fjes: optimize timeout value
-  fjes: fix incorrect statistics information in fjes_xmit_frame()
-  fjes: fix bitwise check bug in fjes_raise_intr_rxdata_task
-  fjes: Enhance changing MTU related work
-  fjes: Introduce spinlock for rx_status
-  fjes: Update fjes driver version : 1.1
-
- drivers/net/fjes/Makefile       |   2 +-
- drivers/net/fjes/fjes.h         |  16 ++
- drivers/net/fjes/fjes_debugfs.c | 212 +++++++++++++++++++++
- drivers/net/fjes/fjes_hw.c      | 179 +++++++++++++++++-
- drivers/net/fjes/fjes_hw.h      |  43 ++++-
- drivers/net/fjes/fjes_ioctl.h   |  93 ++++++++++
- drivers/net/fjes/fjes_main.c    | 400 +++++++++++++++++++++++++++++++++++++---
- 7 files changed, 909 insertions(+), 36 deletions(-)
- create mode 100644 drivers/net/fjes/fjes_debugfs.c
- create mode 100644 drivers/net/fjes/fjes_ioctl.h
-
+diff --git a/drivers/net/fjes/fjes_ioctl.h b/drivers/net/fjes/fjes_ioctl.h
+index 35adfda..61619f7 100644
+--- a/drivers/net/fjes/fjes_ioctl.h
++++ b/drivers/net/fjes/fjes_ioctl.h
+@@ -25,6 +25,8 @@
+ #define FJES_IOCTL_TRACE_START		(SIOCDEVPRIVATE + 1)
+ #define FJES_IOCTL_TRACE_STOP		(SIOCDEVPRIVATE + 2)
+ #define FJES_IOCTL_TRACE_GETCFG		(SIOCDEVPRIVATE + 3)
++#define FJES_IOCTL_DEV_GETREG		(SIOCDEVPRIVATE + 4)
++#define FJES_IOCTL_DEV_SETREG		(SIOCDEVPRIVATE + 5)
+ 
+ struct fjes_ioctl_trace_start_req_val {
+ 	u32	mode;
+@@ -70,6 +72,11 @@ struct fjes_ioctl_trace_param {
+ 	union fjes_ioctl_trace_res_val	res;
+ };
+ 
++struct fjes_ioctl_dev_reg_param {
++	u32	offset;
++	u32	val;
++};
++
+ #define FJES_IOCTL_TRACE_START_ERR_NORMAL		(0x0000)
+ #define FJES_IOCTL_TRACE_START_ERR_BUSY			(0x0001)
+ #define FJES_IOCTL_TRACE_START_ERR_PARAM		(0x0100)
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index bc6e31d..40cf65d 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -977,6 +977,40 @@ static int fjes_ioctl_trace_getcfg(struct net_device *netdev, struct ifreq *rq)
+ 	return 0;
+ }
+ 
++static int fjes_ioctl_reg_read(struct net_device *netdev, struct ifreq *rq)
++{
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct fjes_ioctl_dev_reg_param reg;
++	struct fjes_hw *hw = &adapter->hw;
++
++	if (copy_from_user(&reg, rq->ifr_data, sizeof(reg)))
++		return -EFAULT;
++
++	reg.val = rd32(reg.offset);
++
++	if (copy_to_user(rq->ifr_data, &reg, sizeof(reg)))
++		return -EFAULT;
++
++	return 0;
++}
++
++static int fjes_ioctl_reg_write(struct net_device *netdev, struct ifreq *rq)
++{
++	struct fjes_adapter *adapter = netdev_priv(netdev);
++	struct fjes_ioctl_dev_reg_param reg;
++	struct fjes_hw *hw = &adapter->hw;
++
++	if (copy_from_user(&reg, rq->ifr_data, sizeof(reg)))
++		return -EFAULT;
++
++	wr32(reg.offset, reg.val);
++
++	if (copy_to_user(rq->ifr_data, &reg, sizeof(reg)))
++		return -EFAULT;
++
++	return 0;
++}
++
+ static int fjes_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ {
+ 	switch (cmd) {
+@@ -986,7 +1020,12 @@ static int fjes_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 		return fjes_ioctl_trace_stop(netdev, rq);
+ 	case FJES_IOCTL_TRACE_GETCFG:
+ 		return fjes_ioctl_trace_getcfg(netdev, rq);
++	case FJES_IOCTL_DEV_GETREG:
++		return fjes_ioctl_reg_read(netdev, rq);
++	case FJES_IOCTL_DEV_SETREG:
++		return fjes_ioctl_reg_write(netdev, rq);
+ 	default:
++
+ 		return -EOPNOTSUPP;
+ 	}
+ }
 -- 
 2.4.3
