@@ -1,50 +1,51 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
-Date: Tue, 12 Apr 2016 00:24:29 +0300
-Message-ID: <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
-References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
- <1460405422-8654-3-git-send-email-saeedm@mellanox.com> <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 14:27:40 -0700
+Message-ID: <1460410060.6473.574.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	 <20160407161715.52635cac@redhat.com>
+	 <1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160409111132.781a11b6@redhat.com>
+	 <1460205278.6473.486.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160411222309.499a2125@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: lsf@lists.linux-foundation.org, Tom Herbert <tom@herbertland.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lsf-pc@lists.linux-foundation.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34429 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753672AbcDKV1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 17:27:43 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ot11so45257262pab.1
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 14:27:42 -0700 (PDT)
+In-Reply-To: <20160411222309.499a2125@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2016 at 12:17 AM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
-> feature --> features
+On Mon, 2016-04-11 at 22:23 +0200, Jesper Dangaard Brouer wrote:
 
-Correct, will fix.
+> If we have a page-pool recycle facility, then we could use the trick,
+> right? (As we know that get_page_unless_zero() cannot happen for pages
+> in the pool).
 
->
->> * Add vport to steering commands for SRIOV ACL support
->> * Add mlcr, pcmr and mcia registers for dump module EEPROM
->> * Add support for FCS, baeacon led and disable_link bits to
->>   hca caps
->> * Add CQE period mode bit in  CQ context for CQE based CQ
->>   moderation support
->> * Add umr SQ bit for fragmented memory registration
->> * Add needed bits and caps for Striding RQ support
->
-> AFAIK, all the above are features will go through net-next, what made
-> you anticipate conflicts with linux-rdma?
+Well, if you disable everything that possibly use
+get_page_unless_zero(), I guess this could work.
 
-FCS bit is needed also for rdma, so we took the liberty of updating
-all the needed HW structs, bits, caps, etc ..
-at once for all mlx5 features planned for 4.7 regardless of rdma/net conflicts.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But then, you'll have to spy lkml traffic forever to make sure no new
+feature is added in the kernel, using this get_page_unless_zero() in a
+new clever way.
+
+You could use a page flag so that z BUG() triggers if
+get_page_unless_zero() is attempted on one of your precious pages ;)\
+
+We had very subtle issues before my fixes (check
+35b7a1915aa33da812074744647db0d9262a555c and children), so I would not
+waste time on the lock prefix avoidance at this point.
