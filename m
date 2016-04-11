@@ -1,69 +1,49 @@
-From: Christian Daudt <csd-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] mwifiex: fix possible NULL dereference
-Date: Mon, 11 Apr 2016 11:38:34 -0700
-Message-ID: <CAHCK0=OX_bMoC=dwawmdSsMxk0cS3CxadqT5Y3QAUnSvgAHw+A@mail.gmail.com>
-References: <1460388459-21090-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
+Date: Mon, 11 Apr 2016 21:39:02 +0300
+Message-ID: <570BEF46.7060105@cogentembedded.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
+ <20160411022802.GB4307@lunn.ch> <570BE1C5.70502@cogentembedded.com>
+ <20160411181904.GB29709@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Sudip Mukherjee <sudip.mukherjee-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1460388459-21090-1-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160411181904.GB29709@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2016 at 8:27 AM, Sudip Mukherjee
-<sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->
-> From: Sudip Mukherjee <sudip.mukherjee-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
->
-> We have a check for card just after dereferencing it. So if it is NULL
-> we have already dereferenced it before its check. Lets dereference it
-> after checking card for NULL.
->
-> Signed-off-by: Sudip Mukherjee <sudip.mukherjee-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> ---
->  drivers/net/wireless/marvell/mwifiex/pcie.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> index edf8b07..84562d0 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> @@ -2884,10 +2884,11 @@ static void mwifiex_unregister_dev(struct mwifiex_adapter *adapter)
->  {
->         struct pcie_service_card *card = adapter->card;
->         const struct mwifiex_pcie_card_reg *reg;
-> -       struct pci_dev *pdev = card->dev;
-> +       struct pci_dev *pdev;
+Hello.
 
+On 04/11/2016 09:19 PM, Andrew Lunn wrote:
 
-you might want to move the variable declaration into the if block
-below to avoid it being left undefined
+>>> The code you are deleting would of ignored the flags in the gpio
+>>> property, i.e. active low.
+>>
+>>     Hm, you're right -- I forgot about that... :-/
+>>
+>>> The new code in the previous patch does
+>>> however take the flags into account. Did you check if there are any
+>>> device trees which have flags, which were never used, but are now
+>>> going to be used and thus break...
+>>
+>>     Checked this now and found out arch/arm/boot/dts/ar91-vinco.dts.
+>> Looks like it needs to be fixed indeed...
+>>
+> And this is where it gets tricky. You are breaking backwards
+> compatibility by now respecting the flag. An old DT blob is not going
+> to work.
 
->         int i;
->
->         if (card) {
-> +               pdev = card->dev;
+    Do we care that much about the DT blobs that are just *wrong*?
 
+> You potentially need to add a new property and deprecate the old one.
 
-to here
-  +                struct pci_dev pdev = card->dev;
+    I would like to avoid that...
 
->
->                 if (card->msix_enable) {
->                         for (i = 0; i < MWIFIEX_NUM_MSIX_VECTORS; i++)
->                                 synchronize_irq(card->msix_entries[i].vector);
->
+>      Andrew
 
-cheers,
-  csd
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
