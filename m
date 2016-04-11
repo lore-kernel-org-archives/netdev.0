@@ -1,53 +1,72 @@
-From: Lars Persson <lars.persson@axis.com>
-Subject: [PATCH net v2] net: sched: do not requeue a NULL skb
-Date: Mon, 11 Apr 2016 08:24:29 +0200
-Message-ID: <1460355869-13539-1-git-send-email-larper@axis.com>
-Cc: jhs@mojatatu.com, linux-kernel@vger.kernel.org,
-	xiyou.wangcong@gmail.com, Lars Persson <larper@axis.com>
-To: netdev@vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 1/4] bnxt_en: Disallow forced speed for 10GBaseT devices.
+Date: Mon, 11 Apr 2016 04:11:11 -0400
+Message-ID: <1460362274-21771-2-git-send-email-michael.chan@broadcom.com>
+References: <1460362274-21771-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:51094 "EHLO bes.se.axis.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750862AbcDKGYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2016 02:24:37 -0400
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:57523 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbcDKILQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 04:11:16 -0400
+In-Reply-To: <1460362274-21771-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A failure in validate_xmit_skb_list() triggered an unconditional call
-to dev_requeue_skb with skb=NULL. This slowly grows the queue
-discipline's qlen count until all traffic through the queue stops.
+10GBaseT devices must autonegotiate to determine master/slave clocking.
+Disallow forced speed in ethtool .set_settings() for these devices.
 
-By introducing a NULL check in dev_requeue_skb it was also necessary
-to make the __netif_schedule call conditional to avoid scheduling an
-empty queue.
-
-Fixes: 55a93b3ea780 ("qdisc: validate skb without holding lock")
-Signed-off-by: Lars Persson <larper@axis.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- net/sched/sch_generic.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 8 ++++++++
+ 3 files changed, 10 insertions(+)
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f18c350..4e6a79c 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -47,10 +47,13 @@ EXPORT_SYMBOL(default_qdisc_ops);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 597e472..a06dcaa 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4611,6 +4611,7 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 	link_info->phy_ver[1] = resp->phy_min;
+ 	link_info->phy_ver[2] = resp->phy_bld;
+ 	link_info->media_type = resp->media_type;
++	link_info->phy_type = resp->phy_type;
+ 	link_info->transceiver = resp->xcvr_pkg_type;
+ 	link_info->phy_addr = resp->eee_config_phy_addr &
+ 			      PORT_PHY_QCFG_RESP_PHY_ADDR_MASK;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index cc8e38a..26dac2f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -759,6 +759,7 @@ struct bnxt_ntuple_filter {
+ };
  
- static inline int dev_requeue_skb(struct sk_buff *skb, struct Qdisc *q)
- {
--	q->gso_skb = skb;
--	q->qstats.requeues++;
--	q->q.qlen++;	/* it's still part of the queue */
--	__netif_schedule(q);
-+	if (skb) {
-+		q->gso_skb = skb;
-+		q->qstats.requeues++;
-+		q->q.qlen++;	/* it's still part of the queue */
-+	}
-+	if (qdisc_qlen(q))
-+		__netif_schedule(q);
+ struct bnxt_link_info {
++	u8			phy_type;
+ 	u8			media_type;
+ 	u8			transceiver;
+ 	u8			phy_addr;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index a2e9324..d6e41f2 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -850,7 +850,15 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 		set_pause = true;
+ 	} else {
+ 		u16 fw_speed;
++		u8 phy_type = link_info->phy_type;
  
- 	return 0;
- }
++		if (phy_type == PORT_PHY_QCFG_RESP_PHY_TYPE_BASET  ||
++		    phy_type == PORT_PHY_QCFG_RESP_PHY_TYPE_BASETE ||
++		    link_info->media_type == PORT_PHY_QCFG_RESP_MEDIA_TYPE_TP) {
++			netdev_err(dev, "10GBase-T devices must autoneg\n");
++			rc = -EINVAL;
++			goto set_setting_exit;
++		}
+ 		/* TODO: currently don't support half duplex */
+ 		if (cmd->duplex == DUPLEX_HALF) {
+ 			netdev_err(dev, "HALF DUPLEX is not supported!\n");
 -- 
-2.1.4
+1.8.3.1
