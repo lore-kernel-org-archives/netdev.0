@@ -1,85 +1,72 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: mcp251x: Replace create_freezable_workqueue with
- alloc_workqueue
-Date: Mon, 11 Apr 2016 10:35:39 +0200
-Message-ID: <570B61DB.9070909@pengutronix.de>
-References: <20160408153210.GA15068@amitoj-Inspiron-3542>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 09:58:19 +0100
+Message-ID: <20160411085819.GE21128@suse.de>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+ <20160407161715.52635cac@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="TOhk9DpAvsb1W32dF343tIhEb1tpffRfC"
-Cc: tj@kernel.org
-To: Amitoj Kaur Chawla <amitoj1606@gmail.com>, wg@grandegger.com,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20160408153210.GA15068@amitoj-Inspiron-3542>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Tom Herbert <tom@herbertland.com>,
+	lsf-pc@lists.linux-foundation.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160407161715.52635cac@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---TOhk9DpAvsb1W32dF343tIhEb1tpffRfC
-Content-Type: multipart/mixed; boundary="sQrJ3C3pfEgiGmfwRoPSRAiXxADgGwVB6"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Amitoj Kaur Chawla <amitoj1606@gmail.com>, wg@grandegger.com,
- linux-can@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org
-Cc: tj@kernel.org
-Message-ID: <570B61DB.9070909@pengutronix.de>
-Subject: Re: [PATCH] can: mcp251x: Replace create_freezable_workqueue with
- alloc_workqueue
-References: <20160408153210.GA15068@amitoj-Inspiron-3542>
-In-Reply-To: <20160408153210.GA15068@amitoj-Inspiron-3542>
+On Thu, Apr 07, 2016 at 04:17:15PM +0200, Jesper Dangaard Brouer wrote:
+> (Topic proposal for MM-summit)
+> 
+> Network Interface Cards (NIC) drivers, and increasing speeds stress
+> the page-allocator (and DMA APIs).  A number of driver specific
+> open-coded approaches exists that work-around these bottlenecks in the
+> page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
+> allocating larger pages and handing-out page "fragments".
+> 
+> I'm proposing a generic page-pool recycle facility, that can cover the
+> driver use-cases, increase performance and open up for zero-copy RX.
+> 
 
---sQrJ3C3pfEgiGmfwRoPSRAiXxADgGwVB6
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Which bottleneck dominates -- the page allocator or the DMA API when
+setting up coherent pages?
 
-On 04/08/2016 05:32 PM, Amitoj Kaur Chawla wrote:
-> Replace scheduled to be removed create_freezable_workqueue with
-> alloc_workqueue.
->=20
-> priv->wq should be explicitly set as freezable to ensure it is frozen
-> in the suspend sequence and work items are drained so that no new work
-> item starts execution until thawed. Thus, use of WQ_FREEZABLE flag
-> here is required.
->=20
-> WQ_MEM_RECLAIM flag has been set here to ensure forward progress
-> regardless of memory pressure.
->=20
-> The order of execution is not important so set @max_active as 0.
->=20
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> Acked-by: Tejun Heo <tj@kernel.org>
+I'm wary of another page allocator API being introduced if it's for
+performance reasons. In response to this thread, I spent two days on
+a series that boosts performance of the allocator in the fast paths by
+11-18% to illustrate that there was low-hanging fruit for optimising. If
+the one-LRU-per-node series was applied on top, there would be a further
+boost to performance on the allocation side. It could be further boosted
+if debugging checks and statistic updates were conditionally disabled by
+the caller.
 
-Applied to can-next/master.
+The main reason another allocator concerns me is that those pages
+are effectively pinned and cannot be reclaimed by the VM in low memory
+situations. It ends up needing its own API for tuning the size and hoping
+all the drivers get it right without causing OOM situations. It becomes
+a slippery slope of introducing shrinkers, locking and complexity. Then
+callers start getting concerned about NUMA locality and having to deal
+with multiple lists to maintain performance. Ultimately, it ends up being
+as slow as the page allocator and back to square 1 except now with more code.
 
-Tnx,
-Marc
+If it's the DMA API that dominates then something may be required but it
+should rely on the existing page allocator to alloc/free from. It would
+also need something like drain_all_pages to force free everything in there
+in low memory situations. Remember that multiple instances private to
+drivers or tasks will require shrinker implementations and the complexity
+may get unwieldly.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+-- 
+Mel Gorman
+SUSE Labs
 
-
---sQrJ3C3pfEgiGmfwRoPSRAiXxADgGwVB6--
-
---TOhk9DpAvsb1W32dF343tIhEb1tpffRfC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJXC2HbAAoJED07qiWsqSVqTx4H/RZu1D52slftsplnUe+1SaNU
-Xwp1tHXszSt5MZy2x8ss1hPBUnHkbAKQUqLm/jLx9ZEqHl8BmLkRVvH2LDd0/Ysv
-+R1GSyKecHdd8dk4VpOoxZB7bhKz6y54HPzLyaEPzRXGjwawoqg+3XiY/lC5lIJ5
-BsPhaoYZPAijdxXXVJ3+doniroVwe0EnrDJ/UzvQG3af2ZdUN71aq0IfW2QR8yn0
-rbLsj0YwcG+kU6U+wnRR4jF8Zk84cs1UYh8mT4WKXNm3WHLPdgGbrSZPVhj2Z44k
-GLGekznYbp8focxG1CoP3CWzWZIMH2ESTBskR6k2jI+kgZzbwFqwEvOI/lNoprQ=
-=Wc+h
------END PGP SIGNATURE-----
-
---TOhk9DpAvsb1W32dF343tIhEb1tpffRfC--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
