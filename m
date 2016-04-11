@@ -1,43 +1,82 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Mon, 11 Apr 2016 20:19:04 +0200
-Message-ID: <20160411181904.GB29709@lunn.ch>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
- <20160411022802.GB4307@lunn.ch>
- <570BE1C5.70502@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Unhandled fault during system suspend in sky2_shutdown
+Date: Mon, 11 Apr 2016 11:24:30 -0700
+Message-ID: <20160411112430.2a03e296@xeon-e3>
+References: <570BCFC5.4070208@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53304 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752590AbcDKSTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2016 14:19:09 -0400
-Content-Disposition: inline
-In-Reply-To: <570BE1C5.70502@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Mirko Lindner <mlindner@marvell.com>
+To: Sudeep Holla <sudeep.holla@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570BCFC5.4070208@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >The code you are deleting would of ignored the flags in the gpio
-> >property, i.e. active low.
+On Mon, 11 Apr 2016 17:24:37 +0100
+Sudeep Holla <sudeep.holla@arm.com> wrote:
+
+> Hi,
 > 
->    Hm, you're right -- I forgot about that... :-/
+> I am seeing unhandled fault during system suspend in sky2_shutdown.
+> I am not sure if it's something missing in the firmware, but just wanted
+> to check. I see that networkmanager is invoking calling to 
+> netlink_sendmsg which calls sky2_get_stats after the device is shutdown.
 > 
-> >The new code in the previous patch does
-> >however take the flags into account. Did you check if there are any
-> >device trees which have flags, which were never used, but are now
-> >going to be used and thus break...
+> Unhandled fault: synchronous external abort (0x96000210) at 
+> 0xffff0000091c2918
+> Internal error: : 96000210 [#1] PREEMPT SMP
+> Modules linked in:
+> CPU: 3 PID: 2029 Comm: NetworkManager Not tainted 4.6.0-rc3 #126
+> Hardware name: ARM Juno development board (r2) (DT)
+> task: ffff80007a673000 ti: ffff800940b5c000 task.ti: ffff800940b5c000
+> PC is at sky2_get_stats+0x44/0x3b8
+> LR is at dev_get_stats+0x58/0xc8
+>   sky2_get_stats+0x44/0x3b8
+>   rtnl_fill_stats+0x20/0x138
+>   rtnl_fill_ifinfo+0x440/0xb38
+>   rtnl_getlink+0xe8/0x198
+>   rtnetlink_rcv_msg+0xe4/0x220
+>   netlink_rcv_skb+0xc4/0xf8
+>   rtnetlink_rcv+0x2c/0x40
+>   netlink_unicast+0x160/0x238
+>   netlink_sendmsg+0x2f0/0x358
+>   sock_sendmsg+0x18/0x30
+>   ___sys_sendmsg+0x204/0x218
+>   __sys_sendmsg+0x44/0x88
+>   SyS_sendmsg+0xc/0x18
+>   el0_svc_naked+0x24/0x28
 > 
->    Checked this now and found out arch/arm/boot/dts/ar91-vinco.dts.
-> Looks like it needs to be fixed indeed...
+> The below patch is the hack I came up to check if the netdev is detached 
+> and unregistered, I no longer see the issue.
+> 
+> Regards,
+> Sudeep
+> 
+> -->8  
+> 
+> diff --git i/drivers/net/ethernet/marvell/sky2.c 
+> w/drivers/net/ethernet/marvell/sky2.c
+> index ec0a22119e09..0ff0434e32fc 100644
+> --- i/drivers/net/ethernet/marvell/sky2.c
+> +++ w/drivers/net/ethernet/marvell/sky2.c
+> @@ -5220,6 +5220,13 @@ static SIMPLE_DEV_PM_OPS(sky2_pm_ops, 
+> sky2_suspend, sky2_resume);
+> 
+>   static void sky2_shutdown(struct pci_dev *pdev)
+>   {
+> +       struct sky2_hw *hw = pci_get_drvdata(pdev);
+> +       int i;
+> +
+> +       for (i = hw->ports - 1; i >= 0; --i) {
+> +               sky2_detach(hw->dev[i]);
+> +               unregister_netdev(hw->dev[i]);
+> +       }
+>          sky2_suspend(&pdev->dev);
+>          pci_wake_from_d3(pdev, device_may_wakeup(&pdev->dev));
+>          pci_set_power_state(pdev, PCI_D3hot);
 
-And this is where it gets tricky. You are breaking backwards
-compatibility by now respecting the flag. An old DT blob is not going
-to work.
-
-You potentially need to add a new property and deprecate the old one.
-
-    Andrew
+This is not the correct fix, the device is supposed to stay registered.
+The correct way to fix this would be to make get_stats ignore requests for device
+when suspended.
