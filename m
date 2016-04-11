@@ -1,64 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 09/11] fjes: Enhance changing MTU related work
-Date: Mon, 11 Apr 2016 14:03:38 +0200
-Message-ID: <20160411120338.GD2175@nanopsycho.orion>
-References: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
- <1460362246-15380-1-git-send-email-izumi.taku@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] net: decrease the length of backlog queue
+ immediately after it's detached from sk
+Date: Mon, 11 Apr 2016 05:13:48 -0700
+Message-ID: <1460376828.6473.538.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1459315001-3448-1-git-send-email-yangyingliang@huawei.com>
+	 <1459315520.6473.187.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1459316043.6473.188.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <56FB6AA7.1080004@huawei.com>
+	 <1459345637.6473.205.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <5705F759.9020003@huawei.com>
+	 <1460024518.6473.389.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1460040665.6473.398.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <5707939B.2030907@huawei.com>
+	 <1460126665.6473.437.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570B9126.9080806@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36321 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754123AbcDKMDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 08:03:41 -0400
-Received: by mail-wm0-f49.google.com with SMTP id v188so83321390wme.1
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 05:03:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1460362246-15380-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:36673 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171AbcDKMNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 08:13:52 -0400
+Received: by mail-qg0-f42.google.com with SMTP id f52so141795967qga.3
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 05:13:51 -0700 (PDT)
+In-Reply-To: <570B9126.9080806@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Apr 11, 2016 at 10:10:46AM CEST, izumi.taku@jp.fujitsu.com wrote:
->This patch enhances the fjes_change_mtu() method
->by introducing new flag named FJES_RX_MTU_CHANGING_DONE
->in rx_status. At the same time, default MTU value is
->changed into 65510 bytes.
->
->Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+On Mon, 2016-04-11 at 19:57 +0800, Yang Yingliang wrote:
+> 
+> On 2016/4/8 22:44, Eric Dumazet wrote:
+> > On Fri, 2016-04-08 at 19:18 +0800, Yang Yingliang wrote:
+> >
+> >> I expand  tcp_adv_win_scale and tcp_rmem. It has no effect.
+> >
+> > Try :
+> >
+> > echo -2 >/proc/sys/net/ipv4/tcp_adv_win_scale
+> >
+> > And restart your flows.
+> >
+> cat /proc/sys/net/ipv4/tcp_rmem
+> 10240 2097152 10485760
 
-<snip>	
-	
->@@ -793,19 +798,54 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
-> 			if (new_mtu == netdev->mtu)
-> 				return 0;
-> 
->-			if (running)
->-				fjes_close(netdev);
->+			ret = 0;
->+			break;
->+		}
->+	}
->+
->+	if (ret)
->+		return ret;
-> 
->-			netdev->mtu = new_mtu;
->+	if (running) {
->+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
->+			if (epidx == hw->my_epid)
->+				continue;
->+			hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
->+				~FJES_RX_MTU_CHANGING_DONE;
->+		}
->+		netif_tx_stop_all_queues(netdev);
->+		netif_carrier_off(netdev);
->+		cancel_work_sync(&adapter->tx_stall_task);
->+		napi_disable(&adapter->napi);
-> 
->-			if (running)
->-				ret = fjes_open(netdev);
->+		msleep(1000);
+What about leaving the default values ?
 
-Will it be enough? I would rather sleep 2000ms here, just to be sure :)
+$ cat /proc/sys/net/ipv4/tcp_rmem
+4096	87380	6291456
+
+> 
+> echo 102400 20971520 104857600 > /proc/sys/net/ipv4/tcp_rmem
+> echo -2 >/proc/sys/net/ipv4/tcp_adv_win_scale
+> 
+> It seems has not effect.
+> 
+
+I have no idea what you did on the sender side to allow it to send more
+than 1.5 MB then.
