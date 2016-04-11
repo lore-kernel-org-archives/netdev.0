@@ -1,75 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle
- facility?
-Date: Mon, 11 Apr 2016 23:41:57 +0200
-Message-ID: <20160411234157.3fc9c6fe@redhat.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	<20160407161715.52635cac@redhat.com>
-	<20160407143854.GA7685@infradead.org>
-	<570678B7.7010802@sandisk.com>
-	<570A9F5B.5010600@grimberg.me>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 -master 0/3] Minor tc/bpf updates
+Date: Mon, 11 Apr 2016 14:55:26 -0700
+Message-ID: <20160411145526.1c12f6fe@xeon-e3>
+References: <cover.1460153854.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Bart Van Assche <bart.vanassche@sandisk.com>,
-        Christoph Hellwig
- <hch@infradead.org>,
-        James Bottomley
- <James.Bottomley@HansenPartnership.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        "lsf@lists.linux-foundation.org"
- <lsf@lists.linux-foundation.org>,
-        linux-mm <linux-mm@kvack.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>, brouer@redhat.com
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <570A9F5B.5010600@grimberg.me>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35435 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbcDKVzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 17:55:17 -0400
+Received: by mail-pf0-f171.google.com with SMTP id n1so131809974pfn.2
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 14:55:16 -0700 (PDT)
+In-Reply-To: <cover.1460153854.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat,  9 Apr 2016 00:32:02 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-On Sun, 10 Apr 2016 21:45:47 +0300 Sagi Grimberg <sagi@grimberg.me> wrote:
-
-> >> This is also very interesting for storage targets, which face the same
-> >> issue.  SCST has a mode where it caches some fully constructed SGLs,
-> >> which is probably very similar to what NICs want to do.  
-> >
-> > I think a cached allocator for page sets + the scatterlists that
-> > describe these page sets would not only be useful for SCSI target
-> > implementations but also for the Linux SCSI initiator. Today the scsi-mq
-> > code reserves space in each scsi_cmnd for a scatterlist of
-> > SCSI_MAX_SG_SEGMENTS. If scatterlists would be cached together with page
-> > sets less memory would be needed per scsi_cmnd.  
+> Some minor updates to improve error reporting, add signatures
+> and recently introduced map flags attribute. Set is against
+> master branch.
 > 
-> If we go down this road how about also attaching some driver opaques
-> to the page sets?
+> Thanks!
+> 
+> Daniel Borkmann (3):
+>   tc, bpf: add new csum and tunnel signatures
+>   tc, bpf: further improve error reporting
+>   tc, bpf: add support for map pre/allocation
+> 
+>  examples/bpf/bpf_cyclic.c   |  9 ++++-
+>  examples/bpf/bpf_graft.c    |  8 +++-
+>  examples/bpf/bpf_prog.c     |  2 +
+>  examples/bpf/bpf_shared.c   |  8 +++-
+>  examples/bpf/bpf_tailcall.c | 29 ++++++++++++--
+>  include/bpf_api.h           | 52 ++++--------------------
+>  include/bpf_elf.h           |  1 +
+>  tc/tc_bpf.c                 | 98 +++++++++++++++++++++++++++++++++++----------
+>  tc/tc_bpf.h                 |  4 ++
+>  9 files changed, 138 insertions(+), 73 deletions(-)
+> 
 
-That was the ultimate plan... to leave some opaques bytes left in the
-page struct that drivers could use.
-
-In struct page I would need a pointer back to my page_pool struct and a
-page flag.  Then, I would need room to store the dma_unmap address.
-(And then some of the usual fields are still needed, like the refcnt,
-and reusing some of the list constructs).  And a zero-copy cross-domain
-id.
-
-
-For my packet-page idea, I would need a packet length and an offset
-where data starts (I can derive the "head-room" for encap from these
-two).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied thanks
