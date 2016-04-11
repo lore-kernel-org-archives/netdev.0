@@ -1,70 +1,48 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH] ath9k: remove duplicate assignment of variable ah
-Date: Mon, 11 Apr 2016 11:39:50 +1000
-Message-ID: <CAGRGNgVgd-_wcvdJz-yh_ugQeJidMK1B8=NuSec1wjn__6AFwA@mail.gmail.com>
-References: <1460287531-17385-1-git-send-email-colin.king@canonical.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next PATCH v2 1/5] ethtool: Add support for toggling any of
+ the GSO offloads
+Date: Sun, 10 Apr 2016 21:44:44 -0400
+Message-ID: <20160411014444.11189.18858.stgit@ahduyck-xeon-server>
+References: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	ath9k-devel@lists.ath9k.org, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
+	alexander.duyck@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:33077 "EHLO
-	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbcDKBkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 21:40:11 -0400
-In-Reply-To: <1460287531-17385-1-git-send-email-colin.king@canonical.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33719 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751861AbcDKBou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 21:44:50 -0400
+Received: by mail-pf0-f170.google.com with SMTP id 184so113786527pff.0
+        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 18:44:49 -0700 (PDT)
+In-Reply-To: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+The strings were missing for several of the GSO offloads that are
+available.  This patch provides the missing strings so that we can toggle
+or query any of them via the ethtool command.
 
-On Sun, Apr 10, 2016 at 9:25 PM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> ah is written twice with the same value, remove one of the
-> redundant assignments to ah.
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ net/core/ethtool.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Looks right to me.
-
-Signed-off-by: Julian Calaby <julian.calaby@gmail.com>
-
-Thanks,
-
-> ---
->  drivers/net/wireless/ath/ath9k/init.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
-> index 77ace8d..fb702c4 100644
-> --- a/drivers/net/wireless/ath/ath9k/init.c
-> +++ b/drivers/net/wireless/ath/ath9k/init.c
-> @@ -477,7 +477,7 @@ static void ath9k_eeprom_request_cb(const struct firmware *eeprom_blob,
->  static int ath9k_eeprom_request(struct ath_softc *sc, const char *name)
->  {
->         struct ath9k_eeprom_ctx ec;
-> -       struct ath_hw *ah = ah = sc->sc_ah;
-> +       struct ath_hw *ah = sc->sc_ah;
->         int err;
->
->         /* try to load the EEPROM content asynchronously */
-> --
-> 2.7.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f426c5ad6149..6a7f99661c2f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -82,9 +82,11 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_TSO6_BIT] =             "tx-tcp6-segmentation",
+ 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
+ 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
++	[NETIF_F_GSO_GRE_CSUM_BIT] =	 "tx-gre-csum-segmentation",
+ 	[NETIF_F_GSO_IPIP_BIT] =	 "tx-ipip-segmentation",
+ 	[NETIF_F_GSO_SIT_BIT] =		 "tx-sit-segmentation",
+ 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
++	[NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT] = "tx-udp_tnl-csum-segmentation",
+ 
+ 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
+ 	[NETIF_F_SCTP_CRC_BIT] =        "tx-checksum-sctp",
