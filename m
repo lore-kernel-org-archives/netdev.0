@@ -1,70 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [Lsf] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Mon, 11 Apr 2016 22:23:09 +0200
-Message-ID: <20160411222309.499a2125@redhat.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	<20160407161715.52635cac@redhat.com>
-	<1460042309.6473.414.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160409111132.781a11b6@redhat.com>
-	<1460205278.6473.486.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 6/7] dsa: Rename phys_port_mask to user_port_mask
+Date: Mon, 11 Apr 2016 22:31:55 +0200
+Message-ID: <20160411203155.GA32194@lunn.ch>
+References: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
+ <1460404209-32083-7-git-send-email-andrew@lunn.ch>
+ <570C0328.5030108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lsf@lists.linux-foundation.org, Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        James Bottomley
- <James.Bottomley@HansenPartnership.com>,
-        linux-mm <linux-mm@kvack.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        lsf-pc@lists.linux-foundation.org,
-        Alexei Starovoitov
- <alexei.starovoitov@gmail.com>, brouer@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1460205278.6473.486.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53486 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbcDKUcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2016 16:32:03 -0400
+Content-Disposition: inline
+In-Reply-To: <570C0328.5030108@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Sat, 09 Apr 2016 05:34:38 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Sat, 2016-04-09 at 11:11 +0200, Jesper Dangaard Brouer wrote:
+On Mon, Apr 11, 2016 at 01:03:52PM -0700, Florian Fainelli wrote:
+> On 11/04/16 12:50, Andrew Lunn wrote:
+> > The phys in phys_port_mask suggests this mask is about PHYs. In fact,
+> > it means physical ports. Rename to user_port_mask, indicating user
+> > ports of the switch, which is hopefully less confusing.
 > 
-> > Above code is okay.  But do you think we also can get away with the same
-> > trick we do with the SKB refcnf?  Where we avoid an atomic operation if
-> > refcnt==1.
-> > 
-> > void kfree_skb(struct sk_buff *skb)
-> > {
-> > 	if (unlikely(!skb))
-> > 		return;
-> > 	if (likely(atomic_read(&skb->users) == 1))
-> > 		smp_rmb();
-> > 	else if (likely(!atomic_dec_and_test(&skb->users)))
-> > 		return;
-> > 	trace_kfree_skb(skb, __builtin_return_address(0));
-> > 	__kfree_skb(skb);
-> > }
-> > EXPORT_SYMBOL(kfree_skb);  
-> 
-> No we can not use this trick this for pages :
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ec91698360b3818ff426488a1529811f7a7ab87f
-> 
+> Even though the change looks fine in principle, I am more worried about
+> the difficulty for people to backport fixes because of the renaming
+> happening here. How about "enabled_ports_mask" as a name?
 
-If we have a page-pool recycle facility, then we could use the trick,
-right? (As we know that get_page_unless_zero() cannot happen for pages
-in the pool).
+I'm fine with that. Anything, so long as it does not contain phys.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> Did not
+> Guenter had a helper function at some point which tested for (1 << port
+> & ds->phys_port_mask)?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Maybe you are thinking of:
+
+static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
+{
+        return ds->phys_port_mask & (1 << p) && ds->ports[p];
+}
+ 
+So how about initialized_port_mask, although it is a bit long.
+
+   Andrew
