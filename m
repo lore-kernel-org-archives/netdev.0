@@ -1,71 +1,388 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: FWD: [PATCH v2] Marvell phy: add fiber status check for some
- components
-Date: Mon, 11 Apr 2016 12:47:28 -0700
-Message-ID: <570BFF50.6060909@gmail.com>
-References: <20160404132552.GH21828@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	charles-antoine.couret@nexvision.fr
-To: Andrew Lunn <andrew@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 2/7] net: dsa: Have the switch driver allocate there own private memory
+Date: Mon, 11 Apr 2016 21:50:04 +0200
+Message-ID: <1460404209-32083-3-git-send-email-andrew@lunn.ch>
+References: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35308 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbcDKTtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 15:49:32 -0400
-Received: by mail-pa0-f47.google.com with SMTP id td3so127354563pab.2
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 12:49:31 -0700 (PDT)
-In-Reply-To: <20160404132552.GH21828@lunn.ch>
+Received: from vps0.lunn.ch ([178.209.37.122]:53412 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751175AbcDKTuj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2016 15:50:39 -0400
+In-Reply-To: <1460404209-32083-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/04/16 06:25, Andrew Lunn wrote:
->> >From 564b767163d19355a3b5efaad195e93796570c71 Mon Sep 17 00:00:00 2001
->> From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
->> Date: Fri, 1 Apr 2016 16:16:35 +0200
->> Subject: [PATCH] Marvell phy: add fiber status check for some components
->>
->> Marvell's phy could have two modes: fiber and copper. Currently, the driver
->> checks only the copper mode registers to get the status link which could be
->> wrong.
->>
->> This commit add a handler to check fiber then copper status link.
->> If the fiber link is activated, the driver would use this information.
->> Else, it would use the copper status.
-> 
-> Hi Florian
-> 
-> What do you think about this?
-> 
-> This works for basic status information. But what about other ethtool
-> options? Setting the speed and duplex, turning pause on/off, etc.
+Now the switch devices have a dev pointer, make use of it for allocating
+the drivers private data structures using a devm_kzalloc().
 
-Agreed, it seems like a PHY configured for fiber will need to provide
-these informations differently, or does the standard BMSR register
-provide accurate information already?
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+v2: Added missing assignment of priv to ds->priv.
+---
+ drivers/net/dsa/bcm_sf2.c   | 10 ++++++++--
+ drivers/net/dsa/mv88e6060.c |  3 ++-
+ drivers/net/dsa/mv88e6123.c | 17 ++++++++++++++---
+ drivers/net/dsa/mv88e6131.c | 17 ++++++++++++++---
+ drivers/net/dsa/mv88e6171.c | 17 ++++++++++++++---
+ drivers/net/dsa/mv88e6352.c | 17 ++++++++++++++---
+ drivers/net/dsa/mv88e6xxx.c |  6 ++++--
+ drivers/net/dsa/mv88e6xxx.h |  3 +++
+ include/net/dsa.h           | 10 ++++++++--
+ net/dsa/dsa.c               |  8 +++++---
+ 10 files changed, 86 insertions(+), 22 deletions(-)
 
-> 
-> Do we actually need to stay on page 1 if fibre is in use? How do we
-> initially change to page 1 when the fibre link is still down?
-
-I also do not feel very comfortable with reading the fiber status first,
-and then copper and then combine these two. At the very best, could we
-do something like:
-
-- identify if the PHY is configured for fiber in drv->probe or
-drv->config_init, retain that information
-- have two paths in drv->read_status which take care of reading one
-status or the other?
-
-Are there other side effects for other register accesses (say,
-statistics, or auto-negotiation) that need to be fiber vs. copper aware?
-
-> 
-> Should we be using the old mechanism to swap between TP, BNC and AUI
-> to swap between copper and fibre?
-
-Did you mean using ethtool -s <iface> port fibre for instance?
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 18a79579141f..7d62802a66d5 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -136,8 +136,15 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
+ }
+ 
+ static char *bcm_sf2_sw_probe(struct device *dsa_dev, struct device *host_dev,
+-			      int sw_addr)
++			      int sw_addr, void **_priv)
+ {
++	struct bcm_sf2_priv *priv;
++
++	priv = devm_kzalloc(dsa_dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return NULL;
++	*_priv = priv;
++
+ 	return "Broadcom Starfighter 2";
+ }
+ 
+@@ -1363,7 +1370,6 @@ static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
+ 
+ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+-	.priv_size		= sizeof(struct bcm_sf2_priv),
+ 	.probe			= bcm_sf2_sw_probe,
+ 	.setup			= bcm_sf2_sw_setup,
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 34d0f9fe19db..41195f1417f1 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -58,11 +58,12 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+ 	})
+ 
+ static char *mv88e6060_probe(struct device *dsa_dev, struct device *host_dev,
+-			     int sw_addr)
++			     int sw_addr, void **priv)
+ {
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	int ret;
+ 
++	*priv = NULL;
+ 	if (bus == NULL)
+ 		return NULL;
+ 
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index ede4c6f0b31a..bcab3ef22448 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -30,10 +30,20 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
+ };
+ 
+ static char *mv88e6123_probe(struct device *dsa_dev, struct device *host_dev,
+-			     int sw_addr)
++			     int sw_addr, void **priv)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
++	struct mv88e6xxx_priv_state *ps;
++	char *name;
++
++	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
+ 				     ARRAY_SIZE(mv88e6123_table));
++	if (name) {
++		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
++		if (!ps)
++			return NULL;
++		*priv = ps;
++	}
++	return name;
+ }
+ 
+ static int mv88e6123_setup_global(struct dsa_switch *ds)
+@@ -74,6 +84,8 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
++	ps->ds = ds;
++
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+@@ -103,7 +115,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 
+ struct dsa_switch_driver mv88e6123_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+-	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6123_probe,
+ 	.setup			= mv88e6123_setup,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index bfadfd2cbb8d..b9f9b009f65a 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -26,10 +26,20 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+ };
+ 
+ static char *mv88e6131_probe(struct device *dsa_dev, struct device *host_dev,
+-			     int sw_addr)
++			     int sw_addr, void **priv)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
++	struct mv88e6xxx_priv_state *ps;
++	char *name;
++
++	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
+ 				     ARRAY_SIZE(mv88e6131_table));
++	if (name) {
++		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
++		if (!ps)
++			return NULL;
++		*priv = ps;
++	}
++	return name;
+ }
+ 
+ static int mv88e6131_setup_global(struct dsa_switch *ds)
+@@ -92,6 +102,8 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
++	ps->ds = ds;
++
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+@@ -160,7 +172,6 @@ mv88e6131_phy_write(struct dsa_switch *ds,
+ 
+ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_DSA,
+-	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6131_probe,
+ 	.setup			= mv88e6131_setup,
+ 	.set_addr		= mv88e6xxx_set_addr_direct,
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index fb35d3ac1644..15200928cecc 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -25,10 +25,20 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
+ };
+ 
+ static char *mv88e6171_probe(struct device *dsa_dev, struct device *host_dev,
+-			     int sw_addr)
++			     int sw_addr, void **priv)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
++	struct mv88e6xxx_priv_state *ps;
++	char *name;
++
++	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
+ 				     ARRAY_SIZE(mv88e6171_table));
++		if (name) {
++		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
++		if (!ps)
++			return NULL;
++		*priv = ps;
++	}
++	return name;
+ }
+ 
+ static int mv88e6171_setup_global(struct dsa_switch *ds)
+@@ -70,6 +80,8 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
++	ps->ds = ds;
++
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+@@ -89,7 +101,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 
+ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+-	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6171_probe,
+ 	.setup			= mv88e6171_setup,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 577ab2cfa944..7081a78a67e1 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -38,10 +38,20 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+ };
+ 
+ static char *mv88e6352_probe(struct device *dsa_dev, struct device *host_dev,
+-			     int sw_addr)
++			     int sw_addr, void **priv)
+ {
+-	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
++	struct mv88e6xxx_priv_state *ps;
++	char *name;
++
++	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
+ 				     ARRAY_SIZE(mv88e6352_table));
++	if (name) {
++		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
++		if (!ps)
++			return NULL;
++		*priv = ps;
++	}
++	return name;
+ }
+ 
+ static int mv88e6352_setup_global(struct dsa_switch *ds)
+@@ -82,6 +92,8 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
+ 
++	ps->ds = ds;
++
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+@@ -303,7 +315,6 @@ static int mv88e6352_set_eeprom(struct dsa_switch *ds,
+ 
+ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
+-	.priv_size		= sizeof(struct mv88e6xxx_priv_state),
+ 	.probe			= mv88e6352_probe,
+ 	.setup			= mv88e6352_setup,
+ 	.set_addr		= mv88e6xxx_set_addr_indirect,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 62320fca6712..085fc4a49eb2 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -281,7 +281,7 @@ static void mv88e6xxx_ppu_reenable_work(struct work_struct *ugly)
+ 
+ 	ps = container_of(ugly, struct mv88e6xxx_priv_state, ppu_work);
+ 	if (mutex_trylock(&ps->ppu_mutex)) {
+-		struct dsa_switch *ds = ((struct dsa_switch *)ps) - 1;
++		struct dsa_switch *ds = ps->ds;
+ 
+ 		if (mv88e6xxx_ppu_enable(ds) == 0)
+ 			ps->ppu_disabled = 0;
+@@ -2322,7 +2322,7 @@ static void mv88e6xxx_bridge_work(struct work_struct *work)
+ 	int port;
+ 
+ 	ps = container_of(work, struct mv88e6xxx_priv_state, bridge_work);
+-	ds = ((struct dsa_switch *)ps) - 1;
++	ds = ps->ds;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+@@ -2670,6 +2670,8 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
++	ps->ds = ds;
++
+ 	mutex_init(&ps->smi_mutex);
+ 
+ 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 236bcaa606e7..0322e3e0e7d9 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -397,6 +397,9 @@ struct mv88e6xxx_priv_port {
+ };
+ 
+ struct mv88e6xxx_priv_state {
++	/* The dsa_switch this private structure is related to */
++	struct dsa_switch *ds;
++
+ 	/* When using multi-chip addressing, this mutex protects
+ 	 * access to the indirect access registers.  (In single-chip
+ 	 * mode, this mutex is effectively useless.)
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 0f9f6f38f255..7bc7bd9b5ded 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -130,6 +130,12 @@ struct dsa_switch {
+ 	int			index;
+ 
+ 	/*
++	 * Give the switch driver somewhere to hang its private data
++	 * structure.
++	 */
++	void *priv;
++
++	/*
+ 	 * Tagging protocol understood by this switch
+ 	 */
+ 	enum dsa_tag_protocol	tag_protocol;
+@@ -213,7 +219,7 @@ struct dsa_switch_driver {
+ 	 * Probing and setup.
+ 	 */
+ 	char	*(*probe)(struct device *dsa_dev, struct device *host_dev,
+-			  int sw_addr);
++			  int sw_addr, void **priv);
+ 	int	(*setup)(struct dsa_switch *ds);
+ 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+@@ -342,7 +348,7 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+ 
+ static inline void *ds_to_priv(struct dsa_switch *ds)
+ {
+-	return (void *)(ds + 1);
++	return ds->priv;
+ }
+ 
+ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index c06275311cb2..7ef8a92a9e39 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -52,7 +52,7 @@ EXPORT_SYMBOL_GPL(unregister_switch_driver);
+ 
+ static struct dsa_switch_driver *
+ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+-		 char **_name)
++		 char **_name, void **priv)
+ {
+ 	struct dsa_switch_driver *ret;
+ 	struct list_head *list;
+@@ -67,7 +67,7 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+ 
+ 		drv = list_entry(list, struct dsa_switch_driver, list);
+ 
+-		name = drv->probe(parent, host_dev, sw_addr);
++		name = drv->probe(parent, host_dev, sw_addr, priv);
+ 		if (name != NULL) {
+ 			ret = drv;
+ 			break;
+@@ -384,11 +384,12 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	struct dsa_switch *ds;
+ 	int ret;
+ 	char *name;
++	void *priv;
+ 
+ 	/*
+ 	 * Probe for switch model.
+ 	 */
+-	drv = dsa_switch_probe(parent, host_dev, pd->sw_addr, &name);
++	drv = dsa_switch_probe(parent, host_dev, pd->sw_addr, &name, &priv);
+ 	if (drv == NULL) {
+ 		netdev_err(dst->master_netdev, "[%d]: could not detect attached switch\n",
+ 			   index);
+@@ -409,6 +410,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	ds->index = index;
+ 	ds->pd = pd;
+ 	ds->drv = drv;
++	ds->priv = priv;
+ 	ds->tag_protocol = drv->tag_protocol;
+ 	ds->master_dev = host_dev;
+ 
 -- 
-Florian
+2.7.0
