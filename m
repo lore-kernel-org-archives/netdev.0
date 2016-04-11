@@ -1,8 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH v2 net 1/4] ipv6: datagram: Refactor flowi6 init codes to a new function
-Date: Mon, 11 Apr 2016 15:29:34 -0700
-Message-ID: <1460413777-177662-2-git-send-email-kafai@fb.com>
-References: <1460413777-177662-1-git-send-email-kafai@fb.com>
+Subject: [PATCH v2 net 0/4] ipv6: datagram: Update dst cache of a connected udp sk during pmtu update
+Date: Mon, 11 Apr 2016 15:29:33 -0700
+Message-ID: <1460413777-177662-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
@@ -10,132 +9,52 @@ Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	Wei Wang <weiwan@google.com>, Kernel Team <kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55275 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:62975 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752846AbcDKW3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 18:29:52 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3BMO0Yb006058
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 15:29:51 -0700
+	by vger.kernel.org with ESMTP id S1751691AbcDKW3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 18:29:50 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3BMTMTH031440
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 15:29:49 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 226wj48rqj-1
+	by m0001303.ppops.net with ESMTP id 226wda2mmj-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 15:29:51 -0700
+	for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 15:29:49 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- e68dcad6003411e6a4e924be0595f910-ecce93f0 for <netdev@vger.kernel.org>;	Mon,
- 11 Apr 2016 15:29:49 -0700
-In-Reply-To: <1460413777-177662-1-git-send-email-kafai@fb.com>
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ e63a7f70003411e692140002c9dfb610-147fc3f0 for <netdev@vger.kernel.org>;	Mon,
+ 11 Apr 2016 15:29:48 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move flowi6 init codes for connected datagram sk to a newly created
-function ip6_datagram_flow_key_init().
+v2:
+~ Protect __sk_dst_get() operations with rcu_read_lock in
+  release_cb() because another thread may do ip6_dst_store()
+  for a udp sk without taking the sk lock (e.g. in sendmsg).
+~ Do a ipv6_addr_v4mapped(&sk->sk_v6_daddr) check before
+  calling ip6_datagram_dst_update() in patch 3 and 4.  It is
+  similar to how __ip6_datagram_connect handles it.
+~ One fix in ip6_datagram_dst_update() in patch 2.  It needs
+  to check (np->flow_label & IPV6_FLOWLABEL_MASK) before
+  doing fl6_sock_lookup.  I was confused with the naming
+  of IPV6_FLOWLABEL_MASK and IPV6_FLOWINFO_MASK.
+~ Check dst->obsolete just on the safe side, although I think it
+  should at least have DST_OBSOLETE_FORCE_CHK by now.
+~ Add Fixes tag to patch 3 and 4
+~ Add some points from the previous discussion about holding
+  sk lock to the commit message in patch 3.
 
-Notes:
-1. fl6_flowlabel is used instead of fl6.flowlabel in __ip6_datagram_connect
-2. ipv6_addr_is_multicast(&fl6->daddr) is used instead of
-   (addr_type & IPV6_ADDR_MULTICAST) in ip6_datagram_flow_key_init()
+v1:
+There is a case in connected UDP socket such that
+getsockopt(IPV6_MTU) will return a stale MTU value. The reproducible
+sequence could be the following:
+1. Create a connected UDP socket
+2. Send some datagrams out
+3. Receive a ICMPV6_PKT_TOOBIG
+4. No new outgoing datagrams to trigger the sk_dst_check()
+   logic to update the sk->sk_dst_cache.
+5. getsockopt(IPV6_MTU) returns the mtu from the invalid
+   sk->sk_dst_cache instead of the newly created RTF_CACHE clone.
 
-This new function will be reused during pmtu update in the later patch.
-
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Wei Wang <weiwan@google.com>
----
- net/ipv6/datagram.c | 50 ++++++++++++++++++++++++++++++--------------------
- 1 file changed, 30 insertions(+), 20 deletions(-)
-
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 4281621..f07c1dd 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -40,6 +40,30 @@ static bool ipv6_mapped_addr_any(const struct in6_addr *a)
- 	return ipv6_addr_v4mapped(a) && (a->s6_addr32[3] == 0);
- }
- 
-+static void ip6_datagram_flow_key_init(struct flowi6 *fl6, struct sock *sk)
-+{
-+	struct inet_sock *inet = inet_sk(sk);
-+	struct ipv6_pinfo *np = inet6_sk(sk);
-+
-+	memset(fl6, 0, sizeof(*fl6));
-+	fl6->flowi6_proto = sk->sk_protocol;
-+	fl6->daddr = sk->sk_v6_daddr;
-+	fl6->saddr = np->saddr;
-+	fl6->flowi6_oif = sk->sk_bound_dev_if;
-+	fl6->flowi6_mark = sk->sk_mark;
-+	fl6->fl6_dport = inet->inet_dport;
-+	fl6->fl6_sport = inet->inet_sport;
-+	fl6->flowlabel = np->flow_label;
-+
-+	if (!fl6->flowi6_oif)
-+		fl6->flowi6_oif = np->sticky_pktinfo.ipi6_ifindex;
-+
-+	if (!fl6->flowi6_oif && ipv6_addr_is_multicast(&fl6->daddr))
-+		fl6->flowi6_oif = np->mcast_oif;
-+
-+	security_sk_classify_flow(sk, flowi6_to_flowi(fl6));
-+}
-+
- static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- {
- 	struct sockaddr_in6	*usin = (struct sockaddr_in6 *) uaddr;
-@@ -52,6 +76,7 @@ static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int a
- 	struct ipv6_txoptions	*opt;
- 	int			addr_type;
- 	int			err;
-+	__be32			fl6_flowlabel = 0;
- 
- 	if (usin->sin6_family == AF_INET) {
- 		if (__ipv6_only_sock(sk))
-@@ -66,11 +91,10 @@ static int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int a
- 	if (usin->sin6_family != AF_INET6)
- 		return -EAFNOSUPPORT;
- 
--	memset(&fl6, 0, sizeof(fl6));
- 	if (np->sndflow) {
--		fl6.flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
--		if (fl6.flowlabel&IPV6_FLOWLABEL_MASK) {
--			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
-+		fl6_flowlabel = usin->sin6_flowinfo & IPV6_FLOWINFO_MASK;
-+		if (fl6_flowlabel & IPV6_FLOWLABEL_MASK) {
-+			flowlabel = fl6_sock_lookup(sk, fl6_flowlabel);
- 			if (!flowlabel)
- 				return -EINVAL;
- 		}
-@@ -145,7 +169,7 @@ ipv4_connected:
- 	}
- 
- 	sk->sk_v6_daddr = *daddr;
--	np->flow_label = fl6.flowlabel;
-+	np->flow_label = fl6_flowlabel;
- 
- 	inet->inet_dport = usin->sin6_port;
- 
-@@ -154,21 +178,7 @@ ipv4_connected:
- 	 *	destination cache for it.
- 	 */
- 
--	fl6.flowi6_proto = sk->sk_protocol;
--	fl6.daddr = sk->sk_v6_daddr;
--	fl6.saddr = np->saddr;
--	fl6.flowi6_oif = sk->sk_bound_dev_if;
--	fl6.flowi6_mark = sk->sk_mark;
--	fl6.fl6_dport = inet->inet_dport;
--	fl6.fl6_sport = inet->inet_sport;
--
--	if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->sticky_pktinfo.ipi6_ifindex;
--
--	if (!fl6.flowi6_oif && (addr_type&IPV6_ADDR_MULTICAST))
--		fl6.flowi6_oif = np->mcast_oif;
--
--	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
-+	ip6_datagram_flow_key_init(&fl6, sk);
- 
- 	rcu_read_lock();
- 	opt = flowlabel ? flowlabel->opt : rcu_dereference(np->opt);
--- 
-2.5.1
+Patch 1 and 2 are the prep work.
+Patch 3 and 4 are the fixes.
