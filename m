@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] fix udp pull header breakage
-Date: Mon, 11 Apr 2016 15:31:56 -0400 (EDT)
-Message-ID: <20160411.153156.115903140123859564.davem@davemloft.net>
-References: <1460043899-56894-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH 0/9] RxRPC: 2nd rewrite part 1
+Date: Mon, 11 Apr 2016 15:35:11 -0400 (EDT)
+Message-ID: <20160411.153511.1531573815825221764.davem@davemloft.net>
+References: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fcooper@ti.com, samanthakumar@google.com,
-	willemb@google.com
-To: willemdebruijn.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719AbcDKTb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 15:31:58 -0400
-In-Reply-To: <1460043899-56894-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Thu,  7 Apr 2016 11:44:57 -0400
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 07 Apr 2016 17:22:56 +0100
 
-> Commit e6afc8ace6dd ("udp: remove headers from UDP packets before
-> queueing") modified udp receive processing to pull headers before
-> enqueue and to not expect them on dequeue.
+> Okay, I'm in the process of rewriting the RxRPC rewrite.  The primary aim of
+> this second rewrite is to strictly control the number of active connections we
+> know about and to get rid of connections we don't need much more quickly.
 > 
-> The patch missed protocols on top of udp with in-kernel
-> implementations that have their own skb_recv_datagram calls and
-> dequeue logic. Modify these datapaths to also no longer expect
-> a udp header at skb->data.
-> 
-> Sunrpc and rxrpc are the only two protocols that call this
-> function and contain references to udphr (some others, like tipc,
-> are based on encap_rcv, which acts before enqueue, before the
-> the header pull).
+> On top of this, there are fixes to the protocol handling which will all occur
+> in later parts.
 
-Series applied, thanks for fixing this regression so quickly.
+Series applied, but I had to fix up some trailing whitespace (reported by GIT)
+by hand.
+
+Thanks.
