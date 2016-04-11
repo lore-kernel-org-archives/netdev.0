@@ -1,35 +1,50 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: Getting at the UDP headers from ->data_ready()
-Date: Mon, 11 Apr 2016 22:23:33 +0100
-Message-ID: <1831.1460409813@warthog.procyon.org.uk>
-References: <CAF=yD-JfW6kfoQ4geO3bCCrBVng-AL=BqBuVyF2nU0tO4jpsDg@mail.gmail.com> <19466.1460408649@warthog.procyon.org.uk>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
+Date: Tue, 12 Apr 2016 00:24:29 +0300
+Message-ID: <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
+References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
+ <1460405422-8654-3-git-send-email-saeedm@mellanox.com> <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, Willem de Bruijn <willemb@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58029 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752652AbcDKVXf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 17:23:35 -0400
-In-Reply-To: <CAF=yD-JfW6kfoQ4geO3bCCrBVng-AL=BqBuVyF2nU0tO4jpsDg@mail.gmail.com>
-Content-ID: <1830.1460409813.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Willem de Bruijn <willemdebruijn.kernel@gmail.com> wrote:
+On Tue, Apr 12, 2016 at 12:17 AM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>
+> feature --> features
 
-> The network and transport header pointers are still valid. Commit e6afc8ace6dd
-> only  changes where skb->data points to. It does not discard the data between
-> skb->head and skb->data. This rxrpc follow-up patch fixes some offset
-> arithmetic to the payload, which is computed relative to skb->data.
-> 
-> There are other uses of ip_hdr and udp_hdr in udp_recvmsg and similar
-> recvmsg handlers for other protocols. For instance, in the source address
-> processing for recvfrom ("if (sin) { .. }")
+Correct, will fix.
 
-Excellent, thanks!
+>
+>> * Add vport to steering commands for SRIOV ACL support
+>> * Add mlcr, pcmr and mcia registers for dump module EEPROM
+>> * Add support for FCS, baeacon led and disable_link bits to
+>>   hca caps
+>> * Add CQE period mode bit in  CQ context for CQE based CQ
+>>   moderation support
+>> * Add umr SQ bit for fragmented memory registration
+>> * Add needed bits and caps for Striding RQ support
+>
+> AFAIK, all the above are features will go through net-next, what made
+> you anticipate conflicts with linux-rdma?
 
-David
+FCS bit is needed also for rdma, so we took the liberty of updating
+all the needed HW structs, bits, caps, etc ..
+at once for all mlx5 features planned for 4.7 regardless of rdma/net conflicts.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
