@@ -1,116 +1,155 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC v5 0/5] Add virtio transport for AF_VSOCK
-Date: Mon, 11 Apr 2016 15:54:08 +0300
-Message-ID: <20160411154517-mutt-send-email-mst@redhat.com>
-References: <1459520587-12337-1-git-send-email-stefanha@redhat.com>
-	<1460129705.1749.25.camel@docker.com>
-	<20160411104548.GA12826@stefanha-x1.localdomain>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 14:08:27 +0100
+Message-ID: <20160411130826.GB32073@techsingularity.net>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+ <20160407161715.52635cac@redhat.com>
+ <20160411085819.GE21128@suse.de>
+ <20160411142639.1c5e520b@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: marius vlad <marius.vlad0@gmail.com>, Stefan Hajnoczi <stefanha@redhat.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Ian Campbell <ian.campbell@docker.com>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Matt Benjamin <mbenjamin@redhat.com>, Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	virtualization@lists.linux-foundation.org,
-	Christoffer Dall <christoffer.dall@linaro.org>
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Mel Gorman <mgorman@suse.de>, lsf@lists.linux-foundation.org,
+	linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Tom Herbert <tom@herbertland.com>,
+	lsf-pc@lists.linux-foundation.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20160411104548.GA12826@stefanha-x1.localdomain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <20160411142639.1c5e520b@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2016 at 11:45:48AM +0100, Stefan Hajnoczi wrote:
-> On Fri, Apr 08, 2016 at 04:35:05PM +0100, Ian Campbell wrote:
-> > On Fri, 2016-04-01 at 15:23 +0100, Stefan Hajnoczi wrote:
-> > > This series is based on Michael Tsirkin's vhost branch (v4.5-rc6).
-> > > =
+On Mon, Apr 11, 2016 at 02:26:39PM +0200, Jesper Dangaard Brouer wrote:
+> > Which bottleneck dominates -- the page allocator or the DMA API when
+> > setting up coherent pages?
+> >
+> 
+> It is actually both, but mostly DMA on non-x86 archs.  The need to
+> support multiple archs, then also cause a slowdown on x86, due to a
+> side-effect.
+> 
+> On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
+> the cost of DMA calls, NIC driver alloc large order (compound) pages.
+> (dma_map compound page, handout page-fragments for RX ring, and later
+> dma_unmap when last RX page-fragments is seen).
+> 
 
-> > > I'm about to process Claudio Imbrenda's locking fixes for virtio-vsoc=
-k but
-> > > first I want to share the latest version of the code.=A0=A0Several pe=
-ople are
-> > > playing with vsock now so sharing the latest code should avoid duplic=
-ate work.
-> > =
+So, IMO only holding onto the DMA pages is all that is justified but not a
+recycle of order-0 pages built on top of the core allocator. For DMA pages,
+it would take a bit of legwork but the per-cpu allocator could be split
+and converted to hold arbitrary sized pages with a constructer/destructor
+to do the DMA coherency step when pages are taken from or handed back to
+the core allocator. I'm not volunteering to do that unfortunately but I
+estimate it'd be a few days work unless it needs to be per-CPU and NUMA
+aware in which case the memory footprint will be high.
 
-> > Thanks for this, I've been using it in my project and it mostly seems
-> > fine.
-> > =
+> > I'm wary of another page allocator API being introduced if it's for
+> > performance reasons. In response to this thread, I spent two days on
+> > a series that boosts performance of the allocator in the fast paths by
+> > 11-18% to illustrate that there was low-hanging fruit for optimising. If
+> > the one-LRU-per-node series was applied on top, there would be a further
+> > boost to performance on the allocation side. It could be further boosted
+> > if debugging checks and statistic updates were conditionally disabled by
+> > the caller.
+> 
+> It is always great if you can optimized the page allocator.  IMHO the
+> page allocator is too slow.
 
-> > One wrinkle I came across, which I'm not sure if it is by design or a
-> > problem is that I can see this sequence coming from the guest (with
-> > other activity in between):
-> > =
+It's why I spent some time on it as any improvement in the allocator is
+an unconditional win without requiring driver modifications.
 
-> > =A0 =A0 1) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_RX
-> > =A0=A0=A0=A02) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_TX
-> > =A0=A0=A0=A03) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_TX|SHUTDOWN_RX
-> > =
+> At least for my performance needs (67ns
+> per packet, approx 201 cycles at 3GHz).  I've measured[1]
+> alloc_pages(order=0) + __free_pages() to cost 277 cycles(tsc).
+> 
 
-> > I orignally had my backend close things down at #2, however this meant
-> > that when #3 arrived it was for a non-existent socket (or, worse, an
-> > active one if the ports got reused). I checked v5 of the spec
-> > proposal[0] which says:
-> >     If these bits are set and there are no more virtqueue buffers
-> >     pending the socket is disconnected.
-> > =
+It'd be worth retrying this with the branch
 
-> > but I'm not entirely sure if this behaviour contradicts this or not
-> > (the bits have both been set at #2, but not at the same time).
-> > =
+http://git.kernel.org/cgit/linux/kernel/git/mel/linux.git/log/?h=mm-vmscan-node-lru-v4r5
 
-> > BTW, how does one tell if there are no more virtqueue buffers pending
-> > or not while processing the op?
-> =
+This is an unreleased series that contains both the page allocator
+optimisations and the one-LRU-per-node series which in combination remove a
+lot of code from the page allocator fast paths. I have no data on how the
+combined series behaves but each series individually is known to improve
+page allocator performance.
 
-> #2 is odd.  The shutdown bits are sticky so they cannot be cleared once
-> set.  I would have expected just #1 and #3.  The behavior you observe
-> look like a bug.
-> =
+Once you have that, do a hackjob to remove the debugging checks from both the
+alloc and free path and see what that leaves. They could be bypassed properly
+with a __GFP_NOACCT flag used only by drivers that absolutely require pages
+as quickly as possible and willing to be less safe to get that performance.
 
-> The spec text does not convey the meaning of OP_SHUTDOWN well.
-> OP_SHUTDOWN SHUTDOWN_TX|SHUTDOWN_RX means no further rx/tx is possible
-> for this connection.  "there are no more virtqueue buffers pending the
-> socket" really means that this isn't an immediate close from the
-> perspective of the application.  If the application still has unread rx
-> buffers then the socket stays readable until the rx data has been fully
-> read.
+I expect then that the free path to be dominated by zone and pageblock
+lookups which are much harder to remove. The zone lookup can be removed
+if the caller knows exactly where the free pages need to go which is
+unlikely. The pageblock lookup could be removed if it was coming from a
+dedicated pool if the allocation side refills using pageblocks that are
+always MIGRATE_UNMOVABLE.
 
-Yes but you also wrote:
-	If these bits are set and there are no more virtqueue buffers
-	pending the socket is disconnected.
+> The trick described above, of allocating a higher order page and
+> handing out page-fragments, also workaround this page allocator
+> bottleneck (on x86).
+> 
 
-how does remote know that there are no buffers pending and so it's safe
-to reuse the same source/destination address now?  Maybe destination
-should send RST at that point?
+Be aware that compound order allocs like this are a double edged sword as
+it'll be fast sometimes and other times require reclaim/compaction which
+can stall for prolonged periods of time.
 
+> I've measured order 3 (32KB) alloc_pages(order=3) + __free_pages() to
+> cost approx 500 cycles(tsc).  That was more expensive, BUT an order=3
+> page 32Kb correspond to 8 pages (32768/4096), thus 500/8 = 62.5
+> cycles.  Usually a network RX-frame only need to be 2048 bytes, thus
+> the "bulk" effect speed up is x16 (32768/2048), thus 31.25 cycles.
+> 
+> I view this as a bulking trick... maybe the page allocator can just
+> give us a bulking API? ;-)
+> 
 
+It could on the alloc side relatively easily using either a variation of
+rmqueue_bulk exposed at a higher level populating a linked list (link via
+page->lru) or an array supplied by the caller.  It's harder to bulk free
+quickly as the pages being freed are not necessarily in the same pageblock
+requiring lookups in the free path.
 
-> > Another thing I noticed, which is really more to do with the generic
-> > AF_VSOCK bits than anything to do with your patches is that there is no
-> > limitations on which vsock ports a non-privileged user can bind to and
-> > relatedly that there is no netns support so e.g. users in unproivileged
-> > containers can bind to any vsock port and talk to the host, which might
-> > be undesirable. For my use for now I just went with the big hammer
-> > approach of denying access from anything other than init_net
-> > namespace[1] while I consider what the right answer is.
-> =
+Tricky to get right, but preferable to a whole new allocator.
 
-> From the vhost point of view each netns should have its own AF_VSOCK
-> namespace.  This way two containers could act as "the host" (CID 2) for
-> their respective guests.
+> > The main reason another allocator concerns me is that those pages
+> > are effectively pinned and cannot be reclaimed by the VM in low memory
+> > situations. It ends up needing its own API for tuning the size and hoping
+> > all the drivers get it right without causing OOM situations. It becomes
+> > a slippery slope of introducing shrinkers, locking and complexity. Then
+> > callers start getting concerned about NUMA locality and having to deal
+> > with multiple lists to maintain performance. Ultimately, it ends up being
+> > as slow as the page allocator and back to square 1 except now with more code.
+> 
+> The pages assigned to the RX ring queue are pinned like today.  The
+> pages avail in the pool could easily be reclaimed.
+> 
 
+How easy depends on how it's structured. If it's a global per-cpu list
+then it's an IPI to all CPUs which is straight-forward to implement but
+slow to execute. If it's per-driver then there needs to be a locked list
+of all pools and locking on each individual pool which could offset some
+of the performance benefit of using the pool in the first place.
 
-I wonder how this interacts with the disconnect on migration
-idea that you discussed. Specifically, socket has to stay connected
+> I actually think we are better off providing a generic page pool
+> interface the drivers can use.  Instead of the situation where drivers
+> and subsystems invent their own, which does not cooperate in OOM
+> situations.
+> 
+
+If it's offsetting DMA setup/teardown then I'd be a bit happier. If it's
+yet-another-page allocator to bypass the core allocator then I'm less happy.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
