@@ -1,78 +1,52 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 v2 2/3] bridge: mdb: add support to filter by vlan id
-Date: Mon, 11 Apr 2016 17:45:15 +0200
-Message-ID: <1460389516-1643-3-git-send-email-nikolay@cumulusnetworks.com>
-References: <570BC2FD.8010201@cumulusnetworks.com>
- <1460389516-1643-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37986 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755417AbcDKPp0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 11:45:26 -0400
-Received: by mail-wm0-f52.google.com with SMTP id u206so110180879wme.1
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 08:45:25 -0700 (PDT)
-In-Reply-To: <1460389516-1643-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] net: sched: do not requeue a NULL skb
+Date: Mon, 11 Apr 2016 08:52:31 -0700
+Message-ID: <1460389951.6473.555.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460355869-13539-1-git-send-email-larper@axis.com>
+		 <1460380981.6473.544.camel@edumazet-glaptop3.roam.corp.google.com>
+		 <570BA8C7.1000905@axis.com>
+	 <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570BC024.1070504@axis.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Lars Persson <larper@axis.com>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, linux-kernel@vger.kernel.org,
+	xiyou.wangcong@gmail.com
+To: Lars Persson <lars.persson@axis.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570BC024.1070504@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add the optional keyword "vid" to bridge mdb show so the user can
-request filtering by a specific vlan id. Currently the filtering is
-implemented only in user-space. The argument name has been chosen to match
-the add/del one - "vid".
+On Mon, 2016-04-11 at 17:17 +0200, Lars Persson wrote:
+> 
+> On 04/11/2016 04:22 PM, Eric Dumazet wrote:
+> > On Mon, 2016-04-11 at 15:38 +0200, Lars Persson wrote:
+> >
+> >> I though it would be prudent because the queue can be non-empty even for
+> >> the case of skb=NULL. So should it be there in this patch, another patch
+> >> or not at all ?
+> >
+> > Then maybe change return code ?
+> >
+> > It seems strange that a validate_xmit_skb_list() failure stops the
+> > __qdisc_run() loop but schedules another round.
+> >
+> >
+> 
+> It was suggested by Cong Wang to return 0 in order to stop the loop. Do 
+> you guys agree that the loop should be stopped for such failures ? Then 
+> I will put the schedule call inside the if as you proposed earlier.
 
-Example:
-$ bridge mdb show vid 200
-dev br0 port eth2 grp 239.0.0.1 permanent vid 200
+What are the causes of validate_xmit_skb_list() failures ?
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-v2: no change
+If gso segmentations fail because of memory pressure, better free more
+skbs right now.
 
- bridge/mdb.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+In any case, having a single test " if (skb)  " sounds better to me,
+to have a fast path.
 
-diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 842536ec003c..6c904f8e6ae8 100644
---- a/bridge/mdb.c
-+++ b/bridge/mdb.c
-@@ -24,12 +24,12 @@
- 	((struct rtattr *)(((char *)(r)) + NLMSG_ALIGN(sizeof(struct br_port_msg))))
- #endif
- 
--static unsigned int filter_index;
-+static unsigned int filter_index, filter_vlan;
- 
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP [permanent | temp] [vid VID]\n");
--	fprintf(stderr, "       bridge mdb {show} [ dev DEV ]\n");
-+	fprintf(stderr, "       bridge mdb {show} [ dev DEV ] [ vid VID ]\n");
- 	exit(-1);
- }
- 
-@@ -92,6 +92,8 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
- 	const void *src;
- 	int af;
- 
-+	if (filter_vlan && e->vid != filter_vlan)
-+		return;
- 	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
- 	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
- 			      (const void *)&e->addr.u.ip6;
-@@ -195,6 +197,11 @@ static int mdb_show(int argc, char **argv)
- 			if (filter_dev)
- 				duparg("dev", *argv);
- 			filter_dev = *argv;
-+		} else if (strcmp(*argv, "vid") == 0) {
-+			NEXT_ARG();
-+			if (filter_vlan)
-+				duparg("vid", *argv);
-+			filter_vlan = atoi(*argv);
- 		}
- 		argc--; argv++;
- 	}
--- 
-2.4.3
+So your first patch was probably a better idea.
+
+v2 has two tests instead of one.
