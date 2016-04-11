@@ -1,155 +1,41 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Mon, 11 Apr 2016 14:08:27 +0100
-Message-ID: <20160411130826.GB32073@techsingularity.net>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
- <20160407161715.52635cac@redhat.com>
- <20160411085819.GE21128@suse.de>
- <20160411142639.1c5e520b@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Mel Gorman <mgorman@suse.de>, lsf@lists.linux-foundation.org,
-	linux-mm <linux-mm@kvack.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Tom Herbert <tom@herbertland.com>,
-	lsf-pc@lists.linux-foundation.org,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160411142639.1c5e520b@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH iproute2 0/3] bridge: filtering by vlan id
+Date: Mon, 11 Apr 2016 15:18:27 +0200
+Message-ID: <1460380710-29583-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:38840 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755143AbcDKNTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 09:19:45 -0400
+Received: by mail-wm0-f52.google.com with SMTP id u206so104036751wme.1
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 06:19:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2016 at 02:26:39PM +0200, Jesper Dangaard Brouer wrote:
-> > Which bottleneck dominates -- the page allocator or the DMA API when
-> > setting up coherent pages?
-> >
-> 
-> It is actually both, but mostly DMA on non-x86 archs.  The need to
-> support multiple archs, then also cause a slowdown on x86, due to a
-> side-effect.
-> 
-> On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
-> the cost of DMA calls, NIC driver alloc large order (compound) pages.
-> (dma_map compound page, handout page-fragments for RX ring, and later
-> dma_unmap when last RX page-fragments is seen).
-> 
+Hi,
+This set adds support for filtering by a vlan id when showing fdb/mdb/vlan
+entries. Currently the filtering is implemented entirely in user-space, but
+the plan is to add kernel support as well. The vlan show part is also needed
+for the future per-vlan statistics in order to be able to show them only for
+a specific vlan. I plan to update the bridge man page soon as it's missing
+other options too and it seemed inconsistent to add this given that there're
+potential paragraphs missing, thus I'll post a separate patch for that.
 
-So, IMO only holding onto the DMA pages is all that is justified but not a
-recycle of order-0 pages built on top of the core allocator. For DMA pages,
-it would take a bit of legwork but the per-cpu allocator could be split
-and converted to hold arbitrary sized pages with a constructer/destructor
-to do the DMA coherency step when pages are taken from or handed back to
-the core allocator. I'm not volunteering to do that unfortunately but I
-estimate it'd be a few days work unless it needs to be per-CPU and NUMA
-aware in which case the memory footprint will be high.
+Thank you,
+ Nik
 
-> > I'm wary of another page allocator API being introduced if it's for
-> > performance reasons. In response to this thread, I spent two days on
-> > a series that boosts performance of the allocator in the fast paths by
-> > 11-18% to illustrate that there was low-hanging fruit for optimising. If
-> > the one-LRU-per-node series was applied on top, there would be a further
-> > boost to performance on the allocation side. It could be further boosted
-> > if debugging checks and statistic updates were conditionally disabled by
-> > the caller.
-> 
-> It is always great if you can optimized the page allocator.  IMHO the
-> page allocator is too slow.
+Nikolay Aleksandrov (3):
+  bridge: fdb: add support to filter by vlan id
+  bridge: mdb: add support to filter by vlan id
+  bridge: vlan: add support to filter by vlan id
 
-It's why I spent some time on it as any improvement in the allocator is
-an unconditional win without requiring driver modifications.
-
-> At least for my performance needs (67ns
-> per packet, approx 201 cycles at 3GHz).  I've measured[1]
-> alloc_pages(order=0) + __free_pages() to cost 277 cycles(tsc).
-> 
-
-It'd be worth retrying this with the branch
-
-http://git.kernel.org/cgit/linux/kernel/git/mel/linux.git/log/?h=mm-vmscan-node-lru-v4r5
-
-This is an unreleased series that contains both the page allocator
-optimisations and the one-LRU-per-node series which in combination remove a
-lot of code from the page allocator fast paths. I have no data on how the
-combined series behaves but each series individually is known to improve
-page allocator performance.
-
-Once you have that, do a hackjob to remove the debugging checks from both the
-alloc and free path and see what that leaves. They could be bypassed properly
-with a __GFP_NOACCT flag used only by drivers that absolutely require pages
-as quickly as possible and willing to be less safe to get that performance.
-
-I expect then that the free path to be dominated by zone and pageblock
-lookups which are much harder to remove. The zone lookup can be removed
-if the caller knows exactly where the free pages need to go which is
-unlikely. The pageblock lookup could be removed if it was coming from a
-dedicated pool if the allocation side refills using pageblocks that are
-always MIGRATE_UNMOVABLE.
-
-> The trick described above, of allocating a higher order page and
-> handing out page-fragments, also workaround this page allocator
-> bottleneck (on x86).
-> 
-
-Be aware that compound order allocs like this are a double edged sword as
-it'll be fast sometimes and other times require reclaim/compaction which
-can stall for prolonged periods of time.
-
-> I've measured order 3 (32KB) alloc_pages(order=3) + __free_pages() to
-> cost approx 500 cycles(tsc).  That was more expensive, BUT an order=3
-> page 32Kb correspond to 8 pages (32768/4096), thus 500/8 = 62.5
-> cycles.  Usually a network RX-frame only need to be 2048 bytes, thus
-> the "bulk" effect speed up is x16 (32768/2048), thus 31.25 cycles.
-> 
-> I view this as a bulking trick... maybe the page allocator can just
-> give us a bulking API? ;-)
-> 
-
-It could on the alloc side relatively easily using either a variation of
-rmqueue_bulk exposed at a higher level populating a linked list (link via
-page->lru) or an array supplied by the caller.  It's harder to bulk free
-quickly as the pages being freed are not necessarily in the same pageblock
-requiring lookups in the free path.
-
-Tricky to get right, but preferable to a whole new allocator.
-
-> > The main reason another allocator concerns me is that those pages
-> > are effectively pinned and cannot be reclaimed by the VM in low memory
-> > situations. It ends up needing its own API for tuning the size and hoping
-> > all the drivers get it right without causing OOM situations. It becomes
-> > a slippery slope of introducing shrinkers, locking and complexity. Then
-> > callers start getting concerned about NUMA locality and having to deal
-> > with multiple lists to maintain performance. Ultimately, it ends up being
-> > as slow as the page allocator and back to square 1 except now with more code.
-> 
-> The pages assigned to the RX ring queue are pinned like today.  The
-> pages avail in the pool could easily be reclaimed.
-> 
-
-How easy depends on how it's structured. If it's a global per-cpu list
-then it's an IPI to all CPUs which is straight-forward to implement but
-slow to execute. If it's per-driver then there needs to be a locked list
-of all pools and locking on each individual pool which could offset some
-of the performance benefit of using the pool in the first place.
-
-> I actually think we are better off providing a generic page pool
-> interface the drivers can use.  Instead of the situation where drivers
-> and subsystems invent their own, which does not cooperate in OOM
-> situations.
-> 
-
-If it's offsetting DMA setup/teardown then I'd be a bit happier. If it's
-yet-another-page allocator to bypass the core allocator then I'm less happy.
+ bridge/fdb.c  | 21 ++++++++++++++------
+ bridge/mdb.c  | 11 +++++++++--
+ bridge/vlan.c | 63 +++++++++++++++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 75 insertions(+), 20 deletions(-)
 
 -- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.4.3
