@@ -1,62 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Mon, 11 Apr 2016 04:28:02 +0200
-Message-ID: <20160411022802.GB4307@lunn.ch>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: simplify verifier register state
+ assignments
+Date: Sun, 10 Apr 2016 22:43:56 -0400 (EDT)
+Message-ID: <20160410.224356.1432777173706360517.davem@davemloft.net>
+References: <1459996761-2926623-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57009 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751397AbcDKCoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 22:44:09 -0400
+In-Reply-To: <1459996761-2926623-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 09, 2016 at 01:25:03AM +0300, Sergei Shtylyov wrote:
-> With  the 'phylib' now  being aware of  the "reset-gpios" PHY node property,
-> there should be no need to frob the PHY reset in this  driver anymore...
+From: Alexei Starovoitov <ast@fb.com>
+Date: Wed, 6 Apr 2016 19:39:21 -0700
+
+> verifier is using the following structure to track the state of registers:
+> struct reg_state {
+>     enum bpf_reg_type type;
+>     union {
+>         int imm;
+>         struct bpf_map *map_ptr;
+>     };
+> };
+> and later on in states_equal() does memcmp(&old->regs[i], &cur->regs[i],..)
+> to find equivalent states.
+> Throughout the code of verifier there are assignements to 'imm' and 'map_ptr'
+> fields and it's not obvious that most of the assignments into 'imm' don't
+> need to clear extra 4 bytes (like mark_reg_unknown_value() does) to make sure
+> that memcmp doesn't go over junk left from 'map_ptr' assignment.
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Simplify the code by converting 'int' into 'long'
 > 
-> ---
->  drivers/net/ethernet/cadence/macb.c |   17 -----------------
->  drivers/net/ethernet/cadence/macb.h |    1 -
->  2 files changed, 18 deletions(-)
-> 
-> Index: net-next/drivers/net/ethernet/cadence/macb.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/cadence/macb.c
-> +++ net-next/drivers/net/ethernet/cadence/macb.c
-> @@ -2884,7 +2884,6 @@ static int macb_probe(struct platform_de
->  					      = macb_clk_init;
->  	int (*init)(struct platform_device *) = macb_init;
->  	struct device_node *np = pdev->dev.of_node;
-> -	struct device_node *phy_node;
->  	const struct macb_config *macb_config = NULL;
->  	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
->  	unsigned int queue_mask, num_queues;
-> @@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
->  	else
->  		macb_get_hwaddr(bp);
->  
-> -	/* Power up the PHY if there is a GPIO reset */
-> -	phy_node =  of_get_next_available_child(np, NULL);
-> -	if (phy_node) {
-> -		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
-> -
-> -		if (gpio_is_valid(gpio)) {
-> -			bp->reset_gpio = gpio_to_desc(gpio);
-> -			gpiod_direction_output(bp->reset_gpio, 1);
+> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-Hi Sergei
-
-The code you are deleting would of ignored the flags in the gpio
-property, i.e. active low. The new code in the previous patch does
-however take the flags into account. Did you check if there are any
-device trees which have flags, which were never used, but are now
-going to be used and thus break...
-
-      Andrew
+Applied, thanks Daniel.
