@@ -1,73 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Configuring ethernet link fails with No such device
-Date: Mon, 11 Apr 2016 16:10:53 -0700
-Message-ID: <570C2EFD.6070602@gmail.com>
-References: <67b662523c63277fa95a59472cbf018f@agner.ch>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net v2] net: sched: do not requeue a NULL skb
+Date: Mon, 11 Apr 2016 16:19:15 -0700
+Message-ID: <CAM_iQpVid8=LeO31p_ZiPQkhWtgCuioUzfCdgDPatFxkWrkbCg@mail.gmail.com>
+References: <1460355869-13539-1-git-send-email-larper@axis.com>
+ <1460380981.6473.544.camel@edumazet-glaptop3.roam.corp.google.com>
+ <570BA8C7.1000905@axis.com> <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
+ <570BC024.1070504@axis.com> <1460389951.6473.555.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWM0cce9PtvkenywGpvh0MEMe_0qvkKC00kYFAdFG=BxQ@mail.gmail.com>
+ <1460399171.6473.562.camel@edumazet-glaptop3.roam.corp.google.com> <1460399456.6473.566.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
-	u.kleine-koenig@pengutronix.de, bryan.wu@canonical.com,
-	bob.ham@collabora.com, Andrew Lunn <andrew@lunn.ch>
-To: Stefan Agner <stefan@agner.ch>,
-	systemd-devel@lists.freedesktop.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Lars Persson <lars.persson@axis.com>,
+	Lars Persson <larper@axis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35720 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbcDKXM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 19:12:57 -0400
-Received: by mail-pf0-f173.google.com with SMTP id n1so877999pfn.2
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 16:12:56 -0700 (PDT)
-In-Reply-To: <67b662523c63277fa95a59472cbf018f@agner.ch>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:34526 "EHLO
+	mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751615AbcDKXTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 19:19:35 -0400
+In-Reply-To: <1460399456.6473.566.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/04/16 15:46, Stefan Agner wrote:
-> Hi All,
-> 
-> I traced an issue in which we tried configuring duplex mode and speed in
-> a systemd-udevd .link file failed with the following error:
-> "Could not set speed or duplex of eth0 to 0 Mbps (half): No such device"
-> 
-> The FEC driver (fec_main.c) does not initialize phy_dev until the device
-> has been opened, and therefor the callback fec_enet_(get|set)_settings
-> returns -19.
-> 
-> What is the expectation/definition when link configuration should be
-> possible? Only after the network device got opened or before?
+On Mon, Apr 11, 2016 at 11:30 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-04-11 at 11:26 -0700, Eric Dumazet wrote:
+>> On Mon, 2016-04-11 at 11:02 -0700, Cong Wang wrote:
+>>
+>> > I am fine with either way as long as the loop stops on failure.
+>
+>
+> Note that skb that could not be validated is already freed.
+>
+> So I do not see any value from stopping the loop, since
+> we need to schedule the queue to avoid tx hang.
+>
+> Just process following skb if there is one, fact that skb is sent or
+> dropped does not matter.
 
-It seems to me like systemd tries to configure the device while we are
-still opening it, which is arguably something that can be done, but you
-are in a transient state, the interface is not completely ready yet.
-
-> 
-> Or in other words: Is this a Kernel or systemd issue? At what point is
-> link configuration "guaranteed" to work?
-
-Past ndo_open() had a chance to return, therefore connect to the PHY
-device, is when the configuration/information querying is able to succeed.
-
-> 
-> It seems that the FEC driver used to probe the PHY earlier, it has been
-> moved to the open callback with commit 418bd0d4df ("netdev/fec: fix
-> ifconfig eth0 down hang issue")...
-
-Part of the reason for doing that, is that probing for the PHY during
-the driver's probe function could leave you with unused HW that is
-powered on for no good reason. Until we get into ndo_open, we have no
-clue if the interface is going to be used or not, so it is better to
-move part of the HW initialization as late as possible in the process.
-
-> 
-> There has been a similar report on the systemd-devel mailing list a
-> while ago, probably the same underlying issue:
-> https://www.mail-archive.com/systemd-devel@lists.freedesktop.org/msg33186.html
-> 
-> --
-> Stefan
-> 
-
-
--- 
-Florian
+My point is, for example, in OOM case, we don't know processing
+more SKB would make it better or worse. Maybe we really need to
+check the error code to decide to continue to exit?
