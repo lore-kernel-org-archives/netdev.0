@@ -1,34 +1,40 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: Inconsistent use of size argument in kzalloc and memcpy in
- 'drivers/net/ethernet/toshiba/ps3_gelic_wireless.c'
-Date: Mon, 11 Apr 2016 13:26:08 +0300
-Message-ID: <20160411102608.GC4298@mwanda>
-References: <570B75A4.5070904@wanadoo.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: geoff@infradead.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <570B75A4.5070904@wanadoo.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
+Subject: [PATCH] net: fjes: Use resource_size
+Date: Mon, 11 Apr 2016 15:58:17 +0530
+Message-ID: <1460370497-10221-1-git-send-email-vaishali.thakkar@oracle.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Vaishali Thakkar <vaishali.thakkar@oracle.com>
+To: izumi.taku@jp.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:23198 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbcDKKaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 06:30:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2016 at 12:00:04PM +0200, Christophe JAILLET wrote:
-> Hi,
-> 
-> while looking at potential clean-up, I ended on the following code
-> which looks spurious to me.
-> 
-> We allocate 'be16_to_cpu(scan_info->size)' bytes, but then copy
-> 'scan_info->size'.
-> This is not consistent.
-> 
+Use the function resource_size instead of explicit computation.
 
-Good catch.  be16_to_cpu(scan_info->size) is correct.  It's surprising
-that this bug wasn't caught in testing...
+Problem found using Coccinelle.
 
-regards,
-dan carpenter
+Signed-off-by: Vaishali Thakkar <vaishali.thakkar@oracle.com>
+---
+ drivers/net/fjes/fjes_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
+index 0ddb54f..061b4af 100644
+--- a/drivers/net/fjes/fjes_main.c
++++ b/drivers/net/fjes/fjes_main.c
+@@ -1129,7 +1129,7 @@ static int fjes_probe(struct platform_device *plat_dev)
+ 
+ 	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
+ 	hw->hw_res.start = res->start;
+-	hw->hw_res.size = res->end - res->start + 1;
++	hw->hw_res.size = resource_size(res);
+ 	hw->hw_res.irq = platform_get_irq(plat_dev, 0);
+ 	err = fjes_hw_init(&adapter->hw);
+ 	if (err)
+-- 
+2.1.4
