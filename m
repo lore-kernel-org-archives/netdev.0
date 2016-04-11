@@ -1,102 +1,43 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Mon, 11 Apr 2016 17:46:27 -0500
-Message-ID: <CAL_Jsq+RYTmRZPLBrXR-Jh66o3A7dpvGhaa451TFr8+=MixM9A@mail.gmail.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3381543.SDQLqND8Pp@wasted.cogentembedded.com> <20160411192521.GA6896@rob-hp-laptop>
- <570BFACF.30507@cogentembedded.com>
+From: Stefan Agner <stefan@agner.ch>
+Subject: Configuring ethernet link fails with No such device
+Date: Mon, 11 Apr 2016 15:46:08 -0700
+Message-ID: <67b662523c63277fa95a59472cbf018f@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Grant Likely <grant.likely@linaro.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Frank Rowand <frowand.list@gmail.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570BFACF.30507@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	u.kleine-koenig@pengutronix.de, bryan.wu@canonical.com,
+	bob.ham@collabora.com
+To: systemd-devel@lists.freedesktop.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kmu-office.ch ([178.209.48.109]:35914 "EHLO
+	mail.kmu-office.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837AbcDKWt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 18:49:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 11, 2016 at 2:28 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 04/11/2016 10:25 PM, Rob Herring wrote:
->
->>> The PHY  devices sometimes do have their reset signal (maybe even power
->>> supply?) tied to some GPIO and sometimes it also does happen that a boot
->>> loader does not leave it deasserted. So far this issue has been attacked
->>> from (as I believe) a wrong angle: by teaching the MAC driver to
->>> manipulate
->>> the GPIO in question;  that solution, when  applied to the device trees,
->>> led to adding the PHY reset GPIO properties to the MAC device node, with
->>> one exception: Cadence MACB driver which could handle the "reset-gpios"
->>> prop  in a PHY device  subnode.  I believe that the correct approach is
->>> to
->>> teach the 'phylib' to get the MDIO device reset GPIO from the device tree
->>> node corresponding to this device -- which this patch is doing...
->>>
->>> Note that I had to modify the  AT803x PHY driver as it would stop working
->>> otherwise as it made use of the reset GPIO for its own purposes...
->>
->>
->> Lots of double spaces in here. Please fix.
->
->
->    Oh, it's you again! :-D
+Hi All,
 
-Yep, one of those picky kernel maintainers that like a bad rash just
-won't go away. :)
+I traced an issue in which we tried configuring duplex mode and speed in
+a systemd-udevd .link file failed with the following error:
+"Could not set speed or duplex of eth0 to 0 Mbps (half): No such device"
 
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>>
->>> ---
->>>   Documentation/devicetree/bindings/net/phy.txt |    2 +
->>>   drivers/net/phy/at803x.c                      |   19 ++------------
->>>   drivers/net/phy/mdio_bus.c                    |    4 +++
->>>   drivers/net/phy/mdio_device.c                 |   27
->>> +++++++++++++++++++--
->>>   drivers/net/phy/phy_device.c                  |   33
->>> ++++++++++++++++++++++++--
->>>   drivers/of/of_mdio.c                          |   16 ++++++++++++
->>>   include/linux/mdio.h                          |    3 ++
->>>   include/linux/phy.h                           |    5 +++
->>>   8 files changed, 89 insertions(+), 20 deletions(-)
->>
->>
->> [...]
->>
->>> Index: net-next/drivers/of/of_mdio.c
->>> ===================================================================
->>> --- net-next.orig/drivers/of/of_mdio.c
->>> +++ net-next/drivers/of/of_mdio.c
->>> @@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
->>>   static int of_mdiobus_register_phy(struct mii_bus *mdio, struct
->>> device_node *child,
->>>                                    u32 addr)
->>>   {
->>> +       struct gpio_desc *gpiod;
->>>         struct phy_device *phy;
->>>         bool is_c45;
->>>         int rc;
->>> @@ -52,10 +53,17 @@ static int of_mdiobus_register_phy(struc
->>>         is_c45 = of_device_is_compatible(child,
->>>                                          "ethernet-phy-ieee802.3-c45");
->>>
->>> +       gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
->>
->>
->> Calling fwnode_* functions in a DT specific file/function? That doesn't
->> make sense.
->
->
->    Really?! 8-)
->    Where is a DT-only analog I wonder...
+The FEC driver (fec_main.c) does not initialize phy_dev until the device
+has been opened, and therefor the callback fec_enet_(get|set)_settings
+returns -19.
 
-Ah, you're right. NM.
+What is the expectation/definition when link configuration should be
+possible? Only after the network device got opened or before?
 
-Rob
+Or in other words: Is this a Kernel or systemd issue? At what point is
+link configuration "guaranteed" to work?
+
+It seems that the FEC driver used to probe the PHY earlier, it has been
+moved to the open callback with commit 418bd0d4df ("netdev/fec: fix
+ifconfig eth0 down hang issue")...
+
+There has been a similar report on the systemd-devel mailing list a
+while ago, probably the same underlying issue:
+https://www.mail-archive.com/systemd-devel@lists.freedesktop.org/msg33186.html
