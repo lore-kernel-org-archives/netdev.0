@@ -1,33 +1,102 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 0/9] RxRPC: 2nd rewrite part 1
-Date: Mon, 11 Apr 2016 23:29:55 +0100
-Message-ID: <2826.1460413795@warthog.procyon.org.uk>
-References: <15783.1460412099@warthog.procyon.org.uk> <20160411.153511.1531573815825221764.davem@davemloft.net> <20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
+Date: Mon, 11 Apr 2016 17:46:27 -0500
+Message-ID: <CAL_Jsq+RYTmRZPLBrXR-Jh66o3A7dpvGhaa451TFr8+=MixM9A@mail.gmail.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <3381543.SDQLqND8Pp@wasted.cogentembedded.com> <20160411192521.GA6896@rob-hp-laptop>
+ <570BFACF.30507@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, David Miller <davem@davemloft.net>,
-	linux-afs@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38730 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754600AbcDKW36 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 18:29:58 -0400
-In-Reply-To: <15783.1460412099@warthog.procyon.org.uk>
-Content-ID: <2825.1460413795.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Grant Likely <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Frank Rowand <frowand.list@gmail.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570BFACF.30507@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Howells <dhowells@redhat.com> wrote:
+On Mon, Apr 11, 2016 at 2:28 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 04/11/2016 10:25 PM, Rob Herring wrote:
+>
+>>> The PHY  devices sometimes do have their reset signal (maybe even power
+>>> supply?) tied to some GPIO and sometimes it also does happen that a boot
+>>> loader does not leave it deasserted. So far this issue has been attacked
+>>> from (as I believe) a wrong angle: by teaching the MAC driver to
+>>> manipulate
+>>> the GPIO in question;  that solution, when  applied to the device trees,
+>>> led to adding the PHY reset GPIO properties to the MAC device node, with
+>>> one exception: Cadence MACB driver which could handle the "reset-gpios"
+>>> prop  in a PHY device  subnode.  I believe that the correct approach is
+>>> to
+>>> teach the 'phylib' to get the MDIO device reset GPIO from the device tree
+>>> node corresponding to this device -- which this patch is doing...
+>>>
+>>> Note that I had to modify the  AT803x PHY driver as it would stop working
+>>> otherwise as it made use of the reset GPIO for its own purposes...
+>>
+>>
+>> Lots of double spaces in here. Please fix.
+>
+>
+>    Oh, it's you again! :-D
 
-> > Series applied, but I had to fix up some trailing whitespace (reported by
-> > GIT) by hand.
-> 
-> Do you perchance have a git hook script for checking for trailing whitespace?
+Yep, one of those picky kernel maintainers that like a bad rash just
+won't go away. :)
 
-No matter - there's already such a script installed by git clone - I just have
-to enable it.
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>>
+>>> ---
+>>>   Documentation/devicetree/bindings/net/phy.txt |    2 +
+>>>   drivers/net/phy/at803x.c                      |   19 ++------------
+>>>   drivers/net/phy/mdio_bus.c                    |    4 +++
+>>>   drivers/net/phy/mdio_device.c                 |   27
+>>> +++++++++++++++++++--
+>>>   drivers/net/phy/phy_device.c                  |   33
+>>> ++++++++++++++++++++++++--
+>>>   drivers/of/of_mdio.c                          |   16 ++++++++++++
+>>>   include/linux/mdio.h                          |    3 ++
+>>>   include/linux/phy.h                           |    5 +++
+>>>   8 files changed, 89 insertions(+), 20 deletions(-)
+>>
+>>
+>> [...]
+>>
+>>> Index: net-next/drivers/of/of_mdio.c
+>>> ===================================================================
+>>> --- net-next.orig/drivers/of/of_mdio.c
+>>> +++ net-next/drivers/of/of_mdio.c
+>>> @@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
+>>>   static int of_mdiobus_register_phy(struct mii_bus *mdio, struct
+>>> device_node *child,
+>>>                                    u32 addr)
+>>>   {
+>>> +       struct gpio_desc *gpiod;
+>>>         struct phy_device *phy;
+>>>         bool is_c45;
+>>>         int rc;
+>>> @@ -52,10 +53,17 @@ static int of_mdiobus_register_phy(struc
+>>>         is_c45 = of_device_is_compatible(child,
+>>>                                          "ethernet-phy-ieee802.3-c45");
+>>>
+>>> +       gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
+>>
+>>
+>> Calling fwnode_* functions in a DT specific file/function? That doesn't
+>> make sense.
+>
+>
+>    Really?! 8-)
+>    Where is a DT-only analog I wonder...
 
-David
+Ah, you're right. NM.
+
+Rob
