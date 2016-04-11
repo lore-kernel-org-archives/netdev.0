@@ -1,27 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] drivers: net: cpsw: fix ale calls and drop
- host_port field from cpsw_priv
-Date: Mon, 11 Apr 2016 15:12:29 -0400 (EDT)
-Message-ID: <20160411.151229.7068975173395002.davem@davemloft.net>
-References: <1460031404-28594-1-git-send-email-grygorii.strashko@ti.com>
+Subject: Re: [PATCH v6 net-next] net: ipv4: Consider failed nexthops in
+ multipath routes
+Date: Mon, 11 Apr 2016 15:18:53 -0400 (EDT)
+Message-ID: <20160411.151853.799647031209557799.davem@davemloft.net>
+References: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460031404-28594-1-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36072 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754169AbcDKTSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 15:18:55 -0400
+In-Reply-To: <1460038860-25670-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Thu, 7 Apr 2016 15:16:42 +0300
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu,  7 Apr 2016 07:21:00 -0700
 
-> This clean up series intended to:
->  - fix port_mask parameters in ale calls and drop unnecessary shifts
->  - drop host_port field from struct cpsw_priv
+> Multipath route lookups should consider knowledge about next hops and not
+> select a hop that is known to be failed.
 > 
-> Nothing critical. Tested on am437x-idk-evm in dual mac and switch modes.
+> Example:
+ ...
+> The failed path can be avoided by considering known neighbor information
+> when selecting next hops. If the neighbor lookup fails we have no
+> knowledge about the nexthop, so give it a shot. If there is an entry
+> then only select the nexthop if the state is sane. This is similar to
+> what fib_detect_death does.
+> 
+> To maintain backward compatibility use of the neighbor information is
+> based on a new sysctl, fib_multipath_use_neigh.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Looks good, series applied, thanks.
+Applied, thanks.
