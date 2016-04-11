@@ -1,87 +1,103 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH RFT 1/2] phylib: add device reset GPIO support
-Date: Mon, 11 Apr 2016 14:25:21 -0500
-Message-ID: <20160411192521.GA6896@rob-hp-laptop>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <3381543.SDQLqND8Pp@wasted.cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC 1/5] net: phy: sun8i-h3-ephy: Add bindings for
+ Allwinner H3 Ethernet PHY
+Date: Mon, 11 Apr 2016 12:23:28 -0700
+Message-ID: <570BF9B0.2090602@gmail.com>
+References: <1459786954-12649-1-git-send-email-wens@csie.org>
+ <1459786954-12649-2-git-send-email-wens@csie.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: grant.likely@linaro.org, devicetree@vger.kernel.org,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	frowand.list@gmail.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	LABBE Corentin <clabbe.montjoie@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Chen-Yu Tsai <wens@csie.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3381543.SDQLqND8Pp@wasted.cogentembedded.com>
+In-Reply-To: <1459786954-12649-2-git-send-email-wens@csie.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 09, 2016 at 01:22:47AM +0300, Sergei Shtylyov wrote:
-> The PHY  devices sometimes do have their reset signal (maybe even power
-> supply?) tied to some GPIO and sometimes it also does happen that a boot
-> loader does not leave it deasserted. So far this issue has been attacked
-> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
-> the GPIO in question;  that solution, when  applied to the device trees,
-> led to adding the PHY reset GPIO properties to the MAC device node, with
-> one exception: Cadence MACB driver which could handle the "reset-gpios"
-> prop  in a PHY device  subnode.  I believe that the correct approach is to
-> teach the 'phylib' to get the MDIO device reset GPIO from the device tree
-> node corresponding to this device -- which this patch is doing...
+On 04/04/16 09:22, Chen-Yu Tsai wrote:
+> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
+> configured through a memory mapped hardware register.
 > 
-> Note that I had to modify the  AT803x PHY driver as it would stop working
-> otherwise as it made use of the reset GPIO for its own purposes...
-
-Lots of double spaces in here. Please fix.
-
+> This same register also configures the MAC interface mode and TX clock
+> source. Also covered by the register, but not supported in these bindings,
+> are TX/RX clock delay chains and inverters, and an RMII module.
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
+> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
 > ---
->  Documentation/devicetree/bindings/net/phy.txt |    2 +
->  drivers/net/phy/at803x.c                      |   19 ++------------
->  drivers/net/phy/mdio_bus.c                    |    4 +++
->  drivers/net/phy/mdio_device.c                 |   27 +++++++++++++++++++--
->  drivers/net/phy/phy_device.c                  |   33 ++++++++++++++++++++++++--
->  drivers/of/of_mdio.c                          |   16 ++++++++++++
->  include/linux/mdio.h                          |    3 ++
->  include/linux/phy.h                           |    5 +++
->  8 files changed, 89 insertions(+), 20 deletions(-)
+>  .../bindings/net/allwinner,sun8i-h3-ephy.txt       | 44 ++++++++++++++++++++++
+>  1 file changed, 44 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
+> new file mode 100644
+> index 000000000000..146f227e6d88
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-h3-ephy.txt
+> @@ -0,0 +1,44 @@
+> +* Allwinner H3 E(thernet) PHY
+> +
+> +The Allwinner H3 integrates an MII ethernet PHY. As with external PHYs,
+> +before it can be configured over the MDIO bus and used, certain hardware
+> +features must be configured, such as the PHY address and LED polarity.
 
-[...]
+Is the internal PHY address really configurable? Not that there is
+anything wrong with it, this is good.
 
-> Index: net-next/drivers/of/of_mdio.c
-> ===================================================================
-> --- net-next.orig/drivers/of/of_mdio.c
-> +++ net-next/drivers/of/of_mdio.c
-> @@ -44,6 +44,7 @@ static int of_get_phy_id(struct device_n
->  static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
->  				   u32 addr)
->  {
-> +	struct gpio_desc *gpiod;
->  	struct phy_device *phy;
->  	bool is_c45;
->  	int rc;
-> @@ -52,10 +53,17 @@ static int of_mdiobus_register_phy(struc
->  	is_c45 = of_device_is_compatible(child,
->  					 "ethernet-phy-ieee802.3-c45");
->  
-> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios");
+> +The PHY must also be powered on and brought out of reset.
+> +
+> +This is accomplished with regulators and pull-up/downs for external PHYs.
+> +For this internal PHY, a hardware register is programmed.
+> +
+> +The same hardware register also contains clock and interface controls
+> +for the MAC. This is also present in earlier SoCs, and is covered by
+> +"allwinner,sun7i-a20-gmac-clk". The controls in the H3 are slightly
+> +different due to the inclusion of what appears to be an RMII-MII
+> +bridge.
+> +
+> +Required properties:
+> +- compatible: should be "allwinner,sun8i-h3-ephy"
+> +- reg: address and length of the register set for the device
+> +- clocks: A phandle to the reference clock for this device
+> +- resets: A phandle to the reset control for this device
+> +
+> +Ethernet PHY related properties:
+> +- allwinner,ephy-addr: the MDIO bus address the PHY should respond to.
+> +		       If this is not set, the external PHY is used, and
+> +		       everything else in this section is ignored.
 
-Calling fwnode_* functions in a DT specific file/function? That doesn't 
-make sense.
+So we are going to put the same value here, and in the actual Ethernet
+PHY device tree node that should be hanging off the EMAC/MDIO bus
+controller, this is confusing and error prone.
 
-> +	/* Deassert the reset signal */
-> +	if (!IS_ERR(gpiod))
-> +		gpiod_direction_output(gpiod, 0);
->  	if (!is_c45 && !of_get_phy_id(child, &phy_id))
->  		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
->  	else
->  		phy = get_phy_device(mdio, addr, is_c45);
-> +	/* Assert the reset signal again */
-> +	if (!IS_ERR(gpiod))
-> +		gpiod_set_value(gpiod, 1);
->  	if (IS_ERR_OR_NULL(phy))
->  		return 1;
->  
+> +- allwinner,leds-active-low: LEDs are active low. Without this, LEDs are
+> +			     active high.
+> +
+> +Ethernet MAC clock related properties:
+> +- #clock-cells: should be 0
+> +- clock-output-names: "mac_tx"
+> +
+> +Example:
+> +
+> +ethernet-phy@01c00030 {
+> +	compatible = "allwinner,sun8i-h3-ephy";
+> +	reg = <0x01c00030 0x4>;
+
+Looking at this register space this looks more like an internal PHY SHIM
+that is needed to be configured before the internal PHY can be access,
+not a proper Ethernet PHY per-se, see replies in aptch 2.
+
+Should not this block be a second cell associated with the Ethernet MAC
+block? One or the other are not going to be very useful without
+knowledge of each other.
+-- 
+Florian
