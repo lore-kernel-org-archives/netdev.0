@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 3/5] GRO: Add support for TCP with fixed IPv4 ID
- field, limit tunnel IP ID values
-Date: Sun, 10 Apr 2016 21:44:57 -0400
-Message-ID: <20160411014457.11189.91506.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH v2 5/5] Documentation: Add documentation for TSO
+ and GSO features
+Date: Sun, 10 Apr 2016 21:45:09 -0400
+Message-ID: <20160411014509.11189.33069.stgit@ahduyck-xeon-server>
 References: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,183 +11,159 @@ To: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
 	alexander.duyck@gmail.com, edumazet@google.com,
 	netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35950 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244AbcDKBpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 21:45:03 -0400
-Received: by mail-pa0-f54.google.com with SMTP id bx7so95154991pad.3
-        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 18:45:02 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35131 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752623AbcDKBpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 21:45:15 -0400
+Received: by mail-pa0-f51.google.com with SMTP id td3so111355122pab.2
+        for <netdev@vger.kernel.org>; Sun, 10 Apr 2016 18:45:14 -0700 (PDT)
 In-Reply-To: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch does two things.
-
-First it allows TCP to aggregate TCP frames with a fixed IPv4 ID field.  As
-a result we should now be able to aggregate flows that were converted from
-IPv6 to IPv4.  In addition this allows us more flexibility for future
-implementations of segmentation as we may be able to use a fixed IP ID when
-segmenting the flow.
-
-The second thing this does is that it places limitations on the outer IPv4
-ID header in the case of tunneled frames.  Specifically it forces the IP ID
-to be incrementing by 1 unless the DF bit is set in the outer IPv4 header.
-This way we can avoid creating overlapping series of IP IDs that could
-possibly be fragmented if the frame goes through GRO and is then
-resegmented via GSO.
+This document is a starting point for defining the TSO and GSO features.
+The whole thing is starting to get a bit messy so I wanted to make sure we
+have notes somwhere to start describing what does and doesn't work.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- include/linux/netdevice.h |    5 ++++-
- net/core/dev.c            |    1 +
- net/ipv4/af_inet.c        |   35 ++++++++++++++++++++++++++++-------
- net/ipv4/tcp_offload.c    |   16 +++++++++++++++-
- net/ipv6/ip6_offload.c    |    8 ++++++--
- 5 files changed, 54 insertions(+), 11 deletions(-)
+ Documentation/networking/segmentation-offloads.txt |  130 ++++++++++++++++++++
+ 1 file changed, 130 insertions(+)
+ create mode 100644 Documentation/networking/segmentation-offloads.txt
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index eb7f037a4068..6a248a3a44bf 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2121,7 +2121,10 @@ struct napi_gro_cb {
- 	/* Used in GRE, set in fou/gue_gro_receive */
- 	u8	is_fou:1;
- 
--	/* 6 bit hole */
-+	/* Used to determine if flush_id can be ignored */
-+	u8	is_atomic:1;
+diff --git a/Documentation/networking/segmentation-offloads.txt b/Documentation/networking/segmentation-offloads.txt
+new file mode 100644
+index 000000000000..f200467ade38
+--- /dev/null
++++ b/Documentation/networking/segmentation-offloads.txt
+@@ -0,0 +1,130 @@
++Segmentation Offloads in the Linux Networking Stack
 +
-+	/* 5 bit hole */
- 
- 	/* used to support CHECKSUM_COMPLETE for tunneling protocols */
- 	__wsum	csum;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e896b1953ab6..b78b586b1856 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4462,6 +4462,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 		NAPI_GRO_CB(skb)->free = 0;
- 		NAPI_GRO_CB(skb)->encap_mark = 0;
- 		NAPI_GRO_CB(skb)->is_fou = 0;
-+		NAPI_GRO_CB(skb)->is_atomic = 1;
- 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
- 
- 		/* Setup for GRO checksum validation */
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5bbea9a0ce96..8564cab96189 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1328,6 +1328,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 
- 	for (p = *head; p; p = p->next) {
- 		struct iphdr *iph2;
-+		u16 flush_id;
- 
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
-@@ -1351,16 +1352,36 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 			(iph->tos ^ iph2->tos) |
- 			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF));
- 
--		/* Save the IP ID check to be included later when we get to
--		 * the transport layer so only the inner most IP ID is checked.
--		 * This is because some GSO/TSO implementations do not
--		 * correctly increment the IP ID for the outer hdrs.
--		 */
--		NAPI_GRO_CB(p)->flush_id =
--			    ((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
- 		NAPI_GRO_CB(p)->flush |= flush;
++Introduction
++============
 +
-+		/* We need to store of the IP ID check to be included later
-+		 * when we can verify that this packet does in fact belong
-+		 * to a given flow.
-+		 */
-+		flush_id = (u16)(id - ntohs(iph2->id));
++This document describes a set of techniques in the Linux networking stack
++to take advantage of segmentation offload capabilities of various NICs.
 +
-+		/* This bit of code makes it much easier for us to identify
-+		 * the cases where we are doing atomic vs non-atomic IP ID
-+		 * checks.  Specifically an atomic check can return IP ID
-+		 * values 0 - 0xFFFF, while a non-atomic check can only
-+		 * return 0 or 0xFFFF.
-+		 */
-+		if (!NAPI_GRO_CB(p)->is_atomic ||
-+		    !(iph->frag_off & htons(IP_DF))) {
-+			flush_id ^= NAPI_GRO_CB(p)->count;
-+			flush_id = flush_id ? 0xFFFF : 0;
-+		}
++The following technologies are described:
++ * TCP Segmentation Offload - TSO
++ * UDP Fragmentation Offload - UFO
++ * IPIP, SIT, GRE, and UDP Tunnel Offloads
++ * Generic Segmentation Offload - GSO
++ * Generic Receive Offload - GRO
++ * Partial Generic Segmentation Offload - GSO_PARTIAL
 +
-+		/* If the previous IP ID value was based on an atomic
-+		 * datagram we can overwrite the value and ignore it.
-+		 */
-+		if (NAPI_GRO_CB(skb)->is_atomic)
-+			NAPI_GRO_CB(p)->flush_id = flush_id;
-+		else
-+			NAPI_GRO_CB(p)->flush_id |= flush_id;
- 	}
- 
-+	NAPI_GRO_CB(skb)->is_atomic = !!(iph->frag_off & htons(IP_DF));
- 	NAPI_GRO_CB(skb)->flush |= flush;
- 	skb_set_network_header(skb, off);
- 	/* The above will be needed by the transport layer if there is one
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 08dd25d835af..d1ffd55289bd 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -239,7 +239,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 
- found:
- 	/* Include the IP ID check below from the inner most IP hdr */
--	flush = NAPI_GRO_CB(p)->flush | NAPI_GRO_CB(p)->flush_id;
-+	flush = NAPI_GRO_CB(p)->flush;
- 	flush |= (__force int)(flags & TCP_FLAG_CWR);
- 	flush |= (__force int)((flags ^ tcp_flag_word(th2)) &
- 		  ~(TCP_FLAG_CWR | TCP_FLAG_FIN | TCP_FLAG_PSH));
-@@ -248,6 +248,17 @@ found:
- 		flush |= *(u32 *)((u8 *)th + i) ^
- 			 *(u32 *)((u8 *)th2 + i);
- 
-+	/* When we receive our second frame we can made a decision on if we
-+	 * continue this flow as an atomic flow with a fixed ID or if we use
-+	 * an incrementing ID.
-+	 */
-+	if (NAPI_GRO_CB(p)->flush_id != 1 ||
-+	    NAPI_GRO_CB(p)->count != 1 ||
-+	    !NAPI_GRO_CB(p)->is_atomic)
-+		flush |= NAPI_GRO_CB(p)->flush_id;
-+	else
-+		NAPI_GRO_CB(p)->is_atomic = false;
++TCP Segmentation Offload
++========================
 +
- 	mss = skb_shinfo(p)->gso_size;
- 
- 	flush |= (len - 1) >= mss;
-@@ -316,6 +327,9 @@ static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
- 				  iph->daddr, 0);
- 	skb_shinfo(skb)->gso_type |= SKB_GSO_TCPV4;
- 
-+	if (NAPI_GRO_CB(skb)->is_atomic)
-+		skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_FIXEDID;
++TCP segmentation allows a device to segment a single frame into multiple
++frames with a data payload size specified in skb_shinfo()->gso_size.
++When TCP segmentation requested the bit for either SKB_GSO_TCP or
++SKB_GSO_TCP6 should be set in skb_shinfo()->gso_type and
++skb_shinfo()->gso_size should be set to a non-zero value.
 +
- 	return tcp_gro_complete(skb);
- }
- 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index b3a779393d71..061adcda65f3 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -240,10 +240,14 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		NAPI_GRO_CB(p)->flush |= !!(first_word & htonl(0x0FF00000));
- 		NAPI_GRO_CB(p)->flush |= flush;
- 
--		/* Clear flush_id, there's really no concept of ID in IPv6. */
--		NAPI_GRO_CB(p)->flush_id = 0;
-+		/* If the previous IP ID value was based on an atomic
-+		 * datagram we can overwrite the value and ignore it.
-+		 */
-+		if (NAPI_GRO_CB(skb)->is_atomic)
-+			NAPI_GRO_CB(p)->flush_id = 0;
- 	}
- 
-+	NAPI_GRO_CB(skb)->is_atomic = true;
- 	NAPI_GRO_CB(skb)->flush |= flush;
- 
- 	skb_gro_postpull_rcsum(skb, iph, nlen);
++TCP segmentation is dependent on support for the use of partial checksum
++offload.  For this reason TSO is normally disabled if the Tx checksum
++offload for a given device is disabled.
++
++In order to support TCP segmentation offload it is necessary to populate
++the network and transport header offsets of the skbuff so that the device
++drivers will be able determine the offsets of the IP or IPv6 header and the
++TCP header.  In addition as CHECKSUM_PARTIAL is required csum_start should
++also point to the TCP header of the packet.
++
++For IPv4 segmentation we support one of two types in terms of the IP ID.
++The default behavior is to increment the IP ID with every segment.  If the
++GSO type SKB_GSO_TCP_FIXEDID is specified then we will not increment the IP
++ID and all segments will use the same IP ID.  If a device has
++NETIF_F_TSO_MANGLEID set then the IP ID can be ignored when performing TSO
++and we will either increment the IP ID for all frames, or leave it at a
++static value based on driver preference.
++
++UDP Fragmentation Offload
++=========================
++
++UDP fragmentation offload allows a device to fragment an oversized UDP
++datagram into multiple IPv4 fragments.  Many of the requirements for UDP
++fragmentation offload are the same as TSO.  However the IPv4 ID for
++fragments should not increment as a single IPv4 datagram is fragmented.
++
++IPIP, SIT, GRE, UDP Tunnel, and Remote Checksum Offloads
++========================================================
++
++In addition to the offloads described above it is possible for a frame to
++contain additional headers such as an outer tunnel.  In order to account
++for such instances an additional set of segmentation offload types were
++introduced including SKB_GSO_IPIP, SKB_GSO_SIT, SKB_GSO_GRE, and
++SKB_GSO_UDP_TUNNEL.  These extra segmentation types are used to identify
++cases where there are more than just 1 set of headers.  For example in the
++case of IPIP and SIT we should have the network and transport headers moved
++from the standard list of headers to "inner" header offsets.
++
++Currently only two levels of headers are supported.  The convention is to
++refer to the tunnel headers as the outer headers, while the encapsulated
++data is normally referred to as the inner headers.  Below is the list of
++calls to access the given headers:
++
++IPIP/SIT Tunnel:
++		Outer			Inner
++MAC		skb_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header
++
++UDP/GRE Tunnel:
++		Outer			Inner
++MAC		skb_mac_header		skb_inner_mac_header
++Network		skb_network_header	skb_inner_network_header
++Transport	skb_transport_header	skb_inner_transport_header
++
++In addition to the above tunnel types there are also SKB_GSO_GRE_CSUM and
++SKB_GSO_UDP_TUNNEL_CSUM.  These two additional tunnel types reflect the
++fact that the outer header also requests to have a non-zero checksum
++included in the outer header.
++
++Finally there is SKB_GSO_REMCSUM which indicates that a given tunnel header
++has requested a remote checksum offload.  In this case the inner headers
++will be left with a partial checksum and only the outer header checksum
++will be computed.
++
++Generic Segmentation Offload
++============================
++
++Generic segmentation offload is a pure software offload that is meant to
++deal with cases where device drivers cannot perform the offloads described
++above.  What occurs in GSO is that a given skbuff will have its data broken
++out over multiple skbuffs that have been resized to match the MSS provided
++via skb_shinfo()->gso_size.
++
++Before enabling any hardware segmentation offload a corresponding software
++offload is required in GSO.  Otherwise it becomes possible for a frame to
++be re-routed between devices and end up being unable to be transmitted.
++
++Generic Receive Offload
++=======================
++
++Generic receive offload is the complement to GSO.  Ideally any frame
++assembled by GRO should be segmented to create an identical sequence of
++frames using GSO, and any sequence of frames segmented by GSO should be
++able to be reassembled back to the original by GRO.  The only exception to
++this is IPv4 ID in the case that the DF bit is set for a given IP header.
++If the value of the IPv4 ID is not sequentially incrementing it will be
++altered so that it is when a frame assembled via GRO is segmented via GSO.
++
++Partial Generic Segmentation Offload
++====================================
++
++Partial generic segmentation offload is a hybrid between TSO and GSO.  What
++it effectively does is take advantage of certain traits of TCP and tunnels
++so that instead of having to rewrite the packet headers for each segment
++only the inner-most transport header and possibly the outer-most network
++header need to be updated.  This allows devices that do not support tunnel
++offloads or tunnel offloads with checksum to still make use of segmentation.
++
++With the partial offload what occurs is that all headers excluding the
++inner transport header are updated such that they will contain the correct
++values for if the header was simply duplicated.  The one exception to this
++is the outer IPv4 ID field.  It is up to the device drivers to guarantee
++that the IPv4 ID field is incremented in the case that a given header does
++not have the DF bit set.
