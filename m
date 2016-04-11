@@ -1,197 +1,78 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle
- facility?
-Date: Mon, 11 Apr 2016 21:26:59 +0200
-Message-ID: <20160411212659.175befaa@redhat.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	<20160407161715.52635cac@redhat.com>
-	<20160411085819.GE21128@suse.de>
-	<20160411142639.1c5e520b@redhat.com>
-	<20160411130826.GB32073@techsingularity.net>
-	<20160411181907.15fdb8b9@redhat.com>
-	<20160411180703.GA27534@suse.de>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 5/5] ARM: dts: sun8i: Enable Ethernet controller on
+ the Orange PI PC
+Date: Mon, 11 Apr 2016 12:25:19 -0700
+Message-ID: <570BFA1F.2040601@gmail.com>
+References: <1459786954-12649-1-git-send-email-wens@csie.org>
+ <1459786954-12649-6-git-send-email-wens@csie.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@techsingularity.net>,
-        James Bottomley
- <James.Bottomley@HansenPartnership.com>,
-        "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>,
-        Brenden Blanco <bblanco@plumgrid.com>, lsf@lists.linux-foundation.org,
-        linux-mm <linux-mm@kvack.org>, Tom Herbert
- <tom@herbertland.com>,
-        lsf-pc@lists.linux-foundation.org,
-        Alexei
- Starovoitov <alexei.starovoitov@gmail.com>, brouer@redhat.com
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160411180703.GA27534@suse.de>
-Sender: owner-linux-mm@kvack.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1459786954-12649-6-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Apr 2016 19:07:03 +0100
-Mel Gorman <mgorman@suse.de> wrote:
-
-> On Mon, Apr 11, 2016 at 06:19:07PM +0200, Jesper Dangaard Brouer wrote:
-> > > http://git.kernel.org/cgit/linux/kernel/git/mel/linux.git/log/?h=mm-vmscan-node-lru-v4r5
-> > >   
-> > 
-> > The cost decreased to: 228 cycles(tsc), but there are some variations,
-> > sometimes it increase to 238 cycles(tsc).
-> >   
+On 04/04/16 09:22, Chen-Yu Tsai wrote:
+> The Orange PI PC uses the H3's internal Ethernet PHY with the EMAC
+> Ethernet controller.
 > 
-> In the free path, a bulk pcp free adds to the cycles. In the alloc path,
-> a refill of the pcp lists costs quite a bit. Either option introduces
-> variances. The bulk free path can be optimised a little so I chucked
-> some additional patches at it that are not released yet but I suspect the
-> benefit will be marginal. The real heavy costs there are splitting/merging
-> buddies. Fixing that is much more fundamental but even fronting the allocator
-> with a new recycle allocator would not offset that as the refill of the
-> page-recycling thing would incur high costs.
->
-
-Yes, re-filling page-pool (in the non-steady state) could be
-problematic for performance.  That is why I'm very motivated in helping
-out with a bulk alloc/free scheme for the page allocator.
-
- 
-> > Nice, but there is still a looong way to my performance target, where I
-> > can spend 201 cycles for the entire forwarding path....
-> >   
+> Set a proper address for the PHY and enable the EMAC.
 > 
-> While I accept the cost is still too high, I think the effort should still
-> be spent on improving the allocator in general than trying to bypass it.
+> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+> ---
 > 
-
-I do think improving the page allocator is very important work.
-I just don't see how we can ever reach my performance target, without a
-page-pool recycle facility.
-
-I work in the area, where I think the cost of a single atomic operation
-is too high.  I work on amortizing the individual atomic operations.
-That is what I did for the SLUB allocator, with the bulk API. see:
-
-Commit d0ecd894e3d5 ("slub: optimize bulk slowpath free by detached freelist")
- https://git.kernel.org/torvalds/c/d0ecd894e3d5
-
-Commit fbd02630c6e3 ("slub: initial bulk free implementation")
- https://git.kernel.org/torvalds/c/fbd02630c6e3
- 
-This is now also used in the network stack:
- Commit 3134b9f019f2 ("Merge branch 'net-mitigate-kmem_free-slowpath'")
- Commit a3a8749d34d8 ("ixgbe: bulk free SKBs during TX completion cleanup cycle")
-
-
-> > > This is an unreleased series that contains both the page allocator
-> > > optimisations and the one-LRU-per-node series which in combination remove a
-> > > lot of code from the page allocator fast paths. I have no data on how the
-> > > combined series behaves but each series individually is known to improve
-> > > page allocator performance.
-> > >
-> > > Once you have that, do a hackjob to remove the debugging checks from both the
-> > > alloc and free path and see what that leaves. They could be bypassed properly
-> > > with a __GFP_NOACCT flag used only by drivers that absolutely require pages
-> > > as quickly as possible and willing to be less safe to get that performance.  
-> > 
-> > I would be interested in testing/benchmarking a patch where you remove
-> > the debugging checks...
-> >   
+> This patch depends on "ARM: dts: sun8i-h3: Add Ethernet controller device",
+> which uses an binding still in development.
 > 
-> Right now, I'm not proposing to remove the debugging checks despite their
-> cost. They catch really difficult problems in the field unfortunately
-> including corruption from buggy hardware. A GFP flag that disables them
-> for a very specific case would be ok but I expect it to be resisted by
-> others if it's done for the general case. Even a static branch for runtime
-> debugging checks may be resisted.
+> Do not merge.
 > 
-> Even if GFP flags are tight, I have a patch that deletes __GFP_COLD on
-> the grounds it is of questionable value. Applying that would free a flag
-> for __GFP_NOACCT that bypasses debugging checks and statistic updates.
-> That would work for the allocation side at least but doing the same for
-> the free side would be hard (potentially impossible) to do transparently
-> for drivers.
-
-Before spending too much work on something, I usually try to determine
-what the maximum benefit of something would be.  Thus, I propose you
-create a patch that hack remove all the debug checks that you think
-could be beneficial to remove.  And then benchmark it yourself or send
-it to me for benchmarking... that is the quickest way to determine if
-this is worth spending time on.
-
-
- 
-> > You are also welcome to try out my benchmarking modules yourself:
-> >  https://github.com/netoptimizer/prototype-kernel/blob/master/getting_started.rst
-> >   
+> ---
+>  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts | 14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
 > 
-> I took a quick look and functionally it's similar to the systemtap-based
-> microbenchmark I'm using in mmtests so I don't think we have a problem
-> with reproduction at the moment.
-> 
-> > > Be aware that compound order allocs like this are a double edged sword as
-> > > it'll be fast sometimes and other times require reclaim/compaction which
-> > > can stall for prolonged periods of time.  
-> > 
-> > Yes, I've notice that there can be a fairly high variation, when doing
-> > compound order allocs, which is not so nice!  I really don't like these
-> > variations....
-> >   
-> 
-> They can cripple you which is why I'm very wary of performance patches that
-> require compound pages. It tends to look great only on benchmarks and then
-> the corner cases hit in the real world and the bug reports are unpleasant.
+> diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+> index daf50b9a6657..f01e10df812a 100644
+> --- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+> +++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+> @@ -102,6 +102,20 @@
+>  	status = "okay";
+>  };
+>  
+> +&ephy {
+> +	allwinner,ephy-addr = <0x1>;
+> +};
+> +
+> +&emac {
+> +	phy = <&phy1>;
+> +	phy-mode = "mii";
+> +	status = "okay";
+> +
+> +	phy1: ethernet-phy@1 {
+> +		reg = <1>;
+> +	};
+> +};
 
-That confirms Eric's experience at Google, where they disabled this
-compound order page feature in the driver...
-
-
-> > Drivers also do tricks where they fallback to smaller order pages. E.g.
-> > lookup function mlx4_alloc_pages().  I've tried to simulate that
-> > function here:
-> > https://github.com/netoptimizer/prototype-kernel/blob/91d323fc53/kernel/mm/bench/page_bench01.c#L69
-> > 
-> > It does not seem very optimal. I tried to mem pressure the system a bit
-> > to cause the alloc_pages() to fail, and then the result were very bad,
-> > something like 2500 cycles, and it usually got the next order pages.  
-> 
-> The options for fallback tend to have one hazard after the next. It's
-> partially why the last series focused on order-0 pages only.
-
-Other places in the network stack, this falling down through the
-order's got removed, and replaced with a single "falldown" to order-0
-pages. (due to people reporting bad experiences of latency spikes)
-
- 
-> > > > I've measured order 3 (32KB) alloc_pages(order=3) + __free_pages() to
-> > > > cost approx 500 cycles(tsc).  That was more expensive, BUT an order=3
-> > > > page 32Kb correspond to 8 pages (32768/4096), thus 500/8 = 62.5
-> > > > cycles.  Usually a network RX-frame only need to be 2048 bytes, thus
-> > > > the "bulk" effect speed up is x16 (32768/2048), thus 31.25 cycles.  
-> > 
-> > The order=3 cost were reduced to: 417 cycles(tsc), nice!  But I've also
-> > seen it jump to 611 cycles.
-> >   
-> 
-> The corner cases can be minimised to some extent -- lazy buddy merging for
-> example but it unfortunately has other consequences for users that require
-> high-order pages for functional reasons. I tried something like that once
-> (http://thread.gmane.org/gmane.linux.kernel/807683) but didn't pursue it
-> to the end as it was a small part of the problem I was dealing with at the
-> time. It shouldn't be ruled out but it should be considered a last resort.
-> 
-
-
-
+As commented in patch 1, the fact that you have to put the Ethernet PHY
+address twice here is not really a good thing, because they cannot be
+dissociated from eath other, I would rather have a standard Ethernet PHY
+DT node represent the desired PHY address, and have your glue/SHIM
+SUN8I_H3_EMAC driver scan the Device Tree to know what address to
+program for the Ethernet PHY.
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
+Florian
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
