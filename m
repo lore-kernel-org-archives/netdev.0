@@ -1,60 +1,75 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
-Date: Tue, 12 Apr 2016 00:37:34 +0300
-Message-ID: <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
-References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
-	<1460405422-8654-3-git-send-email-saeedm@mellanox.com>
-	<CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
-	<CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle
+ facility?
+Date: Mon, 11 Apr 2016 23:41:57 +0200
+Message-ID: <20160411234157.3fc9c6fe@redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	<20160407161715.52635cac@redhat.com>
+	<20160407143854.GA7685@infradead.org>
+	<570678B7.7010802@sandisk.com>
+	<570A9F5B.5010600@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Bart Van Assche <bart.vanassche@sandisk.com>,
+        Christoph Hellwig
+ <hch@infradead.org>,
+        James Bottomley
+ <James.Bottomley@HansenPartnership.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        "lsf@lists.linux-foundation.org"
+ <lsf@lists.linux-foundation.org>,
+        linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>, brouer@redhat.com
+To: Sagi Grimberg <sagi@grimberg.me>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <570A9F5B.5010600@grimberg.me>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 12, 2016 at 12:24 AM, Saeed Mahameed
-<saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
-> On Tue, Apr 12, 2016 at 12:17 AM, Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
->> feature --> features
+On Sun, 10 Apr 2016 21:45:47 +0300 Sagi Grimberg <sagi@grimberg.me> wrote:
 
-> Correct, will fix.
+> >> This is also very interesting for storage targets, which face the same
+> >> issue.  SCST has a mode where it caches some fully constructed SGLs,
+> >> which is probably very similar to what NICs want to do.  
+> >
+> > I think a cached allocator for page sets + the scatterlists that
+> > describe these page sets would not only be useful for SCSI target
+> > implementations but also for the Linux SCSI initiator. Today the scsi-mq
+> > code reserves space in each scsi_cmnd for a scatterlist of
+> > SCSI_MAX_SG_SEGMENTS. If scatterlists would be cached together with page
+> > sets less memory would be needed per scsi_cmnd.  
+> 
+> If we go down this road how about also attaching some driver opaques
+> to the page sets?
 
->>> * Add vport to steering commands for SRIOV ACL support
->>> * Add mlcr, pcmr and mcia registers for dump module EEPROM
->>> * Add support for FCS, baeacon led and disable_link bits to hca caps
->>> * Add CQE period mode bit in  CQ context for CQE based CQ
->>>   moderation support
->>> * Add umr SQ bit for fragmented memory registration
->>> * Add needed bits and caps for Striding RQ support
+That was the ultimate plan... to leave some opaques bytes left in the
+page struct that drivers could use.
 
->> AFAIK, all the above are features will go through net-next, what made
->> you anticipate conflicts with linux-rdma?
+In struct page I would need a pointer back to my page_pool struct and a
+page flag.  Then, I would need room to store the dma_unmap address.
+(And then some of the usual fields are still needed, like the refcnt,
+and reusing some of the list constructs).  And a zero-copy cross-domain
+id.
 
-> FCS bit is needed also for rdma, so we took the liberty of updating
-> all the needed HW structs, bits, caps, etc ..
-> at once for all mlx5 features planned for 4.7 regardless of rdma/net conflicts.
 
-The cover letter states that this series deals with shared code.
+For my packet-page idea, I would need a packet length and an offset
+where data starts (I can derive the "head-room" for encap from these
+two).
 
-I guess you might also could extend it a bit to deal also with code
-that you suspect could lead to conflicts, but I don't see why it
-evolved to that extent.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-Or.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
