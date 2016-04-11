@@ -1,53 +1,26 @@
-From: Matthew Wilcox <willy@linux.intel.com>
-Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Mon, 11 Apr 2016 12:20:47 -0400
-Message-ID: <20160411162047.GJ2781@linux.intel.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
- <20160407161715.52635cac@redhat.com>
- <20160411085819.GE21128@suse.de>
- <20160411142639.1c5e520b@redhat.com>
- <20160411130826.GB32073@techsingularity.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2016-04-11
+Date: Mon, 11 Apr 2016 12:21:28 -0400 (EDT)
+Message-ID: <20160411.122128.603553584560873999.davem@davemloft.net>
+References: <87vb3o5n0v.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-	Mel Gorman <mgorman@suse.de>, Tom Herbert <tom@herbertland.com>,
-	lsf-pc@lists.linux-foundation.org,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Mel Gorman <mgorman@techsingularity.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160411130826.GB32073@techsingularity.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87vb3o5n0v.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2016 at 02:08:27PM +0100, Mel Gorman wrote:
-> On Mon, Apr 11, 2016 at 02:26:39PM +0200, Jesper Dangaard Brouer wrote:
-> > On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
-> > the cost of DMA calls, NIC driver alloc large order (compound) pages.
-> > (dma_map compound page, handout page-fragments for RX ring, and later
-> > dma_unmap when last RX page-fragments is seen).
-> 
-> So, IMO only holding onto the DMA pages is all that is justified but not a
-> recycle of order-0 pages built on top of the core allocator. For DMA pages,
-> it would take a bit of legwork but the per-cpu allocator could be split
-> and converted to hold arbitrary sized pages with a constructer/destructor
-> to do the DMA coherency step when pages are taken from or handed back to
-> the core allocator. I'm not volunteering to do that unfortunately but I
-> estimate it'd be a few days work unless it needs to be per-CPU and NUMA
-> aware in which case the memory footprint will be high.
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Mon, 11 Apr 2016 15:48:48 +0300
 
-Have "we" tried to accelerate the DMA calls in PowerPC?  For example, it
-could hold onto a cache of recently used mappings and recycle them if that
-still works.  It trades off a bit of security (a device can continue to DMA
-after the memory should no longer be accessible to it) for speed, but then
-so does the per-driver hack of keeping pages around still mapped.
+> here's a pull request for 4.7. More features, but nothing really
+> standing out. Please let me know if you have any problems.
 
+Pulled, thanks.
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
