@@ -1,82 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Unhandled fault during system suspend in sky2_shutdown
-Date: Mon, 11 Apr 2016 11:24:30 -0700
-Message-ID: <20160411112430.2a03e296@xeon-e3>
-References: <570BCFC5.4070208@arm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] net: sched: do not requeue a NULL skb
+Date: Mon, 11 Apr 2016 11:26:11 -0700
+Message-ID: <1460399171.6473.562.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460355869-13539-1-git-send-email-larper@axis.com>
+	 <1460380981.6473.544.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570BA8C7.1000905@axis.com>
+	 <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570BC024.1070504@axis.com>
+	 <1460389951.6473.555.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpWM0cce9PtvkenywGpvh0MEMe_0qvkKC00kYFAdFG=BxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Mirko Lindner <mlindner@marvell.com>
-To: Sudeep Holla <sudeep.holla@arm.com>
+Cc: Lars Persson <lars.persson@axis.com>,
+	Lars Persson <larper@axis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570BCFC5.4070208@arm.com>
+In-Reply-To: <CAM_iQpWM0cce9PtvkenywGpvh0MEMe_0qvkKC00kYFAdFG=BxQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Apr 2016 17:24:37 +0100
-Sudeep Holla <sudeep.holla@arm.com> wrote:
+On Mon, 2016-04-11 at 11:02 -0700, Cong Wang wrote:
 
-> Hi,
-> 
-> I am seeing unhandled fault during system suspend in sky2_shutdown.
-> I am not sure if it's something missing in the firmware, but just wanted
-> to check. I see that networkmanager is invoking calling to 
-> netlink_sendmsg which calls sky2_get_stats after the device is shutdown.
-> 
-> Unhandled fault: synchronous external abort (0x96000210) at 
-> 0xffff0000091c2918
-> Internal error: : 96000210 [#1] PREEMPT SMP
-> Modules linked in:
-> CPU: 3 PID: 2029 Comm: NetworkManager Not tainted 4.6.0-rc3 #126
-> Hardware name: ARM Juno development board (r2) (DT)
-> task: ffff80007a673000 ti: ffff800940b5c000 task.ti: ffff800940b5c000
-> PC is at sky2_get_stats+0x44/0x3b8
-> LR is at dev_get_stats+0x58/0xc8
->   sky2_get_stats+0x44/0x3b8
->   rtnl_fill_stats+0x20/0x138
->   rtnl_fill_ifinfo+0x440/0xb38
->   rtnl_getlink+0xe8/0x198
->   rtnetlink_rcv_msg+0xe4/0x220
->   netlink_rcv_skb+0xc4/0xf8
->   rtnetlink_rcv+0x2c/0x40
->   netlink_unicast+0x160/0x238
->   netlink_sendmsg+0x2f0/0x358
->   sock_sendmsg+0x18/0x30
->   ___sys_sendmsg+0x204/0x218
->   __sys_sendmsg+0x44/0x88
->   SyS_sendmsg+0xc/0x18
->   el0_svc_naked+0x24/0x28
-> 
-> The below patch is the hack I came up to check if the netdev is detached 
-> and unregistered, I no longer see the issue.
-> 
-> Regards,
-> Sudeep
-> 
-> -->8  
-> 
-> diff --git i/drivers/net/ethernet/marvell/sky2.c 
-> w/drivers/net/ethernet/marvell/sky2.c
-> index ec0a22119e09..0ff0434e32fc 100644
-> --- i/drivers/net/ethernet/marvell/sky2.c
-> +++ w/drivers/net/ethernet/marvell/sky2.c
-> @@ -5220,6 +5220,13 @@ static SIMPLE_DEV_PM_OPS(sky2_pm_ops, 
-> sky2_suspend, sky2_resume);
-> 
->   static void sky2_shutdown(struct pci_dev *pdev)
->   {
-> +       struct sky2_hw *hw = pci_get_drvdata(pdev);
-> +       int i;
-> +
-> +       for (i = hw->ports - 1; i >= 0; --i) {
-> +               sky2_detach(hw->dev[i]);
-> +               unregister_netdev(hw->dev[i]);
-> +       }
->          sky2_suspend(&pdev->dev);
->          pci_wake_from_d3(pdev, device_may_wakeup(&pdev->dev));
->          pci_set_power_state(pdev, PCI_D3hot);
+> I am fine with either way as long as the loop stops on failure.
+> Folding the test "if (skb)" into one also requires to retake the spinlock.
 
-This is not the correct fix, the device is supposed to stay registered.
-The correct way to fix this would be to make get_stats ignore requests for device
-when suspended.
+Adding the likely() in this path would probably help as well.
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index f18c35024207..07202d9ac4f6 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -159,12 +159,14 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+        if (validate)
+                skb = validate_xmit_skb_list(skb, dev);
+ 
+-       if (skb) {
++       if (likely(skb)) {
+                HARD_TX_LOCK(dev, txq, smp_processor_id());
+                if (!netif_xmit_frozen_or_stopped(txq))
+                        skb = dev_hard_start_xmit(skb, dev, txq, &ret);
+ 
+                HARD_TX_UNLOCK(dev, txq);
++       } else {
++               ... does all and return...
+        }
+        spin_lock(root_lock);
