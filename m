@@ -1,47 +1,42 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] vxlan: fix incorrect type
-Date: Mon, 11 Apr 2016 17:06:08 +0200
-Message-ID: <b870830205240e7eb0732ddfdaa6534ab061fb1c.1460387151.git.jbenc@redhat.com>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>
-To: netdev@vger.kernel.org
+From: Lars Persson <lars.persson@axis.com>
+Subject: Re: [PATCH net v2] net: sched: do not requeue a NULL skb
+Date: Mon, 11 Apr 2016 17:17:56 +0200
+Message-ID: <570BC024.1070504@axis.com>
+References: <1460355869-13539-1-git-send-email-larper@axis.com>	 <1460380981.6473.544.camel@edumazet-glaptop3.roam.corp.google.com>	 <570BA8C7.1000905@axis.com> <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jhs@mojatatu.com>,
+	<linux-kernel@vger.kernel.org>, <xiyou.wangcong@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Lars Persson <larper@axis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50877 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754209AbcDKPGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Apr 2016 11:06:33 -0400
+Received: from bastet.se.axis.com ([195.60.68.11]:46095 "EHLO
+	bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753206AbcDKPSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 11:18:00 -0400
+In-Reply-To: <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The protocol is 16bit, not 32bit.
 
-Fixes: e1e5314de08ba ("vxlan: implement GPE")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- drivers/net/vxlan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 9f3634064c92..7f697a3f00a4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1181,7 +1181,7 @@ out:
- }
- 
- static bool vxlan_parse_gpe_hdr(struct vxlanhdr *unparsed,
--				__be32 *protocol,
-+				__be16 *protocol,
- 				struct sk_buff *skb, u32 vxflags)
- {
- 	struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)unparsed;
-@@ -1284,7 +1284,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 	struct vxlanhdr unparsed;
- 	struct vxlan_metadata _md;
- 	struct vxlan_metadata *md = &_md;
--	__be32 protocol = htons(ETH_P_TEB);
-+	__be16 protocol = htons(ETH_P_TEB);
- 	bool raw_proto = false;
- 	void *oiph;
- 
--- 
-1.8.3.1
+On 04/11/2016 04:22 PM, Eric Dumazet wrote:
+> On Mon, 2016-04-11 at 15:38 +0200, Lars Persson wrote:
+>
+>> I though it would be prudent because the queue can be non-empty even for
+>> the case of skb=NULL. So should it be there in this patch, another patch
+>> or not at all ?
+>
+> Then maybe change return code ?
+>
+> It seems strange that a validate_xmit_skb_list() failure stops the
+> __qdisc_run() loop but schedules another round.
+>
+>
+
+It was suggested by Cong Wang to return 0 in order to stop the loop. Do 
+you guys agree that the loop should be stopped for such failures ? Then 
+I will put the schedule call inside the if as you proposed earlier.
+
+- Lars
