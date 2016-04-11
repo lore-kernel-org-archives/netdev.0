@@ -1,147 +1,128 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Mon, 11 Apr 2016 14:26:39 +0200
-Message-ID: <20160411142639.1c5e520b@redhat.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
-	<20160407161715.52635cac@redhat.com>
-	<20160411085819.GE21128@suse.de>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [RFC v5 0/5] Add virtio transport for AF_VSOCK
+Date: Mon, 11 Apr 2016 11:45:48 +0100
+Message-ID: <20160411104548.GA12826@stefanha-x1.localdomain>
+References: <1459520587-12337-1-git-send-email-stefanha@redhat.com>
+	<1460129705.1749.25.camel@docker.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Brenden Blanco
- <bblanco@plumgrid.com>,
-        James Bottomley
- <James.Bottomley@HansenPartnership.com>,
-        Tom Herbert <tom@herbertland.com>, lsf-pc@lists.linux-foundation.org,
-        Alexei Starovoitov
- <alexei.starovoitov@gmail.com>, brouer@redhat.com
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160411085819.GE21128@suse.de>
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/mixed; boundary="===============8105381569718214110=="
+Cc: marius vlad <marius.vlad0@gmail.com>, Stefan Hajnoczi <stefanha@redhat.com>,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Matt Benjamin <mbenjamin@redhat.com>, Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>
+To: Ian Campbell <ian.campbell@docker.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1460129705.1749.25.camel@docker.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
- 
-On Mon, 11 Apr 2016 09:58:19 +0100 Mel Gorman <mgorman@suse.de> wrote:
 
-> On Thu, Apr 07, 2016 at 04:17:15PM +0200, Jesper Dangaard Brouer wrote:
-> > (Topic proposal for MM-summit)
-> > 
-> > Network Interface Cards (NIC) drivers, and increasing speeds stress
-> > the page-allocator (and DMA APIs).  A number of driver specific
-> > open-coded approaches exists that work-around these bottlenecks in the
-> > page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
-> > allocating larger pages and handing-out page "fragments".
-> > 
-> > I'm proposing a generic page-pool recycle facility, that can cover the
-> > driver use-cases, increase performance and open up for zero-copy RX.
-> >   
-> 
-> Which bottleneck dominates -- the page allocator or the DMA API when
-> setting up coherent pages?
->
-
-It is actually both, but mostly DMA on non-x86 archs.  The need to
-support multiple archs, then also cause a slowdown on x86, due to a
-side-effect.
-
-On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
-the cost of DMA calls, NIC driver alloc large order (compound) pages.
-(dma_map compound page, handout page-fragments for RX ring, and later
-dma_unmap when last RX page-fragments is seen).
-
-The unfortunate side-effect is that these RX page-fragments (which
-contain packet data) need to be considered 'read-only', because a
-dma_unmap call can be destructive.  Network packets need to be
-modified (minimum time-to-live).  Thus, netstack alloc new writable
-memory, copy-over IP-headers, and adjust offset pointer into RX-page.
-Avoiding the dma_unmap (AFAIK) will allow to make RX-pages writable.
-
-Idea by page-pool is to recycling pages back to the originating
-device, then we can avoid the need to call dma_unmap().  And only call
-dma_map() when setting up pages.
+--===============8105381569718214110==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="M9NhX3UHpAaciwkO"
+Content-Disposition: inline
 
 
-> I'm wary of another page allocator API being introduced if it's for
-> performance reasons. In response to this thread, I spent two days on
-> a series that boosts performance of the allocator in the fast paths by
-> 11-18% to illustrate that there was low-hanging fruit for optimising. If
-> the one-LRU-per-node series was applied on top, there would be a further
-> boost to performance on the allocation side. It could be further boosted
-> if debugging checks and statistic updates were conditionally disabled by
-> the caller.
+--M9NhX3UHpAaciwkO
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-It is always great if you can optimized the page allocator.  IMHO the
-page allocator is too slow.  At least for my performance needs (67ns
-per packet, approx 201 cycles at 3GHz).  I've measured[1]
-alloc_pages(order=0) + __free_pages() to cost 277 cycles(tsc).
+On Fri, Apr 08, 2016 at 04:35:05PM +0100, Ian Campbell wrote:
+> On Fri, 2016-04-01 at 15:23 +0100, Stefan Hajnoczi wrote:
+> > This series is based on Michael Tsirkin's vhost branch (v4.5-rc6).
+> >=20
+> > I'm about to process Claudio Imbrenda's locking fixes for virtio-vsock =
+but
+> > first I want to share the latest version of the code.=A0=A0Several peop=
+le are
+> > playing with vsock now so sharing the latest code should avoid duplicat=
+e work.
+>=20
+> Thanks for this, I've been using it in my project and it mostly seems
+> fine.
+>=20
+> One wrinkle I came across, which I'm not sure if it is by design or a
+> problem is that I can see this sequence coming from the guest (with
+> other activity in between):
+>=20
+> =A0 =A0 1) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_RX
+> =A0=A0=A0=A02) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_TX
+> =A0=A0=A0=A03) OP_SHUTDOWN w/ flags =3D=3D SHUTDOWN_TX|SHUTDOWN_RX
+>=20
+> I orignally had my backend close things down at #2, however this meant
+> that when #3 arrived it was for a non-existent socket (or, worse, an
+> active one if the ports got reused). I checked v5 of the spec
+> proposal[0] which says:
+>     If these bits are set and there are no more virtqueue buffers
+>     pending the socket is disconnected.
+>=20
+> but I'm not entirely sure if this behaviour contradicts this or not
+> (the bits have both been set at #2, but not at the same time).
+>=20
+> BTW, how does one tell if there are no more virtqueue buffers pending
+> or not while processing the op?
 
-The trick described above, of allocating a higher order page and
-handing out page-fragments, also workaround this page allocator
-bottleneck (on x86).
+#2 is odd.  The shutdown bits are sticky so they cannot be cleared once
+set.  I would have expected just #1 and #3.  The behavior you observe
+look like a bug.
 
-I've measured order 3 (32KB) alloc_pages(order=3) + __free_pages() to
-cost approx 500 cycles(tsc).  That was more expensive, BUT an order=3
-page 32Kb correspond to 8 pages (32768/4096), thus 500/8 = 62.5
-cycles.  Usually a network RX-frame only need to be 2048 bytes, thus
-the "bulk" effect speed up is x16 (32768/2048), thus 31.25 cycles.
+The spec text does not convey the meaning of OP_SHUTDOWN well.
+OP_SHUTDOWN SHUTDOWN_TX|SHUTDOWN_RX means no further rx/tx is possible
+for this connection.  "there are no more virtqueue buffers pending the
+socket" really means that this isn't an immediate close from the
+perspective of the application.  If the application still has unread rx
+buffers then the socket stays readable until the rx data has been fully
+read.
 
-I view this as a bulking trick... maybe the page allocator can just
-give us a bulking API? ;-)
+> Another thing I noticed, which is really more to do with the generic
+> AF_VSOCK bits than anything to do with your patches is that there is no
+> limitations on which vsock ports a non-privileged user can bind to and
+> relatedly that there is no netns support so e.g. users in unproivileged
+> containers can bind to any vsock port and talk to the host, which might
+> be undesirable. For my use for now I just went with the big hammer
+> approach of denying access from anything other than init_net
+> namespace[1] while I consider what the right answer is.
 
+=46rom the vhost point of view each netns should have its own AF_VSOCK
+namespace.  This way two containers could act as "the host" (CID 2) for
+their respective guests.
 
-> The main reason another allocator concerns me is that those pages
-> are effectively pinned and cannot be reclaimed by the VM in low memory
-> situations. It ends up needing its own API for tuning the size and hoping
-> all the drivers get it right without causing OOM situations. It becomes
-> a slippery slope of introducing shrinkers, locking and complexity. Then
-> callers start getting concerned about NUMA locality and having to deal
-> with multiple lists to maintain performance. Ultimately, it ends up being
-> as slow as the page allocator and back to square 1 except now with more code.
+--M9NhX3UHpAaciwkO
+Content-Type: application/pgp-signature; name="signature.asc"
 
-The pages assigned to the RX ring queue are pinned like today.  The
-pages avail in the pool could easily be reclaimed.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-I actually think we are better off providing a generic page pool
-interface the drivers can use.  Instead of the situation where drivers
-and subsystems invent their own, which does not cooperate in OOM
-situations.
+iQEcBAEBAgAGBQJXC4BcAAoJEJykq7OBq3PIWlEH/jv44M5CRaUJjw297xEj2ipa
+tiYQYLOMtvfmbKTqKShdXltov/Pau2vpua1pbqdCy+ENRySkI+7F1fM+1SUkeBKr
+QGyHWbbotYEMYMvsIBEoBINrnVJl+Z4zE/6UB/s4HDB8o+UFpoSOa/KeVJj+pgdU
+72NMJ6V9q6QWRVYzutO06iaIZV4V9NRlgdlY5MkFL3xJGUlwIMkn2n46TYhcNjIL
++0CeUuqatRXzaB0Fed7TOyZnrMBjpxYfHnoY77CWMQWwHbjoCgFJG5GQpW4mq98t
+2TdZdRZ/lLxxXePrPS8pbhgx9J3fiP0dv1/8C/CvlEJuTdET9l41et8bKSSs+6k=
+=84rj
+-----END PGP SIGNATURE-----
 
-For the networking fast forwarding use-case (NOT localhost delivery),
-then the page pool size would actually be limited at a fairly small
-fixed size.  Packets will be hard dropped if exceeding this limit.
-The idea is, you want to limit the maximum latency the system can
-introduce then forwarding a packet, even in high overload situations.
-There is a good argumentation in section 3.2. of Google's paper[2].
-They limit the pool size to 3000 and calculate this can max introduce
-300 micro-sec latency.
+--M9NhX3UHpAaciwkO--
 
+--===============8105381569718214110==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> If it's the DMA API that dominates then something may be required but it
-> should rely on the existing page allocator to alloc/free from. It would
-> also need something like drain_all_pages to force free everything in there
-> in low memory situations. Remember that multiple instances private to
-> drivers or tasks will require shrinker implementations and the complexity
-> may get unwieldly.
-
-I'll read up on the shrinker interface.
-
-
-[1] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/mm/bench
-
-[2] http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/44824.pdf
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============8105381569718214110==--
