@@ -1,63 +1,147 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] net: decrease the length of backlog queue
- immediately after it's detached from sk
-Date: Mon, 11 Apr 2016 05:13:48 -0700
-Message-ID: <1460376828.6473.538.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1459315001-3448-1-git-send-email-yangyingliang@huawei.com>
-	 <1459315520.6473.187.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1459316043.6473.188.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <56FB6AA7.1080004@huawei.com>
-	 <1459345637.6473.205.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <5705F759.9020003@huawei.com>
-	 <1460024518.6473.389.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1460040665.6473.398.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <5707939B.2030907@huawei.com>
-	 <1460126665.6473.437.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <570B9126.9080806@huawei.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 14:26:39 +0200
+Message-ID: <20160411142639.1c5e520b@redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+	<20160407161715.52635cac@redhat.com>
+	<20160411085819.GE21128@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:36673 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171AbcDKMNw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 08:13:52 -0400
-Received: by mail-qg0-f42.google.com with SMTP id f52so141795967qga.3
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 05:13:51 -0700 (PDT)
-In-Reply-To: <570B9126.9080806@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenden Blanco
+ <bblanco@plumgrid.com>,
+        James Bottomley
+ <James.Bottomley@HansenPartnership.com>,
+        Tom Herbert <tom@herbertland.com>, lsf-pc@lists.linux-foundation.org,
+        Alexei Starovoitov
+ <alexei.starovoitov@gmail.com>, brouer@redhat.com
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160411085819.GE21128@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-04-11 at 19:57 +0800, Yang Yingliang wrote:
+ 
+On Mon, 11 Apr 2016 09:58:19 +0100 Mel Gorman <mgorman@suse.de> wrote:
+
+> On Thu, Apr 07, 2016 at 04:17:15PM +0200, Jesper Dangaard Brouer wrote:
+> > (Topic proposal for MM-summit)
+> > 
+> > Network Interface Cards (NIC) drivers, and increasing speeds stress
+> > the page-allocator (and DMA APIs).  A number of driver specific
+> > open-coded approaches exists that work-around these bottlenecks in the
+> > page allocator and DMA APIs. E.g. open-coded recycle mechanisms, and
+> > allocating larger pages and handing-out page "fragments".
+> > 
+> > I'm proposing a generic page-pool recycle facility, that can cover the
+> > driver use-cases, increase performance and open up for zero-copy RX.
+> >   
 > 
-> On 2016/4/8 22:44, Eric Dumazet wrote:
-> > On Fri, 2016-04-08 at 19:18 +0800, Yang Yingliang wrote:
-> >
-> >> I expand  tcp_adv_win_scale and tcp_rmem. It has no effect.
-> >
-> > Try :
-> >
-> > echo -2 >/proc/sys/net/ipv4/tcp_adv_win_scale
-> >
-> > And restart your flows.
-> >
-> cat /proc/sys/net/ipv4/tcp_rmem
-> 10240 2097152 10485760
+> Which bottleneck dominates -- the page allocator or the DMA API when
+> setting up coherent pages?
+>
 
-What about leaving the default values ?
+It is actually both, but mostly DMA on non-x86 archs.  The need to
+support multiple archs, then also cause a slowdown on x86, due to a
+side-effect.
 
-$ cat /proc/sys/net/ipv4/tcp_rmem
-4096	87380	6291456
+On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
+the cost of DMA calls, NIC driver alloc large order (compound) pages.
+(dma_map compound page, handout page-fragments for RX ring, and later
+dma_unmap when last RX page-fragments is seen).
 
-> 
-> echo 102400 20971520 104857600 > /proc/sys/net/ipv4/tcp_rmem
-> echo -2 >/proc/sys/net/ipv4/tcp_adv_win_scale
-> 
-> It seems has not effect.
-> 
+The unfortunate side-effect is that these RX page-fragments (which
+contain packet data) need to be considered 'read-only', because a
+dma_unmap call can be destructive.  Network packets need to be
+modified (minimum time-to-live).  Thus, netstack alloc new writable
+memory, copy-over IP-headers, and adjust offset pointer into RX-page.
+Avoiding the dma_unmap (AFAIK) will allow to make RX-pages writable.
 
-I have no idea what you did on the sender side to allow it to send more
-than 1.5 MB then.
+Idea by page-pool is to recycling pages back to the originating
+device, then we can avoid the need to call dma_unmap().  And only call
+dma_map() when setting up pages.
+
+
+> I'm wary of another page allocator API being introduced if it's for
+> performance reasons. In response to this thread, I spent two days on
+> a series that boosts performance of the allocator in the fast paths by
+> 11-18% to illustrate that there was low-hanging fruit for optimising. If
+> the one-LRU-per-node series was applied on top, there would be a further
+> boost to performance on the allocation side. It could be further boosted
+> if debugging checks and statistic updates were conditionally disabled by
+> the caller.
+
+It is always great if you can optimized the page allocator.  IMHO the
+page allocator is too slow.  At least for my performance needs (67ns
+per packet, approx 201 cycles at 3GHz).  I've measured[1]
+alloc_pages(order=0) + __free_pages() to cost 277 cycles(tsc).
+
+The trick described above, of allocating a higher order page and
+handing out page-fragments, also workaround this page allocator
+bottleneck (on x86).
+
+I've measured order 3 (32KB) alloc_pages(order=3) + __free_pages() to
+cost approx 500 cycles(tsc).  That was more expensive, BUT an order=3
+page 32Kb correspond to 8 pages (32768/4096), thus 500/8 = 62.5
+cycles.  Usually a network RX-frame only need to be 2048 bytes, thus
+the "bulk" effect speed up is x16 (32768/2048), thus 31.25 cycles.
+
+I view this as a bulking trick... maybe the page allocator can just
+give us a bulking API? ;-)
+
+
+> The main reason another allocator concerns me is that those pages
+> are effectively pinned and cannot be reclaimed by the VM in low memory
+> situations. It ends up needing its own API for tuning the size and hoping
+> all the drivers get it right without causing OOM situations. It becomes
+> a slippery slope of introducing shrinkers, locking and complexity. Then
+> callers start getting concerned about NUMA locality and having to deal
+> with multiple lists to maintain performance. Ultimately, it ends up being
+> as slow as the page allocator and back to square 1 except now with more code.
+
+The pages assigned to the RX ring queue are pinned like today.  The
+pages avail in the pool could easily be reclaimed.
+
+I actually think we are better off providing a generic page pool
+interface the drivers can use.  Instead of the situation where drivers
+and subsystems invent their own, which does not cooperate in OOM
+situations.
+
+For the networking fast forwarding use-case (NOT localhost delivery),
+then the page pool size would actually be limited at a fairly small
+fixed size.  Packets will be hard dropped if exceeding this limit.
+The idea is, you want to limit the maximum latency the system can
+introduce then forwarding a packet, even in high overload situations.
+There is a good argumentation in section 3.2. of Google's paper[2].
+They limit the pool size to 3000 and calculate this can max introduce
+300 micro-sec latency.
+
+
+> If it's the DMA API that dominates then something may be required but it
+> should rely on the existing page allocator to alloc/free from. It would
+> also need something like drain_all_pages to force free everything in there
+> in low memory situations. Remember that multiple instances private to
+> drivers or tasks will require shrinker implementations and the complexity
+> may get unwieldly.
+
+I'll read up on the shrinker interface.
+
+
+[1] https://github.com/netoptimizer/prototype-kernel/tree/master/kernel/mm/bench
+
+[2] http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/44824.pdf
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
