@@ -1,68 +1,95 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Mon, 11 Apr 2016 20:41:25 +0300
-Message-ID: <570BE1C5.70502@cogentembedded.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
- <20160411022802.GB4307@lunn.ch>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 14:46:25 -0300
+Message-ID: <20160411174625.GH1845@indiana.gru.redhat.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+ <20160407161715.52635cac@redhat.com>
+ <20160411085819.GE21128@suse.de>
+ <20160411142639.1c5e520b@redhat.com>
+ <20160411130826.GB32073@techsingularity.net>
+ <20160411162047.GJ2781@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160411022802.GB4307@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mel Gorman <mgorman@techsingularity.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	lsf@lists.linux-foundation.org, linux-mm <linux-mm@kvack.org>,
+	Mel Gorman <mgorman@suse.de>,
+	Tom Herbert <tom@herbertland.com>,
+	lsf-pc@lists.linux-foundation.org,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Matthew Wilcox <willy@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33298 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753388AbcDKRqe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Apr 2016 13:46:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20160411162047.GJ2781@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, Apr 11, 2016 at 12:20:47PM -0400, Matthew Wilcox wrote:
+> On Mon, Apr 11, 2016 at 02:08:27PM +0100, Mel Gorman wrote:
+> > On Mon, Apr 11, 2016 at 02:26:39PM +0200, Jesper Dangaard Brouer wrote:
+> > > On arch's like PowerPC, the DMA API is the bottleneck.  To workaround
+> > > the cost of DMA calls, NIC driver alloc large order (compound) pages.
+> > > (dma_map compound page, handout page-fragments for RX ring, and later
+> > > dma_unmap when last RX page-fragments is seen).
+> > 
+> > So, IMO only holding onto the DMA pages is all that is justified but not a
+> > recycle of order-0 pages built on top of the core allocator. For DMA pages,
+> > it would take a bit of legwork but the per-cpu allocator could be split
+> > and converted to hold arbitrary sized pages with a constructer/destructor
+> > to do the DMA coherency step when pages are taken from or handed back to
+> > the core allocator. I'm not volunteering to do that unfortunately but I
+> > estimate it'd be a few days work unless it needs to be per-CPU and NUMA
+> > aware in which case the memory footprint will be high.
+> 
+> Have "we" tried to accelerate the DMA calls in PowerPC?  For example, it
+> could hold onto a cache of recently used mappings and recycle them if that
+> still works.  It trades off a bit of security (a device can continue to DMA
+> after the memory should no longer be accessible to it) for speed, but then
+> so does the per-driver hack of keeping pages around still mapped.
+> 
 
-On 04/11/2016 05:28 AM, Andrew Lunn wrote:
+There are two problems on the DMA calls on Power servers. One is scalability. A
+new allocation method for the address space would be necessary to fix it.
 
->> With  the 'phylib' now  being aware of  the "reset-gpios" PHY node property,
->> there should be no need to frob the PHY reset in this  driver anymore...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> ---
->>   drivers/net/ethernet/cadence/macb.c |   17 -----------------
->>   drivers/net/ethernet/cadence/macb.h |    1 -
->>   2 files changed, 18 deletions(-)
->>
->> Index: net-next/drivers/net/ethernet/cadence/macb.c
->> ===================================================================
->> --- net-next.orig/drivers/net/ethernet/cadence/macb.c
->> +++ net-next/drivers/net/ethernet/cadence/macb.c
-[...]
->> @@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
->>   	else
->>   		macb_get_hwaddr(bp);
->>
->> -	/* Power up the PHY if there is a GPIO reset */
->> -	phy_node =  of_get_next_available_child(np, NULL);
->> -	if (phy_node) {
->> -		int gpio = of_get_named_gpio(phy_node, "reset-gpios", 0);
->> -
->> -		if (gpio_is_valid(gpio)) {
->> -			bp->reset_gpio = gpio_to_desc(gpio);
->> -			gpiod_direction_output(bp->reset_gpio, 1);
->
-> Hi Sergei
->
-> The code you are deleting would of ignored the flags in the gpio
-> property, i.e. active low.
+The other one is the latency or the cost of updating the TCE tables. The only
+number I have is that I could push around 1M updates per second. So, we could
+guess 1us per operation, which is pretty much a no-no for Jesper use case.
 
-    Hm, you're right -- I forgot about that... :-/
+Your solution could address both. But I am concerned about the security problem.
+Here is why I think this problem should be ignored if we go this way. IOMMU can
+be used for three problems: virtualization, paranoia security and debuggability.
 
-> The new code in the previous patch does
-> however take the flags into account. Did you check if there are any
-> device trees which have flags, which were never used, but are now
-> going to be used and thus break...
+For virtualization, there is a solution already, and it's in place for Power and
+x86. Power servers have the ability to enlarge the DMA window, allowing the
+entire VM memory to be mapped during PCI driver probe time. After that, dma_map
+is a simple sum and dma_unmap is a nop. x86 KVM maps the entire VM memory even
+before booting the guest. Unless we want to fix this for old Power servers, I
+see no point in fixing it.
 
-    Checked this now and found out arch/arm/boot/dts/ar91-vinco.dts. Looks 
-like it needs to be fixed indeed...
+Now, if you are using IOMMU on the host with no passthrough or linear system
+memory mapping, you are paranoid. It's not just a matter of security, in fact.
+It's also a matter of stability. Hardware, firmware and drivers can be buggy,
+and they are. When I worked with drivers on Power servers, I found and fixed a
+lot of driver bugs that caused the device to write to memory it was not supposed
+to. Good thing is that IOMMU prevented that memory write to happen and the
+driver would be reset by EEH. If we can make this scenario faster, and if we
+want it to be the default we need to, then your solution might not be desired.
+Otherwise, just turn your IOMMU off or put it into passthrough.
 
->        Andrew
+Now, the driver keeps pages mapped, but those pages belong to the driver. They
+are not pages we decide to give to a userspace process because it's no longer in
+use by the driver. So, I don't quite agree this would be a good tradeoff.
+Certainly not if we can do it in a way that does not require this.
 
-MBR, Sergei
+So, Jesper, please take into consideration that this pool design would rather be
+per device. Otherwise, we allow some device to write into another's
+device/driver memory.
+
+Cascardo.
