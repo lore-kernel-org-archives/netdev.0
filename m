@@ -1,31 +1,70 @@
-From: =?utf-8?B?0JPQsNC70LjQvdCwICjQutC+0YTQtdC50L3QsNGPINC60L7QvNC/0LDQvdC40Y8p?=
-	<gulyaeva.086@mail.ru>
-Subject: =?utf-8?B?0JLRiyDRgdGN0LrQvtC90L7QvNC40YLQtSDRgdGA0LXQtNGB0YLQstCwINC90LAg0LrQvtGE0LUg0Lgg0YfQsNC5?=
-Date: Fri, 8 Apr 2016 06:33:36 -0500
-Message-ID: <201604081133.u38BXatd029713@430248-web3.jewelrypayless.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] ath9k: remove duplicate assignment of variable ah
+Date: Mon, 11 Apr 2016 11:39:50 +1000
+Message-ID: <CAGRGNgVgd-_wcvdJz-yh_ugQeJidMK1B8=NuSec1wjn__6AFwA@mail.gmail.com>
+References: <1460287531-17385-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-Content-Transfer-Encoding: base64
-To: midiza@mail.ru, losb9111@rambler.ru, n.oborina00@mail.ru,
-	maestrowinever@hotmail.com, piratk0@mail.ru, olgavm84@mail.ru,
-	pincer@mail.ru, phoenix-fire@yandex.ru, pylatik@mail.ru,
-	mileninagv@mail.ru, notthatkind@mailinator.com,
-	maystrov2000@mail.ru, nariste-1993@mail.ru, m.n.makaroff@mail.ru,
-	master-union@mail.ru, ovt69@mail.ru, netdev@vger.kernel.org,
-	podruga.lp@mail.ru, oukca@mail.ru, olgak12071979@mail.ru
+Content-Type: text/plain; charset=UTF-8
+Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	ath9k-devel@lists.ath9k.org, netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [72.32.161.232] ([72.32.161.232]:39431 "EHLO
-	430248-web3.jewelrypayless.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751189AbcDKALv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 20:11:51 -0400
-Subject: =?utf-8?B?0JLRiyDRgdGN0LrQvtC90L7QvNC40YLQtSDRgdGA0LXQtNGB0YLQstCwINC90LAg0LrQvtGE0LUg0Lgg0YfQsNC5?=
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:33077 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751024AbcDKBkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Apr 2016 21:40:11 -0400
+In-Reply-To: <1460287531-17385-1-git-send-email-colin.king@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi All,
 
-0JTQvtCx0YDRi9C5INC00LXQvdGMLgoK0J/QvtGB0YLQsNCy0LvRj9C10Lwg0JLQsNGI0LXQvNGDINC+0YTQuNGB0YMg0LrQvtGE0LUt0LzQsNGI0LjQvdGDINCw0LHRgdC+0LvRjtGC0L3QviDQsdC10YHQv9C70LDRgtC90L4o0LTQtdC50YHRgtCy0LjRgtC10LvRjNC90L4g0LHQtdGB0L/Qu9Cw0YLQvdC+KSEKCtCa0LDQutCw0Y8g0LLRi9Cz0L7QtNCwINC00LvRjyDQvdCw0YEgLSDQktCw0YjQuCDRgdC+0YLRgNGD0LTQvdC40LrQuCDQsdGD0LTRg9GCINC/0L7QutGD0L/QsNGC0Ywg0LrQvtGE0LUg0LIg0L3QsNGI0LXQuSDQutC+0YTQtS3QvNCw0YjQuNC90LUuCgrQkiDRh9C10Lwg0LLRi9Cz0L7QtNCwINGDINCS0LDRgToKLSDQmtC+0YTQtSDRgNCw0LfQsdGD0LTQuNGCINGB0L7QvdC90YvRhSDRgNCw0LHQvtGC0L3QuNC60L7QsjsKLSDQktGLINGB0Y3QutC+0L3QvtC80LjRgtC1INC00LXQvdGM0LPQuCDQvdCwINCx0LXRgdC/0LvQsNGC0L3Ri9C1INGH0LDQuSDQuCDQutC+0YTQtSwg0LrQvtGC0L7RgNGL0LUg0L7QvdC4INC/0L7RgtGA0LXQsdC70Y/Qu9C4INC30LAg0YHRh9C10YIg0YTQuNGA0LzRiy4KLSDQmtC+0YTQtS3QsNC/0L/QsNGA0LDR
- giDQv9C+0YDQsNC00YPQtdGCINC10YnQtSDQuCDQktCw0YjQuNGFINC/0L7QutGD0L/QsNGC0LXQu9C10LksINC/0L7RgdC10YLQuNCy0YjQuNGFINC+0YTQuNGBLgoK0JTQsNC90L3Ri9C5INC60L7RhNC1LdCw0L/Qv9Cw0YDQsNGCINGA0LDQsdC+0!
- YLQsNC10YIg0LIg0LIg0LDQstGC0L7QvdC+0LzQvdC+0Lwg0YDQtdC20LjQvNC1LgoK0J/RgNC10LjQvNGD0YnQtdGB0YLQstCwINC90LDRiNC10LPQviDQutC+0YTQtS3QsNC/0L/QsNGA0LDRgtCwOgotINCh0L7QstGA0LXQvNC10L3QvdGL0Lkg0LLQvdC10YjQvdC40Lkg0LLQuNC0OwotINCS0YvRgdC+0LrQsNGPINGB0LrQvtGA0L7RgdGC0Ywg0LrQvtGE0LUgLSDQvtGCIDE1INGB0LXQutGD0L3QtDsKLSDQkdC10YHQv9C70LDRgtC90YvQuSDRgdC10YDQstC40YE7Ci0g0JDQv9C/0LDRgNCw0YIg0LPQvtGC0L7QstC40YI6INGN0YHQv9GA0LXRgdGB0L4sINCw0LzQtdGA0LjQutCw0L3Qviwg0LrQsNC/0YPRh9C40L3Qviwg0LvQsNGC0YLQtSwg0LzQvtC60LDRh9C40L3Qviwg0LPQvtGA0Y/Rh9C40Lkg0YjQvtC60L7Qu9Cw0LQsINC80L7Qu9C+0YfQvdGL0Lkg0YjQvtC60L7Qu9Cw0LQsINCy0LDQvdC40LvRjNC90YvQuSDQutCw0L/Rg9GH0LjQvdC+LgoK0JXRgdC70Lgg0L/RgNC40L3RhtC40L/QuNCw0LvRjNC90YvQuSDQuNC90YLQtdGA0LXRgSDRgyDQktCw0YEg0LXRgdGC0YwgLSDRjyDQstGL0YjQu9GOINCS0LDQvCDRhNC+0YLQvtCz0YDQsNGE
- 0LjQuCDQvdCw0YjQuNGFINCw0L/Qv9Cw0YDQsNGC0L7QsiDQuCDQuNGFINGF0LDRgNCw0LrRgtC10YDQuNGB0YLQuNC60LguCtCd0LDQv9C40YjQuNGC0LUg0L/QvtC20LDQu9GD0LnRgdGC0LAgLSDRgdC60L7Qu9GM0LrQviDRh9C10LvQvtCy0LXQu!
- iDQsiDQktCw0YjQtdC8INC+0YTQuNGB0LUsINGH0YLQvtCx0Ysg0Y8g0LzQvtC!
- z0LvQsCDRgdC+0YDQuNC10L3RgtC40YDQvtCy0LDRgtGM0YHRjyAtINC60LDQutC+0LPQviDQvtCx0YrQtdC80LAg0LDQv9C/0LDRgNCw0YLRiyDQktCw0Lwg0LzQvtC20L3QviDQv9GA0LXQtNC70L7QttC40YLRjC4KCtChINGD0LLQsNC20LXQvdC40LXQvCwg0JPQsNC70LjQvdCwLgoK0JHRg9C00YMg0LbQtNCw0YLRjCDQvtGC0LLQtdGCINC+0YIg0JLQsNGBLgoKUC5TLiDQn9GA0LXQtNC70L7QttC10L3QuNC1INC00LXQudGB0YLQstC40YLQtdC70YzQvdC+INC00LvRjyDRhNC40YDQvCAg0YHQviDRiNGC0LDRgtC+0Lwg0L7RgiA1MCDRh9C10LvQvtCy0LXQuiDQvdCw0YXQvtC00Y/RidC40YXRgdGPINCyINCc0L7RgdC60LLQtS4=
+On Sun, Apr 10, 2016 at 9:25 PM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> ah is written twice with the same value, remove one of the
+> redundant assignments to ah.
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Looks right to me.
+
+Signed-off-by: Julian Calaby <julian.calaby@gmail.com>
+
+Thanks,
+
+> ---
+>  drivers/net/wireless/ath/ath9k/init.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
+> index 77ace8d..fb702c4 100644
+> --- a/drivers/net/wireless/ath/ath9k/init.c
+> +++ b/drivers/net/wireless/ath/ath9k/init.c
+> @@ -477,7 +477,7 @@ static void ath9k_eeprom_request_cb(const struct firmware *eeprom_blob,
+>  static int ath9k_eeprom_request(struct ath_softc *sc, const char *name)
+>  {
+>         struct ath9k_eeprom_ctx ec;
+> -       struct ath_hw *ah = ah = sc->sc_ah;
+> +       struct ath_hw *ah = sc->sc_ah;
+>         int err;
+>
+>         /* try to load the EEPROM content asynchronously */
+> --
+> 2.7.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
