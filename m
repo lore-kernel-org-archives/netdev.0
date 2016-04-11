@@ -1,46 +1,67 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/4] vxlan: add VXLAN-GPE support
-Date: Mon, 11 Apr 2016 15:17:54 -0700
-Message-ID: <20160411151754.6613c2f1@xeon-e3>
-References: <cover.1460032274.git.jbenc@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Mon, 11 Apr 2016 15:21:26 -0700
+Message-ID: <20160411222124.GA80595@ast-mbp.thefacebook.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+ <20160407161715.52635cac@redhat.com>
+ <20160407143854.GA7685@infradead.org>
+ <570678B7.7010802@sandisk.com>
+ <570A9F5B.5010600@grimberg.me>
+ <20160411234157.3fc9c6fe@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34231 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754539AbcDKWRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 18:17:44 -0400
-Received: by mail-pa0-f43.google.com with SMTP id ot11so97838pab.1
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 15:17:43 -0700 (PDT)
-In-Reply-To: <cover.1460032274.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sagi Grimberg <sagi@grimberg.me>,
+	Bart Van Assche <bart.vanassche@sandisk.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"lsf@lists.linux-foundation.org" <lsf@lists.linux-foundation.org>,
+	linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160411234157.3fc9c6fe@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  7 Apr 2016 14:36:25 +0200
-Jiri Benc <jbenc@redhat.com> wrote:
+On Mon, Apr 11, 2016 at 11:41:57PM +0200, Jesper Dangaard Brouer wrote:
+> 
+> On Sun, 10 Apr 2016 21:45:47 +0300 Sagi Grimberg <sagi@grimberg.me> wrote:
+> 
+> > >> This is also very interesting for storage targets, which face the same
+> > >> issue.  SCST has a mode where it caches some fully constructed SGLs,
+> > >> which is probably very similar to what NICs want to do.  
+> > >
+> > > I think a cached allocator for page sets + the scatterlists that
+> > > describe these page sets would not only be useful for SCSI target
+> > > implementations but also for the Linux SCSI initiator. Today the scsi-mq
+> > > code reserves space in each scsi_cmnd for a scatterlist of
+> > > SCSI_MAX_SG_SEGMENTS. If scatterlists would be cached together with page
+> > > sets less memory would be needed per scsi_cmnd.  
+> > 
+> > If we go down this road how about also attaching some driver opaques
+> > to the page sets?
+> 
+> That was the ultimate plan... to leave some opaques bytes left in the
+> page struct that drivers could use.
+> 
+> In struct page I would need a pointer back to my page_pool struct and a
+> page flag.  Then, I would need room to store the dma_unmap address.
+> (And then some of the usual fields are still needed, like the refcnt,
+> and reusing some of the list constructs).  And a zero-copy cross-domain
+> id.
 
-> This patchset adds a couple of refinements to the 'external' keyword and
-> adds support for configuring VXLAN-GPE interfaces.
-> 
-> The VXLAN-GPE support was recently merged to net-next.
-> 
-> The first patch is not intended to be applied directly but I still include
-> it in order for this patchset to be compilable and testable by those
-> interested.
-> 
-> Jiri Benc (4):
->   if_link.h: rebase to the kernel
->   vxlan: 'external' implies 'nolearning'
->   ip-link.8: document "external" flag for vxlan
->   vxlan: add support for VXLAN-GPE
-> 
->  include/linux/if_link.h |  1 +
->  ip/iplink_vxlan.c       | 14 ++++++++++++--
->  man/man8/ip-link.8.in   | 17 +++++++++++++++++
->  3 files changed, 30 insertions(+), 2 deletions(-)
-> 
+I don't think we need to add anything to struct page.
+This is supposed to be small cache of dma_mapped pages with lockless access.
+It can be implemented as an array or link list where every element
+is dma_addr and pointer to page. If it is full, dma_unmap_page+put_page to
+send it to back to page allocator.
 
-Applied to net-next
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
