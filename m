@@ -1,159 +1,142 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: 64bit inode numbers
-Date: Tue, 12 Apr 2016 15:22:29 -0700
-Message-ID: <1460499749.6473.601.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: Issue with ping source address display
+Date: Wed, 13 Apr 2016 07:59:43 +0900
+Message-ID: <CAPA1RqDznRLYNBLCv4CLHY4ge=Q0fuFdC=VPg9947ZciMbjdkg@mail.gmail.com>
+References: <570D35CF.9070006@orlandi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>
+To: Daniele Orlandi <daniele@orlandi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34099 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758427AbcDLWWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:22:32 -0400
-Received: by mail-pa0-f52.google.com with SMTP id ot11so21104195pab.1
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:22:31 -0700 (PDT)
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:35739 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758833AbcDLW7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:59:44 -0400
+Received: by mail-oi0-f51.google.com with SMTP id p188so41560220oih.2
+        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:59:43 -0700 (PDT)
+In-Reply-To: <570D35CF.9070006@orlandi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi,
 
-Lets prepare for a possibility to have 64bit inode numbers for sockets,
-even if the kernel currently enforces 32bit numbers.
+2016-04-13 2:52 GMT+09:00 Daniele Orlandi <daniele@orlandi.com>:
+>
+> Hello,
+>
+> More than one year ago I posted the following message but it hasn't
+> received a reply, now I've been stung by a similar issue, you may want
+> to investigate:
+>
+>
+> I noticed that when ping receives ICMP messages from different sources
+> the first IP address is always used and displayed:
+>
+>
+> vihai@seviolab:~$ ping -V
+> ping utility, iputils-s20121221
+>
+> This is a (simulated) flapping route:
+>
+> vihai@seviolab:~$ ping 10.254.10.140
+> PING 10.254.10.140 (10.254.10.140) 56(84) bytes of data.
+> From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
+> From 192.168.1.1 icmp_seq=2 Destination Host Unreachable
+> From 192.168.1.1 icmp_seq=3 Destination Host Unreachable
+> 64 bytes from 192.168.1.1: icmp_seq=4 ttl=61 time=24.7 ms
+> 64 bytes from 192.168.1.1: icmp_seq=5 ttl=61 time=25.6 ms
+> 64 bytes from 192.168.1.1: icmp_seq=6 ttl=61 time=69.6 ms
+> From 192.168.1.1 icmp_seq=7 Destination Host Unreachable
+> From 192.168.1.1 icmp_seq=8 Destination Host Unreachable
+> From 192.168.1.1 icmp_seq=9 Destination Host Unreachable
+> ^C
+> --- 10.254.10.140 ping statistics ---
+> 9 packets transmitted, 3 received, +6 errors, 66% packet loss, time 8001ms
+> rtt min/avg/max/mdev = 24.797/40.061/69.692/20.955 ms
+>
+>
+> The sources, however are different:
+>
+> vihai@seviolab:~$ sudo tcpdump -n icmp
+> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+> listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
+> ^[OA^[OA^[OA17:09:55.932981 IP 192.168.1.21 > 10.254.10.140: ICMP echo
+> request, id 9278, seq 1, length 64
+> 17:09:55.933234 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+> 17:09:56.933169 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 2, length 64
+> 17:09:56.933416 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+> 17:09:57.933160 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 3, length 64
+> 17:09:57.933404 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+> 17:09:58.933163 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 4, length 64
+> 17:09:58.957939 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
+> 9278, seq 4, length 64
+> 17:09:59.935050 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 5, length 64
+> 17:09:59.960724 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
+> 9278, seq 5, length 64
+> 17:10:00.936177 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 6, length 64
+> 17:10:01.005849 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
+> 9278, seq 6, length 64
+> 17:10:01.936313 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 7, length 64
+> 17:10:01.936626 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+> 17:10:02.935321 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 8, length 64
+> 17:10:02.935591 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+> 17:10:03.934322 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
+> 9278, seq 9, length 64
+> 17:10:03.934613 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
+> unreachable, length 92
+>
 
-Presumably, if both kernel and userland are 64bit (no 32bit emulation),
-kernel could switch to 64bit inode numbers soon.
+Thank you for your report.  I'll try fixing it.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- misc/ss.c |   38 ++++++++++++++++++++------------------
- 1 file changed, 20 insertions(+), 18 deletions(-)
+--yoshfuji
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 38cf331..3355da5 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -377,7 +377,7 @@ static FILE *ephemeral_ports_open(void)
- 
- struct user_ent {
- 	struct user_ent	*next;
--	unsigned int	ino;
-+	__u64		ino;
- 	int		pid;
- 	int		fd;
- 	char		*process;
-@@ -388,17 +388,18 @@ struct user_ent {
- #define USER_ENT_HASH_SIZE	256
- struct user_ent *user_ent_hash[USER_ENT_HASH_SIZE];
- 
--static int user_ent_hashfn(unsigned int ino)
-+static int user_ent_hashfn(__u64 ino)
- {
--	int val = (ino >> 24) ^ (ino >> 16) ^ (ino >> 8) ^ ino;
-+	unsigned int val = (unsigned int)ino;
- 
-+	val ^= (unsigned int)(ino >> 32);
-+	val ^= (val >> 16);
-+	val ^= (val >> 8);
- 	return val & (USER_ENT_HASH_SIZE - 1);
- }
- 
--static void user_ent_add(unsigned int ino, char *process,
--					int pid, int fd,
--					char *proc_ctx,
--					char *sock_ctx)
-+static void user_ent_add(__u64 ino, char *process, int pid, int fd,
-+			 char *proc_ctx, char *sock_ctx)
- {
- 	struct user_ent *p, **pp;
- 
-@@ -494,7 +495,7 @@ static void user_ent_hash_build(void)
- 
- 		while ((d1 = readdir(dir1)) != NULL) {
- 			const char *pattern = "socket:[";
--			unsigned int ino;
-+			__u64 ino;
- 			char lnk[64];
- 			int fd;
- 			ssize_t link_len;
-@@ -513,7 +514,7 @@ static void user_ent_hash_build(void)
- 			if (strncmp(lnk, pattern, strlen(pattern)))
- 				continue;
- 
--			sscanf(lnk, "socket:[%u]", &ino);
-+			sscanf(lnk, "socket:[%llu]", &ino);
- 
- 			snprintf(tmp, sizeof(tmp), "%s/%d/fd/%s",
- 					root, pid, d1->d_name);
-@@ -549,7 +550,7 @@ enum entry_types {
- };
- 
- #define ENTRY_BUF_SIZE 512
--static int find_entry(unsigned int ino, char **buf, int type)
-+static int find_entry(__u64 ino, char **buf, int type)
- {
- 	struct user_ent *p;
- 	int cnt = 0;
-@@ -728,10 +729,10 @@ struct sockstat {
- 	int		    rport;
- 	int		    state;
- 	int		    rq, wq;
--	unsigned int ino;
--	unsigned int uid;
-+	unsigned int	    uid;
- 	int		    refcnt;
- 	unsigned int	    iface;
-+	__u64		    ino;
- 	unsigned long long  sk;
- 	char *name;
- 	char *peer_name;
-@@ -801,7 +802,7 @@ static void sock_details_print(struct sockstat *s)
- 	if (s->uid)
- 		printf(" uid:%u", s->uid);
- 
--	printf(" ino:%u", s->ino);
-+	printf(" ino:%llu", s->ino);
- 	printf(" sk:%llx", s->sk);
- }
- 
-@@ -1799,7 +1800,7 @@ static int tcp_show_line(char *line, const struct filter *f, int family)
- 		return 0;
- 
- 	opt[0] = 0;
--	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %u %d %llx %d %d %d %d %d %[^\n]\n",
-+	n = sscanf(data, "%x %x:%x %x:%x %x %d %d %llu %d %llx %d %d %d %d %d %[^\n]\n",
- 		   &s.ss.state, &s.ss.wq, &s.ss.rq,
- 		   &s.timer, &s.timeout, &s.retrans, &s.ss.uid, &s.probes,
- 		   &s.ss.ino, &s.ss.refcnt, &s.ss.sk, &rto, &ato, &s.qack, &s.cwnd,
-@@ -2481,7 +2482,7 @@ static int dgram_show_line(char *line, const struct filter *f, int family)
- 		return 0;
- 
- 	opt[0] = 0;
--	n = sscanf(data, "%x %x:%x %*x:%*x %*x %d %*d %u %d %llx %[^\n]\n",
-+	n = sscanf(data, "%x %x:%x %*x:%*x %*x %d %*d %llu %d %llx %[^\n]\n",
- 	       &s.state, &s.wq, &s.rq,
- 	       &s.uid, &s.ino,
- 	       &s.refcnt, &s.sk, opt);
-@@ -2829,7 +2830,7 @@ static int unix_show(struct filter *f)
- 		u->name = NULL;
- 		u->peer_name = NULL;
- 
--		if (sscanf(buf, "%x: %x %x %x %x %x %d %s",
-+		if (sscanf(buf, "%x: %x %x %x %x %x %llu %s",
- 			   &u->rport, &u->rq, &u->wq, &flags, &u->type,
- 			   &u->state, &u->ino, name) < 8)
- 			name[0] = 0;
-@@ -3085,9 +3086,10 @@ static int packet_show_line(char *buf, const struct filter *f, int fam)
- {
- 	unsigned long long sk;
- 	struct sockstat stat = {};
--	int type, prot, iface, state, rq, uid, ino;
-+	int type, prot, iface, state, rq, uid;
-+	__u64 ino;
- 
--	sscanf(buf, "%llx %*d %d %x %d %d %u %u %u",
-+	sscanf(buf, "%llx %*d %d %x %d %d %u %u %llu",
- 			&sk,
- 			&type, &prot, &iface, &state,
- 			&rq, &uid, &ino);
+>
+>
+>
+> Tried with a different ping implementation (RouterOS) and the behaviour
+> seems correct:
+>
+> [vihai@SevioLab SW1] > ping 10.254.10.140
+> HOST                                     SIZE TTL TIME  STATUS
+> 192.168.1.1                             84  64 0ms   host unreachable
+> 192.168.1.1                             84  64 0ms   host unreachable
+> 192.168.1.1                             84  64 0ms   host unreachable
+> 10.254.10.140                           56  61 20ms
+> 10.254.10.140                           56  61 46ms
+> 10.254.10.140                           56  61 37ms
+> 192.168.1.1                             84  64 0ms   host unreachable
+> 192.168.1.1                             84  64 0ms   host unreachable
+> 192.168.1.1                             84  64 0ms   host unreachable
+>     sent=9 received=3 packet-loss=66% min-rtt=20ms avg-rtt=34ms max-rtt=46ms
+>
+>
+> Recently I was pinging with IPv6, a router in between filtered the
+> packet, however the shown source address was not the right one:
+>
+> root@monitor:~# ping6 -i 0.2 www.google.com
+> PING www.google.com(mil01s25-in-x04.1e100.net) 56 data bytes
+> From mil01s25-in-x04.1e100.net icmp_seq=1 Destination unreachable: No route
+> From mil01s25-in-x04.1e100.net icmp_seq=2 Destination unreachable: No route
+> From mil01s25-in-x04.1e100.net icmp_seq=3 Destination unreachable: No route
+>
+> 19:33:19.589285 IP6 2a01:2d8:aca0:fce:944e:c8ff:fe4d:96de >
+> mil01s25-in-x04.1e100.net: ICMP6, echo request, seq 1, length 64
+> 19:33:19.611666 IP6 mix-br2.intercom.it >
+> 2a01:2d8:aca0:fce:944e:c8ff:fe4d:96de: ICMP6, destination unreachable,
+> unreachable route mil01s25-in-x04.1e100.net, length 112
+>
+>
+> Bye,
+>
