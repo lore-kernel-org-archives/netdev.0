@@ -1,334 +1,162 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 5/5] bpf, samples: add test cases for raw stack
-Date: Wed, 13 Apr 2016 00:10:54 +0200
-Message-ID: <7ddc9a78b0d6cf5acbb9b8c3135d4964d872e409.1460497071.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 1/5] bpf, verifier: add bpf_call_arg_meta for passing meta data
+Date: Wed, 13 Apr 2016 00:10:50 +0200
+Message-ID: <cb4d47b254633d35fd6e77e2b8e045bc6bb4761e.1460497071.git.daniel@iogearbox.net>
 References: <cover.1460497071.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, bblanco@plumgrid.com,
 	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34359 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:34331 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934081AbcDLWLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:11:14 -0400
+	with ESMTP id S932656AbcDLWLK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:11:10 -0400
 In-Reply-To: <cover.1460497071.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1460497071.git.daniel@iogearbox.net>
 References: <cover.1460497071.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds test cases mostly around ARG_PTR_TO_RAW_STACK to check the
-verifier behaviour.
-
-  [...]
-  #84 raw_stack: no skb_load_bytes OK
-  #85 raw_stack: skb_load_bytes, no init OK
-  #86 raw_stack: skb_load_bytes, init OK
-  #87 raw_stack: skb_load_bytes, spilled regs around bounds OK
-  #88 raw_stack: skb_load_bytes, spilled regs corruption OK
-  #89 raw_stack: skb_load_bytes, spilled regs corruption 2 OK
-  #90 raw_stack: skb_load_bytes, spilled regs + data OK
-  #91 raw_stack: skb_load_bytes, invalid access 1 OK
-  #92 raw_stack: skb_load_bytes, invalid access 2 OK
-  #93 raw_stack: skb_load_bytes, invalid access 3 OK
-  #94 raw_stack: skb_load_bytes, invalid access 4 OK
-  #95 raw_stack: skb_load_bytes, invalid access 5 OK
-  #96 raw_stack: skb_load_bytes, invalid access 6 OK
-  #97 raw_stack: skb_load_bytes, large access OK
-  Summary: 98 PASSED, 0 FAILED
+Currently, when the verifier checks calls in check_call() function, we
+call check_func_arg() for all 5 arguments e.g. to make sure expected types
+are correct. In some cases, we collect meta data (here: map pointer) to
+perform additional checks such as checking stack boundary on key/value
+sizes for subsequent arguments. As we're going to extend the meta data,
+add a generic struct bpf_call_arg_meta that we can use for passing into
+check_func_arg().
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/test_verifier.c | 268 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 268 insertions(+)
+ kernel/bpf/verifier.c | 40 +++++++++++++++++++++++-----------------
+ 1 file changed, 23 insertions(+), 17 deletions(-)
 
-diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
-index 4b51a90..9eba8d1 100644
---- a/samples/bpf/test_verifier.c
-+++ b/samples/bpf/test_verifier.c
-@@ -309,6 +309,19 @@ static struct bpf_test tests[] = {
- 		.result_unpriv = REJECT,
- 	},
- 	{
-+		"check valid spill/fill, skb mark",
-+		.insns = {
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_1),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_6, -8),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_10, -8),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.result_unpriv = ACCEPT,
-+	},
-+	{
- 		"check corrupted spill/fill",
- 		.insns = {
- 			/* spill R1(ctx) into stack */
-@@ -1180,6 +1193,261 @@ static struct bpf_test tests[] = {
- 		.result_unpriv = REJECT,
- 		.result = ACCEPT,
- 	},
-+	{
-+		"raw_stack: no skb_load_bytes",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			/* Call to skb_load_bytes() omitted. */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid read from stack off -8+0 size 8",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, no init",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, init",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_6, 0, 0xcafe),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, spilled regs around bounds",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -16),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1, -8), /* spill ctx from R1 */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1,  8), /* spill ctx from R1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, -8), /* fill ctx into R0 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_6,  8), /* fill ctx into R2 */
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_2,
-+				    offsetof(struct __sk_buff, priority)),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, spilled regs corruption",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -8),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1, 0), /* spill ctx from R1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0), /* fill ctx into R0 */
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "R0 invalid mem access 'inv'",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, spilled regs corruption 2",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -16),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1, -8), /* spill ctx from R1 */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1,  0), /* spill ctx from R1 */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1,  8), /* spill ctx from R1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, -8), /* fill ctx into R0 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_6,  8), /* fill ctx into R2 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_6,  0), /* fill ctx into R3 */
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_2,
-+				    offsetof(struct __sk_buff, priority)),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_3,
-+				    offsetof(struct __sk_buff, pkt_type)),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_3),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "R3 invalid mem access 'inv'",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, spilled regs + data",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -16),
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1, -8), /* spill ctx from R1 */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1,  0), /* spill ctx from R1 */
-+			BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_1,  8), /* spill ctx from R1 */
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, -8), /* fill ctx into R0 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_6,  8), /* fill ctx into R2 */
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_6,  0), /* fill data into R3 */
-+			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_0,
-+				    offsetof(struct __sk_buff, mark)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_2,
-+				    offsetof(struct __sk_buff, priority)),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_3),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 1",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -513),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-513 access_size=8",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 2",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -1),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 8),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-1 access_size=8",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 3",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 0xffffffff),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 0xffffffff),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-1 access_size=-1",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 4",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -1),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 0x7fffffff),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-1 access_size=2147483647",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 5",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -512),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 0x7fffffff),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-512 access_size=2147483647",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, invalid access 6",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -512),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = REJECT,
-+		.errstr = "invalid stack type R3 off=-512 access_size=0",
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
-+		"raw_stack: skb_load_bytes, large access",
-+		.insns = {
-+			BPF_MOV64_IMM(BPF_REG_2, 4),
-+			BPF_ALU64_REG(BPF_MOV, BPF_REG_6, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, -512),
-+			BPF_MOV64_REG(BPF_REG_3, BPF_REG_6),
-+			BPF_MOV64_IMM(BPF_REG_4, 512),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_skb_load_bytes),
-+			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_6, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
- };
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6c5d7cd..202f8f7 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -205,6 +205,10 @@ struct verifier_env {
+ #define BPF_COMPLEXITY_LIMIT_INSNS	65536
+ #define BPF_COMPLEXITY_LIMIT_STACK	1024
  
- static int probe_filter_length(struct bpf_insn *fp)
++struct bpf_call_arg_meta {
++	struct bpf_map *map_ptr;
++};
++
+ /* verbose verifier prints what it's seeing
+  * bpf_check() is called under lock, so no race to access these global vars
+  */
+@@ -822,7 +826,8 @@ static int check_stack_boundary(struct verifier_env *env, int regno,
+ }
+ 
+ static int check_func_arg(struct verifier_env *env, u32 regno,
+-			  enum bpf_arg_type arg_type, struct bpf_map **mapp)
++			  enum bpf_arg_type arg_type,
++			  struct bpf_call_arg_meta *meta)
+ {
+ 	struct reg_state *reg = env->cur_state.regs + regno;
+ 	enum bpf_reg_type expected_type;
+@@ -875,14 +880,13 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 
+ 	if (arg_type == ARG_CONST_MAP_PTR) {
+ 		/* bpf_map_xxx(map_ptr) call: remember that map_ptr */
+-		*mapp = reg->map_ptr;
+-
++		meta->map_ptr = reg->map_ptr;
+ 	} else if (arg_type == ARG_PTR_TO_MAP_KEY) {
+ 		/* bpf_map_xxx(..., map_ptr, ..., key) call:
+ 		 * check that [key, key + map->key_size) are within
+ 		 * stack limits and initialized
+ 		 */
+-		if (!*mapp) {
++		if (!meta->map_ptr) {
+ 			/* in function declaration map_ptr must come before
+ 			 * map_key, so that it's verified and known before
+ 			 * we have to check map_key here. Otherwise it means
+@@ -891,19 +895,19 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
+ 			verbose("invalid map_ptr to access map->key\n");
+ 			return -EACCES;
+ 		}
+-		err = check_stack_boundary(env, regno, (*mapp)->key_size,
++		err = check_stack_boundary(env, regno, meta->map_ptr->key_size,
+ 					   false);
+ 	} else if (arg_type == ARG_PTR_TO_MAP_VALUE) {
+ 		/* bpf_map_xxx(..., map_ptr, ..., value) call:
+ 		 * check [value, value + map->value_size) validity
+ 		 */
+-		if (!*mapp) {
++		if (!meta->map_ptr) {
+ 			/* kernel subsystem misconfigured verifier */
+ 			verbose("invalid map_ptr to access map->value\n");
+ 			return -EACCES;
+ 		}
+-		err = check_stack_boundary(env, regno, (*mapp)->value_size,
+-					   false);
++		err = check_stack_boundary(env, regno,
++					   meta->map_ptr->value_size, false);
+ 	} else if (arg_type == ARG_CONST_STACK_SIZE ||
+ 		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
+ 		bool zero_size_allowed = (arg_type == ARG_CONST_STACK_SIZE_OR_ZERO);
+@@ -954,8 +958,8 @@ static int check_call(struct verifier_env *env, int func_id)
+ 	struct verifier_state *state = &env->cur_state;
+ 	const struct bpf_func_proto *fn = NULL;
+ 	struct reg_state *regs = state->regs;
+-	struct bpf_map *map = NULL;
+ 	struct reg_state *reg;
++	struct bpf_call_arg_meta meta;
+ 	int i, err;
+ 
+ 	/* find function prototype */
+@@ -978,20 +982,22 @@ static int check_call(struct verifier_env *env, int func_id)
+ 		return -EINVAL;
+ 	}
+ 
++	memset(&meta, 0, sizeof(meta));
++
+ 	/* check args */
+-	err = check_func_arg(env, BPF_REG_1, fn->arg1_type, &map);
++	err = check_func_arg(env, BPF_REG_1, fn->arg1_type, &meta);
+ 	if (err)
+ 		return err;
+-	err = check_func_arg(env, BPF_REG_2, fn->arg2_type, &map);
++	err = check_func_arg(env, BPF_REG_2, fn->arg2_type, &meta);
+ 	if (err)
+ 		return err;
+-	err = check_func_arg(env, BPF_REG_3, fn->arg3_type, &map);
++	err = check_func_arg(env, BPF_REG_3, fn->arg3_type, &meta);
+ 	if (err)
+ 		return err;
+-	err = check_func_arg(env, BPF_REG_4, fn->arg4_type, &map);
++	err = check_func_arg(env, BPF_REG_4, fn->arg4_type, &meta);
+ 	if (err)
+ 		return err;
+-	err = check_func_arg(env, BPF_REG_5, fn->arg5_type, &map);
++	err = check_func_arg(env, BPF_REG_5, fn->arg5_type, &meta);
+ 	if (err)
+ 		return err;
+ 
+@@ -1013,18 +1019,18 @@ static int check_call(struct verifier_env *env, int func_id)
+ 		 * can check 'value_size' boundary of memory access
+ 		 * to map element returned from bpf_map_lookup_elem()
+ 		 */
+-		if (map == NULL) {
++		if (meta.map_ptr == NULL) {
+ 			verbose("kernel subsystem misconfigured verifier\n");
+ 			return -EINVAL;
+ 		}
+-		regs[BPF_REG_0].map_ptr = map;
++		regs[BPF_REG_0].map_ptr = meta.map_ptr;
+ 	} else {
+ 		verbose("unknown return type %d of func %d\n",
+ 			fn->ret_type, func_id);
+ 		return -EINVAL;
+ 	}
+ 
+-	err = check_map_func_compatibility(map, func_id);
++	err = check_map_func_compatibility(meta.map_ptr, func_id);
+ 	if (err)
+ 		return err;
+ 
 -- 
 1.9.3
