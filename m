@@ -1,257 +1,154 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/8] netfilter: ip6t_SYNPROXY: remove magic number for hop_limit
-Date: Wed, 13 Apr 2016 01:02:43 +0200
-Message-ID: <1460502166-20340-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/8] netfilter: bridge: pass L2 header and VLAN as netlink attributes in queues to userspace
+Date: Wed, 13 Apr 2016 01:02:41 +0200
+Message-ID: <1460502166-20340-4-git-send-email-pablo@netfilter.org>
 References: <1460502166-20340-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36494 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:36497 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965949AbcDLXDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 19:03:06 -0400
+	id S965778AbcDLXDD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2016 19:03:03 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 263BDEAA94
-	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:03:05 +0200 (CEST)
+	by mail.us.es (Postfix) with ESMTP id 90C4BEAA9A
+	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:03:01 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 11FA31B309E
-	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:03:05 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 71C111B30BC
+	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:03:01 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 56BCB1B309F
-	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:03:00 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 034F4AD88
+	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 01:02:58 +0200 (CEST)
 In-Reply-To: <1460502166-20340-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Stephane Bryant <stephane.ml.bryant@gmail.com>
 
-Replace '64' with the per-net ipv6_devconf_all's hop_limit when
-building the ipv6 header.
+- This creates 2 netlink attribute NFQA_VLAN and NFQA_L2HDR.
+- These are filled up for the PF_BRIDGE family on the way to userspace.
+- NFQA_VLAN is a nested attribute, with the NFQA_VLAN_PROTO and the
+  NFQA_VLAN_TCI carrying the corresponding vlan_proto and vlan_tci
+  fields from the skb using big endian ordering (and using the CFI
+  bit as the VLAN_TAG_PRESENT flag in vlan_tci as in the skb)
 
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Stephane Bryant <stephane.ml.bryant@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6t_SYNPROXY.c | 56 ++++++++++++++++++++------------------
- 1 file changed, 30 insertions(+), 26 deletions(-)
+ include/uapi/linux/netfilter/nfnetlink_queue.h | 10 +++++
+ net/netfilter/nfnetlink_queue.c                | 58 ++++++++++++++++++++++++++
+ 2 files changed, 68 insertions(+)
 
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index 3deed58..5d778dd 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -20,15 +20,16 @@
- #include <net/netfilter/nf_conntrack_synproxy.h>
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index b67a853..ae30841 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -30,6 +30,14 @@ struct nfqnl_msg_packet_timestamp {
+ 	__aligned_be64	usec;
+ };
  
- static struct ipv6hdr *
--synproxy_build_ip(struct sk_buff *skb, const struct in6_addr *saddr,
--				       const struct in6_addr *daddr)
-+synproxy_build_ip(struct net *net, struct sk_buff *skb,
-+		  const struct in6_addr *saddr,
-+		  const struct in6_addr *daddr)
- {
- 	struct ipv6hdr *iph;
++enum nfqnl_vlan_attr {
++	NFQA_VLAN_UNSPEC,
++	NFQA_VLAN_PROTO,		/* __be16 skb vlan_proto */
++	NFQA_VLAN_TCI,			/* __be16 skb htons(vlan_tci) */
++	__NFQA_VLAN_MAX,
++};
++#define NFQA_VLAN_MAX (__NFQA_VLAN_MAX + 1)
++
+ enum nfqnl_attr_type {
+ 	NFQA_UNSPEC,
+ 	NFQA_PACKET_HDR,
+@@ -50,6 +58,8 @@ enum nfqnl_attr_type {
+ 	NFQA_UID,			/* __u32 sk uid */
+ 	NFQA_GID,			/* __u32 sk gid */
+ 	NFQA_SECCTX,			/* security context string */
++	NFQA_VLAN,			/* nested attribute: packet vlan info */
++	NFQA_L2HDR,			/* full L2 header */
  
- 	skb_reset_network_header(skb);
- 	iph = (struct ipv6hdr *)skb_put(skb, sizeof(*iph));
- 	ip6_flow_hdr(iph, 0, 0);
--	iph->hop_limit	= 64;	//XXX
-+	iph->hop_limit	= net->ipv6.devconf_all->hop_limit;
- 	iph->nexthdr	= IPPROTO_TCP;
- 	iph->saddr	= *saddr;
- 	iph->daddr	= *daddr;
-@@ -37,13 +38,12 @@ synproxy_build_ip(struct sk_buff *skb, const struct in6_addr *saddr,
+ 	__NFQA_MAX
+ };
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 7542999..6889c7c 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -295,6 +295,59 @@ static u32 nfqnl_get_sk_secctx(struct sk_buff *skb, char **secdata)
+ 	return seclen;
  }
  
- static void
--synproxy_send_tcp(const struct synproxy_net *snet,
-+synproxy_send_tcp(struct net *net,
- 		  const struct sk_buff *skb, struct sk_buff *nskb,
- 		  struct nf_conntrack *nfct, enum ip_conntrack_info ctinfo,
- 		  struct ipv6hdr *niph, struct tcphdr *nth,
- 		  unsigned int tcp_hdr_size)
- {
--	struct net *net = nf_ct_net(snet->tmpl);
- 	struct dst_entry *dst;
- 	struct flowi6 fl6;
++static u32 nfqnl_get_bridge_size(struct nf_queue_entry *entry)
++{
++	struct sk_buff *entskb = entry->skb;
++	u32 nlalen = 0;
++
++	if (entry->state.pf != PF_BRIDGE || !skb_mac_header_was_set(entskb))
++		return 0;
++
++	if (skb_vlan_tag_present(entskb))
++		nlalen += nla_total_size(nla_total_size(sizeof(__be16)) +
++					 nla_total_size(sizeof(__be16)));
++
++	if (entskb->network_header > entskb->mac_header)
++		nlalen += nla_total_size((entskb->network_header -
++					  entskb->mac_header));
++
++	return nlalen;
++}
++
++static int nfqnl_put_bridge(struct nf_queue_entry *entry, struct sk_buff *skb)
++{
++	struct sk_buff *entskb = entry->skb;
++
++	if (entry->state.pf != PF_BRIDGE || !skb_mac_header_was_set(entskb))
++		return 0;
++
++	if (skb_vlan_tag_present(entskb)) {
++		struct nlattr *nest;
++
++		nest = nla_nest_start(skb, NFQA_VLAN | NLA_F_NESTED);
++		if (!nest)
++			goto nla_put_failure;
++
++		if (nla_put_be16(skb, NFQA_VLAN_TCI, htons(entskb->vlan_tci)) ||
++		    nla_put_be16(skb, NFQA_VLAN_PROTO, entskb->vlan_proto))
++			goto nla_put_failure;
++
++		nla_nest_end(skb, nest);
++	}
++
++	if (entskb->mac_header < entskb->network_header) {
++		int len = (int)(entskb->network_header - entskb->mac_header);
++
++		if (nla_put(skb, NFQA_L2HDR, len, skb_mac_header(entskb)))
++			goto nla_put_failure;
++	}
++
++	return 0;
++
++nla_put_failure:
++	return -1;
++}
++
+ static struct sk_buff *
+ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			   struct nf_queue_entry *entry,
+@@ -334,6 +387,8 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	if (entskb->tstamp.tv64)
+ 		size += nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp));
  
-@@ -84,7 +84,7 @@ free_nskb:
- }
- 
- static void
--synproxy_send_client_synack(const struct synproxy_net *snet,
-+synproxy_send_client_synack(struct net *net,
- 			    const struct sk_buff *skb, const struct tcphdr *th,
- 			    const struct synproxy_options *opts)
- {
-@@ -103,7 +103,7 @@ synproxy_send_client_synack(const struct synproxy_net *snet,
- 		return;
- 	skb_reserve(nskb, MAX_TCP_HEADER);
- 
--	niph = synproxy_build_ip(nskb, &iph->daddr, &iph->saddr);
-+	niph = synproxy_build_ip(net, nskb, &iph->daddr, &iph->saddr);
- 
- 	skb_reset_transport_header(nskb);
- 	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
-@@ -121,15 +121,16 @@ synproxy_send_client_synack(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
-+	synproxy_send_tcp(net, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
- 			  niph, nth, tcp_hdr_size);
- }
- 
- static void
--synproxy_send_server_syn(const struct synproxy_net *snet,
-+synproxy_send_server_syn(struct net *net,
- 			 const struct sk_buff *skb, const struct tcphdr *th,
- 			 const struct synproxy_options *opts, u32 recv_seq)
- {
-+	struct synproxy_net *snet = synproxy_pernet(net);
- 	struct sk_buff *nskb;
- 	struct ipv6hdr *iph, *niph;
- 	struct tcphdr *nth;
-@@ -144,7 +145,7 @@ synproxy_send_server_syn(const struct synproxy_net *snet,
- 		return;
- 	skb_reserve(nskb, MAX_TCP_HEADER);
- 
--	niph = synproxy_build_ip(nskb, &iph->saddr, &iph->daddr);
-+	niph = synproxy_build_ip(net, nskb, &iph->saddr, &iph->daddr);
- 
- 	skb_reset_transport_header(nskb);
- 	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
-@@ -165,12 +166,12 @@ synproxy_send_server_syn(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(snet, skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
-+	synproxy_send_tcp(net, skb, nskb, &snet->tmpl->ct_general, IP_CT_NEW,
- 			  niph, nth, tcp_hdr_size);
- }
- 
- static void
--synproxy_send_server_ack(const struct synproxy_net *snet,
-+synproxy_send_server_ack(struct net *net,
- 			 const struct ip_ct_tcp *state,
- 			 const struct sk_buff *skb, const struct tcphdr *th,
- 			 const struct synproxy_options *opts)
-@@ -189,7 +190,7 @@ synproxy_send_server_ack(const struct synproxy_net *snet,
- 		return;
- 	skb_reserve(nskb, MAX_TCP_HEADER);
- 
--	niph = synproxy_build_ip(nskb, &iph->daddr, &iph->saddr);
-+	niph = synproxy_build_ip(net, nskb, &iph->daddr, &iph->saddr);
- 
- 	skb_reset_transport_header(nskb);
- 	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
-@@ -205,11 +206,11 @@ synproxy_send_server_ack(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(snet, skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
-+	synproxy_send_tcp(net, skb, nskb, NULL, 0, niph, nth, tcp_hdr_size);
- }
- 
- static void
--synproxy_send_client_ack(const struct synproxy_net *snet,
-+synproxy_send_client_ack(struct net *net,
- 			 const struct sk_buff *skb, const struct tcphdr *th,
- 			 const struct synproxy_options *opts)
- {
-@@ -227,7 +228,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 		return;
- 	skb_reserve(nskb, MAX_TCP_HEADER);
- 
--	niph = synproxy_build_ip(nskb, &iph->saddr, &iph->daddr);
-+	niph = synproxy_build_ip(net, nskb, &iph->saddr, &iph->daddr);
- 
- 	skb_reset_transport_header(nskb);
- 	nth = (struct tcphdr *)skb_put(nskb, tcp_hdr_size);
-@@ -243,15 +244,16 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
- 
- 	synproxy_build_options(nth, opts);
- 
--	synproxy_send_tcp(snet, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
-+	synproxy_send_tcp(net, skb, nskb, skb->nfct, IP_CT_ESTABLISHED_REPLY,
- 			  niph, nth, tcp_hdr_size);
- }
- 
- static bool
--synproxy_recv_client_ack(const struct synproxy_net *snet,
-+synproxy_recv_client_ack(struct net *net,
- 			 const struct sk_buff *skb, const struct tcphdr *th,
- 			 struct synproxy_options *opts, u32 recv_seq)
- {
-+	struct synproxy_net *snet = synproxy_pernet(net);
- 	int mss;
- 
- 	mss = __cookie_v6_check(ipv6_hdr(skb), th, ntohl(th->ack_seq) - 1);
-@@ -267,7 +269,7 @@ synproxy_recv_client_ack(const struct synproxy_net *snet,
- 	if (opts->options & XT_SYNPROXY_OPT_TIMESTAMP)
- 		synproxy_check_timestamp_cookie(opts);
- 
--	synproxy_send_server_syn(snet, skb, th, opts, recv_seq);
-+	synproxy_send_server_syn(net, skb, th, opts, recv_seq);
- 	return true;
- }
- 
-@@ -275,7 +277,8 @@ static unsigned int
- synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- {
- 	const struct xt_synproxy_info *info = par->targinfo;
--	struct synproxy_net *snet = synproxy_pernet(par->net);
-+	struct net *net = par->net;
-+	struct synproxy_net *snet = synproxy_pernet(net);
- 	struct synproxy_options opts = {};
- 	struct tcphdr *th, _th;
- 
-@@ -304,12 +307,12 @@ synproxy_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 					  XT_SYNPROXY_OPT_SACK_PERM |
- 					  XT_SYNPROXY_OPT_ECN);
- 
--		synproxy_send_client_synack(snet, skb, th, &opts);
-+		synproxy_send_client_synack(net, skb, th, &opts);
- 		return NF_DROP;
- 
- 	} else if (th->ack && !(th->fin || th->rst || th->syn)) {
- 		/* ACK from client */
--		synproxy_recv_client_ack(snet, skb, th, &opts, ntohl(th->seq));
-+		synproxy_recv_client_ack(net, skb, th, &opts, ntohl(th->seq));
- 		return NF_DROP;
++	size += nfqnl_get_bridge_size(entry);
++
+ 	if (entry->state.hook <= NF_INET_FORWARD ||
+ 	   (entry->state.hook == NF_INET_POST_ROUTING && entskb->sk == NULL))
+ 		csum_verify = !skb_csum_unnecessary(entskb);
+@@ -497,6 +552,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		}
  	}
  
-@@ -320,7 +323,8 @@ static unsigned int ipv6_synproxy_hook(void *priv,
- 				       struct sk_buff *skb,
- 				       const struct nf_hook_state *nhs)
- {
--	struct synproxy_net *snet = synproxy_pernet(nhs->net);
-+	struct net *net = nhs->net;
-+	struct synproxy_net *snet = synproxy_pernet(net);
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
- 	struct nf_conn_synproxy *synproxy;
-@@ -384,7 +388,7 @@ static unsigned int ipv6_synproxy_hook(void *priv,
- 			 * therefore we need to add 1 to make the SYN sequence
- 			 * number match the one of first SYN.
- 			 */
--			if (synproxy_recv_client_ack(snet, skb, th, &opts,
-+			if (synproxy_recv_client_ack(net, skb, th, &opts,
- 						     ntohl(th->seq) + 1))
- 				this_cpu_inc(snet->stats->cookie_retrans);
- 
-@@ -410,12 +414,12 @@ static unsigned int ipv6_synproxy_hook(void *priv,
- 				  XT_SYNPROXY_OPT_SACK_PERM);
- 
- 		swap(opts.tsval, opts.tsecr);
--		synproxy_send_server_ack(snet, state, skb, th, &opts);
-+		synproxy_send_server_ack(net, state, skb, th, &opts);
- 
- 		nf_ct_seqadj_init(ct, ctinfo, synproxy->isn - ntohl(th->seq));
- 
- 		swap(opts.tsval, opts.tsecr);
--		synproxy_send_client_ack(snet, skb, th, &opts);
-+		synproxy_send_client_ack(net, skb, th, &opts);
- 
- 		consume_skb(skb);
- 		return NF_STOLEN;
++	if (nfqnl_put_bridge(entry, skb) < 0)
++		goto nla_put_failure;
++
+ 	if (entskb->tstamp.tv64) {
+ 		struct nfqnl_msg_packet_timestamp ts;
+ 		struct timespec64 kts = ktime_to_timespec64(skb->tstamp);
 -- 
 2.1.4
