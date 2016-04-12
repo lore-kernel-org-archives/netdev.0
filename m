@@ -1,92 +1,44 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Tue, 12 Apr 2016 16:57:21 +0200
-Message-ID: <570D0CD1.6070304@atmel.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
- <20160411022802.GB4307@lunn.ch> <570CBE42.50309@atmel.com>
- <570CFE13.3040100@cogentembedded.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: TCP reaching to maximum throughput after a long time
+Date: Tue, 12 Apr 2016 08:04:52 -0700
+Message-ID: <570D0E94.3080006@candelatech.com>
+References: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com> <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Gregory CLEMENT <gregory.clement@free-electrons.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:32786 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756445AbcDLO5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 10:57:05 -0400
-In-Reply-To: <570CFE13.3040100@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"Kama, Meirav" <meiravk@ti.com>
+To: "Machani, Yaniv" <yanivma@ti.com>, netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 12/04/2016 15:54, Sergei Shtylyov a =E9crit :
-> Hello.
->=20
-> On 4/12/2016 12:22 PM, Nicolas Ferre wrote:
->=20
->>>> With  the 'phylib' now  being aware of  the "reset-gpios" PHY node=
- property,
->>>> there should be no need to frob the PHY reset in this  driver anym=
-ore...
->>>>
->>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com=
->
->>>>
->>>> ---
->>>>   drivers/net/ethernet/cadence/macb.c |   17 -----------------
->>>>   drivers/net/ethernet/cadence/macb.h |    1 -
->>>>   2 files changed, 18 deletions(-)
->>>>
->>>> Index: net-next/drivers/net/ethernet/cadence/macb.c
->>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>>> --- net-next.orig/drivers/net/ethernet/cadence/macb.c
->>>> +++ net-next/drivers/net/ethernet/cadence/macb.c
-> [...]
->>>> @@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
->>>>   	else
->>>>   		macb_get_hwaddr(bp);
->>>>
->>>> -	/* Power up the PHY if there is a GPIO reset */
->>>> -	phy_node =3D  of_get_next_available_child(np, NULL);
->>>> -	if (phy_node) {
->>>> -		int gpio =3D of_get_named_gpio(phy_node, "reset-gpios", 0);
->>>> -
->>>> -		if (gpio_is_valid(gpio)) {
->>>> -			bp->reset_gpio =3D gpio_to_desc(gpio);
->>>> -			gpiod_direction_output(bp->reset_gpio, 1);
->>>
->>> Hi Sergei
->>>
->>> The code you are deleting would of ignored the flags in the gpio
+On 04/12/2016 07:52 AM, Eric Dumazet wrote:
+> On Tue, 2016-04-12 at 12:17 +0000, Machani, Yaniv wrote:
+>> Hi,
+>> After updating from Kernel 3.14 to Kernel 4.4 we have seen a TCP performance degradation over Wi-Fi.
+>> In 3.14 kernel, TCP got to its max throughout after less than a second, while in the 4.4  it is taking ~20-30 seconds.
+>> UDP TX/RX and TCP RX performance is as expected.
+>> We are using a Beagle Bone Black and a WiLink8 device.
 >>
->> I don't parse this.
->=20
->> The code deleted does take the flag into account.
->=20
->     Not really -- you need to call of_get_named_gpio_flags() (with a =
-valid=20
-> last argument) for that.
+>> Were there any related changes that might cause such behavior ?
+>> Kernel configuration and sysctl values were compared, but no significant differences have been found.
 
-Yep,
+If you are using 'Cubic' TCP congestion control, then please try something different.
+It was broken last I checked, at least when used with the ath10k driver.
 
->> And the DT property
->> associated to it seems correct to me (I mean, with proper flag
->> specification).
->=20
->     It apparently is not as it have GPIO_ACTIVE_HIGH and the driver a=
-ssumes=20
-> active-low reset signal.
+https://marc.info/?l=linux-netdev&m=144405216005715&w=2
 
-Yes, logic was inverted and... anyway, the flag never used for real...
-Thanks Sergei.
+Thanks,
+Ben
 
-No problem for me accepting a patch for the at91-vinco.dts.
-
-Bye,
---=20
-Nicolas Ferre
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
