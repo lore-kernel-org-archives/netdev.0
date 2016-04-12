@@ -1,101 +1,111 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
-Date: Tue, 12 Apr 2016 10:40:16 +0300
-Message-ID: <CALzJLG8fXPLQ7tj2Nc7NbGpu4EuNoXTE+w8tDkwQ2F_AqgDtLA@mail.gmail.com>
-References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
- <1460405422-8654-3-git-send-email-saeedm@mellanox.com> <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
- <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
- <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
- <20160412051537.GD25242@leon.nu> <CAJ3xEMijYrLvSmbNZp0B6AXqKGozz1rdZ58SCUP_09zOB6-2gQ@mail.gmail.com>
- <20160412060117.GA24649@leon.nu>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2016-04-12
+Date: Tue, 12 Apr 2016 11:08:15 +0300
+Message-ID: <20160412080815.GA17516@t440s>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Doug Ledford <dledford@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: leon@leon.nu
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Q68bSM7Ycu6FN28Q"
+Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:36598 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756011AbcDLHkg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 03:40:36 -0400
-Received: by mail-yw0-f193.google.com with SMTP id i125so1235167ywe.3
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 00:40:36 -0700 (PDT)
-In-Reply-To: <20160412060117.GA24649@leon.nu>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:34548 "EHLO
+	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932191AbcDLIIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 04:08:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2016 at 9:01 AM, Leon Romanovsky <leon@leon.nu> wrote:
-> On Tue, Apr 12, 2016 at 08:36:21AM +0300, Or Gerlitz wrote:
->>
->> I understand your desire to get it down to zero, but it's not gonna
->> work, pick another target.
->
-> Maybe you are right and the time will show, but now we (Saeed, Matan and me)
-> are trying hard to achieve this goal.
->
->>
->> For example, the networking community has a fairly large rc activity
->> (I would say 10-20x
->> vs rdma), so when Dave does his "merge-rebases" for net-next over net
->> and linus tree
->> (4-5 times in a release), he has to this way or another solve
->> conflicts, yes! ditto for
->> Linus during merge windows and to some extent in rc times too.
->
-> I don't see any harm in our desire to decrease work overhead from these
-> busy people.
->
->>
->> > It won't help to anyone to split this commit to more than one patch.
->>
->> The commit change-log should make it clear what this is about, and it doesn't.
->> If you believe in something, state that clear, be precise.
->
-> I agree.
->
->>
->> As Saeed admitted the shared code in the commit spans maybe 2% of it.
->>
->> The 1st commit deals with a field which is not used in the driver,
->> this is a cleanup
->> that you can do in rc (net) patch (remove the field all together) and
->> overall, w.o seeing
 
-Or, I guess everybody here agrees that mlx5_ifc is our Connectx-4 pure
-HW spec, written in C, isn't that cool ?
-I see no harm updating our HW spec once in a kernel cycle revealing
-new cool HW bits and interfaces
-for anyone to use mlx5e/mlx5_core/mlx5_ib .. you name it.
+--Q68bSM7Ycu6FN28Q
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Why would you break down this patch to many when no matter what you
-do, at the end it would look the same ?
-As Leon mentioned we MLNX maintainers prefer to update this file at
-once when possible.
+Hi Dave,
 
->
-> I don't agree with your point that cleanup should go to RC.
+Here's a set of Bluetooth & 802.15.4 patches intended for the 4.7 kernel:
 
-I am with Leon on this one, the cleanup code is just cleanup for new
-features to come,
-it has nothing to do with RC (net).
+ - Fix for race condition in vhci driver
+ - Memory leak fix for ieee802154/adf7242 driver
+ - Improvements to deal with single-mode (LE-only) Bluetooth controllers
+ - Fix for allowing the BT_SECURITY_FIPS security level
+ - New BCM2E71 ACPI ID
+ - NULL pointer dereference fix fox hci_ldisc driver
 
->
->> the down-stream patches that depend on the newly introduced fields,
->> how do you know there aren't such (unused) bits in the 2nd commit?
->
-> No, I don't know in advance, but the truth is that it doesn't bother
-> anyone, because we are exposing our internal HW to kernel clients and
-> doing it with minimal impact on the maintainers.
+Let me know if there are any issues pulling. Thanks.
 
-Yep, this is exactly what i am trying to say, there are no two ways to
-describe/write (mlx5_ifc) code,
-if it is a HW spec, why shouldn't it appear from day one ?
+Johan
+
+----
+The following changes since commit 9ef280c6c28f0c01aa9d909263ad47c796713a8e:
+
+  irda: sh_irda: remove driver (2016-04-04 16:24:13 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to 8805eea2494a2837983bc4aaaf6842c89666ec25:
+
+  Bluetooth: hci_bcsp: fix code style (2016-04-08 23:01:36 +0200)
+
+----------------------------------------------------------------
+Alexander Aring (1):
+      6lowpan: iphc: fix handling of link-local compression
+
+Jiri Slaby (2):
+      Bluetooth: vhci: fix open_timeout vs. hdev race
+      Bluetooth: vhci: purge unhandled skbs
+
+Johan Hedberg (2):
+      Bluetooth: Fix setting NO_BREDR advertising flag
+      Bluetooth: Ignore unknown advertising packet types
+
+Loic Poulain (2):
+      Bluetooth: hci_bcm: Add BCM2E71 ACPI ID
+      Bluetooth: hci_ldisc: Fix null pointer derefence in case of early data
+
+Maxim Zhukov (1):
+      Bluetooth: hci_bcsp: fix code style
+
+Patrik Flykt (1):
+      Bluetooth: Allow setting BT_SECURITY_FIPS with setsockopt
+
+Sudip Mukherjee (1):
+      ieee802154/adf7242: fix memory leak of firmware
+
+ drivers/bluetooth/hci_bcm.c      |  1 +
+ drivers/bluetooth/hci_bcsp.c     | 57 +++++++++++++++++++++++++++++++--------------------------
+ drivers/bluetooth/hci_ldisc.c    | 11 +++++++----
+ drivers/bluetooth/hci_uart.h     |  1 +
+ drivers/bluetooth/hci_vhci.c     |  9 ++++++---
+ drivers/net/ieee802154/adf7242.c |  2 ++
+ net/6lowpan/iphc.c               | 11 +++++++++--
+ net/bluetooth/hci_event.c        | 13 +++++++++++++
+ net/bluetooth/hci_request.c      |  6 +++---
+ net/bluetooth/l2cap_sock.c       |  2 +-
+ 10 files changed, 74 insertions(+), 39 deletions(-)
+
+
+--Q68bSM7Ycu6FN28Q
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXDKzvAAoJECQj9vv5qNQS1P8QAK+6mw7f5n9M6zNchFYuCsA2
+KzFc2jmGUbIsw31ZKCyps0eQpUe01RWuM67wnvjBdRaOjVI+82l3QKdHU8A7xmo8
+RIkEoKpMIXwpN6R5W9DOvT/LVEvttMmMl4nHdpUWWKyDXLII4DSpdDmw+CSqn7gk
+7zvypSHVh8JSKkbySciTS82CqeveaU93peY6OovnzBU+nIQn3ru+mrZ3mx9H45t0
+hu/gfECJTQmTtG31iWH6KH+8NSTcx5BILiXSJl4Rsk07+l2xRQDKQdylUylXIi2o
+n7lpoaxVI5hVP1SQUr47t56nZZwIOLEWc2qE0MLQVs2PJ8kMSC43ZETkb9yFDPGm
+G3bp3RmCXoyYrQApVx3TMBsViJjJw0JbqaK784M+BqQNgOu0e2w1dEZ52rRiyirs
+Y0Vy7dQKtYGefb16//g78af9LaY4Tv+DqSfE7YkccVg/OZAVkVQ0FpJhF3WUIk5Z
+9mO8nlgus1wTHKki9IHVVxU+b3vUQxx4XQUOxj2oNb7xV/nfMTB0AwD9PvrqZXAw
+NyOoCBBUfQok3VUfEEjRrBTKolemCMt0zvlDWYChouBJpfsWGhZ4bD6+pRFJREZj
+u4g2kdZAvlQWzPKk0IZM6d44dZtIZB6tWhu+B+VF8syxTNhwed7oIHDSIzfRpjCA
+2DHcZW/Qp7tKF/Crvey0
+=Lq87
+-----END PGP SIGNATURE-----
+
+--Q68bSM7Ycu6FN28Q--
