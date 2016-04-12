@@ -1,72 +1,77 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] mwifiex: fix possible NULL dereference
-Date: Tue, 12 Apr 2016 17:08:05 +0300
-Message-ID: <CAHp75VfO3A+HBjkjc9WC9jzB9gtYrVM6izLmpiqLntChGOzjMA@mail.gmail.com>
-References: <1460388459-21090-1-git-send-email-sudipm.mukherjee@gmail.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable] cdc_mbim: apply "NDP to end" quirk to all Huawei devices
+Date: Tue, 12 Apr 2016 16:11:12 +0200
+Message-ID: <1460470272-9289-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460388459-21090-1-git-send-email-sudipm.mukherjee@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>,
+	Andrei Burd <burdandrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2016 at 6:27 PM, Sudip Mukherjee
-<sudipm.mukherjee@gmail.com> wrote:
-> From: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
->
-> We have a check for card just after dereferencing it. So if it is NULL
-> we have already dereferenced it before its check. Lets dereference it
-> after checking card for NULL.
+We now have a positive report of another Huawei device needing
+this quirk: The ME906s-158 (12d1:15c1).  This is an m.2 form
+factor modem with no obvious relationship to the E3372 (12d1:157d)
+we already have a quirk entry for.  This is reason enough to
+believe the quirk might be necessary for any number of current
+and future Huawei devices.
 
-IIUC the code does nothing with dereference.
+Applying the quirk to all Huawei devices, since it is crucial
+to any device affected by the firmware bug, while the impact
+on non-affected devices is negligible.
 
-I would have told NAK if I would have been maintainer.
+The quirk can if necessary be disabled per-device by writing
+N to /sys/class/net/<iface>/cdc_ncm/ndp_to_end
 
->
-> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
-> ---
->  drivers/net/wireless/marvell/mwifiex/pcie.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> index edf8b07..84562d0 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> @@ -2884,10 +2884,11 @@ static void mwifiex_unregister_dev(struct mwifiex_adapter *adapter)
->  {
->         struct pcie_service_card *card = adapter->card;
+Reported-by: Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+I'm requesting this for stable, but it depends on commit
 
-Let's say it's 0.
+  f8c0cfa5eca9 ("net: cdc_mbim: add "NDP to end" quirk for Huawei E3372=
+")
 
->         const struct mwifiex_pcie_card_reg *reg;
-> -       struct pci_dev *pdev = card->dev;
-
-This would be equal to offset of dev member in pcie_service_card struct.
-
-Nothing wrong here.
-
-> +       struct pci_dev *pdev;
->         int i;
->
->         if (card) {
-> +               pdev = card->dev;
->                 if (card->msix_enable) {
->                         for (i = 0; i < MWIFIEX_NUM_MSIX_VECTORS; i++)
->                                 synchronize_irq(card->msix_entries[i].vector);
-> --
-> 1.9.1
->
+so it is only applicable to v4.3 (where the dependency is
+backported), v4.4 and v4.5
 
 
+Bj=C3=B8rn
 
--- 
-With Best Regards,
-Andy Shevchenko
+ drivers/net/usb/cdc_mbim.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index bdd83d95ec0a..96a5028621c8 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -617,8 +617,13 @@ static const struct usb_device_id mbim_devs[] =3D =
+{
+ 	{ USB_VENDOR_AND_INTERFACE_INFO(0x0bdb, USB_CLASS_COMM, USB_CDC_SUBCL=
+ASS_MBIM, USB_CDC_PROTO_NONE),
+ 	  .driver_info =3D (unsigned long)&cdc_mbim_info,
+ 	},
+-	/* Huawei E3372 fails unless NDP comes after the IP packets */
+-	{ USB_DEVICE_AND_INTERFACE_INFO(0x12d1, 0x157d, USB_CLASS_COMM, USB_C=
+DC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
++
++	/* Some Huawei devices, ME906s-158 (12d1:15c1) and E3372
++	 * (12d1:157d), are known to fail unless the NDP is placed
++	 * after the IP packets.  Applying the quirk to all Huawei
++	 * devices is broader than necessary, but harmless.
++	 */
++	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, USB_CLASS_COMM, USB_CDC_SUBCL=
+ASS_MBIM, USB_CDC_PROTO_NONE),
+ 	  .driver_info =3D (unsigned long)&cdc_mbim_info_ndp_to_end,
+ 	},
+ 	/* default entry */
+--=20
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
