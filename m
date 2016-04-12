@@ -1,155 +1,145 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Defer tx completion processing using a wait
- queue
-Date: Tue, 12 Apr 2016 14:38:36 -0500
-Message-ID: <570D4EBC.60409@linux.vnet.ibm.com>
+From: Daniele Orlandi <daniele@orlandi.com>
+Subject: Re: Issue with ping source address display
+Date: Tue, 12 Apr 2016 21:47:20 +0200
+Message-ID: <570D50C8.4010409@orlandi.com>
+References: <570D35CF.9070006@orlandi.com>
+ <alpine.LFD.2.11.1604122235020.1611@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256; boundary="------------ms030403090709080804020407"
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e18.ny.us.ibm.com ([129.33.205.208]:53620 "EHLO
-	e18.ny.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757151AbcDLTjD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 15:39:03 -0400
-Received: from localhost
-	by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-	Tue, 12 Apr 2016 15:38:56 -0400
-Received: from b01cxnp23034.gho.pok.ibm.com (b01cxnp23034.gho.pok.ibm.com [9.57.198.29])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id B279C38C8041
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:38:46 -0400 (EDT)
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by b01cxnp23034.gho.pok.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u3CJckCE38863004
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 19:38:46 GMT
-Received: from d01av01.pok.ibm.com (localhost [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u3CJcjm0030431
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:38:45 -0400
+Received: from submission.geniusware.it ([62.212.12.144]:34060 "EHLO
+	submission.geniusware.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756590AbcDLTrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 15:47:23 -0400
+In-Reply-To: <alpine.LFD.2.11.1604122235020.1611@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves tx completion processing out of interrupt context, deferring work
-using a wait queue. With this work now deferred, we must account for the
-possibility that skbs can be sent faster than we can process completion
-requests in which case the tx buffer will overflow. If the tx buffer is
-full, ibmvnic_xmit will return NETDEV_TX_BUSY and stop the current tx
-queue. Subsequently, the queue will be restarted in ibmvnic_complete_tx
-when all pending tx completion requests have been cleared.
+This is a cryptographically signed message in MIME format.
 
-Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
----
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 864cb21..641e340 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -105,6 +105,7 @@ static int pending_scrq(struct ibmvnic_adapter *,
- 			struct ibmvnic_sub_crq_queue *);
- static union sub_crq *ibmvnic_next_scrq(struct ibmvnic_adapter *,
- 					struct ibmvnic_sub_crq_queue *);
-+static int ibmvnic_tx_work(void *data);
- static int ibmvnic_poll(struct napi_struct *napi, int data);
- static void send_map_query(struct ibmvnic_adapter *adapter);
- static void send_request_map(struct ibmvnic_adapter *, dma_addr_t, __be32, u8);
-@@ -437,6 +438,17 @@ static int ibmvnic_open(struct net_device *netdev)
+--------------ms030403090709080804020407
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
- 		tx_pool->consumer_index = 0;
- 		tx_pool->producer_index = 0;
-+
-+		init_waitqueue_head(&tx_pool->ibmvnic_tx_comp_q);
-+		tx_pool->work_thread =
-+			kthread_run(ibmvnic_tx_work, adapter->tx_scrq[i],
-+				    "%s_%s_%d",
-+				    IBMVNIC_NAME, adapter->netdev->name, i);
-+		if (IS_ERR(tx_pool->work_thread)) {
-+			dev_err(dev, "Couldn't create kernel thread: %ld\n",
-+				PTR_ERR(tx_pool->work_thread));
-+			goto thread_failed;
-+		}
- 	}
- 	adapter->bounce_buffer_size =
- 	    (netdev->mtu + ETH_HLEN - 1) / PAGE_SIZE + 1;
-@@ -477,6 +489,9 @@ bounce_map_failed:
- bounce_alloc_failed:
- 	i = tx_subcrqs - 1;
- 	kfree(adapter->tx_pool[i].free_map);
-+thread_failed:
-+	for (j = 0; j < i; j++)
-+		kthread_stop(adapter->tx_pool[j].work_thread);
- tx_fm_alloc_failed:
- 	free_long_term_buff(adapter, &adapter->tx_pool[i].long_term_buff);
- tx_ltb_alloc_failed:
-@@ -731,6 +746,16 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	}
+On 12/04/2016 21:38, Julian Anastasov wrote:
+>=20
+> 	Hello,
+>=20
+> On Tue, 12 Apr 2016, Daniele Orlandi wrote:
+>=20
+>> I noticed that when ping receives ICMP messages from different sources=
 
- 	index = tx_pool->free_map[tx_pool->consumer_index];
-+	/* tx queue full */
-+	if ((index + 1) % adapter->max_tx_entries_per_subcrq ==
-+	    tx_pool->free_map[tx_pool->producer_index]) {
-+		netif_tx_stop_queue(netdev_get_tx_queue(netdev, queue_num));
-+		tx_send_failed++;
-+		tx_dropped++;
-+		ret = NETDEV_TX_BUSY;
-+		goto out;
-+	}
-+
- 	offset = index * adapter->req_mtu;
- 	dst = tx_pool->long_term_buff.buff + offset;
- 	memset(dst, 0, adapter->req_mtu);
-@@ -1314,6 +1339,7 @@ static int ibmvnic_complete_tx(struct ibmvnic_adapter *adapter,
- {
- 	struct device *dev = &adapter->vdev->dev;
- 	struct ibmvnic_tx_buff *txbuff;
-+	struct netdev_queue *txq;
- 	union sub_crq *next;
- 	int index;
- 	int i, j;
-@@ -1361,6 +1387,10 @@ restart_loop:
- 		next->tx_comp.first = 0;
- 	}
+>> the first IP address is always used and displayed:
+>>
+>>
+>> vihai@seviolab:~$ ping -V
+>> ping utility, iputils-s20121221
+>=20
+> 	What is the kernel version?
 
-+	txq = netdev_get_tx_queue(adapter->netdev, scrq->pool_index);
-+	if (netif_tx_queue_stopped(txq))
-+		netif_tx_wake_queue(txq);
-+
- 	enable_scrq_irq(adapter, scrq);
+Much time passed and I don't remember, however the latest test with IPv6
+ping was made on this host:
 
- 	if (pending_scrq(adapter, scrq)) {
-@@ -1371,13 +1401,35 @@ restart_loop:
- 	return 0;
- }
+root@monitor:~# uname -a
+Linux monitor 4.4.0-17-generic #33-Ubuntu SMP Tue Mar 29 17:17:28 UTC
+2016 x86_64 x86_64 x86_64 GNU/Linux
 
-+static int ibmvnic_tx_work(void *data)
-+{
-+	int rc;
-+	struct ibmvnic_sub_crq_queue *scrq = data;
-+	struct ibmvnic_adapter *adapter = scrq->adapter;
-+
-+	while (1) {
-+		rc = wait_event_interruptible(adapter->
-+					      tx_pool[scrq->pool_index].
-+					      ibmvnic_tx_comp_q,
-+					      pending_scrq(adapter, scrq));
-+		BUG_ON(rc);
-+
-+		if (kthread_should_stop())
-+			break;
-+
-+		disable_scrq_irq(adapter, scrq);
-+
-+		ibmvnic_complete_tx(adapter, scrq);
-+	}
-+	return 0;
-+}
-+
- static irqreturn_t ibmvnic_interrupt_tx(int irq, void *instance)
- {
- 	struct ibmvnic_sub_crq_queue *scrq = instance;
- 	struct ibmvnic_adapter *adapter = scrq->adapter;
+root@monitor:~# ping -V
+ping utility, iputils-s20121221
 
--	disable_scrq_irq(adapter, scrq);
--	ibmvnic_complete_tx(adapter, scrq);
-+	wake_up(&adapter->tx_pool[scrq->pool_index].ibmvnic_tx_comp_q);
+Thanks,
 
- 	return IRQ_HANDLED;
- }
+--=20
+  Daniele Orlandi
+
+
+--------------ms030403090709080804020407
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCC
+DLowggY0MIIEHKADAgECAgEhMA0GCSqGSIb3DQEBCwUAMH0xCzAJBgNVBAYTAklMMRYwFAYD
+VQQKEw1TdGFydENvbSBMdGQuMSswKQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0
+ZSBTaWduaW5nMSkwJwYDVQQDEyBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTAe
+Fw0wNzEwMjQyMTAyNTVaFw0xNzEwMjQyMTAyNTVaMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UE
+ChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUg
+U2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0
+ZSBDbGllbnQgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLKIVFnAEs+xny
+q6UzjCqgDcvQVe1dIoFnRsQPCFO+y92k8RK0Pn3MbQ2Gd+mehh9GBZ+36uUQA7Xj9AGM6wgP
+hEE34vKtfpAN5tJ8LcFxveDObCKrL7O5UT9WsnAZHv7OYPYSR68mdmnEnJ83M4wQgKO19b+R
+t8sPDAz9ptkQsntCn4GeJzg3q2SVc4QJTg/WHo7wF2ah5LMOeh8xJVSKGEmd6uPkSbj113yK
+Mm8vmNptRPmM1+YgmVwcdOYJOjCgFtb2sOP79jji8uhWR91xx7TpM1K3hv/wrBZwffrmmEpU
+euXHRs07JqCCvFh9coKF4UQZvfEg+x3/69xRCzb1AgMBAAGjggGtMIIBqTAPBgNVHRMBAf8E
+BTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUrlWDb+wxyrn3HfqvazHzyB3jrLsw
+HwYDVR0jBBgwFoAUTgvvGqRAW6UXaYcwyjRoQ9BBrvIwZgYIKwYBBQUHAQEEWjBYMCcGCCsG
+AQUFBzABhhtodHRwOi8vb2NzcC5zdGFydHNzbC5jb20vY2EwLQYIKwYBBQUHMAKGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNydDBbBgNVHR8EVDBSMCegJaAjhiFodHRwOi8v
+d3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwJ6AloCOGIWh0dHA6Ly9jcmwuc3RhcnRzc2wu
+Y29tL3Nmc2NhLmNybDCBgAYDVR0gBHkwdzB1BgsrBgEEAYG1NwECATBmMC4GCCsGAQUFBwIB
+FiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMA0GCSqGSIb3DQEBCwUAA4IC
+AQBB+mi5D9vIbTZOKU969dKktLFXsc/vv9Do5sQ6FDd3n4m/Snrivk4c7zgHNBJ3GL19qMWL
++Ak4U1FNYjPy9OO27CyIGRO2s13U83eNJOI8CK14wlUm5u+e8UAxVYhFlpvEMgFCW8V5nl+Q
+aPGRQCU50nFPISi7/+lyn6OuesWJE+mJcPeWZn1fPfbALkIsnNQSXFYuWWmD8szgZgEfOcho
+5tUPlxhUL9IPhvnLKEejRymyZ6gRhZdU6sztTpsDMJ36w2NQfMbkoO2U8nWX29A3/bufc59k
+9NKIO3MHFrdTlc271sKQU9gp4x5Te93qc/AmY3G0M+1W6NWYpXuT+qqZDaW6j+NieG3VW/ad
+UrLADg+sZkowPlLA0iCPQhxJD4DAnlxHa8IsTYmqlh0bNwkFQxucdoug7Hnc8wujfQDXqyMf
+LonDWfFINcw+WnXwPRmrvwtE4wKJhC2Jxpl+r8AuAGqB/Pj33cu04mtarkYNVb896O5prRQS
+aSQtspYNODK9VPh7l7PlZ7qP2v+iQPd7GxWgPzadvcvcWBH6sJ9GlcwnZi3iIIRqZm5dJ+9p
+G92VhbL4cspI8HTjiqN2aWQZUnvu6yqrDyNuOZHuLZpiNngOnac5zDl80AxhZF8QJCj+cFoi
+pAWMh2pQADYbnxA3NMAdv2OMxrlQFnjpqv7I7TCCBn4wggVmoAMCAQICAl4vMA0GCSqGSIb3
+DQEBCwUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UE
+CxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRD
+b20gQ2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcNMTUwMTI4MDQy
+MTE5WhcNMTcwMTI4MDYxNDM5WjCBmTELMAkGA1UEBhMCSVQxFjAUBgNVBAgTDU1vbnphIEJy
+aWFuemExDzANBgNVBAcTBlNldmVzbzEjMCEGA1UEChMaVXRpbGl0eSBMaW5lIEl0YWxpYSBT
+LlIuTC4xGDAWBgNVBAMTD0RhbmllbGUgT3JsYW5kaTEiMCAGCSqGSIb3DQEJARYTZGFuaWVs
+ZUBvcmxhbmRpLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAM/CYgmW+M/5
+wwh6h0pblNVzsI6+4eUz62GN9HbYQNRQI2UezbZej6NayjjGXt+Ss+MLY5ihNcIPjSQLAMGG
+oKYR5ui9/aIrn/C0fWCSbyvyqkhZlIJ+etWF+bRd7TNPsk3owjkzZIAMWQu2QhAHr//YhP2r
+o0RIU7N/NenZ84SMr3p+hydWlTIofHiUMku0hZV73in2KhTVShd0bdEO4w5PxjsGF3AyKNHg
+MAYalLFkdhpTx/bDs/5lwnyc5Lfcd2GOnYx5VziS18Rl4os2/z7jw4fRK6mlOpje1Ehu+RKL
+YsWqsjYrHajhWVaYacpA5Y1NbtBR6jC5gTGxzHE07VcCAwEAAaOCAtkwggLVMAkGA1UdEwQC
+MAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4E
+FgQUz4wY8XctHBuZ5soJHoA34+PAkaYwHwYDVR0jBBgwFoAUrlWDb+wxyrn3HfqvazHzyB3j
+rLswHgYDVR0RBBcwFYETZGFuaWVsZUBvcmxhbmRpLmNvbTCCAUwGA1UdIASCAUMwggE/MIIB
+OwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
+bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9u
+IEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGlu
+ZyB0byB0aGUgQ2xhc3MgMiBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRD
+b20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBp
+biBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8E
+LzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1Mi1jcmwuY3JsMIGOBggr
+BgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3Vi
+L2NsYXNzMi9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29t
+L2NlcnRzL3N1Yi5jbGFzczIuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3
+LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQELBQADggEBAD9sR08GDNQg307JknnSUkN8CWFI
++9yLFonUUpcTWuOqNrL1PUysNX8Jq+PWhyDlvvLv70T38tRTNnLLggt2GFUSYDSjlrmKzIOa
+ttBCkr+h83sxCBpm41jQRcsiPHfm9TXn8Oy3QaNOlWZpjToaN8golSKgCR5zvKCw5QZZCRGi
+j4twct2UXBSkM6eED1h09CFfUNGExN5FWqP5RZI7S7FccBgxFNG5K12Rm/W2VtesL8cVg6Rj
+D71IuoXbUlCY22QyWaww4QTZJVnv6mUiBGXeQn2KTd5Iis+gv4BdQjlQ5zvEmcCCoDSfJLTI
+tON1rXXORiuLE+9W67Ce0ddNaZExggPqMIID5gIBATCBkzCBjDELMAkGA1UEBhMCSUwxFjAU
+BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmlj
+YXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDIgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgJeLzANBglghkgBZQMEAgEFAKCCAicwGAYJKoZIhvcNAQkDMQsG
+CSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTYwNDEyMTk0NzIwWjAvBgkqhkiG9w0BCQQx
+IgQgEpOU7+MdYVTa+dxzkzLH0RTkWY6793QlP6hhZRHSyPowbAYJKoZIhvcNAQkPMV8wXTAL
+BglghkgBZQMEASowCwYJYIZIAWUDBAECMAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDAN
+BggqhkiG9w0DAgIBQDAHBgUrDgMCBzANBggqhkiG9w0DAgIBKDCBpAYJKwYBBAGCNxAEMYGW
+MIGTMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMi
+U2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20g
+Q2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAl4vMIGmBgsqhkiG9w0B
+CRACCzGBlqCBkzCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzAp
+BgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
+YXJ0Q29tIENsYXNzIDIgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgJeLzANBgkq
+hkiG9w0BAQEFAASCAQCAwwbE94KetSN5Gavu2tls4bO2ytjWutUcCA7twsZmDGzVT+YkZU+C
+99a2eIshwEb+F2rvNuC44E79drxwA+irO21RHmYxkIKUtFRTKYmAFUK0J3RL/y6JUiP9s+Li
+EB8baqy3OFPZDtp7Edl8kpavVfnATb+H2HOmO+69CehNG4ATOXengR/6D4+C6VxWseBhiyBA
+SgZMo/FfP1UtA2QYNYINYCTB8hqp5onXi6E+rUldSh0stVNsuTjxuelpEBfdfHg6Vg5YlePr
+WjB7q2hdwaDZysIWa1a5ITnMBp6W4TsM9QTt6NtHZUMlv5ef4XfMr4fs0wVhOOJi2KNhAHUo
+AAAAAAAA
+--------------ms030403090709080804020407--
