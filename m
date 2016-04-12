@@ -1,86 +1,52 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
-Date: Tue, 12 Apr 2016 10:20:12 -0700
-Message-ID: <20160412172011.GB93307@ast-mbp.thefacebook.com>
-References: <1460034425.20949.7.camel@HansenPartnership.com>
- <20160407161715.52635cac@redhat.com>
- <20160407143854.GA7685@infradead.org>
- <570678B7.7010802@sandisk.com>
- <570A9F5B.5010600@grimberg.me>
- <20160411234157.3fc9c6fe@redhat.com>
- <20160411222124.GA80595@ast-mbp.thefacebook.com>
- <20160412081649.4cb4f9db@redhat.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net] bpf/verifier: reject invalid LD_ABS | BPF_DW instruction
+Date: Tue, 12 Apr 2016 10:26:19 -0700
+Message-ID: <1460481979-1771165-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "lsf@lists.linux-foundation.org" <lsf@lists.linux-foundation.org>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Sagi Grimberg <sagi@grimberg.me>, Tom Herbert <tom@herbertland.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	linux-mm <linux-mm@kvack.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bart Van Assche <bart.vanassche@sandisk.com>,
-	"lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160412081649.4cb4f9db@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:29656 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966106AbcDLR0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 13:26:23 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3CHPWLM010583
+	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 10:26:22 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0089730.ppops.net with ESMTP id 2293q1rjsv-4
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 10:26:22 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.102.107.99) with ESMTP	id
+ ab6001dc00d311e6aa5a0002c99293a0-6cfe53f0 for <netdev@vger.kernel.org>;	Tue,
+ 12 Apr 2016 10:26:19 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2016 at 08:16:49AM +0200, Jesper Dangaard Brouer wrote:
-> 
-> On Mon, 11 Apr 2016 15:21:26 -0700
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> 
-> > On Mon, Apr 11, 2016 at 11:41:57PM +0200, Jesper Dangaard Brouer wrote:
-> > > 
-> > > On Sun, 10 Apr 2016 21:45:47 +0300 Sagi Grimberg <sagi@grimberg.me> wrote:
-> > >   
-> [...]
-> > > > 
-> > > > If we go down this road how about also attaching some driver opaques
-> > > > to the page sets?  
-> > > 
-> > > That was the ultimate plan... to leave some opaques bytes left in the
-> > > page struct that drivers could use.
-> > > 
-> > > In struct page I would need a pointer back to my page_pool struct and a
-> > > page flag.  Then, I would need room to store the dma_unmap address.
-> > > (And then some of the usual fields are still needed, like the refcnt,
-> > > and reusing some of the list constructs).  And a zero-copy cross-domain
-> > > id.  
-> > 
-> > I don't think we need to add anything to struct page.
-> > This is supposed to be small cache of dma_mapped pages with lockless access.
-> > It can be implemented as an array or link list where every element
-> > is dma_addr and pointer to page. If it is full, dma_unmap_page+put_page to
-> > send it to back to page allocator.
-> 
-> It sounds like the Intel drivers recycle facility, where they split the
-> page into two parts, and keep page in RX-ring, by swapping to other
-> half of page, if page_count(page) is <= 2.  Thus, they use the atomic
-> page ref count to synchronize on.
+verifier must check for reserved size bits in instruction opcode and
+reject BPF_LD | BPF_ABS | BPF_DW and BPF_LD | BPF_IND | BPF_DW instructions,
+otherwise interpreter will WARN_RATELIMIT on them during execution.
 
-actually I'm proposing the opposite. one page = one packet.
-I'm perfectly happy to waste half a page, since number of such pages is small
-and performance matter more. Typical performance vs memory tradeoff.
+Fixes: ddd872bc3098 ("bpf: verifier: add checks for BPF_ABS | BPF_IND instructions")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ kernel/bpf/verifier.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> Thus, we end-up having two atomic operations per RX packet, on the page
-> refcnt.  Where DPDK have zero...
-
-the page recycling cache should have zero atomic ops per packet
-otherwise it's non starter.
-
-> By fully taking over the page as an allocator, almost like slab. I can
-> optimize the common case (of the packet-page getting allocated and
-> free'ed on the same CPU), and remove these atomic operations.
-
-slub is doing local cmpxchg. 40G networking cannot afford it per packet.
-If it's amortized due to batching that will be ok.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 2e08f8e9b771..618ef77c302a 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1374,6 +1374,7 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
+ 	}
+ 
+ 	if (insn->dst_reg != BPF_REG_0 || insn->off != 0 ||
++	    BPF_SIZE(insn->code) == BPF_DW ||
+ 	    (mode == BPF_ABS && insn->src_reg != BPF_REG_0)) {
+ 		verbose("BPF_LD_ABS uses reserved fields\n");
+ 		return -EINVAL;
+-- 
+2.8.0
