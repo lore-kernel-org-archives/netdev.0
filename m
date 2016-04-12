@@ -1,45 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] net: sched: do not requeue a NULL skb
-Date: Mon, 11 Apr 2016 16:48:59 -0700
-Message-ID: <1460418539.6473.583.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460355869-13539-1-git-send-email-larper@axis.com>
-	 <1460380981.6473.544.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <570BA8C7.1000905@axis.com>
-	 <1460384551.6473.551.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <570BC024.1070504@axis.com>
-	 <1460389951.6473.555.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpWM0cce9PtvkenywGpvh0MEMe_0qvkKC00kYFAdFG=BxQ@mail.gmail.com>
-	 <1460399171.6473.562.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1460399456.6473.566.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpVid8=LeO31p_ZiPQkhWtgCuioUzfCdgDPatFxkWrkbCg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] RxRPC: 2nd rewrite part 1
+Date: Mon, 11 Apr 2016 21:26:09 -0400 (EDT)
+Message-ID: <20160411.212609.1357126698944936132.davem@davemloft.net>
+References: <20160411.153511.1531573815825221764.davem@davemloft.net>
+	<20160407162256.21283.47849.stgit@warthog.procyon.org.uk>
+	<15783.1460412099@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Lars Persson <lars.persson@axis.com>,
-	Lars Persson <larper@axis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVid8=LeO31p_ZiPQkhWtgCuioUzfCdgDPatFxkWrkbCg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752987AbcDLB0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 21:26:15 -0400
+In-Reply-To: <15783.1460412099@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-11 at 16:19 -0700, Cong Wang wrote:
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 11 Apr 2016 23:01:39 +0100
 
-> My point is, for example, in OOM case, we don't know processin
-> more SKB would make it better or worse. Maybe we really need to
-> check the error code to decide to continue to exit?
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> Series applied, but I had to fix up some trailing whitespace (reported by
+>> GIT) by hand.
+> 
+> Do you perchance have a git hook script for checking for trailing whitespace?
 
-Really, given this bug has been there for a long time (v3.18 ???), I
-doubt it matters.
+Just try to apply the series yourself with "git am", that's what I do.
 
-Nothing can tell that following packets in the qdisc need any
-transformation, and memory allocations.
-
-So I would just fix the bug in the simplest way.
-
-__qdisc_run() has all the checks needed to yield when needed 
-(if (quota <= 0 || need_resched())) , no need to add more complexity
-there.
+You can do "git apply --check --whitespace=error-all" on individual
+patches, but that doesn't work for a series.
