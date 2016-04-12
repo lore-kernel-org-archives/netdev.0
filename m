@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Configuring ethernet link fails with No such
-	device
-Date: Tue, 12 Apr 2016 11:44:35 -0400 (EDT)
-Message-ID: <20160412.114435.458888996741613334.davem@davemloft.net>
-References: <67b662523c63277fa95a59472cbf018f@agner.ch>
- <1460451492.6333.6.camel@collabora.com>
+Subject: Re: [PATCH net-next 00/11] FUJITSU Extended Socket driver version
+ 1.1
+Date: Tue, 12 Apr 2016 11:43:47 -0400 (EDT)
+Message-ID: <20160412.114347.238466820533443675.davem@davemloft.net>
+References: <1460362136-14968-1-git-send-email-izumi.taku@jp.fujitsu.com>
+	<20160411.115617.2124648532876219571.davem@davemloft.net>
+	<E86EADE93E2D054CBCD4E708C38D364A734EF16E@G01JPEXMBYT01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: fabio.estevam@freescale.com, systemd-devel@lists.freedesktop.org,
- netdev@vger.kernel.org, bryan.wu@canonical.com, u.kleine-koenig@pengutronix.de,
- l.stach@pengutronix.de
-To: bob.ham@collabora.com
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1460451492.6333.6.camel@collabora.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: izumi.taku@jp.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43928 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965831AbcDLPnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 11:43:51 -0400
+In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A734EF16E@G01JPEXMBYT01>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQm9iIEhhbSA8Ym9iLmhhbUBjb2xsYWJvcmEuY29tPgpEYXRlOiBUdWUsIDEyIEFwciAy
-MDE2IDA5OjU4OjEyICswMTAwCgo+IE9uIE1vbiwgMjAxNi0wNC0xMSBhdCAxNTo0NiAtMDcwMCwg
-U3RlZmFuIEFnbmVyIHdyb3RlOgo+IAo+PiBPciBpbiBvdGhlciB3b3JkczogSXMgdGhpcyBhIEtl
-cm5lbCBvciBzeXN0ZW1kIGlzc3VlPwo+IAo+IEZyb20gd2hhdCBJIHJlY2FsbCwgYm90aDsgYW4g
-aXNzdWUgd2l0aCB0aGUgRkVDIGRyaXZlciwgYW5kIGlzc3VlcyBpbgo+IHN5c3RlbWQvdWRldmQn
-cyBoYW5kbGluZyBvZiBsaW5rLWxldmVsIHNldHRpbmdzLgoKVGhpcyBpcyBteSBpbXByZXNzaW9u
-IG9mIHRoZSBzaXR1YXRpb24gYXMgd2VsbC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18Kc3lzdGVtZC1kZXZlbCBtYWlsaW5nIGxpc3QKc3lzdGVtZC1kZXZl
-bEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9zeXN0ZW1kLWRldmVsCg==
+From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Date: Tue, 12 Apr 2016 08:35:09 +0000
+
+>  But I'd like to keep some debugfs facility for status information
+>  and some specific stats other thatn net_stats.
+
+We have a facility for arbitrary driver stats, remove this debugfs crap
+please.
+
+I'm not going to say this again.
