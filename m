@@ -1,69 +1,109 @@
-From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
-Date: Tue, 12 Apr 2016 11:23:29 +0200
-Message-ID: <570CBE91.7020406@atmel.com>
-References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
- <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
- <20160411022802.GB4307@lunn.ch> <570BE1C5.70502@cogentembedded.com>
- <20160411181904.GB29709@lunn.ch> <570BEF46.7060105@cogentembedded.com>
- <20160411185115.GA30623@lunn.ch>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next WIP] ethtool: generic netlink policy
+Date: Tue, 12 Apr 2016 12:01:14 +0200
+Message-ID: <1460455274.6369.24.camel@sipsolutions.net>
+References: <1460344545-45501-1-git-send-email-roopa@cumulusnetworks.com>
+	 (sfid-20160411_051557_806073_B637D217)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160411185115.GA30623-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jiri@resnulli.us, eladr@mellanox.com,
+	idosch@mellanox.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55580 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753719AbcDLKB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2016 06:01:26 -0400
+In-Reply-To: <1460344545-45501-1-git-send-email-roopa@cumulusnetworks.com> (sfid-20160411_051557_806073_B637D217)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 11/04/2016 20:51, Andrew Lunn a =E9crit :
-> On Mon, Apr 11, 2016 at 09:39:02PM +0300, Sergei Shtylyov wrote:
->> Hello.
->>
->> On 04/11/2016 09:19 PM, Andrew Lunn wrote:
->>
->>>>> The code you are deleting would of ignored the flags in the gpio
->>>>> property, i.e. active low.
->>>>
->>>>    Hm, you're right -- I forgot about that... :-/
->>>>
->>>>> The new code in the previous patch does
->>>>> however take the flags into account. Did you check if there are a=
-ny
->>>>> device trees which have flags, which were never used, but are now
->>>>> going to be used and thus break...
->>>>
->>>>    Checked this now and found out arch/arm/boot/dts/ar91-vinco.dts=
-=2E
->>>> Looks like it needs to be fixed indeed...
->>>>
->>> And this is where it gets tricky. You are breaking backwards
->>> compatibility by now respecting the flag. An old DT blob is not goi=
-ng
->>> to work.
->>
->>    Do we care that much about the DT blobs that are just *wrong*?
->=20
-> Wrong, but currently works.
->=20
->>> You potentially need to add a new property and deprecate the old on=
-e.
->>
->>    I would like to avoid that...
->=20
-> You will need the agreement from the at91-vinco maintainer.
+Hi,
 
-If the at91-vinco has to be modified, you have my agreement that it can
-be modified.
+> +	[ETHTOOL_ATTR_FLAGS]		=3D { .type =3D NLA_U32 },
 
-Bye,
---=20
-Nicolas Ferre
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I suppose this comes from the current API, but perhaps it'd be
+worthwhile to make provision for more flags? Perhaps even using
+NLA_BINARY and have "infinitely extensible" flags.
+
+> +	[ETHTOOL_ATTR_SSET_COUNT]		=3D { .type =3D NLA_U32
+
+What do you need that for? Wouldn't it be sufficient to count the SSET
+values returned? I can see how this would be useful for ioctl, but not
+really for netlink messages?
+
+> +static struct genl_ops ethtool_ops[] =3D {
+> +	{
+> +		.cmd =3D ETHTOOL_CMD_GET_SETTINGS,
+> +		.policy =3D ethtool_policy,
+> +		.doit =3D ethtool_get_settings,
+> +	},
+[...]
+> +	{
+> +		.cmd =3D ETHTOOL_CMD_SET_MODULE_INFO,
+> +		.policy =3D ethtool_policy,
+> +		.doit =3D ethtool_set_module_info,
+> +	},
+> +};
+
+Shouldn't the ops have GENL_ADMIN_PERM as flags?
+
+> +int ethtool_get_settings(struct net_device *dev, struct ethtool_cmd
+> *cmd)
+> +{
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(ethtool_get_settings);
+
+I don't understand what kind of placeholder this was meant to be - but
+why would it be exported? This part is called by the genl ops, so
+doesn't really make sense?
+
+It seems that instead these functions should be static, declared above
+the ops, and call into the existing ethtool driver ops, based on
+IFINDEX demultiplexing.
+
+> +void ethtool_get_ethtool_stats(struct net_device *dev,
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct ethtool_stats *s=
+tats,
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0u64 *data)
+> +{
+> +
+> +	/* example the driver handler would do the below
+> +	=C2=A0*
+> +	err =3D nla_put_u32(msg, PORT_ATTR_IFINDEX, ifindex);
+> +	if (err < 0)
+> +		goto err_out;
+> +
+> +	err =3D nla_put_u32(msg, PORT_ATTR_FLAGS, flags);
+> +	if (err < 0)
+> +		goto err_out;
+> +
+> +	err =3D nla_put_u32(msg, PORT_ATTR_SSET_COUNT,
+> +			=C2=A0=C2=A0count);
+> +	if (err < 0)
+> +		goto err_out;
+> +
+> +	nest =3D nla_nest_start(msg, PORT_ATTR_STATS);
+> +	for (i =3D 0; i < count; i++)
+> +		nla_put_u64(msg, PORT_ATTR_STAT, data[i]);
+> +			=C2=A0=C2=A0=C2=A0=C2=A0nla_nest_end(msg, nest);
+> +
+> +	=C2=A0*/
+> +}
+> +EXPORT_SYMBOL_GPL(ethtool_get_ethtool_stats);
+
+It seems possible that you could have a lot of ports, or a lot of
+strings, or similar, so I think this should be a dumpit instead of a
+doit handler.
+
+Similar, perhaps, for the EEPROM thing, unless you provide API to query
+the size first so the application can size it's recvmsg() buffer
+appropriately - however doing so also requires a big message allocation
+and more code in userspace, so I think having an "offset/length" type
+of API combined with a dumpit rather than doit would be good for all of
+the things that could get bigger or that might be extended in the
+future.
+
+johannes
