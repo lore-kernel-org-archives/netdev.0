@@ -1,16 +1,16 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/5] bpf, verifier: add ARG_PTR_TO_RAW_STACK type
-Date: Wed, 13 Apr 2016 00:10:51 +0200
-Message-ID: <cc47b1789237bd7d9ddc6116f838f8b86125323c.1460497071.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 3/5] bpf: convert relevant helper args to ARG_PTR_TO_RAW_STACK
+Date: Wed, 13 Apr 2016 00:10:52 +0200
+Message-ID: <88d32c57dcaac4f2b313c4cd32f51b5f570f3349.1460497071.git.daniel@iogearbox.net>
 References: <cover.1460497071.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, bblanco@plumgrid.com,
 	brendan.d.gregg@gmail.com, netdev@vger.kernel.org,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34342 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:34347 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934073AbcDLWLN (ORCPT
+	with ESMTP id S966156AbcDLWLN (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:11:13 -0400
 In-Reply-To: <cover.1460497071.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1460497071.git.daniel@iogearbox.net>
@@ -18,192 +18,222 @@ References: <cover.1460497071.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When passing buffers from eBPF stack space into a helper function, we have
-ARG_PTR_TO_STACK argument type for helpers available. The verifier makes sure
-that such buffers are initialized, within boundaries, etc.
-
-However, the downside with this is that we have a couple of helper functions
-such as bpf_skb_load_bytes() that fill out the passed buffer in the expected
-success case anyway, so zero initializing them prior to the helper call is
-unneeded/wasted instructions in the eBPF program that can be avoided.
-
-Therefore, add a new helper function argument type called ARG_PTR_TO_RAW_STACK.
-The idea is to skip the STACK_MISC check in check_stack_boundary() and color
-the related stack slots as STACK_MISC after we checked all call arguments.
-
-Helper functions using ARG_PTR_TO_RAW_STACK must make sure that every path of
-the helper function will fill the provided buffer area, so that we cannot leak
-any uninitialized stack memory. This f.e. means that error paths need to
-memset() the buffers, but the expected fast-path doesn't have to do this
-anymore.
-
-Since there's no such helper needing more than at most one ARG_PTR_TO_RAW_STACK
-argument, we can keep it simple and don't need to check for multiple areas.
-Should in future such a use-case really appear, we have check_raw_mode() that
-will make sure we implement support for it first.
+This patch converts all helpers that can use ARG_PTR_TO_RAW_STACK as argument
+type. For tc programs this is bpf_skb_load_bytes(), bpf_skb_get_tunnel_key(),
+bpf_skb_get_tunnel_opt(). For tracing, this optimizes bpf_get_current_comm()
+and bpf_probe_read(). The check in bpf_skb_load_bytes() for MAX_BPF_STACK can
+also be removed since the verifier already makes sure we stay within bounds
+on stack buffers.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h   |  5 +++++
- kernel/bpf/verifier.c | 59 ++++++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 59 insertions(+), 5 deletions(-)
+ kernel/bpf/helpers.c     | 17 +++++++++++----
+ kernel/trace/bpf_trace.c | 10 ++++++---
+ net/core/filter.c        | 57 +++++++++++++++++++++++++++++++++---------------
+ 3 files changed, 60 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index b2365a6..5fb3c61 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -66,6 +66,11 @@ enum bpf_arg_type {
- 	 * functions that access data on eBPF program stack
- 	 */
- 	ARG_PTR_TO_STACK,	/* any pointer to eBPF program stack */
-+	ARG_PTR_TO_RAW_STACK,	/* any pointer to eBPF program stack, area does not
-+				 * need to be initialized, helper function must fill
-+				 * all bytes or clear them in error case.
-+				 */
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index 50da680..ad7a057 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -163,17 +163,26 @@ static u64 bpf_get_current_comm(u64 r1, u64 size, u64 r3, u64 r4, u64 r5)
+ 	struct task_struct *task = current;
+ 	char *buf = (char *) (long) r1;
+ 
+-	if (!task)
+-		return -EINVAL;
++	if (unlikely(!task))
++		goto err_clear;
+ 
+-	strlcpy(buf, task->comm, min_t(size_t, size, sizeof(task->comm)));
++	strncpy(buf, task->comm, size);
 +
- 	ARG_CONST_STACK_SIZE,	/* number of bytes accessed from stack */
- 	ARG_CONST_STACK_SIZE_OR_ZERO, /* number of bytes accessed from stack or 0 */
- 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 202f8f7..9c843a5 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -207,6 +207,9 @@ struct verifier_env {
- 
- struct bpf_call_arg_meta {
- 	struct bpf_map *map_ptr;
-+	bool raw_mode;
-+	int regno;
-+	int access_size;
- };
- 
- /* verbose verifier prints what it's seeing
-@@ -789,7 +792,8 @@ static int check_xadd(struct verifier_env *env, struct bpf_insn *insn)
-  * and all elements of stack are initialized
-  */
- static int check_stack_boundary(struct verifier_env *env, int regno,
--				int access_size, bool zero_size_allowed)
-+				int access_size, bool zero_size_allowed,
-+				struct bpf_call_arg_meta *meta)
- {
- 	struct verifier_state *state = &env->cur_state;
- 	struct reg_state *regs = state->regs;
-@@ -815,6 +819,12 @@ static int check_stack_boundary(struct verifier_env *env, int regno,
- 		return -EACCES;
- 	}
- 
-+	if (meta && meta->raw_mode) {
-+		meta->access_size = access_size;
-+		meta->regno = regno;
-+		return 0;
-+	}
-+
- 	for (i = 0; i < access_size; i++) {
- 		if (state->stack_slot_type[MAX_BPF_STACK + off + i] != STACK_MISC) {
- 			verbose("invalid indirect read from stack off %d+%d size %d\n",
-@@ -859,7 +869,8 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 		expected_type = CONST_PTR_TO_MAP;
- 	} else if (arg_type == ARG_PTR_TO_CTX) {
- 		expected_type = PTR_TO_CTX;
--	} else if (arg_type == ARG_PTR_TO_STACK) {
-+	} else if (arg_type == ARG_PTR_TO_STACK ||
-+		   arg_type == ARG_PTR_TO_RAW_STACK) {
- 		expected_type = PTR_TO_STACK;
- 		/* One exception here. In case function allows for NULL to be
- 		 * passed in as argument, it's a CONST_IMM type. Final test
-@@ -867,6 +878,7 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 		 */
- 		if (reg->type == CONST_IMM && reg->imm == 0)
- 			expected_type = CONST_IMM;
-+		meta->raw_mode = arg_type == ARG_PTR_TO_RAW_STACK;
- 	} else {
- 		verbose("unsupported arg_type %d\n", arg_type);
- 		return -EFAULT;
-@@ -896,7 +908,7 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			return -EACCES;
- 		}
- 		err = check_stack_boundary(env, regno, meta->map_ptr->key_size,
--					   false);
-+					   false, NULL);
- 	} else if (arg_type == ARG_PTR_TO_MAP_VALUE) {
- 		/* bpf_map_xxx(..., map_ptr, ..., value) call:
- 		 * check [value, value + map->value_size) validity
-@@ -907,7 +919,8 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			return -EACCES;
- 		}
- 		err = check_stack_boundary(env, regno,
--					   meta->map_ptr->value_size, false);
-+					   meta->map_ptr->value_size,
-+					   false, NULL);
- 	} else if (arg_type == ARG_CONST_STACK_SIZE ||
- 		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
- 		bool zero_size_allowed = (arg_type == ARG_CONST_STACK_SIZE_OR_ZERO);
-@@ -922,7 +935,7 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			return -EACCES;
- 		}
- 		err = check_stack_boundary(env, regno - 1, reg->imm,
--					   zero_size_allowed);
-+					   zero_size_allowed, meta);
- 	}
- 
- 	return err;
-@@ -953,6 +966,24 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
++	/* Verifier guarantees that size > 0. For task->comm exceeding
++	 * size, guarantee that buf is %NUL-terminated. Unconditionally
++	 * done here to save the size test.
++	 */
++	buf[size - 1] = 0;
  	return 0;
++err_clear:
++	memset(buf, 0, size);
++	return -EINVAL;
  }
  
-+static int check_raw_mode(const struct bpf_func_proto *fn)
-+{
-+	int count = 0;
-+
-+	if (fn->arg1_type == ARG_PTR_TO_RAW_STACK)
-+		count++;
-+	if (fn->arg2_type == ARG_PTR_TO_RAW_STACK)
-+		count++;
-+	if (fn->arg3_type == ARG_PTR_TO_RAW_STACK)
-+		count++;
-+	if (fn->arg4_type == ARG_PTR_TO_RAW_STACK)
-+		count++;
-+	if (fn->arg5_type == ARG_PTR_TO_RAW_STACK)
-+		count++;
-+
-+	return count > 1 ? -EINVAL : 0;
-+}
-+
- static int check_call(struct verifier_env *env, int func_id)
+ const struct bpf_func_proto bpf_get_current_comm_proto = {
+ 	.func		= bpf_get_current_comm,
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+-	.arg1_type	= ARG_PTR_TO_STACK,
++	.arg1_type	= ARG_PTR_TO_RAW_STACK,
+ 	.arg2_type	= ARG_CONST_STACK_SIZE,
+ };
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 413ec56..6855878 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -62,17 +62,21 @@ EXPORT_SYMBOL_GPL(trace_call_bpf);
+ static u64 bpf_probe_read(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
  {
- 	struct verifier_state *state = &env->cur_state;
-@@ -984,6 +1015,15 @@ static int check_call(struct verifier_env *env, int func_id)
+ 	void *dst = (void *) (long) r1;
+-	int size = (int) r2;
++	int ret, size = (int) r2;
+ 	void *unsafe_ptr = (void *) (long) r3;
  
- 	memset(&meta, 0, sizeof(meta));
- 
-+	/* We only support one arg being in raw mode at the moment, which
-+	 * is sufficient for the helper functions we have right now.
-+	 */
-+	err = check_raw_mode(fn);
-+	if (err) {
-+		verbose("kernel subsystem misconfigured func %d\n", func_id);
-+		return err;
-+	}
+-	return probe_kernel_read(dst, unsafe_ptr, size);
++	ret = probe_kernel_read(dst, unsafe_ptr, size);
++	if (unlikely(ret < 0))
++		memset(dst, 0, size);
 +
- 	/* check args */
- 	err = check_func_arg(env, BPF_REG_1, fn->arg1_type, &meta);
- 	if (err)
-@@ -1001,6 +1041,15 @@ static int check_call(struct verifier_env *env, int func_id)
- 	if (err)
- 		return err;
++	return ret;
+ }
  
-+	/* Mark slots with STACK_MISC in case of raw mode, stack offset
-+	 * is inferred from register state.
-+	 */
-+	for (i = 0; i < meta.access_size; i++) {
-+		err = check_mem_access(env, meta.regno, i, BPF_B, BPF_WRITE, -1);
-+		if (err)
-+			return err;
+ static const struct bpf_func_proto bpf_probe_read_proto = {
+ 	.func		= bpf_probe_read,
+ 	.gpl_only	= true,
+ 	.ret_type	= RET_INTEGER,
+-	.arg1_type	= ARG_PTR_TO_STACK,
++	.arg1_type	= ARG_PTR_TO_RAW_STACK,
+ 	.arg2_type	= ARG_CONST_STACK_SIZE,
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+diff --git a/net/core/filter.c b/net/core/filter.c
+index e8486ba..5d2ac2b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1409,16 +1409,19 @@ static u64 bpf_skb_load_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	unsigned int len = (unsigned int) r4;
+ 	void *ptr;
+ 
+-	if (unlikely((u32) offset > 0xffff || len > MAX_BPF_STACK))
+-		return -EFAULT;
++	if (unlikely((u32) offset > 0xffff))
++		goto err_clear;
+ 
+ 	ptr = skb_header_pointer(skb, offset, len, to);
+ 	if (unlikely(!ptr))
+-		return -EFAULT;
++		goto err_clear;
+ 	if (ptr != to)
+ 		memcpy(to, ptr, len);
+ 
+ 	return 0;
++err_clear:
++	memset(to, 0, len);
++	return -EFAULT;
+ }
+ 
+ static const struct bpf_func_proto bpf_skb_load_bytes_proto = {
+@@ -1427,7 +1430,7 @@ static const struct bpf_func_proto bpf_skb_load_bytes_proto = {
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+ 	.arg2_type	= ARG_ANYTHING,
+-	.arg3_type	= ARG_PTR_TO_STACK,
++	.arg3_type	= ARG_PTR_TO_RAW_STACK,
+ 	.arg4_type	= ARG_CONST_STACK_SIZE,
+ };
+ 
+@@ -1756,12 +1759,19 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 	struct bpf_tunnel_key *to = (struct bpf_tunnel_key *) (long) r2;
+ 	const struct ip_tunnel_info *info = skb_tunnel_info(skb);
+ 	u8 compat[sizeof(struct bpf_tunnel_key)];
++	void *to_orig = to;
++	int err;
+ 
+-	if (unlikely(!info || (flags & ~(BPF_F_TUNINFO_IPV6))))
+-		return -EINVAL;
+-	if (ip_tunnel_info_af(info) != bpf_tunnel_key_af(flags))
+-		return -EPROTO;
++	if (unlikely(!info || (flags & ~(BPF_F_TUNINFO_IPV6)))) {
++		err = -EINVAL;
++		goto err_clear;
 +	}
-+
- 	/* reset caller saved regs */
- 	for (i = 0; i < CALLER_SAVED_REGS; i++) {
- 		reg = regs + caller_saved[i];
++	if (ip_tunnel_info_af(info) != bpf_tunnel_key_af(flags)) {
++		err = -EPROTO;
++		goto err_clear;
++	}
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key))) {
++		err = -EINVAL;
+ 		switch (size) {
+ 		case offsetof(struct bpf_tunnel_key, tunnel_label):
+ 		case offsetof(struct bpf_tunnel_key, tunnel_ext):
+@@ -1771,12 +1781,12 @@ static u64 bpf_skb_get_tunnel_key(u64 r1, u64 r2, u64 size, u64 flags, u64 r5)
+ 			 * a common path later on.
+ 			 */
+ 			if (ip_tunnel_info_af(info) != AF_INET)
+-				return -EINVAL;
++				goto err_clear;
+ set_compat:
+ 			to = (struct bpf_tunnel_key *)compat;
+ 			break;
+ 		default:
+-			return -EINVAL;
++			goto err_clear;
+ 		}
+ 	}
+ 
+@@ -1793,9 +1803,12 @@ set_compat:
+ 	}
+ 
+ 	if (unlikely(size != sizeof(struct bpf_tunnel_key)))
+-		memcpy((void *)(long) r2, to, size);
++		memcpy(to_orig, to, size);
+ 
+ 	return 0;
++err_clear:
++	memset(to_orig, 0, size);
++	return err;
+ }
+ 
+ static const struct bpf_func_proto bpf_skb_get_tunnel_key_proto = {
+@@ -1803,7 +1816,7 @@ static const struct bpf_func_proto bpf_skb_get_tunnel_key_proto = {
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+-	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg2_type	= ARG_PTR_TO_RAW_STACK,
+ 	.arg3_type	= ARG_CONST_STACK_SIZE,
+ 	.arg4_type	= ARG_ANYTHING,
+ };
+@@ -1813,16 +1826,26 @@ static u64 bpf_skb_get_tunnel_opt(u64 r1, u64 r2, u64 size, u64 r4, u64 r5)
+ 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
+ 	u8 *to = (u8 *) (long) r2;
+ 	const struct ip_tunnel_info *info = skb_tunnel_info(skb);
++	int err;
+ 
+ 	if (unlikely(!info ||
+-		     !(info->key.tun_flags & TUNNEL_OPTIONS_PRESENT)))
+-		return -ENOENT;
+-	if (unlikely(size < info->options_len))
+-		return -ENOMEM;
++		     !(info->key.tun_flags & TUNNEL_OPTIONS_PRESENT))) {
++		err = -ENOENT;
++		goto err_clear;
++	}
++	if (unlikely(size < info->options_len)) {
++		err = -ENOMEM;
++		goto err_clear;
++	}
+ 
+ 	ip_tunnel_info_opts_get(to, info);
++	if (size > info->options_len)
++		memset(to + info->options_len, 0, size - info->options_len);
+ 
+ 	return info->options_len;
++err_clear:
++	memset(to, 0, size);
++	return err;
+ }
+ 
+ static const struct bpf_func_proto bpf_skb_get_tunnel_opt_proto = {
+@@ -1830,7 +1853,7 @@ static const struct bpf_func_proto bpf_skb_get_tunnel_opt_proto = {
+ 	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+-	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg2_type	= ARG_PTR_TO_RAW_STACK,
+ 	.arg3_type	= ARG_CONST_STACK_SIZE,
+ };
+ 
 -- 
 1.9.3
