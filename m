@@ -1,52 +1,45 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 4.6 fix] bgmac: reset & enable Ethernet core before using it
-Date: Tue, 12 Apr 2016 13:30:45 +0200
-Message-ID: <1460460645-10016-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Felix Fietkau <nbd@openwrt.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:36037 "EHLO
-	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932393AbcDLLbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 07:31:12 -0400
-Received: by mail-lf0-f47.google.com with SMTP id g184so20638475lfb.3
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 04:31:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH v2] mwifiex: fix possible NULL dereference
+Date: Tue, 12 Apr 2016 17:16:37 +0530
+Message-ID: <1460461597-7309-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>,
+	Christian Daudt <csd@broadcom.com>
+To: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This fixes Ethernet on D-Link DIR-885L with BCM47094 SoC. Felix reporte=
-d
-similar fix was needed for his BCM4709 device (Buffalo WXR-1900DHP?).
-I tested this for regressions on BCM4706, BCM4708A0 and BCM47081A0.
+From: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
 
-Cc: Felix Fietkau <nbd@openwrt.org>
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+We have a check for card just after dereferencing it. So if it is NULL
+we have already dereferenced it before its check. Lets dereference it
+after checking card for NULL.
+
+Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/wireless/marvell/mwifiex/pcie.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 99b30a9..38db2e4 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1572,6 +1572,11 @@ static int bgmac_probe(struct bcma_device *core)
- 		dev_warn(&core->dev, "Using random MAC: %pM\n", mac);
- 	}
-=20
-+	/* This (reset &) enable is not preset in specs or reference driver b=
-ut
-+	 * Broadcom does it in arch PCI code when enabling fake PCI device.
-+	 */
-+	bcma_core_enable(core, 0);
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
+index edf8b07..d4db9db 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+@@ -2884,10 +2884,11 @@ static void mwifiex_unregister_dev(struct mwifiex_adapter *adapter)
+ {
+ 	struct pcie_service_card *card = adapter->card;
+ 	const struct mwifiex_pcie_card_reg *reg;
+-	struct pci_dev *pdev = card->dev;
+ 	int i;
+ 
+ 	if (card) {
++		struct pci_dev *pdev = card->dev;
 +
- 	/* Allocation and references */
- 	net_dev =3D alloc_etherdev(sizeof(*bgmac));
- 	if (!net_dev)
---=20
-1.8.4.5
+ 		if (card->msix_enable) {
+ 			for (i = 0; i < MWIFIEX_NUM_MSIX_VECTORS; i++)
+ 				synchronize_irq(card->msix_entries[i].vector);
+-- 
+1.9.1
