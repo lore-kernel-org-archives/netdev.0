@@ -1,51 +1,87 @@
-From: =?UTF-8?Q?Peter_Pal=c3=bach?= <Peter.Paluch@fri.uniza.sk>
-Subject: VLAN aux info for AF_PACKET available only with ETH_P_ALL
-Date: Tue, 12 Apr 2016 16:40:20 +0200
-Message-ID: <570D08D4.6040000@fri.uniza.sk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP reaching to maximum throughput after a long time
+Date: Tue, 12 Apr 2016 07:52:44 -0700
+Message-ID: <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"Kama, Meirav" <meiravk@ti.com>
+To: "Machani, Yaniv" <yanivma@ti.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castor.kis.fri.uniza.sk ([158.193.152.2]:47090 "EHLO
-	mail.kis.fri.uniza.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756667AbcDLOuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 10:50:22 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.kis.fri.uniza.sk (Postfix) with ESMTP id 6AA412027948
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 16:40:21 +0200 (CEST)
-Received: from mail.kis.fri.uniza.sk ([127.0.0.1])
-	by localhost (castor.kis.fri.uniza.sk [127.0.0.1]) (amavisd-new, port 10044)
-	with LMTP id DdellYyG6qEA for <netdev@vger.kernel.org>;
-	Tue, 12 Apr 2016 16:40:21 +0200 (CEST)
-Received: from [192.168.110.11] (unknown [192.168.110.11])
-	by mail.kis.fri.uniza.sk (Postfix) with ESMTPSA id 46C1A2002C61
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 16:40:21 +0200 (CEST)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35034 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932606AbcDLOwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 10:52:47 -0400
+In-Reply-To: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings,
+On Tue, 2016-04-12 at 12:17 +0000, Machani, Yaniv wrote:
+> Hi,
+> After updating from Kernel 3.14 to Kernel 4.4 we have seen a TCP performance degradation over Wi-Fi.
+> In 3.14 kernel, TCP got to its max throughout after less than a second, while in the 4.4  it is taking ~20-30 seconds.
+> UDP TX/RX and TCP RX performance is as expected.
+> We are using a Beagle Bone Black and a WiLink8 device.
+> 
+> Were there any related changes that might cause such behavior ?
+> Kernel configuration and sysctl values were compared, but no significant differences have been found.
+> 
+> See a log of the behavior below :
+> -----------------------------------------------------------
+> Client connecting to 10.2.46.5, TCP port 5001
+> TCP window size:  320 KByte (WARNING: requested  256 KByte)
+> ------------------------------------------------------------
+> [  3] local 10.2.46.6 port 49282 connected with 10.2.46.5 port 5001
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0- 1.0 sec  5.75 MBytes  48.2 Mbits/sec
+> [  3]  1.0- 2.0 sec  6.50 MBytes  54.5 Mbits/sec
+> [  3]  2.0- 3.0 sec  6.50 MBytes  54.5 Mbits/sec
+> [  3]  3.0- 4.0 sec  6.50 MBytes  54.5 Mbits/sec
+> [  3]  4.0- 5.0 sec  6.75 MBytes  56.6 Mbits/sec
+> [  3]  5.0- 6.0 sec  3.38 MBytes  28.3 Mbits/sec
+> [  3]  6.0- 7.0 sec  6.38 MBytes  53.5 Mbits/sec
+> [  3]  7.0- 8.0 sec  6.88 MBytes  57.7 Mbits/sec
+> [  3]  8.0- 9.0 sec  7.12 MBytes  59.8 Mbits/sec
+> [  3]  9.0-10.0 sec  7.12 MBytes  59.8 Mbits/sec
+> [  3] 10.0-11.0 sec  7.12 MBytes  59.8 Mbits/sec
+> [  3] 11.0-12.0 sec  7.25 MBytes  60.8 Mbits/sec
+> [  3] 12.0-13.0 sec  7.12 MBytes  59.8 Mbits/sec
+> [  3] 13.0-14.0 sec  7.25 MBytes  60.8 Mbits/sec
+> [  3] 14.0-15.0 sec  7.62 MBytes  64.0 Mbits/sec
+> [  3] 15.0-16.0 sec  7.88 MBytes  66.1 Mbits/sec
+> [  3] 16.0-17.0 sec  8.12 MBytes  68.2 Mbits/sec
+> [  3] 17.0-18.0 sec  8.25 MBytes  69.2 Mbits/sec
+> [  3] 18.0-19.0 sec  8.50 MBytes  71.3 Mbits/sec
+> [  3] 19.0-20.0 sec  8.88 MBytes  74.4 Mbits/sec
+> [  3] 20.0-21.0 sec  8.75 MBytes  73.4 Mbits/sec
+> [  3] 21.0-22.0 sec  8.62 MBytes  72.4 Mbits/sec
+> [  3] 22.0-23.0 sec  8.75 MBytes  73.4 Mbits/sec
+> [  3] 23.0-24.0 sec  8.50 MBytes  71.3 Mbits/sec
+> [  3] 24.0-25.0 sec  8.62 MBytes  72.4 Mbits/sec
+> [  3] 25.0-26.0 sec  8.62 MBytes  72.4 Mbits/sec
+> [  3] 26.0-27.0 sec  8.62 MBytes  72.4 Mbits/sec
+> 
 
-I am running vanilla Linux kernel v4.4.6.
+CC netdev, where this is better discussed.
 
-When using AF_PACKET sockets with PACKET_AUXDATA socket option to access 
-the VLAN TCI information of received frames, I have noticed that the 
-VLAN information in struct tpacket_auxdata, namely,
+This could be a lot of different factors, and caused by a sender
+problem, a receiver problem, ...
 
-- tp_vlan_tci
-- tp_vlan_tpid
-- TP_STATUS_VLAN_VALID and TP_STATUS_VLAN_TPID_VALID flags
+TCP behavior depends on the drivers, so maybe a change there can explain
+this.
 
-is filled in only when the socket is bound to htons (ETH_P_ALL). If the 
-socket is bound to any specific protocol, the VLAN information fields in 
-struct tpacket_auxdata are set to 0 even if the datagram of the specific 
-protocol was received in an 802.1Q-tagged frame.
+You could capture the first 5000 frames of the flow and post the pcap ?
+(-s 128 to capture only the headers)
 
-Is this behavior intentional? If not, I would be honored to try to 
-provide a patch but I am not well-versed in kernel internals so any 
-guidance would be most appreciated.
+tcpdump -p -s 128 -i eth0 -c 5000 host 10.2.46.5 -w flow.pcap
 
-Thanks!
-
-Best regards,
-Peter
+ 
+Also, while test is running, you could fetch 
+ss -temoi dst 10.2.46.5:5001
