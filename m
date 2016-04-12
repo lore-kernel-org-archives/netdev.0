@@ -1,145 +1,76 @@
-From: Daniele Orlandi <daniele@orlandi.com>
-Subject: Re: Issue with ping source address display
-Date: Tue, 12 Apr 2016 21:47:20 +0200
-Message-ID: <570D50C8.4010409@orlandi.com>
-References: <570D35CF.9070006@orlandi.com>
- <alpine.LFD.2.11.1604122235020.1611@ja.home.ssi.bg>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 1/2] sctp: compress bit-wide flags to a bitfield on
+ sctp_sock
+Date: Tue, 12 Apr 2016 15:50:26 -0400
+Message-ID: <20160412195026.GA32240@hmsreliant.think-freely.org>
+References: <cover.1460144373.git.marcelo.leitner@gmail.com>
+ <1d6d26426e6f1eee2851aed47b77ffe8bc335210.1460144373.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256; boundary="------------ms030403090709080804020407"
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	linux-sctp@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Jakub Sitnicki <jkbs@redhat.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from submission.geniusware.it ([62.212.12.144]:34060 "EHLO
-	submission.geniusware.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756590AbcDLTrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 15:47:23 -0400
-In-Reply-To: <alpine.LFD.2.11.1604122235020.1611@ja.home.ssi.bg>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47213 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbcDLTut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 15:50:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1d6d26426e6f1eee2851aed47b77ffe8bc335210.1460144373.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cryptographically signed message in MIME format.
+On Fri, Apr 08, 2016 at 04:41:27PM -0300, Marcelo Ricardo Leitner wrote:
+> It wastes space and gets worse as we add new flags, so convert bit-wide
+> flags to a bitfield.
+> 
+> Currently it already saves 4 bytes in sctp_sock, which are left as holes
+> in it for now. The whole struct needs packing, which should be done in
+> another patch.
+> 
+> Note that do_auto_asconf cannot be merged, as explained in the comment
+> before it.
+> 
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  include/net/sctp/structs.h | 12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 6df1ce7a411c548bda4163840a90578b6e1b4cfe..1a6a626904bba4223b7921bbb4be41c2550271a7 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -210,14 +210,14 @@ struct sctp_sock {
+>  	int user_frag;
+>  
+>  	__u32 autoclose;
+> -	__u8 nodelay;
+> -	__u8 disable_fragments;
+> -	__u8 v4mapped;
+> -	__u8 frag_interleave;
+>  	__u32 adaptation_ind;
+>  	__u32 pd_point;
+> -	__u8 recvrcvinfo;
+> -	__u8 recvnxtinfo;
+> +	__u16	nodelay:1,
+> +		disable_fragments:1,
+> +		v4mapped:1,
+> +		frag_interleave:1,
+> +		recvrcvinfo:1,
+> +		recvnxtinfo:1;
+>  
+>  	atomic_t pd_mode;
+>  	/* Receive to here while partial delivery is in effect. */
+> -- 
+> 2.5.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
---------------ms030403090709080804020407
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+I've not run it myself, but this series looks reasonable
 
-On 12/04/2016 21:38, Julian Anastasov wrote:
->=20
-> 	Hello,
->=20
-> On Tue, 12 Apr 2016, Daniele Orlandi wrote:
->=20
->> I noticed that when ping receives ICMP messages from different sources=
-
->> the first IP address is always used and displayed:
->>
->>
->> vihai@seviolab:~$ ping -V
->> ping utility, iputils-s20121221
->=20
-> 	What is the kernel version?
-
-Much time passed and I don't remember, however the latest test with IPv6
-ping was made on this host:
-
-root@monitor:~# uname -a
-Linux monitor 4.4.0-17-generic #33-Ubuntu SMP Tue Mar 29 17:17:28 UTC
-2016 x86_64 x86_64 x86_64 GNU/Linux
-
-root@monitor:~# ping -V
-ping utility, iputils-s20121221
-
-Thanks,
-
---=20
-  Daniele Orlandi
-
-
---------------ms030403090709080804020407
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCC
-DLowggY0MIIEHKADAgECAgEhMA0GCSqGSIb3DQEBCwUAMH0xCzAJBgNVBAYTAklMMRYwFAYD
-VQQKEw1TdGFydENvbSBMdGQuMSswKQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0
-ZSBTaWduaW5nMSkwJwYDVQQDEyBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTAe
-Fw0wNzEwMjQyMTAyNTVaFw0xNzEwMjQyMTAyNTVaMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UE
-ChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUg
-U2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0
-ZSBDbGllbnQgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLKIVFnAEs+xny
-q6UzjCqgDcvQVe1dIoFnRsQPCFO+y92k8RK0Pn3MbQ2Gd+mehh9GBZ+36uUQA7Xj9AGM6wgP
-hEE34vKtfpAN5tJ8LcFxveDObCKrL7O5UT9WsnAZHv7OYPYSR68mdmnEnJ83M4wQgKO19b+R
-t8sPDAz9ptkQsntCn4GeJzg3q2SVc4QJTg/WHo7wF2ah5LMOeh8xJVSKGEmd6uPkSbj113yK
-Mm8vmNptRPmM1+YgmVwcdOYJOjCgFtb2sOP79jji8uhWR91xx7TpM1K3hv/wrBZwffrmmEpU
-euXHRs07JqCCvFh9coKF4UQZvfEg+x3/69xRCzb1AgMBAAGjggGtMIIBqTAPBgNVHRMBAf8E
-BTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUrlWDb+wxyrn3HfqvazHzyB3jrLsw
-HwYDVR0jBBgwFoAUTgvvGqRAW6UXaYcwyjRoQ9BBrvIwZgYIKwYBBQUHAQEEWjBYMCcGCCsG
-AQUFBzABhhtodHRwOi8vb2NzcC5zdGFydHNzbC5jb20vY2EwLQYIKwYBBQUHMAKGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNydDBbBgNVHR8EVDBSMCegJaAjhiFodHRwOi8v
-d3d3LnN0YXJ0c3NsLmNvbS9zZnNjYS5jcmwwJ6AloCOGIWh0dHA6Ly9jcmwuc3RhcnRzc2wu
-Y29tL3Nmc2NhLmNybDCBgAYDVR0gBHkwdzB1BgsrBgEEAYG1NwECATBmMC4GCCsGAQUFBwIB
-FiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMA0GCSqGSIb3DQEBCwUAA4IC
-AQBB+mi5D9vIbTZOKU969dKktLFXsc/vv9Do5sQ6FDd3n4m/Snrivk4c7zgHNBJ3GL19qMWL
-+Ak4U1FNYjPy9OO27CyIGRO2s13U83eNJOI8CK14wlUm5u+e8UAxVYhFlpvEMgFCW8V5nl+Q
-aPGRQCU50nFPISi7/+lyn6OuesWJE+mJcPeWZn1fPfbALkIsnNQSXFYuWWmD8szgZgEfOcho
-5tUPlxhUL9IPhvnLKEejRymyZ6gRhZdU6sztTpsDMJ36w2NQfMbkoO2U8nWX29A3/bufc59k
-9NKIO3MHFrdTlc271sKQU9gp4x5Te93qc/AmY3G0M+1W6NWYpXuT+qqZDaW6j+NieG3VW/ad
-UrLADg+sZkowPlLA0iCPQhxJD4DAnlxHa8IsTYmqlh0bNwkFQxucdoug7Hnc8wujfQDXqyMf
-LonDWfFINcw+WnXwPRmrvwtE4wKJhC2Jxpl+r8AuAGqB/Pj33cu04mtarkYNVb896O5prRQS
-aSQtspYNODK9VPh7l7PlZ7qP2v+iQPd7GxWgPzadvcvcWBH6sJ9GlcwnZi3iIIRqZm5dJ+9p
-G92VhbL4cspI8HTjiqN2aWQZUnvu6yqrDyNuOZHuLZpiNngOnac5zDl80AxhZF8QJCj+cFoi
-pAWMh2pQADYbnxA3NMAdv2OMxrlQFnjpqv7I7TCCBn4wggVmoAMCAQICAl4vMA0GCSqGSIb3
-DQEBCwUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UE
-CxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRD
-b20gQ2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcNMTUwMTI4MDQy
-MTE5WhcNMTcwMTI4MDYxNDM5WjCBmTELMAkGA1UEBhMCSVQxFjAUBgNVBAgTDU1vbnphIEJy
-aWFuemExDzANBgNVBAcTBlNldmVzbzEjMCEGA1UEChMaVXRpbGl0eSBMaW5lIEl0YWxpYSBT
-LlIuTC4xGDAWBgNVBAMTD0RhbmllbGUgT3JsYW5kaTEiMCAGCSqGSIb3DQEJARYTZGFuaWVs
-ZUBvcmxhbmRpLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAM/CYgmW+M/5
-wwh6h0pblNVzsI6+4eUz62GN9HbYQNRQI2UezbZej6NayjjGXt+Ss+MLY5ihNcIPjSQLAMGG
-oKYR5ui9/aIrn/C0fWCSbyvyqkhZlIJ+etWF+bRd7TNPsk3owjkzZIAMWQu2QhAHr//YhP2r
-o0RIU7N/NenZ84SMr3p+hydWlTIofHiUMku0hZV73in2KhTVShd0bdEO4w5PxjsGF3AyKNHg
-MAYalLFkdhpTx/bDs/5lwnyc5Lfcd2GOnYx5VziS18Rl4os2/z7jw4fRK6mlOpje1Ehu+RKL
-YsWqsjYrHajhWVaYacpA5Y1NbtBR6jC5gTGxzHE07VcCAwEAAaOCAtkwggLVMAkGA1UdEwQC
-MAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4E
-FgQUz4wY8XctHBuZ5soJHoA34+PAkaYwHwYDVR0jBBgwFoAUrlWDb+wxyrn3HfqvazHzyB3j
-rLswHgYDVR0RBBcwFYETZGFuaWVsZUBvcmxhbmRpLmNvbTCCAUwGA1UdIASCAUMwggE/MIIB
-OwYLKwYBBAGBtTcBAgMwggEqMC4GCCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNv
-bS9wb2xpY3kucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9u
-IEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGlu
-ZyB0byB0aGUgQ2xhc3MgMiBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUgU3RhcnRD
-b20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9zZSBp
-biBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjA2BgNVHR8E
-LzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1Mi1jcmwuY3JsMIGOBggr
-BgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3Vi
-L2NsYXNzMi9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29t
-L2NlcnRzL3N1Yi5jbGFzczIuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3
-LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQELBQADggEBAD9sR08GDNQg307JknnSUkN8CWFI
-+9yLFonUUpcTWuOqNrL1PUysNX8Jq+PWhyDlvvLv70T38tRTNnLLggt2GFUSYDSjlrmKzIOa
-ttBCkr+h83sxCBpm41jQRcsiPHfm9TXn8Oy3QaNOlWZpjToaN8golSKgCR5zvKCw5QZZCRGi
-j4twct2UXBSkM6eED1h09CFfUNGExN5FWqP5RZI7S7FccBgxFNG5K12Rm/W2VtesL8cVg6Rj
-D71IuoXbUlCY22QyWaww4QTZJVnv6mUiBGXeQn2KTd5Iis+gv4BdQjlQ5zvEmcCCoDSfJLTI
-tON1rXXORiuLE+9W67Ce0ddNaZExggPqMIID5gIBATCBkzCBjDELMAkGA1UEBhMCSUwxFjAU
-BgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmlj
-YXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDIgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgJeLzANBglghkgBZQMEAgEFAKCCAicwGAYJKoZIhvcNAQkDMQsG
-CSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTYwNDEyMTk0NzIwWjAvBgkqhkiG9w0BCQQx
-IgQgEpOU7+MdYVTa+dxzkzLH0RTkWY6793QlP6hhZRHSyPowbAYJKoZIhvcNAQkPMV8wXTAL
-BglghkgBZQMEASowCwYJYIZIAWUDBAECMAoGCCqGSIb3DQMHMA4GCCqGSIb3DQMCAgIAgDAN
-BggqhkiG9w0DAgIBQDAHBgUrDgMCBzANBggqhkiG9w0DAgIBKDCBpAYJKwYBBAGCNxAEMYGW
-MIGTMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMi
-U2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20g
-Q2xhc3MgMiBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAl4vMIGmBgsqhkiG9w0B
-CRACCzGBlqCBkzCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzAp
-BgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
-YXJ0Q29tIENsYXNzIDIgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgJeLzANBgkq
-hkiG9w0BAQEFAASCAQCAwwbE94KetSN5Gavu2tls4bO2ytjWutUcCA7twsZmDGzVT+YkZU+C
-99a2eIshwEb+F2rvNuC44E79drxwA+irO21RHmYxkIKUtFRTKYmAFUK0J3RL/y6JUiP9s+Li
-EB8baqy3OFPZDtp7Edl8kpavVfnATb+H2HOmO+69CehNG4ATOXengR/6D4+C6VxWseBhiyBA
-SgZMo/FfP1UtA2QYNYINYCTB8hqp5onXi6E+rUldSh0stVNsuTjxuelpEBfdfHg6Vg5YlePr
-WjB7q2hdwaDZysIWa1a5ITnMBp6W4TsM9QTt6NtHZUMlv5ef4XfMr4fs0wVhOOJi2KNhAHUo
-AAAAAAAA
---------------ms030403090709080804020407--
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
