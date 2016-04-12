@@ -1,105 +1,77 @@
-From: Leon Romanovsky <leon@leon.nu>
-Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
-Date: Tue, 12 Apr 2016 08:15:37 +0300
-Message-ID: <20160412051537.GD25242@leon.nu>
-References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
- <1460405422-8654-3-git-send-email-saeedm@mellanox.com>
- <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
- <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
- <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
-Reply-To: leon@leon.nu
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [REGRESSION, bisect] pci: cxgb4 probe fails after commit
+ 104daa71b3961434 ("PCI: Determine actual VPD size on first access")
+Date: Tue, 12 Apr 2016 10:59:42 +0530
+Message-ID: <20160412052939.GA2771@hari-Latitude-E5550>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="/3yNEOqWowh/8j+e"
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Doug Ledford <dledford@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: swise@opengridcomputing.com, leedom@chelsio.com,
+	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com
+To: bhelgaas@google.com, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:34801 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181AbcDLFP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 01:15:56 -0400
-Received: by mail-wm0-f45.google.com with SMTP id l6so171922490wml.1
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 22:15:56 -0700 (PDT)
+Received: from stargate.chelsio.com ([12.32.117.8]:29797 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755951AbcDLF3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 01:29:49 -0400
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi All,
 
---/3yNEOqWowh/8j+e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Tue, Apr 12, 2016 at 12:37:34AM +0300, Or Gerlitz wrote:
-> On Tue, Apr 12, 2016 at 12:24 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
-> > On Tue, Apr 12, 2016 at 12:17 AM, Or Gerlitz <gerlitz.or@gmail.com> wro=
-te:
->=20
-> >> feature --> features
->=20
-> > Correct, will fix.
->=20
-> >>> * Add vport to steering commands for SRIOV ACL support
-> >>> * Add mlcr, pcmr and mcia registers for dump module EEPROM
-> >>> * Add support for FCS, baeacon led and disable_link bits to hca caps
-> >>> * Add CQE period mode bit in  CQ context for CQE based CQ
-> >>>   moderation support
-> >>> * Add umr SQ bit for fragmented memory registration
-> >>> * Add needed bits and caps for Striding RQ support
->=20
-> >> AFAIK, all the above are features will go through net-next, what made
-> >> you anticipate conflicts with linux-rdma?
->=20
-> > FCS bit is needed also for rdma, so we took the liberty of updating
-> > all the needed HW structs, bits, caps, etc ..
-> > at once for all mlx5 features planned for 4.7 regardless of rdma/net co=
-nflicts.
->=20
-> The cover letter states that this series deals with shared code.
->=20
-> I guess you might also could extend it a bit to deal also with code
-> that you suspect could lead to conflicts, but I don't see why it
-> evolved to that extent.
+The following patch introduced a regression, causing cxgb4 driver to fail in
+PCIe probe.
 
-Or,
-All these micro-optimizations on this shared file can potentially lead
-to undesired merge conflicts. Subsystem maintainers and Linus don't need to
-deal with these conflicts at all.
+commit 104daa71b39614343929e1982170d5fcb0569bb5
+Author: Hannes Reinecke <hare@suse.de>
+Author: Hannes Reinecke <hare@suse.de>
+Date:   Mon Feb 15 09:42:01 2016 +0100
 
-It won't help to anyone to split this commit to more than one patch.
+    PCI: Determine actual VPD size on first access
+    
+    PCI-2.2 VPD entries have a maximum size of 32k, but might actually be
+    smaller than that.  To figure out the actual size one has to read the VPD
+    area until the 'end marker' is reached.
+    
+    Per spec, reading outside of the VPD space is "not allowed."  In practice,
+    it may cause simple read errors or even crash the card.  To make matters
+    worse not every PCI card implements this properly, leaving us with no 'end'
+    marker or even completely invalid data.
+    
+    Try to determine the size of the VPD data when it's first accessed.  If no
+    valid data can be read an I/O error will be returned when reading or
+    writing the sysfs attribute.
+    
+    As the amount of VPD data is unknown initially the size of the sysfs
+    attribute will always be set to '0'.
+    
+    [bhelgaas: changelog, use 0/1 (not false/true) for bitfield, tweak
+    pci_vpd_pci22_read() error checking]
+    Tested-by: Shane Seymour <shane.seymour@hpe.com>
+    Tested-by: Babu Moger <babu.moger@oracle.com>
+    Signed-off-by: Hannes Reinecke <hare@suse.de>
+    Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+    Cc: Alexander Duyck <alexander.duyck@gmail.com>
 
---/3yNEOqWowh/8j+e
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+The problem is stemming from the fact that the Chelsio adapters actually have
+two VPD structures stored in the VPD.  An abbreviated on at Offset 0x0 and the
+complete VPD at Offset 0x400.  The abbreviated one only contains the PN, SN and
+EC Keywords, while the complete VPD contains those plus various adapter
+constants contained in V0, V1, etc.  And it also contains the Base Ethernet MAC
+Address in the "NA" Keyword which the cxgb4 driver needs when it can't contact
+the adapter firmware.  (We don't have the "NA" Keywork in the VPD Structure at
+Offset 0x0 because that's not an allowed VPD Keyword in the PCI-E 3.0
+specification.)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+  With the new code, the computed size of the VPD is 0x200 and so our efforts
+to read the VPD at Offset 0x400 silently fails. We check the result of the
+read looking for a signature 0x82 byte but we're checking against random stack
+garbage.
 
-iQIcBAEBAgAGBQJXDIR5AAoJEORje4g2clinfXsQANNi8c52FZ0wJNyFg2wtamef
-DDxS121NP+ML/PagK+cPOQlkM1nMOpuwfK+ejCwaoWW/IuOFI5vWnaEGGcaWkcnQ
-69aj87FoKi44p8jt8DeCJXrhDILPERBUSwHkPDhaDg1KaOvzPVVC72wJ3g9znS1h
-dTZjNhYDBdeyJkeunFHEIauk4aG79GQy9y79mx8vAUtElwIdGSD1HmoQzieLY18S
-BmDnZ4jPUlmqtYmsDK8F+PIX2k8n6Jdd1ejugoImmO7HV5p6xAzT2ABJoXso6UMa
-zvj2jtMfjb6r3vg0cdXzSxnLIYMYo+LIJMEBbDzkz89XYcFZykpRw+zYqu8of54K
-xjxxHGxUuuzUuQld3J/qyKmyXYF60nYjGDmwoJZupdfCUYxa9OMuy800xtvc7BBT
-JbG2/xp4ZM6BknV+QwOOeZoB7Mn8b4bpKeinW01IQlH3kg5X1VCogAb9wRuDM8GT
-icL5JuMe2UJ5zzAmULZwynlTH0OlfWtDT2s5qlXOUjFQYzq4SxpNYAbAne38zY/K
-N7NXvl2eNOJ9ly4mQuq8RB8xS6rOsRaBup7oxVHYz083q6zDf8kWA03NK1CuH+Gb
-EfufyTiOurVmKF378xpFYUg2oPoWa6Z4XJhCiAr7NlvzBdZjbjxqwZvijaJbzRFQ
-bg98d4fOMd+nbzdBH+fV
-=0P19
------END PGP SIGNATURE-----
+  The end result is that the cxgb4 driver now fails the PCI-E Probe.
 
---/3yNEOqWowh/8j+e--
+Thanks,
+Hari
