@@ -1,49 +1,92 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: Inter-VRF routing on a single machine
-Date: Tue, 12 Apr 2016 10:48:44 -0600
-Message-ID: <570D26EC.2000802@cumulusnetworks.com>
-References: <CAAJwJQkfVWkdL+tOvcu5C9XBwTpNKcB8qvGeDUO32Tq6nW=xMw@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP reaching to maximum throughput after a long time
+Date: Tue, 12 Apr 2016 10:05:53 -0700
+Message-ID: <CAK6E8=fhNTedtRBxE1ZCEa2E6mE47+CdVVX8LjtCk5c_pZ7SAw@mail.gmail.com>
+References: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com> <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Darwin Dingel <darwin.dingel@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:33605 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbcDLQsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 12:48:45 -0400
-Received: by mail-io0-f179.google.com with SMTP id o126so36052191iod.0
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 09:48:44 -0700 (PDT)
-In-Reply-To: <CAAJwJQkfVWkdL+tOvcu5C9XBwTpNKcB8qvGeDUO32Tq6nW=xMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Machani, Yaniv" <yanivma@ti.com>, netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"Kama, Meirav" <meiravk@ti.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/12/16 4:09 AM, Darwin Dingel wrote:
-> Hi All,
+On Tue, Apr 12, 2016 at 7:52 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> Have anyone tried the following setup on a single machine with 2 TCP
-> sockets on different VRF's and succeeded?
+> On Tue, 2016-04-12 at 12:17 +0000, Machani, Yaniv wrote:
+> > Hi,
+> > After updating from Kernel 3.14 to Kernel 4.4 we have seen a TCP performance degradation over Wi-Fi.
+> > In 3.14 kernel, TCP got to its max throughout after less than a second, while in the 4.4  it is taking ~20-30 seconds.
+> > UDP TX/RX and TCP RX performance is as expected.
+> > We are using a Beagle Bone Black and a WiLink8 device.
+> >
+> > Were there any related changes that might cause such behavior ?
+> > Kernel configuration and sysctl values were compared, but no significant differences have been found.
+> >
+> > See a log of the behavior below :
+> > -----------------------------------------------------------
+> > Client connecting to 10.2.46.5, TCP port 5001
+> > TCP window size:  320 KByte (WARNING: requested  256 KByte)
+> > ------------------------------------------------------------
+> > [  3] local 10.2.46.6 port 49282 connected with 10.2.46.5 port 5001
+> > [ ID] Interval       Transfer     Bandwidth
+> > [  3]  0.0- 1.0 sec  5.75 MBytes  48.2 Mbits/sec
+> > [  3]  1.0- 2.0 sec  6.50 MBytes  54.5 Mbits/sec
+> > [  3]  2.0- 3.0 sec  6.50 MBytes  54.5 Mbits/sec
+> > [  3]  3.0- 4.0 sec  6.50 MBytes  54.5 Mbits/sec
+> > [  3]  4.0- 5.0 sec  6.75 MBytes  56.6 Mbits/sec
+> > [  3]  5.0- 6.0 sec  3.38 MBytes  28.3 Mbits/sec
+> > [  3]  6.0- 7.0 sec  6.38 MBytes  53.5 Mbits/sec
+> > [  3]  7.0- 8.0 sec  6.88 MBytes  57.7 Mbits/sec
+> > [  3]  8.0- 9.0 sec  7.12 MBytes  59.8 Mbits/sec
+> > [  3]  9.0-10.0 sec  7.12 MBytes  59.8 Mbits/sec
+> > [  3] 10.0-11.0 sec  7.12 MBytes  59.8 Mbits/sec
+> > [  3] 11.0-12.0 sec  7.25 MBytes  60.8 Mbits/sec
+> > [  3] 12.0-13.0 sec  7.12 MBytes  59.8 Mbits/sec
+> > [  3] 13.0-14.0 sec  7.25 MBytes  60.8 Mbits/sec
+> > [  3] 14.0-15.0 sec  7.62 MBytes  64.0 Mbits/sec
+> > [  3] 15.0-16.0 sec  7.88 MBytes  66.1 Mbits/sec
+> > [  3] 16.0-17.0 sec  8.12 MBytes  68.2 Mbits/sec
+> > [  3] 17.0-18.0 sec  8.25 MBytes  69.2 Mbits/sec
+> > [  3] 18.0-19.0 sec  8.50 MBytes  71.3 Mbits/sec
+> > [  3] 19.0-20.0 sec  8.88 MBytes  74.4 Mbits/sec
+> > [  3] 20.0-21.0 sec  8.75 MBytes  73.4 Mbits/sec
+> > [  3] 21.0-22.0 sec  8.62 MBytes  72.4 Mbits/sec
+> > [  3] 22.0-23.0 sec  8.75 MBytes  73.4 Mbits/sec
+> > [  3] 23.0-24.0 sec  8.50 MBytes  71.3 Mbits/sec
+> > [  3] 24.0-25.0 sec  8.62 MBytes  72.4 Mbits/sec
+> > [  3] 25.0-26.0 sec  8.62 MBytes  72.4 Mbits/sec
+> > [  3] 26.0-27.0 sec  8.62 MBytes  72.4 Mbits/sec
+> >
 >
-> - client_socket on VRF1
-> - server_socket on VRF2
-> - ip rules and iproutes for inter-VRF set up
-> - client_socket sends TCP connect to server_socket. skb was sent using
-> VRF1 interface
-> - skb received in loopback interface
-
-That is the key problem there.
-
-> - TCP code got SYN but cannot route back to VRF1 to send ACK.
+> CC netdev, where this is better discussed.
 >
-> I was wondering if this is a known limitation of VRF as of the moment,
-> or could work with proper iprules/iproute.
+> This could be a lot of different factors, and caused by a sender
+> problem, a receiver problem, ...
+>
+> TCP behavior depends on the drivers, so maybe a change there can explain
+> this.
+>
+> You could capture the first 5000 frames of the flow and post the pcap ?
+> (-s 128 to capture only the headers)
+pcap would be really helpful indeed. if possible please capture on
+both 4.4 and 3.14 kernels.
 
-In general local (within a single system) routing does not work with top 
-of tree. e.g., within a VRF you can not connect sockets or ping a VRF 
-local address. Inter-vrf connections within a system also do not work.
-
-I have patches from our 4.1 kernel that I have rebased to top of tree. I 
-hope to test and send those out in the next week or so. It addresses the 
-first problem -- connections within a VRF. While it does not resolve 
-your problem of connecting across VRFs within a system I think it is the 
-foundation for how to fix it.
+>
+> tcpdump -p -s 128 -i eth0 -c 5000 host 10.2.46.5 -w flow.pcap
+>
+>
+> Also, while test is running, you could fetch
+> ss -temoi dst 10.2.46.5:5001
+>
+>
+>
+>
+>
