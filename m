@@ -1,134 +1,44 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Tue, 12 Apr 2016 10:52:42 +0200
-Message-ID: <1460451162.5965.16.camel@redhat.com>
-References: <cover.1459934322.git.pabeni@redhat.com>
-	 <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
-	 <20160406234532.GA731@breakpoint.cc> <2239567.jkCk1gtQAE@sifl>
+From: Bob Ham <bob.ham@collabora.com>
+Subject: Re: Configuring ethernet link fails with No such
+	device
+Date: Tue, 12 Apr 2016 09:58:12 +0100
+Message-ID: <1460451492.6333.6.camel@collabora.com>
+References: <67b662523c63277fa95a59472cbf018f@agner.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42403 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756385AbcDLIwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 04:52:46 -0400
-In-Reply-To: <2239567.jkCk1gtQAE@sifl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: fabio.estevam@freescale.com, bryan.wu@canonical.com,
+ u.kleine-koenig@pengutronix.de, l.stach@pengutronix.de
+To: Stefan Agner <stefan@agner.ch>, systemd-devel@lists.freedesktop.org,
+ netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <67b662523c63277fa95a59472cbf018f@agner.ch>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-07 at 14:55 -0400, Paul Moore wrote:
-> On Thursday, April 07, 2016 01:45:32 AM Florian Westphal wrote:
-> > Paul Moore <paul@paul-moore.com> wrote:
-> > > On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
-> > > > netfilter hooks are per namespace -- so there is hook unregister when
-> > > > netns is destroyed.
-> > > 
-> > > Looking around, I see the global and per-namespace registration
-> > > functions (nf_register_hook and nf_register_net_hook, respectively),
-> > > but I'm looking to see if/how newly created namespace inherit
-> > > netfilter hooks from the init network namespace ... if you can create
-> > > a network namespace and dodge the SELinux hooks, that isn't a good
-> > > thing from a SELinux point of view, although it might be a plus
-> > > depending on where you view Paolo's original patches ;)
-> > 
-> > Heh :-)
-> > 
-> > If you use nf_register_net_hook, the hook is only registered in the
-> > namespace.
-> > 
-> > If you use nf_register_hook, the hook is put on a global list and
-> > registed in all existing namespaces.
-> > 
-> > New namespaces will have the hook added as well (see
-> > netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
-> >
-> > Since nf_register_hook is used it should be impossible to get a netns
-> > that doesn't call these hooks.
-> 
-> Great, thanks.
->  
-> > > > Do you think it makes sense to rework the patch to delay registering
-> > > > of the netfiler hooks until the system is in a state where they're
-> > > > needed, without the 'unregister' aspect?
-> > > 
-> > > I would need to see the patch to say for certain, but in principle
-> > > that seems perfectly reasonable and I think would satisfy both the
-> > > netdev and SELinux camps - good suggestion.  My main goal is to drop
-> > > the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
-> > > 
-> > > We might even be able to trim the secmark_active and peerlbl_active
-> > > checks in the SELinux netfilter hooks (an earlier attempt at
-> > > optimization; contrary to popular belief, I do care about SELinux
-> > > performance), although that would mean that enabling the network
-> > > access controls would be one way ... I guess you can disregard that
-> > > last bit, I'm thinking aloud again.
-> > 
-> > One way is fine I think.
-> 
-> Yes, just disregard my second paragraph above.
->  
-> > > > Ideally this would even be per netns -- in perfect world we would
-> > > > be able to make it so that a new netns are created with an empty
-> > > > hook list.
-> > > 
-> > > In general SELinux doesn't care about namespaces, for reasons that are
-> > > sorta beyond the scope of this conversation, so I would like to stick
-> > > to a all or nothing approach to enabling the SELinux netfilter hooks
-> > > across namespaces.  Perhaps we can revisit this at a later time, but
-> > > let's keep it simple right now.
-> > 
-> > Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
-> > (Casey, I read your comment regarding smack. Noted, we don't want to
-> > break smack either...)
-> > 
-> > I think that in this case the entire question is:
-> > 
-> > In your experience, how likely is a config where selinux is enabled BUT the
-> > hooks are not needed (i.e., where we hit the
-> > 
-> > if (!selinux_policycap_netpeer)
-> >     return NF_ACCEPT;
-> > 
-> > if (!secmark_active && !peerlbl_active)
-> >    return NF_ACCEPT;
-> > 
-> > tests inside the hooks)?  If such setups are uncommon we should just
-> > drop this idea or at least put it on the back burner until the more
-> > expensive netfilter hooks (conntrack, cough) are out of the way.
-> 
-> A few years ago I would have said that it is relatively uncommon for admins to 
-> enable the SELinux network access controls; it was typically just 
-> government/intelligence agencies who had very strict access control 
-> requirements and represented a small portion of SELinux users.  However, over 
-> the past few years I've been fielding more and more questions from admins/devs 
-> in the virtualization space who are interested in some of these capabilities; 
-> it isn't clear to me how many of these people are switching it on, but there 
-> is definitely more interest than I have seen in the past and the interested is 
-> centered around some rather common use cases.
-> 
-> So, to summarize, I don't know ;)
-> 
-> If you've got bigger sources of overhead, my opinion would be to go tackle 
-> those first.  Perhaps I can even find the time to work on the 
-> SELinux/netfilter stuff while you are off slaying the bigger dragons, no 
-> promises at the moment.
-
-Double checking if I got the above correctly.
-
-Will be ok if we post a v2 version of this series, removing the hooks
-de-registration bits, but preserving the selinux nf-hooks and
-socket_sock_rcv_skb() on-demand/delayed registration ? Will that fit
-with the post-init read only memory usage that you are planning ?
-
-Regards,
-
-Paolo
+T24gTW9uLCAyMDE2LTA0LTExIGF0IDE1OjQ2IC0wNzAwLCBTdGVmYW4gQWduZXIgd3JvdGU6Cgo+
+IFRoZSBGRUMgZHJpdmVyIChmZWNfbWFpbi5jKSBkb2VzIG5vdCBpbml0aWFsaXplIHBoeV9kZXYg
+dW50aWwgdGhlCj4gZGV2aWNlCj4gaGFzIGJlZW4gb3BlbmVkLCBhbmQgdGhlcmVmb3IgdGhlIGNh
+bGxiYWNrCj4gZmVjX2VuZXRfKGdldHxzZXQpX3NldHRpbmdzCj4gcmV0dXJucyAtMTkuCgpJIHNh
+dyB0aGUgc2FtZSBwcm9ibGVtIHdpdGggdGhlIEZFQyBkcml2ZXIuICBGcm9tIHdoYXQgSSByZWNh
+bGwsIGl0CmJlY2FtZSBjbGVhciB0aGF0IHRoZXJlIHdhcyBhIHByb2JsZW0gd2l0aCB0aGUgZHJp
+dmVyIHJldHVybmluZyBmcm9tCnRoZSBldGggZGV2aWNlIGluaXRpYWxpc2F0aW9uIGJlZm9yZSB0
+aGUgUEhZIHdhcyBpbml0aWFsaXNlZCwgd2hpY2gKYXBwYXJlbnRseSBpcyBCYWQgYW5kIFdyb25n
+LgoKPiBPciBpbiBvdGhlciB3b3JkczogSXMgdGhpcyBhIEtlcm5lbCBvciBzeXN0ZW1kIGlzc3Vl
+PwoKRnJvbSB3aGF0IEkgcmVjYWxsLCBib3RoOyBhbiBpc3N1ZSB3aXRoIHRoZSBGRUMgZHJpdmVy
+LCBhbmQgaXNzdWVzIGluCnN5c3RlbWQvdWRldmQncyBoYW5kbGluZyBvZiBsaW5rLWxldmVsIHNl
+dHRpbmdzLgoKLS0gCkJvYiBIYW0gPGJvYi5oYW1AY29sbGFib3JhLmNvbT4KU29mdHdhcmUgRW5n
+aW5lZXIKCj4+Pj4+Pj4+Ck9wZW4gRmlyc3QgCkNvbGxhYm9yYSBpcyBoaXJpbmchClBsZWFzZSBj
+aGVjayBvdXQgb3VyIGxhdGVzdCBvcHBvcnR1bml0aWVzIGhlcmU6Cmh0dHA6Ly9iaXQubHkvQ29s
+bGFib3JhLUNhcmVlcnMKPDw8PDw8PDwKCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18Kc3lzdGVtZC1kZXZlbCBtYWlsaW5nIGxpc3QKc3lzdGVtZC1kZXZl
+bEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9zeXN0ZW1kLWRldmVsCg==
