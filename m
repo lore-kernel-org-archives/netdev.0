@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mdio: Fix lockdep falls positive splat
-Date: Mon, 11 Apr 2016 21:27:09 -0400 (EDT)
-Message-ID: <20160411.212709.1610168975220105015.davem@davemloft.net>
-References: <1460403605-31882-1-git-send-email-andrew@lunn.ch>
+Subject: Re: Configuring ethernet link fails with No such device
+Date: Mon, 11 Apr 2016 21:29:00 -0400 (EDT)
+Message-ID: <20160411.212900.1164760179761034053.davem@davemloft.net>
+References: <67b662523c63277fa95a59472cbf018f@agner.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	vivien.didelot@savoirfairelinux.com
-To: andrew@lunn.ch
+Cc: systemd-devel@lists.freedesktop.org, netdev@vger.kernel.org,
+	fabio.estevam@freescale.com, l.stach@pengutronix.de,
+	u.kleine-koenig@pengutronix.de, bryan.wu@canonical.com,
+	bob.ham@collabora.com
+To: stefan@agner.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38623 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38640 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755194AbcDLB1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 21:27:12 -0400
-In-Reply-To: <1460403605-31882-1-git-send-email-andrew@lunn.ch>
+	with ESMTP id S1750719AbcDLB3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 21:29:03 -0400
+In-Reply-To: <67b662523c63277fa95a59472cbf018f@agner.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Mon, 11 Apr 2016 21:40:05 +0200
+From: Stefan Agner <stefan@agner.ch>
+Date: Mon, 11 Apr 2016 15:46:08 -0700
 
-> MDIO devices can be stacked upon each other. The current code supports
-> two levels, which until recently has been enough for a DSA mdio bus on
-> top of another bus. Now we have hardware which has an MDIO mux in the
-> middle.
-> 
-> Define an MDIO MUTEX class with three levels.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> What is the expectation/definition when link configuration should be
+> possible? Only after the network device got opened or before?
 
-Applied, thanks Andrew.
+Only after it is open.  Drivers almost always have the entire chip in
+powerdown state when it is not open, so we wouldn't be able to
+properly do link settings even if we wanted to when the device is
+closed.
