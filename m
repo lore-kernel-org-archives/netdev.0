@@ -1,59 +1,118 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: AF_VSOCK status
-Date: Tue, 12 Apr 2016 15:03:01 +0100
-Message-ID: <20160412140301.GC29405@stefanha-x1.localdomain>
-References: <5703B0F3.7050700@nagafix.co.uk>
- <20160406092609.GA17538@stefanha-x1.localdomain>
- <570B9021.5050709@nagafix.co.uk>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Subject: Re: Unhandled fault during system suspend in sky2_shutdown
+Date: Tue, 12 Apr 2016 15:06:16 +0100
+Message-ID: <570D00D8.7000008@arm.com>
+References: <570BCFC5.4070208@arm.com> <20160411112430.2a03e296@xeon-e3>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="dkEUBIird37B8yKS"
-Cc: netdev@vger.kernel.org
-To: Antoine Martin <antoine@nagafix.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34109 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932221AbcDLODE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 10:03:04 -0400
-Content-Disposition: inline
-In-Reply-To: <570B9021.5050709@nagafix.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mirko Lindner <mlindner@marvell.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160411112430.2a03e296@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---dkEUBIird37B8yKS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, Apr 11, 2016 at 06:53:05PM +0700, Antoine Martin wrote:
-> > There are a few existing ways to achieve that without involving=20
-> > virtio-vsock: vhost-user or ivshmem.
-> Yes, I've looked at those and they seem a bit overkill for what we
-> want to achieve. We don't want sharing with multiple guests, or
-> interrupts.
-> All we want is a chunk of host memory to be accessible from the guest..
+On 11/04/16 19:24, Stephen Hemminger wrote:
+> On Mon, 11 Apr 2016 17:24:37 +0100
+> Sudeep Holla <sudeep.holla@arm.com> wrote:
+>
 
-ivshmem does that.  It operates in two modes, it sounds like you want
-the first and simpler mode ("ivshmem-plain").
+[...]
 
-Take a look at hw/misc/ivshmem.c in QEMU.
+>>
+>> diff --git i/drivers/net/ethernet/marvell/sky2.c
+>> w/drivers/net/ethernet/marvell/sky2.c
+>> index ec0a22119e09..0ff0434e32fc 100644
+>> --- i/drivers/net/ethernet/marvell/sky2.c
+>> +++ w/drivers/net/ethernet/marvell/sky2.c
+>> @@ -5220,6 +5220,13 @@ static SIMPLE_DEV_PM_OPS(sky2_pm_ops,
+>> sky2_suspend, sky2_resume);
+>>
+>>    static void sky2_shutdown(struct pci_dev *pdev)
+>>    {
+>> +       struct sky2_hw *hw = pci_get_drvdata(pdev);
+>> +       int i;
+>> +
+>> +       for (i = hw->ports - 1; i >= 0; --i) {
+>> +               sky2_detach(hw->dev[i]);
+>> +               unregister_netdev(hw->dev[i]);
+>> +       }
+>>           sky2_suspend(&pdev->dev);
+>>           pci_wake_from_d3(pdev, device_may_wakeup(&pdev->dev));
+>>           pci_set_power_state(pdev, PCI_D3hot);
+>
+> This is not the correct fix, the device is supposed to stay
+> registered. The correct way to fix this would be to make get_stats
+> ignore requests  for device when suspended.
 
-Stefan
+Yes I agree it's not correct fix. But I tried ignoring it in get_stat32
+but the crash just moves the bug elsewhere. IMO patching all the places
+to check the suspended state might be bit heavy ?
 
---dkEUBIird37B8yKS
-Content-Type: application/pgp-signature; name="signature.asc"
+E.g. with something like below the crash moves to sky2_get_eeprom_len
+function.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+sky2_get_eeprom_len+0x10/0x30
+dev_ethtool+0x29c/0x1d78
+dev_ioctl+0x31c/0x5a8
+sock_ioctl+0x2ac/0x310
+do_vfs_ioctl+0xa4/0x750
+SyS_ioctl+0x8c/0xa0
+el0_svc_naked+0x24/0x2
 
-iQEcBAEBAgAGBQJXDQAVAAoJEJykq7OBq3PIisAIALBSoMmzvpTCTrRtv7iDoPpp
-/CnFeiQL3NMRVJMnpfDSHGmzPsB8i2UXpcsVKYmknln3lwB1cC6MNhqbyvqVdhaT
-ICXB+B9Z63bWP5iWWYEATr/oYiEgvFs0toouo3kbDAksUQAc5zB3QAZINdzIkrok
-fRQR2SBPXaADHq7Z8FkymJFZxQlpb9KvABSTH1BhWpx96/4TFU9SCYqIQdQk2CME
-GjIvWdK5KPqpd54HrVLfhT6Y37quWRDF0neOa4a26j1UAK3d1DS+xTEYbfzKDDgk
-tEUKDhc60pM6jDmhslOP98tZpR9QVcUL7WhaDQTNyDT4Y9VAk+uncEjJUYWM2Jg=
-=SUAt
------END PGP SIGNATURE-----
+Sorry if I am missing something fundamental, I am bit new to net drivers
 
---dkEUBIird37B8yKS--
+Regards,
+Sudeep
+
+-->8
+
+diff --git i/drivers/net/ethernet/marvell/sky2.c 
+w/drivers/net/ethernet/marvell/sky2.c
+index ec0a22119e09..d4cfcd89e7e5 100644
+--- i/drivers/net/ethernet/marvell/sky2.c
++++ w/drivers/net/ethernet/marvell/sky2.c
+@@ -5175,6 +5175,7 @@ static int sky2_suspend(struct device *dev)
+         }
+
+         sky2_power_aux(hw);
++       hw->suspended = true;
+         rtnl_unlock();
+
+         return 0;
+@@ -5198,6 +5199,7 @@ static int sky2_resume(struct device *dev)
+         }
+
+         rtnl_lock();
++       hw->suspended = false;
+         sky2_reset(hw);
+         sky2_all_up(hw);
+         rtnl_unlock();
+diff --git i/drivers/net/ethernet/marvell/sky2.h 
+w/drivers/net/ethernet/marvell/sky2.h
+index ec6dcd80152b..1386e5b635ff 100644
+--- i/drivers/net/ethernet/marvell/sky2.h
++++ w/drivers/net/ethernet/marvell/sky2.h
+@@ -2308,6 +2308,7 @@ struct sky2_hw {
+         wait_queue_head_t    msi_wait;
+
+         char                 irq_name[0];
++       bool                 suspended;
+  };
+
+  static inline int sky2_is_copper(const struct sky2_hw *hw)
+@@ -2378,6 +2379,9 @@ static inline u32 get_stats32(struct sky2_hw *hw, 
+unsigned port, unsigned reg)
+  {
+         u32 val;
+
++       if (hw->suspended)
++               return 0;
++
+         do {
+                 val = gma_read32(hw, port, reg);
+         } while (gma_read32(hw, port, reg) != val);
