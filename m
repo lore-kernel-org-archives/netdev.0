@@ -1,61 +1,47 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Issue with ping source address display
-Date: Tue, 12 Apr 2016 23:27:55 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1604122315350.1611@ja.home.ssi.bg>
-References: <570D35CF.9070006@orlandi.com> <alpine.LFD.2.11.1604122235020.1611@ja.home.ssi.bg> <570D50C8.4010409@orlandi.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP reaching to maximum throughput after a long time
+Date: Tue, 12 Apr 2016 13:29:59 -0700
+Message-ID: <1460492999.6473.599.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com>
+	 <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570D0E94.3080006@candelatech.com>
+	 <AE1C82FB3D0EC64DB1F752C81CBD110139101889@DFRE01.ent.ti.com>
+	 <570D566B.8050302@candelatech.com>
+	 <1460492253.6473.596.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570D5944.5070100@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Daniele Orlandi <daniele@orlandi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35749 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932823AbcDLU17 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 16:27:59 -0400
-In-Reply-To: <570D50C8.4010409@orlandi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Machani, Yaniv" <yanivma@ti.com>, netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"Kama, Meirav" <meiravk@ti.com>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570D5944.5070100@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 2016-04-12 at 13:23 -0700, Ben Greear wrote:
 
-	Hello,
-
-On Tue, 12 Apr 2016, Daniele Orlandi wrote:
-
-> On 12/04/2016 21:38, Julian Anastasov wrote:
-> > 
-> > 	What is the kernel version?
+> It worked well enough for years that I didn't even know other algorithms were
+> available.  It was broken around 4.0 time, and I reported it to the list,
+> and no one seemed to really care enough to do anything about it.  I changed
+> to reno and ignored the problem as well.
 > 
-> Much time passed and I don't remember, however the latest test with IPv6
-> ping was made on this host:
-> 
-> root@monitor:~# uname -a
-> Linux monitor 4.4.0-17-generic #33-Ubuntu SMP Tue Mar 29 17:17:28 UTC
-> 2016 x86_64 x86_64 x86_64 GNU/Linux
+> It is trivially easy to see the regression when using ath10k NIC, and from this email
+> thread, I guess other NICs have similar issues.
 
-	I asked because I remember for such problem but
-at the same time your first report was from Sep 2014, long
-before the bad period: 4.0 - 4.1. Can you find and try
-this fix from 4.2?:
+Since it is so trivial, why don't you start a bisection ?
 
-commit 34b99df4e6256ddafb663c6de0711dceceddfe0e
-Author: Julian Anastasov <ja@ssi.bg>
-Date:   Tue Jun 23 08:34:39 2015 +0300
+I asked a capture, I did not say ' switch to Reno or whatever ', right ?
 
-    ip: report the original address of ICMP messages
-    
-    ICMP messages can trigger ICMP and local errors. In this case
-    serr->port is 0 and starting from Linux 4.0 we do not return
-    the original target address to the error queue readers.
-    Add function to define which errors provide addr_offset.
-    With this fix my ping command is not silent anymore.
+Guessing is nice, but investigating and fixing is better.
 
-	Because I'm not sure if your kernel includes it.
-I also remember that the ping utility can use random memory
-when such 4.0/4.1 kernel returns msg_namelen=0:
+Do not assume that nothing can be done, please ?
 
-http://marc.info/?l=linux-netdev&m=143509000420707&w=2
-
-Thread:
-http://marc.info/?t=143503781500001&r=1&w=2
-
-Regards
+Thanks.
