@@ -1,51 +1,86 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net 0/2] Fixes for SO_REUSEPORT and mixed v4/v6 sockets
-Date: Tue, 12 Apr 2016 13:11:24 -0400
-Message-ID: <1460481086-12982-1-git-send-email-kraigatgoog@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [Lsf] [Lsf-pc] [LSF/MM TOPIC] Generic page-pool recycle facility?
+Date: Tue, 12 Apr 2016 10:20:12 -0700
+Message-ID: <20160412172011.GB93307@ast-mbp.thefacebook.com>
+References: <1460034425.20949.7.camel@HansenPartnership.com>
+ <20160407161715.52635cac@redhat.com>
+ <20160407143854.GA7685@infradead.org>
+ <570678B7.7010802@sandisk.com>
+ <570A9F5B.5010600@grimberg.me>
+ <20160411234157.3fc9c6fe@redhat.com>
+ <20160411222124.GA80595@ast-mbp.thefacebook.com>
+ <20160412081649.4cb4f9db@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:34059 "EHLO
-	mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965072AbcDLRLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 13:11:31 -0400
-Received: by mail-qk0-f179.google.com with SMTP id r184so8961823qkc.1
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 10:11:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "lsf@lists.linux-foundation.org" <lsf@lists.linux-foundation.org>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Sagi Grimberg <sagi@grimberg.me>, Tom Herbert <tom@herbertland.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bart Van Assche <bart.vanassche@sandisk.com>,
+	"lsf-pc@lists.linux-foundation.org" <lsf-pc@lists.linux-foundation.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160412081649.4cb4f9db@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Craig Gallek <kraig@google.com>
+On Tue, Apr 12, 2016 at 08:16:49AM +0200, Jesper Dangaard Brouer wrote:
+> 
+> On Mon, 11 Apr 2016 15:21:26 -0700
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> 
+> > On Mon, Apr 11, 2016 at 11:41:57PM +0200, Jesper Dangaard Brouer wrote:
+> > > 
+> > > On Sun, 10 Apr 2016 21:45:47 +0300 Sagi Grimberg <sagi@grimberg.me> wrote:
+> > >   
+> [...]
+> > > > 
+> > > > If we go down this road how about also attaching some driver opaques
+> > > > to the page sets?  
+> > > 
+> > > That was the ultimate plan... to leave some opaques bytes left in the
+> > > page struct that drivers could use.
+> > > 
+> > > In struct page I would need a pointer back to my page_pool struct and a
+> > > page flag.  Then, I would need room to store the dma_unmap address.
+> > > (And then some of the usual fields are still needed, like the refcnt,
+> > > and reusing some of the list constructs).  And a zero-copy cross-domain
+> > > id.  
+> > 
+> > I don't think we need to add anything to struct page.
+> > This is supposed to be small cache of dma_mapped pages with lockless access.
+> > It can be implemented as an array or link list where every element
+> > is dma_addr and pointer to page. If it is full, dma_unmap_page+put_page to
+> > send it to back to page allocator.
+> 
+> It sounds like the Intel drivers recycle facility, where they split the
+> page into two parts, and keep page in RX-ring, by swapping to other
+> half of page, if page_count(page) is <= 2.  Thus, they use the atomic
+> page ref count to synchronize on.
 
-Recent changes to the datastructures associated with SO_REUSEPORT broke
-an existing behavior when equivalent SO_REUSEPORT sockets are created
-using both AF_INET and AF_INET6.  This patch series restores the previous
-behavior and includes a test to validate it.
+actually I'm proposing the opposite. one page = one packet.
+I'm perfectly happy to waste half a page, since number of such pages is small
+and performance matter more. Typical performance vs memory tradeoff.
 
-This series should be a trivial merge to stable kernels (if deemed
-necessary), but will have conflicts in net-next.  The following patches
-recently replaced the use of hlist_nulls with hlists for UDP and TCP
-socket lists:
-ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
-3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
+> Thus, we end-up having two atomic operations per RX packet, on the page
+> refcnt.  Where DPDK have zero...
 
-If this series is accepted, I will send an RFC for the net-next change
-to assist with the merge.
+the page recycling cache should have zero atomic ops per packet
+otherwise it's non starter.
 
-Craig Gallek (2):
-  soreuseport: fix ordering for mixed v4/v6 sockets
-  soreuseport: test mixed v4/v6 sockets
+> By fully taking over the page as an allocator, almost like slab. I can
+> optimize the common case (of the packet-page getting allocated and
+> free'ed on the same CPU), and remove these atomic operations.
 
- include/linux/rculist_nulls.h                     |  39 ++++
- include/net/sock.h                                |   6 +-
- net/ipv4/udp.c                                    |   9 +-
- tools/testing/selftests/net/.gitignore            |   1 +
- tools/testing/selftests/net/Makefile              |   2 +-
- tools/testing/selftests/net/reuseport_dualstack.c | 208 ++++++++++++++++++++++
- 6 files changed, 261 insertions(+), 4 deletions(-)
- create mode 100644 tools/testing/selftests/net/reuseport_dualstack.c
+slub is doing local cmpxchg. 40G networking cannot afford it per packet.
+If it's amortized due to batching that will be ok.
 
--- 
-2.8.0.rc3.226.g39d4020
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
