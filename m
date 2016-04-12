@@ -1,142 +1,83 @@
-From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: Issue with ping source address display
-Date: Wed, 13 Apr 2016 07:59:43 +0900
-Message-ID: <CAPA1RqDznRLYNBLCv4CLHY4ge=Q0fuFdC=VPg9947ZciMbjdkg@mail.gmail.com>
-References: <570D35CF.9070006@orlandi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>
-To: Daniele Orlandi <daniele@orlandi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35739 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758833AbcDLW7o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 18:59:44 -0400
-Received: by mail-oi0-f51.google.com with SMTP id p188so41560220oih.2
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:59:43 -0700 (PDT)
-In-Reply-To: <570D35CF.9070006@orlandi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/8] Netfilter updates for net-next
+Date: Wed, 13 Apr 2016 01:02:38 +0200
+Message-ID: <1460502166-20340-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi David,
 
-2016-04-13 2:52 GMT+09:00 Daniele Orlandi <daniele@orlandi.com>:
->
-> Hello,
->
-> More than one year ago I posted the following message but it hasn't
-> received a reply, now I've been stung by a similar issue, you may want
-> to investigate:
->
->
-> I noticed that when ping receives ICMP messages from different sources
-> the first IP address is always used and displayed:
->
->
-> vihai@seviolab:~$ ping -V
-> ping utility, iputils-s20121221
->
-> This is a (simulated) flapping route:
->
-> vihai@seviolab:~$ ping 10.254.10.140
-> PING 10.254.10.140 (10.254.10.140) 56(84) bytes of data.
-> From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
-> From 192.168.1.1 icmp_seq=2 Destination Host Unreachable
-> From 192.168.1.1 icmp_seq=3 Destination Host Unreachable
-> 64 bytes from 192.168.1.1: icmp_seq=4 ttl=61 time=24.7 ms
-> 64 bytes from 192.168.1.1: icmp_seq=5 ttl=61 time=25.6 ms
-> 64 bytes from 192.168.1.1: icmp_seq=6 ttl=61 time=69.6 ms
-> From 192.168.1.1 icmp_seq=7 Destination Host Unreachable
-> From 192.168.1.1 icmp_seq=8 Destination Host Unreachable
-> From 192.168.1.1 icmp_seq=9 Destination Host Unreachable
-> ^C
-> --- 10.254.10.140 ping statistics ---
-> 9 packets transmitted, 3 received, +6 errors, 66% packet loss, time 8001ms
-> rtt min/avg/max/mdev = 24.797/40.061/69.692/20.955 ms
->
->
-> The sources, however are different:
->
-> vihai@seviolab:~$ sudo tcpdump -n icmp
-> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-> listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
-> ^[OA^[OA^[OA17:09:55.932981 IP 192.168.1.21 > 10.254.10.140: ICMP echo
-> request, id 9278, seq 1, length 64
-> 17:09:55.933234 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
-> 17:09:56.933169 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 2, length 64
-> 17:09:56.933416 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
-> 17:09:57.933160 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 3, length 64
-> 17:09:57.933404 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
-> 17:09:58.933163 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 4, length 64
-> 17:09:58.957939 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
-> 9278, seq 4, length 64
-> 17:09:59.935050 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 5, length 64
-> 17:09:59.960724 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
-> 9278, seq 5, length 64
-> 17:10:00.936177 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 6, length 64
-> 17:10:01.005849 IP 10.254.10.140 > 192.168.1.21: ICMP echo reply, id
-> 9278, seq 6, length 64
-> 17:10:01.936313 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 7, length 64
-> 17:10:01.936626 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
-> 17:10:02.935321 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 8, length 64
-> 17:10:02.935591 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
-> 17:10:03.934322 IP 192.168.1.21 > 10.254.10.140: ICMP echo request, id
-> 9278, seq 9, length 64
-> 17:10:03.934613 IP 192.168.1.1 > 192.168.1.21: ICMP host 10.254.10.140
-> unreachable, length 92
->
+The following patchset contains the first batch of Netfilter updates for
+your net-next tree.
 
-Thank you for your report.  I'll try fixing it.
+1) Define pr_fmt() in nf_conntrack, from Weongyo Jeong.
 
---yoshfuji
+2) Define and register netfilter's afinfo for the bridge family,
+   this comes in preparation for native nfqueue's bridge for nft,
+   from Stephane Bryant.
 
->
->
->
-> Tried with a different ping implementation (RouterOS) and the behaviour
-> seems correct:
->
-> [vihai@SevioLab SW1] > ping 10.254.10.140
-> HOST                                     SIZE TTL TIME  STATUS
-> 192.168.1.1                             84  64 0ms   host unreachable
-> 192.168.1.1                             84  64 0ms   host unreachable
-> 192.168.1.1                             84  64 0ms   host unreachable
-> 10.254.10.140                           56  61 20ms
-> 10.254.10.140                           56  61 46ms
-> 10.254.10.140                           56  61 37ms
-> 192.168.1.1                             84  64 0ms   host unreachable
-> 192.168.1.1                             84  64 0ms   host unreachable
-> 192.168.1.1                             84  64 0ms   host unreachable
->     sent=9 received=3 packet-loss=66% min-rtt=20ms avg-rtt=34ms max-rtt=46ms
->
->
-> Recently I was pinging with IPv6, a router in between filtered the
-> packet, however the shown source address was not the right one:
->
-> root@monitor:~# ping6 -i 0.2 www.google.com
-> PING www.google.com(mil01s25-in-x04.1e100.net) 56 data bytes
-> From mil01s25-in-x04.1e100.net icmp_seq=1 Destination unreachable: No route
-> From mil01s25-in-x04.1e100.net icmp_seq=2 Destination unreachable: No route
-> From mil01s25-in-x04.1e100.net icmp_seq=3 Destination unreachable: No route
->
-> 19:33:19.589285 IP6 2a01:2d8:aca0:fce:944e:c8ff:fe4d:96de >
-> mil01s25-in-x04.1e100.net: ICMP6, echo request, seq 1, length 64
-> 19:33:19.611666 IP6 mix-br2.intercom.it >
-> 2a01:2d8:aca0:fce:944e:c8ff:fe4d:96de: ICMP6, destination unreachable,
-> unreachable route mil01s25-in-x04.1e100.net, length 112
->
->
-> Bye,
->
+3) Add new attributes to store layer 2 and VLAN headers to nfqueue,
+   also from Stephane Bryant.
+
+4) Parse new NFQA_VLAN and NFQA_L2HDR nfqueue netlink attributes
+   coming from userspace, from Stephane Bryant.
+
+5) Use net->ipv6.devconf_all->hop_limit instead of hardcoded hop_limit
+   in IPv6 SYNPROXY, from Liping Zhang.
+
+6) Remove unnecessary check for dst == NULL in nf_reject_ipv6,
+   from Haishuang Yan.
+
+7) Deinline ctnetlink event report functions, from Florian Westphal.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit e46b4e2b46e173889b19999b8bd033d5e8b3acf0:
+
+  Merge tag 'trace-v4.6' of git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-trace (2016-03-24 10:52:25 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git HEAD
+
+for you to fetch changes up to ecdfb48cddfd1096343148113d5b1bd789033aa8:
+
+  netfilter: conntrack: move expectation event helper to ecache.c (2016-04-12 23:01:57 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (2):
+      netfilter: conntrack: de-inline nf_conntrack_eventmask_report
+      netfilter: conntrack: move expectation event helper to ecache.c
+
+Haishuang Yan (1):
+      netfilter: ipv6: unnecessary to check whether ip6_route_output() returns NULL
+
+Liping Zhang (1):
+      netfilter: ip6t_SYNPROXY: remove magic number for hop_limit
+
+Stephane Bryant (3):
+      netfilter: bridge: add nf_afinfo to enable queuing to userspace
+      netfilter: bridge: pass L2 header and VLAN as netlink attributes in queues to userspace
+      netfilter: bridge: nf queue verdict to use NFQA_VLAN and NFQA_L2HDR
+
+Weongyo Jeong (1):
+      netfilter: nf_conntrack: Uses pr_fmt() for logging.
+
+ include/net/netfilter/nf_conntrack_ecache.h    | 108 ++++---------------------
+ include/uapi/linux/netfilter/nfnetlink_queue.h |  10 +++
+ net/bridge/netfilter/nf_tables_bridge.c        |  47 ++++++++++-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c             |  56 +++++++------
+ net/ipv6/netfilter/nf_reject_ipv6.c            |   2 +-
+ net/netfilter/nf_conntrack_core.c              |  15 ++--
+ net/netfilter/nf_conntrack_ecache.c            |  84 +++++++++++++++++++
+ net/netfilter/nfnetlink_queue.c                | 105 ++++++++++++++++++++++++
+ 8 files changed, 298 insertions(+), 129 deletions(-)
