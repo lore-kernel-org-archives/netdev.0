@@ -1,104 +1,105 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Mon, 11 Apr 2016 20:53:23 -0700
-Message-ID: <570C7133.8070109@cumulusnetworks.com>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com> <20160410081650.GB22873@pox.localdomain> <570A9B4D.80104@cumulusnetworks.com>
+From: Leon Romanovsky <leon@leon.nu>
+Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
+Date: Tue, 12 Apr 2016 08:15:37 +0300
+Message-ID: <20160412051537.GD25242@leon.nu>
+References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
+ <1460405422-8654-3-git-send-email-saeedm@mellanox.com>
+ <CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
+ <CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
+ <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
+Reply-To: leon@leon.nu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/3yNEOqWowh/8j+e"
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Doug Ledford <dledford@redhat.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
+	Tal Alon <talal@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33117 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753237AbcDLDxZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Apr 2016 23:53:25 -0400
-Received: by mail-pf0-f173.google.com with SMTP id 184so5344764pff.0
-        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 20:53:25 -0700 (PDT)
-In-Reply-To: <570A9B4D.80104@cumulusnetworks.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:34801 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbcDLFP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 01:15:56 -0400
+Received: by mail-wm0-f45.google.com with SMTP id l6so171922490wml.1
+        for <netdev@vger.kernel.org>; Mon, 11 Apr 2016 22:15:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/10/16, 11:28 AM, roopa wrote:
-> On 4/10/16, 1:16 AM, Thomas Graf wrote:
-[snip]
->>
->> This currently ties everything to a net_device with a selector to
->> include certain bits of that net_device. How about we take it half a
->> step further and allow for non net_device stats such as IP, TCP,
->> routing or ipsec stats to be retrieved as well?
-> yes, absolutely. and that is also the goal.
->> A simple array of nested attributes replacing IFLA_STATS_* would
->> allow for that, e.g.
->>
->> 1. {.type = ST_IPSTATS, value = { ...} }
->>
->> 2. {.type = ST_LINK, .value = {
->>     {.type = ST_LINK_NAME, .value = "eth0"},
->>     {.type = ST_LINK_Q, .value = 10}
->>   }}
->>
->> 3. ...
-> One thing though,  Its unclear to me if we absolutely need the additional nest.
-> Every stats netlink msg has an ifindex in the header (if_stats_msg) if the scope
-> of the stats is a netdev. If the msg does not have an ifindex in the if_stats_msg,
-> it represents a global stat. ie Cant a dump, include other stats netlink msgs after
-> all the netdev msgs are done when the filter has global stat filters ?.
-> same will apply to RTM_GETSTATS (without NLM_F_DUMP).
->
-> Since the msg may potentially have more nest levels
-> in the IFLA_EXT_STATS categories, just trying to see if i can avoid adding another
-> top-level nest. We can sure add it if there is no other way to include global
-> stats in the same dump.
->
 
-Just wanted to elaborate on what i was trying to say:
+--/3yNEOqWowh/8j+e
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Top level stats attributes can be netdev or global attributes: We can include string "LINK" in
-the names of all stats belonging to a netdev to make it easier to recognize the netdev stats (example):
- IFLA_STATS_LINK64,           (netdev)
- IFLA_STATS_LINK_INET6,    (netdev)
- IFLA_STATS_TCP,                (non-netdev, global tcp stats)
+On Tue, Apr 12, 2016 at 12:37:34AM +0300, Or Gerlitz wrote:
+> On Tue, Apr 12, 2016 at 12:24 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+> > On Tue, Apr 12, 2016 at 12:17 AM, Or Gerlitz <gerlitz.or@gmail.com> wro=
+te:
+>=20
+> >> feature --> features
+>=20
+> > Correct, will fix.
+>=20
+> >>> * Add vport to steering commands for SRIOV ACL support
+> >>> * Add mlcr, pcmr and mcia registers for dump module EEPROM
+> >>> * Add support for FCS, baeacon led and disable_link bits to hca caps
+> >>> * Add CQE period mode bit in  CQ context for CQE based CQ
+> >>>   moderation support
+> >>> * Add umr SQ bit for fragmented memory registration
+> >>> * Add needed bits and caps for Striding RQ support
+>=20
+> >> AFAIK, all the above are features will go through net-next, what made
+> >> you anticipate conflicts with linux-rdma?
+>=20
+> > FCS bit is needed also for rdma, so we took the liberty of updating
+> > all the needed HW structs, bits, caps, etc ..
+> > at once for all mlx5 features planned for 4.7 regardless of rdma/net co=
+nflicts.
+>=20
+> The cover letter states that this series deals with shared code.
+>=20
+> I guess you might also could extend it a bit to deal also with code
+> that you suspect could lead to conflicts, but I don't see why it
+> evolved to that extent.
 
-RTM_GETSTATS (NLM_F_DUMP)  with user given filter_mask {
-        If filter-mask contains any link stats, start with per netdev stats messages:
-        { if_stats_msg.ifindex = 1,
-          if_stats_msg.filter_mask = mask of included link stats,
-          <stats attributes> }
+Or,
+All these micro-optimizations on this shared file can potentially lead
+to undesired merge conflicts. Subsystem maintainers and Linus don't need to
+deal with these conflicts at all.
 
-        { if_stats_msg.ifindex = 2,
-          if_stats_msg.filter_mask = mask of included link stats,
-          <stats attributes> }
+It won't help to anyone to split this commit to more than one patch.
 
-        global stats (if user given filter mask contains global filters.):
-        { if_stats_msg.ifindex = 0,
-          if_stats_msg.filter_mask = mask of included global stats,
-          <stats attributes> }
-}
+--/3yNEOqWowh/8j+e
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-We will need a field in netlink_callback to indicate global or netdev stats when the stats
-crosses skb boundaries. A single nlmsg cannot have both netdev and global stats.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-Non-dump RTM_GETSTATS examples:
+iQIcBAEBAgAGBQJXDIR5AAoJEORje4g2clinfXsQANNi8c52FZ0wJNyFg2wtamef
+DDxS121NP+ML/PagK+cPOQlkM1nMOpuwfK+ejCwaoWW/IuOFI5vWnaEGGcaWkcnQ
+69aj87FoKi44p8jt8DeCJXrhDILPERBUSwHkPDhaDg1KaOvzPVVC72wJ3g9znS1h
+dTZjNhYDBdeyJkeunFHEIauk4aG79GQy9y79mx8vAUtElwIdGSD1HmoQzieLY18S
+BmDnZ4jPUlmqtYmsDK8F+PIX2k8n6Jdd1ejugoImmO7HV5p6xAzT2ABJoXso6UMa
+zvj2jtMfjb6r3vg0cdXzSxnLIYMYo+LIJMEBbDzkz89XYcFZykpRw+zYqu8of54K
+xjxxHGxUuuzUuQld3J/qyKmyXYF60nYjGDmwoJZupdfCUYxa9OMuy800xtvc7BBT
+JbG2/xp4ZM6BknV+QwOOeZoB7Mn8b4bpKeinW01IQlH3kg5X1VCogAb9wRuDM8GT
+icL5JuMe2UJ5zzAmULZwynlTH0OlfWtDT2s5qlXOUjFQYzq4SxpNYAbAne38zY/K
+N7NXvl2eNOJ9ly4mQuq8RB8xS6rOsRaBup7oxVHYz083q6zDf8kWA03NK1CuH+Gb
+EfufyTiOurVmKF378xpFYUg2oPoWa6Z4XJhCiAr7NlvzBdZjbjxqwZvijaJbzRFQ
+bg98d4fOMd+nbzdBH+fV
+=0P19
+-----END PGP SIGNATURE-----
 
-RTM_GETSTATS with valid ifindex and filter_mask {
-        filter_mask cannot have global stats (return -EINVAL)
-        { if_stats_msg.ifindex = <user_given_ifindex>,
-          if_stats_msg.filter_mask = mask of included link stats,
-          <stats attributes> }
-}
-
-RTM_GETSTATS with ifindex = 0 and filter_mask {
-        filter_mask cannot have link stats (return -EINVAL)
-        { if_stats_msg.ifindex = 0,
-          if_stats_msg.filter_mask = mask of included global link stats,
-          <stats attributes> }
-}
-
-
-Will this not work ?
-
-Thanks,
-Roopa
+--/3yNEOqWowh/8j+e--
