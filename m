@@ -1,70 +1,68 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] ibmvnic: Defer tx completion processing using a
- wait queue
-Date: Tue, 12 Apr 2016 16:00:23 -0500
-Message-ID: <570D61E7.2090203@linux.vnet.ibm.com>
-References: <570D4EBC.60409@linux.vnet.ibm.com>
- <1460491940.6473.592.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH] sctp: add support for RPS and RFS
+Date: Tue, 12 Apr 2016 18:11:31 -0300
+Message-ID: <d0b676c036479fe304218a05e1b03a7ba274426c.1460495323.git.marcelo.leitner@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:37953 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934074AbcDLVAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 17:00:45 -0400
-Received: from localhost
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-	Tue, 12 Apr 2016 15:00:44 -0600
-Received: from b03cxnp08028.gho.boulder.ibm.com (b03cxnp08028.gho.boulder.ibm.com [9.17.130.20])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id C8EA73E4008D
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:00:41 -0600 (MDT)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by b03cxnp08028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u3CL0fms35324138
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 14:00:41 -0700
-Received: from d03av05.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u3CL0dlh005656
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 15:00:41 -0600
-In-Reply-To: <1460491940.6473.592.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49083 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757024AbcDLVMR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2016 17:12:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/12/2016 03:12 PM, Eric Dumazet wrote:
-> On Tue, 2016-04-12 at 14:38 -0500, John Allen wrote:
->> Moves tx completion processing out of interrupt context, deferring work
->> using a wait queue. With this work now deferred, we must account for the
->> possibility that skbs can be sent faster than we can process completion
->> requests in which case the tx buffer will overflow. If the tx buffer is
->> full, ibmvnic_xmit will return NETDEV_TX_BUSY and stop the current tx
->> queue. Subsequently, the queue will be restarted in ibmvnic_complete_tx
->> when all pending tx completion requests have been cleared.
-> 
-> 1) Why is this needed ?
+This patch adds what's missing to properly support RPS and RFS on SCTP,
+as some of it is already implemented in common calls.
 
-In the current ibmvnic implementation, tx completion processing is done in
-interrupt context. Depending on the load, this can block further
-interrupts for a long time. This patch just creates a bottom half so that
-when a tx completion interrupt comes in, we can defer the majority of the
-work and exit interrupt context quickly.
+Having support for RPS and RFS allows better scaling specially because
+not all NICs support hashing SCTP headers.
 
-> 
-> 2) If it is needed, why is this not done in a generic way, so that other
-> drivers can use this ?
+Save the hash right when we dequeue a skb from inqueue so we do it only
+once per skb instead of per chunk. New sockets will then inherit the
+hash through sctp_copy_sock().
 
-I'm still fairly new to network driver development so I'm not in tune with
-the needs of other drivers. My assumption was that the wait queue data
-structure was a reasonably generic way to handle something like this. Is
-there a more appropriate/generic way of implementing a bottom half for
-this purpose?
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/inqueue.c | 3 +++
+ net/sctp/socket.c  | 3 +++
+ 2 files changed, 6 insertions(+)
 
--John
-> 
-> Thanks.
-> 
-> 
-> 
-> 
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index 7e8a16c77039e1b70ef89f3e862dbb332bcc614f..b335ffcef0b901b0e71bf0843057dbf5877da31b 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -163,6 +163,9 @@ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *queue)
+ 		chunk->singleton = 1;
+ 		ch = (sctp_chunkhdr_t *) chunk->skb->data;
+ 		chunk->data_accepted = 0;
++
++		if (chunk->asoc)
++			sock_rps_save_rxhash(chunk->asoc->base.sk, chunk->skb);
+ 	}
+ 
+ 	chunk->chunk_hdr = ch;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 878d28eda1a68dc639d7b9f3f663d7518f21bb32..36697f85ce48be39f41ddedd9f53369c7f9e28d8 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -6430,6 +6430,8 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 
+ 	poll_wait(file, sk_sleep(sk), wait);
+ 
++	sock_rps_record_flow(sk);
++
+ 	/* A TCP-style listening socket becomes readable when the accept queue
+ 	 * is not empty.
+ 	 */
+@@ -7186,6 +7188,7 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
+ 	newsk->sk_lingertime = sk->sk_lingertime;
+ 	newsk->sk_rcvtimeo = sk->sk_rcvtimeo;
+ 	newsk->sk_sndtimeo = sk->sk_sndtimeo;
++	newsk->sk_rxhash = sk->sk_rxhash;
+ 
+ 	newinet = inet_sk(newsk);
+ 
+-- 
+2.5.0
