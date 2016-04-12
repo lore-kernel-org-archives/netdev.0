@@ -1,52 +1,97 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net] bpf/verifier: reject invalid LD_ABS | BPF_DW instruction
-Date: Tue, 12 Apr 2016 10:26:19 -0700
-Message-ID: <1460481979-1771165-1-git-send-email-ast@fb.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH] mwifiex: fix possible NULL dereference
+Date: Tue, 12 Apr 2016 17:43:03 +0000
+Message-ID: <867653EE-136B-488D-8F85-716B1ED9BD1A@intel.com>
+References: <1460388459-21090-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <CAHp75VfO3A+HBjkjc9WC9jzB9gtYrVM6izLmpiqLntChGOzjMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_82A28291-85F1-4A42-AE7E-955067EA63CA";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"open list:TI WILINK WIRELES..." <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Sudip Mukherjee" <sudip.mukherjee@codethink.co.uk>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:29656 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966106AbcDLR0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 13:26:23 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3CHPWLM010583
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 10:26:22 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 2293q1rjsv-4
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 10:26:22 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- ab6001dc00d311e6aa5a0002c99293a0-6cfe53f0 for <netdev@vger.kernel.org>;	Tue,
- 12 Apr 2016 10:26:19 -0700
+Received: from mga09.intel.com ([134.134.136.24]:58646 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756353AbcDLRnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2016 13:43:07 -0400
+In-Reply-To: <CAHp75VfO3A+HBjkjc9WC9jzB9gtYrVM6izLmpiqLntChGOzjMA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-verifier must check for reserved size bits in instruction opcode and
-reject BPF_LD | BPF_ABS | BPF_DW and BPF_LD | BPF_IND | BPF_DW instructions,
-otherwise interpreter will WARN_RATELIMIT on them during execution.
+--Apple-Mail=_82A28291-85F1-4A42-AE7E-955067EA63CA
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=us-ascii;
+	delsp=yes;
+	format=flowed
 
-Fixes: ddd872bc3098 ("bpf: verifier: add checks for BPF_ABS | BPF_IND instructions")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/verifier.c | 1 +
- 1 file changed, 1 insertion(+)
+Andy Shevchenko <andy.shevchenko@gmail.com> wrote:
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 2e08f8e9b771..618ef77c302a 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1374,6 +1374,7 @@ static int check_ld_abs(struct verifier_env *env, struct bpf_insn *insn)
- 	}
- 
- 	if (insn->dst_reg != BPF_REG_0 || insn->off != 0 ||
-+	    BPF_SIZE(insn->code) == BPF_DW ||
- 	    (mode == BPF_ABS && insn->src_reg != BPF_REG_0)) {
- 		verbose("BPF_LD_ABS uses reserved fields\n");
- 		return -EINVAL;
--- 
-2.8.0
+> On Mon, Apr 11, 2016 at 6:27 PM, Sudip Mukherjee
+> <sudipm.mukherjee@gmail.com> wrote:
+>> From: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+>>
+>> We have a check for card just after dereferencing it. So if it is NULL
+>> we have already dereferenced it before its check. Lets dereference it
+>> after checking card for NULL.
+>
+> IIUC the code does nothing with dereference.
+>
+> I would have told NAK if I would have been maintainer.
+>
+>> Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+>> ---
+>>  drivers/net/wireless/marvell/mwifiex/pcie.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c  
+>> b/drivers/net/wireless/marvell/mwifiex/pcie.c
+>> index edf8b07..84562d0 100644
+>> --- a/drivers/net/wireless/marvell/mwifiex/pcie.c
+>> +++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+>> @@ -2884,10 +2884,11 @@ static void mwifiex_unregister_dev(struct  
+>> mwifiex_adapter *adapter)
+>>  {
+>>         struct pcie_service_card *card = adapter->card;
+>
+> Let's say it's 0.
+>
+>>        const struct mwifiex_pcie_card_reg *reg;
+>> -       struct pci_dev *pdev = card->dev;
+>
+> This would be equal to offset of dev member in pcie_service_card struct.
+>
+> Nothing wrong here.
+
+Actually, that is not true. The dereference of card tells the compiler that  
+card can't be NULL, so it is free to eliminate the check below.  
+Unbelievably, this can even happen for a reference such as &ptr->thing  
+where the pointer isn't even actually dereferenced at all!
+
+>> +       struct pci_dev *pdev;
+>>         int i;
+>>
+>>         if (card) {
+>> +               pdev = card->dev;
+>>                 if (card->msix_enable) {
+>>                         for (i = 0; i < MWIFIEX_NUM_MSIX_VECTORS; i++)
+>>                                 synchronize_irq(card->msix_entries[i].vector);
+>> --
+>> 1.9.1
+>
+>
+>
+> --
+> With Best Regards,
+> Andy Shevchenko
+
+--Apple-Mail=_82A28291-85F1-4A42-AE7E-955067EA63CA--
