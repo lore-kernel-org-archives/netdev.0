@@ -1,34 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2016-04-12
-Date: Tue, 12 Apr 2016 11:58:16 -0400 (EDT)
-Message-ID: <20160412.115816.674950615229727734.davem@davemloft.net>
-References: <20160412080815.GA17516@t440s>
+From: Ian Campbell <ian.campbell@docker.com>
+Subject: Re: [RFC v5 0/5] Add virtio transport for AF_VSOCK
+Date: Tue, 12 Apr 2016 17:07:49 +0100
+Message-ID: <1460477269.24107.1.camel@docker.com>
+References: <1459520587-12337-1-git-send-email-stefanha@redhat.com>
+	<1460129705.1749.25.camel@docker.com>
+	<20160411104548.GA12826@stefanha-x1.localdomain>
+	<20160411154517-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: johan.hedberg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44072 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965342AbcDLP6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 11:58:18 -0400
-In-Reply-To: <20160412080815.GA17516@t440s>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: marius vlad <marius.vlad0@gmail.com>, Stefan Hajnoczi <stefanha@redhat.com>,
+	kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Matt Benjamin <mbenjamin@redhat.com>, Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>, Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160411154517-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Tue, 12 Apr 2016 11:08:15 +0300
-
-> Here's a set of Bluetooth & 802.15.4 patches intended for the 4.7 kernel:
-> 
->  - Fix for race condition in vhci driver
->  - Memory leak fix for ieee802154/adf7242 driver
->  - Improvements to deal with single-mode (LE-only) Bluetooth controllers
->  - Fix for allowing the BT_SECURITY_FIPS security level
->  - New BCM2E71 ACPI ID
->  - NULL pointer dereference fix fox hci_ldisc driver
-> 
-> Let me know if there are any issues pulling. Thanks.
-
-Pulled, thanks Johan.
+U29tZSBob3cgU3RlZmFuJ3MgcmVwbHkgZGlzYXBlYXJlZCBmcm9tIG15IElOQk9YIChhbHRob3Vn
+aCBJIGRpZCBzZWUKaXQpIHNvIHJlcGx5aW5nIGhlcmUuCgpPbiBNb24sIDIwMTYtMDQtMTEgYXQg
+MTU6NTQgKzAzMDAsIE1pY2hhZWwgUy4gVHNpcmtpbiB3cm90ZToKPiBPbiBNb24sIEFwciAxMSwg
+MjAxNiBhdCAxMTo0NTo0OEFNICswMTAwLCBTdGVmYW4gSGFqbm9jemkgd3JvdGU6Cj4gPiAKPiA+
+IE9uIEZyaSwgQXByIDA4LCAyMDE2IGF0IDA0OjM1OjA1UE0gKzAxMDAsIElhbiBDYW1wYmVsbCB3
+cm90ZToKPiA+ID4gCj4gPiA+IE9uIEZyaSwgMjAxNi0wNC0wMSBhdCAxNToyMyArMDEwMCwgU3Rl
+ZmFuIEhham5vY3ppIHdyb3RlOgo+ID4gPiA+IAo+ID4gPiA+IFRoaXMgc2VyaWVzIGlzIGJhc2Vk
+IG9uIE1pY2hhZWwgVHNpcmtpbidzIHZob3N0IGJyYW5jaCAodjQuNS1yYzYpLgo+ID4gPiA+IAo+
+ID4gPiA+IEknbSBhYm91dCB0byBwcm9jZXNzIENsYXVkaW8gSW1icmVuZGEncyBsb2NraW5nIGZp
+eGVzIGZvciB2aXJ0aW8tdnNvY2sgYnV0Cj4gPiA+ID4gZmlyc3QgSSB3YW50IHRvIHNoYXJlIHRo
+ZSBsYXRlc3QgdmVyc2lvbiBvZiB0aGUgY29kZS7CoMKgU2V2ZXJhbCBwZW9wbGUgYXJlCj4gPiA+
+ID4gcGxheWluZyB3aXRoIHZzb2NrIG5vdyBzbyBzaGFyaW5nIHRoZSBsYXRlc3QgY29kZSBzaG91
+bGQgYXZvaWQgZHVwbGljYXRlIHdvcmsuCj4gPiA+IFRoYW5rcyBmb3IgdGhpcywgSSd2ZSBiZWVu
+IHVzaW5nIGl0IGluIG15IHByb2plY3QgYW5kIGl0IG1vc3RseSBzZWVtcwo+ID4gPiBmaW5lLgo+
+ID4gPiAKPiA+ID4gT25lIHdyaW5rbGUgSSBjYW1lIGFjcm9zcywgd2hpY2ggSSdtIG5vdCBzdXJl
+IGlmIGl0IGlzIGJ5IGRlc2lnbiBvciBhCj4gPiA+IHByb2JsZW0gaXMgdGhhdCBJIGNhbiBzZWUg
+dGhpcyBzZXF1ZW5jZSBjb21pbmcgZnJvbSB0aGUgZ3Vlc3QgKHdpdGgKPiA+ID4gb3RoZXIgYWN0
+aXZpdHkgaW4gYmV0d2Vlbik6Cj4gPiA+IAo+ID4gPiDCoCDCoCAxKSBPUF9TSFVURE9XTiB3LyBm
+bGFncyA9PSBTSFVURE9XTl9SWAo+ID4gPiDCoMKgwqDCoDIpIE9QX1NIVVRET1dOIHcvIGZsYWdz
+ID09IFNIVVRET1dOX1RYCj4gPiA+IMKgwqDCoMKgMykgT1BfU0hVVERPV04gdy8gZmxhZ3MgPT0g
+U0hVVERPV05fVFh8U0hVVERPV05fUlgKPiA+ID4gCj4gPiA+IEkgb3JpZ25hbGx5IGhhZCBteSBi
+YWNrZW5kIGNsb3NlIHRoaW5ncyBkb3duIGF0ICMyLCBob3dldmVyIHRoaXMgbWVhbnQKPiA+ID4g
+dGhhdCB3aGVuICMzIGFycml2ZWQgaXQgd2FzIGZvciBhIG5vbi1leGlzdGVudCBzb2NrZXQgKG9y
+LCB3b3JzZSwgYW4KPiA+ID4gYWN0aXZlIG9uZSBpZiB0aGUgcG9ydHMgZ290IHJldXNlZCkuIEkg
+Y2hlY2tlZCB2NSBvZiB0aGUgc3BlYwo+ID4gPiBwcm9wb3NhbFswXSB3aGljaCBzYXlzOgo+ID4g
+PiDCoMKgwqDCoElmIHRoZXNlIGJpdHMgYXJlIHNldCBhbmQgdGhlcmUgYXJlIG5vIG1vcmUgdmly
+dHF1ZXVlIGJ1ZmZlcnMKPiA+ID4gwqDCoMKgwqBwZW5kaW5nIHRoZSBzb2NrZXQgaXMgZGlzY29u
+bmVjdGVkLgo+ID4gPiAKPiA+ID4gYnV0IEknbSBub3QgZW50aXJlbHkgc3VyZSBpZiB0aGlzIGJl
+aGF2aW91ciBjb250cmFkaWN0cyB0aGlzIG9yIG5vdAo+ID4gPiAodGhlIGJpdHMgaGF2ZSBib3Ro
+IGJlZW4gc2V0IGF0ICMyLCBidXQgbm90IGF0IHRoZSBzYW1lIHRpbWUpLgo+ID4gPiAKPiA+ID4g
+QlRXLCBob3cgZG9lcyBvbmUgdGVsbCBpZiB0aGVyZSBhcmUgbm8gbW9yZSB2aXJ0cXVldWUgYnVm
+ZmVycyBwZW5kaW5nCj4gPiA+IG9yIG5vdCB3aGlsZSBwcm9jZXNzaW5nIHRoZSBvcD8KPiA+ICMy
+IGlzIG9kZC7CoMKgVGhlIHNodXRkb3duIGJpdHMgYXJlIHN0aWNreSBzbyB0aGV5IGNhbm5vdCBi
+ZSBjbGVhcmVkIG9uY2UKPiA+IHNldC7CoMKgSSB3b3VsZCBoYXZlIGV4cGVjdGVkIGp1c3QgIzEg
+YW5kICMzLsKgwqBUaGUgYmVoYXZpb3IgeW91IG9ic2VydmUKPiA+IGxvb2sgbGlrZSBhIGJ1Zy4K
+PiA+IAo+ID4gVGhlIHNwZWMgdGV4dCBkb2VzIG5vdCBjb252ZXkgdGhlIG1lYW5pbmcgb2YgT1Bf
+U0hVVERPV04gd2VsbC4KPiA+IE9QX1NIVVRET1dOIFNIVVRET1dOX1RYfFNIVVRET1dOX1JYIG1l
+YW5zIG5vIGZ1cnRoZXIgcngvdHggaXMgcG9zc2libGUKPiA+IGZvciB0aGlzIGNvbm5lY3Rpb24u
+wqDCoCJ0aGVyZSBhcmUgbm8gbW9yZSB2aXJ0cXVldWUgYnVmZmVycyBwZW5kaW5nIHRoZQo+ID4g
+c29ja2V0IiByZWFsbHkgbWVhbnMgdGhhdCB0aGlzIGlzbid0IGFuIGltbWVkaWF0ZSBjbG9zZSBm
+cm9tIHRoZQo+ID4gcGVyc3BlY3RpdmUgb2YgdGhlIGFwcGxpY2F0aW9uLsKgwqBJZiB0aGUgYXBw
+bGljYXRpb24gc3RpbGwgaGFzIHVucmVhZCByeAo+ID4gYnVmZmVycyB0aGVuIHRoZSBzb2NrZXQg
+c3RheXMgcmVhZGFibGUgdW50aWwgdGhlIHJ4IGRhdGEgaGFzIGJlZW4gZnVsbHkKPiA+IHJlYWQu
+CgpUaGFua3MsIGRpc3Rpbmd1aXNoaW5nIHRoZSBsb2NhbCBidWZmZXIgdG8gdGhlIGFwcGxpY2F0
+aW9uIGZyb20gdGhlCnZyaW5nIHdvdWxkIG1ha2UgdGhhdCBjbGVhcmVyLiBQZXJoYXBzIGJ5IG5v
+dCB0YWxraW5nIGFib3V0ICJ2aXJ0cXVldWUKYnVmZmVycyIgc2luY2UgdGhleSBzb3VuZCBsaWtl
+IGEgdnJpbmcgdGhpbmcuCgpIb3dldmVyLCBhcyBNaWNoYWVsIG9ic2VydmVzIEknbSBub3Qgc3Vy
+ZSB0aGF0J3MgdGhlIHdob2xlIHN0b3J5LgoKPiBZZXMgYnV0IHlvdSBhbHNvIHdyb3RlOgo+IAlJ
+ZiB0aGVzZSBiaXRzIGFyZSBzZXQgYW5kIHRoZXJlIGFyZSBubyBtb3JlIHZpcnRxdWV1ZSBidWZm
+ZXJzCj4gCXBlbmRpbmcgdGhlIHNvY2tldCBpcyBkaXNjb25uZWN0ZWQuCj4gCj4gaG93IGRvZXMg
+cmVtb3RlIGtub3cgdGhhdCB0aGVyZSBhcmUgbm8gYnVmZmVycyBwZW5kaW5nIGFuZCBzbyBpdCdz
+IHNhZmUKPiB0byByZXVzZSB0aGUgc2FtZSBzb3VyY2UvZGVzdGluYXRpb24gYWRkcmVzcyBub3c/
+CgpJbmRlZWQgdGhpcyBpcyBvbmUgb2YgdGhlIHRoaW5ncyBJIHN0cnVnZ2xlZCB3aXRoLiBlLmcu
+IElmIEkgc2VuZCBhClNIVVRET1dOX1JYIHRvIG15IHBlZXIgYW0gSSBzdXBwb3NlZCB0byB3YWl0
+IGZvciB0aGF0IGJ1ZmZlciB0byBjb21lCmJhY2sgKHNvIEkga25vdyB0aGUgcGVlciBoYXMgc2Vl
+biBpdCkgYW5kIHRoZW4gd2FpdCBmb3IgYW4gZW50aXJlCiJjeWNsZSIgb2YgdGhlIFRYIHJpbmcg
+dG8ga25vdyB0aGVyZSBpcyBub3RoaW5nIHN0aWxsIGluIGZsaWdodD8gVGhhdCdzCnNvbWUgdHJp
+Y2t5IGJvb2sta2VlcGluZy4KCj4gwqDCoE1heWJlIGRlc3RpbmF0aW9uCj4gc2hvdWxkIHNlbmQg
+UlNUIGF0IHRoYXQgcG9pbnQ/CgppLmUuIHVwb24gcmVjZWlwdCBvZiBTSFVURE9XTl9SWHxTSFVU
+RE9XTl9UWCBmcm9tIHRoZSBwZWVyIHlvdSBhcmUKZXhwZWN0ZWQgdG8gc2VuZCBhIFJTVC4gV2hl
+biB0aGUgcGVlciBvYnNlcnZlcyB0aGF0IHRoZW4gdGhleSBrbm93CnRoZXJlIGlzIG5vIGZ1cnRo
+ZXIgZGF0YSBpbiB0aGF0IGNvbm5lY3Rpb24gb24gdGhlIHJpbmc/CgpUaGF0IHNvdW5kcyBsaWtl
+IGl0IHdvdWxkIGJlIGhlbHBmdWwuCgo+ID4gPiBBbm90aGVyIHRoaW5nIEkgbm90aWNlZCwgd2hp
+Y2ggaXMgcmVhbGx5IG1vcmUgdG8gZG8gd2l0aCB0aGUgZ2VuZXJpYwo+ID4gPiBBRl9WU09DSyBi
+aXRzIHRoYW4gYW55dGhpbmcgdG8gZG8gd2l0aCB5b3VyIHBhdGNoZXMgaXMgdGhhdCB0aGVyZSBp
+cyBubwo+ID4gPiBsaW1pdGF0aW9ucyBvbiB3aGljaCB2c29jayBwb3J0cyBhIG5vbi1wcml2aWxl
+Z2VkIHVzZXIgY2FuIGJpbmQgdG8gYW5kCj4gPiA+IHJlbGF0ZWRseSB0aGF0IHRoZXJlIGlzIG5v
+IG5ldG5zIHN1cHBvcnQgc28gZS5nLiB1c2VycyBpbiB1bnByb2l2aWxlZ2VkCj4gPiA+IGNvbnRh
+aW5lcnMgY2FuIGJpbmQgdG8gYW55IHZzb2NrIHBvcnQgYW5kIHRhbGsgdG8gdGhlIGhvc3QsIHdo
+aWNoIG1pZ2h0Cj4gPiA+IGJlIHVuZGVzaXJhYmxlLiBGb3IgbXkgdXNlIGZvciBub3cgSSBqdXN0
+IHdlbnQgd2l0aCB0aGUgYmlnIGhhbW1lcgo+ID4gPiBhcHByb2FjaCBvZiBkZW55aW5nIGFjY2Vz
+cyBmcm9tIGFueXRoaW5nIG90aGVyIHRoYW4gaW5pdF9uZXQKPiA+ID4gbmFtZXNwYWNlWzFdIHdo
+aWxlIEkgY29uc2lkZXIgd2hhdCB0aGUgcmlnaHQgYW5zd2VyIGlzLgo+ID4gRnJvbSB0aGUgdmhv
+c3QgcG9pbnQgb2YgdmlldyBlYWNoIG5ldG5zIHNob3VsZCBoYXZlIGl0cyBvd24gQUZfVlNPQ0sK
+PiA+IG5hbWVzcGFjZS7CoMKgVGhpcyB3YXkgdHdvIGNvbnRhaW5lcnMgY291bGQgYWN0IGFzICJ0
+aGUgaG9zdCIgKENJRCAyKSBmb3IKPiA+IHRoZWlyIHJlc3BlY3RpdmUgZ3Vlc3RzLgoKV2hlbiB5
+b3Ugc2F5ICJzaG91bGQiIHlvdSBtZWFuIHRoYXQncyB0aGUgaW50ZW5kZWQgZGVzaWduIGFzIG9w
+cG9zZWQgdG8Kd2hhdCB0aGUgY3VycmVudCBjb2RlIGlzIGFjdHVhbGx5IGRvaW5nLCByaWdodD8K
+Cklhbi4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmly
+dHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5k
+YXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL3ZpcnR1YWxpemF0aW9u
