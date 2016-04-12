@@ -1,176 +1,54 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 1/1] tipc: fix a race condition leading to subscriber refcnt bug
-Date: Tue, 12 Apr 2016 13:05:21 +0200
-Message-ID: <1460459121-2403-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Fridolin Pokorny <fpokorny@redhat.com>
+Subject: Re: [PATCH 0/3] crypto: af_alg - add TLS type encryption
+Date: Tue, 12 Apr 2016 13:13:22 +0200
+Message-ID: <570CD852.7060003@redhat.com>
+References: <20160306012044.6369.63924.stgit@tstruk-mobl1>
+ <20160405112940.GB11852@gondor.apana.org.au> <57054DBC.8010507@intel.com>
+ <20160408025250.GA7596@gondor.apana.org.au>
+ <CALx6S37m_ayZJ4nth0SPNr2Km2+uBZUCtK4iqPKHTARv2eB4aA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:56535 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675AbcDLLFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 07:05:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-crypto@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	davejwatson@fb.com, nmav@gnutls.org, fridolin.pokorny@gmail.com
+To: Tadeusz Struk <tadeusz.struk@intel.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALx6S37m_ayZJ4nth0SPNr2Km2+uBZUCtK4iqPKHTARv2eB4aA@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Until now, the requests sent to topology server are queued
-to a workqueue by the generic server framework.
-These messages are processed by worker threads and trigger the
-registered callbacks.
-To reduce latency on uniprocessor systems, explicit rescheduling
-is performed using cond_resched() after MAX_RECV_MSG_COUNT(25)
-messages.
 
-This implementation on SMP systems leads to an subscriber refcnt
-error as described below:
-When a worker thread yields by calling cond_resched() in a SMP
-system, a new worker is created on another CPU to process the
-pending workitem. Sometimes the sleeping thread wakes up before
-the new thread finishes execution.
-This breaks the assumption on ordering and being single threaded.
-The fault is more frequent when MAX_RECV_MSG_COUNT is lowered.
 
-If the first thread was processing subscription create and the
-second thread processing close(), the close request will free
-the subscriber and the create request oops as follows:
+On 08.04.2016 04:58, Tom Herbert wrote:
+> On Thu, Apr 7, 2016 at 11:52 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>> On Wed, Apr 06, 2016 at 10:56:12AM -0700, Tadeusz Struk wrote:
+>>>
+>>> The intend is to enable HW acceleration of the TLS protocol.
+>>> The way it will work is that the user space will send a packet of data
+>>> via AF_ALG and HW will authenticate and encrypt it in one go.
+>>
+>> There have been suggestions to implement TLS data-path within
+>> the kernel.  So we should decide whether we pursue that or go
+>> with your approach before we start adding algorithms.
+>>
+> Yes, please see Dave Watson's patches on this.
+> 
 
-[31.224137] WARNING: CPU: 2 PID: 266 at include/linux/kref.h:46 tipc_subscrb_rcv_cb+0x317/0x380         [tipc]
-[31.228143] CPU: 2 PID: 266 Comm: kworker/u8:1 Not tainted 4.5.0+ #97
-[31.228377] Workqueue: tipc_rcv tipc_recv_work [tipc]
-[...]
-[31.228377] Call Trace:
-[31.228377]  [<ffffffff812fbb6b>] dump_stack+0x4d/0x72
-[31.228377]  [<ffffffff8105a311>] __warn+0xd1/0xf0
-[31.228377]  [<ffffffff8105a3fd>] warn_slowpath_null+0x1d/0x20
-[31.228377]  [<ffffffffa0098067>] tipc_subscrb_rcv_cb+0x317/0x380 [tipc]
-[31.228377]  [<ffffffffa00a4984>] tipc_receive_from_sock+0xd4/0x130 [tipc]
-[31.228377]  [<ffffffffa00a439b>] tipc_recv_work+0x2b/0x50 [tipc]
-[31.228377]  [<ffffffff81071925>] process_one_work+0x145/0x3d0
-[31.246554] ---[ end trace c3882c9baa05a4fd ]---
-[31.248327] BUG: spinlock bad magic on CPU#2, kworker/u8:1/266
-[31.249119] BUG: unable to handle kernel NULL pointer dereference at 0000000000000428
-[31.249323] IP: [<ffffffff81099d0c>] spin_dump+0x5c/0xe0
-[31.249323] PGD 0
-[31.249323] Oops: 0000 [#1] SMP
 
-In this commit, we
-- rename tipc_conn_shutdown() to tipc_conn_release().
-- move connection release callback execution from tipc_close_conn()
-  to a new function tipc_sock_release(), which is executed before
-  we free the connection.
-Thus we release the subscriber during connection release procedure
-rather than connection shutdown procedure.
+Hi Tadeusz,
 
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/server.c | 19 +++++++++++++------
- net/tipc/server.h |  4 ++--
- net/tipc/subscr.c |  4 ++--
- 3 files changed, 17 insertions(+), 10 deletions(-)
+we were experimenting with this. We have a prove of concept of a kernel
+TLS type socket, so called AF_KTLS, which is based on Dave Watson's
+RFC5288 patch. It handles both TLS and DTLS, unfortunately it is not
+ready now to be proposed here. There are still issues which should be
+solved (but mostly user space API design) [1]. If you are interested, we
+could combine efforts.
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 2446bfbaa309..7a0af2dc0406 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -86,6 +86,7 @@ struct outqueue_entry {
- static void tipc_recv_work(struct work_struct *work);
- static void tipc_send_work(struct work_struct *work);
- static void tipc_clean_outqueues(struct tipc_conn *con);
-+static void tipc_sock_release(struct tipc_conn *con);
- 
- static void tipc_conn_kref_release(struct kref *kref)
- {
-@@ -102,6 +103,7 @@ static void tipc_conn_kref_release(struct kref *kref)
- 		}
- 		saddr->scope = -TIPC_NODE_SCOPE;
- 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
-+		tipc_sock_release(con);
- 		sock_release(sock);
- 		con->sock = NULL;
- 	}
-@@ -184,26 +186,31 @@ static void tipc_unregister_callbacks(struct tipc_conn *con)
- 	write_unlock_bh(&sk->sk_callback_lock);
- }
- 
-+static void tipc_sock_release(struct tipc_conn *con)
-+{
-+	struct tipc_server *s = con->server;
-+
-+	if (con->conid)
-+		s->tipc_conn_release(con->conid, con->usr_data);
-+
-+	tipc_unregister_callbacks(con);
-+}
-+
- static void tipc_close_conn(struct tipc_conn *con)
- {
- 	struct tipc_server *s = con->server;
- 
- 	if (test_and_clear_bit(CF_CONNECTED, &con->flags)) {
--		if (con->conid)
--			s->tipc_conn_shutdown(con->conid, con->usr_data);
- 
- 		spin_lock_bh(&s->idr_lock);
- 		idr_remove(&s->conn_idr, con->conid);
- 		s->idr_in_use--;
- 		spin_unlock_bh(&s->idr_lock);
- 
--		tipc_unregister_callbacks(con);
--
- 		/* We shouldn't flush pending works as we may be in the
- 		 * thread. In fact the races with pending rx/tx work structs
- 		 * are harmless for us here as we have already deleted this
--		 * connection from server connection list and set
--		 * sk->sk_user_data to 0 before releasing connection object.
-+		 * connection from server connection list.
- 		 */
- 		kernel_sock_shutdown(con->sock, SHUT_RDWR);
- 
-diff --git a/net/tipc/server.h b/net/tipc/server.h
-index 9015faedb1b0..34f8055afa3b 100644
---- a/net/tipc/server.h
-+++ b/net/tipc/server.h
-@@ -53,7 +53,7 @@
-  * @send_wq: send workqueue
-  * @max_rcvbuf_size: maximum permitted receive message length
-  * @tipc_conn_new: callback will be called when new connection is incoming
-- * @tipc_conn_shutdown: callback will be called when connection is shut down
-+ * @tipc_conn_release: callback will be called before releasing the connection
-  * @tipc_conn_recvmsg: callback will be called when message arrives
-  * @saddr: TIPC server address
-  * @name: server name
-@@ -70,7 +70,7 @@ struct tipc_server {
- 	struct workqueue_struct *send_wq;
- 	int max_rcvbuf_size;
- 	void *(*tipc_conn_new)(int conid);
--	void (*tipc_conn_shutdown)(int conid, void *usr_data);
-+	void (*tipc_conn_release)(int conid, void *usr_data);
- 	void (*tipc_conn_recvmsg)(struct net *net, int conid,
- 				  struct sockaddr_tipc *addr, void *usr_data,
- 				  void *buf, size_t len);
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index e6cb386fbf34..79de588c7bd6 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -302,7 +302,7 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
- }
- 
- /* Handle one termination request for the subscriber */
--static void tipc_subscrb_shutdown_cb(int conid, void *usr_data)
-+static void tipc_subscrb_release_cb(int conid, void *usr_data)
- {
- 	tipc_subscrb_delete((struct tipc_subscriber *)usr_data);
- }
-@@ -365,7 +365,7 @@ int tipc_topsrv_start(struct net *net)
- 	topsrv->max_rcvbuf_size		= sizeof(struct tipc_subscr);
- 	topsrv->tipc_conn_recvmsg	= tipc_subscrb_rcv_cb;
- 	topsrv->tipc_conn_new		= tipc_subscrb_connect_cb;
--	topsrv->tipc_conn_shutdown	= tipc_subscrb_shutdown_cb;
-+	topsrv->tipc_conn_release	= tipc_subscrb_release_cb;
- 
- 	strncpy(topsrv->name, name, strlen(name) + 1);
- 	tn->topsrv = topsrv;
--- 
-2.1.4
+Regards,
+Fridolin Pokorny
+
+[1] https://github.com/fridex/af_ktls
