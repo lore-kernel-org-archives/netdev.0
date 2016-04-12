@@ -1,56 +1,83 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
-Date: Tue, 12 Apr 2016 12:13:12 +0300
-Message-ID: <CAJ3xEMiu3o=yMABh1N7w8mDV4yddE1zk5FYoHHHB02tDhOqzHw@mail.gmail.com>
-References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
-	<1460405422-8654-3-git-send-email-saeedm@mellanox.com>
-	<CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
-	<CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
-	<CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
-	<20160412051537.GD25242@leon.nu>
-	<CAJ3xEMijYrLvSmbNZp0B6AXqKGozz1rdZ58SCUP_09zOB6-2gQ@mail.gmail.com>
-	<20160412060117.GA24649@leon.nu>
-	<CALzJLG8fXPLQ7tj2Nc7NbGpu4EuNoXTE+w8tDkwQ2F_AqgDtLA@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
+Date: Tue, 12 Apr 2016 11:22:10 +0200
+Message-ID: <570CBE42.50309@atmel.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
+ <20160411022802.GB4307@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Leon Romanovsky <leon@leon.nu>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Doug Ledford <dledford@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Tal Alon <talal@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:38620 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756518AbcDLJNN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 05:13:13 -0400
-In-Reply-To: <CALzJLG8fXPLQ7tj2Nc7NbGpu4EuNoXTE+w8tDkwQ2F_AqgDtLA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160411022802.GB4307@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 12, 2016 at 10:40 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
+Le 11/04/2016 04:28, Andrew Lunn a =E9crit :
+> On Sat, Apr 09, 2016 at 01:25:03AM +0300, Sergei Shtylyov wrote:
+>> With  the 'phylib' now  being aware of  the "reset-gpios" PHY node p=
+roperty,
+>> there should be no need to frob the PHY reset in this  driver anymor=
+e...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>>
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c |   17 -----------------
+>>  drivers/net/ethernet/cadence/macb.h |    1 -
+>>  2 files changed, 18 deletions(-)
+>>
+>> Index: net-next/drivers/net/ethernet/cadence/macb.c
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> --- net-next.orig/drivers/net/ethernet/cadence/macb.c
+>> +++ net-next/drivers/net/ethernet/cadence/macb.c
+>> @@ -2884,7 +2884,6 @@ static int macb_probe(struct platform_de
+>>  					      =3D macb_clk_init;
+>>  	int (*init)(struct platform_device *) =3D macb_init;
+>>  	struct device_node *np =3D pdev->dev.of_node;
+>> -	struct device_node *phy_node;
+>>  	const struct macb_config *macb_config =3D NULL;
+>>  	struct clk *pclk, *hclk =3D NULL, *tx_clk =3D NULL;
+>>  	unsigned int queue_mask, num_queues;
+>> @@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
+>>  	else
+>>  		macb_get_hwaddr(bp);
+>> =20
+>> -	/* Power up the PHY if there is a GPIO reset */
+>> -	phy_node =3D  of_get_next_available_child(np, NULL);
+>> -	if (phy_node) {
+>> -		int gpio =3D of_get_named_gpio(phy_node, "reset-gpios", 0);
+>> -
+>> -		if (gpio_is_valid(gpio)) {
+>> -			bp->reset_gpio =3D gpio_to_desc(gpio);
+>> -			gpiod_direction_output(bp->reset_gpio, 1);
+>=20
+> Hi Sergei
+>=20
+> The code you are deleting would of ignored the flags in the gpio
 
-> Why would you break down this patch to many when no matter what you
-> do, at the end it would look the same ?
-> As Leon mentioned we MLNX maintainers prefer to update this file at
-> once when possible.
+I don't parse this.
 
-See my response to Leon. It happened to me many times in code review
-that people gave
-me patches that open X fields in the IFC file and their code used Y <<
-X fields. I don't
-want the IFC file to have even one unused field, and I think the
-correct way to do that
-is have both the IFC file and the driver changes in the same series. I
-understand the trend
-to have zero-conflicts, lets try that. Did you make sure all exposed
-IFC fields are used?
+The code deleted does take the flag into account. And the DT property
+associated to it seems correct to me (I mean, with proper flag
+specification).
 
-Or.
+> property, i.e. active low. The new code in the previous patch does
+> however take the flags into account. Did you check if there are any
+> device trees which have flags, which were never used, but are now
+> going to be used and thus break...
+
+=46lag was used and you are saying that it's taken into account in new
+code... So, what's the issue?
+
+I see a difference in the way the "value" of gpiod_* functions is used.
+There may be a misunderstanding here...
+
+Bye,
+--=20
+Nicolas Ferre
