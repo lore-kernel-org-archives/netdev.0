@@ -1,77 +1,100 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable] cdc_mbim: apply "NDP to end" quirk to all Huawei devices
-Date: Tue, 12 Apr 2016 16:11:12 +0200
-Message-ID: <1460470272-9289-1-git-send-email-bjorn@mork.no>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH RFT 2/2] macb: kill PHY reset code
+Date: Tue, 12 Apr 2016 16:45:27 +0200
+Message-ID: <570D0A07.2030104@atmel.com>
+References: <81129033.NXiOLTg1so@wasted.cogentembedded.com>
+ <2811962.eGX2i5RJbZ@wasted.cogentembedded.com>
+ <20160411022802.GB4307@lunn.ch> <570CBE42.50309@atmel.com>
+ <20160412134001.GB29895@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>,
-	Andrei Burd <burdandrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Gregory CLEMENT <gregory.clement@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160412134001.GB29895@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We now have a positive report of another Huawei device needing
-this quirk: The ME906s-158 (12d1:15c1).  This is an m.2 form
-factor modem with no obvious relationship to the E3372 (12d1:157d)
-we already have a quirk entry for.  This is reason enough to
-believe the quirk might be necessary for any number of current
-and future Huawei devices.
+Le 12/04/2016 15:40, Andrew Lunn a =E9crit :
+> On Tue, Apr 12, 2016 at 11:22:10AM +0200, Nicolas Ferre wrote:
+>> Le 11/04/2016 04:28, Andrew Lunn a =E9crit :
+>>> On Sat, Apr 09, 2016 at 01:25:03AM +0300, Sergei Shtylyov wrote:
+>>>> With  the 'phylib' now  being aware of  the "reset-gpios" PHY node=
+ property,
+>>>> there should be no need to frob the PHY reset in this  driver anym=
+ore...
+>>>>
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com=
+>
+>>>>
+>>>> ---
+>>>>  drivers/net/ethernet/cadence/macb.c |   17 -----------------
+>>>>  drivers/net/ethernet/cadence/macb.h |    1 -
+>>>>  2 files changed, 18 deletions(-)
+>>>>
+>>>> Index: net-next/drivers/net/ethernet/cadence/macb.c
+>>>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>>> --- net-next.orig/drivers/net/ethernet/cadence/macb.c
+>>>> +++ net-next/drivers/net/ethernet/cadence/macb.c
+>>>> @@ -2884,7 +2884,6 @@ static int macb_probe(struct platform_de
+>>>>  					      =3D macb_clk_init;
+>>>>  	int (*init)(struct platform_device *) =3D macb_init;
+>>>>  	struct device_node *np =3D pdev->dev.of_node;
+>>>> -	struct device_node *phy_node;
+>>>>  	const struct macb_config *macb_config =3D NULL;
+>>>>  	struct clk *pclk, *hclk =3D NULL, *tx_clk =3D NULL;
+>>>>  	unsigned int queue_mask, num_queues;
+>>>> @@ -2977,18 +2976,6 @@ static int macb_probe(struct platform_de
+>>>>  	else
+>>>>  		macb_get_hwaddr(bp);
+>>>> =20
+>>>> -	/* Power up the PHY if there is a GPIO reset */
+>>>> -	phy_node =3D  of_get_next_available_child(np, NULL);
+>>>> -	if (phy_node) {
+>>>> -		int gpio =3D of_get_named_gpio(phy_node, "reset-gpios", 0);
+>>>> -
+>>>> -		if (gpio_is_valid(gpio)) {
+>>>> -			bp->reset_gpio =3D gpio_to_desc(gpio);
+>>>> -			gpiod_direction_output(bp->reset_gpio, 1);
+>>>
+>>> Hi Sergei
+>>>
+>>> The code you are deleting would of ignored the flags in the gpio
+>> I don't parse this.
+>>
+>> The code deleted does take the flag into account. And the DT propert=
+y
+>> associated to it seems correct to me (I mean, with proper flag
+>> specification).
+>=20
+> Hi Nicolas
+> =20
+> of_get_named_gpio() does not do anything with the flags. So for
+> example,
+>=20
+> 			gpios =3D <&gpio0 12 GPIO_ACTIVE_LOW>;
+>=20
+> the GPIO_ACTIVE_LOW would be ignored. If you want the flags to be
+> respected, you need to use the gpiod API for all calls, in particular=
+,
+> you need to use something which calls gpiod_get_index(), since that i=
+s
+> the only function to call gpiod_parse_flags() to translate
+> GPIO_ACTIVE_LOW into a flag within the gpio descriptor.
 
-Applying the quirk to all Huawei devices, since it is crucial
-to any device affected by the firmware bug, while the impact
-on non-affected devices is negligible.
+Ok, I remember what confused me now: this code, used to be something ar=
+ound:
+devm_gpiod_get_optional(&bp->pdev->dev, "phy-reset", GPIOD_OUT_HIGH);
+before it has been changed to the chunk above... So, yes, the DT flag
+was not handled anyway...
 
-The quirk can if necessary be disabled per-device by writing
-N to /sys/class/net/<iface>/cdc_ncm/ndp_to_end
+Sorry for the noise and thanks for the clarification.
 
-Reported-by: Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
-I'm requesting this for stable, but it depends on commit
-
-  f8c0cfa5eca9 ("net: cdc_mbim: add "NDP to end" quirk for Huawei E3372=
-")
-
-so it is only applicable to v4.3 (where the dependency is
-backported), v4.4 and v4.5
-
-
-Bj=C3=B8rn
-
- drivers/net/usb/cdc_mbim.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index bdd83d95ec0a..96a5028621c8 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -617,8 +617,13 @@ static const struct usb_device_id mbim_devs[] =3D =
-{
- 	{ USB_VENDOR_AND_INTERFACE_INFO(0x0bdb, USB_CLASS_COMM, USB_CDC_SUBCL=
-ASS_MBIM, USB_CDC_PROTO_NONE),
- 	  .driver_info =3D (unsigned long)&cdc_mbim_info,
- 	},
--	/* Huawei E3372 fails unless NDP comes after the IP packets */
--	{ USB_DEVICE_AND_INTERFACE_INFO(0x12d1, 0x157d, USB_CLASS_COMM, USB_C=
-DC_SUBCLASS_MBIM, USB_CDC_PROTO_NONE),
-+
-+	/* Some Huawei devices, ME906s-158 (12d1:15c1) and E3372
-+	 * (12d1:157d), are known to fail unless the NDP is placed
-+	 * after the IP packets.  Applying the quirk to all Huawei
-+	 * devices is broader than necessary, but harmless.
-+	 */
-+	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, USB_CLASS_COMM, USB_CDC_SUBCL=
-ASS_MBIM, USB_CDC_PROTO_NONE),
- 	  .driver_info =3D (unsigned long)&cdc_mbim_info_ndp_to_end,
- 	},
- 	/* default entry */
+Bye,
 --=20
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nicolas Ferre
