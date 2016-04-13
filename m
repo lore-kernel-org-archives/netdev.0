@@ -1,143 +1,530 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Wed, 13 Apr 2016 13:57:08 +0200
-Message-ID: <1460548628.9170.12.camel@redhat.com>
-References: <cover.1459934322.git.pabeni@redhat.com>
-	 <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
-	 <20160406234532.GA731@breakpoint.cc> <2239567.jkCk1gtQAE@sifl>
-	 <1460451162.5965.16.camel@redhat.com> <570CFEBA.7090001@schaufler-ca.com>
+From: Peter Heise <mail@pheise.de>
+Subject: [PATCH net-next] net/hsr: Added support for HSR v1
+Date: Wed, 13 Apr 2016 13:52:22 +0200
+Message-ID: <20160413115222.GA42572@aircraft-controller>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>, Florian Westphal <fw@strlen.de>,
-	linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Casey Schaufler <casey@schaufler-ca.com>
+Content-Type: text/plain; charset=us-ascii
+To: arvid.brodin@alten.se, davem@davemloft.net,
+	hannes@stressinduktion.org, sd@queasysnail.net, henrik@austad.us,
+	nikolay@cumulusnetworks.com, tgraf@suug.ch, linville@tuxdriver.com,
+	gospo@cumulusnetworks.com, dsa@cumulusnetworks.com,
+	eranbe@mellanox.com, ast@plumgrid.com, netdev@vger.kernel.org,
+	peter.heise@airbus.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54356 "EHLO mx1.redhat.com"
+Received: from pheise.de ([81.88.24.24]:52902 "EHLO ghost.pheise.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751610AbcDML5N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 07:57:13 -0400
-In-Reply-To: <570CFEBA.7090001@schaufler-ca.com>
+	id S1750868AbcDML61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 07:58:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-12 at 06:57 -0700, Casey Schaufler wrote:
-> On 4/12/2016 1:52 AM, Paolo Abeni wrote:
-> > On Thu, 2016-04-07 at 14:55 -0400, Paul Moore wrote:
-> >> On Thursday, April 07, 2016 01:45:32 AM Florian Westphal wrote:
-> >>> Paul Moore <paul@paul-moore.com> wrote:
-> >>>> On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
-> >>>>> netfilter hooks are per namespace -- so there is hook unregister when
-> >>>>> netns is destroyed.
-> >>>> Looking around, I see the global and per-namespace registration
-> >>>> functions (nf_register_hook and nf_register_net_hook, respectively),
-> >>>> but I'm looking to see if/how newly created namespace inherit
-> >>>> netfilter hooks from the init network namespace ... if you can create
-> >>>> a network namespace and dodge the SELinux hooks, that isn't a good
-> >>>> thing from a SELinux point of view, although it might be a plus
-> >>>> depending on where you view Paolo's original patches ;)
-> >>> Heh :-)
-> >>>
-> >>> If you use nf_register_net_hook, the hook is only registered in the
-> >>> namespace.
-> >>>
-> >>> If you use nf_register_hook, the hook is put on a global list and
-> >>> registed in all existing namespaces.
-> >>>
-> >>> New namespaces will have the hook added as well (see
-> >>> netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
-> >>>
-> >>> Since nf_register_hook is used it should be impossible to get a netns
-> >>> that doesn't call these hooks.
-> >> Great, thanks.
-> >>  
-> >>>>> Do you think it makes sense to rework the patch to delay registering
-> >>>>> of the netfiler hooks until the system is in a state where they're
-> >>>>> needed, without the 'unregister' aspect?
-> >>>> I would need to see the patch to say for certain, but in principle
-> >>>> that seems perfectly reasonable and I think would satisfy both the
-> >>>> netdev and SELinux camps - good suggestion.  My main goal is to drop
-> >>>> the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
-> >>>>
-> >>>> We might even be able to trim the secmark_active and peerlbl_active
-> >>>> checks in the SELinux netfilter hooks (an earlier attempt at
-> >>>> optimization; contrary to popular belief, I do care about SELinux
-> >>>> performance), although that would mean that enabling the network
-> >>>> access controls would be one way ... I guess you can disregard that
-> >>>> last bit, I'm thinking aloud again.
-> >>> One way is fine I think.
-> >> Yes, just disregard my second paragraph above.
-> >>  
-> >>>>> Ideally this would even be per netns -- in perfect world we would
-> >>>>> be able to make it so that a new netns are created with an empty
-> >>>>> hook list.
-> >>>> In general SELinux doesn't care about namespaces, for reasons that are
-> >>>> sorta beyond the scope of this conversation, so I would like to stick
-> >>>> to a all or nothing approach to enabling the SELinux netfilter hooks
-> >>>> across namespaces.  Perhaps we can revisit this at a later time, but
-> >>>> let's keep it simple right now.
-> >>> Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
-> >>> (Casey, I read your comment regarding smack. Noted, we don't want to
-> >>> break smack either...)
-> >>>
-> >>> I think that in this case the entire question is:
-> >>>
-> >>> In your experience, how likely is a config where selinux is enabled BUT the
-> >>> hooks are not needed (i.e., where we hit the
-> >>>
-> >>> if (!selinux_policycap_netpeer)
-> >>>     return NF_ACCEPT;
-> >>>
-> >>> if (!secmark_active && !peerlbl_active)
-> >>>    return NF_ACCEPT;
-> >>>
-> >>> tests inside the hooks)?  If such setups are uncommon we should just
-> >>> drop this idea or at least put it on the back burner until the more
-> >>> expensive netfilter hooks (conntrack, cough) are out of the way.
-> >> A few years ago I would have said that it is relatively uncommon for admins to 
-> >> enable the SELinux network access controls; it was typically just 
-> >> government/intelligence agencies who had very strict access control 
-> >> requirements and represented a small portion of SELinux users.  However, over 
-> >> the past few years I've been fielding more and more questions from admins/devs 
-> >> in the virtualization space who are interested in some of these capabilities; 
-> >> it isn't clear to me how many of these people are switching it on, but there 
-> >> is definitely more interest than I have seen in the past and the interested is 
-> >> centered around some rather common use cases.
-> >>
-> >> So, to summarize, I don't know ;)
-> >>
-> >> If you've got bigger sources of overhead, my opinion would be to go tackle 
-> >> those first.  Perhaps I can even find the time to work on the 
-> >> SELinux/netfilter stuff while you are off slaying the bigger dragons, no 
-> >> promises at the moment.
-> > Double checking if I got the above correctly.
-> >
-> > Will be ok if we post a v2 version of this series, removing the hooks
-> > de-registration bits, but preserving the selinux nf-hooks and
-> > socket_sock_rcv_skb() on-demand/delayed registration ?
-> 
-> Imagine that I have two security modules that control sockets.
-> The work I'm knee deep in will allow this. If adding hooks after
-> the init phase is allowed you have to face the possibility that
-> blob sizes (in this case sock->sk_security) may change. That
-> requires checking on every hook that uses blobs to determine
-> whether the blob has data for all the modules using it. I know
-> that that is a simple matter of arithmetic, but it's additional
-> overhead on every hook call. It also makes creating kmem caches
-> for security blobs much more difficult. Another performance
-> optimization that becomes unavailable.
+This patch adds support for the newer version 1 of the HSR
+networking standard. Version 0 is still default and the new
+version has to be selected via iproute2.
 
-I got your point.
+Main changes are in the supervision frame handling and its
+ethertype field.
 
-Without seeing the code, I wonder if the above scenario could be covered
-always allocating a blob large enough for all concurrent security
-modules, i.e. each security module always declares/requests/allocates
-space into the blobs regardless of it does not have registered (yet)
-some security hooks, trading memory usage for performance.
+Signed-off-by: Peter Heise <peter.heise@airbus.com>
+---
+ include/uapi/linux/if_ether.h |  1 +
+ include/uapi/linux/if_link.h  |  1 +
+ net/hsr/Kconfig               |  5 +--
+ net/hsr/hsr_device.c          | 80 +++++++++++++++++++++++++------------------
+ net/hsr/hsr_device.h          |  2 +-
+ net/hsr/hsr_forward.c         | 43 +++++++++++++++++------
+ net/hsr/hsr_framereg.c        | 30 ++++++++++------
+ net/hsr/hsr_main.h            | 13 ++++++-
+ net/hsr/hsr_netlink.c         | 10 ++++--
+ net/hsr/hsr_slave.c           |  4 ++-
+ 10 files changed, 126 insertions(+), 63 deletions(-)
 
-Paolo
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 4a93051..cec849a 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -92,6 +92,7 @@
+ #define ETH_P_TDLS	0x890D          /* TDLS */
+ #define ETH_P_FIP	0x8914		/* FCoE Initialization Protocol */
+ #define ETH_P_80221	0x8917		/* IEEE 802.21 Media Independent Handover Protocol */
++#define ETH_P_HSR	0x892F		/* IEC 62439-3 HSRv1	*/
+ #define ETH_P_LOOPBACK	0x9000		/* Ethernet loopback packet, per IEEE 802.3 */
+ #define ETH_P_QINQ1	0x9100		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+ #define ETH_P_QINQ2	0x9200		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 9427f17..bb3a90b 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -773,6 +773,7 @@ enum {
+ 	IFLA_HSR_SLAVE1,
+ 	IFLA_HSR_SLAVE2,
+ 	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
++	IFLA_HSR_VERSION,		/* HSR version */
+ 	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
+ 	IFLA_HSR_SEQ_NR,
+ 	__IFLA_HSR_MAX,
+diff --git a/net/hsr/Kconfig b/net/hsr/Kconfig
+index 0d3d709..4b683fd 100644
+--- a/net/hsr/Kconfig
++++ b/net/hsr/Kconfig
+@@ -18,8 +18,9 @@ config HSR
+ 	  earlier.
+ 
+ 	  This code is a "best effort" to comply with the HSR standard as
+-	  described in IEC 62439-3:2010 (HSRv0), but no compliancy tests have
+-	  been made.
++	  described in IEC 62439-3:2010 (HSRv0) and IEC 62439-3:2012 (HSRv1),
++	  but no compliancy tests have been made. Use iproute2 to select
++	  the version you desire.
+ 
+ 	  You need to perform any and all necessary tests yourself before
+ 	  relying on this code in a safety critical system!
+diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+index c7d1adc..386cbce 100644
+--- a/net/hsr/hsr_device.c
++++ b/net/hsr/hsr_device.c
+@@ -90,7 +90,8 @@ static void hsr_check_announce(struct net_device *hsr_dev,
+ 
+ 	hsr = netdev_priv(hsr_dev);
+ 
+-	if ((hsr_dev->operstate == IF_OPER_UP) && (old_operstate != IF_OPER_UP)) {
++	if ((hsr_dev->operstate == IF_OPER_UP)
++			&& (old_operstate != IF_OPER_UP)) {
+ 		/* Went up */
+ 		hsr->announce_count = 0;
+ 		hsr->announce_timer.expires = jiffies +
+@@ -250,31 +251,22 @@ static const struct header_ops hsr_header_ops = {
+ 	.parse	 = eth_header_parse,
+ };
+ 
+-
+-/* HSR:2010 supervision frames should be padded so that the whole frame,
+- * including headers and FCS, is 64 bytes (without VLAN).
+- */
+-static int hsr_pad(int size)
+-{
+-	const int min_size = ETH_ZLEN - HSR_HLEN - ETH_HLEN;
+-
+-	if (size >= min_size)
+-		return size;
+-	return min_size;
+-}
+-
+-static void send_hsr_supervision_frame(struct hsr_port *master, u8 type)
++static void send_hsr_supervision_frame(struct hsr_port *master,
++		u8 type, u8 hsrVer)
+ {
+ 	struct sk_buff *skb;
+ 	int hlen, tlen;
++	struct hsr_tag *hsr_tag;
+ 	struct hsr_sup_tag *hsr_stag;
+ 	struct hsr_sup_payload *hsr_sp;
+ 	unsigned long irqflags;
+ 
+ 	hlen = LL_RESERVED_SPACE(master->dev);
+ 	tlen = master->dev->needed_tailroom;
+-	skb = alloc_skb(hsr_pad(sizeof(struct hsr_sup_payload)) + hlen + tlen,
+-			GFP_ATOMIC);
++	skb = dev_alloc_skb(
++			sizeof(struct hsr_tag) +
++			sizeof(struct hsr_sup_tag) +
++			sizeof(struct hsr_sup_payload) + hlen + tlen);
+ 
+ 	if (skb == NULL)
+ 		return;
+@@ -282,32 +274,48 @@ static void send_hsr_supervision_frame(struct hsr_port *master, u8 type)
+ 	skb_reserve(skb, hlen);
+ 
+ 	skb->dev = master->dev;
+-	skb->protocol = htons(ETH_P_PRP);
++	skb->protocol = htons(hsrVer ? ETH_P_HSR : ETH_P_PRP);
+ 	skb->priority = TC_PRIO_CONTROL;
+ 
+-	if (dev_hard_header(skb, skb->dev, ETH_P_PRP,
++	if (dev_hard_header(skb, skb->dev, (hsrVer ? ETH_P_HSR : ETH_P_PRP),
+ 			    master->hsr->sup_multicast_addr,
+ 			    skb->dev->dev_addr, skb->len) <= 0)
+ 		goto out;
+ 	skb_reset_mac_header(skb);
+ 
+-	hsr_stag = (typeof(hsr_stag)) skb_put(skb, sizeof(*hsr_stag));
++	if (hsrVer > 0) {
++		hsr_tag = (typeof(hsr_tag)) skb_put(skb, sizeof(struct hsr_tag));
++		hsr_tag->encap_proto = htons(ETH_P_PRP);
++		set_hsr_tag_LSDU_size(hsr_tag, HSR_V1_SUP_LSDUSIZE);
++	}
+ 
+-	set_hsr_stag_path(hsr_stag, 0xf);
+-	set_hsr_stag_HSR_Ver(hsr_stag, 0);
++	hsr_stag = (typeof(hsr_stag)) skb_put(skb, sizeof(struct hsr_sup_tag));
++	set_hsr_stag_path(hsr_stag, (hsrVer ? 0x0 : 0xf));
++	set_hsr_stag_HSR_Ver(hsr_stag, hsrVer);
+ 
++	/* From HSRv1 on we have separate supervision sequence numbers. */
+ 	spin_lock_irqsave(&master->hsr->seqnr_lock, irqflags);
+-	hsr_stag->sequence_nr = htons(master->hsr->sequence_nr);
+-	master->hsr->sequence_nr++;
++	if (hsrVer > 0) {
++		hsr_stag->sequence_nr = htons(master->hsr->sup_sequence_nr);
++		hsr_tag->sequence_nr = htons(master->hsr->sequence_nr);
++		master->hsr->sup_sequence_nr++;
++		master->hsr->sequence_nr++;
++	} else {
++		hsr_stag->sequence_nr = htons(master->hsr->sequence_nr);
++		master->hsr->sequence_nr++;
++	}
+ 	spin_unlock_irqrestore(&master->hsr->seqnr_lock, irqflags);
+ 
+ 	hsr_stag->HSR_TLV_Type = type;
+-	hsr_stag->HSR_TLV_Length = 12;
++	/* TODO: Why 12 in HSRv0? */
++	hsr_stag->HSR_TLV_Length = hsrVer ? sizeof(struct hsr_sup_payload) : 12;
+ 
+ 	/* Payload: MacAddressA */
+-	hsr_sp = (typeof(hsr_sp)) skb_put(skb, sizeof(*hsr_sp));
++	hsr_sp = (typeof(hsr_sp)) skb_put(skb, sizeof(struct hsr_sup_payload));
+ 	ether_addr_copy(hsr_sp->MacAddressA, master->dev->dev_addr);
+ 
++	skb_put_padto(skb, ETH_ZLEN + HSR_HLEN);
++
+ 	hsr_forward_skb(skb, master);
+ 	return;
+ 
+@@ -329,19 +337,20 @@ static void hsr_announce(unsigned long data)
+ 	rcu_read_lock();
+ 	master = hsr_port_get_hsr(hsr, HSR_PT_MASTER);
+ 
+-	if (hsr->announce_count < 3) {
+-		send_hsr_supervision_frame(master, HSR_TLV_ANNOUNCE);
++	if (hsr->announce_count < 3 && hsr->protVersion == 0) {
++		send_hsr_supervision_frame(master, HSR_TLV_ANNOUNCE,
++				hsr->protVersion);
+ 		hsr->announce_count++;
+-	} else {
+-		send_hsr_supervision_frame(master, HSR_TLV_LIFE_CHECK);
+-	}
+ 
+-	if (hsr->announce_count < 3)
+ 		hsr->announce_timer.expires = jiffies +
+ 				msecs_to_jiffies(HSR_ANNOUNCE_INTERVAL);
+-	else
++	} else {
++		send_hsr_supervision_frame(master, HSR_TLV_LIFE_CHECK,
++				hsr->protVersion);
++
+ 		hsr->announce_timer.expires = jiffies +
+ 				msecs_to_jiffies(HSR_LIFE_CHECK_INTERVAL);
++	}
+ 
+ 	if (is_admin_up(master->dev))
+ 		add_timer(&hsr->announce_timer);
+@@ -428,7 +437,7 @@ static const unsigned char def_multicast_addr[ETH_ALEN] __aligned(2) = {
+ };
+ 
+ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
+-		     unsigned char multicast_spec)
++		     unsigned char multicast_spec, u8 protocol_version)
+ {
+ 	struct hsr_priv *hsr;
+ 	struct hsr_port *port;
+@@ -450,6 +459,7 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
+ 	spin_lock_init(&hsr->seqnr_lock);
+ 	/* Overflow soon to find bugs easier: */
+ 	hsr->sequence_nr = HSR_SEQNR_START;
++	hsr->sup_sequence_nr = HSR_SUP_SEQNR_START;
+ 
+ 	init_timer(&hsr->announce_timer);
+ 	hsr->announce_timer.function = hsr_announce;
+@@ -462,6 +472,8 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
+ 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
+ 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
+ 
++	hsr->protVersion = protocol_version;
++
+ 	/* FIXME: should I modify the value of these?
+ 	 *
+ 	 * - hsr_dev->flags - i.e.
+diff --git a/net/hsr/hsr_device.h b/net/hsr/hsr_device.h
+index 108a5d5..9975e31 100644
+--- a/net/hsr/hsr_device.h
++++ b/net/hsr/hsr_device.h
+@@ -17,7 +17,7 @@
+ 
+ void hsr_dev_setup(struct net_device *dev);
+ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
+-		     unsigned char multicast_spec);
++		     unsigned char multicast_spec, u8 protocol_version);
+ void hsr_check_carrier_and_operstate(struct hsr_priv *hsr);
+ bool is_hsr_master(struct net_device *dev);
+ int hsr_get_max_mtu(struct hsr_priv *hsr);
+diff --git a/net/hsr/hsr_forward.c b/net/hsr/hsr_forward.c
+index 7871ed6..5ee1d43 100644
+--- a/net/hsr/hsr_forward.c
++++ b/net/hsr/hsr_forward.c
+@@ -50,21 +50,40 @@ struct hsr_frame_info {
+  */
+ static bool is_supervision_frame(struct hsr_priv *hsr, struct sk_buff *skb)
+ {
+-	struct hsr_ethhdr_sp *hdr;
++	struct ethhdr *ethHdr;
++	struct hsr_sup_tag *hsrSupTag;
++	struct hsrv1_ethhdr_sp *hsrV1Hdr;
+ 
+ 	WARN_ON_ONCE(!skb_mac_header_was_set(skb));
+-	hdr = (struct hsr_ethhdr_sp *) skb_mac_header(skb);
++	ethHdr = (struct ethhdr *) skb_mac_header(skb);
+ 
+-	if (!ether_addr_equal(hdr->ethhdr.h_dest,
++	/* Correct addr? */
++	if (!ether_addr_equal(ethHdr->h_dest,
+ 			      hsr->sup_multicast_addr))
+ 		return false;
+ 
+-	if (get_hsr_stag_path(&hdr->hsr_sup) != 0x0f)
++	/* Correct ether type?. */
++	if (!(ethHdr->h_proto == htons(ETH_P_PRP)
++			|| ethHdr->h_proto == htons(ETH_P_HSR)))
+ 		return false;
+-	if ((hdr->hsr_sup.HSR_TLV_Type != HSR_TLV_ANNOUNCE) &&
+-	    (hdr->hsr_sup.HSR_TLV_Type != HSR_TLV_LIFE_CHECK))
++
++	/* Get the supervision header from correct location. */
++	if (ethHdr->h_proto == htons(ETH_P_HSR)) { /* Okay HSRv1. */
++		hsrV1Hdr = (struct hsrv1_ethhdr_sp *) skb_mac_header(skb);
++		if (hsrV1Hdr->hsr.encap_proto != htons(ETH_P_PRP))
++			return false;
++
++		hsrSupTag = &hsrV1Hdr->hsr_sup;
++	} else {
++		hsrSupTag = &((struct hsrv0_ethhdr_sp *) skb_mac_header(skb))->hsr_sup;
++	}
++
++	if ((hsrSupTag->HSR_TLV_Type != HSR_TLV_ANNOUNCE) &&
++	    (hsrSupTag->HSR_TLV_Type != HSR_TLV_LIFE_CHECK))
+ 		return false;
+-	if (hdr->hsr_sup.HSR_TLV_Length != 12)
++	if ((hsrSupTag->HSR_TLV_Length != 12) &&
++			(hsrSupTag->HSR_TLV_Length !=
++					sizeof(struct hsr_sup_payload)))
+ 		return false;
+ 
+ 	return true;
+@@ -110,7 +129,7 @@ static struct sk_buff *frame_get_stripped_skb(struct hsr_frame_info *frame,
+ 
+ 
+ static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
+-			 struct hsr_port *port)
++			 struct hsr_port *port, u8 protoVersion)
+ {
+ 	struct hsr_ethhdr *hsr_ethhdr;
+ 	int lane_id;
+@@ -131,7 +150,8 @@ static void hsr_fill_tag(struct sk_buff *skb, struct hsr_frame_info *frame,
+ 	set_hsr_tag_LSDU_size(&hsr_ethhdr->hsr_tag, lsdu_size);
+ 	hsr_ethhdr->hsr_tag.sequence_nr = htons(frame->sequence_nr);
+ 	hsr_ethhdr->hsr_tag.encap_proto = hsr_ethhdr->ethhdr.h_proto;
+-	hsr_ethhdr->ethhdr.h_proto = htons(ETH_P_PRP);
++	hsr_ethhdr->ethhdr.h_proto = htons(protoVersion ?
++			ETH_P_HSR : ETH_P_PRP);
+ }
+ 
+ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
+@@ -160,7 +180,7 @@ static struct sk_buff *create_tagged_skb(struct sk_buff *skb_o,
+ 	memmove(dst, src, movelen);
+ 	skb_reset_mac_header(skb);
+ 
+-	hsr_fill_tag(skb, frame, port);
++	hsr_fill_tag(skb, frame, port, port->hsr->protVersion);
+ 
+ 	return skb;
+ }
+@@ -320,7 +340,8 @@ static int hsr_fill_frame_info(struct hsr_frame_info *frame,
+ 		/* FIXME: */
+ 		WARN_ONCE(1, "HSR: VLAN not yet supported");
+ 	}
+-	if (ethhdr->h_proto == htons(ETH_P_PRP)) {
++	if (ethhdr->h_proto == htons(ETH_P_PRP)
++			|| ethhdr->h_proto == htons(ETH_P_HSR)) {
+ 		frame->skb_std = NULL;
+ 		frame->skb_hsr = skb;
+ 		frame->sequence_nr = hsr_get_skb_sequence_nr(skb);
+diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
+index bace124..7ea9258 100644
+--- a/net/hsr/hsr_framereg.c
++++ b/net/hsr/hsr_framereg.c
+@@ -177,17 +177,17 @@ struct hsr_node *hsr_get_node(struct list_head *node_db, struct sk_buff *skb,
+ 			return node;
+ 	}
+ 
+-	if (!is_sup)
+-		return NULL; /* Only supervision frame may create node entry */
++	/* Everyone may create a node entry, connected node to a HSR device. */
+ 
+-	if (ethhdr->h_proto == htons(ETH_P_PRP)) {
++	if (ethhdr->h_proto == htons(ETH_P_PRP)
++			|| ethhdr->h_proto == htons(ETH_P_HSR)) {
+ 		/* Use the existing sequence_nr from the tag as starting point
+ 		 * for filtering duplicate frames.
+ 		 */
+ 		seq_out = hsr_get_skb_sequence_nr(skb) - 1;
+ 	} else {
+ 		WARN_ONCE(1, "%s: Non-HSR frame\n", __func__);
+-		seq_out = 0;
++		seq_out = HSR_SEQNR_START;
+ 	}
+ 
+ 	return hsr_add_node(node_db, ethhdr->h_source, seq_out);
+@@ -200,17 +200,25 @@ struct hsr_node *hsr_get_node(struct list_head *node_db, struct sk_buff *skb,
+ void hsr_handle_sup_frame(struct sk_buff *skb, struct hsr_node *node_curr,
+ 			  struct hsr_port *port_rcv)
+ {
++	struct ethhdr *ethhdr;
+ 	struct hsr_node *node_real;
+ 	struct hsr_sup_payload *hsr_sp;
+ 	struct list_head *node_db;
+ 	int i;
+ 
+-	skb_pull(skb, sizeof(struct hsr_ethhdr_sp));
+-	hsr_sp = (struct hsr_sup_payload *) skb->data;
++	ethhdr = (struct ethhdr *) skb_mac_header(skb);
+ 
+-	if (ether_addr_equal(eth_hdr(skb)->h_source, hsr_sp->MacAddressA))
+-		/* Not sent from MacAddressB of a PICS_SUBS capable node */
+-		goto done;
++	/* Leave the ethernet header. */
++	skb_pull(skb, sizeof(struct ethhdr));
++
++	/* And leave the HSR tag. */
++	if (ethhdr->h_proto == htons(ETH_P_HSR))
++		skb_pull(skb, sizeof(struct hsr_tag));
++
++	/* And leave the HSR sup tag. */
++	skb_pull(skb, sizeof(struct hsr_sup_tag));
++
++	hsr_sp = (struct hsr_sup_payload *) skb->data;
+ 
+ 	/* Merge node_curr (registered on MacAddressB) into node_real */
+ 	node_db = &port_rcv->hsr->node_db;
+@@ -225,7 +233,7 @@ void hsr_handle_sup_frame(struct sk_buff *skb, struct hsr_node *node_curr,
+ 		/* Node has already been merged */
+ 		goto done;
+ 
+-	ether_addr_copy(node_real->MacAddressB, eth_hdr(skb)->h_source);
++	ether_addr_copy(node_real->MacAddressB, ethhdr->h_source);
+ 	for (i = 0; i < HSR_PT_PORTS; i++) {
+ 		if (!node_curr->time_in_stale[i] &&
+ 		    time_after(node_curr->time_in[i], node_real->time_in[i])) {
+@@ -241,7 +249,7 @@ void hsr_handle_sup_frame(struct sk_buff *skb, struct hsr_node *node_curr,
+ 	kfree_rcu(node_curr, rcu_head);
+ 
+ done:
+-	skb_push(skb, sizeof(struct hsr_ethhdr_sp));
++	skb_push(skb, sizeof(struct hsrv1_ethhdr_sp));
+ }
+ 
+ 
+diff --git a/net/hsr/hsr_main.h b/net/hsr/hsr_main.h
+index 5a9c699..9b9909e 100644
+--- a/net/hsr/hsr_main.h
++++ b/net/hsr/hsr_main.h
+@@ -30,6 +30,7 @@
+  */
+ #define MAX_SLAVE_DIFF			 3000 /* ms */
+ #define HSR_SEQNR_START			(USHRT_MAX - 1024)
++#define HSR_SUP_SEQNR_START		(HSR_SEQNR_START / 2)
+ 
+ 
+ /* How often shall we check for broken ring and remove node entries older than
+@@ -58,6 +59,8 @@ struct hsr_tag {
+ 
+ #define HSR_HLEN	6
+ 
++#define HSR_V1_SUP_LSDUSIZE		52
++
+ /* The helper functions below assumes that 'path' occupies the 4 most
+  * significant bits of the 16-bit field shared by 'path' and 'LSDU_size' (or
+  * equivalently, the 4 most significant bits of HSR tag byte 14).
+@@ -131,8 +134,14 @@ static inline void set_hsr_stag_HSR_Ver(struct hsr_sup_tag *hst, u16 HSR_Ver)
+ 	set_hsr_tag_LSDU_size((struct hsr_tag *) hst, HSR_Ver);
+ }
+ 
+-struct hsr_ethhdr_sp {
++struct hsrv0_ethhdr_sp {
++	struct ethhdr		ethhdr;
++	struct hsr_sup_tag	hsr_sup;
++} __packed;
++
++struct hsrv1_ethhdr_sp {
+ 	struct ethhdr		ethhdr;
++	struct hsr_tag		hsr;
+ 	struct hsr_sup_tag	hsr_sup;
+ } __packed;
+ 
+@@ -162,6 +171,8 @@ struct hsr_priv {
+ 	struct timer_list	prune_timer;
+ 	int announce_count;
+ 	u16 sequence_nr;
++	u16 sup_sequence_nr;			/* For HSRv1 separate seq_nr for supervision */
++	u8 protVersion;					/* Indicate if HSRv0 or HSRv1. */
+ 	spinlock_t seqnr_lock;			/* locking for sequence_nr */
+ 	unsigned char		sup_multicast_addr[ETH_ALEN];
+ };
+diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
+index a2c7e4c..5425d87 100644
+--- a/net/hsr/hsr_netlink.c
++++ b/net/hsr/hsr_netlink.c
+@@ -23,6 +23,7 @@ static const struct nla_policy hsr_policy[IFLA_HSR_MAX + 1] = {
+ 	[IFLA_HSR_SLAVE1]		= { .type = NLA_U32 },
+ 	[IFLA_HSR_SLAVE2]		= { .type = NLA_U32 },
+ 	[IFLA_HSR_MULTICAST_SPEC]	= { .type = NLA_U8 },
++	[IFLA_HSR_VERSION]	= { .type = NLA_U8 },
+ 	[IFLA_HSR_SUPERVISION_ADDR]	= { .type = NLA_BINARY, .len = ETH_ALEN },
+ 	[IFLA_HSR_SEQ_NR]		= { .type = NLA_U16 },
+ };
+@@ -35,7 +36,7 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net_device *link[2];
+-	unsigned char multicast_spec;
++	unsigned char multicast_spec, hsr_version;
+ 
+ 	if (!data) {
+ 		netdev_info(dev, "HSR: No slave devices specified\n");
+@@ -62,7 +63,12 @@ static int hsr_newlink(struct net *src_net, struct net_device *dev,
+ 	else
+ 		multicast_spec = nla_get_u8(data[IFLA_HSR_MULTICAST_SPEC]);
+ 
+-	return hsr_dev_finalize(dev, link, multicast_spec);
++	if (!data[IFLA_HSR_VERSION])
++		hsr_version = 0;
++	else
++		hsr_version = nla_get_u8(data[IFLA_HSR_VERSION]);
++
++	return hsr_dev_finalize(dev, link, multicast_spec, hsr_version);
+ }
+ 
+ static int hsr_fill_info(struct sk_buff *skb, const struct net_device *dev)
+diff --git a/net/hsr/hsr_slave.c b/net/hsr/hsr_slave.c
+index 7d37366..f5b6038 100644
+--- a/net/hsr/hsr_slave.c
++++ b/net/hsr/hsr_slave.c
+@@ -22,6 +22,7 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
+ {
+ 	struct sk_buff *skb = *pskb;
+ 	struct hsr_port *port;
++	u16 protocol;
+ 
+ 	if (!skb_mac_header_was_set(skb)) {
+ 		WARN_ONCE(1, "%s: skb invalid", __func__);
+@@ -37,7 +38,8 @@ static rx_handler_result_t hsr_handle_frame(struct sk_buff **pskb)
+ 		goto finish_consume;
+ 	}
+ 
+-	if (eth_hdr(skb)->h_proto != htons(ETH_P_PRP))
++	protocol = eth_hdr(skb)->h_proto;
++	if (protocol != htons(ETH_P_PRP) && protocol != htons(ETH_P_HSR))
+ 		goto finish_pass;
+ 
+ 	skb_push(skb, ETH_HLEN);
+-- 
+2.5.0
