@@ -1,64 +1,143 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [RFC] Is it a bug for nfs on udp6 mode or kernel?
-Date: Wed, 13 Apr 2016 19:28:41 +0800
-Message-ID: <570E2D69.7080102@huawei.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Wed, 13 Apr 2016 13:57:08 +0200
+Message-ID: <1460548628.9170.12.camel@redhat.com>
+References: <cover.1459934322.git.pabeni@redhat.com>
+	 <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
+	 <20160406234532.GA731@breakpoint.cc> <2239567.jkCk1gtQAE@sifl>
+	 <1460451162.5965.16.camel@redhat.com> <570CFEBA.7090001@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <linux-nfs-approval@vger.kernel.org>, <tom@herbertland.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<dhowells@redhat.com>, <viro@zeniv.linux.org.u>,
-	<chuck.lever@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <paul@paul-moore.com>, Florian Westphal <fw@strlen.de>,
+	linux-security-module@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54356 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751610AbcDML5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 07:57:13 -0400
+In-Reply-To: <570CFEBA.7090001@schaufler-ca.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi everyone:
+On Tue, 2016-04-12 at 06:57 -0700, Casey Schaufler wrote:
+> On 4/12/2016 1:52 AM, Paolo Abeni wrote:
+> > On Thu, 2016-04-07 at 14:55 -0400, Paul Moore wrote:
+> >> On Thursday, April 07, 2016 01:45:32 AM Florian Westphal wrote:
+> >>> Paul Moore <paul@paul-moore.com> wrote:
+> >>>> On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
+> >>>>> netfilter hooks are per namespace -- so there is hook unregister when
+> >>>>> netns is destroyed.
+> >>>> Looking around, I see the global and per-namespace registration
+> >>>> functions (nf_register_hook and nf_register_net_hook, respectively),
+> >>>> but I'm looking to see if/how newly created namespace inherit
+> >>>> netfilter hooks from the init network namespace ... if you can create
+> >>>> a network namespace and dodge the SELinux hooks, that isn't a good
+> >>>> thing from a SELinux point of view, although it might be a plus
+> >>>> depending on where you view Paolo's original patches ;)
+> >>> Heh :-)
+> >>>
+> >>> If you use nf_register_net_hook, the hook is only registered in the
+> >>> namespace.
+> >>>
+> >>> If you use nf_register_hook, the hook is put on a global list and
+> >>> registed in all existing namespaces.
+> >>>
+> >>> New namespaces will have the hook added as well (see
+> >>> netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
+> >>>
+> >>> Since nf_register_hook is used it should be impossible to get a netns
+> >>> that doesn't call these hooks.
+> >> Great, thanks.
+> >>  
+> >>>>> Do you think it makes sense to rework the patch to delay registering
+> >>>>> of the netfiler hooks until the system is in a state where they're
+> >>>>> needed, without the 'unregister' aspect?
+> >>>> I would need to see the patch to say for certain, but in principle
+> >>>> that seems perfectly reasonable and I think would satisfy both the
+> >>>> netdev and SELinux camps - good suggestion.  My main goal is to drop
+> >>>> the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
+> >>>>
+> >>>> We might even be able to trim the secmark_active and peerlbl_active
+> >>>> checks in the SELinux netfilter hooks (an earlier attempt at
+> >>>> optimization; contrary to popular belief, I do care about SELinux
+> >>>> performance), although that would mean that enabling the network
+> >>>> access controls would be one way ... I guess you can disregard that
+> >>>> last bit, I'm thinking aloud again.
+> >>> One way is fine I think.
+> >> Yes, just disregard my second paragraph above.
+> >>  
+> >>>>> Ideally this would even be per netns -- in perfect world we would
+> >>>>> be able to make it so that a new netns are created with an empty
+> >>>>> hook list.
+> >>>> In general SELinux doesn't care about namespaces, for reasons that are
+> >>>> sorta beyond the scope of this conversation, so I would like to stick
+> >>>> to a all or nothing approach to enabling the SELinux netfilter hooks
+> >>>> across namespaces.  Perhaps we can revisit this at a later time, but
+> >>>> let's keep it simple right now.
+> >>> Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
+> >>> (Casey, I read your comment regarding smack. Noted, we don't want to
+> >>> break smack either...)
+> >>>
+> >>> I think that in this case the entire question is:
+> >>>
+> >>> In your experience, how likely is a config where selinux is enabled BUT the
+> >>> hooks are not needed (i.e., where we hit the
+> >>>
+> >>> if (!selinux_policycap_netpeer)
+> >>>     return NF_ACCEPT;
+> >>>
+> >>> if (!secmark_active && !peerlbl_active)
+> >>>    return NF_ACCEPT;
+> >>>
+> >>> tests inside the hooks)?  If such setups are uncommon we should just
+> >>> drop this idea or at least put it on the back burner until the more
+> >>> expensive netfilter hooks (conntrack, cough) are out of the way.
+> >> A few years ago I would have said that it is relatively uncommon for admins to 
+> >> enable the SELinux network access controls; it was typically just 
+> >> government/intelligence agencies who had very strict access control 
+> >> requirements and represented a small portion of SELinux users.  However, over 
+> >> the past few years I've been fielding more and more questions from admins/devs 
+> >> in the virtualization space who are interested in some of these capabilities; 
+> >> it isn't clear to me how many of these people are switching it on, but there 
+> >> is definitely more interest than I have seen in the past and the interested is 
+> >> centered around some rather common use cases.
+> >>
+> >> So, to summarize, I don't know ;)
+> >>
+> >> If you've got bigger sources of overhead, my opinion would be to go tackle 
+> >> those first.  Perhaps I can even find the time to work on the 
+> >> SELinux/netfilter stuff while you are off slaying the bigger dragons, no 
+> >> promises at the moment.
+> > Double checking if I got the above correctly.
+> >
+> > Will be ok if we post a v2 version of this series, removing the hooks
+> > de-registration bits, but preserving the selinux nf-hooks and
+> > socket_sock_rcv_skb() on-demand/delayed registration ?
+> 
+> Imagine that I have two security modules that control sockets.
+> The work I'm knee deep in will allow this. If adding hooks after
+> the init phase is allowed you have to face the possibility that
+> blob sizes (in this case sock->sk_security) may change. That
+> requires checking on every hook that uses blobs to determine
+> whether the blob has data for all the modules using it. I know
+> that that is a simple matter of arithmetic, but it's additional
+> overhead on every hook call. It also makes creating kmem caches
+> for security blobs much more difficult. Another performance
+> optimization that becomes unavailable.
 
-I have met this problem when I try to test udp6 for nfs connection, my =
-environment is:
+I got your point.
 
-Server:
-kernel: 4.1.15
-IP:xxxx::36/64
-MTU:1500
-Setting: /etc/exports:/home/nfs *(rw,sync,no_subtree_check,no_root_squa=
-sh)
+Without seeing the code, I wonder if the above scenario could be covered
+always allocating a blob large enough for all concurrent security
+modules, i.e. each security module always declares/requests/allocates
+space into the blobs regardless of it does not have registered (yet)
+some security hooks, trading memory usage for performance.
 
-Client:
-kernel: 4.1.18
-IP:xxxx::90/64
-MTU:1500
-command: mount -t nfs -o vers=3D3,proto=3Dudp6,rsize=3D4096,wsize=3D409=
-6 [xxxx::36]:/home/nfs /home/tmp
-
-I check the nfs parameter configuration, it looks fine and could work w=
-ell for proto=3Dtcp6.
-
-Then I have mount correctly and try to run the command "ls", it hang.
-
-When I use the rsize=3D1024 and wsize=3D1024 to mount, the problem disa=
-ppeared, so I guess it is the problem for GSO or GRO for UDP=E3=80=82
-
-Then I try to debug the problem, first I tcpdump the package from cline=
- to server, and found that
-the client have send readdirplus message to server correctly, and then =
-the Server send a 4k package
-to client(the big package will frag to 4 package by GSO), till now it l=
-ooks fine, and the Client Nic could
-receive the 4 skb then send to upper stack to ipv6 and udp, I found the=
- incoming 4 package has been merged
-to one and send to upper stack just like sunrpc, but I try to open the =
-rpc_debug, it looks that the rpc could
-not receive message.
-
-
-I built a simple demo to test the udp stack, use the client socket to s=
-end big package to server socket, it work well,
-so I think the udp is fine, maybe the bug is in sunrpc.
-
-The test is very simple, does any body met the same problem like me, th=
-anks for any suggestion.
-
-Ding=20
+Paolo
