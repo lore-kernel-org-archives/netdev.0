@@ -1,67 +1,49 @@
-From: Judy Adkins <jadkins@switchways.com>
-Subject: Symantec users list
-Date: Wed, 13 Apr 2016 10:19:01 -0400
-Message-ID: <570E5555.1090508@switchways.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
+Date: Wed, 13 Apr 2016 07:39:51 -0700
+Message-ID: <1460558391.10638.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1460393493.git.pabeni@redhat.com>
+	 <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
+	 <20160413123828-mutt-send-email-mst@redhat.com>
+	 <570E15D9.4000308@stressinduktion.org>
+	 <20160413155654-mutt-send-email-mst@redhat.com>
+	 <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160413165240-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33030 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933609AbcDMObV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 10:31:21 -0400
-Received: by mail-pf0-f175.google.com with SMTP id 184so35261819pff.0
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 07:31:20 -0700 (PDT)
-Received: from [127.0.0.1] ([103.6.157.159])
-        by smtp.gmail.com with ESMTPSA id l81sm51621939pfj.21.2016.04.13.07.31.17
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 13 Apr 2016 07:31:18 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34743 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753817AbcDMOjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 10:39:54 -0400
+Received: by mail-pa0-f43.google.com with SMTP id ot11so34607283pab.1
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 07:39:53 -0700 (PDT)
+In-Reply-To: <20160413165240-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2016-04-13 at 16:54 +0300, Michael S. Tsirkin wrote:
 
-Hi,
+> OK, now I understand what the duplication is about.
+> What about NETDEV_TX_LOCKED? Looks like it might have
+> the same effect?
+> 
+> This might be worth documenting in include/linux/netdevice.h,
+> might it not?
 
-I just wanted to drop you a quick note to see if you would be interested in a discussion about "Symantec users" and the benefits it can bring your organization for your Marketing Initiatives like Email Marketing, Tele Marketing, Direct Mailings etc.
+I believe the intent is to get rid of NETDEV_TX_LOCKED at some point.
 
-Every contact will include: Company Name, Web Address, Contact Name, Verified Email, Job Title,  Complete Mailing Address, Phone Number, FAX Number, Total  Employees, SIC Code, and Industry details.
+Some drivers seem to abuse it.
 
-We guarantee 100% on that list type that means every individual on that list will be as per your criteria for sure, any irrelevant contact will be replaced at no cost.
-
-Few Technology Specific Lists:-
-
-(1) Microsoft Dynamic CRM Users           (15) Microsoft SQL Users
-(2) Salesforce Cloud Users                (16) Microsoft Windows Users
-(3) ERP Users                             (17) Microsoft AX,GP,Al,NAV USers
-(4) Pivotal CRM                           (18) Microsoft Forefront Users
-(5) Sage SalesLogix CRM                   (19) Microsoft.Net Users
-(6) SAP CRM                               (20) IBM Users
-(7) Oracle CRM                            (21) Web Developers
-(8) Security users
-(9) Virtualization Users
-(10) VMware Cloud Users
-(11) Citrix
-(12) Sage Users
-(13) Microsoft SharePoint Users
-(14) Dell Backup Users and more....
-
-Let me know your target criteria / market like:
-
-Target Title:
-Target Industry:
-Target Geography:
-
-Appreciate your enquiry and valuable time.
-
-Thanks and Regards,
-Judy Adkins
-Research Analyst
-==============================================================================
-If you do not wish to receive further emails kindly reply with "Leave Out"
-
-
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+For example, drivers/infiniband/hw/nes/nes_nic.c is clearly completely
+buggy :(
