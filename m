@@ -1,50 +1,59 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 2/2] ss: Fix accidental state filter override
-Date: Wed, 13 Apr 2016 22:07:05 +0200
-Message-ID: <1460578025-12224-3-git-send-email-phil@nwl.cc>
-References: <20160329193242.GA28502@orbyte.nwl.cc>
- <1460578025-12224-1-git-send-email-phil@nwl.cc>
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53206 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751231AbcDMUHe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 16:07:34 -0400
-In-Reply-To: <1460578025-12224-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 13 Apr 2016 22:07:46 +0200
+Message-ID: <87ega9gtm5.fsf@nemi.mork.no>
+References: <201604140340.wQZLwsUk%fengguang.wu@intel.com>
+	<570E9E8D.50007@codeaurora.org> <570EA09F.1070000@codeaurora.org>
+	<570EA434.30007@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shanker Donthineni <shankerd@codeaurora.org>,
+	kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org, Greg Kroah-Hartman <greg@kroah.com>,
+	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <570EA434.30007@codeaurora.org> (Timur Tabi's message of "Wed, 13
+	Apr 2016 14:55:32 -0500")
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Passing a filter expression and selecting an address family using the
-'-f' flag would overwrite the state filter by accident. Therefore
-calling e.g. 'ss -nl -f inet '(sport = :22)' would not only print
-listening sockets (as requested by '-l' flag) but connected ones, as
-well.
+Timur Tabi <timur@codeaurora.org> writes:
+> Shanker Donthineni wrote:
+>>>> >>     drivers/net/ethernet/qualcomm/emac/emac-mac.c: In function =
+'emac_mac_up':
+>>>>>>>> >>>> >>drivers/net/ethernet/qualcomm/emac/emac-mac.c:1076:9: w=
+arning: large integer implicitly truncated to unsigned type [-Woverflow=
+]
+>>>> >>       writel(~DIS_INT, adpt->base + EMAC_INT_STATUS);
+>>> >
+>>> >This doesn't happen on arm64, and I don't know how to fix it.  DIS=
+_INT is defined as:
+>>> >
+>>> >     #define DIS_INT          BIT(31)
+>>> >
+>> Try with (1U<<31).
+>>
+>
+> Except that Gilad was previously asked to use the BIT() macros:
+>
+> 	https://lkml.org/lkml/2015/12/15/797
 
-Fix this by reusing the formerly ineffective call to filter_states_set()
-to restore the state filter as it was before the call to
-filter_af_set().
+So typecast it.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- misc/ss.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+  writel((u32)~DIS_INT, adpt->base + EMAC_INT_STATUS);
 
-diff --git a/misc/ss.c b/misc/ss.c
-index d6090018c5dbb..544def3f08ea8 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1556,9 +1556,10 @@ void *parse_hostcond(char *addr, bool is_port)
- 
- out:
- 	if (fam != AF_UNSPEC) {
-+		int states = f->states;
- 		f->families = 0;
- 		filter_af_set(f, fam);
--		filter_states_set(f, 0);
-+		filter_states_set(f, states);
- 	}
- 
- 	res = malloc(sizeof(*res));
--- 
-2.8.0
+
+I believe the reason you don't see this on arm64 is that the writel
+macro includes the typecast there.  But it doesn't on x86_64
+
+
+Bj=C3=B8rn
