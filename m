@@ -1,29 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: wireless-drivers 2016-04-13
-Date: Wed, 13 Apr 2016 17:56:37 -0400 (EDT)
-Message-ID: <20160413.175637.584936150211146160.davem@davemloft.net>
-References: <87d1pts6zq.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211-next 2016-04-13
+Date: Wed, 13 Apr 2016 18:01:06 -0400 (EDT)
+Message-ID: <20160413.180106.1074751504660198916.davem@davemloft.net>
+References: <1460576192-24712-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87d1pts6zq.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59685 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753151AbcDMWBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 18:01:08 -0400
+In-Reply-To: <1460576192-24712-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Wed, 13 Apr 2016 21:23:21 +0300
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed, 13 Apr 2016 21:36:31 +0200
 
-> few very small fixes for 4.6. All but one are either build fixes or
-> memory leaks. More info in the signed tag below.
+> For a while now I've wanted to remove enum ieee80211_band, and in
+> order to synchronize more easily with Kalle that's (apart from a
+> documentation change I already had pending) all in this pull.
 > 
-> Please let me know if there are any problems.
+> Let me know if there's any problem.
 
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Johannes.
