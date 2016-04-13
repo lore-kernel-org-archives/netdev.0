@@ -1,56 +1,71 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netfilter: arp_tables: register table in initns
-Date: Thu, 14 Apr 2016 00:54:52 +0200
-Message-ID: <1460588094-3933-2-git-send-email-pablo@netfilter.org>
-References: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/3] Netfilter fixes for net
+Date: Thu, 14 Apr 2016 00:54:51 +0200
+Message-ID: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40583 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:40580 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754725AbcDMWzK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 18:55:10 -0400
+	id S1753987AbcDMWzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 18:55:08 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id AC91B73F1
-	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 00:55:08 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A0D89A862
-	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 00:55:08 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 9CE1AA79C
+	by mail.us.es (Postfix) with ESMTP id 9D58D73EF
 	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 00:55:06 +0200 (CEST)
-In-Reply-To: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 90773A737
+	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 00:55:06 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 5211BA79D
+	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 00:55:04 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Hi David,
 
-arptables is broken since we didn't register the table anymore --
-even 'arptables -L' fails.
+The following patchset contains Netfilter fixes for your net tree. More
+specifically, they are:
 
-Fixes: b9e69e127397187b ("netfilter: xtables: don't hook tables by default")
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/arptable_filter.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+1) Fix missing filter table per-netns registration in arptables, from
+   Florian Westphal.
 
-diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index dd8c80d..8f8713b 100644
---- a/net/ipv4/netfilter/arptable_filter.c
-+++ b/net/ipv4/netfilter/arptable_filter.c
-@@ -81,6 +81,12 @@ static int __init arptable_filter_init(void)
- 		return ret;
- 	}
- 
-+	ret = arptable_filter_table_init(&init_net);
-+	if (ret) {
-+		unregister_pernet_subsys(&arptable_filter_net_ops);
-+		kfree(arpfilter_ops);
-+	}
-+
- 	return ret;
- }
- 
--- 
-2.1.4
+2) Resolve out of bound access when parsing TCP options in
+   nf_conntrack_tcp, patch from Jozsef Kadlecsik.
+
+3) Prefer NFPROTO_BRIDGE extensions over NFPROTO_UNSPEC in ebtables,
+   this resolves conflict between xt_limit and ebt_limit, from Phil Sutter.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 0a1a37b6d62e6864a77a82e925217c720f91f963:
+
+  net: add the AF_KCM entries to family name tables (2016-04-06 16:59:01 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to bcf4934288402be3464110109a4dae3bd6fb3e93:
+
+  netfilter: ebtables: Fix extension lookup with identical name (2016-04-13 01:16:57 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (1):
+      netfilter: arp_tables: register table in initns
+
+Jozsef Kadlecsik (1):
+      netfilter: nf_conntrack_tcp: Fix stack out of bounds when parsing TCP options
+
+Phil Sutter (1):
+      netfilter: ebtables: Fix extension lookup with identical name
+
+ net/bridge/netfilter/ebtables.c        | 6 +++++-
+ net/ipv4/netfilter/arptable_filter.c   | 6 ++++++
+ net/netfilter/nf_conntrack_proto_tcp.c | 4 ++++
+ 3 files changed, 15 insertions(+), 1 deletion(-)
