@@ -1,131 +1,40 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Wed, 13 Apr 2016 09:20:41 +0200
-Message-ID: <20160413072041.GA5709@gmail.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
- <1408683665.5648.69.camel@marge.simpson.net>
- <20140822073653.GA7372@gmail.com>
- <20160411182111-mutt-send-email-mst@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Wed, 13 Apr 2016 17:50:28 +1000
+Message-ID: <20160413175028.5d3a4cf2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mark Rustad <mark.d.rustad@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Andrew Bowers <andrewx.bowers@intel.com>,
+	Build bot for Mark Brown <broonie@kernel.org>,
+	kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160411182111-mutt-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
-* Michael S. Tsirkin <mst@redhat.com> wrote:
+[A report from Mark's buildbot]
 
-> On Fri, Aug 22, 2014 at 09:36:53AM +0200, Ingo Molnar wrote:
-> > 
-> > > > diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
-> > > > index 1d67fb6..8a33fb2 100644
-> > > > --- a/include/net/busy_poll.h
-> > > > +++ b/include/net/busy_poll.h
-> > > > @@ -109,7 +109,8 @@ static inline bool sk_busy_loop(struct sock *sk, int nonblock)
-> > > >  		cpu_relax();
-> > > >  
-> > > >  	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
-> > > > -		 !need_resched() && !busy_loop_timeout(end_time));
-> > > > +		 !need_resched() && !busy_loop_timeout(end_time) &&
-> > > > +		 nr_running_this_cpu() < 2);
-> > 
-> > So it's generally a bad idea to couple to the scheduler through 
-> > such a low level, implementation dependent value like 
-> > 'nr_running', causing various problems:
-> > 
-> >  - It misses important work that might be pending on this CPU,
-> >    like RCU callbacks.
-> > 
-> >  - It will also over-credit task contexts that might be
-> >    runnable, but which are less important than the currently
-> >    running one: such as a SCHED_IDLE task
-> > 
-> >  - It will also over-credit even regular SCHED_NORMAL tasks, if
-> >    this current task is more important than them: say
-> >    SCHED_FIFO. A SCHED_FIFO workload should run just as fast 
-> >    with SCHED_NORMAL tasks around, as a SCHED_NORMAL workload 
-> >    on an otherwise idle system.
-> > 
-> > So what you want is a more sophisticated query to the 
-> > scheduler, a sched_expected_runtime() method that returns the 
-> > number of nsecs this task is expected to run in the future, 
-> > which returns 0 if you will be scheduled away on the next 
-> > schedule(), and returns infinity for a high prio SCHED_FIFO 
-> > task, or if this SCHED_NORMAL task is on an otherwise idle CPU.
-> > 
-> > It will return a regular time slice value in other cases, when 
-> > there's some load on the CPU.
-> > 
-> > The polling logic can then do its decision based on that time 
-> > value.
-> > 
-> > All this can be done reasonably fast and lockless in most 
-> > cases, so that it can be called from busy-polling code.
-> >
-> > An added advantage would be that this approach consolidates the 
-> > somewhat random need_resched() checks into this method as well.
-> > 
-> > In any case I don't agree with the nr_running_this_cpu() 
-> > method.
-> > 
-> > (Please Cc: me and lkml to future iterations of this patchset.)
-> > 
-> > Thanks,
-> > 
-> > 	Ingo
-> 
-> I tried to look into this: it might be even nicer to add
-> sched_expected_to_run(time) which tells us whether we expect the current
-> task to keep running for the next XX nsecs.
-> 
-> For the fair scheduler, it seems that it could be as simple as
-> 
-> +static bool expected_to_run_fair(struct cfs_rq *cfs_rq, s64 t)
-> +{
-> +       struct sched_entity *left;
-> +       struct sched_entity *curr = cfs_rq->curr;
-> +
-> +       if (!curr || !curr->on_rq)
-> +               return false;
-> +
-> +       left = __pick_first_entity(cfs_rq);
-> +       if (!left)
-> +               return true;
-> +
-> +       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
-> +                    left->vruntime) < 0;
-> +}
-> 
-> The reason it seems easier is because that way we can reuse
-> calc_delta_fair and don't have to do the reverse translation
-> from vruntime to nsec.
-> 
-> And I guess if we do this with interrupts disabled, and only poke
-> at the current CPU's rq, we know first entity
-> won't go away so we don't need locks? 
-> 
-> Is this close to what you had in mind?
+After merging the net-next tree, today's linux-next build (arm
+allmodconfig) failed like thisi (this has actually been failing for a
+few days, now):
 
-Yeah, fair enough ;-)
+ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
 
-I'm not 100% convinced about the interface, but the model looks good to me.
-Let's try it - I don't have fundamental objections anymore.
+Caused by commit
 
-I also agree that it could be done lockless - although I'd suggest two steps: 
-first do the dumb thing with the proper scheduler lock(s) held, then another patch 
-which removes the locks for a bit more performance. That will make any subtle 
-crashes/races bisectable.
+  49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
 
-Thanks,
+arm only allows udelay()s up to 2 milliseconds.  This commit
+adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
+drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
 
-	Ingo
+-- 
+Cheers,
+Stephen Rothwell
