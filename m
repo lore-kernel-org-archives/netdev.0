@@ -1,78 +1,27 @@
-From: Stefan Agner <stefan@agner.ch>
-Subject: Re: Configuring ethernet link fails with No such
-	device
-Date: Tue, 12 Apr 2016 18:29:35 -0700
-Message-ID: <f888bb515fbeb7f8202bda89509eed8a@agner.ch>
-References: <67b662523c63277fa95a59472cbf018f@agner.ch>
- <1460451492.6333.6.camel@collabora.com>
- <20160412.114435.458888996741613334.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] Netfilter updates for net-next
+Date: Tue, 12 Apr 2016 22:35:23 -0400 (EDT)
+Message-ID: <20160412.223523.967379531853344946.davem@davemloft.net>
+References: <1460502166-20340-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: fabio.estevam@freescale.com, systemd-devel@lists.freedesktop.org,
- netdev@vger.kernel.org, u.kleine-koenig@pengutronix.de, l.stach@pengutronix.de
-To: David Miller <davem@davemloft.net>, teg@jklm.no, f.fainelli@gmail.com
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <20160412.114435.458888996741613334.davem@davemloft.net>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50778 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755763AbcDMCfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 22:35:34 -0400
+In-Reply-To: <1460502166-20340-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-W2FkZGVkIFRvbSBHdW5kZXJzZW4gYXMgaGUgc2VlbWVkIHRvIGhhdmUgd29ya2VkIG9uIHVkZXYn
-cyBuZXQgbGluawpidWlsdC1pbl0KCk9uIDIwMTYtMDQtMTIgMDg6NDQsIERhdmlkIE1pbGxlciB3
-cm90ZToKPiBGcm9tOiBCb2IgSGFtIDxib2IuaGFtQGNvbGxhYm9yYS5jb20+Cj4gRGF0ZTogVHVl
-LCAxMiBBcHIgMjAxNiAwOTo1ODoxMiArMDEwMAo+IAo+PiBPbiBNb24sIDIwMTYtMDQtMTEgYXQg
-MTU6NDYgLTA3MDAsIFN0ZWZhbiBBZ25lciB3cm90ZToKPj4KPj4+IE9yIGluIG90aGVyIHdvcmRz
-OiBJcyB0aGlzIGEgS2VybmVsIG9yIHN5c3RlbWQgaXNzdWU/Cj4+Cj4+IEZyb20gd2hhdCBJIHJl
-Y2FsbCwgYm90aDsgYW4gaXNzdWUgd2l0aCB0aGUgRkVDIGRyaXZlciwgYW5kIGlzc3VlcyBpbgo+
-PiBzeXN0ZW1kL3VkZXZkJ3MgaGFuZGxpbmcgb2YgbGluay1sZXZlbCBzZXR0aW5ncy4KPiAKPiBU
-aGlzIGlzIG15IGltcHJlc3Npb24gb2YgdGhlIHNpdHVhdGlvbiBhcyB3ZWxsLgoKVGhlIGV4ZWN1
-dGlvbiBvcmRlciBsb29rcyBhcyBmb2xsb3dzIGZvciB0aGUgRkVDIGRyaXZlciAodGFrZW4gZnJv
-bSBhCnJlY2VudCBrZXJuZWwgd2l0aCBzb21lIGFkZGl0aW9uYWwgcHJpbnRrcywgc2VyaWFsIGNv
-bnNvbGUpOgoKLi4uClsgICAgMS4xNTcwODZdIGZlY19wcm9iZQouLi4KWyAgICAxLjE5MDM1MF0g
-ZmVjX2VuZXRfbWlpX2luaXQKWyAgICAxLjIwNTQ0Nl0gbGlicGh5OiBmZWNfZW5ldF9taWlfYnVz
-OiBwcm9iZWQKWyAgICAxLjIxNzg0OV0gZmVjIDQwMGQxMDAwLmV0aGVybmV0IGV0aDA6IHJlZ2lz
-dGVyZWQgUEhDIGRldmljZSAwCi4uLgpbICAgMTAuNzUxMDYwXSBkZXZfZXRodG9vbCwgcmMgLTE5
-ID0+IChFVEhUT09MX0dTRVQpIFRvbyBlYXJseS4uLgpbICAgMTEuMjYyMzMzXSBmZWNfZW5ldF9v
-cGVuClsgICAxMS40Nzk5MjhdIGZlY19lbmV0X21paV9wcm9iZSA9PiBPci9hbmQgdG9vIGxhdGUu
-Li4KCkxvb2tpbmcgYXQgdGhlIGpvdXJuYWw6Ci4uLgpBcHIgMTMgMDE6MDI6NDkgY29saWJyaS12
-ZiBzeXN0ZW1kWzFdOiBTdGFydGVkIHVkZXYgQ29sZHBsdWcgYWxsCkRldmljZXMuCi4uLgpBcHIg
-MTMgMDE6MDI6NTAgY29saWJyaS12ZiBrZXJuZWw6IG1kZXZfZXRodG9vbCwgcmMgLTE5Ci4uLgpB
-cHIgMTMgMDE6MDI6NTAgY29saWJyaS12ZiBzeXN0ZW1kLXVkZXZkWzE5N106IENvdWxkIG5vdCBz
-ZXQgc3BlZWQgb3IKZHVwbGV4IG9mIGV0aDAgdG8gMCBNYnBzIChoYWxmKTogTm8gc3VjaCBkZXZp
-Y2UKLi4uCkFwciAxMyAwMTowMjo1MSBjb2xpYnJpLXZmIGtlcm5lbDogZmVjX2VuZXRfb3Blbgou
-Li4KQXByIDEzIDAxOjAyOjUxIGNvbGlicmktdmYga2VybmVsOiBmZWNfZW5ldF9taWlfcHJvYmUK
-ClRoZSBzZXJ2aWNlICJ1ZGV2IENvbGRwbHVnIGFsbCBEZXZpY2VzIiBlc3NlbnRpYWxseSBleGVj
-dXRlczoKdWRldmFkbSB0cmlnZ2VyIC0tdHlwZT1zdWJzeXN0ZW1zIC0tYWN0aW9uPWFkZCA7IHVk
-ZXZhZG0gdHJpZ2dlcgotLXR5cGU9ZGV2aWNlcyAtLWFjdGlvbj1hZGQKCkkgZ3Vlc3MgdGhlICJh
-ZGQiIHVkZXYgZXZlbnQgaXMgZ2VuZXJhdGVkIGR1ZSB0byB0aGUgZmFjdCB0aGF0IHRoZQpkZXZp
-Y2UgaGFzIHN1Y2Nlc3NmdWxseSBiZWVuIHByb2JlZC4gSWYgdGhlIGtlcm5lbCBpcyBhbGxvd2Vk
-IHRvCmluaXRpYWxpemUgdGhlIFBIWSBhcyBsYXRlIGFzIGF0IG9wZW4gdGltZSwgc3lzdGVtZCBz
-aG91bGQgY29uZmlndXJlIHRoZQpsaW5rIGF0IGEgcG9pbnQgYWZ0ZXIgbGluayB1cC4uLiBEbyB5
-b3UgYWdyZWUgb24gdGhhdD8KCkFmYWN0IHRoZXJlIGlzIG5vIHVkZXYgZXZlbnQgb24gbGluayB1
-cCwgaGVuY2UgdGhpcyB3b3VsZCBub3QgYmUgYSBtZXJlCnVkZXYgcnVsZSBjaGFuZ2UuLi4/CgpT
-byBJIHRoaW5rIHRoZSBpc3N1ZSBpcyBlaXRoZXIgYSBzeXN0ZW1kL3VkZXYgaXNzdWUgb3IgYSBG
-RUMgZHJpdmVyCmlzc3VlLiBBbmQgdGhlIHNvbHV0aW9uIGlzIG9uZSBvZiB0aGlzIHR3byBvcHRp
-b25zOgotIE1vdmUgKGFsbCB0aGUpIFBIWSBwcm9iZXMgYXQgZHJpdmVyIHByb2JlIHRpbWUsIHRo
-ZW4gdGhlIFBIWSB3aWxsIGJlCnByb2JlZCB3aGVuIHVkZXYgcHJvY2Vzc2VzIHRoZSBhZGQgZXZl
-bnQKLSBPciBtb3ZlIHN5c3RlbWQvbmV0d29ya2QvdWRldiBsaW5rIHByb2Nlc3NpbmcsIHNldCB0
-aGUgbGluayBzZXR0aW5ncwpvbmx5IGFmdGVyIHRoZSBkZXZpY2UgaGFzIGJlZW4gb3BlbmVkIChs
-aW5rIHVwKS4KCkZsb3JpYW4gYnJvdWdodCB1cCBhIGdvb2QgcG9pbnQgaW4gYW5vdGhlciBhbnN3
-ZXI6Cj4gUGFydCBvZiB0aGUgcmVhc29uIGZvciBkb2luZyB0aGF0LCBpcyB0aGF0IHByb2Jpbmcg
-Zm9yIHRoZSBQSFkgZHVyaW5nCj4gdGhlIGRyaXZlcidzIHByb2JlIGZ1bmN0aW9uIGNvdWxkIGxl
-YXZlIHlvdSB3aXRoIHVudXNlZCBIVyB0aGF0IGlzCj4gcG93ZXJlZCBvbiBmb3Igbm8gZ29vZCBy
-ZWFzb24uIFVudGlsIHdlIGdldCBpbnRvIG5kb19vcGVuLCB3ZSBoYXZlIG5vCj4gY2x1ZSBpZiB0
-aGUgaW50ZXJmYWNlIGlzIGdvaW5nIHRvIGJlIHVzZWQgb3Igbm90LCBzbyBpdCBpcyBiZXR0ZXIg
-dG8KPiBtb3ZlIHBhcnQgb2YgdGhlIEhXIGluaXRpYWxpemF0aW9uIGFzIGxhdGUgYXMgcG9zc2li
-bGUgaW4gdGhlIHByb2Nlc3MuCgpUaGVyZWZvciBJIHRoaW5rIG9ubHkgb3B0aW9uIDIgaXMgYWN0
-dWFsbHkgdmlhYmxlLgoKLS0KU3RlZmFuCgoKCgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCnN5c3RlbWQtZGV2ZWwgbWFpbGluZyBsaXN0CnN5c3RlbWQt
-ZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3Jn
-L21haWxtYW4vbGlzdGluZm8vc3lzdGVtZC1kZXZlbAo=
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed, 13 Apr 2016 01:02:38 +0200
+
+> The following patchset contains the first batch of Netfilter updates for
+> your net-next tree.
+ ...
+
+Pulled, thanks Pablo.
