@@ -1,56 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ss: 64bit inode numbers
-Date: Wed, 13 Apr 2016 14:21:21 -0700
-Message-ID: <1460582481.10638.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460499749.6473.601.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160413135511.4e683440@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] tipc: remove remnants of old broadcast
+ code
+Date: Wed, 13 Apr 2016 17:50:15 -0400 (EDT)
+Message-ID: <20160413.175015.1189895883567923026.davem@davemloft.net>
+References: <1460562347-26436-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35318 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbcDMVVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 17:21:24 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fs9so19163035pac.2
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 14:21:23 -0700 (PDT)
-In-Reply-To: <20160413135511.4e683440@xeon-e3>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59541 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754251AbcDMVuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 17:50:20 -0400
+In-Reply-To: <1460562347-26436-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-04-13 at 13:55 -0700, Stephen Hemminger wrote:
-> On Tue, 12 Apr 2016 15:22:29 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 13 Apr 2016 11:45:47 -0400
+
+> We remove a couple of leftover fields in struct tipc_bearer. Those
+> were used by the old broadcast implementation, and are not needed
+> any longer. There is no functional changes in this commit.
 > 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Lets prepare for a possibility to have 64bit inode numbers for sockets,
-> > even if the kernel currently enforces 32bit numbers.
-> > 
-> > Presumably, if both kernel and userland are 64bit (no 32bit emulation),
-> > kernel could switch to 64bit inode numbers soon.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->  
-> Why not use ino_t rather than __u64 which is really intended for kernel/user abi.
-> Then make code generic on sizeof inode type
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Well, maybe because code dealing with ino_t is very often buggy ;)
-
-For example iproute2 makes the assumption an ino_t can be printed using
-%lu format. This does not work with a 32bit binary.
-
-
-static void bpf_info_loop(int *fds, struct bpf_map_aux *aux)
-{
-        int i, tfd[BPF_MAP_ID_MAX];
-
-        printf("ver: %d\nobj: %s\ndev: %lu\nino: %lu\nmaps: %u\n",
-               aux->uds_ver, aux->obj_name, aux->obj_st.st_dev,
-               aux->obj_st.st_ino, aux->num_ent);
-
-...
-
-No strong preference from my side.
+Applied, thank you.
