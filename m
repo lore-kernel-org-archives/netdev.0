@@ -1,40 +1,26 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Wed, 13 Apr 2016 17:50:28 +1000
-Message-ID: <20160413175028.5d3a4cf2@canb.auug.org.au>
+From: Mrs Elena <sszonal13@buenosaires.gob.ar>
+Subject: RESPOND BACK TO MY EMAIL PLS
+Date: Wed, 13 Apr 2016 05:09:57 -0300
+Message-ID: <20160413050957.72883e8pxzzu6sb9@webmail.buenosaires.gob.ar>
+Reply-To: mrselenashu1@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Andrew Bowers <andrewx.bowers@intel.com>,
-	Build bot for Mark Brown <broonie@kernel.org>,
-	kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpgcba5.buenosaires.gob.ar ([200.16.89.92]:62748 "EHLO
+	smtpgcba5.buenosaires.gob.ar" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753001AbcDMISz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 04:18:55 -0400
+Received: from webmail04 ([172.18.2.164]:33565 "EHLO webmail.gcba.gob.ar"
+	smtp-auth: "sszonal13@buenosaires.gob.ar" rhost-flags-OK-OK-OK-FAIL)
+	by mr4.buenosaires.gob.ar with ESMTPSA id S970449AbcDMIJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 05:09:58 -0300
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-[A report from Mark's buildbot]
-
-After merging the net-next tree, today's linux-next build (arm
-allmodconfig) failed like thisi (this has actually been failing for a
-few days, now):
-
-ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
-
-Caused by commit
-
-  49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
-
-arm only allows udelay()s up to 2 milliseconds.  This commit
-adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
-drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
-
--- 
-Cheers,
-Stephen Rothwell
+Contact me now for $6.2 Million offer
