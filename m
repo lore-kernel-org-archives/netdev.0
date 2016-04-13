@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 1/8] dsa: mv88e6xxx: Prepare for turning this into a library module
-Date: Thu, 14 Apr 2016 01:59:51 +0200
-Message-ID: <1460591998-20598-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 7/8] dsa: mv88e6xxx: Use the name table to determine number of ports
+Date: Thu, 14 Apr 2016 01:59:57 +0200
+Message-ID: <1460591998-20598-8-git-send-email-andrew@lunn.ch>
 References: <1460591998-20598-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -9,374 +9,303 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55205 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:55210 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932080AbcDNAC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 20:02:26 -0400
+	id S932075AbcDNACl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 20:02:41 -0400
 In-Reply-To: <1460591998-20598-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Export all the functions so that we can later turn the module into a
-library module.
+Extend the ID to name table to also include the number of ports.
+Saves a few switch statements and it is likely other entries will be
+added to the table later.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 44 insertions(+)
+ drivers/net/dsa/mv88e6123.c | 30 +++++++++---------------------
+ drivers/net/dsa/mv88e6131.c | 25 +++++--------------------
+ drivers/net/dsa/mv88e6171.c | 10 ++++------
+ drivers/net/dsa/mv88e6352.c | 26 ++++++++++++--------------
+ drivers/net/dsa/mv88e6xxx.c | 35 +++++++++++++++++++++--------------
+ drivers/net/dsa/mv88e6xxx.h |  1 +
+ 6 files changed, 52 insertions(+), 75 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index b4dd7ef039da..ac2e6609367d 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -20,15 +20,15 @@
+ #include "mv88e6xxx.h"
+ 
+ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
+-	{ PORT_SWITCH_ID_6123, "Marvell 88E6123" },
+-	{ PORT_SWITCH_ID_6123_A1, "Marvell 88E6123 (A1)" },
+-	{ PORT_SWITCH_ID_6123_A2, "Marvell 88E6123 (A2)" },
+-	{ PORT_SWITCH_ID_6161, "Marvell 88E6161" },
+-	{ PORT_SWITCH_ID_6161_A1, "Marvell 88E6161 (A1)" },
+-	{ PORT_SWITCH_ID_6161_A2, "Marvell 88E6161 (A2)" },
+-	{ PORT_SWITCH_ID_6165, "Marvell 88E6165" },
+-	{ PORT_SWITCH_ID_6165_A1, "Marvell 88E6165 (A1)" },
+-	{ PORT_SWITCH_ID_6165_A2, "Marvell 88e6165 (A2)" },
++	{ PORT_SWITCH_ID_6123,		"Marvell 88E6123",		3 },
++	{ PORT_SWITCH_ID_6123_A1,	"Marvell 88E6123 (A1)",		3 },
++	{ PORT_SWITCH_ID_6123_A2,	"Marvell 88E6123 (A2)",		3 },
++	{ PORT_SWITCH_ID_6161,		"Marvell 88E6161",		6 },
++	{ PORT_SWITCH_ID_6161_A1,	"Marvell 88E6161 (A1)",		6 },
++	{ PORT_SWITCH_ID_6161_A2,	"Marvell 88E6161 (A2)",		6 },
++	{ PORT_SWITCH_ID_6165,		"Marvell 88E6165",		6 },
++	{ PORT_SWITCH_ID_6165_A1,	"Marvell 88E6165 (A1)",		6 },
++	{ PORT_SWITCH_ID_6165_A2,	"Marvell 88e6165 (A2)",		6 },
+ };
+ 
+ static char *mv88e6123_drv_probe(struct device *dsa_dev,
+@@ -88,18 +88,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6123:
+-		ps->num_ports = 3;
+-		break;
+-	case PORT_SWITCH_ID_6161:
+-	case PORT_SWITCH_ID_6165:
+-		ps->num_ports = 6;
+-		break;
+-	default:
+-		return -ENODEV;
+-	}
+-
+ 	ret = mv88e6xxx_switch_reset(ps, false);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 1659d4dc93c0..969f67c77835 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -20,11 +20,11 @@
+ #include "mv88e6xxx.h"
+ 
+ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+-	{ PORT_SWITCH_ID_6085, "Marvell 88E6085" },
+-	{ PORT_SWITCH_ID_6095, "Marvell 88E6095/88E6095F" },
+-	{ PORT_SWITCH_ID_6131, "Marvell 88E6131" },
+-	{ PORT_SWITCH_ID_6131_B2, "Marvell 88E6131 (B2)" },
+-	{ PORT_SWITCH_ID_6185, "Marvell 88E6185" },
++	{ PORT_SWITCH_ID_6085,		"Marvell 88E6085",		10 },
++	{ PORT_SWITCH_ID_6095,		"Marvell 88E6095/88E6095F",	11 },
++	{ PORT_SWITCH_ID_6131,		"Marvell 88E6131",		8 },
++	{ PORT_SWITCH_ID_6131_B2,	"Marvell 88E6131 (B2)",		8 },
++	{ PORT_SWITCH_ID_6185,		"Marvell 88E6185",		10 },
+ };
+ 
+ static char *mv88e6131_drv_probe(struct device *dsa_dev,
+@@ -112,21 +112,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 
+ 	mv88e6xxx_ppu_state_init(ps);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6085:
+-	case PORT_SWITCH_ID_6185:
+-		ps->num_ports = 10;
+-		break;
+-	case PORT_SWITCH_ID_6095:
+-		ps->num_ports = 11;
+-		break;
+-	case PORT_SWITCH_ID_6131:
+-	case PORT_SWITCH_ID_6131_B2:
+-		ps->num_ports = 8;
+-		break;
+-	default:
+-		return -ENODEV;
+-	}
+ 
+ 	ret = mv88e6xxx_switch_reset(ps, false);
+ 	if (ret < 0)
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 0b934b3008ca..8044927590a4 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -20,10 +20,10 @@
+ #include "mv88e6xxx.h"
+ 
+ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
+-	{ PORT_SWITCH_ID_6171, "Marvell 88E6171" },
+-	{ PORT_SWITCH_ID_6175, "Marvell 88E6175" },
+-	{ PORT_SWITCH_ID_6350, "Marvell 88E6350" },
+-	{ PORT_SWITCH_ID_6351, "Marvell 88E6351" },
++	{ PORT_SWITCH_ID_6171,	"Marvell 88E6171",	7 },
++	{ PORT_SWITCH_ID_6175,	"Marvell 88E6175",	7 },
++	{ PORT_SWITCH_ID_6350,	"Marvell 88E6350",	7 },
++	{ PORT_SWITCH_ID_6351,	"Marvell 88E6351",	7 },
+ };
+ 
+ static char *mv88e6171_drv_probe(struct device *dsa_dev,
+@@ -85,8 +85,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ps->num_ports = 7;
+-
+ 	ret = mv88e6xxx_switch_reset(ps, true);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index b745a1f36a1f..e5541cd66e86 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -24,18 +24,18 @@
+ #include "mv88e6xxx.h"
+ 
+ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+-	{ PORT_SWITCH_ID_6172, "Marvell 88E6172" },
+-	{ PORT_SWITCH_ID_6176, "Marvell 88E6176" },
+-	{ PORT_SWITCH_ID_6240, "Marvell 88E6240" },
+-	{ PORT_SWITCH_ID_6320, "Marvell 88E6320" },
+-	{ PORT_SWITCH_ID_6320_A1, "Marvell 88E6320 (A1)" },
+-	{ PORT_SWITCH_ID_6320_A2, "Marvell 88e6320 (A2)" },
+-	{ PORT_SWITCH_ID_6321, "Marvell 88E6321" },
+-	{ PORT_SWITCH_ID_6321_A1, "Marvell 88E6321 (A1)" },
+-	{ PORT_SWITCH_ID_6321_A2, "Marvell 88e6321 (A2)" },
+-	{ PORT_SWITCH_ID_6352, "Marvell 88E6352" },
+-	{ PORT_SWITCH_ID_6352_A0, "Marvell 88E6352 (A0)" },
+-	{ PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)" },
++	{ PORT_SWITCH_ID_6172,		"Marvell 88E6172",	7 },
++	{ PORT_SWITCH_ID_6176,		"Marvell 88E6176",	7 },
++	{ PORT_SWITCH_ID_6240,		"Marvell 88E6240",	7 },
++	{ PORT_SWITCH_ID_6320,		"Marvell 88E6320",	7 },
++	{ PORT_SWITCH_ID_6320_A1,	"Marvell 88E6320 (A1)", 7 },
++	{ PORT_SWITCH_ID_6320_A2,	"Marvell 88e6320 (A2)", 7 },
++	{ PORT_SWITCH_ID_6321,		"Marvell 88E6321",	7 },
++	{ PORT_SWITCH_ID_6321_A1,	"Marvell 88E6321 (A1)", 7 },
++	{ PORT_SWITCH_ID_6321_A2,	"Marvell 88e6321 (A2)", 7 },
++	{ PORT_SWITCH_ID_6352,		"Marvell 88E6352",	7 },
++	{ PORT_SWITCH_ID_6352_A0,	"Marvell 88E6352 (A0)", 7 },
++	{ PORT_SWITCH_ID_6352_A1,	"Marvell 88E6352 (A1)", 7 },
+ };
+ 
+ static char *mv88e6352_drv_probe(struct device *dsa_dev,
+@@ -95,8 +95,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ps->num_ports = 7;
+-
+ 	mutex_init(&ps->eeprom_mutex);
+ 
+ 	ret = mv88e6xxx_switch_reset(ps, true);
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9985a0cf31f1..9b568f39aaf0 100644
+index b8db7ed12005..9bf20c6d8aac 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -120,6 +120,7 @@ int mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_reg_read);
- 
- static int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
- 				 int reg, u16 val)
-@@ -177,6 +178,7 @@ int mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_reg_write);
- 
- int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
- {
-@@ -186,6 +188,7 @@ int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_set_addr_direct);
- 
- int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
- {
-@@ -211,6 +214,7 @@ int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_set_addr_indirect);
- 
- static int _mv88e6xxx_phy_read(struct dsa_switch *ds, int addr, int regnum)
- {
-@@ -336,6 +340,7 @@ void mv88e6xxx_ppu_state_init(struct dsa_switch *ds)
- 	ps->ppu_timer.data = (unsigned long)ps;
- 	ps->ppu_timer.function = mv88e6xxx_ppu_reenable_timer;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_ppu_state_init);
- 
- int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
- {
-@@ -349,6 +354,7 @@ int mv88e6xxx_phy_read_ppu(struct dsa_switch *ds, int addr, int regnum)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_read_ppu);
- 
- int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
- 			    int regnum, u16 val)
-@@ -363,6 +369,7 @@ int mv88e6xxx_phy_write_ppu(struct dsa_switch *ds, int addr,
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_write_ppu);
- #endif
- 
- static bool mv88e6xxx_6065_family(struct dsa_switch *ds)
-@@ -587,6 +594,7 @@ void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
- out:
- 	mutex_unlock(&ps->smi_mutex);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_adjust_link);
- 
- static int _mv88e6xxx_stats_wait(struct dsa_switch *ds)
- {
-@@ -783,6 +791,7 @@ void mv88e6xxx_get_strings(struct dsa_switch *ds, int port, uint8_t *data)
- 		}
- 	}
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_strings);
- 
- int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
- {
-@@ -796,6 +805,7 @@ int mv88e6xxx_get_sset_count(struct dsa_switch *ds)
- 	}
- 	return j;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_sset_count);
- 
- void
- mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
-@@ -823,11 +833,13 @@ mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 
- 	mutex_unlock(&ps->smi_mutex);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_ethtool_stats);
- 
- int mv88e6xxx_get_regs_len(struct dsa_switch *ds, int port)
- {
- 	return 32 * sizeof(u16);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_regs_len);
- 
- void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
- 			struct ethtool_regs *regs, void *_p)
-@@ -847,6 +859,7 @@ void mv88e6xxx_get_regs(struct dsa_switch *ds, int port,
- 			p[i] = ret;
- 	}
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_regs);
- 
- static int _mv88e6xxx_wait(struct dsa_switch *ds, int reg, int offset,
- 			   u16 mask)
-@@ -890,12 +903,14 @@ int mv88e6xxx_eeprom_load_wait(struct dsa_switch *ds)
- 	return mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
- 			      GLOBAL2_EEPROM_OP_LOAD);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_eeprom_load_wait);
- 
- int mv88e6xxx_eeprom_busy_wait(struct dsa_switch *ds)
- {
- 	return mv88e6xxx_wait(ds, REG_GLOBAL2, GLOBAL2_EEPROM_OP,
- 			      GLOBAL2_EEPROM_OP_BUSY);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_eeprom_busy_wait);
- 
- static int _mv88e6xxx_atu_wait(struct dsa_switch *ds)
- {
-@@ -962,6 +977,7 @@ out:
- 	mutex_unlock(&ps->smi_mutex);
- 	return reg;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_eee);
- 
- int mv88e6xxx_set_eee(struct dsa_switch *ds, int port,
- 		      struct phy_device *phydev, struct ethtool_eee *e)
-@@ -988,6 +1004,7 @@ out:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_set_eee);
- 
- static int _mv88e6xxx_atu_cmd(struct dsa_switch *ds, u16 fid, u16 cmd)
- {
-@@ -1216,6 +1233,7 @@ void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
- 	set_bit(port, ps->port_state_update_mask);
- 	schedule_work(&ps->bridge_work);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_stp_state_set);
- 
- static int _mv88e6xxx_port_pvid(struct dsa_switch *ds, int port, u16 *new,
- 				u16 *old)
-@@ -1456,6 +1474,7 @@ unlock:
- 
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_vlan_dump);
- 
- static int _mv88e6xxx_vtu_loadpurge(struct dsa_switch *ds,
- 				    struct mv88e6xxx_vtu_stu_entry *entry)
-@@ -1864,6 +1883,7 @@ unlock:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_vlan_filtering);
- 
- int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 				const struct switchdev_obj_port_vlan *vlan,
-@@ -1884,6 +1904,7 @@ int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
- 	 */
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_vlan_prepare);
- 
- static int _mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port, u16 vid,
- 				    bool untagged)
-@@ -1924,6 +1945,7 @@ void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
- 
- 	mutex_unlock(&ps->smi_mutex);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_vlan_add);
- 
- static int _mv88e6xxx_port_vlan_del(struct dsa_switch *ds, int port, u16 vid)
- {
-@@ -1990,6 +2012,7 @@ unlock:
- 
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_vlan_del);
- 
- static int _mv88e6xxx_atu_mac_write(struct dsa_switch *ds,
- 				    const unsigned char *addr)
-@@ -2079,6 +2102,7 @@ int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 	 */
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_fdb_prepare);
- 
- void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 			    const struct switchdev_obj_port_fdb *fdb,
-@@ -2094,6 +2118,7 @@ void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 		netdev_err(ds->ports[port], "failed to load MAC address\n");
- 	mutex_unlock(&ps->smi_mutex);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_fdb_add);
- 
- int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 			   const struct switchdev_obj_port_fdb *fdb)
-@@ -2108,6 +2133,7 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_fdb_del);
- 
- static int _mv88e6xxx_atu_getnext(struct dsa_switch *ds, u16 fid,
- 				  struct mv88e6xxx_atu_entry *entry)
-@@ -2241,6 +2267,7 @@ unlock:
- 
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_fdb_dump);
- 
- int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 			       struct net_device *bridge)
-@@ -2283,6 +2310,7 @@ unlock:
- 
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_bridge_join);
- 
- void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- {
-@@ -2308,6 +2336,7 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- 
- 	mutex_unlock(&ps->smi_mutex);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_port_bridge_leave);
- 
- static void mv88e6xxx_bridge_work(struct work_struct *work)
- {
-@@ -2659,6 +2688,7 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
- 	}
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_setup_ports);
- 
- int mv88e6xxx_setup_common(struct dsa_switch *ds)
- {
-@@ -2673,6 +2703,7 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_setup_common);
- 
- int mv88e6xxx_setup_global(struct dsa_switch *ds)
- {
-@@ -2793,6 +2824,7 @@ unlock:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_setup_global);
- 
- int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
- {
-@@ -2842,6 +2874,7 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_switch_reset);
- 
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
- {
-@@ -2854,6 +2887,7 @@ int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_page_read);
- 
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val)
-@@ -2867,6 +2901,7 @@ int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_page_write);
- 
- static int mv88e6xxx_port_to_phy_addr(struct dsa_switch *ds, int port)
- {
-@@ -2892,6 +2927,7 @@ mv88e6xxx_phy_read(struct dsa_switch *ds, int port, int regnum)
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_read);
- 
- int
- mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
-@@ -2908,6 +2944,7 @@ mv88e6xxx_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_write);
- 
- int
- mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum)
-@@ -2924,6 +2961,7 @@ mv88e6xxx_phy_read_indirect(struct dsa_switch *ds, int port, int regnum)
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_read_indirect);
- 
- int
- mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
-@@ -2941,6 +2979,7 @@ mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
- 	mutex_unlock(&ps->smi_mutex);
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_phy_write_indirect);
- 
- #ifdef CONFIG_NET_DSA_HWMON
- 
-@@ -3012,6 +3051,7 @@ int mv88e6xxx_get_temp(struct dsa_switch *ds, int *temp)
- 
- 	return mv88e61xx_get_temp(ds, temp);
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_temp);
- 
- int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
- {
-@@ -3031,6 +3071,7 @@ int mv88e6xxx_get_temp_limit(struct dsa_switch *ds, int *temp)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_temp_limit);
- 
- int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp)
- {
-@@ -3047,6 +3088,7 @@ int mv88e6xxx_set_temp_limit(struct dsa_switch *ds, int temp)
- 	return mv88e6xxx_phy_page_write(ds, phy, 6, 26,
- 					(ret & 0xe0ff) | (temp << 8));
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_set_temp_limit);
- 
- int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
- {
-@@ -3066,6 +3108,7 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_get_temp_alarm);
+@@ -3206,23 +3206,23 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+ EXPORT_SYMBOL_GPL(mv88e6xxx_get_temp_alarm);
  #endif /* CONFIG_NET_DSA_HWMON */
  
- static char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
-@@ -3125,6 +3168,7 @@ char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+-static char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+-				   const struct mv88e6xxx_switch_id *table,
+-				   unsigned int num)
++static int mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
++				 const struct mv88e6xxx_switch_id *table,
++				 unsigned int num)
+ {
+ 	int i, ret;
+ 
+ 	if (!bus)
+-		return NULL;
++		return -EINVAL;
+ 
+ 	ret = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
+ 	if (ret < 0)
+-		return NULL;
++		return ret;
+ 
+ 	/* Look up the exact switch ID */
+ 	for (i = 0; i < num; ++i)
+ 		if (table[i].id == ret)
+-			return table[i].name;
++			return i;
+ 
+ 	/* Look up only the product number */
+ 	for (i = 0; i < num; ++i) {
+@@ -3231,11 +3231,11 @@ static char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+ 				 "unknown revision %d, using base switch 0x%x\n",
+ 				 ret & PORT_SWITCH_ID_REV_MASK,
+ 				 ret & PORT_SWITCH_ID_PROD_NUM_MASK);
+-			return table[i].name;
++			return i;
+ 		}
+ 	}
+ 
+-	return NULL;
++	return -ENODEV;
+ }
+ 
+ char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+@@ -3245,13 +3245,14 @@ char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ {
+ 	struct mv88e6xxx_priv_state *ps;
+ 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+-	char *name;
++	char *name = NULL;
++	int entry;
+ 
+ 	if (!bus)
+ 		return NULL;
+ 
+-	name = mv88e6xxx_lookup_name(bus, sw_addr, table, num);
+-	if (name) {
++	entry = mv88e6xxx_lookup_name(bus, sw_addr, table, num);
++	if (entry >= 0) {
+ 		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
+ 		if (!ps)
+ 			return NULL;
+@@ -3260,6 +3261,9 @@ char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+ 		if (!ps->bus)
+ 			return NULL;
+ 		ps->sw_addr = sw_addr;
++
++		name = table[entry].name;
++		ps->num_ports = table[entry].num_ports;
  	}
  	return name;
  }
-+EXPORT_SYMBOL_GPL(mv88e6xxx_drv_probe);
+@@ -3273,6 +3277,7 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
+ 	struct mv88e6xxx_priv_state *ps;
+ 	struct dsa_switch *ds;
+ 	const char *name;
++	int entry;
+ 	int err;
  
- static int __init mv88e6xxx_init(void)
- {
+ 	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
+@@ -3290,11 +3295,13 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
+ 
+ 	ds->drv = ops;
+ 
+-	name = mv88e6xxx_lookup_name(ps->bus, ps->sw_addr, table, table_size);
+-	if (!name) {
++	entry = mv88e6xxx_lookup_name(ps->bus, ps->sw_addr, table, table_size);
++	if (entry < 0) {
+ 		dev_err(dev, "Failed to find switch");
+-		return -ENODEV;
++		return entry;
+ 	}
++	name = table[entry].name;
++	ps->num_ports = table[entry].num_ports;
+ 
+ 	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
+ 	err = PTR_ERR(ps->reset);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 3f7a432c9050..1621e400ef5b 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -371,6 +371,7 @@
+ struct mv88e6xxx_switch_id {
+ 	u16 id;
+ 	char *name;
++	int num_ports;
+ };
+ 
+ struct mv88e6xxx_atu_entry {
 -- 
 2.7.0
