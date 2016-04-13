@@ -1,156 +1,48 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
-Date: Wed, 13 Apr 2016 08:06:05 -0700
-Message-ID: <570E605D.4010805@schaufler-ca.com>
-References: <cover.1459934322.git.pabeni@redhat.com>
- <CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
- <20160406234532.GA731@breakpoint.cc> <2239567.jkCk1gtQAE@sifl>
- <1460451162.5965.16.camel@redhat.com> <570CFEBA.7090001@schaufler-ca.com>
- <1460548628.9170.12.camel@redhat.com>
+From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH for-next 2/2] net/mlx5: Update mlx5_ifc hardware features
+Date: Wed, 13 Apr 2016 18:10:39 +0300
+Message-ID: <CAJ3xEMi=xNKLarC9A7S75quQxmRGXVhOuesKF08gcE95oUYz8Q@mail.gmail.com>
+References: <1460405422-8654-1-git-send-email-saeedm@mellanox.com>
+	<1460405422-8654-3-git-send-email-saeedm@mellanox.com>
+	<CAJ3xEMghu7ZB0YM8j_YJihpuNnDzOY2LU9-cTHwoWiBeYY7VPA@mail.gmail.com>
+	<CALzJLG-PxUz9ov+cv4uiNSGpuxy0s9KamTvamV_g72SctqdhFA@mail.gmail.com>
+	<CAJ3xEMhorMRsxtawjim9zoBn-zzoDXcMAJfHUqCZBNUbOKrMJA@mail.gmail.com>
+	<20160412051537.GD25242@leon.nu>
+	<CAJ3xEMijYrLvSmbNZp0B6AXqKGozz1rdZ58SCUP_09zOB6-2gQ@mail.gmail.com>
+	<20160412060117.GA24649@leon.nu>
+	<CALzJLG8fXPLQ7tj2Nc7NbGpu4EuNoXTE+w8tDkwQ2F_AqgDtLA@mail.gmail.com>
+	<CAJ3xEMiu3o=yMABh1N7w8mDV4yddE1zk5FYoHHHB02tDhOqzHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>, Florian Westphal <fw@strlen.de>,
-	linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	James Morris <james.l.morris@oracle.com>,
-	Andreas Gruenbacher <agruenba@redhat.com>,
-	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, Casey Schaufler <casey@schaufler-ca.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1460548628.9170.12.camel@redhat.com>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Leon Romanovsky <leon-2ukJVAZIZ/Y@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJ3xEMiu3o=yMABh1N7w8mDV4yddE1zk5FYoHHHB02tDhOqzHw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 4/13/2016 4:57 AM, Paolo Abeni wrote:
-> On Tue, 2016-04-12 at 06:57 -0700, Casey Schaufler wrote:
->> On 4/12/2016 1:52 AM, Paolo Abeni wrote:
->>> On Thu, 2016-04-07 at 14:55 -0400, Paul Moore wrote:
->>>> On Thursday, April 07, 2016 01:45:32 AM Florian Westphal wrote:
->>>>> Paul Moore <paul@paul-moore.com> wrote:
->>>>>> On Wed, Apr 6, 2016 at 6:14 PM, Florian Westphal <fw@strlen.de> wrote:
->>>>>>> netfilter hooks are per namespace -- so there is hook unregister when
->>>>>>> netns is destroyed.
->>>>>> Looking around, I see the global and per-namespace registration
->>>>>> functions (nf_register_hook and nf_register_net_hook, respectively),
->>>>>> but I'm looking to see if/how newly created namespace inherit
->>>>>> netfilter hooks from the init network namespace ... if you can create
->>>>>> a network namespace and dodge the SELinux hooks, that isn't a good
->>>>>> thing from a SELinux point of view, although it might be a plus
->>>>>> depending on where you view Paolo's original patches ;)
->>>>> Heh :-)
->>>>>
->>>>> If you use nf_register_net_hook, the hook is only registered in the
->>>>> namespace.
->>>>>
->>>>> If you use nf_register_hook, the hook is put on a global list and
->>>>> registed in all existing namespaces.
->>>>>
->>>>> New namespaces will have the hook added as well (see
->>>>> netfilter_net_init -> nf_register_hook_list in netfilter/core.c )
->>>>>
->>>>> Since nf_register_hook is used it should be impossible to get a netns
->>>>> that doesn't call these hooks.
->>>> Great, thanks.
->>>>  
->>>>>>> Do you think it makes sense to rework the patch to delay registering
->>>>>>> of the netfiler hooks until the system is in a state where they're
->>>>>>> needed, without the 'unregister' aspect?
->>>>>> I would need to see the patch to say for certain, but in principle
->>>>>> that seems perfectly reasonable and I think would satisfy both the
->>>>>> netdev and SELinux camps - good suggestion.  My main goal is to drop
->>>>>> the selinux_nf_ip_init() entirely so it can't be used as a ROP gadget.
->>>>>>
->>>>>> We might even be able to trim the secmark_active and peerlbl_active
->>>>>> checks in the SELinux netfilter hooks (an earlier attempt at
->>>>>> optimization; contrary to popular belief, I do care about SELinux
->>>>>> performance), although that would mean that enabling the network
->>>>>> access controls would be one way ... I guess you can disregard that
->>>>>> last bit, I'm thinking aloud again.
->>>>> One way is fine I think.
->>>> Yes, just disregard my second paragraph above.
->>>>  
->>>>>>> Ideally this would even be per netns -- in perfect world we would
->>>>>>> be able to make it so that a new netns are created with an empty
->>>>>>> hook list.
->>>>>> In general SELinux doesn't care about namespaces, for reasons that are
->>>>>> sorta beyond the scope of this conversation, so I would like to stick
->>>>>> to a all or nothing approach to enabling the SELinux netfilter hooks
->>>>>> across namespaces.  Perhaps we can revisit this at a later time, but
->>>>>> let's keep it simple right now.
->>>>> Okay, I'd prefer to stick to your recommendation anyway wrt. to selinux
->>>>> (Casey, I read your comment regarding smack. Noted, we don't want to
->>>>> break smack either...)
->>>>>
->>>>> I think that in this case the entire question is:
->>>>>
->>>>> In your experience, how likely is a config where selinux is enabled BUT the
->>>>> hooks are not needed (i.e., where we hit the
->>>>>
->>>>> if (!selinux_policycap_netpeer)
->>>>>     return NF_ACCEPT;
->>>>>
->>>>> if (!secmark_active && !peerlbl_active)
->>>>>    return NF_ACCEPT;
->>>>>
->>>>> tests inside the hooks)?  If such setups are uncommon we should just
->>>>> drop this idea or at least put it on the back burner until the more
->>>>> expensive netfilter hooks (conntrack, cough) are out of the way.
->>>> A few years ago I would have said that it is relatively uncommon for admins to 
->>>> enable the SELinux network access controls; it was typically just 
->>>> government/intelligence agencies who had very strict access control 
->>>> requirements and represented a small portion of SELinux users.  However, over 
->>>> the past few years I've been fielding more and more questions from admins/devs 
->>>> in the virtualization space who are interested in some of these capabilities; 
->>>> it isn't clear to me how many of these people are switching it on, but there 
->>>> is definitely more interest than I have seen in the past and the interested is 
->>>> centered around some rather common use cases.
->>>>
->>>> So, to summarize, I don't know ;)
->>>>
->>>> If you've got bigger sources of overhead, my opinion would be to go tackle 
->>>> those first.  Perhaps I can even find the time to work on the 
->>>> SELinux/netfilter stuff while you are off slaying the bigger dragons, no 
->>>> promises at the moment.
->>> Double checking if I got the above correctly.
->>>
->>> Will be ok if we post a v2 version of this series, removing the hooks
->>> de-registration bits, but preserving the selinux nf-hooks and
->>> socket_sock_rcv_skb() on-demand/delayed registration ?
->> Imagine that I have two security modules that control sockets.
->> The work I'm knee deep in will allow this. If adding hooks after
->> the init phase is allowed you have to face the possibility that
->> blob sizes (in this case sock->sk_security) may change. That
->> requires checking on every hook that uses blobs to determine
->> whether the blob has data for all the modules using it. I know
->> that that is a simple matter of arithmetic, but it's additional
->> overhead on every hook call. It also makes creating kmem caches
->> for security blobs much more difficult. Another performance
->> optimization that becomes unavailable.
-> I got your point.
->
-> Without seeing the code, I wonder if the above scenario could be covered
-> always allocating a blob large enough for all concurrent security
-> modules, i.e. each security module always declares/requests/allocates
-> space into the blobs regardless of it does not have registered (yet)
-> some security hooks, trading memory usage for performance.
+We talked here, and the three MLNX mlx5 maintainers prefer things to
+be such they submit a patch
+to both trees (rdma and net-next) that contains the changes they plan
+to the FW IFC file for that
+-next release. They agreed that only fields that will be actually in
+use by the driver will be exposed
+in the IFC. So... let it be and good luck to us, maybe with even zero
+-next conflicts on mlx5 between
+to two subsystems, happy upstreaming.
 
-Yes, that would be possible. Unfortunately, many distros ship
-kernels with multiple security modules compiled in, but only one
-in use. That would make the common case the worst case. For the
-near (1-2 years) future the common case will be one security
-module using blobs in use with multiple modules compiled.
-
-The LSM infrastructure was built on the assumption that
-most systems would not use additional security modules.
-That was true then. It isn't now.
-
-> Paolo
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
+Or.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
