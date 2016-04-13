@@ -1,144 +1,78 @@
-From: Marc Haber <mh+linux-kernel@zugschlus.de>
-Subject: Re: [PATCH (net.git) 2/3] Revert "stmmac: Fix 'eth0: No PHY found'
- regression"
-Date: Wed, 13 Apr 2016 17:44:25 +0200
-Message-ID: <20160413154425.GA30954@torres.zugschlus.de>
-References: <1459494436-27386-1-git-send-email-peppe.cavallaro@st.com>
- <1459494436-27386-3-git-send-email-peppe.cavallaro@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gabriel.fernandez@linaro.org,
-	afaerber@suse.de, fschaefer.oss@googlemail.com,
-	dinh.linux@gmail.com, davem@davemloft.net, preid@electromag.com.au,
-	rhgadsdon@gmail.com, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1459494436-27386-3-git-send-email-peppe.cavallaro@st.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: remove remnants of old broadcast code
+Date: Wed, 13 Apr 2016 11:45:47 -0400
+Message-ID: <1460562347-26436-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp103.biz.mail.bf1.yahoo.com ([98.139.221.62]:32873 "EHLO
+	smtp103.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752575AbcDMPpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 11:45:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 01, 2016 at 09:07:15AM +0200, Giuseppe Cavallaro wrote:
-> This reverts commit 88f8b1bb41c6208f81b6a480244533ded7b59493.
-> due to problems on GeekBox and Banana Pi M1 board when
-> connected to a real transceiver instead of a switch via
-> fixed-link.
+We remove a couple of leftover fields in struct tipc_bearer. Those
+were used by the old broadcast implementation, and are not needed
+any longer. There is no functional changes in this commit.
 
-This reversal is still needed in Linux 4.5.1 on Banana Pi.
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bearer.h | 15 ---------------
+ 1 file changed, 15 deletions(-)
 
-Please consider including it in Linux 4.5.2.
-
-Greetings
-Marc
-
->=20
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-> Cc: Andreas F=C3=A4rber <afaerber@suse.de>
-> Cc: Frank Sch=C3=A4fer <fschaefer.oss@googlemail.com>
-> Cc: Dinh Nguyen <dinh.linux@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   11 ++++++++++=
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index e318205..f686e41 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -42,8 +42,6 @@
+ #include <net/genetlink.h>
+ 
+ #define MAX_MEDIA	3
+-#define MAX_NODES	4096
+-#define WSIZE		32
+ 
+ /* Identifiers associated with TIPC message header media address info
+  * - address info field is 32 bytes long
+@@ -62,16 +60,6 @@
+ #define TIPC_MEDIA_TYPE_UDP	3
+ 
+ /**
+- * struct tipc_node_map - set of node identifiers
+- * @count: # of nodes in set
+- * @map: bitmap of node identifiers that are in the set
+- */
+-struct tipc_node_map {
+-	u32 count;
+-	u32 map[MAX_NODES / WSIZE];
+-};
 -
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    9 +--------
->  include/linux/stmmac.h                             |    1 -
->  3 files changed, 11 insertions(+), 10 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/driv=
-ers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> index ea76129..af09ced 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> @@ -199,12 +199,21 @@ int stmmac_mdio_register(struct net_device *nde=
-v)
->  	struct stmmac_priv *priv =3D netdev_priv(ndev);
->  	struct stmmac_mdio_bus_data *mdio_bus_data =3D priv->plat->mdio_bus=
-_data;
->  	int addr, found;
-> -	struct device_node *mdio_node =3D priv->plat->mdio_node;
-> +	struct device_node *mdio_node =3D NULL;
-> +	struct device_node *child_node =3D NULL;
-> =20
->  	if (!mdio_bus_data)
->  		return 0;
-> =20
->  	if (IS_ENABLED(CONFIG_OF)) {
-> +		for_each_child_of_node(priv->device->of_node, child_node) {
-> +			if (of_device_is_compatible(child_node,
-> +						    "snps,dwmac-mdio")) {
-> +				mdio_node =3D child_node;
-> +				break;
-> +			}
-> +		}
-> +
->  		if (mdio_node) {
->  			netdev_dbg(ndev, "FOUND MDIO subnode\n");
->  		} else {
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/=
-drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index dcbd2a1..9cf181f 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -146,7 +146,6 @@ stmmac_probe_config_dt(struct platform_device *pd=
-ev, const char **mac)
->  	struct device_node *np =3D pdev->dev.of_node;
->  	struct plat_stmmacenet_data *plat;
->  	struct stmmac_dma_cfg *dma_cfg;
-> -	struct device_node *child_node =3D NULL;
-> =20
->  	plat =3D devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
->  	if (!plat)
-> @@ -177,19 +176,13 @@ stmmac_probe_config_dt(struct platform_device *=
-pdev, const char **mac)
->  		plat->phy_node =3D of_node_get(np);
->  	}
-> =20
-> -	for_each_child_of_node(np, child_node)
-> -		if (of_device_is_compatible(child_node,	"snps,dwmac-mdio")) {
-> -			plat->mdio_node =3D child_node;
-> -			break;
-> -		}
-> -
->  	/* "snps,phy-addr" is not a standard property. Mark it as deprecate=
-d
->  	 * and warn of its use. Remove this when phy node support is added.
->  	 */
->  	if (of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr) =3D=3D=
- 0)
->  		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
-> =20
-> -	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || !plat->mdio_no=
-de)
-> +	if ((plat->phy_node && !of_phy_is_fixed_link(np)) || plat->phy_bus_=
-name)
->  		plat->mdio_bus_data =3D NULL;
->  	else
->  		plat->mdio_bus_data =3D
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index 4bcf5a6..6e53fa8 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -114,7 +114,6 @@ struct plat_stmmacenet_data {
->  	int interface;
->  	struct stmmac_mdio_bus_data *mdio_bus_data;
->  	struct device_node *phy_node;
-> -	struct device_node *mdio_node;
->  	struct stmmac_dma_cfg *dma_cfg;
->  	int clk_csr;
->  	int has_gmac;
-> --=20
-> 1.7.4.4
->=20
-
---=20
------------------------------------------------------------------------=
-------
-Marc Haber         | "I don't trust Computers. They | Mailadresse im He=
-ader
-Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 160=
-0402
-Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 160=
-0421
+-/**
+  * struct tipc_media_addr - destination address used by TIPC bearers
+  * @value: address info (format defined by media)
+  * @media_id: TIPC media type identifier
+@@ -142,7 +130,6 @@ struct tipc_media {
+  * @identity: array index of this bearer within TIPC bearer array
+  * @link_req: ptr to (optional) structure making periodic link setup requests
+  * @net_plane: network plane ('A' through 'H') currently associated with bearer
+- * @nodes: indicates which nodes in cluster can be reached through bearer
+  *
+  * Note: media-specific code is responsible for initialization of the fields
+  * indicated below when a bearer is enabled; TIPC's generic bearer code takes
+@@ -163,8 +150,6 @@ struct tipc_bearer {
+ 	u32 identity;
+ 	struct tipc_link_req *link_req;
+ 	char net_plane;
+-	int node_cnt;
+-	struct tipc_node_map nodes;
+ };
+ 
+ struct tipc_bearer_names {
+-- 
+1.9.1
