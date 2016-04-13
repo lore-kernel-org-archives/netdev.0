@@ -1,57 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Wed, 13 Apr 2016 22:30:27 -0400 (EDT)
-Message-ID: <20160413.223027.844777521863481943.davem@davemloft.net>
-References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
+From: "Fidelity Mortgage Loan" <daniela.diaz@tdesperanza.cl>
+Subject: Urgent Loans!
+Date: Wed, 13 Apr 2016 16:19:38 -0700
+Message-ID: <20160413231742.9DD3C3E6E2E__13271.5022577488$1460601529$gmane$org@zimbra.tdesperanza.cl>
+Reply-To: ifdml@mail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, gregkh@linuxfoundation.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, joe@perches.com, netdev@vger.kernel.org,
- apw@canonical.com, devel@linuxdriverproject.org, haiyangz@microsoft.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1460079411-31982-1-git-send-email-decui@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <daniela.diaz@tdesperanza.cl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv8.snh.cl ([200.29.128.169]:54682 "EHLO
+	stgo4.medianetworks.cl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbcDNCiK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 22:38:10 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Thu,  7 Apr 2016 18:36:51 -0700
-
-> +struct vmpipe_proto_header {
-> +	u32 pkt_type;
-> +	u32 data_size;
-> +} __packed;
-
-There is no reason to specify __packed here.
-
-The types are strongly sized to word aligned quantities.
-No holes are possible in this structure, nor is any padding
-possible either.
-
-Do not ever slap __packed onto protocol or HW defined structures,
-simply just define them properly with proper types and explicit
-padding when necessary.
-> +	struct {
-> +		struct vmpipe_proto_header hdr;
-> +		char buf[HVSOCK_SND_BUF_SZ];
-> +	} __packed send;
-
-And so on, and so forth..
-
-I'm really disappointed that I couldn't even get one hunk into this
-patch submission without finding a major problem.
-
-I expect this patch to take several more iterations before I can even
-come close to applying it.  So please set your expectations properly,
-and also it seems like nobody else wants to even review this stuff
-either.  It is you who needs to find a way to change all of this, not
-me.
+Loan Offer at 3%, Feel Free to REPLY back to us for more info
