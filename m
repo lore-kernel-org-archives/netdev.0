@@ -1,37 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 0/2] tun: lockless xmit
-Date: Wed, 13 Apr 2016 16:17:44 +0300
-Message-ID: <20160413161558-mutt-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
+Date: Wed, 13 Apr 2016 06:27:08 -0700
+Message-ID: <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1460393493.git.pabeni@redhat.com>
- <20160413132816-mutt-send-email-mst@redhat.com>
- <1460551817.10638.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160413155146-mutt-send-email-mst@redhat.com>
- <1460552966.10638.12.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
+	 <20160413123828-mutt-send-email-mst@redhat.com>
+	 <570E15D9.4000308@stressinduktion.org>
+	 <20160413155654-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Jason Wang <jasowang@redhat.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41340 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760672AbcDMNRs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 09:17:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1460552966.10638.12.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36440 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759796AbcDMN1L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 09:27:11 -0400
+Received: by mail-pa0-f48.google.com with SMTP id er2so5041290pad.3
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 06:27:11 -0700 (PDT)
+In-Reply-To: <20160413155654-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2016 at 06:09:26AM -0700, Eric Dumazet wrote:
-> You really need to convince John Fastabend to work full time on the real
-> thing
+     I. On Wed, 2016-04-13 at 15:57 +0300, Michael S. Tsirkin wrote:
 
-Meaning making all qdiscs themselves lockless? With complex policies
-like codel I can see how that might be challenging ...
+> Fine, but what's the AF_PACKET duplication that Herbert Xu
+> reported with NETIF_F_LLTX? Does anyone remember?
 
--- 
-MST
+Really a lot of virtual drivers use NETIF_F_LLTX these days.
+
+Duplication is more likely to happen with a qdisc, when a packet is
+requeued if a driver returns NETDEV_TX_BUSY
