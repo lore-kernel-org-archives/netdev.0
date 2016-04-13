@@ -1,60 +1,90 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Wed, 13 Apr 2016 15:28:03 +0200
-Message-ID: <20160413132803.GN2906@worktop>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
- <1408683665.5648.69.camel@marge.simpson.net>
- <20140822073653.GA7372@gmail.com>
- <20160411182111-mutt-send-email-mst@redhat.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [RFC v5 0/5] Add virtio transport for AF_VSOCK
+Date: Wed, 13 Apr 2016 14:38:44 +0100
+Message-ID: <20160413133844.GE9272@stefanha-x1.localdomain>
+References: <1459520587-12337-1-git-send-email-stefanha@redhat.com>
+	<1460129705.1749.25.camel@docker.com>
+	<20160411104548.GA12826@stefanha-x1.localdomain>
+	<20160411154517-mutt-send-email-mst@redhat.com>
+	<20160412135957.GB29405@stefanha-x1.localdomain>
+	<CAOc2ZU1Kaes-UVfFrKrE9QyLMWnAQ77+hkSAGJgD0gOuM8o_UQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160411182111-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============8471023980913578178=="
+Cc: marius vlad <marius.vlad0@gmail.com>, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, ijc@hellion.org.uk,
+	virtualization@lists.linux-foundation.org,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Matt Benjamin <mbenjamin@redhat.com>, netdev@vger.kernel.org,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>
+To: Ian Campbell <ian.campbell@docker.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAOc2ZU1Kaes-UVfFrKrE9QyLMWnAQ77+hkSAGJgD0gOuM8o_UQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2016 at 07:31:57PM +0300, Michael S. Tsirkin wrote:
-> +static bool expected_to_run_fair(struct cfs_rq *cfs_rq, s64 t)
-> +{
-> +       struct sched_entity *left;
-> +       struct sched_entity *curr = cfs_rq->curr;
-> +
-> +       if (!curr || !curr->on_rq)
-> +               return false;
-> +
-> +       left = __pick_first_entity(cfs_rq);
-> +       if (!left)
-> +               return true;
-> +
-> +       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
-> +                    left->vruntime) < 0;
-> +}
-> 
-> The reason it seems easier is because that way we can reuse
-> calc_delta_fair and don't have to do the reverse translation
-> from vruntime to nsec.
-> 
-> And I guess if we do this with interrupts disabled, and only poke
-> at the current CPU's rq, we know first entity
-> won't go away so we don't need locks? 
 
-Nope, not true. Current isn't actually in the tree, and any other task
-is subject to being moved at any time.
+--===============8471023980913578178==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="vv4Sf/kQfcwinyKX"
+Content-Disposition: inline
 
-Even if current was in the tree, there is no guarantee it is
-->rb_leftmost; imagine a task being migrated in that has a smaller
-vruntime.
 
-So this really cannot work without locks :/
+--vv4Sf/kQfcwinyKX
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I've not thought about the actual problem you're trying to solve; but I
-figured I'd let you know this before you continue down this path.
+On Tue, Apr 12, 2016 at 05:37:54PM +0100, Ian Campbell wrote:
+> Perhaps the guest end is turning shutdown(foo) directly into a vsock
+> message without or-ing in the current state?
+
+Yes, you are right:
+
+  lock_sock(sk);
+  sk->sk_shutdown |= mode;
+  sk->sk_state_change(sk);
+  release_sock(sk);
+
+  if (sk->sk_type == SOCK_STREAM) {
+      sock_reset_flag(sk, SOCK_DONE);
+      vsock_send_shutdown(sk, mode);
+
+Although sk_shutdown is ORed correctly, vsock_send_shutdown() is called with
+just the shutdown() argument.
+
+--vv4Sf/kQfcwinyKX
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXDkvjAAoJEJykq7OBq3PIr8AIAI9hLqLWfXLLf3d416wjMf5c
+h2/E0DX9GQ9BcWMlazKFevOuwo+RxwYOfeewiOj921be+NTVCbx/RnbtOWSOMHYN
+iP/kiIWj1tIQ0DigwNjH8+jRV8V/x0yVgMst8xkVWaa/OOfQYXfa7TDVSIbrc2W+
+TK9AQ+Qp9ZXEyDLnjw7GILYa8y9Iwt/BuE4q1v0ToHufRaR3Ayw1ozmsWG25z2En
+1bSSN3HuSJNTIDeISALiTmV+3cUYGZVXmxs56RHuzr7s5YhMii3w0KxeslwTB/Lq
+tHN07L0hRHPHALhINMfEvVvr8RVjEPfWUCWBbp8Bzbw5HGoarjmLn7EBdeyIO68=
+=Cup7
+-----END PGP SIGNATURE-----
+
+--vv4Sf/kQfcwinyKX--
+
+--===============8471023980913578178==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============8471023980913578178==--
