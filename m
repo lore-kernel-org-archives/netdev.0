@@ -1,46 +1,86 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Wed, 13 Apr 2016 08:11:48 -0400
-Message-ID: <570E3784.9010809@mojatatu.com>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
- <20160410081650.GB22873@pox.localdomain> <570A9B4D.80104@cumulusnetworks.com>
- <570C7133.8070109@cumulusnetworks.com>
- <20160412132151.GA16560@pox.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 0/2] tun: lockless xmit
+Date: Wed, 13 Apr 2016 05:50:17 -0700
+Message-ID: <1460551817.10638.7.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1460393493.git.pabeni@redhat.com>
+	 <20160413132816-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Thomas Graf <tgraf@suug.ch>, roopa <roopa@cumulusnetworks.com>
+Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36315 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbcDMMLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 08:11:51 -0400
-Received: by mail-io0-f177.google.com with SMTP id u185so66925263iod.3
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 05:11:51 -0700 (PDT)
-In-Reply-To: <20160412132151.GA16560@pox.localdomain>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33919 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760433AbcDMMuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 08:50:20 -0400
+Received: by mail-pf0-f174.google.com with SMTP id c20so33744098pfc.1
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 05:50:19 -0700 (PDT)
+In-Reply-To: <20160413132816-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-04-12 09:21 AM, Thomas Graf wrote:
-> On 04/11/16 at 08:53pm, roopa wrote:
->> Top level stats attributes can be netdev or global attributes: We can include string "LINK" in
->> the names of all stats belonging to a netdev to make it easier to recognize the netdev stats (example):
->>   IFLA_STATS_LINK64,           (netdev)
->>   IFLA_STATS_LINK_INET6,    (netdev)
->>   IFLA_STATS_TCP,                (non-netdev, global tcp stats)
->
-> This is fine as well. It means that we cant mix netdev and non-netdev
-> stats or stats for multiple netdevs in the same request which would
-> not be the case if you nest it and have a top level attribute which
-> is a list of requests. That may be borderline to overengineering
-> though so I'm fine this as well.
+On Wed, 2016-04-13 at 14:08 +0300, Michael S. Tsirkin wrote:
+> On Wed, Apr 13, 2016 at 11:04:45AM +0200, Paolo Abeni wrote:
+> > This patch series try to remove the need for any lock in the tun device
+> > xmit path, significantly improving the forwarding performance when multiple
+> > processes are accessing the tun device (i.e. in a nic->bridge->tun->vm scenario).
+> > 
+> > The lockless xmit is obtained explicitly setting the NETIF_F_LLTX feature bit
+> > and removing the default qdisc.
+> > 
+> > Unlikely most virtual devices, the tun driver has featured a default qdisc
+> > for a long period, but it already lost such feature in linux 4.3.
+> 
+> Thanks -  I think it's a good idea to reduce the
+> lock contention there.
+> 
+> But I think it's unfortunate that it requires
+> bypassing the qdisc completely: this means
+> that anyone trying to do traffic shaping will
+> get back the contention.
+> 
+> Can we solve the lock contention for qdisc?
+> E.g. add a small lockless queue in front of it,
+> whoever has the qdisc lock would be
+> responsible for moving things from there to qdisc
+> proper.
+> 
+> Thoughts? Is there a chance this might work reasonably well?
+
+Adding any new queue in front of qdisc is problematic :
+- Adds a new buffer, with extra latencies.
+- If you want to implement priorities properly for X COS, you need X
+queues.
+- Who is going to service this extra buffer and feed the qdisc ?
+- If the innocent guy is RT thread, maybe the extra latency will hurt.
+- Adding another set of atomic ops.
+
+We have such a schem here at Google (called holdq), but it was a
+nightmare to tune.
+
+We never tried to upstream this beast, it is kind of ugly, and were
+expecting something better. Problem is : If you use HTB on a bonding
+device, you want still to properly use MQ on the slaves.
+
+HTB queue. 20 netperf generating UDP packets 
+lpaa23:~# ./super_netperf 20 -H lpaa24 -t UDP_STREAM -l 3000 -- -m 100 &
+[1] 181993
 
 
-Well - using a subheader which has ifindex on it for non-netdev stats
-seems wrong then.
+With the holdq feature turned on : about 1 Mpps
 
-cheers,
-jamal
+lpaa23:~# sar -n DEV 1 10|grep eth0|grep Average
+Average:         eth0     28.50 999071.60      3.07 138542.64      0.00
+0.00      0.60
+
+holdq turned off : about 620 Kpps
+
+lpaa23:~# sar -n DEV 1 10|grep eth0|grep Average
+Average:         eth0     39.00 617765.40      4.73  85667.42      0.00
+0.00      0.90
