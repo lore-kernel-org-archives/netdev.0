@@ -1,41 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
-Date: Wed, 13 Apr 2016 06:27:08 -0700
-Message-ID: <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1460393493.git.pabeni@redhat.com>
-	 <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
-	 <20160413123828-mutt-send-email-mst@redhat.com>
-	 <570E15D9.4000308@stressinduktion.org>
-	 <20160413155654-mutt-send-email-mst@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Wed, 13 Apr 2016 15:28:03 +0200
+Message-ID: <20160413132803.GN2906@worktop>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <20140822073653.GA7372@gmail.com>
+ <20160411182111-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36440 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759796AbcDMN1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 09:27:11 -0400
-Received: by mail-pa0-f48.google.com with SMTP id er2so5041290pad.3
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 06:27:11 -0700 (PDT)
-In-Reply-To: <20160413155654-mutt-send-email-mst@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160411182111-mutt-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-     I. On Wed, 2016-04-13 at 15:57 +0300, Michael S. Tsirkin wrote:
+On Mon, Apr 11, 2016 at 07:31:57PM +0300, Michael S. Tsirkin wrote:
+> +static bool expected_to_run_fair(struct cfs_rq *cfs_rq, s64 t)
+> +{
+> +       struct sched_entity *left;
+> +       struct sched_entity *curr = cfs_rq->curr;
+> +
+> +       if (!curr || !curr->on_rq)
+> +               return false;
+> +
+> +       left = __pick_first_entity(cfs_rq);
+> +       if (!left)
+> +               return true;
+> +
+> +       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
+> +                    left->vruntime) < 0;
+> +}
+> 
+> The reason it seems easier is because that way we can reuse
+> calc_delta_fair and don't have to do the reverse translation
+> from vruntime to nsec.
+> 
+> And I guess if we do this with interrupts disabled, and only poke
+> at the current CPU's rq, we know first entity
+> won't go away so we don't need locks? 
 
-> Fine, but what's the AF_PACKET duplication that Herbert Xu
-> reported with NETIF_F_LLTX? Does anyone remember?
+Nope, not true. Current isn't actually in the tree, and any other task
+is subject to being moved at any time.
 
-Really a lot of virtual drivers use NETIF_F_LLTX these days.
+Even if current was in the tree, there is no guarantee it is
+->rb_leftmost; imagine a task being migrated in that has a smaller
+vruntime.
 
-Duplication is more likely to happen with a qdisc, when a packet is
-requeued if a driver returns NETDEV_TX_BUSY
+So this really cannot work without locks :/
+
+I've not thought about the actual problem you're trying to solve; but I
+figured I'd let you know this before you continue down this path.
