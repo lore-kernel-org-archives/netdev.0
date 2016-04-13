@@ -1,16 +1,21 @@
-From: Yuchung Cheng <ycheng@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: TCP reaching to maximum throughput after a long time
-Date: Tue, 12 Apr 2016 20:08:06 -0700
-Message-ID: <CAK6E8=f+4BagGi5BzLER=Hn2dDJ5FHWkEqLq=04tnWResk58GQ@mail.gmail.com>
+Date: Tue, 12 Apr 2016 20:32:29 -0700
+Message-ID: <1460518349.32504.8.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <AE1C82FB3D0EC64DB1F752C81CBD110139100057@DFRE01.ent.ti.com>
- <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
- <570D0E94.3080006@candelatech.com> <AE1C82FB3D0EC64DB1F752C81CBD110139101889@DFRE01.ent.ti.com>
- <570D566B.8050302@candelatech.com> <1460492253.6473.596.camel@edumazet-glaptop3.roam.corp.google.com>
- <570D5944.5070100@candelatech.com> <1460492999.6473.599.camel@edumazet-glaptop3.roam.corp.google.com>
- <570D6B39.3050605@candelatech.com>
+	 <1460472764.6473.589.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570D0E94.3080006@candelatech.com>
+	 <AE1C82FB3D0EC64DB1F752C81CBD110139101889@DFRE01.ent.ti.com>
+	 <570D566B.8050302@candelatech.com>
+	 <1460492253.6473.596.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570D5944.5070100@candelatech.com>
+	 <1460492999.6473.599.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <570D6B39.3050605@candelatech.com>
+	 <CAK6E8=f+4BagGi5BzLER=Hn2dDJ5FHWkEqLq=04tnWResk58GQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
 	"Machani, Yaniv" <yanivma@ti.com>, netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
@@ -18,69 +23,20 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Nandita Dukkipati <nanditad@google.com>,
 	open list <linux-kernel@vger.kernel.org>,
 	"Kama, Meirav" <meiravk@ti.com>
-To: Ben Greear <greearb@candelatech.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:35285 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753318AbcDMDIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 23:08:48 -0400
-Received: by mail-wm0-f49.google.com with SMTP id a140so76986521wma.0
-        for <netdev@vger.kernel.org>; Tue, 12 Apr 2016 20:08:47 -0700 (PDT)
-In-Reply-To: <570D6B39.3050605@candelatech.com>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33552 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965151AbcDMDcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 23:32:32 -0400
+In-Reply-To: <CAK6E8=f+4BagGi5BzLER=Hn2dDJ5FHWkEqLq=04tnWResk58GQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2016 at 2:40 PM, Ben Greear <greearb@candelatech.com> wrote:
-> On 04/12/2016 01:29 PM, Eric Dumazet wrote:
->>
->> On Tue, 2016-04-12 at 13:23 -0700, Ben Greear wrote:
->>
->>> It worked well enough for years that I didn't even know other algorithms
->>> were
->>> available.  It was broken around 4.0 time, and I reported it to the list,
->>> and no one seemed to really care enough to do anything about it.  I
->>> changed
->>> to reno and ignored the problem as well.
->>>
->>> It is trivially easy to see the regression when using ath10k NIC, and
->>> from this email
->>> thread, I guess other NICs have similar issues.
->>
->>
->> Since it is so trivial, why don't you start a bisection ?
->
->
-> I vaguely remember doing a bisect, but I can't find any email about
-> that, so maybe I didn't.  At any rate, it is somewhere between 3.17 and 4.0.
-> From memory, it was between 3.19 and 4.0, but I am not certain of that.
->
-> Neil's suggestion, from the thread below, is that it was likely:  "605ad7f
-> tcp: refine TSO autosizing"
->
-> Here is previous email thread:
->
-> https://www.mail-archive.com/netdev@vger.kernel.org/msg80803.html
->
-> This one has a link to a pcap I made at the time:
->
-> https://www.mail-archive.com/netdev@vger.kernel.org/msg80890.html
-based on the prev thread I propose we disable hystart ack-train. It is
-brittle under various circumstances. We've disabled that at Google for
-years.
+On Tue, 2016-04-12 at 20:08 -0700, Yuchung Cheng wrote:
 
->
->>
->> I asked a capture, I did not say ' switch to Reno or whatever ', right ?
->>
->> Guessing is nice, but investigating and fixing is better.
->>
->> Do not assume that nothing can be done, please ?
->
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
->
+> based on the prev thread I propose we disable hystart ack-train. It is
+> brittle under various circumstances. We've disabled that at Google for
+> years.
+
+Right, but because we also use sch_fq packet scheduler and pacing ;)
