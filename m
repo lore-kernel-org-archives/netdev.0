@@ -1,52 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
-Date: Wed, 13 Apr 2016 16:54:34 +0300
-Message-ID: <20160413165240-mutt-send-email-mst@redhat.com>
-References: <cover.1460393493.git.pabeni@redhat.com>
- <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
- <20160413123828-mutt-send-email-mst@redhat.com>
- <570E15D9.4000308@stressinduktion.org>
- <20160413155654-mutt-send-email-mst@redhat.com>
- <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Benjamin Coddington <bcodding@redhat.com>
+Subject: Re: [RFC] Is it a bug for nfs on udp6 mode or kernel?
+Date: Wed, 13 Apr 2016 10:11:32 -0400 (EDT)
+Message-ID: <alpine.OSX.2.19.9992.1604131003530.55780@planck>
+References: <570E2D69.7080102@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50715 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757460AbcDMNyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 09:54:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; BOUNDARY="0-14952713-1460556695=:55780"
+Cc: linux-nfs-approval@vger.kernel.org, tom@herbertland.com,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	dhowells@redhat.com, viro@zeniv.linux.org.u, chuck.lever@oracle.com
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570E2D69.7080102@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 13, 2016 at 06:27:08AM -0700, Eric Dumazet wrote:
->      I. On Wed, 2016-04-13 at 15:57 +0300, Michael S. Tsirkin wrote:
-> 
-> > Fine, but what's the AF_PACKET duplication that Herbert Xu
-> > reported with NETIF_F_LLTX? Does anyone remember?
-> 
-> Really a lot of virtual drivers use NETIF_F_LLTX these days.
-> 
-> Duplication is more likely to happen with a qdisc, when a packet is
-> requeued if a driver returns NETDEV_TX_BUSY
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-OK, now I understand what the duplication is about.
-What about NETDEV_TX_LOCKED? Looks like it might have
-the same effect?
+--0-14952713-1460556695=:55780
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-This might be worth documenting in include/linux/netdevice.h,
-might it not?
+On Wed, 13 Apr 2016, Ding Tianhong wrote:
 
+> Hi everyone:
+>
+> I have met this problem when I try to test udp6 for nfs connection, my environment is:
+>
+> Server:
+> kernel: 4.1.15
+> IP:xxxx::36/64
+> MTU:1500
+> Setting: /etc/exports:/home/nfs *(rw,sync,no_subtree_check,no_root_squash)
+>
+> Client:
+> kernel: 4.1.18
+> IP:xxxx::90/64
+> MTU:1500
+> command: mount -t nfs -o vers=3,proto=udp6,rsize=4096,wsize=4096 [xxxx::36]:/home/nfs /home/tmp
+>
+> I check the nfs parameter configuration, it looks fine and could work well for proto=tcp6.
+>
+> Then I have mount correctly and try to run the command "ls", it hang.
+>
+> When I use the rsize=1024 and wsize=1024 to mount, the problem disappeared, so I guess it is the problem for GSO or GRO for UDP。
+>
+> Then I try to debug the problem, first I tcpdump the package from cline to server, and found that
+> the client have send readdirplus message to server correctly, and then the Server send a 4k package
+> to client(the big package will frag to 4 package by GSO), till now it looks fine, and the Client Nic could
+> receive the 4 skb then send to upper stack to ipv6 and udp, I found the incoming 4 package has been merged
+> to one and send to upper stack just like sunrpc, but I try to open the rpc_debug, it looks that the rpc could
+> not receive message.
+>
+>
+> I built a simple demo to test the udp stack, use the client socket to send big package to server socket, it work well,
+> so I think the udp is fine, maybe the bug is in sunrpc.
+>
+> The test is very simple, does any body met the same problem like me, thanks for any suggestion.
+>
+> Ding
 
--- 
-MST
+I had a similar problem. Do you have upstream
+
+405c92f ("ipv6: add defensive check for CHECKSUM_PARTIAL skbs in ip_fragment")
+682b1a9 ("ipv6: no CHECKSUM_PARTIAL on MSG_MORE corked sockets")
+
+Turning off GSO and GRO caused sunrpc to work properly before this.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1271759
+
+Ben
+--0-14952713-1460556695=:55780--
