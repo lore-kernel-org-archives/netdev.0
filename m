@@ -1,54 +1,51 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH for-next V1 1/2] net/mlx5: Fix mlx5 ifc cmd_hca_cap bad
- offsets
-Date: Wed, 13 Apr 2016 11:48:20 -0600
-Message-ID: <20160413174820.GC28411@obsidianresearch.com>
-References: <1460563864-22931-1-git-send-email-saeedm@mellanox.com>
- <1460563864-22931-2-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1460563864-22931-2-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH 2/2] MAINTAINERS: add Qualcomm EMAC network driver maintainer
+Date: Wed, 13 Apr 2016 12:59:53 -0500
+Message-ID: <1460570393-19838-2-git-send-email-timur@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org,
+	Rob Herring <robh+dt@kernel.org>, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 13, 2016 at 07:11:03PM +0300, Saeed Mahameed wrote:
+The driver was originally written by Gilad Avidov, but it's now
+being supported by Timur Tabi.
 
-> Fixes: b0844444590e ("net/mlx5_core: Introduce access function to read internal timer ")
-> Fixes: b4ff3a36d3e4 ("net/mlx5: Use offset based reserved field names in the IFC header file")
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ MAINTAINERS | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Are you sure those are right? b0844444590e doesn't have the
-reserved_at names.
-
->  	u8         ets[0x1];
->  	u8         nic_flow_table[0x1];
->  	u8         eswitch_flow_table[0x1];
-> -	u8	   early_vf_enable;
-> -	u8         reserved_at_1a8[0x2];
-> +	u8	   early_vf_enable[0x1];
-> +	u8         reserved_at_1a9[0x2];
-
-You know, the reserved_XXX just need to have unique unchanging
-numbers, it doesn't matter what the numbers are - but you have to stop
-changing them :( That is the key to avoiding conflicts when
-backporting/merging/etc.
-
-I guess the big rename has already landed, but simply stopping the
-practice of renumbing the reserved fields would have been enough.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4851f02..8c580f8 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9128,6 +9128,13 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git
+ S:	Supported
+ F:	drivers/net/wireless/ath/ath10k/
+ 
++QUALCOMM TECHNOLOGIES EMAC NETWORK DRIVER
++M:	Timur Tabi <timur@codeaurora.org>
++R:	Gilad Avidov <gavidov@codeaurora.org>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/ethernet/qualcomm/emac/
++
+ QUALCOMM HEXAGON ARCHITECTURE
+ M:	Richard Kuo <rkuo@codeaurora.org>
+ L:	linux-hexagon@vger.kernel.org
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+a Linux Foundation Collaborative Project.
