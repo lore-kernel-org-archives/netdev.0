@@ -1,82 +1,91 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
-Date: Wed, 13 Apr 2016 15:57:37 +0300
-Message-ID: <20160413155654-mutt-send-email-mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC 0/2] tun: lockless xmit
+Date: Wed, 13 Apr 2016 06:09:26 -0700
+Message-ID: <1460552966.10638.12.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1460393493.git.pabeni@redhat.com>
- <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
- <20160413123828-mutt-send-email-mst@redhat.com>
- <570E15D9.4000308@stressinduktion.org>
+	 <20160413132816-mutt-send-email-mst@redhat.com>
+	 <1460551817.10638.7.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160413155146-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Christian Borntraeger <borntraeger@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+	Jason Wang <jasowang@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50672 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757586AbcDMM5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 08:57:42 -0400
-Content-Disposition: inline
-In-Reply-To: <570E15D9.4000308@stressinduktion.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34705 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760090AbcDMNJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 09:09:29 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ot11so33368892pab.1
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 06:09:28 -0700 (PDT)
+In-Reply-To: <20160413155146-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2016 at 11:48:09AM +0200, Hannes Frederic Sowa wrote:
-> On 13.04.2016 11:41, Michael S. Tsirkin wrote:
-> >On Wed, Apr 13, 2016 at 11:04:46AM +0200, Paolo Abeni wrote:
-> >>The current tun_net_xmit() implementation don't need any external
-> >>lock since it relay on rcu protection for the tun data structure
-> >>and on socket queue lock for skb queuing.
-> >>
-> >>This patch set the NETIF_F_LLTX feature bit in the tun device, so
-> >>that on xmit, in absence of qdisc, no serialization lock is acquired
-> >>by the caller.
-> >>
-> >>Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> >>---
-> >>  drivers/net/tun.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >>diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >>index faf9297..42992dc 100644
-> >>--- a/drivers/net/tun.c
-> >>+++ b/drivers/net/tun.c
-> >>@@ -1796,7 +1796,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
-> >>  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
-> >>  				   TUN_USER_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
-> >>  				   NETIF_F_HW_VLAN_STAG_TX;
-> >>-		dev->features = dev->hw_features;
-> >>+		dev->features = dev->hw_features | NETIF_F_LLTX;
-> >
-> >the documentation says:
-> >         NETIF_F_LLTX_BIT,               /* LockLess TX - deprecated.  Please */
-> >                                         /* do not use LLTX in new drivers */
+On Wed, 2016-04-13 at 15:56 +0300, Michael S. Tsirkin wrote:
+> On Wed, Apr 13, 2016 at 05:50:17AM -0700, Eric Dumazet wrote:
+> > On Wed, 2016-04-13 at 14:08 +0300, Michael S. Tsirkin wrote:
+> > > On Wed, Apr 13, 2016 at 11:04:45AM +0200, Paolo Abeni wrote:
+> > > > This patch series try to remove the need for any lock in the tun device
+> > > > xmit path, significantly improving the forwarding performance when multiple
+> > > > processes are accessing the tun device (i.e. in a nic->bridge->tun->vm scenario).
+> > > > 
+> > > > The lockless xmit is obtained explicitly setting the NETIF_F_LLTX feature bit
+> > > > and removing the default qdisc.
+> > > > 
+> > > > Unlikely most virtual devices, the tun driver has featured a default qdisc
+> > > > for a long period, but it already lost such feature in linux 4.3.
+> > > 
+> > > Thanks -  I think it's a good idea to reduce the
+> > > lock contention there.
+> > > 
+> > > But I think it's unfortunate that it requires
+> > > bypassing the qdisc completely: this means
+> > > that anyone trying to do traffic shaping will
+> > > get back the contention.
+> > > 
+> > > Can we solve the lock contention for qdisc?
+> > > E.g. add a small lockless queue in front of it,
+> > > whoever has the qdisc lock would be
+> > > responsible for moving things from there to qdisc
+> > > proper.
+> > > 
+> > > Thoughts? Is there a chance this might work reasonably well?
+> > 
+> > Adding any new queue in front of qdisc is problematic :
+> > - Adds a new buffer, with extra latencies.
 > 
-> In networking/netdev-features.txt
+> Only where lock contention would previously occur, right?
 > 
->  * LLTX driver (deprecated for hardware drivers)
+> > - If you want to implement priorities properly for X COS, you need X
+> > queues.
 > 
-> NETIF_F_LLTX should be set in drivers that implement their own locking in
-> transmit path or don't need locking at all (e.g. software tunnels).
-> In ndo_start_xmit, it is recommended to use a try_lock and return
-> NETDEV_TX_LOCKED when the spin lock fails.  The locking should also properly
-> protect against other callbacks (the rules you need to find out).
+> This definitely needs thought.
 > 
-> Don't use it for new drivers.
+> > - Who is going to service this extra buffer and feed the qdisc ?
 > 
-> I think this is documentation is correct and it is only deprecated for
-> hardware drivers.
+> The way I see it - whoever has the lock, at unlock time.
 > 
-> Bye,
-> Hannes
+> > - If the innocent guy is RT thread, maybe the extra latency will hurt.
+> 
+> Again - more than a lock?
 
-Fine, but what's the AF_PACKET duplication that Herbert Xu
-reported with NETIF_F_LLTX? Does anyone remember?
+Way more. HTB is slow as hell.
 
--- 
-MST
+Remember the qdisc dequeue is already a big problem in itself.
+Adding another layer can practically double the latencies.
+
+> 
+> > - Adding another set of atomic ops.
+> 
+> That's likely true. Use some per-cpu trick instead?
+
+We tried that, and we got miserable production incidents...
+
+You really need to convince John Fastabend to work full time on the real
+thing, not on another queue in front of the existing qdisc.
