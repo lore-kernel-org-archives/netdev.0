@@ -1,63 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 net-next 0/7] DSA refactoring: set 1
-Date: Wed, 13 Apr 2016 02:40:38 +0200
-Message-ID: <1460508045-20254-1-git-send-email-andrew@lunn.ch>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ibmvnic: Defer tx completion processing using
+ a wait queue
+Date: Tue, 12 Apr 2016 21:12:02 -0400 (EDT)
+Message-ID: <20160412.211202.1299929008077475122.davem@davemloft.net>
+References: <570D4EBC.60409@linux.vnet.ibm.com>
+	<1460491940.6473.592.camel@edumazet-glaptop3.roam.corp.google.com>
+	<570D61E7.2090203@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, tlfalcon@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: jallen@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54358 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757189AbcDMAnE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 20:43:04 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:50219 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758402AbcDMBMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Apr 2016 21:12:07 -0400
+In-Reply-To: <570D61E7.2090203@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There has been a long running effort to refractor DSA probing to make
-the switches true linux devices. Here are a small collection of
-patches moving in this direction. Most have been seen before.
+From: John Allen <jallen@linux.vnet.ibm.com>
+Date: Tue, 12 Apr 2016 16:00:23 -0500
 
-We take a little step forward by passing the dsa device point to the
-driver, thus allowing it to perform resource allocations using the
-normal mechanisms. This device structure will later be replaced by the
-devices own device structure.
+> On 04/12/2016 03:12 PM, Eric Dumazet wrote:
+>> On Tue, 2016-04-12 at 14:38 -0500, John Allen wrote:
+>>> Moves tx completion processing out of interrupt context, deferring work
+>>> using a wait queue. With this work now deferred, we must account for the
+>>> possibility that skbs can be sent faster than we can process completion
+>>> requests in which case the tx buffer will overflow. If the tx buffer is
+>>> full, ibmvnic_xmit will return NETDEV_TX_BUSY and stop the current tx
+>>> queue. Subsequently, the queue will be restarted in ibmvnic_complete_tx
+>>> when all pending tx completion requests have been cleared.
+>> 
+>> 1) Why is this needed ?
+> 
+> In the current ibmvnic implementation, tx completion processing is done in
+> interrupt context. Depending on the load, this can block further
+> interrupts for a long time. This patch just creates a bottom half so that
+> when a tx completion interrupt comes in, we can defer the majority of the
+> work and exit interrupt context quickly.
 
-Future patches will add a true driver probe function, so we rename the
-current probe function, cleaning up the namespace.
-
-phys_port_mask continually confuses me, thinking it is about PHYs. But
-it is actually about ports enabled to the outside world. So rename it to
-enabled_port_mask.
-
-Lots more patches yet to follow, this is just doing some ground work.
-
-v2:
-  enabled_port_mask instread of user_port_masks
-  Added Tested-by's and Reviewed-by.
-
-Andrew Lunn (7):
-  net: dsa: Pass the dsa device to the switch drivers
-  net: dsa: Have the switch driver allocate there own private memory
-  net: dsa: Remove allocation of driver private memory
-  net: dsa: Keep the mii bus and address in the private structure
-  net: dsa: Rename DSA probe function.
-  dsa: Rename phys_port_mask to user_port_mask
-  dsa: mv88e6xxx: Use bus in mv88e6xxx_lookup_name()
-
- drivers/net/dsa/bcm_sf2.c   | 24 +++++++++++++-------
- drivers/net/dsa/mv88e6060.c | 47 +++++++++++++++++++++++---------------
- drivers/net/dsa/mv88e6060.h | 11 +++++++++
- drivers/net/dsa/mv88e6123.c | 14 +++++++-----
- drivers/net/dsa/mv88e6131.c | 14 +++++++-----
- drivers/net/dsa/mv88e6171.c | 14 +++++++-----
- drivers/net/dsa/mv88e6352.c | 14 +++++++-----
- drivers/net/dsa/mv88e6xxx.c | 55 +++++++++++++++++++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx.h | 17 +++++++++++---
- include/net/dsa.h           | 16 ++++++++-----
- net/dsa/dsa.c               | 19 +++++++++-------
- 11 files changed, 166 insertions(+), 79 deletions(-)
-
--- 
-2.7.0
+You should use NAPI polling for this, not your own invented
+mechanism.
