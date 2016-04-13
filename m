@@ -1,46 +1,53 @@
-From: Tadeusz Struk <tadeusz.struk@intel.com>
-Subject: Re: [PATCH 0/3] crypto: af_alg - add TLS type encryption
-Date: Wed, 13 Apr 2016 15:46:00 -0700
-Message-ID: <570ECC28.3030008@intel.com>
-References: <20160306012044.6369.63924.stgit@tstruk-mobl1>
- <20160405112940.GB11852@gondor.apana.org.au> <57054DBC.8010507@intel.com>
- <20160408025250.GA7596@gondor.apana.org.au>
- <CALx6S37m_ayZJ4nth0SPNr2Km2+uBZUCtK4iqPKHTARv2eB4aA@mail.gmail.com>
- <570CD852.7060003@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-crypto@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	davejwatson@fb.com, nmav@gnutls.org, fridolin.pokorny@gmail.com
-To: Fridolin Pokorny <fpokorny@redhat.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <570CD852.7060003@redhat.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/3] netfilter: nf_conntrack_tcp: Fix stack out of bounds when parsing TCP options
+Date: Thu, 14 Apr 2016 00:54:53 +0200
+Message-ID: <1460588094-3933-3-git-send-email-pablo@netfilter.org>
+References: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Fridolin,
-On 04/12/2016 04:13 AM, Fridolin Pokorny wrote:
-> we were experimenting with this. We have a prove of concept of a kernel
-> TLS type socket, so called AF_KTLS, which is based on Dave Watson's
-> RFC5288 patch. It handles both TLS and DTLS, unfortunately it is not
-> ready now to be proposed here. There are still issues which should be
-> solved (but mostly user space API design) [1]. If you are interested, we
-> could combine efforts.
-> 
-> Regards,
-> Fridolin Pokorny
-> 
-> [1] https://github.com/fridex/af_ktls
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-I had a quick look and it looks like is limited only to gcm(aes). 
-I would be more interested to have a generic interface that could do generic algorithm
-suits like aes-cbc-hmac-sha1 also.
-This also seems to work in a synchronous (send one and wait) mode, which is a not good
-solution for HW accelerators, which I'm trying to enable.
-Thanks,
+Baozeng Ding reported a KASAN stack out of bounds issue - it uncovered that
+the TCP option parsing routines in netfilter TCP connection tracking could
+read one byte out of the buffer of the TCP options.  Therefore in the patch
+we check that the available data length is large enough to parse both TCP
+option code and size.
+
+Reported-by: Baozeng Ding <sploving1@gmail.com>
+Tested-by: Baozeng Ding <sploving1@gmail.com>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_proto_tcp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 278f3b9..7cc1d9c 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -410,6 +410,8 @@ static void tcp_options(const struct sk_buff *skb,
+ 			length--;
+ 			continue;
+ 		default:
++			if (length < 2)
++				return;
+ 			opsize=*ptr++;
+ 			if (opsize < 2) /* "silly options" */
+ 				return;
+@@ -470,6 +472,8 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
+ 			length--;
+ 			continue;
+ 		default:
++			if (length < 2)
++				return;
+ 			opsize = *ptr++;
+ 			if (opsize < 2) /* "silly options" */
+ 				return;
 -- 
-TS
+2.1.4
+
