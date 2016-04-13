@@ -1,95 +1,52 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
- runnable
-Date: Wed, 13 Apr 2016 16:51:36 +0300
-Message-ID: <20160413163940-mutt-send-email-mst@redhat.com>
-References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
- <1408608310-13579-2-git-send-email-jasowang@redhat.com>
- <1408683665.5648.69.camel@marge.simpson.net>
- <20140822073653.GA7372@gmail.com>
- <20160411182111-mutt-send-email-mst@redhat.com>
- <20160413132803.GN2906@worktop>
+Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
+Date: Wed, 13 Apr 2016 16:54:34 +0300
+Message-ID: <20160413165240-mutt-send-email-mst@redhat.com>
+References: <cover.1460393493.git.pabeni@redhat.com>
+ <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
+ <20160413123828-mutt-send-email-mst@redhat.com>
+ <570E15D9.4000308@stressinduktion.org>
+ <20160413155654-mutt-send-email-mst@redhat.com>
+ <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33101 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50715 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758271AbcDMNvm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 09:51:42 -0400
+	id S1757460AbcDMNyj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 09:54:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20160413132803.GN2906@worktop>
+In-Reply-To: <1460554028.10638.18.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2016 at 03:28:03PM +0200, Peter Zijlstra wrote:
-> On Mon, Apr 11, 2016 at 07:31:57PM +0300, Michael S. Tsirkin wrote:
-> > +static bool expected_to_run_fair(struct cfs_rq *cfs_rq, s64 t)
-> > +{
-> > +       struct sched_entity *left;
-> > +       struct sched_entity *curr = cfs_rq->curr;
-> > +
-> > +       if (!curr || !curr->on_rq)
-> > +               return false;
-> > +
-> > +       left = __pick_first_entity(cfs_rq);
-> > +       if (!left)
-> > +               return true;
-> > +
-> > +       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
-> > +                    left->vruntime) < 0;
-> > +}
-> > 
-> > The reason it seems easier is because that way we can reuse
-> > calc_delta_fair and don't have to do the reverse translation
-> > from vruntime to nsec.
-> > 
-> > And I guess if we do this with interrupts disabled, and only poke
-> > at the current CPU's rq, we know first entity
-> > won't go away so we don't need locks? 
+On Wed, Apr 13, 2016 at 06:27:08AM -0700, Eric Dumazet wrote:
+>      I. On Wed, 2016-04-13 at 15:57 +0300, Michael S. Tsirkin wrote:
 > 
-> Nope, not true. Current isn't actually in the tree, and any other task
-> is subject to being moved at any time.
-> Even if current was in the tree, there is no guarantee it is
-> ->rb_leftmost; imagine a task being migrated in that has a smaller
-> vruntime.
+> > Fine, but what's the AF_PACKET duplication that Herbert Xu
+> > reported with NETIF_F_LLTX? Does anyone remember?
 > 
-> So this really cannot work without locks :/
+> Really a lot of virtual drivers use NETIF_F_LLTX these days.
 > 
-> I've not thought about the actual problem you're trying to solve; but I
-> figured I'd let you know this before you continue down this path.
+> Duplication is more likely to happen with a qdisc, when a packet is
+> requeued if a driver returns NETDEV_TX_BUSY
 
-Hmm. This is in fact called in the context of a given task,
-so maybe I should just change the API and use
-	&task->se
-instead of 
-	cfs_rq->current
+OK, now I understand what the duplication is about.
+What about NETDEV_TX_LOCKED? Looks like it might have
+the same effect?
 
-:
+This might be worth documenting in include/linux/netdevice.h,
+might it not?
 
-static bool expected_to_run_fair(struct cfs_rq *cfs_rq, struct task_struct *task, s64 t)
-{
-       struct sched_entity *left;
-       struct sched_entity *curr = &task->se;
-       if (!curr || !curr->on_rq)
-              return false;
-
-       left = __pick_first_entity(cfs_rq);
-       if (!left)
-               return true;
-
-       return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
-                    left->vruntime) < 0;
-}
-
-This way it is caller's respinsibility to make sure task
-is not going away.
-Left here is on tree so it's not going away, right?
 
 -- 
 MST
