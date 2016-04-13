@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 net-next 4/7] net: dsa: Keep the mii bus and address in the private structure
-Date: Wed, 13 Apr 2016 02:40:42 +0200
-Message-ID: <1460508045-20254-5-git-send-email-andrew@lunn.ch>
+Subject: [PATCH v2 net-next 1/7] net: dsa: Pass the dsa device to the switch drivers
+Date: Wed, 13 Apr 2016 02:40:39 +0200
+Message-ID: <1460508045-20254-2-git-send-email-andrew@lunn.ch>
 References: <1460508045-20254-1-git-send-email-andrew@lunn.ch>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -9,368 +9,160 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54343 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:54348 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757882AbcDMAmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Apr 2016 20:42:17 -0400
+	id S1757189AbcDMAmd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Apr 2016 20:42:33 -0400
 In-Reply-To: <1460508045-20254-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than looking up the mii bus and address every time, do it once
-at probe, and keep it in the private structure. Centralise this probe
-code in mv88e6xxx.
+By passing a device structure to the switch devices, it allows them
+to use devm_* methods for resource management.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6060.c | 44 ++++++++++++++++++++++++++------------------
- drivers/net/dsa/mv88e6060.h | 11 +++++++++++
- drivers/net/dsa/mv88e6123.c | 15 +++------------
- drivers/net/dsa/mv88e6131.c | 15 +++------------
- drivers/net/dsa/mv88e6171.c | 15 +++------------
- drivers/net/dsa/mv88e6352.c | 15 +++------------
- drivers/net/dsa/mv88e6xxx.c | 43 +++++++++++++++++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx.h | 14 +++++++++++---
- 8 files changed, 89 insertions(+), 83 deletions(-)
+ drivers/net/dsa/bcm_sf2.c   | 3 ++-
+ drivers/net/dsa/mv88e6060.c | 3 ++-
+ drivers/net/dsa/mv88e6123.c | 3 ++-
+ drivers/net/dsa/mv88e6131.c | 3 ++-
+ drivers/net/dsa/mv88e6171.c | 3 ++-
+ drivers/net/dsa/mv88e6352.c | 3 ++-
+ include/net/dsa.h           | 3 ++-
+ net/dsa/dsa.c               | 7 ++++---
+ 8 files changed, 18 insertions(+), 10 deletions(-)
 
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 780f22876538..18a79579141f 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -135,7 +135,8 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
+ 	return BCM_SF2_STATS_SIZE;
+ }
+ 
+-static char *bcm_sf2_sw_probe(struct device *host_dev, int sw_addr)
++static char *bcm_sf2_sw_probe(struct device *dsa_dev, struct device *host_dev,
++			      int sw_addr)
+ {
+ 	return "Broadcom Starfighter 2";
+ }
 diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 41195f1417f1..46fe5dc65a99 100644
+index 0527f485c3dc..34d0f9fe19db 100644
 --- a/drivers/net/dsa/mv88e6060.c
 +++ b/drivers/net/dsa/mv88e6060.c
-@@ -19,12 +19,9 @@
- 
- static int reg_read(struct dsa_switch *ds, int addr, int reg)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-+	struct mv88e6060_priv *priv = ds_to_priv(ds);
- 
--	if (bus == NULL)
--		return -EINVAL;
--
--	return mdiobus_read_nested(bus, ds->pd->sw_addr + addr, reg);
-+	return mdiobus_read_nested(priv->bus, priv->sw_addr + addr, reg);
- }
- 
- #define REG_READ(addr, reg)					\
-@@ -40,12 +37,9 @@ static int reg_read(struct dsa_switch *ds, int addr, int reg)
- 
- static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
--
--	if (bus == NULL)
--		return -EINVAL;
-+	struct mv88e6060_priv *priv = ds_to_priv(ds);
- 
--	return mdiobus_write_nested(bus, ds->pd->sw_addr + addr, reg, val);
-+	return mdiobus_write_nested(priv->bus, priv->sw_addr + addr, reg, val);
- }
- 
- #define REG_WRITE(addr, reg, val)				\
-@@ -57,16 +51,10 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+@@ -57,7 +57,8 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
  			return __ret;				\
  	})
  
--static char *mv88e6060_probe(struct device *dsa_dev, struct device *host_dev,
--			     int sw_addr, void **priv)
-+static char *mv88e6060_get_name(struct mii_bus *bus, int sw_addr)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
- 	int ret;
- 
--	*priv = NULL;
--	if (bus == NULL)
--		return NULL;
--
- 	ret = mdiobus_read(bus, sw_addr + REG_PORT(0), PORT_SWITCH_ID);
- 	if (ret >= 0) {
- 		if (ret == PORT_SWITCH_ID_6060)
-@@ -81,6 +69,26 @@ static char *mv88e6060_probe(struct device *dsa_dev, struct device *host_dev,
- 	return NULL;
- }
- 
+-static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
 +static char *mv88e6060_probe(struct device *dsa_dev, struct device *host_dev,
-+			     int sw_addr, void **_priv)
-+{
-+	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
-+	struct mv88e6060_priv *priv;
-+	char *name;
-+
-+	name = mv88e6060_get_name(bus, sw_addr);
-+	if (name) {
-+		priv = devm_kzalloc(dsa_dev, sizeof(*priv), GFP_KERNEL);
-+		if (!priv)
-+			return NULL;
-+		*_priv = priv;
-+		priv->bus = bus;
-+		priv->sw_addr = sw_addr;
-+	}
-+
-+	return name;
-+}
-+
- static int mv88e6060_switch_reset(struct dsa_switch *ds)
- {
- 	int i;
-@@ -176,8 +184,8 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
- 
- static int mv88e6060_setup(struct dsa_switch *ds)
- {
--	int i;
- 	int ret;
-+	int i;
- 
- 	ret = mv88e6060_switch_reset(ds);
- 	if (ret < 0)
-diff --git a/drivers/net/dsa/mv88e6060.h b/drivers/net/dsa/mv88e6060.h
-index cc9b2ed4aff4..10249bd16292 100644
---- a/drivers/net/dsa/mv88e6060.h
-+++ b/drivers/net/dsa/mv88e6060.h
-@@ -108,4 +108,15 @@
- #define GLOBAL_ATU_MAC_23	0x0e
- #define GLOBAL_ATU_MAC_45	0x0f
- 
-+struct mv88e6060_priv {
-+	/* MDIO bus and address on bus to use. When in single chip
-+	 * mode, address is 0, and the switch uses multiple addresses
-+	 * on the bus.  When in multi-chip mode, the switch uses a
-+	 * single address which contains two registers used for
-+	 * indirect access to more registers.
-+	 */
-+	struct mii_bus *bus;
-+	int sw_addr;
-+};
-+
- #endif
-diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index bcab3ef22448..8aaac0894752 100644
---- a/drivers/net/dsa/mv88e6123.c
-+++ b/drivers/net/dsa/mv88e6123.c
-@@ -32,18 +32,9 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
- static char *mv88e6123_probe(struct device *dsa_dev, struct device *host_dev,
- 			     int sw_addr, void **priv)
- {
--	struct mv88e6xxx_priv_state *ps;
--	char *name;
--
--	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
--				     ARRAY_SIZE(mv88e6123_table));
--	if (name) {
--		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
--		if (!ps)
--			return NULL;
--		*priv = ps;
--	}
--	return name;
-+	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
-+				   mv88e6123_table,
-+				   ARRAY_SIZE(mv88e6123_table));
- }
- 
- static int mv88e6123_setup_global(struct dsa_switch *ds)
-diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index b9f9b009f65a..9e6edf94a855 100644
---- a/drivers/net/dsa/mv88e6131.c
-+++ b/drivers/net/dsa/mv88e6131.c
-@@ -28,18 +28,9 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
- static char *mv88e6131_probe(struct device *dsa_dev, struct device *host_dev,
- 			     int sw_addr, void **priv)
- {
--	struct mv88e6xxx_priv_state *ps;
--	char *name;
--
--	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
--				     ARRAY_SIZE(mv88e6131_table));
--	if (name) {
--		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
--		if (!ps)
--			return NULL;
--		*priv = ps;
--	}
--	return name;
-+	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
-+				   mv88e6131_table,
-+				   ARRAY_SIZE(mv88e6131_table));
- }
- 
- static int mv88e6131_setup_global(struct dsa_switch *ds)
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 15200928cecc..6ab86071391f 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -27,18 +27,9 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
- static char *mv88e6171_probe(struct device *dsa_dev, struct device *host_dev,
- 			     int sw_addr, void **priv)
- {
--	struct mv88e6xxx_priv_state *ps;
--	char *name;
--
--	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
--				     ARRAY_SIZE(mv88e6171_table));
--		if (name) {
--		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
--		if (!ps)
--			return NULL;
--		*priv = ps;
--	}
--	return name;
-+	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
-+				   mv88e6171_table,
-+				   ARRAY_SIZE(mv88e6171_table));
- }
- 
- static int mv88e6171_setup_global(struct dsa_switch *ds)
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 7081a78a67e1..764b10ffb631 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -40,18 +40,9 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
- static char *mv88e6352_probe(struct device *dsa_dev, struct device *host_dev,
- 			     int sw_addr, void **priv)
- {
--	struct mv88e6xxx_priv_state *ps;
--	char *name;
--
--	name = mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
--				     ARRAY_SIZE(mv88e6352_table));
--	if (name) {
--		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
--		if (!ps)
--			return NULL;
--		*priv = ps;
--	}
--	return name;
-+	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
-+				   mv88e6352_table,
-+				   ARRAY_SIZE(mv88e6352_table));
- }
- 
- static int mv88e6352_setup_global(struct dsa_switch *ds)
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 085fc4a49eb2..c242ffd8eb09 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -94,15 +94,12 @@ static int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr,
- 
- static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
- 	assert_smi_lock(ds);
- 
--	if (bus == NULL)
--		return -EINVAL;
--
--	ret = __mv88e6xxx_reg_read(bus, ds->pd->sw_addr, addr, reg);
-+	ret = __mv88e6xxx_reg_read(ps->bus, ps->sw_addr, addr, reg);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -159,17 +156,14 @@ static int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
- static int _mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg,
- 				u16 val)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
- 	assert_smi_lock(ds);
- 
--	if (bus == NULL)
--		return -EINVAL;
--
- 	dev_dbg(ds->master_dev, "-> addr: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
- 		addr, reg, val);
- 
--	return __mv88e6xxx_reg_write(bus, ds->pd->sw_addr, addr, reg, val);
-+	return __mv88e6xxx_reg_write(ps->bus, ps->sw_addr, addr, reg, val);
- }
- 
- int mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
-@@ -2671,7 +2665,6 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
- 	ps->ds = ds;
--
- 	mutex_init(&ps->smi_mutex);
- 
- 	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
-@@ -3075,9 +3068,9 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
- }
- #endif /* CONFIG_NET_DSA_HWMON */
- 
--char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
--			    const struct mv88e6xxx_switch_id *table,
--			    unsigned int num)
-+static char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
-+				   const struct mv88e6xxx_switch_id *table,
-+				   unsigned int num)
++			     int sw_addr)
  {
  	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
- 	int i, ret;
-@@ -3107,6 +3100,28 @@ char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
- 	return NULL;
- }
- 
-+char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
-+			  int sw_addr, void **priv,
-+			  const struct mv88e6xxx_switch_id *table,
-+			  unsigned int num)
-+{
-+	struct mv88e6xxx_priv_state *ps;
-+	char *name;
-+
-+	name = mv88e6xxx_lookup_name(host_dev, sw_addr, table, num);
-+	if (name) {
-+		ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
-+		if (!ps)
-+			return NULL;
-+		*priv = ps;
-+		ps->bus = dsa_host_dev_to_mii_bus(host_dev);
-+		if (!ps->bus)
-+			return NULL;
-+		ps->sw_addr = sw_addr;
-+	}
-+	return name;
-+}
-+
- static int __init mv88e6xxx_init(void)
- {
- #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 0322e3e0e7d9..5d27decc85cb 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -406,6 +406,12 @@ struct mv88e6xxx_priv_state {
- 	 */
- 	struct mutex	smi_mutex;
- 
-+	/* The MII bus and the address on the bus that is used to
-+	 * communication with the switch
-+	 */
-+	struct mii_bus *bus;
-+	int sw_addr;
-+
- #ifdef CONFIG_NET_DSA_MV88E6XXX_NEED_PPU
- 	/* Handles automatic disabling and re-enabling of the PHY
- 	 * polling unit.
-@@ -456,9 +462,11 @@ struct mv88e6xxx_hw_stat {
+ 	int ret;
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 69a6f79dcb10..ede4c6f0b31a 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -29,7 +29,8 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
+ 	{ PORT_SWITCH_ID_6165_A2, "Marvell 88e6165 (A2)" },
  };
  
- int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
--char *mv88e6xxx_lookup_name(struct device *host_dev, int sw_addr,
--			    const struct mv88e6xxx_switch_id *table,
--			    unsigned int num);
-+char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
-+			  int sw_addr, void **priv,
-+			  const struct mv88e6xxx_switch_id *table,
-+			  unsigned int num);
-+
- int mv88e6xxx_setup_ports(struct dsa_switch *ds);
- int mv88e6xxx_setup_common(struct dsa_switch *ds);
- int mv88e6xxx_setup_global(struct dsa_switch *ds);
+-static char *mv88e6123_probe(struct device *host_dev, int sw_addr)
++static char *mv88e6123_probe(struct device *dsa_dev, struct device *host_dev,
++			     int sw_addr)
+ {
+ 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6123_table,
+ 				     ARRAY_SIZE(mv88e6123_table));
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index 24070287c2bc..bfadfd2cbb8d 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -25,7 +25,8 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+ 	{ PORT_SWITCH_ID_6185, "Marvell 88E6185" },
+ };
+ 
+-static char *mv88e6131_probe(struct device *host_dev, int sw_addr)
++static char *mv88e6131_probe(struct device *dsa_dev, struct device *host_dev,
++			     int sw_addr)
+ {
+ 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6131_table,
+ 				     ARRAY_SIZE(mv88e6131_table));
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 0e62f3b5bc81..fb35d3ac1644 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -24,7 +24,8 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
+ 	{ PORT_SWITCH_ID_6351, "Marvell 88E6351" },
+ };
+ 
+-static char *mv88e6171_probe(struct device *host_dev, int sw_addr)
++static char *mv88e6171_probe(struct device *dsa_dev, struct device *host_dev,
++			     int sw_addr)
+ {
+ 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6171_table,
+ 				     ARRAY_SIZE(mv88e6171_table));
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 7f452e4a04a5..577ab2cfa944 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -37,7 +37,8 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+ 	{ PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)" },
+ };
+ 
+-static char *mv88e6352_probe(struct device *host_dev, int sw_addr)
++static char *mv88e6352_probe(struct device *dsa_dev, struct device *host_dev,
++			     int sw_addr)
+ {
+ 	return mv88e6xxx_lookup_name(host_dev, sw_addr, mv88e6352_table,
+ 				     ARRAY_SIZE(mv88e6352_table));
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 18d1be3ad62d..0f9f6f38f255 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -212,7 +212,8 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Probing and setup.
+ 	 */
+-	char	*(*probe)(struct device *host_dev, int sw_addr);
++	char	*(*probe)(struct device *dsa_dev, struct device *host_dev,
++			  int sw_addr);
+ 	int	(*setup)(struct dsa_switch *ds);
+ 	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index c28c47463b7e..c06275311cb2 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -51,7 +51,8 @@ void unregister_switch_driver(struct dsa_switch_driver *drv)
+ EXPORT_SYMBOL_GPL(unregister_switch_driver);
+ 
+ static struct dsa_switch_driver *
+-dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
++dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
++		 char **_name)
+ {
+ 	struct dsa_switch_driver *ret;
+ 	struct list_head *list;
+@@ -66,7 +67,7 @@ dsa_switch_probe(struct device *host_dev, int sw_addr, char **_name)
+ 
+ 		drv = list_entry(list, struct dsa_switch_driver, list);
+ 
+-		name = drv->probe(host_dev, sw_addr);
++		name = drv->probe(parent, host_dev, sw_addr);
+ 		if (name != NULL) {
+ 			ret = drv;
+ 			break;
+@@ -387,7 +388,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	/*
+ 	 * Probe for switch model.
+ 	 */
+-	drv = dsa_switch_probe(host_dev, pd->sw_addr, &name);
++	drv = dsa_switch_probe(parent, host_dev, pd->sw_addr, &name);
+ 	if (drv == NULL) {
+ 		netdev_err(dst->master_netdev, "[%d]: could not detect attached switch\n",
+ 			   index);
 -- 
 2.7.0
