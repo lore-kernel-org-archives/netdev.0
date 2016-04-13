@@ -1,88 +1,57 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: [PATCH 2/3] io-mapping: Specify mapping size for
-	io_mapping_map_wc()
-Date: Wed, 13 Apr 2016 10:52:39 +0100
-Message-ID: <1460541160-1955-2-git-send-email-chris@chris-wilson.co.uk>
-References: <1460541160-1955-1-git-send-email-chris@chris-wilson.co.uk>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 2/2] tun: don't set a default qdisc
+Date: Wed, 13 Apr 2016 13:26:51 +0300
+Message-ID: <20160413132411-mutt-send-email-mst@redhat.com>
+References: <cover.1460393493.git.pabeni@redhat.com>
+ <1a216fb6cade7dcd7d2c1d4ce113a1ee6e3fdeb6.1460393493.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
- Yishai Hadas <yishaih@mellanox.com>, linux-kernel@vger.kernel.org,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
- Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: intel-gfx@lists.freedesktop.org
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-In-Reply-To: <1460541160-1955-1-git-send-email-chris@chris-wilson.co.uk>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37003 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965432AbcDMK0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 06:26:55 -0400
+Content-Disposition: inline
+In-Reply-To: <1a216fb6cade7dcd7d2c1d4ce113a1ee6e3fdeb6.1460393493.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19tYXBwaW5nX21hcF93YygpIGNvbnZl
-bmllbmNlIGhlbHBlcgpjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxlIHBhZ2VzLiBF
-eHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0CmZ1dHVyZSBjYWxsZXJzIGNhbiB1c2UgaXQgZm9yIGxh
-cmdlciByYW5nZXMuCgpTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdp
-bHNvbi5jby51az4KQ2M6IFR2cnRrbyBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+
-CkNjOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KQ2M6IEphbmkgTmlr
-dWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxp
-ZWRAbGludXguaWU+CkNjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgpDYzog
-RGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+CkNjOiBJbmdvIE1vbG5hciA8
-bWluZ29Aa2VybmVsLm9yZz4KQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwpIiA8cGV0ZXJ6QGlu
-ZnJhZGVhZC5vcmc+CkNjOiBEYXZpZCBIaWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5j
-b20+CkNjOiBpbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBkcmktZGV2ZWxAbGlz
-dHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1y
-ZG1hQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwotLS0K
-IGRyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYyAgICB8ICAzICsrLQogZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9wZC5jIHwgIDQgKysrLQogaW5jbHVkZS9saW51
-eC9pby1tYXBwaW5nLmggICAgICAgICAgICAgIHwgMTAgKysrKysrKy0tLQogMyBmaWxlcyBjaGFu
-Z2VkLCAxMiBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2lu
-dGVsX292ZXJsYXkuYwppbmRleCBlNDg3ZmYxOGI0MmYuLjViYmEyY2Y2MmEyNiAxMDA2NDQKLS0t
-IGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfb3ZlcmxheS5jCisrKyBiL2RyaXZlcnMvZ3B1
-L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYwpAQCAtMTk4LDcgKzE5OCw4IEBAIGludGVsX292ZXJs
-YXlfbWFwX3JlZ3Moc3RydWN0IGludGVsX292ZXJsYXkgKm92ZXJsYXkpCiAJCXJlZ3MgPSAoc3Ry
-dWN0IG92ZXJsYXlfcmVnaXN0ZXJzIF9faW9tZW0gKilvdmVybGF5LT5yZWdfYm8tPnBoeXNfaGFu
-ZGxlLT52YWRkcjsKIAllbHNlCiAJCXJlZ3MgPSBpb19tYXBwaW5nX21hcF93YyhnZ3R0LT5tYXBw
-YWJsZSwKLQkJCQkJIG92ZXJsYXktPmZsaXBfYWRkcik7CisJCQkJCSBvdmVybGF5LT5mbGlwX2Fk
-ZHIsCisJCQkJCSBQQUdFX1NJWkUpOwogCiAJcmV0dXJuIHJlZ3M7CiB9CmRpZmYgLS1naXQgYS9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3BkLmMgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9tZWxsYW5veC9tbHg0L3BkLmMKaW5kZXggYjNjYzNhYjYzNzk5Li42ZmMxNTZhMzkxOGQg
-MTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcGQuYworKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3BkLmMKQEAgLTIwNSw3ICsyMDUs
-OSBAQCBpbnQgbWx4NF9iZl9hbGxvYyhzdHJ1Y3QgbWx4NF9kZXYgKmRldiwgc3RydWN0IG1seDRf
-YmYgKmJmLCBpbnQgbm9kZSkKIAkJCWdvdG8gZnJlZV91YXI7CiAJCX0KIAotCQl1YXItPmJmX21h
-cCA9IGlvX21hcHBpbmdfbWFwX3djKHByaXYtPmJmX21hcHBpbmcsIHVhci0+aW5kZXggPDwgUEFH
-RV9TSElGVCk7CisJCXVhci0+YmZfbWFwID0gaW9fbWFwcGluZ19tYXBfd2MocHJpdi0+YmZfbWFw
-cGluZywKKwkJCQkJCXVhci0+aW5kZXggPDwgUEFHRV9TSElGVCwKKwkJCQkJCVBBR0VfU0laRSk7
-CiAJCWlmICghdWFyLT5iZl9tYXApIHsKIAkJCWVyciA9IC1FTk9NRU07CiAJCQlnb3RvIHVuYW1w
-X3VhcjsKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oIGIvaW5jbHVkZS9s
-aW51eC9pby1tYXBwaW5nLmgKaW5kZXggZTM5OTAyOWI2OGM1Li42NDVhZDA2YjVkNTIgMTAwNjQ0
-Ci0tLSBhL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oCisrKyBiL2luY2x1ZGUvbGludXgvaW8t
-bWFwcGluZy5oCkBAIC0xMDAsMTQgKzEwMCwxNiBAQCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2
-b2lkIF9faW9tZW0gKnZhZGRyKQogfQogCiBzdGF0aWMgaW5saW5lIHZvaWQgX19pb21lbSAqCi1p
-b19tYXBwaW5nX21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywgdW5zaWduZWQgbG9u
-ZyBvZmZzZXQpCitpb19tYXBwaW5nX21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywK
-KwkJICB1bnNpZ25lZCBsb25nIG9mZnNldCwKKwkJICB1bnNpZ25lZCBsb25nIHNpemUpCiB7CiAJ
-cmVzb3VyY2Vfc2l6ZV90IHBoeXNfYWRkcjsKIAogCUJVR19PTihvZmZzZXQgPj0gbWFwcGluZy0+
-c2l6ZSk7CiAJcGh5c19hZGRyID0gbWFwcGluZy0+YmFzZSArIG9mZnNldDsKIAotCXJldHVybiBp
-b3JlbWFwX3djKHBoeXNfYWRkciwgUEFHRV9TSVpFKTsKKwlyZXR1cm4gaW9yZW1hcF93YyhwaHlz
-X2FkZHIsIHNpemUpOwogfQogCiBzdGF0aWMgaW5saW5lIHZvaWQKQEAgLTE1NSw3ICsxNTcsOSBA
-QCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQogCiAvKiBOb24t
-YXRvbWljIG1hcC91bm1hcCAqLwogc3RhdGljIGlubGluZSB2b2lkIF9faW9tZW0gKgotaW9fbWFw
-cGluZ19tYXBfd2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsIHVuc2lnbmVkIGxvbmcgb2Zm
-c2V0KQoraW9fbWFwcGluZ19tYXBfd2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsCisJCSAg
-dW5zaWduZWQgbG9uZyBvZmZzZXQsCisJCSAgdW5zaWduZWQgbG9uZyBzaXplKQogewogCXJldHVy
-biAoKGNoYXIgX19mb3JjZSBfX2lvbWVtICopIG1hcHBpbmcpICsgb2Zmc2V0OwogfQotLSAKMi44
-LjAucmMzCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJ
-bnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0
-cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
+On Wed, Apr 13, 2016 at 11:04:47AM +0200, Paolo Abeni wrote:
+> This patch disables the default qdisc by explicitly setting the
+> IFF_NO_QUEUE private flag so that now the tun xmit path do not
+> require any lock by default.
+> 
+> The default qdisc was first removed as a side effect of commit
+> f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using alloc_netdev")
+> and recently restored with commit 016adb7260f4 ("tuntap: restore default qdisc")
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+
+I wonder about this back and forth.
+Jason, do you see a workload where the default qdisc
+is preferable?
+
+> ---
+>  drivers/net/tun.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 42992dc..0a0b63c 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1081,6 +1081,7 @@ static void tun_net_init(struct net_device *dev)
+>  
+>  		break;
+>  	}
+> +	dev->priv_flags |= IFF_NO_QUEUE;
+>  }
+>  
+>  /* Character device part */
+> -- 
+> 1.8.3.1
