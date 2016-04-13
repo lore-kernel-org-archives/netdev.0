@@ -1,41 +1,77 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
-Date: Wed, 13 Apr 2016 11:45:05 +0200
-Message-ID: <570E1521.9060602@broadcom.com>
-References: <20160413060916.GA21184@localhost>
- <1460536706.3057.3.camel@sipsolutions.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC 1/2] tun: don't require serialization lock on tx
+Date: Wed, 13 Apr 2016 11:48:09 +0200
+Message-ID: <570E15D9.4000308@stressinduktion.org>
+References: <cover.1460393493.git.pabeni@redhat.com>
+ <425e8f69ffd8fe315ef9d3cc678519c7060fb2e0.1460393493.git.pabeni@redhat.com>
+ <20160413123828-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>,
- Tina Ruchandani <ruchandani.tina@gmail.com>, Arnd Bergmann <arnd@arndb.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1460536706.3057.3.camel@sipsolutions.net>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Christian Borntraeger <borntraeger@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46365 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965990AbcDMJsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 05:48:13 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id EC1DA20296
+	for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 05:48:11 -0400 (EDT)
+In-Reply-To: <20160413123828-mutt-send-email-mst@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTMtNC0yMDE2IDEwOjM4LCBKb2hhbm5lcyBCZXJnIHdyb3RlOgo+IAo+PiBUaGUgcGF0Y2gg
-d2FzIGJ1aWxkLXRlc3RlZCAvIGRlYnVnZ2VkIGJ5IHJlbW92aW5nIHRoZQo+PiAiaWYgVkVSQk9T
-RSA+IFNIT1dfRVJST1JfTUVTU0FHRVMiIGd1YXJkcy4KPiAKPiBTdGFuZHMgdG8gcmVhc29uIHRo
-YXQgd2Ugc2hvdWxkIGp1c3QgcmVtb3ZlIHRoZSAobW9yZSBvciBsZXNzKSBkZWFkCj4gY29kZSwg
-c2luY2UgSSBkb24ndCB0aGluayBhbnlvbmUgcmVhbGx5IGV2ZXIgdG91Y2hlcyB0aGlzIGRyaXZl
-ciBhbnkKPiBtb3JlIG9yIHdpbGwgZXZlciBhZ2FpbiAuLi4KCkl0IGRvZXMgYnJpbmcgYmFjayBt
-ZW1vcmllcyBmcm9tIG15IEludGVyc2lsL0dsb2Jlc3Bhbi9Db25leGFudCBkYXkocyksCmJ1dCBu
-b3Qgc2VudGltZW50YWwgZW5vdWdoIHRvIHRvdWNoIHRoZSBwcmlzbTU0IGRyaXZlci4KCkdyLiBB
-dlMKCj4gam9oYW5uZXMKPiAtLQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5k
-IHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC13aXJlbGVzcyIgaW4KPiB0aGUgYm9keSBvZiBh
-IG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGlu
-Zm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbAo+IApfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5n
-IGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFp
-bG1hbi9saXN0aW5mby95MjAzOAo=
+On 13.04.2016 11:41, Michael S. Tsirkin wrote:
+> On Wed, Apr 13, 2016 at 11:04:46AM +0200, Paolo Abeni wrote:
+>> The current tun_net_xmit() implementation don't need any external
+>> lock since it relay on rcu protection for the tun data structure
+>> and on socket queue lock for skb queuing.
+>>
+>> This patch set the NETIF_F_LLTX feature bit in the tun device, so
+>> that on xmit, in absence of qdisc, no serialization lock is acquired
+>> by the caller.
+>>
+>> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+>> ---
+>>   drivers/net/tun.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index faf9297..42992dc 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1796,7 +1796,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>   		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+>>   				   TUN_USER_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
+>>   				   NETIF_F_HW_VLAN_STAG_TX;
+>> -		dev->features = dev->hw_features;
+>> +		dev->features = dev->hw_features | NETIF_F_LLTX;
+>
+> the documentation says:
+>          NETIF_F_LLTX_BIT,               /* LockLess TX - deprecated.  Please */
+>                                          /* do not use LLTX in new drivers */
+
+In networking/netdev-features.txt
+
+  * LLTX driver (deprecated for hardware drivers)
+
+NETIF_F_LLTX should be set in drivers that implement their own locking in
+transmit path or don't need locking at all (e.g. software tunnels).
+In ndo_start_xmit, it is recommended to use a try_lock and return
+NETDEV_TX_LOCKED when the spin lock fails.  The locking should also properly
+protect against other callbacks (the rules you need to find out).
+
+Don't use it for new drivers.
+
+I think this is documentation is correct and it is only deprecated for 
+hardware drivers.
+
+Bye,
+Hannes
