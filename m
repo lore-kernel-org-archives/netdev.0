@@ -1,60 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 0/2] tun: lockless xmit
-Date: Wed, 13 Apr 2016 14:08:50 +0300
-Message-ID: <20160413132816-mutt-send-email-mst@redhat.com>
-References: <cover.1460393493.git.pabeni@redhat.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [RFC] Is it a bug for nfs on udp6 mode or kernel?
+Date: Wed, 13 Apr 2016 19:28:41 +0800
+Message-ID: <570E2D69.7080102@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51504 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932194AbcDMLIy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 07:08:54 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1460393493.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <linux-nfs-approval@vger.kernel.org>, <tom@herbertland.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	<dhowells@redhat.com>, <viro@zeniv.linux.org.u>,
+	<chuck.lever@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 13, 2016 at 11:04:45AM +0200, Paolo Abeni wrote:
-> This patch series try to remove the need for any lock in the tun device
-> xmit path, significantly improving the forwarding performance when multiple
-> processes are accessing the tun device (i.e. in a nic->bridge->tun->vm scenario).
-> 
-> The lockless xmit is obtained explicitly setting the NETIF_F_LLTX feature bit
-> and removing the default qdisc.
-> 
-> Unlikely most virtual devices, the tun driver has featured a default qdisc
-> for a long period, but it already lost such feature in linux 4.3.
+Hi everyone:
 
-Thanks -  I think it's a good idea to reduce the
-lock contention there.
+I have met this problem when I try to test udp6 for nfs connection, my =
+environment is:
 
-But I think it's unfortunate that it requires
-bypassing the qdisc completely: this means
-that anyone trying to do traffic shaping will
-get back the contention.
+Server:
+kernel: 4.1.15
+IP:xxxx::36/64
+MTU:1500
+Setting: /etc/exports:/home/nfs *(rw,sync,no_subtree_check,no_root_squa=
+sh)
 
-Can we solve the lock contention for qdisc?
-E.g. add a small lockless queue in front of it,
-whoever has the qdisc lock would be
-responsible for moving things from there to qdisc
-proper.
+Client:
+kernel: 4.1.18
+IP:xxxx::90/64
+MTU:1500
+command: mount -t nfs -o vers=3D3,proto=3Dudp6,rsize=3D4096,wsize=3D409=
+6 [xxxx::36]:/home/nfs /home/tmp
 
-Thoughts? Is there a chance this might work reasonably well?
+I check the nfs parameter configuration, it looks fine and could work w=
+ell for proto=3Dtcp6.
+
+Then I have mount correctly and try to run the command "ls", it hang.
+
+When I use the rsize=3D1024 and wsize=3D1024 to mount, the problem disa=
+ppeared, so I guess it is the problem for GSO or GRO for UDP=E3=80=82
+
+Then I try to debug the problem, first I tcpdump the package from cline=
+ to server, and found that
+the client have send readdirplus message to server correctly, and then =
+the Server send a 4k package
+to client(the big package will frag to 4 package by GSO), till now it l=
+ooks fine, and the Client Nic could
+receive the 4 skb then send to upper stack to ipv6 and udp, I found the=
+ incoming 4 package has been merged
+to one and send to upper stack just like sunrpc, but I try to open the =
+rpc_debug, it looks that the rpc could
+not receive message.
 
 
-> Paolo Abeni (2):
->   tun: don't require serialization lock on tx
->   tun: don't set a default qdisc
-> 
->  drivers/net/tun.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> -- 
-> 1.8.3.1
+I built a simple demo to test the udp stack, use the client socket to s=
+end big package to server socket, it work well,
+so I think the udp is fine, maybe the bug is in sunrpc.
+
+The test is very simple, does any body met the same problem like me, th=
+anks for any suggestion.
+
+Ding=20
