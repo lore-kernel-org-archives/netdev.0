@@ -1,52 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC 0/2] tun: lockless xmit
-Date: Wed, 13 Apr 2016 09:42:45 -0700
-Message-ID: <1460565765.10638.32.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1460393493.git.pabeni@redhat.com>
-	 <20160413132816-mutt-send-email-mst@redhat.com>
-	 <1460551817.10638.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160413155146-mutt-send-email-mst@redhat.com>
-	 <1460552966.10638.12.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160413161558-mutt-send-email-mst@redhat.com>
-	 <1460555021.10638.20.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH V3] net: mediatek: update the IRQ part of the binding
+ document
+Date: Wed, 13 Apr 2016 12:33:35 -0500
+Message-ID: <20160413173335.GA15022@rob-hp-laptop>
+References: <1460442918-6070-1-git-send-email-blogic@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35952 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbcDMQms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 12:42:48 -0400
-Received: by mail-pa0-f45.google.com with SMTP id er2so7396417pad.3
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 09:42:47 -0700 (PDT)
-In-Reply-To: <1460555021.10638.20.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Felix Fietkau <nbd@openwrt.org>,
+	Matthias Brugger <matthias.bgg@gmail.com>,
+	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
+To: John Crispin <blogic@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1460442918-6070-1-git-send-email-blogic@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-04-13 at 06:43 -0700, Eric Dumazet wrote:
-> On Wed, 2016-04-13 at 16:17 +0300, Michael S. Tsirkin wrote:
-> > On Wed, Apr 13, 2016 at 06:09:26AM -0700, Eric Dumazet wrote:
-> > > You really need to convince John Fastabend to work full time on the real
-> > > thing
-> > 
-> > Meaning making all qdiscs themselves lockless? With complex policies
-> > like codel I can see how that might be challenging ...
+On Tue, Apr 12, 2016 at 08:35:18AM +0200, John Crispin wrote:
+> The current binding document only describes a single interrupt. Update the
+> document by adding the 2 other interrupts.
 > 
-> Codel is a fifo, plus some droping capabilities at dequeue time.
+> The driver currently only uses a single interrupt. The HW is however able
+> to using IRQ grouping to split TX and RX onto separate GIC irqs.
 > 
-> It totally can be made lockless.
+> Signed-off-by: John Crispin <blogic@openwrt.org>
+> Cc: devicetree@vger.kernel.org
+> ---
+> This binding doc was merged in 4.6-rc1 and there are no users yet. The
+> current driver only uses 1 irq but will work fine with all 3 listed in
+> the devicetree. This patch should be merged before v4.6 is final such
+> that listing all 3 irqs becomes part of the ABI. I have already posted
+> a patch that utilizes all 3 irqs for next-next for v4.7 inclusion.
+> 
+> Changes in V3:
+> * be verbose about the 3 irqs and their ordering
+> 
+> Changes in V2:
+> * split this patch out of the series that fixes tx stalls in the driver
+> 
+>  Documentation/devicetree/bindings/net/mediatek-net.txt |    7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
 
-By lockless, I really meant decouple the enqueue() and dequeue() phases.
-
-Both sides could use a separate exclusion mechanism.
-
-So when qdisc_run() is dequeuing a bunch of packets (owning
-__QDISC___STATE_RUNNING), other cpus would still be able to queue
-additional packets.
+Acked-by: Rob Herring <robh@kernel.org>
