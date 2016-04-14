@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH v2 net-next 5/5] qede: Add fastpath support for tunneling
-Date: Thu, 14 Apr 2016 01:38:33 -0400
-Message-ID: <1460612313-20323-6-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH v2 net-next 2/5] qed/qede: Add VXLAN tunnel slowpath configuration support
+Date: Thu, 14 Apr 2016 01:38:30 -0400
+Message-ID: <1460612313-20323-3-git-send-email-manish.chopra@qlogic.com>
 References: <1460612313-20323-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,208 +9,226 @@ Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
 	<Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:63242 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752034AbcDNGUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:20:13 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39295 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751710AbcDNGUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:20:11 -0400
 In-Reply-To: <1460612313-20323-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables netdev tunneling features and adds
-TX/RX fastpath support for tunneling in driver.
+This patch enables VXLAN tunnel on the adapter and
+add support for driver hooks to configure UDP ports
+for VXLAN tunnel offload to be performed by the adapter.
 
 Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede.h      |   1 +
- drivers/net/ethernet/qlogic/qede/qede_main.c | 101 ++++++++++++++++++++++++---
- 2 files changed, 92 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/qlogic/Kconfig               | 11 ++++
+ drivers/net/ethernet/qlogic/qed/qed_main.c        |  8 ++-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |  3 +-
+ drivers/net/ethernet/qlogic/qede/qede.h           |  4 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c      | 64 ++++++++++++++++++++++-
+ 5 files changed, 86 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+index ddcfcab..7a65522 100644
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@ -103,4 +103,15 @@ config QEDE
+ 	depends on QED
+ 	---help---
+ 	  This enables the support for ...
++
++config QEDE_VXLAN
++	bool "Virtual eXtensible Local Area Network support"
++	default n
++	depends on QEDE && VXLAN && !(QEDE=y && VXLAN=m)
++	---help---
++	  This enables hardware offload support for VXLAN protocol over
++	  qede module. Say Y here if you want to enable hardware offload
++	  support for Virtual eXtensible Local Area Network (VXLAN)
++	  in the driver.
++
+ endif # NET_VENDOR_QLOGIC
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 1916992..0bb2c57 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -744,6 +744,7 @@ static void qed_update_pf_params(struct qed_dev *cdev,
+ static int qed_slowpath_start(struct qed_dev *cdev,
+ 			      struct qed_slowpath_params *params)
+ {
++	struct qed_tunn_start_params tunn_info;
+ 	struct qed_mcp_drv_version drv_version;
+ 	const u8 *data = NULL;
+ 	struct qed_hwfn *hwfn;
+@@ -776,7 +777,12 @@ static int qed_slowpath_start(struct qed_dev *cdev,
+ 	/* Start the slowpath */
+ 	data = cdev->firmware->data;
+ 
+-	rc = qed_hw_init(cdev, NULL, true, cdev->int_params.out.int_mode,
++	memset(&tunn_info, 0, sizeof(tunn_info));
++	tunn_info.tunn_mode |=  1 << QED_MODE_VXLAN_TUNN;
++	tunn_info.tunn_clss_vxlan = QED_TUNN_CLSS_MAC_VLAN;
++
++	rc = qed_hw_init(cdev, &tunn_info, true,
++			 cdev->int_params.out.int_mode,
+ 			 true, data);
+ 	if (rc)
+ 		goto err2;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index 306da70..7ccd96e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -353,7 +353,8 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
+ 	DMA_REGPAIR_LE(p_ramrod->consolid_q_pbl_addr,
+ 		       p_hwfn->p_consq->chain.pbl.p_phys_table);
+ 
+-	qed_tunn_set_pf_start_params(p_hwfn, NULL, NULL);
++	qed_tunn_set_pf_start_params(p_hwfn, p_tunn,
++				     &p_ramrod->tunnel_config);
+ 	p_hwfn->hw_info.personality = PERSONALITY_ETH;
+ 
+ 	DP_VERBOSE(p_hwfn, QED_MSG_SPQ,
 diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 8521fee..16df159 100644
+index 41c4189..16a4344 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede.h
 +++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -290,6 +290,7 @@ struct qede_fastpath {
+@@ -169,6 +169,7 @@ struct qede_dev {
+ 	bool accept_any_vlan;
+ 	struct delayed_work		sp_task;
+ 	unsigned long			sp_flags;
++	u16				vxlan_dst_port;
+ };
  
+ enum QEDE_STATE {
+@@ -289,7 +290,8 @@ struct qede_fastpath {
  #define QEDE_CSUM_ERROR			BIT(0)
  #define QEDE_CSUM_UNNECESSARY		BIT(1)
-+#define QEDE_TUNN_CSUM_UNNECESSARY	BIT(2)
  
- #define QEDE_SP_RX_MODE			1
- #define QEDE_SP_VXLAN_PORT_CONFIG	2
+-#define QEDE_SP_RX_MODE		1
++#define QEDE_SP_RX_MODE			1
++#define QEDE_SP_VXLAN_PORT_CONFIG	2
+ 
+ union qede_reload_args {
+ 	u16 mtu;
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 6c40316..e5dc35a 100644
+index 457caad..895016d 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -315,6 +315,9 @@ static u32 qede_xmit_type(struct qede_dev *edev,
- 	    (ipv6_hdr(skb)->nexthdr == NEXTHDR_IPV6))
- 		*ipv6_ext = 1;
- 
-+	if (skb->encapsulation)
-+		rc |= XMIT_ENC;
-+
- 	if (skb_is_gso(skb))
- 		rc |= XMIT_LSO;
- 
-@@ -376,6 +379,16 @@ static int map_frag_to_bd(struct qede_dev *edev,
- 	return 0;
+@@ -24,7 +24,9 @@
+ #include <linux/netdev_features.h>
+ #include <linux/udp.h>
+ #include <linux/tcp.h>
++#ifdef CONFIG_QEDE_VXLAN
+ #include <net/vxlan.h>
++#endif
+ #include <linux/ip.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+@@ -1821,6 +1823,42 @@ static void qede_vlan_mark_nonconfigured(struct qede_dev *edev)
+ 	edev->accept_any_vlan = false;
  }
  
-+static u16 qede_get_skb_hlen(struct sk_buff *skb, bool is_encap_pkt)
++#ifdef CONFIG_QEDE_VXLAN
++static void qede_add_vxlan_port(struct net_device *dev,
++				sa_family_t sa_family, __be16 port)
 +{
-+	if (is_encap_pkt)
-+		return (skb_inner_transport_header(skb) +
-+			inner_tcp_hdrlen(skb) - skb->data);
-+	else
-+		return (skb_transport_header(skb) +
-+			tcp_hdrlen(skb) - skb->data);
++	struct qede_dev *edev = netdev_priv(dev);
++	u16 t_port = ntohs(port);
++
++	if (edev->vxlan_dst_port)
++		return;
++
++	edev->vxlan_dst_port = t_port;
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "Added vxlan port=%d", t_port);
++
++	set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
++	schedule_delayed_work(&edev->sp_task, 0);
 +}
 +
- /* +2 for 1st BD for headers and 2nd BD for headlen (if required) */
- #if ((MAX_SKB_FRAGS + 2) > ETH_TX_MAX_BDS_PER_NON_LSO_PACKET)
- static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
-@@ -386,8 +399,7 @@ static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
- 	if (xmit_type & XMIT_LSO) {
- 		int hlen;
- 
--		hlen = skb_transport_header(skb) +
--		       tcp_hdrlen(skb) - skb->data;
-+		hlen = qede_get_skb_hlen(skb, xmit_type & XMIT_ENC);
- 
- 		/* linear payload would require its own BD */
- 		if (skb_headlen(skb) > hlen)
-@@ -495,7 +507,18 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 		first_bd->data.bd_flags.bitfields |=
- 			1 << ETH_TX_1ST_BD_FLAGS_L4_CSUM_SHIFT;
- 
--		first_bd->data.bitfields |= cpu_to_le16(temp);
-+		if (xmit_type & XMIT_ENC) {
-+			first_bd->data.bd_flags.bitfields |=
-+				1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
-+		} else {
-+			/* In cases when OS doesn't indicate for inner offloads
-+			 * when packet is tunnelled, we need to override the HW
-+			 * tunnel configuration so that packets are treated as
-+			 * regular non tunnelled packets and no inner offloads
-+			 * are done by the hardware.
-+			 */
-+			first_bd->data.bitfields |= cpu_to_le16(temp);
-+		}
- 
- 		/* If the packet is IPv6 with extension header, indicate that
- 		 * to FW and pass few params, since the device cracker doesn't
-@@ -511,10 +534,15 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 		third_bd->data.lso_mss =
- 			cpu_to_le16(skb_shinfo(skb)->gso_size);
- 
--		first_bd->data.bd_flags.bitfields |=
--		1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
--		hlen = skb_transport_header(skb) +
--		       tcp_hdrlen(skb) - skb->data;
-+		if (unlikely(xmit_type & XMIT_ENC)) {
-+			first_bd->data.bd_flags.bitfields |=
-+				1 << ETH_TX_1ST_BD_FLAGS_TUNN_IP_CSUM_SHIFT;
-+			hlen = qede_get_skb_hlen(skb, true);
-+		} else {
-+			first_bd->data.bd_flags.bitfields |=
-+				1 << ETH_TX_1ST_BD_FLAGS_IP_CSUM_SHIFT;
-+			hlen = qede_get_skb_hlen(skb, false);
-+		}
- 
- 		/* @@@TBD - if will not be removed need to check */
- 		third_bd->data.bitfields |=
-@@ -848,6 +876,9 @@ static void qede_set_skb_csum(struct sk_buff *skb, u8 csum_flag)
- 
- 	if (csum_flag & QEDE_CSUM_UNNECESSARY)
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	if (csum_flag & QEDE_TUNN_CSUM_UNNECESSARY)
-+		skb->csum_level = 1;
- }
- 
- static inline void qede_skb_receive(struct qede_dev *edev,
-@@ -1137,13 +1168,47 @@ err:
- 	tpa_info->skb = NULL;
- }
- 
--static u8 qede_check_csum(u16 flag)
-+static bool qede_tunn_exist(u16 flag)
++static void qede_del_vxlan_port(struct net_device *dev,
++				sa_family_t sa_family, __be16 port)
 +{
-+	return !!(flag & (PARSING_AND_ERR_FLAGS_TUNNELEXIST_MASK <<
-+			  PARSING_AND_ERR_FLAGS_TUNNELEXIST_SHIFT));
++	struct qede_dev *edev = netdev_priv(dev);
++	u16 t_port = ntohs(port);
++
++	if (t_port != edev->vxlan_dst_port)
++		return;
++
++	edev->vxlan_dst_port = 0;
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted vxlan port=%d", t_port);
++
++	set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
++	schedule_delayed_work(&edev->sp_task, 0);
 +}
++#endif
 +
-+static u8 qede_check_tunn_csum(u16 flag)
-+{
-+	u16 csum_flag = 0;
-+	u8 tcsum = 0;
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+@@ -1832,6 +1870,10 @@ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid = qede_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid = qede_vlan_rx_kill_vid,
+ 	.ndo_get_stats64 = qede_get_stats64,
++#ifdef CONFIG_QEDE_VXLAN
++	.ndo_add_vxlan_port = qede_add_vxlan_port,
++	.ndo_del_vxlan_port = qede_del_vxlan_port,
++#endif
+ };
+ 
+ /* -------------------------------------------------------------------------
+@@ -2004,6 +2046,8 @@ static void qede_sp_task(struct work_struct *work)
+ {
+ 	struct qede_dev *edev = container_of(work, struct qede_dev,
+ 					     sp_task.work);
++	struct qed_dev *cdev = edev->cdev;
 +
-+	if (flag & (PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMWASCALCULATED_MASK <<
-+		    PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMWASCALCULATED_SHIFT))
-+		csum_flag |= PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMERROR_MASK <<
-+			     PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMERROR_SHIFT;
+ 	mutex_lock(&edev->qede_lock);
+ 
+ 	if (edev->state == QEDE_STATE_OPEN) {
+@@ -2011,6 +2055,15 @@ static void qede_sp_task(struct work_struct *work)
+ 			qede_config_rx_mode(edev->ndev);
+ 	}
+ 
++	if (test_and_clear_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags)) {
++		struct qed_tunn_params tunn_params;
 +
-+	if (flag & (PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
-+		    PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT)) {
-+		csum_flag |= PARSING_AND_ERR_FLAGS_L4CHKSMERROR_MASK <<
-+			     PARSING_AND_ERR_FLAGS_L4CHKSMERROR_SHIFT;
-+		tcsum = QEDE_TUNN_CSUM_UNNECESSARY;
++		memset(&tunn_params, 0, sizeof(tunn_params));
++		tunn_params.update_vxlan_port = 1;
++		tunn_params.vxlan_port = edev->vxlan_dst_port;
++		qed_ops->tunn_config(cdev, &tunn_params);
 +	}
 +
-+	csum_flag |= PARSING_AND_ERR_FLAGS_TUNNELIPHDRERROR_MASK <<
-+		     PARSING_AND_ERR_FLAGS_TUNNELIPHDRERROR_SHIFT |
-+		     PARSING_AND_ERR_FLAGS_IPHDRERROR_MASK <<
-+		     PARSING_AND_ERR_FLAGS_IPHDRERROR_SHIFT;
-+
-+	if (csum_flag & flag)
-+		return QEDE_CSUM_ERROR;
-+
-+	return QEDE_CSUM_UNNECESSARY | tcsum;
-+}
-+
-+static u8 qede_check_notunn_csum(u16 flag)
- {
- 	u16 csum_flag = 0;
- 	u8 csum = 0;
- 
--	if ((PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
--	     PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT) & flag) {
-+	if (flag & (PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_MASK <<
-+		    PARSING_AND_ERR_FLAGS_L4CHKSMWASCALCULATED_SHIFT)) {
- 		csum_flag |= PARSING_AND_ERR_FLAGS_L4CHKSMERROR_MASK <<
- 			     PARSING_AND_ERR_FLAGS_L4CHKSMERROR_SHIFT;
- 		csum = QEDE_CSUM_UNNECESSARY;
-@@ -1158,6 +1223,14 @@ static u8 qede_check_csum(u16 flag)
- 	return csum;
+ 	mutex_unlock(&edev->qede_lock);
  }
  
-+static u8 qede_check_csum(u16 flag)
-+{
-+	if (!qede_tunn_exist(flag))
-+		return qede_check_notunn_csum(flag);
-+	else
-+		return qede_check_tunn_csum(flag);
-+}
-+
- static int qede_rx_int(struct qede_fastpath *fp, int budget)
+@@ -3149,12 +3202,21 @@ void qede_reload(struct qede_dev *edev,
+ static int qede_open(struct net_device *ndev)
  {
- 	struct qede_dev *edev = fp->edev;
-@@ -1987,6 +2060,14 @@ static void qede_init_ndev(struct qede_dev *edev)
- 		      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		      NETIF_F_TSO | NETIF_F_TSO6;
+ 	struct qede_dev *edev = netdev_priv(ndev);
++	int rc;
  
-+	/* Encap features*/
-+	hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |
-+		       NETIF_F_TSO_ECN;
-+	ndev->hw_enc_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-+				NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO_ECN |
-+				NETIF_F_TSO6 | NETIF_F_GSO_GRE |
-+				NETIF_F_GSO_UDP_TUNNEL | NETIF_F_RXCSUM;
+ 	netif_carrier_off(ndev);
+ 
+ 	edev->ops->common->set_power_state(edev->cdev, PCI_D0);
+ 
+-	return qede_load(edev, QEDE_LOAD_NORMAL);
++	rc = qede_load(edev, QEDE_LOAD_NORMAL);
 +
- 	ndev->vlan_features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
- 			      NETIF_F_HIGHDMA;
- 	ndev->features = hw_features | NETIF_F_RXHASH | NETIF_F_RXCSUM |
++	if (rc)
++		return rc;
++
++#ifdef CONFIG_QEDE_VXLAN
++	vxlan_get_rx_port(ndev);
++#endif
++	return 0;
+ }
+ 
+ static int qede_close(struct net_device *ndev)
 -- 
 2.7.2
