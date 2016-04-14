@@ -1,35 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Netfilter fixes for net
-Date: Wed, 13 Apr 2016 21:51:04 -0400 (EDT)
-Message-ID: <20160413.215104.1460845070621381015.davem@davemloft.net>
-References: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 4/8] dsa: Move gpio reset into switch driver
+Date: Wed, 13 Apr 2016 22:03:13 -0400 (EDT)
+Message-ID: <20160413.220313.1257029315478740404.davem@davemloft.net>
+References: <1460591998-20598-1-git-send-email-andrew@lunn.ch>
+	<1460591998-20598-5-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1460588094-3933-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33242 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752997AbcDNCDQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 22:03:16 -0400
+In-Reply-To: <1460591998-20598-5-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 14 Apr 2016 00:54:51 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu, 14 Apr 2016 01:59:54 +0200
 
-> The following patchset contains Netfilter fixes for your net tree. More
-> specifically, they are:
-> 
-> 1) Fix missing filter table per-netns registration in arptables, from
->    Florian Westphal.
-> 
-> 2) Resolve out of bound access when parsing TCP options in
->    nf_conntrack_tcp, patch from Jozsef Kadlecsik.
-> 
-> 3) Prefer NFPROTO_BRIDGE extensions over NFPROTO_UNSPEC in ebtables,
->    this resolves conflict between xt_limit and ebt_limit, from Phil Sutter.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> @@ -3178,6 +3178,7 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
+>  	struct mv88e6xxx_priv_state *ps;
+>  	struct dsa_switch *ds;
+>  	const char *name;
+> +	int err;
+>  
+>  	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
+>  	if (!ds)
+> @@ -3199,6 +3200,17 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev, struct dsa_switch_driver *ops,
+>  		return -ENODEV;
+>  	}
+>  
+> +	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
+> +	err = PTR_ERR(ps->reset);
+> +	if (err) {
+> +		if (err == -ENOENT) {
+> +			/* Optional, so not an error */
+> +			ps->reset = NULL;
+> +		} else {
+> +			return err;
+> +		}
+> +	}
 
-Pulled, thanks Pablo.
+PTR_ERR() just casts the pointer into an integer, regardless of it's
+value, and regardless of whether it is an error code or a real pointer
+successfully returned from devm_gpiod_get().
+
+So I don't think this code is correct.
+
+You need an IS_ERR() check in there somewhere.
