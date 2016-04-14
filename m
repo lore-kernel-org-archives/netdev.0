@@ -1,55 +1,71 @@
-From: Nikos Mavrogiannopoulos <nmav@gnutls.org>
-Subject: Re: [PATCH 0/3] crypto: af_alg - add TLS type encryption
-Date: Thu, 14 Apr 2016 08:47:54 +0200
-Message-ID: <CAJU7zaJ434afnPTEGUvZOPbAyMnUDjLKP1xUyLVcyTZ5Hesq4Q@mail.gmail.com>
-References: <20160306012044.6369.63924.stgit@tstruk-mobl1> <20160405112940.GB11852@gondor.apana.org.au>
- <57054DBC.8010507@intel.com> <20160408025250.GA7596@gondor.apana.org.au>
- <CALx6S37m_ayZJ4nth0SPNr2Km2+uBZUCtK4iqPKHTARv2eB4aA@mail.gmail.com>
- <570CD852.7060003@redhat.com> <570ECC28.3030008@intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC 2/2] tun: don't set a default qdisc
+Date: Thu, 14 Apr 2016 14:49:28 +0800
+Message-ID: <570F3D78.3070203@redhat.com>
+References: <cover.1460393493.git.pabeni@redhat.com>
+ <1a216fb6cade7dcd7d2c1d4ce113a1ee6e3fdeb6.1460393493.git.pabeni@redhat.com>
+ <20160413132411-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fridolin Pokorny <fpokorny@redhat.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Dave Watson <davejwatson@fb.com>, fridolin.pokorny@gmail.com
-To: Tadeusz Struk <tadeusz.struk@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570ECC28.3030008@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45861 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752793AbcDNGtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2016 02:49:36 -0400
+In-Reply-To: <20160413132411-mutt-send-email-mst@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 14, 2016 at 12:46 AM, Tadeusz Struk <tadeusz.struk@intel.com> wrote:
-> Hi Fridolin,
-> On 04/12/2016 04:13 AM, Fridolin Pokorny wrote:
->> we were experimenting with this. We have a prove of concept of a kernel
->> TLS type socket, so called AF_KTLS, which is based on Dave Watson's
->> RFC5288 patch. It handles both TLS and DTLS, unfortunately it is not
->> ready now to be proposed here. There are still issues which should be
->> solved (but mostly user space API design) [1]. If you are interested, we
->> could combine efforts.
+
+
+On 04/13/2016 06:26 PM, Michael S. Tsirkin wrote:
+> On Wed, Apr 13, 2016 at 11:04:47AM +0200, Paolo Abeni wrote:
+>> This patch disables the default qdisc by explicitly setting the
+>> IFF_NO_QUEUE private flag so that now the tun xmit path do not
+>> require any lock by default.
 >>
->> Regards,
->> Fridolin Pokorny
+>> The default qdisc was first removed as a side effect of commit
+>> f84bb1eac027 ("net: fix IFF_NO_QUEUE for drivers using alloc_netdev")
+>> and recently restored with commit 016adb7260f4 ("tuntap: restore default qdisc")
 >>
->> [1] https://github.com/fridex/af_ktls
-> I had a quick look and it looks like is limited only to gcm(aes).
-> I would be more interested to have a generic interface that could do generic algorithm
-> suits like aes-cbc-hmac-sha1 also.
+>> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> I wonder about this back and forth.
+> Jason, do you see a workload where the default qdisc
+> is preferable?
 
-This is not a real limitation but an advantage. The cbc-hmac-sha1
-needs a lot of hacks to be implemented correct (just take a look at
-one of the existing implementations). There is no point to bring such
-hacks into kernel especially since these ciphersuites are banned from
-HTTP/2.0 (see RFC7540), and have been dropped from TLS 1.3.
+I don't know, but we used to behave like this so we'd better keep it.
 
-> This also seems to work in a synchronous (send one and wait) mode, which is a not good
-> solution for HW accelerators, which I'm trying to enable.
+An interesting thing is I vaguely remember that you have some concern
+when I propose IFF_NO_QUEUE for macvtap[1] :)
 
-Is that something that cannot be addressed?
+I think this could be done by management or more safe by introducing a
+new tun flag (TUN_NO_QUEUE).
 
-regards,
-Nikos
+[1] https://lkml.org/lkml/2015/8/24/147
+
+>
+>> ---
+>>  drivers/net/tun.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 42992dc..0a0b63c 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1081,6 +1081,7 @@ static void tun_net_init(struct net_device *dev)
+>>  
+>>  		break;
+>>  	}
+>> +	dev->priv_flags |= IFF_NO_QUEUE;
+>>  }
+>>  
+>>  /* Character device part */
+>> -- 
+>> 1.8.3.1
