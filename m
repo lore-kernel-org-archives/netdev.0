@@ -1,45 +1,63 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Thu, 14 Apr 2016 17:18:13 +0200
-Message-ID: <20160414151813.GE3715@orbyte.nwl.cc>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
- <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 2/2] net: exit busy loop when another process is
+ runnable
+Date: Thu, 14 Apr 2016 02:58:35 +0200
+Message-ID: <20160414005835.GB2975@worktop.cust.blueprintrf.com>
+References: <1408608310-13579-1-git-send-email-jasowang@redhat.com>
+ <1408608310-13579-2-git-send-email-jasowang@redhat.com>
+ <1408683665.5648.69.camel@marge.simpson.net>
+ <20140822073653.GA7372@gmail.com>
+ <20160411182111-mutt-send-email-mst@redhat.com>
+ <20160413132803.GN2906@worktop>
+ <20160413163940-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jikos@kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36076 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756397AbcDNPSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 11:18:16 -0400
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160413163940-mutt-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 14, 2016 at 08:01:39AM -0700, Eric Dumazet wrote:
-> On Thu, 2016-04-14 at 16:44 +0200, Jiri Kosina wrote:
-> > Hi,
+On Wed, Apr 13, 2016 at 04:51:36PM +0300, Michael S. Tsirkin wrote:
+> On Wed, Apr 13, 2016 at 03:28:03PM +0200, Peter Zijlstra wrote:
+
+> > Nope, not true. Current isn't actually in the tree, and any other task
+> > is subject to being moved at any time.
+> > Even if current was in the tree, there is no guarantee it is
+> > ->rb_leftmost; imagine a task being migrated in that has a smaller
+> > vruntime.
 > > 
-> > I've came across the behavior where adding a child qdisc and then deleting 
-> > it again makes the networking dysfunctional (I guess that's because all of 
-> > a sudden there is absolutely no working qdisc on the device, although 
-> > there originally was a default one in the parent).
+> > So this really cannot work without locks :/
 > > 
-> > In a nutshell, is this expected behavior or bug?
+> > I've not thought about the actual problem you're trying to solve; but I
+> > figured I'd let you know this before you continue down this path.
+
+> static bool expected_to_run_fair(struct cfs_rq *cfs_rq, struct task_struct *task, s64 t)
+> {
+>        struct sched_entity *left;
+>        struct sched_entity *curr = &task->se;
+>        if (!curr || !curr->on_rq)
+>               return false;
 > 
-> This is the expected behavior.
+>        left = __pick_first_entity(cfs_rq);
+>        if (!left)
+>                return true;
+> 
+>        return (s64)(curr->vruntime + calc_delta_fair(t, curr) -
+>                     left->vruntime) < 0;
+> }
+> 
+> Left here is on tree so it's not going away, right?
 
-OTOH some qdiscs (CBQ, DRR, DSMARK, HFSC, HTB, QFQ) assign the default
-one upon deletion instead of noop_qdisc, hence I would describe
-the situation using the words 'inconsistent' and 'accident' rather than
-'expected'. :)
+No, left is the leftmost entry on the tree, it can go away at any time.
+You cannot touch the tree without locks.
 
-Anyhow, the problem with skilled admins is they accept quirks too easily
-and just build their scripts around them - the same scripts we have to
-keep compatible to then.
-
-Cheers, Phil
+Someone can come an migrate the task to another CPU, start executing it
+and it can die between you finding the left pointer and dereferencing
+it.
