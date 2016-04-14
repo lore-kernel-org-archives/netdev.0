@@ -1,45 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Thu, 14 Apr 2016 08:44:40 -0700
-Message-ID: <1460648680.10638.47.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
-	 <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160414151813.GE3715@orbyte.nwl.cc>
-	 <alpine.LNX.2.00.1604141733250.27368@cbobk.fhfr.pm>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] qlge: Replace create_singlethread_workqueue with
+ alloc_ordered_workqueue
+Date: Thu, 14 Apr 2016 11:47:00 -0400
+Message-ID: <20160414154700.GE12583@htj.duckdns.org>
+References: <20160409115744.GA30104@amitoj-Inspiron-3542>
+ <20160413174422.GB3676@htj.duckdns.org>
+ <BLUPR11MB011498CD02CC919F023545E793970@BLUPR11MB0114.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jiri Kosina <jikos@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Amitoj Kaur Chawla <amitoj1606@gmail.com>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	Harish Patil <harish.patil@qlogic.com>,
+	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
+To: Manish Chopra <manish.chopra@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1604141733250.27368@cbobk.fhfr.pm>
+Content-Disposition: inline
+In-Reply-To: <BLUPR11MB011498CD02CC919F023545E793970@BLUPR11MB0114.namprd11.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-14 at 17:34 +0200, Jiri Kosina wrote:
-> On Thu, 14 Apr 2016, Phil Sutter wrote:
-> 
-> > OTOH some qdiscs (CBQ, DRR, DSMARK, HFSC, HTB, QFQ) assign the default
-> > one upon deletion instead of noop_qdisc, hence I would describe
-> > the situation using the words 'inconsistent' and 'accident' rather than
-> > 'expected'. :)
-> 
-> Exactly. I'd again like to stress the fact that this configuration works:
-> 
-> 	jikos:~ # tc qdisc show
-> 	qdisc tbf 10: dev eth0 root refcnt 2 rate 800Mbit burst 131000b lat 1.0ms 
-> 
-> and this (after performing add/delete operation) doesn't:
-> 
-> 	jikos:~ # tc qdisc show
-> 	qdisc tbf 10: dev eth0 root refcnt 2 rate 800Mbit burst 131000b lat 1.0ms 
-> 
-> It's hard to spot a difference (hint: there is none).
+Hello, Manish.
 
-This is because some qdisc are not visible in the dump.
+On Thu, Apr 14, 2016 at 07:25:15AM +0000, Manish Chopra wrote:
+> Just want to confirm that __WQ_LEGACY flag is not necessary here as this is removed
+> with this change ? 
 
+Yeah, that should be fine.  That only affects locking dependency
+tracking which can fire spuriously due to workqueues created with the
+old interface having WQ_MEM_RECLAIM unconditionally.  In this case, we
+actually want WQ_MEM_RECLAIM and thus we want the dependency tracking
+too.
 
-qdisc_list_add() uses a single list, so adding too much stuff in it
-could slow down fast path (qdisc_lookup(), called from
-qdisc_tree_reduce_backlog())
+Thanks.
+
+-- 
+tejun
