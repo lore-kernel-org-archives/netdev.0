@@ -1,61 +1,77 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
- possible
-Date: Thu, 14 Apr 2016 14:00:49 -0300
-Message-ID: <570FCCC1.6090504@gmail.com>
-References: <cover.1460144373.git.marcelo.leitner@gmail.com>
- <20160413.230532.676746231426161126.davem@davemloft.net>
- <20160414130324.GA6806@hmsreliant.think-freely.org>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 14 Apr 2016 12:18:38 -0500
+Message-ID: <CAL_Jsq+pc7WAuDfYCLe111HmnsLGY61K0S3rm2_XdK8xvO_fLg@mail.gmail.com>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <20160414163240.GB15303@rob-hp-laptop> <570FC987.80304@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org, David.Laight@ACULAB.COM,
-	jkbs@redhat.com
-To: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:33778 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932099AbcDNRBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 13:01:07 -0400
-In-Reply-To: <20160414130324.GA6806@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	Christopher Covington <cov@codeaurora.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Bjorn Andersson <bjorn.andersson@linaro.org>,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <570FC987.80304@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em 14-04-2016 10:03, Neil Horman escreveu:
-> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
->> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
->> Date: Fri,  8 Apr 2016 16:41:26 -0300
+On Thu, Apr 14, 2016 at 11:47 AM, Timur Tabi <timur@codeaurora.org> wrote:
+> Rob Herring wrote:
+>
+>>> @@ -0,0 +1,65 @@
+>>> +Qualcomm EMAC Gigabit Ethernet Controller
+>>> +
+>>> +Required properties:
+>>> +- compatible : Should be "qcom,emac".
 >>
->>> 1st patch is a preparation for the 2nd. The idea is to not call
->>> ->sk_data_ready() for every data chunk processed while processing
->>> packets but only once before releasing the socket.
->>>
->>> v2: patchset re-checked, small changelog fixes
->>> v3: on patch 2, make use of local vars to make it more readable
 >>
->> Applied to net-next, but isn't this reduced overhead coming at the
->> expense of latency?  What if that lower latency is important to the
->> application and/or consumer?
-> Thats a fair point, but I'd make the counter argument that, as it currently
-> stands, any latency introduced (or removed), is an artifact of our
-> implementation rather than a designed feature of it.  That is to say, we make no
-> guarantees at the application level regarding how long it takes to signal data
-> readines from the time we get data off the wire, so I would rather see our
-> throughput raised if we can, as thats been sctp's more pressing achilles heel.
+>> Come on... Can you guess what I'm going to say here.
 >
 >
-> Thats not to say I'd like to enable lower latency, but I'd rather have this now,
-> and start pondering how to design that in.  Perhaps we can convert the pending
-> flag to a counter to count the number of events we enqueue, and call
-> sk_data_ready every  time we reach a sysctl defined threshold.
+> Ooops, I missed that one.
+>
+>>
+>>> +- reg : Offset and length of the register regions for the device
+>>> +- reg-names : Register region names referenced in 'reg' above.
+>>> +       Required register resource entries are:
+>>> +       "base"   : EMAC controller base register block.
+>>> +       "csr"    : EMAC wrapper register block.
+>>> +       Optional register resource entries are:
+>>> +       "ptp"    : EMAC PTP (1588) register block.
+>>> +                  Required if 'qcom,emac-tstamp-en' is present.
+>>> +       "sgmii"  : EMAC SGMII PHY register block.
+>>> +- interrupts : Interrupt numbers used by this controller
+>>> +- interrupt-names : Interrupt resource names referenced in 'interrupts'
+>>> above.
+>>> +       Required interrupt resource entries are:
+>>> +       "emac_core0"   : EMAC core0 interrupt.
+>>> +       "sgmii_irq"   : EMAC SGMII interrupt.
+>>> +- phy-addr            : Specifies phy address on MDIO bus.
+>>> +                       Required if the optional property
+>>> "qcom,no-external-phy"
+>>> +                       is not specified.
+>>
+>>
+>> As I mentioned in the last version, you should still describe this with
+>> a standard MDIO bus binding even if you can't use the generic code.
+>
+>
+> You mean like this?
+>
+>         phy0: ethernet-phy@0 {
+>                 compatible = "qcom,fsm9900-emac-phy";
+>                 reg = <4>;
 
-That and also that there is no chance of the application reading the 
-first chunks before all current ToDo's are performed by either the bh or 
-backlog handlers for that packet. Socket lock won't be cycled in between 
-chunks so the application is going to wait all the processing one way or 
-another.
-
-Thanks,
-Marcelo
+Yes, but you mean 0 here or 4 for unit address.
