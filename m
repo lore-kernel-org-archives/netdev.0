@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net][PATCH v2 1/2] RDS: fix endianness for dp_ack_seq
-Date: Thu, 14 Apr 2016 10:43:26 -0700
-Message-ID: <1460655807-26236-2-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net][PATCH v2 2/2] RDS: Fix the atomicity for congestion map update
+Date: Thu, 14 Apr 2016 10:43:27 -0700
+Message-ID: <1460655807-26236-3-git-send-email-santosh.shilimkar@oracle.com>
 References: <1460655807-26236-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org,
 	Santosh Shilimkar <santosh.shilimkar@oracle.com>
@@ -11,30 +11,44 @@ In-Reply-To: <1460655807-26236-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Qing Huang <qing.huang@oracle.com>
+Two different threads with different rds sockets may be in
+rds_recv_rcvbuf_delta() via receive path. If their ports
+both map to the same word in the congestion map, then
+using non-atomic ops to update it could cause the map to
+be incorrect. Lets use atomics to avoid such an issue.
 
-dp->dp_ack_seq is used in big endian format. We need to do the
-big endianness conversion when we assign a value in host format
-to it.
+Full credit to Wengang <wen.gang.wang@oracle.com> for
+finding the issue, analysing it and also pointing out
+to offending code with spin lock based fix.
 
-Signed-off-by: Qing Huang <qing.huang@oracle.com>
+Reviewed-by: Leon Romanovsky <leon@leon.nu>
+Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib_cm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rds/cong.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 8764970..310cabc 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -194,7 +194,7 @@ static void rds_ib_cm_fill_conn_param(struct rds_connection *conn,
- 		dp->dp_protocol_major = RDS_PROTOCOL_MAJOR(protocol_version);
- 		dp->dp_protocol_minor = RDS_PROTOCOL_MINOR(protocol_version);
- 		dp->dp_protocol_minor_mask = cpu_to_be16(RDS_IB_SUPPORTED_PROTOCOLS);
--		dp->dp_ack_seq = rds_ib_piggyb_ack(ic);
-+		dp->dp_ack_seq = cpu_to_be64(rds_ib_piggyb_ack(ic));
+diff --git a/net/rds/cong.c b/net/rds/cong.c
+index e6144b8..6641bcf 100644
+--- a/net/rds/cong.c
++++ b/net/rds/cong.c
+@@ -299,7 +299,7 @@ void rds_cong_set_bit(struct rds_cong_map *map, __be16 port)
+ 	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
+ 	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
  
- 		/* Advertise flow control */
- 		if (ic->i_flowctl) {
+-	__set_bit_le(off, (void *)map->m_page_addrs[i]);
++	set_bit_le(off, (void *)map->m_page_addrs[i]);
+ }
+ 
+ void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
+@@ -313,7 +313,7 @@ void rds_cong_clear_bit(struct rds_cong_map *map, __be16 port)
+ 	i = be16_to_cpu(port) / RDS_CONG_MAP_PAGE_BITS;
+ 	off = be16_to_cpu(port) % RDS_CONG_MAP_PAGE_BITS;
+ 
+-	__clear_bit_le(off, (void *)map->m_page_addrs[i]);
++	clear_bit_le(off, (void *)map->m_page_addrs[i]);
+ }
+ 
+ static int rds_cong_test_bit(struct rds_cong_map *map, __be16 port)
 -- 
 1.9.1
