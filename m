@@ -1,139 +1,664 @@
-From: Vikram Sethi <vikrams@codeaurora.org>
-Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
- driver
-Date: Thu, 14 Apr 2016 17:00:06 -0500
-Message-ID: <571012E6.6050303@codeaurora.org>
-References: <1460570393-19838-1-git-send-email-timur@codeaurora.org> <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org> <57100962.40404@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Kill the REG_READ and REG_WRITE macros
+Date: Thu, 14 Apr 2016 18:16:12 -0400
+Message-ID: <871t676dlf.fsf@ketchup.mtl.sfl>
+References: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	Shanker Donthineni <shankerd@codeaurora.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, cov@codeaurora.org,
-	gavidov@codeaurora.org, Rob Herring <robh+dt@kernel.org>,
-	andrew@lunn.ch, bjorn.andersson@linaro.org,
-	Mark Langsdorf <mlangsdo@redhat.com>,
-	Jon Masters <jcm@redhat.com>,
-	Andy Gross <agross@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <57100962.40404@gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:52251 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063AbcDNWQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:16:20 -0400
+In-Reply-To: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A couple of clarifications on the SGMII internal PHY and the DMA capability of the EMAC inline.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-On 04/14/2016 04:19 PM, Florian Fainelli wrote:
-> On 14/04/16 13:19, Timur Tabi wrote:
->> Florian Fainelli wrote:
->>> On 13/04/16 10:59, Timur Tabi wrote:
->>>> From: Gilad Avidov <gavidov@codeaurora.org>
->>>>
->>>> Add supports for ethernet controller HW on Qualcomm Technologies,
->>>> Inc. SoC.
->>>> This driver supports the following features:
->>>> 1) Checksum offload.
->>>> 2) Runtime power management support.
->>>> 3) Interrupt coalescing support.
->>>> 4) SGMII phy.
->>>> 5) SGMII direct connection without external phy.
->>>
->>>
->>> [snip]
->>>
->>>> +- qcom,no-external-phy      : Indicates there is no external PHY
->>>> connected to
->>>> +                  EMAC. Include this only if the EMAC is directly
->>>> +                  connected to the peer end without EPHY.
->>> How is the internal PHY accessed, is it responding on the MDIO bus at a
->>> particular address?
->> There is a set of memory-mapped registers.  It's not connected via MDIO
->> at all.  It's mapped via the "sgmii" addresses in the device tree (see
->> function emac_sgmii_config).
->>
->>> If so, standard MDIO scanning/probing works, and you
->>> can have your PHY driver flag this device has internal. Worst case, you
->>> can do what BCMGENET does, and have a special "phy-mode" value set to
->>> "internal" when this knowledge needs to exist prior to MDIO bus scanning
->>> (e.g: to power on the PHY).
->> So the internal phy is not a real phy.  It's not capable of driving an
->> RJ45 port (there's no analog part).  It's an SGMII-like device that is
->> hard-wired to the EMAC itself.
-There *is* an analog part to the internal SGMII PHY. Please check the SGMII specification. The only non-standard part is that it's not on MDIO.
-
-> OK, that explains things a bit, thanks, this is quite a bit of important
-> detail actually.
+> These macros hide a ds variable and a return statement on error, which
+> can lead to locking issues. Kill them off.
 >
->> In theory, the internal PHY is optional.  You could design an SOC that
->> has just the EMAC connected via normal MDIO to an external phy.  I
->> really wish our hardware designers has done that.  But unfortunately,
->> there are no SOCs like that, and so we have to treat the internal phy as
->> an extension of the EMAC.
->>
->> My preference would be to get rid of the "qcom,no-external-phy" property
->> and have an external phy be required, at least until Qualcomm creates an
->> SOC without the internal phy (which may never happen, for all I know).
->>
-> Can we just say that, an absence of PHY specified in the Device Tree (no
-> phy-handle property and PHY not a child node of the MDIO bus), means
-> that there is no external PHY?
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
 >
-> [snip]
+> As requested by Vivien, this patch has been split out of the series.
 >
+> v2: Use the existing ret variable
+>     Hold the lock for the whole function, unlock on exit.
+>     Removed duplicate error test
+>     Fixed indentation.
+> ---
+>  drivers/net/dsa/mv88e6123.c |  13 ++-
+>  drivers/net/dsa/mv88e6131.c |  41 ++++----
+>  drivers/net/dsa/mv88e6171.c |  16 +--
+>  drivers/net/dsa/mv88e6352.c |  15 +--
+>  drivers/net/dsa/mv88e6xxx.c | 241 +++++++++++++++++++++++++++++++-------------
+>  drivers/net/dsa/mv88e6xxx.h |  21 ----
+>  6 files changed, 224 insertions(+), 123 deletions(-)
 >
-[snip]
->>>> +    dev_set_drvdata(&pdev->dev, netdev);
->>>> +    SET_NETDEV_DEV(netdev, &pdev->dev);
->>>> +
->>>> +    adpt = netdev_priv(netdev);
->>>> +    adpt->netdev = netdev;
->>>> +    phy = &adpt->phy;
->>>> +    adpt->msg_enable = netif_msg_init(debug, EMAC_MSG_DEFAULT);
->>>> +
->>>> +    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
->>> Really, is not that supposed to run on ARM64 servers?
->> Well, this version of the driver isn't, which is why it supports DT and
->> not ACPI.  I'm planning on adding that support in a later patch.
->> However, I'll add support for 64-bit masks in the next version of this
->> patch.
->>
->> Would this be okay:
->>
->>     retval = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
->>     if (retval) {
->>         dev_err(&pdev->dev, "failed to set DMA mask err %d\n", retval);
->>         goto err_res;
->>     }
+> diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+> index c34283d929c4..140e44e50e8a 100644
+> --- a/drivers/net/dsa/mv88e6123.c
+> +++ b/drivers/net/dsa/mv88e6123.c
+> @@ -52,7 +52,9 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
+>  	 * external PHYs to poll), don't discard packets with
+>  	 * excessive collisions, and mask all interrupt sources.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL, 0x0000);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL, 0x0000);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Configure the upstream port, and configure the upstream
+>  	 * port as the port to which ingress and egress monitor frames
+> @@ -61,14 +63,15 @@ static int mv88e6123_setup_global(struct dsa_switch *ds)
+>  	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Disable remote management for now, and set the switch's
+>  	 * DSA device number.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2, ds->index & 0x1f);
+> -
+> -	return 0;
+> +	return mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL_2,
+> +				   ds->index & 0x1f);
+>  }
+>  
+>  static int mv88e6123_setup(struct dsa_switch *ds)
+> diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+> index f5d75fce1e96..34d297b65040 100644
+> --- a/drivers/net/dsa/mv88e6131.c
+> +++ b/drivers/net/dsa/mv88e6131.c
+> @@ -49,11 +49,16 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+>  	 * to arbitrate between packet queues, set the maximum frame
+>  	 * size to 1632, and mask all interrupt sources.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
+> -		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_MAX_FRAME_1632);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+> +				  GLOBAL_CONTROL_PPU_ENABLE |
+> +				  GLOBAL_CONTROL_MAX_FRAME_1632);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Set the VLAN ethertype to 0x8100. */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CORE_TAG_TYPE, 0x8100);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Disable ARP mirroring, and configure the upstream port as
+>  	 * the port to which ingress and egress monitor frames are to
+> @@ -62,31 +67,33 @@ static int mv88e6131_setup_global(struct dsa_switch *ds)
+>  	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+>  		GLOBAL_MONITOR_CONTROL_ARP_DISABLED;
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Disable cascade port functionality unless this device
+>  	 * is used in a cascade configuration, and set the switch's
+>  	 * DSA device number.
+>  	 */
+>  	if (ds->dst->pd->nr_chips > 1)
+> -		REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
+> -			  GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
+> -			  (ds->index & 0x1f));
+> +		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL_2,
+> +					  GLOBAL_CONTROL_2_MULTIPLE_CASCADE |
+> +					  (ds->index & 0x1f));
+>  	else
+> -		REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2,
+> -			  GLOBAL_CONTROL_2_NO_CASCADE |
+> -			  (ds->index & 0x1f));
+> +		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL_2,
+> +					  GLOBAL_CONTROL_2_NO_CASCADE |
+> +					  (ds->index & 0x1f));
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Force the priority of IGMP/MLD snoop frames and ARP frames
+>  	 * to the highest setting.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+> -		  GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
+> -		  7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
+> -		  GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
+> -		  7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
+> -
+> -	return 0;
+> +	return mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+> +				   GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP |
+> +				   7 << GLOBAL2_PRIO_OVERRIDE_SNOOP_SHIFT |
+> +				   GLOBAL2_PRIO_OVERRIDE_FORCE_ARP |
+> +				   7 << GLOBAL2_PRIO_OVERRIDE_ARP_SHIFT);
+>  }
+>  
+>  static int mv88e6131_setup(struct dsa_switch *ds)
+> diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+> index f5622506cdfa..b7af2b78f8ee 100644
+> --- a/drivers/net/dsa/mv88e6171.c
+> +++ b/drivers/net/dsa/mv88e6171.c
+> @@ -46,8 +46,11 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
+>  	/* Discard packets with excessive collisions, mask all
+>  	 * interrupt sources, enable PPU.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
+> -		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_DISCARD_EXCESS);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+> +				  GLOBAL_CONTROL_PPU_ENABLE |
+> +				  GLOBAL_CONTROL_DISCARD_EXCESS);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Configure the upstream port, and configure the upstream
+>  	 * port as the port to which ingress and egress monitor frames
+> @@ -57,14 +60,15 @@ static int mv88e6171_setup_global(struct dsa_switch *ds)
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_MIRROR_SHIFT;
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Disable remote management for now, and set the switch's
+>  	 * DSA device number.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2, ds->index & 0x1f);
+> -
+> -	return 0;
+> +	return mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL_2,
+> +				   ds->index & 0x1f);
+>  }
+>  
+>  static int mv88e6171_setup(struct dsa_switch *ds)
+> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+> index e54ee27db129..e8cb03fad21a 100644
+> --- a/drivers/net/dsa/mv88e6352.c
+> +++ b/drivers/net/dsa/mv88e6352.c
+> @@ -59,8 +59,11 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+>  	/* Discard packets with excessive collisions,
+>  	 * mask all interrupt sources, enable PPU (bit 14, undocumented).
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
+> -		  GLOBAL_CONTROL_PPU_ENABLE | GLOBAL_CONTROL_DISCARD_EXCESS);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+> +				  GLOBAL_CONTROL_PPU_ENABLE |
+> +				  GLOBAL_CONTROL_DISCARD_EXCESS);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Configure the upstream port, and configure the upstream
+>  	 * port as the port to which ingress and egress monitor frames
+> @@ -69,14 +72,14 @@ static int mv88e6352_setup_global(struct dsa_switch *ds)
+>  	reg = upstream_port << GLOBAL_MONITOR_CONTROL_INGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_EGRESS_SHIFT |
+>  		upstream_port << GLOBAL_MONITOR_CONTROL_ARP_SHIFT;
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MONITOR_CONTROL, reg);
+> +	if (ret)
+> +		return ret;
+>  
+>  	/* Disable remote management for now, and set the switch's
+>  	 * DSA device number.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, 0x1c, ds->index & 0x1f);
+> -
+> -	return 0;
+> +	return mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x1c, ds->index & 0x1f);
+>  }
+>  
+>  static int mv88e6352_setup(struct dsa_switch *ds)
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 9985a0cf31f1..b018f20829fb 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -180,28 +180,44 @@ int mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+>  
+>  int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
+>  {
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 8) | addr[1]);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_23, (addr[2] << 8) | addr[3]);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_45, (addr[4] << 8) | addr[5]);
+> +	int err;
+>  
+> -	return 0;
+> +	err = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MAC_01,
+> +				  (addr[0] << 8) | addr[1]);
+> +	if (err)
+> +		return err;
+> +
+> +	err = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MAC_23,
+> +				  (addr[2] << 8) | addr[3]);
+> +	if (err)
+> +		return err;
+> +
+> +	return mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_MAC_45,
+> +				   (addr[4] << 8) | addr[5]);
+>  }
+>  
+>  int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
+>  {
+> -	int i;
+>  	int ret;
+> +	int i;
 
-How can you set the mask to 64 bits when the EMAC IP on FSM9900 and QDF2432 can only do 32 bit DMA?
-The mask in that API is a bit mask describing which bits of an address your device supports.
+Unnecessary.
 
->> I've seen code like this in other drivers:
->>
->>         ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
->>         if (ret) {
->>                 ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
->>                 if (ret) {
->>                         dev_err(dev, "failed to set dma mask\n");
->>                         return ret;
->>                 }
->>         }
->>
->> and I've never understood why it's necessary to fall back to 32-bits if
->> 64 bits fails.  Isn't 64 bits a superset of 32 bits?  The driver is
->> saying that the hardware supports all of DDR.  How could fail, and how
->> could 32-bit succeed if 64-bits fails?
-> I believe there could be cases where the HW is capable of addressing
-> more physical memory than the CPU itself (usually unlikely, but it
-> could), there could be cases where the HW is behind an IOMMMU which only
-> has a window into the DDR, and that could prevent a higher DMA_BIT_MASK
-> from being successfully configured.
+>  
+>  	for (i = 0; i < 6; i++) {
+>  		int j;
+>  
+>  		/* Write the MAC address byte. */
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
+> -			  GLOBAL2_SWITCH_MAC_BUSY | (i << 8) | addr[i]);
+> +		ret = mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
+> +					  GLOBAL2_SWITCH_MAC_BUSY |
+> +					  (i << 8) | addr[i]);
+> +		if (ret)
+> +			return ret;
+>  
+>  		/* Wait for the write to complete. */
+>  		for (j = 0; j < 16; j++) {
+> -			ret = REG_READ(REG_GLOBAL2, GLOBAL2_SWITCH_MAC);
+> +			ret = mv88e6xxx_reg_read(ds, REG_GLOBAL2,
+> +						 GLOBAL2_SWITCH_MAC);
+> +			if (ret < 0)
+> +				return ret;
+> +
+>  			if ((ret & GLOBAL2_SWITCH_MAC_BUSY) == 0)
+>  				break;
+>  		}
+> @@ -233,13 +249,21 @@ static int mv88e6xxx_ppu_disable(struct dsa_switch *ds)
+>  	int ret;
+>  	unsigned long timeout;
+>  
+> -	ret = REG_READ(REG_GLOBAL, GLOBAL_CONTROL);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL,
+> -		  ret & ~GLOBAL_CONTROL_PPU_ENABLE);
+> +	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_CONTROL);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+> +				  ret & ~GLOBAL_CONTROL_PPU_ENABLE);
+> +	if (ret)
+> +		return ret;
+>  
+>  	timeout = jiffies + 1 * HZ;
+>  	while (time_before(jiffies, timeout)) {
+> -		ret = REG_READ(REG_GLOBAL, GLOBAL_STATUS);
+> +		ret = mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_STATUS);
+> +		if (ret < 0)
+> +			return ret;
+> +
+>  		usleep_range(1000, 2000);
+>  		if ((ret & GLOBAL_STATUS_PPU_MASK) !=
+>  		    GLOBAL_STATUS_PPU_POLLING)
+> @@ -251,15 +275,24 @@ static int mv88e6xxx_ppu_disable(struct dsa_switch *ds)
+>  
+>  static int mv88e6xxx_ppu_enable(struct dsa_switch *ds)
+>  {
+> -	int ret;
+> +	int ret, err;
+>  	unsigned long timeout;
+>  
+> -	ret = REG_READ(REG_GLOBAL, GLOBAL_CONTROL);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL, ret | GLOBAL_CONTROL_PPU_ENABLE);
+> +	ret = mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_CONTROL);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	err = mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_CONTROL,
+> +				  ret | GLOBAL_CONTROL_PPU_ENABLE);
+> +	if (err)
+> +		return err;
 
+You could've kept ret here.
 
--- 
-Vikram Sethi
-Qualcomm Technologies Inc, on behalf of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+>  
+>  	timeout = jiffies + 1 * HZ;
+>  	while (time_before(jiffies, timeout)) {
+> -		ret = REG_READ(REG_GLOBAL, GLOBAL_STATUS);
+> +		ret = mv88e6xxx_reg_read(ds, REG_GLOBAL, GLOBAL_STATUS);
+> +		if (ret < 0)
+> +			return ret;
+> +
+>  		usleep_range(1000, 2000);
+>  		if ((ret & GLOBAL_STATUS_PPU_MASK) ==
+>  		    GLOBAL_STATUS_PPU_POLLING)
+> @@ -2667,7 +2700,9 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+>  	ps->ds = ds;
+>  	mutex_init(&ps->smi_mutex);
+>  
+> -	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
+> +	ps->id = mv88e6xxx_reg_read(ds, REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
+> +	if (ps->id < 0)
+> +		return ps->id;
+>  
+>  	INIT_WORK(&ps->bridge_work, mv88e6xxx_bridge_work);
+>  
+> @@ -2677,42 +2712,67 @@ int mv88e6xxx_setup_common(struct dsa_switch *ds)
+>  int mv88e6xxx_setup_global(struct dsa_switch *ds)
+>  {
+>  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+> -	int ret;
+> +	int err;
+>  	int i;
+>  
+> +	mutex_lock(&ps->smi_mutex);
+>  	/* Set the default address aging time to 5 minutes, and
+>  	 * enable address learn messages to be sent to all message
+>  	 * ports.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_ATU_CONTROL,
+> -		  0x0140 | GLOBAL_ATU_CONTROL_LEARN2ALL);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_ATU_CONTROL,
+> +				   0x0140 | GLOBAL_ATU_CONTROL_LEARN2ALL);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Configure the IP ToS mapping registers. */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_1, 0x0000);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_2, 0x5555);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_3, 0x5555);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_4, 0xaaaa);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_5, 0xaaaa);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_6, 0xffff);
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IP_PRI_7, 0xffff);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_1, 0x0000);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_2, 0x5555);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_3, 0x5555);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_4, 0xaaaa);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_5, 0xaaaa);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_6, 0xffff);
+> +	if (err)
+> +		goto unlock;
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IP_PRI_7, 0xffff);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Configure the IEEE 802.1p priority mapping register. */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_IEEE_PRI, 0xfa41);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_IEEE_PRI, 0xfa41);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Send all frames with destination addresses matching
+>  	 * 01:80:c2:00:00:0x to the CPU port.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL2, GLOBAL2_MGMT_EN_0X, 0xffff);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_MGMT_EN_0X, 0xffff);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Ignore removed tag data on doubly tagged packets, disable
+>  	 * flow control messages, force flow control priority to the
+>  	 * highest, and send all special multicast frames to the CPU
+>  	 * port at the highest priority.
+>  	 */
+> -	REG_WRITE(REG_GLOBAL2, GLOBAL2_SWITCH_MGMT,
+> -		  0x7 | GLOBAL2_SWITCH_MGMT_RSVD2CPU | 0x70 |
+> -		  GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_SWITCH_MGMT,
+> +				   0x7 | GLOBAL2_SWITCH_MGMT_RSVD2CPU | 0x70 |
+> +				   GLOBAL2_SWITCH_MGMT_FORCE_FLOW_CTRL_PRI);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Program the DSA routing table. */
+>  	for (i = 0; i < 32; i++) {
+> @@ -2722,23 +2782,35 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+>  		    i != ds->index && i < ds->dst->pd->nr_chips)
+>  			nexthop = ds->pd->rtable[i] & 0x1f;
+>  
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING,
+> -			  GLOBAL2_DEVICE_MAPPING_UPDATE |
+> -			  (i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) |
+> -			  nexthop);
+> +		err = _mv88e6xxx_reg_write(
+> +			ds, REG_GLOBAL2,
+> +			GLOBAL2_DEVICE_MAPPING,
+> +			GLOBAL2_DEVICE_MAPPING_UPDATE |
+> +			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
+> +		if (err)
+> +			goto unlock;
+>  	}
+>  
+>  	/* Clear all trunk masks. */
+> -	for (i = 0; i < 8; i++)
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_TRUNK_MASK,
+> -			  0x8000 | (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
+> -			  ((1 << ps->num_ports) - 1));
+> +	for (i = 0; i < 8; i++) {
+> +		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_TRUNK_MASK,
+> +					   0x8000 |
+> +					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
+> +					   ((1 << ps->num_ports) - 1));
+> +		if (err)
+> +			goto unlock;
+> +	}
+>  
+>  	/* Clear all trunk mappings. */
+> -	for (i = 0; i < 16; i++)
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_TRUNK_MAPPING,
+> -			  GLOBAL2_TRUNK_MAPPING_UPDATE |
+> -			  (i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
+> +	for (i = 0; i < 16; i++) {
+> +		err = _mv88e6xxx_reg_write(
+> +			ds, REG_GLOBAL2,
+> +			GLOBAL2_TRUNK_MAPPING,
+> +			GLOBAL2_TRUNK_MAPPING_UPDATE |
+> +			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
+> +		if (err)
+> +			goto unlock;
+> +	}
+>  
+>  	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+>  	    mv88e6xxx_6165_family(ds) || mv88e6xxx_6097_family(ds) ||
+> @@ -2746,17 +2818,27 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+>  		/* Send all frames with destination addresses matching
+>  		 * 01:80:c2:00:00:2x to the CPU port.
+>  		 */
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_MGMT_EN_2X, 0xffff);
+> +		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
+> +					   GLOBAL2_MGMT_EN_2X, 0xffff);
+> +		if (err)
+> +			goto unlock;
+>  
+>  		/* Initialise cross-chip port VLAN table to reset
+>  		 * defaults.
+>  		 */
+> -		REG_WRITE(REG_GLOBAL2, GLOBAL2_PVT_ADDR, 0x9000);
+> +		err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
+> +					   GLOBAL2_PVT_ADDR, 0x9000);
+> +		if (err)
+> +			goto unlock;
+>  
+>  		/* Clear the priority override table. */
+> -		for (i = 0; i < 16; i++)
+> -			REG_WRITE(REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
+> -				  0x8000 | (i << 8));
+> +		for (i = 0; i < 16; i++) {
+> +			err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
+> +						   GLOBAL2_PRIO_OVERRIDE,
+> +						   0x8000 | (i << 8));
+> +			if (err)
+> +				goto unlock;
+> +		}
+>  	}
+>  
+>  	if (mv88e6xxx_6352_family(ds) || mv88e6xxx_6351_family(ds) ||
+> @@ -2767,31 +2849,37 @@ int mv88e6xxx_setup_global(struct dsa_switch *ds)
+>  		 * ingress rate limit registers to their initial
+>  		 * state.
+>  		 */
+> -		for (i = 0; i < ps->num_ports; i++)
+> -			REG_WRITE(REG_GLOBAL2, GLOBAL2_INGRESS_OP,
+> -				  0x9000 | (i << 8));
+> +		for (i = 0; i < ps->num_ports; i++) {
+> +			err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2,
+> +						   GLOBAL2_INGRESS_OP,
+> +						   0x9000 | (i << 8));
+> +			if (err)
+> +				goto unlock;
+> +		}
+>  	}
+>  
+>  	/* Clear the statistics counters for all ports */
+> -	REG_WRITE(REG_GLOBAL, GLOBAL_STATS_OP, GLOBAL_STATS_OP_FLUSH_ALL);
+> +	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL, GLOBAL_STATS_OP,
+> +				   GLOBAL_STATS_OP_FLUSH_ALL);
+> +	if (err)
+> +		goto unlock;
+>  
+>  	/* Wait for the flush to complete. */
+> -	mutex_lock(&ps->smi_mutex);
+> -	ret = _mv88e6xxx_stats_wait(ds);
+> -	if (ret < 0)
+> +	err = _mv88e6xxx_stats_wait(ds);
+> +	if (err < 0)
+>  		goto unlock;
+>  
+>  	/* Clear all ATU entries */
+> -	ret = _mv88e6xxx_atu_flush(ds, 0, true);
+> -	if (ret < 0)
+> +	err = _mv88e6xxx_atu_flush(ds, 0, true);
+> +	if (err < 0)
+>  		goto unlock;
+>  
+>  	/* Clear all the VTU and STU entries */
+> -	ret = _mv88e6xxx_vtu_stu_flush(ds);
+> +	err = _mv88e6xxx_vtu_stu_flush(ds);
+>  unlock:
+>  	mutex_unlock(&ps->smi_mutex);
+>  
+> -	return ret;
+> +	return err;
+>  }
+>  
+>  int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+> @@ -2803,10 +2891,18 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+>  	int ret;
+>  	int i;
+>  
+> +	mutex_lock(&ps->smi_mutex);
+> +
+>  	/* Set all ports to the disabled state. */
+>  	for (i = 0; i < ps->num_ports; i++) {
+> -		ret = REG_READ(REG_PORT(i), PORT_CONTROL);
+> -		REG_WRITE(REG_PORT(i), PORT_CONTROL, ret & 0xfffc);
+> +		ret = _mv88e6xxx_reg_read(ds, REG_PORT(i), PORT_CONTROL);
+> +		if (ret < 0)
+> +			goto unlock;
+> +
+> +		ret = _mv88e6xxx_reg_write(ds, REG_PORT(i), PORT_CONTROL,
+> +					   ret & 0xfffc);
+> +		if (ret)
+> +			goto unlock;
+>  	}
+>  
+>  	/* Wait for transmit queues to drain. */
+> @@ -2825,22 +2921,31 @@ int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active)
+>  	 * through global registers 0x18 and 0x19.
+>  	 */
+>  	if (ppu_active)
+> -		REG_WRITE(REG_GLOBAL, 0x04, 0xc000);
+> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x04, 0xc000);
+>  	else
+> -		REG_WRITE(REG_GLOBAL, 0x04, 0xc400);
+> +		ret = _mv88e6xxx_reg_write(ds, REG_GLOBAL, 0x04, 0xc400);
+> +	if (ret)
+> +		goto unlock;
+>  
+>  	/* Wait up to one second for reset to complete. */
+>  	timeout = jiffies + 1 * HZ;
+>  	while (time_before(jiffies, timeout)) {
+> -		ret = REG_READ(REG_GLOBAL, 0x00);
+> +		ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL, 0x00);
+> +		if (ret < 0)
+> +			goto unlock;
+> +
+>  		if ((ret & is_reset) == is_reset)
+>  			break;
+>  		usleep_range(1000, 2000);
+>  	}
+>  	if (time_after(jiffies, timeout))
+> -		return -ETIMEDOUT;
+> +		ret = -ETIMEDOUT;
+> +	else
+> +		ret = 0;
+> +unlock:
+> +	mutex_unlock(&ps->smi_mutex);
+>  
+> -	return 0;
+> +	return ret;
+>  }
+>  
+>  int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg)
+> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+> index 5d27decc85cb..0debb9f3cf0a 100644
+> --- a/drivers/net/dsa/mv88e6xxx.h
+> +++ b/drivers/net/dsa/mv88e6xxx.h
+> @@ -542,25 +542,4 @@ extern struct dsa_switch_driver mv88e6123_switch_driver;
+>  extern struct dsa_switch_driver mv88e6352_switch_driver;
+>  extern struct dsa_switch_driver mv88e6171_switch_driver;
+>  
+> -#define REG_READ(addr, reg)						\
+> -	({								\
+> -		int __ret;						\
+> -									\
+> -		__ret = mv88e6xxx_reg_read(ds, addr, reg);		\
+> -		if (__ret < 0)						\
+> -			return __ret;					\
+> -		__ret;							\
+> -	})
+> -
+> -#define REG_WRITE(addr, reg, val)					\
+> -	({								\
+> -		int __ret;						\
+> -									\
+> -		__ret = mv88e6xxx_reg_write(ds, addr, reg, val);	\
+> -		if (__ret < 0)						\
+> -			return __ret;					\
+> -	})
+> -
+> -
+> -
+>  #endif
+> -- 
+> 2.7.0
+
+But the idea is here, we need these macro killed.
+
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Thank you,
+Vivien
