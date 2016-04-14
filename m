@@ -1,91 +1,72 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [RFC] Is it a bug for nfs on udp6 mode or kernel?
-Date: Thu, 14 Apr 2016 08:59:19 +0800
-Message-ID: <570EEB67.4020404@huawei.com>
-References: <570E2D69.7080102@huawei.com>
- <1460564226.10638.28.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ipv6: Use passed in table for nexthop
+ lookups
+Date: Wed, 13 Apr 2016 21:41:51 -0400 (EDT)
+Message-ID: <20160413.214151.2294488534397440295.davem@davemloft.net>
+References: <1460052674-1204-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-nfs-approval@vger.kernel.org>, <tom@herbertland.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	<dhowells@redhat.com>, <viro@zeniv.linux.org.u>,
-	<chuck.lever@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:26550 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbcDNBBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 21:01:51 -0400
-In-Reply-To: <1460564226.10638.28.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33059 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751863AbcDNBlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 21:41:55 -0400
+In-Reply-To: <1460052674-1204-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/4/14 0:17, Eric Dumazet wrote:
-> On Wed, 2016-04-13 at 19:28 +0800, Ding Tianhong wrote:
->> Hi everyone:
->>
->> I have met this problem when I try to test udp6 for nfs connection, =
-my environment is:
->>
->> Server:
->> kernel: 4.1.15
->> IP:xxxx::36/64
->> MTU:1500
->> Setting: /etc/exports:/home/nfs *(rw,sync,no_subtree_check,no_root_s=
-quash)
->>
->> Client:
->> kernel: 4.1.18
->> IP:xxxx::90/64
->> MTU:1500
->> command: mount -t nfs -o vers=3D3,proto=3Dudp6,rsize=3D4096,wsize=3D=
-4096 [xxxx::36]:/home/nfs /home/tmp
->>
->> I check the nfs parameter configuration, it looks fine and could wor=
-k well for proto=3Dtcp6.
->>
->> Then I have mount correctly and try to run the command "ls", it hang=
-=2E
->>
->> When I use the rsize=3D1024 and wsize=3D1024 to mount, the problem d=
-isappeared, so I guess it is the problem for GSO or GRO for UDP=E3=80=82
->>
->> Then I try to debug the problem, first I tcpdump the package from cl=
-ine to server, and found that
->> the client have send readdirplus message to server correctly, and th=
-en the Server send a 4k package
->> to client(the big package will frag to 4 package by GSO), till now i=
-t looks fine, and the Client Nic could
->> receive the 4 skb then send to upper stack to ipv6 and udp, I found =
-the incoming 4 package has been merged
->> to one and send to upper stack just like sunrpc, but I try to open t=
-he rpc_debug, it looks that the rpc could
->> not receive message.
->>
->>
->> I built a simple demo to test the udp stack, use the client socket t=
-o send big package to server socket, it work well,
->> so I think the udp is fine, maybe the bug is in sunrpc.
->>
->> The test is very simple, does any body met the same problem like me,=
- thanks for any suggestion.
->>
->> Ding=20
->=20
-> Have you tried to disable UFO ?
->=20
-> ethtool -K eth... ufo off
->=20
->=20
-Hi Eric:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu,  7 Apr 2016 11:11:14 -0700
 
-Already disabled, my nic don't support UFO.
+> Similar to 3bfd847203c6 ("net: Use passed in table for nexthop lookups")
+> for IPv4, if the route spec contains a table id use that to lookup the
+> next hop first and fall back to a full lookup if it fails (per the fix
+> 4c9bcd117918b ("net: Fix nexthop lookups")).
+> @@ -1940,7 +1940,38 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
+>  			if (!(gwa_type & IPV6_ADDR_UNICAST))
+>  				goto out;
+>  
+> -			grt = rt6_lookup(net, gw_addr, NULL, cfg->fc_ifindex, 1);
+> +			if (cfg->fc_table) {
+> +				struct flowi6 fl6 = {
+> +					.flowi6_oif = cfg->fc_ifindex,
+> +					.daddr = *gw_addr,
+> +					.saddr = cfg->fc_prefsrc,
+> +				};
+> +				struct fib6_table *table;
+> +				int flags = 0;
+> +
+> +				err = -EHOSTUNREACH;
+> +				table = fib6_get_table(net, cfg->fc_table);
+> +				if (!table)
+> +					goto out;
+> +
+> +				if (!ipv6_addr_any(&cfg->fc_prefsrc))
+> +					flags |= RT6_LOOKUP_F_HAS_SADDR;
+> +
+> +				grt = ip6_pol_route(net, table, cfg->fc_ifindex,
+> +						    &fl6, flags);
+> +
+> +				/* if table lookup failed, fall back
+> +				 * to full lookup
+> +				 */
+
+This is semantically different from the referenced ipv4 change.
+
+Lack of a matching table for cfg->fc_table does not result in a
+failure on the ipv4 side.  It falls back in that case.
+
+But here in this ipv6 patch, you do fail if fib6_get_table() gives
+NULL.
+
+One thing that drives me absolutely crazy is all of the subtle
+semantic differences between our ipv4 and ipv6 stack, so I refuse to
+knowingly add new such cases.
+
+Therefore, please make the ipv6 behavior match exactly what ipv4
+does.
 
 Thanks.
-
-Ding
->=20
-> .
->=20
