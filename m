@@ -1,59 +1,43 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] tun: don't require serialization lock on tx
-Date: Thu, 14 Apr 2016 18:39:39 +0200
-Message-ID: <cc7ac4631f0a32c4d61b73f4f28b52a05ab8651d.1460651429.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg Kurz <gkurz@linux.vnet.ibm.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55991 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753243AbcDNQj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 12:39:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
+Date: Thu, 14 Apr 2016 09:40:56 -0700
+Message-ID: <1460652056.10638.50.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
+	 <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160414151813.GE3715@orbyte.nwl.cc>
+	 <alpine.LNX.2.00.1604141733250.27368@cbobk.fhfr.pm>
+	 <1460648680.10638.47.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160414162229.GF3715@orbyte.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Kosina <jikos@kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160414162229.GF3715@orbyte.nwl.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The current tun_net_xmit() implementation don't need any external
-lock since it relies on rcu protection for the tun data structure
-and on socket queue lock for skb queuing.
+On Thu, 2016-04-14 at 18:22 +0200, Phil Sutter wrote:
 
-This patch set the NETIF_F_LLTX feature bit in the tun device, so
-that on xmit, in absence of qdisc, no serialization lock is acquired
-by the caller.
+> And those being invisible can be overridden using 'tc qd add', right?
+> AFAIR they're not listed because they don't properly register, so the
+> system doesn't care to override them. In this case we could change all
+> classful qdiscs to restore the default qdisc if a leaf qdisc is being
+> deleted instead of noop (which is probably not what the user wants
+> anyway).
 
-The user space can remove the default tun qdisc with:
+Even if they properly register, they are not visible.
 
-tc qdisc replace dev <tun device name> root noqueue
+Take a look at
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=95dc19299f741c986227ec33e23cbf9b3321f812
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Acked-by: Eric Dumazet <edumazet@google.com>
+for some context.
 
----
-RFC -> v1
- - fixed a commit message typo, extended the comment with a 
-   configuration hint
----
- drivers/net/tun.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+When a default pfifo is created on say a HTB class, you do not see it by
+default in a dump.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index faf9297..42992dc 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1796,7 +1796,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
- 				   TUN_USER_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
- 				   NETIF_F_HW_VLAN_STAG_TX;
--		dev->features = dev->hw_features;
-+		dev->features = dev->hw_features | NETIF_F_LLTX;
- 		dev->vlan_features = dev->features &
- 				     ~(NETIF_F_HW_VLAN_CTAG_TX |
- 				       NETIF_F_HW_VLAN_STAG_TX);
--- 
-1.8.3.1
+If you have 100 HTB classes, HTB created 100 pfifo just fine, and it
+works, unless an admin tries to delete them maybe ;)
