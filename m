@@ -1,44 +1,37 @@
 From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH net-next 1/8] dsa: mv88e6xxx: Prepare for turning this
  into a library module
-Date: Thu, 14 Apr 2016 23:32:38 +0200
-Message-ID: <20160414213238.GA22846@lunn.ch>
+Date: Thu, 14 Apr 2016 23:37:41 +0200
+Message-ID: <20160414213741.GB22846@lunn.ch>
 References: <1460591998-20598-1-git-send-email-andrew@lunn.ch>
  <1460591998-20598-2-git-send-email-andrew@lunn.ch>
  <874mb454b3.fsf@ketchup.mtl.sfl>
+ <57100B0F.4040909@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57107 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:57133 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751384AbcDNVcs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 17:32:48 -0400
+	id S1751449AbcDNVhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2016 17:37:45 -0400
 Content-Disposition: inline
-In-Reply-To: <874mb454b3.fsf@ketchup.mtl.sfl>
+In-Reply-To: <57100B0F.4040909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien
+> I believe this is currently the case for most of what is being done by
+> mv88e6xxx.c, Andrew's patches are not making things worse.
 
-> I'm working on a few patches right away to factorize this and lighten up
-> that part from your current refactoring of DSA.
+Hi Florian
 
-Please take a look at the full series of 40 patches, before deciding
-what you want to clean up. It is too many to post at once, so i'm
-breaking them up into chunks. But that does mean some of the 'why' is
-missing, which i'm trying to add back via a good description in the
-cover note.
+That was my aim. I did the minimum restructuring needed to make these
+DSA drivers classical Linux drivers. Nothing i've done would prevent
+them being merged into one later. I don't want to do such a merge now,
+because that is just a distraction from the bigger picture of
+reworking how probe works.
 
-https://github.com/lunn/linux.git v5.6-rc2-net-next-dsa-probe
-
-> Here's an example of duplicated code fixed for the 6131 PHY access code:
-> 
->     http://ix.io/wJm
-
-I've done this already.
-
-     Andrew
+	  Andrew
