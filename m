@@ -1,93 +1,106 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/2] fm10k: fix multi-bit VLAN update requests from VF
-Date: Wed, 13 Apr 2016 20:47:12 -0700
-Message-ID: <1460605632-112945-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:52989 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752955AbcDNDr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Apr 2016 23:47:56 -0400
-In-Reply-To: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Thu, 14 Apr 2016 03:56:27 +0000
+Message-ID: <BLUPR03MB14101CD61AF994F61656CD3ABF970@BLUPR03MB1410.namprd03.prod.outlook.com>
+References: <1460079411-31982-1-git-send-email-decui@microsoft.com>
+ <20160413.223027.844777521863481943.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "joe@perches.com" <joe@perches.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160413.223027.844777521863481943.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, April 14, 2016 10:30
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com; cavery@redhat.com; KY
+> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>;
+> joe@perches.com; vkuznets@redhat.com
+> Subject: Re: [PATCH v8 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+> 
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Thu,  7 Apr 2016 18:36:51 -0700
+> 
+> > +struct vmpipe_proto_header {
+> > +	u32 pkt_type;
+> > +	u32 data_size;
+> > +} __packed;
+> 
+> There is no reason to specify __packed here.
+> 
+> The types are strongly sized to word aligned quantities.
+> No holes are possible in this structure, nor is any padding
+> possible either.
+> 
+> Do not ever slap __packed onto protocol or HW defined structures,
+> simply just define them properly with proper types and explicit
+> padding when necessary.
 
-The VF uses a multi-bit update request to clear unused VLANs whenever it
-resets. However, an accident in a previous refector broke multi-bit
-updates for VFs, due to misreading a comment in fm10k_vf.c and
-attempting to reduce code duplication. The problem occurs because
-a multi-bit request has a non-zero length, and the PF would simply drop
-any request with the upper 16 bits set.
+Hi David,
+Thank you very much for taking a look at the patch!
+I'll remove all the 3 __packed usages in my patch.
 
-We can't simply remove the check of the upper 16 bits and the call to
-fm10k_iov_select vid, because this would remove the checks for default
-VID and for ensuring no other VLANs can be enabled except pf_vid when it
-has been set. To resolve that issue, this revision uses the
-iov_select_vid when we have a single-bit update, and denies any
-multi-bit update when the VLAN was administratively set by the PF. This
-should be ok since the PF properly updates VLAN_TABLE when it assigns
-the PF vid. This ensures that requests to add or remove the PF vid work
-as expected, but a rogue VF could not use the multi-bit update as
-a loophole to attempt receiving traffic on other VLANs.
-
-Reported-by: Ngai-Mint Kwan <ngai-mint.kwan@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c | 30 +++++++++++++++++++++--------
- 1 file changed, 22 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 62ccebc..8cf943d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1223,18 +1223,32 @@ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *hw, u32 **results,
- 		if (err)
- 			return err;
+> > +	struct {
+> > +		struct vmpipe_proto_header hdr;
+> > +		char buf[HVSOCK_SND_BUF_SZ];
+> > +	} __packed send;
+> 
+> And so on, and so forth..
+I'll remove __packed and use u8 to replace the 'char' here.
  
--		/* verify upper 16 bits are zero */
--		if (vid >> 16)
--			return FM10K_ERR_PARAM;
--
- 		set = !(vid & FM10K_VLAN_CLEAR);
- 		vid &= ~FM10K_VLAN_CLEAR;
+> I'm really disappointed that I couldn't even get one hunk into this
+> patch submission without finding a major problem.
+David,
+Could you please point out more issues in the patch? 
+I'm definitely happy to fix them. :-)
  
--		err = fm10k_iov_select_vid(vf_info, (u16)vid);
--		if (err < 0)
--			return err;
-+		/* if the length field has been set, this is a multi-bit
-+		 * update request. For multi-bit requests, simply disallow
-+		 * them when the pf_vid has been set. In this case, the PF
-+		 * should have already cleared the VLAN_TABLE, and if we
-+		 * allowed them, it could allow a rogue VF to receive traffic
-+		 * on a VLAN it was not assigned. In the single-bit case, we
-+		 * need to modify requests for VLAN 0 to use the default PF or
-+		 * SW vid when assigned.
-+		 */
- 
--		vid = err;
-+		if (vid >> 16) {
-+			/* prevent multi-bit requests when PF has
-+			 * administratively set the VLAN for this VF
-+			 */
-+			if (vf_info->pf_vid)
-+				return FM10K_ERR_PARAM;
-+		} else {
-+			err = fm10k_iov_select_vid(vf_info, (u16)vid);
-+			if (err < 0)
-+				return err;
-+
-+			vid = err;
-+		}
- 
- 		/* update VSI info for VF in regards to VLAN table */
- 		err = hw->mac.ops.update_vlan(hw, vid, vf_info->vsi, set);
--- 
-2.5.5
+> I expect this patch to take several more iterations before I can even
+> come close to applying it.  So please set your expectations properly,
+> and also it seems like nobody else wants to even review this stuff
+> either.  It is you who needs to find a way to change all of this, not
+> me.
+
+A few people took a look at the early versions of the patch and did
+give me good suggestions on the interface APIs with VMBus and
+some coding style issues, especially Vitaly from Redhat.
+
+Cathy from Redhat was also looking into the patch recently and
+gave me some good feedbacks.
+
+I'll try to invite more people to review the patch.
+
+And, I'm updating the patch to address some issues:
+
+1) the feature is only properly supported on Windows 10/2016
+build 14290 and later, so I'm going to not enable the feature on
+old hosts.
+
+2) there is actually some mechanism we can use to simplify 
+hvsock_open_connection() and help to better support 
+hvsock_shutdown().
+
+Thanks,
+-- Dexuan
