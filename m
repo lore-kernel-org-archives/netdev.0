@@ -1,40 +1,29 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] qlge: Replace create_singlethread_workqueue with
- alloc_ordered_workqueue
-Date: Thu, 14 Apr 2016 11:47:00 -0400
-Message-ID: <20160414154700.GE12583@htj.duckdns.org>
-References: <20160409115744.GA30104@amitoj-Inspiron-3542>
- <20160413174422.GB3676@htj.duckdns.org>
- <BLUPR11MB011498CD02CC919F023545E793970@BLUPR11MB0114.namprd11.prod.outlook.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2016-04-14
+Date: Thu, 14 Apr 2016 12:01:25 -0400 (EDT)
+Message-ID: <20160414.120125.2089720486714681116.davem@davemloft.net>
+References: <1460618838-5819-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amitoj Kaur Chawla <amitoj1606@gmail.com>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	Harish Patil <harish.patil@qlogic.com>,
-	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
-To: Manish Chopra <manish.chopra@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <BLUPR11MB011498CD02CC919F023545E793970@BLUPR11MB0114.namprd11.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1460618838-5819-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Manish.
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Thu, 14 Apr 2016 09:27:17 +0200
 
-On Thu, Apr 14, 2016 at 07:25:15AM +0000, Manish Chopra wrote:
-> Just want to confirm that __WQ_LEGACY flag is not necessary here as this is removed
-> with this change ? 
+> Since I didn't get anything else, and this has been pending for a week,
+> here's the other part of the nl80211 socket problem fix (the netlink
+> family URELEASE was the first part.)
+> 
+> Let me know if there's any problem.
 
-Yeah, that should be fine.  That only affects locking dependency
-tracking which can fire spuriously due to workqueues created with the
-old interface having WQ_MEM_RECLAIM unconditionally.  In this case, we
-actually want WQ_MEM_RECLAIM and thus we want the dependency tracking
-too.
-
-Thanks.
-
--- 
-tejun
+Pulles, thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
