@@ -1,81 +1,146 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 3/3] fec: move to new ethtool api {get|set}_link_ksettings
-Date: Fri, 15 Apr 2016 00:35:01 +0200
-Message-ID: <1460673301-10599-4-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 2/3] phy: add generic function to support ksetting support
+Date: Fri, 15 Apr 2016 00:35:00 +0200
+Message-ID: <1460673301-10599-3-git-send-email-tremyfr@gmail.com>
 References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Philippe Reynes <tremyfr@gmail.com>
 To: davem@davemloft.net, decot@googlers.com, f.fainelli@gmail.com,
 	fugang.duan@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36611 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519AbcDNWfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:35:13 -0400
 In-Reply-To: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move the fec driver to new api {get|set}_link_ksettings.
+The old ethtool api (get_setting and set_setting) has
+generic phy functions phy_ethtool_sset and phy_ethtool_gset.
+To supprt the new ethtool api (get_link_ksettings and
+set_link_ksettings), we add generic phy function
+phy_ethtool_ksettings_get and phy_ethtool_ksettings_set.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/phy/phy.c |   81 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/phy.h   |    4 ++
+ 2 files changed, 85 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 08243c2..bfa10c3 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2058,8 +2058,8 @@ static void fec_enet_mii_remove(struct fec_enet_private *fep)
- 	}
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 5590b9c..6f221c8 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -362,6 +362,60 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
  }
+ EXPORT_SYMBOL(phy_ethtool_sset);
  
--static int fec_enet_get_settings(struct net_device *ndev,
--				  struct ethtool_cmd *cmd)
-+static int fec_enet_get_link_ksettings(struct net_device *ndev,
-+				       struct ethtool_link_ksettings *cmd)
++int phy_ethtool_ksettings_set(struct phy_device *phydev,
++			      const struct ethtool_link_ksettings *cmd)
++{
++	u8 autoneg = cmd->base.autoneg;
++	u8 duplex = cmd->base.duplex;
++	u32 speed = cmd->base.speed;
++	u32 advertising;
++
++	if (cmd->base.phy_address != phydev->mdio.addr)
++		return -EINVAL;
++
++	ethtool_convert_link_mode_to_legacy_u32(&advertising,
++						cmd->link_modes.advertising);
++
++	/* We make sure that we don't pass unsupported values in to the PHY */
++	advertising &= phydev->supported;
++
++	/* Verify the settings we care about. */
++	if (autoneg != AUTONEG_ENABLE && autoneg != AUTONEG_DISABLE)
++		return -EINVAL;
++
++	if (autoneg == AUTONEG_ENABLE && advertising == 0)
++		return -EINVAL;
++
++	if (autoneg == AUTONEG_DISABLE &&
++	    ((speed != SPEED_1000 &&
++	      speed != SPEED_100 &&
++	      speed != SPEED_10) ||
++	     (duplex != DUPLEX_HALF &&
++	      duplex != DUPLEX_FULL)))
++		return -EINVAL;
++
++	phydev->autoneg = autoneg;
++
++	phydev->speed = speed;
++
++	phydev->advertising = advertising;
++
++	if (autoneg == AUTONEG_ENABLE)
++		phydev->advertising |= ADVERTISED_Autoneg;
++	else
++		phydev->advertising &= ~ADVERTISED_Autoneg;
++
++	phydev->duplex = duplex;
++
++	phydev->mdix = cmd->base.eth_tp_mdix_ctrl;
++
++	/* Restart the PHY */
++	phy_start_aneg(phydev);
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_ksettings_set);
++
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
  {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	struct phy_device *phydev = fep->phy_dev;
-@@ -2067,11 +2067,11 @@ static int fec_enet_get_settings(struct net_device *ndev,
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_gset(phydev, cmd);
-+	return phy_ethtool_ksettings_get(phydev, cmd);
+ 	cmd->supported = phydev->supported;
+@@ -385,6 +439,33 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
  }
+ EXPORT_SYMBOL(phy_ethtool_gset);
  
--static int fec_enet_set_settings(struct net_device *ndev,
--				 struct ethtool_cmd *cmd)
-+static int fec_enet_set_link_ksettings(struct net_device *ndev,
-+				       const struct ethtool_link_ksettings *cmd)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	struct phy_device *phydev = fep->phy_dev;
-@@ -2079,7 +2079,7 @@ static int fec_enet_set_settings(struct net_device *ndev,
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_ethtool_sset(phydev, cmd);
-+	return phy_ethtool_ksettings_set(phydev, cmd);
- }
- 
- static void fec_enet_get_drvinfo(struct net_device *ndev,
-@@ -2562,8 +2562,6 @@ fec_enet_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
- }
- 
- static const struct ethtool_ops fec_enet_ethtool_ops = {
--	.get_settings		= fec_enet_get_settings,
--	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
- 	.get_regs_len		= fec_enet_get_regs_len,
- 	.get_regs		= fec_enet_get_regs,
-@@ -2583,6 +2581,8 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.set_tunable		= fec_enet_set_tunable,
- 	.get_wol		= fec_enet_get_wol,
- 	.set_wol		= fec_enet_set_wol,
-+	.get_link_ksettings	= fec_enet_get_link_ksettings,
-+	.set_link_ksettings	= fec_enet_set_link_ksettings,
- };
- 
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
++int phy_ethtool_ksettings_get(struct phy_device *phydev,
++			      struct ethtool_link_ksettings *cmd)
++{
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						phydev->supported);
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						phydev->advertising);
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
++						phydev->lp_advertising);
++
++	cmd->base.speed = phydev->speed;
++	cmd->base.duplex = phydev->duplex;
++	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
++		cmd->base.port = PORT_BNC;
++	else
++		cmd->base.port = PORT_MII;
++
++	cmd->base.phy_address = phydev->mdio.addr;
++	cmd->base.autoneg = phydev->autoneg;
++	cmd->base.eth_tp_mdix_ctrl = phydev->mdix;
++
++	return 0;
++}
++EXPORT_SYMBOL(phy_ethtool_ksettings_get);
++
+ /**
+  * phy_mii_ioctl - generic PHY MII ioctl interface
+  * @phydev: the phy_device struct
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2abd791..be3f83b 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -805,6 +805,10 @@ void phy_start_machine(struct phy_device *phydev);
+ void phy_stop_machine(struct phy_device *phydev);
+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
++int phy_ethtool_ksettings_get(struct phy_device *phydev,
++			      struct ethtool_link_ksettings *cmd);
++int phy_ethtool_ksettings_set(struct phy_device *phydev,
++			      const struct ethtool_link_ksettings *cmd);
+ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
 -- 
 1.7.4.4
