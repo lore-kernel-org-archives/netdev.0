@@ -1,24 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next][PATCH 0/2] RDS: couple of fixes for 4.6
-Date: Wed, 13 Apr 2016 23:36:37 -0400 (EDT)
-Message-ID: <20160413.233637.2047659923049596108.davem@davemloft.net>
-References: <1460154400-14546-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net-next] net: bcmgenet: use napi_complete_done()
+Date: Wed, 13 Apr 2016 23:37:56 -0400 (EDT)
+Message-ID: <20160413.233756.403217690817544709.davem@davemloft.net>
+References: <1460178400.6473.469.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santosh.shilimkar@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460154400-14546-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, pgynther@google.com, f.fainelli@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33807 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751762AbcDNDh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 23:37:58 -0400
+In-Reply-To: <1460178400.6473.469.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Fri,  8 Apr 2016 15:26:38 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 08 Apr 2016 22:06:40 -0700
 
-> Patches are also available at below git tree. 
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git for_4.6/net-next/rds-fixes
+> By using napi_complete_done(), we allow fine tuning
+> of /sys/class/net/ethX/gro_flush_timeout for higher GRO aggregation
+> efficiency for a Gbit NIC.
+> 
+> Check commit 24d2e4a50737 ("tg3: use napi_complete_done()") for details.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-"Bug fixes for 4.6" do not get targetted at the net-next tree, that's
-for 4.7 development.
+Applied.
