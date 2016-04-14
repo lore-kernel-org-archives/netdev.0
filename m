@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 3/5] ip6gre: Add support for basic offloads
- offloads excluding GSO
-Date: Thu, 14 Apr 2016 15:33:51 -0400
-Message-ID: <20160414193351.12934.34039.stgit@ahduyck-xeon-server>
+Subject: [net-next PATCH 4/5] GRE: Add support for GRO/GSO of IPv6 GRE
+ traffic
+Date: Thu, 14 Apr 2016 15:33:58 -0400
+Message-ID: <20160414193358.12934.80013.stgit@ahduyck-xeon-server>
 References: <20160414192709.12934.82858.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,77 +10,47 @@ Content-Transfer-Encoding: 7bit
 To: jesse@kernel.org, netdev@vger.kernel.org, davem@davemloft.net,
 	alexander.duyck@gmail.com, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34225 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121AbcDNTd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 15:33:58 -0400
-Received: by mail-pa0-f48.google.com with SMTP id ot11so47595205pab.1
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 12:33:58 -0700 (PDT)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35852 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121AbcDNTeF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 15:34:05 -0400
+Received: by mail-pf0-f178.google.com with SMTP id e128so48736426pfe.3
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 12:34:04 -0700 (PDT)
 In-Reply-To: <20160414192709.12934.82858.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the basic offloads we support on most devices.
-Specifically with this patch set we can support checksum offload, basic
-scatter-gather, and highdma.
+Since GRE doesn't really care about L3 protocol we can support IPv4 and
+IPv6 using the same offloads.  With that being the case we can add a call
+to register the offloads for IPv6 as a part of our GRE offload
+initialization.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- net/ipv6/ip6_gre.c |   23 +++++++++++++++++++++--
- 1 file changed, 21 insertions(+), 2 deletions(-)
+ net/ipv4/gre_offload.c |   14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 2be66e7b4a78..1a5ad143be40 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -598,6 +598,18 @@ static void init_tel_txopt(struct ipv6_tel_txoption *opt, __u8 encap_limit)
- 	opt->ops.opt_nflen = 8;
- }
+diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
+index 20557f211408..e88190a8699a 100644
+--- a/net/ipv4/gre_offload.c
++++ b/net/ipv4/gre_offload.c
+@@ -292,6 +292,18 @@ static const struct net_offload gre_offload = {
  
-+static __sum16 gre6_checksum(struct sk_buff *skb)
-+{
-+	__wsum csum;
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL)
-+		csum = lco_csum(skb);
-+	else
-+		csum = skb_checksum(skb, sizeof(struct ipv6hdr),
-+				    skb->len - sizeof(struct ipv6hdr), 0);
-+	return csum_fold(csum);
-+}
-+
- static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 			 struct net_device *dev,
- 			 __u8 dsfield,
-@@ -750,8 +762,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
- 		}
- 		if (tunnel->parms.o_flags&GRE_CSUM) {
- 			*ptr = 0;
--			*(__sum16 *)ptr = ip_compute_csum((void *)(ipv6h+1),
--				skb->len - sizeof(struct ipv6hdr));
-+			*(__sum16 *)ptr = gre6_checksum(skb);
- 		}
- 	}
- 
-@@ -1507,6 +1518,11 @@ static const struct net_device_ops ip6gre_tap_netdev_ops = {
- 	.ndo_get_iflink = ip6_tnl_get_iflink,
- };
- 
-+#define GRE6_FEATURES (NETIF_F_SG |		\
-+		       NETIF_F_FRAGLIST |	\
-+		       NETIF_F_HIGHDMA |		\
-+		       NETIF_F_HW_CSUM)
-+
- static void ip6gre_tap_setup(struct net_device *dev)
+ static int __init gre_offload_init(void)
  {
- 
-@@ -1540,6 +1556,9 @@ static int ip6gre_newlink(struct net *src_net, struct net_device *dev,
- 	nt->net = dev_net(dev);
- 	ip6gre_tnl_link_config(nt, !tb[IFLA_MTU]);
- 
-+	dev->features		|= GRE6_FEATURES;
-+	dev->hw_features	|= GRE6_FEATURES;
+-	return inet_add_offload(&gre_offload, IPPROTO_GRE);
++	int err;
 +
- 	/* Can use a lockless transmit, unless we generate output sequences */
- 	if (!(nt->parms.o_flags & GRE_SEQ))
- 		dev->features |= NETIF_F_LLTX;
++	err = inet_add_offload(&gre_offload, IPPROTO_GRE);
++#if IS_ENABLED(CONFIG_IPV6)
++	if (err)
++		return err;
++
++	err = inet6_add_offload(&gre_offload, IPPROTO_GRE);
++	if (err)
++		inet_del_offload(&gre_offload, IPPROTO_GRE);
++#endif
++
++	return err;
+ }
+ device_initcall(gre_offload_init);
