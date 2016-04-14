@@ -1,54 +1,46 @@
-From: Weidong Wang <wangweidong1@huawei.com>
-Subject: [PATCH net-next] phy: make some bits preserved while setup forced
- mode
-Date: Thu, 14 Apr 2016 15:43:52 +0800
-Message-ID: <570F4A38.5090201@huawei.com>
-References: <570E3488.9060403@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
+Date: Thu, 14 Apr 2016 08:31:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com>
+References: <1460570974-44050-1-git-send-email-joe@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>, <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570E3488.9060403@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "fw@strlen.de" <fw@strlen.de>,
+	"diproiettod@vmware.com" <diproiettod@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Joe Stringer' <joe@ovn.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.193]:61115 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753408AbcDNId2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 04:33:28 -0400
+In-Reply-To: <1460570974-44050-1-git-send-email-joe@ovn.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When tested the PHY SGMII Loopback:
-1.set the LOOPBACK bit,
-2.set the autoneg to AUTONEG_DISABLE, it calls the
-genphy_setup_forced which will clear the bit.
+From: Joe Stringer
+> Sent: 13 April 2016 19:10
+> This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
+> orphan skbs inside ip_defrag()").
+> 
+> Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
+> clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
+> cloned (implicitly orphaning) prior to queueing for reassembly. As such,
+> when the IPv6 message is eventually reassembled, the skb->sk for all
+> fragments would be NULL. After that commit was introduced, rather than
+> cloning, the original skbs were queued directly without orphaning. The
+> end result is that all frags except for the first and last may have a
+> socket attached.
 
-The BMCR_LOOPBACK bit should be preserved.
+I'd have thought that the queued fragments would still want to be
+resource-counted against the socket (I think that is what skb->sk is for).
+So don't really want to orphan skb before queuing them, instead transfer
+the entire resource count to the head skb when they are merged.
 
-As Florian pointed out that other bits should be preserved too.
-So I make the BMCR_ISOLATE and BMCR_PDOWN as well.
+Although I can't imagine why IPv6 reassembly is happening on skb
+associated with a socket.
 
-Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
----
-the patch is evoluted from "phy: keep the BCMR_LOOPBACK bit
-while setup forced mode".
-
----
- drivers/net/phy/phy_device.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index d551df6..9b24d7e 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -818,8 +818,9 @@ static int genphy_config_advert(struct phy_device *phydev)
-  */
- int genphy_setup_forced(struct phy_device *phydev)
- {
--	int ctl = 0;
-+	int ctl = phy_read(phydev, MII_BMCR);
-
-+	ctl &= BMCR_LOOPBACK | BMCR_ISOLATE | BMCR_PDOWN;
- 	phydev->pause = 0;
- 	phydev->asym_pause = 0;
-
--- 
-2.7.0
+	David
