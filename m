@@ -1,243 +1,70 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH v3 1/5] net: w5100: move mmiowb into register access callbacks
-Date: Fri, 15 Apr 2016 00:11:29 +0900
-Message-ID: <1460646693-25179-2-git-send-email-akinobu.mita@gmail.com>
-References: <1460646693-25179-1-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH v3 0/5] net: w5100: add support W5100/W5200 for SPI interface
+Date: Fri, 15 Apr 2016 00:11:28 +0900
+Message-ID: <1460646693-25179-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
 	Mike Sinkovsky <msink@permonline.ru>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33388 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932103AbcDNPLw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 11:11:52 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 184so47041653pff.0
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 08:11:52 -0700 (PDT)
-In-Reply-To: <1460646693-25179-1-git-send-email-akinobu.mita@gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35265 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbcDNPLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 11:11:50 -0400
+Received: by mail-pf0-f181.google.com with SMTP id n1so46904779pfn.2
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 08:11:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of sprinkle mmiowb over the driver code, move it into primary
-register write callbacks. (w5100_write, w5100_write16, w5100_writebuf)
+This series add support for Wiznet W5100 and W5200 for SPI interface.
 
-This is a preparation for supporting SPI interface which doesn't use
-MMIO for accessing w5100 registers.
+We can easily find the ethernet modules and shield for Arduino with
+these chips for purchase.  I've tested them with BeagleBone.
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Wiznet W5100 for mmio access has already supported by w5100 driver.
+
+In order to share the code between mmio mode and SPI mode, this series
+firstly adds ability to support another register access interface to
+the existing w5100 driver.  This ground work also requires to introduce
+workqueue and threaded irq because SPI transfers are callable only from
+contexts that can sleep unlike mmio access.
+
+The latter part of this series adds w5100-spi driver which actually
+support W5100 and W5200 for SPI interface.  Supporting W5100 is
+straight forward because it only required to add a register access
+interface by the SPI transfer.  W5100 and W5200 have similar memory
+map which justifies adding W5200 support to w5100 driver.
+
+* Changes from v2 to v3
+- Add comment for reg_lock
+- Add ability to allocate ops specific data structure
+- Allocate w5200 ops specific data structure to put DMA-safe buffer
+- Add missing chip_id assignment for w5100_*_ops
+
+* Changes from v1 to v2
+- Use a plain single pointer instead of SKB queue, spotted by David S. Miller
+- Correct timeout period in w5100_command
+- Use spi_write_then_read instead of spi_write which needs DMA-safe buffer
+- Support W5200
+
+
+Akinobu Mita (5):
+  net: w5100: move mmiowb into register access callbacks
+  net: w5100: add ability to support other bus interface
+  net: w5100: enable to support sleepable register access interface
+  net: w5100: support SPI interface mode
+  net: w5100: support W5200
+
+ drivers/net/ethernet/wiznet/Kconfig     |  14 +
+ drivers/net/ethernet/wiznet/Makefile    |   1 +
+ drivers/net/ethernet/wiznet/w5100-spi.c | 300 ++++++++++
+ drivers/net/ethernet/wiznet/w5100.c     | 935 ++++++++++++++++++++++----------
+ drivers/net/ethernet/wiznet/w5100.h     |  35 ++
+ 5 files changed, 1004 insertions(+), 281 deletions(-)
+ create mode 100644 drivers/net/ethernet/wiznet/w5100-spi.c
+ create mode 100644 drivers/net/ethernet/wiznet/w5100.h
+
 Cc: Mike Sinkovsky <msink@permonline.ru>
 Cc: David S. Miller <davem@davemloft.net>
----
-* No changes from v2
-
- drivers/net/ethernet/wiznet/w5100.c | 44 +++++++++++++------------------------
- 1 file changed, 15 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 8b282d0..f4b7200 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -122,10 +122,17 @@ static inline u8 w5100_read_direct(struct w5100_priv *priv, u16 addr)
- 	return ioread8(priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
- }
- 
-+static inline void __w5100_write_direct(struct w5100_priv *priv, u16 addr,
-+					u8 data)
-+{
-+	iowrite8(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
-+}
-+
- static inline void w5100_write_direct(struct w5100_priv *priv,
- 				      u16 addr, u8 data)
- {
--	iowrite8(data, priv->base + (addr << CONFIG_WIZNET_BUS_SHIFT));
-+	__w5100_write_direct(priv, addr, data);
-+	mmiowb();
- }
- 
- static u16 w5100_read16_direct(struct w5100_priv *priv, u16 addr)
-@@ -138,8 +145,9 @@ static u16 w5100_read16_direct(struct w5100_priv *priv, u16 addr)
- 
- static void w5100_write16_direct(struct w5100_priv *priv, u16 addr, u16 data)
- {
--	w5100_write_direct(priv, addr, data >> 8);
--	w5100_write_direct(priv, addr + 1, data);
-+	__w5100_write_direct(priv, addr, data >> 8);
-+	__w5100_write_direct(priv, addr + 1, data);
-+	mmiowb();
- }
- 
- static void w5100_readbuf_direct(struct w5100_priv *priv,
-@@ -164,8 +172,9 @@ static void w5100_writebuf_direct(struct w5100_priv *priv,
- 	for (i = 0; i < len; i++, addr++) {
- 		if (unlikely(addr > W5100_TX_MEM_END))
- 			addr = W5100_TX_MEM_START;
--		w5100_write_direct(priv, addr, *buf++);
-+		__w5100_write_direct(priv, addr, *buf++);
- 	}
-+	mmiowb();
- }
- 
- /*
-@@ -186,7 +195,6 @@ static u8 w5100_read_indirect(struct w5100_priv *priv, u16 addr)
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
- 	data = w5100_read_direct(priv, W5100_IDM_DR);
- 	spin_unlock_irqrestore(&priv->reg_lock, flags);
- 
-@@ -199,9 +207,7 @@ static void w5100_write_indirect(struct w5100_priv *priv, u16 addr, u8 data)
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
- 	w5100_write_direct(priv, W5100_IDM_DR, data);
--	mmiowb();
- 	spin_unlock_irqrestore(&priv->reg_lock, flags);
- }
- 
-@@ -212,7 +218,6 @@ static u16 w5100_read16_indirect(struct w5100_priv *priv, u16 addr)
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
- 	data  = w5100_read_direct(priv, W5100_IDM_DR) << 8;
- 	data |= w5100_read_direct(priv, W5100_IDM_DR);
- 	spin_unlock_irqrestore(&priv->reg_lock, flags);
-@@ -226,10 +231,8 @@ static void w5100_write16_indirect(struct w5100_priv *priv, u16 addr, u16 data)
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
--	w5100_write_direct(priv, W5100_IDM_DR, data >> 8);
-+	__w5100_write_direct(priv, W5100_IDM_DR, data >> 8);
- 	w5100_write_direct(priv, W5100_IDM_DR, data);
--	mmiowb();
- 	spin_unlock_irqrestore(&priv->reg_lock, flags);
- }
- 
-@@ -242,13 +245,11 @@ static void w5100_readbuf_indirect(struct w5100_priv *priv,
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
- 
- 	for (i = 0; i < len; i++, addr++) {
- 		if (unlikely(addr > W5100_RX_MEM_END)) {
- 			addr = W5100_RX_MEM_START;
- 			w5100_write16_direct(priv, W5100_IDM_AR, addr);
--			mmiowb();
- 		}
- 		*buf++ = w5100_read_direct(priv, W5100_IDM_DR);
- 	}
-@@ -265,15 +266,13 @@ static void w5100_writebuf_indirect(struct w5100_priv *priv,
- 
- 	spin_lock_irqsave(&priv->reg_lock, flags);
- 	w5100_write16_direct(priv, W5100_IDM_AR, addr);
--	mmiowb();
- 
- 	for (i = 0; i < len; i++, addr++) {
- 		if (unlikely(addr > W5100_TX_MEM_END)) {
- 			addr = W5100_TX_MEM_START;
- 			w5100_write16_direct(priv, W5100_IDM_AR, addr);
--			mmiowb();
- 		}
--		w5100_write_direct(priv, W5100_IDM_DR, *buf++);
-+		__w5100_write_direct(priv, W5100_IDM_DR, *buf++);
- 	}
- 	mmiowb();
- 	spin_unlock_irqrestore(&priv->reg_lock, flags);
-@@ -309,7 +308,6 @@ static int w5100_command(struct w5100_priv *priv, u16 cmd)
- 	unsigned long timeout = jiffies + msecs_to_jiffies(100);
- 
- 	w5100_write(priv, W5100_S0_CR, cmd);
--	mmiowb();
- 
- 	while (w5100_read(priv, W5100_S0_CR) != 0) {
- 		if (time_after(jiffies, timeout))
-@@ -327,18 +325,15 @@ static void w5100_write_macaddr(struct w5100_priv *priv)
- 
- 	for (i = 0; i < ETH_ALEN; i++)
- 		w5100_write(priv, W5100_SHAR + i, ndev->dev_addr[i]);
--	mmiowb();
- }
- 
- static void w5100_hw_reset(struct w5100_priv *priv)
- {
- 	w5100_write_direct(priv, W5100_MR, MR_RST);
--	mmiowb();
- 	mdelay(5);
- 	w5100_write_direct(priv, W5100_MR, priv->indirect ?
- 				  MR_PB | MR_AI | MR_IND :
- 				  MR_PB);
--	mmiowb();
- 	w5100_write(priv, W5100_IMR, 0);
- 	w5100_write_macaddr(priv);
- 
-@@ -347,23 +342,19 @@ static void w5100_hw_reset(struct w5100_priv *priv)
- 	 */
- 	w5100_write(priv, W5100_RMSR, 0x03);
- 	w5100_write(priv, W5100_TMSR, 0x03);
--	mmiowb();
- }
- 
- static void w5100_hw_start(struct w5100_priv *priv)
- {
- 	w5100_write(priv, W5100_S0_MR, priv->promisc ?
- 			  S0_MR_MACRAW : S0_MR_MACRAW_MF);
--	mmiowb();
- 	w5100_command(priv, S0_CR_OPEN);
- 	w5100_write(priv, W5100_IMR, IR_S0);
--	mmiowb();
- }
- 
- static void w5100_hw_close(struct w5100_priv *priv)
- {
- 	w5100_write(priv, W5100_IMR, 0);
--	mmiowb();
- 	w5100_command(priv, S0_CR_CLOSE);
- }
- 
-@@ -447,7 +438,6 @@ static int w5100_start_tx(struct sk_buff *skb, struct net_device *ndev)
- 	offset = w5100_read16(priv, W5100_S0_TX_WR);
- 	w5100_writebuf(priv, offset, skb->data, skb->len);
- 	w5100_write16(priv, W5100_S0_TX_WR, offset + skb->len);
--	mmiowb();
- 	ndev->stats.tx_bytes += skb->len;
- 	ndev->stats.tx_packets++;
- 	dev_kfree_skb(skb);
-@@ -488,7 +478,6 @@ static int w5100_napi_poll(struct napi_struct *napi, int budget)
- 		skb_put(skb, rx_len);
- 		w5100_readbuf(priv, offset + 2, skb->data, rx_len);
- 		w5100_write16(priv, W5100_S0_RX_RD, offset + 2 + rx_len);
--		mmiowb();
- 		w5100_command(priv, S0_CR_RECV);
- 		skb->protocol = eth_type_trans(skb, ndev);
- 
-@@ -500,7 +489,6 @@ static int w5100_napi_poll(struct napi_struct *napi, int budget)
- 	if (rx_count < budget) {
- 		napi_complete(napi);
- 		w5100_write(priv, W5100_IMR, IR_S0);
--		mmiowb();
- 	}
- 
- 	return rx_count;
-@@ -515,7 +503,6 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
- 	if (!ir)
- 		return IRQ_NONE;
- 	w5100_write(priv, W5100_S0_IR, ir);
--	mmiowb();
- 
- 	if (ir & S0_IR_SENDOK) {
- 		netif_dbg(priv, tx_done, ndev, "tx done\n");
-@@ -525,7 +512,6 @@ static irqreturn_t w5100_interrupt(int irq, void *ndev_instance)
- 	if (ir & S0_IR_RECV) {
- 		if (napi_schedule_prep(&priv->napi)) {
- 			w5100_write(priv, W5100_IMR, 0);
--			mmiowb();
- 			__napi_schedule(&priv->napi);
- 		}
- 	}
 -- 
 2.5.0
