@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: fix heap info leak in PACKET_DIAG_MCLIST
- sock_diag interface
-Date: Thu, 14 Apr 2016 00:47:24 -0400 (EDT)
-Message-ID: <20160414.004724.860240909570915881.davem@davemloft.net>
-References: <1460285548-832-1-git-send-email-minipli@googlemail.com>
+Subject: Re: [PATCH] ravb: make ravb_ptp_interrupt() *void*
+Date: Thu, 14 Apr 2016 00:48:44 -0400 (EDT)
+Message-ID: <20160414.004844.306071511236659725.davem@davemloft.net>
+References: <2504091.pf4fyK11eg@wasted.cogentembedded.com>
+	<6123492.pMMRNT1FnA@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, xemul@parallels.com
-To: minipli@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34348 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbcDNEr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:47:27 -0400
-In-Reply-To: <1460285548-832-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <6123492.pMMRNT1FnA@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mathias Krause <minipli@googlemail.com>
-Date: Sun, 10 Apr 2016 12:52:28 +0200
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 10 Apr 2016 23:55:15 +0300
 
-> Because we miss to wipe the remainder of i->addr[] in packet_mc_add(),
-> pdiag_put_mclist() leaks uninitialized heap bytes via the
-> PACKET_DIAG_MCLIST netlink attribute.
+> When we have the ISS.CGIS bit set, we already know that gPTP interrupt has
+> happened, so an extra GIS register check at the end of ravb_ptp_interrupt()
+> seems superfluous.  We can model the gPTP interrupt  handler like all other
+> dedicated interrupt handlers in the driver and make it *void*.
 > 
-> Fix this by explicitly memset(0)ing the remaining bytes in i->addr[].
-> 
-> Fixes: eea68e2f1a00 ("packet: Report socket mclist info via diag module")
-> Signed-off-by: Mathias Krause <minipli@googlemail.com>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
