@@ -1,52 +1,55 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
- to dump link stats
-Date: Wed, 13 Apr 2016 23:36:09 -0700
-Message-ID: <570F3A59.7010006@cumulusnetworks.com>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com> <20160410081650.GB22873@pox.localdomain> <570A9B4D.80104@cumulusnetworks.com> <570C7133.8070109@cumulusnetworks.com> <20160412132151.GA16560@pox.localdomain> <570E3784.9010809@mojatatu.com>
+From: Nikos Mavrogiannopoulos <nmav@gnutls.org>
+Subject: Re: [PATCH 0/3] crypto: af_alg - add TLS type encryption
+Date: Thu, 14 Apr 2016 08:47:54 +0200
+Message-ID: <CAJU7zaJ434afnPTEGUvZOPbAyMnUDjLKP1xUyLVcyTZ5Hesq4Q@mail.gmail.com>
+References: <20160306012044.6369.63924.stgit@tstruk-mobl1> <20160405112940.GB11852@gondor.apana.org.au>
+ <57054DBC.8010507@intel.com> <20160408025250.GA7596@gondor.apana.org.au>
+ <CALx6S37m_ayZJ4nth0SPNr2Km2+uBZUCtK4iqPKHTARv2eB4aA@mail.gmail.com>
+ <570CD852.7060003@redhat.com> <570ECC28.3030008@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	davem@davemloft.net,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34531 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751625AbcDNGgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:36:11 -0400
-Received: by mail-pa0-f50.google.com with SMTP id ot11so42075628pab.1
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 23:36:11 -0700 (PDT)
-In-Reply-To: <570E3784.9010809@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Fridolin Pokorny <fpokorny@redhat.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Dave Watson <davejwatson@fb.com>, fridolin.pokorny@gmail.com
+To: Tadeusz Struk <tadeusz.struk@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570ECC28.3030008@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/13/16, 5:11 AM, Jamal Hadi Salim wrote:
-> On 16-04-12 09:21 AM, Thomas Graf wrote:
->> On 04/11/16 at 08:53pm, roopa wrote:
->>> Top level stats attributes can be netdev or global attributes: We can include string "LINK" in
->>> the names of all stats belonging to a netdev to make it easier to recognize the netdev stats (example):
->>>   IFLA_STATS_LINK64,           (netdev)
->>>   IFLA_STATS_LINK_INET6,    (netdev)
->>>   IFLA_STATS_TCP,                (non-netdev, global tcp stats)
+On Thu, Apr 14, 2016 at 12:46 AM, Tadeusz Struk <tadeusz.struk@intel.com> wrote:
+> Hi Fridolin,
+> On 04/12/2016 04:13 AM, Fridolin Pokorny wrote:
+>> we were experimenting with this. We have a prove of concept of a kernel
+>> TLS type socket, so called AF_KTLS, which is based on Dave Watson's
+>> RFC5288 patch. It handles both TLS and DTLS, unfortunately it is not
+>> ready now to be proposed here. There are still issues which should be
+>> solved (but mostly user space API design) [1]. If you are interested, we
+>> could combine efforts.
 >>
->> This is fine as well. It means that we cant mix netdev and non-netdev
->> stats or stats for multiple netdevs in the same request which would
->> not be the case if you nest it and have a top level attribute which
->> is a list of requests. That may be borderline to overengineering
->> though so I'm fine this as well.
->
->
-> Well - using a subheader which has ifindex on it for non-netdev stats
-> seems wrong then.
-I think its ok for ifindex to be optional.
-Almost all msg types have subheaders with ifindex and it is almost always
-optional in the GET request (eg RTM_GETLINK with NLM_F_DUMP ifindex is
-optional and never checked). Here we make ifindex optional both ways.
+>> Regards,
+>> Fridolin Pokorny
+>>
+>> [1] https://github.com/fridex/af_ktls
+> I had a quick look and it looks like is limited only to gcm(aes).
+> I would be more interested to have a generic interface that could do generic algorithm
+> suits like aes-cbc-hmac-sha1 also.
 
-Its optional in the GET request with NLM_F_DUMP and it is also optional
-in the msg to userspace (NEW). And no ifindex in NEW will indicate that the
-message is not tied to a specific netdev (ie global stats).
+This is not a real limitation but an advantage. The cbc-hmac-sha1
+needs a lot of hacks to be implemented correct (just take a look at
+one of the existing implementations). There is no point to bring such
+hacks into kernel especially since these ciphersuites are banned from
+HTTP/2.0 (see RFC7540), and have been dropped from TLS 1.3.
 
-Thanks!
+> This also seems to work in a synchronous (send one and wait) mode, which is a not good
+> solution for HW accelerators, which I'm trying to enable.
+
+Is that something that cannot be addressed?
+
+regards,
+Nikos
