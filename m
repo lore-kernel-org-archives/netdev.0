@@ -1,543 +1,139 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next 1/1] hv_netvsc: Implement support for VF drivers on
- Hyper-V
-Date: Thu, 14 Apr 2016 16:31:54 -0700
-Message-ID: <1460676714-30001-1-git-send-email-kys@microsoft.com>
+From: Vikram Sethi <vikrams@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Thu, 14 Apr 2016 17:00:06 -0500
+Message-ID: <571012E6.6050303@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org> <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org> <57100962.40404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
- olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
- eli@mellanox.com, jackm@mellanox.com, yevgenyp@mellanox.com,
- john.ronciak@intel.com, intel-wired-lan@linuxonhyperv.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, cov@codeaurora.org,
+	gavidov@codeaurora.org, Rob Herring <robh+dt@kernel.org>,
+	andrew@lunn.ch, bjorn.andersson@linaro.org,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <57100962.40404@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support VF drivers on Hyper-V. On Hyper-V, each VF instance presented to
-the guest has an associated synthetic interface that shares the MAC address
-with the VF instance. Typically these are bonded together to support
-live migration. By default, the host delivers all the incoming packets
-on the synthetic interface. Once the VF is up, we need to explicitly switch
-the data path on the host to divert traffic onto the VF interface. Even after
-switching the data path, broadcast and multicast packets are always delivered
-on the synthetic interface and these will have to be injected back onto the
-VF interface (if VF is up).
-This patch implements the necessary support in netvsc to support Linux
-VF drivers.
+A couple of clarifications on the SGMII internal PHY and the DMA capability of the EMAC inline.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |   14 ++
- drivers/net/hyperv/netvsc.c       |   29 ++++
- drivers/net/hyperv/netvsc_drv.c   |  312 +++++++++++++++++++++++++++++++++---
- drivers/net/hyperv/rndis_filter.c |    6 +
- 4 files changed, 335 insertions(+), 26 deletions(-)
+On 04/14/2016 04:19 PM, Florian Fainelli wrote:
+> On 14/04/16 13:19, Timur Tabi wrote:
+>> Florian Fainelli wrote:
+>>> On 13/04/16 10:59, Timur Tabi wrote:
+>>>> From: Gilad Avidov <gavidov@codeaurora.org>
+>>>>
+>>>> Add supports for ethernet controller HW on Qualcomm Technologies,
+>>>> Inc. SoC.
+>>>> This driver supports the following features:
+>>>> 1) Checksum offload.
+>>>> 2) Runtime power management support.
+>>>> 3) Interrupt coalescing support.
+>>>> 4) SGMII phy.
+>>>> 5) SGMII direct connection without external phy.
+>>>
+>>>
+>>> [snip]
+>>>
+>>>> +- qcom,no-external-phy      : Indicates there is no external PHY
+>>>> connected to
+>>>> +                  EMAC. Include this only if the EMAC is directly
+>>>> +                  connected to the peer end without EPHY.
+>>> How is the internal PHY accessed, is it responding on the MDIO bus at a
+>>> particular address?
+>> There is a set of memory-mapped registers.  It's not connected via MDIO
+>> at all.  It's mapped via the "sgmii" addresses in the device tree (see
+>> function emac_sgmii_config).
+>>
+>>> If so, standard MDIO scanning/probing works, and you
+>>> can have your PHY driver flag this device has internal. Worst case, you
+>>> can do what BCMGENET does, and have a special "phy-mode" value set to
+>>> "internal" when this knowledge needs to exist prior to MDIO bus scanning
+>>> (e.g: to power on the PHY).
+>> So the internal phy is not a real phy.  It's not capable of driving an
+>> RJ45 port (there's no analog part).  It's an SGMII-like device that is
+>> hard-wired to the EMAC itself.
+There *is* an analog part to the internal SGMII PHY. Please check the SGMII specification. The only non-standard part is that it's not on MDIO.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 8b3bd8e..6700a4d 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -202,6 +202,8 @@ int rndis_filter_receive(struct hv_device *dev,
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
- int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac);
- 
-+void netvsc_switch_datapath(struct netvsc_device *nv_dev, bool vf);
-+
- #define NVSP_INVALID_PROTOCOL_VERSION	((u32)0xFFFFFFFF)
- 
- #define NVSP_PROTOCOL_VERSION_1		2
-@@ -641,6 +643,12 @@ struct netvsc_reconfig {
- 	u32 event;
- };
- 
-+struct garp_wrk {
-+	struct work_struct dwrk;
-+	struct net_device *netdev;
-+	struct netvsc_device *netvsc_dev;
-+};
-+
- /* The context of the netvsc device  */
- struct net_device_context {
- 	/* point back to our device context */
-@@ -656,6 +664,7 @@ struct net_device_context {
- 
- 	struct work_struct work;
- 	u32 msg_enable; /* debug level */
-+	struct garp_wrk gwrk;
- 
- 	struct netvsc_stats __percpu *tx_stats;
- 	struct netvsc_stats __percpu *rx_stats;
-@@ -730,6 +739,11 @@ struct netvsc_device {
- 	u32 vf_alloc;
- 	/* Serial number of the VF to team with */
- 	u32 vf_serial;
-+	atomic_t open_cnt;
-+	/* State to manage the associated VF interface. */
-+	bool vf_inject;
-+	struct net_device *vf_netdev;
-+	atomic_t vf_use_cnt;
- };
- 
- /* NdisInitialize message */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index ec313fc..eddce3c 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -33,6 +33,30 @@
- 
- #include "hyperv_net.h"
- 
-+/*
-+ * Switch the data path from the synthetic interface to the VF
-+ * interface.
-+ */
-+void netvsc_switch_datapath(struct netvsc_device *nv_dev, bool vf)
-+{
-+	struct nvsp_message *init_pkt = &nv_dev->channel_init_pkt;
-+	struct hv_device *dev = nv_dev->dev;
-+
-+	memset(init_pkt, 0, sizeof(struct nvsp_message));
-+	init_pkt->hdr.msg_type = NVSP_MSG4_TYPE_SWITCH_DATA_PATH;
-+	if (vf)
-+		init_pkt->msg.v4_msg.active_dp.active_datapath =
-+			NVSP_DATAPATH_VF;
-+	else
-+		init_pkt->msg.v4_msg.active_dp.active_datapath =
-+			NVSP_DATAPATH_SYNTHETIC;
-+
-+	vmbus_sendpacket(dev->channel, init_pkt,
-+			       sizeof(struct nvsp_message),
-+			       (unsigned long)init_pkt,
-+			       VM_PKT_DATA_INBAND, 0);
-+}
-+
- 
- static struct netvsc_device *alloc_net_device(struct hv_device *device)
- {
-@@ -52,11 +76,16 @@ static struct netvsc_device *alloc_net_device(struct hv_device *device)
- 	init_waitqueue_head(&net_device->wait_drain);
- 	net_device->start_remove = false;
- 	net_device->destroy = false;
-+	atomic_set(&net_device->open_cnt, 0);
-+	atomic_set(&net_device->vf_use_cnt, 0);
- 	net_device->dev = device;
- 	net_device->ndev = ndev;
- 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
- 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
- 
-+	net_device->vf_netdev = NULL;
-+	net_device->vf_inject = false;
-+
- 	hv_set_drvdata(device, net_device);
- 	return net_device;
- }
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b8121eb..bfdb568a 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -610,42 +610,24 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 	schedule_delayed_work(&ndev_ctx->dwork, 0);
- }
- 
--/*
-- * netvsc_recv_callback -  Callback when we receive a packet from the
-- * "wire" on the specified device.
-- */
--int netvsc_recv_callback(struct hv_device *device_obj,
-+
-+static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
- 				struct hv_netvsc_packet *packet,
--				void **data,
- 				struct ndis_tcp_ip_checksum_info *csum_info,
--				struct vmbus_channel *channel,
--				u16 vlan_tci)
-+				void *data, u16 vlan_tci)
- {
--	struct net_device *net;
--	struct net_device_context *net_device_ctx;
- 	struct sk_buff *skb;
--	struct netvsc_stats *rx_stats;
- 
--	net = ((struct netvsc_device *)hv_get_drvdata(device_obj))->ndev;
--	if (!net || net->reg_state != NETREG_REGISTERED) {
--		return NVSP_STAT_FAIL;
--	}
--	net_device_ctx = netdev_priv(net);
--	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
--
--	/* Allocate a skb - TODO direct I/O to pages? */
- 	skb = netdev_alloc_skb_ip_align(net, packet->total_data_buflen);
--	if (unlikely(!skb)) {
--		++net->stats.rx_dropped;
--		return NVSP_STAT_FAIL;
--	}
-+	if (!skb)
-+		return skb;
- 
- 	/*
- 	 * Copy to skb. This copy is needed here since the memory pointed by
- 	 * hv_netvsc_packet cannot be deallocated
- 	 */
--	memcpy(skb_put(skb, packet->total_data_buflen), *data,
--		packet->total_data_buflen);
-+	memcpy(skb_put(skb, packet->total_data_buflen), data,
-+	       packet->total_data_buflen);
- 
- 	skb->protocol = eth_type_trans(skb, net);
- 	if (csum_info) {
-@@ -663,6 +645,75 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       vlan_tci);
- 
-+	return skb;
-+}
-+
-+/*
-+ * netvsc_recv_callback -  Callback when we receive a packet from the
-+ * "wire" on the specified device.
-+ */
-+int netvsc_recv_callback(struct hv_device *device_obj,
-+				struct hv_netvsc_packet *packet,
-+				void **data,
-+				struct ndis_tcp_ip_checksum_info *csum_info,
-+				struct vmbus_channel *channel,
-+				u16 vlan_tci)
-+{
-+	struct net_device *net;
-+	struct net_device_context *net_device_ctx;
-+	struct sk_buff *skb;
-+	struct sk_buff *vf_skb;
-+	struct netvsc_stats *rx_stats;
-+	struct netvsc_device *netvsc_dev = hv_get_drvdata(device_obj);
-+	u32 bytes_recvd = packet->total_data_buflen;
-+	int ret = 0;
-+
-+	net = netvsc_dev->ndev;
-+	if (!net || net->reg_state != NETREG_REGISTERED)
-+		return NVSP_STAT_FAIL;
-+
-+	if (READ_ONCE(netvsc_dev->vf_inject)) {
-+		atomic_inc(&netvsc_dev->vf_use_cnt);
-+		if (!READ_ONCE(netvsc_dev->vf_inject)) {
-+			/*
-+			 * We raced; just move on.
-+			 */
-+			atomic_dec(&netvsc_dev->vf_use_cnt);
-+			goto vf_injection_done;
-+		}
-+
-+		/*
-+		 * Inject this packet into the VF inerface.
-+		 * On Hyper-V, multicast and brodcast packets
-+		 * are only delivered on the synthetic interface
-+		 * (after subjecting these to policy filters on
-+		 * the host). Deliver these via the VF interface
-+		 * in the guest.
-+		 */
-+		vf_skb = netvsc_alloc_recv_skb(netvsc_dev->vf_netdev, packet,
-+					       csum_info, *data, vlan_tci);
-+		if (vf_skb != NULL) {
-+			++netvsc_dev->vf_netdev->stats.rx_packets;
-+			netvsc_dev->vf_netdev->stats.rx_bytes += bytes_recvd;
-+			netif_receive_skb(vf_skb);
-+		} else {
-+			++net->stats.rx_dropped;
-+			ret = NVSP_STAT_FAIL;
-+		}
-+		atomic_dec(&netvsc_dev->vf_use_cnt);
-+		return ret;
-+	}
-+
-+vf_injection_done:
-+	net_device_ctx = netdev_priv(net);
-+	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
-+
-+	/* Allocate a skb - TODO direct I/O to pages? */
-+	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
-+	if (unlikely(!skb)) {
-+		++net->stats.rx_dropped;
-+		return NVSP_STAT_FAIL;
-+	}
- 	skb_record_rx_queue(skb, channel->
- 			    offermsg.offer.sub_channel_index);
- 
-@@ -1102,6 +1153,175 @@ static void netvsc_free_netdev(struct net_device *netdev)
- 	free_netdev(netdev);
- }
- 
-+static void netvsc_notify_peers(struct work_struct *wrk)
-+{
-+	struct garp_wrk *gwrk;
-+
-+	gwrk = container_of(wrk, struct garp_wrk, dwrk);
-+
-+	netdev_notify_peers(gwrk->netdev);
-+
-+	atomic_dec(&gwrk->netvsc_dev->vf_use_cnt);
-+}
-+
-+static struct netvsc_device *get_netvsc_device(char *mac)
-+{
-+	struct net_device *dev;
-+	struct net_device_context *netvsc_ctx = NULL;
-+	int rtnl_locked;
-+
-+	rtnl_locked = rtnl_trylock();
-+
-+	for_each_netdev(&init_net, dev) {
-+		if (memcmp(dev->dev_addr, mac, ETH_ALEN) == 0) {
-+			if (dev->netdev_ops != &device_ops)
-+				continue;
-+			netvsc_ctx = netdev_priv(dev);
-+			break;
-+		}
-+	}
-+	if (rtnl_locked)
-+		rtnl_unlock();
-+
-+	if (netvsc_ctx == NULL)
-+		return NULL;
-+
-+	return hv_get_drvdata(netvsc_ctx->device_ctx);
-+}
-+
-+static int netvsc_register_vf(struct net_device *vf_netdev)
-+{
-+	struct netvsc_device *netvsc_dev;
-+	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-+
-+	if (eth_ops == NULL || eth_ops == &ethtool_ops)
-+		return NOTIFY_DONE;
-+
-+	/*
-+	 * We will use the MAC address to locate the synthetic interface to
-+	 * associate with the VF interface. If we don't find a matching
-+	 * synthetic interface, move on.
-+	 */
-+	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	if (netvsc_dev == NULL)
-+		return NOTIFY_DONE;
-+
-+	netdev_info(netvsc_dev->ndev, "VF registering: %s\n", vf_netdev->name);
-+	/*
-+	 * Take a reference on the module.
-+	 */
-+	try_module_get(THIS_MODULE);
-+	netvsc_dev->vf_netdev = vf_netdev;
-+	return NOTIFY_OK;
-+}
-+
-+
-+static int netvsc_vf_up(struct net_device *vf_netdev)
-+{
-+	struct netvsc_device *netvsc_dev;
-+	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-+	struct net_device_context *net_device_ctx;
-+
-+	if (eth_ops == &ethtool_ops)
-+		return NOTIFY_DONE;
-+
-+	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+
-+	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
-+		return NOTIFY_DONE;
-+
-+	netdev_info(netvsc_dev->ndev, "VF up: %s\n", vf_netdev->name);
-+	net_device_ctx = netdev_priv(netvsc_dev->ndev);
-+	netvsc_dev->vf_inject = true;
-+
-+	/*
-+	 * Open the device before switching data path.
-+	 */
-+	rndis_filter_open(net_device_ctx->device_ctx);
-+
-+	/*
-+	 * notify the host to switch the data path.
-+	 */
-+	netvsc_switch_datapath(netvsc_dev, true);
-+	netdev_info(netvsc_dev->ndev, "Data path switched to VF: %s\n",
-+		    vf_netdev->name);
-+
-+	netif_carrier_off(netvsc_dev->ndev);
-+
-+	/*
-+	 * Now notify peers. We are scheduling work to
-+	 * notify peers; take a reference to prevent
-+	 * the VF interface from vanishing.
-+	 */
-+	atomic_inc(&netvsc_dev->vf_use_cnt);
-+	net_device_ctx->gwrk.netdev = vf_netdev;
-+	net_device_ctx->gwrk.netvsc_dev = netvsc_dev;
-+	schedule_work(&net_device_ctx->gwrk.dwrk);
-+
-+	return NOTIFY_OK;
-+}
-+
-+
-+static int netvsc_vf_down(struct net_device *vf_netdev)
-+{
-+	struct netvsc_device *netvsc_dev;
-+	struct net_device_context *net_device_ctx;
-+	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-+
-+	if (eth_ops == &ethtool_ops)
-+		return NOTIFY_DONE;
-+
-+	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+
-+	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
-+		return NOTIFY_DONE;
-+
-+	netdev_info(netvsc_dev->ndev, "VF down: %s\n", vf_netdev->name);
-+	net_device_ctx = netdev_priv(netvsc_dev->ndev);
-+	netvsc_dev->vf_inject = false;
-+	/*
-+	 * Wait for currently active users to
-+	 * drain out.
-+	 */
-+
-+	while (atomic_read(&netvsc_dev->vf_use_cnt) != 0)
-+		udelay(50);
-+	netvsc_switch_datapath(netvsc_dev, false);
-+	netdev_info(netvsc_dev->ndev, "Data path switched from VF: %s\n",
-+		    vf_netdev->name);
-+	rndis_filter_close(net_device_ctx->device_ctx);
-+	netif_carrier_on(netvsc_dev->ndev);
-+	/*
-+	 * Notify peers.
-+	 */
-+	atomic_inc(&netvsc_dev->vf_use_cnt);
-+	net_device_ctx->gwrk.netdev = netvsc_dev->ndev;
-+	net_device_ctx->gwrk.netvsc_dev = netvsc_dev;
-+	schedule_work(&net_device_ctx->gwrk.dwrk);
-+
-+	return NOTIFY_OK;
-+}
-+
-+
-+static int netvsc_unregister_vf(struct net_device *vf_netdev)
-+{
-+	struct netvsc_device *netvsc_dev;
-+	const struct ethtool_ops *eth_ops = vf_netdev->ethtool_ops;
-+
-+	if (eth_ops == &ethtool_ops)
-+		return NOTIFY_DONE;
-+
-+	netvsc_dev = get_netvsc_device(vf_netdev->dev_addr);
-+	if (netvsc_dev == NULL)
-+		return NOTIFY_DONE;
-+	netdev_info(netvsc_dev->ndev, "VF unregistering: %s\n",
-+		    vf_netdev->name);
-+
-+	netvsc_dev->vf_netdev = NULL;
-+	module_put(THIS_MODULE);
-+	return NOTIFY_OK;
-+}
-+
- static int netvsc_probe(struct hv_device *dev,
- 			const struct hv_vmbus_device_id *dev_id)
- {
-@@ -1140,6 +1360,7 @@ static int netvsc_probe(struct hv_device *dev,
- 	hv_set_drvdata(dev, net);
- 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
- 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
-+	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
- 
- 	spin_lock_init(&net_device_ctx->lock);
- 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
-@@ -1235,19 +1456,58 @@ static struct  hv_driver netvsc_drv = {
- 	.remove = netvsc_remove,
- };
- 
-+
-+/*
-+ * On Hyper-V, every VF interface is matched with a corresponding
-+ * synthetic interface. The synthetic interface is presented first
-+ * to the guest. When the corresponding VF instance is registered,
-+ * we will take care of switching the data path.
-+ */
-+static int netvsc_netdev_event(struct notifier_block *this,
-+			       unsigned long event, void *ptr)
-+{
-+	struct net_device *event_dev = netdev_notifier_info_to_dev(ptr);
-+
-+	switch (event) {
-+	case NETDEV_REGISTER:
-+		return netvsc_register_vf(event_dev);
-+	case NETDEV_UNREGISTER:
-+		return netvsc_unregister_vf(event_dev);
-+	case NETDEV_UP:
-+		return netvsc_vf_up(event_dev);
-+	case NETDEV_DOWN:
-+		return netvsc_vf_down(event_dev);
-+	default:
-+		return NOTIFY_DONE;
-+	}
-+}
-+
-+static struct notifier_block netvsc_netdev_notifier = {
-+	.notifier_call = netvsc_netdev_event,
-+};
-+
- static void __exit netvsc_drv_exit(void)
- {
-+	unregister_netdevice_notifier(&netvsc_netdev_notifier);
- 	vmbus_driver_unregister(&netvsc_drv);
- }
- 
- static int __init netvsc_drv_init(void)
- {
-+	int ret;
-+
- 	if (ring_size < RING_SIZE_MIN) {
- 		ring_size = RING_SIZE_MIN;
- 		pr_info("Increased ring_size to %d (min allowed)\n",
- 			ring_size);
- 	}
--	return vmbus_driver_register(&netvsc_drv);
-+	ret = vmbus_driver_register(&netvsc_drv);
-+
-+	if (ret)
-+		return ret;
-+
-+	register_netdevice_notifier(&netvsc_netdev_notifier);
-+	return 0;
- }
- 
- MODULE_LICENSE("GPL");
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index c4e1e04..a59cdeb 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1229,6 +1229,9 @@ int rndis_filter_open(struct hv_device *dev)
- 	if (!net_device)
- 		return -EINVAL;
- 
-+	if (atomic_inc_return(&net_device->open_cnt) != 1)
-+		return 0;
-+
- 	return rndis_filter_open_device(net_device->extension);
- }
- 
-@@ -1239,5 +1242,8 @@ int rndis_filter_close(struct hv_device *dev)
- 	if (!nvdev)
- 		return -EINVAL;
- 
-+	if (atomic_dec_return(&nvdev->open_cnt) != 0)
-+		return 0;
-+
- 	return rndis_filter_close_device(nvdev->extension);
- }
+> OK, that explains things a bit, thanks, this is quite a bit of important
+> detail actually.
+>
+>> In theory, the internal PHY is optional.  You could design an SOC that
+>> has just the EMAC connected via normal MDIO to an external phy.  I
+>> really wish our hardware designers has done that.  But unfortunately,
+>> there are no SOCs like that, and so we have to treat the internal phy as
+>> an extension of the EMAC.
+>>
+>> My preference would be to get rid of the "qcom,no-external-phy" property
+>> and have an external phy be required, at least until Qualcomm creates an
+>> SOC without the internal phy (which may never happen, for all I know).
+>>
+> Can we just say that, an absence of PHY specified in the Device Tree (no
+> phy-handle property and PHY not a child node of the MDIO bus), means
+> that there is no external PHY?
+>
+> [snip]
+>
+>
+[snip]
+>>>> +    dev_set_drvdata(&pdev->dev, netdev);
+>>>> +    SET_NETDEV_DEV(netdev, &pdev->dev);
+>>>> +
+>>>> +    adpt = netdev_priv(netdev);
+>>>> +    adpt->netdev = netdev;
+>>>> +    phy = &adpt->phy;
+>>>> +    adpt->msg_enable = netif_msg_init(debug, EMAC_MSG_DEFAULT);
+>>>> +
+>>>> +    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+>>> Really, is not that supposed to run on ARM64 servers?
+>> Well, this version of the driver isn't, which is why it supports DT and
+>> not ACPI.  I'm planning on adding that support in a later patch.
+>> However, I'll add support for 64-bit masks in the next version of this
+>> patch.
+>>
+>> Would this be okay:
+>>
+>>     retval = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+>>     if (retval) {
+>>         dev_err(&pdev->dev, "failed to set DMA mask err %d\n", retval);
+>>         goto err_res;
+>>     }
+
+How can you set the mask to 64 bits when the EMAC IP on FSM9900 and QDF2432 can only do 32 bit DMA?
+The mask in that API is a bit mask describing which bits of an address your device supports.
+
+>> I've seen code like this in other drivers:
+>>
+>>         ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+>>         if (ret) {
+>>                 ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+>>                 if (ret) {
+>>                         dev_err(dev, "failed to set dma mask\n");
+>>                         return ret;
+>>                 }
+>>         }
+>>
+>> and I've never understood why it's necessary to fall back to 32-bits if
+>> 64 bits fails.  Isn't 64 bits a superset of 32 bits?  The driver is
+>> saying that the hardware supports all of DDR.  How could fail, and how
+>> could 32-bit succeed if 64-bits fails?
+> I believe there could be cases where the HW is capable of addressing
+> more physical memory than the CPU itself (usually unlikely, but it
+> could), there could be cases where the HW is behind an IOMMMU which only
+> has a window into the DDR, and that could prevent a higher DMA_BIT_MASK
+> from being successfully configured.
+
+
 -- 
-1.7.4.1
+Vikram Sethi
+Qualcomm Technologies Inc, on behalf of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
