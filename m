@@ -1,31 +1,38 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: RE: [PATCH pci] pci: Add helper function to set VPD size
-Date: Thu, 14 Apr 2016 13:35:25 -0500
-Message-ID: <00d801d1967c$68e9d100$3abd7300$@opengridcomputing.com>
-References: <1460657525-17551-1-git-send-email-hariprasad@chelsio.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-pci@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<leedom@chelsio.com>, <nirranjan@chelsio.com>,
-	<santosh@chelsio.com>
-To: "'Hariprasad Shenai'" <hariprasad@chelsio.com>,
-	<bhelgaas@google.com>, <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1460657525-17551-1-git-send-email-hariprasad@chelsio.com>
-Content-Language: en-us
-Sender: linux-pci-owner@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net 0/3] net: dsa: mv88e6xxx: fix hardware cross-chip bridging
+Date: Thu, 14 Apr 2016 14:42:06 -0400
+Message-ID: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The fix is to add a PCI helper function to set the VPD size, so the
-> driver can expicitly set the exact size of the VPD.
-> 
-> Fixes commit 104daa71b396 ("PCI: Determine actual VPD size on first access")
-> 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+In order to accelerate cross-chip switching of frames with the hardware,
+the DSA Tag ports, used to interconnect switch devices, must learn SA
+and DA addresses, and share the same FDB with the user ports.
 
-Looks good!
-  
-Tested-by: Steve Wise <swise@opengridcomputing.com>
+The two first patches restore address learning on DSA links. This fixes
+hardware cross-chip bridging in a VLAN filtering enabled system, which
+implements a bridge group as a 802.1Q VLAN and thus share an isolated
+address database between DSA and user ports.
+
+The third patch changes the distinct default databases used for each
+port, to the same address database. This fixes the hardware cross-chip
+bridging in a VLAN filtering disabled system, where a bridge group gets
+implemented only as a port-based VLAN.
+
+Vivien Didelot (3):
+  net: dsa: mv88e6xxx: unlock DSA and CPU ports
+  net: dsa: mv88e6xxx: enable SA learning on DSA ports
+  net: dsa: mv88e6xxx: share a default FDB
+
+ drivers/net/dsa/mv88e6xxx.c | 34 +++++-----------------------------
+ 1 file changed, 5 insertions(+), 29 deletions(-)
+
+-- 
+2.8.0
