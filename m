@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
- 2016-04-13
-Date: Thu, 14 Apr 2016 00:32:09 -0400 (EDT)
-Message-ID: <20160414.003209.309362863538715796.davem@davemloft.net>
-References: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2] net: bcmgenet: add BQL support
+Date: Thu, 14 Apr 2016 00:34:20 -0400 (EDT)
+Message-ID: <20160414.003420.1714063067961277260.davem@davemloft.net>
+References: <1460186436-84848-1-git-send-email-pgynther@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	f.fainelli@gmail.com, opendmb@gmail.com, jaedon.shin@gmail.com
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34235 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34258 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185AbcDNEcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:32:12 -0400
-In-Reply-To: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1750738AbcDNEeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:34:23 -0400
+In-Reply-To: <1460186436-84848-1-git-send-email-pgynther@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 13 Apr 2016 20:47:10 -0700
+From: Petri Gynther <pgynther@google.com>
+Date: Sat,  9 Apr 2016 00:20:36 -0700
 
-> This series contains updates to i40e, i40evf and fm10k.
+> Add Byte Queue Limits (BQL) support to bcmgenet driver.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Pulled, thanks Jeff.
+Applied, thank you.
