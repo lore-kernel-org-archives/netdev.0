@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/18] devlink: add shared buffer configuration
-Date: Thu, 14 Apr 2016 18:19:13 +0200
-Message-ID: <1460650770-19382-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 05/18] mlxsw: spectrum_buffers: Push out indexes and direction out of SB structs
+Date: Thu, 14 Apr 2016 18:19:17 +0200
+Message-ID: <1460650770-19382-6-git-send-email-jiri@resnulli.us>
 References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,1196 +11,578 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36417 "EHLO
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:36488 "EHLO
 	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932643AbcDNQTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:36 -0400
-Received: by mail-wm0-f49.google.com with SMTP id v188so227615334wme.1
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:35 -0700 (PDT)
+	with ESMTP id S932235AbcDNQTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:41 -0400
+Received: by mail-wm0-f49.google.com with SMTP id v188so227618715wme.1
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:40 -0700 (PDT)
 In-Reply-To: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Define userspace API and drivers API for configuration of shared
-buffers. Four basic objects are defined:
-shared buffer - attributes are size, number of pools and TCs
-pool - chunk of sharedbuffer definition, it has some size and either
-       static or dynamic threshold
-port pool threshold - to set per-port threshold for each pool
-port tc threshold bind - to bind port and TC to specified pool
-                         with threshold.
+Structs are in arrays so use array index as pool/tc/prio index. With
+that, there is need to maintain separate arrays for ingress and egress.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- include/net/devlink.h        |  47 +++
- include/uapi/linux/devlink.h |  57 +++
- net/core/devlink.c           | 940 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 1044 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 425 +++++++++++----------
+ 1 file changed, 221 insertions(+), 204 deletions(-)
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index c37d257..e4c2747 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -24,6 +24,7 @@ struct devlink_ops;
- struct devlink {
- 	struct list_head list;
- 	struct list_head port_list;
-+	struct list_head sb_list;
- 	const struct devlink_ops *ops;
- 	struct device *dev;
- 	possible_net_t _net;
-@@ -42,6 +43,12 @@ struct devlink_port {
- 	u32 split_group;
- };
- 
-+struct devlink_sb_pool_info {
-+	enum devlink_sb_pool_type pool_type;
-+	u32 size;
-+	enum devlink_sb_threshold_type threshold_type;
-+};
-+
- struct devlink_ops {
- 	size_t priv_size;
- 	int (*port_type_set)(struct devlink_port *devlink_port,
-@@ -49,6 +56,28 @@ struct devlink_ops {
- 	int (*port_split)(struct devlink *devlink, unsigned int port_index,
- 			  unsigned int count);
- 	int (*port_unsplit)(struct devlink *devlink, unsigned int port_index);
-+	int (*sb_pool_get)(struct devlink *devlink, unsigned int sb_index,
-+			   u16 pool_index,
-+			   struct devlink_sb_pool_info *pool_info);
-+	int (*sb_pool_set)(struct devlink *devlink, unsigned int sb_index,
-+			   u16 pool_index, u32 size,
-+			   enum devlink_sb_threshold_type threshold_type);
-+	int (*sb_port_pool_get)(struct devlink_port *devlink_port,
-+				unsigned int sb_index, u16 pool_index,
-+				u32 *p_threshold);
-+	int (*sb_port_pool_set)(struct devlink_port *devlink_port,
-+				unsigned int sb_index, u16 pool_index,
-+				u32 threshold);
-+	int (*sb_tc_pool_bind_get)(struct devlink_port *devlink_port,
-+				   unsigned int sb_index,
-+				   u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 *p_pool_index, u32 *p_threshold);
-+	int (*sb_tc_pool_bind_set)(struct devlink_port *devlink_port,
-+				   unsigned int sb_index,
-+				   u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 pool_index, u32 threshold);
- };
- 
- static inline void *devlink_priv(struct devlink *devlink)
-@@ -82,6 +111,11 @@ void devlink_port_type_ib_set(struct devlink_port *devlink_port,
- void devlink_port_type_clear(struct devlink_port *devlink_port);
- void devlink_port_split_set(struct devlink_port *devlink_port,
- 			    u32 split_group);
-+int devlink_sb_register(struct devlink *devlink, unsigned int sb_index,
-+			u32 size, u16 ingress_pools_count,
-+			u16 egress_pools_count, u16 ingress_tc_count,
-+			u16 egress_tc_count);
-+void devlink_sb_unregister(struct devlink *devlink, unsigned int sb_index);
- 
- #else
- 
-@@ -135,6 +169,19 @@ static inline void devlink_port_split_set(struct devlink_port *devlink_port,
- {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+index ae60838..c326e58 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+@@ -73,27 +73,17 @@ static int mlxsw_sp_sb_pm_write(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbpm), sbpm_pl);
  }
  
-+static inline int devlink_sb_register(struct devlink *devlink,
-+				      unsigned int sb_index, u32 size,
-+				      u16 ingress_pools_count,
-+				      u16 egress_pools_count, u16 tc_count)
-+{
-+	return 0;
-+}
-+
-+static inline void devlink_sb_unregister(struct devlink *devlink,
-+					 unsigned int sb_index)
-+{
-+}
-+
- #endif
- 
- #endif /* _NET_DEVLINK_H_ */
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index c9fee57..9c1aa57 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -33,6 +33,26 @@ enum devlink_command {
- 	DEVLINK_CMD_PORT_SPLIT,
- 	DEVLINK_CMD_PORT_UNSPLIT,
- 
-+	DEVLINK_CMD_SB_GET,		/* can dump */
-+	DEVLINK_CMD_SB_SET,
-+	DEVLINK_CMD_SB_NEW,
-+	DEVLINK_CMD_SB_DEL,
-+
-+	DEVLINK_CMD_SB_POOL_GET,	/* can dump */
-+	DEVLINK_CMD_SB_POOL_SET,
-+	DEVLINK_CMD_SB_POOL_NEW,
-+	DEVLINK_CMD_SB_POOL_DEL,
-+
-+	DEVLINK_CMD_SB_PORT_POOL_GET,	/* can dump */
-+	DEVLINK_CMD_SB_PORT_POOL_SET,
-+	DEVLINK_CMD_SB_PORT_POOL_NEW,
-+	DEVLINK_CMD_SB_PORT_POOL_DEL,
-+
-+	DEVLINK_CMD_SB_TC_POOL_BIND_GET,	/* can dump */
-+	DEVLINK_CMD_SB_TC_POOL_BIND_SET,
-+	DEVLINK_CMD_SB_TC_POOL_BIND_NEW,
-+	DEVLINK_CMD_SB_TC_POOL_BIND_DEL,
-+
- 	/* add new commands above here */
- 
- 	__DEVLINK_CMD_MAX,
-@@ -46,6 +66,31 @@ enum devlink_port_type {
- 	DEVLINK_PORT_TYPE_IB,
+-struct mlxsw_sp_pb {
+-	u8 index;
+-	u16 size;
+-};
+-
+-#define MLXSW_SP_PB(_index, _size)	\
+-	{				\
+-		.index = _index,	\
+-		.size = _size,		\
+-	}
+-
+-static const struct mlxsw_sp_pb mlxsw_sp_pbs[] = {
+-	MLXSW_SP_PB(0, 2 * MLXSW_SP_BYTES_TO_CELLS(ETH_FRAME_LEN)),
+-	MLXSW_SP_PB(1, 0),
+-	MLXSW_SP_PB(2, 0),
+-	MLXSW_SP_PB(3, 0),
+-	MLXSW_SP_PB(4, 0),
+-	MLXSW_SP_PB(5, 0),
+-	MLXSW_SP_PB(6, 0),
+-	MLXSW_SP_PB(7, 0),
+-	MLXSW_SP_PB(9, 2 * MLXSW_SP_BYTES_TO_CELLS(MLXSW_PORT_MAX_MTU)),
++static const u16 mlxsw_sp_pbs[] = {
++	2 * MLXSW_SP_BYTES_TO_CELLS(ETH_FRAME_LEN),
++	0,
++	0,
++	0,
++	0,
++	0,
++	0,
++	0,
++	0, /* Unused */
++	2 * MLXSW_SP_BYTES_TO_CELLS(MLXSW_PORT_MAX_MTU),
  };
  
-+enum devlink_sb_pool_type {
-+	DEVLINK_SB_POOL_TYPE_INGRESS,
-+	DEVLINK_SB_POOL_TYPE_EGRESS,
-+};
-+
-+/* static threshold - limiting the maximum number of bytes.
-+ * dynamic threshold - limiting the maximum number of bytes
-+ *   based on the currently available free space in the shared buffer pool.
-+ *   In this mode, the maximum quota is calculated based
-+ *   on the following formula:
-+ *     max_quota = alpha / (1 + alpha) * Free_Buffer
-+ *   While Free_Buffer is the amount of none-occupied buffer associated to
-+ *   the relevant pool.
-+ *   The value range which can be passed is 0-20 and serves
-+ *   for computation of alpha by following formula:
-+ *     alpha = 2 ^ (passed_value - 10)
-+ */
-+
-+enum devlink_sb_threshold_type {
-+	DEVLINK_SB_THRESHOLD_TYPE_STATIC,
-+	DEVLINK_SB_THRESHOLD_TYPE_DYNAMIC,
-+};
-+
-+#define DEVLINK_SB_THRESHOLD_TO_ALPHA_MAX 20
-+
- enum devlink_attr {
- 	/* don't change the order or add anything between, this is ABI! */
- 	DEVLINK_ATTR_UNSPEC,
-@@ -62,6 +107,18 @@ enum devlink_attr {
- 	DEVLINK_ATTR_PORT_IBDEV_NAME,		/* string */
- 	DEVLINK_ATTR_PORT_SPLIT_COUNT,		/* u32 */
- 	DEVLINK_ATTR_PORT_SPLIT_GROUP,		/* u32 */
-+	DEVLINK_ATTR_SB_INDEX,			/* u32 */
-+	DEVLINK_ATTR_SB_SIZE,			/* u32 */
-+	DEVLINK_ATTR_SB_INGRESS_POOL_COUNT,	/* u16 */
-+	DEVLINK_ATTR_SB_EGRESS_POOL_COUNT,	/* u16 */
-+	DEVLINK_ATTR_SB_INGRESS_TC_COUNT,	/* u16 */
-+	DEVLINK_ATTR_SB_EGRESS_TC_COUNT,	/* u16 */
-+	DEVLINK_ATTR_SB_POOL_INDEX,		/* u16 */
-+	DEVLINK_ATTR_SB_POOL_TYPE,		/* u8 */
-+	DEVLINK_ATTR_SB_POOL_SIZE,		/* u32 */
-+	DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE,	/* u8 */
-+	DEVLINK_ATTR_SB_THRESHOLD,		/* u32 */
-+	DEVLINK_ATTR_SB_TC_INDEX,		/* u16 */
- 
- 	/* add new attributes above here, update the policy in devlink.c */
- 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index b84cf0d..aa0b9e1 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -119,8 +119,167 @@ static struct devlink_port *devlink_port_get_from_info(struct devlink *devlink,
- 	return devlink_port_get_from_attrs(devlink, info->attrs);
- }
- 
-+struct devlink_sb {
-+	struct list_head list;
-+	unsigned int index;
-+	u32 size;
-+	u16 ingress_pools_count;
-+	u16 egress_pools_count;
-+	u16 ingress_tc_count;
-+	u16 egress_tc_count;
-+};
-+
-+static u16 devlink_sb_pool_count(struct devlink_sb *devlink_sb)
-+{
-+	return devlink_sb->ingress_pools_count + devlink_sb->egress_pools_count;
-+}
-+
-+static struct devlink_sb *devlink_sb_get_by_index(struct devlink *devlink,
-+						  unsigned int sb_index)
-+{
-+	struct devlink_sb *devlink_sb;
-+
-+	list_for_each_entry(devlink_sb, &devlink->sb_list, list) {
-+		if (devlink_sb->index == sb_index)
-+			return devlink_sb;
-+	}
-+	return NULL;
-+}
-+
-+static bool devlink_sb_index_exists(struct devlink *devlink,
-+				    unsigned int sb_index)
-+{
-+	return devlink_sb_get_by_index(devlink, sb_index);
-+}
-+
-+static struct devlink_sb *devlink_sb_get_from_attrs(struct devlink *devlink,
-+						    struct nlattr **attrs)
-+{
-+	if (attrs[DEVLINK_ATTR_SB_INDEX]) {
-+		u32 sb_index = nla_get_u32(attrs[DEVLINK_ATTR_SB_INDEX]);
-+		struct devlink_sb *devlink_sb;
-+
-+		devlink_sb = devlink_sb_get_by_index(devlink, sb_index);
-+		if (!devlink_sb)
-+			return ERR_PTR(-ENODEV);
-+		return devlink_sb;
-+	}
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+static struct devlink_sb *devlink_sb_get_from_info(struct devlink *devlink,
-+						   struct genl_info *info)
-+{
-+	return devlink_sb_get_from_attrs(devlink, info->attrs);
-+}
-+
-+static int devlink_sb_pool_index_get_from_attrs(struct devlink_sb *devlink_sb,
-+						struct nlattr **attrs,
-+						u16 *p_pool_index)
-+{
-+	u16 val;
-+
-+	if (!attrs[DEVLINK_ATTR_SB_POOL_INDEX])
-+		return -EINVAL;
-+
-+	val = nla_get_u16(attrs[DEVLINK_ATTR_SB_POOL_INDEX]);
-+	if (val >= devlink_sb_pool_count(devlink_sb))
-+		return -EINVAL;
-+	*p_pool_index = val;
-+	return 0;
-+}
-+
-+static int devlink_sb_pool_index_get_from_info(struct devlink_sb *devlink_sb,
-+					       struct genl_info *info,
-+					       u16 *p_pool_index)
-+{
-+	return devlink_sb_pool_index_get_from_attrs(devlink_sb, info->attrs,
-+						    p_pool_index);
-+}
-+
-+static int
-+devlink_sb_pool_type_get_from_attrs(struct nlattr **attrs,
-+				    enum devlink_sb_pool_type *p_pool_type)
-+{
-+	u8 val;
-+
-+	if (!attrs[DEVLINK_ATTR_SB_POOL_TYPE])
-+		return -EINVAL;
-+
-+	val = nla_get_u8(attrs[DEVLINK_ATTR_SB_POOL_TYPE]);
-+	if (val != DEVLINK_SB_POOL_TYPE_INGRESS &&
-+	    val != DEVLINK_SB_POOL_TYPE_EGRESS)
-+		return -EINVAL;
-+	*p_pool_type = val;
-+	return 0;
-+}
-+
-+static int
-+devlink_sb_pool_type_get_from_info(struct genl_info *info,
-+				   enum devlink_sb_pool_type *p_pool_type)
-+{
-+	return devlink_sb_pool_type_get_from_attrs(info->attrs, p_pool_type);
-+}
-+
-+static int
-+devlink_sb_th_type_get_from_attrs(struct nlattr **attrs,
-+				  enum devlink_sb_threshold_type *p_th_type)
-+{
-+	u8 val;
-+
-+	if (!attrs[DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE])
-+		return -EINVAL;
-+
-+	val = nla_get_u8(attrs[DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE]);
-+	if (val != DEVLINK_SB_THRESHOLD_TYPE_STATIC &&
-+	    val != DEVLINK_SB_THRESHOLD_TYPE_DYNAMIC)
-+		return -EINVAL;
-+	*p_th_type = val;
-+	return 0;
-+}
-+
-+static int
-+devlink_sb_th_type_get_from_info(struct genl_info *info,
-+				 enum devlink_sb_threshold_type *p_th_type)
-+{
-+	return devlink_sb_th_type_get_from_attrs(info->attrs, p_th_type);
-+}
-+
-+static int
-+devlink_sb_tc_index_get_from_attrs(struct devlink_sb *devlink_sb,
-+				   struct nlattr **attrs,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 *p_tc_index)
-+{
-+	u16 val;
-+
-+	if (!attrs[DEVLINK_ATTR_SB_TC_INDEX])
-+		return -EINVAL;
-+
-+	val = nla_get_u16(attrs[DEVLINK_ATTR_SB_TC_INDEX]);
-+	if (pool_type == DEVLINK_SB_POOL_TYPE_INGRESS &&
-+	    val >= devlink_sb->ingress_tc_count)
-+		return -EINVAL;
-+	if (pool_type == DEVLINK_SB_POOL_TYPE_EGRESS &&
-+	    val >= devlink_sb->egress_tc_count)
-+		return -EINVAL;
-+	*p_tc_index = val;
-+	return 0;
-+}
-+
-+static int
-+devlink_sb_tc_index_get_from_info(struct devlink_sb *devlink_sb,
-+				  struct genl_info *info,
-+				  enum devlink_sb_pool_type pool_type,
-+				  u16 *p_tc_index)
-+{
-+	return devlink_sb_tc_index_get_from_attrs(devlink_sb, info->attrs,
-+						  pool_type, p_tc_index);
-+}
-+
- #define DEVLINK_NL_FLAG_NEED_DEVLINK	BIT(0)
- #define DEVLINK_NL_FLAG_NEED_PORT	BIT(1)
-+#define DEVLINK_NL_FLAG_NEED_SB		BIT(2)
- 
- static int devlink_nl_pre_doit(const struct genl_ops *ops,
- 			       struct sk_buff *skb, struct genl_info *info)
-@@ -147,6 +306,18 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
- 		}
- 		info->user_ptr[0] = devlink_port;
+ #define MLXSW_SP_PBS_LEN ARRAY_SIZE(mlxsw_sp_pbs)
+@@ -106,10 +96,9 @@ static int mlxsw_sp_port_pb_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	mlxsw_reg_pbmc_pack(pbmc_pl, mlxsw_sp_port->local_port,
+ 			    0xffff, 0xffff / 2);
+ 	for (i = 0; i < MLXSW_SP_PBS_LEN; i++) {
+-		const struct mlxsw_sp_pb *pb;
+-
+-		pb = &mlxsw_sp_pbs[i];
+-		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, pb->index, pb->size);
++		if (i == 8)
++			continue;
++		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, i, mlxsw_sp_pbs[i]);
  	}
-+	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_SB) {
-+		struct devlink_sb *devlink_sb;
+ 	mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl,
+ 					 MLXSW_REG_PBMC_PORT_SHARED_BUF_IDX, 0);
+@@ -140,8 +129,6 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ }
+ 
+ struct mlxsw_sp_sb_pool {
+-	u8 pool;
+-	enum mlxsw_reg_sbxx_dir dir;
+ 	enum mlxsw_reg_sbpr_mode mode;
+ 	u32 size;
+ };
+@@ -151,45 +138,46 @@ struct mlxsw_sp_sb_pool {
+ #define MLXSW_SP_SB_POOL_EGRESS_SIZE				\
+ 	(14000000 - (8 * 1500 * MLXSW_PORT_MAX_PORTS))
+ 
+-#define MLXSW_SP_SB_POOL(_pool, _dir, _mode, _size)		\
+-	{							\
+-		.pool = _pool,					\
+-		.dir = _dir,					\
+-		.mode = _mode,					\
+-		.size = _size,					\
++#define MLXSW_SP_SB_POOL(_mode, _size)	\
++	{				\
++		.mode = _mode,		\
++		.size = _size,		\
+ 	}
+ 
+-#define MLXSW_SP_SB_POOL_INGRESS(_pool, _size)			\
+-	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
+-			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
+-
+-#define MLXSW_SP_SB_POOL_EGRESS(_pool, _size)			\
+-	MLXSW_SP_SB_POOL(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
+-			 MLXSW_REG_SBPR_MODE_DYNAMIC, _size)
+-
+-static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools[] = {
+-	MLXSW_SP_SB_POOL_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_INGRESS_SIZE)),
+-	MLXSW_SP_SB_POOL_INGRESS(1, 0),
+-	MLXSW_SP_SB_POOL_INGRESS(2, 0),
+-	MLXSW_SP_SB_POOL_INGRESS(3, 0),
+-	MLXSW_SP_SB_POOL_EGRESS(0, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
+-	MLXSW_SP_SB_POOL_EGRESS(1, 0),
+-	MLXSW_SP_SB_POOL_EGRESS(2, 0),
+-	MLXSW_SP_SB_POOL_EGRESS(2, MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
++static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools_ingress[] = {
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
++			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_INGRESS_SIZE)),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+ };
+ 
+-#define MLXSW_SP_SB_POOLS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools)
++#define MLXSW_SP_SB_POOLS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools_ingress)
+ 
+-static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
++static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools_egress[] = {
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
++			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
++			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
++};
 +
-+		devlink_sb = devlink_sb_get_from_info(devlink, info);
-+		if (IS_ERR(devlink_sb)) {
-+			if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT)
-+				mutex_unlock(&devlink_port_mutex);
-+			mutex_unlock(&devlink_mutex);
-+			return PTR_ERR(devlink_sb);
-+		}
-+		info->user_ptr[1] = devlink_sb;
-+	}
++#define MLXSW_SP_SB_POOLS_EGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools_egress)
++
++static int __mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp,
++				    enum mlxsw_reg_sbxx_dir dir,
++				    const struct mlxsw_sp_sb_pool *pools,
++				    size_t pools_len)
+ {
+ 	int i;
+ 	int err;
+ 
+-	for (i = 0; i < MLXSW_SP_SB_POOLS_LEN; i++) {
++	for (i = 0; i < pools_len; i++) {
+ 		const struct mlxsw_sp_sb_pool *pool;
+ 
+-		pool = &mlxsw_sp_sb_pools[i];
+-		err = mlxsw_sp_sb_pr_write(mlxsw_sp, pool->pool, pool->dir,
++		pool = &pools[i];
++		err = mlxsw_sp_sb_pr_write(mlxsw_sp, i, dir,
+ 					   pool->mode, pool->size);
+ 		if (err)
+ 			return err;
+@@ -197,109 +185,114 @@ static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
  	return 0;
  }
  
-@@ -499,12 +670,675 @@ static int devlink_nl_cmd_port_unsplit_doit(struct sk_buff *skb,
- 	return devlink_port_unsplit(devlink, port_index);
- }
- 
-+static int devlink_nl_sb_fill(struct sk_buff *msg, struct devlink *devlink,
-+			      struct devlink_sb *devlink_sb,
-+			      enum devlink_command cmd, u32 portid,
-+			      u32 seq, int flags)
++static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
 +{
-+	void *hdr;
-+
-+	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	if (devlink_nl_put_handle(msg, devlink))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_INDEX, devlink_sb->index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_SIZE, devlink_sb->size))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_INGRESS_POOL_COUNT,
-+			devlink_sb->ingress_pools_count))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_EGRESS_POOL_COUNT,
-+			devlink_sb->egress_pools_count))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_INGRESS_TC_COUNT,
-+			devlink_sb->ingress_tc_count))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_EGRESS_TC_COUNT,
-+			devlink_sb->egress_tc_count))
-+		goto nla_put_failure;
-+
-+	genlmsg_end(msg, hdr);
-+	return 0;
-+
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int devlink_nl_cmd_sb_get_doit(struct sk_buff *skb,
-+				      struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	struct sk_buff *msg;
 +	int err;
 +
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = devlink_nl_sb_fill(msg, devlink, devlink_sb,
-+				 DEVLINK_CMD_SB_NEW,
-+				 info->snd_portid, info->snd_seq, 0);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg, info);
-+}
-+
-+static int devlink_nl_cmd_sb_get_dumpit(struct sk_buff *msg,
-+					struct netlink_callback *cb)
-+{
-+	struct devlink *devlink;
-+	struct devlink_sb *devlink_sb;
-+	int start = cb->args[0];
-+	int idx = 0;
-+	int err;
-+
-+	mutex_lock(&devlink_mutex);
-+	list_for_each_entry(devlink, &devlink_list, list) {
-+		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)))
-+			continue;
-+		list_for_each_entry(devlink_sb, &devlink->sb_list, list) {
-+			if (idx < start) {
-+				idx++;
-+				continue;
-+			}
-+			err = devlink_nl_sb_fill(msg, devlink, devlink_sb,
-+						 DEVLINK_CMD_SB_NEW,
-+						 NETLINK_CB(cb->skb).portid,
-+						 cb->nlh->nlmsg_seq,
-+						 NLM_F_MULTI);
-+			if (err)
-+				goto out;
-+			idx++;
-+		}
-+	}
-+out:
-+	mutex_unlock(&devlink_mutex);
-+
-+	cb->args[0] = idx;
-+	return msg->len;
-+}
-+
-+static int devlink_nl_sb_pool_fill(struct sk_buff *msg, struct devlink *devlink,
-+				   struct devlink_sb *devlink_sb,
-+				   u16 pool_index, enum devlink_command cmd,
-+				   u32 portid, u32 seq, int flags)
-+{
-+	struct devlink_sb_pool_info pool_info;
-+	void *hdr;
-+	int err;
-+
-+	err = devlink->ops->sb_pool_get(devlink, devlink_sb->index,
-+					pool_index, &pool_info);
++	err = __mlxsw_sp_sb_pools_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_INGRESS,
++				       mlxsw_sp_sb_pools_ingress,
++				       MLXSW_SP_SB_POOLS_INGRESS_LEN);
 +	if (err)
 +		return err;
-+
-+	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	if (devlink_nl_put_handle(msg, devlink))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_INDEX, devlink_sb->index))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_POOL_INDEX, pool_index))
-+		goto nla_put_failure;
-+	if (nla_put_u8(msg, DEVLINK_ATTR_SB_POOL_TYPE, pool_info.pool_type))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_POOL_SIZE, pool_info.size))
-+		goto nla_put_failure;
-+	if (nla_put_u8(msg, DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE,
-+		       pool_info.threshold_type))
-+		goto nla_put_failure;
-+
-+	genlmsg_end(msg, hdr);
-+	return 0;
-+
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+	return -EMSGSIZE;
++	return __mlxsw_sp_sb_pools_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_EGRESS,
++					mlxsw_sp_sb_pools_egress,
++					MLXSW_SP_SB_POOLS_EGRESS_LEN);
 +}
 +
-+static int devlink_nl_cmd_sb_pool_get_doit(struct sk_buff *skb,
-+					   struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	struct sk_buff *msg;
-+	u16 pool_index;
-+	int err;
-+
-+	err = devlink_sb_pool_index_get_from_info(devlink_sb, info,
-+						  &pool_index);
-+	if (err)
-+		return err;
-+
-+	if (!devlink->ops || !devlink->ops->sb_pool_get)
-+		return -EOPNOTSUPP;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = devlink_nl_sb_pool_fill(msg, devlink, devlink_sb, pool_index,
-+				      DEVLINK_CMD_SB_POOL_NEW,
-+				      info->snd_portid, info->snd_seq, 0);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg, info);
-+}
-+
-+static int __sb_pool_get_dumpit(struct sk_buff *msg, int start, int *p_idx,
-+				struct devlink *devlink,
-+				struct devlink_sb *devlink_sb,
-+				u32 portid, u32 seq)
-+{
-+	u16 pool_count = devlink_sb_pool_count(devlink_sb);
-+	u16 pool_index;
-+	int err;
-+
-+	for (pool_index = 0; pool_index < pool_count; pool_index++) {
-+		if (*p_idx < start) {
-+			(*p_idx)++;
-+			continue;
-+		}
-+		err = devlink_nl_sb_pool_fill(msg, devlink,
-+					      devlink_sb,
-+					      pool_index,
-+					      DEVLINK_CMD_SB_POOL_NEW,
-+					      portid, seq, NLM_F_MULTI);
-+		if (err)
-+			return err;
-+		(*p_idx)++;
-+	}
-+	return 0;
-+}
-+
-+static int devlink_nl_cmd_sb_pool_get_dumpit(struct sk_buff *msg,
-+					     struct netlink_callback *cb)
-+{
-+	struct devlink *devlink;
-+	struct devlink_sb *devlink_sb;
-+	int start = cb->args[0];
-+	int idx = 0;
-+	int err;
-+
-+	mutex_lock(&devlink_mutex);
-+	list_for_each_entry(devlink, &devlink_list, list) {
-+		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)) ||
-+		    !devlink->ops || !devlink->ops->sb_pool_get)
-+			continue;
-+		list_for_each_entry(devlink_sb, &devlink->sb_list, list) {
-+			err = __sb_pool_get_dumpit(msg, start, &idx, devlink,
-+						   devlink_sb,
-+						   NETLINK_CB(cb->skb).portid,
-+						   cb->nlh->nlmsg_seq);
-+			if (err && err != -EOPNOTSUPP)
-+				goto out;
-+		}
-+	}
-+out:
-+	mutex_unlock(&devlink_mutex);
-+
-+	cb->args[0] = idx;
-+	return msg->len;
-+}
-+
-+static int devlink_sb_pool_set(struct devlink *devlink, unsigned int sb_index,
-+			       u16 pool_index, u32 size,
-+			       enum devlink_sb_threshold_type threshold_type)
-+
-+{
-+	const struct devlink_ops *ops = devlink->ops;
-+
-+	if (ops && ops->sb_pool_set)
-+		return ops->sb_pool_set(devlink, sb_index, pool_index,
-+					size, threshold_type);
-+	return -EOPNOTSUPP;
-+}
-+
-+static int devlink_nl_cmd_sb_pool_set_doit(struct sk_buff *skb,
-+					   struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	enum devlink_sb_threshold_type threshold_type;
-+	u16 pool_index;
-+	u32 size;
-+	int err;
-+
-+	err = devlink_sb_pool_index_get_from_info(devlink_sb, info,
-+						  &pool_index);
-+	if (err)
-+		return err;
-+
-+	err = devlink_sb_th_type_get_from_info(info, &threshold_type);
-+	if (err)
-+		return err;
-+
-+	if (!info->attrs[DEVLINK_ATTR_SB_POOL_SIZE])
-+		return -EINVAL;
-+
-+	size = nla_get_u32(info->attrs[DEVLINK_ATTR_SB_POOL_SIZE]);
-+	return devlink_sb_pool_set(devlink, devlink_sb->index,
-+				   pool_index, size, threshold_type);
-+}
-+
-+static int devlink_nl_sb_port_pool_fill(struct sk_buff *msg,
-+					struct devlink *devlink,
-+					struct devlink_port *devlink_port,
-+					struct devlink_sb *devlink_sb,
-+					u16 pool_index,
-+					enum devlink_command cmd,
-+					u32 portid, u32 seq, int flags)
-+{
-+	u32 threshold;
-+	void *hdr;
-+	int err;
-+
-+	err = devlink->ops->sb_port_pool_get(devlink_port, devlink_sb->index,
-+					     pool_index, &threshold);
-+	if (err)
-+		return err;
-+
-+	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	if (devlink_nl_put_handle(msg, devlink))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_PORT_INDEX, devlink_port->index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_INDEX, devlink_sb->index))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_POOL_INDEX, pool_index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_THRESHOLD, threshold))
-+		goto nla_put_failure;
-+
-+	genlmsg_end(msg, hdr);
-+	return 0;
-+
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int devlink_nl_cmd_sb_port_pool_get_doit(struct sk_buff *skb,
-+						struct genl_info *info)
-+{
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink *devlink = devlink_port->devlink;
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	struct sk_buff *msg;
-+	u16 pool_index;
-+	int err;
-+
-+	err = devlink_sb_pool_index_get_from_info(devlink_sb, info,
-+						  &pool_index);
-+	if (err)
-+		return err;
-+
-+	if (!devlink->ops || !devlink->ops->sb_port_pool_get)
-+		return -EOPNOTSUPP;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = devlink_nl_sb_port_pool_fill(msg, devlink, devlink_port,
-+					   devlink_sb, pool_index,
-+					   DEVLINK_CMD_SB_PORT_POOL_NEW,
-+					   info->snd_portid, info->snd_seq, 0);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg, info);
-+}
-+
-+static int __sb_port_pool_get_dumpit(struct sk_buff *msg, int start, int *p_idx,
-+				     struct devlink *devlink,
-+				     struct devlink_sb *devlink_sb,
-+				     u32 portid, u32 seq)
-+{
-+	struct devlink_port *devlink_port;
-+	u16 pool_count = devlink_sb_pool_count(devlink_sb);
-+	u16 pool_index;
-+	int err;
-+
-+	list_for_each_entry(devlink_port, &devlink->port_list, list) {
-+		for (pool_index = 0; pool_index < pool_count; pool_index++) {
-+			if (*p_idx < start) {
-+				(*p_idx)++;
-+				continue;
-+			}
-+			err = devlink_nl_sb_port_pool_fill(msg, devlink,
-+							   devlink_port,
-+							   devlink_sb,
-+							   pool_index,
-+							   DEVLINK_CMD_SB_PORT_POOL_NEW,
-+							   portid, seq,
-+							   NLM_F_MULTI);
-+			if (err)
-+				return err;
-+			(*p_idx)++;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int devlink_nl_cmd_sb_port_pool_get_dumpit(struct sk_buff *msg,
-+						  struct netlink_callback *cb)
-+{
-+	struct devlink *devlink;
-+	struct devlink_sb *devlink_sb;
-+	int start = cb->args[0];
-+	int idx = 0;
-+	int err;
-+
-+	mutex_lock(&devlink_mutex);
-+	mutex_lock(&devlink_port_mutex);
-+	list_for_each_entry(devlink, &devlink_list, list) {
-+		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)) ||
-+		    !devlink->ops || !devlink->ops->sb_port_pool_get)
-+			continue;
-+		list_for_each_entry(devlink_sb, &devlink->sb_list, list) {
-+			err = __sb_port_pool_get_dumpit(msg, start, &idx,
-+							devlink, devlink_sb,
-+							NETLINK_CB(cb->skb).portid,
-+							cb->nlh->nlmsg_seq);
-+			if (err && err != -EOPNOTSUPP)
-+				goto out;
-+		}
-+	}
-+out:
-+	mutex_unlock(&devlink_port_mutex);
-+	mutex_unlock(&devlink_mutex);
-+
-+	cb->args[0] = idx;
-+	return msg->len;
-+}
-+
-+static int devlink_sb_port_pool_set(struct devlink_port *devlink_port,
-+				    unsigned int sb_index, u16 pool_index,
-+				    u32 threshold)
-+
-+{
-+	const struct devlink_ops *ops = devlink_port->devlink->ops;
-+
-+	if (ops && ops->sb_port_pool_set)
-+		return ops->sb_port_pool_set(devlink_port, sb_index,
-+					     pool_index, threshold);
-+	return -EOPNOTSUPP;
-+}
-+
-+static int devlink_nl_cmd_sb_port_pool_set_doit(struct sk_buff *skb,
-+						struct genl_info *info)
-+{
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	u16 pool_index;
-+	u32 threshold;
-+	int err;
-+
-+	err = devlink_sb_pool_index_get_from_info(devlink_sb, info,
-+						  &pool_index);
-+	if (err)
-+		return err;
-+
-+	if (!info->attrs[DEVLINK_ATTR_SB_THRESHOLD])
-+		return -EINVAL;
-+
-+	threshold = nla_get_u32(info->attrs[DEVLINK_ATTR_SB_THRESHOLD]);
-+	return devlink_sb_port_pool_set(devlink_port, devlink_sb->index,
-+					pool_index, threshold);
-+}
-+
-+static int
-+devlink_nl_sb_tc_pool_bind_fill(struct sk_buff *msg, struct devlink *devlink,
-+				struct devlink_port *devlink_port,
-+				struct devlink_sb *devlink_sb, u16 tc_index,
-+				enum devlink_sb_pool_type pool_type,
-+				enum devlink_command cmd,
-+				u32 portid, u32 seq, int flags)
-+{
-+	u16 pool_index;
-+	u32 threshold;
-+	void *hdr;
-+	int err;
-+
-+	err = devlink->ops->sb_tc_pool_bind_get(devlink_port, devlink_sb->index,
-+						tc_index, pool_type,
-+						&pool_index, &threshold);
-+	if (err)
-+		return err;
-+
-+	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	if (devlink_nl_put_handle(msg, devlink))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_PORT_INDEX, devlink_port->index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_INDEX, devlink_sb->index))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_TC_INDEX, tc_index))
-+		goto nla_put_failure;
-+	if (nla_put_u8(msg, DEVLINK_ATTR_SB_POOL_TYPE, pool_type))
-+		goto nla_put_failure;
-+	if (nla_put_u16(msg, DEVLINK_ATTR_SB_POOL_INDEX, pool_index))
-+		goto nla_put_failure;
-+	if (nla_put_u32(msg, DEVLINK_ATTR_SB_THRESHOLD, threshold))
-+		goto nla_put_failure;
-+
-+	genlmsg_end(msg, hdr);
-+	return 0;
-+
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+	return -EMSGSIZE;
-+}
-+
-+static int devlink_nl_cmd_sb_tc_pool_bind_get_doit(struct sk_buff *skb,
-+						   struct genl_info *info)
-+{
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink *devlink = devlink_port->devlink;
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	struct sk_buff *msg;
-+	enum devlink_sb_pool_type pool_type;
-+	u16 tc_index;
-+	int err;
-+
-+	err = devlink_sb_pool_type_get_from_info(info, &pool_type);
-+	if (err)
-+		return err;
-+
-+	err = devlink_sb_tc_index_get_from_info(devlink_sb, info,
-+						pool_type, &tc_index);
-+	if (err)
-+		return err;
-+
-+	if (!devlink->ops || !devlink->ops->sb_tc_pool_bind_get)
-+		return -EOPNOTSUPP;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = devlink_nl_sb_tc_pool_bind_fill(msg, devlink, devlink_port,
-+					      devlink_sb, tc_index, pool_type,
-+					      DEVLINK_CMD_SB_TC_POOL_BIND_NEW,
-+					      info->snd_portid,
-+					      info->snd_seq, 0);
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg, info);
-+}
-+
-+static int __sb_tc_pool_bind_get_dumpit(struct sk_buff *msg,
-+					int start, int *p_idx,
-+					struct devlink *devlink,
-+					struct devlink_sb *devlink_sb,
-+					u32 portid, u32 seq)
-+{
-+	struct devlink_port *devlink_port;
-+	u16 tc_index;
-+	int err;
-+
-+	list_for_each_entry(devlink_port, &devlink->port_list, list) {
-+		for (tc_index = 0;
-+		     tc_index < devlink_sb->ingress_tc_count; tc_index++) {
-+			if (*p_idx < start) {
-+				(*p_idx)++;
-+				continue;
-+			}
-+			err = devlink_nl_sb_tc_pool_bind_fill(msg, devlink,
-+							      devlink_port,
-+							      devlink_sb,
-+							      tc_index,
-+							      DEVLINK_SB_POOL_TYPE_INGRESS,
-+							      DEVLINK_CMD_SB_TC_POOL_BIND_NEW,
-+							      portid, seq,
-+							      NLM_F_MULTI);
-+			if (err)
-+				return err;
-+			(*p_idx)++;
-+		}
-+		for (tc_index = 0;
-+		     tc_index < devlink_sb->egress_tc_count; tc_index++) {
-+			if (*p_idx < start) {
-+				(*p_idx)++;
-+				continue;
-+			}
-+			err = devlink_nl_sb_tc_pool_bind_fill(msg, devlink,
-+							      devlink_port,
-+							      devlink_sb,
-+							      tc_index,
-+							      DEVLINK_SB_POOL_TYPE_EGRESS,
-+							      DEVLINK_CMD_SB_TC_POOL_BIND_NEW,
-+							      portid, seq,
-+							      NLM_F_MULTI);
-+			if (err)
-+				return err;
-+			(*p_idx)++;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int
-+devlink_nl_cmd_sb_tc_pool_bind_get_dumpit(struct sk_buff *msg,
-+					  struct netlink_callback *cb)
-+{
-+	struct devlink *devlink;
-+	struct devlink_sb *devlink_sb;
-+	int start = cb->args[0];
-+	int idx = 0;
-+	int err;
-+
-+	mutex_lock(&devlink_mutex);
-+	mutex_lock(&devlink_port_mutex);
-+	list_for_each_entry(devlink, &devlink_list, list) {
-+		if (!net_eq(devlink_net(devlink), sock_net(msg->sk)) ||
-+		    !devlink->ops || !devlink->ops->sb_tc_pool_bind_get)
-+			continue;
-+		list_for_each_entry(devlink_sb, &devlink->sb_list, list) {
-+			err = __sb_tc_pool_bind_get_dumpit(msg, start, &idx,
-+							   devlink,
-+							   devlink_sb,
-+							   NETLINK_CB(cb->skb).portid,
-+							   cb->nlh->nlmsg_seq);
-+			if (err && err != -EOPNOTSUPP)
-+				goto out;
-+		}
-+	}
-+out:
-+	mutex_unlock(&devlink_port_mutex);
-+	mutex_unlock(&devlink_mutex);
-+
-+	cb->args[0] = idx;
-+	return msg->len;
-+}
-+
-+static int devlink_sb_tc_pool_bind_set(struct devlink_port *devlink_port,
-+				       unsigned int sb_index, u16 tc_index,
-+				       enum devlink_sb_pool_type pool_type,
-+				       u16 pool_index, u32 threshold)
-+
-+{
-+	const struct devlink_ops *ops = devlink_port->devlink->ops;
-+
-+	if (ops && ops->sb_tc_pool_bind_set)
-+		return ops->sb_tc_pool_bind_set(devlink_port, sb_index,
-+						tc_index, pool_type,
-+						pool_index, threshold);
-+	return -EOPNOTSUPP;
-+}
-+
-+static int devlink_nl_cmd_sb_tc_pool_bind_set_doit(struct sk_buff *skb,
-+						   struct genl_info *info)
-+{
-+	struct devlink_port *devlink_port = info->user_ptr[0];
-+	struct devlink_sb *devlink_sb = info->user_ptr[1];
-+	enum devlink_sb_pool_type pool_type;
-+	u16 tc_index;
-+	u16 pool_index;
-+	u32 threshold;
-+	int err;
-+
-+	err = devlink_sb_pool_type_get_from_info(info, &pool_type);
-+	if (err)
-+		return err;
-+
-+	err = devlink_sb_tc_index_get_from_info(devlink_sb, info,
-+						pool_type, &tc_index);
-+	if (err)
-+		return err;
-+
-+	err = devlink_sb_pool_index_get_from_info(devlink_sb, info,
-+						  &pool_index);
-+	if (err)
-+		return err;
-+
-+	if (!info->attrs[DEVLINK_ATTR_SB_THRESHOLD])
-+		return -EINVAL;
-+
-+	threshold = nla_get_u32(info->attrs[DEVLINK_ATTR_SB_THRESHOLD]);
-+	return devlink_sb_tc_pool_bind_set(devlink_port, devlink_sb->index,
-+					   tc_index, pool_type,
-+					   pool_index, threshold);
-+}
-+
- static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_BUS_NAME] = { .type = NLA_NUL_STRING },
- 	[DEVLINK_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
- 	[DEVLINK_ATTR_PORT_INDEX] = { .type = NLA_U32 },
- 	[DEVLINK_ATTR_PORT_TYPE] = { .type = NLA_U16 },
- 	[DEVLINK_ATTR_PORT_SPLIT_COUNT] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_SB_INDEX] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_SB_POOL_INDEX] = { .type = NLA_U16 },
-+	[DEVLINK_ATTR_SB_POOL_TYPE] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_SB_POOL_SIZE] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_SB_THRESHOLD] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_SB_TC_INDEX] = { .type = NLA_U16 },
+ struct mlxsw_sp_sb_cm {
+-	union {
+-		u8 pg;
+-		u8 tc;
+-	} u;
+-	enum mlxsw_reg_sbxx_dir dir;
+ 	u32 min_buff;
+ 	u32 max_buff;
+ 	u8 pool;
  };
  
- static const struct genl_ops devlink_nl_ops[] = {
-@@ -545,6 +1379,66 @@ static const struct genl_ops devlink_nl_ops[] = {
- 		.flags = GENL_ADMIN_PERM,
- 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_GET,
-+		.doit = devlink_nl_cmd_sb_get_doit,
-+		.dumpit = devlink_nl_cmd_sb_get_dumpit,
-+		.policy = devlink_nl_policy,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+		/* can be retrieved by unprivileged users */
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_POOL_GET,
-+		.doit = devlink_nl_cmd_sb_pool_get_doit,
-+		.dumpit = devlink_nl_cmd_sb_pool_get_dumpit,
-+		.policy = devlink_nl_policy,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+		/* can be retrieved by unprivileged users */
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_POOL_SET,
-+		.doit = devlink_nl_cmd_sb_pool_set_doit,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_PORT_POOL_GET,
-+		.doit = devlink_nl_cmd_sb_port_pool_get_doit,
-+		.dumpit = devlink_nl_cmd_sb_port_pool_get_dumpit,
-+		.policy = devlink_nl_policy,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+		/* can be retrieved by unprivileged users */
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_PORT_POOL_SET,
-+		.doit = devlink_nl_cmd_sb_port_pool_set_doit,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_TC_POOL_BIND_GET,
-+		.doit = devlink_nl_cmd_sb_tc_pool_bind_get_doit,
-+		.dumpit = devlink_nl_cmd_sb_tc_pool_bind_get_dumpit,
-+		.policy = devlink_nl_policy,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+		/* can be retrieved by unprivileged users */
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_SB_TC_POOL_BIND_SET,
-+		.doit = devlink_nl_cmd_sb_tc_pool_bind_set_doit,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT |
-+				  DEVLINK_NL_FLAG_NEED_SB,
-+	},
+-#define MLXSW_SP_SB_CM(_pg_tc, _dir, _min_buff, _max_buff, _pool)	\
+-	{								\
+-		.u.pg = _pg_tc,						\
+-		.dir = _dir,						\
+-		.min_buff = _min_buff,					\
+-		.max_buff = _max_buff,					\
+-		.pool = _pool,						\
++#define MLXSW_SP_SB_CM(_min_buff, _max_buff, _pool)	\
++	{						\
++		.min_buff = _min_buff,			\
++		.max_buff = _max_buff,			\
++		.pool = _pool,				\
+ 	}
+ 
+-#define MLXSW_SP_SB_CM_INGRESS(_pg, _min_buff, _max_buff)		\
+-	MLXSW_SP_SB_CM(_pg, MLXSW_REG_SBXX_DIR_INGRESS,			\
+-		       _min_buff, _max_buff, 0)
+-
+-#define MLXSW_SP_SB_CM_EGRESS(_tc, _min_buff, _max_buff)		\
+-	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS,			\
+-		       _min_buff, _max_buff, 0)
+-
+-#define MLXSW_SP_CPU_PORT_SB_CM_EGRESS(_tc)				\
+-	MLXSW_SP_SB_CM(_tc, MLXSW_REG_SBXX_DIR_EGRESS, 104, 2, 3)
+-
+-static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms[] = {
+-	MLXSW_SP_SB_CM_INGRESS(0, MLXSW_SP_BYTES_TO_CELLS(10000), 8),
+-	MLXSW_SP_SB_CM_INGRESS(1, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(2, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(3, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(4, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(5, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(6, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(7, 0, 0),
+-	MLXSW_SP_SB_CM_INGRESS(9, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff),
+-	MLXSW_SP_SB_CM_EGRESS(0, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(1, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(2, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(3, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(4, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(5, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(6, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(7, MLXSW_SP_BYTES_TO_CELLS(1500), 9),
+-	MLXSW_SP_SB_CM_EGRESS(8, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(9, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(10, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(11, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(12, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(13, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(14, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(15, 0, 0),
+-	MLXSW_SP_SB_CM_EGRESS(16, 1, 0xff),
++static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms_ingress[] = {
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(10000), 8, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0), /* dummy, this PG does not exist */
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
  };
  
- /**
-@@ -566,6 +1460,7 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
- 	devlink->ops = ops;
- 	devlink_net_set(devlink, &init_net);
- 	INIT_LIST_HEAD(&devlink->port_list);
-+	INIT_LIST_HEAD(&devlink->sb_list);
- 	return devlink;
- }
- EXPORT_SYMBOL_GPL(devlink_alloc);
-@@ -721,6 +1616,51 @@ void devlink_port_split_set(struct devlink_port *devlink_port,
- }
- EXPORT_SYMBOL_GPL(devlink_port_split_set);
+-#define MLXSW_SP_SB_CMS_LEN ARRAY_SIZE(mlxsw_sp_sb_cms)
++#define MLXSW_SP_SB_CMS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_cms_ingress)
++
++static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms_egress[] = {
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(1500), 9, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(0, 0, 0),
++	MLXSW_SP_SB_CM(1, 0xff, 0),
++};
++
++#define MLXSW_SP_SB_CMS_EGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_cms_egress)
++
++#define MLXSW_SP_CPU_PORT_SB_CM MLXSW_SP_SB_CM(104, 2, 3)
  
-+int devlink_sb_register(struct devlink *devlink, unsigned int sb_index,
-+			u32 size, u16 ingress_pools_count,
-+			u16 egress_pools_count, u16 ingress_tc_count,
-+			u16 egress_tc_count)
-+{
-+	struct devlink_sb *devlink_sb;
-+	int err = 0;
-+
-+	mutex_lock(&devlink_mutex);
-+	if (devlink_sb_index_exists(devlink, sb_index)) {
-+		err = -EEXIST;
-+		goto unlock;
-+	}
-+
-+	devlink_sb = kzalloc(sizeof(*devlink_sb), GFP_KERNEL);
-+	if (!devlink_sb) {
-+		err = -ENOMEM;
-+		goto unlock;
-+	}
-+	devlink_sb->index = sb_index;
-+	devlink_sb->size = size;
-+	devlink_sb->ingress_pools_count = ingress_pools_count;
-+	devlink_sb->egress_pools_count = egress_pools_count;
-+	devlink_sb->ingress_tc_count = ingress_tc_count;
-+	devlink_sb->egress_tc_count = egress_tc_count;
-+	list_add_tail(&devlink_sb->list, &devlink->sb_list);
-+unlock:
-+	mutex_unlock(&devlink_mutex);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(devlink_sb_register);
-+
-+void devlink_sb_unregister(struct devlink *devlink, unsigned int sb_index)
-+{
-+	struct devlink_sb *devlink_sb;
-+
-+	mutex_lock(&devlink_mutex);
-+	devlink_sb = devlink_sb_get_by_index(devlink, sb_index);
-+	WARN_ON(!devlink_sb);
-+	list_del(&devlink_sb->list);
-+	mutex_unlock(&devlink_mutex);
-+	kfree(devlink_sb);
-+}
-+EXPORT_SYMBOL_GPL(devlink_sb_unregister);
-+
- static int __init devlink_module_init(void)
+ static const struct mlxsw_sp_sb_cm mlxsw_sp_cpu_port_sb_cms[] = {
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(0),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(1),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(2),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(3),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(4),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(5),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(6),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(7),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(8),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(9),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(10),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(11),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(12),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(13),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(14),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(15),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(16),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(17),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(18),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(19),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(20),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(21),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(22),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(23),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(24),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(25),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(26),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(27),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(28),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(29),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(30),
+-	MLXSW_SP_CPU_PORT_SB_CM_EGRESS(31),
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
++	MLXSW_SP_CPU_PORT_SB_CM,
+ };
+ 
+ #define MLXSW_SP_CPU_PORT_SB_MCS_LEN \
+ 	ARRAY_SIZE(mlxsw_sp_cpu_port_sb_cms)
+ 
+-static int mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+-				const struct mlxsw_sp_sb_cm *cms,
+-				size_t cms_len)
++static int __mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
++				  enum mlxsw_reg_sbxx_dir dir,
++				  const struct mlxsw_sp_sb_cm *cms,
++				  size_t cms_len)
  {
- 	return genl_register_family_with_ops_groups(&devlink_nl_family,
+ 	int i;
+ 	int err;
+@@ -307,10 +300,12 @@ static int mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 	for (i = 0; i < cms_len; i++) {
+ 		const struct mlxsw_sp_sb_cm *cm;
+ 
++		if (i == 8 && dir == MLXSW_REG_SBXX_DIR_INGRESS)
++			continue; /* PG number 8 does not exist, skip it */
+ 		cm = &cms[i];
+-		err = mlxsw_sp_sb_cm_write(mlxsw_sp, local_port, cm->u.pg,
+-					   cm->dir, cm->min_buff,
+-					   cm->max_buff, cm->pool);
++		err = mlxsw_sp_sb_cm_write(mlxsw_sp, local_port, i, dir,
++					   cm->min_buff, cm->max_buff,
++					   cm->pool);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -319,65 +314,71 @@ static int mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 
+ static int mlxsw_sp_port_sb_cms_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ {
+-	return mlxsw_sp_sb_cms_init(mlxsw_sp_port->mlxsw_sp,
+-				    mlxsw_sp_port->local_port, mlxsw_sp_sb_cms,
+-				    MLXSW_SP_SB_CMS_LEN);
++	int err;
++
++	err = __mlxsw_sp_sb_cms_init(mlxsw_sp_port->mlxsw_sp,
++				     mlxsw_sp_port->local_port,
++				     MLXSW_REG_SBXX_DIR_INGRESS,
++				     mlxsw_sp_sb_cms_ingress,
++				     MLXSW_SP_SB_CMS_INGRESS_LEN);
++	if (err)
++		return err;
++	return __mlxsw_sp_sb_cms_init(mlxsw_sp_port->mlxsw_sp,
++				      mlxsw_sp_port->local_port,
++				      MLXSW_REG_SBXX_DIR_EGRESS,
++				      mlxsw_sp_sb_cms_egress,
++				      MLXSW_SP_SB_CMS_EGRESS_LEN);
+ }
+ 
+ static int mlxsw_sp_cpu_port_sb_cms_init(struct mlxsw_sp *mlxsw_sp)
+ {
+-	return mlxsw_sp_sb_cms_init(mlxsw_sp, 0, mlxsw_sp_cpu_port_sb_cms,
+-				    MLXSW_SP_CPU_PORT_SB_MCS_LEN);
++	return __mlxsw_sp_sb_cms_init(mlxsw_sp, 0, MLXSW_REG_SBXX_DIR_EGRESS,
++				      mlxsw_sp_cpu_port_sb_cms,
++				      MLXSW_SP_CPU_PORT_SB_MCS_LEN);
+ }
+ 
+ struct mlxsw_sp_sb_pm {
+-	u8 pool;
+-	enum mlxsw_reg_sbxx_dir dir;
+ 	u32 min_buff;
+ 	u32 max_buff;
+ };
+ 
+-#define MLXSW_SP_SB_PM(_pool, _dir, _min_buff, _max_buff)	\
+-	{							\
+-		.pool = _pool,					\
+-		.dir = _dir,					\
+-		.min_buff = _min_buff,				\
+-		.max_buff = _max_buff,				\
++#define MLXSW_SP_SB_PM(_min_buff, _max_buff)	\
++	{					\
++		.min_buff = _min_buff,		\
++		.max_buff = _max_buff,		\
+ 	}
+ 
+-#define MLXSW_SP_SB_PM_INGRESS(_pool, _min_buff, _max_buff)	\
+-	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_INGRESS,	\
+-		       _min_buff, _max_buff)
+-
+-#define MLXSW_SP_SB_PM_EGRESS(_pool, _min_buff, _max_buff)	\
+-	MLXSW_SP_SB_PM(_pool, MLXSW_REG_SBXX_DIR_EGRESS,	\
+-		       _min_buff, _max_buff)
+-
+-static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms[] = {
+-	MLXSW_SP_SB_PM_INGRESS(0, 0, 0xff),
+-	MLXSW_SP_SB_PM_INGRESS(1, 0, 0),
+-	MLXSW_SP_SB_PM_INGRESS(2, 0, 0),
+-	MLXSW_SP_SB_PM_INGRESS(3, 0, 0),
+-	MLXSW_SP_SB_PM_EGRESS(0, 0, 7),
+-	MLXSW_SP_SB_PM_EGRESS(1, 0, 0),
+-	MLXSW_SP_SB_PM_EGRESS(2, 0, 0),
+-	MLXSW_SP_SB_PM_EGRESS(3, 0, 0),
++static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms_ingress[] = {
++	MLXSW_SP_SB_PM(0, 0xff),
++	MLXSW_SP_SB_PM(0, 0),
++	MLXSW_SP_SB_PM(0, 0),
++	MLXSW_SP_SB_PM(0, 0),
+ };
+ 
+-#define MLXSW_SP_SB_PMS_LEN ARRAY_SIZE(mlxsw_sp_sb_pms)
++#define MLXSW_SP_SB_PMS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pms_ingress)
+ 
+-static int mlxsw_sp_port_sb_pms_init(struct mlxsw_sp_port *mlxsw_sp_port)
++static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms_egress[] = {
++	MLXSW_SP_SB_PM(0, 7),
++	MLXSW_SP_SB_PM(0, 0),
++	MLXSW_SP_SB_PM(0, 0),
++	MLXSW_SP_SB_PM(0, 0),
++};
++
++#define MLXSW_SP_SB_PMS_EGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pms_egress)
++
++static int __mlxsw_sp_port_sb_pms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
++				       enum mlxsw_reg_sbxx_dir dir,
++				       const struct mlxsw_sp_sb_pm *pms,
++				       size_t pms_len)
+ {
+ 	int i;
+ 	int err;
+ 
+-	for (i = 0; i < MLXSW_SP_SB_PMS_LEN; i++) {
++	for (i = 0; i < pms_len; i++) {
+ 		const struct mlxsw_sp_sb_pm *pm;
+ 
+-		pm = &mlxsw_sp_sb_pms[i];
+-		err = mlxsw_sp_sb_pm_write(mlxsw_sp_port->mlxsw_sp,
+-					   mlxsw_sp_port->local_port,
+-					   pm->pool, pm->dir,
++		pm = &pms[i];
++		err = mlxsw_sp_sb_pm_write(mlxsw_sp, local_port, i, dir,
+ 					   pm->min_buff, pm->max_buff);
+ 		if (err)
+ 			return err;
+@@ -385,37 +386,53 @@ static int mlxsw_sp_port_sb_pms_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_port_sb_pms_init(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	int err;
++
++	err = __mlxsw_sp_port_sb_pms_init(mlxsw_sp_port->mlxsw_sp,
++					  mlxsw_sp_port->local_port,
++					  MLXSW_REG_SBXX_DIR_INGRESS,
++					  mlxsw_sp_sb_pms_ingress,
++					  MLXSW_SP_SB_PMS_INGRESS_LEN);
++	if (err)
++		return err;
++	return __mlxsw_sp_port_sb_pms_init(mlxsw_sp_port->mlxsw_sp,
++					   mlxsw_sp_port->local_port,
++					   MLXSW_REG_SBXX_DIR_EGRESS,
++					   mlxsw_sp_sb_pms_egress,
++					   MLXSW_SP_SB_PMS_EGRESS_LEN);
++}
++
+ struct mlxsw_sp_sb_mm {
+-	u8 prio;
+ 	u32 min_buff;
+ 	u32 max_buff;
+ 	u8 pool;
+ };
+ 
+-#define MLXSW_SP_SB_MM(_prio, _min_buff, _max_buff, _pool)	\
+-	{							\
+-		.prio = _prio,					\
+-		.min_buff = _min_buff,				\
+-		.max_buff = _max_buff,				\
+-		.pool = _pool,					\
++#define MLXSW_SP_SB_MM(_min_buff, _max_buff, _pool)	\
++	{						\
++		.min_buff = _min_buff,			\
++		.max_buff = _max_buff,			\
++		.pool = _pool,				\
+ 	}
+ 
+ static const struct mlxsw_sp_sb_mm mlxsw_sp_sb_mms[] = {
+-	MLXSW_SP_SB_MM(0, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(1, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(2, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(3, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(4, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(5, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(6, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(7, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(8, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(9, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(10, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(11, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(12, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(13, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+-	MLXSW_SP_SB_MM(14, MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_MM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
+ };
+ 
+ #define MLXSW_SP_SB_MMS_LEN ARRAY_SIZE(mlxsw_sp_sb_mms)
+@@ -430,7 +447,7 @@ static int mlxsw_sp_sb_mms_init(struct mlxsw_sp *mlxsw_sp)
+ 		const struct mlxsw_sp_sb_mm *mc;
+ 
+ 		mc = &mlxsw_sp_sb_mms[i];
+-		mlxsw_reg_sbmm_pack(sbmm_pl, mc->prio, mc->min_buff,
++		mlxsw_reg_sbmm_pack(sbmm_pl, i, mc->min_buff,
+ 				    mc->max_buff, mc->pool);
+ 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbmm), sbmm_pl);
+ 		if (err)
 -- 
 2.5.5
