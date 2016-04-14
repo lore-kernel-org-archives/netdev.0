@@ -1,36 +1,32 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2 0/4] add MACsec support
-Date: Thu, 14 Apr 2016 16:59:18 +0200
-Message-ID: <20160414145918.GD3715@orbyte.nwl.cc>
-References: <cover.1460622809.git.sd@queasysnail.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
+Date: Thu, 14 Apr 2016 08:01:39 -0700
+Message-ID: <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58368 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752403AbcDNO7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 10:59:20 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1460622809.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 14, 2016 at 03:01:06PM +0200, Sabrina Dubroca wrote:
-> This series introduces support for MACsec devices, with a new device
-> type for `ip link`, and a new `ip macsec` subcommand.
+On Thu, 2016-04-14 at 16:44 +0200, Jiri Kosina wrote:
+> Hi,
 > 
-> The first three patches introduce some necessary helper functions.
+> I've came across the behavior where adding a child qdisc and then deleting 
+> it again makes the networking dysfunctional (I guess that's because all of 
+> a sudden there is absolutely no working qdisc on the device, although 
+> there originally was a default one in the parent).
 > 
-> Sabrina Dubroca (4):
->   utils: make hexstring_a2n provide the number of hex digits parsed
->   utils: add get_be{16,32,64}, use them where possible
->   utils: provide get_hex to read an hex digit from a char
->   ip: add MACsec support
+> In a nutshell, is this expected behavior or bug?
 
-Apart from the unrelated coding-style fix in patch 1 and the somewhat
-intricate man page markup:
+This is the expected behavior.
 
-Acked-by: Phil Sutter <phil@nwl.cc>
+If the kernel was suddenly doing a 'replace' when you ask a delete,
+then the scripts doing a delete , than a add would break.
+
+tc users are skilled admins ;)
