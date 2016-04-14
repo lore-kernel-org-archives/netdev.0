@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] net: ethernet: renesas: ravb_main: test clock
- rate to avoid division by 0
-Date: Wed, 13 Apr 2016 22:43:41 -0400 (EDT)
-Message-ID: <20160413.224341.183773545765700897.davem@davemloft.net>
-References: <1460114922-4148-1-git-send-email-wsa@the-dreams.de>
+Subject: Re: [PATCH net-next] net: ethernet: stmmac: GMAC4.xx: Fix TX
+ descriptor preparation
+Date: Wed, 13 Apr 2016 22:43:48 -0400 (EDT)
+Message-ID: <20160413.224348.277274080784977510.davem@davemloft.net>
+References: <1460107083-25577-1-git-send-email-alexandre.torgue@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com
-To: wsa@the-dreams.de
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1460114922-4148-1-git-send-email-wsa@the-dreams.de>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, peppe.cavallaro@st.com,
+	dan.carpenter@oracle.com, kernel-janitors@vger.kernel.org
+To: alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754082AbcDNCnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 22:43:50 -0400
+In-Reply-To: <1460107083-25577-1-git-send-email-alexandre.torgue@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfram Sang <wsa@the-dreams.de>
-Date: Fri,  8 Apr 2016 13:28:42 +0200
+From: Alexandre TORGUE <alexandre.torgue@st.com>
+Date: Fri, 8 Apr 2016 11:18:03 +0200
 
-> From: Wolfram Sang <wsa+renesas@sang-engineering.com>
+> On GMAC4.xx each descriptor contains 2 buffers of 16KB (each).
+> Initially, those 2 buffers was filled in dwmac4_rd_prepare_tx_desc but
+> it is actually not needed. Indeed, stmmac driver supports frame up to
+> 9000 bytes (jumbo). So only one buffer is needed.
 > 
-> The clk API may return 0 on clk_get_rate, so we should check the result before
-> using it as a divisor.
-> 
-> Signed-off-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Alexandre TORGUE <alexandre.torgue@st.com>
 
 Applied.
