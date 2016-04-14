@@ -1,32 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf/verifier: reject invalid LD_ABS | BPF_DW
- instruction
-Date: Thu, 14 Apr 2016 01:32:35 -0400 (EDT)
-Message-ID: <20160414.013235.548560317273289663.davem@davemloft.net>
-References: <1460481979-1771165-1-git-send-email-ast@fb.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH v2 net-next 0/5] qed/qede: Add tunneling support
+Date: Thu, 14 Apr 2016 01:38:28 -0400
+Message-ID: <1460612313-20323-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org
-To: ast@fb.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34543 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752430AbcDNFch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 01:32:37 -0400
-In-Reply-To: <1460481979-1771165-1-git-send-email-ast@fb.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39296 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751716AbcDNGUL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:20:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Tue, 12 Apr 2016 10:26:19 -0700
+Hi David,
 
-> verifier must check for reserved size bits in instruction opcode and
-> reject BPF_LD | BPF_ABS | BPF_DW and BPF_LD | BPF_IND | BPF_DW instructions,
-> otherwise interpreter will WARN_RATELIMIT on them during execution.
-> 
-> Fixes: ddd872bc3098 ("bpf: verifier: add checks for BPF_ABS | BPF_IND instructions")
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+This patch series adds support for VXLAN, GRE and GENEVE tunnels
+to be used over this driver. With this support, adapter can perform
+TSO offload, inner/outer checksums offloads on TX and RX for
+encapsulated packets.
 
-Applied and queued up for -stable, thanks.
+V1->V2 [ Comments from Jesse Gross incorporated ]
+* Drop general infrastructure change patch.
+  "net: Make vxlan/geneve default udp ports public"
+* Remove by default Linux default UDP ports configurations in driver.
+  Instead, use general registration APIs for UDP port configurations
+* Removing .ndo_features_check - we will add it later with proper change.
+
+Please consider applying this series to net-next.
+
+Thanks,
+Manish
+
+Manish Chopra (5):
+  qed: Add infrastructure support for tunneling
+  qed/qede: Add VXLAN tunnel slowpath configuration support
+  qed/qede: Add GENEVE tunnel slowpath configuration support
+  qed: Enable GRE tunnel slowpath configuration
+  qede: Add fastpath support for tunneling
+
+ drivers/net/ethernet/qlogic/Kconfig                |  21 ++
+ drivers/net/ethernet/qlogic/qed/qed.h              |  46 ++++
+ drivers/net/ethernet/qlogic/qed/qed_dev.c          |   6 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h      |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h          |  51 ++++-
+ .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    | 127 ++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_l2.c           |  31 +++
+ drivers/net/ethernet/qlogic/qed/qed_main.c         |  15 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |  31 +++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |   7 +
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c  | 255 +++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede.h            |   7 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c       | 218 +++++++++++++++++-
+ include/linux/qed/qed_eth_if.h                     |  10 +
+ 14 files changed, 811 insertions(+), 16 deletions(-)
+
+-- 
+2.7.2
