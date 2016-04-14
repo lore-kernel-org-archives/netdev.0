@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/18] mlxsw: spectrum_buffers: Push out shared buffer register writes
-Date: Thu, 14 Apr 2016 18:19:16 +0200
-Message-ID: <1460650770-19382-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 09/18] mlxsw: spectrum_buffers: Change initialization of PG 9
+Date: Thu, 14 Apr 2016 18:19:21 +0200
+Message-ID: <1460650770-19382-10-git-send-email-jiri@resnulli.us>
 References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,132 +11,74 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36471 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964788AbcDNQTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:39 -0400
-Received: by mail-wm0-f49.google.com with SMTP id v188so227617821wme.1
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:39 -0700 (PDT)
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38625 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964802AbcDNQTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:46 -0400
+Received: by mail-wm0-f46.google.com with SMTP id u206so133452400wme.1
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:45 -0700 (PDT)
 In-Reply-To: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Pushed them into helper functions.
+As explained in commit ff6551ec0c27 ("mlxsw: spectrum: Correctly
+configure headroom size") control packets are directed to priority group
+buffer 9 (PG9) in the ports' headroom buffers.
+
+Since we don't want to drop control packets in case they can't be
+admitted to the switch's shared buffer we bind PG9 to a different
+ingress pool from the one used by all other PGs.
+
+Unlike other PGs, we currently don't expose the binding between PG9 to a
+pool and leave it fixed.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 54 ++++++++++++++++------
- 1 file changed, 40 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index f58b1d3..ae60838 100644
+index dc57d77..7ee2315 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -42,6 +42,37 @@
- #include "port.h"
- #include "reg.h"
+@@ -181,6 +181,7 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
  
-+static int mlxsw_sp_sb_pr_write(struct mlxsw_sp *mlxsw_sp, u8 pool,
-+				enum mlxsw_reg_sbxx_dir dir,
-+				enum mlxsw_reg_sbpr_mode mode, u32 size)
-+{
-+	char sbpr_pl[MLXSW_REG_SBPR_LEN];
-+
-+	mlxsw_reg_sbpr_pack(sbpr_pl, pool, dir, mode, size);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbpr), sbpr_pl);
-+}
-+
-+static int mlxsw_sp_sb_cm_write(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				u8 pg_buff, enum mlxsw_reg_sbxx_dir dir,
-+				u32 min_buff, u32 max_buff, u8 pool)
-+{
-+	char sbcm_pl[MLXSW_REG_SBCM_LEN];
-+
-+	mlxsw_reg_sbcm_pack(sbcm_pl, local_port, pg_buff, dir,
-+			    min_buff, max_buff, pool);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbcm), sbcm_pl);
-+}
-+
-+static int mlxsw_sp_sb_pm_write(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				u8 pool, enum mlxsw_reg_sbxx_dir dir,
-+				u32 min_buff, u32 max_buff)
-+{
-+	char sbpm_pl[MLXSW_REG_SBPM_LEN];
-+
-+	mlxsw_reg_sbpm_pack(sbpm_pl, local_port, pool, dir, min_buff, max_buff);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbpm), sbpm_pl);
-+}
-+
- struct mlxsw_sp_pb {
- 	u8 index;
- 	u16 size;
-@@ -151,7 +182,6 @@ static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools[] = {
+ #define MLXSW_SP_SB_PR_INGRESS_SIZE				\
+ 	(15000000 - (2 * 20000 * MLXSW_PORT_MAX_PORTS))
++#define MLXSW_SP_SB_PR_INGRESS_MNG_SIZE (200 * 1000)
+ #define MLXSW_SP_SB_PR_EGRESS_SIZE				\
+ 	(14000000 - (8 * 1500 * MLXSW_PORT_MAX_PORTS))
  
- static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
- {
--	char sbpr_pl[MLXSW_REG_SBPR_LEN];
- 	int i;
- 	int err;
+@@ -195,7 +196,8 @@ static const struct mlxsw_sp_sb_pr mlxsw_sp_sb_prs_ingress[] = {
+ 		       MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_PR_INGRESS_SIZE)),
+ 	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+ 	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+-	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC,
++		       MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_PR_INGRESS_MNG_SIZE)),
+ };
  
-@@ -159,9 +189,8 @@ static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
- 		const struct mlxsw_sp_sb_pool *pool;
+ #define MLXSW_SP_SB_PRS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_prs_ingress)
+@@ -261,7 +263,7 @@ static const struct mlxsw_sp_sb_cm mlxsw_sp_sb_cms_ingress[] = {
+ 	MLXSW_SP_SB_CM(0, 0, 0),
+ 	MLXSW_SP_SB_CM(0, 0, 0),
+ 	MLXSW_SP_SB_CM(0, 0, 0), /* dummy, this PG does not exist */
+-	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(20000), 0xff, 0),
++	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(20000), 1, 3),
+ };
  
- 		pool = &mlxsw_sp_sb_pools[i];
--		mlxsw_reg_sbpr_pack(sbpr_pl, pool->pool, pool->dir,
--				    pool->mode, pool->size);
--		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbpr), sbpr_pl);
-+		err = mlxsw_sp_sb_pr_write(mlxsw_sp, pool->pool, pool->dir,
-+					   pool->mode, pool->size);
- 		if (err)
- 			return err;
- 	}
-@@ -272,7 +301,6 @@ static int mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 				const struct mlxsw_sp_sb_cm *cms,
- 				size_t cms_len)
- {
--	char sbcm_pl[MLXSW_REG_SBCM_LEN];
- 	int i;
- 	int err;
+ #define MLXSW_SP_SB_CMS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_cms_ingress)
+@@ -386,7 +388,7 @@ static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms_ingress[] = {
+ 	MLXSW_SP_SB_PM(0, 0xff),
+ 	MLXSW_SP_SB_PM(0, 0),
+ 	MLXSW_SP_SB_PM(0, 0),
+-	MLXSW_SP_SB_PM(0, 0),
++	MLXSW_SP_SB_PM(0, 0xff),
+ };
  
-@@ -280,9 +308,9 @@ static int mlxsw_sp_sb_cms_init(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 		const struct mlxsw_sp_sb_cm *cm;
- 
- 		cm = &cms[i];
--		mlxsw_reg_sbcm_pack(sbcm_pl, local_port, cm->u.pg, cm->dir,
--				    cm->min_buff, cm->max_buff, cm->pool);
--		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbcm), sbcm_pl);
-+		err = mlxsw_sp_sb_cm_write(mlxsw_sp, local_port, cm->u.pg,
-+					   cm->dir, cm->min_buff,
-+					   cm->max_buff, cm->pool);
- 		if (err)
- 			return err;
- 	}
-@@ -340,7 +368,6 @@ static const struct mlxsw_sp_sb_pm mlxsw_sp_sb_pms[] = {
- 
- static int mlxsw_sp_port_sb_pms_init(struct mlxsw_sp_port *mlxsw_sp_port)
- {
--	char sbpm_pl[MLXSW_REG_SBPM_LEN];
- 	int i;
- 	int err;
- 
-@@ -348,11 +375,10 @@ static int mlxsw_sp_port_sb_pms_init(struct mlxsw_sp_port *mlxsw_sp_port)
- 		const struct mlxsw_sp_sb_pm *pm;
- 
- 		pm = &mlxsw_sp_sb_pms[i];
--		mlxsw_reg_sbpm_pack(sbpm_pl, mlxsw_sp_port->local_port,
--				    pm->pool, pm->dir,
--				    pm->min_buff, pm->max_buff);
--		err = mlxsw_reg_write(mlxsw_sp_port->mlxsw_sp->core,
--				      MLXSW_REG(sbpm), sbpm_pl);
-+		err = mlxsw_sp_sb_pm_write(mlxsw_sp_port->mlxsw_sp,
-+					   mlxsw_sp_port->local_port,
-+					   pm->pool, pm->dir,
-+					   pm->min_buff, pm->max_buff);
- 		if (err)
- 			return err;
- 	}
+ #define MLXSW_SP_SB_PMS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pms_ingress)
 -- 
 2.5.5
