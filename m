@@ -1,62 +1,50 @@
-From: Weidong Wang <wangweidong1@huawei.com>
-Subject: Re: [RESEND PATCH net-next] phy: keep the BCMR_LOOPBACK bit while
- setup forced mode
-Date: Thu, 14 Apr 2016 11:42:18 +0800
-Message-ID: <570F119A.4020402@huawei.com>
-References: <570E3488.9060403@huawei.com> <570E92ED.9020603@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570E92ED.9020603@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/2][pull request] Intel Wired LAN Driver Updates 2016-04-13
+Date: Wed, 13 Apr 2016 20:47:10 -0700
+Message-ID: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	john.ronciak@intel.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:10479 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752362AbcDNDrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Apr 2016 23:47:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/4/14 2:41, Florian Fainelli wrote:
-> On 13/04/16 04:59, Weidong Wang wrote:
->> When tested the PHY SGMII Loopback,:
->> 1.set the LOOPBACK bit,
->> 2.set the autoneg to AUTONEG_DISABLE, it calls the
->> genphy_setup_forced which will clear the bit.
->>
->> So just keep the LOOPBACK bit while setup forced mode.
-> 
-> Humm, it makes sense why we want this one, but maybe we want other bits
-> to be preserved too, like MII_ISOLATE for instance?
-> 
+This series contains updates to i40e, i40evf and fm10k.
 
-I will add the  MII_ISOLATE as well.
+Alex fixes a bug introduced earlier based on his interpretation of the
+XL710 datasheet.  The actual limit for fragments with TSO and a skbuff
+that has payload data in the header portion of the buffer is actually
+only 7 fragments and the skb-data portion counts as 2 buffers, one for
+the TSO header, and the one for a segment payload buffer.
 
-> Or maybe we should have a separate way to put the PHY into loopback mode
-> which is deterministic and takes care of forcing the link at the same time?
-> 
+Jacob fixes a bug where in a previous refactor of the code broke
+multi-bit updates for VFs.  The problem occurs because a multi-bit
+request has a non-zero length, and the PF would simply drop any
+request with the upper 16 bits set.
 
-I test with the loopback mode, and the link status is undeterminable.
+The following are changes since commit a6d37131c02f15463daa00e2f1da6824e8e00de2:
+  net: ethernet: renesas: ravb_main: test clock rate to avoid division by 0
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue master
 
->>
->> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
->> ---
->>  drivers/net/phy/phy_device.c | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
->> index e551f3a..8da4b80 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
->> @@ -1124,7 +1124,9 @@ static int genphy_config_advert(struct phy_device *phydev)
->>  int genphy_setup_forced(struct phy_device *phydev)
->>  {
->>  	int ctl = 0;
->> +	int val = phy_read(phydev, MII_BMCR);
->>
->> +	ctl |= val & BMCR_LOOPBACK;
->>  	phydev->pause = 0;
->>  	phydev->asym_pause = 0;
->>
->> -- 2.7.0
->>
-> 
-> 
+Alexander Duyck (1):
+  i40e/i40evf: Limit TSO to 7 descriptors for payload instead of 8 per
+    packet
+
+Jacob Keller (1):
+  fm10k: fix multi-bit VLAN update requests from VF
+
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c   | 30 +++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 49 +++++++++++++--------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 10 ++++--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 49 +++++++++++++--------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 10 ++++--
+ 5 files changed, 84 insertions(+), 64 deletions(-)
+
+-- 
+2.5.5
