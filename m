@@ -1,70 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS
- message to dump link stats
-Date: Thu, 14 Apr 2016 00:19:48 -0400 (EDT)
-Message-ID: <20160414.001948.1059678462607051806.davem@davemloft.net>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
+ 2016-04-13
+Date: Thu, 14 Apr 2016 00:32:09 -0400 (EDT)
+Message-ID: <20160414.003209.309362863538715796.davem@davemloft.net>
+References: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: roopa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34179 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34235 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559AbcDNETy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:19:54 -0400
-In-Reply-To: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com>
+	with ESMTP id S1753185AbcDNEcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:32:12 -0400
+In-Reply-To: <1460605632-112945-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Fri,  8 Apr 2016 23:38:11 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 13 Apr 2016 20:47:10 -0700
 
-> This patch adds a new RTM_GETSTATS message to query link stats via netlink
-> from the kernel. RTM_NEWLINK also dumps stats today, but RTM_NEWLINK
-> returns a lot more than just stats and is expensive in some cases when
-> frequent polling for stats from userspace is a common operation.
+> This series contains updates to i40e, i40evf and fm10k.
 
-Great work.  One thing catches my eye:
-
-> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK64)) {
-> +		attr = nla_reserve(skb, IFLA_STATS_LINK64,
-> +				   sizeof(struct rtnl_link_stats64));
-> +		if (!attr)
-> +			return -EMSGSIZE;
-> +
-> +		stats = dev_get_stats(dev, &temp);
-> +
-> +		copy_rtnl_link_stats64(nla_data(attr), stats);
-
-This extra copy bothers me, so I tried to figure out what is going
-on here.
-
-dev_get_stats() always returns the rtnl_link_stats64 pointer it was
-given.  We should be able to pass, therefore, nla_data(attr), straight
-there to avoid the copy.
-
-Bonding even uses dev_get_stats() in this way.
-
-The existing rtnl_fill_stats() can be improved similarly but is of
-course a separate change.  In that case, we'd do something like:
-
-	struct rtnl_link_stats64 *sp;
-
-	attr = nla_reserve(skb, IFLA_STATS64,
-			   sizeof(struct rtnl_link_stats64));
-	if (!attr)
-		return -EMSGSIZE;
-
-	sp = nla_data(attr);
-	dev_get_stats(dev, sp);
-
-	attr = nla_reserve(skb, IFLA_STATS,
-			   sizeof(struct rtnl_link_stats));
-	if (!attr)
-		return -EMSGSIZE;
-
-	copy_rtnl_link_stats(nla_data(attr), sp);
-
-Thanks.
+Pulled, thanks Jeff.
