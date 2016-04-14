@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] qed*: [mostly] Ethtool RSS configuration
-Date: Thu, 14 Apr 2016 00:43:34 -0400 (EDT)
-Message-ID: <20160414.004334.1407081825620853748.davem@davemloft.net>
-References: <1460281382-13656-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH net] packet: fix heap info leak in PACKET_DIAG_MCLIST
+ sock_diag interface
+Date: Thu, 14 Apr 2016 00:47:24 -0400 (EDT)
+Message-ID: <20160414.004724.860240909570915881.davem@davemloft.net>
+References: <1460285548-832-1-git-send-email-minipli@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@qlogic.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com, xemul@parallels.com
+To: minipli@googlemail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34331 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34348 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750914AbcDNEng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:43:36 -0400
-In-Reply-To: <1460281382-13656-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1750935AbcDNEr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 00:47:27 -0400
+In-Reply-To: <1460285548-832-1-git-send-email-minipli@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 10 Apr 2016 12:42:58 +0300
+From: Mathias Krause <minipli@googlemail.com>
+Date: Sun, 10 Apr 2016 12:52:28 +0200
 
-> Most of the content [code-wise] in this series is for allowing various
-> RSS-related configuration via ethtool.
+> Because we miss to wipe the remainder of i->addr[] in packet_mc_add(),
+> pdiag_put_mclist() leaks uninitialized heap bytes via the
+> PACKET_DIAG_MCLIST netlink attribute.
 > 
-> In addition, this also removed an unnecessary versioning scheme between
-> the drivers and bump the driver version.
+> Fix this by explicitly memset(0)ing the remaining bytes in i->addr[].
+> 
+> Fixes: eea68e2f1a00 ("packet: Report socket mclist info via diag module")
+> Signed-off-by: Mathias Krause <minipli@googlemail.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
