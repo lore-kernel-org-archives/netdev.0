@@ -1,42 +1,44 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 0/2] fix two more udp pull header issues
-Date: Wed, 13 Apr 2016 22:57:33 -0400
-Message-ID: <CAF=yD-JQeHCNQAeoDPB8p5WkMDKt+5+WB3zh73PPYxTSaab2_A@mail.gmail.com>
-References: <1460067179-67789-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <20160413.222554.1942915187151383805.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: Do not keep linklocal and loopback addresses
+Date: Wed, 13 Apr 2016 23:00:02 -0400 (EDT)
+Message-ID: <20160413.230002.1718430497071707670.davem@davemloft.net>
+References: <1460142081-16675-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Sam Kumar <samanthakumar@google.com>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:35890 "EHLO
-	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751286AbcDNC6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 22:58:15 -0400
-Received: by mail-lf0-f68.google.com with SMTP id p81so10035999lfb.3
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 19:58:14 -0700 (PDT)
-In-Reply-To: <20160413.222554.1942915187151383805.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751655AbcDNDAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 23:00:04 -0400
+In-Reply-To: <1460142081-16675-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 13, 2016 at 10:25 PM, David Miller <davem@davemloft.net> wrote:
-> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Date: Thu,  7 Apr 2016 18:12:57 -0400
->
->> Follow up patches to the fixes to RxRPC and SunRPC. A scan of the
->> code showed two other interfaces that expect UDP packets to have
->> a udphdr when queued: read packet length with ioctl SIOCINQ and
->> receive payload checksum with socket option IP_CHECKSUM.
->
-> As we are seeing, lots of places depend upon the old way of queueing
-> up UDP frames. :-/
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri,  8 Apr 2016 12:01:21 -0700
 
-Yes, I greatly underestimated that. I should have done a much more
-thorough scan before submitting. Hopefully we've caught them all now.
+> f1705ec197e7 added the option to retain user configured addresses on an
+> admin down. A comment to one of the later revisions suggested using the
+> IFA_F_PERMANENT flag rather than adding a user_managed boolean to the
+> ifaddr struct. A side effect of this change is that link local and
+> loopback addresses are also retained which is not part of the objective
+> of f1705ec197e7. Add check to drop those addresses.
+> 
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-> Applied, thanks for mopping all of this up.
+Applied, but two things:
 
-Apologies for breaking it in the first place!
+Please do not put an empty line between the Fixes: and other tags.
+All tags are equal and should be placed together as an unsegmented
+unit.
+
+Second, please be really sure this is the final set of semantics
+you want.  If we flap again on this after 4.6-final goes out the
+door, I will be very unpleased to say the least.
+
+Thanks.
