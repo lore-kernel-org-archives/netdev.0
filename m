@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net 0/3] net: dsa: mv88e6xxx: fix hardware cross-chip bridging
-Date: Thu, 14 Apr 2016 14:42:06 -0400
-Message-ID: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net 3/3] net: dsa: mv88e6xxx: share the same default FDB
+Date: Thu, 14 Apr 2016 14:42:09 -0400
+Message-ID: <1460659329-11473-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,30 +10,108 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to accelerate cross-chip switching of frames with the hardware,
-the DSA Tag ports, used to interconnect switch devices, must learn SA
-and DA addresses, and share the same FDB with the user ports.
+For hardware cross-chip bridging to work, user ports *and* DSA ports
+need to share a common address database, in order to switch a frame to
+the correct interconnected device.
 
-The two first patches restore address learning on DSA links. This fixes
-hardware cross-chip bridging in a VLAN filtering enabled system, which
-implements a bridge group as a 802.1Q VLAN and thus share an isolated
-address database between DSA and user ports.
+This is currently working for VLAN filtering aware systems, since Linux
+will implement a bridge group as a 802.1Q VLAN, which has its own FDB,
+including DSA and CPU links as members.
 
-The third patch changes the distinct default databases used for each
-port, to the same address database. This fixes the hardware cross-chip
-bridging in a VLAN filtering disabled system, where a bridge group gets
-implemented only as a port-based VLAN.
+However when the system doesn't support VLAN filtering, Linux only
+relies on the port-based VLAN to implement a bridge group.
 
-Vivien Didelot (3):
-  net: dsa: mv88e6xxx: unlock DSA and CPU ports
-  net: dsa: mv88e6xxx: enable SA learning on DSA ports
-  net: dsa: mv88e6xxx: share a default FDB
+To fix hardware cross-chip bridging for such systems, set the same
+default address database 0 for user and DSA ports, instead of giving
+them all a different default database.
 
- drivers/net/dsa/mv88e6xxx.c | 34 +++++-----------------------------
- 1 file changed, 5 insertions(+), 29 deletions(-)
+Note that the bridging code prevents frames to egress between unbridged
+ports, and flushes FDB entries of a port when changing its STP state.
 
+Also note that the FID 0 is special and means "all" for ATU operations,
+but it's OK since it is used as a default forwarding address database.
+
+Fixes: 2db9ce1fd9a3 ("net: dsa: mv88e6xxx: assign default FDB to ports")
+Fixes: 466dfa077022 ("net: dsa: mv88e6xxx: assign dynamic FDB to bridges")
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx.c | 28 ++--------------------------
+ 1 file changed, 2 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 46c9b4c..b76f870 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2246,27 +2246,10 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 			       struct net_device *bridge)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	u16 fid;
+ 	int i, err;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	/* Get or create the bridge FID and assign it to the port */
+-	for (i = 0; i < ps->num_ports; ++i)
+-		if (ps->ports[i].bridge_dev == bridge)
+-			break;
+-
+-	if (i < ps->num_ports)
+-		err = _mv88e6xxx_port_fid_get(ds, i, &fid);
+-	else
+-		err = _mv88e6xxx_fid_new(ds, &fid);
+-	if (err)
+-		goto unlock;
+-
+-	err = _mv88e6xxx_port_fid_set(ds, port, fid);
+-	if (err)
+-		goto unlock;
+-
+ 	/* Assign the bridge and remap each port's VLANTable */
+ 	ps->ports[port].bridge_dev = bridge;
+ 
+@@ -2278,7 +2261,6 @@ int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
+ 		}
+ 	}
+ 
+-unlock:
+ 	mutex_unlock(&ps->smi_mutex);
+ 
+ 	return err;
+@@ -2288,16 +2270,10 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	struct net_device *bridge = ps->ports[port].bridge_dev;
+-	u16 fid;
+ 	int i;
+ 
+ 	mutex_lock(&ps->smi_mutex);
+ 
+-	/* Give the port a fresh Filtering Information Database */
+-	if (_mv88e6xxx_fid_new(ds, &fid) ||
+-	    _mv88e6xxx_port_fid_set(ds, port, fid))
+-		netdev_warn(ds->ports[port], "failed to assign a new FID\n");
+-
+ 	/* Unassign the bridge and remap each port's VLANTable */
+ 	ps->ports[port].bridge_dev = NULL;
+ 
+@@ -2624,11 +2600,11 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
+ 	if (ret)
+ 		goto abort;
+ 
+-	/* Port based VLAN map: give each port its own address
++	/* Port based VLAN map: give each port the same default address
+ 	 * database, and allow bidirectional communication between the
+ 	 * CPU and DSA port(s), and the other ports.
+ 	 */
+-	ret = _mv88e6xxx_port_fid_set(ds, port, port + 1);
++	ret = _mv88e6xxx_port_fid_set(ds, port, 0);
+ 	if (ret)
+ 		goto abort;
+ 
 -- 
 2.8.0
