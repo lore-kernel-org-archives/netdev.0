@@ -1,46 +1,77 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net 1/3] net: dsa: mv88e6xxx: unlock DSA and CPU ports
-Date: Thu, 14 Apr 2016 14:42:07 -0400
-Message-ID: <1460659329-11473-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
+ possible
+Date: Thu, 14 Apr 2016 14:59:16 -0400 (EDT)
+Message-ID: <20160414.145916.2286519059284215039.davem@davemloft.net>
+References: <20160413.230532.676746231426161126.davem@davemloft.net>
+	<20160414130324.GA6806@hmsreliant.think-freely.org>
+	<570FCCC1.6090504@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org, David.Laight@ACULAB.COM,
+	jkbs@redhat.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755269AbcDNS7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 14:59:21 -0400
+In-Reply-To: <570FCCC1.6090504@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Locking a port generates an hardware interrupt when a new SA address is
-received. This enables CPU directed learning, which is needed for 802.1X
-MAC authentication.
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Thu, 14 Apr 2016 14:00:49 -0300
 
-To disable automatic learning on a port, the only configuration needed
-is to set its Port Association Vector to all zero.
+> Em 14-04-2016 10:03, Neil Horman escreveu:
+>> On Wed, Apr 13, 2016 at 11:05:32PM -0400, David Miller wrote:
+>>> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+>>> Date: Fri,  8 Apr 2016 16:41:26 -0300
+>>>
+>>>> 1st patch is a preparation for the 2nd. The idea is to not call
+>>>> ->sk_data_ready() for every data chunk processed while processing
+>>>> packets but only once before releasing the socket.
+>>>>
+>>>> v2: patchset re-checked, small changelog fixes
+>>>> v3: on patch 2, make use of local vars to make it more readable
+>>>
+>>> Applied to net-next, but isn't this reduced overhead coming at the
+>>> expense of latency?  What if that lower latency is important to the
+>>> application and/or consumer?
+>> Thats a fair point, but I'd make the counter argument that, as it
+>> currently
+>> stands, any latency introduced (or removed), is an artifact of our
+>> implementation rather than a designed feature of it.  That is to say,
+>> we make no
+>> guarantees at the application level regarding how long it takes to
+>> signal data
+>> readines from the time we get data off the wire, so I would rather see
+>> our
+>> throughput raised if we can, as thats been sctp's more pressing
+>> achilles heel.
+>>
+>>
+>> Thats not to say I'd like to enable lower latency, but I'd rather have
+>> this now,
+>> and start pondering how to design that in.  Perhaps we can convert the
+>> pending
+>> flag to a counter to count the number of events we enqueue, and call
+>> sk_data_ready every  time we reach a sysctl defined threshold.
+> 
+> That and also that there is no chance of the application reading the
+> first chunks before all current ToDo's are performed by either the bh
+> or backlog handlers for that packet. Socket lock won't be cycled in
+> between chunks so the application is going to wait all the processing
+> one way or another.
 
-Clear PAV when SA learning should be disabled instead of locking a port.
+But it takes time to signal the wakeup to the remote cpu the process
+was running on, schedule out the current process on that cpu (if it
+has in fact lost it's timeslice), and then finally look at the socket
+queue.
 
-Fixes: 4c7ea3c0791e ("net: dsa: mv88e6xxx: disable SA learning for DSA and CPU ports")
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Of course this is all assuming the process was sleeping in the first
+place, either in recv or more likely poll.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9985a0c..7725e29 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -2544,7 +2544,7 @@ static int mv88e6xxx_setup_port(struct dsa_switch *ds, int port)
- 	reg = 1 << port;
- 	/* Disable learning for DSA and CPU ports */
- 	if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
--		reg = PORT_ASSOC_VECTOR_LOCKED_PORT;
-+		reg = 0;
- 
- 	ret = _mv88e6xxx_reg_write(ds, REG_PORT(port), PORT_ASSOC_VECTOR, reg);
- 	if (ret)
--- 
-2.8.0
+I really think signalling early helps performance.
