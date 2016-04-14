@@ -1,55 +1,72 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 1/8] dsa: mv88e6xxx: Prepare for turning this into a library module
-Date: Thu, 14 Apr 2016 16:22:08 -0400
-Message-ID: <874mb454b3.fsf@ketchup.mtl.sfl>
-References: <1460591998-20598-1-git-send-email-andrew@lunn.ch> <1460591998-20598-2-git-send-email-andrew@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 0/5] GRO Fixed IPv4 ID support and GSO
+ partial support
+Date: Thu, 14 Apr 2016 16:24:00 -0400 (EDT)
+Message-ID: <20160414.162400.576736312272421011.davem@davemloft.net>
+References: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, tom@herbertland.com, jesse@kernel.org,
+	alexander.duyck@gmail.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48617 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751936AbcDNUWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 16:22:12 -0400
-In-Reply-To: <1460591998-20598-2-git-send-email-andrew@lunn.ch>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40789 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751239AbcDNUYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 16:24:05 -0400
+In-Reply-To: <20160411013855.11189.56567.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Sun, 10 Apr 2016 21:44:38 -0400
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> This patch series sets up a few different things.
+> 
+> First it adds support for GRO of frames with a fixed IP ID value.  This
+> will allow us to perform GRO for frames that go through things like an IPv6
+> to IPv4 header translation.
+> 
+> The second item we add is support for segmenting frames that are generated
+> this way.  Most devices only support an incrementing IP ID value, and in
+> the case of TCP the IP ID can be ignored in many cases since the DF bit
+> should be set.  So we can technically segment these frames using existing
+> TSO if we are willing to allow the IP ID to be mangled.  As such I have
+> added a matching feature for the new form of GRO/GSO called TCP IPv4 ID
+> mangling.  With this enabled we can assemble and disassemble a frame with
+> the sequence number fixed and the only ill effect will be that the IPv4 ID
+> will be altered which may or may not have any noticeable effect.  As such I
+> have defaulted the feature to disabled.
+> 
+> The third item this patch series adds is support for partial GSO
+> segmentation.  Partial GSO segmentation allows us to split a large frame
+> into two pieces.  The first piece will have an even multiple of MSS worth
+> of data and the headers before the one pointed to by csum_start will have
+> been updated so that they are correct for if the data payload had already
+> been segmented.  By doing this we can do things such as precompute the
+> outer header checksums for a frame to be segmented allowing us to perform
+> TSO on devices that don't support tunneling, or tunneling with outer header
+> checksums.
+> 
+> This patch set is based on the net-next tree, but I included "net: remove
+> netdevice gso_min_segs" in my tree as I assume it is likely to be applied
+> before this patch set will and I wanted to avoid a merge conflict.
+> 
+> v2: Fixed items reported by Jesse Gross
+> 	fixed missing GSO flag in MPLS check
+> 	adding DF check for MANGLEID
+>     Moved extra GSO feature checks into gso_features_check
+>     Rebased batches to account for "net: remove netdevice gso_min_segs"
+> 
+> Driver patches from the first patch set should still be compatible.  However
+> I do have a few changes in them so I will submit a v2 of those to Jeff
+> Kirsher once these patches are accepted into net-next.
+> 
+> Example driver patches for i40e, ixgbe, and igb:
+> https://patchwork.ozlabs.org/patch/608221/
+> https://patchwork.ozlabs.org/patch/608224/
+> https://patchwork.ozlabs.org/patch/608225/
 
-> Export all the functions so that we can later turn the module into a
-> library module.
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-Sorry but I don't like this. We don't want one module per 88E6xxx switch
-model. We need one driver supporting them all, like any other driver.
-
-Multiple modules will continue to confuse us with duplicated code. For
-instance, every specific mv88e6*_setup_global functions program the
-switch's DSA device number with something like:
-
-    REG_WRITE(REG_GLOBAL, GLOBAL_CONTROL_2, ds->index & 0x1f);
-
-Looking at every drivers/net/dsa/mv88e6*.c file, there are only few
-differences in their dsa_switch_driver structures:
-
-The .setup function is always specific, but easily factorizable in a
-mv88e6xxx_setup function. The .probe function can be merged once we have
-a single driver. mv88e6131 has different phy_{read,write} functions
-which can be abstracted in mv88e6xxx_phy_{read,write}. Only mv88e6352
-has support for the EEPROM, which is simple to abstract too.
-
-I'm working on a few patches right away to factorize this and lighten up
-that part from your current refactoring of DSA.
-
-Here's an example of duplicated code fixed for the 6131 PHY access code:
-
-    http://ix.io/wJm
-
-Thanks,
-Vivien
+Series applied, thanks Alexander.
