@@ -1,79 +1,52 @@
 From: roopa <roopa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next v2 1/2] rtnetlink: add new RTM_GETSTATS message
  to dump link stats
-Date: Wed, 13 Apr 2016 23:35:26 -0700
-Message-ID: <570F3A2E.2000707@cumulusnetworks.com>
-References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com> <20160414.001948.1059678462607051806.davem@davemloft.net>
+Date: Wed, 13 Apr 2016 23:36:09 -0700
+Message-ID: <570F3A59.7010006@cumulusnetworks.com>
+References: <1460183892-57286-2-git-send-email-roopa@cumulusnetworks.com> <20160410081650.GB22873@pox.localdomain> <570A9B4D.80104@cumulusnetworks.com> <570C7133.8070109@cumulusnetworks.com> <20160412132151.GA16560@pox.localdomain> <570E3784.9010809@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: David Miller <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34304 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbcDNGf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:35:28 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c20so43044568pfc.1
-        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 23:35:28 -0700 (PDT)
-In-Reply-To: <20160414.001948.1059678462607051806.davem@davemloft.net>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34531 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbcDNGgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 02:36:11 -0400
+Received: by mail-pa0-f50.google.com with SMTP id ot11so42075628pab.1
+        for <netdev@vger.kernel.org>; Wed, 13 Apr 2016 23:36:11 -0700 (PDT)
+In-Reply-To: <570E3784.9010809@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/13/16, 9:19 PM, David Miller wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Fri,  8 Apr 2016 23:38:11 -0700
+On 4/13/16, 5:11 AM, Jamal Hadi Salim wrote:
+> On 16-04-12 09:21 AM, Thomas Graf wrote:
+>> On 04/11/16 at 08:53pm, roopa wrote:
+>>> Top level stats attributes can be netdev or global attributes: We can include string "LINK" in
+>>> the names of all stats belonging to a netdev to make it easier to recognize the netdev stats (example):
+>>>   IFLA_STATS_LINK64,           (netdev)
+>>>   IFLA_STATS_LINK_INET6,    (netdev)
+>>>   IFLA_STATS_TCP,                (non-netdev, global tcp stats)
+>>
+>> This is fine as well. It means that we cant mix netdev and non-netdev
+>> stats or stats for multiple netdevs in the same request which would
+>> not be the case if you nest it and have a top level attribute which
+>> is a list of requests. That may be borderline to overengineering
+>> though so I'm fine this as well.
 >
->> This patch adds a new RTM_GETSTATS message to query link stats via netlink
->> from the kernel. RTM_NEWLINK also dumps stats today, but RTM_NEWLINK
->> returns a lot more than just stats and is expensive in some cases when
->> frequent polling for stats from userspace is a common operation.
-> Great work.  One thing catches my eye:
 >
->> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK64)) {
->> +		attr = nla_reserve(skb, IFLA_STATS_LINK64,
->> +				   sizeof(struct rtnl_link_stats64));
->> +		if (!attr)
->> +			return -EMSGSIZE;
->> +
->> +		stats = dev_get_stats(dev, &temp);
->> +
->> +		copy_rtnl_link_stats64(nla_data(attr), stats);
-> This extra copy bothers me, so I tried to figure out what is going
-> on here.
->
-> dev_get_stats() always returns the rtnl_link_stats64 pointer it was
-> given.  We should be able to pass, therefore, nla_data(attr), straight
-> there to avoid the copy.
+> Well - using a subheader which has ifindex on it for non-netdev stats
+> seems wrong then.
+I think its ok for ifindex to be optional.
+Almost all msg types have subheaders with ifindex and it is almost always
+optional in the GET request (eg RTM_GETLINK with NLM_F_DUMP ifindex is
+optional and never checked). Here we make ifindex optional both ways.
 
-nice catch. I picked this up straight from rtnl_fill_stats. agree, also thanks
- for the example below.
+Its optional in the GET request with NLM_F_DUMP and it is also optional
+in the msg to userspace (NEW). And no ifindex in NEW will indicate that the
+message is not tied to a specific netdev (ie global stats).
 
->
-> Bonding even uses dev_get_stats() in this way.
->
-> The existing rtnl_fill_stats() can be improved similarly but is of
-> course a separate change.  In that case, we'd do something like:
->
-> 	struct rtnl_link_stats64 *sp;
->
-> 	attr = nla_reserve(skb, IFLA_STATS64,
-> 			   sizeof(struct rtnl_link_stats64));
-> 	if (!attr)
-> 		return -EMSGSIZE;
->
-> 	sp = nla_data(attr);
-> 	dev_get_stats(dev, sp);
->
-> 	attr = nla_reserve(skb, IFLA_STATS,
-> 			   sizeof(struct rtnl_link_stats));
-> 	if (!attr)
-> 		return -EMSGSIZE;
->
-> 	copy_rtnl_link_stats(nla_data(attr), sp);
-
-I will submit a separate patch for this with some testing.
-
-Will send a v3 out before end of this week.
-
-Thank you!.
+Thanks!
