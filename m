@@ -1,54 +1,45 @@
-From: =?UTF-8?Q?Peter_Pal=c3=bach?= <Peter.Paluch@fri.uniza.sk>
-Subject: [RFC] VLAN aux info for AF_PACKET available only with ETH_P_ALL
-Date: Thu, 14 Apr 2016 17:17:34 +0200
-Message-ID: <570FB48E.2060108@fri.uniza.sk>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
+Date: Thu, 14 Apr 2016 17:18:13 +0200
+Message-ID: <20160414151813.GE3715@orbyte.nwl.cc>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
+ <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Kosina <jikos@kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castor.kis.fri.uniza.sk ([158.193.152.2]:41191 "EHLO
-	mail.kis.fri.uniza.sk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755264AbcDNPRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 11:17:37 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.kis.fri.uniza.sk (Postfix) with ESMTP id 86A38203045D
-	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 17:17:34 +0200 (CEST)
-Received: from mail.kis.fri.uniza.sk ([127.0.0.1])
-	by localhost (castor.kis.fri.uniza.sk [127.0.0.1]) (amavisd-new, port 10044)
-	with LMTP id x5FTqY8d7b+s for <netdev@vger.kernel.org>;
-	Thu, 14 Apr 2016 17:17:34 +0200 (CEST)
-Received: from [192.168.110.11] (unknown [192.168.110.11])
-	by mail.kis.fri.uniza.sk (Postfix) with ESMTPSA id 6BEA9203045C
-	for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 17:17:34 +0200 (CEST)
+Received: from orbyte.nwl.cc ([151.80.46.58]:36076 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756397AbcDNPSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Apr 2016 11:18:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings,
+On Thu, Apr 14, 2016 at 08:01:39AM -0700, Eric Dumazet wrote:
+> On Thu, 2016-04-14 at 16:44 +0200, Jiri Kosina wrote:
+> > Hi,
+> > 
+> > I've came across the behavior where adding a child qdisc and then deleting 
+> > it again makes the networking dysfunctional (I guess that's because all of 
+> > a sudden there is absolutely no working qdisc on the device, although 
+> > there originally was a default one in the parent).
+> > 
+> > In a nutshell, is this expected behavior or bug?
+> 
+> This is the expected behavior.
 
-When using AF_PACKET sockets with PACKET_AUXDATA socket option to access 
-the VLAN TCI information of received frames, I have noticed that the 
-VLAN information in struct tpacket_auxdata, namely,
+OTOH some qdiscs (CBQ, DRR, DSMARK, HFSC, HTB, QFQ) assign the default
+one upon deletion instead of noop_qdisc, hence I would describe
+the situation using the words 'inconsistent' and 'accident' rather than
+'expected'. :)
 
-- tp_vlan_tci
-- tp_vlan_tpid
-- TP_STATUS_VLAN_VALID and TP_STATUS_VLAN_TPID_VALID flags
+Anyhow, the problem with skilled admins is they accept quirks too easily
+and just build their scripts around them - the same scripts we have to
+keep compatible to then.
 
-is filled in only when the socket is bound to htons (ETH_P_ALL). If the 
-socket is bound to any specific protocol, the VLAN information fields in 
-struct tpacket_auxdata are set to 0 even if the datagram of the specific 
-protocol was received in an 802.1Q-tagged frame.
-
-As the VLAN tag is being stripped off the frame soon in the receive 
-path, using PACKET_AUXDATA is the only way for an application over an 
-AF_PACKET socket to know what VLAN did a particular frame arrive in; 
-yet, the current behavior forces the application to listen to all 
-received traffic to get the actual VLAN info.
-
-Is this behavior intentional, or is this lack of VLAN info a bug? I am 
-running vanilla Linux kernel v4.4.6.
-
-Thanks!
-
-Best regards,
-Peter
+Cheers, Phil
