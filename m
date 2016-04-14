@@ -1,34 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: use __napi_schedule_irqoff()
-Date: Wed, 13 Apr 2016 23:38:08 -0400 (EDT)
-Message-ID: <20160413.233808.1037769899570190443.davem@davemloft.net>
-References: <1460178400.6473.469.camel@edumazet-glaptop3.roam.corp.google.com>
-	<5B66FA2B-6AAE-4FEB-B5FB-C5C9DF48FDB5@gmail.com>
-	<1460179856.6473.482.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Weidong Wang <wangweidong1@huawei.com>
+Subject: Re: [RESEND PATCH net-next] phy: keep the BCMR_LOOPBACK bit while
+ setup forced mode
+Date: Thu, 14 Apr 2016 11:42:18 +0800
+Message-ID: <570F119A.4020402@huawei.com>
+References: <570E3488.9060403@huawei.com> <570E92ED.9020603@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, pgynther@google.com,
-	opendmb@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33811 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753307AbcDNDiL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 23:38:11 -0400
-In-Reply-To: <1460179856.6473.482.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <570E92ED.9020603@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 08 Apr 2016 22:30:56 -0700
-
-> From: Florian Fainelli <f.fainelli@gmail.com>
+On 2016/4/14 2:41, Florian Fainelli wrote:
+> On 13/04/16 04:59, Weidong Wang wrote:
+>> When tested the PHY SGMII Loopback,:
+>> 1.set the LOOPBACK bit,
+>> 2.set the autoneg to AUTONEG_DISABLE, it calls the
+>> genphy_setup_forced which will clear the bit.
+>>
+>> So just keep the LOOPBACK bit while setup forced mode.
 > 
-> bcmgenet_isr1() and bcmgenet_isr0() run in hard irq context,
-> we do not need to block irq again.
+> Humm, it makes sense why we want this one, but maybe we want other bits
+> to be preserved too, like MII_ISOLATE for instance?
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+I will add the  MII_ISOLATE as well.
+
+> Or maybe we should have a separate way to put the PHY into loopback mode
+> which is deterministic and takes care of forcing the link at the same time?
+> 
+
+I test with the loopback mode, and the link status is undeterminable.
+
+>>
+>> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
+>> ---
+>>  drivers/net/phy/phy_device.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index e551f3a..8da4b80 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -1124,7 +1124,9 @@ static int genphy_config_advert(struct phy_device *phydev)
+>>  int genphy_setup_forced(struct phy_device *phydev)
+>>  {
+>>  	int ctl = 0;
+>> +	int val = phy_read(phydev, MII_BMCR);
+>>
+>> +	ctl |= val & BMCR_LOOPBACK;
+>>  	phydev->pause = 0;
+>>  	phydev->asym_pause = 0;
+>>
+>> -- 2.7.0
+>>
+> 
+> 
