@@ -1,146 +1,117 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/3] phy: add generic function to support ksetting support
-Date: Fri, 15 Apr 2016 00:35:00 +0200
-Message-ID: <1460673301-10599-3-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 1/3] net: ethtool: export conversion function between u32 and link mode
+Date: Fri, 15 Apr 2016 00:34:59 +0200
+Message-ID: <1460673301-10599-2-git-send-email-tremyfr@gmail.com>
 References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Philippe Reynes <tremyfr@gmail.com>
 To: davem@davemloft.net, decot@googlers.com, f.fainelli@gmail.com,
 	fugang.duan@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36611 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33755 "EHLO
 	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519AbcDNWfN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:35:13 -0400
+	with ESMTP id S1752508AbcDNWfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:35:12 -0400
 In-Reply-To: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The old ethtool api (get_setting and set_setting) has
-generic phy functions phy_ethtool_sset and phy_ethtool_gset.
-To supprt the new ethtool api (get_link_ksettings and
-set_link_ksettings), we add generic phy function
-phy_ethtool_ksettings_get and phy_ethtool_ksettings_set.
+The function convert_legacy_u32_to_link_mode and
+convert_link_mode_to_legacy_u32 may be used outside
+of ethtool.c. We rename them to ethtool_convert_...
+and export them, so we could use them in others
+drivers and modules.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/phy/phy.c |   81 +++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/phy.h   |    4 ++
- 2 files changed, 85 insertions(+), 0 deletions(-)
+ include/linux/ethtool.h |    7 +++++++
+ net/core/ethtool.c      |   21 ++++++++++++---------
+ 2 files changed, 19 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 5590b9c..6f221c8 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -362,6 +362,60 @@ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- }
- EXPORT_SYMBOL(phy_ethtool_sset);
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index e2b7bf2..9ded8c6 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -150,6 +150,13 @@ extern int
+ __ethtool_get_link_ksettings(struct net_device *dev,
+ 			     struct ethtool_link_ksettings *link_ksettings);
  
-+int phy_ethtool_ksettings_set(struct phy_device *phydev,
-+			      const struct ethtool_link_ksettings *cmd)
-+{
-+	u8 autoneg = cmd->base.autoneg;
-+	u8 duplex = cmd->base.duplex;
-+	u32 speed = cmd->base.speed;
-+	u32 advertising;
++void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
++					     u32 legacy_u32);
 +
-+	if (cmd->base.phy_address != phydev->mdio.addr)
-+		return -EINVAL;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
-+
-+	/* We make sure that we don't pass unsupported values in to the PHY */
-+	advertising &= phydev->supported;
-+
-+	/* Verify the settings we care about. */
-+	if (autoneg != AUTONEG_ENABLE && autoneg != AUTONEG_DISABLE)
-+		return -EINVAL;
-+
-+	if (autoneg == AUTONEG_ENABLE && advertising == 0)
-+		return -EINVAL;
-+
-+	if (autoneg == AUTONEG_DISABLE &&
-+	    ((speed != SPEED_1000 &&
-+	      speed != SPEED_100 &&
-+	      speed != SPEED_10) ||
-+	     (duplex != DUPLEX_HALF &&
-+	      duplex != DUPLEX_FULL)))
-+		return -EINVAL;
-+
-+	phydev->autoneg = autoneg;
-+
-+	phydev->speed = speed;
-+
-+	phydev->advertising = advertising;
-+
-+	if (autoneg == AUTONEG_ENABLE)
-+		phydev->advertising |= ADVERTISED_Autoneg;
-+	else
-+		phydev->advertising &= ~ADVERTISED_Autoneg;
-+
-+	phydev->duplex = duplex;
-+
-+	phydev->mdix = cmd->base.eth_tp_mdix_ctrl;
-+
-+	/* Restart the PHY */
-+	phy_start_aneg(phydev);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(phy_ethtool_ksettings_set);
-+
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- {
- 	cmd->supported = phydev->supported;
-@@ -385,6 +439,33 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- }
- EXPORT_SYMBOL(phy_ethtool_gset);
- 
-+int phy_ethtool_ksettings_get(struct phy_device *phydev,
-+			      struct ethtool_link_ksettings *cmd)
-+{
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						phydev->supported);
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						phydev->advertising);
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
-+						phydev->lp_advertising);
-+
-+	cmd->base.speed = phydev->speed;
-+	cmd->base.duplex = phydev->duplex;
-+	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
-+		cmd->base.port = PORT_BNC;
-+	else
-+		cmd->base.port = PORT_MII;
-+
-+	cmd->base.phy_address = phydev->mdio.addr;
-+	cmd->base.autoneg = phydev->autoneg;
-+	cmd->base.eth_tp_mdix_ctrl = phydev->mdix;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(phy_ethtool_ksettings_get);
++/* return false if src had higher bits set. lower bits always updated. */
++bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
++				     const unsigned long *src);
 +
  /**
-  * phy_mii_ioctl - generic PHY MII ioctl interface
-  * @phydev: the phy_device struct
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 2abd791..be3f83b 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -805,6 +805,10 @@ void phy_start_machine(struct phy_device *phydev);
- void phy_stop_machine(struct phy_device *phydev);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-+int phy_ethtool_ksettings_get(struct phy_device *phydev,
-+			      struct ethtool_link_ksettings *cmd);
-+int phy_ethtool_ksettings_set(struct phy_device *phydev,
-+			      const struct ethtool_link_ksettings *cmd);
- int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
- void phy_print_status(struct phy_device *phydev);
+  * struct ethtool_ops - optional netdev operations
+  * @get_settings: DEPRECATED, use %get_link_ksettings/%set_link_ksettings
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f426c5a..81e3082 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -387,15 +387,17 @@ static int __ethtool_set_flags(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
+-static void convert_legacy_u32_to_link_mode(unsigned long *dst, u32 legacy_u32)
++void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
++					     u32 legacy_u32)
+ {
+ 	bitmap_zero(dst, __ETHTOOL_LINK_MODE_MASK_NBITS);
+ 	dst[0] = legacy_u32;
+ }
++EXPORT_SYMBOL(ethtool_convert_legacy_u32_to_link_mode);
+ 
+ /* return false if src had higher bits set. lower bits always updated. */
+-static bool convert_link_mode_to_legacy_u32(u32 *legacy_u32,
+-					    const unsigned long *src)
++bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
++					     const unsigned long *src)
+ {
+ 	bool retval = true;
+ 
+@@ -415,6 +417,7 @@ static bool convert_link_mode_to_legacy_u32(u32 *legacy_u32,
+ 	*legacy_u32 = src[0];
+ 	return retval;
+ }
++EXPORT_SYMBOL(ethtool_convert_link_mode_to_legacy_u32);
+ 
+ /* return false if legacy contained non-0 deprecated fields
+  * transceiver/maxtxpkt/maxrxpkt. rest of ksettings always updated
+@@ -437,13 +440,13 @@ convert_legacy_settings_to_link_ksettings(
+ 	    legacy_settings->maxrxpkt)
+ 		retval = false;
+ 
+-	convert_legacy_u32_to_link_mode(
++	ethtool_convert_legacy_u32_to_link_mode(
+ 		link_ksettings->link_modes.supported,
+ 		legacy_settings->supported);
+-	convert_legacy_u32_to_link_mode(
++	ethtool_convert_legacy_u32_to_link_mode(
+ 		link_ksettings->link_modes.advertising,
+ 		legacy_settings->advertising);
+-	convert_legacy_u32_to_link_mode(
++	ethtool_convert_legacy_u32_to_link_mode(
+ 		link_ksettings->link_modes.lp_advertising,
+ 		legacy_settings->lp_advertising);
+ 	link_ksettings->base.speed
+@@ -482,13 +485,13 @@ convert_link_ksettings_to_legacy_settings(
+ 	 * __u32	maxrxpkt;
+ 	 */
+ 
+-	retval &= convert_link_mode_to_legacy_u32(
++	retval &= ethtool_convert_link_mode_to_legacy_u32(
+ 		&legacy_settings->supported,
+ 		link_ksettings->link_modes.supported);
+-	retval &= convert_link_mode_to_legacy_u32(
++	retval &= ethtool_convert_link_mode_to_legacy_u32(
+ 		&legacy_settings->advertising,
+ 		link_ksettings->link_modes.advertising);
+-	retval &= convert_link_mode_to_legacy_u32(
++	retval &= ethtool_convert_link_mode_to_legacy_u32(
+ 		&legacy_settings->lp_advertising,
+ 		link_ksettings->link_modes.lp_advertising);
+ 	ethtool_cmd_speed_set(legacy_settings, link_ksettings->base.speed);
 -- 
 1.7.4.4
