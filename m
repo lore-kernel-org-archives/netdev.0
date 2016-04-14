@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] sctp: delay calls to sk_data_ready() as much as
- possible
-Date: Wed, 13 Apr 2016 23:05:32 -0400 (EDT)
-Message-ID: <20160413.230532.676746231426161126.davem@davemloft.net>
-References: <cover.1460144373.git.marcelo.leitner@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, David.Laight@ACULAB.COM,
-	jkbs@redhat.com
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33641 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbcDNDFf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 23:05:35 -0400
-In-Reply-To: <cover.1460144373.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: zengzhaoxiu@163.com
+Subject: [PATCH V3 10/29] sunrpc: use parity8
+Date: Thu, 14 Apr 2016 11:08:57 +0800
+Message-ID: <1460603338-4955-1-git-send-email-zengzhaoxiu@163.com>
+References: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
+Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri,  8 Apr 2016 16:41:26 -0300
+From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 
-> 1st patch is a preparation for the 2nd. The idea is to not call
-> ->sk_data_ready() for every data chunk processed while processing
-> packets but only once before releasing the socket.
-> 
-> v2: patchset re-checked, small changelog fixes
-> v3: on patch 2, make use of local vars to make it more readable
+Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+---
+ net/sunrpc/auth_gss/gss_krb5_keys.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-Applied to net-next, but isn't this reduced overhead coming at the
-expense of latency?  What if that lower latency is important to the
-application and/or consumer?
+diff --git a/net/sunrpc/auth_gss/gss_krb5_keys.c b/net/sunrpc/auth_gss/gss_krb5_keys.c
+index 8701331..c41b389 100644
+--- a/net/sunrpc/auth_gss/gss_krb5_keys.c
++++ b/net/sunrpc/auth_gss/gss_krb5_keys.c
+@@ -243,16 +243,12 @@ err_return:
+ 	return ret;
+ }
+ 
+-#define smask(step) ((1<<step)-1)
+-#define pstep(x, step) (((x)&smask(step))^(((x)>>step)&smask(step)))
+-#define parity_char(x) pstep(pstep(pstep((x), 4), 2), 1)
+-
+ static void mit_des_fixup_key_parity(u8 key[8])
+ {
+ 	int i;
+ 	for (i = 0; i < 8; i++) {
+ 		key[i] &= 0xfe;
+-		key[i] |= 1^parity_char(key[i]);
++		key[i] |= !parity8(key[i]);
+ 	}
+ }
+ 
+-- 
+2.5.0
