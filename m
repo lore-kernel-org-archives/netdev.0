@@ -1,117 +1,60 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/3] net: ethtool: export conversion function between u32 and link mode
-Date: Fri, 15 Apr 2016 00:34:59 +0200
-Message-ID: <1460673301-10599-2-git-send-email-tremyfr@gmail.com>
-References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, decot@googlers.com, f.fainelli@gmail.com,
-	fugang.duan@nxp.com
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [RFC PATCH 0/2] selinux: avoid nf hooks overhead when not needed
+Date: Thu, 14 Apr 2016 18:53:54 -0400
+Message-ID: <CAHC9VhSgWAoWgywOZOvT76jCcHuEywjFu5CKJo9D0k+66RbFCA@mail.gmail.com>
+References: <cover.1459934322.git.pabeni@redhat.com>
+	<CAHC9VhSZP1QxT-pQeHAW9m1xmyDsbFeA=9b8SdeWgS0RiDTOBA@mail.gmail.com>
+	<20160406234532.GA731@breakpoint.cc>
+	<2239567.jkCk1gtQAE@sifl>
+	<1460451162.5965.16.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	linux-security-module@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <james.l.morris@oracle.com>,
+	Andreas Gruenbacher <agruenba@redhat.com>,
+	Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Paolo Abeni <pabeni@redhat.com>,
+	Casey Schaufler <casey@schaufler-ca.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33755 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752508AbcDNWfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:35:12 -0400
-In-Reply-To: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:33816 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751044AbcDNWxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 18:53:55 -0400
+Received: by mail-oi0-f50.google.com with SMTP id s79so108351811oie.1
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 15:53:55 -0700 (PDT)
+In-Reply-To: <1460451162.5965.16.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function convert_legacy_u32_to_link_mode and
-convert_link_mode_to_legacy_u32 may be used outside
-of ethtool.c. We rename them to ethtool_convert_...
-and export them, so we could use them in others
-drivers and modules.
+On Tue, Apr 12, 2016 at 4:52 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> Will be ok if we post a v2 version of this series, removing the hooks
+> de-registration bits, but preserving the selinux nf-hooks and
+> socket_sock_rcv_skb() on-demand/delayed registration ? Will that fit
+> with the post-init read only memory usage that you are planning ?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- include/linux/ethtool.h |    7 +++++++
- net/core/ethtool.c      |   21 ++++++++++++---------
- 2 files changed, 19 insertions(+), 9 deletions(-)
+The work Florian and and I were talking about would be limited just to
+the netfilter hooks, the LSM hooks, e.g. socket_sock_rcv_skb() and
+friends, would remain as they are today.  What what we discussing was
+defaulting to not registering the netfilter hooks until it became
+necessary due to a labeled networking configuration or the
+always_check_network policy capability; the registration of the
+netfilter hooks would be permanent, you could not unregister the hooks
+at that point, you would need to reboot.  Does that make sense?
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index e2b7bf2..9ded8c6 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -150,6 +150,13 @@ extern int
- __ethtool_get_link_ksettings(struct net_device *dev,
- 			     struct ethtool_link_ksettings *link_ksettings);
- 
-+void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
-+					     u32 legacy_u32);
-+
-+/* return false if src had higher bits set. lower bits always updated. */
-+bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
-+				     const unsigned long *src);
-+
- /**
-  * struct ethtool_ops - optional netdev operations
-  * @get_settings: DEPRECATED, use %get_link_ksettings/%set_link_ksettings
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index f426c5a..81e3082 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -387,15 +387,17 @@ static int __ethtool_set_flags(struct net_device *dev, u32 data)
- 	return 0;
- }
- 
--static void convert_legacy_u32_to_link_mode(unsigned long *dst, u32 legacy_u32)
-+void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
-+					     u32 legacy_u32)
- {
- 	bitmap_zero(dst, __ETHTOOL_LINK_MODE_MASK_NBITS);
- 	dst[0] = legacy_u32;
- }
-+EXPORT_SYMBOL(ethtool_convert_legacy_u32_to_link_mode);
- 
- /* return false if src had higher bits set. lower bits always updated. */
--static bool convert_link_mode_to_legacy_u32(u32 *legacy_u32,
--					    const unsigned long *src)
-+bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
-+					     const unsigned long *src)
- {
- 	bool retval = true;
- 
-@@ -415,6 +417,7 @@ static bool convert_link_mode_to_legacy_u32(u32 *legacy_u32,
- 	*legacy_u32 = src[0];
- 	return retval;
- }
-+EXPORT_SYMBOL(ethtool_convert_link_mode_to_legacy_u32);
- 
- /* return false if legacy contained non-0 deprecated fields
-  * transceiver/maxtxpkt/maxrxpkt. rest of ksettings always updated
-@@ -437,13 +440,13 @@ convert_legacy_settings_to_link_ksettings(
- 	    legacy_settings->maxrxpkt)
- 		retval = false;
- 
--	convert_legacy_u32_to_link_mode(
-+	ethtool_convert_legacy_u32_to_link_mode(
- 		link_ksettings->link_modes.supported,
- 		legacy_settings->supported);
--	convert_legacy_u32_to_link_mode(
-+	ethtool_convert_legacy_u32_to_link_mode(
- 		link_ksettings->link_modes.advertising,
- 		legacy_settings->advertising);
--	convert_legacy_u32_to_link_mode(
-+	ethtool_convert_legacy_u32_to_link_mode(
- 		link_ksettings->link_modes.lp_advertising,
- 		legacy_settings->lp_advertising);
- 	link_ksettings->base.speed
-@@ -482,13 +485,13 @@ convert_link_ksettings_to_legacy_settings(
- 	 * __u32	maxrxpkt;
- 	 */
- 
--	retval &= convert_link_mode_to_legacy_u32(
-+	retval &= ethtool_convert_link_mode_to_legacy_u32(
- 		&legacy_settings->supported,
- 		link_ksettings->link_modes.supported);
--	retval &= convert_link_mode_to_legacy_u32(
-+	retval &= ethtool_convert_link_mode_to_legacy_u32(
- 		&legacy_settings->advertising,
- 		link_ksettings->link_modes.advertising);
--	retval &= convert_link_mode_to_legacy_u32(
-+	retval &= ethtool_convert_link_mode_to_legacy_u32(
- 		&legacy_settings->lp_advertising,
- 		link_ksettings->link_modes.lp_advertising);
- 	ethtool_cmd_speed_set(legacy_settings, link_ksettings->base.speed);
+As far as Casey's concerns, I don't think the work we are talking
+about for the v2 patchset would have any effect on the socket/sock
+security blobs as you really can't manage those adequately from the
+netfilter hooks; you most likely will reference them and perhaps even
+update the data within, but not allocate or free the blobs.  Besides,
+even in some weird case you were alloc/free'ing security blobs in the
+netfilter hooks, we can deal with that on a per-LSM basis if/when the
+full fledged stacking patches are merged; everything we are talking
+about is a hidden implementation detail so changing it in the future
+shouldn't be a problem.
+
 -- 
-1.7.4.4
+paul moore
+www.paul-moore.com
