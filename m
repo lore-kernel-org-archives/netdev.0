@@ -1,56 +1,48 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Thu, 14 Apr 2016 18:22:29 +0200
-Message-ID: <20160414162229.GF3715@orbyte.nwl.cc>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
- <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160414151813.GE3715@orbyte.nwl.cc>
- <alpine.LNX.2.00.1604141733250.27368@cbobk.fhfr.pm>
- <1460648680.10638.47.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Thu, 14 Apr 2016 11:24:07 -0500
+Message-ID: <20160414162407.GA15303@rob-hp-laptop>
+References: <201604140340.wQZLwsUk%fengguang.wu@intel.com>
+ <570E9E8D.50007@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jikos@kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54976 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753178AbcDNQWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 12:22:31 -0400
+Cc: kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1460648680.10638.47.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <570E9E8D.50007@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 14, 2016 at 08:44:40AM -0700, Eric Dumazet wrote:
-> On Thu, 2016-04-14 at 17:34 +0200, Jiri Kosina wrote:
-> > On Thu, 14 Apr 2016, Phil Sutter wrote:
-> > 
-> > > OTOH some qdiscs (CBQ, DRR, DSMARK, HFSC, HTB, QFQ) assign the default
-> > > one upon deletion instead of noop_qdisc, hence I would describe
-> > > the situation using the words 'inconsistent' and 'accident' rather than
-> > > 'expected'. :)
-> > 
-> > Exactly. I'd again like to stress the fact that this configuration works:
-> > 
-> > 	jikos:~ # tc qdisc show
-> > 	qdisc tbf 10: dev eth0 root refcnt 2 rate 800Mbit burst 131000b lat 1.0ms 
-> > 
-> > and this (after performing add/delete operation) doesn't:
-> > 
-> > 	jikos:~ # tc qdisc show
-> > 	qdisc tbf 10: dev eth0 root refcnt 2 rate 800Mbit burst 131000b lat 1.0ms 
-> > 
-> > It's hard to spot a difference (hint: there is none).
+On Wed, Apr 13, 2016 at 02:31:25PM -0500, Timur Tabi wrote:
+> kbuild test robot wrote:
+> >
+> >    drivers/net/ethernet/qualcomm/emac/emac-mac.c: In function 'emac_mac_up':
+> >>>>>drivers/net/ethernet/qualcomm/emac/emac-mac.c:1076:9: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+> >      writel(~DIS_INT, adpt->base + EMAC_INT_STATUS);
 > 
-> This is because some qdisc are not visible in the dump.
+> This doesn't happen on arm64, and I don't know how to fix it.  DIS_INT is
+> defined as:
 
-And those being invisible can be overridden using 'tc qd add', right?
-AFAIR they're not listed because they don't properly register, so the
-system doesn't care to override them. In this case we could change all
-classful qdiscs to restore the default qdisc if a leaf qdisc is being
-deleted instead of noop (which is probably not what the user wants
-anyway).
+Probably depends on the compiler version. BTW, clang seems to throw 
+errors for this type of thing.
 
-Cheers, Phil
+> 
+> 	#define DIS_INT          BIT(31)
+> 
+> It seems silly to add a typecast to DIS_INT.
+
+BIT() should use 1U instead of 1.
+
+Rob
