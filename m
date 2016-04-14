@@ -1,72 +1,65 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: Re: [PATCH RFC 2/5] net: phy: sun8i-h3-ephy: Add driver for Allwinner
- H3 Ethernet PHY
-Date: Thu, 14 Apr 2016 10:04:50 +0800
-Message-ID: <CAGb2v65-V3Mt_aPJNdfEH6VFySGc_cBhqgbE_VR5tsBtPvVjfA@mail.gmail.com>
-References: <1459786954-12649-1-git-send-email-wens@csie.org>
- <1459786954-12649-3-git-send-email-wens@csie.org> <570BF9A6.2040109@gmail.com>
+From: Weidong Wang <wangweidong1@huawei.com>
+Subject: Re: [RESEND PATCH net-next] phy: keep the BCMR_LOOPBACK bit while
+ setup forced mode
+Date: Thu, 14 Apr 2016 10:18:29 +0800
+Message-ID: <570EFDF5.7090106@huawei.com>
+References: <570E3488.9060403@huawei.com> <570E558C.9010304@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chen-Yu Tsai <wens@csie.org>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	devicetree <devicetree@vger.kernel.org>,
-	LABBE Corentin <clabbe.montjoie@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Hans De Goede <hdegoede@redhat.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <570BF9A6.2040109@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:58906 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751937AbcDNCSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Apr 2016 22:18:42 -0400
+In-Reply-To: <570E558C.9010304@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 12, 2016 at 3:23 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 04/04/16 09:22, Chen-Yu Tsai wrote:
->> The Allwinner H3 SoC incorporates an Ethernet PHY. This is enabled and
->> configured through a memory mapped hardware register.
+On 2016/4/13 22:19, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 4/13/2016 2:59 PM, Weidong Wang wrote:
+> 
+>> When tested the PHY SGMII Loopback,:
+>> 1.set the LOOPBACK bit,
+>> 2.set the autoneg to AUTONEG_DISABLE, it calls the
+>> genphy_setup_forced which will clear the bit.
 >>
->> This same register also configures the MAC interface mode and TX clock
->> source. Also covered by the register, but not supported in this driver,
->> are TX/RX clock delay chains and inverters, and an RMII module.
->
-> This is not really a PHY driver, more a driver for a special piece of
-> hardware responsible for properly configuring a more standard integrated
-> PHY which is then driven via standard MDIO accesses, right?
->
-> The intention to make this driver re-usable is fine, but still makes me
-> wonder if it should not be put in a file which is linked into the
-> Ethernet MAC driver, and utilized by this one in a way that may be more
-> "ad-hoc" than what you are proposing here.
->
-> One thing that is not obvious here, is how is the device parenting done?
-> Are we able to associate a phy_device to this SUN8I_H3_EPHY platform
-> device here?
+>> So just keep the LOOPBACK bit while setup forced mode.
+>>
+>> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
+>> ---
+>>   drivers/net/phy/phy_device.c | 2 ++
+>>   1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index e551f3a..8da4b80 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -1124,7 +1124,9 @@ static int genphy_config_advert(struct phy_device *phydev)
+>>   int genphy_setup_forced(struct phy_device *phydev)
+>>   {
+>>       int ctl = 0;
+>> +    int val = phy_read(phydev, MII_BMCR);
+> 
+>    Please place this declaration first, DaveM prefers declarations to be sorted from longest to shortest.
+> 
+>>
+>> +    ctl |= val & BMCR_LOOPBACK;
+> 
+>    Just =, removing the 'ctl' initializer, please.
+> 
+> [...]
+> 
+> MBR, Sergei
+> 
+Got it.
 
-AFAIK you can't tie a platform device to an MDIO bus and phy_device.
-I looked around for any examples and found none.
-
-We're going to run into a similar issue with an MFD device later on.
-The X-Powers AC200 is a I2C based combo chip which includes an Ethernet
-PHY.
-
-> Another thing is that the Ethernet MAC driver is fully aware of when
-> putting an Ethernet PHY into suspend, shutdown, or fully functional
-> power state should occur, if you have a separate platform driver here
-> which does not listen for such kinds of events (hint: none are generated
-> right now), then you cannot implement a working power state interface
-> between the MAC, SHIM and PHY here, even though you would want that.
-
-For this particular piece of hardware it would be possible to move the
-code into the MAC driver itself. For the AC200, not so much. Using the
-generic PHY framework to do power up / down would be a possibility.
-
-
-Regards
-ChenYu
+Regards,
+Weidong
+> 
+> 
