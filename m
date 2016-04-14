@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 13/18] mlxsw: core: Add devlink shared buffer occupancy callbacks
-Date: Thu, 14 Apr 2016 18:19:25 +0200
-Message-ID: <1460650770-19382-14-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 06/18] mlxsw: spectrum_buffers: Rename "pool" to "pr" in initialization
+Date: Thu, 14 Apr 2016 18:19:18 +0200
+Message-ID: <1460650770-19382-7-git-send-email-jiri@resnulli.us>
 References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,135 +11,148 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36627 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964835AbcDNQTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:52 -0400
-Received: by mail-wm0-f44.google.com with SMTP id v188so227625448wme.1
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:51 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36905 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932924AbcDNQTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:42 -0400
+Received: by mail-wm0-f52.google.com with SMTP id n3so133909562wmn.0
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:41 -0700 (PDT)
 In-Reply-To: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add middle layer in mlxsw core code to forward shared buffer occupancy
-calls into specific ASIC drivers.
+Be consintent with rest of the registers (pm, cm) and use "pr" here.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 74 ++++++++++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlxsw/core.h | 11 +++++
- 2 files changed, 77 insertions(+), 8 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 70 +++++++++++-----------
+ 1 file changed, 35 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 1278260..63a9777 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -911,15 +911,73 @@ mlxsw_devlink_sb_tc_pool_bind_set(struct devlink_port *devlink_port,
- 						 pool_index, threshold);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+index c326e58..15bd5aa 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+@@ -128,75 +128,75 @@ static int mlxsw_sp_port_headroom_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	return mlxsw_sp_port_pb_prio_init(mlxsw_sp_port);
  }
  
-+static int mlxsw_devlink_sb_occ_snapshot(struct devlink *devlink,
-+					 unsigned int sb_index)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_occ_snapshot)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_occ_snapshot(mlxsw_core, sb_index);
-+}
-+
-+static int mlxsw_devlink_sb_occ_max_clear(struct devlink *devlink,
-+					  unsigned int sb_index)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_occ_max_clear)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_occ_max_clear(mlxsw_core, sb_index);
-+}
-+
-+static int
-+mlxsw_devlink_sb_occ_port_pool_get(struct devlink_port *devlink_port,
-+				   unsigned int sb_index, u16 pool_index,
-+				   u32 *p_cur, u32 *p_max)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_occ_port_pool_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_occ_port_pool_get(mlxsw_core_port, sb_index,
-+						  pool_index, p_cur, p_max);
-+}
-+
-+static int
-+mlxsw_devlink_sb_occ_tc_port_bind_get(struct devlink_port *devlink_port,
-+				      unsigned int sb_index, u16 tc_index,
-+				      enum devlink_sb_pool_type pool_type,
-+				      u32 *p_cur, u32 *p_max)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_occ_tc_port_bind_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_occ_tc_port_bind_get(mlxsw_core_port,
-+						     sb_index, tc_index,
-+						     pool_type, p_cur, p_max);
-+}
-+
- static const struct devlink_ops mlxsw_devlink_ops = {
--	.port_split		= mlxsw_devlink_port_split,
--	.port_unsplit		= mlxsw_devlink_port_unsplit,
--	.sb_pool_get		= mlxsw_devlink_sb_pool_get,
--	.sb_pool_set		= mlxsw_devlink_sb_pool_set,
--	.sb_port_pool_get	= mlxsw_devlink_sb_port_pool_get,
--	.sb_port_pool_set	= mlxsw_devlink_sb_port_pool_set,
--	.sb_tc_pool_bind_get	= mlxsw_devlink_sb_tc_pool_bind_get,
--	.sb_tc_pool_bind_set	= mlxsw_devlink_sb_tc_pool_bind_set,
-+	.port_split			= mlxsw_devlink_port_split,
-+	.port_unsplit			= mlxsw_devlink_port_unsplit,
-+	.sb_pool_get			= mlxsw_devlink_sb_pool_get,
-+	.sb_pool_set			= mlxsw_devlink_sb_pool_set,
-+	.sb_port_pool_get		= mlxsw_devlink_sb_port_pool_get,
-+	.sb_port_pool_set		= mlxsw_devlink_sb_port_pool_set,
-+	.sb_tc_pool_bind_get		= mlxsw_devlink_sb_tc_pool_bind_get,
-+	.sb_tc_pool_bind_set		= mlxsw_devlink_sb_tc_pool_bind_set,
-+	.sb_occ_snapshot		= mlxsw_devlink_sb_occ_snapshot,
-+	.sb_occ_max_clear		= mlxsw_devlink_sb_occ_max_clear,
-+	.sb_occ_port_pool_get		= mlxsw_devlink_sb_occ_port_pool_get,
-+	.sb_occ_tc_port_bind_get	= mlxsw_devlink_sb_occ_tc_port_bind_get,
+-struct mlxsw_sp_sb_pool {
++struct mlxsw_sp_sb_pr {
+ 	enum mlxsw_reg_sbpr_mode mode;
+ 	u32 size;
  };
  
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index d0c471f..377dacc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -229,6 +229,17 @@ struct mlxsw_driver {
- 				   unsigned int sb_index, u16 tc_index,
- 				   enum devlink_sb_pool_type pool_type,
- 				   u16 pool_index, u32 threshold);
-+	int (*sb_occ_snapshot)(struct mlxsw_core *mlxsw_core,
-+			       unsigned int sb_index);
-+	int (*sb_occ_max_clear)(struct mlxsw_core *mlxsw_core,
-+				unsigned int sb_index);
-+	int (*sb_occ_port_pool_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				    unsigned int sb_index, u16 pool_index,
-+				    u32 *p_cur, u32 *p_max);
-+	int (*sb_occ_tc_port_bind_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				       unsigned int sb_index, u16 tc_index,
-+				       enum devlink_sb_pool_type pool_type,
-+				       u32 *p_cur, u32 *p_max);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
+-#define MLXSW_SP_SB_POOL_INGRESS_SIZE				\
++#define MLXSW_SP_SB_PR_INGRESS_SIZE				\
+ 	(15000000 - (2 * 20000 * MLXSW_PORT_MAX_PORTS))
+-#define MLXSW_SP_SB_POOL_EGRESS_SIZE				\
++#define MLXSW_SP_SB_PR_EGRESS_SIZE				\
+ 	(14000000 - (8 * 1500 * MLXSW_PORT_MAX_PORTS))
+ 
+-#define MLXSW_SP_SB_POOL(_mode, _size)	\
++#define MLXSW_SP_SB_PR(_mode, _size)	\
+ 	{				\
+ 		.mode = _mode,		\
+ 		.size = _size,		\
+ 	}
+ 
+-static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools_ingress[] = {
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
+-			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_INGRESS_SIZE)),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++static const struct mlxsw_sp_sb_pr mlxsw_sp_sb_prs_ingress[] = {
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC,
++		       MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_PR_INGRESS_SIZE)),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+ };
+ 
+-#define MLXSW_SP_SB_POOLS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools_ingress)
++#define MLXSW_SP_SB_PRS_INGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_prs_ingress)
+ 
+-static const struct mlxsw_sp_sb_pool mlxsw_sp_sb_pools_egress[] = {
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
+-			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
+-	MLXSW_SP_SB_POOL(MLXSW_REG_SBPR_MODE_DYNAMIC,
+-			 MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_POOL_EGRESS_SIZE)),
++static const struct mlxsw_sp_sb_pr mlxsw_sp_sb_prs_egress[] = {
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC,
++		       MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_PR_EGRESS_SIZE)),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC, 0),
++	MLXSW_SP_SB_PR(MLXSW_REG_SBPR_MODE_DYNAMIC,
++		       MLXSW_SP_BYTES_TO_CELLS(MLXSW_SP_SB_PR_EGRESS_SIZE)),
+ };
+ 
+-#define MLXSW_SP_SB_POOLS_EGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_pools_egress)
++#define MLXSW_SP_SB_PRS_EGRESS_LEN ARRAY_SIZE(mlxsw_sp_sb_prs_egress)
+ 
+-static int __mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp,
+-				    enum mlxsw_reg_sbxx_dir dir,
+-				    const struct mlxsw_sp_sb_pool *pools,
+-				    size_t pools_len)
++static int __mlxsw_sp_sb_prs_init(struct mlxsw_sp *mlxsw_sp,
++				  enum mlxsw_reg_sbxx_dir dir,
++				  const struct mlxsw_sp_sb_pr *prs,
++				  size_t prs_len)
+ {
+ 	int i;
+ 	int err;
+ 
+-	for (i = 0; i < pools_len; i++) {
+-		const struct mlxsw_sp_sb_pool *pool;
++	for (i = 0; i < prs_len; i++) {
++		const struct mlxsw_sp_sb_pr *pr;
+ 
+-		pool = &pools[i];
++		pr = &prs[i];
+ 		err = mlxsw_sp_sb_pr_write(mlxsw_sp, i, dir,
+-					   pool->mode, pool->size);
++					   pr->mode, pr->size);
+ 		if (err)
+ 			return err;
+ 	}
+ 	return 0;
+ }
+ 
+-static int mlxsw_sp_sb_pools_init(struct mlxsw_sp *mlxsw_sp)
++static int mlxsw_sp_sb_prs_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int err;
+ 
+-	err = __mlxsw_sp_sb_pools_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_INGRESS,
+-				       mlxsw_sp_sb_pools_ingress,
+-				       MLXSW_SP_SB_POOLS_INGRESS_LEN);
++	err = __mlxsw_sp_sb_prs_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_INGRESS,
++				     mlxsw_sp_sb_prs_ingress,
++				     MLXSW_SP_SB_PRS_INGRESS_LEN);
+ 	if (err)
+ 		return err;
+-	return __mlxsw_sp_sb_pools_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_EGRESS,
+-					mlxsw_sp_sb_pools_egress,
+-					MLXSW_SP_SB_POOLS_EGRESS_LEN);
++	return __mlxsw_sp_sb_prs_init(mlxsw_sp, MLXSW_REG_SBXX_DIR_EGRESS,
++				      mlxsw_sp_sb_prs_egress,
++				      MLXSW_SP_SB_PRS_EGRESS_LEN);
+ }
+ 
+ struct mlxsw_sp_sb_cm {
+@@ -460,7 +460,7 @@ int mlxsw_sp_buffers_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int err;
+ 
+-	err = mlxsw_sp_sb_pools_init(mlxsw_sp);
++	err = mlxsw_sp_sb_prs_init(mlxsw_sp);
+ 	if (err)
+ 		return err;
+ 	err = mlxsw_sp_cpu_port_sb_cms_init(mlxsw_sp);
 -- 
 2.5.5
