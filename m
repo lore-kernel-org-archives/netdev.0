@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/18] mlxsw: core: Add devlink shared buffer callbacks
-Date: Thu, 14 Apr 2016 18:19:15 +0200
-Message-ID: <1460650770-19382-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/18] devlink: implement shared buffer occupancy monitoring interface
+Date: Thu, 14 Apr 2016 18:19:14 +0200
+Message-ID: <1460650770-19382-3-git-send-email-jiri@resnulli.us>
 References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, ogerlitz@mellanox.com,
@@ -11,175 +11,254 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37868 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932906AbcDNQTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:38 -0400
-Received: by mail-wm0-f53.google.com with SMTP id n3so133906590wmn.0
-        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:37 -0700 (PDT)
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37850 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932235AbcDNQTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 12:19:37 -0400
+Received: by mail-wm0-f43.google.com with SMTP id n3so133905731wmn.0
+        for <netdev@vger.kernel.org>; Thu, 14 Apr 2016 09:19:36 -0700 (PDT)
 In-Reply-To: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add middle layer in mlxsw core code to forward shared buffer calls
-into specific ASIC drivers.
+User needs to monitor shared buffer occupancy. For that, he issues a
+snapshot command in order to instruct hardware to catch current and
+maximal occupancy values, and clear command in order to clear the
+historical maximal values.
+
+Also port-pool and tc-pool-bind command response messages are extended to
+carry occupancy values.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 105 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/core.h |  20 ++++++
- 2 files changed, 123 insertions(+), 2 deletions(-)
+ include/net/devlink.h        | 12 ++++++
+ include/uapi/linux/devlink.h |  6 +++
+ net/core/devlink.c           | 98 +++++++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 110 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index 3958195..1278260 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -816,9 +816,110 @@ static int mlxsw_devlink_port_unsplit(struct devlink *devlink,
- 	return mlxsw_core->driver->port_unsplit(mlxsw_core, port_index);
- }
- 
-+static int
-+mlxsw_devlink_sb_pool_get(struct devlink *devlink,
-+			  unsigned int sb_index, u16 pool_index,
-+			  struct devlink_sb_pool_info *pool_info)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_pool_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_pool_get(mlxsw_core, sb_index,
-+					 pool_index, pool_info);
-+}
-+
-+static int
-+mlxsw_devlink_sb_pool_set(struct devlink *devlink,
-+			  unsigned int sb_index, u16 pool_index, u32 size,
-+			  enum devlink_sb_threshold_type threshold_type)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+
-+	if (!mlxsw_driver->sb_pool_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_pool_set(mlxsw_core, sb_index,
-+					 pool_index, size, threshold_type);
-+}
-+
-+static void *__dl_port(struct devlink_port *devlink_port)
-+{
-+	return container_of(devlink_port, struct mlxsw_core_port, devlink_port);
-+}
-+
-+static int mlxsw_devlink_sb_port_pool_get(struct devlink_port *devlink_port,
-+					  unsigned int sb_index, u16 pool_index,
-+					  u32 *p_threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_port_pool_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_port_pool_get(mlxsw_core_port, sb_index,
-+					      pool_index, p_threshold);
-+}
-+
-+static int mlxsw_devlink_sb_port_pool_set(struct devlink_port *devlink_port,
-+					  unsigned int sb_index, u16 pool_index,
-+					  u32 threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_port_pool_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_port_pool_set(mlxsw_core_port, sb_index,
-+					      pool_index, threshold);
-+}
-+
-+static int
-+mlxsw_devlink_sb_tc_pool_bind_get(struct devlink_port *devlink_port,
-+				  unsigned int sb_index, u16 tc_index,
-+				  enum devlink_sb_pool_type pool_type,
-+				  u16 *p_pool_index, u32 *p_threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_tc_pool_bind_get)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_tc_pool_bind_get(mlxsw_core_port, sb_index,
-+						 tc_index, pool_type,
-+						 p_pool_index, p_threshold);
-+}
-+
-+static int
-+mlxsw_devlink_sb_tc_pool_bind_set(struct devlink_port *devlink_port,
-+				  unsigned int sb_index, u16 tc_index,
-+				  enum devlink_sb_pool_type pool_type,
-+				  u16 pool_index, u32 threshold)
-+{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink_port->devlink);
-+	struct mlxsw_driver *mlxsw_driver = mlxsw_core->driver;
-+	struct mlxsw_core_port *mlxsw_core_port = __dl_port(devlink_port);
-+
-+	if (!mlxsw_driver->sb_tc_pool_bind_set)
-+		return -EOPNOTSUPP;
-+	return mlxsw_driver->sb_tc_pool_bind_set(mlxsw_core_port, sb_index,
-+						 tc_index, pool_type,
-+						 pool_index, threshold);
-+}
-+
- static const struct devlink_ops mlxsw_devlink_ops = {
--	.port_split	= mlxsw_devlink_port_split,
--	.port_unsplit	= mlxsw_devlink_port_unsplit,
-+	.port_split		= mlxsw_devlink_port_split,
-+	.port_unsplit		= mlxsw_devlink_port_unsplit,
-+	.sb_pool_get		= mlxsw_devlink_sb_pool_get,
-+	.sb_pool_set		= mlxsw_devlink_sb_pool_set,
-+	.sb_port_pool_get	= mlxsw_devlink_sb_port_pool_get,
-+	.sb_port_pool_set	= mlxsw_devlink_sb_port_pool_set,
-+	.sb_tc_pool_bind_get	= mlxsw_devlink_sb_tc_pool_bind_get,
-+	.sb_tc_pool_bind_set	= mlxsw_devlink_sb_tc_pool_bind_set,
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index e4c2747..be64218 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -78,6 +78,18 @@ struct devlink_ops {
+ 				   u16 tc_index,
+ 				   enum devlink_sb_pool_type pool_type,
+ 				   u16 pool_index, u32 threshold);
++	int (*sb_occ_snapshot)(struct devlink *devlink,
++			       unsigned int sb_index);
++	int (*sb_occ_max_clear)(struct devlink *devlink,
++				unsigned int sb_index);
++	int (*sb_occ_port_pool_get)(struct devlink_port *devlink_port,
++				    unsigned int sb_index, u16 pool_index,
++				    u32 *p_cur, u32 *p_max);
++	int (*sb_occ_tc_port_bind_get)(struct devlink_port *devlink_port,
++				       unsigned int sb_index,
++				       u16 tc_index,
++				       enum devlink_sb_pool_type pool_type,
++				       u32 *p_cur, u32 *p_max);
  };
  
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index f3cebef..184e985 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -200,6 +200,26 @@ struct mlxsw_driver {
- 	int (*port_split)(struct mlxsw_core *mlxsw_core, u8 local_port,
- 			  unsigned int count);
- 	int (*port_unsplit)(struct mlxsw_core *mlxsw_core, u8 local_port);
-+	int (*sb_pool_get)(struct mlxsw_core *mlxsw_core,
-+			   unsigned int sb_index, u16 pool_index,
-+			   struct devlink_sb_pool_info *pool_info);
-+	int (*sb_pool_set)(struct mlxsw_core *mlxsw_core,
-+			   unsigned int sb_index, u16 pool_index, u32 size,
-+			   enum devlink_sb_threshold_type threshold_type);
-+	int (*sb_port_pool_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				unsigned int sb_index, u16 pool_index,
-+				u32 *p_threshold);
-+	int (*sb_port_pool_set)(struct mlxsw_core_port *mlxsw_core_port,
-+				unsigned int sb_index, u16 pool_index,
-+				u32 threshold);
-+	int (*sb_tc_pool_bind_get)(struct mlxsw_core_port *mlxsw_core_port,
-+				   unsigned int sb_index, u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 *p_pool_index, u32 *p_threshold);
-+	int (*sb_tc_pool_bind_set)(struct mlxsw_core_port *mlxsw_core_port,
-+				   unsigned int sb_index, u16 tc_index,
-+				   enum devlink_sb_pool_type pool_type,
-+				   u16 pool_index, u32 threshold);
- 	void (*txhdr_construct)(struct sk_buff *skb,
- 				const struct mlxsw_tx_info *tx_info);
- 	u8 txhdr_len;
+ static inline void *devlink_priv(struct devlink *devlink)
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index 9c1aa57..ba0073b 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -53,6 +53,10 @@ enum devlink_command {
+ 	DEVLINK_CMD_SB_TC_POOL_BIND_NEW,
+ 	DEVLINK_CMD_SB_TC_POOL_BIND_DEL,
+ 
++	/* Shared buffer occupancy monitoring commands */
++	DEVLINK_CMD_SB_OCC_SNAPSHOT,
++	DEVLINK_CMD_SB_OCC_MAX_CLEAR,
++
+ 	/* add new commands above here */
+ 
+ 	__DEVLINK_CMD_MAX,
+@@ -119,6 +123,8 @@ enum devlink_attr {
+ 	DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE,	/* u8 */
+ 	DEVLINK_ATTR_SB_THRESHOLD,		/* u32 */
+ 	DEVLINK_ATTR_SB_TC_INDEX,		/* u16 */
++	DEVLINK_ATTR_SB_OCC_CUR,		/* u32 */
++	DEVLINK_ATTR_SB_OCC_MAX,		/* u32 */
+ 
+ 	/* add new attributes above here, update the policy in devlink.c */
+ 
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index aa0b9e1..933e8d4 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -280,6 +280,10 @@ devlink_sb_tc_index_get_from_info(struct devlink_sb *devlink_sb,
+ #define DEVLINK_NL_FLAG_NEED_DEVLINK	BIT(0)
+ #define DEVLINK_NL_FLAG_NEED_PORT	BIT(1)
+ #define DEVLINK_NL_FLAG_NEED_SB		BIT(2)
++#define DEVLINK_NL_FLAG_LOCK_PORTS	BIT(3)
++	/* port is not needed but we need to ensure they don't
++	 * change in the middle of command
++	 */
+ 
+ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 			       struct sk_buff *skb, struct genl_info *info)
+@@ -306,6 +310,9 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ 		}
+ 		info->user_ptr[0] = devlink_port;
+ 	}
++	if (ops->internal_flags & DEVLINK_NL_FLAG_LOCK_PORTS) {
++		mutex_lock(&devlink_port_mutex);
++	}
+ 	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_SB) {
+ 		struct devlink_sb *devlink_sb;
+ 
+@@ -324,7 +331,8 @@ static int devlink_nl_pre_doit(const struct genl_ops *ops,
+ static void devlink_nl_post_doit(const struct genl_ops *ops,
+ 				 struct sk_buff *skb, struct genl_info *info)
+ {
+-	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT)
++	if (ops->internal_flags & DEVLINK_NL_FLAG_NEED_PORT ||
++	    ops->internal_flags & DEVLINK_NL_FLAG_LOCK_PORTS)
+ 		mutex_unlock(&devlink_port_mutex);
+ 	mutex_unlock(&devlink_mutex);
+ }
+@@ -942,12 +950,13 @@ static int devlink_nl_sb_port_pool_fill(struct sk_buff *msg,
+ 					enum devlink_command cmd,
+ 					u32 portid, u32 seq, int flags)
+ {
++	const struct devlink_ops *ops = devlink->ops;
+ 	u32 threshold;
+ 	void *hdr;
+ 	int err;
+ 
+-	err = devlink->ops->sb_port_pool_get(devlink_port, devlink_sb->index,
+-					     pool_index, &threshold);
++	err = ops->sb_port_pool_get(devlink_port, devlink_sb->index,
++				    pool_index, &threshold);
+ 	if (err)
+ 		return err;
+ 
+@@ -966,6 +975,22 @@ static int devlink_nl_sb_port_pool_fill(struct sk_buff *msg,
+ 	if (nla_put_u32(msg, DEVLINK_ATTR_SB_THRESHOLD, threshold))
+ 		goto nla_put_failure;
+ 
++	if (ops->sb_occ_port_pool_get) {
++		u32 cur;
++		u32 max;
++
++		err = ops->sb_occ_port_pool_get(devlink_port, devlink_sb->index,
++						pool_index, &cur, &max);
++		if (err && err != -EOPNOTSUPP)
++			return err;
++		if (!err) {
++			if (nla_put_u32(msg, DEVLINK_ATTR_SB_OCC_CUR, cur))
++				goto nla_put_failure;
++			if (nla_put_u32(msg, DEVLINK_ATTR_SB_OCC_MAX, max))
++				goto nla_put_failure;
++		}
++	}
++
+ 	genlmsg_end(msg, hdr);
+ 	return 0;
+ 
+@@ -1114,14 +1139,15 @@ devlink_nl_sb_tc_pool_bind_fill(struct sk_buff *msg, struct devlink *devlink,
+ 				enum devlink_command cmd,
+ 				u32 portid, u32 seq, int flags)
+ {
++	const struct devlink_ops *ops = devlink->ops;
+ 	u16 pool_index;
+ 	u32 threshold;
+ 	void *hdr;
+ 	int err;
+ 
+-	err = devlink->ops->sb_tc_pool_bind_get(devlink_port, devlink_sb->index,
+-						tc_index, pool_type,
+-						&pool_index, &threshold);
++	err = ops->sb_tc_pool_bind_get(devlink_port, devlink_sb->index,
++				       tc_index, pool_type,
++				       &pool_index, &threshold);
+ 	if (err)
+ 		return err;
+ 
+@@ -1144,6 +1170,24 @@ devlink_nl_sb_tc_pool_bind_fill(struct sk_buff *msg, struct devlink *devlink,
+ 	if (nla_put_u32(msg, DEVLINK_ATTR_SB_THRESHOLD, threshold))
+ 		goto nla_put_failure;
+ 
++	if (ops->sb_occ_tc_port_bind_get) {
++		u32 cur;
++		u32 max;
++
++		err = ops->sb_occ_tc_port_bind_get(devlink_port,
++						   devlink_sb->index,
++						   tc_index, pool_type,
++						   &cur, &max);
++		if (err && err != -EOPNOTSUPP)
++			return err;
++		if (!err) {
++			if (nla_put_u32(msg, DEVLINK_ATTR_SB_OCC_CUR, cur))
++				goto nla_put_failure;
++			if (nla_put_u32(msg, DEVLINK_ATTR_SB_OCC_MAX, max))
++				goto nla_put_failure;
++		}
++	}
++
+ 	genlmsg_end(msg, hdr);
+ 	return 0;
+ 
+@@ -1326,6 +1370,30 @@ static int devlink_nl_cmd_sb_tc_pool_bind_set_doit(struct sk_buff *skb,
+ 					   pool_index, threshold);
+ }
+ 
++static int devlink_nl_cmd_sb_occ_snapshot_doit(struct sk_buff *skb,
++					       struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_sb *devlink_sb = info->user_ptr[1];
++	const struct devlink_ops *ops = devlink->ops;
++
++	if (ops && ops->sb_occ_snapshot)
++		return ops->sb_occ_snapshot(devlink, devlink_sb->index);
++	return -EOPNOTSUPP;
++}
++
++static int devlink_nl_cmd_sb_occ_max_clear_doit(struct sk_buff *skb,
++						struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_sb *devlink_sb = info->user_ptr[1];
++	const struct devlink_ops *ops = devlink->ops;
++
++	if (ops && ops->sb_occ_max_clear)
++		return ops->sb_occ_max_clear(devlink, devlink_sb->index);
++	return -EOPNOTSUPP;
++}
++
+ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+ 	[DEVLINK_ATTR_BUS_NAME] = { .type = NLA_NUL_STRING },
+ 	[DEVLINK_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
+@@ -1439,6 +1507,24 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.internal_flags = DEVLINK_NL_FLAG_NEED_PORT |
+ 				  DEVLINK_NL_FLAG_NEED_SB,
+ 	},
++	{
++		.cmd = DEVLINK_CMD_SB_OCC_SNAPSHOT,
++		.doit = devlink_nl_cmd_sb_occ_snapshot_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK |
++				  DEVLINK_NL_FLAG_NEED_SB |
++				  DEVLINK_NL_FLAG_LOCK_PORTS,
++	},
++	{
++		.cmd = DEVLINK_CMD_SB_OCC_MAX_CLEAR,
++		.doit = devlink_nl_cmd_sb_occ_max_clear_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK |
++				  DEVLINK_NL_FLAG_NEED_SB |
++				  DEVLINK_NL_FLAG_LOCK_PORTS,
++	},
+ };
+ 
+ /**
 -- 
 2.5.5
