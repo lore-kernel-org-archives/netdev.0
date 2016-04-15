@@ -1,64 +1,34 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 7/7] net: dsa: mv88e6xxx: drop switch id
-Date: Fri, 15 Apr 2016 23:51:57 +0200
-Message-ID: <20160415215157.GB26665@lunn.ch>
-References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1460744750-13896-8-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20160415193818.GE18523@lunn.ch>
- <87k2jya8ot.fsf@ketchup.mtl.sfl>
+Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
+ UP
+Date: Sat, 16 Apr 2016 00:05:08 +0200
+Message-ID: <20160415220508.GC26665@lunn.ch>
+References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
+ <57114AA4.5080803@gmail.com>
+ <20160415205613.GE25196@piout.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87k2jya8ot.fsf@ketchup.mtl.sfl>
+In-Reply-To: <20160415205613.GE25196@piout.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2016 at 05:00:50PM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> <snip>
-> 
-> >> -#define PORT_SWITCH_ID_6350	0x3710
-> >> -#define PORT_SWITCH_ID_6351	0x3750
-> >> -#define PORT_SWITCH_ID_6352	0x3520
-> >
-> > NACK
-> >
-> > These numbers are not obvious. PORT_SWITCH_ID_6320 i can
-> > understand. 0x1150 i have no idea what it is.
-> 
-> 0x1150 is not even correct. That's the product number (bits 4:15) masked
-> with an assumed revision 0 (bits 0:3).
-> 
-> That leads to confusion and error, as seen in the patch 2/7.
-> 
-> These values are now only used in a device description table, where they
-> seem pretty understandable to me.
+> Trace without my patch:
+> libphy: MACB_mii_bus: probed
+> macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 27 (fc:c2:3d:0c:6e:05)
+> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=171)
+> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+> [...]
+> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
 
-      { MV88E6XXX_INFO(6320, 0x115, "Marvell 88E6320") },
-      { MV88E6XXX_INFO(6320, 0x310, "Marvell 88E6321") },
+Are there some state changes before this? How is it getting to state
+READY? It would expect it to start in DOWN, from when the phy device
+was created in phy_device_create().
 
-What does 0x115 have to do with 6320?
-What does 0x310 have to do with 6321?
-
-Most do have a pattern, but not all. For a few devices, Marvell has
-used /dev/random to pick the ID. Using the macro PORT_SWITCH_ID_6320
-documents where these numbers come from, and how to figure out the
-correct number of a new device, etc.
-
-> But OK if we really want them defined, I'll introduce 12-bit
-> PORT_SWITCH_ID_PROD_NUM_* before dropping the 16-bit
-> PORT_SWITCH_ID_*.
-
-I'm O.K. with that.
-
-Thanks
-	Andrew
+       Andrew
