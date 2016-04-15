@@ -1,49 +1,70 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by an assignment in ath9k_htc_set_channel()
-Date: Fri, 15 Apr 2016 15:09:23 +0300
-Message-ID: <87ega7qdjg.fsf@kamboji.qca.qualcomm.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-	<5686C390.5060600@users.sourceforge.net>
-	<5686C47E.1040906@users.sourceforge.net>
-	<CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
+Subject: Re: [PATCH 0/5] wireless: ti: Convert specialized logging macros to kernel style
+Date: Fri, 15 Apr 2016 15:22:28 +0300
+Message-ID: <87a8kvqcxn.fsf@kamboji.qca.qualcomm.com>
+References: <cover.1457395071.git.joe@perches.com>
+	<87shz85gkq.fsf@purkki.adurom.net>
+	<1459373791.25110.132.camel@perches.com>
+	<87y48z3xkz.fsf@purkki.adurom.net>
+	<1459411668.1744.6.camel@perches.com>
+	<CAB3XZEfePJG7t6+TGYer_pcdqqaTfYugK0cARwhgLm9KRG1fmg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ath9k-devel@lists.ath9k.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	SF Markus Elfring <elfring@users.sourceforge.net>,
-	kernel-janitors <kernel-janitors@vger.kernel.org>,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Julian Calaby <julian.calaby@gmail.com>
+Cc: Joe Perches <joe@perches.com>, LKML <linux-kernel@vger.kernel.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"open list\:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	Guy Mishol <guym@ti.com>,
+	Uri Mashiach <uri.mashiach@compulab.co.il>,
+	Johannes Berg <johannes.berg@intel.com>
+To: Eliad Peller <eliad@wizery.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
-	(Julian Calaby's message of "Fri, 8 Apr 2016 11:40:45 +1000")
+In-Reply-To: <CAB3XZEfePJG7t6+TGYer_pcdqqaTfYugK0cARwhgLm9KRG1fmg@mail.gmail.com>
+	(Eliad Peller's message of "Thu, 31 Mar 2016 11:59:39 +0300")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Julian Calaby <julian.calaby@gmail.com> writes:
+Eliad Peller <eliad@wizery.com> writes:
 
-> Hi Kalle,
->
-> On Sat, Jan 2, 2016 at 5:25 AM, SF Markus Elfring
-> <elfring@users.sourceforge.net> wrote:
->> From: Markus Elfring <elfring@users.sourceforge.net>
->> Date: Fri, 1 Jan 2016 19:09:32 +0100
+> On Thu, Mar 31, 2016 at 11:07 AM, Joe Perches <joe@perches.com> wrote:
+>> On Thu, 2016-03-31 at 10:39 +0300, Kalle Valo wrote:
+>>> Joe Perches <joe@perches.com> writes:
+>>> > On Wed, 2016-03-30 at 14:51 +0300, Kalle Valo wrote:
+>>> > > Joe Perches <joe@perches.com> writes:
+>>> > > >
+>>> > > > Using the normal kernel logging mechanisms makes this code
+>>> > > > a bit more like other wireless drivers.
+>>> > > Personally I don't see the point but I don't have any strong opinions. A
+>>> > > bigger problem is that TI drivers are not really in active development
+>>> > > and that's I'm not thrilled to take big patches like this for dormant
+>>> > > drivers.
+>>> > Not very dormant.
+>>> >
+>>> > 35 patches in the last year, most of them adding functionality.
+>>> Oh, I didn't realise it had that many patches. But the driver is
+>>> orphaned and doesn't have a maintainer so could I then have an ack from
+>>> one of the active contributors that this ok?
 >>
->> Replace an explicit initialisation for one local variable at the beginning
->> by a conditional assignment.
+>> Fine by me.
 >>
->> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>> $ ./scripts/get_maintainer.pl -f --git drivers/net/wireless/ti/
+>>
+>> Kalle Valo <kvalo@codeaurora.org> (maintainer:NETWORKING DRIVERS (WIRELESS),commit_signer:27/35=77%)
+>> Eliad Peller <eliad@wizery.com> (commit_signer:9/35=26%,authored:7/35=20%)
+>> Guy Mishol <guym@ti.com> (commit_signer:6/35=17%,authored:5/35=14%)
+>> Johannes Berg <johannes.berg@intel.com> (commit_signer:6/35=17%,authored:3/35=9%)
+>> Uri Mashiach <uri.mashiach@compulab.co.il> (commit_signer:4/35=11%,authored:4/35=11%)
+>>
+>> For those people now added to the cc list,
+>> here's the original patch thread:
+>>
+>> https://lkml.org/lkml/2016/3/7/1099
 >
-> This looks sane to me.
->
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+> I don't have a strong opinion here either.
+> (I do like the trailing newline being added automatically, but that's
+> hardly an issue...)
 
-Before I commit I'll just change the commit title to:
-
-ath9k_htc: Replace a variable initialisation by an assignment in ath9k_htc_set_channel()
+Ok, I didn't get any objections so I'm planning to this set. If someone
+thinks this is a bad idea speak up now.
 
 -- 
 Kalle Valo
