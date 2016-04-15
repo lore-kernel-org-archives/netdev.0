@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: use per cpu variables for stats
- accounting
-Date: Thu, 14 Apr 2016 22:56:17 -0400 (EDT)
-Message-ID: <20160414.225617.2128747969495613941.davem@davemloft.net>
-References: <597a2e5c2f664d48d3e4aac2f7d43e61940d4037.1460537477.git.pabeni@redhat.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 1/3] rxrpc: Don't permit use of connect() op and simplify sendmsg() op
+Date: Fri, 15 Apr 2016 04:26:10 +0100
+Message-ID: <4962.1460690770@warthog.procyon.org.uk>
+References: <20160414.210713.1128991767536792390.davem@davemloft.net> <20160412150533.20637.23952.stgit@warthog.procyon.org.uk> <20160412150540.20637.31886.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, hannes@stressinduktion.org,
-	ebiederm@xmission.com, gkurz@linux.vnet.ibm.com,
-	jasowang@redhat.com
-To: pabeni@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43002 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752880AbcDOC4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 22:56:22 -0400
-In-Reply-To: <597a2e5c2f664d48d3e4aac2f7d43e61940d4037.1460537477.git.pabeni@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57335 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752344AbcDOD0N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 23:26:13 -0400
+In-Reply-To: <20160414.210713.1128991767536792390.davem@davemloft.net>
+Content-ID: <4961.1460690770.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 13 Apr 2016 10:52:20 +0200
+David Miller <davem@davemloft.net> wrote:
 
-> Currently the tun device accounting uses dev->stats without applying any
-> kind of protection, regardless that accounting happens in preemptible
-> process context.
-> This patch move the tun stats to a per cpu data structure, and protect
-> the updates with  u64_stats_update_begin()/u64_stats_update_end() or
-> this_cpu_inc according to the stat type. The per cpu stats are
-> aggregated by the newly added ndo_get_stats64 ops.
+> > Simplify the RxRPC user interface and remove the use of connect() to direct
+> > client calls.  It is redundant given that sendmsg() can be given the target
+> > address and calls to multiple targets are permitted from a client socket
+> > and also from a service socket.
 > 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> You can't just change completely the socket semantics for your
+> protocol like this, every single userland application is going to
+> break.
+> 
+> Sorry, there is no way I am applying changes like this.
 
-Ok this seems reasonable, applied, thanks.
+Okay, fair enough.[*]
 
-I guess most applications use tuntap by having two threads, one
-for transmit and one for receive processing?
+David
+
+[*] I could point out that there is only one (under construction) userspace
+application that uses this - and that doesn't use connect - but I can't quite
+be 100% sure of that, so your point stands.
