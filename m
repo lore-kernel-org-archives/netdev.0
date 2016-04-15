@@ -1,47 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] vxlan: synchronously and race-free
- destruction of vxlan sockets
-Date: Fri, 15 Apr 2016 16:36:44 -0400 (EDT)
-Message-ID: <20160415.163644.1883719564658558438.davem@davemloft.net>
-References: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
+Subject: Re: [PATCH] qlge: Replace create_singlethread_workqueue with
+ alloc_ordered_workqueue
+Date: Fri, 15 Apr 2016 16:42:30 -0400 (EDT)
+Message-ID: <20160415.164230.2258973922688491525.davem@davemloft.net>
+References: <20160409115744.GA30104@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jbenc@redhat.com,
-	marcelo.leitner@gmail.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52056 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbcDOUgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 16:36:46 -0400
-In-Reply-To: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
+	Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, tj@kernel.org
+To: amitoj1606@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160409115744.GA30104@amitoj-Inspiron-3542>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri,  8 Apr 2016 22:55:01 +0200
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Sat, 9 Apr 2016 17:27:45 +0530
 
-> @@ -1053,7 +1052,9 @@ static void __vxlan_sock_release(struct vxlan_sock *vs)
->  	vxlan_notify_del_rx_port(vs);
->  	spin_unlock(&vn->sock_lock);
->  
-> -	queue_work(vxlan_wq, &vs->del_work);
-> +	synchronize_net();
-> +	udp_tunnel_sock_release(vs->sock);
-> +	kfree(vs);
->  }
->  
->  static void vxlan_sock_release(struct vxlan_dev *vxlan)
+> Replace deprecated create_singlethread_workqueue with
+> alloc_ordered_workqueue.
+> 
+> Work items include getting tx/rx frame sizes, resetting MPI processor,
+> setting asic recovery bit so ordering seems necessary as only one work
+> item should be in queue/executing at any given time, hence the use of
+> alloc_ordered_workqueue.
+> 
+> WQ_MEM_RECLAIM flag has been set since ethernet devices seem to sit in
+> memory reclaim path, so to guarantee forward progress regardless of 
+> memory pressure.
+> 
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+> Acked-by: Tejun Heo <tj@kernel.org>
 
-I just want to make sure you saw this change in net-next:
-
-====================
-commit ca065d0cf80fa547724440a8bf37f1e674d917c0
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Fri Apr 1 08:52:13 2016 -0700
-
-    udp: no longer use SLAB_DESTROY_BY_RCU
-====================
-
-Does that effect your change?
+I'll apply this to net-next, thanks.
