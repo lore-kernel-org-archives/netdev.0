@@ -1,55 +1,48 @@
-From: <dinguyen@opensource.altera.com>
-Subject: [net-next PATCH] stmmac: socfpga: remove extra call to socfpga_dwmac_setup
-Date: Thu, 14 Apr 2016 20:42:29 -0500
-Message-ID: <1460684549-9549-1-git-send-email-dinguyen@opensource.altera.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 0/2] ethernet: intel: Support Hyper-V hosts
+Date: Thu, 14 Apr 2016 19:21:00 -0700
+Message-ID: <CAL3LdT4c5nhxeOrWcCPfGXAJVx2iWyjjMik6aaF3V-STBRXo0A@mail.gmail.com>
+References: <1460678121-30308-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <mgerlach@opensource.altera.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>
-To: <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0065.outbound.protection.outlook.com ([65.55.169.65]:41329
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751375AbcDOBty (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Apr 2016 21:49:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, intel-wired-lan@linuxonhyperv.com,
+ netdev <netdev@vger.kernel.org>, jasowang@redhat.com,
+ LKML <linux-kernel@vger.kernel.org>, jackm@mellanox.com, yevgenyp@mellanox.com,
+ "Ronciak, John" <john.ronciak@intel.com>, eli@mellanox.com, apw@canonical.com,
+ devel@linuxdriverproject.org, David Miller <davem@davemloft.net>
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1460678121-30308-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Dinh Nguyen <dinguyen@opensource.altera.com>
+On Thu, Apr 14, 2016 at 4:55 PM, K. Y. Srinivasan <kys@microsoft.com> wrote:
+> Make adjustments to the Intel 10G VF driver to support
+> running on Hyper-V hosts.
+>
+> K. Y. Srinivasan (2):
+>   ethernet: intel: Add the device ID's presented while running on
+>     Hyper-V
+>   intel: ixgbevf: Support Windows hosts (Hyper-V)
+>
+>  drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   11 ++
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   56 ++++++---
+>  drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
+>  drivers/net/ethernet/intel/ixgbevf/vf.c           |  138 +++++++++++++++++++++
+>  drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +
+>  6 files changed, 206 insertions(+), 18 deletions(-)
 
-In the socfpga_dwmac_probe function, we have a call to socfpga_dwmac_setup,
-which is already called from socfpga_dwmac_init later in the probe function.
-Remove this extra call to socfpga_dwmac_setup.
-
-Also we should not be calling socfpga_dwmac_setup() directly without wrapping
-it around the proper reset assert/deasserts. That is because the
-socfpga_dwmac_setup() is setting up PHY modes in the system manager, and it
-is requires the EMAC's to be in reset during the PHY setup.
-
-Reported-by: Matthew Gerlach <mgerlach@opensource.altera.com>
-Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 6 ------
- 1 file changed, 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index f0d797a..41f4c58 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -267,12 +267,6 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
--	ret = socfpga_dwmac_setup(dwmac);
--	if (ret) {
--		dev_err(dev, "couldn't setup SoC glue (%d)\n", ret);
--		return ret;
--	}
--
- 	plat_dat->bsp_priv = dwmac;
- 	plat_dat->init = socfpga_dwmac_init;
- 	plat_dat->exit = socfpga_dwmac_exit;
--- 
-2.6.2
+Don't know how you butchered the mailing list address, but you did not
+send this series to intel-wired-lan@lists.osuosl.org mailing list.
+Please address the requested changes that Mark suggested and resubmit
+to the correct mailing list please.
