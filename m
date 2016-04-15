@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qlge: Replace create_singlethread_workqueue with
- alloc_ordered_workqueue
-Date: Fri, 15 Apr 2016 16:42:30 -0400 (EDT)
-Message-ID: <20160415.164230.2258973922688491525.davem@davemloft.net>
-References: <20160409115744.GA30104@amitoj-Inspiron-3542>
+Subject: Re: [PATCH net-next 0/2] tcp: final work on SYNFLOOD behavior
+Date: Fri, 15 Apr 2016 16:46:13 -0400 (EDT)
+Message-ID: <20160415.164613.240856722381350785.davem@davemloft.net>
+References: <1460610340-22163-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, tj@kernel.org
-To: amitoj1606@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160409115744.GA30104@amitoj-Inspiron-3542>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52146 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbcDOUqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 16:46:15 -0400
+In-Reply-To: <1460610340-22163-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Date: Sat, 9 Apr 2016 17:27:45 +0530
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed, 13 Apr 2016 22:05:38 -0700
 
-> Replace deprecated create_singlethread_workqueue with
-> alloc_ordered_workqueue.
+> In the first patch, I remove the costly association of SYNACK+COOKIES
+> to a listener. I believe other parts of the stack should be ready.
 > 
-> Work items include getting tx/rx frame sizes, resetting MPI processor,
-> setting asic recovery bit so ordering seems necessary as only one work
-> item should be in queue/executing at any given time, hence the use of
-> alloc_ordered_workqueue.
+> The second patch removes a useless write into listener socket
+> in tcp_rcv_state_process(), incurring false sharing in
+> tcp_conn_request()
 > 
-> WQ_MEM_RECLAIM flag has been set since ethernet devices seem to sit in
-> memory reclaim path, so to guarantee forward progress regardless of 
-> memory pressure.
-> 
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> Acked-by: Tejun Heo <tj@kernel.org>
+> Performance under SYNFLOOD goes from 3.2 Mpps to 6 Mpps.
 
-I'll apply this to net-next, thanks.
+Geese, you almost make it look too easy....
+
+> Test was using a single TCP listener, on a host with 8 RX queues
+> on the NIC, and 24 cores (48 ht)
+
+Looks good, series applied, thanks Eric.
