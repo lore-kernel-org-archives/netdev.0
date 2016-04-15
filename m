@@ -1,31 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] devlink: fix sb register stub in case devlink
- is disabled
-Date: Fri, 15 Apr 2016 12:57:45 -0400 (EDT)
-Message-ID: <20160415.125745.647243932188429967.davem@davemloft.net>
-References: <1460704628-3662-1-git-send-email-jiri@resnulli.us>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Fri, 15 Apr 2016 12:00:35 -0500
+Message-ID: <57111E33.606@codeaurora.org>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com> <571012E6.6050303@codeaurora.org>
+ <57102920.7000104@codeaurora.org> <20160415164433.GV391@tuxbot>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, fengguang.wu@intel.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50515 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969AbcDOQ5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 12:57:50 -0400
-In-Reply-To: <1460704628-3662-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vikram Sethi <vikrams@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, cov@codeaurora.org,
+	gavidov@codeaurora.org, Rob Herring <robh+dt@kernel.org>,
+	andrew@lunn.ch, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20160415164433.GV391@tuxbot>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 15 Apr 2016 09:17:08 +0200
+Bjorn Andersson wrote:
+> For platform devices being populated via from DT you will pass:
+> of_platform_bus_create()
+>    of_platform_device_create_pdata()
+>      of_dma_configure()
+>
+> Which calls of_dma_get_range() to acquire this information from the
+> dma-ranges property and set up the dma ops and properties.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Fixes: bf7974710a40 ("devlink: add shared buffer configuration")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This seems excessive.  I have to create a platform bus just to configure 
+the DMA mask?  Most drivers just call dma_set_mask and give it a number, 
+and that's not device-tree specific.  I also need to come up with a way 
+to get this to work on ACPI.
 
-Applied, thanks Jiri.
+I just seems like a lot of work only because I need to determine at 
+runtime what my DMA mask is.  I also don't see any drivers that call 
+of_dma_configure().
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
