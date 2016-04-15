@@ -1,24 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Fri, 15 Apr 2016 13:13:17 -0400 (EDT)
-Message-ID: <20160415.131317.937825031149120252.davem@davemloft.net>
-References: <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
-	<5710E1C1.2090209@mojatatu.com>
-	<1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, jikos@kernel.org, phil@nwl.cc,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH net-next 2/2] openvswitch: Convert to using IFF_NO_QUEUE
+Date: Fri, 15 Apr 2016 19:14:20 +0200
+Message-ID: <1460740460-12859-3-git-send-email-phil@nwl.cc>
+References: <1460740460-12859-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58038 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753006AbcDOROk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Apr 2016 13:14:40 -0400
+In-Reply-To: <1460740460-12859-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Apr 2016 07:58:48 -0700
+Cc: Pravin Shelar <pshelar@nicira.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ net/openvswitch/vport-internal_dev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> Having some hidden qdiscs is the real problem here.
-
-+1
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 7c8b90bf0e540..2ee48e447b724 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -165,11 +165,10 @@ static void do_setup(struct net_device *netdev)
+ 
+ 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE | IFF_OPENVSWITCH |
+-			      IFF_PHONY_HEADROOM;
++			      IFF_PHONY_HEADROOM | IFF_NO_QUEUE;
+ 	netdev->destructor = internal_dev_destructor;
+ 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
+ 	netdev->rtnl_link_ops = &internal_dev_link_ops;
+-	netdev->tx_queue_len = 0;
+ 
+ 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+ 			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
+-- 
+2.8.0
