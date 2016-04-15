@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 4/5] tipc: ensure that first
-	packets on link are sent in order
-Date: Fri, 15 Apr 2016 13:33:06 -0400
-Message-ID: <1460741587-13935-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/5] tipc: refactor function
+	tipc_link_timeout()
+Date: Fri, 15 Apr 2016 13:33:05 -0400
+Message-ID: <1460741587-13935-4-git-send-email-jon.maloy@ericsson.com>
 References: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,37 +23,85 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In some link establishment scenarios we see that packet #2 may be sent
-out before packet #1, forcing the receiver to demand retransmission of
-the missing packet. This is harmless, but may cause confusion among
-people tracing the packet flow.
+The function tipc_link_timeout() is unnecessary complex, and can
+easily be made more readable.
 
-Since this is extremely easy to fix, we do so by adding en extra send
-call to the bearer immediately after the link has come up.
+We do that with this commit. The only functional change is that we
+remove a redundant test for whether the broadcast link is up or not.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/node.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ net/tipc/link.c | 36 ++++++++++++++++--------------------
+ 1 file changed, 16 insertions(+), 20 deletions(-)
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index ace178f..b00e12c 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -581,8 +581,12 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- static void tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 			      struct sk_buff_head *xmitq)
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 238b125..774ad3c 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -704,37 +704,33 @@ static void link_profile_stats(struct tipc_link *l)
+  */
+ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
  {
-+	struct tipc_media_addr *maddr;
-+
- 	tipc_node_write_lock(n);
- 	__tipc_node_link_up(n, bearer_id, xmitq);
-+	maddr = &n->links[bearer_id].maddr;
-+	tipc_bearer_xmit(n->net, bearer_id, xmitq, maddr);
- 	tipc_node_write_unlock(n);
- }
+-	int rc = 0;
+-	int mtyp = STATE_MSG;
+-	bool xmit = false;
+-	bool prb = false;
++	int mtyp, rc = 0;
++	bool state = false;
++	bool probe = false;
++	bool setup = false;
+ 	u16 bc_snt = l->bc_sndlink->snd_nxt - 1;
+ 	u16 bc_acked = l->bc_rcvlink->acked;
+-	bool bc_up = link_is_up(l->bc_rcvlink);
  
+ 	link_profile_stats(l);
+ 
+ 	switch (l->state) {
+ 	case LINK_ESTABLISHED:
+ 	case LINK_SYNCHING:
+-		if (!l->silent_intv_cnt) {
+-			if (bc_up && (bc_acked != bc_snt))
+-				xmit = true;
+-		} else if (l->silent_intv_cnt <= l->abort_limit) {
+-			xmit = true;
+-			prb = true;
+-		} else {
+-			rc |= tipc_link_fsm_evt(l, LINK_FAILURE_EVT);
+-		}
+-		l->silent_intv_cnt++;
++		if (l->silent_intv_cnt > l->abort_limit)
++			return tipc_link_fsm_evt(l, LINK_FAILURE_EVT);
++		mtyp = STATE_MSG;
++		state = bc_acked != bc_snt;
++		probe = l->silent_intv_cnt;
++		if (probe)
++			l->silent_intv_cnt++;
+ 		break;
+ 	case LINK_RESET:
+-		xmit = l->rst_cnt++ <= 4;
+-		xmit |= !(l->rst_cnt % 16);
++		setup = l->rst_cnt++ <= 4;
++		setup |= !(l->rst_cnt % 16);
+ 		mtyp = RESET_MSG;
+ 		break;
+ 	case LINK_ESTABLISHING:
+-		xmit = true;
++		setup = true;
+ 		mtyp = ACTIVATE_MSG;
+ 		break;
+ 	case LINK_PEER_RESET:
+@@ -745,8 +741,8 @@ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 		break;
+ 	}
+ 
+-	if (xmit)
+-		tipc_link_build_proto_msg(l, mtyp, prb, 0, 0, 0, xmitq);
++	if (state || probe || setup)
++		tipc_link_build_proto_msg(l, mtyp, probe, 0, 0, 0, xmitq);
+ 
+ 	return rc;
+ }
 -- 
 1.9.1
 
