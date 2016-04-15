@@ -1,58 +1,43 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: WARNING: CPU: 1 PID: 2485 at
- drivers/net/wireless/intel/iwlwifi/pcie/trans.c:1752
- iwl_trans_pcie_grab_nic_access+0x110/0x120 [iwlwifi]
-Date: Fri, 15 Apr 2016 04:16:02 +0000
-Message-ID: <1460693762.2648.5.camel@intel.com>
-References: <20160415020710.GA2700@cz.tnic>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Dreyfuss, Haim" <haim.dreyfuss-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Coelho, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org" <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160415020710.GA2700-q7QVrfafQE0@public.gmane.org>
-Content-Language: en-US
-Content-ID: <2F184CDE9E5CF24FB8CD6005D4BDFC5B-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] devlink: fix sb register stub in case devlink is disabled
+Date: Fri, 15 Apr 2016 09:17:08 +0200
+Message-ID: <1460704628-3662-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com, fengguang.wu@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36682 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbcDOHRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:17:11 -0400
+Received: by mail-wm0-f50.google.com with SMTP id v188so18170610wme.1
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:17:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE2LTA0LTE1IGF0IDAyOjA3ICswMDAwLCBCb3Jpc2xhdiBQZXRrb3Ygd3JvdGU6
-DQo+IEhpLA0KPiANCj4gc28gSSdtIHNlZWluZyB0aGlzIHdoZW4gd2xhbjAgdHJpZXMgdG8gYXNz
-b2NpYXRlLiBPbiA0LjYtcmMyICsgdGlwLg0KPiBBZnRlciB0aGF0LCB3aWZpIGlzIGRlYWQgaW4g
-dGhlIHdhdGVyLiBBbnlvbmUgaGF2ZSBhIGNsdWU/DQo+IA0KPiBBbmQgNC41IHNlZW1zIGZpbmUs
-IEknbSB0eXBpbmcgZnJvbSBpdCBhcyB3ZSBzcGVhay4NCj4gLi4uDQoNCjxzbmlwPg0KDQoNCj4g
-WyAgNjYxLjE0MjY1N10gLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0tLS0tLS0tDQo+IFsg
-IDY2MS4xNDI4MTZdIFdBUk5JTkc6IENQVTogMSBQSUQ6IDI0ODUgYXQNCj4gZHJpdmVycy9uZXQv
-d2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9wY2llL3RyYW5zLmM6MTc1Mg0KPiBpd2xfdHJhbnNfcGNp
-ZV9ncmFiX25pY19hY2Nlc3MrMHgxMTAvMHgxMjAgW2l3bHdpZmldDQo+IFsgIDY2MS4xNDMyMzFd
-IFRpbWVvdXQgd2FpdGluZyBmb3IgaGFyZHdhcmUgYWNjZXNzIChDU1JfR1BfQ05UUkwNCj4gMHhm
-ZmZmZmZmZikNCj4gDQoNClRoaXMgbWVhbnMgdGhhdCB3ZSBoYXZlIGFuIGVsZWN0cmljYWwgaXNz
-dWUgdGhhdCBwcmV2ZW50cyB1cyBmcm9tDQphY2Nlc3NpbmcgdGhlIGRldmljZSBvdmVyIHRoZSBQ
-Q0kgYnVzLiBCQVIgaGFzIGJlZW4gZ2FyYmFnZWQgb3IgYWxpa2UuDQpFdmVyeSB0aW1lIEkgdHJp
-ZWQgdG8gZGVidWcgdGhhdCBmcm9tIHRoZSBkcml2ZXIgc2lkZSBpdCBoYXMgLi4uDQpmYWlsZWQu
-IEJlY2F1c2UgdGhlICJnb29kIiBpbiB0aGUgZW5kIGRpZCBleGhpYml0IHRoZSBwcm9ibGVtLiBT
-bywNCnVubGVzcyB5b3UgYXJlIHJlYWR5IHRvIGVtYmFyayBmb3IgYSBiaXNlY3Rpb24gam91cm5l
-eSAoYW5kIGhvcGUgdGhhdA0KdGhpcyB0aW1lIHdoZW4geW91IHR5cGUgJ2dpdCBiaXNlY3QgZ29v
-ZCcgaXQgaXMgcmVhbGx5ICdnb29kJyksIEkgY2FuJ3QNCmRvIG11Y2guDQpXaGF0IEkgY2FuIHN1
-Z2dlc3QgaXMgdG8gaW5zdGFsbCBvdXIgbGF0ZXN0IGJhY2twb3J0IGJhc2VkIHRyZWUgb24gNC41
-Lg0KVGhpcyB3aWxsIGFsbG93IHlvdSB0byBoYXZlIGFuIGVhc2lseSBiaXNlY3RhYmxlIHRyZWUu
-IEJ1dCBpdCBtaWdodA0KdmVyeSB3ZWxsIGJlIHRoYXQgNC41ICsgbGF0ZXN0IGRyaXZlciAoZXF1
-aXZhbGVudCB0byA0LjYgYXMgZmFyIGFzDQppd2x3aWZpIGlzIGNvbmNlcm5lZCkgd2lsbCBiZSBm
-aW5lLg0KVGhlIGJhY2twb3J0IHRyZWUgaXMgaGVyZSBbMV0uIFVuZm9ydHVuYXRlbHksIHRoYXQn
-cyB0aGUgb25seSB0aGluZyBJDQpjYW4gc3VnZ2VzdCBmb3Igbm93Lg0KDQpbMV0gaHR0cHM6Ly9n
-aXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvaXdsd2lmaS9iYWNrcG9ydC1pd2x3
-aQ0KZmkuZ2l0Lw0KPiAtLSANCj4gUmVnYXJkcy9HcnVzcywNCj4gICAgIEJvcmlzLg0KPiANCj4g
-RUNPIHRpcCAjMTAxOiBUcmltIHlvdXIgbWFpbHMgd2hlbiB5b3UgcmVwbHkuIFNyc2x5Lg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+From: Jiri Pirko <jiri@mellanox.com>
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: bf7974710a40 ("devlink: add shared buffer configuration")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/devlink.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index be64218..1d45b61 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -184,7 +184,9 @@ static inline void devlink_port_split_set(struct devlink_port *devlink_port,
+ static inline int devlink_sb_register(struct devlink *devlink,
+ 				      unsigned int sb_index, u32 size,
+ 				      u16 ingress_pools_count,
+-				      u16 egress_pools_count, u16 tc_count)
++				      u16 egress_pools_count,
++				      u16 ingress_tc_count,
++				      u16 egress_tc_count)
+ {
+ 	return 0;
+ }
+-- 
+2.5.5
