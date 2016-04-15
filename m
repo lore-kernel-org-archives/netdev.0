@@ -1,58 +1,150 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Fri, 15 Apr 2016 08:42:41 -0400
-Message-ID: <5710E1C1.2090209@mojatatu.com>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
- <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160414151813.GE3715@orbyte.nwl.cc>
- <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
- <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 00/28] Optimise page alloc/free fast paths v3
+Date: Fri, 15 Apr 2016 14:44:02 +0200
+Message-ID: <20160415144402.5fbe7a1e@redhat.com>
+References: <1460710760-32601-1-git-send-email-mgorman@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Kosina <jikos@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Vlastimil Babka
+ <vbabka@suse.cz>, Linux-MM <linux-mm@kvack.org>,
+        LKML
+ <linux-kernel@vger.kernel.org>, brouer@redhat.com,
+        "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+To: Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1460710760-32601-1-git-send-email-mgorman@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 16-04-14 01:49 PM, Eric Dumazet wrote:
+On Fri, 15 Apr 2016 09:58:52 +0100
+Mel Gorman <mgorman@techsingularity.net> wrote:
 
-> And what would be the chosen behavior ?
->
+> There were no further responses to the last series but I kept going and
+> added a few more small bits. Most are basic micro-optimisations.  The last
+> two patches weaken debugging checks to improve performance at the cost of
+> delayed detection of some use-after-free and memory corruption bugs. If
+> they make people uncomfortable, they can be dropped and the rest of the
+> series stands on its own.
+> 
+> Changelog since v2
+> o Add more micro-optimisations
+> o Weak debugging checks in favor of speed
+> 
+[...]
+> 
+> The overall impact on a page allocator microbenchmark for a range of orders
 
-TBF is probably a bad example because it started life as
-a classless qdisc. There was only one built-in fifo queue
-that was shaped. Then someone made it classful and changed
-this behavior. To me it sounds reasonable to have the
-default behavior restored. At minimal consistency.
+I also micro benchmarked this patchset.  Avail via Mel Gorman's kernel tree:
+ http://git.kernel.org/cgit/linux/kernel/git/mel/linux.git
+tested branch mm-vmscan-node-lru-v5r9 which also contain the node-lru series.
 
-> Relying on TBF installing a bfifo for you at delete would be hazardous.
->
-> For example CBQ got it differently than HFSC
->
-> If qdisc_create_dflt() fails in CBQ, we fail the 'delete', while HFSC
-> falls back to noop_qdisc, without warning the user :(
->
-> At least always using noop_qdisc is consistent. No magic there.
->
-> Doing 'unification' right now would break existing scripts.
->
-> This is too late, I am afraid.
+Tool:
+ https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench01.c
+Run as:
+ modprobe page_bench01; rmmod page_bench01 ; dmesg | tail -n40 | grep 'alloc_pages order'
+
+Results kernel 4.6.0-rc1 :
+
+ alloc_pages order:0(4096B/x1) 272 cycles per-4096B 272 cycles
+ alloc_pages order:1(8192B/x2) 395 cycles per-4096B 197 cycles
+ alloc_pages order:2(16384B/x4) 433 cycles per-4096B 108 cycles
+ alloc_pages order:3(32768B/x8) 503 cycles per-4096B 62 cycles
+ alloc_pages order:4(65536B/x16) 682 cycles per-4096B 42 cycles
+ alloc_pages order:5(131072B/x32) 910 cycles per-4096B 28 cycles
+ alloc_pages order:6(262144B/x64) 1384 cycles per-4096B 21 cycles
+ alloc_pages order:7(524288B/x128) 2335 cycles per-4096B 18 cycles
+ alloc_pages order:8(1048576B/x256) 4108 cycles per-4096B 16 cycles
+ alloc_pages order:9(2097152B/x512) 8398 cycles per-4096B 16 cycles
+
+After Mel Gorman's optimizations, results from mm-vmscan-node-lru-v5r::
+
+ alloc_pages order:0(4096B/x1) 231 cycles per-4096B 231 cycles
+ alloc_pages order:1(8192B/x2) 351 cycles per-4096B 175 cycles
+ alloc_pages order:2(16384B/x4) 357 cycles per-4096B 89 cycles
+ alloc_pages order:3(32768B/x8) 397 cycles per-4096B 49 cycles
+ alloc_pages order:4(65536B/x16) 481 cycles per-4096B 30 cycles
+ alloc_pages order:5(131072B/x32) 652 cycles per-4096B 20 cycles
+ alloc_pages order:6(262144B/x64) 1054 cycles per-4096B 16 cycles
+ alloc_pages order:7(524288B/x128) 1852 cycles per-4096B 14 cycles
+ alloc_pages order:8(1048576B/x256) 3156 cycles per-4096B 12 cycles
+ alloc_pages order:9(2097152B/x512) 6790 cycles per-4096B 13 cycles
 
 
-Sigh. So rant:
-IMO, we should let any new APIs and API updates stay longer
-in discussion. Or better mark them as unstable for sometime.
-The excuse that "it is out in the wild therefore cant be changed"
-is harmful because the timeline is "forever" whereas
-patches are applied after a short period of posting
-and discussions and sometimes not involving the right people.
-It is like having a jury issuing a death sentence after 1 week of
-deliberation. You cant take it back after execution.
 
-cheers,
-jamal
+I've also started doing some parallel concurrency testing workloads[1]
+ [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench03.c
+
+Order-0 pages scale nicely:
+
+Results kernel 4.6.0-rc1 :
+ Parallel-CPUs:1 page order:0(4096B/x1) ave 274 cycles per-4096B 274 cycles
+ Parallel-CPUs:2 page order:0(4096B/x1) ave 283 cycles per-4096B 283 cycles
+ Parallel-CPUs:3 page order:0(4096B/x1) ave 284 cycles per-4096B 284 cycles
+ Parallel-CPUs:4 page order:0(4096B/x1) ave 288 cycles per-4096B 288 cycles
+ Parallel-CPUs:5 page order:0(4096B/x1) ave 417 cycles per-4096B 417 cycles
+ Parallel-CPUs:6 page order:0(4096B/x1) ave 503 cycles per-4096B 503 cycles
+ Parallel-CPUs:7 page order:0(4096B/x1) ave 567 cycles per-4096B 567 cycles
+ Parallel-CPUs:8 page order:0(4096B/x1) ave 620 cycles per-4096B 620 cycles
+
+And even better with you changes! :-))) This is great work!
+
+Results from mm-vmscan-node-lru-v5r:
+ Parallel-CPUs:1 page order:0(4096B/x1) ave 246 cycles per-4096B 246 cycles
+ Parallel-CPUs:2 page order:0(4096B/x1) ave 251 cycles per-4096B 251 cycles
+ Parallel-CPUs:3 page order:0(4096B/x1) ave 254 cycles per-4096B 254 cycles
+ Parallel-CPUs:4 page order:0(4096B/x1) ave 258 cycles per-4096B 258 cycles
+ Parallel-CPUs:5 page order:0(4096B/x1) ave 313 cycles per-4096B 313 cycles
+ Parallel-CPUs:6 page order:0(4096B/x1) ave 369 cycles per-4096B 369 cycles
+ Parallel-CPUs:7 page order:0(4096B/x1) ave 379 cycles per-4096B 379 cycles
+ Parallel-CPUs:8 page order:0(4096B/x1) ave 399 cycles per-4096B 399 cycles
+
+
+It does not seem that higher order page scale... and your patches does
+not change this pattern.
+
+Example order-3 pages, which is often used in the network stack:
+
+Results kernel 4.6.0-rc1 ::
+ Parallel-CPUs:1 page order:3(32768B/x8) ave 524 cycles per-4096B 65 cycles
+ Parallel-CPUs:2 page order:3(32768B/x8) ave 2131 cycles per-4096B 266 cycles
+ Parallel-CPUs:3 page order:3(32768B/x8) ave 3885 cycles per-4096B 485 cycles
+ Parallel-CPUs:4 page order:3(32768B/x8) ave 4520 cycles per-4096B 565 cycles
+ Parallel-CPUs:5 page order:3(32768B/x8) ave 5604 cycles per-4096B 700 cycles
+ Parallel-CPUs:6 page order:3(32768B/x8) ave 7125 cycles per-4096B 890 cycles
+ Parallel-CPUs:7 page order:3(32768B/x8) ave 7883 cycles per-4096B 985 cycles
+ Parallel-CPUs:8 page order:3(32768B/x8) ave 9364 cycles per-4096B 1170 cycles
+
+Results from mm-vmscan-node-lru-v5r:
+ Parallel-CPUs:1 page order:3(32768B/x8) ave 421 cycles per-4096B 52 cycles
+ Parallel-CPUs:2 page order:3(32768B/x8) ave 2236 cycles per-4096B 279 cycles
+ Parallel-CPUs:3 page order:3(32768B/x8) ave 3408 cycles per-4096B 426 cycles
+ Parallel-CPUs:4 page order:3(32768B/x8) ave 4687 cycles per-4096B 585 cycles
+ Parallel-CPUs:5 page order:3(32768B/x8) ave 5972 cycles per-4096B 746 cycles
+ Parallel-CPUs:6 page order:3(32768B/x8) ave 7349 cycles per-4096B 918 cycles
+ Parallel-CPUs:7 page order:3(32768B/x8) ave 8436 cycles per-4096B 1054 cycles
+ Parallel-CPUs:8 page order:3(32768B/x8) ave 9589 cycles per-4096B 1198 cycles
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/mm/bench/page_bench03.c
+
+ for ORDER in $(seq 0 5) ; do \
+    for X in $(seq 1 8) ; do \
+       modprobe page_bench03 page_order=$ORDER parallel_cpus=$X run_flags=$((2#100)); \
+       rmmod page_bench03 ; dmesg | tail -n 3 | grep Parallel-CPUs ; \
+    done; \
+ done
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
