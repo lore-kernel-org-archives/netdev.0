@@ -1,43 +1,82 @@
-From: Holger Schurig <holgerschurig@gmail.com>
-Subject: Re: [PATCH net-next V3 00/16] net: fec: cleanup and fixes
-Date: Fri, 15 Apr 2016 10:33:37 +0200
-Message-ID: <87bn5bp8ym.fsf@gmail.com>
-References: <1459909562-22865-1-git-send-email-troy.kisky@boundarydevices.com>
-	<87h9f4ebvp.fsf@gmail.com> <570FB998.2080900@boundarydevices.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch net-next 05/18] mlxsw: spectrum_buffers: Push out
+ indexes and direction out of SB structs
+Date: Fri, 15 Apr 2016 08:33:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4A2E99@AcuExch.aculab.com>
+References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
+ <1460650770-19382-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
-	lznuaa@gmail.com, andrew@lunn.ch, stillcompiling@gmail.com,
-	arnd@arndb.de, sergei.shtylyov@cogentembedded.com,
-	gerg@uclinux.org, fabio.estevam@nxp.com, johannes@sipsolutions.net,
-	l.stach@pengutronix.de, linux-arm-kernel@lists.infradead.org,
-	tremyfr@gmail.com
-To: Troy Kisky <troy.kisky@boundarydevices.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"idosch@mellanox.com" <idosch@mellanox.com>,
+	"eladr@mellanox.com" <eladr@mellanox.com>,
+	"yotamg@mellanox.com" <yotamg@mellanox.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"rami.rosen@intel.com" <rami.rosen@intel.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"sfeldma@gmail.com" <sfeldma@gmail.com>
+To: 'Jiri Pirko' <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36212 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbcDOIdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 04:33:41 -0400
-Received: by mail-wm0-f66.google.com with SMTP id l6so4071683wml.3
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 01:33:41 -0700 (PDT)
-In-Reply-To: <570FB998.2080900@boundarydevices.com> (Troy Kisky's message of
-	"Thu, 14 Apr 2016 08:39:04 -0700")
+Received: from smtp-out6.electric.net ([192.162.217.184]:61061 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605AbcDOIe2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 04:34:28 -0400
+In-Reply-To: <1460650770-19382-6-git-send-email-jiri@resnulli.us>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I think I've already fixed this, but I've only submitted once.
->
-> commit 466cb4a2e5583d2e18470f30d5948edcf4b947f5
-> Author: Troy Kisky <troy.kisky@boundarydevices.com>
-> Date:   Wed Jan 20 12:52:10 2016 -0700
->
->     net: fec: update dirty_tx even if no skb
->
->     If dirty_tx isn't updated, then dma_unmap_single
->     will be called twice.
->
->     Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+From: Jiri Pirko
+> Sent: 14 April 2016 17:19
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Structs are in arrays so use array index as pool/tc/prio index. With
+> that, there is need to maintain separate arrays for ingress and egress.
+...
+> +static const u16 mlxsw_sp_pbs[] = {
+> +	2 * MLXSW_SP_BYTES_TO_CELLS(ETH_FRAME_LEN),
+> +	0,
+> +	0,
+> +	0,
+> +	0,
+> +	0,
+> +	0,
+> +	0,
+> +	0, /* Unused */
+> +	2 * MLXSW_SP_BYTES_TO_CELLS(MLXSW_PORT_MAX_MTU),
+>  };
 
-Thanks!   This fixed the issue.  Have a
+Use designated initialisers.
 
-Tested-by: <holgerschurig@gmail.com>
+> 
+>  #define MLXSW_SP_PBS_LEN ARRAY_SIZE(mlxsw_sp_pbs)
+> @@ -106,10 +96,9 @@ static int mlxsw_sp_port_pb_init(struct mlxsw_sp_port *mlxsw_sp_port)
+>  	mlxsw_reg_pbmc_pack(pbmc_pl, mlxsw_sp_port->local_port,
+>  			    0xffff, 0xffff / 2);
+>  	for (i = 0; i < MLXSW_SP_PBS_LEN; i++) {
+
+I'd rather see an explicit ARRAY_COUNT(mlxsw_sp_pbs) than some 'randon' constant.
+
+> -		const struct mlxsw_sp_pb *pb;
+> -
+> -		pb = &mlxsw_sp_pbs[i];
+> -		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, pb->index, pb->size);
+> +		if (i == 8)
+> +			continue;
+
+I'm guessing that is the same '8' as the commented 'unused' slot when mlxsw_sp_pbs[]
+is initialised.
+Would be better if a named constant.
+If this in initialisation code an illegal value (maybe 0xffff) to mark the
+unused slot.
+
+> +		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, i, mlxsw_sp_pbs[i]);
+
+	David
