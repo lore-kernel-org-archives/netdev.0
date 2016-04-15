@@ -1,91 +1,76 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
- (Hyper-V)
-Date: Fri, 15 Apr 2016 00:11:40 +0000
-Message-ID: <SN2PR03MB19196E84DF934294DE7BB739A0680@SN2PR03MB1919.namprd03.prod.outlook.com>
-References: <1460678121-30308-1-git-send-email-kys@microsoft.com>
- <1460678142-30353-1-git-send-email-kys@microsoft.com>
- <1460678142-30353-2-git-send-email-kys@microsoft.com>
- <5F69AC74-16B9-4EAD-8B4B-21D2EB6B3653@intel.com>
- <SN2PR03MB1919133D2E9B5DDBC2AED643A0680@SN2PR03MB1919.namprd03.prod.outlook.com>
- <DA0F5562-FC38-4037-B018-42116DD142E8@intel.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
+Date: Thu, 14 Apr 2016 17:14:07 -0700
+Message-ID: <CAPWQB7GGqbUNgqt1nT6RfqtWwL8pYmnBcjb=y6UC4Nw1pVbEpQ@mail.gmail.com>
+References: <1460570974-44050-1-git-send-email-joe@ovn.org>
+ <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com> <20160414084015.GA3192@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "intel-wired-lan@linuxonhyperv.com" <intel-wired-lan@linuxonhyperv.com>,
- netdev <netdev@vger.kernel.org>, "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "jackm@mellanox.com" <jackm@mellanox.com>,
- "yevgenyp@mellanox.com" <yevgenyp@mellanox.com>, "Ronciak,
- John" <john.ronciak@intel.com>, "eli@mellanox.com" <eli@mellanox.com>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- David Miller <davem@davemloft.net>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <DA0F5562-FC38-4037-B018-42116DD142E8@intel.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"diproiettod@vmware.com" <diproiettod@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:35238 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752418AbcDOAOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 20:14:32 -0400
+In-Reply-To: <20160414084015.GA3192@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 14 April 2016 at 01:40, Florian Westphal <fw@strlen.de> wrote:
+> David Laight <David.Laight@ACULAB.COM> wrote:
+>> From: Joe Stringer
+>> > Sent: 13 April 2016 19:10
+>> > This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
+>> > orphan skbs inside ip_defrag()").
+>> >
+>> > Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
+>> > clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
+>> > cloned (implicitly orphaning) prior to queueing for reassembly. As such,
+>> > when the IPv6 message is eventually reassembled, the skb->sk for all
+>> > fragments would be NULL. After that commit was introduced, rather than
+>> > cloning, the original skbs were queued directly without orphaning. The
+>> > end result is that all frags except for the first and last may have a
+>> > socket attached.
+>>
+>> I'd have thought that the queued fragments would still want to be
+>> resource-counted against the socket (I think that is what skb->sk is for).
+>
+> No, ipv4/ipv6 reasm has its own accouting.
+>
+>> Although I can't imagine why IPv6 reassembly is happening on skb
+>> associated with a socket.
+>
+> Right, thats a much more interesting question -- both ipv4 and
+> ipv6 orphan skbs before NF_HOOK prerouting trip.
+>
+> (That being said, I don't mind the patch, I'm just be curious how this
+>  can happen).
 
+The topology is quite simple, there is a veth pair connected between a
+namespace and OVS. The OVS bridge has an internal port. The
+bridge is configured with flows to send packets through conntrack
+(causing packet reassembly + refragmentation on output), and then
+forward packets between the host and the veth. The internal port and
+the veth inside the netns have IP addresses configured in the same
+subnet.
 
-> -----Original Message-----
-> From: Rustad, Mark D [mailto:mark.d.rustad@intel.com]
-> Sent: Thursday, April 14, 2016 5:07 PM
-> To: KY Srinivasan <kys@microsoft.com>
-> Cc: David Miller <davem@davemloft.net>; netdev
-> <netdev@vger.kernel.org>; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com; eli@mellanox.com; jackm@mellanox.com;
-> yevgenyp@mellanox.com; Ronciak, John <john.ronciak@intel.com>; intel-
-> wired-lan@linuxonhyperv.com
-> Subject: Re: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
-> (Hyper-V)
-> 
-> KY Srinivasan <kys@microsoft.com> wrote:
-> 
-> >
-> >
-> >> -----Original Message-----
-> >> From: Rustad, Mark D [mailto:mark.d.rustad@intel.com]
-> >> Sent: Thursday, April 14, 2016 4:01 PM
-> >> To: KY Srinivasan <kys@microsoft.com>
-> >> Cc: David Miller <davem@davemloft.net>; netdev
-> >> <netdev@vger.kernel.org>; linux-kernel@vger.kernel.org;
-> >> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> >> jasowang@redhat.com; eli@mellanox.com; jackm@mellanox.com;
-> >> yevgenyp@mellanox.com; Ronciak, John <john.ronciak@intel.com>;
-> intel-
-> >> wired-lan@linuxonhyperv.com
-> >> Subject: Re: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
-> >> (Hyper-V)
-> >>
-> >> Some comments below:
-> >
-> > Mark,
-> >
-> > Thank you for the comments. I will address them and repost the patches.
-> >
-> > Regards,
-> >
-> > K. Y
-> 
-> Please look closely at Alex's comments. I think they are much more
-> important.
+In the test case, we send a large ICMPv6 ping request from the
+namespace to the internal port. The namespace will fragment the IP
+message into fragments and send through the veth. OVS processes these,
+sends to conntrack (reassembly), then decides to output to the
+internal port (refragmenting). The host stack finally receives the
+fragments and processes the ICMP request. On response, the host sends
+several fragments to OVS. OVS reassembles these and sends them to
+conntrack, then decides to forward to the veth. When forwarding to the
+veth, the skb frag queue is in this state with many skbs (all except
+first and last) having skb->sk populated, and we hit the
+BUG_ON(skb->sk) in ip6_fragment() just prior to transmitting to the veth.
 
-I am looking at Alex's comments as I am writing this.
-
-K. Y
-> 
-> --
-> Mark Rustad, Networking Division, Intel Corporation
+In regards to your question about prerouting, does the response even
+hit the input path on the host? An ICMP response is generated, and it
+needs to be directed out to the device (output path), then when the
+internal device receives it, it starts OVS processing.
