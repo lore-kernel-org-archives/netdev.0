@@ -1,39 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/7] net: dsa: mv88e6xxx: drop revision probing
-Date: Fri, 15 Apr 2016 21:16:24 +0200
-Message-ID: <20160415191624.GC18523@lunn.ch>
-References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1460744750-13896-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: FlameGraph of mlx4 early drop with order-0 pages
+Date: Fri, 15 Apr 2016 21:40:34 +0200
+Message-ID: <20160415214034.6ffae9ee@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1460744750-13896-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, tom@herbertland.com, alexei.starovoitov@gmail.com,
+        ogerlitz@mellanox.com, daniel@iogearbox.net, brouer@redhat.com,
+        eric.dumazet@gmail.com, ecree@solarflare.com, john.fastabend@gmail.com,
+        tgraf@suug.ch, johannes@sipsolutions.net, eranlinuxmellanox@gmail.com
+To: Mel Gorman <mgorman@techsingularity.net>, linux-mm <linux-mm@kvack.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Brenden Blanco
+ <bblanco@plumgrid.com>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> --- a/drivers/net/dsa/mv88e6xxx.c
-> +++ b/drivers/net/dsa/mv88e6xxx.c
-> @@ -2663,11 +2663,15 @@ int mv88e6xxx_setup_ports(struct dsa_switch *ds)
->  int mv88e6xxx_setup_common(struct dsa_switch *ds)
->  {
->  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-> +	int id;
->  
->  	ps->ds = ds;
->  	mutex_init(&ps->smi_mutex);
->  
-> -	ps->id = REG_READ(REG_PORT(0), PORT_SWITCH_ID) & 0xfff0;
-> +	id = REG_READ(REG_PORT(0), PORT_SWITCH_ID);
-> +
-> +	ps->id = id & 0xfff0;
-> +	ps->rev = id & 0xf;
+Hi Mel,
 
-ps->rev is not actually used anywhere. Drop it.
+I did an experiment that you might find interesting.  Using Brenden's
+early drop with eBPF in the mxl4 driver.  I changed the mlx4 driver to
+use order-0 pages.  It usually use order-3 pages to amortize the cost
+of calling the page allocator (which is problematic for other reasons,
+like memory pin-down, latency spikes and multi CPU scalability)
 
-	Andrew
+With this change I could do around 12Mpps (Mill packet per sec) drops,
+usually does 14.5Mpps (limited due to a HW setup/limit, with idle cycles). 
+
+Looking at the perf report as a FlameGraph, the page allocator clearly
+show up as the bottleneck: 
+
+http://people.netfilter.org/hawk/FlameGraph/flamegraph-mlx4-order0-pages-eBPF-XDP-drop.svg
+
+Signing off, heading for the plane soon... see you at MM-summit!
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
