@@ -1,161 +1,76 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH 2/3] phy: add generic function to support ksetting support
-Date: Fri, 15 Apr 2016 02:50:59 +0000
-Message-ID: <VI1PR0401MB18559A6D1BFF6A55CE840574FF680@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
- <1460673301-10599-3-git-send-email-tremyfr@gmail.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net-next 0/2] ethernet: intel: Support Hyper-V hosts
+Date: Fri, 15 Apr 2016 02:51:29 +0000
+Message-ID: <SN2PR03MB1919A09CCC5A47893DF88BBCA0680@SN2PR03MB1919.namprd03.prod.outlook.com>
+References: <1460678121-30308-1-git-send-email-kys@microsoft.com>
+ <CAL3LdT4c5nhxeOrWcCPfGXAJVx2iWyjjMik6aaF3V-STBRXo0A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"decot@googlers.com" <decot@googlers.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460673301-10599-3-git-send-email-tremyfr@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>, netdev <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ LKML <linux-kernel@vger.kernel.org>, "jackm@mellanox.com" <jackm@mellanox.com>,
+ "yevgenyp@mellanox.com" <yevgenyp@mellanox.com>, "Ronciak,
+ John" <john.ronciak@intel.com>,
+ intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+ "eli@mellanox.com" <eli@mellanox.com>, "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ David Miller <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CAL3LdT4c5nhxeOrWcCPfGXAJVx2iWyjjMik6aaF3V-STBRXo0A@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com> Sent: Friday, April 15, 2016 6:35 AM
-> To: davem@davemloft.net; decot@googlers.com; f.fainelli@gmail.com; Fugang
-> Duan <fugang.duan@nxp.com>
-> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Philippe Reynes
-> <tremyfr@gmail.com>
-> Subject: [PATCH 2/3] phy: add generic function to support ksetting support
-> 
-> The old ethtool api (get_setting and set_setting) has generic phy functions
-> phy_ethtool_sset and phy_ethtool_gset.
-> To supprt the new ethtool api (get_link_ksettings and set_link_ksettings), we
-> add generic phy function phy_ethtool_ksettings_get and
-> phy_ethtool_ksettings_set.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/phy/phy.c |   81
-> +++++++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/phy.h   |    4 ++
->  2 files changed, 85 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c index
-> 5590b9c..6f221c8 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -362,6 +362,60 @@ int phy_ethtool_sset(struct phy_device *phydev,
-> struct ethtool_cmd *cmd)  }  EXPORT_SYMBOL(phy_ethtool_sset);
-> 
-> +int phy_ethtool_ksettings_set(struct phy_device *phydev,
-> +			      const struct ethtool_link_ksettings *cmd) {
-> +	u8 autoneg = cmd->base.autoneg;
-> +	u8 duplex = cmd->base.duplex;
-> +	u32 speed = cmd->base.speed;
-> +	u32 advertising;
-> +
-> +	if (cmd->base.phy_address != phydev->mdio.addr)
-> +		return -EINVAL;
-> +
-> +	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-> +						cmd->link_modes.advertising);
-> +
-> +	/* We make sure that we don't pass unsupported values in to the PHY */
-> +	advertising &= phydev->supported;
-> +
-> +	/* Verify the settings we care about. */
-> +	if (autoneg != AUTONEG_ENABLE && autoneg != AUTONEG_DISABLE)
-> +		return -EINVAL;
-> +
-> +	if (autoneg == AUTONEG_ENABLE && advertising == 0)
-> +		return -EINVAL;
-> +
-> +	if (autoneg == AUTONEG_DISABLE &&
-> +	    ((speed != SPEED_1000 &&
-> +	      speed != SPEED_100 &&
-> +	      speed != SPEED_10) ||
-> +	     (duplex != DUPLEX_HALF &&
-> +	      duplex != DUPLEX_FULL)))
-> +		return -EINVAL;
-> +
-> +	phydev->autoneg = autoneg;
-> +
-> +	phydev->speed = speed;
-> +
-> +	phydev->advertising = advertising;
-> +
-> +	if (autoneg == AUTONEG_ENABLE)
-> +		phydev->advertising |= ADVERTISED_Autoneg;
-> +	else
-> +		phydev->advertising &= ~ADVERTISED_Autoneg;
-> +
-> +	phydev->duplex = duplex;
-> +
-> +	phydev->mdix = cmd->base.eth_tp_mdix_ctrl;
-> +
-> +	/* Restart the PHY */
-> +	phy_start_aneg(phydev);
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(phy_ethtool_ksettings_set);
-> +
->  int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)  {
->  	cmd->supported = phydev->supported;
-> @@ -385,6 +439,33 @@ int phy_ethtool_gset(struct phy_device *phydev,
-> struct ethtool_cmd *cmd)  }  EXPORT_SYMBOL(phy_ethtool_gset);
-> 
-> +int phy_ethtool_ksettings_get(struct phy_device *phydev,
-> +			      struct ethtool_link_ksettings *cmd) {
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
-> >link_modes.supported,
-> +						phydev->supported);
-> +
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
-> >link_modes.advertising,
-> +						phydev->advertising);
-> +
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
-> >link_modes.lp_advertising,
-> +						phydev->lp_advertising);
-> +
-> +	cmd->base.speed = phydev->speed;
-> +	cmd->base.duplex = phydev->duplex;
-> +	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
-> +		cmd->base.port = PORT_BNC;
-> +	else
-> +		cmd->base.port = PORT_MII;
-> +
-> +	cmd->base.phy_address = phydev->mdio.addr;
-> +	cmd->base.autoneg = phydev->autoneg;
-> +	cmd->base.eth_tp_mdix_ctrl = phydev->mdix;
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(phy_ethtool_ksettings_get);
-> +
->  /**
->   * phy_mii_ioctl - generic PHY MII ioctl interface
->   * @phydev: the phy_device struct
-> diff --git a/include/linux/phy.h b/include/linux/phy.h index 2abd791..be3f83b
-> 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -805,6 +805,10 @@ void phy_start_machine(struct phy_device *phydev);
-> void phy_stop_machine(struct phy_device *phydev);  int
-> phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);  int
-> phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-> +int phy_ethtool_ksettings_get(struct phy_device *phydev,
-> +			      struct ethtool_link_ksettings *cmd); int
-> +phy_ethtool_ksettings_set(struct phy_device *phydev,
-> +			      const struct ethtool_link_ksettings *cmd);
->  int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);  int
-> phy_start_interrupts(struct phy_device *phydev);  void phy_print_status(struct
-> phy_device *phydev);
-> --
-> 1.7.4.4
 
-It seems fine. There have many drivers need to update .set_settings/. get_settings, not only fsl fec driver.
-And whether there still need to keep the old interface in phy.c driver ?
 
-Regards,
-Andy
+> -----Original Message-----
+> From: tarbal@gmail.com [mailto:tarbal@gmail.com] On Behalf Of Jeff Kirsher
+> Sent: Thursday, April 14, 2016 7:21 PM
+> To: KY Srinivasan <kys@microsoft.com>
+> Cc: David Miller <davem@davemloft.net>; netdev
+> <netdev@vger.kernel.org>; LKML <linux-kernel@vger.kernel.org>;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com; eli@mellanox.com; jackm@mellanox.com;
+> yevgenyp@mellanox.com; Ronciak, John <john.ronciak@intel.com>; intel-
+> wired-lan@linuxonhyperv.com
+> Subject: Re: [PATCH net-next 0/2] ethernet: intel: Support Hyper-V hosts
+> 
+> On Thu, Apr 14, 2016 at 4:55 PM, K. Y. Srinivasan <kys@microsoft.com>
+> wrote:
+> > Make adjustments to the Intel 10G VF driver to support
+> > running on Hyper-V hosts.
+> >
+> > K. Y. Srinivasan (2):
+> >   ethernet: intel: Add the device ID's presented while running on
+> >     Hyper-V
+> >   intel: ixgbevf: Support Windows hosts (Hyper-V)
+> >
+> >  drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
+> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   11 ++
+> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   56 ++++++---
+> >  drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
+> >  drivers/net/ethernet/intel/ixgbevf/vf.c           |  138
+> +++++++++++++++++++++
+> >  drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +
+> >  6 files changed, 206 insertions(+), 18 deletions(-)
+> 
+> Don't know how you butchered the mailing list address, but you did not
+> send this series to intel-wired-lan@lists.osuosl.org mailing list.
+> Please address the requested changes that Mark suggested and resubmit
+> to the correct mailing list please.
+
+Will do.
+
+Thanks,
+
+K. Y
