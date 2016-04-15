@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 03/11] list: add list_add_tail helper
-Date: Fri, 15 Apr 2016 09:51:45 +0200
-Message-ID: <1460706713-5942-4-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 01/11] devlink: fix "devlink port" help message
+Date: Fri, 15 Apr 2016 09:51:43 +0200
+Message-ID: <1460706713-5942-2-git-send-email-jiri@resnulli.us>
 References: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Cc: stephen@networkplumber.org, davem@davemloft.net,
 	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
@@ -11,38 +11,41 @@ Cc: stephen@networkplumber.org, davem@davemloft.net,
 	gospo@cumulusnetworks.com, sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:35884 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407AbcDOHwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:52:00 -0400
-Received: by mail-wm0-f49.google.com with SMTP id v188so19288131wme.1
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:52:00 -0700 (PDT)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37766 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712AbcDOHv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:51:58 -0400
+Received: by mail-wm0-f41.google.com with SMTP id n3so20196479wmn.0
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:51:57 -0700 (PDT)
 In-Reply-To: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
+"dl" -> "devlink"
+
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/list.h | 5 +++++
- 1 file changed, 5 insertions(+)
+ devlink/devlink.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/list.h b/include/list.h
-index b549c3e..5b529dc 100644
---- a/include/list.h
-+++ b/include/list.h
-@@ -33,6 +33,11 @@ static inline void list_add(struct list_head *new, struct list_head *head)
- 	__list_add(new, head, head->next);
+diff --git a/devlink/devlink.c b/devlink/devlink.c
+index c2da850..39f423a 100644
+--- a/devlink/devlink.c
++++ b/devlink/devlink.c
+@@ -578,9 +578,9 @@ static int cmd_dev(struct dl *dl)
+ static void cmd_port_help(void)
+ {
+ 	pr_out("Usage: devlink port show [ DEV/PORT_INDEX ]\n");
+-	pr_out("       dl port set DEV/PORT_INDEX [ type { eth | ib | auto} ]\n");
+-	pr_out("       dl port split DEV/PORT_INDEX count COUNT\n");
+-	pr_out("       dl port unsplit DEV/PORT_INDEX\n");
++	pr_out("       devlink port set DEV/PORT_INDEX [ type { eth | ib | auto} ]\n");
++	pr_out("       devlink port split DEV/PORT_INDEX count COUNT\n");
++	pr_out("       devlink port unsplit DEV/PORT_INDEX\n");
  }
  
-+static inline void list_add_tail(struct list_head *new, struct list_head *head)
-+{
-+	__list_add(new, head->prev, head);
-+}
-+
- static inline void __list_del(struct list_head *prev, struct list_head *next)
- {
- 	next->prev = prev;
+ static const char *port_type_name(uint32_t type)
 -- 
 2.5.5
