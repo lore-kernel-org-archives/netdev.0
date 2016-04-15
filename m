@@ -1,82 +1,177 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next 05/18] mlxsw: spectrum_buffers: Push out
- indexes and direction out of SB structs
-Date: Fri, 15 Apr 2016 08:33:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4A2E99@AcuExch.aculab.com>
-References: <1460650770-19382-1-git-send-email-jiri@resnulli.us>
- <1460650770-19382-6-git-send-email-jiri@resnulli.us>
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+Subject: Fwd: Re: Section 4 No. 9,10 Failed was occurred by IPv6 Ready Logo
+ Conformance Test
+Date: Fri, 15 Apr 2016 17:47:31 +0900
+Message-ID: <5710AAA3.2020703@jp.fujitsu.com>
+References: <57020D23.9010403@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"yotamg@mellanox.com" <yotamg@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"rami.rosen@intel.com" <rami.rosen@intel.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>
-To: 'Jiri Pirko' <jiri@resnulli.us>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+To: fgont@si6networks.com, hagen@jauu.net, hannes@stressinduktion.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	rongqing.li@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:61061 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751605AbcDOIe2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 04:34:28 -0400
-In-Reply-To: <1460650770-19382-6-git-send-email-jiri@resnulli.us>
-Content-Language: en-US
+Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:57387 "EHLO
+	mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751813AbcDOIrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 04:47:37 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+	by kw-mxoi1.gw.nic.fujitsu.com (Postfix) with ESMTP id EB9A6AC028B
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 17:47:31 +0900 (JST)
+In-Reply-To: <57020D23.9010403@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko
-> Sent: 14 April 2016 17:19
-> From: Jiri Pirko <jiri@mellanox.com>
+Hi,
+
+I doesn't report this issue to contributers of commit 9d28971 yet.
+sorry.
+I resend my information.
+
+Regards,
+Yuki Machida
+
+-------- Forwarded Message --------
+Subject: Re: Section 4 No. 9,10 Failed was occurred by IPv6 Ready Logo Conformance Test
+Date: Mon, 4 Apr 2016 15:43:47 +0900
+From: Yuki Machida <machida.yuki@jp.fujitsu.com>
+To: Rongqing Li <rongqing.li@windriver.com>, netdev <netdev@vger.kernel.org>
+
+Hi Roy,
+
+On 2016年04月01日 17:00, Yuki Machida wrote:
+> Hi Roy,
 > 
-> Structs are in arrays so use array index as pool/tc/prio index. With
-> that, there is need to maintain separate arrays for ingress and egress.
-...
-> +static const u16 mlxsw_sp_pbs[] = {
-> +	2 * MLXSW_SP_BYTES_TO_CELLS(ETH_FRAME_LEN),
-> +	0,
-> +	0,
-> +	0,
-> +	0,
-> +	0,
-> +	0,
-> +	0,
-> +	0, /* Unused */
-> +	2 * MLXSW_SP_BYTES_TO_CELLS(MLXSW_PORT_MAX_MTU),
->  };
+> Thank you for your advice.
+> I am very glad.
+> 
+> Futher comment below.
+> 
+> On 2016年04月01日 16:43, Rongqing Li wrote:
+>>
+>>
+>> On 2016年04月01日 15:31, Yuki Machida wrote:
+>>> Hi all,
+>>>
+>>> I tested 4.6-rc1 by IPv6 Ready Logo Core Conformance Test.
+>>> 4.6-rc1 has some FAILs in Section 4 (RFC 1981: Path MTU Discovery for IP version 6).
+>>> I conformed that it was PASSed in 3.14.28 and it was FAILed in 4.1.17.
+>>> I will find a patch between 3.14 and 4.1.
+>>>
+>>> IPv6 Ready Logo
+>>> https://www.ipv6ready.org/
+>>> TAHI Project
+>>> http://www.tahi.org/
+>>>
+>>> I ran the IPv6 Ready Logo Core Conformance Test on Intel D510MO (Atom D510).
+>>> It is using userland build with yocto project.
+>>>
+>>> Test Environment
+>>> Test Specification          : 4.0.6
+>>> Tool Version                : REL_3_3_2
+>>> Test Program Version        : V6LC_5_0_0
+>>> Target Device               : Intel D510MO (Atom D510)
+>>>
+>>> List of FAILs
+>>>
+>>> Section 4: RFC 1981 - Path MTU Discovery for IPv6
+>>> - Test v6LC.4.1.6: Receiving MTU Below IPv6 Minimum Link MTU
+>>>      - No. 9 Part A: MTU equal to 56
+>>>      - No.10 Part B: MTU equal to 1279
+>>>
+>>
+>> apply this one
+>>
+>> commit 8013d1d7eafb0589ca766db6b74026f76b7f5cb4
+>> Author: Hangbin Liu <liuhangbin@gmail.com>
+>> Date:   Thu Jul 30 14:28:42 2015 +0800
+>>
+>>       net/ipv6: add sysctl option accept_ra_min_hop_limit
+>>
+>>       Commit 6fd99094de2b ("ipv6: Don't reduce hop limit for an interface")
+>>       disabled accept hop limit from RA if it is smaller than the current hop
+>>       limit for security stuff. But this behavior kind of break the RFC
+>> definition.
+>>
+>>       RFC 4861, 6.3.4.  Processing Received Router Advertisements
+>>          A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time,
+>>          and Retrans Timer) may contain a value denoting that it is
+>>          unspecified.  In such cases, the parameter should be ignored and the
+>>          host should continue using whatever value it is already using.
+>>
+>>          If the received Cur Hop Limit value is non-zero, the host SHOULD set
+>>          its CurHopLimit variable to the received value.
+>>
+>>       So add sysctl option accept_ra_min_hop_limit to let user choose the
+>> minimum
+>>       hop limit value they can accept from RA. And set default to 1 to
+>> meet RFC
+>>       standards.
+>>
+>>       Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+>>       Acked-by: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+>>       Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> I conformed that above patch has been applied at v4.3 in linux.git.
+> 
+> % git tag --contains=8013d1d7eafb0589ca766db6b74026f76b7f5cb4 | head
+> v4.3
+> v4.3-rc1
+> v4.3-rc2
+> v4.3-rc3
+> v4.3-rc4
+> v4.3-rc5
+> v4.3-rc6
+> v4.3-rc7
+> v4.4
+> v4.4-rc1
+> 
+>>
+>>
+>>
+>>
+>>
+>> and revert the below one, the TAHI should be updated
+>>
+>> commit 9d289715eb5c252ae15bd547cb252ca547a3c4f2
+>> Author: Hagen Paul Pfeifer <hagen@jauu.net>
+>> Date: Thu Jan 15 22:34:25 2015 +0100
+>>
+>>       ipv6: stop sending PTB packets for MTU < 1280
+>>
+>>       Reduce the attack vector and stop generating IPv6 Fragment Header for
+>>       paths with an MTU smaller than the minimum required IPv6 MTU
+>>       size (1280 byte) - called atomic fragments.
+>>
+>>       See IETF I-D "Deprecating the Generation of IPv6 Atomic Fragments" [1]
+>>       for more information and how this "feature" can be misused.
+>>
+>>       [1]
+>> https://tools.ietf.org/html/draft-ietf-6man-deprecate-atomfrag-generation-00
+>>
+>>       Signed-off-by: Fernando Gont <fgont@si6networks.com>
+>>       Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+>>       Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>       Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> I will try.
 
-Use designated initialisers.
+I confirmed that v4.1.20 revert above patch is passed Section 4 No. 9 and 10 testcases
+in IPv6 Ready Logo Conformance Test.
+I can't immediately revert above patch from v4.6-rc1 by implementation has changed.
+
+I am considering how to fix this problem for mainline.
 
 > 
->  #define MLXSW_SP_PBS_LEN ARRAY_SIZE(mlxsw_sp_pbs)
-> @@ -106,10 +96,9 @@ static int mlxsw_sp_port_pb_init(struct mlxsw_sp_port *mlxsw_sp_port)
->  	mlxsw_reg_pbmc_pack(pbmc_pl, mlxsw_sp_port->local_port,
->  			    0xffff, 0xffff / 2);
->  	for (i = 0; i < MLXSW_SP_PBS_LEN; i++) {
-
-I'd rather see an explicit ARRAY_COUNT(mlxsw_sp_pbs) than some 'randon' constant.
-
-> -		const struct mlxsw_sp_pb *pb;
-> -
-> -		pb = &mlxsw_sp_pbs[i];
-> -		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, pb->index, pb->size);
-> +		if (i == 8)
-> +			continue;
-
-I'm guessing that is the same '8' as the commented 'unused' slot when mlxsw_sp_pbs[]
-is initialised.
-Would be better if a named constant.
-If this in initialisation code an illegal value (maybe 0xffff) to mark the
-unused slot.
-
-> +		mlxsw_reg_pbmc_lossy_buffer_pack(pbmc_pl, i, mlxsw_sp_pbs[i]);
-
-	David
+>>
+>>
+>>
+>> -Roy
+>>
+>>
+>>
+>>
+>>> Regards,
+>>> Yuki Machida
+>>>
+>>
