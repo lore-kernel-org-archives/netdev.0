@@ -1,130 +1,58 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
- (Hyper-V)
-Date: Fri, 15 Apr 2016 00:26:20 +0000
-Message-ID: <SN2PR03MB191946453781944A4ABF37BDA0680@SN2PR03MB1919.namprd03.prod.outlook.com>
-References: <1460678121-30308-1-git-send-email-kys@microsoft.com>
- <1460678142-30353-1-git-send-email-kys@microsoft.com>
- <1460678142-30353-2-git-send-email-kys@microsoft.com>
- <5F69AC74-16B9-4EAD-8B4B-21D2EB6B3653@intel.com>
- <SN2PR03MB1919133D2E9B5DDBC2AED643A0680@SN2PR03MB1919.namprd03.prod.outlook.com>
- <DA0F5562-FC38-4037-B018-42116DD142E8@intel.com>
- <SN2PR03MB19196E84DF934294DE7BB739A0680@SN2PR03MB1919.namprd03.prod.outlook.com>
- <CAKgT0UckBes1tNXrNjA0R4uCdXouG9qQrf+VaLJMd8AhgYQieQ@mail.gmail.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
+Date: Thu, 14 Apr 2016 17:35:39 -0700
+Message-ID: <CAPWQB7EV-boR1_yaBeY8tQtHgc09+14jQ_q7yk=bpwrtqL+20Q@mail.gmail.com>
+References: <1460570974-44050-1-git-send-email-joe@ovn.org>
+ <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com>
+ <20160414084015.GA3192@breakpoint.cc> <20160414103533.GA3211@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>, netdev <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "jackm@mellanox.com" <jackm@mellanox.com>,
- "yevgenyp@mellanox.com" <yevgenyp@mellanox.com>, "Ronciak,
- John" <john.ronciak@intel.com>,
- "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
- "eli@mellanox.com" <eli@mellanox.com>, "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>, "Rustad,
- Mark D" <mark.d.rustad@intel.com>, David Miller <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CAKgT0UckBes1tNXrNjA0R4uCdXouG9qQrf+VaLJMd8AhgYQieQ@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	David Laight <David.Laight@aculab.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"diproiettod@vmware.com" <diproiettod@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160414103533.GA3211@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 14 April 2016 at 03:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Thu, Apr 14, 2016 at 10:40:15AM +0200, Florian Westphal wrote:
+>> David Laight <David.Laight@ACULAB.COM> wrote:
+>> > From: Joe Stringer
+>> > > Sent: 13 April 2016 19:10
+>> > > This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
+>> > > orphan skbs inside ip_defrag()").
+>> > >
+>> > > Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
+>> > > clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
+>> > > cloned (implicitly orphaning) prior to queueing for reassembly. As such,
+>> > > when the IPv6 message is eventually reassembled, the skb->sk for all
+>> > > fragments would be NULL. After that commit was introduced, rather than
+>> > > cloning, the original skbs were queued directly without orphaning. The
+>> > > end result is that all frags except for the first and last may have a
+>> > > socket attached.
+>> >
+>> > I'd have thought that the queued fragments would still want to be
+>> > resource-counted against the socket (I think that is what skb->sk is for).
+>>
+>> No, ipv4/ipv6 reasm has its own accouting.
+>>
+>> > Although I can't imagine why IPv6 reassembly is happening on skb
+>> > associated with a socket.
+>>
+>> Right, thats a much more interesting question -- both ipv4 and
+>> ipv6 orphan skbs before NF_HOOK prerouting trip.
+>>
+>> (That being said, I don't mind the patch, I'm just be curious how this
+>>  can happen).
+>
+> If this change is specific to get this working in ovs and its
+> conntrack support, then I don't think this belong to core
+> infrastructure. This should be fixed in ovs instead.
 
-
-> -----Original Message-----
-> From: Alexander Duyck [mailto:alexander.duyck@gmail.com]
-> Sent: Thursday, April 14, 2016 5:19 PM
-> To: KY Srinivasan <kys@microsoft.com>
-> Cc: Rustad, Mark D <mark.d.rustad@intel.com>; David Miller
-> <davem@davemloft.net>; netdev <netdev@vger.kernel.org>; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com; eli@mellanox.com;
-> jackm@mellanox.com; yevgenyp@mellanox.com; Ronciak, John
-> <john.ronciak@intel.com>; intel-wired-lan@linuxonhyperv.com
-> Subject: Re: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
-> (Hyper-V)
-> 
-> On Thu, Apr 14, 2016 at 5:11 PM, KY Srinivasan <kys@microsoft.com> wrote:
-> >
-> >
-> >> -----Original Message-----
-> >> From: Rustad, Mark D [mailto:mark.d.rustad@intel.com]
-> >> Sent: Thursday, April 14, 2016 5:07 PM
-> >> To: KY Srinivasan <kys@microsoft.com>
-> >> Cc: David Miller <davem@davemloft.net>; netdev
-> >> <netdev@vger.kernel.org>; linux-kernel@vger.kernel.org;
-> >> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> >> jasowang@redhat.com; eli@mellanox.com; jackm@mellanox.com;
-> >> yevgenyp@mellanox.com; Ronciak, John <john.ronciak@intel.com>;
-> intel-
-> >> wired-lan@linuxonhyperv.com
-> >> Subject: Re: [PATCH net-next 2/2] intel: ixgbevf: Support Windows hosts
-> >> (Hyper-V)
-> >>
-> >> KY Srinivasan <kys@microsoft.com> wrote:
-> >>
-> >> >
-> >> >
-> >> >> -----Original Message-----
-> >> >> From: Rustad, Mark D [mailto:mark.d.rustad@intel.com]
-> >> >> Sent: Thursday, April 14, 2016 4:01 PM
-> >> >> To: KY Srinivasan <kys@microsoft.com>
-> >> >> Cc: David Miller <davem@davemloft.net>; netdev
-> >> >> <netdev@vger.kernel.org>; linux-kernel@vger.kernel.org;
-> >> >> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> >> >> jasowang@redhat.com; eli@mellanox.com; jackm@mellanox.com;
-> >> >> yevgenyp@mellanox.com; Ronciak, John <john.ronciak@intel.com>;
-> >> intel-
-> >> >> wired-lan@linuxonhyperv.com
-> >> >> Subject: Re: [PATCH net-next 2/2] intel: ixgbevf: Support Windows
-> hosts
-> >> >> (Hyper-V)
-> >> >>
-> >> >> Some comments below:
-> >> >
-> >> > Mark,
-> >> >
-> >> > Thank you for the comments. I will address them and repost the
-> patches.
-> >> >
-> >> > Regards,
-> >> >
-> >> > K. Y
-> >>
-> >> Please look closely at Alex's comments. I think they are much more
-> >> important.
-> >
-> > I am looking at Alex's comments as I am writing this.
-> >
-> 
-> On additional thought that just occurred to me after looking over the
-> other patches you submitted for the hv_netvsc is that you might just
-> stub out the multicast, unicast, and vfta configuration calls for the
-> hyperV interface since all that stuff should be handled by the other
-> link in the bond anyway.  Then you should be able to mostly contain
-> all the changes other than the device IDs to the vf.c file which is
-> really how this kind of change should work anyway.
-
-I will do that.
-> 
-> Also I was wondering.  Since HyperV is using a proprietary device ID
-> anyway do you really need the calls like the one below?:
-> +       if (x86_hyper == &x86_hyper_ms_hyperv) {
-> 
-> If we can just identify HyperV via the device Id then we could drop
-> the x86 arch specific bits and instead just build for all cases.
-Yes; I was planning to get rid of the x86 dependency. I will fix this.
-
-K. Y
-> 
-> - Alex
+I admit I've only been able to reproduce it with OVS. My main reason
+for proposing the fix this way was just because this is what the IPv4
+code does, so I figured IPv6 should be consistent with that.
