@@ -1,42 +1,68 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH pci] pci: Add helper function to set VPD size
-Date: Fri, 15 Apr 2016 11:30:26 -0500
-Message-ID: <20160415163026.GA13979@localhost>
-References: <1460657525-17551-1-git-send-email-hariprasad@chelsio.com>
- <00d801d1967c$68e9d100$3abd7300$@opengridcomputing.com>
- <571112D2.4010801@opengridcomputing.com>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Fri, 15 Apr 2016 09:44:33 -0700
+Message-ID: <20160415164433.GV391@tuxbot>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com>
+ <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com>
+ <571012E6.6050303@codeaurora.org>
+ <57102920.7000104@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bhelgaas@google.com, 'Hariprasad Shenai' <hariprasad@chelsio.com>,
-	davem@davemloft.net, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	santosh@chelsio.com
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: Vikram Sethi <vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	Shanker Donthineni <shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Greg Kroah-Hartman <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	andrew-g2DYL2Zd6BY@public.gmane.org, Mark Langsdorf <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jon Masters <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Gross <agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <571112D2.4010801@opengridcomputing.com>
-Sender: linux-pci-owner@vger.kernel.org
+In-Reply-To: <57102920.7000104-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2016 at 11:12:02AM -0500, Steve Wise wrote:
-> On 4/14/2016 1:35 PM, Steve Wise wrote:
-> >>The fix is to add a PCI helper function to set the VPD size, so the
-> >>driver can expicitly set the exact size of the VPD.
-> >>
-> >>Fixes commit 104daa71b396 ("PCI: Determine actual VPD size on first access")
-> >>
-> >>Signed-off-by: Casey Leedom <leedom@chelsio.com>
-> >>Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> >Looks good!
-> >Tested-by: Steve Wise <swise@opengridcomputing.com>
-> >
-> >
-> 
-> Hey Bjorn,
-> 
-> Will this make the next 4.6-rc?
+On Thu 14 Apr 16:34 PDT 2016, Timur Tabi wrote:
 
-No, it's too late for me to review it and merge it for v4.6-rc4.  But
-there's still time for later RCs.
+[..]
+> So I think the solution is to create a device tree (and ACPI) property that
+> holds the mask.
+> 
+> 	dma-mask = <0 0xffffffff>;
+> 
+> or
+> 
+> 	dma-mask = <0xffffffff 0xffffffff>;
+> 
+> The driver will then do this:
+> 
+> 	u64 dma_mask;
+> 	device_property_read_u64(&pdev->dev, "dma-mask", &dma_mask);
+> 	dma_coerce_mask_and_coherent(&pdev->dev, dma_mask);
+> 
+> What I'm not sure yet is whether I should call
+> dma_coerce_mask_and_coherent() or dma_set_coherent_mask().
+> 
 
+For platform devices being populated via from DT you will pass:
+of_platform_bus_create()
+  of_platform_device_create_pdata()
+    of_dma_configure()
+
+Which calls of_dma_get_range() to acquire this information from the
+dma-ranges property and set up the dma ops and properties.
+
+Regards,
 Bjorn
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
