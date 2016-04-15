@@ -1,49 +1,33 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: [PATCH] net: phy: Ensure the state machine is called when phy is UP
-Date: Fri, 15 Apr 2016 21:56:12 +0200
-Message-ID: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] tipc: improvements to the link setup
+ algorithm
+Date: Fri, 15 Apr 2016 16:10:59 -0400 (EDT)
+Message-ID: <20160415.161059.1767181927317431918.davem@davemloft.net>
+References: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51891 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbcDOULC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 16:11:02 -0400
+In-Reply-To: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit d5c3d84657db ("net: phy: Avoid polling PHY with
-PHY_IGNORE_INTERRUPTS") removed the last polling done on the phy. Since
-then, the last actual poll done on the phy happens PHY_STATE_TIME seconds
-(that is actually one second) after registering the phy. If the interface
-is not UP by that time, any previous IRQ indicating the link is up is
-ignored. Moreover, nothing will start the autonegociation so the phy will
-simply change from READY to UP and never actually go to RUNNING.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 15 Apr 2016 13:33:02 -0400
 
-The one second delay explains why the issue is not seen when booting from
-NFS or when the interface is configured at boot time.
+> This series addresses some smaller issues regarding the link setup 
+> algorithm. The first commit fixes a rare bug we have discovered during
+> testing; the second one may have some future impact on cluster 
+> scalabilty, while remaining ones can be regarded as cosmetic in
+> a wider sense of the word.
 
-To solve that, ensure the state machine is called as soon as the state
-changes from READY to UP.
-
-Fixes: d5c3d84657db ("net: phy: Avoid polling PHY with PHY_IGNORE_INTERRUPTS")
-Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
----
- drivers/net/phy/phy.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 5590b9c182c9..25f6bfd1c8fd 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -787,6 +787,9 @@ void phy_start(struct phy_device *phydev)
- 		break;
- 	case PHY_READY:
- 		phydev->state = PHY_UP;
-+		cancel_delayed_work_sync(&phydev->state_queue);
-+		queue_delayed_work(system_power_efficient_wq,
-+				   &phydev->state_queue, 0);
- 		break;
- 	case PHY_HALTED:
- 		/* make sure interrupts are re-enabled for the PHY */
--- 
-2.8.0.rc3
+Series applied, thanks.
