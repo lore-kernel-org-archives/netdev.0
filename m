@@ -1,44 +1,58 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v2 01/15] wcn36xx: Clean up wcn36xx_smd_send_beacon
-Date: Fri, 15 Apr 2016 17:25:12 +0300
-Message-ID: <87shynoson.fsf@kamboji.qca.qualcomm.com>
-References: <1459721806-11817-1-git-send-email-bjorn.andersson@linaro.org>
-	<20160414005935.GO391@tuxbot>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by
+ an assignment in ath9k_htc_set_channel()
+Date: Sat, 16 Apr 2016 00:34:25 +1000
+Message-ID: <CAGRGNgUWZobf1-xiSfPVxBxktEW1Zh37bGEdpNte1rUdVeNOdg@mail.gmail.com>
+References: <566ABCD9.1060404@users.sourceforge.net> <5686C390.5060600@users.sourceforge.net>
+ <5686C47E.1040906@users.sourceforge.net> <CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
+ <87ega7qdjg.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	Pontus Fuchs <pontus.fuchs@gmail.com>,
-	wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:52627 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbcDOOZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 10:25:25 -0400
-In-Reply-To: <20160414005935.GO391@tuxbot> (Bjorn Andersson's message of "Wed,
-	13 Apr 2016 17:59:35 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: ath9k-devel@lists.ath9k.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	SF Markus Elfring <elfring@users.sourceforge.net>,
+	kernel-janitors <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87ega7qdjg.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bjorn Andersson <bjorn.andersson@linaro.org> writes:
+Hi Kalle,
 
-> On Sun 03 Apr 15:16 PDT 2016, Bjorn Andersson wrote:
+On Fri, Apr 15, 2016 at 10:09 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Julian Calaby <julian.calaby@gmail.com> writes:
 >
->> From: Pontus Fuchs <pontus.fuchs@gmail.com>
->> 
->> Needed for coming improvements. No functional changes.
->> 
+>> Hi Kalle,
+>>
+>> On Sat, Jan 2, 2016 at 5:25 AM, SF Markus Elfring
+>> <elfring@users.sourceforge.net> wrote:
+>>> From: Markus Elfring <elfring@users.sourceforge.net>
+>>> Date: Fri, 1 Jan 2016 19:09:32 +0100
+>>>
+>>> Replace an explicit initialisation for one local variable at the beginning
+>>> by a conditional assignment.
+>>>
+>>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>>
+>> This looks sane to me.
+>>
+>> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 >
-> Kalle, Eugene,
+> Before I commit I'll just change the commit title to:
 >
-> Have you picked up these patches yet?
->
-> As I was debugging a firmware crash when trying to start hostap on the
-> DragonBoard410c I found an issue with this patch, would like to know if
-> I should send an incremental patch or resend this one.
+> ath9k_htc: Replace a variable initialisation by an assignment in ath9k_htc_set_channel()
 
-I haven't applied these yet, so please resend the whole series as v3.
+Sounds good to me.
+
+Thanks,
 
 -- 
-Kalle Valo
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
