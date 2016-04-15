@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 04/11] devlink: introduce pr_out_port_handle helper
-Date: Fri, 15 Apr 2016 09:51:46 +0200
-Message-ID: <1460706713-5942-5-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 11/11] devlink: add manpage for shared buffer
+Date: Fri, 15 Apr 2016 09:51:53 +0200
+Message-ID: <1460706713-5942-12-git-send-email-jiri@resnulli.us>
 References: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Cc: stephen@networkplumber.org, davem@davemloft.net,
 	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
@@ -11,50 +11,383 @@ Cc: stephen@networkplumber.org, davem@davemloft.net,
 	gospo@cumulusnetworks.com, sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35898 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752599AbcDOHwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:52:07 -0400
-Received: by mail-wm0-f43.google.com with SMTP id v188so19288713wme.1
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:52:01 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36898 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599AbcDOHwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:52:10 -0400
+Received: by mail-wm0-f51.google.com with SMTP id n3so20203322wmn.0
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:52:09 -0700 (PDT)
 In-Reply-To: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
+Manpage for devlink "sb" object.
+
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- devlink/devlink.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ man/man8/devlink-dev.8     |   1 +
+ man/man8/devlink-monitor.8 |   1 +
+ man/man8/devlink-port.8    |   1 +
+ man/man8/devlink-sb.8      | 313 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 316 insertions(+)
+ create mode 100644 man/man8/devlink-sb.8
 
-diff --git a/devlink/devlink.c b/devlink/devlink.c
-index 39f423a..0904e07 100644
---- a/devlink/devlink.c
-+++ b/devlink/devlink.c
-@@ -523,6 +523,12 @@ static void pr_out_handle(struct nlattr **tb)
- 			mnl_attr_get_str(tb[DEVLINK_ATTR_DEV_NAME]));
- }
+diff --git a/man/man8/devlink-dev.8 b/man/man8/devlink-dev.8
+index af96a29..62bcead 100644
+--- a/man/man8/devlink-dev.8
++++ b/man/man8/devlink-dev.8
+@@ -52,6 +52,7 @@ Shows the state of specified devlink device.
+ .SH SEE ALSO
+ .BR devlink (8),
+ .BR devlink-port (8),
++.BR devlink-sb (8),
+ .BR devlink-monitor (8),
+ .br
  
-+static void pr_out_port_handle(struct nlattr **tb)
-+{
-+	pr_out_handle(tb);
-+	pr_out("/%d", mnl_attr_get_u32(tb[DEVLINK_ATTR_PORT_INDEX]));
-+}
+diff --git a/man/man8/devlink-monitor.8 b/man/man8/devlink-monitor.8
+index 98134c3..13fe641 100644
+--- a/man/man8/devlink-monitor.8
++++ b/man/man8/devlink-monitor.8
+@@ -29,6 +29,7 @@ opens Devlink Netlink socket, listens on it and dumps state changes.
+ .SH SEE ALSO
+ .BR devlink (8),
+ .BR devlink-dev (8),
++.BR devlink-sb (8),
+ .BR devlink-port (8),
+ .br
+ 
+diff --git a/man/man8/devlink-port.8 b/man/man8/devlink-port.8
+index d78837c..a639d01 100644
+--- a/man/man8/devlink-port.8
++++ b/man/man8/devlink-port.8
+@@ -120,6 +120,7 @@ Unplit the specified previously split devlink port.
+ .SH SEE ALSO
+ .BR devlink (8),
+ .BR devlink-dev (8),
++.BR devlink-sb (8),
+ .BR devlink-monitor (8),
+ .br
+ 
+diff --git a/man/man8/devlink-sb.8 b/man/man8/devlink-sb.8
+new file mode 100644
+index 0000000..ffb5553
+--- /dev/null
++++ b/man/man8/devlink-sb.8
+@@ -0,0 +1,313 @@
++.TH DEVLINK\-SB 8 "14 Apr 2016" "iproute2" "Linux"
++.SH NAME
++devlink-sb \- devlink shared buffer configuration
++.SH SYNOPSIS
++.sp
++.ad l
++.in +8
++.ti -8
++.B devlink
++.RI "[ " OPTIONS " ]"
++.B sb
++.RI  " { " COMMAND " | "
++.BR help " }"
++.sp
 +
- static void pr_out_dev(struct nlattr **tb)
- {
- 	pr_out_handle(tb);
-@@ -599,8 +605,8 @@ static void pr_out_port(struct nlattr **tb)
- 	struct nlattr *pt_attr = tb[DEVLINK_ATTR_PORT_TYPE];
- 	struct nlattr *dpt_attr = tb[DEVLINK_ATTR_PORT_DESIRED_TYPE];
- 
--	pr_out_handle(tb);
--	pr_out("/%d:", mnl_attr_get_u32(tb[DEVLINK_ATTR_PORT_INDEX]));
-+	pr_out_port_handle(tb);
-+	pr_out(":");
- 	if (pt_attr) {
- 		uint16_t port_type = mnl_attr_get_u16(pt_attr);
- 
++.ti -8
++.IR OPTIONS " := { "
++\fB\-V\fR[\fIersion\fR] |
++\fB\-n\fR[\fIno-nice-names\fR] }
++
++.ti -8
++.BR "devlink sb show "
++.RI "[ " DEV " [ "
++.B sb
++.IR SB_INDEX " ] ]"
++
++.ti -8
++.BR "devlink sb pool show "
++.RI "[ " DEV " [ "
++.B sb
++.IR SB_INDEX " ] "
++.br
++.B pool
++.IR POOL_INDEX " ]"
++
++.ti -8
++.BI "devlink sb pool set " DEV "
++.RB "[ " sb
++.IR SB_INDEX " ] "
++.br
++.BI pool " POOL_INDEX "
++.br
++.BI size " POOL_SIZE "
++.br
++.BR thtype " { " static " | " dynamic " }"
++
++.ti -8
++.BR "devlink sb port pool show "
++.RI "[ " DEV/PORT_INDEX " [ "
++.B sb
++.IR SB_INDEX " ] "
++.br
++.B pool
++.IR POOL_INDEX " ]"
++
++.ti -8
++.BI "devlink sb port pool set " DEV/PORT_INDEX "
++.RB "[ " sb
++.IR SB_INDEX " ] "
++.br
++.BI pool " POOL_INDEX "
++.br
++.BI th " THRESHOLD "
++
++.ti -8
++.BR "devlink sb tc bind show "
++.RI "[ " DEV/PORT_INDEX " [ "
++.B sb
++.IR SB_INDEX " ] "
++.br
++.BI tc " TC_INDEX "
++.br
++.B type
++.RB "{ " ingress " | " egress " } ]"
++
++.ti -8
++.BI "devlink sb tc bind set " DEV/PORT_INDEX "
++.RB "[ " sb
++.IR SB_INDEX " ] "
++.br
++.BI tc " TC_INDEX "
++.br
++.BR type " { " ingress " | " egress " }"
++.br
++.BI pool " POOL_INDEX "
++.br
++.BI th " THRESHOLD "
++
++.ti -8
++.BR "devlink sb occupancy show "
++.RI "{ " DEV " | " DEV/PORT_INDEX " } [ "
++.B sb
++.IR SB_INDEX " ] "
++
++.ti -8
++.BR "devlink sb occupancy snapshot "
++.IR DEV " [ "
++.B sb
++.IR SB_INDEX " ]"
++
++.ti -8
++.BR "devlink sb occupancy clearmax "
++.IR DEV " [ "
++.B sb
++.IR SB_INDEX " ]"
++
++.ti -8
++.B devlink sb help
++
++.SH "DESCRIPTION"
++.SS devlink sb show - display available shared buffers and their attributes
++
++.PP
++.I "DEV"
++- specifies the devlink device to show shared buffers.
++If this argument is omitted all shared buffers of all devices are listed.
++
++.PP
++.I "SB_INDEX"
++- specifies the shared buffer.
++If this argument is omitted shared buffer with index 0 is selected.
++Behaviour of this argument it the same for every command.
++
++.SS devlink sb pool show - display available pools and their attributes
++
++.PP
++.I "DEV"
++- specifies the devlink device to show pools.
++If this argument is omitted all pools of all devices are listed.
++
++.SS devlink sb pool set - set attributes of pool
++
++.PP
++.I "DEV"
++- specifies the devlink device to set pool.
++
++.TP
++.BI size " POOL_SIZE"
++size of the pool in Bytes.
++
++.TP
++.BR thtype " { " static " | " dynamic " } "
++pool threshold type.
++
++.I static
++- Threshold values for the pool will be passed in Bytes.
++
++.I dynamic
++- Threshold values ("to_alpha") for the pool will be used to compute alpha parameter according to formula:
++.br
++.in +16
++alpha = 2 ^ (to_alpha - 10)
++.in -16
++
++.in +10
++The range of the passed value is between 0 to 20. The computed alpha is used to determine the maximum usage of the flow:
++.in -10
++.br
++.in +16
++max_usage = alpha / (1 + alpha) * Free_Buffer
++.in -16
++
++.SS devlink sb port pool show - display port-pool combinations and threshold for each
++.I "DEV/PORT_INDEX"
++- specifies the devlink port.
++
++.TP
++.BI pool " POOL_INDEX"
++pool index.
++
++.SS devlink sb port pool set - set port-pool threshold
++.I "DEV/PORT_INDEX"
++- specifies the devlink port.
++
++.TP
++.BI pool " POOL_INDEX"
++pool index.
++
++.TP
++.BI th " THRESHOLD"
++threshold value. Type of the value is either Bytes or "to_alpha", depends on
++.B thtype
++set for the pool.
++
++.SS devlink sb tc bind show - display port-TC to pool bindings and threshold for each
++
++.I "DEV/PORT_INDEX"
++- specifies the devlink port.
++
++.TP
++.BI tc " TC_INDEX"
++index of either ingress or egress TC, usually in range 0 to 8 (depends on device).
++
++.TP
++.BR type " { " ingress " | " egress " } "
++TC type.
++
++.SS devlink sb tc bind set - set port-TC to pool binding with specified threshold
++
++.I "DEV/PORT_INDEX"
++- specifies the devlink port.
++
++.TP
++.BI tc " TC_INDEX"
++index of either ingress or egress TC, usually in range 0 to 8 (depends on device).
++
++.TP
++.BR type " { " ingress " | " egress " } "
++TC type.
++
++.TP
++.BI pool " POOL_INDEX"
++index of pool to bind this to.
++
++.TP
++.BI th " THRESHOLD"
++threshold value. Type of the value is either Bytes or "to_alpha", depends on
++.B thtype
++set for the pool.
++
++.SS devlink sb occupancy show - display shared buffer occupancy values for device or port
++
++.PP
++This command is used to browse shared buffer occupancy values. Values are showed for every port-pool combination as well as for all port-TC combinations (with pool this port-TC is bound to). Format of value is:
++.br
++.in +16
++current_value/max_value
++.in -16
++Note that before showing values, one has to issue
++.b occupancy snapshot
++command first.
++
++.PP
++.I "DEV"
++- specifies the devlink device to show occupancy values for.
++
++.I "DEV/PORT_INDEX"
++- specifies the devlink port to show occupancy values for.
++
++.SS devlink sb occupancy snapshot - take occupancy snapshot of shared buffer for device
++This command is used to take a snapshot of shared buffer occupancy values. After that, the values can be showed using
++.B occupancy show
++command.
++
++.PP
++.I "DEV"
++- specifies the devlink device to take occupancy snapshot on.
++
++.SS devlink sb occupancy clearmax - clear occupancy watermarks of shared buffer for device
++This command is used to reset maximal occupancy values reached for whole device. Note that before browsing reset values, one has to issue
++.B occupancy snapshot
++command.
++
++.PP
++.I "DEV"
++- specifies the devlink device to clear occupancy watermarks on.
++
++.SH "EXAMPLES"
++.PP
++devlink sb show
++.RS 4
++List available share buffers.
++.RE
++.PP
++devlink sb pool show
++.RS 4
++List available pools and their config.
++.RE
++.PP
++devlink sb port pool show pci/0000:03:00.0/1 pool 0
++.RS 4
++Show port-pool setup for specified port and pool.
++.RE
++.PP
++sudo devlink sb port pool set pci/0000:03:00.0/1 pool 0 th 15
++.RS 4
++Change threshold for port specified port and pool.
++.RE
++.PP
++devlink sb tc bind show pci/0000:03:00.0/1 tc 0 type ingress
++.RS 4
++Show pool binding and threshold for specified port and TC.
++.RE
++.PP
++sudo devlink sb tc bind set pci/0000:03:00.0/1 tc 0 type ingress pool 0 th 9
++.RS 4
++Set pool binding and threshold for specified port and TC.
++.RE
++.PP
++sudo devlink sb occupancy snapshot pci/0000:03:00.0
++.RS 4
++Make a snapshot of occupancy of shared buffer for specified devlink device.
++.RE
++.PP
++devlink sb occupancy show pci/0000:03:00.0/1
++.RS 4
++Show occupancy for specified port from the snapshot.
++.RE
++.PP
++sudo devlink sb occupancy clearmax pci/0000:03:00.0
++.RS 4
++Clear watermarks for shared buffer of specified devlink device.
++
++
++.SH SEE ALSO
++.BR devlink (8),
++.BR devlink-dev (8),
++.BR devlink-port (8),
++.BR devlink-monitor (8),
++.br
++
++.SH AUTHOR
++Jiri Pirko <jiri@mellanox.com>
 -- 
 2.5.5
