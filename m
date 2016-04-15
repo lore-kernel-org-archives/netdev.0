@@ -1,8 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 7/7] net: dsa: mv88e6xxx: drop switch id
-Date: Fri, 15 Apr 2016 17:00:50 -0400
-Message-ID: <87k2jya8ot.fsf@ketchup.mtl.sfl>
-References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1460744750-13896-8-git-send-email-vivien.didelot@savoirfairelinux.com> <20160415193818.GE18523@lunn.ch>
+Subject: Re: [PATCH net-next 4/7] net: dsa: mv88e6xxx: add family to info
+Date: Fri, 15 Apr 2016 17:06:41 -0400
+Message-ID: <871t661t0e.fsf@ketchup.mtl.sfl>
+References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1460744750-13896-5-git-send-email-vivien.didelot@savoirfairelinux.com> <20160415191149.GA18523@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -11,39 +11,37 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160415193818.GE18523@lunn.ch>
+In-Reply-To: <notmuch-sha1-5b8efc36765bacf253ff62234056042d5c4c5c37>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
-<snip>
-
->> -#define PORT_SWITCH_ID_6350	0x3710
->> -#define PORT_SWITCH_ID_6351	0x3750
->> -#define PORT_SWITCH_ID_6352	0x3520
+>>> +	{ MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
+>>
+>> I think 
+>>
+>>> +	{ MV88E6XXX_INFO(MV88E6XXX_FAMILY_6165, 0x165, "Marvell 88E6165") },
+>>
+>> is clearer. It is hard to know what these values mean unless you go
+>> look at the macro.
 >
-> NACK
+> Same goes for the MV88E6XXX_INFO macro... I wanted to avoid long lines
+> while keeping the info table clear enough.
 >
-> These numbers are not obvious. PORT_SWITCH_ID_6320 i can
-> understand. 0x1150 i have no idea what it is.
+>     MV88E6XXX_INFO(0x121, "Marvell 88E6123",
+>                    MV88E6XXX_FAMILY_6165,) },
+>    /*             Family   Prod   Name             */
+>    { MV88E6XXX_INFO(6165, 0x121, "Marvell 88E6123") },
+>    { MV88E6XXX_INFO(6165, 0x161, "Marvell 88E6161") },
+>    { MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
+>    { MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
+>
+> But I don't really mind in fact, we'll do as you guys wish.
 
-0x1150 is not even correct. That's the product number (bits 4:15) masked
-with an assumed revision 0 (bits 0:3).
-
-That leads to confusion and error, as seen in the patch 2/7.
-
-These values are now only used in a device description table, where they
-seem pretty understandable to me.
-
-This header file is full of inconsistencies. We have masks, offsets,
-shifts, shifted and unshifted values, just for the sake of hidding said
-magic numbers, while an explicit comment in a function could do the job.
-
-But OK if we really want them defined, I'll introduce 12-bit
-PORT_SWITCH_ID_PROD_NUM_* before dropping the 16-bit PORT_SWITCH_ID_*.
+Oops, sent too fast. Thinking about that, I'll just keep plain struct
+mv88e6xxx_info in the tables and we will maybe introduce such macro when
+merging everything together.
 
 Thanks,
 Vivien
