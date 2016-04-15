@@ -1,37 +1,44 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 2/2] rtlwifi: Fix reusable codes in core.c
-Date: Fri, 15 Apr 2016 21:25:05 +0300
-Message-ID: <87bn5apw5a.fsf@kamboji.qca.qualcomm.com>
-References: <20160203020139.GA13619@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Byeoungwook Kim <quddnr145@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/7] net: dsa: mv88e6xxx: factorize switch info
+Date: Fri, 15 Apr 2016 14:25:43 -0400
+Message-ID: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160203020139.GA13619@gmail.com> (Byeoungwook Kim's message of
-	"Wed, 3 Feb 2016 11:01:39 +0900")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Byeoungwook Kim <quddnr145@gmail.com> writes:
+This patchset factorizes drastically the mv88e6xxx code by sharing a new
+extendable info structure to store static data such as switch family,
+product number, number of ports, number of databases and the name.
 
-> rtl_*_delay() functions were reused same codes about addr variable.
-> So i have converted to rtl_addr_delay() from code about addr variable.
->
-> Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+The next step is to add a "features" bitmap member to the info structure
+in order to simplify the shared code with a feature-based logic instead
+of checking their family/ID.
 
-Doesn't apply:
+This is a step forward having a single mv88e6xxx driver supporting many
+similar devices, like any usual Linux driver.
 
-Applying: rtlwifi: Fix reusable codes in core.c
-fatal: sha1 information is lacking or useless (drivers/net/wireless/realtek/rtlwifi/core.c).
-Repository lacks necessary blobs to fall back on 3-way merge.
-Cannot fall back to three-way merge.
-Patch failed at 0001 rtlwifi: Fix reusable codes in core.c
+Vivien Didelot (7):
+  net: dsa: mv88e6xxx: drop double ds assignment
+  net: dsa: mv88e6xxx: drop revision probing
+  net: dsa: mv88e6xxx: add switch info
+  net: dsa: mv88e6xxx: add family to info
+  net: dsa: mv88e6xxx: add number of ports to info
+  net: dsa: mv88e6xxx: add number of database to info
+  net: dsa: mv88e6xxx: drop switch id
 
-Please rebase and resend.
+ drivers/net/dsa/mv88e6123.c |  29 +------
+ drivers/net/dsa/mv88e6131.c |  32 ++-----
+ drivers/net/dsa/mv88e6171.c |  15 ++--
+ drivers/net/dsa/mv88e6352.c |  24 ++----
+ drivers/net/dsa/mv88e6xxx.c | 201 ++++++++++++--------------------------------
+ drivers/net/dsa/mv88e6xxx.h |  83 +++++++-----------
+ 6 files changed, 106 insertions(+), 278 deletions(-)
 
 -- 
-Kalle Valo
+2.8.0
