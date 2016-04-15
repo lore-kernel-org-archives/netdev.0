@@ -1,101 +1,63 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/5] tipc: reduce transmission
-	rate of reset messages when link is down
-Date: Fri, 15 Apr 2016 13:33:04 -0400
-Message-ID: <1460741587-13935-3-git-send-email-jon.maloy@ericsson.com>
-References: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
+ driver
+Date: Fri, 15 Apr 2016 10:35:29 -0700
+Message-ID: <20160415173529.GY391@tuxbot>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com>
+ <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com>
+ <571012E6.6050303@codeaurora.org>
+ <57102920.7000104@codeaurora.org>
+ <20160415164433.GV391@tuxbot>
+ <57111E33.606@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Vikram Sethi <vikrams@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>, cov@codeaurora.org,
+	gavidov@codeaurora.org, Rob Herring <robh+dt@kernel.org>,
+	andrew@lunn.ch, Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57111E33.606@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a link is down, it will continuously try to re-establish contact
-with the peer by sending out a RESET or an ACTIVATE message at each
-timeout interval. The default value for this interval is currently
-375 ms. This is wasteful, and may become a problem in very large
-clusters with dozens or hundreds of nodes being down simultaneously.
+On Fri 15 Apr 10:00 PDT 2016, Timur Tabi wrote:
 
-We now introduce a simple backoff algorithm for these cases. The
-first five messages are sent at default rate; thereafter a message
-is sent only each 16th timer interval.
+> Bjorn Andersson wrote:
+> >For platform devices being populated via from DT you will pass:
+> >of_platform_bus_create()
+> >   of_platform_device_create_pdata()
+> >     of_dma_configure()
+> >
+> >Which calls of_dma_get_range() to acquire this information from the
+> >dma-ranges property and set up the dma ops and properties.
+> 
+> This seems excessive.  I have to create a platform bus just to configure the
+> DMA mask?  Most drivers just call dma_set_mask and give it a number, and
+> that's not device-tree specific.  I also need to come up with a way to get
+> this to work on ACPI.
+> 
+> I just seems like a lot of work only because I need to determine at runtime
+> what my DMA mask is.  I also don't see any drivers that call
+> of_dma_configure().
+> 
 
-This will cover the vast majority of link recycling cases, since the
-endpoint starting last will transmit at the higher speed, and the link
-should normally be established well be before the rate needs to be
-reduced.
+Your driver is a platform driver and it's being probed from DT. As such
+all this is already taken care of for you, by the core.
 
-The only case where we will see a degradation of link re-establishment
-times is when the endpoints remain intact, and a glitch in the
-transmission media is causing the link reset. We will then experience
-a worst-case re-establishing time of 6 seconds, something we deem
-acceptable.
+The listing is for your reference to know why the dma-ranges property
+would affect your device.
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 8b98faf..238b125 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -140,6 +140,7 @@ struct tipc_link {
- 	char if_name[TIPC_MAX_IF_NAME];
- 	u32 priority;
- 	char net_plane;
-+	u16 rst_cnt;
- 
- 	/* Failover/synch */
- 	u16 drop_point;
-@@ -701,8 +702,6 @@ static void link_profile_stats(struct tipc_link *l)
- 
- /* tipc_link_timeout - perform periodic task as instructed from node timeout
-  */
--/* tipc_link_timeout - perform periodic task as instructed from node timeout
-- */
- int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
- {
- 	int rc = 0;
-@@ -730,7 +729,8 @@ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
- 		l->silent_intv_cnt++;
- 		break;
- 	case LINK_RESET:
--		xmit = true;
-+		xmit = l->rst_cnt++ <= 4;
-+		xmit |= !(l->rst_cnt % 16);
- 		mtyp = RESET_MSG;
- 		break;
- 	case LINK_ESTABLISHING:
-@@ -833,6 +833,7 @@ void tipc_link_reset(struct tipc_link *l)
- 	l->rcv_nxt = 1;
- 	l->acked = 0;
- 	l->silent_intv_cnt = 0;
-+	l->rst_cnt = 0;
- 	l->stats.recv_info = 0;
- 	l->stale_count = 0;
- 	l->bc_peer_is_up = false;
--- 
-1.9.1
-
-
-------------------------------------------------------------------------------
-Find and fix application performance issues faster with Applications Manager
-Applications Manager provides deep performance insights into multiple tiers of
-your business applications. It resolves application problems quickly and
-reduces your MTTR. Get your free trial!
-https://ad.doubleclick.net/ddm/clk/302982198;130105516;z
+Regards,
+Bjorn
