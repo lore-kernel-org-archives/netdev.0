@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4.6 fix] bgmac: fix MAC soft-reset bit for corerev > 4
-Date: Thu, 14 Apr 2016 21:17:43 -0400 (EDT)
-Message-ID: <20160414.211743.968358101075476198.davem@davemloft.net>
-References: <1460478449-22561-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net 0/2] Fixes for SO_REUSEPORT and mixed v4/v6 sockets
+Date: Thu, 14 Apr 2016 21:18:02 -0400 (EDT)
+Message-ID: <20160414.211802.2280436220533771683.davem@davemloft.net>
+References: <1460481086-12982-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, nbd@openwrt.org
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42410 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42414 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbcDOBRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 21:17:45 -0400
-In-Reply-To: <1460478449-22561-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1751443AbcDOBSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 21:18:04 -0400
+In-Reply-To: <1460481086-12982-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Tue, 12 Apr 2016 18:27:29 +0200
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Tue, 12 Apr 2016 13:11:24 -0400
 
-> From: Felix Fietkau <nbd@openwrt.org>
->=20
-> Only core revisions older than 4 use BGMAC_CMDCFG_SR_REV0. This mainl=
-y
-> fixes support for BCM4708A0KF SoCs with Ethernet core rev 5 (it means
-> only some devices as most of BCM4708A0KF-s got core rev 4).
-> This was tested for regressions on BCM47094 which doesn't seem to car=
-e
-> which bit gets used.
->=20
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> From: Craig Gallek <kraig@google.com>
+> 
+> Recent changes to the datastructures associated with SO_REUSEPORT broke
+> an existing behavior when equivalent SO_REUSEPORT sockets are created
+> using both AF_INET and AF_INET6.  This patch series restores the previous
+> behavior and includes a test to validate it.
+> 
+> This series should be a trivial merge to stable kernels (if deemed
+> necessary), but will have conflicts in net-next.  The following patches
+> recently replaced the use of hlist_nulls with hlists for UDP and TCP
+> socket lists:
+> ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
+> 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
+> 
+> If this series is accepted, I will send an RFC for the net-next change
+> to assist with the merge.
 
-Applied.
+Applied and patch #1 queued up for -stable.
