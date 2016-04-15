@@ -1,56 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: simplify sk_receive_queue locking
-Date: Fri, 15 Apr 2016 17:22:42 -0400 (EDT)
-Message-ID: <20160415.172242.1523123997949553597.davem@davemloft.net>
-References: <6c4b2f1fab1e792537cc1661b130724d1ea26279.1460583258.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv3 net-next 1/6] sctp: add sctp_info dump api for
+ sctp_diag
+Date: Fri, 15 Apr 2016 17:28:58 -0400 (EDT)
+Message-ID: <20160415.172858.253625178036493951.davem@davemloft.net>
+References: <cover.1460618169.git.lucien.xin@gmail.com>
+	<cover.1460618169.git.lucien.xin@gmail.com>
+	<cd6bf9c2696f125a74491e1f82b77a30bb1005dd.1460618169.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: marcelo.leitner@gmail.com
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52411 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52475 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312AbcDOVWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:22:45 -0400
-In-Reply-To: <6c4b2f1fab1e792537cc1661b130724d1ea26279.1460583258.git.marcelo.leitner@gmail.com>
+	with ESMTP id S1751899AbcDOV3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:29:01 -0400
+In-Reply-To: <cd6bf9c2696f125a74491e1f82b77a30bb1005dd.1460618169.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Wed, 13 Apr 2016 19:12:29 -0300
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 14 Apr 2016 15:35:30 +0800
 
-> SCTP already serializes access to rcvbuf through its sock lock:
-> sctp_recvmsg takes it right in the start and release at the end, while
-> rx path will also take the lock before doing any socket processing. On
-> sctp_rcv() it will check if there is an user using the socket and, if
-> there is, it will queue incoming packets to the backlog. The backlog
-> processing will do the same. Even timers will do such check and
-> re-schedule if an user is using the socket.
+> sctp_diag will dump some important details of sctp's assoc or ep, we use
+> sctp_info to describe them,  sctp_get_sctp_info to get them, and export
+> it to sctp_diag.ko.
 > 
-> Simplifying this will allow us to remove sctp_skb_list_tail and get ride
-> of some expensive lockings.  The lists that it is used on are also
-> mangled with functions like __skb_queue_tail and __skb_unlink in the
-> same context, like on sctp_ulpq_tail_event() and sctp_clear_pd().
-> sctp_close() will also purge those while using only the sock lock.
+> v2->v3:
+> - we will not use list_for_each_safe in sctp_get_sctp_info, cause
+>   all the callers of it will use lock_sock.
 > 
-> Therefore the lockings performed by sctp_skb_list_tail() are not
-> necessary. This patch removes this function and replaces its calls with
-> just skb_queue_splice_tail_init() instead.
+> - fix the holes in struct sctp_info with __reserved* field.
+>   because sctp_diag is a new feature, and sctp_info is just for now,
+>   it may be changed in the future.
 > 
-> The biggest gain is at sctp_ulpq_tail_event(), because the events always
-> contain a list, even if it's queueing a single skb and this was
-> triggering expensive calls to spin_lock_irqsave/_irqrestore for every
-> data chunk received.
-> 
-> As SCTP will deliver each data chunk on a corresponding recvmsg, the
-> more effective the change will be.
-> Before this patch, with chunks with 30 bytes:
-> netperf -t SCTP_STREAM -H 192.168.1.2 -cC -l 60 -- -m 30 -S 400000
-> 400000 -s 400000 400000
-> on a 10Gbit link with 1500 MTU:
- ...
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks.
+Feedback was given here not to mix the changelog and the commit message.
+
+And I want to explicitly state that I totally and _COMPLETELY_ disagree
+with this.
+
+It is absolutely essential information and belongs in the commit message.
+
+Adding more information never hurts, so don't do this crap of putting
+things that might be useful to know after the "---", ever.
+
+Someone in the future might ask "why didn't he implement it like XXX"
+and the changelog can tell him that originally that is what was done
+and feedback was given to do it differently.
+
+So Xin thanks for correctly putting the changelog inside of the commit
+message, so that future developers can benefit from this knowledge.
