@@ -1,10 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 2/7] net: dsa: mv88e6xxx: drop revision
- probing
-Date: Sat, 16 Apr 2016 01:43:17 +0200
-Message-ID: <20160415234317.GB32136@lunn.ch>
+Subject: Re: [PATCH net-next v2 3/7] net: dsa: mv88e6xxx: add switch info
+Date: Sat, 16 Apr 2016 01:55:58 +0200
+Message-ID: <20160415235558.GC32136@lunn.ch>
 References: <1460762488-2633-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1460762488-2633-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1460762488-2633-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,32 +11,48 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58169 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751980AbcDOX4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Apr 2016 19:56:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1460762488-2633-3-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1460762488-2633-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 15, 2016 at 07:21:23PM -0400, Vivien Didelot wrote:
-> There is no point in having special case for the revision when probing a
-> switch model. The code gets cluttered with unnecessary defines, and
-> leads to errors when code such as mv88e6131_setup compares
-> PORT_SWITCH_ID_6131_B2 to ps->id which mask the revision.
-> 
-> Drop every revision definitions, add a ps->rev variable for eventual
-> runtime checking and lookup only the product number.
-
-You forgot to update the commit message. ps->rev has been removed in
-this version.
-
+> +	for (i = 0, info = &table[i]; i < num; info = &table[++i])
+> +		if (info->prod_num == (id & 0xfff0) >> 4)
+> +			goto found;
 >  
->  	/* Look up the exact switch ID */
+>  	return NULL;
+> -}
+>  
+> -char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+> -			  int sw_addr, void **priv,
+> -			  const struct mv88e6xxx_switch_id *table,
+> -			  unsigned int num)
+> -{
+> -	struct mv88e6xxx_priv_state *ps;
+> -	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+> -	char *name;
+> -
+> -	if (!bus)
+> +found:
+> +	ps = devm_kzalloc(dsa_dev, sizeof(*ps), GFP_KERNEL);
+> +	if (!ps)
 
-This comment now becomes meaningless. Please delete.
 
->  	for (i = 0; i < num; ++i)
-> -		if (table[i].id == ret)
-> +		if (table[i].id == (ret & 0xfff0))
->  			return table[i].name;
+This looks like a goto to jump around a return NULL. Ugly.  I would
+keep this lookup in a separate function. You can then avoid ugly stuff
+like this.
 
-			Andrew
+CodingStyle says:
+
+                Chapter 6: Functions
+
+Functions should be short and sweet, and do just one thing.  They should
+fit on one or two screenfuls of text (the ISO/ANSI screen size is 80x24,
+as we all know), and do one thing and do that well.
+
+   Andrew
