@@ -1,47 +1,36 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 4/7] net: dsa: mv88e6xxx: add family to info
-Date: Fri, 15 Apr 2016 17:06:41 -0400
-Message-ID: <871t661t0e.fsf@ketchup.mtl.sfl>
-References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1460744750-13896-5-git-send-email-vivien.didelot@savoirfairelinux.com> <20160415191149.GA18523@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/hsr: Added support for HSR v1
+Date: Fri, 15 Apr 2016 17:08:41 -0400 (EDT)
+Message-ID: <20160415.170841.1808571255697438360.davem@davemloft.net>
+References: <20160413115222.GA42572@aircraft-controller>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <notmuch-sha1-5b8efc36765bacf253ff62234056042d5c4c5c37>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arvid.brodin@alten.se, hannes@stressinduktion.org,
+	sd@queasysnail.net, henrik@austad.us, nikolay@cumulusnetworks.com,
+	tgraf@suug.ch, linville@tuxdriver.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, eranbe@mellanox.com, ast@plumgrid.com,
+	netdev@vger.kernel.org, peter.heise@airbus.com
+To: mail@pheise.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52297 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801AbcDOVIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:08:45 -0400
+In-Reply-To: <20160413115222.GA42572@aircraft-controller>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+From: Peter Heise <mail@pheise.de>
+Date: Wed, 13 Apr 2016 13:52:22 +0200
 
->>> +	{ MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
->>
->> I think 
->>
->>> +	{ MV88E6XXX_INFO(MV88E6XXX_FAMILY_6165, 0x165, "Marvell 88E6165") },
->>
->> is clearer. It is hard to know what these values mean unless you go
->> look at the macro.
->
-> Same goes for the MV88E6XXX_INFO macro... I wanted to avoid long lines
-> while keeping the info table clear enough.
->
->     MV88E6XXX_INFO(0x121, "Marvell 88E6123",
->                    MV88E6XXX_FAMILY_6165,) },
->    /*             Family   Prod   Name             */
->    { MV88E6XXX_INFO(6165, 0x121, "Marvell 88E6123") },
->    { MV88E6XXX_INFO(6165, 0x161, "Marvell 88E6161") },
->    { MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
->    { MV88E6XXX_INFO(6165, 0x165, "Marvell 88E6165") },
->
-> But I don't really mind in fact, we'll do as you guys wish.
+> This patch adds support for the newer version 1 of the HSR
+> networking standard. Version 0 is still default and the new
+> version has to be selected via iproute2.
+> 
+> Main changes are in the supervision frame handling and its
+> ethertype field.
+> 
+> Signed-off-by: Peter Heise <peter.heise@airbus.com>
 
-Oops, sent too fast. Thinking about that, I'll just keep plain struct
-mv88e6xxx_info in the tables and we will maybe introduce such macro when
-merging everything together.
-
-Thanks,
-Vivien
+Applied.
