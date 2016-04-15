@@ -1,71 +1,66 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [PATCH net-next v2] vxlan: synchronously and race-free
  destruction of vxlan sockets
-Date: Fri, 15 Apr 2016 18:47:59 -0300
-Message-ID: <5711618F.1080302@gmail.com>
+Date: Fri, 15 Apr 2016 23:50:31 +0200
+Message-ID: <57116227.9060205@stressinduktion.org>
 References: <1460148901-23740-1-git-send-email-hannes@stressinduktion.org>
- <CAM_iQpUbTz2dRS+ZTZSSL0AvkOb_2_HEfXo+ap9__aQZmajMjA@mail.gmail.com>
- <1460159706.2880965.573380353.39845928@webmail.messagingengine.com>
- <20160415135832.773707e3@xeon-e3>
+ <20160415.163644.1883719564658558438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Benc <jbenc@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, jbenc@redhat.com,
+	marcelo.leitner@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:35957 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789AbcDOVsH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:48:07 -0400
-Received: by mail-qg0-f42.google.com with SMTP id f52so88964337qga.3
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 14:48:06 -0700 (PDT)
-In-Reply-To: <20160415135832.773707e3@xeon-e3>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:38035 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750862AbcDOVuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:50:35 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id EEA4720C90
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 17:50:34 -0400 (EDT)
+In-Reply-To: <20160415.163644.1883719564658558438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 15-04-2016 17:58, Stephen Hemminger escreveu:
-> On Sat, 09 Apr 2016 01:55:06 +0200
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+On 15.04.2016 22:36, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Fri,  8 Apr 2016 22:55:01 +0200
 >
+>> @@ -1053,7 +1052,9 @@ static void __vxlan_sock_release(struct vxlan_sock *vs)
+>>   	vxlan_notify_del_rx_port(vs);
+>>   	spin_unlock(&vn->sock_lock);
 >>
+>> -	queue_work(vxlan_wq, &vs->del_work);
+>> +	synchronize_net();
+>> +	udp_tunnel_sock_release(vs->sock);
+>> +	kfree(vs);
+>>   }
 >>
->> On Sat, Apr 9, 2016, at 01:24, Cong Wang wrote:
->>> On Fri, Apr 8, 2016 at 1:55 PM, Hannes Frederic Sowa
->>> <hannes@stressinduktion.org> wrote:
->>>> Due to the fact that the udp socket is destructed asynchronously in a
->>>> work queue, we have some nondeterministic behavior during shutdown of
->>>> vxlan tunnels and creating new ones. Fix this by keeping the destruction
->>>> process synchronous in regards to the user space process so IFF_UP can
->>>> be reliably set.
->>>>
->>>> udp_tunnel_sock_release destroys vs->sock->sk if reference counter
->>>> indicates so. We expect to have the same lifetime of vxlan_sock and
->>>> vxlan_sock->sock->sk even in fast paths with only rcu locks held. So
->>>> only destruct the whole socket after we can be sure it cannot be found
->>>> by searching vxlan_net->sock_list.
->>>>
->>>
->>> I am wondering what is the reason why we used work queue from
->>> the beginning?
->>
->> I actually don't know. It was like that from the beginning. I cc'ed
->> Stephen, maybe he remembers?
->>
->> Bye,
->> Hannes
+>>   static void vxlan_sock_release(struct vxlan_dev *vxlan)
 >
-> The problem was that VXLAN needs to update multicast settings and that
-> can't be done under RTNL.
+> I just want to make sure you saw this change in net-next:
+>
+> ====================
+> commit ca065d0cf80fa547724440a8bf37f1e674d917c0
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Fri Apr 1 08:52:13 2016 -0700
+>
+>      udp: no longer use SLAB_DESTROY_BY_RCU
+> ====================
+>
+> Does that effect your change?
 
-If the socket destroy was delayed just due to this, it should be all 
-good then, because I took care of this multicast issue on commits
+I have seen this patch and it does not affect this patch:
 
-56ef9c909b40 ("vxlan: Move socket initialization to within rtnl scope")
-54ff9ef36bdf ("ipv4, ipv6: kill ip_mc_{join, leave}_group and 
-ipv6_sock_mc_{join, drop}")
+The socket is matched from the net->vxlan_net->hlist in fast path. I 
+don't want to destruct (kern_sock_shutdown) the socket while packets 
+could be in flight through the vxlan stack. We clean up socket memory 
+and destruct after rcu again, but given that we only do this during 
+ifdown of a vxlan interface I don't see that we need to optimize this again.
 
-   Marcelo
+All other tunneling protocols don't look up sockets in fast path, so 
+they don't need to protect against this.
+
+Bye,
+Hannes
