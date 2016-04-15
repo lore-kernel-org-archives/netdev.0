@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 5/5] tipc: let first message on
-	link be a state message
-Date: Fri, 15 Apr 2016 13:33:07 -0400
-Message-ID: <1460741587-13935-6-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/5] tipc: reduce transmission
+	rate of reset messages when link is down
+Date: Fri, 15 Apr 2016 13:33:04 -0400
+Message-ID: <1460741587-13935-3-git-send-email-jon.maloy@ericsson.com>
 References: <1460741587-13935-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,92 +23,72 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-According to the link FSM, a received traffic packet can take a link
-from state ESTABLISHING to ESTABLISHED, but the link can still not be
-fully set up in one atomic operation. This means that even if the the
-very first packet on the link is a traffic packet with sequence number
-1 (one), it has to be dropped and retransmitted.
+When a link is down, it will continuously try to re-establish contact
+with the peer by sending out a RESET or an ACTIVATE message at each
+timeout interval. The default value for this interval is currently
+375 ms. This is wasteful, and may become a problem in very large
+clusters with dozens or hundreds of nodes being down simultaneously.
 
-This can be avoided if we let the mentioned packet be preceded by a
-LINK_PROTOCOL/STATE message, which takes up the endpoint before the
-arrival of the traffic.
+We now introduce a simple backoff algorithm for these cases. The
+first five messages are sent at default rate; thereafter a message
+is sent only each 16th timer interval.
 
-We add this small feature in this commit.
+This will cover the vast majority of link recycling cases, since the
+endpoint starting last will transmit at the higher speed, and the link
+should normally be established well be before the rate needs to be
+reduced.
 
-This is a fully compatible change.
+The only case where we will see a degradation of link re-establishment
+times is when the endpoints remain intact, and a glitch in the
+transmission media is causing the link reset. We will then experience
+a worst-case re-establishing time of 6 seconds, something we deem
+acceptable.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 6 +++---
- net/tipc/link.h | 2 +-
- net/tipc/node.c | 5 ++++-
- 3 files changed, 8 insertions(+), 5 deletions(-)
+ net/tipc/link.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 774ad3c..2e28a7d 100644
+index 8b98faf..238b125 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -1107,12 +1107,12 @@ static bool tipc_link_release_pkts(struct tipc_link *l, u16 acked)
- 	return released;
- }
+@@ -140,6 +140,7 @@ struct tipc_link {
+ 	char if_name[TIPC_MAX_IF_NAME];
+ 	u32 priority;
+ 	char net_plane;
++	u16 rst_cnt;
  
--/* tipc_link_build_ack_msg: prepare link acknowledge message for transmission
-+/* tipc_link_build_state_msg: prepare link state message for transmission
-  *
-  * Note that sending of broadcast ack is coordinated among nodes, to reduce
-  * risk of ack storms towards the sender
+ 	/* Failover/synch */
+ 	u16 drop_point;
+@@ -701,8 +702,6 @@ static void link_profile_stats(struct tipc_link *l)
+ 
+ /* tipc_link_timeout - perform periodic task as instructed from node timeout
   */
--int tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
-+int tipc_link_build_state_msg(struct tipc_link *l, struct sk_buff_head *xmitq)
+-/* tipc_link_timeout - perform periodic task as instructed from node timeout
+- */
+ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
  {
- 	if (!l)
- 		return 0;
-@@ -1222,7 +1222,7 @@ int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		if (!tipc_data_input(l, skb, l->inputq))
- 			rc |= tipc_link_input(l, skb, l->inputq);
- 		if (unlikely(++l->rcv_unacked >= TIPC_MIN_LINK_WIN))
--			rc |= tipc_link_build_ack_msg(l, xmitq);
-+			rc |= tipc_link_build_state_msg(l, xmitq);
- 		if (unlikely(rc & ~TIPC_LINK_SND_BC_ACK))
- 			break;
- 	} while ((skb = __skb_dequeue(defq)));
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 6a94175..d7e9d42 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -123,7 +123,7 @@ int tipc_nl_parse_link_prop(struct nlattr *prop, struct nlattr *props[]);
- int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq);
- int tipc_link_rcv(struct tipc_link *l, struct sk_buff *skb,
- 		  struct sk_buff_head *xmitq);
--int tipc_link_build_ack_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
-+int tipc_link_build_state_msg(struct tipc_link *l, struct sk_buff_head *xmitq);
- void tipc_link_add_bc_peer(struct tipc_link *snd_l,
- 			   struct tipc_link *uc_l,
- 			   struct sk_buff_head *xmitq);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index b00e12c..68d9f7b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -545,6 +545,9 @@ static void __tipc_node_link_up(struct tipc_node *n, int bearer_id,
- 	pr_debug("Established link <%s> on network plane %c\n",
- 		 tipc_link_name(nl), tipc_link_plane(nl));
- 
-+	/* Ensure that a STATE message goes first */
-+	tipc_link_build_state_msg(nl, xmitq);
-+
- 	/* First link? => give it both slots */
- 	if (!ol) {
- 		*slot0 = bearer_id;
-@@ -1283,7 +1286,7 @@ static void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id
- 	/* Broadcast ACKs are sent on a unicast link */
- 	if (rc & TIPC_LINK_SND_BC_ACK) {
- 		tipc_node_read_lock(n);
--		tipc_link_build_ack_msg(le->link, &xmitq);
-+		tipc_link_build_state_msg(le->link, &xmitq);
- 		tipc_node_read_unlock(n);
- 	}
- 
+ 	int rc = 0;
+@@ -730,7 +729,8 @@ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
+ 		l->silent_intv_cnt++;
+ 		break;
+ 	case LINK_RESET:
+-		xmit = true;
++		xmit = l->rst_cnt++ <= 4;
++		xmit |= !(l->rst_cnt % 16);
+ 		mtyp = RESET_MSG;
+ 		break;
+ 	case LINK_ESTABLISHING:
+@@ -833,6 +833,7 @@ void tipc_link_reset(struct tipc_link *l)
+ 	l->rcv_nxt = 1;
+ 	l->acked = 0;
+ 	l->silent_intv_cnt = 0;
++	l->rst_cnt = 0;
+ 	l->stats.recv_info = 0;
+ 	l->stale_count = 0;
+ 	l->bc_peer_is_up = false;
 -- 
 1.9.1
 
