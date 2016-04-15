@@ -1,47 +1,37 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller
- driver
-Date: Fri, 15 Apr 2016 13:22:23 -0500
-Message-ID: <5711315F.3000302@codeaurora.org>
-References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
- <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
- <57100962.40404@gmail.com> <571012E6.6050303@codeaurora.org>
- <57102920.7000104@codeaurora.org> <20160415164433.GV391@tuxbot>
- <57111E33.606@codeaurora.org> <20160415173529.GY391@tuxbot>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 2/2] rtlwifi: Fix reusable codes in core.c
+Date: Fri, 15 Apr 2016 21:25:05 +0300
+Message-ID: <87bn5apw5a.fsf@kamboji.qca.qualcomm.com>
+References: <20160203020139.GA13619@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vikram Sethi <vikrams@codeaurora.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	sdharia@codeaurora.org,
-	Shanker Donthineni <shankerd@codeaurora.org>,
-	Greg Kroah-Hartman <greg@kroah.com>, cov@codeaurora.org,
-	gavidov@codeaurora.org, Rob Herring <robh+dt@kernel.org>,
-	andrew@lunn.ch, Mark Langsdorf <mlangsdo@redhat.com>,
-	Jon Masters <jcm@redhat.com>,
-	Andy Gross <agross@codeaurora.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Byeoungwook Kim <quddnr145@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160415173529.GY391@tuxbot>
+In-Reply-To: <20160203020139.GA13619@gmail.com> (Byeoungwook Kim's message of
+	"Wed, 3 Feb 2016 11:01:39 +0900")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bjorn Andersson wrote:
-> Your driver is a platform driver and it's being probed from DT. As such
-> all this is already taken care of for you, by the core.
+Byeoungwook Kim <quddnr145@gmail.com> writes:
+
+> rtl_*_delay() functions were reused same codes about addr variable.
+> So i have converted to rtl_addr_delay() from code about addr variable.
 >
-> The listing is for your reference to know why the dma-ranges property
-> would affect your device.
+> Signed-off-by: Byeoungwook Kim <quddnr145@gmail.com>
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-Ah, sorry. I misunderstood what you meant by "you will pass".
+Doesn't apply:
 
-Coincidentally, it looks like Lorenzo Pieralisi has posted patches the 
-ACPI equivalent just yesterday: https://lkml.org/lkml/2016/4/14/694
+Applying: rtlwifi: Fix reusable codes in core.c
+fatal: sha1 information is lacking or useless (drivers/net/wireless/realtek/rtlwifi/core.c).
+Repository lacks necessary blobs to fall back on 3-way merge.
+Cannot fall back to three-way merge.
+Patch failed at 0001 rtlwifi: Fix reusable codes in core.c
+
+Please rebase and resend.
 
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+Kalle Valo
