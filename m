@@ -1,37 +1,64 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 6/7] net: dsa: mv88e6xxx: add number of database
- to info
-Date: Fri, 15 Apr 2016 22:27:09 +0200
-Message-ID: <20160415202709.GF18523@lunn.ch>
-References: <1460744750-13896-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1460744750-13896-7-git-send-email-vivien.didelot@savoirfairelinux.com>
- <20160415193516.GD18523@lunn.ch>
- <87mvouaadh.fsf@ketchup.mtl.sfl>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 0/3] ila: Support for checksum neutral translations
+Date: Fri, 15 Apr 2016 13:34:09 -0700
+Message-ID: <1460752452-3328784-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87mvouaadh.fsf@ketchup.mtl.sfl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37200 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750768AbcDOUeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 16:34:22 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3FKV3mK024503
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 13:34:21 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 22b4ergx5q-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 13:34:20 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.102.107.97) with ESMTP	id
+ 6e47eaee034911e6acee0002c99331b0-bbd6c50 for <netdev@vger.kernel.org>;	Fri,
+ 15 Apr 2016 13:34:19 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 15, 2016 at 04:24:26PM -0400, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > On Fri, Apr 15, 2016 at 02:25:49PM -0400, Vivien Didelot wrote:
-> >> Move the number of databases to the info structure.
-> >
-> > Isn't the number of databases a property of the family?
-> 
-> No.
+This patch set updates ILA to support draft-herbert-nvo3-ila-02. The
+primary addition is support checksum neutral ILA translation.
+This allows address to be performed and still keep any transport
+layer checksums that include the addresses in their pseudo header to
+still be correct without the translator needing to parse L4.
 
-O.K, then lets put it in the device info table.
+Other items are:
+   - Structures for ILA addresses, identifiers, locators
+   - Disallow translation on non-ILA addresses (check by
+     type in identifier).
+   - Change xlat (nf_input) to translates solely based
+     on matching locators not identifiers (since identifiers
+     are not obfuscated by checksum neutral).
+   - Side effect if above is that multiple ILA domains are
+     supported. Each local locator can map to a different
+     SIR address (ILA domain), and each domain defines its
+     own identifier space.
 
-     Andrew
+Tested: Ran TCP_RR with 200 cnxs. ILA performance is slightly better
+than previously since we are not longer parsing L4 for checksum
+handling. I amd seeing about 1% performance overhead. Also ran
+TCP_STREAM and tested non-ILA address (type=0) are not translated.
+
+Tom Herbert (3):
+  ila: Add struct definitions and helpers
+  ila: xlat changes
+  ila: add checksum neutral ILA translations
+
+ include/uapi/linux/ila.h  |   7 ++
+ net/ipv6/ila/ila.h        |  79 ++++++++++++++++++++++-
+ net/ipv6/ila/ila_common.c |  81 +++++++++++++++++++++--
+ net/ipv6/ila/ila_lwt.c    |  49 ++++++++++----
+ net/ipv6/ila/ila_xlat.c   | 160 +++++++++++++++++++---------------------------
+ 5 files changed, 259 insertions(+), 117 deletions(-)
+
+-- 
+2.8.0.rc2
