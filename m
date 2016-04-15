@@ -1,65 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH for-next V1 0/2] mlx5_core: mlx5_ifc updates
-Date: Fri, 15 Apr 2016 17:22:54 -0400 (EDT)
-Message-ID: <20160415.172254.1148340547086083909.davem@davemloft.net>
-References: <1460563864-22931-1-git-send-email-saeedm@mellanox.com>
-	<CALzJLG__o56edSf__To-BM6jakuwP7zAAEEQH8LQNTKp-2LRDQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: simplify sk_receive_queue locking
+Date: Fri, 15 Apr 2016 17:22:42 -0400 (EDT)
+Message-ID: <20160415.172242.1523123997949553597.davem@davemloft.net>
+References: <6c4b2f1fab1e792537cc1661b130724d1ea26279.1460583258.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG__o56edSf__To-BM6jakuwP7zAAEEQH8LQNTKp-2LRDQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	vyasevich@gmail.com, nhorman@tuxdriver.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52411 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751312AbcDOVWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 17:22:45 -0400
+In-Reply-To: <6c4b2f1fab1e792537cc1661b130724d1ea26279.1460583258.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Date: Fri, 15 Apr 2016 20:10:07 +0300
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 13 Apr 2016 19:12:29 -0300
 
-> On Wed, Apr 13, 2016 at 7:11 PM, Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->> Hi Dave and Doug
->>
->> Changes form V0:
->>         - 2nd patch commit message fixes.
->>
->> This series include mlx5_core updates for both net-next and rdma
->> trees for 4.7 kernel cycle. This is the only shared code planned
->> for 4.7 between rdma and net trees. Hopefully, this will prevent
->> future conflicts when merging between ib-next and net-next once
->> 4.7 cycle is over and merge window is opened.
->>
->> Both Mellanox rdma and net submissions will proceed once this series
->> is applied into both trees.
->>
->> Future shared code will be sent to both maintainers as pull requests
->> from Mellanox's kernel.org tree.
->>
->> We have included all the maintainers of respective drivers.
->> Kindly review the change and let us know in case of any review comments.
->>
->> Saeed Mahameed (1):
->>   net/mlx5: Update mlx5_ifc hardware features
->>
->> Tariq Toukan (1):
->>   net/mlx5: Fix mlx5 ifc cmd_hca_cap bad offsets
->>
->>  include/linux/mlx5/mlx5_ifc.h |  253 +++++++++++++++++++++++++++++------------
->>  1 files changed, 179 insertions(+), 74 deletions(-)
->>
->> --
+> SCTP already serializes access to rcvbuf through its sock lock:
+> sctp_recvmsg takes it right in the start and release at the end, while
+> rx path will also take the lock before doing any socket processing. On
+> sctp_rcv() it will check if there is an user using the socket and, if
+> there is, it will queue incoming packets to the backlog. The backlog
+> processing will do the same. Even timers will do such check and
+> re-schedule if an user is using the socket.
 > 
-> Hi Dave,
+> Simplifying this will allow us to remove sctp_skb_list_tail and get ride
+> of some expensive lockings.  The lists that it is used on are also
+> mangled with functions like __skb_queue_tail and __skb_unlink in the
+> same context, like on sctp_ulpq_tail_event() and sctp_clear_pd().
+> sctp_close() will also purge those while using only the sock lock.
 > 
-> This series is still in "Changes Requested" state in patchwork, but
-> there is nothing to change here.
-> I will be glad if you give it a shot, it is blocking all of our mlx5
-> activities for both net and rdma trees.
+> Therefore the lockings performed by sctp_skb_list_tail() are not
+> necessary. This patch removes this function and replaces its calls with
+> just skb_queue_splice_tail_init() instead.
+> 
+> The biggest gain is at sctp_ulpq_tail_event(), because the events always
+> contain a list, even if it's queueing a single skb and this was
+> triggering expensive calls to spin_lock_irqsave/_irqrestore for every
+> data chunk received.
+> 
+> As SCTP will deliver each data chunk on a corresponding recvmsg, the
+> more effective the change will be.
+> Before this patch, with chunks with 30 bytes:
+> netperf -t SCTP_STREAM -H 192.168.1.2 -cC -l 60 -- -m 30 -S 400000
+> 400000 -s 400000 400000
+> on a 10Gbit link with 1500 MTU:
+ ...
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
