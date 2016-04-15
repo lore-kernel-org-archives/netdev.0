@@ -1,43 +1,49 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] devlink: fix sb register stub in case devlink is disabled
-Date: Fri, 15 Apr 2016 09:17:08 +0200
-Message-ID: <1460704628-3662-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com, fengguang.wu@intel.com
+Subject: [patch iproute2 00/11] devlink: add support for shared buffer configuration and control
+Date: Fri, 15 Apr 2016 09:51:42 +0200
+Message-ID: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+	ogerlitz@mellanox.com, roopa@cumulusnetworks.com,
+	nikolay@cumulusnetworks.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com, sfeldma@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36682 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127AbcDOHRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:17:11 -0400
-Received: by mail-wm0-f50.google.com with SMTP id v188so18170610wme.1
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:17:11 -0700 (PDT)
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:35786 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751605AbcDOHv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 03:51:57 -0400
+Received: by mail-wm0-f54.google.com with SMTP id a140so19470506wma.0
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 00:51:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Fixes: bf7974710a40 ("devlink: add shared buffer configuration")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/devlink.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Jiri Pirko (11):
+  devlink: fix "devlink port" help message
+  list: add list_for_each_entry_reverse macro
+  list: add list_add_tail helper
+  devlink: introduce pr_out_port_handle helper
+  devlink: introduce helper to print out nice names (ifnames)
+  devlink: split dl_argv_parse_put to parse and put parts
+  devlink: introduce dump filtering function
+  devlink: allow to parse both devlink and port handle in the same time
+  devlink: implement shared buffer support
+  devlink: implement shared buffer occupancy control
+  devlink: add manpage for shared buffer
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index be64218..1d45b61 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -184,7 +184,9 @@ static inline void devlink_port_split_set(struct devlink_port *devlink_port,
- static inline int devlink_sb_register(struct devlink *devlink,
- 				      unsigned int sb_index, u32 size,
- 				      u16 ingress_pools_count,
--				      u16 egress_pools_count, u16 tc_count)
-+				      u16 egress_pools_count,
-+				      u16 ingress_tc_count,
-+				      u16 egress_tc_count)
- {
- 	return 0;
- }
+ devlink/devlink.c          | 1310 +++++++++++++++++++++++++++++++++++++++++---
+ include/linux/devlink.h    |   63 +++
+ include/list.h             |   16 +
+ man/man8/devlink-dev.8     |    2 +
+ man/man8/devlink-monitor.8 |    1 +
+ man/man8/devlink-port.8    |    2 +
+ man/man8/devlink-sb.8      |  313 +++++++++++
+ man/man8/devlink.8         |    5 +
+ 8 files changed, 1636 insertions(+), 76 deletions(-)
+ create mode 100644 man/man8/devlink-sb.8
+
 -- 
 2.5.5
