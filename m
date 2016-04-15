@@ -1,178 +1,105 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH net-next v2 4/6] fjes: Enhance changing MTU related work
-Date: Fri, 15 Apr 2016 11:25:40 +0900
-Message-ID: <1460687140-26707-1-git-send-email-izumi.taku@jp.fujitsu.com>
-References: <1460686800-26427-1-git-send-email-izumi.taku@jp.fujitsu.com>
-Cc: jiri@resnulli.us, isimatu.yasuaki@jp.fujitsu.com,
-	Taku Izumi <izumi.taku@jp.fujitsu.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH 3/3] fec: move to new ethtool api {get|set}_link_ksettings
+Date: Fri, 15 Apr 2016 02:38:11 +0000
+Message-ID: <VI1PR0401MB18550805A0305855FB105E36FF680@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
+ <1460673301-10599-4-git-send-email-tremyfr@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwkm01.jp.fujitsu.com ([202.219.69.168]:55247 "EHLO
-	mgwkm01.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676AbcDOCeJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 22:34:09 -0400
-Received: from m3050.s.css.fujitsu.com (msm.b.css.fujitsu.com [10.134.21.208])
-	by kw-mxauth.gw.nic.fujitsu.com (Postfix) with ESMTP id 96782AC0285
-	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 11:34:04 +0900 (JST)
-In-Reply-To: <1460686800-26427-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Received: from mail-am1on0099.outbound.protection.outlook.com ([157.56.112.99]:16608
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751248AbcDOCiP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 22:38:15 -0400
+In-Reply-To: <1460673301-10599-4-git-send-email-tremyfr@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enhances the fjes_change_mtu() method
-by introducing new flag named FJES_RX_MTU_CHANGING_DONE
-in rx_status. At the same time, default MTU value is
-changed into 65510 bytes.
+From: Philippe Reynes <tremyfr@gmail.com> Sent: Friday, April 15, 2016 6:35 AM
+> To: davem@davemloft.net; decot@googlers.com; f.fainelli@gmail.com; Fugang
+> Duan <fugang.duan@nxp.com>
+> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Philippe Reynes
+> <tremyfr@gmail.com>
+> Subject: [PATCH 3/3] fec: move to new ethtool api {get|set}_link_ksettings
+> 
+> The ethtool api {get|set}_settings is deprecated.
+> We move the fec driver to new api {get|set}_link_ksettings.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c |   16 ++++++++--------
+>  1 files changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index 08243c2..bfa10c3 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -2058,8 +2058,8 @@ static void fec_enet_mii_remove(struct
+> fec_enet_private *fep)
+>  	}
+>  }
+> 
+> -static int fec_enet_get_settings(struct net_device *ndev,
+> -				  struct ethtool_cmd *cmd)
+> +static int fec_enet_get_link_ksettings(struct net_device *ndev,
+> +				       struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	struct phy_device *phydev = fep->phy_dev; @@ -2067,11 +2067,11
+> @@ static int fec_enet_get_settings(struct net_device *ndev,
+>  	if (!phydev)
+>  		return -ENODEV;
+> 
+> -	return phy_ethtool_gset(phydev, cmd);
+> +	return phy_ethtool_ksettings_get(phydev, cmd);
+>  }
+> 
+> -static int fec_enet_set_settings(struct net_device *ndev,
+> -				 struct ethtool_cmd *cmd)
+> +static int fec_enet_set_link_ksettings(struct net_device *ndev,
+> +				       const struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	struct phy_device *phydev = fep->phy_dev; @@ -2079,7 +2079,7 @@
+> static int fec_enet_set_settings(struct net_device *ndev,
+>  	if (!phydev)
+>  		return -ENODEV;
+> 
+> -	return phy_ethtool_sset(phydev, cmd);
+> +	return phy_ethtool_ksettings_set(phydev, cmd);
+>  }
+> 
+>  static void fec_enet_get_drvinfo(struct net_device *ndev, @@ -2562,8
+> +2562,6 @@ fec_enet_set_wol(struct net_device *ndev, struct
+> ethtool_wolinfo *wol)  }
+> 
+>  static const struct ethtool_ops fec_enet_ethtool_ops = {
+> -	.get_settings		= fec_enet_get_settings,
+> -	.set_settings		= fec_enet_set_settings,
+>  	.get_drvinfo		= fec_enet_get_drvinfo,
+>  	.get_regs_len		= fec_enet_get_regs_len,
+>  	.get_regs		= fec_enet_get_regs,
+> @@ -2583,6 +2581,8 @@ static const struct ethtool_ops fec_enet_ethtool_ops
+> = {
+>  	.set_tunable		= fec_enet_set_tunable,
+>  	.get_wol		= fec_enet_get_wol,
+>  	.set_wol		= fec_enet_set_wol,
+> +	.get_link_ksettings	= fec_enet_get_link_ksettings,
+> +	.set_link_ksettings	= fec_enet_set_link_ksettings,
+>  };
+> 
+>  static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+> --
+> 1.7.4.4
 
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
----
- drivers/net/fjes/fjes_hw.c   |  8 +++++-
- drivers/net/fjes/fjes_hw.h   |  1 +
- drivers/net/fjes/fjes_main.c | 60 ++++++++++++++++++++++++++++++++++++--------
- 3 files changed, 58 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/fjes/fjes_hw.c b/drivers/net/fjes/fjes_hw.c
-index b103adb..e9f494b 100644
---- a/drivers/net/fjes/fjes_hw.c
-+++ b/drivers/net/fjes/fjes_hw.c
-@@ -179,6 +179,8 @@ void fjes_hw_setup_epbuf(struct epbuf_handler *epbh, u8 *mac_addr, u32 mtu)
- 
- 	for (i = 0; i < EP_BUFFER_SUPPORT_VLAN_MAX; i++)
- 		info->v1i.vlan_id[i] = vlan_id[i];
-+
-+	info->v1i.rx_status |= FJES_RX_MTU_CHANGING_DONE;
- }
- 
- void
-@@ -810,7 +812,8 @@ bool fjes_hw_check_mtu(struct epbuf_handler *epbh, u32 mtu)
- {
- 	union ep_buffer_info *info = epbh->info;
- 
--	return (info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu));
-+	return ((info->v1i.frame_max == FJES_MTU_TO_FRAME_SIZE(mtu)) &&
-+		info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE);
- }
- 
- bool fjes_hw_check_vlan_id(struct epbuf_handler *epbh, u16 vlan_id)
-@@ -863,6 +866,9 @@ bool fjes_hw_epbuf_rx_is_empty(struct epbuf_handler *epbh)
- {
- 	union ep_buffer_info *info = epbh->info;
- 
-+	if (!(info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE))
-+		return true;
-+
- 	if (info->v1i.count_max == 0)
- 		return true;
- 
-diff --git a/drivers/net/fjes/fjes_hw.h b/drivers/net/fjes/fjes_hw.h
-index baee7f5..f40cf07 100644
---- a/drivers/net/fjes/fjes_hw.h
-+++ b/drivers/net/fjes/fjes_hw.h
-@@ -57,6 +57,7 @@ struct fjes_hw;
- #define FJES_RX_STOP_REQ_DONE		(0x1)
- #define FJES_RX_STOP_REQ_REQUEST	(0x2)
- #define FJES_RX_POLL_WORK		(0x4)
-+#define FJES_RX_MTU_CHANGING_DONE	(0x8)
- 
- #define EP_BUFFER_SIZE \
- 	(((sizeof(union ep_buffer_info) + (128 * (64 * 1024))) \
-diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_main.c
-index e22a869..3c0c120 100644
---- a/drivers/net/fjes/fjes_main.c
-+++ b/drivers/net/fjes/fjes_main.c
-@@ -481,6 +481,9 @@ static void fjes_tx_stall_task(struct work_struct *work)
- 
- 			info = adapter->hw.ep_shm_info[epid].tx.info;
- 
-+			if (!(info->v1i.rx_status & FJES_RX_MTU_CHANGING_DONE))
-+				return;
-+
- 			if (EP_RING_FULL(info->v1i.head, info->v1i.tail,
- 					 info->v1i.count_max)) {
- 				all_queue_available = 0;
-@@ -760,9 +763,11 @@ fjes_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
- 
- static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
- {
-+	struct fjes_adapter *adapter = netdev_priv(netdev);
- 	bool running = netif_running(netdev);
--	int ret = 0;
--	int idx;
-+	struct fjes_hw *hw = &adapter->hw;
-+	int ret = -EINVAL;
-+	int idx, epidx;
- 
- 	for (idx = 0; fjes_support_mtu[idx] != 0; idx++) {
- 		if (new_mtu <= fjes_support_mtu[idx]) {
-@@ -770,19 +775,54 @@ static int fjes_change_mtu(struct net_device *netdev, int new_mtu)
- 			if (new_mtu == netdev->mtu)
- 				return 0;
- 
--			if (running)
--				fjes_close(netdev);
-+			ret = 0;
-+			break;
-+		}
-+	}
-+
-+	if (ret)
-+		return ret;
-+
-+	if (running) {
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx == hw->my_epid)
-+				continue;
-+			hw->ep_shm_info[epidx].tx.info->v1i.rx_status &=
-+				~FJES_RX_MTU_CHANGING_DONE;
-+		}
-+		netif_tx_stop_all_queues(netdev);
-+		netif_carrier_off(netdev);
-+		cancel_work_sync(&adapter->tx_stall_task);
-+		napi_disable(&adapter->napi);
-+
-+		msleep(1000);
- 
--			netdev->mtu = new_mtu;
-+		netif_tx_stop_all_queues(netdev);
-+	}
- 
--			if (running)
--				ret = fjes_open(netdev);
-+	netdev->mtu = new_mtu;
- 
--			return ret;
-+	if (running) {
-+		for (epidx = 0; epidx < hw->max_epid; epidx++) {
-+			if (epidx == hw->my_epid)
-+				continue;
-+
-+			local_irq_disable();
-+			fjes_hw_setup_epbuf(&hw->ep_shm_info[epidx].tx,
-+					    netdev->dev_addr,
-+					    netdev->mtu);
-+			local_irq_enable();
-+
-+			hw->ep_shm_info[epidx].tx.info->v1i.rx_status |=
-+				FJES_RX_MTU_CHANGING_DONE;
- 		}
-+
-+		netif_tx_wake_all_queues(netdev);
-+		netif_carrier_on(netdev);
-+		napi_enable(&adapter->napi);
- 	}
- 
--	return -EINVAL;
-+	return ret;
- }
- 
- static int fjes_vlan_rx_add_vid(struct net_device *netdev,
-@@ -1204,7 +1244,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
- 	netdev->watchdog_timeo = FJES_TX_RETRY_INTERVAL;
- 	netdev->netdev_ops = &fjes_netdev_ops;
- 	fjes_set_ethtool_ops(netdev);
--	netdev->mtu = fjes_support_mtu[0];
-+	netdev->mtu = fjes_support_mtu[3];
- 	netdev->flags |= IFF_BROADCAST;
- 	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
- }
--- 
-2.4.3
+Acked-by: Fugang Duan <fugang.duan@nxp.com>
