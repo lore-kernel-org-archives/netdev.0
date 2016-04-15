@@ -1,48 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 0/2] ethernet: intel: Support Hyper-V hosts
-Date: Thu, 14 Apr 2016 19:21:00 -0700
-Message-ID: <CAL3LdT4c5nhxeOrWcCPfGXAJVx2iWyjjMik6aaF3V-STBRXo0A@mail.gmail.com>
-References: <1460678121-30308-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, intel-wired-lan@linuxonhyperv.com,
- netdev <netdev@vger.kernel.org>, jasowang@redhat.com,
- LKML <linux-kernel@vger.kernel.org>, jackm@mellanox.com, yevgenyp@mellanox.com,
- "Ronciak, John" <john.ronciak@intel.com>, eli@mellanox.com, apw@canonical.com,
- devel@linuxdriverproject.org, David Miller <davem@davemloft.net>
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1460678121-30308-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH net-next v2 0/6] FUJITSU Extended Socket driver version 1.1
+Date: Fri, 15 Apr 2016 11:20:00 +0900
+Message-ID: <1460686800-26427-1-git-send-email-izumi.taku@jp.fujitsu.com>
+Cc: jiri@resnulli.us, isimatu.yasuaki@jp.fujitsu.com,
+	Taku Izumi <izumi.taku@jp.fujitsu.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgwym03.jp.fujitsu.com ([211.128.242.42]:42321 "EHLO
+	mgwym03.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752866AbcDOC2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Apr 2016 22:28:33 -0400
+Received: from m3051.s.css.fujitsu.com (m3051.s.css.fujitsu.com [10.134.21.209])
+	by yt-mxq.gw.nic.fujitsu.com (Postfix) with ESMTP id BCFB1AC004F
+	for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 11:28:26 +0900 (JST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 14, 2016 at 4:55 PM, K. Y. Srinivasan <kys@microsoft.com> wrote:
-> Make adjustments to the Intel 10G VF driver to support
-> running on Hyper-V hosts.
->
-> K. Y. Srinivasan (2):
->   ethernet: intel: Add the device ID's presented while running on
->     Hyper-V
->   intel: ixgbevf: Support Windows hosts (Hyper-V)
->
->  drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   11 ++
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   56 ++++++---
->  drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
->  drivers/net/ethernet/intel/ixgbevf/vf.c           |  138 +++++++++++++++++++++
->  drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +
->  6 files changed, 206 insertions(+), 18 deletions(-)
+This patchsets update FUJITSU Extended Socket network driver into version 1.1.
+This mainly includes some improvements and minor bugfix.
 
-Don't know how you butchered the mailing list address, but you did not
-send this series to intel-wired-lan@lists.osuosl.org mailing list.
-Please address the requested changes that Mark suggested and resubmit
-to the correct mailing list please.
+v1->v2:
+  - Remove ioctl and debugfs facility according to David comment
+
+Taku Izumi (6):
+  fjes: optimize timeout value
+  fjes: fix incorrect statistics information in fjes_xmit_frame()
+  fjes: fix bitwise check bug in fjes_raise_intr_rxdata_task
+  fjes: Enhance changing MTU related work
+  fjes: Introduce spinlock for rx_status
+  fjes: Update fjes driver version : 1.1
+
+ drivers/net/fjes/fjes_hw.c   |  30 +++++++++-
+ drivers/net/fjes/fjes_hw.h   |   9 ++-
+ drivers/net/fjes/fjes_main.c | 132 +++++++++++++++++++++++++++++++++++--------
+ 3 files changed, 141 insertions(+), 30 deletions(-)
+
+-- 
+2.4.3
