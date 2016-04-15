@@ -1,45 +1,92 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] tun: use per cpu variables for stats accounting
-Date: Fri, 15 Apr 2016 14:30:28 +0200
-Message-ID: <1460723428.7410.7.camel@redhat.com>
-References: <597a2e5c2f664d48d3e4aac2f7d43e61940d4037.1460537477.git.pabeni@redhat.com>
-	 <20160414.225617.2128747969495613941.davem@davemloft.net>
+From: Rob Herring <robh+dt@kernel.org>
+Subject: Re: [PATCH 1/2] [v4] net: emac: emac gigabit ethernet controller driver
+Date: Fri, 15 Apr 2016 07:35:52 -0500
+Message-ID: <CAL_JsqLJffKzvMZTSLf+OESufDjrcMBd27fP5yh1R61=irXxcg@mail.gmail.com>
+References: <1460570393-19838-1-git-send-email-timur@codeaurora.org>
+ <570EC541.6080603@gmail.com> <570FFB6B.5060305@codeaurora.org>
+ <57100962.40404@gmail.com> <571012E6.6050303@codeaurora.org> <57102920.7000104@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, hannes@stressinduktion.org,
-	ebiederm@xmission.com, gkurz@linux.vnet.ibm.com,
-	jasowang@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56177 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750716AbcDOMac (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Apr 2016 08:30:32 -0400
-In-Reply-To: <20160414.225617.2128747969495613941.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vikram Sethi <vikrams@codeaurora.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Greg Kroah-Hartman <greg@kroah.com>,
+	Christopher Covington <cov@codeaurora.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Bjorn Andersson <bjorn.andersson@linaro.org>,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	Jon Masters <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <57102920.7000104@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-04-14 at 22:56 -0400, David Miller wrote:
-> From: Paolo Abeni <pabeni@redhat.com>
-> Date: Wed, 13 Apr 2016 10:52:20 +0200
-> 
-> > Currently the tun device accounting uses dev->stats without applying any
-> > kind of protection, regardless that accounting happens in preemptible
-> > process context.
-> > This patch move the tun stats to a per cpu data structure, and protect
-> > the updates with  u64_stats_update_begin()/u64_stats_update_end() or
-> > this_cpu_inc according to the stat type. The per cpu stats are
-> > aggregated by the newly added ndo_get_stats64 ops.
-> > 
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> 
-> Ok this seems reasonable, applied, thanks.
-> 
-> I guess most applications use tuntap by having two threads, one
-> for transmit and one for receive processing?
+On Thu, Apr 14, 2016 at 6:34 PM, Timur Tabi <timur@codeaurora.org> wrote:
+> Vikram Sethi wrote:
+>>>>
+>>>> >>     retval = dma_coerce_mask_and_coherent(&pdev->dev,
+>>>> >> DMA_BIT_MASK(64));
+>>>> >>     if (retval) {
+>>>> >>         dev_err(&pdev->dev, "failed to set DMA mask err %d\n",
+>>>> >> retval);
+>>>> >>         goto err_res;
+>>>> >>     }
+>>
+>> How can you set the mask to 64 bits when the EMAC IP on FSM9900 and
+>> QDF2432 can only do 32 bit DMA?
+>> The mask in that API is a bit mask describing which bits of an address
+>> your device supports.
+>
+>
+> Vikram, Shanker, and I discussed this offline, and came to a consensus.
+>
+> The FSM9900 is a 32-bit platform, so the kernel will never create a DMA
+> address above 4GB. Even if the driver sets the mask to 64 bits, it will
+> technically work.  However, the mask should be set to 32 because all address
+> buses are 32 bits.
+>
+> The QDF2432 is different.  Although it's an ARM64 platform, we have the
+> unfortunate situation that only 32 bits of that address is wired to the rest
+> of the chip.  So even though the Emac can handle 64-bit bus addresses, if it
+> actually attempts to DMA above 4GB, the address will get truncated and
+> corrupt memory.  The mask needs to be set to 32.
+>
+> There may or may not be other ARM64 chips from us that won't have this
+> problem in the future, so these hypothetical chips would have a mask of 64.
+>
+> So I think the solution is to create a device tree (and ACPI) property that
+> holds the mask.
+>
+>         dma-mask = <0 0xffffffff>;
+>
+> or
+>
+>         dma-mask = <0xffffffff 0xffffffff>;
 
-Probably. I guess that an user space application can leverage multiple
-transmit threads to improve the throughput.
+No. See dma-ranges.
 
-Paolo
+Rob
+
+>
+> The driver will then do this:
+>
+>         u64 dma_mask;
+>         device_property_read_u64(&pdev->dev, "dma-mask", &dma_mask);
+>         dma_coerce_mask_and_coherent(&pdev->dev, dma_mask);
+>
+> What I'm not sure yet is whether I should call
+> dma_coerce_mask_and_coherent() or dma_set_coherent_mask().
+>
+> --
+> Qualcomm Innovation Center, Inc.
+> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+> Forum, a Linux Foundation collaborative project.
