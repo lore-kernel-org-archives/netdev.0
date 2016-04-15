@@ -1,58 +1,42 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
-Date: Thu, 14 Apr 2016 17:35:39 -0700
-Message-ID: <CAPWQB7EV-boR1_yaBeY8tQtHgc09+14jQ_q7yk=bpwrtqL+20Q@mail.gmail.com>
-References: <1460570974-44050-1-git-send-email-joe@ovn.org>
- <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com>
- <20160414084015.GA3192@breakpoint.cc> <20160414103533.GA3211@salvia>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] cdc_mbim: apply "NDP to end" quirk to all
+ Huawei devices
+Date: Thu, 14 Apr 2016 21:04:42 -0400 (EDT)
+Message-ID: <20160414.210442.1510392839752405685.davem@davemloft.net>
+References: <1460470272-9289-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	David Laight <David.Laight@aculab.com>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"diproiettod@vmware.com" <diproiettod@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160414103533.GA3211@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org, burdandrei-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1460470272-9289-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 14 April 2016 at 03:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Apr 14, 2016 at 10:40:15AM +0200, Florian Westphal wrote:
->> David Laight <David.Laight@ACULAB.COM> wrote:
->> > From: Joe Stringer
->> > > Sent: 13 April 2016 19:10
->> > > This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
->> > > orphan skbs inside ip_defrag()").
->> > >
->> > > Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
->> > > clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
->> > > cloned (implicitly orphaning) prior to queueing for reassembly. As such,
->> > > when the IPv6 message is eventually reassembled, the skb->sk for all
->> > > fragments would be NULL. After that commit was introduced, rather than
->> > > cloning, the original skbs were queued directly without orphaning. The
->> > > end result is that all frags except for the first and last may have a
->> > > socket attached.
->> >
->> > I'd have thought that the queued fragments would still want to be
->> > resource-counted against the socket (I think that is what skb->sk is for).
->>
->> No, ipv4/ipv6 reasm has its own accouting.
->>
->> > Although I can't imagine why IPv6 reassembly is happening on skb
->> > associated with a socket.
->>
->> Right, thats a much more interesting question -- both ipv4 and
->> ipv6 orphan skbs before NF_HOOK prerouting trip.
->>
->> (That being said, I don't mind the patch, I'm just be curious how this
->>  can happen).
->
-> If this change is specific to get this working in ovs and its
-> conntrack support, then I don't think this belong to core
-> infrastructure. This should be fixed in ovs instead.
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Tue, 12 Apr 2016 16:11:12 +0200
 
-I admit I've only been able to reproduce it with OVS. My main reason
-for proposing the fix this way was just because this is what the IPv4
-code does, so I figured IPv6 should be consistent with that.
+> We now have a positive report of another Huawei device needing
+> this quirk: The ME906s-158 (12d1:15c1).  This is an m.2 form
+> factor modem with no obvious relationship to the E3372 (12d1:157d)
+> we already have a quirk entry for.  This is reason enough to
+> believe the quirk might be necessary for any number of current
+> and future Huawei devices.
+>=20
+> Applying the quirk to all Huawei devices, since it is crucial
+> to any device affected by the firmware bug, while the impact
+> on non-affected devices is negligible.
+>=20
+> The quirk can if necessary be disabled per-device by writing
+> N to /sys/class/net/<iface>/cdc_ncm/ndp_to_end
+>=20
+> Reported-by: Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+
+Applied and queued up for -stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
