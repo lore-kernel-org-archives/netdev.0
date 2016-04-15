@@ -1,53 +1,65 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Fri, 15 Apr 2016 15:46:21 -0700
-Message-ID: <CAAmHdhw8-qEHwe+GNU_p9UGZyMU38PgrjaM9zEK9nOfSENxDUg@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-	<CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-	<1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
+ UP
+Date: Sat, 16 Apr 2016 00:45:59 +0200
+Message-ID: <20160415224559.GH25196@piout.net>
+References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
+ <57114AA4.5080803@gmail.com>
+ <20160415205613.GE25196@piout.net>
+ <20160415220508.GC26665@lunn.ch>
+ <20160415221711.GG25196@piout.net>
+ <20160415223026.GD26665@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f193.google.com ([209.85.213.193]:35133 "EHLO
-	mail-ig0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573AbcDOWqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 18:46:22 -0400
-Received: by mail-ig0-f193.google.com with SMTP id fn8so4527451igb.2
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 15:46:22 -0700 (PDT)
-In-Reply-To: <1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160415223026.GD26665@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-04-08 7:19 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Thu, 2016-03-31 at 16:48 -0700, Michael Ma wrote:
->> I didn't really know that multiple qdiscs can be isolated using MQ so
->> that each txq can be associated with a particular qdisc. Also we don't
->> really have multiple interfaces...
->>
->> With this MQ solution we'll still need to assign transmit queues to
->> different classes by doing some math on the bandwidth limit if I
->> understand correctly, which seems to be less convenient compared with
->> a solution purely within HTB.
->>
->> I assume that with this solution I can still share qdisc among
->> multiple transmit queues - please let me know if this is not the case.
->
-> Note that this MQ + HTB thing works well, unless you use a bonding
-> device. (Or you need the MQ+HTB on the slaves, with no way of sharing
-> tokens between the slaves)
->
->
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=bb1d912323d5dd50e1079e389f4e964be14f0ae3
->
-> bonding can not really be used as a true MQ device yet.
->
-> I might send a patch to disable this 'bonding feature' if no slave sets
-> a queue_id.
->
->
-So there is no way of using this MQ solution when bonding interface is
-used, right? Then modifying HTB might be the only solution?
+On 16/04/2016 at 00:30:26 +0200, Andrew Lunn wrote :
+> On Sat, Apr 16, 2016 at 12:17:11AM +0200, Alexandre Belloni wrote:
+> > On 16/04/2016 at 00:05:08 +0200, Andrew Lunn wrote :
+> > > > Trace without my patch:
+> > > > libphy: MACB_mii_bus: probed
+> > > > macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 27 (fc:c2:3d:0c:6e:05)
+> > > > Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=171)
+> > > > Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+> > > > [...]
+> > > > Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+> > > 
+> > > Are there some state changes before this? How is it getting to state
+> > > READY? It would expect it to start in DOWN, from when the phy device
+> > > was created in phy_device_create().
+> > > 
+> > 
+> > No other changes. I forgot to mention that this is when booting with a
+> > cable plugged in. Unplugging and replugging the cable makes the link
+> > detection work fine even without the patch.
+> 
+> Are you tftpbooting? I.e. has the boot loader already done an auto
+> negotiation?
+> 
+
+Yes.
+
+> I've looked at the code and i still don't see how it gets to READY.
+> What i do see is that when you connect the phy to the MAC, the
+> interrupt handler is installed. So maybe there are some PHY interrupts
+> before the interface is opened? Could you put a print in
+> phy_interrupt().
+> 
+
+That is indeed the case, and I'm not sure why because
+99f81afc139c6edd14d77a91ee91685a414a1c66 is trying to disable AN at
+boot.
+
+-- 
+Alexandre Belloni, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
