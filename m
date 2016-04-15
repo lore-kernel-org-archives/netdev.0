@@ -1,174 +1,60 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: Re: [PATCH 2/3] phy: add generic function to support ksetting support
-Date: Sat, 16 Apr 2016 00:53:20 +0200
-Message-ID: <571170E0.7080902@gmail.com>
-References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com> <1460673301-10599-3-git-send-email-tremyfr@gmail.com> <VI1PR0401MB18559A6D1BFF6A55CE840574FF680@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: qdisc spin lock
+Date: Fri, 15 Apr 2016 15:54:14 -0700
+Message-ID: <1460760854.10638.81.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
+	 <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
+	 <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
+	 <1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAAmHdhw8-qEHwe+GNU_p9UGZyMU38PgrjaM9zEK9nOfSENxDUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"decot@googlers.com" <decot@googlers.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fugang Duan <fugang.duan@nxp.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Michael Ma <make0818@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35080 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900AbcDOWxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 18:53:37 -0400
-In-Reply-To: <VI1PR0401MB18559A6D1BFF6A55CE840574FF680@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36519 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366AbcDOWyQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 18:54:16 -0400
+Received: by mail-pf0-f171.google.com with SMTP id e128so60771705pfe.3
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 15:54:16 -0700 (PDT)
+In-Reply-To: <CAAmHdhw8-qEHwe+GNU_p9UGZyMU38PgrjaM9zEK9nOfSENxDUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/04/16 04:50, Fugang Duan wrote:
-> From: Philippe Reynes<tremyfr@gmail.com>  Sent: Friday, April 15, 2016 6:35 AM
->> To: davem@davemloft.net; decot@googlers.com; f.fainelli@gmail.com; Fugang
->> Duan<fugang.duan@nxp.com>
->> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Philippe Reynes
->> <tremyfr@gmail.com>
->> Subject: [PATCH 2/3] phy: add generic function to support ksetting support
->>
->> The old ethtool api (get_setting and set_setting) has generic phy functions
->> phy_ethtool_sset and phy_ethtool_gset.
->> To supprt the new ethtool api (get_link_ksettings and set_link_ksettings), we
->> add generic phy function phy_ethtool_ksettings_get and
->> phy_ethtool_ksettings_set.
->>
->> Signed-off-by: Philippe Reynes<tremyfr@gmail.com>
->> ---
->>   drivers/net/phy/phy.c |   81
->> +++++++++++++++++++++++++++++++++++++++++++++++++
->>   include/linux/phy.h   |    4 ++
->>   2 files changed, 85 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c index
->> 5590b9c..6f221c8 100644
->> --- a/drivers/net/phy/phy.c
->> +++ b/drivers/net/phy/phy.c
->> @@ -362,6 +362,60 @@ int phy_ethtool_sset(struct phy_device *phydev,
->> struct ethtool_cmd *cmd)  }  EXPORT_SYMBOL(phy_ethtool_sset);
->>
->> +int phy_ethtool_ksettings_set(struct phy_device *phydev,
->> +			      const struct ethtool_link_ksettings *cmd) {
->> +	u8 autoneg = cmd->base.autoneg;
->> +	u8 duplex = cmd->base.duplex;
->> +	u32 speed = cmd->base.speed;
->> +	u32 advertising;
->> +
->> +	if (cmd->base.phy_address != phydev->mdio.addr)
->> +		return -EINVAL;
->> +
->> +	ethtool_convert_link_mode_to_legacy_u32(&advertising,
->> +						cmd->link_modes.advertising);
->> +
->> +	/* We make sure that we don't pass unsupported values in to the PHY */
->> +	advertising&= phydev->supported;
->> +
->> +	/* Verify the settings we care about. */
->> +	if (autoneg != AUTONEG_ENABLE&&  autoneg != AUTONEG_DISABLE)
->> +		return -EINVAL;
->> +
->> +	if (autoneg == AUTONEG_ENABLE&&  advertising == 0)
->> +		return -EINVAL;
->> +
->> +	if (autoneg == AUTONEG_DISABLE&&
->> +	    ((speed != SPEED_1000&&
->> +	      speed != SPEED_100&&
->> +	      speed != SPEED_10) ||
->> +	     (duplex != DUPLEX_HALF&&
->> +	      duplex != DUPLEX_FULL)))
->> +		return -EINVAL;
->> +
->> +	phydev->autoneg = autoneg;
->> +
->> +	phydev->speed = speed;
->> +
->> +	phydev->advertising = advertising;
->> +
->> +	if (autoneg == AUTONEG_ENABLE)
->> +		phydev->advertising |= ADVERTISED_Autoneg;
->> +	else
->> +		phydev->advertising&= ~ADVERTISED_Autoneg;
->> +
->> +	phydev->duplex = duplex;
->> +
->> +	phydev->mdix = cmd->base.eth_tp_mdix_ctrl;
->> +
->> +	/* Restart the PHY */
->> +	phy_start_aneg(phydev);
->> +
->> +	return 0;
->> +}
->> +EXPORT_SYMBOL(phy_ethtool_ksettings_set);
->> +
->>   int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)  {
->>   	cmd->supported = phydev->supported;
->> @@ -385,6 +439,33 @@ int phy_ethtool_gset(struct phy_device *phydev,
->> struct ethtool_cmd *cmd)  }  EXPORT_SYMBOL(phy_ethtool_gset);
->>
->> +int phy_ethtool_ksettings_get(struct phy_device *phydev,
->> +			      struct ethtool_link_ksettings *cmd) {
->> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
->>> link_modes.supported,
->> +						phydev->supported);
->> +
->> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
->>> link_modes.advertising,
->> +						phydev->advertising);
->> +
->> +	ethtool_convert_legacy_u32_to_link_mode(cmd-
->>> link_modes.lp_advertising,
->> +						phydev->lp_advertising);
->> +
->> +	cmd->base.speed = phydev->speed;
->> +	cmd->base.duplex = phydev->duplex;
->> +	if (phydev->interface == PHY_INTERFACE_MODE_MOCA)
->> +		cmd->base.port = PORT_BNC;
->> +	else
->> +		cmd->base.port = PORT_MII;
->> +
->> +	cmd->base.phy_address = phydev->mdio.addr;
->> +	cmd->base.autoneg = phydev->autoneg;
->> +	cmd->base.eth_tp_mdix_ctrl = phydev->mdix;
->> +
->> +	return 0;
->> +}
->> +EXPORT_SYMBOL(phy_ethtool_ksettings_get);
->> +
->>   /**
->>    * phy_mii_ioctl - generic PHY MII ioctl interface
->>    * @phydev: the phy_device struct
->> diff --git a/include/linux/phy.h b/include/linux/phy.h index 2abd791..be3f83b
->> 100644
->> --- a/include/linux/phy.h
->> +++ b/include/linux/phy.h
->> @@ -805,6 +805,10 @@ void phy_start_machine(struct phy_device *phydev);
->> void phy_stop_machine(struct phy_device *phydev);  int
->> phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);  int
->> phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
->> +int phy_ethtool_ksettings_get(struct phy_device *phydev,
->> +			      struct ethtool_link_ksettings *cmd); int
->> +phy_ethtool_ksettings_set(struct phy_device *phydev,
->> +			      const struct ethtool_link_ksettings *cmd);
->>   int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);  int
->> phy_start_interrupts(struct phy_device *phydev);  void phy_print_status(struct
->> phy_device *phydev);
->> --
->> 1.7.4.4
->
-> It seems fine. There have many drivers need to update .set_settings/. get_settings, not only fsl fec driver.
+On Fri, 2016-04-15 at 15:46 -0700, Michael Ma wrote:
+> 2016-04-08 7:19 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> > On Thu, 2016-03-31 at 16:48 -0700, Michael Ma wrote:
+> >> I didn't really know that multiple qdiscs can be isolated using MQ so
+> >> that each txq can be associated with a particular qdisc. Also we don't
+> >> really have multiple interfaces...
+> >>
+> >> With this MQ solution we'll still need to assign transmit queues to
+> >> different classes by doing some math on the bandwidth limit if I
+> >> understand correctly, which seems to be less convenient compared with
+> >> a solution purely within HTB.
+> >>
+> >> I assume that with this solution I can still share qdisc among
+> >> multiple transmit queues - please let me know if this is not the case.
+> >
+> > Note that this MQ + HTB thing works well, unless you use a bonding
+> > device. (Or you need the MQ+HTB on the slaves, with no way of sharing
+> > tokens between the slaves)
+> >
+> >
+> > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=bb1d912323d5dd50e1079e389f4e964be14f0ae3
+> >
+> > bonding can not really be used as a true MQ device yet.
+> >
+> > I might send a patch to disable this 'bonding feature' if no slave sets
+> > a queue_id.
+> >
+> >
+> So there is no way of using this MQ solution when bonding interface is
+> used, right? Then modifying HTB might be the only solution?
 
-Yes, a lot a drivers needs to be updated. Right now, I've only updated the fec.
-If everybody agree, I can replace them.
+I probably can submit a bonding patch very soon if there is interest.
 
-> And whether there still need to keep the old interface in phy.c driver ?
-
-
-I think we could remove the old interface when all the drivers would have moved to the new interface.
-
-> Regards,
-> Andy
-
-Regards,
-Philippe
+Modifying HTB is way more complicated :(
