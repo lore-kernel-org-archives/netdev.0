@@ -1,56 +1,51 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bpf: avoid warning for wrong pointer cast
-Date: Sat, 16 Apr 2016 22:29:33 +0200
-Message-ID: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
+Subject: [PATCH] ixgbe: use msleep for long delays
+Date: Sat, 16 Apr 2016 22:35:08 +0200
+Message-ID: <1460838941-1251989-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Mark Rustad <mark.d.rustad@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Two new functions in bpf contain a cast from a 'u64' to a
-pointer. This works on 64-bit architectures but causes a warning
-on all 32-bit architectures:
+The newly added x550em_a support causes a link failure on ARM because of
+an overly long time passed into udelay():
 
-kernel/trace/bpf_trace.c: In function 'bpf_perf_event_output_tp':
-kernel/trace/bpf_trace.c:350:13: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
-  u64 ctx = *(long *)r1;
+ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
 
-This changes the cast to first convert the u64 argument into a uintptr_t,
-which is guaranteed to be the same size as a pointer.
+There are multiple variants of the ixgbe_acquire_swfw_sync_*() function,
+and the other ones all use msleep(), so we can safely assume that all
+callers are allowed to sleep, which makes msleep() a better replacement
+than mdelay().
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 9940d67c93b5 ("bpf: support bpf_get_stackid() and bpf_perf_event_output() in tracepoint programs")
+Fixes: 49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
 ---
- kernel/trace/bpf_trace.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 413ec5614180..c082313a523a 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -347,7 +347,7 @@ static u64 bpf_perf_event_output_tp(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
- 	 * from bpf program and contain a pointer to 'struct pt_regs'. Fetch it
- 	 * from there and call the same bpf_perf_event_output() helper
- 	 */
--	u64 ctx = *(long *)r1;
-+	u64 ctx = *(long *)(uintptr_t)r1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index c71e93ed4451..21c0fce47e15 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2765,7 +2765,7 @@ static s32 ixgbe_acquire_swfw_sync_x550em_a(struct ixgbe_hw *hw, u32 mask)
+ 			ixgbe_release_swfw_sync_X540(hw, hmask);
+ 		if (status != IXGBE_ERR_TOKEN_RETRY)
+ 			return status;
+-		udelay(FW_PHY_TOKEN_DELAY * 1000);
++		msleep(FW_PHY_TOKEN_DELAY);
+ 	}
  
- 	return bpf_perf_event_output(ctx, r2, index, r4, size);
- }
-@@ -365,7 +365,7 @@ static const struct bpf_func_proto bpf_perf_event_output_proto_tp = {
- 
- static u64 bpf_get_stackid_tp(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- {
--	u64 ctx = *(long *)r1;
-+	u64 ctx = *(long *)(uintptr_t)r1;
- 
- 	return bpf_get_stackid(ctx, r2, r3, r4, r5);
- }
+ 	return status;
 -- 
 2.7.0
