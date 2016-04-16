@@ -1,68 +1,174 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v3 0/2] rtnetlink: new message for stats
-Date: Fri, 15 Apr 2016 20:28:11 -0700
-Message-ID: <1460777293-39474-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 RFC 2/2] ipv6: add support for stats via RTM_GETSTATS
+Date: Fri, 15 Apr 2016 20:28:13 -0700
+Message-ID: <1460777293-39474-3-git-send-email-roopa@cumulusnetworks.com>
 Cc: jhs@mojatatu.com, davem@davemloft.net, tgraf@suug.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35985 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751069AbcDPD2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 23:28:18 -0400
-Received: by mail-pa0-f54.google.com with SMTP id er2so32286935pad.3
-        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 20:28:18 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33165 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069AbcDPD2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Apr 2016 23:28:20 -0400
+Received: by mail-pa0-f42.google.com with SMTP id zm5so60858652pac.0
+        for <netdev@vger.kernel.org>; Fri, 15 Apr 2016 20:28:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds a new RTM_GETSTATS message to query stats via
-netlink from the kernel. RTM_NEWLINK also dumps links stats today, but
-RTM_NEWLINK returns a lot more than just stats and is expensive in some
-cases when frequent polling for stats from userspace is a common operation.
+This patch is an example of adding af stats in
+RTM_GETSTATS. It adds a new nested IFLA_STATS_LINK_INET6
+attribute for ipv6 af stats. stats attributes inside
+IFLA_STATS_LINK_INET6 nested attribute use the existing ipv6
+stats attributes from ipv6 IFLA_PROTINFO
 
-RTM_GETSTATS is an attempt to provide a light weight netlink message
-to explicity query only stats from the kernel. The idea is to also keep
-it extensible so that new kinds of stats can be added to it in the future.
-
-Roopa Prabhu (2):
-  rtnetlink: add new RTM_GETSTATS to dump link stats
-  ipv6: add support for stats via RTM_GETSTATS
-
-Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+This patch is an example of af stats hooked into the new stats
+infrastructure. I have tested it to work. My real intent is to have
+IFLA_STATS_LINK_MPLS implemented in the same way for mpls.
+I am not sure how popular the current ipv6 stats are. so, we could
+rethink ipv6 stats in a new way when people see the need
+for it in the future.
 
-RFC to v1 (apologies for the delay in sending this version out. busy days):
-        - Addressed feedback from Dave
-                - removed rtnl_link_stats
-                - Added hdr struct if_stats_msg to carry ifindex and
-                  filter mask
-                - new macro IFLA_STATS_FILTER_BIT(ATTR) for filter mask
-        - split the ipv6 patch into a separate patch, need some more eyes on it
-        - prefix attributes with IFLA_STATS instead of IFLA_LINK_STATS for
-          shorter attribute names
+ include/uapi/linux/if_link.h |  1 +
+ net/core/rtnetlink.c         |  1 +
+ net/ipv6/addrconf.c          | 77 +++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 71 insertions(+), 8 deletions(-)
 
-v1 - v2:
-        - move IFLA_STATS_INET6 declaration to the inet6 patch
-        - get rid of RTM_DELSTATS
-        - mark ipv6 patch RFC. It can be used as an example for
-          other AF stats like stats
-
-v2 - v3:
-        - add required padding to the if_stats_msg structure(suggested by jamal)
-        - rename netdev stat attributes with IFLA_STATS_LINK prefix
-          so that they are easily distinguishable with global
-          stats in the future (after global stats discussion with thomas)
-        - get rid of unnecessary copy when getting stats with dev_get_stats
-          (suggested by dave)
-        
-
- include/net/rtnetlink.h        |   5 +
- include/uapi/linux/if_link.h   |  19 ++++
- include/uapi/linux/rtnetlink.h |   7 ++
- net/core/rtnetlink.c           | 201 +++++++++++++++++++++++++++++++++++++++++
- net/ipv6/addrconf.c            |  77 ++++++++++++++--
- 5 files changed, 301 insertions(+), 8 deletions(-)
-
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index ab740fe..a419a6a2 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -796,6 +796,7 @@ struct if_stats_msg {
+ enum {
+ 	IFLA_STATS_UNSPEC,
+ 	IFLA_STATS_LINK_64,
++	IFLA_STATS_LINK_INET6,
+ 	__IFLA_STATS_MAX,
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2a8abe0..687718a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3497,6 +3497,7 @@ nla_put_failure:
+ 
+ static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
+ 	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
++	[IFLA_STATS_LINK_INET6] = {. type = NLA_NESTED },
+ };
+ 
+ static size_t rtnl_link_get_af_stats_size(const struct net_device *dev,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a6c9927..fdca37c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4917,6 +4917,29 @@ static void snmp6_fill_stats(u64 *stats, struct inet6_dev *idev, int attrtype,
+ 	}
+ }
+ 
++static int inet6_fill_ifla6_stats(struct sk_buff *skb,
++				  struct inet6_dev *idev)
++{
++	struct nlattr *nla;
++
++	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
++	if (!nla)
++		goto nla_put_failure;
++	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_STATS, nla_len(nla));
++
++	nla = nla_reserve(skb, IFLA_INET6_ICMP6STATS,
++			  ICMP6_MIB_MAX * sizeof(u64));
++	if (!nla)
++		goto nla_put_failure;
++	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_ICMP6STATS,
++			 nla_len(nla));
++
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
++}
++
+ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev,
+ 				  u32 ext_filter_mask)
+ {
+@@ -4941,15 +4964,8 @@ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev,
+ 	if (ext_filter_mask & RTEXT_FILTER_SKIP_STATS)
+ 		return 0;
+ 
+-	nla = nla_reserve(skb, IFLA_INET6_STATS, IPSTATS_MIB_MAX * sizeof(u64));
+-	if (!nla)
+-		goto nla_put_failure;
+-	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_STATS, nla_len(nla));
+-
+-	nla = nla_reserve(skb, IFLA_INET6_ICMP6STATS, ICMP6_MIB_MAX * sizeof(u64));
+-	if (!nla)
++	if (inet6_fill_ifla6_stats(skb, idev))
+ 		goto nla_put_failure;
+-	snmp6_fill_stats(nla_data(nla), idev, IFLA_INET6_ICMP6STATS, nla_len(nla));
+ 
+ 	nla = nla_reserve(skb, IFLA_INET6_TOKEN, sizeof(struct in6_addr));
+ 	if (!nla)
+@@ -4991,6 +5007,49 @@ static int inet6_fill_link_af(struct sk_buff *skb, const struct net_device *dev,
+ 	return 0;
+ }
+ 
++static size_t inet6_get_link_af_stats_size(const struct net_device *dev,
++					   u32 filter_mask)
++{
++	if (!(filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_INET6)))
++		return 0;
++
++	if (!__in6_dev_get(dev))
++		return 0;
++
++	return nla_total_size(sizeof(struct nlattr)) /* IFLA_STATS_LINK_INET6 */
++		+ nla_total_size(IPSTATS_MIB_MAX * 8) /* IFLA_INET6_STATS */
++		+ nla_total_size(ICMP6_MIB_MAX * sizeof(u64));/* IFLA_INET6_ICMP6STATS */
++}
++
++static int inet6_fill_link_af_stats(struct sk_buff *skb,
++				    const struct net_device *dev,
++				    u32 filter_mask)
++{
++	struct inet6_dev *idev = __in6_dev_get(dev);
++	struct nlattr *inet6_stats;
++
++	if (!(filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_INET6)))
++		return 0;
++
++	if (!idev)
++		return -ENODATA;
++
++	inet6_stats = nla_nest_start(skb, IFLA_STATS_LINK_INET6);
++	if (!inet6_stats)
++		return -EMSGSIZE;
++
++	if (inet6_fill_ifla6_stats(skb, idev) < 0)
++		goto errout;
++
++	nla_nest_end(skb, inet6_stats);
++
++	return 0;
++errout:
++	nla_nest_cancel(skb, inet6_stats);
++
++	return -EMSGSIZE;
++}
++
+ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
+ {
+ 	struct inet6_ifaddr *ifp;
+@@ -6087,6 +6146,8 @@ static struct rtnl_af_ops inet6_ops __read_mostly = {
+ 	.get_link_af_size = inet6_get_link_af_size,
+ 	.validate_link_af = inet6_validate_link_af,
+ 	.set_link_af	  = inet6_set_link_af,
++	.get_link_af_stats_size = inet6_get_link_af_stats_size,
++	.fill_link_af_stats = inet6_fill_link_af_stats,
+ };
+ 
+ /*
 -- 
 1.9.1
