@@ -1,51 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ixgbe: use msleep for long delays
-Date: Sat, 16 Apr 2016 22:35:08 +0200
-Message-ID: <1460838941-1251989-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Mark Rustad <mark.d.rustad@intel.com>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] devlink: fix devlink_sb_register prototype
+Date: Sat, 16 Apr 2016 23:00:19 +0200
+Message-ID: <20160416210018.GF1954@nanopsycho.orion>
+References: <1460838446-1246570-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38612 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbcDPVAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 17:00:22 -0400
+Received: by mail-wm0-f51.google.com with SMTP id u206so74865377wme.1
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 14:00:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1460838446-1246570-1-git-send-email-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The newly added x550em_a support causes a link failure on ARM because of
-an overly long time passed into udelay():
+Sat, Apr 16, 2016 at 10:27:06PM CEST, arnd@arndb.de wrote:
+>The devlink shared buffer interface contains two different
+>prototypes for devlink_sb_register, and the one that is
+>used when NET_DEVLINK is disabled does not work:
+>
+>drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c: In function 'mlxsw_sp_buffers_init':
+>drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c:547:9: error: too many arguments to function 'devlink_sb_register'
+>  return devlink_sb_register(priv_to_devlink(mlxsw_sp->core), 0,
+>
+>This makes the two prototypes have the same argument list.
+>
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>Fixes: bf7974710a40 ("devlink: add shared buffer configuration")
 
-ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
+Already fixed by:
 
-There are multiple variants of the ixgbe_acquire_swfw_sync_*() function,
-and the other ones all use msleep(), so we can safely assume that all
-callers are allowed to sleep, which makes msleep() a better replacement
-than mdelay().
+commit de33efd0fb7f923cd41671b1f743c3a0d44dd953
+Author: Jiri Pirko <jiri@mellanox.com>
+Date:   Fri Apr 15 09:17:08 2016 +0200
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index c71e93ed4451..21c0fce47e15 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2765,7 +2765,7 @@ static s32 ixgbe_acquire_swfw_sync_x550em_a(struct ixgbe_hw *hw, u32 mask)
- 			ixgbe_release_swfw_sync_X540(hw, hmask);
- 		if (status != IXGBE_ERR_TOKEN_RETRY)
- 			return status;
--		udelay(FW_PHY_TOKEN_DELAY * 1000);
-+		msleep(FW_PHY_TOKEN_DELAY);
- 	}
- 
- 	return status;
--- 
-2.7.0
+    devlink: fix sb register stub in case devlink is disabled
