@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dsa: mv88e6xxx: Kill the REG_READ and REG_WRITE macros
-Date: Sat, 16 Apr 2016 19:23:58 -0400 (EDT)
-Message-ID: <20160416.192358.344801720781346920.davem@davemloft.net>
-References: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
+Date: Sun, 17 Apr 2016 01:34:33 +0200
+Message-ID: <5521267.mr5HLCdTY6@wuerfel>
+References: <20160413060916.GA21184@localhost>
+ <1460536706.3057.3.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	vivien.didelot@savoirfairelinux.com
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36547 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823AbcDPXYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 19:24:00 -0400
-In-Reply-To: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+ linux-wireless@vger.kernel.org, Tina Ruchandani <ruchandani.tina@gmail.com>,
+ linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1460536706.3057.3.camel@sipsolutions.net>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Thu, 14 Apr 2016 23:47:12 +0200
-
-> These macros hide a ds variable and a return statement on error, which
-> can lead to locking issues. Kill them off.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-Applied, thanks Andrew.
+T24gV2VkbmVzZGF5IDEzIEFwcmlsIDIwMTYgMTA6Mzg6MjYgSm9oYW5uZXMgQmVyZyB3cm90ZToK
+PiA+IFRoZSBwYXRjaCB3YXMgYnVpbGQtdGVzdGVkIC8gZGVidWdnZWQgYnkgcmVtb3ZpbmcgdGhl
+Cj4gPiAiaWYgVkVSQk9TRSA+IFNIT1dfRVJST1JfTUVTU0FHRVMiIGd1YXJkcy4KPiAKPiBTdGFu
+ZHMgdG8gcmVhc29uIHRoYXQgd2Ugc2hvdWxkIGp1c3QgcmVtb3ZlIHRoZSAobW9yZSBvciBsZXNz
+KSBkZWFkCj4gY29kZSwgc2luY2UgSSBkb24ndCB0aGluayBhbnlvbmUgcmVhbGx5IGV2ZXIgdG91
+Y2hlcyB0aGlzIGRyaXZlciBhbnkKPiBtb3JlIG9yIHdpbGwgZXZlciBhZ2FpbiAuLi4KCkRvIHlv
+dSBtZWFuIHJlbW92aW5nIGFsbCBERUJVRygpIHN0YXRlbWVudHMgZnJvbSB0aGUgZHJpdmVyLCBv
+cgpyZW1vdmluZyB0aGUgZW50aXJlIGRyaXZlcj8KCglBcm5kCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0
+cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ky
+MDM4Cg==
