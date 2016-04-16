@@ -1,55 +1,48 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH v2] carl9170: Clarify kconfig text
-Date: Sat, 16 Apr 2016 17:32:52 +0200
-Message-ID: <1577999.zXsTfgyz3l@debian64>
-References: <20160416113312.8de2266358165182bb4b4a15@gmx.com> <1466768.7dLuLFSDol@debian64> <20160416171856.1769c0e16bcc75372407e06f@gmx.com>
+From: Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>
+Subject: Re: WARNING: CPU: 1 PID: 2485 at
+ drivers/net/wireless/intel/iwlwifi/pcie/trans.c:1752
+ iwl_trans_pcie_grab_nic_access+0x110/0x120 [iwlwifi]
+Date: Sat, 16 Apr 2016 17:43:48 +0200
+Message-ID: <20160416154348.GA2069@cz.tnic>
+References: <20160415020710.GA2700@cz.tnic>
+ <1460693762.2648.5.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Lauri Kasanen <cand@gmx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160416171856.1769c0e16bcc75372407e06f@gmx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Dreyfuss, Haim" <haim.dreyfuss-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Coelho, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1460693762.2648.5.camel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday, April 16, 2016 05:18:56 PM Lauri Kasanen wrote:
-> The previous text was confusing, leading readers to think this
-> driver was a duplicate, and so didn't need to be enabled.
-> 
-> After the removal of the older staging driver, this is the only
-> driver in mainline for these devices.
-> 
-> Signed-off-by: Lauri Kasanen <cand@gmx.com>
-Acked-by: Christian Lamparter <chunkeey@googlemail.com>
+On Fri, Apr 15, 2016 at 04:16:02AM +0000, Grumbach, Emmanuel wrote:
+> [1] https://git.kernel.org/cgit/linux/kernel/git/iwlwifi/backport-iwlwi
+> fi.git/
 
-> ---
-> v2: Remove the mention of the previous driver, suggested by Christian.
+It is very strange to pull from this repo, git fetch is doing something
+for a while now without any forward progress.
 
-Thanks!
- 
->  drivers/net/wireless/ath/carl9170/Kconfig | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/carl9170/Kconfig b/drivers/net/wireless/ath/carl9170/Kconfig
-> index 1a796e5..2e34bae 100644
-> --- a/drivers/net/wireless/ath/carl9170/Kconfig
-> +++ b/drivers/net/wireless/ath/carl9170/Kconfig
-> @@ -5,12 +5,10 @@ config CARL9170
->  	select FW_LOADER
->  	select CRC32
->  	help
-> -	  This is another driver for the Atheros "otus" 802.11n USB devices.
-> +	  This is the mainline driver for the Atheros "otus" 802.11n USB devices.
->  
-> -	  This driver provides more features than the original,
-> -	  but it needs a special firmware (carl9170-1.fw) to do that.
-> -
-> -	  The firmware can be downloaded from our wiki here:
-> +	  It needs a special firmware (carl9170-1.fw), which can be downloaded
-> +	  from our wiki here:
->  	  <http://wireless.kernel.org/en/users/Drivers/carl9170>
->  
->  	  If you choose to build a module, it'll be called carl9170.
-> 
+In any case, 4.5 is bad too, testing 4.4 now. I'm travelling currently
+so the whole bisection deal will take a whole but I'll get to it
+eventually.
+
+Thanks for taking a look.
+
+-- 
+Regards/Gruss,
+    Boris.
+
+ECO tip #101: Trim your mails when you reply. Srsly.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
