@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] netdev_features: Add NETIF_F_TSO_MANGLEID to
- NETIF_F_ALL_TSO
-Date: Sat, 16 Apr 2016 19:15:07 -0400 (EDT)
-Message-ID: <20160416.191507.383764314303192016.davem@davemloft.net>
-References: <20160414210434.14117.52071.stgit@ahduyck-xeon-server>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Kill the REG_READ and REG_WRITE macros
+Date: Sat, 16 Apr 2016 19:23:58 -0400 (EDT)
+Message-ID: <20160416.192358.344801720781346920.davem@davemloft.net>
+References: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@kernel.org, netdev@vger.kernel.org,
-	alexander.duyck@gmail.com, tom@herbertland.com
-To: aduyck@mirantis.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36481 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36547 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823AbcDPXPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 19:15:09 -0400
-In-Reply-To: <20160414210434.14117.52071.stgit@ahduyck-xeon-server>
+	with ESMTP id S1751823AbcDPXYA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 19:24:00 -0400
+In-Reply-To: <1460670432-23801-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Thu, 14 Apr 2016 17:04:34 -0400
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu, 14 Apr 2016 23:47:12 +0200
 
-> I realized that when I added NETIF_F_TSO_MANGLEID as a TSO type I forgot to
-> add it to NETIF_F_ALL_TSO.  This patch corrects that so the flag will be
-> included correctly.
+> These macros hide a ds variable and a return statement on error, which
+> can lead to locking issues. Kill them off.
 > 
-> The result should be minor as it was only used by a few drivers and in a
-> few specific cases such as when NETIF_F_SG was not supported on a device so
-> the TSO flags were cleared.
-> 
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Applied.
+Applied, thanks Andrew.
