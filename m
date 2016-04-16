@@ -1,26 +1,199 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/5] net: w5100: add support W5100/W5200 for SPI
- interface
-Date: Sat, 16 Apr 2016 18:32:02 -0400 (EDT)
-Message-ID: <20160416.183202.252256397470219358.davem@davemloft.net>
-References: <1460646693-25179-1-git-send-email-akinobu.mita@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, msink@permonline.ru
-To: akinobu.mita@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36120 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817AbcDPWcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 18:32:04 -0400
-In-Reply-To: <1460646693-25179-1-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 7/8] net: dsa: mv88e6xxx: add number of db to info
+Date: Sat, 16 Apr 2016 18:41:44 -0400
+Message-ID: <1460846505-20305-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+References: <1460846505-20305-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460846505-20305-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Fri, 15 Apr 2016 00:11:28 +0900
+Add the number of databases to the info structure.
 
-> This series add support for Wiznet W5100 and W5200 for SPI interface.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6123.c |  3 +++
+ drivers/net/dsa/mv88e6131.c |  4 ++++
+ drivers/net/dsa/mv88e6171.c |  4 ++++
+ drivers/net/dsa/mv88e6352.c |  6 ++++++
+ drivers/net/dsa/mv88e6xxx.c | 19 +------------------
+ drivers/net/dsa/mv88e6xxx.h |  1 +
+ 6 files changed, 19 insertions(+), 18 deletions(-)
 
-Series applied, thank you.
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index e3802b4..b3cbf8e 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -22,16 +22,19 @@ static const struct mv88e6xxx_info mv88e6123_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6123,
+ 		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6123",
++		.num_databases = 4096,
+ 		.num_ports = 3,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6161,
+ 		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6161",
++		.num_databases = 4096,
+ 		.num_ports = 6,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6165,
+ 		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6165",
++		.num_databases = 4096,
+ 		.num_ports = 6,
+ 	}
+ };
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index f6b465b..8a161c5 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -22,21 +22,25 @@ static const struct mv88e6xxx_info mv88e6131_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6095,
+ 		.family = MV88E6XXX_FAMILY_6095,
+ 		.name = "Marvell 88E6095/88E6095F",
++		.num_databases = 256,
+ 		.num_ports = 11,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
+ 		.family = MV88E6XXX_FAMILY_6097,
+ 		.name = "Marvell 88E6085",
++		.num_databases = 4096,
+ 		.num_ports = 10,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6131,
+ 		.family = MV88E6XXX_FAMILY_6185,
+ 		.name = "Marvell 88E6131",
++		.num_databases = 256,
+ 		.num_ports = 8,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6185,
+ 		.family = MV88E6XXX_FAMILY_6185,
+ 		.name = "Marvell 88E6185",
++		.num_databases = 256,
+ 		.num_ports = 10,
+ 	}
+ };
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index cdfa899..689824f 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -22,21 +22,25 @@ static const struct mv88e6xxx_info mv88e6171_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6171,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6171",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6175",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6350",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
+ 		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6351",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}
+ };
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 9aaddca..abd9113 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -27,31 +27,37 @@ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6320,
+ 		.family = MV88E6XXX_FAMILY_6320,
+ 		.name = "Marvell 88E6320",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
+ 		.family = MV88E6XXX_FAMILY_6320,
+ 		.name = "Marvell 88E6321",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
+ 		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6172",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
+ 		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6176",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
+ 		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6240",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
+ 		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6352",
++		.num_databases = 4096,
+ 		.num_ports = 7,
+ 	}
+ };
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index e9985dad..e6e657b 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -425,24 +425,7 @@ static unsigned int mv88e6xxx_num_databases(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	/* The following devices have 4-bit identifiers for 16 databases */
+-	if (ps->id == PORT_SWITCH_ID_6061)
+-		return 16;
+-
+-	/* The following devices have 6-bit identifiers for 64 databases */
+-	if (ps->id == PORT_SWITCH_ID_6065)
+-		return 64;
+-
+-	/* The following devices have 8-bit identifiers for 256 databases */
+-	if (mv88e6xxx_6095_family(ds) || mv88e6xxx_6185_family(ds))
+-		return 256;
+-
+-	/* The following devices have 12-bit identifiers for 4096 databases */
+-	if (mv88e6xxx_6097_family(ds) || mv88e6xxx_6165_family(ds) ||
+-	    mv88e6xxx_6351_family(ds) || mv88e6xxx_6352_family(ds))
+-		return 4096;
+-
+-	return 0;
++	return ps->info->num_databases;
+ }
+ 
+ static bool mv88e6xxx_has_fid_reg(struct dsa_switch *ds)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 1f3ab6f..4b3121b 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -385,6 +385,7 @@ struct mv88e6xxx_info {
+ 	enum mv88e6xxx_family family;
+ 	u16 prod_num;
+ 	const char *name;
++	unsigned int num_databases;
+ 	unsigned int num_ports;
+ };
+ 
+-- 
+2.8.0
