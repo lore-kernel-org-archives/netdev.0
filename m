@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net][PATCH v2 2/2] RDS: Fix the atomicity for congestion map
- update
-Date: Sat, 16 Apr 2016 19:01:42 -0400 (EDT)
-Message-ID: <20160416.190142.1728042848852620447.davem@davemloft.net>
-References: <1460655807-26236-1-git-send-email-santosh.shilimkar@oracle.com>
-	<1460655807-26236-3-git-send-email-santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net 0/3] net: dsa: mv88e6xxx: fix hardware cross-chip
+ bridging
+Date: Sat, 16 Apr 2016 19:07:29 -0400 (EDT)
+Message-ID: <20160416.190729.1734034862162629026.davem@davemloft.net>
+References: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santosh.shilimkar@oracle.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460655807-26236-3-git-send-email-santosh.shilimkar@oracle.com>
+In-Reply-To: <1460659329-11473-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Date: Thu, 14 Apr 2016 10:43:27 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu, 14 Apr 2016 14:42:06 -0400
 
-> Two different threads with different rds sockets may be in
-> rds_recv_rcvbuf_delta() via receive path. If their ports
-> both map to the same word in the congestion map, then
-> using non-atomic ops to update it could cause the map to
-> be incorrect. Lets use atomics to avoid such an issue.
+> In order to accelerate cross-chip switching of frames with the hardware,
+> the DSA Tag ports, used to interconnect switch devices, must learn SA
+> and DA addresses, and share the same FDB with the user ports.
 > 
-> Full credit to Wengang <wen.gang.wang@oracle.com> for
-> finding the issue, analysing it and also pointing out
-> to offending code with spin lock based fix.
+> The two first patches restore address learning on DSA links. This fixes
+> hardware cross-chip bridging in a VLAN filtering enabled system, which
+> implements a bridge group as a 802.1Q VLAN and thus share an isolated
+> address database between DSA and user ports.
 > 
-> Reviewed-by: Leon Romanovsky <leon@leon.nu>
-> Signed-off-by: Wengang Wang <wen.gang.wang@oracle.com>
-> Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> The third patch changes the distinct default databases used for each
+> port, to the same address database. This fixes the hardware cross-chip
+> bridging in a VLAN filtering disabled system, where a bridge group gets
+> implemented only as a port-based VLAN.
 
-Applied.
+Series applied, thanks.
