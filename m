@@ -1,37 +1,44 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
-Date: Sun, 17 Apr 2016 01:34:33 +0200
-Message-ID: <5521267.mr5HLCdTY6@wuerfel>
-References: <20160413060916.GA21184@localhost>
- <1460536706.3057.3.camel@sipsolutions.net>
+From: santosh shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [net][PATCH v2 0/2] RDS: couple of fixes for 4.6
+Date: Sat, 16 Apr 2016 16:57:37 -0700
+Message-ID: <5712D171.70907@oracle.com>
+References: <1460655807-26236-1-git-send-email-santosh.shilimkar@oracle.com>
+ <20160416.185342.1833113899705435419.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, Tina Ruchandani <ruchandani.tina@gmail.com>,
- linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1460536706.3057.3.camel@sipsolutions.net>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160416.185342.1833113899705435419.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkbmVzZGF5IDEzIEFwcmlsIDIwMTYgMTA6Mzg6MjYgSm9oYW5uZXMgQmVyZyB3cm90ZToK
-PiA+IFRoZSBwYXRjaCB3YXMgYnVpbGQtdGVzdGVkIC8gZGVidWdnZWQgYnkgcmVtb3ZpbmcgdGhl
-Cj4gPiAiaWYgVkVSQk9TRSA+IFNIT1dfRVJST1JfTUVTU0FHRVMiIGd1YXJkcy4KPiAKPiBTdGFu
-ZHMgdG8gcmVhc29uIHRoYXQgd2Ugc2hvdWxkIGp1c3QgcmVtb3ZlIHRoZSAobW9yZSBvciBsZXNz
-KSBkZWFkCj4gY29kZSwgc2luY2UgSSBkb24ndCB0aGluayBhbnlvbmUgcmVhbGx5IGV2ZXIgdG91
-Y2hlcyB0aGlzIGRyaXZlciBhbnkKPiBtb3JlIG9yIHdpbGwgZXZlciBhZ2FpbiAuLi4KCkRvIHlv
-dSBtZWFuIHJlbW92aW5nIGFsbCBERUJVRygpIHN0YXRlbWVudHMgZnJvbSB0aGUgZHJpdmVyLCBv
-cgpyZW1vdmluZyB0aGUgZW50aXJlIGRyaXZlcj8KCglBcm5kCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0
-cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ky
-MDM4Cg==
+On 4/16/2016 3:53 PM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Date: Thu, 14 Apr 2016 10:43:25 -0700
+>
+>>    git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git for_4.6/net/rds-fixes
+>
+> I have no idea how you set this up, but there is no WAY this can be
+> pulled from by me.
+>
+Thought I did based it against 'net' after your last comment.
+Just checked again and the 'net' remote added by me points
+to wrong url(net-next).
+
+> When I try to pull it into 'net' I get 2690 objects.  That means you
+> didn't base it upon the 'net' tree which you must do.  You can't base
+> it upon Linus's tree, because if you do I'll get a ton of changes that
+> are absolutely not appropriate to be pulled into my 'net' tree.
+>
+> Are you always doing this?  Working against Linus's tree instead of
+> mine?
+>
+No, its not Linus's tree. Its yours but not the right one.
+Sorry for the trouble. Won't happen again.
+
+Thanks for picking up the matches from patchworks.
+
+Regards,
+Santosh
