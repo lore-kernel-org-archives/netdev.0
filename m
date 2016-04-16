@@ -1,124 +1,41 @@
-From: Andrew <nitr0@seti.kr.ua>
-Subject: Re: qdisc spin lock
-Date: Sat, 16 Apr 2016 11:52:05 +0300
-Message-ID: <5711FD35.90108@seti.kr.ua>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
- <20160331211852.2d228976@redhat.com>
- <CAAmHdhwpVOCv=4Y+pb9PfGKWV0ooqnr7eC58ZYfRTtYjC35EFw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Michael Ma <make0818@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/6] nfp: check the right pointer for errors
+Date: Sat, 16 Apr 2016 11:25:49 +0100
+Message-ID: <1460802354-14248-2-git-send-email-jakub.kicinski@netronome.com>
+References: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.seti.kr.ua ([91.202.132.4]:55038 "EHLO mail.seti.kr.ua"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751155AbcDPJL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Apr 2016 05:11:29 -0400
-In-Reply-To: <CAAmHdhwpVOCv=4Y+pb9PfGKWV0ooqnr7eC58ZYfRTtYjC35EFw@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:38186 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbcDPK0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 06:26:22 -0400
+Received: by mail-wm0-f42.google.com with SMTP id u206so62615166wme.1
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 03:26:21 -0700 (PDT)
+In-Reply-To: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think that it isn't a good solution - unless you can bind specified=20
-host (src/dst) to specified txq. Usually traffic is spreaded on txqs by=
-=20
-src+dst IP (or even IP:port) hash which results in traffic spreading=20
-among all mqs on device, and wrong bandwidth limiting (N*bandwidth on=20
-multi-session load like p2p/server traffic)...
+Correct checking error condition on wrong pointer -
+copy/paste mistake most likely.
 
-People said that hfsc shaper have better performance, but I didn't=20
-tested it.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-01.04.2016 02:41, Michael Ma =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> Thanks for the suggestion - I'll try the MQ solution out. It seems to
-> be able to solve the problem well with the assumption that bandwidth
-> can be statically partitioned.
->
-> 2016-03-31 12:18 GMT-07:00 Jesper Dangaard Brouer <brouer@redhat.com>=
-:
->> On Wed, 30 Mar 2016 00:20:03 -0700 Michael Ma <make0818@gmail.com> w=
-rote:
->>
->>> I know this might be an old topic so bare with me =E2=80=93 what we=
- are facing
->>> is that applications are sending small packets using hundreds of
->>> threads so the contention on spin lock in __dev_xmit_skb increases =
-the
->>> latency of dev_queue_xmit significantly. We=E2=80=99re building a n=
-etwork QoS
->>> solution to avoid interference of different applications using HTB.
->> Yes, as you have noticed with HTB there is a single qdisc lock, and
->> congestion obviously happens :-)
->>
->> It is possible with different tricks to make it scale.  I believe
->> Google is using a variant of HTB, and it scales for them.  They have
->> not open source their modifications to HTB (which likely also involv=
-es
->> a great deal of setup tricks).
->>
->> If your purpose it to limit traffic/bandwidth per "cloud" instance,
->> then you can just use another TC setup structure.  Like using MQ and
->> assigning a HTB per MQ queue (where the MQ queues are bound to each
->> CPU/HW queue)... But you have to figure out this setup yourself...
->>
->>
->>> But in this case when some applications send massive small packets =
-in
->>> parallel, the application to be protected will get its throughput
->>> affected (because it=E2=80=99s doing synchronous network communicat=
-ion using
->>> multiple threads and throughput is sensitive to the increased laten=
-cy)
->>>
->>> Here is the profiling from perf:
->>>
->>> -  67.57%   iperf  [kernel.kallsyms]     [k] _spin_lock
->>>    - 99.94% dev_queue_xmit
->>>    -  96.91% _spin_lock
->>>   - 2.62%  __qdisc_run
->>>    - 98.98% sch_direct_xmit
->>> - 99.98% _spin_lock
->>>
->>> As far as I understand the design of TC is to simplify locking sche=
-ma
->>> and minimize the work in __qdisc_run so that throughput won=E2=80=99=
-t be
->>> affected, especially with large packets. However if the scenario is
->>> that multiple classes in the queueing discipline only have the shap=
-ing
->>> limit, there isn=E2=80=99t really a necessary correlation between d=
-ifferent
->>> classes. The only synchronization point should be when the packet i=
-s
->>> dequeued from the qdisc queue and enqueued to the transmit queue of
->>> the device. My question is =E2=80=93 is it worth investing on avoid=
-ing the
->>> locking contention by partitioning the queue/lock so that this
->>> scenario is addressed with relatively smaller latency?
->> Yes, there is a lot go gain, but it is not easy ;-)
->>
->>> I must have oversimplified a lot of details since I=E2=80=99m not f=
-amiliar
->>> with the TC implementation at this point =E2=80=93 just want to get=
- your input
->>> in terms of whether this is a worthwhile effort or there is somethi=
-ng
->>> fundamental that I=E2=80=99m not aware of. If this is just a matter=
- of quite
->>> some additional work, would also appreciate helping to outline the
->>> required work here.
->>>
->>> Also would appreciate if there is any information about the latest
->>> status of this work http://www.ijcset.com/docs/IJCSET13-04-04-113.p=
-df
->> This article seems to be very low quality... spelling errors, only 5
->> pages, no real code, etc.
->>
->> --
->> Best regards,
->>    Jesper Dangaard Brouer
->>    MSc.CS, Principal Kernel Engineer at Red Hat
->>    Author of http://www.iptv-analyzer.org
->>    LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+index f86a1f13d27b..d77ae4d0e4dc 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+@@ -200,7 +200,7 @@ void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
+ 
+ 	/* Create queue debugging sub-tree */
+ 	queues = debugfs_create_dir("queue", nn->debugfs_dir);
+-	if (IS_ERR_OR_NULL(nn->debugfs_dir))
++	if (IS_ERR_OR_NULL(queues))
+ 		return;
+ 
+ 	rx = debugfs_create_dir("rx", queues);
+-- 
+1.9.1
