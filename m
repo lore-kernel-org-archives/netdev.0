@@ -1,43 +1,42 @@
-From: Lauri Kasanen <cand-KK0ffGbhmjU@public.gmane.org>
-Subject: [PATCH v2] carl9170: Clarify kconfig text
-Date: Sat, 16 Apr 2016 17:18:56 +0300
-Message-ID: <20160416171856.1769c0e16bcc75372407e06f@gmx.com>
-References: <20160416113312.8de2266358165182bb4b4a15@gmx.com>
-	<1466768.7dLuLFSDol@debian64>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
+Date: Sat, 16 Apr 2016 17:31:50 +0300
+Message-ID: <57124CD6.4040503@cogentembedded.com>
+References: <5711AA52.6010400@brocade.com> <5711ADD1.2030904@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466768.7dLuLFSDol@debian64>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:36751 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751333AbcDPObx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 10:31:53 -0400
+Received: by mail-lf0-f47.google.com with SMTP id g184so174354321lfb.3
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 07:31:52 -0700 (PDT)
+In-Reply-To: <5711ADD1.2030904@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The previous text was confusing, leading readers to think this
-driver was a duplicate, and so didn't need to be enabled.
+Hello.
 
-After the removal of the older staging driver, this is the only
-driver in mainline for these devices.
+On 4/16/2016 6:13 AM, Mike Manning wrote:
 
-Signed-off-by: Lauri Kasanen <cand-KK0ffGbhmjU@public.gmane.org>
----
-v2: Remove the mention of the previous driver, suggested by Christian.
+> f1705ec197e7 added the option to retain user configured addresses on an
+> admin down. A comment to one of the later revisions suggested using the
+> IFA_F_PERMANENT flag rather than adding a user_managed boolean to the
+> ifaddr struct. A side effect of this change is that link local and
+> loopback addresses are also retained which is not part of the objective
+> of f1705ec197e7. Add check so that these addresses are not fixed up,
+> given that a related fix 70af921db6f8 ensures that they are not kept in
 
- drivers/net/wireless/ath/carl9170/Kconfig | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+    scripts/checkpatch.pl now enforces commit citing certain style: <12-digit 
+SHA1> ("<comit summary>").
 
-diff --git a/drivers/net/wireless/ath/carl9170/Kconfig b/drivers/net/wireless/ath/carl9170/Kconfig
-index 1a796e5..2e34bae 100644
---- a/drivers/net/wireless/ath/carl9170/Kconfig
-+++ b/drivers/net/wireless/ath/carl9170/Kconfig
-@@ -5,12 +5,10 @@ config CARL9170
- 	select FW_LOADER
- 	select CRC32
- 	help
--	  This is another driver for the Atheros "otus" 802.11n USB devices.
-+	  This is the mainline driver for the Atheros "otus" 802.11n USB devices.
- 
--	  This driver provides more features than the original,
--	  but it needs a special firmware (carl9170-1.fw) to do that.
+> the first place, otherwise this incorrect fixup triggers a crash in fib6.
+>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
+[...]
+
+MBR, Sergei
