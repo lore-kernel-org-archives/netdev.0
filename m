@@ -1,45 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] devlink: fix devlink_sb_register prototype
-Date: Sat, 16 Apr 2016 23:00:19 +0200
-Message-ID: <20160416210018.GF1954@nanopsycho.orion>
-References: <1460838446-1246570-1-git-send-email-arnd@arndb.de>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] netlink: don't send NETLINK_URELEASE for unbound sockets
+Date: Sat, 16 Apr 2016 23:42:27 +0200
+Message-ID: <1460842947.2075.11.camel@sipsolutions.net>
+References: <20160416063040.GA6380@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38612 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310AbcDPVAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 17:00:22 -0400
-Received: by mail-wm0-f51.google.com with SMTP id u206so74865377wme.1
-        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 14:00:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1460838446-1246570-1-git-send-email-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dmitrijs.ivanovs-NO1NBkfNQUg@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160416063040.GA6380-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Apr 16, 2016 at 10:27:06PM CEST, arnd@arndb.de wrote:
->The devlink shared buffer interface contains two different
->prototypes for devlink_sb_register, and the one that is
->used when NET_DEVLINK is disabled does not work:
->
->drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c: In function 'mlxsw_sp_buffers_init':
->drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c:547:9: error: too many arguments to function 'devlink_sb_register'
->  return devlink_sb_register(priv_to_devlink(mlxsw_sp->core), 0,
->
->This makes the two prototypes have the same argument list.
->
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->Fixes: bf7974710a40 ("devlink: add shared buffer configuration")
+On Sat, 2016-04-16 at 14:30 +0800, Herbert Xu wrote:
+> Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> >=20
+> >=20
+> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> > index 215fc08c02ab..330ebd600f25 100644
+> > --- a/net/netlink/af_netlink.c
+> > +++ b/net/netlink/af_netlink.c
+> > @@ -688,7 +688,7 @@ static int netlink_release(struct socket *sock)
+> >=20
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0skb_queue_purge(&sk->sk_w=
+rite_queue);
+> >=20
+> > -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (nlk->portid) {
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (nlk->portid && nlk->=
+bound) {
+> Any reason why we're still testing portid at all? Isn't testing
+> bound enough?
 
-Already fixed by:
+The reason is that while I felt confident in understanding the problem
+and its solution, I didn't realize that bound follows portid, and that,
+for example, a kernel socket can't get bound. :-)
 
-commit de33efd0fb7f923cd41671b1f743c3a0d44dd953
-Author: Jiri Pirko <jiri@mellanox.com>
-Date:   Fri Apr 15 09:17:08 2016 +0200
+But yeah - looking at the code after your comment does show that
+testing portid is pointless now.
 
-    devlink: fix sb register stub in case devlink is disabled
+In fact, now that I look at it, I wonder how this situation came about?
+
+In the current code, you can only trigger the problematic situation
+through an error condition, afaict - you have to try to bind a socket
+with the same portid as an already existing one, and __netlink_insert()
+will then fail, but netlink_insert() won't reset the nlk_sk(sk)->portid=
+=20
+since your commit=C2=A0da314c9923fe ("netlink: Replace rhash_portid wit=
+h
+bound"), even though you had previously fixed precisely this issue
+already - commit=C2=A0c0bb07df7d98 ("netlink: Reset portid after
+netlink_insert failure"). You then close the socket, and since portid
+is assigned, that will trigger NETLINK_URELEASE.
+
+So before the rhash_portid -> bound change, this doesn't seem to have
+been a problem, and I guess we didn't get the "stuck in limbo" problem
+back because we now check bound everywhere relevant, for purposes of
+calling netlink_autobind.
+
+IOW - I'm now even more convinced that the patch is correct, and I'm
+also convinced that until fairly recently (da314c9923fe) this wasn't
+even a problem.
+
+Maybe we can take the opportunity of removing the "portid" check to put
+most of the above into a commit message, but I think you should review
+it first.
+
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
