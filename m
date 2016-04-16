@@ -1,41 +1,43 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 1/6] nfp: check the right pointer for errors
-Date: Sat, 16 Apr 2016 11:25:49 +0100
-Message-ID: <1460802354-14248-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/6] nfp: cleanups and improvements
+Date: Sat, 16 Apr 2016 11:25:48 +0100
+Message-ID: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:38186 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246AbcDPK0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 06:26:22 -0400
-Received: by mail-wm0-f42.google.com with SMTP id u206so62615166wme.1
-        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 03:26:21 -0700 (PDT)
-In-Reply-To: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:37242 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbcDPK0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 06:26:21 -0400
+Received: by mail-wm0-f45.google.com with SMTP id n3so62926968wmn.0
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 03:26:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Correct checking error condition on wrong pointer -
-copy/paste mistake most likely.
+Hi!
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Main purpose of this set is to get rid of doing potentially long
+mdelay()s but it also contains some trivial changes I've accumulated.
+First two patches fix harmless copy-paste errors, next two clean up
+the documentation and remove unused defines.  Patch 5 clarifies the
+interpretation of RX descriptor fields.  Patch 6, by far the biggest,
+adds ability to perform FW reconfig asynchronously thanks to which
+we can stop using mdelay().
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-index f86a1f13d27b..d77ae4d0e4dc 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-@@ -200,7 +200,7 @@ void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
- 
- 	/* Create queue debugging sub-tree */
- 	queues = debugfs_create_dir("queue", nn->debugfs_dir);
--	if (IS_ERR_OR_NULL(nn->debugfs_dir))
-+	if (IS_ERR_OR_NULL(queues))
- 		return;
- 
- 	rx = debugfs_create_dir("rx", queues);
+
+Jakub Kicinski (6):
+  nfp: check the right pointer for errors
+  nfp: remove unnecessary static
+  nfp: correct names of constants in comments
+  nfp: remove unused suspicious mask defines
+  nfp: remove buggy RX buffer length validation
+  nfp: add async reconfiguration mechanism
+
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  12 +-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 198 +++++++++++++++++----
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  10 +-
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   |   4 +-
+ 4 files changed, 176 insertions(+), 48 deletions(-)
+
 -- 
 1.9.1
