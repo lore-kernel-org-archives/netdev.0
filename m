@@ -1,40 +1,44 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 2/6] nfp: remove unnecessary static
-Date: Sat, 16 Apr 2016 11:25:50 +0100
-Message-ID: <1460802354-14248-3-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 3/6] nfp: correct names of constants in comments
+Date: Sat, 16 Apr 2016 11:25:51 +0100
+Message-ID: <1460802354-14248-4-git-send-email-jakub.kicinski@netronome.com>
 References: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37251 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbcDPK02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 06:26:28 -0400
-Received: by mail-wm0-f46.google.com with SMTP id n3so62927497wmn.0
-        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 03:26:27 -0700 (PDT)
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36554 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbcDPK0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 06:26:23 -0400
+Received: by mail-wm0-f45.google.com with SMTP id v188so60299614wme.1
+        for <netdev@vger.kernel.org>; Sat, 16 Apr 2016 03:26:23 -0700 (PDT)
 In-Reply-To: <1460802354-14248-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no reason for those local variables to be static.
+Documentation in comments lacks CFG in some names.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-index d77ae4d0e4dc..f7c9a5bc4aa3 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
-@@ -187,7 +187,7 @@ static const struct file_operations nfp_tx_q_fops = {
- 
- void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
- {
--	static struct dentry *queues, *tx, *rx;
-+	struct dentry *queues, *tx, *rx;
- 	char int_name[16];
- 	int i;
- 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index 8692003aeed8..3ec950555892 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -152,9 +152,9 @@
+  * @NFP_NET_CFG_VERSION:     Firmware version number
+  * @NFP_NET_CFG_STS:         Status
+  * @NFP_NET_CFG_CAP:         Capabilities (same bits as @NFP_NET_CFG_CTRL)
+- * @NFP_NET_MAX_TXRINGS:     Maximum number of TX rings
+- * @NFP_NET_MAX_RXRINGS:     Maximum number of RX rings
+- * @NFP_NET_MAX_MTU:         Maximum support MTU
++ * @NFP_NET_CFG_MAX_TXRINGS: Maximum number of TX rings
++ * @NFP_NET_CFG_MAX_RXRINGS: Maximum number of RX rings
++ * @NFP_NET_CFG_MAX_MTU:     Maximum support MTU
+  * @NFP_NET_CFG_START_TXQ:   Start Queue Control Queue to use for TX (PF only)
+  * @NFP_NET_CFG_START_RXQ:   Start Queue Control Queue to use for RX (PF only)
+  *
 -- 
 1.9.1
