@@ -1,29 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 7/7] net: dsa: mv88e6xxx: remove switch ID
-Date: Sat, 16 Apr 2016 02:03:33 +0200
-Message-ID: <20160416000333.GG32136@lunn.ch>
-References: <1460762488-2633-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1460762488-2633-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] phy: make some bits preserved while setup
+ forced mode
+Date: Fri, 15 Apr 2016 20:13:40 -0400 (EDT)
+Message-ID: <20160415.201340.75308332414545478.davem@davemloft.net>
+References: <570E3488.9060403@huawei.com>
+	<570F4A38.5090201@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	andrew@lunn.ch
+To: wangweidong1@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1460762488-2633-8-git-send-email-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <570F4A38.5090201@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2016 at 07:21:28PM -0400, Vivien Didelot wrote:
-> ps->id is not needed anymore, so remove it as well as the related
-> defined values.
+From: Weidong Wang <wangweidong1@huawei.com>
+Date: Thu, 14 Apr 2016 15:43:52 +0800
+
+> When tested the PHY SGMII Loopback:
+> 1.set the LOOPBACK bit,
+> 2.set the autoneg to AUTONEG_DISABLE, it calls the
+> genphy_setup_forced which will clear the bit.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> The BMCR_LOOPBACK bit should be preserved.
+> 
+> As Florian pointed out that other bits should be preserved too.
+> So I make the BMCR_ISOLATE and BMCR_PDOWN as well.
+> 
+> Signed-off-by: Weidong Wang <wangweidong1@huawei.com>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-Thanks
-	Andrew
+Applied, thank you.
