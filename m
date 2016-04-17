@@ -1,43 +1,39 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: avoid warning for wrong pointer cast
-Date: Sat, 16 Apr 2016 17:47:42 -0700
-Message-ID: <20160417004740.GA80675@ast-mbp.thefacebook.com>
-References: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH] stmmac: socfpga: remove extra call to
+ socfpga_dwmac_setup
+Date: Sat, 16 Apr 2016 21:48:02 -0400 (EDT)
+Message-ID: <20160416.214802.155940054393750183.davem@davemloft.net>
+References: <1460684549-9549-1-git-send-email-dinguyen@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, dinh.linux@gmail.com,
+	mgerlach@opensource.altera.com, netdev@vger.kernel.org
+To: dinguyen@opensource.altera.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37569 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751960AbcDQBsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 21:48:11 -0400
+In-Reply-To: <1460684549-9549-1-git-send-email-dinguyen@opensource.altera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 16, 2016 at 10:29:33PM +0200, Arnd Bergmann wrote:
-> Two new functions in bpf contain a cast from a 'u64' to a
-> pointer. This works on 64-bit architectures but causes a warning
-> on all 32-bit architectures:
-> 
-> kernel/trace/bpf_trace.c: In function 'bpf_perf_event_output_tp':
-> kernel/trace/bpf_trace.c:350:13: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
->   u64 ctx = *(long *)r1;
-> 
-> This changes the cast to first convert the u64 argument into a uintptr_t,
-> which is guaranteed to be the same size as a pointer.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 9940d67c93b5 ("bpf: support bpf_get_stackid() and bpf_perf_event_output() in tracepoint programs")
+From: <dinguyen@opensource.altera.com>
+Date: Thu, 14 Apr 2016 20:42:29 -0500
 
-Thanks.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+> From: Dinh Nguyen <dinguyen@opensource.altera.com>
+> 
+> In the socfpga_dwmac_probe function, we have a call to socfpga_dwmac_setup,
+> which is already called from socfpga_dwmac_init later in the probe function.
+> Remove this extra call to socfpga_dwmac_setup.
+> 
+> Also we should not be calling socfpga_dwmac_setup() directly without wrapping
+> it around the proper reset assert/deasserts. That is because the
+> socfpga_dwmac_setup() is setting up PHY modes in the system manager, and it
+> is requires the EMAC's to be in reset during the PHY setup.
+> 
+> Reported-by: Matthew Gerlach <mgerlach@opensource.altera.com>
+> Signed-off-by: Dinh Nguyen <dinguyen@opensource.altera.com>
 
-I guess I started to rely on 0-day build-bot too much.
-This patch has been in my tree for 2+ weeks and then in net-next and
-I didn't receive a single email from build-bot about this warning,
-though I do receive them for my other work-in-progress stuff. Odd.
-Fengguang, any idea why build-bot sometimes silent?
+Applied, thank you.
