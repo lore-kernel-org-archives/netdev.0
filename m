@@ -1,43 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
-Date: Sun, 17 Apr 2016 14:42:33 +0200
-Message-ID: <1460896953.15362.2.camel@sipsolutions.net>
-References: <20160413060916.GA21184@localhost>
- <1460536706.3057.3.camel@sipsolutions.net> <5521267.mr5HLCdTY6@wuerfel>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: FlameGraph of mlx4 early drop with order-0 pages
+Date: Sun, 17 Apr 2016 14:23:57 +0100
+Message-ID: <20160417132357.GB11792@techsingularity.net>
+References: <20160415214034.6ffae9ee@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, Tina Ruchandani <ruchandani.tina@gmail.com>,
- linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <5521267.mr5HLCdTY6@wuerfel>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: linux-mm <linux-mm@kvack.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Brenden Blanco <bblanco@plumgrid.com>, tom@herbertland.com,
+	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
+	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net,
+	eranlinuxmellanox@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160415214034.6ffae9ee@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-T24gU3VuLCAyMDE2LTA0LTE3IGF0IDAxOjM0ICswMjAwLCBBcm5kIEJlcmdtYW5uIHdyb3RlOgo+
-IE9uIFdlZG5lc2RheSAxMyBBcHJpbCAyMDE2IDEwOjM4OjI2IEpvaGFubmVzIEJlcmcgd3JvdGU6
-Cj4gPiAKPiA+ID4gCj4gPiA+IFRoZSBwYXRjaCB3YXMgYnVpbGQtdGVzdGVkIC8gZGVidWdnZWQg
-YnkgcmVtb3ZpbmcgdGhlCj4gPiA+ICJpZiBWRVJCT1NFID4gU0hPV19FUlJPUl9NRVNTQUdFUyIg
-Z3VhcmRzLgo+ID4gU3RhbmRzIHRvIHJlYXNvbiB0aGF0IHdlIHNob3VsZCBqdXN0IHJlbW92ZSB0
-aGUgKG1vcmUgb3IgbGVzcykgZGVhZAo+ID4gY29kZSwgc2luY2UgSSBkb24ndCB0aGluayBhbnlv
-bmUgcmVhbGx5IGV2ZXIgdG91Y2hlcyB0aGlzIGRyaXZlcgo+ID4gYW55Cj4gPiBtb3JlIG9yIHdp
-bGwgZXZlciBhZ2FpbiAuLi4KPiBEbyB5b3UgbWVhbiByZW1vdmluZyBhbGwgREVCVUcoKSBzdGF0
-ZW1lbnRzIGZyb20gdGhlIGRyaXZlciwgb3IKPiByZW1vdmluZyB0aGUgZW50aXJlIGRyaXZlcj8K
-PiAKCldlIHRyaWVkIHJlbW92aW5nIHRoZSBkcml2ZXIgb25jZSwgc2luY2UgcDU0IHN1cHBvc2Vk
-bHkgZHJpdmVzIHRoZSBzYW1lCmhhcmR3YXJlLCBidXQgc29tZSBwZW9wbGUgaGFkIGNlcnRhaW4g
-dXNlIGNhc2VzIHRoYXQgZGlkbid0IHdvcmsgdGhlcmUsCmFwcGFyZW50bHkuCgpJIHdhcyB0aGlu
-a2luZyBtb3JlIHJlc3RyaWN0aXZlbHkgb2YganVzdCB0aGUgc3R1ZmYgdGhhdCBjYW4ndCBldmVu
-IGJlCmJ1aWx0IHdpdGhvdXQgbW9kaWZ5aW5nIHRoZSBzb3VyY2VzIC0gbGlrZSB0aGUgIiNpZiBW
-RVJCT1NFIiB0aGluZy4KCmpvaGFubmVzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3Jn
-Cmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
+On Fri, Apr 15, 2016 at 09:40:34PM +0200, Jesper Dangaard Brouer wrote:
+> Hi Mel,
+> 
+> I did an experiment that you might find interesting.  Using Brenden's
+> early drop with eBPF in the mxl4 driver.  I changed the mlx4 driver to
+> use order-0 pages.  It usually use order-3 pages to amortize the cost
+> of calling the page allocator (which is problematic for other reasons,
+> like memory pin-down, latency spikes and multi CPU scalability)
+> 
+> With this change I could do around 12Mpps (Mill packet per sec) drops,
+> usually does 14.5Mpps (limited due to a HW setup/limit, with idle cycles). 
+> 
+> Looking at the perf report as a FlameGraph, the page allocator clearly
+> show up as the bottleneck: 
+> 
+
+Yeah, it's very obvious there. You didn't say if this had the optimisations
+included or not but it doesn't really matter. Even halving the cost would
+still be a lot.
+
+FWIW, the latest series included an optimisation around the debugging
+check. I also have an extreme patch that creates a special fast path for
+order-0 pages only when there is plenty of free memory. It halved the
+cost of the allocation side even on top of the current optimisations. I'm
+not super-happy with it though as it duplicates some code and it requires
+node-lru to be merged. Right now, node-lru is colliding very badly with
+what's in mmotm so there is legwork required.
+
+I also prototyped something that caches high-order pages on the per-cpu
+lists on the flight over. It is at the "it builds so it must be ok"
+stage. It's at the horrible hack and the accounting is quesionable but
+something like it may be justified for SLUB even if network drivers move
+away from high-order pages.
+
+> Signing off, heading for the plane soon... see you at MM-summit!
+
+Indeed and we'll slap some sort of plan together. If there is a slot free,
+we might spend 15-30 minutes on it. Failing that, we'll grab a table
+somewhere. We'll see how far we can get before considering a page-recycle
+layer that preserves cache coherent state.
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
