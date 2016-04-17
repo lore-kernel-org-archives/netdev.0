@@ -1,28 +1,46 @@
-From: =?utf-8?B?0J3QsNGC0LDQu9GM0Y8g0JzQsNC90YzQutC+?= <LWKSBfuP@mail.ru>
-Subject: =?utf-8?B?0J3Rg9C20L3RiyDQtNC40LvQtdGA0Ysg0LTQu9GPINC60YPRhdC+0L3QvdC+0Lkg0LzQtdCx0LXQu9C4LiDQodC60LjQtNC60LAgLSDQl08lLg==?=
-Date: Sun, 17 Apr 2016 10:18:54 +0200 (CEST)
-Message-ID: <20160417081854.180375BAA67@webpack2.glwp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-Content-Transfer-Encoding: base64
-To: lgqpsajwcsr@myrqui.com, mkonshin@clogic.ru, netdev@vger.kernel.org,
-	mdage19@gagabundos.ru, kovalenko@po-uvz.ru, ooogitel@gmail.com,
-	prof@sakha.ru, nwfgtf@oajxbzhtyizj.org, kinobuka@yadex.ru,
-	metall-disain@mail.ru, mmmolga2020@gmail.com,
-	pgomqljr@blvtxzri.com, keryxxxa@email.ru, lwsybfma@dzmmqjxe.com,
-	moscow@pazinkastyle.com, nbrgpp@cxmoeo.com,
-	moscow@hotel.kaliningrad.ru, postmaster@bumportal.ru,
-	moment-x@occ24.org, kos@tgc-2.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webpack2.glwp.net ([176.9.117.91]:42704 "EHLO webpack2.glwp.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751207AbcDQIXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2016 04:23:14 -0400
-Subject: =?utf-8?B?0J3Rg9C20L3RiyDQtNC40LvQtdGA0Ysg0LTQu9GPINC60YPRhdC+0L3QvdC+0Lkg0LzQtdCx0LXQu9C4LiDQodC60LjQtNC60LAgLSDQl08lLg==?=
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] macsec: fix crypto Kconfig dependency
+Date: Sun, 17 Apr 2016 11:19:55 +0200
+Message-ID: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The new MACsec driver uses the AES crypto algorithm, but can be configured
+even if CONFIG_CRYPTO is disabled, leading to a build error:
 
-0JTQvtCx0YDRi9C5INC00LXQvdGMLgrQnNC10L3RjyDQt9C+0LLRg9GCINCd0LDRgtCw0LvRjNGPLiDQryDQv9GA0LXQtNGB0YLQsNCy0LvRj9GOINC80LXQsdC10LvRjNC90YPRjiDRhNCw0LHRgNC40LrRgy4KCtCd0LDRiNCwINGE0LjRgNC80LAg0L/RgNC40LPQu9Cw0YjQsNC10YIg0Log0YHQvtGC0YDRg9C00L3QuNGH0LXRgdGC0LLRgyDQtNC40LvQtdGA0L7Qsi4K0J3QsNGI0LAg0LzQtdCx0LXQu9GMINGC0L7RgNCz0YPQtdGC0YHRjyDQsiDRgdGA0LXQtNC90LXQvCDRhtC10L3QvtCy0L7QvCDRgdC10LPQvNC10L3RgtC1LiAK0KbQtdC90LAg0L3QsNGI0LXQuSDQvNC10LHQtdC70Lgg0LTQu9GPINC60YPRhdC90Lgg0LIg0YHRgNC10LTQvdC10Lwg0L3QsCAyTy3Ql9CeJSDQvdC40LbQtSwg0YfQtdC8INC90LAg0YDRi9C90LrQtToKLSDQmtC70LDRgdGB0LjRh9C10YHQutC40LUg0LrRg9GF0L3QuCAtINCX0JcwMDAg0YAuINC30LAgMSDQvy/QvAotINCa0YPRhdC90Lgg0YHQvtCy0YDQtdC80LXQvdC90YvQtSAtINC+0YIgM2wgT09PINGA0YPQsdC70LXQuSDQt9CwIGwg0L8v0LwKLSDQmtGD0YXQvdC4INCy0YHRgtGA0L7QtdC90L3Ri9C1IC0gM0lP
- T08gINGA0YPQsS4g0LfQsCBsINC/L9C8Ci0g0K3Qu9C40YLQvdGL0LUg0LrRg9GF0L3QuCAtIDUwMDAwICDRgNGD0LEuINC30LAgMSDQvy/QvAotINCa0YPRhdC90Lgt0YHRgtGD0LTQuNC4IC0g0KczIE9PTyDRgC4g0LfQsCAxINC/L9C8Ci0g0JrRg9GF0L7Qvd
- C90YvQtSDRgdGC0YPQu9GM0Y8gLSA2IDcwMCAg0YDRg9CxLiAK0JLRiyDRgdC80L7QttC10YLQtSDRgNC10LDQu9C40LfQvtCy0LDRgtGMINC90LDQtNCx0LDQstC60YMg0LIg0YbQtdC90LUuIArQn9GA0Lgg0Y3RgtC+0Lwg0JLRiyDRhdC+0YDQvtGI0L4g0LfQsNGA0LDQsdC+0YLQsNC10YLQtSEKCtCV0YHQu9C4INCS0LDRgSDQt9Cw0LjQvdGC0LXRgNC10YHQvtCy0LDQu9C+INGC0LDQutC+0LUg0L/RgNC10LTQu9C+0LbQtdC90LjQtSwg0YLQviDQktGLINC80L7QttC10YLQtSDQvtCx0YDQsNGC0LjRgtGM0YHRjyDQv9C+INGC0LXQu9C10YTQvtC90YM6IAogNyDiiao0ICA5IDniiasgNiAgIMa8ICAg0JcgID0gICA4ICAxICDigJMgIDMgICAgOQoK0KEg0YPQstCw0LbQtdC90LjQtdC8LCDQndCw0YLQsNC70YzRjy4=
+warning: (MAC80211 && MACSEC) selects CRYPTO_GCM which has unmet direct dependencies (CRYPTO)
+warning: (BT && CEPH_LIB && INET && MAC802154 && MAC80211 && BLK_DEV_RBD && MACSEC && AIRO_CS && LIBIPW && HOSTAP && USB_WUSB && RTLLIB_CRYPTO_CCMP && FS_ENCRYPTION && EXT4_ENCRYPTION && CEPH_FS && BIG_KEYS && ENCRYPTED_KEYS) selects CRYPTO_AES which has unmet direct dependencies (CRYPTO)
+crypto/built-in.o: In function `gcm_enc_copy_hash':
+aes_generic.c:(.text+0x2b8): undefined reference to `crypto_xor'
+aes_generic.c:(.text+0x2dc): undefined reference to `scatterwalk_map_and_copy'
+
+This adds an explicit 'select CRYPTO' statement the way that other
+drivers handle it.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+---
+ drivers/net/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 2a1ba62b7da2..a24c18eee598 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -195,6 +195,7 @@ config GENEVE
+ 
+ config MACSEC
+ 	tristate "IEEE 802.1AE MAC-level encryption (MACsec)"
++	select CRYPTO
+ 	select CRYPTO_AES
+ 	select CRYPTO_GCM
+ 	---help---
+-- 
+2.7.0
