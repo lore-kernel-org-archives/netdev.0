@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 2/9] net: dsa: mv88e6xxx: drop double ds assignment
-Date: Sun, 17 Apr 2016 13:23:56 -0400
-Message-ID: <1460913843-7459-3-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 6/9] net: dsa: mv88e6xxx: add family to info
+Date: Sun, 17 Apr 2016 13:24:00 -0400
+Message-ID: <1460913843-7459-7-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,74 +9,277 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Andrew Lunn <andrew@lunn.ch>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:49717 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbcDQRY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2016 13:24:27 -0400
 In-Reply-To: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Every driver assigns ps->ds even though it gets assigned in the shared
-mv88e6xxx_setup_common function. Kill redundancy.
+Add an mv88e6xxx_family enum to the info structure for better family
+indentification.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6123.c | 2 --
- drivers/net/dsa/mv88e6131.c | 2 --
- drivers/net/dsa/mv88e6171.c | 2 --
- drivers/net/dsa/mv88e6352.c | 2 --
- 4 files changed, 8 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  3 ++
+ drivers/net/dsa/mv88e6131.c |  4 +++
+ drivers/net/dsa/mv88e6171.c |  4 +++
+ drivers/net/dsa/mv88e6352.c |  6 ++++
+ drivers/net/dsa/mv88e6xxx.c | 71 +++++----------------------------------------
+ drivers/net/dsa/mv88e6xxx.h | 13 +++++++++
+ 6 files changed, 38 insertions(+), 63 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 9701c0f..85537eb 100644
+index 62dffcf..776e6ef 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -79,8 +79,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
--	ps->ds = ds;
--
- 	ret = mv88e6xxx_setup_common(ds);
- 	if (ret < 0)
- 		return ret;
+@@ -20,12 +20,15 @@
+ static const struct mv88e6xxx_info mv88e6123_table[] = {
+ 	{
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6123,
++		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6123",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6161,
++		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6161",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6165,
++		.family = MV88E6XXX_FAMILY_6165,
+ 		.name = "Marvell 88E6165",
+ 	}
+ };
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index fa3a354..4117c9b 100644
+index 0056715..1986651 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -101,8 +101,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
--	ps->ds = ds;
--
- 	ret = mv88e6xxx_setup_common(ds);
- 	if (ret < 0)
- 		return ret;
+@@ -20,15 +20,19 @@
+ static const struct mv88e6xxx_info mv88e6131_table[] = {
+ 	{
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6095,
++		.family = MV88E6XXX_FAMILY_6095,
+ 		.name = "Marvell 88E6095/88E6095F",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
++		.family = MV88E6XXX_FAMILY_6097,
+ 		.name = "Marvell 88E6085",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6131,
++		.family = MV88E6XXX_FAMILY_6185,
+ 		.name = "Marvell 88E6131",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6185,
++		.family = MV88E6XXX_FAMILY_6185,
+ 		.name = "Marvell 88E6185",
+ 	}
+ };
 diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index 8d86c9e..ae32875 100644
+index ea14ab2..9a3b1e1 100644
 --- a/drivers/net/dsa/mv88e6171.c
 +++ b/drivers/net/dsa/mv88e6171.c
-@@ -76,8 +76,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
- 
--	ps->ds = ds;
--
- 	ret = mv88e6xxx_setup_common(ds);
- 	if (ret < 0)
- 		return ret;
+@@ -20,15 +20,19 @@
+ static const struct mv88e6xxx_info mv88e6171_table[] = {
+ 	{
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6171,
++		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6171",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
++		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6175",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
++		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6350",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
++		.family = MV88E6XXX_FAMILY_6351,
+ 		.name = "Marvell 88E6351",
+ 	}
+ };
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index c7fa69c..10c36ab 100644
+index 2f72606..bae62eb 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -87,8 +87,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+@@ -25,21 +25,27 @@
+ static const struct mv88e6xxx_info mv88e6352_table[] = {
+ 	{
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6320,
++		.family = MV88E6XXX_FAMILY_6320,
+ 		.name = "Marvell 88E6320",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
++		.family = MV88E6XXX_FAMILY_6320,
+ 		.name = "Marvell 88E6321",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
++		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6172",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
++		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6176",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
++		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6240",
+ 	}, {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
++		.family = MV88E6XXX_FAMILY_6352,
+ 		.name = "Marvell 88E6352",
+ 	}
+ };
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 5fb21e0..8f8a1cf 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -402,111 +402,56 @@ static bool mv88e6xxx_6065_family(struct dsa_switch *ds)
+ {
  	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
  
--	ps->ds = ds;
--
- 	ret = mv88e6xxx_setup_common(ds);
- 	if (ret < 0)
- 		return ret;
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6031:
+-	case PORT_SWITCH_ID_6061:
+-	case PORT_SWITCH_ID_6035:
+-	case PORT_SWITCH_ID_6065:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6065;
+ }
+ 
+ static bool mv88e6xxx_6095_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6092:
+-	case PORT_SWITCH_ID_6095:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6095;
+ }
+ 
+ static bool mv88e6xxx_6097_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6046:
+-	case PORT_SWITCH_ID_6085:
+-	case PORT_SWITCH_ID_6096:
+-	case PORT_SWITCH_ID_6097:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6097;
+ }
+ 
+ static bool mv88e6xxx_6165_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6123:
+-	case PORT_SWITCH_ID_6161:
+-	case PORT_SWITCH_ID_6165:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6165;
+ }
+ 
+ static bool mv88e6xxx_6185_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6121:
+-	case PORT_SWITCH_ID_6122:
+-	case PORT_SWITCH_ID_6152:
+-	case PORT_SWITCH_ID_6155:
+-	case PORT_SWITCH_ID_6182:
+-	case PORT_SWITCH_ID_6185:
+-	case PORT_SWITCH_ID_6108:
+-	case PORT_SWITCH_ID_6131:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6185;
+ }
+ 
+ static bool mv88e6xxx_6320_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6320:
+-	case PORT_SWITCH_ID_6321:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6320;
+ }
+ 
+ static bool mv88e6xxx_6351_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6171:
+-	case PORT_SWITCH_ID_6175:
+-	case PORT_SWITCH_ID_6350:
+-	case PORT_SWITCH_ID_6351:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6351;
+ }
+ 
+ static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
+ {
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	switch (ps->id) {
+-	case PORT_SWITCH_ID_6172:
+-	case PORT_SWITCH_ID_6176:
+-	case PORT_SWITCH_ID_6240:
+-	case PORT_SWITCH_ID_6352:
+-		return true;
+-	}
+-	return false;
++	return ps->info->family == MV88E6XXX_FAMILY_6352;
+ }
+ 
+ static unsigned int mv88e6xxx_num_databases(struct dsa_switch *ds)
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index b87f574..b4eec9a 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -369,7 +369,20 @@
+ 
+ #define MV88E6XXX_N_FID		4096
+ 
++enum mv88e6xxx_family {
++	MV88E6XXX_FAMILY_NONE,
++	MV88E6XXX_FAMILY_6065,	/* 6031 6035 6061 6065 */
++	MV88E6XXX_FAMILY_6095,	/* 6092 6095 */
++	MV88E6XXX_FAMILY_6097,	/* 6046 6085 6096 6097 */
++	MV88E6XXX_FAMILY_6165,	/* 6123 6161 6165 */
++	MV88E6XXX_FAMILY_6185,	/* 6108 6121 6122 6131 6152 6155 6182 6185 */
++	MV88E6XXX_FAMILY_6320,	/* 6320 6321 */
++	MV88E6XXX_FAMILY_6351,	/* 6171 6175 6350 6351 */
++	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
++};
++
+ struct mv88e6xxx_info {
++	enum mv88e6xxx_family family;
+ 	u16 prod_num;
+ 	const char *name;
+ };
 -- 
 2.8.0
