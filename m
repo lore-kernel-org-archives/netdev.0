@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 6/9] net: dsa: mv88e6xxx: add family to info
-Date: Sun, 17 Apr 2016 13:24:00 -0400
-Message-ID: <1460913843-7459-7-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 3/9] net: dsa: mv88e6xxx: drop revision probing
+Date: Sun, 17 Apr 2016 13:23:57 -0400
+Message-ID: <1460913843-7459-4-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -10,276 +10,165 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:49717 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:49671 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbcDQRY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2016 13:24:27 -0400
+	with ESMTP id S1751335AbcDQRYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2016 13:24:18 -0400
 In-Reply-To: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an mv88e6xxx_family enum to the info structure for better family
-indentification.
+There is no point in having a special case for the revision when probing
+a switch model. The code gets cluttered with unnecessary defines, and
+leads to errors when code such as mv88e6131_setup compares
+PORT_SWITCH_ID_6131_B2 to ps->id which masks the revision.
+
+Drop every revision definition, and lookup only the product number.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6123.c |  3 ++
- drivers/net/dsa/mv88e6131.c |  4 +++
- drivers/net/dsa/mv88e6171.c |  4 +++
- drivers/net/dsa/mv88e6352.c |  6 ++++
- drivers/net/dsa/mv88e6xxx.c | 71 +++++----------------------------------------
- drivers/net/dsa/mv88e6xxx.h | 13 +++++++++
- 6 files changed, 38 insertions(+), 63 deletions(-)
+ drivers/net/dsa/mv88e6123.c |  6 ------
+ drivers/net/dsa/mv88e6131.c |  2 --
+ drivers/net/dsa/mv88e6352.c |  6 ------
+ drivers/net/dsa/mv88e6xxx.c | 14 +-------------
+ drivers/net/dsa/mv88e6xxx.h | 15 ---------------
+ 5 files changed, 1 insertion(+), 42 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
-index 62dffcf..776e6ef 100644
+index 85537eb..d6921ba 100644
 --- a/drivers/net/dsa/mv88e6123.c
 +++ b/drivers/net/dsa/mv88e6123.c
-@@ -20,12 +20,15 @@
- static const struct mv88e6xxx_info mv88e6123_table[] = {
- 	{
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6123,
-+		.family = MV88E6XXX_FAMILY_6165,
- 		.name = "Marvell 88E6123",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6161,
-+		.family = MV88E6XXX_FAMILY_6165,
- 		.name = "Marvell 88E6161",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6165,
-+		.family = MV88E6XXX_FAMILY_6165,
- 		.name = "Marvell 88E6165",
- 	}
+@@ -19,14 +19,8 @@
+ 
+ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
+ 	{ PORT_SWITCH_ID_6123, "Marvell 88E6123" },
+-	{ PORT_SWITCH_ID_6123_A1, "Marvell 88E6123 (A1)" },
+-	{ PORT_SWITCH_ID_6123_A2, "Marvell 88E6123 (A2)" },
+ 	{ PORT_SWITCH_ID_6161, "Marvell 88E6161" },
+-	{ PORT_SWITCH_ID_6161_A1, "Marvell 88E6161 (A1)" },
+-	{ PORT_SWITCH_ID_6161_A2, "Marvell 88E6161 (A2)" },
+ 	{ PORT_SWITCH_ID_6165, "Marvell 88E6165" },
+-	{ PORT_SWITCH_ID_6165_A1, "Marvell 88E6165 (A1)" },
+-	{ PORT_SWITCH_ID_6165_A2, "Marvell 88e6165 (A2)" },
  };
+ 
+ static const char *mv88e6123_drv_probe(struct device *dsa_dev,
 diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
-index 0056715..1986651 100644
+index 4117c9b..8dc1365 100644
 --- a/drivers/net/dsa/mv88e6131.c
 +++ b/drivers/net/dsa/mv88e6131.c
-@@ -20,15 +20,19 @@
- static const struct mv88e6xxx_info mv88e6131_table[] = {
- 	{
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6095,
-+		.family = MV88E6XXX_FAMILY_6095,
- 		.name = "Marvell 88E6095/88E6095F",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6085,
-+		.family = MV88E6XXX_FAMILY_6097,
- 		.name = "Marvell 88E6085",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6131,
-+		.family = MV88E6XXX_FAMILY_6185,
- 		.name = "Marvell 88E6131",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6185,
-+		.family = MV88E6XXX_FAMILY_6185,
- 		.name = "Marvell 88E6185",
- 	}
+@@ -21,7 +21,6 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+ 	{ PORT_SWITCH_ID_6085, "Marvell 88E6085" },
+ 	{ PORT_SWITCH_ID_6095, "Marvell 88E6095/88E6095F" },
+ 	{ PORT_SWITCH_ID_6131, "Marvell 88E6131" },
+-	{ PORT_SWITCH_ID_6131_B2, "Marvell 88E6131 (B2)" },
+ 	{ PORT_SWITCH_ID_6185, "Marvell 88E6185" },
  };
-diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
-index ea14ab2..9a3b1e1 100644
---- a/drivers/net/dsa/mv88e6171.c
-+++ b/drivers/net/dsa/mv88e6171.c
-@@ -20,15 +20,19 @@
- static const struct mv88e6xxx_info mv88e6171_table[] = {
- 	{
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6171,
-+		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6171",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6175,
-+		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6175",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
-+		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6350",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6351,
-+		.family = MV88E6XXX_FAMILY_6351,
- 		.name = "Marvell 88E6351",
- 	}
- };
+ 
+@@ -116,7 +115,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 		ps->num_ports = 11;
+ 		break;
+ 	case PORT_SWITCH_ID_6131:
+-	case PORT_SWITCH_ID_6131_B2:
+ 		ps->num_ports = 8;
+ 		break;
+ 	default:
 diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 2f72606..bae62eb 100644
+index 10c36ab..34f92b1 100644
 --- a/drivers/net/dsa/mv88e6352.c
 +++ b/drivers/net/dsa/mv88e6352.c
-@@ -25,21 +25,27 @@
- static const struct mv88e6xxx_info mv88e6352_table[] = {
- 	{
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6320,
-+		.family = MV88E6XXX_FAMILY_6320,
- 		.name = "Marvell 88E6320",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6321,
-+		.family = MV88E6XXX_FAMILY_6320,
- 		.name = "Marvell 88E6321",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6172,
-+		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6172",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6176,
-+		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6176",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6240,
-+		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6240",
- 	}, {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6352,
-+		.family = MV88E6XXX_FAMILY_6352,
- 		.name = "Marvell 88E6352",
- 	}
+@@ -27,14 +27,8 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+ 	{ PORT_SWITCH_ID_6176, "Marvell 88E6176" },
+ 	{ PORT_SWITCH_ID_6240, "Marvell 88E6240" },
+ 	{ PORT_SWITCH_ID_6320, "Marvell 88E6320" },
+-	{ PORT_SWITCH_ID_6320_A1, "Marvell 88E6320 (A1)" },
+-	{ PORT_SWITCH_ID_6320_A2, "Marvell 88e6320 (A2)" },
+ 	{ PORT_SWITCH_ID_6321, "Marvell 88E6321" },
+-	{ PORT_SWITCH_ID_6321_A1, "Marvell 88E6321 (A1)" },
+-	{ PORT_SWITCH_ID_6321_A2, "Marvell 88e6321 (A2)" },
+ 	{ PORT_SWITCH_ID_6352, "Marvell 88E6352" },
+-	{ PORT_SWITCH_ID_6352_A0, "Marvell 88E6352 (A0)" },
+-	{ PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)" },
  };
+ 
+ static const char *mv88e6352_drv_probe(struct device *dsa_dev,
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 5fb21e0..8f8a1cf 100644
+index 25d7fec..469d8a3 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -402,111 +402,56 @@ static bool mv88e6xxx_6065_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+@@ -3187,22 +3187,10 @@ mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+ 	if (ret < 0)
+ 		return NULL;
  
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6031:
--	case PORT_SWITCH_ID_6061:
--	case PORT_SWITCH_ID_6035:
--	case PORT_SWITCH_ID_6065:
--		return true;
+-	/* Look up the exact switch ID */
+ 	for (i = 0; i < num; ++i)
+-		if (table[i].id == ret)
++		if (table[i].id == (ret & 0xfff0))
+ 			return table[i].name;
+ 
+-	/* Look up only the product number */
+-	for (i = 0; i < num; ++i) {
+-		if (table[i].id == (ret & PORT_SWITCH_ID_PROD_NUM_MASK)) {
+-			dev_warn(&bus->dev,
+-				 "unknown revision %d, using base switch 0x%x\n",
+-				 ret & PORT_SWITCH_ID_REV_MASK,
+-				 ret & PORT_SWITCH_ID_PROD_NUM_MASK);
+-			return table[i].name;
+-		}
 -	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6065;
+-
+ 	return NULL;
  }
  
- static bool mv88e6xxx_6095_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6092:
--	case PORT_SWITCH_ID_6095:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6095;
- }
- 
- static bool mv88e6xxx_6097_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6046:
--	case PORT_SWITCH_ID_6085:
--	case PORT_SWITCH_ID_6096:
--	case PORT_SWITCH_ID_6097:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6097;
- }
- 
- static bool mv88e6xxx_6165_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6123:
--	case PORT_SWITCH_ID_6161:
--	case PORT_SWITCH_ID_6165:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6165;
- }
- 
- static bool mv88e6xxx_6185_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6121:
--	case PORT_SWITCH_ID_6122:
--	case PORT_SWITCH_ID_6152:
--	case PORT_SWITCH_ID_6155:
--	case PORT_SWITCH_ID_6182:
--	case PORT_SWITCH_ID_6185:
--	case PORT_SWITCH_ID_6108:
--	case PORT_SWITCH_ID_6131:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6185;
- }
- 
- static bool mv88e6xxx_6320_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6320:
--	case PORT_SWITCH_ID_6321:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6320;
- }
- 
- static bool mv88e6xxx_6351_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6171:
--	case PORT_SWITCH_ID_6175:
--	case PORT_SWITCH_ID_6350:
--	case PORT_SWITCH_ID_6351:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6351;
- }
- 
- static bool mv88e6xxx_6352_family(struct dsa_switch *ds)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
--	switch (ps->id) {
--	case PORT_SWITCH_ID_6172:
--	case PORT_SWITCH_ID_6176:
--	case PORT_SWITCH_ID_6240:
--	case PORT_SWITCH_ID_6352:
--		return true;
--	}
--	return false;
-+	return ps->info->family == MV88E6XXX_FAMILY_6352;
- }
- 
- static unsigned int mv88e6xxx_num_databases(struct dsa_switch *ds)
 diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index b87f574..b4eec9a 100644
+index 5eb6013..6513450 100644
 --- a/drivers/net/dsa/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -369,7 +369,20 @@
- 
- #define MV88E6XXX_N_FID		4096
- 
-+enum mv88e6xxx_family {
-+	MV88E6XXX_FAMILY_NONE,
-+	MV88E6XXX_FAMILY_6065,	/* 6031 6035 6061 6065 */
-+	MV88E6XXX_FAMILY_6095,	/* 6092 6095 */
-+	MV88E6XXX_FAMILY_6097,	/* 6046 6085 6096 6097 */
-+	MV88E6XXX_FAMILY_6165,	/* 6123 6161 6165 */
-+	MV88E6XXX_FAMILY_6185,	/* 6108 6121 6122 6131 6152 6155 6182 6185 */
-+	MV88E6XXX_FAMILY_6320,	/* 6320 6321 */
-+	MV88E6XXX_FAMILY_6351,	/* 6171 6175 6350 6351 */
-+	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
-+};
-+
- struct mv88e6xxx_info {
-+	enum mv88e6xxx_family family;
- 	u16 prod_num;
- 	const char *name;
- };
+@@ -68,8 +68,6 @@
+ #define PORT_PCS_CTRL_UNFORCED		0x03
+ #define PORT_PAUSE_CTRL		0x02
+ #define PORT_SWITCH_ID		0x03
+-#define PORT_SWITCH_ID_PROD_NUM_MASK	0xfff0
+-#define PORT_SWITCH_ID_REV_MASK		0x000f
+ #define PORT_SWITCH_ID_6031	0x0310
+ #define PORT_SWITCH_ID_6035	0x0350
+ #define PORT_SWITCH_ID_6046	0x0480
+@@ -84,18 +82,11 @@
+ #define PORT_SWITCH_ID_6121	0x1040
+ #define PORT_SWITCH_ID_6122	0x1050
+ #define PORT_SWITCH_ID_6123	0x1210
+-#define PORT_SWITCH_ID_6123_A1	0x1212
+-#define PORT_SWITCH_ID_6123_A2	0x1213
+ #define PORT_SWITCH_ID_6131	0x1060
+-#define PORT_SWITCH_ID_6131_B2	0x1066
+ #define PORT_SWITCH_ID_6152	0x1a40
+ #define PORT_SWITCH_ID_6155	0x1a50
+ #define PORT_SWITCH_ID_6161	0x1610
+-#define PORT_SWITCH_ID_6161_A1	0x1612
+-#define PORT_SWITCH_ID_6161_A2	0x1613
+ #define PORT_SWITCH_ID_6165	0x1650
+-#define PORT_SWITCH_ID_6165_A1	0x1652
+-#define PORT_SWITCH_ID_6165_A2	0x1653
+ #define PORT_SWITCH_ID_6171	0x1710
+ #define PORT_SWITCH_ID_6172	0x1720
+ #define PORT_SWITCH_ID_6175	0x1750
+@@ -104,16 +95,10 @@
+ #define PORT_SWITCH_ID_6185	0x1a70
+ #define PORT_SWITCH_ID_6240	0x2400
+ #define PORT_SWITCH_ID_6320	0x1150
+-#define PORT_SWITCH_ID_6320_A1	0x1151
+-#define PORT_SWITCH_ID_6320_A2	0x1152
+ #define PORT_SWITCH_ID_6321	0x3100
+-#define PORT_SWITCH_ID_6321_A1	0x3101
+-#define PORT_SWITCH_ID_6321_A2	0x3102
+ #define PORT_SWITCH_ID_6350	0x3710
+ #define PORT_SWITCH_ID_6351	0x3750
+ #define PORT_SWITCH_ID_6352	0x3520
+-#define PORT_SWITCH_ID_6352_A0	0x3521
+-#define PORT_SWITCH_ID_6352_A1	0x3522
+ #define PORT_CONTROL		0x04
+ #define PORT_CONTROL_USE_CORE_TAG	BIT(15)
+ #define PORT_CONTROL_DROP_ON_LOCK	BIT(14)
 -- 
 2.8.0
