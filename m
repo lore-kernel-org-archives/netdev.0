@@ -1,46 +1,45 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] macsec: fix crypto Kconfig dependency
-Date: Sun, 17 Apr 2016 11:19:55 +0200
-Message-ID: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Sun, 17 Apr 2016 11:47:20 +0200
+Message-ID: <4480650.3kf9R6iZAS@wuerfel>
+References: <20160413175028.5d3a4cf2@canb.auug.org.au> <20160413.111513.295841881765244758.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
+	andrewx.bowers@intel.com, linaro-kernel@lists.linaro.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-next@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mark.d.rustad@intel.com
+To: kernel-build-reports@lists.linaro.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160413.111513.295841881765244758.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The new MACsec driver uses the AES crypto algorithm, but can be configured
-even if CONFIG_CRYPTO is disabled, leading to a build error:
+On Wednesday 13 April 2016 11:15:13 David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Wed, 13 Apr 2016 17:50:28 +1000
+> 
+> > After merging the net-next tree, today's linux-next build (arm
+> > allmodconfig) failed like thisi (this has actually been failing for a
+> > few days, now):
+> > 
+> > ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
+> > 
+> > Caused by commit
+> > 
+> >   49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
+> > 
+> > arm only allows udelay()s up to 2 milliseconds.  This commit
+> > adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
+> > drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
+> 
+> Jeff, please have your folks look into this.  Probably just a simple
+> conversion to mdelay().
+> 
 
-warning: (MAC80211 && MACSEC) selects CRYPTO_GCM which has unmet direct dependencies (CRYPTO)
-warning: (BT && CEPH_LIB && INET && MAC802154 && MAC80211 && BLK_DEV_RBD && MACSEC && AIRO_CS && LIBIPW && HOSTAP && USB_WUSB && RTLLIB_CRYPTO_CCMP && FS_ENCRYPTION && EXT4_ENCRYPTION && CEPH_FS && BIG_KEYS && ENCRYPTED_KEYS) selects CRYPTO_AES which has unmet direct dependencies (CRYPTO)
-crypto/built-in.o: In function `gcm_enc_copy_hash':
-aes_generic.c:(.text+0x2b8): undefined reference to `crypto_xor'
-aes_generic.c:(.text+0x2dc): undefined reference to `scatterwalk_map_and_copy'
+I sent a patch, pretty sure we can use msleep() here rather than
+a wasteful mdelay().
 
-This adds an explicit 'select CRYPTO' statement the way that other
-drivers handle it.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
----
- drivers/net/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 2a1ba62b7da2..a24c18eee598 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -195,6 +195,7 @@ config GENEVE
- 
- config MACSEC
- 	tristate "IEEE 802.1AE MAC-level encryption (MACsec)"
-+	select CRYPTO
- 	select CRYPTO_AES
- 	select CRYPTO_GCM
- 	---help---
--- 
-2.7.0
+	Arnd
