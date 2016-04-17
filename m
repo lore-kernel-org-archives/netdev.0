@@ -1,8 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 08/11] net/mlx5e: Use napi_alloc_skb for RX SKB allocations
-Date: Mon, 18 Apr 2016 00:32:02 +0300
-Message-ID: <1460928725-18741-9-git-send-email-saeedm@mellanox.com>
-References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 00/11] Mellanox 100G mlx5 driver receive path optimizations
+Date: Mon, 18 Apr 2016 00:31:54 +0300
+Message-ID: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>,
@@ -10,92 +9,105 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37036 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37000 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750855AbcDQVcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2016 17:32:54 -0400
-In-Reply-To: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
+	id S1751973AbcDQVcj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2016 17:32:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
+Hello Dave,
 
-Instead of netdev_alloc_skb, we use the napi_alloc_skb function
-which is designated to allocate skbuff's for RX in a
-channel-specific NAPI instance, and implies the IP packet alignment.
+Changes from V1:
+	- Rebased to efde611b0afa ("Merge branch 'nfp-next'")
+	- Dropped: ("net/mlx5: Refactor mlx5_core_mr to mkey")
+                Already merged into 4.6 from rdma tree. 
+	- Dropped: ("net/mlx5_core: Add ConnectX-5 to list of supported devices")
+                Will be pushed to net as we want it in 4.6 release.
+	- Dropped: ("net/mlx5e: Change RX moderation period to be based on CQE")
+                Will be pushed in a later series with full software based adaptive moderation.
+	- Added: ("net/mlx5e: Delay skb->data access")
+		Small trivial optimization.
+	- Updated: ("net/mlx5e: Support RX multi-packet WQE (Striding RQ)")
+	 	Changed Striding RQ defaults to:
+			> 	NUM WQEs = 16
+			> 	Strides Per WQE = 1024
+			> 	Stride Size = 128 
+	- Updated: ("net/mlx5e: Use napi_alloc_skb for RX SKB allocations")
+		Consider the IP packet alignment already done in napi_alloc_skb.	
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    1 -
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   12 +++++-------
- 3 files changed, 7 insertions(+), 10 deletions(-)
+Changes from V0:
+	- Fixed a typo in commit message reported by Sergei
+	- Align SKB fragments truesize to stride size
+	- Use skb_add_rx_frag and remove the use of SKB_TRUESIZE
+	- Fix: # MTTs alignment on Power PC
+	- Fix: Free original (unaligned) pointer of MTT array
+	- Use dev_alloc_pages and dev_alloc_page
+	- Extend the stats.buff_alloc_err counter
+	- Reform the copying of packet header into skb linear data
+	- Add compiler hints for conditional statements
+	- Prefetch skd->data prior to copying packet header into it
+	- Rework: mlx5e_complete_rx_fragmented_mpwqe
+	- Handle SKB fragments before linear data
+	- Dropped ("net/mlx5e: Prefetch next RX CQE") for now 
+	- Added a small patch that Adds ConnectX-5 devices to the list of supported devices
+	- Rebased to 1cdba5505555 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next")
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 1d4e8fe..6127bc7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -91,7 +91,6 @@
- #define MLX5E_SQ_BF_BUDGET             16
- 
- #define MLX5E_NUM_MAIN_GROUPS 9
--#define MLX5E_NET_IP_ALIGN 2
- 
- static inline u16 mlx5_min_rx_wqes(int wq_type, u32 wq_size)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 942829e..9b17bc0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -373,8 +373,8 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 		rq->wqe_sz = (priv->params.lro_en) ?
- 				priv->params.lro_wqe_sz :
- 				MLX5E_SW2HW_MTU(priv->netdev->mtu);
--		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz + MLX5E_NET_IP_ALIGN);
--		byte_count = rq->wqe_sz - MLX5E_NET_IP_ALIGN;
-+		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz);
-+		byte_count = rq->wqe_sz;
- 		byte_count |= MLX5_HW_START_PADDING;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 22c2812..ea90e6f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -47,7 +47,7 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- 	struct sk_buff *skb;
- 	dma_addr_t dma_addr;
- 
--	skb = netdev_alloc_skb(rq->netdev, rq->wqe_sz);
-+	skb = napi_alloc_skb(rq->cq.napi, rq->wqe_sz);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 
-@@ -61,10 +61,8 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- 	if (unlikely(dma_mapping_error(rq->pdev, dma_addr)))
- 		goto err_free_skb;
- 
--	skb_reserve(skb, MLX5E_NET_IP_ALIGN);
--
- 	*((dma_addr_t *)skb->cb) = dma_addr;
--	wqe->data.addr = cpu_to_be64(dma_addr + MLX5E_NET_IP_ALIGN);
-+	wqe->data.addr = cpu_to_be64(dma_addr);
- 	wqe->data.lkey = rq->mkey_be;
- 
- 	rq->skb[ix] = skb;
-@@ -646,9 +644,9 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 		goto mpwrq_cqe_out;
- 	}
- 
--	skb = netdev_alloc_skb(rq->netdev,
--			       ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
--				     sizeof(long)));
-+	skb = napi_alloc_skb(rq->cq.napi,
-+			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
-+				   sizeof(long)));
- 	if (unlikely(!skb))
- 		goto mpwrq_cqe_out;
- 
--- 
-1.7.1
+This series includes Some RX modifications and optimizations for
+the mlx5 Ethernet driver. 
+
+>From Rana, we have one patch that adds the support for Connectx-4
+queue counters.
+
+>From Tariq, several patches that are centralized around improving
+RX path message rate, CPU and Memory utilization, in each patch
+commit message you will find the performance improvements numbers
+related to that specific patch.
+
+In the 2nd patch we used a queue counter to report "out of buffer" 
+dropped packet count, "Dropped packets due to lack of software resources"
+
+3rd patch modifies the driver's to RSS default value to be spread along the
+close NUMA node cores only for better out of the box experience.
+
+In the 4th and 5th patches we utilized the use of RX multi-packet WQE
+(Striding RQ) for better memory utilization especially in case of hardware
+LRO is enabled and for better message rate for small packets.
+
+In the 6th and 7th patches we added a fallback mechanism to use fragmented
+memory when allocating large WQE strides fails, using UMR
+(User Memory Registration) and ICO (Internal Control Operations) SQs.
+
+In the 8th to 11th patches we did some small modification which show some small
+extra improvements.
+
+Thanks,
+Saeed
+
+Rana Shahout (1):
+  net/mlx5e: Allocate set of queue counters per netdev
+
+Saeed Mahameed (1):
+  net/mlx5e: Delay skb->data access
+
+Tariq Toukan (9):
+  net/mlx5: Introduce device queue counters
+  net/mlx5e: Use only close NUMA node for default RSS
+  net/mlx5e: Use function pointers for RX data path handling
+  net/mlx5e: Support RX multi-packet WQE (Striding RQ)
+  net/mlx5e: Added ICO SQs
+  net/mlx5e: Add fragmented memory support for RX multi packet WQE
+  net/mlx5e: Use napi_alloc_skb for RX SKB allocations
+  net/mlx5e: Remove redundant barrier
+  net/mlx5e: Add ethtool counter for RX buffer allocation failures
+
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  193 +++++++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   28 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  361 ++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  511 ++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |    6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   59 +++-
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   68 +++
+ include/linux/mlx5/device.h                        |   39 ++-
+ include/linux/mlx5/qp.h                            |    6 +
+ 9 files changed, 1138 insertions(+), 133 deletions(-)
