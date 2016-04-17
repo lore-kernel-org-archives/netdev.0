@@ -1,58 +1,265 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: FlameGraph of mlx4 early drop with order-0 pages
-Date: Sun, 17 Apr 2016 18:52:43 +0100
-Message-ID: <20160417175243.GA15167@techsingularity.net>
-References: <20160415214034.6ffae9ee@redhat.com>
- <20160417132357.GB11792@techsingularity.net>
- <20160417192432.70c893fc@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v4 1/9] net: dsa: constify probed name
+Date: Sun, 17 Apr 2016 19:53:47 +0200
+Message-ID: <20160417175347.GA4071@lunn.ch>
+References: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+ <1460913843-7459-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: linux-mm <linux-mm@kvack.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Brenden Blanco <bblanco@plumgrid.com>, tom@herbertland.com,
-	alexei.starovoitov@gmail.com, ogerlitz@mellanox.com,
-	daniel@iogearbox.net, eric.dumazet@gmail.com, ecree@solarflare.com,
-	john.fastabend@gmail.com, tgraf@suug.ch, johannes@sipsolutions.net
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39178 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750702AbcDQRxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2016 13:53:50 -0400
 Content-Disposition: inline
-In-Reply-To: <20160417192432.70c893fc@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1460913843-7459-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 17, 2016 at 07:24:32PM +0200, Jesper Dangaard Brouer wrote:
-> On Sun, 17 Apr 2016 14:23:57 +0100
-> Mel Gorman <mgorman@techsingularity.net> wrote:
+On Sun, Apr 17, 2016 at 01:23:55PM -0400, Vivien Didelot wrote:
+> Change the dsa_switch_driver.probe function to return a const char *.
 > 
-> > > Signing off, heading for the plane soon... see you at MM-summit!  
-> > 
-> > Indeed and we'll slap some sort of plan together. If there is a slot free,
-> > we might spend 15-30 minutes on it. Failing that, we'll grab a table
-> > somewhere. We'll see how far we can get before considering a page-recycle
-> > layer that preserves cache coherent state.
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+Thanks
+	Andrew
+
+> ---
+>  drivers/net/dsa/bcm_sf2.c   |  6 +++---
+>  drivers/net/dsa/mv88e6060.c | 10 +++++-----
+>  drivers/net/dsa/mv88e6123.c |  6 +++---
+>  drivers/net/dsa/mv88e6131.c |  6 +++---
+>  drivers/net/dsa/mv88e6171.c |  6 +++---
+>  drivers/net/dsa/mv88e6352.c |  6 +++---
+>  drivers/net/dsa/mv88e6xxx.c | 17 +++++++++--------
+>  drivers/net/dsa/mv88e6xxx.h |  8 ++++----
+>  include/net/dsa.h           |  5 +++--
+>  net/dsa/dsa.c               |  6 +++---
+>  10 files changed, 39 insertions(+), 37 deletions(-)
 > 
-> We have a plenum slot tomorrow between 16:00-16:30, called "Generic
-> Page Pool Facility".
+> diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+> index 7a5f0ef..448deb5 100644
+> --- a/drivers/net/dsa/bcm_sf2.c
+> +++ b/drivers/net/dsa/bcm_sf2.c
+> @@ -135,9 +135,9 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
+>  	return BCM_SF2_STATS_SIZE;
+>  }
+>  
+> -static char *bcm_sf2_sw_drv_probe(struct device *dsa_dev,
+> -				  struct device *host_dev,
+> -				  int sw_addr, void **_priv)
+> +static const char *bcm_sf2_sw_drv_probe(struct device *dsa_dev,
+> +					struct device *host_dev, int sw_addr,
+> +					void **_priv)
+>  {
+>  	struct bcm_sf2_priv *priv;
+>  
+> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+> index 92cebab..e36b408 100644
+> --- a/drivers/net/dsa/mv88e6060.c
+> +++ b/drivers/net/dsa/mv88e6060.c
+> @@ -51,7 +51,7 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
+>  			return __ret;				\
+>  	})
+>  
+> -static char *mv88e6060_get_name(struct mii_bus *bus, int sw_addr)
+> +static const char *mv88e6060_get_name(struct mii_bus *bus, int sw_addr)
+>  {
+>  	int ret;
+>  
+> @@ -69,13 +69,13 @@ static char *mv88e6060_get_name(struct mii_bus *bus, int sw_addr)
+>  	return NULL;
+>  }
+>  
+> -static char *mv88e6060_drv_probe(struct device *dsa_dev,
+> -				 struct device *host_dev,
+> -				 int sw_addr, void **_priv)
+> +static const char *mv88e6060_drv_probe(struct device *dsa_dev,
+> +				       struct device *host_dev, int sw_addr,
+> +				       void **_priv)
+>  {
+>  	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+>  	struct mv88e6060_priv *priv;
+> -	char *name;
+> +	const char *name;
+>  
+>  	name = mv88e6060_get_name(bus, sw_addr);
+>  	if (name) {
+> diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+> index 140e44e..9701c0f 100644
+> --- a/drivers/net/dsa/mv88e6123.c
+> +++ b/drivers/net/dsa/mv88e6123.c
+> @@ -29,9 +29,9 @@ static const struct mv88e6xxx_switch_id mv88e6123_table[] = {
+>  	{ PORT_SWITCH_ID_6165_A2, "Marvell 88e6165 (A2)" },
+>  };
+>  
+> -static char *mv88e6123_drv_probe(struct device *dsa_dev,
+> -				 struct device *host_dev,
+> -				 int sw_addr, void **priv)
+> +static const char *mv88e6123_drv_probe(struct device *dsa_dev,
+> +				       struct device *host_dev, int sw_addr,
+> +				       void **priv)
+>  {
+>  	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
+>  				   mv88e6123_table,
+> diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+> index 34d297b..fa3a354 100644
+> --- a/drivers/net/dsa/mv88e6131.c
+> +++ b/drivers/net/dsa/mv88e6131.c
+> @@ -25,9 +25,9 @@ static const struct mv88e6xxx_switch_id mv88e6131_table[] = {
+>  	{ PORT_SWITCH_ID_6185, "Marvell 88E6185" },
+>  };
+>  
+> -static char *mv88e6131_drv_probe(struct device *dsa_dev,
+> -				 struct device *host_dev,
+> -				 int sw_addr, void **priv)
+> +static const char *mv88e6131_drv_probe(struct device *dsa_dev,
+> +				       struct device *host_dev, int sw_addr,
+> +				       void **priv)
+>  {
+>  	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
+>  				   mv88e6131_table,
+> diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+> index b7af2b78..8d86c9e 100644
+> --- a/drivers/net/dsa/mv88e6171.c
+> +++ b/drivers/net/dsa/mv88e6171.c
+> @@ -24,9 +24,9 @@ static const struct mv88e6xxx_switch_id mv88e6171_table[] = {
+>  	{ PORT_SWITCH_ID_6351, "Marvell 88E6351" },
+>  };
+>  
+> -static char *mv88e6171_drv_probe(struct device *dsa_dev,
+> -				 struct device *host_dev,
+> -				 int sw_addr, void **priv)
+> +static const char *mv88e6171_drv_probe(struct device *dsa_dev,
+> +				       struct device *host_dev, int sw_addr,
+> +				       void **priv)
+>  {
+>  	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
+>  				   mv88e6171_table,
+> diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+> index e8cb03f..c7fa69c 100644
+> --- a/drivers/net/dsa/mv88e6352.c
+> +++ b/drivers/net/dsa/mv88e6352.c
+> @@ -37,9 +37,9 @@ static const struct mv88e6xxx_switch_id mv88e6352_table[] = {
+>  	{ PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)" },
+>  };
+>  
+> -static char *mv88e6352_drv_probe(struct device *dsa_dev,
+> -				 struct device *host_dev,
+> -				 int sw_addr, void **priv)
+> +static const char *mv88e6352_drv_probe(struct device *dsa_dev,
+> +				       struct device *host_dev, int sw_addr,
+> +				       void **priv)
+>  {
+>  	return mv88e6xxx_drv_probe(dsa_dev, host_dev, sw_addr, priv,
+>  				   mv88e6352_table,
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index b018f20..25d7fec 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+> @@ -3173,9 +3173,10 @@ int mv88e6xxx_get_temp_alarm(struct dsa_switch *ds, bool *alarm)
+>  }
+>  #endif /* CONFIG_NET_DSA_HWMON */
+>  
+> -static char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+> -				   const struct mv88e6xxx_switch_id *table,
+> -				   unsigned int num)
+> +static const char *
+> +mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+> +		      const struct mv88e6xxx_switch_id *table,
+> +		      unsigned int num)
+>  {
+>  	int i, ret;
+>  
+> @@ -3205,14 +3206,14 @@ static char *mv88e6xxx_lookup_name(struct mii_bus *bus, int sw_addr,
+>  	return NULL;
+>  }
+>  
+> -char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+> -			  int sw_addr, void **priv,
+> -			  const struct mv88e6xxx_switch_id *table,
+> -			  unsigned int num)
+> +const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+> +				int sw_addr, void **priv,
+> +				const struct mv88e6xxx_switch_id *table,
+> +				unsigned int num)
+>  {
+>  	struct mv88e6xxx_priv_state *ps;
+>  	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+> -	char *name;
+> +	const char *name;
+>  
+>  	if (!bus)
+>  		return NULL;
+> diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+> index 0debb9f..5eb6013 100644
+> --- a/drivers/net/dsa/mv88e6xxx.h
+> +++ b/drivers/net/dsa/mv88e6xxx.h
+> @@ -462,10 +462,10 @@ struct mv88e6xxx_hw_stat {
+>  };
+>  
+>  int mv88e6xxx_switch_reset(struct dsa_switch *ds, bool ppu_active);
+> -char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+> -			  int sw_addr, void **priv,
+> -			  const struct mv88e6xxx_switch_id *table,
+> -			  unsigned int num);
+> +const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
+> +				int sw_addr, void **priv,
+> +				const struct mv88e6xxx_switch_id *table,
+> +				unsigned int num);
+>  
+>  int mv88e6xxx_setup_ports(struct dsa_switch *ds);
+>  int mv88e6xxx_setup_common(struct dsa_switch *ds);
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index 689ebd3..c4bc42b 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -217,8 +217,9 @@ struct dsa_switch_driver {
+>  	/*
+>  	 * Probing and setup.
+>  	 */
+> -	char	*(*probe)(struct device *dsa_dev, struct device *host_dev,
+> -			  int sw_addr, void **priv);
+> +	const char	*(*probe)(struct device *dsa_dev,
+> +				  struct device *host_dev, int sw_addr,
+> +				  void **priv);
+>  	int	(*setup)(struct dsa_switch *ds);
+>  	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+>  	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 60ea9848..efa612f 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -52,11 +52,11 @@ EXPORT_SYMBOL_GPL(unregister_switch_driver);
+>  
+>  static struct dsa_switch_driver *
+>  dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+> -		 char **_name, void **priv)
+> +		 const char **_name, void **priv)
+>  {
+>  	struct dsa_switch_driver *ret;
+>  	struct list_head *list;
+> -	char *name;
+> +	const char *name;
+>  
+>  	ret = NULL;
+>  	name = NULL;
+> @@ -383,7 +383,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+>  	struct dsa_switch_driver *drv;
+>  	struct dsa_switch *ds;
+>  	int ret;
+> -	char *name;
+> +	const char *name;
+>  	void *priv;
+>  
+>  	/*
+> -- 
+> 2.8.0
 > 
-
-Yeah. We can use part of that if you like to discuss page allocator
-concerns. I didn't want to accidentally hijack a session if it was going
-to focus on an API for storing cache coherent pages. My focus will still
-be on improving the allocator itself and what would and would not be
-acceptable there.
-
-> I'm at the Marriott now. I'm wearing my Red Hat/fedora, so I should be
-> easy to spot... ;-)
-> 
-
-I'll keep an eye out!
-
--- 
-Mel Gorman
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
