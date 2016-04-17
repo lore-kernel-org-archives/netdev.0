@@ -1,45 +1,69 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Sun, 17 Apr 2016 11:47:20 +0200
-Message-ID: <4480650.3kf9R6iZAS@wuerfel>
-References: <20160413175028.5d3a4cf2@canb.auug.org.au> <20160413.111513.295841881765244758.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] tun: don't require serialization lock on tx
+Date: Sun, 17 Apr 2016 13:20:45 +0300
+Message-ID: <20160417132004-mutt-send-email-mst@redhat.com>
+References: <cc7ac4631f0a32c4d61b73f4f28b52a05ab8651d.1460651429.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au,
-	andrewx.bowers@intel.com, linaro-kernel@lists.linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	mark.d.rustad@intel.com
-To: kernel-build-reports@lists.linaro.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160413.111513.295841881765244758.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50762 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751590AbcDQKUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2016 06:20:50 -0400
+Content-Disposition: inline
+In-Reply-To: <cc7ac4631f0a32c4d61b73f4f28b52a05ab8651d.1460651429.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 13 April 2016 11:15:13 David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Wed, 13 Apr 2016 17:50:28 +1000
+On Thu, Apr 14, 2016 at 06:39:39PM +0200, Paolo Abeni wrote:
+> The current tun_net_xmit() implementation don't need any external
+> lock since it relies on rcu protection for the tun data structure
+> and on socket queue lock for skb queuing.
 > 
-> > After merging the net-next tree, today's linux-next build (arm
-> > allmodconfig) failed like thisi (this has actually been failing for a
-> > few days, now):
-> > 
-> > ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
-> > 
-> > Caused by commit
-> > 
-> >   49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
-> > 
-> > arm only allows udelay()s up to 2 milliseconds.  This commit
-> > adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
-> > drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
+> This patch set the NETIF_F_LLTX feature bit in the tun device, so
+> that on xmit, in absence of qdisc, no serialization lock is acquired
+> by the caller.
 > 
-> Jeff, please have your folks look into this.  Probably just a simple
-> conversion to mdelay().
+> The user space can remove the default tun qdisc with:
 > 
+> tc qdisc replace dev <tun device name> root noqueue
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-I sent a patch, pretty sure we can use msleep() here rather than
-a wasteful mdelay().
+This one seems transparent to userspace so:
 
-	Arnd
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> 
+> ---
+> RFC -> v1
+>  - fixed a commit message typo, extended the comment with a 
+>    configuration hint
+> ---
+>  drivers/net/tun.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index faf9297..42992dc 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1796,7 +1796,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+>  				   TUN_USER_FEATURES | NETIF_F_HW_VLAN_CTAG_TX |
+>  				   NETIF_F_HW_VLAN_STAG_TX;
+> -		dev->features = dev->hw_features;
+> +		dev->features = dev->hw_features | NETIF_F_LLTX;
+>  		dev->vlan_features = dev->features &
+>  				     ~(NETIF_F_HW_VLAN_CTAG_TX |
+>  				       NETIF_F_HW_VLAN_STAG_TX);
+> -- 
+> 1.8.3.1
