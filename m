@@ -1,31 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bcmgenet: device stats are unsigned long
-Date: Sat, 16 Apr 2016 22:04:04 -0400 (EDT)
-Message-ID: <20160416.220404.1649748037362161952.davem@davemloft.net>
-References: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?utf-8?B?0J3QsNGC0LDQu9GM0Y8g0JzQsNC90YzQutC+?= <LWKSBfuP@mail.ru>
+Subject: =?utf-8?B?0J3Rg9C20L3RiyDQtNC40LvQtdGA0Ysg0LTQu9GPINC60YPRhdC+0L3QvdC+0Lkg0LzQtdCx0LXQu9C4LiDQodC60LjQtNC60LAgLSDQl08lLg==?=
+Date: Sun, 17 Apr 2016 10:18:54 +0200 (CEST)
+Message-ID: <20160417081854.180375BAA67@webpack2.glwp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8;
+Content-Transfer-Encoding: base64
+To: lgqpsajwcsr@myrqui.com, mkonshin@clogic.ru, netdev@vger.kernel.org,
+	mdage19@gagabundos.ru, kovalenko@po-uvz.ru, ooogitel@gmail.com,
+	prof@sakha.ru, nwfgtf@oajxbzhtyizj.org, kinobuka@yadex.ru,
+	metall-disain@mail.ru, mmmolga2020@gmail.com,
+	pgomqljr@blvtxzri.com, keryxxxa@email.ru, lwsybfma@dzmmqjxe.com,
+	moscow@pazinkastyle.com, nbrgpp@cxmoeo.com,
+	moscow@hotel.kaliningrad.ru, postmaster@bumportal.ru,
+	moment-x@occ24.org, kos@tgc-2.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37792 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcDQCEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 22:04:06 -0400
-In-Reply-To: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from webpack2.glwp.net ([176.9.117.91]:42704 "EHLO webpack2.glwp.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751207AbcDQIXO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2016 04:23:14 -0400
+Subject: =?utf-8?B?0J3Rg9C20L3RiyDQtNC40LvQtdGA0Ysg0LTQu9GPINC60YPRhdC+0L3QvdC+0Lkg0LzQtdCx0LXQu9C4LiDQodC60LjQtNC60LAgLSDQl08lLg==?=
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Apr 2016 10:47:52 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> On 64bit kernels, device stats are 64bit wide, not 32bit.
-> 
-> Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied, thanks Eric.
+0JTQvtCx0YDRi9C5INC00LXQvdGMLgrQnNC10L3RjyDQt9C+0LLRg9GCINCd0LDRgtCw0LvRjNGPLiDQryDQv9GA0LXQtNGB0YLQsNCy0LvRj9GOINC80LXQsdC10LvRjNC90YPRjiDRhNCw0LHRgNC40LrRgy4KCtCd0LDRiNCwINGE0LjRgNC80LAg0L/RgNC40LPQu9Cw0YjQsNC10YIg0Log0YHQvtGC0YDRg9C00L3QuNGH0LXRgdGC0LLRgyDQtNC40LvQtdGA0L7Qsi4K0J3QsNGI0LAg0LzQtdCx0LXQu9GMINGC0L7RgNCz0YPQtdGC0YHRjyDQsiDRgdGA0LXQtNC90LXQvCDRhtC10L3QvtCy0L7QvCDRgdC10LPQvNC10L3RgtC1LiAK0KbQtdC90LAg0L3QsNGI0LXQuSDQvNC10LHQtdC70Lgg0LTQu9GPINC60YPRhdC90Lgg0LIg0YHRgNC10LTQvdC10Lwg0L3QsCAyTy3Ql9CeJSDQvdC40LbQtSwg0YfQtdC8INC90LAg0YDRi9C90LrQtToKLSDQmtC70LDRgdGB0LjRh9C10YHQutC40LUg0LrRg9GF0L3QuCAtINCX0JcwMDAg0YAuINC30LAgMSDQvy/QvAotINCa0YPRhdC90Lgg0YHQvtCy0YDQtdC80LXQvdC90YvQtSAtINC+0YIgM2wgT09PINGA0YPQsdC70LXQuSDQt9CwIGwg0L8v0LwKLSDQmtGD0YXQvdC4INCy0YHRgtGA0L7QtdC90L3Ri9C1IC0gM0lP
+ T08gINGA0YPQsS4g0LfQsCBsINC/L9C8Ci0g0K3Qu9C40YLQvdGL0LUg0LrRg9GF0L3QuCAtIDUwMDAwICDRgNGD0LEuINC30LAgMSDQvy/QvAotINCa0YPRhdC90Lgt0YHRgtGD0LTQuNC4IC0g0KczIE9PTyDRgC4g0LfQsCAxINC/L9C8Ci0g0JrRg9GF0L7Qvd
+ C90YvQtSDRgdGC0YPQu9GM0Y8gLSA2IDcwMCAg0YDRg9CxLiAK0JLRiyDRgdC80L7QttC10YLQtSDRgNC10LDQu9C40LfQvtCy0LDRgtGMINC90LDQtNCx0LDQstC60YMg0LIg0YbQtdC90LUuIArQn9GA0Lgg0Y3RgtC+0Lwg0JLRiyDRhdC+0YDQvtGI0L4g0LfQsNGA0LDQsdC+0YLQsNC10YLQtSEKCtCV0YHQu9C4INCS0LDRgSDQt9Cw0LjQvdGC0LXRgNC10YHQvtCy0LDQu9C+INGC0LDQutC+0LUg0L/RgNC10LTQu9C+0LbQtdC90LjQtSwg0YLQviDQktGLINC80L7QttC10YLQtSDQvtCx0YDQsNGC0LjRgtGM0YHRjyDQv9C+INGC0LXQu9C10YTQvtC90YM6IAogNyDiiao0ICA5IDniiasgNiAgIMa8ICAg0JcgID0gICA4ICAxICDigJMgIDMgICAgOQoK0KEg0YPQstCw0LbQtdC90LjQtdC8LCDQndCw0YLQsNC70YzRjy4=
