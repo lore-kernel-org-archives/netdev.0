@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 11/11] net/mlx5e: Add ethtool counter for RX buffer allocation failures
-Date: Mon, 18 Apr 2016 00:32:05 +0300
-Message-ID: <1460928725-18741-12-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 03/11] net/mlx5e: Use only close NUMA node for default RSS
+Date: Mon, 18 Apr 2016 00:31:57 +0300
+Message-ID: <1460928725-18741-4-git-send-email-saeedm@mellanox.com>
 References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -10,119 +10,91 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37064 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36984 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751879AbcDQVdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Apr 2016 17:33:12 -0400
+	id S1751977AbcDQVck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Apr 2016 17:32:40 -0400
 In-Reply-To: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Counts the number of RX buffer allocation failures and shows it
-in ethtool statistics.
+Distribute default RSS table uniformly over the rings of the
+close NUMA node, instead of all available channels.
+This way we enforce the preference of close rings over far ones.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    8 ++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    2 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   11 +++++++++--
- 3 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |    3 ++-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   15 +++++++++++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 6127bc7..9aaa23d 100644
+index c4ddbe8..7f19644 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -187,6 +187,7 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
- 	"rx_wqe_err",
- 	"rx_mpwqe_filler",
- 	"rx_mpwqe_frag",
-+	"rx_buff_alloc_err",
- };
+@@ -671,7 +671,8 @@ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
  
- struct mlx5e_vport_stats {
-@@ -230,8 +231,9 @@ struct mlx5e_vport_stats {
- 	u64 rx_wqe_err;
- 	u64 rx_mpwqe_filler;
- 	u64 rx_mpwqe_frag;
-+	u64 rx_buff_alloc_err;
+ int mlx5e_open_locked(struct net_device *netdev);
+ int mlx5e_close_locked(struct net_device *netdev);
+-void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
++				   u32 *indirection_rqt, int len,
+ 				   int num_channels);
  
--#define NUM_VPORT_COUNTERS     37
-+#define NUM_VPORT_COUNTERS     38
- };
+ static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 39c1902..6f40ba4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -397,7 +397,7 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 		mlx5e_close_locked(dev);
  
- static const char pport_strings[][ETH_GSTRING_LEN] = {
-@@ -327,6 +329,7 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"wqe_err",
- 	"mpwqe_filler",
- 	"mpwqe_frag",
-+	"buff_alloc_err",
- };
+ 	priv->params.num_channels = count;
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(priv->mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, count);
  
- struct mlx5e_rq_stats {
-@@ -339,7 +342,8 @@ struct mlx5e_rq_stats {
- 	u64 wqe_err;
- 	u64 mpwqe_filler;
- 	u64 mpwqe_frag;
--#define NUM_RQ_STATS 9
-+	u64 buff_alloc_err;
-+#define NUM_RQ_STATS 10
- };
- 
- static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	if (was_opened)
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 9b17bc0..d485d1e 100644
+index 7fbe1ba..9b58ef6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -180,6 +180,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
- 	s->rx_wqe_err		= 0;
- 	s->rx_mpwqe_filler	= 0;
- 	s->rx_mpwqe_frag	= 0;
-+	s->rx_buff_alloc_err	= 0;
- 	for (i = 0; i < priv->params.num_channels; i++) {
- 		rq_stats = &priv->channel[i]->rq.stats;
+@@ -2297,11 +2297,22 @@ static void mlx5e_ets_init(struct mlx5e_priv *priv)
+ }
+ #endif
  
-@@ -192,6 +193,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
- 		s->rx_wqe_err   += rq_stats->wqe_err;
- 		s->rx_mpwqe_filler += rq_stats->mpwqe_filler;
- 		s->rx_mpwqe_frag   += rq_stats->mpwqe_frag;
-+		s->rx_buff_alloc_err += rq_stats->buff_alloc_err;
+-void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
++				   u32 *indirection_rqt, int len,
+ 				   int num_channels)
+ {
++	int node = mdev->priv.numa_node;
++	int node_num_of_cores;
+ 	int i;
  
- 		for (j = 0; j < priv->params.num_tc; j++) {
- 			sq_stats = &priv->channel[i]->sq[j].stats;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index ade858b..e4e8c37 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -329,9 +329,14 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
++	if (node == -1)
++		node = first_online_node;
++
++	node_num_of_cores = cpumask_weight(cpumask_of_node(node));
++
++	if (node_num_of_cores)
++		num_channels = min_t(int, num_channels, node_num_of_cores);
++
+ 	for (i = 0; i < len; i++)
+ 		indirection_rqt[i] = i % num_channels;
+ }
+@@ -2333,7 +2344,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
+ 	netdev_rss_key_fill(priv->params.toeplitz_hash_key,
+ 			    sizeof(priv->params.toeplitz_hash_key));
  
- 	while (!mlx5_wq_ll_is_full(wq)) {
- 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
-+		int err;
+-	mlx5e_build_default_indir_rqt(priv->params.indirection_rqt,
++	mlx5e_build_default_indir_rqt(mdev, priv->params.indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, num_channels);
  
--		if (unlikely(rq->alloc_wqe(rq, wqe, wq->head)))
-+		err = rq->alloc_wqe(rq, wqe, wq->head);
-+		if (unlikely(err)) {
-+			if (err != -EBUSY)
-+				rq->stats.buff_alloc_err++;
- 			break;
-+		}
- 
- 		mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
- 	}
-@@ -646,8 +651,10 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	skb = napi_alloc_skb(rq->cq.napi,
- 			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
- 				   sizeof(long)));
--	if (unlikely(!skb))
-+	if (unlikely(!skb)) {
-+		rq->stats.buff_alloc_err++;
- 		goto mpwrq_cqe_out;
-+	}
- 
- 	prefetch(skb->data);
- 	cqe_bcnt = mpwrq_get_cqe_byte_cnt(cqe);
+ 	priv->params.lro_wqe_sz            =
 -- 
 1.7.1
