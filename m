@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v4 9/9] net: dsa: mv88e6xxx: remove switch ID from ps
-Date: Sun, 17 Apr 2016 13:24:03 -0400
-Message-ID: <1460913843-7459-10-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v4 2/9] net: dsa: mv88e6xxx: drop double ds assignment
+Date: Sun, 17 Apr 2016 13:23:56 -0400
+Message-ID: <1460913843-7459-3-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,77 +14,69 @@ In-Reply-To: <1460913843-7459-1-git-send-email-vivien.didelot@savoirfairelinux.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ps->id is not needed anymore, so remove it as well as the related
-defined values.
+Every driver assigns ps->ds even though it gets assigned in the shared
+mv88e6xxx_setup_common function. Kill redundancy.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c |  1 -
- drivers/net/dsa/mv88e6xxx.h | 32 --------------------------------
- 2 files changed, 33 deletions(-)
+ drivers/net/dsa/mv88e6123.c | 2 --
+ drivers/net/dsa/mv88e6131.c | 2 --
+ drivers/net/dsa/mv88e6171.c | 2 --
+ drivers/net/dsa/mv88e6352.c | 2 --
+ 4 files changed, 8 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 67b1dd1..1dd525d 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3145,7 +3145,6 @@ const char *mv88e6xxx_drv_probe(struct device *dsa_dev, struct device *host_dev,
- 	ps->bus = bus;
- 	ps->sw_addr = sw_addr;
- 	ps->info = info;
--	ps->id = id & 0xfff0;
+diff --git a/drivers/net/dsa/mv88e6123.c b/drivers/net/dsa/mv88e6123.c
+index 9701c0f..85537eb 100644
+--- a/drivers/net/dsa/mv88e6123.c
++++ b/drivers/net/dsa/mv88e6123.c
+@@ -79,8 +79,6 @@ static int mv88e6123_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
  
- 	*priv = ps;
+-	ps->ds = ds;
+-
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index fa3a354..4117c9b 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -101,8 +101,6 @@ static int mv88e6131_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
  
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 8eeafff..0dbe2d1 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -85,37 +85,6 @@
- #define PORT_SWITCH_ID_PROD_NUM_6352	0x352
- #define PORT_SWITCH_ID_PROD_NUM_6350	0x371
- #define PORT_SWITCH_ID_PROD_NUM_6351	0x375
--#define PORT_SWITCH_ID_6031	0x0310
--#define PORT_SWITCH_ID_6035	0x0350
--#define PORT_SWITCH_ID_6046	0x0480
--#define PORT_SWITCH_ID_6061	0x0610
--#define PORT_SWITCH_ID_6065	0x0650
--#define PORT_SWITCH_ID_6085	0x04a0
--#define PORT_SWITCH_ID_6092	0x0970
--#define PORT_SWITCH_ID_6095	0x0950
--#define PORT_SWITCH_ID_6096	0x0980
--#define PORT_SWITCH_ID_6097	0x0990
--#define PORT_SWITCH_ID_6108	0x1070
--#define PORT_SWITCH_ID_6121	0x1040
--#define PORT_SWITCH_ID_6122	0x1050
--#define PORT_SWITCH_ID_6123	0x1210
--#define PORT_SWITCH_ID_6131	0x1060
--#define PORT_SWITCH_ID_6152	0x1a40
--#define PORT_SWITCH_ID_6155	0x1a50
--#define PORT_SWITCH_ID_6161	0x1610
--#define PORT_SWITCH_ID_6165	0x1650
--#define PORT_SWITCH_ID_6171	0x1710
--#define PORT_SWITCH_ID_6172	0x1720
--#define PORT_SWITCH_ID_6175	0x1750
--#define PORT_SWITCH_ID_6176	0x1760
--#define PORT_SWITCH_ID_6182	0x1a60
--#define PORT_SWITCH_ID_6185	0x1a70
--#define PORT_SWITCH_ID_6240	0x2400
--#define PORT_SWITCH_ID_6320	0x1150
--#define PORT_SWITCH_ID_6321	0x3100
--#define PORT_SWITCH_ID_6350	0x3710
--#define PORT_SWITCH_ID_6351	0x3750
--#define PORT_SWITCH_ID_6352	0x3520
- #define PORT_CONTROL		0x04
- #define PORT_CONTROL_USE_CORE_TAG	BIT(15)
- #define PORT_CONTROL_DROP_ON_LOCK	BIT(14)
-@@ -457,7 +426,6 @@ struct mv88e6xxx_priv_state {
- 	 */
- 	struct mutex eeprom_mutex;
+-	ps->ds = ds;
+-
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 8d86c9e..ae32875 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -76,8 +76,6 @@ static int mv88e6171_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
  
--	int		id; /* switch product id */
- 	struct mv88e6xxx_priv_port	ports[DSA_MAX_PORTS];
+-	ps->ds = ds;
+-
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index c7fa69c..10c36ab 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -87,8 +87,6 @@ static int mv88e6352_setup(struct dsa_switch *ds)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 	int ret;
  
- 	DECLARE_BITMAP(port_state_update_mask, DSA_MAX_PORTS);
+-	ps->ds = ds;
+-
+ 	ret = mv88e6xxx_setup_common(ds);
+ 	if (ret < 0)
+ 		return ret;
 -- 
 2.8.0
