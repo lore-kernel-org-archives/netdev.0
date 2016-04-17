@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Minor IFF_NO_QUEUE conversion follow-up
-Date: Sat, 16 Apr 2016 22:02:30 -0400 (EDT)
-Message-ID: <20160416.220230.726692927623578392.davem@davemloft.net>
-References: <1460740460-12859-1-git-send-email-phil@nwl.cc>
+Subject: Re: [PATCH net] net: bcmgenet: device stats are unsigned long
+Date: Sat, 16 Apr 2016 22:04:04 -0400 (EDT)
+Message-ID: <20160416.220404.1649748037362161952.davem@davemloft.net>
+References: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: phil@nwl.cc
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37774 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37792 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcDQCCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 22:02:32 -0400
-In-Reply-To: <1460740460-12859-1-git-send-email-phil@nwl.cc>
+	with ESMTP id S1752073AbcDQCEG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Apr 2016 22:04:06 -0400
+In-Reply-To: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Fri, 15 Apr 2016 19:14:18 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 15 Apr 2016 10:47:52 -0700
 
-> The following series converts two further drivers away from setting
-> 'tx_queue_len = 0' to adding IFF_NO_QUEUE to priv_flags instead.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The first one, rtl8188eu in staging didn't exist back when all drivers
-> were converted. The second one, openvswitch seems to have slipped through
-> my grep'ing back then, no idea why.
+> On 64bit kernels, device stats are 64bit wide, not 32bit.
+> 
+> Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thanks Phil.
+Applied, thanks Eric.
