@@ -1,36 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet
- WQE (Striding RQ)
-Date: Mon, 18 Apr 2016 05:48:15 -0700
-Message-ID: <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
-	 <1460928725-18741-6-git-send-email-saeedm@mellanox.com>
-	 <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <verifelaw@gmx.com>
+Subject: IMPORTANT MAIL TO YOU
+Date: Mon, 18 Apr 2016 13:32:49 +0200
+Message-ID: <5ff64397-7b1f-443c-bfd7-d3b1fa553815@GSCADMINS22.gsc.org.uk>
+Reply-To: <lawrencetyman@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="Windows-1251"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:36397 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751892AbcDRMsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 08:48:19 -0400
-Received: by mail-qg0-f49.google.com with SMTP id f52so114720470qga.3
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 05:48:19 -0700 (PDT)
-In-Reply-To: <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-db3hn0252.outbound.protection.outlook.com ([157.55.234.252]:15880
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751283AbcDRMsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2016 08:48:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
+I am Capt. Lawrence Tyman, an officer in US Army,and also a West Point
+Graduate, serving in the Military with the 82nd Air Borne Division
+Peace keeping force deployed from Afganistan to Syria.  
+We were moved to Syria from Iraq as the last batch just left,and i
+really need your help in assisting me with the safe keeping of 1 military
+trunk box contain funds amount of $10.2M which i secured on a raiding we carried out in 
+January in one of the chief Syrian IsIs base which i headed the squard as the 
+Captain.  With every possible arrangement to lift this box out, is intended to arrive 
+Belgium from there a diplomat will deliver it to your designated location
+I hope you can be trusted? You will be rewarded handsomely if you could help
+me secure the funds until I conclude my service here in 3 month to meet you while we can 
+plan head to head on a good and profitable business or company i can invest my funds in your country.
+If you can be trusted and willing to support me in securing this safely kindly indicate 
+by Letting me know this (1) Your name (2) Your address (3) Age (4) Occupation and 
+i will explain further when i get a response from you
+kindly contact me in this my private email address below: lawrencetyman@gmx.com
 
-> 
-> If really you need to allocate physically contiguous memory, have you
-> considered converting the order-5 pages into 32 order-0 ones ?
-
-Search for split_page() call sites for examples.
+Regards,
+Capt. Lawrence Tyman
