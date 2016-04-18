@@ -1,38 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: bcmgenet: device stats are unsigned long
-Date: Sun, 17 Apr 2016 17:49:45 -0700
-Message-ID: <57142F29.6080502@gmail.com>
-References: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 18 Apr 2016 11:30:38 +1000
+Message-ID: <20160418113038.00d78799@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:34460 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751189AbcDRAtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Apr 2016 20:49:49 -0400
-Received: by mail-oi0-f53.google.com with SMTP id k142so17432521oib.1
-        for <netdev@vger.kernel.org>; Sun, 17 Apr 2016 17:49:49 -0700 (PDT)
-In-Reply-To: <1460742472.10638.78.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/04/2016 10:47, Eric Dumazet a =C3=A9crit :
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> On 64bit kernels, device stats are 64bit wide, not 32bit.
->=20
-> Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
+Hi all,
 
-Late, but:
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+  drivers/net/dsa/mv88e6xxx.c
 
-Thanks Eric!
---=20
-=46lorian
+between commit:
+
+  207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
+
+from the net tree and commit:
+
+  009a2b9843bf ("net: dsa: mv88e6xxx: add number of ports to info")
+
+from the net-next tree.
+
+I fixed it up (the former removed some of the code updated by the latter)
+and can carry the fix as necessary. This is now fixed as far as linux-next
+is concerned, but any non trivial conflicts should be mentioned to your
+upstream maintainer when your tree is submitted for merging.  You may
+also want to consider cooperating with the maintainer of the conflicting
+tree to minimise any particularly complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
