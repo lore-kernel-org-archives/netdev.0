@@ -1,34 +1,46 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 08:17:02 -0700
-Message-ID: <20160418151702.GA26565@infradead.org>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
- <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
- <20160418143255.GA15203@infradead.org>
- <DB5PR05MB1848424EC9DC8D4150EADB03C56B0@DB5PR05MB1848.eurprd05.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
+Date: Mon, 18 Apr 2016 18:19:59 +0300
+Message-ID: <5714FB1F.5040200@cogentembedded.com>
+References: <5711ADD1.2030904@brocade.com> <5714EDDB.8080306@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <DB5PR05MB1848424EC9DC8D4150EADB03C56B0-8IvNv+8VlcDdorXcTtKhldqRiQSDpxhJvxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:34525 "EHLO
+	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712AbcDRPUB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:20:01 -0400
+Received: by mail-lf0-f54.google.com with SMTP id j11so220651032lfb.1
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 08:20:00 -0700 (PDT)
+In-Reply-To: <5714EDDB.8080306@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 02:39:36PM +0000, Eli Cohen wrote:
-> Right, I did not suggest this as a patch but just wanted to pinpoint the problematic issue which is that virt_to_page does not give you the correct pointer to the page.
+Hello.
 
-Removing both the virt_to_page + vmap calls would solve the issue
-indeed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 4/18/2016 5:23 PM, Mike Manning wrote:
+
+> f1705ec197e7 "Make address flushing on ifdown optional" added the option
+
+    Looking further, this doesn't seem like a complete commit summary. And you 
+need to enclose it in parens too.
+
+> to retain user configured addresses on an admin down. A comment to one of
+> the later revisions suggested using the IFA_F_PERMANENT flag rather than
+> adding a user_managed boolean to the ifaddr struct. A side effect of this
+> change is that link local and loopback addresses were also retained which
+> was not part of the objective of the original changes. The fix 70af921db6f8
+> "Do not keep linklocal and loopback addresses" ensures that these are no
+
+    Again, () are needed around the summary.
+
+> longer kept. Similarly, the present fix ensures that these addresses are not
+> fixed up either, otherwise the incorrect fixup triggers a crash in fib6.
+>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
+[...]
+
+MBR, Sergei
