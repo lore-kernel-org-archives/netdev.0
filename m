@@ -1,50 +1,55 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
-Date: Mon, 18 Apr 2016 16:14:39 +0100
-Message-ID: <5714F9DF.1040506@brocade.com>
-References: <5711ADD1.2030904@brocade.com> <5714EDDB.8080306@brocade.com>
- <5714F199.7020608@cumulusnetworks.com>
+From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 10:15:56 -0500
+Message-ID: <5714FA2C.4030209@codeaurora.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418121247.GA25387@infradead.org>
+ <0c6a430c5f0ec64f51d7c594ef9751dd@codeaurora.org>
+ <20160418131058.GA25421@infradead.org> <5714E5D6.7050600@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:16407 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752730AbcDRPO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:14:57 -0400
-In-Reply-To: <5714F199.7020608@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5714E5D6.7050600-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/18/2016 03:39 PM, David Ahern wrote:
-> On 4/18/16 8:23 AM, Mike Manning wrote:
->> f1705ec197e7 "Make address flushing on ifdown optional" added the option
->> to retain user configured addresses on an admin down. A comment to one of
->> the later revisions suggested using the IFA_F_PERMANENT flag rather than
->> adding a user_managed boolean to the ifaddr struct. A side effect of this
->> change is that link local and loopback addresses were also retained which
->> was not part of the objective of the original changes. The fix 70af921db6f8
->> "Do not keep linklocal and loopback addresses" ensures that these are no
->> longer kept. Similarly, the present fix ensures that these addresses are not
->> fixed up either, otherwise the incorrect fixup triggers a crash in fib6.
->>
->> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
->> Signed-off-by: Mike Manning <mmanning@brocade.com>
->> ---
->>   net/ipv6/addrconf.c |   13 +++++++------
->>   1 file changed, 7 insertions(+), 6 deletions(-)
-> 
-> Is this a v2? Code change is the same.
+Sinan Kaya wrote:
+>
+> VMAP allows you to make several pages look contiguous to the CPU.
+> It can only be used against logical addresses returned from kmalloc
+> or alloc_page.
+>
+> You cannot take several virtually mapped addresses returned by dma_alloc_coherent
+> and try to make them virtually contiguous again.
+>
+> The code happens to work on other architectures by pure luck. AFAIK, dma_alloc_coherent
+> returns logical addresses on Intel systems until it runs out of DMA memory. After
+> that intel arch will also start returning virtually mapped addresses and this code
+> will also fail. ARM64 on the other hand always returns a virtually mapped address.
+>
+> The goal of this code is to allocate a bunch of page sized memory and make it look
+> contiguous. It is just using the wrong API. The correct API is either kmalloc or
+> alloc_page map it with dma_map_page not dma_alloc_coherent.
+>
+> The proper usage of dma_map_page requires code to call dma_sync API in correct
+> places to be compatible with noncoherent systems. This code is already assuming
+> coherency. It would be a nice to have dma_sync APIs in right places. There is no
+> harm in calling dma_sync API for coherent systems as they are no-ops in DMA mapping
+> layer whereas it is a cache flush for non-coherent systems.
 
-This is the same changeset, but Sergei requested on Saturday to change the wording as follows:
+The text would be a great addition to the patch description.
 
-
-    scripts/checkpatch.pl now enforces commit citing certain style: <12-digit 
-
-SHA1> ("<comit summary>").
-
-
-
-> 
-> Acked-by: David Ahern <dsa@cumulusnetworks.com>
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
