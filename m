@@ -1,46 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
-Date: Mon, 18 Apr 2016 16:02:02 +0800
-Message-ID: <20160418080202.GA18155@gondor.apana.org.au>
-References: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] udp: fix if statement in SIOCINQ ioctl
+Date: Mon, 18 Apr 2016 11:44:49 +0300
+Message-ID: <20160418084449.GA12410@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sd@queasysnail.net, arnd@arndb.de,
-	hannes@stressinduktion.org, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31189 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797AbcDRIpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 04:45:52 -0400
 Content-Disposition: inline
-In-Reply-To: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> The new MACsec driver uses the AES crypto algorithm, but can be configured
-> even if CONFIG_CRYPTO is disabled, leading to a build error:
-> 
-> warning: (MAC80211 && MACSEC) selects CRYPTO_GCM which has unmet direct dependencies (CRYPTO)
-> warning: (BT && CEPH_LIB && INET && MAC802154 && MAC80211 && BLK_DEV_RBD && MACSEC && AIRO_CS && LIBIPW && HOSTAP && USB_WUSB && RTLLIB_CRYPTO_CCMP && FS_ENCRYPTION && EXT4_ENCRYPTION && CEPH_FS && BIG_KEYS && ENCRYPTED_KEYS) selects CRYPTO_AES which has unmet direct dependencies (CRYPTO)
-> crypto/built-in.o: In function `gcm_enc_copy_hash':
-> aes_generic.c:(.text+0x2b8): undefined reference to `crypto_xor'
-> aes_generic.c:(.text+0x2dc): undefined reference to `scatterwalk_map_and_copy'
-> 
-> This adds an explicit 'select CRYPTO' statement the way that other
-> drivers handle it.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+We deleted a line of code and accidentally made the "return put_user()"
+part of the if statement when it's supposed to be unconditional.
 
-Thnis patch is bogus.  The build error is coming from the fact
-that GCM is built-in but CRYPTO_ALGAPI is (presumably) only built
-as a module.  The patch in question does nothing to address that
-AFAICS.
+Fixes: 9f9a45beaa96 ('udp: do not expect udp headers on ioctl SIOCINQ')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-In fact this strikes me as a kbuild bug because CRYPTO_GCM already
-selects (indirectly) CRYPTO_ALGAPI so why is this happening at all?
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f186313..37e09c3 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1276,12 +1276,6 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 	{
+ 		unsigned int amount = first_packet_length(sk);
+ 
+-		if (amount)
+-			/*
+-			 * We will only return the amount
+-			 * of this packet since that is all
+-			 * that will be read.
+-			 */
+ 		return put_user(amount, (int __user *)arg);
+ 	}
+ 
