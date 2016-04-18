@@ -1,52 +1,50 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/5] arcnet: com90xx: add __init attribute
-Date: Mon, 18 Apr 2016 16:55:35 +0200
-Message-ID: <1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1460991338-9845-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Luis R . Rodriguez" <mcgrof@kernel.org>,
-	Josh Triplett <josh@joshtriplett.org>
-To: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460991338-9845-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Manning <mmanning@brocade.com>
+Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
+Date: Mon, 18 Apr 2016 16:14:39 +0100
+Message-ID: <5714F9DF.1040506@brocade.com>
+References: <5711ADD1.2030904@brocade.com> <5714EDDB.8080306@brocade.com>
+ <5714F199.7020608@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:16407 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752730AbcDRPO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:14:57 -0400
+In-Reply-To: <5714F199.7020608@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add __init attribute on a function that is only called from other __init
-functions and that is not inlined, at least with gcc version 4.8.4 on an
-x86 machine with allyesconfig.  Currently, the function is put in the
-.text.unlikely segment.  Declaring it as __init will cause it to be put in
-the .init.text and to disappear after initialization.
+On 04/18/2016 03:39 PM, David Ahern wrote:
+> On 4/18/16 8:23 AM, Mike Manning wrote:
+>> f1705ec197e7 "Make address flushing on ifdown optional" added the option
+>> to retain user configured addresses on an admin down. A comment to one of
+>> the later revisions suggested using the IFA_F_PERMANENT flag rather than
+>> adding a user_managed boolean to the ifaddr struct. A side effect of this
+>> change is that link local and loopback addresses were also retained which
+>> was not part of the objective of the original changes. The fix 70af921db6f8
+>> "Do not keep linklocal and loopback addresses" ensures that these are no
+>> longer kept. Similarly, the present fix ensures that these addresses are not
+>> fixed up either, otherwise the incorrect fixup triggers a crash in fib6.
+>>
+>> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+>> Signed-off-by: Mike Manning <mmanning@brocade.com>
+>> ---
+>>   net/ipv6/addrconf.c |   13 +++++++------
+>>   1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> Is this a v2? Code change is the same.
 
-The result of objdump -x on the function before the change is as follows:
+This is the same changeset, but Sergei requested on Saturday to change the wording as follows:
 
-0000000000000000 l     F .text.unlikely 00000000000000bf check_mirror
 
-And after the change it is as follows:
+    scripts/checkpatch.pl now enforces commit citing certain style: <12-digit 
 
-0000000000000000 l     F .init.text	00000000000000ba check_mirror
+SHA1> ("<comit summary>").
 
-Done with the help of Coccinelle.  The semantic patch checks for local
-static non-init functions that are called from an __init function and are
-not called from any other function.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
----
- drivers/net/arcnet/com90xx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
-index 0d9b45f..81f90c4 100644
---- a/drivers/net/arcnet/com90xx.c
-+++ b/drivers/net/arcnet/com90xx.c
-@@ -433,7 +433,7 @@ static void __init com90xx_probe(void)
- 	kfree(iomem);
- }
- 
--static int check_mirror(unsigned long addr, size_t size)
-+static int __init check_mirror(unsigned long addr, size_t size)
- {
- 	void __iomem *p;
- 	int res = -1;
+> 
+> Acked-by: David Ahern <dsa@cumulusnetworks.com>
