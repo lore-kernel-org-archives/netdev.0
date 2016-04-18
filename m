@@ -1,71 +1,88 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
-Date: Mon, 18 Apr 2016 13:07:23 +0200
-Message-ID: <4281377.HK1TLEoJOo@wuerfel>
-References: <20160418080202.GA18155@gondor.apana.org.au> <11585265.Dbvl2xi4u3@wuerfel> <20160418104336.GA19175@gondor.apana.org.au>
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Subject: [PATCH v2 2/4] io-mapping: Specify mapping size for
+ io_mapping_map_wc()
+Date: Mon, 18 Apr 2016 12:14:00 +0100
+Message-ID: <1460978042-9953-2-git-send-email-chris@chris-wilson.co.uk>
+References: <1460978042-9953-1-git-send-email-chris@chris-wilson.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, sd@queasysnail.net,
-	hannes@stressinduktion.org, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418104336.GA19175@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>, netdev@vger.kernel.org,
+ Yishai Hadas <yishaih@mellanox.com>, linux-kernel@vger.kernel.org,
+ "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
+ dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
+ Daniel Vetter <daniel.vetter@intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
+ David Hildenbrand <dahi@linux.vnet.ibm.com>
+To: intel-gfx@lists.freedesktop.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <1460978042-9953-1-git-send-email-chris@chris-wilson.co.uk>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Monday 18 April 2016 18:43:36 Herbert Xu wrote:
-> 
-> It's kind of silly really now that IPv4 selects CRYPTO which
-> means that you can't really avoid seeing all those options which
-> most users won't care about.
-
-I had not noticed that IPv4 does it, but that is a good point.
-
-We have had a couple of other subsystems with the issue (e.g. MFD),
-and have turned around the logic in the end so the user-visible
-options are always there and the subsystem core is selected by
-all drivers that need it. We could do the same for crypto as below
-(untested). I only select CRYPTO from ALGAPI2 there, which may be
-wrong if some parts of crypto need the core but do not need algapi,
-but it illustrates what we could do.
-
-	Arnd
-
-diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 93a1fdc1feee..ed1bc0c49022 100644
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -12,14 +12,12 @@ source "crypto/async_tx/Kconfig"
- #
- # Cryptographic API Configuration
- #
--menuconfig CRYPTO
--	tristate "Cryptographic API"
-+config CRYPTO
-+	tristate
- 	help
- 	  This option provides the core Cryptographic API.
- 
--if CRYPTO
--
--comment "Crypto core or helper"
-+menu "Crypto core or helper"
- 
- config CRYPTO_FIPS
- 	bool "FIPS 200 compliance"
-@@ -39,6 +37,7 @@ config CRYPTO_ALGAPI
- 
- config CRYPTO_ALGAPI2
- 	tristate
-+	select CRYPTO
- 
- config CRYPTO_AEAD
- 	tristate
-@@ -1633,4 +1632,4 @@ source "drivers/crypto/Kconfig"
- source crypto/asymmetric_keys/Kconfig
- source certs/Kconfig
- 
--endif	# if CRYPTO
-+endmenu
+VGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19tYXBwaW5nX21hcF93YygpIGNvbnZl
+bmllbmNlIGhlbHBlcgpjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxlIHBhZ2VzLiBF
+eHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0CmZ1dHVyZSBjYWxsZXJzIGNhbiB1c2UgaXQgZm9yIGxh
+cmdlciByYW5nZXMuCgpTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdp
+bHNvbi5jby51az4KQ2M6IFR2cnRrbyBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+
+CkNjOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KQ2M6IEphbmkgTmlr
+dWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxp
+ZWRAbGludXguaWU+CkNjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgpDYzog
+RGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+CkNjOiBJbmdvIE1vbG5hciA8
+bWluZ29Aa2VybmVsLm9yZz4KQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwpIiA8cGV0ZXJ6QGlu
+ZnJhZGVhZC5vcmc+CkNjOiBEYXZpZCBIaWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5j
+b20+CkNjOiBpbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBkcmktZGV2ZWxAbGlz
+dHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1y
+ZG1hQHZnZXIua2VybmVsLm9yZwpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwotLS0K
+IGRyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYyAgICB8ICAzICsrLQogZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NC9wZC5jIHwgIDQgKysrLQogaW5jbHVkZS9saW51
+eC9pby1tYXBwaW5nLmggICAgICAgICAgICAgIHwgMTAgKysrKysrKy0tLQogMyBmaWxlcyBjaGFu
+Z2VkLCAxMiBpbnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2lu
+dGVsX292ZXJsYXkuYwppbmRleCA5NzQ2Yjk4NDFjMTMuLjBkNWEzNzY4NzhkMyAxMDA2NDQKLS0t
+IGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfb3ZlcmxheS5jCisrKyBiL2RyaXZlcnMvZ3B1
+L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYwpAQCAtMTk4LDcgKzE5OCw4IEBAIGludGVsX292ZXJs
+YXlfbWFwX3JlZ3Moc3RydWN0IGludGVsX292ZXJsYXkgKm92ZXJsYXkpCiAJCXJlZ3MgPSAoc3Ry
+dWN0IG92ZXJsYXlfcmVnaXN0ZXJzIF9faW9tZW0gKilvdmVybGF5LT5yZWdfYm8tPnBoeXNfaGFu
+ZGxlLT52YWRkcjsKIAllbHNlCiAJCXJlZ3MgPSBpb19tYXBwaW5nX21hcF93YyhnZ3R0LT5tYXBw
+YWJsZSwKLQkJCQkJIG92ZXJsYXktPmZsaXBfYWRkcik7CisJCQkJCSBvdmVybGF5LT5mbGlwX2Fk
+ZHIsCisJCQkJCSBQQUdFX1NJWkUpOwogCiAJcmV0dXJuIHJlZ3M7CiB9CmRpZmYgLS1naXQgYS9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3BkLmMgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9tZWxsYW5veC9tbHg0L3BkLmMKaW5kZXggYjNjYzNhYjYzNzk5Li42ZmMxNTZhMzkxOGQg
+MTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcGQuYworKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L3BkLmMKQEAgLTIwNSw3ICsyMDUs
+OSBAQCBpbnQgbWx4NF9iZl9hbGxvYyhzdHJ1Y3QgbWx4NF9kZXYgKmRldiwgc3RydWN0IG1seDRf
+YmYgKmJmLCBpbnQgbm9kZSkKIAkJCWdvdG8gZnJlZV91YXI7CiAJCX0KIAotCQl1YXItPmJmX21h
+cCA9IGlvX21hcHBpbmdfbWFwX3djKHByaXYtPmJmX21hcHBpbmcsIHVhci0+aW5kZXggPDwgUEFH
+RV9TSElGVCk7CisJCXVhci0+YmZfbWFwID0gaW9fbWFwcGluZ19tYXBfd2MocHJpdi0+YmZfbWFw
+cGluZywKKwkJCQkJCXVhci0+aW5kZXggPDwgUEFHRV9TSElGVCwKKwkJCQkJCVBBR0VfU0laRSk7
+CiAJCWlmICghdWFyLT5iZl9tYXApIHsKIAkJCWVyciA9IC1FTk9NRU07CiAJCQlnb3RvIHVuYW1w
+X3VhcjsKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oIGIvaW5jbHVkZS9s
+aW51eC9pby1tYXBwaW5nLmgKaW5kZXggZTM5OTAyOWI2OGM1Li42NDVhZDA2YjVkNTIgMTAwNjQ0
+Ci0tLSBhL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oCisrKyBiL2luY2x1ZGUvbGludXgvaW8t
+bWFwcGluZy5oCkBAIC0xMDAsMTQgKzEwMCwxNiBAQCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2
+b2lkIF9faW9tZW0gKnZhZGRyKQogfQogCiBzdGF0aWMgaW5saW5lIHZvaWQgX19pb21lbSAqCi1p
+b19tYXBwaW5nX21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywgdW5zaWduZWQgbG9u
+ZyBvZmZzZXQpCitpb19tYXBwaW5nX21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywK
+KwkJICB1bnNpZ25lZCBsb25nIG9mZnNldCwKKwkJICB1bnNpZ25lZCBsb25nIHNpemUpCiB7CiAJ
+cmVzb3VyY2Vfc2l6ZV90IHBoeXNfYWRkcjsKIAogCUJVR19PTihvZmZzZXQgPj0gbWFwcGluZy0+
+c2l6ZSk7CiAJcGh5c19hZGRyID0gbWFwcGluZy0+YmFzZSArIG9mZnNldDsKIAotCXJldHVybiBp
+b3JlbWFwX3djKHBoeXNfYWRkciwgUEFHRV9TSVpFKTsKKwlyZXR1cm4gaW9yZW1hcF93YyhwaHlz
+X2FkZHIsIHNpemUpOwogfQogCiBzdGF0aWMgaW5saW5lIHZvaWQKQEAgLTE1NSw3ICsxNTcsOSBA
+QCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQogCiAvKiBOb24t
+YXRvbWljIG1hcC91bm1hcCAqLwogc3RhdGljIGlubGluZSB2b2lkIF9faW9tZW0gKgotaW9fbWFw
+cGluZ19tYXBfd2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsIHVuc2lnbmVkIGxvbmcgb2Zm
+c2V0KQoraW9fbWFwcGluZ19tYXBfd2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsCisJCSAg
+dW5zaWduZWQgbG9uZyBvZmZzZXQsCisJCSAgdW5zaWduZWQgbG9uZyBzaXplKQogewogCXJldHVy
+biAoKGNoYXIgX19mb3JjZSBfX2lvbWVtICopIG1hcHBpbmcpICsgb2Zmc2V0OwogfQotLSAKMi44
+LjAucmMzCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
+cmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0
+cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
