@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] of_mdio: make of_mdiobus_register_{device|phy}() *void*
-Date: Mon, 18 Apr 2016 00:02:16 -0400 (EDT)
-Message-ID: <20160418.000216.88349007433311540.davem@davemloft.net>
-References: <1834436.v0N3sgcLOX@wasted.cogentembedded.com>
+Subject: Re: [PATCH] ixgbe: use msleep for long delays
+Date: Mon, 18 Apr 2016 00:03:58 -0400 (EDT)
+Message-ID: <20160418.000358.1382874942962616205.davem@davemloft.net>
+References: <1460838941-1251989-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, robh+dt@kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, frowand.list@gmail.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47927 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbcDRECV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 00:02:21 -0400
-In-Reply-To: <1834436.v0N3sgcLOX@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	mark.d.rustad@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1460838941-1251989-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 17 Apr 2016 01:05:19 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Sat, 16 Apr 2016 22:35:08 +0200
 
-> The results of of_mdiobus_register_{device|phy}() are never checked, so we
-> can make  both these functions *void*...
+> The newly added x550em_a support causes a link failure on ARM because of
+> an overly long time passed into udelay():
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
+> 
+> There are multiple variants of the ixgbe_acquire_swfw_sync_*() function,
+> and the other ones all use msleep(), so we can safely assume that all
+> callers are allowed to sleep, which makes msleep() a better replacement
+> than mdelay().
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
 
-Applied, thanks Sergei.
+I'm assuming Jeff will pick this up.
