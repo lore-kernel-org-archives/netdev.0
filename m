@@ -1,43 +1,37 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next V2 0/2] ethernet: intel: Support Hyper-V hosts
-Date: Sun, 17 Apr 2016 22:22:47 -0700
-Message-ID: <1460956969-17601-1-git-send-email-kys@microsoft.com>
-References: <1460956943-17560-1-git-send-email-kys@microsoft.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 00:00:39 -0400 (EDT)
+Message-ID: <20160418.000039.1946438541182822213.davem@davemloft.net>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com, eli@mellanox.com, jackm@mellanox.com,
- yevgenyp@mellanox.com, john.ronciak@intel.com,
- intel-wired-lan@lists.osuosl.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1460956943-17560-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1460845412-13120-1-git-send-email-okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Make adjustments to the Intel 10G VF driver to support
-running on Hyper-V hosts.
+From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Date: Sat, 16 Apr 2016 18:23:32 -0400
 
-K. Y. Srinivasan (2):
-  ethernet: intel: Add the device ID's presented while running on
-    Hyper-V
-  intel: ixgbevf: Support Windows hosts (Hyper-V)
+> Current code is assuming that the address returned by dma_alloc_coherent
+> is a logical address. This is not true on ARM/ARM64 systems. This patch
+> replaces dma_alloc_coherent with dma_map_page API. The address returned
+> can later by virtually mapped from the CPU side with vmap API.
+> 
+> Signed-off-by: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
 
- drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   12 ++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   16 ++-
- drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c           |  201 +++++++++++++++++++++
- 5 files changed, 242 insertions(+), 4 deletions(-)
+You can't do this.
 
--- 
-1.7.4.1
+The DMA map page API gives non-coherent mappings, and thus requires
+proper flushing.
+
+So a straight conversion like this is never legitimate.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
