@@ -1,61 +1,64 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: switchdev fib offload issues
-Date: Mon, 18 Apr 2016 10:59:37 -0600
-Message-ID: <57151279.4020806@cumulusnetworks.com>
-References: <20160418154757.GA2059@nanopsycho.amit.cz>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [Intel-wired-lan] [PATCH net-next V2 2/2] intel: ixgbevf:
+ Support Windows hosts (Hyper-V)
+Date: Mon, 18 Apr 2016 10:00:19 -0700
+Message-ID: <1460998819.1917.10.camel@perches.com>
+References: <1460956943-17560-1-git-send-email-kys@microsoft.com>
+ <1460956969-17601-1-git-send-email-kys@microsoft.com>
+ <1460956969-17601-3-git-send-email-kys@microsoft.com>
+ <CAKgT0UdLxSk6CKVAt232fdthMtUbn9FLru9Q9w1Qjjdv_zKA4g@mail.gmail.com>
+ <BL2PR03MB19081E9C9AAB13E6F608D08FA06B0@BL2PR03MB1908.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com, stephen@networkplumber.org,
-	sfeldma@gmail.com, f.fainelli@gmail.com, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
-	aduyck@mirantis.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:35781 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752535AbcDRQ7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 12:59:41 -0400
-Received: by mail-io0-f175.google.com with SMTP id g185so200778308ioa.2
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 09:59:41 -0700 (PDT)
-In-Reply-To: <20160418154757.GA2059@nanopsycho.amit.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>, Netdev <netdev@vger.kernel.org>,
+ Jason Wang <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "jackm@mellanox.com" <jackm@mellanox.com>,
+ "yevgenyp@mellanox.com" <yevgenyp@mellanox.com>,
+ John Ronciak <john.ronciak@intel.com>,
+ intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+ "eli@mellanox.com" <eli@mellanox.com>, Robo Bot <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ David Miller <davem@davemloft.net>
+To: KY Srinivasan <kys@microsoft.com>, Alexander Duyck
+ <alexander.duyck@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <BL2PR03MB19081E9C9AAB13E6F608D08FA06B0@BL2PR03MB1908.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 4/18/16 9:47 AM, Jiri Pirko wrote:
-> Proposed solutions (ideas):
-> 1) per-netns. Add a procfs file:
-> 	/proc/sys/net/ipv4/route/fib_offload_error_policy
-> 	  with values: "evict" - default, current behaviour
->                         "fail" - propagate offload error to user
-> 	The policy value would be stored in struct net.
->
-> 2) per-VRF/table
-> 	When user creates a VRF master, he specifies a table ID
-> 	this VRF is going to use. I propose to extend this so
-> 	he can pass a policy ("evict"/"fail").
-> 	The policy value would be stored in struct fib_table or
-> 	struct fib6_table. The problem is that vfr only saves
-> 	table ID, allocates dst but does not actually create
-> 	table. That might be created later. But I think this
-> 	could be resolved.
+On Mon, 2016-04-18 at 16:52 +0000, KY Srinivasan wrote:
+[]
+> > > +bool ixgbevf_on_hyperv(struct ixgbe_hw *hw)
+> > > +{
+> > > +=A0=A0=A0=A0=A0=A0=A0if (hw->mbx.ops.check_for_msg =3D=3D NULL)
+> > > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return true;
+> > > +=A0=A0=A0=A0=A0=A0=A0else
+> > > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return false;
+> > > +}
 
-Yes, we have a local patch where I do create the table for IPv6. Can do 
-that for IPv4 as well. Some other clean ups are needed in this area - 
-like the ability to delete a table
+trivia:
 
->
-> 3) per-VFR/master_netdev
-> 	In this case, the policy would be also set during
-> 	the creation of VFR master. From user perspective,
-> 	this looks same as 2)
-> 	The policy value would be stored in struct net_vrf (vrf private).
+bool func(...)
+{
+	if (<bar>)
+		return true;
+	else
+		return false;
+}
 
-The VRF device is really only used for guiding lookups, not inserting 
-routes.
+can generally be written as:
 
-A per table/VRF policy (option 2) seems more appropriate.
+bool func(...)
+{
+	return <bar>;
+}
