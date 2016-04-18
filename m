@@ -1,58 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Poorer networking performance in later kernels?
-Date: Mon, 18 Apr 2016 11:05:05 -0700
-Message-ID: <1461002705.10638.121.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <SN1PR0301MB19987565B71A4688593A2CDBD6680@SN1PR0301MB1998.namprd03.prod.outlook.com>
-	 <SN1PR0301MB19983946D7A38001E4B54D20D6680@SN1PR0301MB1998.namprd03.prod.outlook.com>
-	 <1460759582.10638.79.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1460981814.10638.104.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <BY2PR0301MB1990B79988EF1A3FB461882FD66B0@BY2PR0301MB1990.namprd03.prod.outlook.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ctnetlink: add more #ifdef around unused code
+Date: Mon, 18 Apr 2016 20:16:59 +0200
+Message-ID: <20160418181659.GA2427@salvia>
+References: <1460837916-1241019-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Butler, Peter" <pbutler@sonusnet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34464 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbcDRSFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 14:05:08 -0400
-Received: by mail-pf0-f173.google.com with SMTP id c20so83111265pfc.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 11:05:07 -0700 (PDT)
-In-Reply-To: <BY2PR0301MB1990B79988EF1A3FB461882FD66B0@BY2PR0301MB1990.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1460837916-1241019-1-git-send-email-arnd@arndb.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-04-18 at 16:27 +0000, Butler, Peter wrote:
-> Hi Eric
+On Sat, Apr 16, 2016 at 10:17:43PM +0200, Arnd Bergmann wrote:
+> A recent patch removed many 'inline' annotations for static
+> functions in this file, which has caused warnings for functions
+> that are not used in a given configuration, in particular when
+> CONFIG_NF_CONNTRACK_EVENTS is disabled:
 > 
-> Thanks for your response.  My apologies for being late in getting back
-> to you - I wasn't able to have access to the lab hardware on the
-> weekend.
-> 
-> I performed your test as suggested - I've provided a side-by-side diff
-> of the nstat output below for the SCTP test only (not the TCP test).
-> Note that the fields that are output are somewhat different for the
-> two kernels - i.e. some fields exist in one but not the other
-> (presumably this comes from the kernel internals?).
-> 
-> Other than seeing 'larger' throughput numbers in this output I'm not
-> sure what to take from it - I'm certainly not a networking
-> expert :-(   Let me know if there's anything that speaks to you.
-> 
-> Note that this test was again done on a clean, freshly rebooted and
-> idle system.  Let me know if there's any issues with the output format
-> of this data in the email.
-> 
-> Thanks,
-> 
-> Peter
+> nf_conntrack_netlink.c:572:15: 'ctnetlink_timestamp_size' defined but not used
+> nf_conntrack_netlink.c:546:15: 'ctnetlink_acct_size' defined but not used
+> nf_conntrack_netlink.c:339:12: 'ctnetlink_label_size' defined but not used
 
+Arnd, thanks for the fix.
 
-OK, please do not top-post on netdev.
+I'm planning to push this though:
 
+http://patchwork.ozlabs.org/patch/610820/
 
-I can not really comment on SCTP, could you please post numbers with
-TCP ?
+This is restoring the inlines for the size calculation functions, but
+I think that's ok. They are rather small and they're called from the
+event notification path (ie. packet path), so the compiler just place
+them out of the way when not needed and we calm down the gcc warning.
 
-Thanks !
+Thanks!
