@@ -1,39 +1,54 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: [PATCH net-next 2/5] qede: Add support for ethtool private flags
-Date: Mon, 18 Apr 2016 14:34:53 +0000
-Message-ID: <CO2PR11MB0088E75B42A5F0901ED99CB1976B0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1460921195-23352-1-git-send-email-Yuval.Mintz@qlogic.com>
- <1460921195-23352-3-git-send-email-Yuval.Mintz@qlogic.com>,<5714EB23.5020102@cogentembedded.com>
+From: Eli Cohen <eli@mellanox.com>
+Subject: RE: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 14:39:36 +0000
+Message-ID: <DB5PR05MB1848424EC9DC8D4150EADB03C56B0@DB5PR05MB1848.eurprd05.prod.outlook.com>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
+ <20160418143255.GA15203@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0127.outbound.protection.outlook.com ([65.55.169.127]:51826
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750860AbcDROtD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 10:49:03 -0400
-In-Reply-To: <5714EB23.5020102@cogentembedded.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sinan Kaya <okaya@codeaurora.org>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"timur@codeaurora.org" <timur@codeaurora.org>,
+	"cov@codeaurora.org" <cov@codeaurora.org>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160418143255.GA15203@infradead.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> +     flags |= (!!(edev->dev_info.common.num_hwfns > 1)) <<
->> +              QEDE_PRI_FLAG_CMT;
+Right, I did not suggest this as a patch but just wanted to pinpoint the problematic issue which is that virt_to_page does not give you the correct pointer to the page.
 
->  Why not just '='?
+-----Original Message-----
+From: Christoph Hellwig [mailto:hch@infradead.org] 
+Sent: Monday, April 18, 2016 9:33 AM
+To: Eli Cohen <eli@mellanox.com>
+Cc: Sinan Kaya <okaya@codeaurora.org>; linux-rdma@vger.kernel.org; timur@codeaurora.org; cov@codeaurora.org; Yishai Hadas <yishaih@mellanox.com>; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
 
->> +
->> +     return flags;
+On Mon, Apr 18, 2016 at 09:54:47AM +0300, Eli Cohen wrote:
+> Sinan,
+> 
+> if we get rid of the part this code:
+> 
+>                 if (BITS_PER_LONG == 64) {
+>                         struct page **pages;
+>                         pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
+>                         if (!pages)
+>                                 goto err_free;
+>                         ...
+>                         ...
+>                         if (!buf->direct.buf)
+>                                 goto err_free;
+>                 }
+> 
+> Does that solve the arm issue?
 
->  ... or direct return of the value above?
+Not quite.  You still have code in mlx4_en_map_buffer that performs this mapping later if it it wasn't mapped in mlx4_buf_alloc.
 
-Probably wanted to lay the basis for future flags.
-But you're right in that there's no need for it.
-I'll change it in V2.
-
-Thanks,
-Yuval
+You'll need to get rid of that by ensuring max_direct for all the cases currently using mlx4_en_map_buffer as well.
