@@ -1,81 +1,59 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
-Date: Mon, 18 Apr 2016 15:23:23 +0100
-Message-ID: <5714EDDB.8080306@brocade.com>
-References: <5711ADD1.2030904@brocade.com>
+From: Eli Cohen <eli@mellanox.com>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 17:05:20 +0300
+Message-ID: <20160418140520.GC11539@x-vnc01.mtx.labs.mlnx>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
+ <5714E6DA.4080008@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:9697 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750717AbcDROXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 10:23:34 -0400
-Received: from pps.filterd (m0048192.ppops.net [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IEAeFh023908
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 07:23:33 -0700
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 22bmp4uyd6-2
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 07:23:33 -0700
-In-Reply-To: <5711ADD1.2030904@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma@vger.kernel.org, timur@codeaurora.org,
+	cov@codeaurora.org, Yishai Hadas <yishaih@mellanox.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sinan Kaya <okaya@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5714E6DA.4080008@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-f1705ec197e7 "Make address flushing on ifdown optional" added the option
-to retain user configured addresses on an admin down. A comment to one of
-the later revisions suggested using the IFA_F_PERMANENT flag rather than
-adding a user_managed boolean to the ifaddr struct. A side effect of this
-change is that link local and loopback addresses were also retained which
-was not part of the objective of the original changes. The fix 70af921db6f8
-"Do not keep linklocal and loopback addresses" ensures that these are no
-longer kept. Similarly, the present fix ensures that these addresses are not
-fixed up either, otherwise the incorrect fixup triggers a crash in fib6.
+Sure, this is not the complete patch. As far as I know the problem
+you're facing with arm is that virt_to_page() does not provide the
+correct page descriptor so my suggestion will eliminate the need for
+it.
 
-Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-Signed-off-by: Mike Manning <mmanning@brocade.com>
----
- net/ipv6/addrconf.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 23cec53..cba4e10 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3200,6 +3200,12 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
- }
- #endif
- 
-+static bool addr_is_local(const struct in6_addr *addr)
-+{
-+	return ipv6_addr_type(addr) &
-+		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
-+}
-+
- static int fixup_permanent_addr(struct inet6_dev *idev,
- 				struct inet6_ifaddr *ifp)
- {
-@@ -3238,6 +3244,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 
- 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
-+		    !addr_is_local(&ifp->addr) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
- 			write_unlock_bh(&idev->lock);
- 			ipv6_del_addr(ifp);
-@@ -3448,12 +3455,6 @@ static void addrconf_type_change(struct net_device *dev, unsigned long event)
- 		ipv6_mc_unmap(idev);
- }
- 
--static bool addr_is_local(const struct in6_addr *addr)
--{
--	return ipv6_addr_type(addr) &
--		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
--}
--
- static int addrconf_ifdown(struct net_device *dev, int how)
- {
- 	struct net *net = dev_net(dev);
--- 
-1.7.10.4
+On Mon, Apr 18, 2016 at 09:53:30AM -0400, Sinan Kaya wrote:
+> On 4/18/2016 2:54 AM, Eli Cohen wrote:
+> > Sinan,
+> > 
+> > if we get rid of the part this code:
+> > 
+> >                 if (BITS_PER_LONG == 64) {
+> >                         struct page **pages;
+> >                         pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
+> >                         if (!pages)
+> >                                 goto err_free;
+> >                         ...
+> >                         ...
+> >                         if (!buf->direct.buf)
+> >                                 goto err_free;
+> >                 }
+> > 
+> > Does that solve the arm issue?
+> 
+> I will test. As far as I know, there is one more place these DMA addresses
+> are called with vmap. This is in mlx4_en_map_buffer.
+> 
+> I was trying to rearrange the allocation so that vmap actually works.
+> 
+> What do you think about mlx4_en_map_buffer?
+> 
+> 
+> -- 
+> Sinan Kaya
+> Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
+> Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
