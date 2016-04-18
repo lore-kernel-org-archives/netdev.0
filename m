@@ -1,42 +1,84 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
-Date: Tue, 19 Apr 2016 07:44:55 +1000
-Message-ID: <20160419074455.10a96986@canb.auug.org.au>
-References: <20160418080202.GA18155@gondor.apana.org.au>
-	<11585265.Dbvl2xi4u3@wuerfel>
-	<20160418104336.GA19175@gondor.apana.org.au>
-	<20160418.124316.1862068166928198574.davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
+Date: Mon, 18 Apr 2016 14:49:48 -0700
+Message-ID: <CAPWQB7EnefsCzqPCB+LbLzF_MEK-QbeW+g=dk6Q2K=fwiDt1qA@mail.gmail.com>
+References: <1460570974-44050-1-git-send-email-joe@ovn.org>
+ <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com>
+ <20160414084015.GA3192@breakpoint.cc> <20160414103533.GA3211@salvia>
+ <CAPWQB7EV-boR1_yaBeY8tQtHgc09+14jQ_q7yk=bpwrtqL+20Q@mail.gmail.com> <20160418183546.GA4289@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, arnd@arndb.de, sd@queasysnail.net,
-	hannes@stressinduktion.org, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418.124316.1862068166928198574.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	David Laight <David.Laight@aculab.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"diproiettod@vmware.com" <diproiettod@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:42401 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200AbcDRVuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:50:13 -0400
+In-Reply-To: <20160418183546.GA4289@salvia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-On Mon, 18 Apr 2016 12:43:16 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+On 18 April 2016 at 11:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Thu, Apr 14, 2016 at 05:35:39PM -0700, Joe Stringer wrote:
+>> On 14 April 2016 at 03:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> > On Thu, Apr 14, 2016 at 10:40:15AM +0200, Florian Westphal wrote:
+>> >> David Laight <David.Laight@ACULAB.COM> wrote:
+>> >> > From: Joe Stringer
+>> >> > > Sent: 13 April 2016 19:10
+>> >> > > This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
+>> >> > > orphan skbs inside ip_defrag()").
+>> >> > >
+>> >> > > Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
+>> >> > > clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
+>> >> > > cloned (implicitly orphaning) prior to queueing for reassembly. As such,
+>> >> > > when the IPv6 message is eventually reassembled, the skb->sk for all
+>> >> > > fragments would be NULL. After that commit was introduced, rather than
+>> >> > > cloning, the original skbs were queued directly without orphaning. The
+>> >> > > end result is that all frags except for the first and last may have a
+>> >> > > socket attached.
+>> >> >
+>> >> > I'd have thought that the queued fragments would still want to be
+>> >> > resource-counted against the socket (I think that is what skb->sk is for).
+>> >>
+>> >> No, ipv4/ipv6 reasm has its own accouting.
+>> >>
+>> >> > Although I can't imagine why IPv6 reassembly is happening on skb
+>> >> > associated with a socket.
+>> >>
+>> >> Right, thats a much more interesting question -- both ipv4 and
+>> >> ipv6 orphan skbs before NF_HOOK prerouting trip.
+>> >>
+>> >> (That being said, I don't mind the patch, I'm just be curious how this
+>> >>  can happen).
+>> >
+>> > If this change is specific to get this working in ovs and its
+>> > conntrack support, then I don't think this belong to core
+>> > infrastructure. This should be fixed in ovs instead.
+>>
+>> I admit I've only been able to reproduce it with OVS. My main reason
+>> for proposing the fix this way was just because this is what the IPv4
+>> code does, so I figured IPv6 should be consistent with that.
 >
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Mon, 18 Apr 2016 18:43:36 +0800
-> 
-> > Right, the problem is that nothing within crypto ever selects
-> > CRYPTO since it's also used as a way of hiding the crypto menu
-> > options.  
-> 
-> As far as I understand it, this won't help.  Because selects do not
-> trigger other selects and dependencies.
+> You mean that this is what you did in 029f7f3b8701 to fix this, right?
+>
+> But we shouldn't add code to the core that is OVS specific for no
+> reason. We don't need this orphan from ipv4 and ipv6 as Florian
+> indicated.
 
-My understanding is that selects trigger other selects, but do not
-honour dependencies.  So, in general, you should not select a symbol
-that has dependencies (unless you also have the same dependencies or
-select those dependencies).
+That makes complete sense to me. I was wondering whether the original
+IPv4 fix was the correct one from the nf core perspective - but it
+seems like perhaps it is, given that ip_defrag() has a lot more users
+from a lot more different paths which are likely relying on the skb to
+be orphaned. In comparison, in the IPv6 path, nf_ct_frag6_gather() is
+only called from OVS and the netfilter hooks; the hooks already do the
+orphaning, so it's more consistent for OVS to do it as well.
 
--- 
-Cheers,
-Stephen Rothwell
+> Is there any chance you can fix this from OVS and its conntrack glue
+> code? Thanks.
+
+Sure, I'll resend the patch making the fix in OVS.
