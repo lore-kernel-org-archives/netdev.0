@@ -1,81 +1,49 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
-Date: Mon, 18 Apr 2016 16:28:43 +0100
-Message-ID: <5714FD2B.9070209@brocade.com>
-References: <5714EDDB.8080306@brocade.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 08:40:58 -0700
+Message-ID: <20160418154058.GA4228@infradead.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
+ <20160418143255.GA15203@infradead.org>
+ <DB5PR05MB1848424EC9DC8D4150EADB03C56B0@DB5PR05MB1848.eurprd05.prod.outlook.com>
+ <20160418151702.GA26565@infradead.org>
+ <5714FB68.3020604@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:55314 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751709AbcDRP26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:28:58 -0400
-Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IFKmu5011595
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 08:28:54 -0700
-Received: from brmwp-exmb12.corp.brocade.com ([208.47.132.227])
-	by mx0a-000f0801.pphosted.com with ESMTP id 22bmsxc6mk-5
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 08:28:53 -0700
-In-Reply-To: <5714EDDB.8080306@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5714FB68.3020604-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional") added
-the option to retain user configured addresses on an admin down. A comment
-to one of the later revisions suggested using the IFA_F_PERMANENT flag rather
-than adding a user_managed boolean to the ifaddr struct. A side effect of
-this change is that link local and loopback addresses were also retained which
-was not part of the objective of the original changes. The fix 70af921db6f8
-("net: ipv6: Do not keep linklocal and loopback addresses") ensures that these
-are no longer kept. Similarly, the present fix ensures that these addresses
-are not fixed up, otherwise the incorrect fixup triggers a crash in fib6.
+On Mon, Apr 18, 2016 at 11:21:12AM -0400, Sinan Kaya wrote:
+> I was looking at the code. I don't see how removing virt_to_page + vmap 
+> would solve the issue.
+> 
+> The code is trying to access the buffer space with direct.buf member
+> from the CPU side. This member would become NULL, when this code is 
+> removed and also in mlx4_en_map_buffer. 
+>
+> ...
+>
+> What am I missing?
 
-Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-Signed-off-by: Mike Manning <mmanning@brocade.com>
----
- net/ipv6/addrconf.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 23cec53..cba4e10 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3200,6 +3200,12 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
- }
- #endif
- 
-+static bool addr_is_local(const struct in6_addr *addr)
-+{
-+	return ipv6_addr_type(addr) &
-+		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
-+}
-+
- static int fixup_permanent_addr(struct inet6_dev *idev,
- 				struct inet6_ifaddr *ifp)
- {
-@@ -3238,6 +3244,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 
- 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
-+		    !addr_is_local(&ifp->addr) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
- 			write_unlock_bh(&idev->lock);
- 			ipv6_del_addr(ifp);
-@@ -3448,12 +3455,6 @@ static void addrconf_type_change(struct net_device *dev, unsigned long event)
- 		ipv6_mc_unmap(idev);
- }
- 
--static bool addr_is_local(const struct in6_addr *addr)
--{
--	return ipv6_addr_type(addr) &
--		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
--}
--
- static int addrconf_ifdown(struct net_device *dev, int how)
- {
- 	struct net *net = dev_net(dev);
--- 
-1.7.10.4
+As mentioned before you'll also need to enforce you hit the nbufs = 1
+case for these.  In fact most callers should simply switch to a plain
+dma_zalloc_coherent call without all these wrappers.  If we have a case
+where we really want multiple buffers that don't have to be contiguous
+(maybe the MTT case) I'd rather opencode that instead of building this
+confusing interface on top of it.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
