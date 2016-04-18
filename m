@@ -1,75 +1,60 @@
-From: Michal Kazior <michal.kazior@tieto.com>
-Subject: Re: [PATCH] ipv6: allow bypassing cross-intf routing limits
-Date: Mon, 18 Apr 2016 11:38:42 +0200
-Message-ID: <CA+BoTQ=8fbfQ9WuY=2+O-_uCu4qFJj33a3fTD_K4OC2HLD=J_A@mail.gmail.com>
-References: <1459757755-25424-1-git-send-email-michal.kazior@tieto.com>
-	<1460637988-31606-1-git-send-email-michal.kazior@tieto.com>
-	<20160416.184936.1899675200733835878.davem@davemloft.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv3 net-next 1/6] sctp: add sctp_info dump api for sctp_diag
+Date: Mon, 18 Apr 2016 12:18:24 +0200
+Message-ID: <20160418101824.GB14683@orbyte.nwl.cc>
+References: <cover.1460618169.git.lucien.xin@gmail.com>
+ <cover.1460618169.git.lucien.xin@gmail.com>
+ <cd6bf9c2696f125a74491e1f82b77a30bb1005dd.1460618169.git.lucien.xin@gmail.com>
+ <20160415.172858.253625178036493951.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, marcelo.leitner@gmail.com,
+	vyasevich@gmail.com, daniel@iogearbox.net, eric.dumazet@gmail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:36780 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972AbcDRJio convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 05:38:44 -0400
-Received: by mail-wm0-f53.google.com with SMTP id v188so110618651wme.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 02:38:43 -0700 (PDT)
-In-Reply-To: <20160416.184936.1899675200733835878.davem@davemloft.net>
+Received: from orbyte.nwl.cc ([151.80.46.58]:40814 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751358AbcDRKS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Apr 2016 06:18:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20160415.172858.253625178036493951.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17 April 2016 at 00:49, David Miller <davem@davemloft.net> wrote:
-> From: Michal Kazior <michal.kazior@tieto.com>
-> Date: Thu, 14 Apr 2016 14:46:28 +0200
->
->> There are some use-cases to allow link-local
->> routing for bridging purposes.
->>
->> One of these is allowing transparent 802.11
->> bridging. Due to 802.11 framing limitations many
->> Access Points make it impossible to create bridges
->> on Client endpoints because they can't maintain
->> Destination/Source/Transmitter/Receiver address
->> distinction with only 3 addresses in frame header.
->>
->> The default behavior, i.e. link-local traffic
->> being non-routable, remains. The user has to
->> explicitly enable the bypass when defining a given
->> route.
->>
->> Signed-off-by: Michal Kazior <michal.kazior@tieto.com>
->
-> Sorry, whilst I realize your problem, I'm not going to add what is
-> explicitly a violation of the way link-local addresses are meant to
-> work and the very much intentional restrictions the RFCs place upon
-> them (they MUST not be routed).
->
-> I also didn't see any real discussions in response to your original
-> proposals, not from even one person I know is knowledgable about ipv6
-> and the implications your change would have, and that is extremely
-> troubling.
->
-> I tried to let your patches sit for several days in order to let that
-> kind of discussion happen, but it didn't.
+On Fri, Apr 15, 2016 at 05:28:58PM -0400, David Miller wrote:
+> Feedback was given here not to mix the changelog and the commit message.
+> 
+> And I want to explicitly state that I totally and _COMPLETELY_ disagree
+> with this.
+> 
+> It is absolutely essential information and belongs in the commit message.
+> 
+> Adding more information never hurts, so don't do this crap of putting
+> things that might be useful to know after the "---", ever.
+> 
+> Someone in the future might ask "why didn't he implement it like XXX"
+> and the changelog can tell him that originally that is what was done
+> and feedback was given to do it differently.
 
-I totally understand. Thanks anyway.
+I see your point and am well aware the last word on this belongs to you.
+Still I would like to explain why I disagree:
 
+In my understanding, the changelog addresses reviewers only, so they
+know what to expect or which new chunks to have another look at.  If the
+changelog provides valuable information beyond that, I think the mistake
+was to not update the commit message accordingly.
 
-> So, you'll need to find another way to achieve your goals.
+Imagine a patchset being rerolled ten times with massive changes in
+between - do you really appreciate if the changelog applies to v1 only
+and people have to read through nine increments to find out what is
+actually being done?
 
-Hmm.. I actually do have another idea in mind already.
+Although I'm exaggerating, one could apply the same logic to the code
+changes itself and demand v1 being applied as is with each evolution
+separately on top, as otherwise information is lost.
 
-I was wondering about about implementing a link device in a similar
-fashion to macvlan, bridge, et al, i.e. the device would take an
-interface (wlan interface in my case) as a slave and perform L2
-address mangling (which should be enough to accommodate the addressing
-deficiency in wireless client modes). The device would obviously need
-to do some L3/L4 packet inspection and manipulation.
-
-Would something like that be acceptable? Thoughts?
-
-
-Micha=C5=82
+Cheers, Phil
+> 
+> So Xin thanks for correctly putting the changelog inside of the commit
+> message, so that future developers can benefit from this knowledge.
