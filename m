@@ -1,51 +1,71 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: w5100: don't build spi driver without w5100
-Date: Mon, 18 Apr 2016 23:58:30 +0200
-Message-ID: <1461016722-2637993-1-git-send-email-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Akinobu Mita <akinobu.mita@gmail.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] rtl8xxxu: hide unused tables
+Date: Mon, 18 Apr 2016 23:59:31 +0200
+Message-ID: <1461016782-2640046-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Jakub Sitnicki <jsitnicki@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jes Sorensen <Jes.Sorensen@redhat.com>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The w5100-spi driver front-end only makes sense when the w5100
-core driver is enabled, not for a configuration that only has w5300:
+The references to some arrays in the rtl8xxxu driver were moved inside
+of an #ifdef, but the symbols remain outside, resulting in build warnings:
 
-drivers/net/built-in.o: In function `w5100_spi_remove':
-drivers/net/ethernet/wiznet/w5100-spi.c:277: undefined reference to `w5100_remove'
-drivers/net/built-in.o: In function `w5100_spi_probe':
-drivers/net/ethernet/wiznet/w5100-spi.c:272: undefined reference to `w5100_probe'
-drivers/net/built-in.o: In function `w5200_spi_init':
-drivers/net/ethernet/wiznet/w5100-spi.c:125: undefined reference to `w5100_ops_priv'
-drivers/net/built-in.o: In function `w5200_spi_readbulk':
-drivers/net/ethernet/wiznet/w5100-spi.c:125: undefined reference to `w5100_ops_priv'
-drivers/net/built-in.o: In function `w5200_spi_writebulk':
-drivers/net/ethernet/wiznet/w5100-spi.c:125: undefined reference to `w5100_ops_priv'
-drivers/net/built-in.o:(.data+0x3ed1c): undefined reference to `w5100_pm_ops'
+rtl8xxxu/rtl8xxxu.c:1506:33: error: 'rtl8188ru_radioa_1t_highpa_table' defined but not used
+rtl8xxxu/rtl8xxxu.c:1431:33: error: 'rtl8192cu_radioa_1t_init_table' defined but not used
+rtl8xxxu/rtl8xxxu.c:1407:33: error: 'rtl8192cu_radiob_2t_init_table' defined but not used
+rtl8xxxu/rtl8xxxu.c:1332:33: error: 'rtl8192cu_radioa_2t_init_table' defined but not used
+rtl8xxxu/rtl8xxxu.c:239:35: error: 'rtl8192c_power_base' defined but not used
+rtl8xxxu/rtl8xxxu.c:217:35: error: 'rtl8188r_power_base' defined but not used
 
-This adds an appropriate Kconfig dependency.
+This adds an extra #ifdef around them to shut up the warnings.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 630cf09751fe ("net: w5100: support SPI interface mode")
+Fixes: 2fc0b8e5a17d ("rtl8xxxu: Add TX power base values for gen1 parts")
+Fixes: 4062b8ffec36 ("rtl8xxxu: Move PHY RF init into device specific functions")
 ---
- drivers/net/ethernet/wiznet/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/wiznet/Kconfig b/drivers/net/ethernet/wiznet/Kconfig
-index 1f15376e9856..f3385a1999a2 100644
---- a/drivers/net/ethernet/wiznet/Kconfig
-+++ b/drivers/net/ethernet/wiznet/Kconfig
-@@ -71,7 +71,7 @@ endchoice
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
+index 928ca56f751c..0ba84b5fe0d6 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c
+@@ -214,6 +214,7 @@ static struct rtl8xxxu_reg8val rtl8192e_mac_init_table[] = {
+ 	{0xffff, 0xff},
+ };
  
- config WIZNET_W5100_SPI
- 	tristate "WIZnet W5100/W5200 Ethernet support for SPI mode"
--	depends on WIZNET_BUS_ANY
-+	depends on WIZNET_BUS_ANY && WIZNET_W5100
- 	depends on SPI
- 	---help---
- 	  In SPI mode host system accesses registers using SPI protocol
++#ifdef CONFIG_RTL8XXXU_UNTESTED
+ static struct rtl8xxxu_power_base rtl8188r_power_base = {
+ 	.reg_0e00 = 0x06080808,
+ 	.reg_0e04 = 0x00040406,
+@@ -257,6 +258,7 @@ static struct rtl8xxxu_power_base rtl8192c_power_base = {
+ 	.reg_084c = 0x0b0c0d0e,
+ 	.reg_0868 = 0x01030509,
+ };
++#endif
+ 
+ static struct rtl8xxxu_power_base rtl8723a_power_base = {
+ 	.reg_0e00 = 0x0a0c0c0c,
+@@ -1329,6 +1331,7 @@ static struct rtl8xxxu_rfregval rtl8723bu_radioa_1t_init_table[] = {
+ 	{0xff, 0xffffffff}
+ };
+ 
++#ifdef CONFIG_RTL8XXXU_UNTESTED
+ static struct rtl8xxxu_rfregval rtl8192cu_radioa_2t_init_table[] = {
+ 	{0x00, 0x00030159}, {0x01, 0x00031284},
+ 	{0x02, 0x00098000}, {0x03, 0x00018c63},
+@@ -1577,6 +1580,7 @@ static struct rtl8xxxu_rfregval rtl8188ru_radioa_1t_highpa_table[] = {
+ 	{0x00, 0x00030159},
+ 	{0xff, 0xffffffff}
+ };
++#endif
+ 
+ static struct rtl8xxxu_rfregval rtl8192eu_radioa_init_table[] = {
+ 	{0x7f, 0x00000082}, {0x81, 0x0003fc00},
 -- 
 2.7.0
