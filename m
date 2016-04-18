@@ -1,31 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/mlx4_en: allocate non 0-order pages for RX ring
- with __GFP_NOMEMALLOC
-Date: Mon, 18 Apr 2016 05:12:07 -0700
-Message-ID: <1460981527.10638.102.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <146097923460.15114.8965134124148581055.stgit@buzz>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 05:12:47 -0700
+Message-ID: <20160418121247.GA25387@infradead.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yishai Hadas <yishaih@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	linux-kernel@vger.kernel.org
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146097923460.15114.8965134124148581055.stgit@buzz>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1460845412-13120-1-git-send-email-okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-04-18 at 14:33 +0300, Konstantin Khlebnikov wrote:
-> High order pages are optional here since commit 51151a16a60f ("mlx4: allow
-> order-0 memory allocations in RX path"), so here is no reason for depleting
-> reserves. Generic __netdev_alloc_frag() implements the same logic.
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On Sat, Apr 16, 2016 at 06:23:32PM -0400, Sinan Kaya wrote:
+> Current code is assuming that the address returned by dma_alloc_coherent
+> is a logical address. This is not true on ARM/ARM64 systems.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Can you explain what you mean with a 'logical address' and what actual
+issue you're trying to solve?
 
-Thanks !
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
