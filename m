@@ -1,40 +1,64 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 18 Apr 2016 11:30:38 +1000
-Message-ID: <20160418113038.00d78799@canb.auug.org.au>
+Date: Mon, 18 Apr 2016 11:31:16 +1000
+Message-ID: <20160418113116.6f7f8740@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+	Craig Gallek <kraig@google.com>,
+	Eric Dumazet <edumazet@google.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in:
 
-  drivers/net/dsa/mv88e6xxx.c
+  net/ipv4/udp.c
 
 between commit:
 
-  207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
+  d894ba18d4e4 ("soreuseport: fix ordering for mixed v4/v6 sockets")
 
 from the net tree and commit:
 
-  009a2b9843bf ("net: dsa: mv88e6xxx: add number of ports to info")
+  ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
 
 from the net-next tree.
 
-I fixed it up (the former removed some of the code updated by the latter)
-and can carry the fix as necessary. This is now fixed as far as linux-next
-is concerned, but any non trivial conflicts should be mentioned to your
-upstream maintainer when your tree is submitted for merging.  You may
-also want to consider cooperating with the maintainer of the conflicting
-tree to minimise any particularly complex conflicts.
+I tried to fixed it up (see below).  Unfortunately,
+hlist_add_tail_rcu() does not exist.  So instead I have reverted commit
+d894ba18d4e4 ("soreuseport: fix ordering for mixed v4/v6 sockets") for
+today.
 
 -- 
 Cheers,
 Stephen Rothwell
+
+diff --cc net/ipv4/udp.c
+index a2e7f55a1f61,f1863136d3e4..000000000000
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@@ -339,13 -336,8 +336,13 @@@ found
+  
+  		hslot2 = udp_hashslot2(udptable, udp_sk(sk)->udp_portaddr_hash);
+  		spin_lock(&hslot2->lock);
+ -		hlist_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
+ -					 &hslot2->head);
+ +		if (IS_ENABLED(CONFIG_IPV6) && sk->sk_reuseport &&
+ +			sk->sk_family == AF_INET6)
+- 			hlist_nulls_add_tail_rcu(&udp_sk(sk)->udp_portaddr_node,
+- 						 &hslot2->head);
+++			hlist_add_tail_rcu(&udp_sk(sk)->udp_portaddr_node,
+++					   &hslot2->head);
+ +		else
+- 			hlist_nulls_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
+- 						 &hslot2->head);
+++			hlist_add_head_rcu(&udp_sk(sk)->udp_portaddr_node,
+++					   &hslot2->head);
+  		hslot2->count++;
+  		spin_unlock(&hslot2->lock);
+  	}
