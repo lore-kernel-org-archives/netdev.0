@@ -1,8 +1,7 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] net/mlx4_en: allocate non 0-order pages for RX ring with
- __GFP_NOMEMALLOC
-Date: Mon, 18 Apr 2016 14:33:54 +0300
-Message-ID: <146097923460.15114.8965134124148581055.stgit@buzz>
+Subject: [PATCH] net/mlx4_en: do batched put_page using atomic_sub
+Date: Mon, 18 Apr 2016 14:34:05 +0300
+Message-ID: <146097924572.15144.10837875571142670008.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,25 +12,38 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-High order pages are optional here since commit 51151a16a60f ("mlx4: allow
-order-0 memory allocations in RX path"), so here is no reason for depleting
-reserves. Generic __netdev_alloc_frag() implements the same logic.
+This patch fixes couple error paths after allocation failures.
+Atomic set of page reference counter is safe only if it is zero,
+otherwise set can race with any speculative get_page_unless_zero.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 86bcfe510e4e..56d070d9cf01 100644
+index 56d070d9cf01..7d25bc9c1b22 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -61,7 +61,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
- 		gfp_t gfp = _gfp;
- 
- 		if (order)
--			gfp |= __GFP_COMP | __GFP_NOWARN;
-+			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NOMEMALLOC;
- 		page = alloc_pages(gfp, order);
- 		if (likely(page))
- 			break;
+@@ -126,7 +126,9 @@ out:
+ 			dma_unmap_page(priv->ddev, page_alloc[i].dma,
+ 				page_alloc[i].page_size, PCI_DMA_FROMDEVICE);
+ 			page = page_alloc[i].page;
+-			set_page_count(page, 1);
++			/* Revert changes done by mlx4_alloc_pages */
++			page_ref_sub(page, page_alloc[i].page_size /
++					   priv->frag_info[i].frag_stride - 1);
+ 			put_page(page);
+ 		}
+ 	}
+@@ -176,7 +178,9 @@ out:
+ 		dma_unmap_page(priv->ddev, page_alloc->dma,
+ 			       page_alloc->page_size, PCI_DMA_FROMDEVICE);
+ 		page = page_alloc->page;
+-		set_page_count(page, 1);
++		/* Revert changes done by mlx4_alloc_pages */
++		page_ref_sub(page, page_alloc->page_size /
++				   priv->frag_info[i].frag_stride - 1);
+ 		put_page(page);
+ 		page_alloc->page = NULL;
+ 	}
