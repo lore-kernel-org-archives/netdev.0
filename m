@@ -1,73 +1,50 @@
-From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Subject: RE: [PATCHv2] wlcore: spi: add wl18xx support
-Date: Mon, 18 Apr 2016 05:55:51 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
-References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
- <8665E2433BC68541A24DFFCA87B70F5B360B6C90@DFRE01.ent.ti.com>
- <14313437.cDJIgY3kzo@wuerfel>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH net-next 5/5] qed*: Add support for read/write of eeprom
+Date: Mon, 18 Apr 2016 05:50:05 +0000
+Message-ID: <CO2PR11MB00888E4DBF49BE0A98ACB381976B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1460921195-23352-6-git-send-email-Yuval.Mintz@qlogic.com>
+	<20160417.191849.2044093416855662399.davem@davemloft.net>
+	<CO2PR11MB0088716755CC57276455ADA4976B0@CO2PR11MB0088.namprd11.prod.outlook.com>,<20160418.000712.473871996964045833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <14313437.cDJIgY3kzo@wuerfel>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bbn0105.outbound.protection.outlook.com ([157.56.111.105]:54540
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751531AbcDRGFt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 02:05:49 -0400
+In-Reply-To: <20160418.000712.473871996964045833.davem@davemloft.net>
 Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >
-> > - all wilink family needs special init command for entering wspi mode.
-> >   extra clock cycles should be sent after the spi init command while the
-> >   cs pin is high.
-> > - switch to controling the cs pin from the spi driver for achieveing the
-> >   above.
-> > - the selected cs gpio is read from the spi device-tree node using the
-> >   cs-gpios field and setup as a gpio.
-> > - See the example below for specifying the cs gpio using the cs-gpios entry
-> > &spi0   {
-> >         ...
-> >         cs-gpios = <&gpio0 5 0>;
-> >         ...
-> >         wlcore: wlcore@0 {
-> >                 compatible = "ti,wl1835";
-> >         ...
-> >         ...
-> >         };
-> > };
-> >
-> > Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-> 
-> I don't think this can work in general: not all SPI hosts uses GPIOs for
-> controlling CS, so the logic can't work, and it's also a layering violation for the
-> driver to look at the parent.
-> 
-> I would suggest fixing this using a new API function from the SPI core, if we
-> don't already have a generic way to do it.
->
-Originally this is what I have done until I was pointed to the generic cs-gpio mechanism 
-in the SPI core. 
-It is a generic mechanism already in the SPI core driver.
-See: Documentation/devicetree/bindings/spi/spi-bus.txt
+>> The third option I see is to completely ditch this, stating that although
+>> We obviously CAN set the non-volatile memory we CAN'T do it with the
+>> regular API, and to move into doing this via some proprietary API such
+>> as debugfs.
 
-It is also part of the generic spi.h (include/Linux/spi/spi.h), already part of 
-" struct spi_device" So it seemed redundant adding another mechanism for 
-implementing the same.
-Platform that interact with a wilink need to use it, and platforms that don't  
-have this capability will probably not interact with a wilink device using SPI.
+> Why go to debugfs rather than gracefully extending the ethtool stuff to
+> explicitly support what you need?
 
-Best Regards,
-Eyal
+Gracefully extend it to where?
 
+The most I can learn from this is that some adapters are in
+need of additional metadata for doing this sort of stuff.
+The state-machine itself is propriety and I don't think anyone
+would gain from trying to formalize anything else from it.
+If by 'graceful extension' of ethtool API you mean adding an
+additional field or two for metadata - sure, I can do that,
+I just don't think of it as graceful. ;-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And if this is actually the way we want to take this, I would
+still [don't get upset ;-)] argue in favor of overloading the
+'magic' field for this purpose, as bnx2x and bnxt are already
+doing.
+Basically if the 'magic' would also contain metadata that
+could be verified as appropriate [I.e., by having valid ranges],
+it would still fit as a safety measure for guaranteeing the
+correctness of the write request.
