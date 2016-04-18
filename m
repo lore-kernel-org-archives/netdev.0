@@ -1,56 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/2] bpf: add event output helper for notifications/sampling/logging
-Date: Mon, 18 Apr 2016 09:22:15 +0200
-Message-ID: <57148B27.60001@iogearbox.net>
-References: <201604180722.wizpe3nL%fengguang.wu@intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
+Date: Mon, 18 Apr 2016 16:02:02 +0800
+Message-ID: <20160418080202.GA18155@gondor.apana.org.au>
+References: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, davem@davemloft.net,
-	alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@kernel.org>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, sd@queasysnail.net, arnd@arndb.de,
+	hannes@stressinduktion.org, johannes@sipsolutions.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201604180722.wizpe3nL%fengguang.wu@intel.com>
+Content-Disposition: inline
+In-Reply-To: <1460884918-2879720-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/18/2016 01:55 AM, kbuild test robot wrote:
-> Hi Daniel,
->
-> [auto build test ERROR on net-next/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Daniel-Borkmann/bpf-trace-add-BPF_F_CURRENT_CPU-flag-for-bpf_perf_event_output/20160418-063147
-> config: m68k-allyesconfig (attached as .config)
-> reproduce:
->          wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->          chmod +x ~/bin/make.cross
->          # save the attached .config to linux build tree
->          make.cross ARCH=m68k
->
-> All errors (new ones prefixed by >>):
->
->     net/core/filter.c: In function 'bpf_skb_event_output':
->>> net/core/filter.c:1599:2: error: implicit declaration of function 'perf_fetch_caller_regs' [-Werror=implicit-function-declaration]
->       perf_fetch_caller_regs(regs);
->       ^
->     cc1: some warnings being treated as errors
->
-> vim +/perf_fetch_caller_regs +1599 net/core/filter.c
->
->    1593	static DEFINE_PER_CPU(struct pt_regs, bpf_pt_regs);
->    1594	
->    1595	static u64 bpf_skb_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
->    1596	{
->    1597		struct pt_regs *regs = this_cpu_ptr(&bpf_pt_regs);
->    1598	
->> 1599		perf_fetch_caller_regs(regs);
->    1600	
->    1601		return bpf_perf_event_output((long)regs, r2, flags, r4, size);
->    1602	}
+Arnd Bergmann <arnd@arndb.de> wrote:
+> The new MACsec driver uses the AES crypto algorithm, but can be configured
+> even if CONFIG_CRYPTO is disabled, leading to a build error:
+> 
+> warning: (MAC80211 && MACSEC) selects CRYPTO_GCM which has unmet direct dependencies (CRYPTO)
+> warning: (BT && CEPH_LIB && INET && MAC802154 && MAC80211 && BLK_DEV_RBD && MACSEC && AIRO_CS && LIBIPW && HOSTAP && USB_WUSB && RTLLIB_CRYPTO_CCMP && FS_ENCRYPTION && EXT4_ENCRYPTION && CEPH_FS && BIG_KEYS && ENCRYPTED_KEYS) selects CRYPTO_AES which has unmet direct dependencies (CRYPTO)
+> crypto/built-in.o: In function `gcm_enc_copy_hash':
+> aes_generic.c:(.text+0x2b8): undefined reference to `crypto_xor'
+> aes_generic.c:(.text+0x2dc): undefined reference to `scatterwalk_map_and_copy'
+> 
+> This adds an explicit 'select CRYPTO' statement the way that other
+> drivers handle it.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
 
-Sorry about that, missed this one. Will fix it up in v2!
+Thnis patch is bogus.  The build error is coming from the fact
+that GCM is built-in but CRYPTO_ALGAPI is (presumably) only built
+as a module.  The patch in question does nothing to address that
+AFAICS.
 
-Thanks,
-Daniel
+In fact this strikes me as a kbuild bug because CRYPTO_GCM already
+selects (indirectly) CRYPTO_ALGAPI so why is this happening at all?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
