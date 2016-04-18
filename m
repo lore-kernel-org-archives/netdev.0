@@ -1,62 +1,39 @@
-From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+From: Christian Lamparter <chunkeey@googlemail.com>
 Subject: Re: [PATCH v2] carl9170: Clarify kconfig text
-Date: Mon, 18 Apr 2016 10:07:02 -0700 (PDT)
-Message-ID: <11418613.XH7h8m2RjK@debian64>
-References: <20160416113312.8de2266358165182bb4b4a15@gmx.com> <3244016.0TmHG3E4A9@debian64> <87r3e2kgwy.fsf@kamboji.qca.qualcomm.com>
+Date: Mon, 18 Apr 2016 19:10:57 +0200
+Message-ID: <5517762.PotoMG0SZb@debian64>
+References: <c17f2f12-1c94-6b19-c918-0a6a9ee401ca@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: Lauri Kasanen <cand-KK0ffGbhmjU@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87r3e2kgwy.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Lauri Kasanen <cand@gmx.com>, Kalle Valo <kvalo@codeaurora.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	Linux Firmware Maintainers <linux-firmware@kernel.org>,
+	sgruszka@redhat.com
+To: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c17f2f12-1c94-6b19-c918-0a6a9ee401ca@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, April 18, 2016 07:42:05 PM Kalle Valo wrote:
-> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
+On Monday, April 18, 2016 06:47:44 PM Xose Vazquez Perez wrote:
+> Christian Lamparter wrote:
 > 
-> > On Monday, April 18, 2016 06:45:09 PM Kalle Valo wrote:
-> >> Lauri Kasanen <cand-KK0ffGbhmjU@public.gmane.org> writes:
-> >> 
-> >> > --- a/drivers/net/wireless/ath/carl9170/Kconfig
-> >> > +++ b/drivers/net/wireless/ath/carl9170/Kconfig
-> >> > @@ -5,12 +5,10 @@ config CARL9170
-> >> >  	select FW_LOADER
-> >> >  	select CRC32
-> >> >  	help
-> >> > -	  This is another driver for the Atheros "otus" 802.11n USB devices.
-> >> > +	  This is the mainline driver for the Atheros "otus" 802.11n USB devices.
-> >> >  
-> >> > -	  This driver provides more features than the original,
-> >> > -	  but it needs a special firmware (carl9170-1.fw) to do that.
-> >> > -
-> >> > -	  The firmware can be downloaded from our wiki here:
-> >> > +	  It needs a special firmware (carl9170-1.fw), which can be downloaded
-> >> > +	  from our wiki here:
-> >> >  	  <http://wireless.kernel.org/en/users/Drivers/carl9170>
-> >> 
-> >> Why even mention anything about a "special firmware" as the firmware is
-> >> already available from linux-firmware.git? 
-> >
-> > Yes and no. 1.9.6 is in linux-firmware.git. I've tried to add 1.9.9 too
-> > but that failed.
-> > <http://comments.gmane.org/gmane.linux.kernel.wireless.general/114639>
+> > Sure, but this could be a different patch then. I think Intel devices 
+> > (iwlwifi, iwlegacy and ipw2x00) have a similar text about "download
+> > firmware from this device from our homepage here" too. So if we want,
+> > we can remove them altogether?
 > 
-> Rick's comment makes sense to me, better just to provide the latest
-> version. No need to unnecessary confuse the users. And if someone really
-> wants to use an older version that she can retrieve it from the git
-> history.
-Part of the fun here is that firmware is GPLv2. The linux-firmware.git has
-to point to or add the firmware source to their tree. They have added every
-single source file to it.... instead of "packaging" it in a tar.bz2/gz/xz
-like you normally do for release sources.
+> linux-firmware.git does not contain firmware for all drivers. _At least_
+> zd1211rw [1], atmel [2] and ipw2x00 [3] are out of the tree.
 
-If you want to read more about it:
-<http://www.spinics.net/lists/linux-wireless/msg101868.html>
+Yeah, don't forget p54. It needs out-of-tree firmwares as well.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But what about iwlegacy? Isn't that another candidate that would fit both
+requirements (no recent firmware update, firmware in linux-firmware.git) ?
+
+> [1] http://sf.net/projects/zd1211/files/
+> [2] http://web.archive.org/web/20121016132320/http://at76c503a.berlios.de/fw_dl.html
+> [3] http://ipw2100.sf.net/firmware.php http://ipw2200.sf.net/firmware.php
