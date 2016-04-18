@@ -1,28 +1,26 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 05:12:47 -0700
-Message-ID: <20160418121247.GA25387@infradead.org>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] cls_cgroup: get sk_classid only from full sockets
+Date: Mon, 18 Apr 2016 05:14:48 -0700
+Message-ID: <1460981688.10638.103.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <146097943086.15300.8997345346172526153.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1460845412-13120-1-git-send-email-okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	cgroups@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146097943086.15300.8997345346172526153.stgit@buzz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 16, 2016 at 06:23:32PM -0400, Sinan Kaya wrote:
-> Current code is assuming that the address returned by dma_alloc_coherent
-> is a logical address. This is not true on ARM/ARM64 systems.
+On Mon, 2016-04-18 at 14:37 +0300, Konstantin Khlebnikov wrote:
+> skb->sk could point to timewait or request socket which has no sk_classid.
+> Detected as "BUG: KASAN: slab-out-of-bounds in cls_cgroup_classify".
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> ---
 
-Can you explain what you mean with a 'logical address' and what actual
-issue you're trying to solve?
+Acked-by: Eric Dumazet <edumazet@google.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks !
