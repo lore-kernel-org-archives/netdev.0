@@ -1,146 +1,71 @@
-From: Francesco Ruggeri <fruggeri@arista.com>
-Subject: [PATCH net-next] macvlan: fix failure during registration
-Date: Mon, 18 Apr 2016 08:20:11 -0700
-Message-ID: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Francesco Ruggeri <fruggeri@arista.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:59376 "EHLO
-	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751799AbcDRPUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:20:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 11:21:12 -0400
+Message-ID: <5714FB68.3020604@codeaurora.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
+ <20160418143255.GA15203@infradead.org>
+ <DB5PR05MB1848424EC9DC8D4150EADB03C56B0@DB5PR05MB1848.eurprd05.prod.outlook.com>
+ <20160418151702.GA26565@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160418151702.GA26565-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Resending, did not include netdev the first time ...
+On 4/18/2016 11:17 AM, Christoph Hellwig wrote:
+> On Mon, Apr 18, 2016 at 02:39:36PM +0000, Eli Cohen wrote:
+>> Right, I did not suggest this as a patch but just wanted to pinpoint the problematic issue which is that virt_to_page does not give you the correct pointer to the page.
+> 
+> Removing both the virt_to_page + vmap calls would solve the issue
+> indeed.
+> 
 
-If a macvlan/macvtap creation fails in register_netdevice in
-call_netdevice_notifiers(NETDEV_REGISTER) then while cleaning things up in
-rollback_registered_many it invokes macvlan_uninit. This results in
-port->count being decremented twice (in macvlan_uninit and in
-macvlan_common_newlink).
-A similar problem may exist in the ipvlan driver.
-This patch adds priv_flags to struct macvlan_dev and a flag that
-macvlan_uninit can use to determine if it is invoked in the context of a
-failed newlink.
-In macvtap_device_event(NETDEV_UNREGISTER) it also avoids cleaning up
-/dev/tapNN in case creation of the char device had previously failed.
-Tested in 3.18.
-The failure can be reproduced by running the script below a few times. The
-script creates macvtap interfaces in different namespaces causing along the
-way sysfs_warn_dup failures in macvtap_device_event(NETDEV_REGISTER)
-because of conflicting ifindexes, and finally a panic or
-"unregister_netdevice: waiting for ddev to become free".
+I was looking at the code. I don't see how removing virt_to_page + vmap 
+would solve the issue.
 
-for ((ns=1; ns<3; ns++))
-do
-  ip netns add ns${ns}
-  ip netns exec ns${ns} ip link add dev ddev type dummy
-done
+The code is trying to access the buffer space with direct.buf member
+from the CPU side. This member would become NULL, when this code is 
+removed and also in mlx4_en_map_buffer. 
 
-for ((ns=1; ns<3; ns++))
-do
-  for ((mv=0; mv<2; mv++))
-  do
-    ret=1
-    while [ ${ret} != 0 ]
-    do
-      ip netns exec ns${ns} ip link add link ddev name \
-                        macvtap${ns}${mv} type macvtap
-      ret=$?
-    done &
-  done
-done
 
-sleep 5
-ls /dev/tap*
+                if (BITS_PER_LONG == 64) {
+                        struct page **pages;
+                        pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
+                        if (!pages)
+                                goto err_free;
+                        ...
+                        ...
+                        if (!buf->direct.buf)
+                                goto err_free;
+                }
 
-for ((ns=1; ns<3; ns++))
-do
-  ip netns exec ns${ns} ip link del ddev &
-done
+drivers/net/ethernet/mellanox/mlx4/en_tx.c (2 hits)
+Line 110: ring->buf = ring->wqres.buf.direct.buf;
+Line 114: (unsigned long long) ring->wqres.buf.direct.map);
 
-sleep 2
-ls /dev/tap*
+drivers/net/ethernet/mellanox/mlx4/en_rx.c (1 hit)
+Line 404: ring->buf = ring->wqres.buf.direct.buf;
 
-for ((ns=1; ns<3; ns++))
-do
-  ip netns del ns${ns}
-done
+drivers/net/ethernet/mellanox/mlx4/en_cq.c (1 hit)
+Line 85: cq->buf = (struct mlx4_cqe *)cq->wqres.buf.direct.buf;
 
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
----
- drivers/net/macvlan.c      | 11 ++++++++---
- drivers/net/macvtap.c      |  2 ++
- include/linux/if_macvlan.h |  3 +++
- 3 files changed, 13 insertions(+), 3 deletions(-)
+What am I missing?
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 2bcf1f3..11065af 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -823,9 +823,12 @@ static void macvlan_uninit(struct net_device *dev)
- 	free_percpu(vlan->pcpu_stats);
- 
- 	macvlan_flush_sources(port, vlan);
--	port->count -= 1;
--	if (!port->count)
--		macvlan_port_destroy(port->dev);
-+
-+	if (!(vlan->priv_flags & MACVLAN_PRIV_FLAG_REGISTERING)) {
-+		port->count -= 1;
-+		if (!port->count)
-+			macvlan_port_destroy(port->dev);
-+	}
- }
- 
- static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
-@@ -1313,7 +1316,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	}
- 
- 	port->count += 1;
-+	vlan->priv_flags |= MACVLAN_PRIV_FLAG_REGISTERING;
- 	err = register_netdevice(dev);
-+	vlan->priv_flags &= ~MACVLAN_PRIV_FLAG_REGISTERING;
- 	if (err < 0)
- 		goto destroy_port;
- 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 95394ed..e770221 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1303,6 +1303,8 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		}
- 		break;
- 	case NETDEV_UNREGISTER:
-+		if (vlan->minor == 0)
-+			break;
- 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
- 		device_destroy(macvtap_class, devt);
- 		macvtap_free_minor(vlan);
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index a4ccc31..7cf82d8 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -48,6 +48,7 @@ struct macvlan_dev {
- 	netdev_features_t	set_features;
- 	enum macvlan_mode	mode;
- 	u16			flags;
-+	u16			priv_flags;
- 	/* This array tracks active taps. */
- 	struct macvtap_queue	__rcu *taps[MAX_MACVTAP_QUEUES];
- 	/* This list tracks all taps (both enabled and disabled) */
-@@ -63,6 +64,8 @@ struct macvlan_dev {
- 	unsigned int		macaddr_count;
- };
- 
-+#define MACVLAN_PRIV_FLAG_REGISTERING	1
-+
- static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
- 				    unsigned int len, bool success,
- 				    bool multicast)
 -- 
-1.8.1.4
+Sinan Kaya
+Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
