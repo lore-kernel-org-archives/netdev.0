@@ -1,51 +1,36 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet WQE
- (Striding RQ)
-Date: Mon, 18 Apr 2016 16:05:42 +0300
-Message-ID: <CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
-References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
- <1460928725-18741-6-git-send-email-saeedm@mellanox.com> <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
- <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
+From: okaya@codeaurora.org
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 09:06:18 -0400
+Message-ID: <0c6a430c5f0ec64f51d7c594ef9751dd@codeaurora.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160418121247.GA25387@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma@vger.kernel.org, timur@codeaurora.org,
+	cov@codeaurora.org, Yishai Hadas <yishaih@mellanox.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:33730 "EHLO
-	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbcDRNGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 09:06:03 -0400
-Received: by mail-yw0-f194.google.com with SMTP id o63so23593711ywe.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 06:06:02 -0700 (PDT)
-In-Reply-To: <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:36640 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752396AbcDRNGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 09:06:20 -0400
+In-Reply-To: <20160418121247.GA25387@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 3:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
->
->>
->> If really you need to allocate physically contiguous memory, have you
->> considered converting the order-5 pages into 32 order-0 ones ?
->
-> Search for split_page() call sites for examples.
->
->
+On 2016-04-18 08:12, Christoph Hellwig wrote:
+> On Sat, Apr 16, 2016 at 06:23:32PM -0400, Sinan Kaya wrote:
+>> Current code is assuming that the address returned by 
+>> dma_alloc_coherent
+>> is a logical address. This is not true on ARM/ARM64 systems.
+> 
+> Can you explain what you mean with a 'logical address' and what actual
+> issue you're trying to solve?
 
-Thanks Eric, we are already evaluating split_page as we speak.
+Vmap call is failing on arm64 systems because dma alloc api already 
+returns an address mapped with vmap.
 
-We did look but could not find any specific alloc_pages API that
-allocates many physically contiguous pages with order0 ! so we assume
-it is ok to use split_page.
-
-BTW our MPWQE solution doesn't totally rely on huge physically
-contiguous memory, as you see in the next two patches we introduce a
-fragmented MPWQE approach as a fallback, but we do understand your
-concern for the normal flow.
+Please see arch/arm64/mm directory.
