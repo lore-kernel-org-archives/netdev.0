@@ -1,37 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 00:00:39 -0400 (EDT)
-Message-ID: <20160418.000039.1946438541182822213.davem@davemloft.net>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] of_mdio: make of_mdiobus_register_{device|phy}() *void*
+Date: Mon, 18 Apr 2016 00:02:16 -0400 (EDT)
+Message-ID: <20160418.000216.88349007433311540.davem@davemloft.net>
+References: <1834436.v0N3sgcLOX@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1460845412-13120-1-git-send-email-okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: grant.likely@linaro.org, robh+dt@kernel.org,
+	devicetree@vger.kernel.org, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, frowand.list@gmail.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47927 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbcDRECV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 00:02:21 -0400
+In-Reply-To: <1834436.v0N3sgcLOX@wasted.cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Date: Sat, 16 Apr 2016 18:23:32 -0400
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 17 Apr 2016 01:05:19 +0300
 
-> Current code is assuming that the address returned by dma_alloc_coherent
-> is a logical address. This is not true on ARM/ARM64 systems. This patch
-> replaces dma_alloc_coherent with dma_map_page API. The address returned
-> can later by virtually mapped from the CPU side with vmap API.
+> The results of of_mdiobus_register_{device|phy}() are never checked, so we
+> can make  both these functions *void*...
 > 
-> Signed-off-by: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-You can't do this.
-
-The DMA map page API gives non-coherent mappings, and thus requires
-proper flushing.
-
-So a straight conversion like this is never legitimate.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Sergei.
