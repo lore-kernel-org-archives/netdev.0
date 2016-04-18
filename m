@@ -1,54 +1,74 @@
-From: Eli Cohen <eli@mellanox.com>
-Subject: RE: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 14:39:36 +0000
-Message-ID: <DB5PR05MB1848424EC9DC8D4150EADB03C56B0@DB5PR05MB1848.eurprd05.prod.outlook.com>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
- <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
- <20160418143255.GA15203@infradead.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Mon, 18 Apr 2016 16:57:03 +0200
+Message-ID: <1463330011.BhWEcYYuGD@wuerfel>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com> <14313437.cDJIgY3kzo@wuerfel> <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sinan Kaya <okaya@codeaurora.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"timur@codeaurora.org" <timur@codeaurora.org>,
-	"cov@codeaurora.org" <cov@codeaurora.org>,
-	Yishai Hadas <yishaih@mellanox.com>,
+Content-Transfer-Encoding: 7Bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Eyal Reizer <eyalreizer@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>
+To: "Reizer, Eyal" <eyalr@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418143255.GA15203@infradead.org>
-Content-Language: en-US
+In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Right, I did not suggest this as a patch but just wanted to pinpoint the problematic issue which is that virt_to_page does not give you the correct pointer to the page.
+On Monday 18 April 2016 05:55:51 Reizer, Eyal wrote:
+> > >
+> > > - all wilink family needs special init command for entering wspi mode.
+> > >   extra clock cycles should be sent after the spi init command while the
+> > >   cs pin is high.
+> > > - switch to controling the cs pin from the spi driver for achieveing the
+> > >   above.
+> > > - the selected cs gpio is read from the spi device-tree node using the
+> > >   cs-gpios field and setup as a gpio.
+> > > - See the example below for specifying the cs gpio using the cs-gpios entry
+> > > &spi0   {
+> > >         ...
+> > >         cs-gpios = <&gpio0 5 0>;
+> > >         ...
+> > >         wlcore: wlcore@0 {
+> > >                 compatible = "ti,wl1835";
+> > >         ...
+> > >         ...
+> > >         };
+> > > };
+> > >
+> > > Signed-off-by: Eyal Reizer <eyalr@ti.com>
+> > 
+> > I don't think this can work in general: not all SPI hosts uses GPIOs for
+> > controlling CS, so the logic can't work, and it's also a layering violation for the
+> > driver to look at the parent.
+> > 
+> > I would suggest fixing this using a new API function from the SPI core, if we
+> > don't already have a generic way to do it.
+> >
+> Originally this is what I have done until I was pointed to the generic cs-gpio mechanism 
+> in the SPI core. 
+> It is a generic mechanism already in the SPI core driver.
+> See: Documentation/devicetree/bindings/spi/spi-bus.txt
 
------Original Message-----
-From: Christoph Hellwig [mailto:hch@infradead.org] 
-Sent: Monday, April 18, 2016 9:33 AM
-To: Eli Cohen <eli@mellanox.com>
-Cc: Sinan Kaya <okaya@codeaurora.org>; linux-rdma@vger.kernel.org; timur@codeaurora.org; cov@codeaurora.org; Yishai Hadas <yishaih@mellanox.com>; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+The cs-gpios property is documented as optional, it defines how you should
+list the gpios if CS is implemented using gpio, but not all hardware does
+it like this.
 
-On Mon, Apr 18, 2016 at 09:54:47AM +0300, Eli Cohen wrote:
-> Sinan,
-> 
-> if we get rid of the part this code:
-> 
->                 if (BITS_PER_LONG == 64) {
->                         struct page **pages;
->                         pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
->                         if (!pages)
->                                 goto err_free;
->                         ...
->                         ...
->                         if (!buf->direct.buf)
->                                 goto err_free;
->                 }
-> 
-> Does that solve the arm issue?
+> It is also part of the generic spi.h (include/Linux/spi/spi.h), already part of 
+> " struct spi_device" So it seemed redundant adding another mechanism for 
+> implementing the same.
+> Platform that interact with a wilink need to use it, and platforms that don't  
+> have this capability will probably not interact with a wilink device using SPI.
 
-Not quite.  You still have code in mlx4_en_map_buffer that performs this mapping later if it it wasn't mapped in mlx4_buf_alloc.
+The cs_gpio field in spi_device belongs to the spi host controller, no other
+slave driver uses it.
 
-You'll need to get rid of that by ensuring max_direct for all the cases currently using mlx4_en_map_buffer as well.
+I wasn't asking for a duplication of this mechanism, but an interface to
+use it properly. Internally, the spi core uses the spi_set_cs() function to
+pick a CS. Find a way to use that rather than reimplementing it incorrectly.
+
+	Arnd
