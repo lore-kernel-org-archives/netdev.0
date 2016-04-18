@@ -1,361 +1,71 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH bluetooth-next 07/10] ipv6: introduce neighbour discovery ops
-Date: Mon, 18 Apr 2016 12:58:25 +0200
-Message-ID: <1460977108-4675-8-git-send-email-aar@pengutronix.de>
-References: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1460977108-4675-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
+Date: Mon, 18 Apr 2016 13:07:23 +0200
+Message-ID: <4281377.HK1TLEoJOo@wuerfel>
+References: <20160418080202.GA18155@gondor.apana.org.au> <11585265.Dbvl2xi4u3@wuerfel> <20160418104336.GA19175@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, sd@queasysnail.net,
+	hannes@stressinduktion.org, johannes@sipsolutions.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160418104336.GA19175@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces neighbour discovery ops callback structure. The
-structure contains at first receive and transmit handling for NS/NA and
-userspace option field functionality.
+On Monday 18 April 2016 18:43:36 Herbert Xu wrote:
+> 
+> It's kind of silly really now that IPv4 selects CRYPTO which
+> means that you can't really avoid seeing all those options which
+> most users won't care about.
 
-These callback offers 6lowpan different handling, such as 802.15.4 short
-address handling or RFC6775 (Neighbor Discovery Optimization for IPv6 over
-6LoWPANs).
+I had not noticed that IPv4 does it, but that is a good point.
 
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- include/linux/netdevice.h |  3 ++
- include/net/ndisc.h       | 73 ++++++++++++++++++++++++++++++++++++++++++-----
- net/ipv6/addrconf.c       |  1 +
- net/ipv6/ndisc.c          | 71 +++++++++++++++++++++++++++++++--------------
- net/ipv6/route.c          |  2 +-
- 5 files changed, 121 insertions(+), 29 deletions(-)
+We have had a couple of other subsystems with the issue (e.g. MFD),
+and have turned around the logic in the end so the user-visible
+options are always there and the subsystem core is selected by
+all drivers that need it. We could do the same for crypto as below
+(untested). I only select CRYPTO from ALGAPI2 there, which may be
+wrong if some parts of crypto need the core but do not need algapi,
+but it illustrates what we could do.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0052c42..4f1b3f2 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1677,6 +1677,9 @@ struct net_device {
- #ifdef CONFIG_NET_L3_MASTER_DEV
- 	const struct l3mdev_ops	*l3mdev_ops;
- #endif
-+#ifdef CONFIG_IPV6
-+	const struct ndisc_ops *ndisc_ops;
-+#endif
+	Arnd
+
+diff --git a/crypto/Kconfig b/crypto/Kconfig
+index 93a1fdc1feee..ed1bc0c49022 100644
+--- a/crypto/Kconfig
++++ b/crypto/Kconfig
+@@ -12,14 +12,12 @@ source "crypto/async_tx/Kconfig"
+ #
+ # Cryptographic API Configuration
+ #
+-menuconfig CRYPTO
+-	tristate "Cryptographic API"
++config CRYPTO
++	tristate
+ 	help
+ 	  This option provides the core Cryptographic API.
  
- 	const struct header_ops *header_ops;
- 
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index aac868e..5346625 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -110,7 +110,8 @@ struct ndisc_options {
- 
- #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
- 
--struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
-+struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
-+					  u8 *opt, int opt_len,
- 					  struct ndisc_options *ndopts);
- 
- /*
-@@ -173,6 +174,70 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
- 	return n;
- }
- 
-+static inline int __ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
-+{
-+	return opt->nd_opt_type == ND_OPT_RDNSS ||
-+		opt->nd_opt_type == ND_OPT_DNSSL;
-+}
-+
-+struct ndisc_ops {
-+	int	(*is_useropt)(struct nd_opt_hdr *opt);
-+	void	(*send_na)(struct net_device *dev,
-+			   const struct in6_addr *daddr,
-+			   const struct in6_addr *solicited_addr,
-+			   bool router, bool solicited,
-+			   bool override, bool inc_opt);
-+	void	(*recv_na)(struct sk_buff *skb);
-+	void	(*send_ns)(struct net_device *dev,
-+			   const struct in6_addr *solicit,
-+			   const struct in6_addr *daddr,
-+			   const struct in6_addr *saddr);
-+	void	(*recv_ns)(struct sk_buff *skb);
-+};
-+
-+static inline int ndisc_is_useropt(const struct net_device *dev,
-+				   struct nd_opt_hdr *opt)
-+{
-+	if (likely(dev->ndisc_ops->is_useropt))
-+		return dev->ndisc_ops->is_useropt(opt);
-+	else
-+		return 0;
-+}
-+
-+static inline void ndisc_send_na(struct net_device *dev,
-+				 const struct in6_addr *daddr,
-+				 const struct in6_addr *solicited_addr,
-+				 bool router, bool solicited, bool override,
-+				 bool inc_opt)
-+{
-+	if (likely(dev->ndisc_ops->send_na))
-+		dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
-+					solicited, override, inc_opt);
-+}
-+
-+static inline void ndisc_recv_na(struct sk_buff *skb)
-+{
-+	if (likely(skb->dev->ndisc_ops->recv_na))
-+		skb->dev->ndisc_ops->recv_na(skb);
-+}
-+
-+static inline void ndisc_send_ns(struct net_device *dev,
-+				 const struct in6_addr *solicit,
-+				 const struct in6_addr *daddr,
-+				 const struct in6_addr *saddr)
-+{
-+	if (likely(dev->ndisc_ops->send_ns))
-+		dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
-+}
-+
-+static inline void ndisc_recv_ns(struct sk_buff *skb)
-+{
-+	if (likely(skb->dev->ndisc_ops->recv_ns))
-+		skb->dev->ndisc_ops->recv_ns(skb);
-+}
-+
-+void ip6_register_ndisc_ops(struct net_device *dev);
-+
- int ndisc_init(void);
- int ndisc_late_init(void);
- 
-@@ -181,14 +246,8 @@ void ndisc_cleanup(void);
- 
- int ndisc_rcv(struct sk_buff *skb);
- 
--void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
--		   const struct in6_addr *daddr, const struct in6_addr *saddr);
+-if CRYPTO
 -
- void ndisc_send_rs(struct net_device *dev,
- 		   const struct in6_addr *saddr, const struct in6_addr *daddr);
--void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
--		   const struct in6_addr *solicited_addr,
--		   bool router, bool solicited, bool override, bool inc_opt);
+-comment "Crypto core or helper"
++menu "Crypto core or helper"
  
- void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target);
+ config CRYPTO_FIPS
+ 	bool "FIPS 200 compliance"
+@@ -39,6 +37,7 @@ config CRYPTO_ALGAPI
  
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 54e18c2..a2ef04b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3266,6 +3266,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			idev = ipv6_add_dev(dev);
- 			if (IS_ERR(idev))
- 				return notifier_from_errno(PTR_ERR(idev));
-+			ip6_register_ndisc_ops(dev);
- 		}
- 		break;
+ config CRYPTO_ALGAPI2
+ 	tristate
++	select CRYPTO
  
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 176c7c4..297080a 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -185,24 +185,25 @@ static struct nd_opt_hdr *ndisc_next_option(struct nd_opt_hdr *cur,
- 	return cur <= end && cur->nd_opt_type == type ? cur : NULL;
- }
+ config CRYPTO_AEAD
+ 	tristate
+@@ -1633,4 +1632,4 @@ source "drivers/crypto/Kconfig"
+ source crypto/asymmetric_keys/Kconfig
+ source certs/Kconfig
  
--static inline int ndisc_is_useropt(struct nd_opt_hdr *opt)
-+static inline int ip6_ndisc_is_useropt(struct nd_opt_hdr *opt)
- {
--	return opt->nd_opt_type == ND_OPT_RDNSS ||
--		opt->nd_opt_type == ND_OPT_DNSSL;
-+	return __ip6_ndisc_is_useropt(opt);
- }
- 
--static struct nd_opt_hdr *ndisc_next_useropt(struct nd_opt_hdr *cur,
-+static struct nd_opt_hdr *ndisc_next_useropt(const struct net_device *dev,
-+					     struct nd_opt_hdr *cur,
- 					     struct nd_opt_hdr *end)
- {
- 	if (!cur || !end || cur >= end)
- 		return NULL;
- 	do {
- 		cur = ((void *)cur) + (cur->nd_opt_len << 3);
--	} while (cur < end && !ndisc_is_useropt(cur));
--	return cur <= end && ndisc_is_useropt(cur) ? cur : NULL;
-+	} while (cur < end && !ndisc_is_useropt(dev, cur));
-+	return cur <= end && ndisc_is_useropt(dev, cur) ? cur : NULL;
- }
- 
--struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
-+struct ndisc_options *ndisc_parse_options(const struct net_device *dev,
-+					  u8 *opt, int opt_len,
- 					  struct ndisc_options *ndopts)
- {
- 	struct nd_opt_hdr *nd_opt = (struct nd_opt_hdr *)opt;
-@@ -243,7 +244,7 @@ struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
- 			break;
- #endif
- 		default:
--			if (ndisc_is_useropt(nd_opt)) {
-+			if (ndisc_is_useropt(dev, nd_opt)) {
- 				ndopts->nd_useropts_end = nd_opt;
- 				if (!ndopts->nd_useropts)
- 					ndopts->nd_useropts = nd_opt;
-@@ -479,9 +480,11 @@ static void ndisc_send_skb(struct sk_buff *skb,
- 	rcu_read_unlock();
- }
- 
--void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
--		   const struct in6_addr *solicited_addr,
--		   bool router, bool solicited, bool override, bool inc_opt)
-+static void ip6_ndisc_send_na(struct net_device *dev,
-+			      const struct in6_addr *daddr,
-+			      const struct in6_addr *solicited_addr,
-+			      bool router, bool solicited, bool override,
-+			      bool inc_opt)
- {
- 	struct sk_buff *skb;
- 	struct in6_addr tmpaddr;
-@@ -555,8 +558,10 @@ static void ndisc_send_unsol_na(struct net_device *dev)
- 	in6_dev_put(idev);
- }
- 
--void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
--		   const struct in6_addr *daddr, const struct in6_addr *saddr)
-+static void ip6_ndisc_send_ns(struct net_device *dev,
-+			      const struct in6_addr *solicit,
-+			      const struct in6_addr *daddr,
-+			      const struct in6_addr *saddr)
- {
- 	struct sk_buff *skb;
- 	struct in6_addr addr_buf;
-@@ -702,7 +707,7 @@ static int pndisc_is_router(const void *pkey,
- 	return ret;
- }
- 
--static void ndisc_recv_ns(struct sk_buff *skb)
-+static void ip6_ndisc_recv_ns(struct sk_buff *skb)
- {
- 	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
- 	const struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
-@@ -738,7 +743,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
-+	if (!ndisc_parse_options(dev, msg->opt, ndoptlen, &ndopts)) {
- 		ND_PRINTK(2, warn, "NS: invalid ND options\n");
- 		return;
- 	}
-@@ -874,7 +879,7 @@ out:
- 		in6_dev_put(idev);
- }
- 
--static void ndisc_recv_na(struct sk_buff *skb)
-+static void ip6_ndisc_recv_na(struct sk_buff *skb)
- {
- 	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
- 	struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
-@@ -912,7 +917,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 	    idev->cnf.drop_unsolicited_na)
- 		return;
- 
--	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
-+	if (!ndisc_parse_options(dev, msg->opt, ndoptlen, &ndopts)) {
- 		ND_PRINTK(2, warn, "NS: invalid ND option\n");
- 		return;
- 	}
-@@ -1019,7 +1024,7 @@ static void ndisc_recv_rs(struct sk_buff *skb)
- 		goto out;
- 
- 	/* Parse ND options */
--	if (!ndisc_parse_options(rs_msg->opt, ndoptlen, &ndopts)) {
-+	if (!ndisc_parse_options(skb->dev, rs_msg->opt, ndoptlen, &ndopts)) {
- 		ND_PRINTK(2, notice, "NS: invalid ND option, ignored\n");
- 		goto out;
- 	}
-@@ -1137,7 +1142,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
-+	if (!ndisc_parse_options(skb->dev, opt, optlen, &ndopts)) {
- 		ND_PRINTK(2, warn, "RA: invalid ND options\n");
- 		return;
- 	}
-@@ -1424,7 +1429,8 @@ skip_routeinfo:
- 		struct nd_opt_hdr *p;
- 		for (p = ndopts.nd_useropts;
- 		     p;
--		     p = ndisc_next_useropt(p, ndopts.nd_useropts_end)) {
-+		     p = ndisc_next_useropt(skb->dev, p,
-+					    ndopts.nd_useropts_end)) {
- 			ndisc_ra_useropt(skb, p);
- 		}
- 	}
-@@ -1462,7 +1468,7 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts))
-+	if (!ndisc_parse_options(skb->dev, msg->opt, ndoptlen, &ndopts))
- 		return;
- 
- 	if (!ndopts.nd_opts_rh) {
-@@ -1783,6 +1789,29 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, void __user *bu
- 
- #endif
- 
-+static const struct ndisc_ops ip6_ndisc_ops = {
-+	.is_useropt = ip6_ndisc_is_useropt,
-+	.send_na = ip6_ndisc_send_na,
-+	.recv_na = ip6_ndisc_recv_na,
-+	.send_ns = ip6_ndisc_send_ns,
-+	.recv_ns = ip6_ndisc_recv_ns,
-+};
-+
-+void ip6_register_ndisc_ops(struct net_device *dev)
-+{
-+	switch (dev->type) {
-+	default:
-+		if (dev->ndisc_ops) {
-+			ND_PRINTK(2, warn,
-+				  "%s: ndisc_ops already defined for interface type=%d\n",
-+				  __func__, dev->type);
-+		} else {
-+			dev->ndisc_ops = &ip6_ndisc_ops;
-+		}
-+		break;
-+	}
-+}
-+
- static int __net_init ndisc_net_init(struct net *net)
- {
- 	struct ipv6_pinfo *np;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index cc180b3..5fa276d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2149,7 +2149,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
- 	 *	first-hop router for the specified ICMP Destination Address.
- 	 */
- 
--	if (!ndisc_parse_options(msg->opt, optlen, &ndopts)) {
-+	if (!ndisc_parse_options(skb->dev, msg->opt, optlen, &ndopts)) {
- 		net_dbg_ratelimited("rt6_redirect: invalid ND options\n");
- 		return;
- 	}
--- 
-2.8.0
+-endif	# if CRYPTO
++endmenu
