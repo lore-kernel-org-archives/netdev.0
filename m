@@ -1,97 +1,139 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: [PATCH bluetooth-next 06/10] ndisc: add addr_len parameter to ndisc_fill_addr_option
-Date: Mon, 18 Apr 2016 12:58:24 +0200
-Message-ID: <1460977108-4675-7-git-send-email-aar@pengutronix.de>
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH bluetooth-next 01/10] 6lowpan: add private neighbour data
+Date: Mon, 18 Apr 2016 12:58:19 +0200
+Message-ID: <1460977108-4675-2-git-send-email-aar@pengutronix.de>
 References: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
-Cc: kernel@pengutronix.de, marcel@holtmann.org,
-	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
-	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Aring <aar@pengutronix.de>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: linux-wpan@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35998 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753789AbcDRK7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 06:59:25 -0400
-In-Reply-To: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1460977108-4675-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch makes the address length as argument for the
-ndisc_fill_addr_option function. This is necessary to handle addresses
-which don't use dev->addr_len as address length.
+This patch will introduce a 6lowpan neighbour private data. Like the
+interface private data we handle private data for generic 6lowpan and
+for link-layer specific 6lowpan.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Alexander Aring <aar@pengutronix.de>
+The current first use case if to save the short address for a 802.15.4
+6lowpan neighbour.
+
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- net/ipv6/ndisc.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+ include/linux/netdevice.h     |  3 +--
+ include/net/6lowpan.h         | 24 ++++++++++++++++++++++++
+ net/bluetooth/6lowpan.c       |  2 ++
+ net/ieee802154/6lowpan/core.c | 12 ++++++++++++
+ 4 files changed, 39 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 4e91d5e..176c7c4 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -150,11 +150,11 @@ struct neigh_table nd_tbl = {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 166402a..0052c42 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1487,8 +1487,7 @@ enum netdev_priv_flags {
+  * 	@perm_addr:		Permanent hw address
+  * 	@addr_assign_type:	Hw address assignment type
+  * 	@addr_len:		Hardware address length
+- * 	@neigh_priv_len;	Used in neigh_alloc(),
+- * 				initialized only in atm/clip.c
++ *	@neigh_priv_len;	Used in neigh_alloc()
+  * 	@dev_id:		Used to differentiate devices that share
+  * 				the same link layer address
+  * 	@dev_port:		Used to differentiate devices that share
+diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+index da84cf9..61c6517 100644
+--- a/include/net/6lowpan.h
++++ b/include/net/6lowpan.h
+@@ -98,6 +98,9 @@ static inline bool lowpan_is_iphc(u8 dispatch)
+ #define LOWPAN_PRIV_SIZE(llpriv_size)	\
+ 	(sizeof(struct lowpan_dev) + llpriv_size)
+ 
++#define LOWPAN_NEIGH_PRIV_SIZE(llneigh_priv_size)	\
++	(sizeof(struct lowpan_neigh) + llneigh_priv_size)
++
+ enum lowpan_lltypes {
+ 	LOWPAN_LLTYPE_BTLE,
+ 	LOWPAN_LLTYPE_IEEE802154,
+@@ -141,6 +144,27 @@ struct lowpan_dev {
+ 	u8 priv[0] __aligned(sizeof(void *));
  };
- EXPORT_SYMBOL_GPL(nd_tbl);
  
--static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
-+static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
-+				   int data_len)
++struct lowpan_neigh {
++	/* 6LoWPAN neigh private data */
++	/* must be last */
++	u8 priv[0] __aligned(sizeof(void *));
++};
++
++struct lowpan_802154_neigh {
++	__le16 short_addr;
++};
++
++static inline struct lowpan_neigh *lowpan_neigh(void *neigh_priv)
++{
++	return neigh_priv;
++}
++
++static inline
++struct lowpan_802154_neigh *lowpan_802154_neigh(void *neigh_priv)
++{
++	return (struct lowpan_802154_neigh *)lowpan_neigh(neigh_priv)->priv;
++}
++
+ static inline
+ struct lowpan_dev *lowpan_dev(const struct net_device *dev)
  {
- 	int pad   = ndisc_addr_option_pad(skb->dev->type);
--	int data_len = skb->dev->addr_len;
--	int space = ndisc_opt_addr_space(skb->dev, skb->dev->addr_len);
-+	int space = ndisc_opt_addr_space(skb->dev, data_len);
- 	u8 *opt = skb_put(skb, space);
+diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+index 38e82dd..b7c4efa 100644
+--- a/net/bluetooth/6lowpan.c
++++ b/net/bluetooth/6lowpan.c
+@@ -833,6 +833,8 @@ static int setup_netdev(struct l2cap_chan *chan, struct lowpan_btle_dev **dev)
+ 	list_add_rcu(&(*dev)->list, &bt_6lowpan_devices);
+ 	spin_unlock(&devices_lock);
  
- 	opt[0] = type;
-@@ -528,7 +528,7 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
- 
- 	if (inc_opt)
- 		ndisc_fill_addr_option(skb, ND_OPT_TARGET_LL_ADDR,
--				       dev->dev_addr);
-+				       dev->dev_addr, dev->addr_len);
- 
- 
- 	ndisc_send_skb(skb, daddr, src_addr);
-@@ -590,7 +590,7 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
- 
- 	if (inc_opt)
- 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
--				       dev->dev_addr);
-+				       dev->dev_addr, dev->addr_len);
- 
- 	ndisc_send_skb(skb, daddr, saddr);
++	netdev->neigh_priv_len = LOWPAN_NEIGH_PRIV_SIZE(0);
++
+ 	err = lowpan_register_netdev(netdev, LOWPAN_LLTYPE_BTLE);
+ 	if (err < 0) {
+ 		BT_INFO("register_netdev failed %d", err);
+diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+index dd085db..3162632 100644
+--- a/net/ieee802154/6lowpan/core.c
++++ b/net/ieee802154/6lowpan/core.c
+@@ -92,11 +92,21 @@ static int lowpan_stop(struct net_device *dev)
+ 	return 0;
  }
-@@ -641,7 +641,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
  
- 	if (send_sllao)
- 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
--				       dev->dev_addr);
-+				       dev->dev_addr, dev->addr_len);
++static int lowpan_neigh_construct(struct neighbour *n)
++{
++	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
++
++	/* default no short_addr is available for a neighbour */
++	neigh->short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
++	return 0;
++}
++
+ static const struct net_device_ops lowpan_netdev_ops = {
+ 	.ndo_init		= lowpan_dev_init,
+ 	.ndo_start_xmit		= lowpan_xmit,
+ 	.ndo_open		= lowpan_open,
+ 	.ndo_stop		= lowpan_stop,
++	.ndo_neigh_construct    = lowpan_neigh_construct,
+ };
  
- 	ndisc_send_skb(skb, daddr, saddr);
- }
-@@ -1597,7 +1597,8 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
- 	 */
+ static void lowpan_setup(struct net_device *ldev)
+@@ -161,6 +171,8 @@ static int lowpan_newlink(struct net *src_net, struct net_device *ldev,
+ 				wdev->needed_headroom;
+ 	ldev->needed_tailroom = wdev->needed_tailroom;
  
- 	if (ha)
--		ndisc_fill_addr_option(buff, ND_OPT_TARGET_LL_ADDR, ha);
-+		ndisc_fill_addr_option(buff, ND_OPT_TARGET_LL_ADDR, ha,
-+				       dev->addr_len);
- 
- 	/*
- 	 *	build redirect option and copy skb over to the new packet.
++	ldev->neigh_priv_len = LOWPAN_NEIGH_PRIV_SIZE(sizeof(struct lowpan_802154_neigh));
++
+ 	ret = lowpan_register_netdevice(ldev, LOWPAN_LLTYPE_IEEE802154);
+ 	if (ret < 0) {
+ 		dev_put(wdev);
 -- 
 2.8.0
