@@ -1,47 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] macsec: fix crypto Kconfig dependency
-Date: Mon, 18 Apr 2016 18:43:36 +0800
-Message-ID: <20160418104336.GA19175@gondor.apana.org.au>
-References: <20160418080202.GA18155@gondor.apana.org.au>
- <11585265.Dbvl2xi4u3@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sd@queasysnail.net,
-	hannes@stressinduktion.org, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <11585265.Dbvl2xi4u3@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH bluetooth-next 03/10] 6lowpan: remove ipv6 module request
+Date: Mon, 18 Apr 2016 12:58:21 +0200
+Message-ID: <1460977108-4675-4-git-send-email-aar@pengutronix.de>
+References: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1460977108-4675-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2016 at 12:23:42PM +0200, Arnd Bergmann wrote:
-> 
-> No, that is not the problem.
-> 
-> These are the options from the randconfig file that showed the error:
-> 
-> # CONFIG_MODULES is not set
-> # CONFIG_CRYPTO is not set
-> CONFIG_CRYPTO_GCM=y
-> CONFIG_CRYPTO_AES=y
-> CONFIG_MACSEC=y
-> # CONFIG_CFG80211 is not set
-> 
-> As you can see, none of them are modules, and CRYPTO is completely
-> disabled.
+Since we use exported function from ipv6 kernel module we don't need to
+request the module anymore to have ipv6 functionality.
 
-Right, the problem is that nothing within crypto ever selects
-CRYPTO since it's also used as a way of hiding the crypto menu
-options.
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ net/6lowpan/core.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-It's kind of silly really now that IPv4 selects CRYPTO which
-means that you can't really avoid seeing all those options which
-most users won't care about.
-
-Cheers,
+diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
+index fbae31e..824d1bc 100644
+--- a/net/6lowpan/core.c
++++ b/net/6lowpan/core.c
+@@ -158,8 +158,6 @@ static int __init lowpan_module_init(void)
+ 		return ret;
+ 	}
+ 
+-	request_module_nowait("ipv6");
+-
+ 	request_module_nowait("nhc_dest");
+ 	request_module_nowait("nhc_fragment");
+ 	request_module_nowait("nhc_hop");
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.8.0
