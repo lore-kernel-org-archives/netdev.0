@@ -1,55 +1,67 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 06:59:36 -0700
-Message-ID: <20160418135936.GA25909@infradead.org>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
- <20160418121247.GA25387@infradead.org>
- <0c6a430c5f0ec64f51d7c594ef9751dd@codeaurora.org>
- <20160418131058.GA25421@infradead.org>
- <5714E5D6.7050600@codeaurora.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/5] qede: Add support for ethtool private flags
+Date: Mon, 18 Apr 2016 17:11:47 +0300
+Message-ID: <5714EB23.5020102@cogentembedded.com>
+References: <1460921195-23352-1-git-send-email-Yuval.Mintz@qlogic.com>
+ <1460921195-23352-3-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, linux-rdma@vger.kernel.org,
-	timur@codeaurora.org, cov@codeaurora.org,
-	Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sinan Kaya <okaya@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5714E5D6.7050600@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:36010 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751660AbcDROLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 10:11:50 -0400
+Received: by mail-lf0-f51.google.com with SMTP id g184so218201694lfb.3
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 07:11:49 -0700 (PDT)
+In-Reply-To: <1460921195-23352-3-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 09:49:10AM -0400, Sinan Kaya wrote:
-> Here is a good description of logical address vs. virtual address.
-> 
-> https://www.quora.com/What-is-the-Kernel-logical-and-virtual-addresses-What-is-the-difference-between-them-What-is-the-type-of-addresses-listed-in-the-System-map
+Hello.
 
-That's not how we use the terms in Linux.  But it's not really the point
-of my question either.
+On 4/17/2016 10:26 PM, Yuval Mintz wrote:
 
-> > Is this correct?
-> > 
-> No, the driver is plain broken without this patch. It causes a kernel panic 
-> during driver probe.
-> 
-> This is the definition of vmap API.
-> 
-> https://www.kernel.org/doc/htmldocs/kernel-api/API-vmap.html
+> Adds a getter for the interfaces private flags.
+> The only parameter currently supported is whether the interface is a
+> coupled function [required for supporting 100g].
+>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> ---
+>   drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 27 +++++++++++++++++++++++++
+>   1 file changed, 27 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+> index f87e83b..5ba6b2a 100644
+> --- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+> +++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+[...]
+> @@ -185,6 +200,17 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
+>   	}
+>   }
+>
+> +static u32 qede_get_priv_flags(struct net_device *dev)
+> +{
+> +	struct qede_dev *edev = netdev_priv(dev);
+> +	u32 flags = 0;
+> +
+> +	flags |= (!!(edev->dev_info.common.num_hwfns > 1)) <<
+> +		 QEDE_PRI_FLAG_CMT;
 
-Thanks for the pointer, but I'm actually the person who introduced vmap
-to Linux a long time ago, and this is once again not my question.
+    Why not just '='?
 
-> You cannot take several virtually mapped addresses returned by dma_alloc_coherent
-> and try to make them virtually contiguous again. 
+> +
+> +	return flags;
 
-But now we're getting closer to the issue: the mlx4_en driver is using
-vmap on buffers allocated using dma_alloc_coherent if on a 64-bit
-architecture, and that's obviously broken.
+    ... or direct return of the value above?
 
-Now the big quetions is: why does it do that, given that
-dma_alloc_coherent can be used for high order allocations anyway (and in
-fact many architectures implement is using a version of vmap).
+> +}
+> +
+>   static int qede_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+>   {
+>   	struct qede_dev *edev = netdev_priv(dev);
+[...]
 
-Let's get some answers on these question from the Mellanox folks and
-work from there.
+MBR, Sergei
