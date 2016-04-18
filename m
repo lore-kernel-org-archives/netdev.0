@@ -1,57 +1,59 @@
-From: Francesco Ruggeri <fruggeri@arista.com>
-Subject: Re: [PATCH net-next] macvlan: fix failure during registration
-Date: Mon, 18 Apr 2016 13:10:51 -0700
-Message-ID: <CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
-References: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
-	<87ega2sqhf.fsf@x220.int.ebiederm.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ctnetlink: add more #ifdef around unused code
+Date: Mon, 18 Apr 2016 22:14:57 +0200
+Message-ID: <20160418201457.GA19681@salvia>
+References: <1460837916-1241019-1-git-send-email-arnd@arndb.de>
+ <4187960.DvZepuNvUx@wuerfel>
+ <20160418184336.GA16586@salvia>
+ <3838598.xdNY1BW5d9@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
 	"David S. Miller" <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:35658 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565AbcDRUKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 16:10:52 -0400
-Received: by mail-oi0-f54.google.com with SMTP id p188so200764537oih.2
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 13:10:52 -0700 (PDT)
-In-Reply-To: <87ega2sqhf.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Ken-ichirou MATSUZAWA <chamaken@gmail.com>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3838598.xdNY1BW5d9@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2016 at 11:48 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
->
-> These interactions all seem a little bit funny.  At a quick skim it
-> would make more sense to increment the port count in macvlan_init,
-> and completely remove the need to mess with port counts anywhere except
-> macvlan_init and macvlan_uninit.
+On Mon, Apr 18, 2016 at 10:04:43PM +0200, Arnd Bergmann wrote:
+> On Monday 18 April 2016 20:43:36 Pablo Neira Ayuso wrote:
+> > On Mon, Apr 18, 2016 at 08:33:15PM +0200, Arnd Bergmann wrote:
+> > > On Monday 18 April 2016 20:16:59 Pablo Neira Ayuso wrote:
+> > > > On Sat, Apr 16, 2016 at 10:17:43PM +0200, Arnd Bergmann wrote:
+> > > > > A recent patch removed many 'inline' annotations for static
+> > > > > functions in this file, which has caused warnings for functions
+> > > > > that are not used in a given configuration, in particular when
+> > > > > CONFIG_NF_CONNTRACK_EVENTS is disabled:
+> > > > > 
+> > > > > nf_conntrack_netlink.c:572:15: 'ctnetlink_timestamp_size' defined but not used
+> > > > > nf_conntrack_netlink.c:546:15: 'ctnetlink_acct_size' defined but not used
+> > > > > nf_conntrack_netlink.c:339:12: 'ctnetlink_label_size' defined but not used
+> > > > 
+> > > > Arnd, thanks for the fix.
+> > > > 
+> > > > I'm planning to push this though:
+> > > > 
+> > > > http://patchwork.ozlabs.org/patch/610820/
+> > > > 
+> > > > This is restoring the inlines for the size calculation functions, but
+> > > > I think that's ok. They are rather small and they're called from the
+> > > > event notification path (ie. packet path), so the compiler just place
+> > > > them out of the way when not needed and we calm down the gcc warning.
+> > > 
+> > > Looks good. I'll put this in my randconfig builder to replace my own
+> > > patch and will let you know if you missed something.
+> > 
+> > Thanks, will wait for your ack then.
+> 
+> 100 clean randconfig builds later, looks good to me.
+> 
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks Eric, let me try that.
-
->
-> If for some reason that can't be done the code can easily look at
-> dev->reg_state.  If dev->reg_state == NETREG_UNITIALIZED it should
-> be exactly the same as your new flag being set.
->
-
-I am not sure that in macvlan_uninit one can tell whether it is being
-invoked in the context of a failed register_netdevice (if that is what
-you meant).
-
-In case of register_netdevice failing in
-call_netdevice_notifiers(NETDEV_REGISTER) the call sequence is:
-
-macvlan_common_newlink
-  register_netdevice
-    call_netdevice_notifiers(NETDEV_REGISTER, dev) (<== fail here)
-      rollback_registered(dev);
-        rollback_registered_many
-          dev->reg_state = NETREG_UNREGISTERING
-          dev->netdev_ops->ndo_uninit(dev)
-      dev->reg_state = NETREG_UNREGISTERED;
-
-
-Francesco
+Thanks! I have applied this to nf-next.
