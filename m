@@ -1,48 +1,29 @@
-From: Sinan Kaya <okaya@codeaurora.org>
-Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
-Date: Mon, 18 Apr 2016 09:53:30 -0400
-Message-ID: <5714E6DA.4080008@codeaurora.org>
-References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
- <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
+From: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Subject: [PATCH v2 0/1] drivers: net: cpsw: Fix NULL pointer dereference with two slave PHYs
+Date: Mon, 18 Apr 2016 14:53:25 +0100
+Message-ID: <1460987606-18125-1-git-send-email-andrew.goodbody@cambrionix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma@vger.kernel.org, timur@codeaurora.org,
-	cov@codeaurora.org, Yishai Hadas <yishaih@mellanox.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eli Cohen <eli@mellanox.com>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>,
+	Andrew Goodbody <andrew.goodbody@cambrionix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418065447.GA11539@x-vnc01.mtx.labs.mlnx>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/18/2016 2:54 AM, Eli Cohen wrote:
-> Sinan,
-> 
-> if we get rid of the part this code:
-> 
->                 if (BITS_PER_LONG == 64) {
->                         struct page **pages;
->                         pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
->                         if (!pages)
->                                 goto err_free;
->                         ...
->                         ...
->                         if (!buf->direct.buf)
->                                 goto err_free;
->                 }
-> 
-> Does that solve the arm issue?
+This is a fix for a NULL pointer dereference from cpsw which is triggered
+by having two slave PHYs attached to a cpsw network device. The problem is
+due to only maintaining a single reference to a PHY node in the prive data
+which gets overwritten by the second PHY probe. So move the PHY node
+reference to the individual slave data so that there is now one per slave.
 
-I will test. As far as I know, there is one more place these DMA addresses
-are called with vmap. This is in mlx4_en_map_buffer.
+v1 had a problem that data->slaves was used before it had been filled in
 
-I was trying to rearrange the allocation so that vmap actually works.
+Andrew Goodbody (1):
+  Prevent NUll pointer dereference with two PHYs on cpsw
 
-What do you think about mlx4_en_map_buffer?
-
+ drivers/net/ethernet/ti/cpsw.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
 
 -- 
-Sinan Kaya
-Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+2.5.0
