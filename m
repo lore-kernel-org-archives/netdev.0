@@ -1,39 +1,34 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: [PATCH v2] carl9170: Clarify kconfig text
-Date: Mon, 18 Apr 2016 19:10:57 +0200
-Message-ID: <5517762.PotoMG0SZb@debian64>
-References: <c17f2f12-1c94-6b19-c918-0a6a9ee401ca@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: switchdev fib offload issues
+Date: Mon, 18 Apr 2016 11:11:26 -0600
+Message-ID: <5715153E.6060005@cumulusnetworks.com>
+References: <20160418154757.GA2059@nanopsycho.amit.cz>
+ <AM4PR0501MB19409325D618C1C2E9519E9FDB6B0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Lauri Kasanen <cand@gmx.com>, Kalle Valo <kvalo@codeaurora.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Linux Firmware Maintainers <linux-firmware@kernel.org>,
-	sgruszka@redhat.com
-To: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c17f2f12-1c94-6b19-c918-0a6a9ee401ca@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ilan Tayari <ilant@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36169 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbcDRRL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 13:11:29 -0400
+Received: by mail-io0-f177.google.com with SMTP id u185so201116679iod.3
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 10:11:28 -0700 (PDT)
+In-Reply-To: <AM4PR0501MB19409325D618C1C2E9519E9FDB6B0@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, April 18, 2016 06:47:44 PM Xose Vazquez Perez wrote:
-> Christian Lamparter wrote:
-> 
-> > Sure, but this could be a different patch then. I think Intel devices 
-> > (iwlwifi, iwlegacy and ipw2x00) have a similar text about "download
-> > firmware from this device from our homepage here" too. So if we want,
-> > we can remove them altogether?
-> 
-> linux-firmware.git does not contain firmware for all drivers. _At least_
-> zd1211rw [1], atmel [2] and ipw2x00 [3] are out of the tree.
+On 4/18/16 10:38 AM, Ilan Tayari wrote:
+> Hi Jiri,
+>
+>> Thoughts?
+>
+> One general thought comes to mind, regardless of your proposed solutions:
+>
+> You'll need to take care to propagate the error properly in case of routes created by the kernel, such as local routes.
+> Local routes are created when an IP address is added to an interface, so in such a case would the whole add-ip-address operation be rolled back cleanly?
 
-Yeah, don't forget p54. It needs out-of-tree firmwares as well.
-
-But what about iwlegacy? Isn't that another candidate that would fit both
-requirements (no recent firmware update, firmware in linux-firmware.git) ?
-
-> [1] http://sf.net/projects/zd1211/files/
-> [2] http://web.archive.org/web/20121016132320/http://at76c503a.berlios.de/fw_dl.html
-> [3] http://ipw2100.sf.net/firmware.php http://ipw2200.sf.net/firmware.php
+local routes are added on an 'admin up' too which is completely 
+disconnected from adding the address to the interface.
