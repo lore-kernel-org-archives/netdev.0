@@ -1,68 +1,57 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: kill circular reference with slave priv
-Date: Mon, 18 Apr 2016 16:10:24 -0400
-Message-ID: <1461010224-10808-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+From: Francesco Ruggeri <fruggeri@arista.com>
+Subject: Re: [PATCH net-next] macvlan: fix failure during registration
+Date: Mon, 18 Apr 2016 13:10:51 -0700
+Message-ID: <CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
+References: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
+	<87ega2sqhf.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Mahesh Bandewar <maheshb@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:35658 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565AbcDRUKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 16:10:52 -0400
+Received: by mail-oi0-f54.google.com with SMTP id p188so200764537oih.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 13:10:52 -0700 (PDT)
+In-Reply-To: <87ega2sqhf.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dsa_slave_priv structure does not need a pointer to its net_device.
-Kill it.
+On Mon, Apr 18, 2016 at 11:48 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> These interactions all seem a little bit funny.  At a quick skim it
+> would make more sense to increment the port count in macvlan_init,
+> and completely remove the need to mess with port counts anywhere except
+> macvlan_init and macvlan_uninit.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa_priv.h | 5 -----
- net/dsa/slave.c    | 9 ++++-----
- 2 files changed, 4 insertions(+), 10 deletions(-)
+Thanks Eric, let me try that.
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 1d1a546..dfa3377 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -22,11 +22,6 @@ struct dsa_device_ops {
- };
- 
- struct dsa_slave_priv {
--	/*
--	 * The linux network interface corresponding to this
--	 * switch port.
--	 */
--	struct net_device	*dev;
- 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
- 					struct net_device *dev);
- 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 2dae0d0..3b6750f 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -673,10 +673,10 @@ static void dsa_slave_get_ethtool_stats(struct net_device *dev,
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
- 
--	data[0] = p->dev->stats.tx_packets;
--	data[1] = p->dev->stats.tx_bytes;
--	data[2] = p->dev->stats.rx_packets;
--	data[3] = p->dev->stats.rx_bytes;
-+	data[0] = dev->stats.tx_packets;
-+	data[1] = dev->stats.tx_bytes;
-+	data[2] = dev->stats.rx_packets;
-+	data[3] = dev->stats.rx_bytes;
- 	if (ds->drv->get_ethtool_stats != NULL)
- 		ds->drv->get_ethtool_stats(ds, p->port, data + 4);
- }
-@@ -1063,7 +1063,6 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	slave_dev->vlan_features = master->vlan_features;
- 
- 	p = netdev_priv(slave_dev);
--	p->dev = slave_dev;
- 	p->parent = ds;
- 	p->port = port;
- 
--- 
-2.8.0
+>
+> If for some reason that can't be done the code can easily look at
+> dev->reg_state.  If dev->reg_state == NETREG_UNITIALIZED it should
+> be exactly the same as your new flag being set.
+>
+
+I am not sure that in macvlan_uninit one can tell whether it is being
+invoked in the context of a failed register_netdevice (if that is what
+you meant).
+
+In case of register_netdevice failing in
+call_netdevice_notifiers(NETDEV_REGISTER) the call sequence is:
+
+macvlan_common_newlink
+  register_netdevice
+    call_netdevice_notifiers(NETDEV_REGISTER, dev) (<== fail here)
+      rollback_registered(dev);
+        rollback_registered_many
+          dev->reg_state = NETREG_UNREGISTERING
+          dev->netdev_ops->ndo_uninit(dev)
+      dev->reg_state = NETREG_UNREGISTERED;
+
+
+Francesco
