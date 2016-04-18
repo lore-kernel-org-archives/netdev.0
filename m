@@ -1,7 +1,8 @@
 From: Alexander Aring <aar@pengutronix.de>
-Subject: [PATCH bluetooth-next 00/10] 6lowpan: introduce basic 6lowpan-nd
-Date: Mon, 18 Apr 2016 12:58:18 +0200
-Message-ID: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
+Subject: [PATCH bluetooth-next 08/10] ipv6: export ndisc functions
+Date: Mon, 18 Apr 2016 12:58:26 +0200
+Message-ID: <1460977108-4675-9-git-send-email-aar@pengutronix.de>
+References: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
 Cc: kernel@pengutronix.de, marcel@holtmann.org,
 	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
 	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
@@ -14,104 +15,169 @@ Cc: kernel@pengutronix.de, marcel@holtmann.org,
 	Patrick McHardy <kaber@trash.net>
 To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:60900 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:52262 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753784AbcDRK7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 06:59:25 -0400
+	by vger.kernel.org with ESMTP id S1753786AbcDRK73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 06:59:29 -0400
+In-Reply-To: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-this patch series introduces a layer for IPv6 neighbour discovery. At first
-it introduce the "ndisc_ops" to run a different handling for recv/send of
-NA/NS messages. The use case for such ndisc operation is RFC 6775 [0].
-Which describes a different neighbour discovery handling for 6LoWPAN networks.
-
-I didn't implement RFC 6775 in this patch series, but introduce callback
-structure for replace different functions in ndisc implementation might be
-the right direction.
-
-Another use case would be RFC 7400 [1] which describes a new option field to
-getting capabilities of 6LoWPAN next header compression methods.
-
-What I implemented is a necessary functionality to handle short address for
-802.15.4 6LoWPAN networks. The L2-Layer "802.15.4" can have two different
-link-layer addresses which can be used mixed at the same time inside 802.15.4
-networks. To deal with such behaviour in ndisc, it is defined at RFC 4944 [2].
-The bad news is, that I saw different handling of such handling. What Linux
-will do is to add two source/target address information option fields, each
-with different length, if short address is valid (can also not be given).
-Example:
-
-- WPAN interface address settings
- - extended addr (must always be there)
- - short addr (0xfffe or 0xffff -> invalid)
-
-Will add an extended addr to source/target address information option field.
-If short addr is in some valid range, then both address will be added to
-the option fields. Indicated are these different address types by the length
-field (extended -> length=2, short -> length=1), according to [1].
-
-The tested 6LoWPAN implementation (RIOT-OS) allows only one source/target
-option field which is short XOR extended, otherwise it will be dropped.
-There is some lack of information there [2] and I don't know how do deal with
-it right, maybe we need to update the implementation there if it's really
-wrong.
-
-To save such information for each neighbour we use the already implemented
-neighbour private data which some casting strategy for 6LoWPAN and 6LoWPAN
-link-layer specific data e.g. 802.15.4 short address handling.
-
-Additional I implemented to add 6CO to the is_useropt callback in case of
-6LoWPAN interface. The 6CO option will currently parsed in userspace which
-are placed in RA-Messages.
-
-The ndisc_ops are not finished yet, of course we need handling for RS messages
-to place the 802.15.4 short address there as well and then also processing
-of RA messages for the 802.15.4 SLLAO option field.
-
-- Alex
-
-[0] https://tools.ietf.org/html/rfc6775
-[1] https://tools.ietf.org/html/rfc7400#section-3.3
-[2] https://tools.ietf.org/html/rfc4944#section-8
+This patch exports some neighbour discovery functions which can be used
+by 6lowpan neighbour discovery ops functionality then.
 
 Cc: David S. Miller <davem@davemloft.net>
 Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Cc: James Morris <jmorris@namei.org>
 Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Alexander Aring <aar@pengutronix.de>
+---
+ include/net/ndisc.h | 16 ++++++++++++++++
+ net/ipv6/addrconf.c |  1 +
+ net/ipv6/ndisc.c    | 28 ++++++++++------------------
+ 3 files changed, 27 insertions(+), 18 deletions(-)
 
-Alexander Aring (10):
-  6lowpan: add private neighbour data
-  6lowpan: add 802.15.4 short addr slaac
-  6lowpan: remove ipv6 module request
-  ndisc: add addr_len parameter to ndisc_opt_addr_space
-  ndisc: add addr_len parameter to ndisc_opt_addr_data
-  ndisc: add addr_len parameter to ndisc_fill_addr_option
-  ipv6: introduce neighbour discovery ops
-  ipv6: export ndisc functions
-  6lowpan: introduce 6lowpan-nd
-  6lowpan: add support for 802.15.4 short addr handling
-
- include/linux/netdevice.h     |   6 +-
- include/net/6lowpan.h         |  24 ++
- include/net/addrconf.h        |   3 +
- include/net/ndisc.h           | 101 ++++++-
- net/6lowpan/6lowpan_i.h       |   2 +
- net/6lowpan/Makefile          |   2 +-
- net/6lowpan/core.c            |  50 +++-
- net/6lowpan/iphc.c            | 167 +++++++++--
- net/6lowpan/ndisc.c           | 633 ++++++++++++++++++++++++++++++++++++++++++
- net/bluetooth/6lowpan.c       |   2 +
- net/ieee802154/6lowpan/core.c |  12 +
- net/ieee802154/6lowpan/tx.c   | 107 ++++---
- net/ipv6/addrconf.c           |   7 +-
- net/ipv6/ndisc.c              | 132 +++++----
- net/ipv6/route.c              |   4 +-
- 15 files changed, 1094 insertions(+), 158 deletions(-)
- create mode 100644 net/6lowpan/ndisc.c
-
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 5346625..25ce092 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -53,6 +53,15 @@ enum {
+ 
+ #include <net/neighbour.h>
+ 
++/* Set to 3 to get tracing... */
++#define ND_DEBUG 1
++
++#define ND_PRINTK(val, level, fmt, ...)				\
++do {								\
++	if (val <= ND_DEBUG)					\
++		net_##level##_ratelimited(fmt, ##__VA_ARGS__);	\
++} while (0)
++
+ struct ctl_table;
+ struct inet6_dev;
+ struct net_device;
+@@ -244,6 +253,13 @@ int ndisc_late_init(void);
+ void ndisc_late_cleanup(void);
+ void ndisc_cleanup(void);
+ 
++void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
++			    int data_len);
++struct sk_buff *ndisc_alloc_skb(struct net_device *dev, int len);
++void ndisc_send_skb(struct sk_buff *skb, const struct in6_addr *daddr,
++		    const struct in6_addr *saddr);
++int pndisc_is_router(const void *pkey, struct net_device *dev);
++
+ int ndisc_rcv(struct sk_buff *skb);
+ 
+ void ndisc_send_rs(struct net_device *dev,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a2ef04b..8f05ef8 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1775,6 +1775,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
+ 
+ 	return result;
+ }
++EXPORT_SYMBOL(ipv6_get_ifaddr);
+ 
+ /* Gets referenced address, destroys ifaddr */
+ 
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 297080a..dc8bfec 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -73,15 +73,6 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+ 
+-/* Set to 3 to get tracing... */
+-#define ND_DEBUG 1
+-
+-#define ND_PRINTK(val, level, fmt, ...)				\
+-do {								\
+-	if (val <= ND_DEBUG)					\
+-		net_##level##_ratelimited(fmt, ##__VA_ARGS__);	\
+-} while (0)
+-
+ static u32 ndisc_hash(const void *pkey,
+ 		      const struct net_device *dev,
+ 		      __u32 *hash_rnd);
+@@ -150,8 +141,8 @@ struct neigh_table nd_tbl = {
+ };
+ EXPORT_SYMBOL_GPL(nd_tbl);
+ 
+-static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
+-				   int data_len)
++void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
++			    int data_len)
+ {
+ 	int pad   = ndisc_addr_option_pad(skb->dev->type);
+ 	int space = ndisc_opt_addr_space(skb->dev, data_len);
+@@ -171,6 +162,7 @@ static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
+ 	if (space > 0)
+ 		memset(opt, 0, space);
+ }
++EXPORT_SYMBOL(ndisc_fill_addr_option);
+ 
+ static struct nd_opt_hdr *ndisc_next_option(struct nd_opt_hdr *cur,
+ 					    struct nd_opt_hdr *end)
+@@ -378,8 +370,7 @@ static void pndisc_destructor(struct pneigh_entry *n)
+ 	ipv6_dev_mc_dec(dev, &maddr);
+ }
+ 
+-static struct sk_buff *ndisc_alloc_skb(struct net_device *dev,
+-				       int len)
++struct sk_buff *ndisc_alloc_skb(struct net_device *dev, int len)
+ {
+ 	int hlen = LL_RESERVED_SPACE(dev);
+ 	int tlen = dev->needed_tailroom;
+@@ -406,6 +397,7 @@ static struct sk_buff *ndisc_alloc_skb(struct net_device *dev,
+ 
+ 	return skb;
+ }
++EXPORT_SYMBOL(ndisc_alloc_skb);
+ 
+ static void ip6_nd_hdr(struct sk_buff *skb,
+ 		       const struct in6_addr *saddr,
+@@ -428,9 +420,8 @@ static void ip6_nd_hdr(struct sk_buff *skb,
+ 	hdr->daddr = *daddr;
+ }
+ 
+-static void ndisc_send_skb(struct sk_buff *skb,
+-			   const struct in6_addr *daddr,
+-			   const struct in6_addr *saddr)
++void ndisc_send_skb(struct sk_buff *skb, const struct in6_addr *daddr,
++		    const struct in6_addr *saddr)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net *net = dev_net(skb->dev);
+@@ -479,6 +470,7 @@ static void ndisc_send_skb(struct sk_buff *skb,
+ 
+ 	rcu_read_unlock();
+ }
++EXPORT_SYMBOL(ndisc_send_skb);
+ 
+ static void ip6_ndisc_send_na(struct net_device *dev,
+ 			      const struct in6_addr *daddr,
+@@ -692,8 +684,7 @@ static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	}
+ }
+ 
+-static int pndisc_is_router(const void *pkey,
+-			    struct net_device *dev)
++int pndisc_is_router(const void *pkey, struct net_device *dev)
+ {
+ 	struct pneigh_entry *n;
+ 	int ret = -1;
+@@ -706,6 +697,7 @@ static int pndisc_is_router(const void *pkey,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(pndisc_is_router);
+ 
+ static void ip6_ndisc_recv_ns(struct sk_buff *skb)
+ {
 -- 
 2.8.0
