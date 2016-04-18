@@ -1,64 +1,95 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] macvlan: fix failure during registration
-Date: Mon, 18 Apr 2016 16:33:07 -0500
-Message-ID: <87wpnur4a4.fsf@x220.int.ebiederm.org>
-References: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
-	<87ega2sqhf.fsf@x220.int.ebiederm.org>
-	<CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to
+ tracepoints
+Date: Mon, 18 Apr 2016 14:43:07 -0700
+Message-ID: <571554EB.9010702@fb.com>
+References: <1459831974-2891931-1-git-send-email-ast@fb.com>
+ <1459831974-2891931-3-git-send-email-ast@fb.com>
+ <20160418162905.220df2f4@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Francesco Ruggeri <fruggeri@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:42336 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860AbcDRVnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:43:32 -0400
-In-Reply-To: <CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
-	(Francesco Ruggeri's message of "Mon, 18 Apr 2016 13:10:51 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"David S . Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
+	Brendan Gregg <brendan.d.gregg@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160418162905.220df2f4@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francesco Ruggeri <fruggeri@arista.com> writes:
-
-> On Mon, Apr 18, 2016 at 11:48 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
+On 4/18/16 1:29 PM, Steven Rostedt wrote:
+> On Mon, 4 Apr 2016 21:52:48 -0700
+> Alexei Starovoitov <ast@fb.com> wrote:
+>
+>> introduce BPF_PROG_TYPE_TRACEPOINT program type and allow it to be
+>> attached to tracepoints.
+>> The tracepoint will copy the arguments in the per-cpu buffer and pass
+>> it to the bpf program as its first argument.
+>> The layout of the fields can be discovered by doing
+>> 'cat /sys/kernel/debug/tracing/events/sched/sched_switch/format'
+>> prior to the compilation of the program with exception that first 8 bytes
+>> are reserved and not accessible to the program. This area is used to store
+>> the pointer to 'struct pt_regs' which some of the bpf helpers will use:
+>> +---------+
+>> | 8 bytes | hidden 'struct pt_regs *' (inaccessible to bpf program)
+>> +---------+
+>> | N bytes | static tracepoint fields defined in tracepoint/format (bpf readonly)
+>> +---------+
+>> | dynamic | __dynamic_array bytes of tracepoint (inaccessible to bpf yet)
+>> +---------+
 >>
->> These interactions all seem a little bit funny.  At a quick skim it
->> would make more sense to increment the port count in macvlan_init,
->> and completely remove the need to mess with port counts anywhere except
->> macvlan_init and macvlan_uninit.
->
-> Thanks Eric, let me try that.
->
+>> Not that all of the fields are already dumped to user space via perf ring buffer
+>> and some application access it directly without consulting tracepoint/format.
+>> Same rule applies here: static tracepoint fields should only be accessed
+>> in a format defined in tracepoint/format. The order of fields and
+>> field sizes are not an ABI.
 >>
->> If for some reason that can't be done the code can easily look at
->> dev->reg_state.  If dev->reg_state == NETREG_UNITIALIZED it should
->> be exactly the same as your new flag being set.
->>
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+>> ---
+...
+>> -	entry = perf_trace_buf_prepare(__entry_size,			\
+>> -			event_call->event.type, &__regs, &rctx);	\
+>> +	event_type = prog ? TRACE_EVENT_TYPE_MAX : event_call->event.type; \
 >
-> I am not sure that in macvlan_uninit one can tell whether it is being
-> invoked in the context of a failed register_netdevice (if that is what
-> you meant).
->
-> In case of register_netdevice failing in
-> call_netdevice_notifiers(NETDEV_REGISTER) the call sequence is:
->
-> macvlan_common_newlink
->   register_netdevice
->     call_netdevice_notifiers(NETDEV_REGISTER, dev) (<== fail here)
->       rollback_registered(dev);
->         rollback_registered_many
->           dev->reg_state = NETREG_UNREGISTERING
->           dev->netdev_ops->ndo_uninit(dev)
->       dev->reg_state = NETREG_UNREGISTERED;
->
+> Can you move this into perf_trace_entry_prepare?
 
-The code I have looks a little different.  But that is a good point.
+that's the old version.
+The last one are commits 1e1dcd93b46 and 98b5c2c65c295 in net-next.
 
-But please see if you can get macvlan_init to do the necessary work.
-That should simplify everything, and make clever games unnecessary.
+>> +	if (prog) {							\
+>> +		*(struct pt_regs **)entry = __regs;			\
+>> +		if (!trace_call_bpf(prog, entry) || hlist_empty(head)) { \
+>> +			perf_swevent_put_recursion_context(rctx);	\
+>> +			return;						\
+>> +		}							\
+>> +		memset(&entry->ent, 0, sizeof(entry->ent));		\
+>> +	}								\
+>
+> And perhaps this into perf_trace_buf_submit()?
+>
+> Tracepoints are a major cause of bloat, and the reasons for these
+> prepare and submit functions is to move code out of the macros. Every
+> tracepoint in the kernel (1000 and counting) will include this code.
+> I've already had complaints that each tracepoint can add up to 5k to
+> the core.
 
-Eric
+I was worried about this too, but single 'if' and two calls
+(as in commit 98b5c2c65c295) is a better way, since it's faster, cleaner
+and doesn't need to refactor the whole perf_trace_buf_submit() to pass
+extra event_call argument to it.
+perf_trace_buf_submit() is already ugly with 8 arguments!
+Passing more args or creating a struct to pass args only going to
+hurt performance without much reduction in .text size.
+tinyfication folks will disable tracepoints anyway.
+Note that the most common case is bpf returning 0 and not even
+calling perf_trace_buf_submit() which is already slow due
+to so many args passed on stack.
+This stuff is called million times a second, so every instruction
+counts.
