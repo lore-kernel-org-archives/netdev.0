@@ -1,57 +1,105 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
- UP
-Date: Tue, 19 Apr 2016 00:42:26 +0200
-Message-ID: <20160418224226.GE25196@piout.net>
-References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
- <57114AA4.5080803@gmail.com>
- <20160415205613.GE25196@piout.net>
- <20160415220508.GC26665@lunn.ch>
- <20160415221711.GG25196@piout.net>
- <571169EB.4090300@gmail.com>
- <20160418221433.GX25196@piout.net>
- <57155D16.2080306@gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH v2 net-next 1/7] tcp: Carry txstamp_ack in tcp_fragment_tstamp
+Date: Mon, 18 Apr 2016 15:46:03 -0700
+Message-ID: <1461019569-3037369-2-git-send-email-kafai@fb.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	"David S . Miller" <davem@davemloft.net>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:35280 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752049AbcDRWmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:42:38 -0400
-Content-Disposition: inline
-In-Reply-To: <57155D16.2080306@gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54016 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751473AbcDRWqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:46:33 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IMhxVN018838
+	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:32 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 22bh72rb8y-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:32 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 62d1fd7405b711e695410002c9521c9e-f93a16d0 for <netdev@vger.kernel.org>;	Mon,
+ 18 Apr 2016 15:46:27 -0700
+In-Reply-To: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18/04/2016 at 15:17:58 -0700, Florian Fainelli wrote :
-> Yes, seems like it, how about adding this:
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c
-> b/drivers/net/ethernet/cadence/macb.c
-> index 98b99149ce0b..21096dfb0e83 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -440,7 +440,7 @@ static int macb_mii_init(struct macb *bp)
->         snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
->                  bp->pdev->name, bp->pdev->id);
->         bp->mii_bus->priv = bp;
-> -       bp->mii_bus->parent = &bp->dev->dev;
-> +       bp->mii_bus->parent = &bp->pdev->dev;
->         pdata = dev_get_platdata(&bp->pdev->dev);
-> 
->         dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+When a tcp skb is sliced into two smaller skbs (e.g. in
+tcp_fragment() and tso_fragment()),  it does not carry
+the txstamp_ack bit to the newly created skb if it is needed.
+The end result is a timestamping event (SCM_TSTAMP_ACK) will
+be missing from the sk->sk_error_queue.
 
-Works fine.
+This patch carries this bit to the new skb2 (if needed)
+in tcp_fragment_tstamp().
 
-But still, this doesn't solve the phy issue ;)
+BPF Output Before:
+~~~~~~
+<No output due to missing SCM_TSTAMP_ACK timestamp>
 
+BPF Output After:
+~~~~~~
+<...>-2050  [000] d.s.   100.928763: : ee_data:14599
 
+Packetdrill Script:
+~~~~~~
++0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
++0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
++0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
++0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
++0 bind(3, ..., ...) = 0
++0 listen(3, 1) = 0
+
+0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+0.200 < . 1:1(0) ack 1 win 257
+0.200 accept(3, ..., ...) = 4
++0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+
++0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
+0.200 write(4, ..., 14600) = 14600
++0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
+
+0.200 > . 1:7301(7300) ack 1
+0.200 > P. 7301:14601(7300) ack 1
+
+0.300 < . 1:1(0) ack 14601 win 257
+
+0.300 close(4) = 0
+0.300 > F. 14601:14601(0) ack 1
+0.400 < F. 1:1(0) ack 16062 win 257
+0.400 > . 14602:14602(0) ack 2
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 6451b83..0527ce9 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1123,6 +1123,8 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
+ 		shinfo->tx_flags &= ~tsflags;
+ 		shinfo2->tx_flags |= tsflags;
+ 		swap(shinfo->tskey, shinfo2->tskey);
++		TCP_SKB_CB(skb2)->txstamp_ack = TCP_SKB_CB(skb)->txstamp_ack;
++		TCP_SKB_CB(skb)->txstamp_ack = 0;
+ 	}
+ }
+ 
 -- 
-Alexandre Belloni, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+2.5.1
