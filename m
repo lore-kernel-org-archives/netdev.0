@@ -1,43 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Mon, 18 Apr 2016 14:35:56 -0700
-Message-ID: <1461015356.10638.124.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] macvlan: fix failure during registration
+Date: Mon, 18 Apr 2016 16:33:07 -0500
+Message-ID: <87wpnur4a4.fsf@x220.int.ebiederm.org>
+References: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
+	<87ega2sqhf.fsf@x220.int.ebiederm.org>
+	<CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net,
-	tgraf@suug.ch, nicolas.dichtel@6wind.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Mahesh Bandewar <maheshb@google.com>
+To: Francesco Ruggeri <fruggeri@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:32996 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537AbcDRVf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:35:58 -0400
-Received: by mail-pa0-f48.google.com with SMTP id zm5so82769798pac.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 14:35:58 -0700 (PDT)
-In-Reply-To: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:42336 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750860AbcDRVnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:43:32 -0400
+In-Reply-To: <CA+HUmGhUqXn35x6Nnhcrk+WH8PuiaxwsrZNy-NsJ94wybCukGA@mail.gmail.com>
+	(Francesco Ruggeri's message of "Mon, 18 Apr 2016 13:10:51 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-18 at 14:10 -0700, Roopa Prabhu wrote:
+Francesco Ruggeri <fruggeri@arista.com> writes:
 
-> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
-> +		struct rtnl_link_stats64 *sp;
-> +
-> +		attr = nla_reserve(skb, IFLA_STATS_LINK_64,
-> +				   sizeof(struct rtnl_link_stats64));
-> +		if (!attr)
-> +			goto nla_put_failure;
-> +
-> +		sp = nla_data(attr);
+> On Mon, Apr 18, 2016 at 11:48 AM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>>
+>> These interactions all seem a little bit funny.  At a quick skim it
+>> would make more sense to increment the port count in macvlan_init,
+>> and completely remove the need to mess with port counts anywhere except
+>> macvlan_init and macvlan_uninit.
+>
+> Thanks Eric, let me try that.
+>
+>>
+>> If for some reason that can't be done the code can easily look at
+>> dev->reg_state.  If dev->reg_state == NETREG_UNITIALIZED it should
+>> be exactly the same as your new flag being set.
+>>
+>
+> I am not sure that in macvlan_uninit one can tell whether it is being
+> invoked in the context of a failed register_netdevice (if that is what
+> you meant).
+>
+> In case of register_netdevice failing in
+> call_netdevice_notifiers(NETDEV_REGISTER) the call sequence is:
+>
+> macvlan_common_newlink
+>   register_netdevice
+>     call_netdevice_notifiers(NETDEV_REGISTER, dev) (<== fail here)
+>       rollback_registered(dev);
+>         rollback_registered_many
+>           dev->reg_state = NETREG_UNREGISTERING
+>           dev->netdev_ops->ndo_uninit(dev)
+>       dev->reg_state = NETREG_UNREGISTERED;
+>
 
-Are you sure we have a guarantee that sp is aligned to u64 fields ?
+The code I have looks a little different.  But that is a good point.
 
-x86 does not care, but some arches would have a potential misalign
-access here.
+But please see if you can get macvlan_init to do the necessary work.
+That should simplify everything, and make clever games unnecessary.
 
-
-> +		dev_get_stats(dev, sp);
-> +	}
+Eric
