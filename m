@@ -1,48 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Sun, 17 Apr 2016 18:38:51 -0700
-Message-ID: <1460943531.10638.99.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160418113116.6f7f8740@canb.auug.org.au>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next V2 0/2] ethernet: intel: Support Hyper-V hosts
+Date: Sun, 17 Apr 2016 22:22:23 -0700
+Message-ID: <1460956943-17560-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Craig Gallek <kraig@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160418113116.6f7f8740@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com, eli@mellanox.com, jackm@mellanox.com,
+ yevgenyp@mellanox.com, john.ronciak@intel.com,
+ intel-wired-lan@lists.osuosl.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-04-18 at 11:31 +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in:
-> 
->   net/ipv4/udp.c
-> 
-> between commit:
-> 
->   d894ba18d4e4 ("soreuseport: fix ordering for mixed v4/v6 sockets")
-> 
-> from the net tree and commit:
-> 
->   ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
-> 
-> from the net-next tree.
-> 
-> I tried to fixed it up (see below).  Unfortunately,
-> hlist_add_tail_rcu() does not exist.  So instead I have reverted commit
-> d894ba18d4e4 ("soreuseport: fix ordering for mixed v4/v6 sockets") for
-> today.
+Make adjustments to the Intel 10G VF driver to support
+running on Hyper-V hosts.
 
-Hi Stephen
+K. Y. Srinivasan (2):
+  ethernet: intel: Add the device ID's presented while running on
+    Hyper-V
+  intel: ixgbevf: Support Windows hosts (Hyper-V)
 
-Craig warned that this would happen indeed, and provided a net-next
-patch, to help David with this conflict.
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   12 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   16 ++-
+ drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |  201 +++++++++++++++++++++
+ 5 files changed, 242 insertions(+), 4 deletions(-)
 
-https://patchwork.ozlabs.org/patch/611093/
-
-Thanks
+-- 
+1.7.4.1
