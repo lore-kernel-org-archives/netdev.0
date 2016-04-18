@@ -1,84 +1,153 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH nf] netfilter: ipv6: Orphan skbs in nf_ct_frag6_gather()
-Date: Mon, 18 Apr 2016 14:49:48 -0700
-Message-ID: <CAPWQB7EnefsCzqPCB+LbLzF_MEK-QbeW+g=dk6Q2K=fwiDt1qA@mail.gmail.com>
-References: <1460570974-44050-1-git-send-email-joe@ovn.org>
- <063D6719AE5E284EB5DD2968C1650D6D5F4A226C@AcuExch.aculab.com>
- <20160414084015.GA3192@breakpoint.cc> <20160414103533.GA3211@salvia>
- <CAPWQB7EV-boR1_yaBeY8tQtHgc09+14jQ_q7yk=bpwrtqL+20Q@mail.gmail.com> <20160418183546.GA4289@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>,
-	David Laight <David.Laight@aculab.com>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"diproiettod@vmware.com" <diproiettod@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCHv2 net] openvswitch: Orphan skbs before IPv6 defrag
+Date: Mon, 18 Apr 2016 14:51:47 -0700
+Message-ID: <1461016307-14098-1-git-send-email-joe@ovn.org>
+Cc: Joe Stringer <joe@ovn.org>, fw@strlen.de,
+	netfilter-devel@vger.kernel.org, diproiettod@vmware.com,
+	pablo@netfilter.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:42401 "EHLO
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:45529 "EHLO
 	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751200AbcDRVuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:50:13 -0400
-In-Reply-To: <20160418183546.GA4289@salvia>
+	with ESMTP id S1751473AbcDRVv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:51:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 18 April 2016 at 11:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Apr 14, 2016 at 05:35:39PM -0700, Joe Stringer wrote:
->> On 14 April 2016 at 03:35, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> > On Thu, Apr 14, 2016 at 10:40:15AM +0200, Florian Westphal wrote:
->> >> David Laight <David.Laight@ACULAB.COM> wrote:
->> >> > From: Joe Stringer
->> >> > > Sent: 13 April 2016 19:10
->> >> > > This is the IPv6 equivalent of commit 8282f27449bf ("inet: frag: Always
->> >> > > orphan skbs inside ip_defrag()").
->> >> > >
->> >> > > Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
->> >> > > clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
->> >> > > cloned (implicitly orphaning) prior to queueing for reassembly. As such,
->> >> > > when the IPv6 message is eventually reassembled, the skb->sk for all
->> >> > > fragments would be NULL. After that commit was introduced, rather than
->> >> > > cloning, the original skbs were queued directly without orphaning. The
->> >> > > end result is that all frags except for the first and last may have a
->> >> > > socket attached.
->> >> >
->> >> > I'd have thought that the queued fragments would still want to be
->> >> > resource-counted against the socket (I think that is what skb->sk is for).
->> >>
->> >> No, ipv4/ipv6 reasm has its own accouting.
->> >>
->> >> > Although I can't imagine why IPv6 reassembly is happening on skb
->> >> > associated with a socket.
->> >>
->> >> Right, thats a much more interesting question -- both ipv4 and
->> >> ipv6 orphan skbs before NF_HOOK prerouting trip.
->> >>
->> >> (That being said, I don't mind the patch, I'm just be curious how this
->> >>  can happen).
->> >
->> > If this change is specific to get this working in ovs and its
->> > conntrack support, then I don't think this belong to core
->> > infrastructure. This should be fixed in ovs instead.
->>
->> I admit I've only been able to reproduce it with OVS. My main reason
->> for proposing the fix this way was just because this is what the IPv4
->> code does, so I figured IPv6 should be consistent with that.
->
-> You mean that this is what you did in 029f7f3b8701 to fix this, right?
->
-> But we shouldn't add code to the core that is OVS specific for no
-> reason. We don't need this orphan from ipv4 and ipv6 as Florian
-> indicated.
+This is the IPv6 counterpart to commit 8282f27449bf ("inet: frag: Always
+orphan skbs inside ip_defrag()").
 
-That makes complete sense to me. I was wondering whether the original
-IPv4 fix was the correct one from the nf core perspective - but it
-seems like perhaps it is, given that ip_defrag() has a lot more users
-from a lot more different paths which are likely relying on the skb to
-be orphaned. In comparison, in the IPv6 path, nf_ct_frag6_gather() is
-only called from OVS and the netfilter hooks; the hooks already do the
-orphaning, so it's more consistent for OVS to do it as well.
+Prior to commit 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free
+clone operations"), ipv6 fragments sent to nf_ct_frag6_gather() would be
+cloned (implicitly orphaning) prior to queueing for reassembly. As such,
+when the IPv6 message is eventually reassembled, the skb->sk for all
+fragments would be NULL. After that commit was introduced, rather than
+cloning, the original skbs were queued directly without orphaning. The
+end result is that all frags except for the first and last may have a
+socket attached.
 
-> Is there any chance you can fix this from OVS and its conntrack glue
-> code? Thanks.
+This commit explicitly orphans such skbs during nf_ct_frag6_gather() to
+prevent BUG_ON(skb->sk) during a later call to ip6_fragment().
 
-Sure, I'll resend the patch making the fix in OVS.
+kernel BUG at net/ipv6/ip6_output.c:631!
+[...]
+Call Trace:
+ <IRQ>
+ [<ffffffff810be8f7>] ? __lock_acquire+0x927/0x20a0
+ [<ffffffffa042c7c0>] ? do_output.isra.28+0x1b0/0x1b0 [openvswitch]
+ [<ffffffff810bb8a2>] ? __lock_is_held+0x52/0x70
+ [<ffffffffa042c587>] ovs_fragment+0x1f7/0x280 [openvswitch]
+ [<ffffffff810bdab5>] ? mark_held_locks+0x75/0xa0
+ [<ffffffff817be416>] ? _raw_spin_unlock_irqrestore+0x36/0x50
+ [<ffffffff81697ea0>] ? dst_discard_out+0x20/0x20
+ [<ffffffff81697e80>] ? dst_ifdown+0x80/0x80
+ [<ffffffffa042c703>] do_output.isra.28+0xf3/0x1b0 [openvswitch]
+ [<ffffffffa042d279>] do_execute_actions+0x709/0x12c0 [openvswitch]
+ [<ffffffffa04340a4>] ? ovs_flow_stats_update+0x74/0x1e0 [openvswitch]
+ [<ffffffffa04340d1>] ? ovs_flow_stats_update+0xa1/0x1e0 [openvswitch]
+ [<ffffffff817be387>] ? _raw_spin_unlock+0x27/0x40
+ [<ffffffffa042de75>] ovs_execute_actions+0x45/0x120 [openvswitch]
+ [<ffffffffa0432d65>] ovs_dp_process_packet+0x85/0x150 [openvswitch]
+ [<ffffffff817be387>] ? _raw_spin_unlock+0x27/0x40
+ [<ffffffffa042def4>] ovs_execute_actions+0xc4/0x120 [openvswitch]
+ [<ffffffffa0432d65>] ovs_dp_process_packet+0x85/0x150 [openvswitch]
+ [<ffffffffa04337f2>] ? key_extract+0x442/0xc10 [openvswitch]
+ [<ffffffffa043b26d>] ovs_vport_receive+0x5d/0xb0 [openvswitch]
+ [<ffffffff810be8f7>] ? __lock_acquire+0x927/0x20a0
+ [<ffffffff810be8f7>] ? __lock_acquire+0x927/0x20a0
+ [<ffffffff810be8f7>] ? __lock_acquire+0x927/0x20a0
+ [<ffffffff817be416>] ? _raw_spin_unlock_irqrestore+0x36/0x50
+ [<ffffffffa043c11d>] internal_dev_xmit+0x6d/0x150 [openvswitch]
+ [<ffffffffa043c0b5>] ? internal_dev_xmit+0x5/0x150 [openvswitch]
+ [<ffffffff8168fb5f>] dev_hard_start_xmit+0x2df/0x660
+ [<ffffffff8168f5ea>] ? validate_xmit_skb.isra.105.part.106+0x1a/0x2b0
+ [<ffffffff81690925>] __dev_queue_xmit+0x8f5/0x950
+ [<ffffffff81690080>] ? __dev_queue_xmit+0x50/0x950
+ [<ffffffff810bdab5>] ? mark_held_locks+0x75/0xa0
+ [<ffffffff81690990>] dev_queue_xmit+0x10/0x20
+ [<ffffffff8169a418>] neigh_resolve_output+0x178/0x220
+ [<ffffffff81752759>] ? ip6_finish_output2+0x219/0x7b0
+ [<ffffffff81752759>] ip6_finish_output2+0x219/0x7b0
+ [<ffffffff817525a5>] ? ip6_finish_output2+0x65/0x7b0
+ [<ffffffff816cde2b>] ? ip_idents_reserve+0x6b/0x80
+ [<ffffffff8175488f>] ? ip6_fragment+0x93f/0xc50
+ [<ffffffff81754af1>] ip6_fragment+0xba1/0xc50
+ [<ffffffff81752540>] ? ip6_flush_pending_frames+0x40/0x40
+ [<ffffffff81754c6b>] ip6_finish_output+0xcb/0x1d0
+ [<ffffffff81754dcf>] ip6_output+0x5f/0x1a0
+ [<ffffffff81754ba0>] ? ip6_fragment+0xc50/0xc50
+ [<ffffffff81797fbd>] ip6_local_out+0x3d/0x80
+ [<ffffffff817554df>] ip6_send_skb+0x2f/0xc0
+ [<ffffffff817555bd>] ip6_push_pending_frames+0x4d/0x50
+ [<ffffffff817796cc>] icmpv6_push_pending_frames+0xac/0xe0
+ [<ffffffff8177a4be>] icmpv6_echo_reply+0x42e/0x500
+ [<ffffffff8177acbf>] icmpv6_rcv+0x4cf/0x580
+ [<ffffffff81755ac7>] ip6_input_finish+0x1a7/0x690
+ [<ffffffff81755925>] ? ip6_input_finish+0x5/0x690
+ [<ffffffff817567a0>] ip6_input+0x30/0xa0
+ [<ffffffff81755920>] ? ip6_rcv_finish+0x1a0/0x1a0
+ [<ffffffff817557ce>] ip6_rcv_finish+0x4e/0x1a0
+ [<ffffffff8175640f>] ipv6_rcv+0x45f/0x7c0
+ [<ffffffff81755fe6>] ? ipv6_rcv+0x36/0x7c0
+ [<ffffffff81755780>] ? ip6_make_skb+0x1c0/0x1c0
+ [<ffffffff8168b649>] __netif_receive_skb_core+0x229/0xb80
+ [<ffffffff810bdab5>] ? mark_held_locks+0x75/0xa0
+ [<ffffffff8168c07f>] ? process_backlog+0x6f/0x230
+ [<ffffffff8168bfb6>] __netif_receive_skb+0x16/0x70
+ [<ffffffff8168c088>] process_backlog+0x78/0x230
+ [<ffffffff8168c0ed>] ? process_backlog+0xdd/0x230
+ [<ffffffff8168db43>] net_rx_action+0x203/0x480
+ [<ffffffff810bdab5>] ? mark_held_locks+0x75/0xa0
+ [<ffffffff817c156e>] __do_softirq+0xde/0x49f
+ [<ffffffff81752768>] ? ip6_finish_output2+0x228/0x7b0
+ [<ffffffff817c070c>] do_softirq_own_stack+0x1c/0x30
+ <EOI>
+ [<ffffffff8106f88b>] do_softirq.part.18+0x3b/0x40
+ [<ffffffff8106f946>] __local_bh_enable_ip+0xb6/0xc0
+ [<ffffffff81752791>] ip6_finish_output2+0x251/0x7b0
+ [<ffffffff81754af1>] ? ip6_fragment+0xba1/0xc50
+ [<ffffffff816cde2b>] ? ip_idents_reserve+0x6b/0x80
+ [<ffffffff8175488f>] ? ip6_fragment+0x93f/0xc50
+ [<ffffffff81754af1>] ip6_fragment+0xba1/0xc50
+ [<ffffffff81752540>] ? ip6_flush_pending_frames+0x40/0x40
+ [<ffffffff81754c6b>] ip6_finish_output+0xcb/0x1d0
+ [<ffffffff81754dcf>] ip6_output+0x5f/0x1a0
+ [<ffffffff81754ba0>] ? ip6_fragment+0xc50/0xc50
+ [<ffffffff81797fbd>] ip6_local_out+0x3d/0x80
+ [<ffffffff817554df>] ip6_send_skb+0x2f/0xc0
+ [<ffffffff817555bd>] ip6_push_pending_frames+0x4d/0x50
+ [<ffffffff81778558>] rawv6_sendmsg+0xa28/0xe30
+ [<ffffffff81719097>] ? inet_sendmsg+0xc7/0x1d0
+ [<ffffffff817190d6>] inet_sendmsg+0x106/0x1d0
+ [<ffffffff81718fd5>] ? inet_sendmsg+0x5/0x1d0
+ [<ffffffff8166d078>] sock_sendmsg+0x38/0x50
+ [<ffffffff8166d4d6>] SYSC_sendto+0xf6/0x170
+ [<ffffffff8100201b>] ? trace_hardirqs_on_thunk+0x1b/0x1d
+ [<ffffffff8166e38e>] SyS_sendto+0xe/0x10
+ [<ffffffff817bebe5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+Code: 06 48 83 3f 00 75 26 48 8b 87 d8 00 00 00 2b 87 d0 00 00 00 48 39 d0 72 14 8b 87 e4 00 00 00 83 f8 01 75 09 48 83 7f 18 00 74 9a <0f> 0b 41 8b 86 cc 00 00 00 49 8#
+RIP  [<ffffffff8175468a>] ip6_fragment+0x73a/0xc50
+ RSP <ffff880072803120>
+
+Fixes: 029f7f3b8701 ("netfilter: ipv6: nf_defrag: avoid/free clone
+operations")
+Reported-by: Daniele Di Proietto <diproiettod@vmware.com>
+Signed-off-by: Joe Stringer <joe@ovn.org>
+---
+ net/openvswitch/conntrack.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 1b9d286756be..b5fea1101faa 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -367,6 +367,7 @@ static int handle_fragments(struct net *net, struct sw_flow_key *key,
+ 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		enum ip6_defrag_users user = IP6_DEFRAG_CONNTRACK_IN + zone;
+ 
++		skb_orphan(skb);
+ 		memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+ 		err = nf_ct_frag6_gather(net, skb, user);
+ 		if (err)
+-- 
+2.1.4
