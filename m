@@ -1,29 +1,36 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch -next] udp: fix if statement in SIOCINQ ioctl
-Date: Mon, 18 Apr 2016 05:19:37 -0700
-Message-ID: <1460981977.10638.105.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160418084449.GA12410@mwanda>
+Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet
+ WQE (Striding RQ)
+Date: Mon, 18 Apr 2016 05:48:15 -0700
+Message-ID: <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
+	 <1460928725-18741-6-git-send-email-saeedm@mellanox.com>
+	 <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Willem de Bruijn <willemb@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418084449.GA12410@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:36397 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751892AbcDRMsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 08:48:19 -0400
+Received: by mail-qg0-f49.google.com with SMTP id f52so114720470qga.3
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 05:48:19 -0700 (PDT)
+In-Reply-To: <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-18 at 11:44 +0300, Dan Carpenter wrote:
-> We deleted a line of code and accidentally made the "return put_user()"
-> part of the if statement when it's supposed to be unconditional.
+On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
+
 > 
-> Fixes: 9f9a45beaa96 ('udp: do not expect udp headers on ioctl SIOCINQ')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> If really you need to allocate physically contiguous memory, have you
+> considered converting the order-5 pages into 32 order-0 ones ?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Search for split_page() call sites for examples.
