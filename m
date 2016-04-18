@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] fec: ethtool: move to new api
- {get|set}_link_ksettings
-Date: Mon, 18 Apr 2016 14:45:26 -0400 (EDT)
-Message-ID: <20160418.144526.1727838457143531009.davem@davemloft.net>
-References: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next] enic: set netdev->vlan_features
+Date: Mon, 18 Apr 2016 14:53:30 -0400 (EDT)
+Message-ID: <20160418.145330.146676524687501437.davem@davemloft.net>
+References: <1460747443-14993-1-git-send-email-gvaradar@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: decot@googlers.com, f.fainelli@gmail.com, fugang.duan@nxp.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460673301-10599-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, benve@cisco.com, mkubecek@suse.com,
+	_govind@gmx.com
+To: gvaradar@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55094 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717AbcDRSxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 14:53:32 -0400
+In-Reply-To: <1460747443-14993-1-git-send-email-gvaradar@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Fri, 15 Apr 2016 00:34:58 +0200
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Date: Sat, 16 Apr 2016 00:40:43 +0530
 
-> Ethtool has a new api {get|set}_link_ksettings that deprecate
-> the old api {get|set}_settings. We update the fec driver to use
-> this new ethtool api.
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
 > 
-> For this first version, I've converted old u32 value in phy structure
-> to link_modes structure. Another way would be to replace u32 in
-> phy structure to use DECLARE_LINK_MODE_MASK for advertising, ....
+> Driver sets vlan_feature to netdev->features as hardware supports all of
+> them on vlan interface.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Series applied, thanks.
+Applied.
