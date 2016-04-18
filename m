@@ -1,35 +1,30 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH bluetooth-next 07/10] ipv6: introduce neighbour discovery
- ops
-Date: Mon, 18 Apr 2016 20:59:11 +0800
-Message-ID: <201604182009.1HaPoees%fengguang.wu@intel.com>
-References: <1460977108-4675-8-git-send-email-aar@pengutronix.de>
+From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH bluetooth-next 09/10] 6lowpan: introduce 6lowpan-nd
+Date: Mon, 18 Apr 2016 21:04:15 +0800
+Message-ID: <201604182125.tSElv4bz%fengguang.wu@intel.com>
+References: <1460977108-4675-10-git-send-email-aar@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HcAYCG3uE/tztfnV"
-Cc: kbuild-all@01.org, linux-wpan@vger.kernel.org,
-	kernel@pengutronix.de, marcel@holtmann.org,
-	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
-	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Aring <aar@pengutronix.de>,
-	"David S . Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Alexander Aring <aar@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:9587 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751619AbcDRNAM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Apr 2016 09:00:12 -0400
+Content-Type: multipart/mixed; boundary="/04w6evG8XlLl3ft"
+Cc: kbuild-all-JC7UmRfGjtg@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1460977108-4675-8-git-send-email-aar@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1460977108-4675-10-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---HcAYCG3uE/tztfnV
+--/04w6evG8XlLl3ft
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -44,278 +39,124 @@ reproduce:
         # save the attached .config to linux build tree
         make ARCH=x86_64 
 
-All error/warnings (new ones prefixed by >>):
+All errors (new ones prefixed by >>):
 
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/atheros/alx/main.c:35:
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/fs.h:4,
+                    from include/linux/debugfs.h:18,
+                    from include/net/6lowpan.h:56,
+                    from net/6lowpan/ndisc.c:11:
    include/net/ndisc.h: In function 'ndisc_is_useropt':
->> include/net/ndisc.h:201:16: error: 'const struct net_device' has no member named 'ndisc_ops'
+   include/net/ndisc.h:211:16: error: 'const struct net_device' has no member named 'ndisc_ops'
      if (likely(dev->ndisc_ops->is_useropt))
                    ^
    include/linux/compiler.h:169:40: note: in definition of macro 'likely'
     # define likely(x) __builtin_expect(!!(x), 1)
                                            ^
    In file included from include/net/ipv6.h:20:0,
-                    from include/net/inetpeer.h:15,
-                    from include/net/route.h:28,
-                    from include/net/ip.h:31,
-                    from include/net/ip6_checksum.h:31,
-                    from drivers/net/ethernet/atheros/alx/main.c:46:
-   include/net/ndisc.h:202:13: error: 'const struct net_device' has no member named 'ndisc_ops'
+                    from include/net/6lowpan.h:58,
+                    from net/6lowpan/ndisc.c:11:
+   include/net/ndisc.h:212:13: error: 'const struct net_device' has no member named 'ndisc_ops'
       return dev->ndisc_ops->is_useropt(opt);
                 ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/atheros/alx/main.c:35:
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/fs.h:4,
+                    from include/linux/debugfs.h:18,
+                    from include/net/6lowpan.h:56,
+                    from net/6lowpan/ndisc.c:11:
    include/net/ndisc.h: In function 'ndisc_send_na':
->> include/net/ndisc.h:213:16: error: 'struct net_device' has no member named 'ndisc_ops'
+   include/net/ndisc.h:223:16: error: 'struct net_device' has no member named 'ndisc_ops'
      if (likely(dev->ndisc_ops->send_na))
                    ^
    include/linux/compiler.h:169:40: note: in definition of macro 'likely'
     # define likely(x) __builtin_expect(!!(x), 1)
                                            ^
    In file included from include/net/ipv6.h:20:0,
-                    from include/net/inetpeer.h:15,
-                    from include/net/route.h:28,
-                    from include/net/ip.h:31,
-                    from include/net/ip6_checksum.h:31,
-                    from drivers/net/ethernet/atheros/alx/main.c:46:
-   include/net/ndisc.h:214:6: error: 'struct net_device' has no member named 'ndisc_ops'
+                    from include/net/6lowpan.h:58,
+                    from net/6lowpan/ndisc.c:11:
+   include/net/ndisc.h:224:6: error: 'struct net_device' has no member named 'ndisc_ops'
       dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
          ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/atheros/alx/main.c:35:
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/fs.h:4,
+                    from include/linux/debugfs.h:18,
+                    from include/net/6lowpan.h:56,
+                    from net/6lowpan/ndisc.c:11:
    include/net/ndisc.h: In function 'ndisc_recv_na':
-   include/net/ndisc.h:220:21: error: 'struct net_device' has no member named 'ndisc_ops'
+   include/net/ndisc.h:230:21: error: 'struct net_device' has no member named 'ndisc_ops'
      if (likely(skb->dev->ndisc_ops->recv_na))
                         ^
    include/linux/compiler.h:169:40: note: in definition of macro 'likely'
     # define likely(x) __builtin_expect(!!(x), 1)
                                            ^
    In file included from include/net/ipv6.h:20:0,
-                    from include/net/inetpeer.h:15,
-                    from include/net/route.h:28,
-                    from include/net/ip.h:31,
-                    from include/net/ip6_checksum.h:31,
-                    from drivers/net/ethernet/atheros/alx/main.c:46:
-   include/net/ndisc.h:221:11: error: 'struct net_device' has no member named 'ndisc_ops'
+                    from include/net/6lowpan.h:58,
+                    from net/6lowpan/ndisc.c:11:
+   include/net/ndisc.h:231:11: error: 'struct net_device' has no member named 'ndisc_ops'
       skb->dev->ndisc_ops->recv_na(skb);
               ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/atheros/alx/main.c:35:
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/fs.h:4,
+                    from include/linux/debugfs.h:18,
+                    from include/net/6lowpan.h:56,
+                    from net/6lowpan/ndisc.c:11:
    include/net/ndisc.h: In function 'ndisc_send_ns':
-   include/net/ndisc.h:229:16: error: 'struct net_device' has no member named 'ndisc_ops'
+   include/net/ndisc.h:239:16: error: 'struct net_device' has no member named 'ndisc_ops'
      if (likely(dev->ndisc_ops->send_ns))
                    ^
    include/linux/compiler.h:169:40: note: in definition of macro 'likely'
     # define likely(x) __builtin_expect(!!(x), 1)
                                            ^
    In file included from include/net/ipv6.h:20:0,
-                    from include/net/inetpeer.h:15,
-                    from include/net/route.h:28,
-                    from include/net/ip.h:31,
-                    from include/net/ip6_checksum.h:31,
-                    from drivers/net/ethernet/atheros/alx/main.c:46:
-   include/net/ndisc.h:230:6: error: 'struct net_device' has no member named 'ndisc_ops'
+                    from include/net/6lowpan.h:58,
+                    from net/6lowpan/ndisc.c:11:
+   include/net/ndisc.h:240:6: error: 'struct net_device' has no member named 'ndisc_ops'
       dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
          ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from drivers/net/ethernet/atheros/alx/main.c:35:
+   In file included from include/linux/linkage.h:4:0,
+                    from include/linux/fs.h:4,
+                    from include/linux/debugfs.h:18,
+                    from include/net/6lowpan.h:56,
+                    from net/6lowpan/ndisc.c:11:
    include/net/ndisc.h: In function 'ndisc_recv_ns':
-   include/net/ndisc.h:235:21: error: 'struct net_device' has no member named 'ndisc_ops'
+   include/net/ndisc.h:245:21: error: 'struct net_device' has no member named 'ndisc_ops'
      if (likely(skb->dev->ndisc_ops->recv_ns))
                         ^
    include/linux/compiler.h:169:40: note: in definition of macro 'likely'
     # define likely(x) __builtin_expect(!!(x), 1)
                                            ^
    In file included from include/net/ipv6.h:20:0,
-                    from include/net/inetpeer.h:15,
-                    from include/net/route.h:28,
-                    from include/net/ip.h:31,
-                    from include/net/ip6_checksum.h:31,
-                    from drivers/net/ethernet/atheros/alx/main.c:46:
-   include/net/ndisc.h:236:11: error: 'struct net_device' has no member named 'ndisc_ops'
+                    from include/net/6lowpan.h:58,
+                    from net/6lowpan/ndisc.c:11:
+   include/net/ndisc.h:246:11: error: 'struct net_device' has no member named 'ndisc_ops'
       skb->dev->ndisc_ops->recv_ns(skb);
               ^
---
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from net/ipv6/ndisc.c:32:
-   include/net/ndisc.h: In function 'ndisc_is_useropt':
->> include/net/ndisc.h:201:16: error: 'const struct net_device' has no member named 'ndisc_ops'
-     if (likely(dev->ndisc_ops->is_useropt))
-                   ^
-   include/linux/compiler.h:169:40: note: in definition of macro 'likely'
-    # define likely(x) __builtin_expect(!!(x), 1)
-                                           ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h:202:13: error: 'const struct net_device' has no member named 'ndisc_ops'
-      return dev->ndisc_ops->is_useropt(opt);
-                ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from net/ipv6/ndisc.c:32:
-   include/net/ndisc.h: In function 'ndisc_send_na':
->> include/net/ndisc.h:213:16: error: 'struct net_device' has no member named 'ndisc_ops'
-     if (likely(dev->ndisc_ops->send_na))
-                   ^
-   include/linux/compiler.h:169:40: note: in definition of macro 'likely'
-    # define likely(x) __builtin_expect(!!(x), 1)
-                                           ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h:214:6: error: 'struct net_device' has no member named 'ndisc_ops'
-      dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
-         ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from net/ipv6/ndisc.c:32:
-   include/net/ndisc.h: In function 'ndisc_recv_na':
-   include/net/ndisc.h:220:21: error: 'struct net_device' has no member named 'ndisc_ops'
-     if (likely(skb->dev->ndisc_ops->recv_na))
-                        ^
-   include/linux/compiler.h:169:40: note: in definition of macro 'likely'
-    # define likely(x) __builtin_expect(!!(x), 1)
-                                           ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h:221:11: error: 'struct net_device' has no member named 'ndisc_ops'
-      skb->dev->ndisc_ops->recv_na(skb);
-              ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from net/ipv6/ndisc.c:32:
-   include/net/ndisc.h: In function 'ndisc_send_ns':
-   include/net/ndisc.h:229:16: error: 'struct net_device' has no member named 'ndisc_ops'
-     if (likely(dev->ndisc_ops->send_ns))
-                   ^
-   include/linux/compiler.h:169:40: note: in definition of macro 'likely'
-    # define likely(x) __builtin_expect(!!(x), 1)
-                                           ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h:230:6: error: 'struct net_device' has no member named 'ndisc_ops'
-      dev->ndisc_ops->send_ns(dev, solicit, daddr, saddr);
-         ^
-   In file included from include/uapi/linux/stddef.h:1:0,
-                    from include/linux/stddef.h:4,
-                    from include/uapi/linux/posix_types.h:4,
-                    from include/uapi/linux/types.h:13,
-                    from include/linux/types.h:5,
-                    from include/linux/list.h:4,
-                    from include/linux/module.h:9,
-                    from net/ipv6/ndisc.c:32:
-   include/net/ndisc.h: In function 'ndisc_recv_ns':
-   include/net/ndisc.h:235:21: error: 'struct net_device' has no member named 'ndisc_ops'
-     if (likely(skb->dev->ndisc_ops->recv_ns))
-                        ^
-   include/linux/compiler.h:169:40: note: in definition of macro 'likely'
-    # define likely(x) __builtin_expect(!!(x), 1)
-                                           ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h:236:11: error: 'struct net_device' has no member named 'ndisc_ops'
-      skb->dev->ndisc_ops->recv_ns(skb);
-              ^
-   net/ipv6/ndisc.c: In function 'ip6_register_ndisc_ops':
->> net/ipv6/ndisc.c:1804:10: error: 'struct net_device' has no member named 'ndisc_ops'
-      if (dev->ndisc_ops) {
-             ^
-   net/ipv6/ndisc.c:1809:7: error: 'struct net_device' has no member named 'ndisc_ops'
-       dev->ndisc_ops = &ip6_ndisc_ops;
-          ^
-   In file included from include/net/ipv6.h:20:0,
-                    from net/ipv6/ndisc.c:57:
-   include/net/ndisc.h: In function 'ndisc_is_useropt':
->> include/net/ndisc.h:205:1: warning: control reaches end of non-void function [-Wreturn-type]
-    }
-    ^
+   net/6lowpan/ndisc.c: In function 'lowpan_register_ndisc_ops':
+>> net/6lowpan/ndisc.c:632:5: error: 'struct net_device' has no member named 'ndisc_ops'
+     dev->ndisc_ops = &lowpan_ndisc_ops;
+        ^
 
-vim +201 include/net/ndisc.h
+vim +632 net/6lowpan/ndisc.c
 
-   195		void	(*recv_ns)(struct sk_buff *skb);
-   196	};
-   197	
-   198	static inline int ndisc_is_useropt(const struct net_device *dev,
-   199					   struct nd_opt_hdr *opt)
-   200	{
- > 201		if (likely(dev->ndisc_ops->is_useropt))
-   202			return dev->ndisc_ops->is_useropt(opt);
-   203		else
-   204			return 0;
- > 205	}
-   206	
-   207	static inline void ndisc_send_na(struct net_device *dev,
-   208					 const struct in6_addr *daddr,
-   209					 const struct in6_addr *solicited_addr,
-   210					 bool router, bool solicited, bool override,
-   211					 bool inc_opt)
-   212	{
- > 213		if (likely(dev->ndisc_ops->send_na))
-   214			dev->ndisc_ops->send_na(dev, daddr, solicited_addr, router,
-   215						solicited, override, inc_opt);
-   216	}
+   626		.send_ns = lowpan_ndisc_send_ns,
+   627		.recv_ns = lowpan_ndisc_recv_ns,
+   628	};
+   629	
+   630	void lowpan_register_ndisc_ops(struct net_device *dev)
+   631	{
+ > 632		dev->ndisc_ops = &lowpan_ndisc_ops;
+   633	}
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---HcAYCG3uE/tztfnV
+--/04w6evG8XlLl3ft
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICJfZFFcAAy5jb25maWcAjDzJdty2svt8RR/nLe5dOJZkWVbOO1qAJNiNNEkwANiDNjwd
+H4sICOPaFFcAAy5jb25maWcAjDzJdty2svt8RR/nLe5dOJZkWVbOO1qAJNiNNEkwANiDNjwd
 qR3rXA1+ainX/vtXBXAogGglXthmVQHEUHMV++effp6x15enh93L3c3u/v7H7M/94/5597K/
 nX25u9//7yyTs0qaGc+E+QWIi7vH1+8fvl9etBfns/NfLn45ef98czZb7p8f9/ez9Onxy92f
 rzD+7unxp59/SmWVizmQJsJc/egfN3a09zw+iEob1aRGyKrNeCozrkZkzVXe8hWvjAZCw4u2
@@ -1319,4 +1160,4 @@ cyXqQow+2XI1MynRPOF5xZfMt5qYTt9OPcQeqwSdvNmhhAj68rY4ciB8wyUTElTQNIWAY7y9
 /uhNyOzAq0khlArQxfJtuXTgxcHbgi10Dd4My8QlahwDDQ5LlRbC8MAnU3p2IjiSUIntjZ/e
 /wMDeOxQclEDAA==
 
---HcAYCG3uE/tztfnV--
+--/04w6evG8XlLl3ft--
