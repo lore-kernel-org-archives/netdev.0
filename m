@@ -1,114 +1,97 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH bluetooth-next 04/10] ndisc: add addr_len parameter to ndisc_opt_addr_space
-Date: Mon, 18 Apr 2016 12:58:22 +0200
-Message-ID: <1460977108-4675-5-git-send-email-aar@pengutronix.de>
+From: Alexander Aring <aar@pengutronix.de>
+Subject: [PATCH bluetooth-next 06/10] ndisc: add addr_len parameter to ndisc_fill_addr_option
+Date: Mon, 18 Apr 2016 12:58:24 +0200
+Message-ID: <1460977108-4675-7-git-send-email-aar@pengutronix.de>
 References: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1460977108-4675-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
+	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Alexander Aring <aar@pengutronix.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35998 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753789AbcDRK7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 06:59:25 -0400
+In-Reply-To: <1460977108-4675-1-git-send-email-aar@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This patch makes the address length as argument for the
-ndisc_opt_addr_space function. This is necessary to handle addresses
+ndisc_fill_addr_option function. This is necessary to handle addresses
 which don't use dev->addr_len as address length.
 
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Alexander Aring <aar@pengutronix.de>
 ---
- include/net/ndisc.h |  8 ++++----
- net/ipv6/ndisc.c    | 10 +++++-----
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ net/ipv6/ndisc.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 2d8edaa..ef43e88 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -127,10 +127,10 @@ static inline int ndisc_addr_option_pad(unsigned short type)
- 	}
- }
- 
--static inline int ndisc_opt_addr_space(struct net_device *dev)
-+static inline int ndisc_opt_addr_space(struct net_device *dev,
-+				       unsigned char addr_len)
- {
--	return NDISC_OPT_SPACE(dev->addr_len +
--			       ndisc_addr_option_pad(dev->type));
-+	return NDISC_OPT_SPACE(addr_len + ndisc_addr_option_pad(dev->type));
- }
- 
- static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
-@@ -139,7 +139,7 @@ static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
- 	u8 *lladdr = (u8 *)(p + 1);
- 	int lladdrlen = p->nd_opt_len << 3;
- 	int prepad = ndisc_addr_option_pad(dev->type);
--	if (lladdrlen != ndisc_opt_addr_space(dev))
-+	if (lladdrlen != ndisc_opt_addr_space(dev, dev->addr_len))
- 		return NULL;
- 	return lladdr + prepad;
- }
 diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index c245895..69e20e3 100644
+index 4e91d5e..176c7c4 100644
 --- a/net/ipv6/ndisc.c
 +++ b/net/ipv6/ndisc.c
-@@ -154,7 +154,7 @@ static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
+@@ -150,11 +150,11 @@ struct neigh_table nd_tbl = {
+ };
+ EXPORT_SYMBOL_GPL(nd_tbl);
+ 
+-static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
++static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data,
++				   int data_len)
  {
  	int pad   = ndisc_addr_option_pad(skb->dev->type);
- 	int data_len = skb->dev->addr_len;
--	int space = ndisc_opt_addr_space(skb->dev);
-+	int space = ndisc_opt_addr_space(skb->dev, skb->dev->addr_len);
+-	int data_len = skb->dev->addr_len;
+-	int space = ndisc_opt_addr_space(skb->dev, skb->dev->addr_len);
++	int space = ndisc_opt_addr_space(skb->dev, data_len);
  	u8 *opt = skb_put(skb, space);
  
  	opt[0] = type;
-@@ -509,7 +509,7 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
- 	if (!dev->addr_len)
- 		inc_opt = 0;
- 	if (inc_opt)
--		optlen += ndisc_opt_addr_space(dev);
-+		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+@@ -528,7 +528,7 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
  
- 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
- 	if (!skb)
-@@ -574,7 +574,7 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
- 	if (ipv6_addr_any(saddr))
- 		inc_opt = false;
  	if (inc_opt)
--		optlen += ndisc_opt_addr_space(dev);
-+		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 		ndisc_fill_addr_option(skb, ND_OPT_TARGET_LL_ADDR,
+-				       dev->dev_addr);
++				       dev->dev_addr, dev->addr_len);
  
- 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
- 	if (!skb)
-@@ -626,7 +626,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
- 	}
- #endif
+ 
+ 	ndisc_send_skb(skb, daddr, src_addr);
+@@ -590,7 +590,7 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+ 
+ 	if (inc_opt)
+ 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
+-				       dev->dev_addr);
++				       dev->dev_addr, dev->addr_len);
+ 
+ 	ndisc_send_skb(skb, daddr, saddr);
+ }
+@@ -641,7 +641,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+ 
  	if (send_sllao)
--		optlen += ndisc_opt_addr_space(dev);
-+		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 		ndisc_fill_addr_option(skb, ND_OPT_SOURCE_LL_ADDR,
+-				       dev->dev_addr);
++				       dev->dev_addr, dev->addr_len);
  
- 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
- 	if (!skb)
-@@ -1563,7 +1563,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
- 			memcpy(ha_buf, neigh->ha, dev->addr_len);
- 			read_unlock_bh(&neigh->lock);
- 			ha = ha_buf;
--			optlen += ndisc_opt_addr_space(dev);
-+			optlen += ndisc_opt_addr_space(dev, dev->addr_len);
- 		} else
- 			read_unlock_bh(&neigh->lock);
+ 	ndisc_send_skb(skb, daddr, saddr);
+ }
+@@ -1597,7 +1597,8 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 	 */
  
+ 	if (ha)
+-		ndisc_fill_addr_option(buff, ND_OPT_TARGET_LL_ADDR, ha);
++		ndisc_fill_addr_option(buff, ND_OPT_TARGET_LL_ADDR, ha,
++				       dev->addr_len);
+ 
+ 	/*
+ 	 *	build redirect option and copy skb over to the new packet.
 -- 
 2.8.0
