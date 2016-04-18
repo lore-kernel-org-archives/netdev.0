@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH v2 net-next 3/7] tcp: Merge tx_flags/tskey/txstamp_ack in tcp_shifted_skb
-Date: Mon, 18 Apr 2016 15:46:05 -0700
-Message-ID: <1461019569-3037369-4-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH v2 net-next 4/7] tcp: Make use of MSG_EOR flag in tcp_sendmsg
+Date: Mon, 18 Apr 2016 15:46:06 -0700
+Message-ID: <1461019569-3037369-5-git-send-email-kafai@fb.com>
 References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,72 +13,52 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46328 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46327 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751164AbcDRWqb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:46:31 -0400
+	by vger.kernel.org with ESMTP id S1751164AbcDRWqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:46:30 -0400
 Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IMjSRF025861
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:30 -0700
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IMjSfq025851
+	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:29 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 22d7r6r96r-2
+	by mx0a-00082601.pphosted.com with ESMTP id 22d7r6r96s-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:30 -0700
+	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:29 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- 62ce23c005b711e69b2e24be05956610-51f3c50 for <netdev@vger.kernel.org>;	Mon,
- 18 Apr 2016 15:46:27 -0700
+ mx-out.facebook.com (10.212.232.59) with ESMTP	id
+ 634d717005b711e6ba510002c991e86a-b3ff2c50 for <netdev@vger.kernel.org>;	Mon,
+ 18 Apr 2016 15:46:28 -0700
 In-Reply-To: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After receiving sacks, tcp_shifted_skb() will collapse
-skbs if possible.  tx_flags/tskey/txstamp_ack also has
-to be merged in this case.
+This patch allows the user process to use MSG_EOR during
+tcp_sendmsg to tell the kernel that it is the last byte
+of an application response message.
 
-This patch resues the tcp_skb_collapse_tstamp() to handle
-them.
+It is currently useful when the end-user has turned on any bit of the
+SOF_TIMESTAMPING_TX_RECORD_MASK (either by setsockopt or cmsg).
+The kernel will then mark the newly added tcb->eor_info bit so
+that the shinfo->tskey will not be overwritten (i.e. lost) in
+the later skb append/collapse operation.
 
-BPF Output Before:
-~~~~~
-<no-output-due-to-missing-tstamp-event>
+With selective SOF_TIMESTAMPING_TX_ACK (by cmsg) and MSG_EOR (this
+patch), the user application can specially tell which outgoing byte
+it wants to track its ACK and ask the kernel not to lose this
+tracking info in the later skb append/collapse action.
 
-BPF Output After:
-~~~~~
-<...>-2024  [007] d.s.    88.644374: : ee_data:14599
+This patch handles the append case in tcp_sendmsg.  The later
+patches will handle the collapse during retransmission and
+skb slicing in tcp_fragment()/tso_fragment().
 
-Packetdrill Script:
-~~~~~
-+0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
-+0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
-+0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-+0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-+0 bind(3, ..., ...) = 0
-+0 listen(3, 1) = 0
-
-0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
-0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
-0.200 < . 1:1(0) ack 1 win 257
-0.200 accept(3, ..., ...) = 4
-+0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-
-0.200 write(4, ..., 1460) = 1460
-+0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
-0.200 write(4, ..., 13140) = 13140
-+0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
-
-0.200 > P. 1:1461(1460) ack 1
-0.200 > . 1461:8761(7300) ack 1
-0.200 > P. 8761:14601(5840) ack 1
-
-0.300 < . 1:1(0) ack 1 win 257 <sack 1461:14601,nop,nop>
-0.300 > P. 1:1461(1460) ack 1
-0.400 < . 1:1(0) ack 14601 win 257
-
-0.400 close(4) = 0
-0.400 > F. 14601:14601(0) ack 1
-0.500 < F. 1:1(0) ack 14602 win 257
-0.500 > . 14602:14602(0) ack 2
+One of our use case is at the webserver.  The webserver tracks
+the HTTP2 response latency by measuring when the webserver sends
+the first byte to the socket till the TCP ACK of the last byte
+is received.  In the cases where we don't have client side
+measurement, measuring from the server side is the only option.
+In the cases we have the client side measurement, the server side
+data can also be used to justify/cross-check-with the client
+side data.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Cc: Eric Dumazet <edumazet@google.com>
@@ -87,50 +67,92 @@ Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Cc: Willem de Bruijn <willemb@google.com>
 Cc: Yuchung Cheng <ycheng@google.com>
 ---
- include/net/tcp.h     | 2 ++
- net/ipv4/tcp_input.c  | 1 +
- net/ipv4/tcp_output.c | 4 ++--
- 3 files changed, 5 insertions(+), 2 deletions(-)
+ include/net/tcp.h |  5 ++++-
+ net/ipv4/tcp.c    | 21 +++++++++++++++++----
+ 2 files changed, 21 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fd40f8c..c0ef054 100644
+index c0ef054..f3c5dcb 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -557,6 +557,8 @@ void tcp_send_ack(struct sock *sk);
- void tcp_send_delayed_ack(struct sock *sk);
- void tcp_send_loss_probe(struct sock *sk);
- bool tcp_schedule_loss_probe(struct sock *sk);
-+void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-+			     const struct sk_buff *next_skb);
+@@ -762,7 +762,10 @@ struct tcp_skb_cb {
  
- /* tcp_input.c */
- void tcp_resume_early_retransmit(struct sock *sk);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 5e45a9c..75e8336 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1309,6 +1309,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
- 	if (skb == tcp_highest_sack(sk))
- 		tcp_advance_highest_sack(sk, skb);
+ 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
+ 	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
+-			unused:7;
++			eor_info:1,	/* Any EOR marked info that prevents
++					 * skbs from merging.
++					 */
++			unused:6;
+ 	__u32		ack_seq;	/* Sequence number ACK'd	*/
+ 	union {
+ 		struct inet_skb_parm	h4;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4d73858..2918f42 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -428,15 +428,18 @@ void tcp_init_sock(struct sock *sk)
+ }
+ EXPORT_SYMBOL(tcp_init_sock);
  
-+	tcp_skb_collapse_tstamp(prev, skb);
- 	tcp_unlink_write_queue(skb, sk);
- 	sk_wmem_free_skb(sk, skb);
+-static void tcp_tx_timestamp(struct sock *sk, u16 tsflags, struct sk_buff *skb)
++static void tcp_tx_timestamp(struct sock *sk, u16 tsflags, struct sk_buff *skb,
++			     int flags)
+ {
+ 	if (sk->sk_tsflags || tsflags) {
+ 		struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 		struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
  
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 889ed96..d21a78f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2443,8 +2443,8 @@ u32 __tcp_select_window(struct sock *sk)
- 	return window;
+ 		sock_tx_timestamp(sk, tsflags, &shinfo->tx_flags);
+-		if (shinfo->tx_flags & SKBTX_ANY_TSTAMP)
++		if (shinfo->tx_flags & SKBTX_ANY_TSTAMP) {
+ 			shinfo->tskey = TCP_SKB_CB(skb)->seq + skb->len - 1;
++			tcb->eor_info = !!(flags & MSG_EOR);
++		}
+ 		tcb->txstamp_ack = !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
+ 	}
+ }
+@@ -874,6 +877,13 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+ 	return mss_now;
  }
  
--static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
--				    const struct sk_buff *next_skb)
-+void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-+			     const struct sk_buff *next_skb)
++static bool tcp_sendmsg_noappend(struct sock *sk, u16 tx_tsflags)
++{
++	return unlikely((tx_tsflags & SOF_TIMESTAMPING_TX_RECORD_MASK) &&
++			tcp_send_head(sk) &&
++			TCP_SKB_CB(tcp_write_queue_tail(sk))->eor_info);
++}
++
+ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+ 				size_t size, int flags)
  {
- 	const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
+@@ -959,7 +969,7 @@ new_segment:
+ 		offset += copy;
+ 		size -= copy;
+ 		if (!size) {
+-			tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
++			tcp_tx_timestamp(sk, sk->sk_tsflags, skb, 0);
+ 			goto out;
+ 		}
+ 
+@@ -1145,6 +1155,9 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+ 
+ 	sg = !!(sk->sk_route_caps & NETIF_F_SG);
+ 
++	if (tcp_sendmsg_noappend(sk, sockc.tsflags))
++		goto new_segment;
++
+ 	while (msg_data_left(msg)) {
+ 		int copy = 0;
+ 		int max = size_goal;
+@@ -1249,7 +1262,7 @@ new_segment:
+ 
+ 		copied += copy;
+ 		if (!msg_data_left(msg)) {
+-			tcp_tx_timestamp(sk, sockc.tsflags, skb);
++			tcp_tx_timestamp(sk, sockc.tsflags, skb, flags);
+ 			goto out;
+ 		}
  
 -- 
 2.5.1
