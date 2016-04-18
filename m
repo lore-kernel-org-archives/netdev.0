@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: avoid warning for wrong pointer cast
-Date: Mon, 18 Apr 2016 00:04:09 -0400 (EDT)
-Message-ID: <20160418.000409.811805682656661992.davem@davemloft.net>
-References: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
+Subject: Re: [PATCH net-next 5/5] qed*: Add support for read/write of eeprom
+Date: Mon, 18 Apr 2016 00:07:12 -0400 (EDT)
+Message-ID: <20160418.000712.473871996964045833.davem@davemloft.net>
+References: <1460921195-23352-6-git-send-email-Yuval.Mintz@qlogic.com>
+	<20160417.191849.2044093416855662399.davem@davemloft.net>
+	<CO2PR11MB0088716755CC57276455ADA4976B0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rostedt@goodmis.org, mingo@redhat.com,
-	ast@fb.com, daniel@iogearbox.net, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Sudarsana.Kalluru@qlogic.com
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47963 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750769AbcDREHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 00:07:16 -0400
+In-Reply-To: <CO2PR11MB0088716755CC57276455ADA4976B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sat, 16 Apr 2016 22:29:33 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 18 Apr 2016 03:59:42 +0000
 
-> Two new functions in bpf contain a cast from a 'u64' to a
-> pointer. This works on 64-bit architectures but causes a warning
-> on all 32-bit architectures:
-> 
-> kernel/trace/bpf_trace.c: In function 'bpf_perf_event_output_tp':
-> kernel/trace/bpf_trace.c:350:13: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
->   u64 ctx = *(long *)r1;
-> 
-> This changes the cast to first convert the u64 argument into a uintptr_t,
-> which is guaranteed to be the same size as a pointer.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 9940d67c93b5 ("bpf: support bpf_get_stackid() and bpf_perf_event_output() in tracepoint programs")
+> The third option I see is to completely ditch this, stating that although
+> We obviously CAN set the non-volatile memory we CAN'T do it with the
+> regular API, and to move into doing this via some proprietary API such
+> as debugfs.
 
-Applied.
+Why go to debugfs rather than gracefully extending the ethtool stuff to
+explicitly support what you need?
+
+Anyone who says debugfs just isn't willing to design things correctly.
+
+That's why I basically have started rejecting everything that tries
+to use debugfs in the networking, it's the "I'm too damn lazy to
+do this properly" option and I simply won't stand for crap like that
+any more.
