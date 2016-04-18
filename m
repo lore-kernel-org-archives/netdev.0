@@ -1,7 +1,8 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH v2 net-next 0/7] tcp: Make use of MSG_EOR in tcp_sendmsg
-Date: Mon, 18 Apr 2016 15:46:02 -0700
-Message-ID: <1461019569-3037369-1-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH v2 net-next 3/7] tcp: Merge tx_flags/tskey/txstamp_ack in tcp_shifted_skb
+Date: Mon, 18 Apr 2016 15:46:05 -0700
+Message-ID: <1461019569-3037369-4-git-send-email-kafai@fb.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Eric Dumazet <edumazet@google.com>,
@@ -12,126 +13,124 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37719 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751473AbcDRWqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:46:36 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3IMi0UH006412
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46328 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751164AbcDRWqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:46:31 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3IMjSRF025861
 	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:30 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0001303.ppops.net with ESMTP id 22d1yjtj7d-2
+	by mx0a-00082601.pphosted.com with ESMTP id 22d7r6r96r-2
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 15:46:30 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 62ae06da05b711e6b04f24be0595f910-3e3f8c50 for <netdev@vger.kernel.org>;	Mon,
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 62ce23c005b711e69b2e24be05956610-51f3c50 for <netdev@vger.kernel.org>;	Mon,
  18 Apr 2016 15:46:27 -0700
+In-Reply-To: <1461019569-3037369-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2:
-~ Rework based on the recent work
-  "add TX timestamping via cmsg" by
-  Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-~ This version takes the MSG_EOR bit as a signal of
-  end-of-response-message and leave the selective
-  timestamping job to the cmsg
-~ Changes based on the v1 feedback (like avoid
-  unlikely check in a loop and adding tcp_sendpage
-  support)
-~ The first 3 patches are bug fixes.  The fixes in this
-  series depend on the newly introduced txstamp_ack in
-  net-next.  I will make relevant patches against net after
-  getting some feedback.
-~ The test results are based on the recently posted net fix:
-  "tcp: Fix SOF_TIMESTAMPING_TX_ACK when handling dup acks"
-~ Due to the lacking cmsg support in packetdrill (or I just
-  could not find it), a BPF prog is used to kprobe
-  to sock_queue_err_skb() and print out the value of
-  serr->ee.ee_data.  The BPF prog (run-able from bcc) is
-  attached at the end.
+After receiving sacks, tcp_shifted_skb() will collapse
+skbs if possible.  tx_flags/tskey/txstamp_ack also has
+to be merged in this case.
 
-Some of the following is stolen from a commit message of
-the following patch to serve as a high level description of
-the objective in this series:
+This patch resues the tcp_skb_collapse_tstamp() to handle
+them.
 
-This patchset allows the user process to use MSG_EOR during
-tcp_sendmsg to tell the kernel that it is the last byte
-of an application response message.
-
-It is currently useful when the end-user has turned on any bit of the
-SOF_TIMESTAMPING_TX_RECORD_MASK (either by setsockopt or cmsg).
-The kernel will then mark the newly added tcb->eor_info bit so
-that the shinfo->tskey will not be overwritten (i.e. lost) in
-the later skb append/collapse operation.
-
-Each skb can only track one tskey (which is the seq number of the
-last byte of the message).   To allow tracking the last byte of
-multiple response messages (e.g. HTTP2), this patch takes an
-approach by not appending to the previous skb during tcp_sendmsg
-if this previous skb's eor information (only shinfo->tskey for now)
-will be overwritten.  A similar case also happens during
-retransmission.
-
-This approach avoids introducing another list to track the tskey.
-The downside is that it will have less tso benefit and/or more
-outgoing packets.  Practically, due to the amount of measurement
-data generated, sampling is usually used in production. (i.e. not
-every connection is tracked).
-
-One of our use case is at the webserver.  The webserver tracks
-the HTTP2 response latency by measuring when the webserver sends
-the first byte to the socket till the TCP ACK of the last byte
-is received.  In the cases where we don't have client side
-measurement, measuring from the server side is the only option.
-In the cases we have the client side measurement, the server side
-data can also be used to justify/cross-check-with the client
-side data.
-
-The TCP PRR paper [1] also measures a similar metrics:
-"The TCP latency of a HTTP response when the server sends the first
-byte until it receives the acknowledgment (ACK) for the last byte."
-
-[1] Proportional Rate Reduction for TCP:
-http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/37486.pdf
-
-BPF prog used for testing:
+BPF Output Before:
 ~~~~~
-#!/usr/bin/env python
+<no-output-due-to-missing-tstamp-event>
 
-from __future__ import print_function
-from bcc import BPF
+BPF Output After:
+~~~~~
+<...>-2024  [007] d.s.    88.644374: : ee_data:14599
 
-bpf_text = """
-#include <uapi/linux/ptrace.h>
-#include <net/sock.h>
-#include <bcc/proto.h>
-#include <linux/errqueue.h>
+Packetdrill Script:
+~~~~~
++0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
++0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
++0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
++0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
++0 bind(3, ..., ...) = 0
++0 listen(3, 1) = 0
 
-#ifdef memset
-#undef memset
-#endif
+0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+0.200 < . 1:1(0) ack 1 win 257
+0.200 accept(3, ..., ...) = 4
++0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
 
-int trace_err_skb(struct pt_regs *ctx)
-{
-	struct sk_buff *skb = (struct sk_buff *)ctx->si;
-	struct sock *sk = (struct sock *)ctx->di;
-	struct sock_exterr_skb *serr;
-	u32 ee_data = 0;
+0.200 write(4, ..., 1460) = 1460
++0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
+0.200 write(4, ..., 13140) = 13140
++0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
 
-	if (!sk || !skb)
-		return 0;
+0.200 > P. 1:1461(1460) ack 1
+0.200 > . 1461:8761(7300) ack 1
+0.200 > P. 8761:14601(5840) ack 1
 
-	serr = SKB_EXT_ERR(skb);
-	bpf_probe_read(&ee_data, sizeof(ee_data), &serr->ee.ee_data);
-	bpf_trace_printk("ee_data:%u\\n", ee_data);
+0.300 < . 1:1(0) ack 1 win 257 <sack 1461:14601,nop,nop>
+0.300 > P. 1:1461(1460) ack 1
+0.400 < . 1:1(0) ack 14601 win 257
 
-	return 0;
-};
-"""
+0.400 close(4) = 0
+0.400 > F. 14601:14601(0) ack 1
+0.500 < F. 1:1(0) ack 14602 win 257
+0.500 > . 14602:14602(0) ack 2
 
-b = BPF(text=bpf_text)
-b.attach_kprobe(event="sock_queue_err_skb", fn_name="trace_err_skb")
-print("Attached to kprobe")
-b.trace_print()
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ include/net/tcp.h     | 2 ++
+ net/ipv4/tcp_input.c  | 1 +
+ net/ipv4/tcp_output.c | 4 ++--
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index fd40f8c..c0ef054 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -557,6 +557,8 @@ void tcp_send_ack(struct sock *sk);
+ void tcp_send_delayed_ack(struct sock *sk);
+ void tcp_send_loss_probe(struct sock *sk);
+ bool tcp_schedule_loss_probe(struct sock *sk);
++void tcp_skb_collapse_tstamp(struct sk_buff *skb,
++			     const struct sk_buff *next_skb);
+ 
+ /* tcp_input.c */
+ void tcp_resume_early_retransmit(struct sock *sk);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 5e45a9c..75e8336 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1309,6 +1309,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	if (skb == tcp_highest_sack(sk))
+ 		tcp_advance_highest_sack(sk, skb);
+ 
++	tcp_skb_collapse_tstamp(prev, skb);
+ 	tcp_unlink_write_queue(skb, sk);
+ 	sk_wmem_free_skb(sk, skb);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 889ed96..d21a78f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2443,8 +2443,8 @@ u32 __tcp_select_window(struct sock *sk)
+ 	return window;
+ }
+ 
+-static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+-				    const struct sk_buff *next_skb)
++void tcp_skb_collapse_tstamp(struct sk_buff *skb,
++			     const struct sk_buff *next_skb)
+ {
+ 	const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
+ 
+-- 
+2.5.1
