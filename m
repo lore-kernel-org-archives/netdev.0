@@ -1,91 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: switchdev fib offload issues
-Date: Mon, 18 Apr 2016 17:47:57 +0200
-Message-ID: <20160418154757.GA2059@nanopsycho.amit.cz>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Mon, 18 Apr 2016 11:59:02 -0400 (EDT)
+Message-ID: <20160418.115902.1053705461620271779.davem@davemloft.net>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+	<20160418.000039.1946438541182822213.davem@davemloft.net>
+	<87c17d3f979cf0167cd37077f39d0534@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com, stephen@networkplumber.org,
-	sfeldma@gmail.com, dsa@cumulusnetworks.com, f.fainelli@gmail.com,
-	andrew@lunn.ch, vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
-	aduyck@mirantis.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:35698 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053AbcDRPsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:48:01 -0400
-Received: by mail-wm0-f53.google.com with SMTP id a140so126450936wma.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 08:48:00 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87c17d3f979cf0167cd37077f39d0534-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all.
+From: okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Date: Mon, 18 Apr 2016 01:06:27 -0400
 
-The current situation of fib offloading is not good, I believe we need
-to make some changes, therefore I'm writing this email. Please read,
-think and comment.
+> On 2016-04-18 00:00, David Miller wrote:
+>> From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>> Date: Sat, 16 Apr 2016 18:23:32 -0400
+>> 
+>>> Current code is assuming that the address returned by
+>>> dma_alloc_coherent
+>>> is a logical address. This is not true on ARM/ARM64 systems. This
+>>> patch
+>>> replaces dma_alloc_coherent with dma_map_page API. The address
+>>> returned
+>>> can later by virtually mapped from the CPU side with vmap API.
+>>> Signed-off-by: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>> You can't do this.
+>> The DMA map page API gives non-coherent mappings, and thus requires
+>> proper flushing.
+>> So a straight conversion like this is never legitimate.
+> 
+> I would agree on proper dma api usage. However, the code is already
+> assuming coherent architecture by mapping the cpu pages as
+> page_kernel.
+> 
+> Dma_map_page returns cached buffers and you don't need cache flushes
+> on coherent architecture to make the data visible.
 
-Currently what we have is that for every fib entry inserted into a table,
-there is a call to switchdev:
- fib_table_insert->switchdev_fib_ipv4_add
-Driver then pushes fib entry down to HW. So far good.
-
-However, if for any reason the switchdev add operation fails, there is an
-abort function called (switchdev_fib_ipv4_abort). This function does two
-things which are both unfortunate in many usecases:
-1) evicts all fib entries from HW leaving all processing done in kernel
-    - For Spectrum ASIC this means that all traffic running at 100G between
-      all ports is immediately downgraded to ~1-3Gbits
-    - Also this happens silently, user knows nothing about anything went wrong,
-      only forwarding performance suddenly sucks.
-
-2) sets net->ipv4.fib_offload_disabled = true
-    - That results in no other fib entry being offloaded, forever,
-      until net is removed and added again, machine reboot is required
-      in case if init_ns
-
-These 2 issues makes fib offload completely unusable. So I propose
-to start thinking about fixing this.
-
-I believe that although the current behaviour might be good for default,
-user should be able to change it by setting a different policy. This
-policy will allow to propagate offload error to user.
-
-Note that user already has to handle fib add errors which are independent
-on particular fib entry. That is a case of insufficient memory (-ENOBUFS).
-In fact, when offload fails, that is most likely also due to insufficient
-resources in HW.
-
-Proposed solutions (ideas):
-1) per-netns. Add a procfs file:
-	/proc/sys/net/ipv4/route/fib_offload_error_policy
-	  with values: "evict" - default, current behaviour
-                       "fail" - propagate offload error to user
-	The policy value would be stored in struct net.
-
-2) per-VRF/table
-	When user creates a VRF master, he specifies a table ID
-	this VRF is going to use. I propose to extend this so
-	he can pass a policy ("evict"/"fail").
-	The policy value would be stored in struct fib_table or
-	struct fib6_table. The problem is that vfr only saves
-	table ID, allocates dst but does not actually create
-	table. That might be created later. But I think this
-	could be resolved.
-
-3) per-VFR/master_netdev
-	In this case, the policy would be also set during
-	the creation of VFR master. From user perspective,
-	this looks same as 2)
-	The policy value would be stored in struct net_vrf (vrf private).
-
-Thoughts?
-
-Thanks!
-
-Jiri
+All you are telling me is that there are two bugs instead of one, so now
+both need to be fixed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
