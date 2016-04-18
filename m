@@ -1,243 +1,347 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next] tcp-tso: do not split TSO packets at retransmit time
-Date: Mon, 18 Apr 2016 13:56:12 -0700
-Message-ID: <1461012972-15757-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to dump link stats
+Date: Mon, 18 Apr 2016 14:10:19 -0700
+Message-ID: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: jhs@mojatatu.com, davem@davemloft.net, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34247 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbcDRU4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 16:56:17 -0400
-Received: by mail-pf0-f177.google.com with SMTP id c20so84359049pfc.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 13:56:16 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35129 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751464AbcDRVKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 17:10:24 -0400
+Received: by mail-pa0-f47.google.com with SMTP id fs9so63750176pac.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 14:10:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linux TCP stack painfully segments all TSO/GSO packets before retransmits.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This was fine back in the days when TSO/GSO were emerging, with their
-bugs, but we believe the dark age is over.
+This patch adds a new RTM_GETSTATS message to query link stats via netlink
+from the kernel. RTM_NEWLINK also dumps stats today, but RTM_NEWLINK
+returns a lot more than just stats and is expensive in some cases when
+frequent polling for stats from userspace is a common operation.
 
-Keeping big packets in write queues, but also in stack traversal
-has a lot of benefits.
- - Less memory overhead, because write queues have less skbs
- - Less cpu overhead at ACK processing.
- - Better SACK processing, as lot of studies mentioned how
-   awful linux was at this ;)
- - Less cpu overhead to send the rtx packets
-   (IP stack traversal, netfilter traversal, qdisc, drivers...)
- - Better latencies in presence of losses.
- - Smaller spikes in fq like packet schedulers, as retransmits
-   are not constrained by TCP Small Queues.
+RTM_GETSTATS is an attempt to provide a light weight netlink message
+to explicity query only link stats from the kernel on an interface.
+The idea is to also keep it extensible so that new kinds of stats can be
+added to it in the future.
 
-1 % packet losses are common today, and at 100Gbit speeds, this
-translates to ~80,000 losses per second. If we are unlucky and
-first MSS of a 45-MSS TSO is lost, we are cooking 44 MSS segments
-at rtx instead of a single 44-MSS TSO packet.
+This patch adds the following attribute for NETDEV stats:
+struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
+        [IFLA_STATS_LINK_64]  = { .len = sizeof(struct rtnl_link_stats64) },
+};
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Like any other rtnetlink message, RTM_GETSTATS can be used to get stats of
+a single interface or all interfaces with NLM_F_DUMP.
+
+Future possible new types of stat attributes:
+link af stats:
+    - IFLA_STATS_LINK_IPV6  (nested. for ipv6 stats)
+    - IFLA_STATS_LINK_MPLS  (nested. for mpls/mdev stats)
+extended stats:
+    - IFLA_STATS_LINK_EXTENDED (nested. extended software netdev stats like bridge,
+      vlan, vxlan etc)
+    - IFLA_STATS_LINK_HW_EXTENDED (nested. extended hardware stats which are
+      available via ethtool today)
+
+This patch also declares a filter mask for all stat attributes.
+User has to provide a mask of stats attributes to query. filter mask
+can be specified in the new hdr 'struct if_stats_msg' for stats messages.
+Other important field in the header is the ifindex.
+
+This api can also include attributes for global stats (eg tcp) in the future.
+When global stats are included in a stats msg, the ifindex in the header
+must be zero. A single stats message cannot contain both global and
+netdev specific stats. To easily distinguish them, netdev specific stat
+attributes name are prefixed with IFLA_STATS_LINK_
+
+Without any attributes in the filter_mask, no stats will be returned.
+
+This patch has been tested with mofified iproute2 ifstat.
+
+Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/net/tcp.h     |  4 ++--
- net/ipv4/tcp_input.c  |  2 +-
- net/ipv4/tcp_output.c | 64 +++++++++++++++++++++++----------------------------
- net/ipv4/tcp_timer.c  |  4 ++--
- 4 files changed, 34 insertions(+), 40 deletions(-)
+RFC to v1 (apologies for the delay in sending this version out. busy days):
+        - Addressed feedback from Dave
+                - removed rtnl_link_stats
+                - Added hdr struct if_stats_msg to carry ifindex and
+                  filter mask
+                - new macro IFLA_STATS_FILTER_BIT(ATTR) for filter mask
+        - split the ipv6 patch into a separate patch, need some more eyes on it
+        - prefix attributes with IFLA_STATS instead of IFLA_LINK_STATS for
+          shorter attribute names
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index fd40f8c64d5f..0dc272dcd772 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -538,8 +538,8 @@ __u32 cookie_v6_init_sequence(const struct sk_buff *skb, __u16 *mss);
- void __tcp_push_pending_frames(struct sock *sk, unsigned int cur_mss,
- 			       int nonagle);
- bool tcp_may_send_now(struct sock *sk);
--int __tcp_retransmit_skb(struct sock *, struct sk_buff *);
--int tcp_retransmit_skb(struct sock *, struct sk_buff *);
-+int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
-+int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
- void tcp_retransmit_timer(struct sock *sk);
- void tcp_xmit_retransmit_queue(struct sock *);
- void tcp_simple_retransmit(struct sock *);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 90e0d9256b74..729e489b5608 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5543,7 +5543,7 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
- 	if (data) { /* Retransmit unacked data in SYN */
- 		tcp_for_write_queue_from(data, sk) {
- 			if (data == tcp_send_head(sk) ||
--			    __tcp_retransmit_skb(sk, data))
-+			    __tcp_retransmit_skb(sk, data, 1))
- 				break;
- 		}
- 		tcp_rearm_rto(sk);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6451b83d81e9..4876b256a70a 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2266,7 +2266,7 @@ void tcp_send_loss_probe(struct sock *sk)
- 	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
- 		goto rearm_timer;
+v2:
+        - move IFLA_STATS_INET6 declaration to the inet6 patch
+        - get rid of RTM_DELSTATS
+        - mark ipv6 patch RFC. It can be used as an example for
+          other AF stats like stats
+
+v3:
+        - add required padding to the if_stats_msg structure(suggested by jamal)
+        - rename netdev stat attributes with IFLA_STATS_LINK prefix
+          so that they are easily distinguishable with global
+          stats in the future (after global stats discussion with thomas)
+        - get rid of unnecessary copy when getting stats with dev_get_stats
+          (suggested by dave)
+
+v4:
+        - dropped calcit and af stats from this patch. Will add it
+          back when it becomes necessary and with the first af stats
+          patch
+        - add check for null filter in dump and return -EINVAL:
+          this follows rtnl_fdb_dump in returning an error.
+          But since netlink_dump does not propagate the error
+          to the user, the user will not see an error and
+          but will also not see any data. This is consistent with
+          other kinds of dumps.
+
+v5:
+        - fix selinux nlmsgtab to account for new RTM_*STATS messages
+
+ include/uapi/linux/if_link.h   |  23 +++++++
+ include/uapi/linux/rtnetlink.h |   5 ++
+ net/core/rtnetlink.c           | 150 +++++++++++++++++++++++++++++++++++++++++
+ security/selinux/nlmsgtab.c    |   4 +-
+ 4 files changed, 181 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index bb3a90b..0762f35 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -781,4 +781,27 @@ enum {
  
--	if (__tcp_retransmit_skb(sk, skb))
-+	if (__tcp_retransmit_skb(sk, skb, 1))
- 		goto rearm_timer;
+ #define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
  
- 	/* Record snd_nxt for loss detection. */
-@@ -2551,17 +2551,17 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
-  * state updates are done by the caller.  Returns non-zero if an
-  * error occurred which prevented the send.
-  */
--int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	unsigned int cur_mss;
--	int err;
-+	int diff, len, err;
++/* STATS section */
 +
- 
--	/* Inconslusive MTU probe */
--	if (icsk->icsk_mtup.probe_size) {
-+	/* Inconclusive MTU probe */
-+	if (icsk->icsk_mtup.probe_size)
- 		icsk->icsk_mtup.probe_size = 0;
--	}
- 
- 	/* Do not sent more than we queued. 1/4 is reserved for possible
- 	 * copying overhead: fragmentation, tunneling, mangling etc.
-@@ -2594,30 +2594,27 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	    TCP_SKB_CB(skb)->seq != tp->snd_una)
- 		return -EAGAIN;
- 
--	if (skb->len > cur_mss) {
--		if (tcp_fragment(sk, skb, cur_mss, cur_mss, GFP_ATOMIC))
-+	len = cur_mss * segs;
-+	if (skb->len > len) {
-+		if (tcp_fragment(sk, skb, len, cur_mss, GFP_ATOMIC))
- 			return -ENOMEM; /* We'll try again later. */
- 	} else {
--		int oldpcount = tcp_skb_pcount(skb);
-+		if (skb_unclone(skb, GFP_ATOMIC))
-+			return -ENOMEM;
- 
--		if (unlikely(oldpcount > 1)) {
--			if (skb_unclone(skb, GFP_ATOMIC))
--				return -ENOMEM;
--			tcp_init_tso_segs(skb, cur_mss);
--			tcp_adjust_pcount(sk, skb, oldpcount - tcp_skb_pcount(skb));
--		}
-+		diff = tcp_skb_pcount(skb);
-+		tcp_set_skb_tso_segs(skb, cur_mss);
-+		diff -= tcp_skb_pcount(skb);
-+		if (diff)
-+			tcp_adjust_pcount(sk, skb, diff);
-+		if (skb->len < cur_mss)
-+			tcp_retrans_try_collapse(sk, skb, cur_mss);
- 	}
- 
- 	/* RFC3168, section 6.1.1.1. ECN fallback */
- 	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN_ECN) == TCPHDR_SYN_ECN)
- 		tcp_ecn_clear_syn(sk, skb);
- 
--	tcp_retrans_try_collapse(sk, skb, cur_mss);
--
--	/* Make a copy, if the first transmission SKB clone we made
--	 * is still in somebody's hands, else make a clone.
--	 */
--
- 	/* make sure skb->data is aligned on arches that require it
- 	 * and check if ack-trimming & collapsing extended the headroom
- 	 * beyond what csum_start can cover.
-@@ -2633,20 +2630,22 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
- 	}
- 
- 	if (likely(!err)) {
-+		segs = tcp_skb_pcount(skb);
++struct if_stats_msg {
++	__u8  family;
++	__u8  pad1;
++	__u16 pad2;
++	__u32 ifindex;
++	__u32 filter_mask;
++};
 +
- 		TCP_SKB_CB(skb)->sacked |= TCPCB_EVER_RETRANS;
- 		/* Update global TCP statistics. */
--		TCP_INC_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS);
-+		TCP_ADD_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS, segs);
- 		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
- 			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
--		tp->total_retrans++;
-+		tp->total_retrans += segs;
- 	}
++/* A stats attribute can be netdev specific or a global stat.
++ * For netdev stats, lets use the prefix IFLA_STATS_LINK_*
++ */
++enum {
++	IFLA_STATS_UNSPEC,
++	IFLA_STATS_LINK_64,
++	__IFLA_STATS_MAX,
++};
++
++#define IFLA_STATS_MAX (__IFLA_STATS_MAX - 1)
++
++#define IFLA_STATS_FILTER_BIT(ATTR)	(1 << (ATTR))
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index ca764b5..cc885c4 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -139,6 +139,11 @@ enum {
+ 	RTM_GETNSID = 90,
+ #define RTM_GETNSID RTM_GETNSID
+ 
++	RTM_NEWSTATS = 92,
++#define RTM_NEWSTATS RTM_NEWSTATS
++	RTM_GETSTATS = 94,
++#define RTM_GETSTATS RTM_GETSTATS
++
+ 	__RTM_MAX,
+ #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
+ };
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a75f7e9..fe35102 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3451,6 +3451,153 @@ out:
  	return err;
  }
  
--int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
-+int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
--	int err = __tcp_retransmit_skb(sk, skb);
-+	int err = __tcp_retransmit_skb(sk, skb, segs);
++static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
++			       int type, u32 pid, u32 seq, u32 change,
++			       unsigned int flags, unsigned int filter_mask)
++{
++	struct if_stats_msg *ifsm;
++	struct nlmsghdr *nlh;
++	struct nlattr *attr;
++
++	ASSERT_RTNL();
++
++	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifsm), flags);
++	if (!nlh)
++		return -EMSGSIZE;
++
++	ifsm = nlmsg_data(nlh);
++	ifsm->ifindex = dev->ifindex;
++	ifsm->filter_mask = filter_mask;
++
++	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
++		struct rtnl_link_stats64 *sp;
++
++		attr = nla_reserve(skb, IFLA_STATS_LINK_64,
++				   sizeof(struct rtnl_link_stats64));
++		if (!attr)
++			goto nla_put_failure;
++
++		sp = nla_data(attr);
++		dev_get_stats(dev, sp);
++	}
++
++	nlmsg_end(skb, nlh);
++
++	return 0;
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++
++	return -EMSGSIZE;
++}
++
++static const struct nla_policy ifla_stats_policy[IFLA_STATS_MAX + 1] = {
++	[IFLA_STATS_LINK_64]	= { .len = sizeof(struct rtnl_link_stats64) },
++};
++
++static size_t if_nlmsg_stats_size(const struct net_device *dev,
++				  u32 filter_mask)
++{
++	size_t size = 0;
++
++	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64))
++		size += nla_total_size(sizeof(struct rtnl_link_stats64));
++
++	return size;
++}
++
++static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
++{
++	struct net *net = sock_net(skb->sk);
++	struct if_stats_msg *ifsm;
++	struct net_device *dev = NULL;
++	struct sk_buff *nskb;
++	u32 filter_mask;
++	int err;
++
++	ifsm = nlmsg_data(nlh);
++	if (ifsm->ifindex > 0)
++		dev = __dev_get_by_index(net, ifsm->ifindex);
++	else
++		return -EINVAL;
++
++	if (!dev)
++		return -ENODEV;
++
++	filter_mask = ifsm->filter_mask;
++	if (!filter_mask)
++		return -EINVAL;
++
++	nskb = nlmsg_new(if_nlmsg_stats_size(dev, filter_mask), GFP_KERNEL);
++	if (!nskb)
++		return -ENOBUFS;
++
++	err = rtnl_fill_statsinfo(nskb, dev, RTM_NEWSTATS,
++				  NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
++				  0, filter_mask);
++	if (err < 0) {
++		/* -EMSGSIZE implies BUG in if_nlmsg_stats_size */
++		WARN_ON(err == -EMSGSIZE);
++		kfree_skb(nskb);
++	} else {
++		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid);
++	}
++
++	return err;
++}
++
++static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct net *net = sock_net(skb->sk);
++	struct if_stats_msg *ifsm;
++	int h, s_h;
++	int idx = 0, s_idx;
++	struct net_device *dev;
++	struct hlist_head *head;
++	unsigned int flags = NLM_F_MULTI;
++	u32 filter_mask = 0;
++	int err;
++
++	s_h = cb->args[0];
++	s_idx = cb->args[1];
++
++	cb->seq = net->dev_base_seq;
++
++	ifsm = nlmsg_data(cb->nlh);
++	filter_mask = ifsm->filter_mask;
++	if (!filter_mask)
++		return -EINVAL;
++
++	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
++		idx = 0;
++		head = &net->dev_index_head[h];
++		hlist_for_each_entry(dev, head, index_hlist) {
++			if (idx < s_idx)
++				goto cont;
++			err = rtnl_fill_statsinfo(skb, dev, RTM_NEWSTATS,
++						  NETLINK_CB(cb->skb).portid,
++						  cb->nlh->nlmsg_seq, 0,
++						  flags, filter_mask);
++			/* If we ran out of room on the first message,
++			 * we're in trouble
++			 */
++			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
++
++			if (err < 0)
++				goto out;
++
++			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
++cont:
++			idx++;
++		}
++	}
++out:
++	cb->args[1] = idx;
++	cb->args[0] = h;
++
++	return skb->len;
++}
++
+ /* Process one rtnetlink message. */
  
- 	if (err == 0) {
- #if FASTRETRANS_DEBUG > 0
-@@ -2737,6 +2736,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+@@ -3600,4 +3747,7 @@ void __init rtnetlink_init(void)
+ 	rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, rtnl_bridge_getlink, NULL);
+ 	rtnl_register(PF_BRIDGE, RTM_DELLINK, rtnl_bridge_dellink, NULL, NULL);
+ 	rtnl_register(PF_BRIDGE, RTM_SETLINK, rtnl_bridge_setlink, NULL, NULL);
++
++	rtnl_register(PF_UNSPEC, RTM_GETSTATS, rtnl_stats_get, rtnl_stats_dump,
++		      NULL);
+ }
+diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
+index 8495b93..1714633 100644
+--- a/security/selinux/nlmsgtab.c
++++ b/security/selinux/nlmsgtab.c
+@@ -76,6 +76,8 @@ static struct nlmsg_perm nlmsg_route_perms[] =
+ 	{ RTM_NEWNSID,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+ 	{ RTM_DELNSID,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETNSID,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
++	{ RTM_NEWSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
++	{ RTM_GETSTATS,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ };
  
- 	tcp_for_write_queue_from(skb, sk) {
- 		__u8 sacked = TCP_SKB_CB(skb)->sacked;
-+		int segs;
- 
- 		if (skb == tcp_send_head(sk))
- 			break;
-@@ -2744,14 +2744,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		if (!hole)
- 			tp->retransmit_skb_hint = skb;
- 
--		/* Assume this retransmit will generate
--		 * only one packet for congestion window
--		 * calculation purposes.  This works because
--		 * tcp_retransmit_skb() will chop up the
--		 * packet to be MSS sized and all the
--		 * packet counting works out.
--		 */
--		if (tcp_packets_in_flight(tp) >= tp->snd_cwnd)
-+		segs = tp->snd_cwnd - tcp_packets_in_flight(tp);
-+		if (segs <= 0)
- 			return;
- 
- 		if (fwd_rexmitting) {
-@@ -2788,7 +2782,7 @@ begin_fwd:
- 		if (sacked & (TCPCB_SACKED_ACKED|TCPCB_SACKED_RETRANS))
- 			continue;
- 
--		if (tcp_retransmit_skb(sk, skb))
-+		if (tcp_retransmit_skb(sk, skb, segs))
- 			return;
- 
- 		NET_INC_STATS_BH(sock_net(sk), mib_idx);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 49bc474f8e35..373b03e78aaa 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -404,7 +404,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 			goto out;
- 		}
- 		tcp_enter_loss(sk);
--		tcp_retransmit_skb(sk, tcp_write_queue_head(sk));
-+		tcp_retransmit_skb(sk, tcp_write_queue_head(sk), 1);
- 		__sk_dst_reset(sk);
- 		goto out_reset_timer;
- 	}
-@@ -436,7 +436,7 @@ void tcp_retransmit_timer(struct sock *sk)
- 
- 	tcp_enter_loss(sk);
- 
--	if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk)) > 0) {
-+	if (tcp_retransmit_skb(sk, tcp_write_queue_head(sk), 1) > 0) {
- 		/* Retransmission failed because of local congestion,
- 		 * do not backoff.
- 		 */
+ static struct nlmsg_perm nlmsg_tcpdiag_perms[] =
+@@ -155,7 +157,7 @@ int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm)
+ 	switch (sclass) {
+ 	case SECCLASS_NETLINK_ROUTE_SOCKET:
+ 		/* RTM_MAX always point to RTM_SETxxxx, ie RTM_NEWxxx + 3 */
+-		BUILD_BUG_ON(RTM_MAX != (RTM_NEWNSID + 3));
++		BUILD_BUG_ON(RTM_MAX != (RTM_NEWSTATS + 3));
+ 		err = nlmsg_perm(nlmsg_type, perm, nlmsg_route_perms,
+ 				 sizeof(nlmsg_route_perms));
+ 		break;
 -- 
-2.8.0.rc3.226.g39d4020
+1.9.1
