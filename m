@@ -1,70 +1,168 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to
- tracepoints
-Date: Mon, 18 Apr 2016 18:16:31 -0400
-Message-ID: <20160418181631.2efee46e@gandalf.local.home>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
-	<1459831974-2891931-3-git-send-email-ast@fb.com>
-	<20160418162905.220df2f4@gandalf.local.home>
-	<571554EB.9010702@fb.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: Ensure the state machine is called when phy is
+ UP
+Date: Mon, 18 Apr 2016 15:17:58 -0700
+Message-ID: <57155D16.2080306@gmail.com>
+References: <1460750172-7796-1-git-send-email-alexandre.belloni@free-electrons.com>
+ <57114AA4.5080803@gmail.com> <20160415205613.GE25196@piout.net>
+ <20160415220508.GC26665@lunn.ch> <20160415221711.GG25196@piout.net>
+ <571169EB.4090300@gmail.com> <20160418221433.GX25196@piout.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+Cc: Andrew Lunn <andrew@lunn.ch>,
 	"David S . Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0235.hostedemail.com ([216.40.44.235]:33918 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751343AbcDRWQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 18:16:34 -0400
-In-Reply-To: <571554EB.9010702@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160418221433.GX25196@piout.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Apr 2016 14:43:07 -0700
-Alexei Starovoitov <ast@fb.com> wrote:
+On 18/04/16 15:14, Alexandre Belloni wrote:
+> On 15/04/2016 at 15:23:39 -0700, Florian Fainelli wrote :
+>> On 15/04/16 15:17, Alexandre Belloni wrote:
+>>> On 16/04/2016 at 00:05:08 +0200, Andrew Lunn wrote :
+>>>>> Trace without my patch:
+>>>>> libphy: MACB_mii_bus: probed
+>>>>> macb f8020000.ethernet eth0: Cadence GEM rev 0x00020120 at 0xf8020000 irq 27 (fc:c2:3d:0c:6e:05)
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: attached PHY driver [Micrel KSZ8081 or KSZ8091] (mii_bus:phy_addr=f8020000.etherne:01, irq=171)
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+>>>>> [...]
+>>>>> Micrel KSZ8081 or KSZ8091 f8020000.etherne:01: PHY state change READY -> READY
+>>>>
+>>>> Are there some state changes before this? How is it getting to state
+>>>> READY? It would expect it to start in DOWN, from when the phy device
+>>>> was created in phy_device_create().
+>>>>
+>>>
+>>> No other changes. I forgot to mention that this is when booting with a
+>>> cable plugged in. Unplugging and replugging the cable makes the link
+>>> detection work fine even without the patch.
+>>
+>> OK, so the last hunk of the change in d5c3d84657db ("net: phy: Avoid
+>> polling PHY with PHY_IGNORE_INTERRUPTS"):
+>>
+>> -       queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
+>> -                          PHY_STATE_TIME * HZ);
+>> +       /* Only re-schedule a PHY state machine change if we are polling the
+>> +        * PHY, if PHY_IGNORE_INTERRUPT is set, then we will be moving
+>> +        * between states from phy_mac_interrupt()
+>> +        */
+>> +       if (phydev->irq == PHY_POLL)
+>> +               queue_delayed_work(system_power_efficient_wq,
+>> &phydev->state_queue,
+>> +                                  PHY_STATE_TIME * HZ);
+>>
+>>
+>> is presumably what broke for you, right?
+>>
+>> Could you also give this patch a spin and see if it works better with
+>> it? The macb driver does something racy with how the MDIO and PHY are
+>> probe wrt. registering the netdev, that needs fixing too.
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c
+>> b/drivers/net/ethernet/cadence/macb.c
+>> index eec3200ade4a..98b99149ce0b 100644
+>> --- a/drivers/net/ethernet/cadence/macb.c
+>> +++ b/drivers/net/ethernet/cadence/macb.c
+>> @@ -3005,28 +3005,36 @@ static int macb_probe(struct platform_device *pdev)
+>>         if (err)
+>>                 goto err_out_free_netdev;
+>>
+>> +       err = macb_mii_init(bp);
+>> +       if (err)
+>> +               goto err_out_free_netdev;
+>> +
+>> +       phydev = bp->phy_dev;
+>> +       phy_attached_info(phydev);
+>> +
+>> +       netif_carrier_off(dev);
+>> +
+>>         err = register_netdev(dev);
+>>         if (err) {
+>>                 dev_err(&pdev->dev, "Cannot register net device,
+>> aborting.\n");
+>>                 goto err_out_unregister_netdev;
+>>         }
+>>
+>> -       err = macb_mii_init(bp);
+>> -       if (err)
+>> -               goto err_out_unregister_netdev;
+>> -
+>> -       netif_carrier_off(dev);
+>> -
+>>         netdev_info(dev, "Cadence %s rev 0x%08x at 0x%08lx irq %d (%pM)\n",
+>>                     macb_is_gem(bp) ? "GEM" : "MACB", macb_readl(bp, MID),
+>>                     dev->base_addr, dev->irq, dev->dev_addr);
+>>
+>> -       phydev = bp->phy_dev;
+>> -       phy_attached_info(phydev);
+>> -
+>>         return 0;
+>>
+>>  err_out_unregister_netdev:
+>> +       phy_disconnect(bp->phy_dev);
+>> +       mdiobus_unregister(bp->mii_bus);
+>> +       mdiobus_free(bp->mii_bus);
+>> +
+>> +       /* Shutdown the PHY if there is a GPIO reset */
+>> +       if (bp->reset_gpio)
+>> +               gpiod_set_value(bp->reset_gpio, 0);
+>> +
+>>         unregister_netdev(dev);
+>>
+>>  err_out_free_netdev:
+>>
+> 
+> Well, this fails with:
+> 
+> [    2.780000] ------------[ cut here ]------------
+> [    2.780000] WARNING: CPU: 0 PID: 1 at lib/kobject.c:597 kobject_get+0x6c/0xa0
+> [    2.790000] kobject: '(null)' (df532280): is not initialized, yet kobject_get() is being called.
+> [    2.800000] Modules linked in:
+> [    2.800000] CPU: 0 PID: 1 Comm: swapper Not tainted 4.6.0-rc1+ #46
+> [    2.810000] Hardware name: Atmel SAMA5
+> [    2.810000] [<c010cc44>] (unwind_backtrace) from [<c010a76c>] (show_stack+0x10/0x14)
+> [    2.820000] [<c010a76c>] (show_stack) from [<c0115a70>] (__warn+0xe4/0xfc)
+> [    2.830000] [<c0115a70>] (__warn) from [<c0115ac0>] (warn_slowpath_fmt+0x38/0x48)
+> [    2.840000] [<c0115ac0>] (warn_slowpath_fmt) from [<c02d5524>] (kobject_get+0x6c/0xa0)
+> [    2.840000] [<c02d5524>] (kobject_get) from [<c0343b24>] (device_add+0xac/0x56c)
+> [    2.850000] [<c0343b24>] (device_add) from [<c03aa900>] (__mdiobus_register+0x8c/0x198)
+> [    2.860000] [<c03aa900>] (__mdiobus_register) from [<c045ed0c>] (of_mdiobus_register+0x20/0x184)
+> [    2.870000] [<c045ed0c>] (of_mdiobus_register) from [<c03b18f0>] (macb_probe+0x488/0x898)
+> [    2.880000] [<c03b18f0>] (macb_probe) from [<c0347ff0>] (platform_drv_probe+0x4c/0xb0)
+> [    2.880000] [<c0347ff0>] (platform_drv_probe) from [<c0346838>] (driver_probe_device+0x214/0x2c0)
+> [    2.890000] [<c0346838>] (driver_probe_device) from [<c034699c>] (__driver_attach+0xb8/0xbc)
+> [    2.900000] [<c034699c>] (__driver_attach) from [<c0344b8c>] (bus_for_each_dev+0x68/0x9c)
+> [    2.910000] [<c0344b8c>] (bus_for_each_dev) from [<c0345cd0>] (bus_add_driver+0x1a0/0x218)
+> [    2.920000] [<c0345cd0>] (bus_add_driver) from [<c0347084>] (driver_register+0x78/0xf8)
+> [    2.930000] [<c0347084>] (driver_register) from [<c010166c>] (do_one_initcall+0x90/0x1dc)
+> [    2.930000] [<c010166c>] (do_one_initcall) from [<c0800d78>] (kernel_init_freeable+0x134/0x1d4)
+> [    2.940000] [<c0800d78>] (kernel_init_freeable) from [<c05e7bd0>] (kernel_init+0x8/0x110)
+> [    2.950000] [<c05e7bd0>] (kernel_init) from [<c0107598>] (ret_from_fork+0x14/0x3c)
+> [    2.960000] ---[ end trace 81bf87ef8c18d052 ]---
+> 
+> 
+> I'm not completely clear why but I think one of the parent is not initialized
+> until register_netdev() is called.
 
+Yes, seems like it, how about adding this:
 
-> I was worried about this too, but single 'if' and two calls
-> (as in commit 98b5c2c65c295) is a better way, since it's faster, cleaner
-> and doesn't need to refactor the whole perf_trace_buf_submit() to pass
-> extra event_call argument to it.
-> perf_trace_buf_submit() is already ugly with 8 arguments!
+diff --git a/drivers/net/ethernet/cadence/macb.c
+b/drivers/net/ethernet/cadence/macb.c
+index 98b99149ce0b..21096dfb0e83 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -440,7 +440,7 @@ static int macb_mii_init(struct macb *bp)
+        snprintf(bp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+                 bp->pdev->name, bp->pdev->id);
+        bp->mii_bus->priv = bp;
+-       bp->mii_bus->parent = &bp->dev->dev;
++       bp->mii_bus->parent = &bp->pdev->dev;
+        pdata = dev_get_platdata(&bp->pdev->dev);
 
-Right, but I solved that in ftrace by creating an on-stack descriptor
-that can be passed by a single parameter. See the "fbuffer" in the
-trace_event_raw_event* code.
-
-
-> Passing more args or creating a struct to pass args only going to
-> hurt performance without much reduction in .text size.
-> tinyfication folks will disable tracepoints anyway.
-> Note that the most common case is bpf returning 0 and not even
-> calling perf_trace_buf_submit() which is already slow due
-> to so many args passed on stack.
-> This stuff is called million times a second, so every instruction
-> counts.
-
-Note, that doesn't matter if you are bloating the kernel for the 99.9%
-of those that don't use bpf.
-
-Please remember this! Us tracing folks are second class citizens! If
-there's a way to speed up tracing by 10%, but in doing so we cause
-mainline to be hurt by over 1%, we shouldn't be doing it. Tracing and
-hooks on tracepoints are really not used by many people. Don't fall
-into Linus's category of "my code is the most important". That's
-especially true for tracing.
-
-These macros causes bloat. There's been many complaints about it.
-There's a way around it that isn't that bad (with the descriptor), we
-should be using it.
-
--- Steve
+        dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+-- 
+Florian
