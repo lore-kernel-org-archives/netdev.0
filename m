@@ -1,46 +1,146 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
-Date: Mon, 18 Apr 2016 18:19:59 +0300
-Message-ID: <5714FB1F.5040200@cogentembedded.com>
-References: <5711ADD1.2030904@brocade.com> <5714EDDB.8080306@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
+From: Francesco Ruggeri <fruggeri@arista.com>
+Subject: [PATCH net-next] macvlan: fix failure during registration
+Date: Mon, 18 Apr 2016 08:20:11 -0700
+Message-ID: <1460992811-46992-1-git-send-email-fruggeri@arista.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Francesco Ruggeri <fruggeri@arista.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:34525 "EHLO
-	mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712AbcDRPUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:20:01 -0400
-Received: by mail-lf0-f54.google.com with SMTP id j11so220651032lfb.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 08:20:00 -0700 (PDT)
-In-Reply-To: <5714EDDB.8080306@brocade.com>
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:59376 "EHLO
+	prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751799AbcDRPUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 11:20:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Resending, did not include netdev the first time ...
 
-On 4/18/2016 5:23 PM, Mike Manning wrote:
+If a macvlan/macvtap creation fails in register_netdevice in
+call_netdevice_notifiers(NETDEV_REGISTER) then while cleaning things up in
+rollback_registered_many it invokes macvlan_uninit. This results in
+port->count being decremented twice (in macvlan_uninit and in
+macvlan_common_newlink).
+A similar problem may exist in the ipvlan driver.
+This patch adds priv_flags to struct macvlan_dev and a flag that
+macvlan_uninit can use to determine if it is invoked in the context of a
+failed newlink.
+In macvtap_device_event(NETDEV_UNREGISTER) it also avoids cleaning up
+/dev/tapNN in case creation of the char device had previously failed.
+Tested in 3.18.
+The failure can be reproduced by running the script below a few times. The
+script creates macvtap interfaces in different namespaces causing along the
+way sysfs_warn_dup failures in macvtap_device_event(NETDEV_REGISTER)
+because of conflicting ifindexes, and finally a panic or
+"unregister_netdevice: waiting for ddev to become free".
 
-> f1705ec197e7 "Make address flushing on ifdown optional" added the option
+for ((ns=1; ns<3; ns++))
+do
+  ip netns add ns${ns}
+  ip netns exec ns${ns} ip link add dev ddev type dummy
+done
 
-    Looking further, this doesn't seem like a complete commit summary. And you 
-need to enclose it in parens too.
+for ((ns=1; ns<3; ns++))
+do
+  for ((mv=0; mv<2; mv++))
+  do
+    ret=1
+    while [ ${ret} != 0 ]
+    do
+      ip netns exec ns${ns} ip link add link ddev name \
+                        macvtap${ns}${mv} type macvtap
+      ret=$?
+    done &
+  done
+done
 
-> to retain user configured addresses on an admin down. A comment to one of
-> the later revisions suggested using the IFA_F_PERMANENT flag rather than
-> adding a user_managed boolean to the ifaddr struct. A side effect of this
-> change is that link local and loopback addresses were also retained which
-> was not part of the objective of the original changes. The fix 70af921db6f8
-> "Do not keep linklocal and loopback addresses" ensures that these are no
+sleep 5
+ls /dev/tap*
 
-    Again, () are needed around the summary.
+for ((ns=1; ns<3; ns++))
+do
+  ip netns exec ns${ns} ip link del ddev &
+done
 
-> longer kept. Similarly, the present fix ensures that these addresses are not
-> fixed up either, otherwise the incorrect fixup triggers a crash in fib6.
->
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
-[...]
+sleep 2
+ls /dev/tap*
 
-MBR, Sergei
+for ((ns=1; ns<3; ns++))
+do
+  ip netns del ns${ns}
+done
+
+Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+---
+ drivers/net/macvlan.c      | 11 ++++++++---
+ drivers/net/macvtap.c      |  2 ++
+ include/linux/if_macvlan.h |  3 +++
+ 3 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 2bcf1f3..11065af 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -823,9 +823,12 @@ static void macvlan_uninit(struct net_device *dev)
+ 	free_percpu(vlan->pcpu_stats);
+ 
+ 	macvlan_flush_sources(port, vlan);
+-	port->count -= 1;
+-	if (!port->count)
+-		macvlan_port_destroy(port->dev);
++
++	if (!(vlan->priv_flags & MACVLAN_PRIV_FLAG_REGISTERING)) {
++		port->count -= 1;
++		if (!port->count)
++			macvlan_port_destroy(port->dev);
++	}
+ }
+ 
+ static struct rtnl_link_stats64 *macvlan_dev_get_stats64(struct net_device *dev,
+@@ -1313,7 +1316,9 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 	}
+ 
+ 	port->count += 1;
++	vlan->priv_flags |= MACVLAN_PRIV_FLAG_REGISTERING;
+ 	err = register_netdevice(dev);
++	vlan->priv_flags &= ~MACVLAN_PRIV_FLAG_REGISTERING;
+ 	if (err < 0)
+ 		goto destroy_port;
+ 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 95394ed..e770221 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1303,6 +1303,8 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 		}
+ 		break;
+ 	case NETDEV_UNREGISTER:
++		if (vlan->minor == 0)
++			break;
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+ 		device_destroy(macvtap_class, devt);
+ 		macvtap_free_minor(vlan);
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index a4ccc31..7cf82d8 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -48,6 +48,7 @@ struct macvlan_dev {
+ 	netdev_features_t	set_features;
+ 	enum macvlan_mode	mode;
+ 	u16			flags;
++	u16			priv_flags;
+ 	/* This array tracks active taps. */
+ 	struct macvtap_queue	__rcu *taps[MAX_MACVTAP_QUEUES];
+ 	/* This list tracks all taps (both enabled and disabled) */
+@@ -63,6 +64,8 @@ struct macvlan_dev {
+ 	unsigned int		macaddr_count;
+ };
+ 
++#define MACVLAN_PRIV_FLAG_REGISTERING	1
++
+ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
+ 				    unsigned int len, bool success,
+ 				    bool multicast)
+-- 
+1.8.1.4
