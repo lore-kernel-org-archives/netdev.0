@@ -1,67 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/5] qede: Add support for ethtool private flags
-Date: Mon, 18 Apr 2016 17:11:47 +0300
-Message-ID: <5714EB23.5020102@cogentembedded.com>
-References: <1460921195-23352-1-git-send-email-Yuval.Mintz@qlogic.com>
- <1460921195-23352-3-git-send-email-Yuval.Mintz@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet
+ WQE (Striding RQ)
+Date: Mon, 18 Apr 2016 07:17:13 -0700
+Message-ID: <1460989033.10638.120.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
+	 <1460928725-18741-6-git-send-email-saeedm@mellanox.com>
+	 <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:36010 "EHLO
-	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751660AbcDROLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 10:11:50 -0400
-Received: by mail-lf0-f51.google.com with SMTP id g184so218201694lfb.3
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 07:11:49 -0700 (PDT)
-In-Reply-To: <1460921195-23352-3-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mail-vk0-f54.google.com ([209.85.213.54]:33334 "EHLO
+	mail-vk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbcDRORY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 10:17:24 -0400
+Received: by mail-vk0-f54.google.com with SMTP id n62so105539002vkb.0
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 07:17:23 -0700 (PDT)
+In-Reply-To: <CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, 2016-04-18 at 16:05 +0300, Saeed Mahameed wrote:
+> On Mon, Apr 18, 2016 at 3:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
+> >
+> >>
+> >> If really you need to allocate physically contiguous memory, have you
+> >> considered converting the order-5 pages into 32 order-0 ones ?
+> >
+> > Search for split_page() call sites for examples.
+> >
+> >
+> 
+> Thanks Eric, we are already evaluating split_page as we speak.
+> 
+> We did look but could not find any specific alloc_pages API that
+> allocates many physically contiguous pages with order0 ! so we assume
+> it is ok to use split_page.
 
-On 4/17/2016 10:26 PM, Yuval Mintz wrote:
+Note: I have no idea of split_page() performance :
 
-> Adds a getter for the interfaces private flags.
-> The only parameter currently supported is whether the interface is a
-> coupled function [required for supporting 100g].
->
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> ---
->   drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 27 +++++++++++++++++++++++++
->   1 file changed, 27 insertions(+)
->
-> diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-> index f87e83b..5ba6b2a 100644
-> --- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-> +++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-[...]
-> @@ -185,6 +200,17 @@ static int qede_get_sset_count(struct net_device *dev, int stringset)
->   	}
->   }
->
-> +static u32 qede_get_priv_flags(struct net_device *dev)
-> +{
-> +	struct qede_dev *edev = netdev_priv(dev);
-> +	u32 flags = 0;
-> +
-> +	flags |= (!!(edev->dev_info.common.num_hwfns > 1)) <<
-> +		 QEDE_PRI_FLAG_CMT;
+Buddy page allocator has to aggregate pages into order-5, then we would
+undo the work, touching 32 cache lines.
 
-    Why not just '='?
+You might first benchmark a simple loop doing 
 
-> +
-> +	return flags;
+loop 10,000,000 times
+ Order-5 allocation
+ split into 32 order-0
+ free 32 pages
 
-    ... or direct return of the value above?
 
-> +}
-> +
->   static int qede_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
->   {
->   	struct qede_dev *edev = netdev_priv(dev);
-[...]
+Another idea would be to have a way to control max number of order-5
+pages that a port would be using.
 
-MBR, Sergei
+Since driver always own a ref on a order-5 pages, idea would be to
+maintain a circular ring of up to XXX such pages, so that we can detect
+an abnormal use and fallback to order-0 immediately.
