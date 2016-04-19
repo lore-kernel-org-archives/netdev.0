@@ -1,98 +1,60 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet
- WQE (Striding RQ)
-Date: Tue, 19 Apr 2016 18:25:32 +0200
-Message-ID: <20160419182532.423d3c05@redhat.com>
-References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
-	<1460928725-18741-6-git-send-email-saeedm@mellanox.com>
-	<1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
-	<1460989033.10638.120.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH] bpf: avoid warning for wrong pointer cast
+Date: Tue, 19 Apr 2016 09:27:28 -0700
+Message-ID: <57165C70.80209@fb.com>
+References: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
+ <20160417004740.GA80675@ast-mbp.thefacebook.com>
+ <20160419023334.GC24067@wfg-t540p.sh.intel.com>
+ <20160419100956.GB8836@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed
- Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Or Gerlitz
- <ogerlitz@mellanox.com>, Tal Alon <talal@mellanox.com>,
-        Tariq Toukan
- <tariqt@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Achiad
- Shochat <achiad@mellanox.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        linux-mm <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1460989033.10638.120.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	<linux-kernel@vger.kernel.org>
+To: Philip Li <philip.li@intel.com>,
+	Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160419100956.GB8836@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Apr 2016 07:17:13 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 4/19/16 3:09 AM, Philip Li wrote:
+> On Tue, Apr 19, 2016 at 10:33:34AM +0800, Fengguang Wu wrote:
+>>> Fengguang, any idea why build-bot sometimes silent?
+>>
+>> Sorry I went off for some time.. Philip, would you help have a check?
+> Hi Alexei, i have done some investigation for this. Fengguang, pls correct me if my understanding is wrong.
+>
+> 0day has caught the warning for f1ff54 commit around 2016-3-22, which considers the same warning in future is not new one, thus neglect it.
+>
+> 	rli9@inn /kbuild-tests/build-error$ cat kernel-trace-bpf_trace.c:warning:cast-to-pointer-from-integer-of-different-size
+> 	kernel/trace/bpf_trace.c:345:13: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+>
+> 	2016-03-22 17:12:38 xian bpf:master:321e70e79c94e5e6394a882d567baac949b74000 i386-randconfig-x009-201612 f1ff543dbdd3eff53c8328cfb582f18e6c3d56ec
+>
+> And for f1ff54's warning, 0day actually bisects to it, but then it checks the head of bpf/master at that time which is 321e70e, find the error is not existed, so
+> it ignores the interim warning to not send email report.
+>
+> 2016-03-22_17:15:49 O: R: /kbuild/src/consumer/kernel/trace/bpf_trace.c:345:13: warning: cast to pointer from integer of different size [-Wint-to-pointer-cast]
+> 2016-03-22_17:15:49 O: grep -h -r . /tmp/kernel/i386-randconfig-x009-201612/gcc-5/f1ff543dbdd3eff53c8328cfb582f18e6c3d56ec/build-error # 0 errors
+> 2016-03-22_17:15:49 O: grep -h -r . /tmp/kernel/i386-randconfig-x009-201612/gcc-5/f1ff543dbdd3eff53c8328cfb582f18e6c3d56ec/build-error/ # 0 errors
+> 2016-03-22_17:15:49 O: /c/kernel-tests/list-head bpf:master:321e70e79c94e5e6394a882d567baac949b74000 i386-randconfig-x009-201612
+> 2016-03-22_17:16:03 O: .
+> 2016-03-22_17:16:03 O: ..
+> 2016-03-22_17:16:03 O: kernel-trace-bpf_trace.c:warning:cast-to-pointer-from-integer-of-different-size
+> 2016-03-22_17:16:03 O: 2016-03-22 17:16:03 don't email interim warnings
+> 2016-03-22_17:16:03 O: 2016-03-22 17:16:03 error no longer exist in head bpf/master 321e70e79c94e5e6394a882d567baac949b74000, check
+> /tmp/kernel/i386-randconfig-x009-201612/gcc-5/321e70e79c94e5e6394a882d567baac949b74000, errno 14
+> 2016-03-22_17:16:03 O: 2016-03-22 17:16:03 Don't email interim warnings!
+>
+>
+> what really happens to 321e70e is it has build error (i rerun it to confirm), which is reported. So this is
+> a possible change to be done in 0day to report the first bad commit when HEAD is build error.
 
-> On Mon, 2016-04-18 at 16:05 +0300, Saeed Mahameed wrote:
-> > On Mon, Apr 18, 2016 at 3:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:  
-> > > On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
-> > >  
-> > >>
-> > >> If really you need to allocate physically contiguous memory, have you
-> > >> considered converting the order-5 pages into 32 order-0 ones ?  
-> > >
-> > > Search for split_page() call sites for examples.
-> > >
-> > >  
-> > 
-> > Thanks Eric, we are already evaluating split_page as we speak.
-> > 
-> > We did look but could not find any specific alloc_pages API that
-> > allocates many physically contiguous pages with order0 ! so we assume
-> > it is ok to use split_page.  
-> 
-> Note: I have no idea of split_page() performance :
-
-Maybe Mel knows?  And maybe Mel have an opinion about if this is a good
-or bad approach, e.g. will this approach stress the page allocator in a
-bad way?
-
-> Buddy page allocator has to aggregate pages into order-5, then we would
-> undo the work, touching 32 cache lines.
-> 
-> You might first benchmark a simple loop doing 
-> 
-> loop 10,000,000 times
->  Order-5 allocation
->  split into 32 order-0
->  free 32 pages
-> 
-> 
-> Another idea would be to have a way to control max number of order-5
-> pages that a port would be using.
-> 
-> Since driver always own a ref on a order-5 pages, idea would be to
-> maintain a circular ring of up to XXX such pages, so that we can detect
-> an abnormal use and fallback to order-0 immediately.
-
-That is part of my idea with my page-pool proposal.  In the page-pool I
-want to have some watermark counter that can block/stop the OOM issue at
-this RX ring level.
-
-See slide 12 of presentation:
-http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+excellent sleuthing! Sounds like the adjustment to 0day is forthcoming.
+Thank you for great tool!
