@@ -1,67 +1,53 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [RFC PATCH 5/5] fm10k: Add support for UDP tunnel segmentation with
- outer checksum offload
-Date: Tue, 19 Apr 2016 15:06:21 -0400
-Message-ID: <20160419190621.11723.85385.stgit@ahduyck-xeon-server>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Tue, 19 Apr 2016 21:08:21 +0200
+Message-ID: <57168225.2040507@6wind.com>
+References: <20160418.234137.26692086759328024.davem@davemloft.net>
+ <1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160419.010316.1863885429013017239.davem@davemloft.net>
+ <20160419.143134.2014460805657420897.davem@davemloft.net>
+ <1461091667.10638.229.camel@edumazet-glaptop3.roam.corp.google.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: eugenia@mellanox.com, bruce.w.allan@intel.com, saeedm@mellanox.com,
-	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	ariel.elior@qlogic.com, mchan@broadcom.com
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+	jhs@mojatatu.com, tgraf@suug.ch
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35523 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933919AbcDSTGc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 15:06:32 -0400
-Received: by mail-pa0-f45.google.com with SMTP id fs9so9411282pac.2
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 12:06:31 -0700 (PDT)
-In-Reply-To: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37945 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933248AbcDSTI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 15:08:26 -0400
+Received: by mail-wm0-f41.google.com with SMTP id u206so45882332wme.1
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 12:08:25 -0700 (PDT)
+In-Reply-To: <1461091667.10638.229.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch assumes that the fm10k hardware will ignore existing IPv4/v6
-header fields for length and checksum as well as the length and checksum
-fields for outer UDP headers.
-
-I have no means of testing this as I do not have any mlx5 hardware but
-thought I would submit it as an RFC to see if anyone out there wants to
-test this and see if this does in fact enable this functionality allowing
-us to to segment UDP tunneled frames that have an outer checksum.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-index 2a08d3f5b6df..dc4901def72d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
-@@ -1417,15 +1417,21 @@ struct net_device *fm10k_alloc_netdev(const struct fm10k_info *info)
- 
- 	/* Only the PF can support VXLAN and NVGRE tunnel offloads */
- 	if (info->mac == fm10k_mac_pf) {
--		dev->hw_enc_features = NETIF_F_IP_CSUM |
-+		dev->hw_enc_features = NETIF_F_SG |
-+				       NETIF_F_IP_CSUM |
-+				       NETIF_F_IPV6_CSUM |
- 				       NETIF_F_TSO |
- 				       NETIF_F_TSO6 |
- 				       NETIF_F_TSO_ECN |
- 				       NETIF_F_GSO_UDP_TUNNEL |
--				       NETIF_F_IPV6_CSUM |
--				       NETIF_F_SG;
-+				       NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+				       NETIF_F_GSO_PARTIAL;
-+
-+		dev->features |= NETIF_F_GSO_UDP_TUNNEL |
-+				 NETIF_F_GSO_UDP_TUNNEL_CSUM |
-+				 NETIF_F_GSO_PARTIAL;
- 
--		dev->features |= NETIF_F_GSO_UDP_TUNNEL;
-+		dev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
- 	}
- 
- 	/* all features defined to this point should be changeable */
+Le 19/04/2016 20:47, Eric Dumazet a =C3=A9crit :
+> On Tue, 2016-04-19 at 14:31 -0400, David Miller wrote:
+>
+>> +#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
+>> +	/* IF necessary, add a zero length NOP attribute so that the
+>> +	 * nla_data() of the IFLA_STATS64 will be 64-bit aligned.
+>> +	 *
+>> +	 * The nlattr header is 4 bytes in size, that's why we test
+>> +	 * if the skb->data _is_ aligned.  This NOP attribute, plus
+>> +	 * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
+>> +	 * aligned.
+>> +	 */
+>> +	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
+>> +		attr =3D nla_reserve(skb, IFLA_PAD, 0);
+>> +		if (!attr)
+>> +			return -EMSGSIZE;
+>> +	}
+>> +#endif
+>
+> Since we want to use this in other places, we could define a helper.
+>
+> nla_align_64bit(skb, attribute)  or something.
+Yes, with the corresponding nla_total_size_64bit()
