@@ -1,88 +1,106 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v3 01/18] wcn36xx: Clean up wcn36xx_smd_send_beacon
-Date: Mon, 18 Apr 2016 22:00:39 -0700
-Message-ID: <1461042056-10607-2-git-send-email-bjorn.andersson@linaro.org>
-References: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [RFC PATCH v2 net-next 1/7] tcp: Carry txstamp_ack in tcp_fragment_tstamp
+Date: Tue, 19 Apr 2016 01:21:04 -0400
+Message-ID: <CACSApvaRU64xz0N8CVdZrQ__i9MS2aAh5X1kKwhjdv3hz-OU9w@mail.gmail.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-2-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:33309 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751509AbcDSFVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:21:45 -0400
+Received: by mail-ob0-f173.google.com with SMTP id tz8so2894943obc.0
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:21:44 -0700 (PDT)
+In-Reply-To: <1461019569-3037369-2-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> When a tcp skb is sliced into two smaller skbs (e.g. in
+> tcp_fragment() and tso_fragment()),  it does not carry
+> the txstamp_ack bit to the newly created skb if it is needed.
+> The end result is a timestamping event (SCM_TSTAMP_ACK) will
+> be missing from the sk->sk_error_queue.
+>
+> This patch carries this bit to the new skb2 (if needed)
+> in tcp_fragment_tstamp().
+>
+> BPF Output Before:
+> ~~~~~~
+> <No output due to missing SCM_TSTAMP_ACK timestamp>
+>
+> BPF Output After:
+> ~~~~~~
+> <...>-2050  [000] d.s.   100.928763: : ee_data:14599
+>
+> Packetdrill Script:
+> ~~~~~~
+> +0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
+> +0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
+> +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> +0 bind(3, ..., ...) = 0
+> +0 listen(3, 1) = 0
+>
+> 0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+> 0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+> 0.200 < . 1:1(0) ack 1 win 257
+> 0.200 accept(3, ..., ...) = 4
+> +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+>
+> +0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
+> 0.200 write(4, ..., 14600) = 14600
+> +0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
+>
+> 0.200 > . 1:7301(7300) ack 1
+> 0.200 > P. 7301:14601(7300) ack 1
+>
+> 0.300 < . 1:1(0) ack 14601 win 257
+>
+> 0.300 close(4) = 0
+> 0.300 > F. 14601:14601(0) ack 1
+> 0.400 < F. 1:1(0) ack 16062 win 257
+> 0.400 > . 14602:14602(0) ack 2
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Cc:  Soheil Hassas Yeganeh <soheil@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-Needed for coming improvements. No functional changes.
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_output.c | 2 ++
+>  1 file changed, 2 insertions(+)
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 6451b83..0527ce9 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -1123,6 +1123,8 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
+>                 shinfo->tx_flags &= ~tsflags;
+>                 shinfo2->tx_flags |= tsflags;
+>                 swap(shinfo->tskey, shinfo2->tskey);
+> +               TCP_SKB_CB(skb2)->txstamp_ack = TCP_SKB_CB(skb)->txstamp_ack;
+> +               TCP_SKB_CB(skb)->txstamp_ack = 0;
+>         }
+>  }
 
-Signed-off-by: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-[bjorn: restored BEACON_TEMPLATE_SIZE define to 0x180]
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
+Thanks for the fixes! I was going to submit similar patches. :-)
 
-Changes since v2:
-- Subtract sizeof(beacon_length) instead of modifying BEACON_TEMPLATE_SIZE,
-  which is used in other places as well.
+Could you please submit the timestamping patches separately as non RFCs? Thanks!
 
- drivers/net/wireless/ath/wcn36xx/hal.h |  5 ++++-
- drivers/net/wireless/ath/wcn36xx/smd.c | 12 +++++-------
- 2 files changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
-index b947de0fb2e5..d713204f755d 100644
---- a/drivers/net/wireless/ath/wcn36xx/hal.h
-+++ b/drivers/net/wireless/ath/wcn36xx/hal.h
-@@ -2884,11 +2884,14 @@ struct update_beacon_rsp_msg {
- struct wcn36xx_hal_send_beacon_req_msg {
- 	struct wcn36xx_hal_msg_header header;
- 
-+	/* length of the template + 6. Only qcom knows why */
-+	u32 beacon_length6;
-+
- 	/* length of the template. */
- 	u32 beacon_length;
- 
- 	/* Beacon data. */
--	u8 beacon[BEACON_TEMPLATE_SIZE];
-+	u8 beacon[BEACON_TEMPLATE_SIZE - sizeof(u32)];
- 
- 	u8 bssid[ETH_ALEN];
- 
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index 74f56a81ad9a..ff3ed2461a69 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.c
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -1380,19 +1380,17 @@ int wcn36xx_smd_send_beacon(struct wcn36xx *wcn, struct ieee80211_vif *vif,
- 	mutex_lock(&wcn->hal_mutex);
- 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_SEND_BEACON_REQ);
- 
--	/* TODO need to find out why this is needed? */
--	msg_body.beacon_length = skb_beacon->len + 6;
-+	msg_body.beacon_length = skb_beacon->len;
-+	/* TODO need to find out why + 6 is needed */
-+	msg_body.beacon_length6 = msg_body.beacon_length + 6;
- 
--	if (BEACON_TEMPLATE_SIZE > msg_body.beacon_length) {
--		memcpy(&msg_body.beacon, &skb_beacon->len, sizeof(u32));
--		memcpy(&(msg_body.beacon[4]), skb_beacon->data,
--		       skb_beacon->len);
--	} else {
-+	if (msg_body.beacon_length > BEACON_TEMPLATE_SIZE) {
- 		wcn36xx_err("Beacon is to big: beacon size=%d\n",
- 			      msg_body.beacon_length);
- 		ret = -ENOMEM;
- 		goto out;
- 	}
-+	memcpy(msg_body.beacon, skb_beacon->data, skb_beacon->len);
- 	memcpy(msg_body.bssid, vif->addr, ETH_ALEN);
- 
- 	/* TODO need to find out why this is needed? */
--- 
-2.5.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> 2.5.1
+>
