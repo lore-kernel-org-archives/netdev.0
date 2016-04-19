@@ -1,28 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
  dump link stats
-Date: Mon, 18 Apr 2016 21:32:04 -0700
-Message-ID: <1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
-	 <20160418.234137.26692086759328024.davem@davemloft.net>
+Date: Mon, 18 Apr 2016 21:43:32 -0700
+Message-ID: <5715B774.9070208@cumulusnetworks.com>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com> <20160418.234137.26692086759328024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36468 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbcDSEcH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 00:32:07 -0400
-Received: by mail-pa0-f52.google.com with SMTP id er2so2384560pad.3
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 21:32:06 -0700 (PDT)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35296 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbcDSEne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 00:43:34 -0400
+Received: by mail-pa0-f49.google.com with SMTP id fs9so2513154pac.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 21:43:34 -0700 (PDT)
 In-Reply-To: <20160418.234137.26692086759328024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-18 at 23:41 -0400, David Miller wrote:
+On 4/18/16, 8:41 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Mon, 18 Apr 2016 14:10:19 -0700
+>
+>> This patch adds a new RTM_GETSTATS message to query link stats via
+>> netlink from the kernel. RTM_NEWLINK also dumps stats today, but
+>> RTM_NEWLINK returns a lot more than just stats and is expensive in
+>> some cases when frequent polling for stats from userspace is a
+>> common operation.
+> I'm holding off on this until we sort out the 64-bit netlink
+> attribute alignment issue.
+sure,
+>
+> Meanwhile, I'll some kind of a fix into the tree for the
+> rtnl_fill_stats() change so that it doesn't cause unaligned
+> accesses.
+>
+> I just tested out a clever idea, where for architectures where
+> unaligned accesses is a problem, we insert a zero length NOP attribute
+> before the 64-bit stats.  This makes it properly aligned.  A quick
+> hack patch just passed testing on my sparc64 box, but I'll go over it
+> some more.
+>
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index bb3a90b..5ffdcb3 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -155,6 +155,7 @@ enum {
+>  	IFLA_PROTO_DOWN,
+>  	IFLA_GSO_MAX_SEGS,
+>  	IFLA_GSO_MAX_SIZE,
+> +	IFLA_PAD,
+>  	__IFLA_MAX
+>  };
+>  
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index a7a3d34..b192576 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1052,6 +1052,15 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
+>  	struct rtnl_link_stats64 *sp;
+>  	struct nlattr *attr;
 >  
 > +	/* Add a zero length NOP attribute so that the nla_data()
 > +	 * of the IFLA_STATS64 will be 64-bit aligned.
@@ -32,10 +72,11 @@ On Mon, 2016-04-18 at 23:41 -0400, David Miller wrote:
 > +	if (!attr)
 > +		return -EMSGSIZE;
 > +#endif
+> +
+>  	attr = nla_reserve(skb, IFLA_STATS64,
+>  			   sizeof(struct rtnl_link_stats64));
+>  	if (!attr)
+>
+that is cleaver :)
 
-You must do this only if current skb->data alignment is not correct.
-
-(IFLA_ALIAS for example could shift your expectations)
-
-Also you probably want to change if_nlmsg_size() to add
- + nla_total_size(0) /* IFLA_PAD */
+thanks!
