@@ -1,130 +1,137 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH v3 04/18] wcn36xx: Use consistent name for private vif
-Date: Mon, 18 Apr 2016 22:00:42 -0700
-Message-ID: <1461042056-10607-5-git-send-email-bjorn.andersson@linaro.org>
+Subject: [PATCH v3 08/18] wcn36xx: Remove sta pointer in private vif struct
+Date: Mon, 18 Apr 2016 22:00:46 -0700
+Message-ID: <1461042056-10607-9-git-send-email-bjorn.andersson@linaro.org>
 References: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
 Cc: Pontus Fuchs <pontus.fuchs@gmail.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Eugene Krasnikov <k.eugene.e@gmail.com>,
 	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33737 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751979AbcDSFBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:01:05 -0400
-Received: by mail-pf0-f178.google.com with SMTP id 184so2749435pff.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:01:04 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-Some code used priv_vif and some used vif_priv. Convert all to vif_priv
-for consistency.
+This does not work with multiple sta's in a vif.
 
 Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- drivers/net/wireless/ath/wcn36xx/smd.c | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/main.c    |  3 ---
+ drivers/net/wireless/ath/wcn36xx/smd.c     | 28 +++++++++++++++-------------
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  1 -
+ 3 files changed, 15 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index a23738deb5b3..7c06ca9fdd2c 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -796,7 +796,6 @@ static int wcn36xx_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 		    vif, sta->addr);
+ 
+ 	spin_lock_init(&sta_priv->ampdu_lock);
+-	vif_priv->sta = sta_priv;
+ 	sta_priv->vif = vif_priv;
+ 	/*
+ 	 * For STA mode HW will be configured on BSS_CHANGED_ASSOC because
+@@ -815,14 +814,12 @@ static int wcn36xx_sta_remove(struct ieee80211_hw *hw,
+ 			      struct ieee80211_sta *sta)
+ {
+ 	struct wcn36xx *wcn = hw->priv;
+-	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
+ 	struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
+ 
+ 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac sta remove vif %p sta %pM index %d\n",
+ 		    vif, sta->addr, sta_priv->sta_index);
+ 
+ 	wcn36xx_smd_delete_sta(wcn, sta_priv->sta_index);
+-	vif_priv->sta = NULL;
+ 	sta_priv->vif = NULL;
+ 	return 0;
+ }
 diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index cc1b3b7a4ff9..170440ed5d85 100644
+index ff56138528b6..76c6856ed932 100644
 --- a/drivers/net/wireless/ath/wcn36xx/smd.c
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -191,7 +191,7 @@ static void wcn36xx_smd_set_sta_params(struct wcn36xx *wcn,
- 		struct ieee80211_sta *sta,
- 		struct wcn36xx_hal_config_sta_params *sta_params)
+@@ -1170,6 +1170,7 @@ static int wcn36xx_smd_config_bss_v1(struct wcn36xx *wcn,
+ 
+ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
+ 				      struct ieee80211_vif *vif,
++				      struct ieee80211_sta *sta,
+ 				      void *buf,
+ 				      size_t len)
  {
--	struct wcn36xx_vif *priv_vif = wcn36xx_vif_to_priv(vif);
-+	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 	struct wcn36xx_sta *priv_sta = NULL;
- 	if (vif->type == NL80211_IFTYPE_ADHOC ||
- 	    vif->type == NL80211_IFTYPE_AP ||
-@@ -215,7 +215,7 @@ static void wcn36xx_smd_set_sta_params(struct wcn36xx *wcn,
- 	else
- 		memcpy(&sta_params->bssid, vif->addr, ETH_ALEN);
+@@ -1200,9 +1201,10 @@ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
  
--	sta_params->encrypt_type = priv_vif->encrypt_type;
-+	sta_params->encrypt_type = vif_priv->encrypt_type;
- 	sta_params->short_preamble_supported = true;
+ 	vif_priv->bss_index = params->bss_index;
  
- 	sta_params->rifs_mode = 0;
-@@ -224,7 +224,7 @@ static void wcn36xx_smd_set_sta_params(struct wcn36xx *wcn,
- 	sta_params->uapsd = 0;
- 	sta_params->mimo_ps = WCN36XX_HAL_HT_MIMO_PS_STATIC;
- 	sta_params->max_ampdu_duration = 0;
--	sta_params->bssid_index = priv_vif->bss_index;
-+	sta_params->bssid_index = vif_priv->bss_index;
- 	sta_params->p2p = 0;
- 
- 	if (sta) {
-@@ -726,7 +726,7 @@ static int wcn36xx_smd_add_sta_self_rsp(struct wcn36xx *wcn,
- 					size_t len)
- {
- 	struct wcn36xx_hal_add_sta_self_rsp_msg *rsp;
--	struct wcn36xx_vif *priv_vif = wcn36xx_vif_to_priv(vif);
-+	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 
- 	if (len < sizeof(*rsp))
- 		return -EINVAL;
-@@ -743,8 +743,8 @@ static int wcn36xx_smd_add_sta_self_rsp(struct wcn36xx *wcn,
- 		    "hal add sta self status %d self_sta_index %d dpu_index %d\n",
- 		    rsp->status, rsp->self_sta_index, rsp->dpu_index);
- 
--	priv_vif->self_sta_index = rsp->self_sta_index;
--	priv_vif->self_dpu_desc_index = rsp->dpu_index;
-+	vif_priv->self_sta_index = rsp->self_sta_index;
-+	vif_priv->self_dpu_desc_index = rsp->dpu_index;
- 
- 	return 0;
- }
-@@ -1175,7 +1175,7 @@ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
- {
- 	struct wcn36xx_hal_config_bss_rsp_msg *rsp;
- 	struct wcn36xx_hal_config_bss_rsp_params *params;
--	struct wcn36xx_vif *priv_vif = wcn36xx_vif_to_priv(vif);
-+	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 
- 	if (len < sizeof(*rsp))
- 		return -EINVAL;
-@@ -1198,14 +1198,14 @@ static int wcn36xx_smd_config_bss_rsp(struct wcn36xx *wcn,
- 		    params->bss_bcast_sta_idx, params->mac,
- 		    params->tx_mgmt_power, params->ucast_dpu_signature);
- 
--	priv_vif->bss_index = params->bss_index;
-+	vif_priv->bss_index = params->bss_index;
- 
--	if (priv_vif->sta) {
--		priv_vif->sta->bss_sta_index =  params->bss_sta_index;
--		priv_vif->sta->bss_dpu_desc_index = params->dpu_desc_index;
-+	if (vif_priv->sta) {
-+		vif_priv->sta->bss_sta_index =  params->bss_sta_index;
-+		vif_priv->sta->bss_dpu_desc_index = params->dpu_desc_index;
+-	if (vif_priv->sta) {
+-		vif_priv->sta->bss_sta_index =  params->bss_sta_index;
+-		vif_priv->sta->bss_dpu_desc_index = params->dpu_desc_index;
++	if (sta) {
++		struct wcn36xx_sta *sta_priv = wcn36xx_sta_to_priv(sta);
++		sta_priv->bss_sta_index = params->bss_sta_index;
++		sta_priv->bss_dpu_desc_index = params->dpu_desc_index;
  	}
  
--	priv_vif->self_ucast_dpu_sign = params->ucast_dpu_signature;
-+	vif_priv->self_ucast_dpu_sign = params->ucast_dpu_signature;
- 
- 	return 0;
- }
-@@ -1343,13 +1343,13 @@ out:
- int wcn36xx_smd_delete_bss(struct wcn36xx *wcn, struct ieee80211_vif *vif)
+ 	vif_priv->self_ucast_dpu_sign = params->ucast_dpu_signature;
+@@ -1329,6 +1331,7 @@ int wcn36xx_smd_config_bss(struct wcn36xx *wcn, struct ieee80211_vif *vif,
+ 	}
+ 	ret = wcn36xx_smd_config_bss_rsp(wcn,
+ 					 vif,
++					 sta,
+ 					 wcn->hal_buf,
+ 					 wcn->hal_rsp_len);
+ 	if (ret) {
+@@ -2058,25 +2061,24 @@ static int wcn36xx_smd_delete_sta_context_ind(struct wcn36xx *wcn,
  {
- 	struct wcn36xx_hal_delete_bss_req_msg msg_body;
--	struct wcn36xx_vif *priv_vif = wcn36xx_vif_to_priv(vif);
-+	struct wcn36xx_vif *vif_priv = wcn36xx_vif_to_priv(vif);
- 	int ret = 0;
+ 	struct wcn36xx_hal_delete_sta_context_ind_msg *rsp = buf;
+ 	struct wcn36xx_vif *tmp;
+-	struct ieee80211_sta *sta = NULL;
++	struct ieee80211_sta *sta;
  
- 	mutex_lock(&wcn->hal_mutex);
- 	INIT_HAL_MSG(msg_body, WCN36XX_HAL_DELETE_BSS_REQ);
+ 	if (len != sizeof(*rsp)) {
+ 		wcn36xx_warn("Corrupted delete sta indication\n");
+ 		return -EIO;
+ 	}
  
--	msg_body.bss_index = priv_vif->bss_index;
-+	msg_body.bss_index = vif_priv->bss_index;
++	wcn36xx_dbg(WCN36XX_DBG_HAL, "delete station indication %pM index %d\n",
++		    rsp->addr2, rsp->sta_id);
++
+ 	list_for_each_entry(tmp, &wcn->vif_list, list) {
+-		if (sta && (tmp->sta->sta_index == rsp->sta_id)) {
+-			sta = container_of((void *)tmp->sta,
+-						 struct ieee80211_sta,
+-						 drv_priv);
+-			wcn36xx_dbg(WCN36XX_DBG_HAL,
+-				    "delete station indication %pM index %d\n",
+-				    rsp->addr2,
+-				    rsp->sta_id);
++		rcu_read_lock();
++		sta = ieee80211_find_sta(wcn36xx_priv_to_vif(tmp), rsp->addr2);
++		if (sta)
+ 			ieee80211_report_low_ack(sta, 0);
++		rcu_read_unlock();
++		if (sta)
+ 			return 0;
+-		}
+ 	}
  
- 	PREPARE_HAL_BUF(wcn->hal_buf, msg_body);
- 
+ 	wcn36xx_warn("STA with addr %pM and index %d not found\n",
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index c368a34c8de7..54000db0af1a 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -125,7 +125,6 @@ struct wcn36xx_platform_ctrl_ops {
+  */
+ struct wcn36xx_vif {
+ 	struct list_head list;
+-	struct wcn36xx_sta *sta;
+ 	u8 dtim_period;
+ 	enum ani_ed_type encrypt_type;
+ 	bool is_joining;
 -- 
 2.5.0
