@@ -1,8 +1,9 @@
 From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [RFC PATCH v2 net-next 1/7] tcp: Carry txstamp_ack in tcp_fragment_tstamp
-Date: Tue, 19 Apr 2016 01:21:04 -0400
-Message-ID: <CACSApvaRU64xz0N8CVdZrQ__i9MS2aAh5X1kKwhjdv3hz-OU9w@mail.gmail.com>
-References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-2-git-send-email-kafai@fb.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] tcp: Merge tx_flags/tskey/txstamp_ack
+ in tcp_collapse_retrans
+Date: Tue, 19 Apr 2016 01:32:14 -0400
+Message-ID: <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
@@ -10,37 +11,37 @@ Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
 	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
 	Willem de Bruijn <willemb@google.com>,
 	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>,
-	Soheil Hassas Yeganeh <soheil@google.com>
+	Kernel Team <kernel-team@fb.com>
 To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:33309 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509AbcDSFVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:21:45 -0400
-Received: by mail-ob0-f173.google.com with SMTP id tz8so2894943obc.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:21:44 -0700 (PDT)
-In-Reply-To: <1461019569-3037369-2-git-send-email-kafai@fb.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:33019 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751741AbcDSFdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:33:00 -0400
+Received: by mail-ob0-f180.google.com with SMTP id tz8so2982688obc.0
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:32:59 -0700 (PDT)
+In-Reply-To: <1461019569-3037369-3-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> When a tcp skb is sliced into two smaller skbs (e.g. in
-> tcp_fragment() and tso_fragment()),  it does not carry
-> the txstamp_ack bit to the newly created skb if it is needed.
-> The end result is a timestamping event (SCM_TSTAMP_ACK) will
-> be missing from the sk->sk_error_queue.
+> If two skbs are merged/collapsed during retransmission, the current
+> logic does not merge the tx_flags, tskey and txstamp_ack.  The end
+> result is the SCM_TSTAMP_ACK timestamp could be missing for a
+> packet that the end-user has specifically turned on
+> SOF_TIMESTAMPING_TX_ACK (e.g. by cmsg).
 >
-> This patch carries this bit to the new skb2 (if needed)
-> in tcp_fragment_tstamp().
+> The patch:
+> 1. Merge the tx_flags and txstamp_ack
+> 2. Overwrite the tskey with the later skb (next_skb)
 >
 > BPF Output Before:
 > ~~~~~~
-> <No output due to missing SCM_TSTAMP_ACK timestamp>
+> <no-output-due-to-missing-tstamp-event>
 >
 > BPF Output After:
 > ~~~~~~
-> <...>-2050  [000] d.s.   100.928763: : ee_data:14599
+> packetdrill-2092  [001] d.s.   453.998486: : ee_data:1459
 >
 > Packetdrill Script:
 > ~~~~~~
@@ -57,49 +58,89 @@ On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
 > 0.200 accept(3, ..., ...) = 4
 > +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
 >
+> 0.200 write(4, ..., 730) = 730
 > +0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
-> 0.200 write(4, ..., 14600) = 14600
+> 0.200 write(4, ..., 730) = 730
 > +0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
+> 0.200 write(4, ..., 11680) = 11680
 >
-> 0.200 > . 1:7301(7300) ack 1
-> 0.200 > P. 7301:14601(7300) ack 1
+> 0.200 > P. 1:731(730) ack 1
+> 0.200 > P. 731:1461(730) ack 1
+> 0.200 > . 1461:8761(7300) ack 1
+> 0.200 > P. 8761:13141(4380) ack 1
 >
-> 0.300 < . 1:1(0) ack 14601 win 257
+> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:2921,nop,nop>
+> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:4381,nop,nop>
+> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:5841,nop,nop>
+> 0.300 > P. 1:1461(1460) ack 1
+> 0.400 < . 1:1(0) ack 13141 win 257
 >
-> 0.300 close(4) = 0
-> 0.300 > F. 14601:14601(0) ack 1
-> 0.400 < F. 1:1(0) ack 16062 win 257
-> 0.400 > . 14602:14602(0) ack 2
+> 0.400 close(4) = 0
+> 0.400 > F. 13141:13141(0) ack 1
+> 0.500 < F. 1:1(0) ack 13142 win 257
+> 0.500 > . 13142:13142(0) ack 2
 >
 > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 > Cc: Eric Dumazet <edumazet@google.com>
 > Cc: Neal Cardwell <ncardwell@google.com>
 > Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+
 Cc:  Soheil Hassas Yeganeh <soheil@google.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
 > Cc: Willem de Bruijn <willemb@google.com>
 > Cc: Yuchung Cheng <ycheng@google.com>
 > ---
->  net/ipv4/tcp_output.c | 2 ++
->  1 file changed, 2 insertions(+)
+>  net/ipv4/tcp_output.c | 18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
 >
 > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 6451b83..0527ce9 100644
+> index 0527ce9..889ed96 100644
 > --- a/net/ipv4/tcp_output.c
 > +++ b/net/ipv4/tcp_output.c
-> @@ -1123,6 +1123,8 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
->                 shinfo->tx_flags &= ~tsflags;
->                 shinfo2->tx_flags |= tsflags;
->                 swap(shinfo->tskey, shinfo2->tskey);
-> +               TCP_SKB_CB(skb2)->txstamp_ack = TCP_SKB_CB(skb)->txstamp_ack;
-> +               TCP_SKB_CB(skb)->txstamp_ack = 0;
->         }
+> @@ -2443,6 +2443,22 @@ u32 __tcp_select_window(struct sock *sk)
+>         return window;
+>  }
+>
+> +static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> +                                   const struct sk_buff *next_skb)
+> +{
+> +       const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
+> +
+> +       if (unlikely(next_shinfo->tx_flags & SKBTX_ANY_TSTAMP)) {
+> +               struct skb_shared_info *shinfo = skb_shinfo(skb);
+> +               u8 tsflags = next_shinfo->tx_flags & SKBTX_ANY_TSTAMP;
+
+nit: maybe move this local variable out of the if block?
+
+      tsflags = ...
+      if (unlikely(tsflags)) { ... }
+
+> +
+> +               shinfo->tx_flags |= tsflags;
+> +               shinfo->tskey = next_shinfo->tskey;
+> +               TCP_SKB_CB(skb)->txstamp_ack =
+> +                       !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
+
+Maybe we can skip a conditional jump here (because of !!), by simply
+using the cached bit in next_skb:
+TCP_SKB_CB(skb)->txstamp_ack = TCP_SKB_CB(next_skb)->txstamp_ack;
+
+> +       }
+> +}
+> +
+>  /* Collapses two adjacent SKB's during retransmission. */
+>  static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>  {
+> @@ -2486,6 +2502,8 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>
+>         tcp_adjust_pcount(sk, next_skb, tcp_skb_pcount(next_skb));
+>
+> +       tcp_skb_collapse_tstamp(skb, next_skb);
+> +
+>         sk_wmem_free_skb(sk, next_skb);
 >  }
 
-Thanks for the fixes! I was going to submit similar patches. :-)
-
-Could you please submit the timestamping patches separately as non RFCs? Thanks!
+Really nice fixes! thanks.
 
 > --
 > 2.5.1
