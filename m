@@ -1,53 +1,55 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [PATCH] bpf: avoid warning for wrong pointer cast
-Date: Tue, 19 Apr 2016 10:33:34 +0800
-Message-ID: <20160419023334.GC24067@wfg-t540p.sh.intel.com>
-References: <1460838585-1248139-1-git-send-email-arnd@arndb.de>
- <20160417004740.GA80675@ast-mbp.thefacebook.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Mon, 18 Apr 2016 19:40:08 -0700
+Message-ID: <57159A88.3030401@cumulusnetworks.com>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>  <1461015356.10638.124.camel@edumazet-glaptop3.roam.corp.google.com>  <20160418.205755.87909888849343438.davem@davemloft.net>  <20160418.214851.122286645854721047.davem@davemloft.net> <1461032539.10638.143.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, Philip Li <philip.li@intel.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160417004740.GA80675@ast-mbp.thefacebook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35624 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbcDSCkL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 22:40:11 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fs9so1439331pac.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 19:40:10 -0700 (PDT)
+In-Reply-To: <1461032539.10638.143.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei,
+On 4/18/16, 7:22 PM, Eric Dumazet wrote:
+> On Mon, 2016-04-18 at 21:48 -0400, David Miller wrote:
+>
+>> And anyways, I get unaligned accesses without Roopa's changes :-/
+>>
+>> davem@patience:~$ ip l l
+>> [3391066.656729] Kernel unaligned access at TPC[7d6c14] loopback_get_stats64+0x74/0xa0
+>> [3391066.672020] Kernel unaligned access at TPC[7d6c18] loopback_get_stats64+0x78/0xa0
+>> [3391066.687282] Kernel unaligned access at TPC[7d6c1c] loopback_get_stats64+0x7c/0xa0
+>> [3391066.702573] Kernel unaligned access at TPC[7d6c20] loopback_get_stats64+0x80/0xa0
+>> [3391066.717858] Kernel unaligned access at TPC[8609dc] dev_get_stats+0x3c/0xe0
+> Yes, rtnl_fill_stats() probably has the same mistake.
+>
+> commit 550bce59baf3f3059cd4ae1e268f08f2d2cb1d5c
+> Author: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date:   Fri Apr 15 20:36:25 2016 -0700
+>
+>     rtnetlink: rtnl_fill_stats: avoid an unnecssary stats copy
+>     
+>     This patch passes netlink attr data ptr directly to dev_get_stats
+>     thus elimiating a stats copy.
+>     
+>     Suggested-by: David Miller <davem@davemloft.net>
+>     Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
+>
+David, if you revert the one in rtnl_fill_stats, i will take care of the dev_get_stats in RTM_GETSTATS in v6.
 
-On Sat, Apr 16, 2016 at 05:47:42PM -0700, Alexei Starovoitov wrote:
-> On Sat, Apr 16, 2016 at 10:29:33PM +0200, Arnd Bergmann wrote:
-> > Two new functions in bpf contain a cast from a 'u64' to a
-> > pointer. This works on 64-bit architectures but causes a warning
-> > on all 32-bit architectures:
-> > 
-> > kernel/trace/bpf_trace.c: In function 'bpf_perf_event_output_tp':
-> > kernel/trace/bpf_trace.c:350:13: error: cast to pointer from integer of different size [-Werror=int-to-pointer-cast]
-> >   u64 ctx = *(long *)r1;
-> > 
-> > This changes the cast to first convert the u64 argument into a uintptr_t,
-> > which is guaranteed to be the same size as a pointer.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Fixes: 9940d67c93b5 ("bpf: support bpf_get_stackid() and bpf_perf_event_output() in tracepoint programs")
-> 
-> Thanks.
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> 
-> I guess I started to rely on 0-day build-bot too much.
-> This patch has been in my tree for 2+ weeks and then in net-next and
-> I didn't receive a single email from build-bot about this warning,
-> though I do receive them for my other work-in-progress stuff. Odd.
-> Fengguang, any idea why build-bot sometimes silent?
-
-Sorry I went off for some time.. Philip, would you help have a check?
-
-Thanks,
-Fengguang
+thanks,
+Roopa
