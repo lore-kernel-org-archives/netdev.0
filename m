@@ -1,67 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/8] sfc: batch up RX delivery on EF10
-Date: Tue, 19 Apr 2016 10:20:40 -0700
-Message-ID: <1461086440.10638.208.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5716338E.4050003@solarflare.com>
-	 <57163404.2000507@solarflare.com>
-	 <1461077257.10638.185.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <57165E73.60402@solarflare.com>
+From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Tue, 19 Apr 2016 18:27:06 +0100
+Message-ID: <20160419172706.GD3217@sirena.org.uk>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
+ <14313437.cDJIgY3kzo@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
+ <1463330011.BhWEcYYuGD@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
+ <20160419171239.GC3217@sirena.org.uk>
+ <sjdvun1fuj4nyi0bgf268g53.1461086401627@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33595 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918AbcDSRUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:20:40 -0400
-Received: by mail-pf0-f179.google.com with SMTP id 184so8833220pff.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 10:20:40 -0700 (PDT)
-In-Reply-To: <57165E73.60402@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="EP2pG3U7hXy67fX3"
+Cc: "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	=?utf-8?B?77+977+977+977+9IO+/ve+/ve+/ve+/ve+/vQ==?=
+	<eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <sjdvun1fuj4nyi0bgf268g53.1461086401627-2ueSQiBKiTY7tOexoI0I+QC/G2K4zDHf@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-04-19 at 17:36 +0100, Edward Cree wrote:
 
-> > We have to really invent something better, like a real pipeline, instead
-> > of hacks like this, adding complexity everywhere.
-> I'm not sure what you mean by 'a real pipeline' in this context, could you
-> elaborate?
-> 
-> > Have you tested this on cpus with tiny caches, like 32KB ?
-> I haven't.  Is the concern here that the first packet's headers (we read 128
-> bytes into the linear area) and/or skb will get pushed out of the dcache as
-> we process further packets?
-> 
-> At least for sfc, it's highly unlikely that these cards will be used in low-
-> powered systems.  For the more general case, I suppose the answer would be a
-> tunable to set the maximum length of the RX list to less than the NAPI budget.
-> Fundamentally this kind of batching is trading dcache usage for icache usage.
-> 
-> 
-> Incidentally, this patch is very similar to what Jesper proposed for mlx5 in
-> an RFC back in February: http://article.gmane.org/gmane.linux.network/397379
-> So I'm a little surprised this bit is controversial, though I'm not surprised
-> the rest of the series is ;)
+--EP2pG3U7hXy67fX3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It seems all the discussions about fast kernel networking these days is
-adding yet another queues, code duplication and complexity, batches, and
-add latencies, on top of a single NIC RX queue.
+On Tue, Apr 19, 2016 at 05:21:01PM +0000, Reizer, Eyal wrote:
 
-Apparently the multiqueue nature of a NIC is obsolete and people want to
-process 10+Mpps on a single queue.
+> The main quirk here is that i need to send extra clocks after the spi init command while the CS pin is "high" in order to put the wilink chip into SPI mode.
+> So just sending an empty transfer wouldnt do the trick here.
 
-But in the end, we do not address fundamental issues, like number of
-cache line misses per incoming TCP packet, and per outgoing TCP packet.
-(Or UDP if that matters).
-Number of atomic ops to synchronize all accesses to common resources.
-(memory, queue limits, queues)
+A single byte transfer would result in extra clocks being sent so there
+must be more to it than that...
 
-Also issues with dealing with all the queues (percpu backlog in
-net/core/dev.c, socket backlog, prequeue for TCP, ...)
+> Do you have a recomendation on how to do it without changing the core logic. If it is possible it would be really great.
 
-We could probably get ~100% improvement in UDP if we really cared, just
-by changing net/ipv[46]/udp.c, not changing other layers.
+Please be explicit about what you're trying to do here.  I imagine you
+may need to change the core logic but we need to know what it is that
+the device needs.
+
+--EP2pG3U7hXy67fX3
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJXFmppAAoJECTWi3JdVIfQ/oQH/j0MMWsgYKYzsuK4POtzTpyJ
+lGSE/l5CDNo99oXISIKHARL8soJXUOOwUHXsVHlo5Hb8eFDrLe7c8hVfr7j7+iVx
+8cH+PZZ6qxsTn7X5Lm3IjpqbiZV3aHGFMgxuCAh31++ZYYi1eS86mNqQLHxIH7Wi
+iiImKWSJtBplg/9s1YHYcJtatgELI0jCsMsYjhKuMaYQrBMlKBd24dJx8UblzrSd
+bLii2gUB96kitwJa7gVdEt4V3tCPg1KhcTRObkEemLZcKmI0pw4epoNt6xk/FDi7
+LC2F55hrnaE9b2XUxB9PGejmD2bwasdumNB1Jy0aqEI+F/nhWgVhASSyxv7YNSc=
+=ggS0
+-----END PGP SIGNATURE-----
+
+--EP2pG3U7hXy67fX3--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
