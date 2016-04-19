@@ -1,105 +1,62 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 1/9] net/mlx5_core: Fix soft lockup in steering error flow
-Date: Tue, 19 Apr 2016 15:33:34 +0300
-Message-ID: <1461069222-27076-2-git-send-email-saeedm@mellanox.com>
-References: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:48489 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754100AbcDSMfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2016 08:35:05 -0400
-In-Reply-To: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH 2/3] e1000e: e1000e_cyclecounter_read(): fix er32(SYSTIML) overflow check
+Date: Tue, 19 Apr 2016 14:34:45 +0200
+Message-ID: <1461069286-31946-2-git-send-email-dvlasenk@redhat.com>
+References: <1461069286-31946-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461069286-31946-1-git-send-email-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maor Gottlieb <maorg@mellanox.com>
+If two consecutive reads of the counter are the same, it is also not an overflow.
+"systimel_1 < systimel_2" should be "systimel_1 <= systimel_2".
 
-In the error flow of adding flow rule to auto-grouped flow
-table, we call to tree_remove_node.
+Before the patch, we could perform an *erroneous* correction:
 
-tree_remove_node locks the node's parent, however the node's parent
-is already locked by mlx5_add_flow_rule and this causes a deadlock.
-After this patch, if we failed to add the flow rule, we unlock the
-flow table before calling to tree_remove_node.
+Let's say that systimel_1 == systimel_2 == 0xffffffff.
+"systimel_1 < systimel_2" is false, we think it's an overflow,
+we read "systimeh = er32(SYSTIMH)" which meanwhile had incremented,
+and use "(systimeh << 32) + systimel_2" value which is 2^32 too large.
 
-fixes: f0d22d187473 ('net/mlx5_core: Introduce flow steering autogrouped
-flow table')
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Reported-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Shannon Nelson <shannon.nelson@intel.com>
+CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
+CC: Don Skidmore <donald.c.skidmore@intel.com>
+CC: Bruce Allan <bruce.w.allan@intel.com>
+CC: John Ronciak <john.ronciak@intel.com>
+CC: Mitch Williams <mitch.a.williams@intel.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: LKML <linux-kernel@vger.kernel.org>
+CC: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |   46 ++++++++-------------
- 1 files changed, 17 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 5121be4..3c7e3e5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1065,33 +1065,6 @@ unlock_fg:
- 	return rule;
- }
- 
--static struct mlx5_flow_rule *add_rule_to_auto_fg(struct mlx5_flow_table *ft,
--						  u8 match_criteria_enable,
--						  u32 *match_criteria,
--						  u32 *match_value,
--						  u8 action,
--						  u32 flow_tag,
--						  struct mlx5_flow_destination *dest)
--{
--	struct mlx5_flow_rule *rule;
--	struct mlx5_flow_group *g;
--
--	g = create_autogroup(ft, match_criteria_enable, match_criteria);
--	if (IS_ERR(g))
--		return (void *)g;
--
--	rule = add_rule_fg(g, match_value,
--			   action, flow_tag, dest);
--	if (IS_ERR(rule)) {
--		/* Remove assumes refcount > 0 and autogroup creates a group
--		 * with a refcount = 0.
--		 */
--		tree_get_node(&g->node);
--		tree_remove_node(&g->node);
--	}
--	return rule;
--}
--
- static struct mlx5_flow_rule *
- _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
- 		    u8 match_criteria_enable,
-@@ -1119,8 +1092,23 @@ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
- 				goto unlock;
- 		}
- 
--	rule = add_rule_to_auto_fg(ft, match_criteria_enable, match_criteria,
--				   match_value, action, flow_tag, dest);
-+	g = create_autogroup(ft, match_criteria_enable, match_criteria);
-+	if (IS_ERR(g)) {
-+		rule = (void *)g;
-+		goto unlock;
-+	}
-+
-+	rule = add_rule_fg(g, match_value,
-+			   action, flow_tag, dest);
-+	if (IS_ERR(rule)) {
-+		/* Remove assumes refcount > 0 and autogroup creates a group
-+		 * with a refcount = 0.
-+		 */
-+		unlock_ref_node(&ft->node);
-+		tree_get_node(&g->node);
-+		tree_remove_node(&g->node);
-+		return rule;
-+	}
- unlock:
- 	unlock_ref_node(&ft->node);
- 	return rule;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 967311b..99d0e6e 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4287,7 +4287,7 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	systimeh = er32(SYSTIMH);
+ 	systimel_2 = er32(SYSTIML);
+ 	/* Check for overflow. If there was no overflow, use the values */
+-	if (systimel_1 < systimel_2) {
++	if (systimel_1 <= systimel_2) {
+ 		systim = (cycle_t)systimel_1;
+ 		systim |= (cycle_t)systimeh << 32;
+ 	} else {
 -- 
-1.7.1
+1.8.1.4
