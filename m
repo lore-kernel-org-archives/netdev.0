@@ -1,19 +1,11 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to
- tracepoints
-Date: Mon, 18 Apr 2016 22:58:52 -0400
-Message-ID: <20160418225852.55b6a937@grimm.local.home>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
-	<1459831974-2891931-3-git-send-email-ast@fb.com>
-	<20160418162905.220df2f4@gandalf.local.home>
-	<571554EB.9010702@fb.com>
-	<20160418181631.2efee46e@gandalf.local.home>
-	<57158698.9080104@fb.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next] perf, bpf: minimize the size of perf_trace_() tracepoint handler
+Date: Mon, 18 Apr 2016 20:11:50 -0700
+Message-ID: <1461035510-2810305-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"David S . Miller" <davem@davemloft.net>,
+Content-Type: text/plain
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <peterz@infradead.org>,
 	Ingo Molnar <mingo@kernel.org>,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
@@ -21,53 +13,111 @@ Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Brendan Gregg <brendan.d.gregg@gmail.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57158698.9080104@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Apr 2016 18:15:04 -0700
-Alexei Starovoitov <ast@fb.com> wrote:
+move trace_call_bpf() into helper function to minimize the size
+of perf_trace_*() tracepoint handlers.
+    text	   data	    bss	    dec	 	   hex	filename
+10541679	5526646	2945024	19013349	1221ee5	vmlinux_before
+10509422	5526646	2945024	18981092	121a0e4	vmlinux_after
 
-> On 4/18/16 3:16 PM, Steven Rostedt wrote:
+It may seem that perf_fetch_caller_regs() can also be moved,
+but that is incorrect, since ip/sp will be wrong.
 
-> Yes. That what I referred to in below 'a struct to pass args'...
-> But, fine, will try to optimize the size further.
-> Frankly much bigger .text savings will come from combining
-> trace_event_raw_event_*() with perf_trace_*()
-> Especially if you're ok with copying tp args into perf's percpu
-> buffer first and then copying into ftrace's ring buffer.
-> Then we can half the number of such auto-generated functions.
+bpf+tracepoint performance is not affected, since
+perf_swevent_put_recursion_context() is now inlined.
+export_symbol_gpl can also be dropped.
 
-I'm only fine with that when we filter. Otherwise we just lost all the
-benefits of zero copy in the first place.
+No measurable change in normal perf tracepoints.
 
-> 
-> >> Passing more args or creating a struct to pass args only going to
-> >> hurt performance without much reduction in .text size.
-> >> tinyfication folks will disable tracepoints anyway.
-> >> Note that the most common case is bpf returning 0 and not even
-> >> calling perf_trace_buf_submit() which is already slow due
-> >> to so many args passed on stack.
-> >> This stuff is called million times a second, so every instruction
-> >> counts.  
-> >
-> > Note, that doesn't matter if you are bloating the kernel for the 99.9%
-> > of those that don't use bpf.
-> >
-> > Please remember this! Us tracing folks are second class citizens! If
-> > there's a way to speed up tracing by 10%, but in doing so we cause
-> > mainline to be hurt by over 1%, we shouldn't be doing it. Tracing and
-> > hooks on tracepoints are really not used by many people. Don't fall
-> > into Linus's category of "my code is the most important". That's
-> > especially true for tracing.  
-> 
-> tracing was indeed not used that often in the past, but
-> bpf+tracing completely changed the picture. It's no longer just
-> debugging. It is the first class citizen that runs 24/7 in production
-> and its performance and lowest overhead are crucial.
+Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/trace_events.h |  5 +++++
+ include/trace/perf.h         | 13 +++----------
+ kernel/events/core.c         | 20 +++++++++++++++++++-
+ 3 files changed, 27 insertions(+), 11 deletions(-)
 
-Still, 99.9% of users don't use it.
-
--- Steve
+diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
+index fe6441203b59..222f6aa0418f 100644
+--- a/include/linux/trace_events.h
++++ b/include/linux/trace_events.h
+@@ -609,6 +609,11 @@ extern void ftrace_profile_free_filter(struct perf_event *event);
+ void perf_trace_buf_update(void *record, u16 type);
+ void *perf_trace_buf_alloc(int size, struct pt_regs **regs, int *rctxp);
+ 
++void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
++			       struct trace_event_call *call, u64 count,
++			       struct pt_regs *regs, struct hlist_head *head,
++			       struct task_struct *task);
++
+ static inline void
+ perf_trace_buf_submit(void *raw_data, int size, int rctx, u16 type,
+ 		       u64 count, struct pt_regs *regs, void *head,
+diff --git a/include/trace/perf.h b/include/trace/perf.h
+index a182306eefd7..88de5c205e86 100644
+--- a/include/trace/perf.h
++++ b/include/trace/perf.h
+@@ -64,16 +64,9 @@ perf_trace_##call(void *__data, proto)					\
+ 									\
+ 	{ assign; }							\
+ 									\
+-	if (prog) {							\
+-		*(struct pt_regs **)entry = __regs;			\
+-		if (!trace_call_bpf(prog, entry) || hlist_empty(head)) { \
+-			perf_swevent_put_recursion_context(rctx);	\
+-			return;						\
+-		}							\
+-	}								\
+-	perf_trace_buf_submit(entry, __entry_size, rctx,		\
+-			      event_call->event.type, __count, __regs,	\
+-			      head, __task);				\
++	perf_trace_run_bpf_submit(entry, __entry_size, rctx,		\
++				  event_call, __count, __regs,		\
++				  head, __task);			\
+ }
+ 
+ /*
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 5056abffef27..9eb23dc27462 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -6741,7 +6741,6 @@ void perf_swevent_put_recursion_context(int rctx)
+ 
+ 	put_recursion_context(swhash->recursion, rctx);
+ }
+-EXPORT_SYMBOL_GPL(perf_swevent_put_recursion_context);
+ 
+ void ___perf_sw_event(u32 event_id, u64 nr, struct pt_regs *regs, u64 addr)
+ {
+@@ -6998,6 +6997,25 @@ static int perf_tp_event_match(struct perf_event *event,
+ 	return 1;
+ }
+ 
++void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
++			       struct trace_event_call *call, u64 count,
++			       struct pt_regs *regs, struct hlist_head *head,
++			       struct task_struct *task)
++{
++	struct bpf_prog *prog = call->prog;
++
++	if (prog) {
++		*(struct pt_regs **)raw_data = regs;
++		if (!trace_call_bpf(prog, raw_data) || hlist_empty(head)) {
++			perf_swevent_put_recursion_context(rctx);
++			return;
++		}
++	}
++	perf_tp_event(call->event.type, count, raw_data, size, regs, head,
++		      rctx, task);
++}
++EXPORT_SYMBOL_GPL(perf_trace_run_bpf_submit);
++
+ void perf_tp_event(u16 event_type, u64 count, void *record, int entry_size,
+ 		   struct pt_regs *regs, struct hlist_head *head, int rctx,
+ 		   struct task_struct *task)
+-- 
+2.8.0
