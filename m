@@ -1,68 +1,45 @@
-From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
-Date: Tue, 19 Apr 2016 18:27:06 +0100
-Message-ID: <20160419172706.GD3217@sirena.org.uk>
-References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
- <14313437.cDJIgY3kzo@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
- <1463330011.BhWEcYYuGD@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
- <20160419171239.GC3217@sirena.org.uk>
- <sjdvun1fuj4nyi0bgf268g53.1461086401627@email.android.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] tcp: Merge
+ tx_flags/tskey/txstamp_ack in tcp_collapse_retrans
+Date: Tue, 19 Apr 2016 10:28:37 -0700
+Message-ID: <20160419172837.GA37697@kafai-mba.local>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
+ <1461019569-3037369-3-git-send-email-kafai@fb.com>
+ <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="EP2pG3U7hXy67fX3"
-Cc: "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	=?utf-8?B?77+977+977+977+9IO+/ve+/ve+/ve+/ve+/vQ==?=
-	<eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: Soheil Hassas Yeganeh <soheil@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57611 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752487AbcDSR2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:28:48 -0400
 Content-Disposition: inline
-In-Reply-To: <sjdvun1fuj4nyi0bgf268g53.1461086401627-2ueSQiBKiTY7tOexoI0I+QC/G2K4zDHf@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 19, 2016 at 01:32:14AM -0400, Soheil Hassas Yeganeh wrote:
+> > +               TCP_SKB_CB(skb)->txstamp_ack =
+> > +                       !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
+>
+> Maybe we can skip a conditional jump here (because of !!), by simply
+> using the cached bit in next_skb:
+> TCP_SKB_CB(skb)->txstamp_ack = TCP_SKB_CB(next_skb)->txstamp_ack;
+Recall the tx_flags are merged/combined (and so should be the txstamp_ack).
+Would there be a case that TCP_SKB_CB(skb)->txstamp_ack is 1 and
+TCP_SKB_CB(next_skb)->txstamp_ack is 0?
 
---EP2pG3U7hXy67fX3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I can change it like the following which may help in showing the intention:
+if (TCP_SKB_CB(next_skb)->txstamp_ack)
+	TCP_SKB_CB(skb)->txstamp_ack = 1;
 
-On Tue, Apr 19, 2016 at 05:21:01PM +0000, Reizer, Eyal wrote:
-
-> The main quirk here is that i need to send extra clocks after the spi init command while the CS pin is "high" in order to put the wilink chip into SPI mode.
-> So just sending an empty transfer wouldnt do the trick here.
-
-A single byte transfer would result in extra clocks being sent so there
-must be more to it than that...
-
-> Do you have a recomendation on how to do it without changing the core logic. If it is possible it would be really great.
-
-Please be explicit about what you're trying to do here.  I imagine you
-may need to change the core logic but we need to know what it is that
-the device needs.
-
---EP2pG3U7hXy67fX3
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJXFmppAAoJECTWi3JdVIfQ/oQH/j0MMWsgYKYzsuK4POtzTpyJ
-lGSE/l5CDNo99oXISIKHARL8soJXUOOwUHXsVHlo5Hb8eFDrLe7c8hVfr7j7+iVx
-8cH+PZZ6qxsTn7X5Lm3IjpqbiZV3aHGFMgxuCAh31++ZYYi1eS86mNqQLHxIH7Wi
-iiImKWSJtBplg/9s1YHYcJtatgELI0jCsMsYjhKuMaYQrBMlKBd24dJx8UblzrSd
-bLii2gUB96kitwJa7gVdEt4V3tCPg1KhcTRObkEemLZcKmI0pw4epoNt6xk/FDi7
-LC2F55hrnaE9b2XUxB9PGejmD2bwasdumNB1Jy0aqEI+F/nhWgVhASSyxv7YNSc=
-=ggS0
------END PGP SIGNATURE-----
-
---EP2pG3U7hXy67fX3--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+A bit off topic, I feel like the SKBTX_ACK_TSTAMP and txstamp_ack are sort
+of redundant but I have not look into the details yet, so not completely
+sure.  It wwould be a separate cleanup patch if it is the case.
