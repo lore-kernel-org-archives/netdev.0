@@ -1,53 +1,60 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 21:08:21 +0200
-Message-ID: <57168225.2040507@6wind.com>
-References: <20160418.234137.26692086759328024.davem@davemloft.net>
- <1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160419.010316.1863885429013017239.davem@davemloft.net>
- <20160419.143134.2014460805657420897.davem@davemloft.net>
- <1461091667.10638.229.camel@edumazet-glaptop3.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH net-next 0/8] Handle multiple received packets at
+ each stage
+Date: Tue, 19 Apr 2016 21:11:07 +0200
+Message-ID: <20160419211107.486a3264@redhat.com>
+References: <5716338E.4050003@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	<linux-net-drivers@solarflare.com>, brouer@redhat.com
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37945 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933248AbcDSTI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 15:08:26 -0400
-Received: by mail-wm0-f41.google.com with SMTP id u206so45882332wme.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 12:08:25 -0700 (PDT)
-In-Reply-To: <1461091667.10638.229.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53104 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932687AbcDSTLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 15:11:14 -0400
+In-Reply-To: <5716338E.4050003@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 19/04/2016 20:47, Eric Dumazet a =C3=A9crit :
-> On Tue, 2016-04-19 at 14:31 -0400, David Miller wrote:
->
->> +#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
->> +	/* IF necessary, add a zero length NOP attribute so that the
->> +	 * nla_data() of the IFLA_STATS64 will be 64-bit aligned.
->> +	 *
->> +	 * The nlattr header is 4 bytes in size, that's why we test
->> +	 * if the skb->data _is_ aligned.  This NOP attribute, plus
->> +	 * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
->> +	 * aligned.
->> +	 */
->> +	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
->> +		attr =3D nla_reserve(skb, IFLA_PAD, 0);
->> +		if (!attr)
->> +			return -EMSGSIZE;
->> +	}
->> +#endif
->
-> Since we want to use this in other places, we could define a helper.
->
-> nla_align_64bit(skb, attribute)  or something.
-Yes, with the corresponding nla_total_size_64bit()
+On Tue, 19 Apr 2016 14:33:02 +0100
+Edward Cree <ecree@solarflare.com> wrote:
+
+> Earlier discussions on this list[1] suggested that having multiple packets
+> traverse the network stack together (rather than calling the stack for each
+> packet singly) could improve performance through better cache locality.
+> This patch series is an attempt to implement this by having drivers pass an
+> SKB list to the stack at the end of the NAPI poll.  The stack then attempts
+> to keep the list together, only splitting it when either packets need to be
+> treated differently, or the next layer of the stack is not list-aware.
+> 
+> The first two patches simply place received packets on a list during the
+> event processing loop on the sfc EF10 architecture, then call the normal
+> stack for each packet singly at the end of the NAPI poll.
+> The remaining patches extend the 'listified' processing as far as the IP
+> receive handler.
+> 
+> Packet rate was tested with NetPerf UDP_STREAM, with 10 streams of 1-byte
+> packets, and the process and interrupt pinned to a single core on the RX
+> side.
+> The NIC was a 40G Solarflare 7x42Q; the CPU was a Xeon E3-1220V2 @ 3.10GHz.
+> Baseline:      5.07Mpps
+> after patch 2: 5.59Mpps (10.2% above baseline)
+> after patch 8: 6.44Mpps (25.6% above baseline)
+
+Quite impressive!  Thank you Edward, for working on this.  It is nice
+to see that doing this actually gives a nice performance boost, it was
+mostly a theory of mine in [1].
+
+(p.s. I'm currently a bit busy at MM-summit, but try to follow the
+thread.  I want to try out your patchset once I return home again...)
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+[1] http://thread.gmane.org/gmane.linux.network/395502
