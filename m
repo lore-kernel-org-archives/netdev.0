@@ -1,8 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [RFC PATCH net-next 3/8] net: core: unwrap skb list receive slightly
- further
-Date: Tue, 19 Apr 2016 14:35:32 +0100
-Message-ID: <57163424.6060709@solarflare.com>
+Subject: [RFC PATCH net-next 5/8] net: core: another layer of lists, around
+ PF_MEMALLOC skb handling
+Date: Tue, 19 Apr 2016 14:36:13 +0100
+Message-ID: <5716344D.3060001@solarflare.com>
 References: <5716338E.4050003@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,81 +11,77 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	<linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:48302 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752792AbcDSNfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:35:42 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:19684 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752866AbcDSNgX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:36:23 -0400
 In-Reply-To: <5716338E.4050003@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds iterator skb_queue_for_each() to run over a list without modifying it.
+First example of a layer splitting the list (rather than merely taking
+individual packets off it).
+
+Again, trying to factor the common parts wouldn't make this any nicer.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- include/linux/skbuff.h     | 16 ++++++++++++++++
- include/trace/events/net.h |  7 +++++++
- net/core/dev.c             |  4 +++-
- 3 files changed, 26 insertions(+), 1 deletion(-)
+ net/core/dev.c | 36 ++++++++++++++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index da0ace3..2851c38 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1501,6 +1501,22 @@ static inline struct sk_buff *skb_peek_tail(const struct sk_buff_head *list_)
- }
- 
- /**
-+ *	skb_queue_for_each - iterate over an skb queue
-+ *	@pos:        the &struct sk_buff to use as a loop cursor.
-+ *	@head:       the &struct sk_buff_head for your list.
-+ *
-+ *	The reference count is not incremented and the reference is therefore
-+ *	volatile; the list lock is not taken either. Use with caution.
-+ *
-+ *	The list must not be modified (though the individual skbs can be)
-+ *	within the loop body.
-+ *
-+ *	After loop completion, @pos will be %NULL.
-+ */
-+#define skb_queue_for_each(pos, head) \
-+	for (pos = skb_peek(head); pos != NULL; pos = skb_peek_next(pos, head))
-+
-+/**
-  *	skb_queue_len	- get queue length
-  *	@list_: list to measure
-  *
-diff --git a/include/trace/events/net.h b/include/trace/events/net.h
-index 49cc7c3..30f359c 100644
---- a/include/trace/events/net.h
-+++ b/include/trace/events/net.h
-@@ -222,6 +222,13 @@ DEFINE_EVENT(net_dev_rx_verbose_template, netif_receive_skb_entry,
- 	TP_ARGS(skb)
- );
- 
-+DEFINE_EVENT(net_dev_rx_verbose_template, netif_receive_skb_list_entry,
-+
-+	TP_PROTO(const struct sk_buff *skb),
-+
-+	TP_ARGS(skb)
-+);
-+
- DEFINE_EVENT(net_dev_rx_verbose_template, netif_rx_entry,
- 
- 	TP_PROTO(const struct sk_buff *skb),
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 7abcb1d..4bb6724 100644
+index 586807d..0f914bf 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4307,8 +4307,10 @@ void netif_receive_skb_list(struct sk_buff_head *list)
+@@ -4216,6 +4216,14 @@ out:
+ 	return ret;
+ }
+ 
++static void __netif_receive_skb_list_core(struct sk_buff_head *list, bool pfmemalloc)
++{
++	struct sk_buff *skb;
++
++	while ((skb = __skb_dequeue(list)) != NULL)
++		__netif_receive_skb_core(skb, pfmemalloc);
++}
++
+ static int __netif_receive_skb(struct sk_buff *skb)
  {
+ 	int ret;
+@@ -4243,10 +4251,34 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 
+ static void __netif_receive_skb_list(struct sk_buff_head *list)
+ {
++	struct sk_buff_head sublist;
++	bool pfmemalloc = false; /* Is current sublist PF_MEMALLOC? */
++	unsigned long pflags;
  	struct sk_buff *skb;
  
-+	skb_queue_for_each(skb, list)
-+		trace_netif_receive_skb_list_entry(skb);
- 	while ((skb = __skb_dequeue(list)) != NULL)
--		netif_receive_skb(skb);
-+		netif_receive_skb_internal(skb);
+-	while ((skb = __skb_dequeue(list)) != NULL)
+-		__netif_receive_skb(skb);
++	__skb_queue_head_init(&sublist);
++
++	while ((skb = __skb_dequeue(list)) != NULL) {
++		if ((sk_memalloc_socks() && skb_pfmemalloc(skb)) != pfmemalloc) {
++			/* Handle the previous sublist */
++			__netif_receive_skb_list_core(&sublist, pfmemalloc);
++			pfmemalloc = !pfmemalloc;
++			/* See comments in __netif_receive_skb */
++			if (pfmemalloc) {
++				pflags = current->flags;
++				current->flags |= PF_MEMALLOC;
++			} else {
++				tsk_restore_flags(current, pflags, PF_MEMALLOC);
++			}
++			__skb_queue_head_init(&sublist);
++		}
++		__skb_queue_tail(&sublist, skb);
++	}
++	/* Handle the last sublist */
++	__netif_receive_skb_list_core(&sublist, pfmemalloc);
++	/* Restore pflags */
++	if (pfmemalloc)
++		tsk_restore_flags(current, pflags, PF_MEMALLOC);
  }
- EXPORT_SYMBOL(netif_receive_skb_list);
  
+ static int netif_receive_skb_internal(struct sk_buff *skb)
