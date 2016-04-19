@@ -1,64 +1,84 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: switchdev fib offload issues
-Date: Tue, 19 Apr 2016 09:02:03 +0200
-Message-ID: <20160419070203.GB1958@nanopsycho.orion>
-References: <20160418154757.GA2059@nanopsycho.amit.cz>
- <57151279.4020806@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com, stephen@networkplumber.org,
-	sfeldma@gmail.com, f.fainelli@gmail.com, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
-	aduyck@mirantis.com
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv3 net-next] net: use jiffies_to_msecs to replace EXPIRES_IN_MS in inet/sctp_diag
+Date: Tue, 19 Apr 2016 15:10:01 +0800
+Message-ID: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com, jsitnick@redhat.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37686 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752060AbcDSHCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 03:02:06 -0400
-Received: by mail-wm0-f53.google.com with SMTP id n3so12793587wmn.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 00:02:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <57151279.4020806@cumulusnetworks.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34773 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051AbcDSHKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 03:10:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Apr 18, 2016 at 06:59:37PM CEST, dsa@cumulusnetworks.com wrote:
->On 4/18/16 9:47 AM, Jiri Pirko wrote:
->>Proposed solutions (ideas):
->>1) per-netns. Add a procfs file:
->>	/proc/sys/net/ipv4/route/fib_offload_error_policy
->>	  with values: "evict" - default, current behaviour
->>                        "fail" - propagate offload error to user
->>	The policy value would be stored in struct net.
->>
->>2) per-VRF/table
->>	When user creates a VRF master, he specifies a table ID
->>	this VRF is going to use. I propose to extend this so
->>	he can pass a policy ("evict"/"fail").
->>	The policy value would be stored in struct fib_table or
->>	struct fib6_table. The problem is that vfr only saves
->>	table ID, allocates dst but does not actually create
->>	table. That might be created later. But I think this
->>	could be resolved.
->
->Yes, we have a local patch where I do create the table for IPv6. Can do that
->for IPv4 as well. Some other clean ups are needed in this area - like the
->ability to delete a table
->
->>
->>3) per-VFR/master_netdev
->>	In this case, the policy would be also set during
->>	the creation of VFR master. From user perspective,
->>	this looks same as 2)
->>	The policy value would be stored in struct net_vrf (vrf private).
->
->The VRF device is really only used for guiding lookups, not inserting routes.
->
->A per table/VRF policy (option 2) seems more appropriate.
+EXPIRES_IN_MS macro comes from net/ipv4/inet_diag.c and dates
+back to before jiffies_to_msecs() has been introduced.
 
-Right. Option 2 also seems better to me. Thanks.
+Now we can remove it and use jiffies_to_msecs().
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/ipv4/inet_diag.c | 12 ++++++------
+ net/sctp/sctp_diag.c |  6 ++----
+ 2 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 70212bd..ad7956f 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -197,27 +197,27 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		goto out;
+ 	}
+ 
+-#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
+-
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
+ 	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
+ 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
+ 		r->idiag_timer = 1;
+ 		r->idiag_retrans = icsk->icsk_retransmits;
+-		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
++		r->idiag_expires =
++			jiffies_to_msecs(icsk->icsk_timeout - jiffies);
+ 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
+ 		r->idiag_timer = 4;
+ 		r->idiag_retrans = icsk->icsk_probes_out;
+-		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
++		r->idiag_expires =
++			jiffies_to_msecs(icsk->icsk_timeout - jiffies);
+ 	} else if (timer_pending(&sk->sk_timer)) {
+ 		r->idiag_timer = 2;
+ 		r->idiag_retrans = icsk->icsk_probes_out;
+-		r->idiag_expires = EXPIRES_IN_MS(sk->sk_timer.expires);
++		r->idiag_expires =
++			jiffies_to_msecs(sk->sk_timer.expires - jiffies);
+ 	} else {
+ 		r->idiag_timer = 0;
+ 		r->idiag_expires = 0;
+ 	}
+-#undef EXPIRES_IN_MS
+ 
+ 	if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
+ 		attr = nla_reserve(skb, INET_DIAG_INFO,
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index 98ecd16..bb2d8d9 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -48,10 +48,8 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
+ 	r->idiag_state = asoc->state;
+ 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+ 	r->idiag_retrans = asoc->rtx_data_chunks;
+-#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
+-	r->idiag_expires =
+-		EXPIRES_IN_MS(asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX]);
+-#undef EXPIRES_IN_MS
++	r->idiag_expires = jiffies_to_msecs(
++		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
+ }
+ 
+ static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
+-- 
+2.1.0
