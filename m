@@ -1,148 +1,29 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 1/4] net: thunderx: Introduce a mailbox message to reset VF counters
-Date: Tue, 19 Apr 2016 19:03:29 +0530
-Message-ID: <1461072812-44239-2-git-send-email-sunil.kovvuri@gmail.com>
-References: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 0/4] net: thunderx: Add multiqset support for DPDK
+Date: Tue, 19 Apr 2016 19:03:28 +0530
+Message-ID: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	Jerin Jacob <jerin.jacob@caviumnetworks.com>
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33210 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753295AbcDSN3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:29:46 -0400
-In-Reply-To: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jerin Jacob <jerin.jacob@caviumnetworks.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Write access to VF statistics counter register is only allowed from PF.
-Added a new mailbox message to reset VF's Rx/Tx counters, this is used
-by userspace DPDK.
+This patch series mainly adds support for userspace application
+like DPDK with a VNIC VF attached to request additional QSets
+for having morethan the default 8 queues.
 
-Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nic.h      |   27 ++++++++++++++
- drivers/net/ethernet/cavium/thunder/nic_main.c |   45 ++++++++++++++++++++++++
- 2 files changed, 72 insertions(+), 0 deletions(-)
+Jerin Jacob (1):
+  net: thunderx: Introduce a mailbox message to reset VF counters
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 83025bb..e2ac9bd 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -368,6 +368,7 @@ struct nicvf {
- #define	NIC_MBOX_MSG_PNICVF_PTR		0x14	/* Get primary qset nicvf ptr */
- #define	NIC_MBOX_MSG_SNICVF_PTR		0x15	/* Send sqet nicvf ptr to PVF */
- #define	NIC_MBOX_MSG_LOOPBACK		0x16	/* Set interface in loopback */
-+#define	NIC_MBOX_MSG_RESET_STAT_COUNTER 0x17	/* Reset statistics counters */
- #define	NIC_MBOX_MSG_CFG_DONE		0xF0	/* VF configuration done */
- #define	NIC_MBOX_MSG_SHUTDOWN		0xF1	/* VF is being shutdown */
- 
-@@ -484,6 +485,31 @@ struct set_loopback {
- 	bool  enable;
- };
- 
-+/* Reset statistics counters */
-+struct reset_stat_cfg {
-+	u8    msg;
-+	/* Bitmap to select NIC_PF_VNIC(vf_id)_RX_STAT(0..13) */
-+	u16   rx_stat_mask;
-+	/* Bitmap to select NIC_PF_VNIC(vf_id)_TX_STAT(0..4) */
-+	u8    tx_stat_mask;
-+	/* Bitmap to select NIC_PF_QS(0..127)_RQ(0..7)_STAT(0..1)
-+	 * bit14, bit15 NIC_PF_QS(vf_id)_RQ7_STAT(0..1)
-+	 * bit12, bit13 NIC_PF_QS(vf_id)_RQ6_STAT(0..1)
-+	 * ..
-+	 * bit2, bit3 NIC_PF_QS(vf_id)_RQ1_STAT(0..1)
-+	 * bit0, bit1 NIC_PF_QS(vf_id)_RQ0_STAT(0..1)
-+	 */
-+	u16   rq_stat_mask;
-+	/* Bitmap to select NIC_PF_QS(0..127)_SQ(0..7)_STAT(0..1)
-+	 * bit14, bit15 NIC_PF_QS(vf_id)_SQ7_STAT(0..1)
-+	 * bit12, bit13 NIC_PF_QS(vf_id)_SQ6_STAT(0..1)
-+	 * ..
-+	 * bit2, bit3 NIC_PF_QS(vf_id)_SQ1_STAT(0..1)
-+	 * bit0, bit1 NIC_PF_QS(vf_id)_SQ0_STAT(0..1)
-+	 */
-+	u16   sq_stat_mask;
-+};
-+
- /* 128 bit shared memory between PF and each VF */
- union nic_mbx {
- 	struct { u8 msg; }	msg;
-@@ -501,6 +527,7 @@ union nic_mbx {
- 	struct sqs_alloc        sqs_alloc;
- 	struct nicvf_ptr	nicvf;
- 	struct set_loopback	lbk;
-+	struct reset_stat_cfg	reset_stat;
- };
- 
- #define NIC_NODE_ID_MASK	0x03
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 95f17f8..77ee260 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -616,6 +616,48 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
- 	return 0;
- }
- 
-+/* Reset statistics counters */
-+static int nic_reset_stat_counters(struct nicpf *nic,
-+				   int vf, struct reset_stat_cfg *cfg)
-+{
-+	int i, stat, qnum;
-+	u64 reg_addr;
-+
-+	for (i = 0; i < RX_STATS_ENUM_LAST; i++) {
-+		if (cfg->rx_stat_mask & BIT(i)) {
-+			reg_addr = NIC_PF_VNIC_0_127_RX_STAT_0_13 |
-+				   (vf << NIC_QS_ID_SHIFT) |
-+				   (i << 3);
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+
-+	for (i = 0; i < TX_STATS_ENUM_LAST; i++) {
-+		if (cfg->tx_stat_mask & BIT(i)) {
-+			reg_addr = NIC_PF_VNIC_0_127_TX_STAT_0_4 |
-+				   (vf << NIC_QS_ID_SHIFT) |
-+				   (i << 3);
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+
-+	for (i = 0; i <= 15; i++) {
-+		qnum = i >> 1;
-+		stat = i & 1 ? 1 : 0;
-+		reg_addr = (vf << NIC_QS_ID_SHIFT) |
-+			   (qnum << NIC_Q_NUM_SHIFT) | (stat << 3);
-+		if (cfg->rq_stat_mask & BIT(i)) {
-+			reg_addr |= NIC_PF_QSET_0_127_RQ_0_7_STAT_0_1;
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+		if (cfg->sq_stat_mask & BIT(i)) {
-+			reg_addr |= NIC_PF_QSET_0_127_SQ_0_7_STAT_0_1;
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+	return 0;
-+}
-+
- static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
- {
- 	int bgx, lmac;
-@@ -757,6 +799,9 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 	case NIC_MBOX_MSG_LOOPBACK:
- 		ret = nic_config_loopback(nic, &mbx.lbk);
- 		break;
-+	case NIC_MBOX_MSG_RESET_STAT_COUNTER:
-+		ret = nic_reset_stat_counters(nic, vf, &mbx.reset_stat);
-+		break;
- 	default:
- 		dev_err(&nic->pdev->dev,
- 			"Invalid msg from VF%d, msg 0x%x\n", vf, mbx.msg.msg);
--- 
-1.7.1
+Radoslaw Biernacki (3):
+  net: thunderx: Add multiqset support for dataplane apps
+  net: thunderx: add sysfs attribute for SQS/SVF assigments
+  net: thunderx: Improvement for MBX interface debug messages
+
+ drivers/net/ethernet/cavium/thunder/nic.h        |   32 ++-
+ drivers/net/ethernet/cavium/thunder/nic_main.c   |  321 +++++++++++++++++++---
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c |   10 +-
+ 3 files changed, 324 insertions(+), 39 deletions(-)
