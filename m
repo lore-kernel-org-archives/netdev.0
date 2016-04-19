@@ -1,56 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v2 net-next 4/7] tcp: Make use of MSG_EOR flag in
- tcp_sendmsg
-Date: Mon, 18 Apr 2016 20:25:39 -0700
-Message-ID: <1461036339.10638.147.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
-	 <1461019569-3037369-5-git-send-email-kafai@fb.com>
-	 <1461021493.10638.131.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160418234202.GA27948@kafai-mba.local>
-	 <1461024417.10638.141.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160419022704.GB35817@dreloong-mbp.local.DHCP.thefacebook.com>
-	 <1461034241.10638.145.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160419031811.GA36188@ashokk-mba.local.DHCP.thefacebook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Mon, 18 Apr 2016 23:41:37 -0400 (EDT)
+Message-ID: <20160418.234137.26692086759328024.davem@davemloft.net>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35454 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbcDSDZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 23:25:42 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fs9so1825160pac.2
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 20:25:42 -0700 (PDT)
-In-Reply-To: <20160419031811.GA36188@ashokk-mba.local.DHCP.thefacebook.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58333 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137AbcDSDll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 23:41:41 -0400
+In-Reply-To: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-04-18 at 20:18 -0700, Martin KaFai Lau wrote:
-> On Mon, Apr 18, 2016 at 07:50:41PM -0700, Eric Dumazet wrote:
-> > I believe it is slightly wrong (to do the goto new_segment if there is
-> > no data to send)
-> Aha. Thanks for pointing it out.
-> 
-> >
-> > I would instead use this fast path, doing the test _when_ we already
-> > have an skb to test for.
-> The v1 was doing a check in the loop but the feedback was, instead
-> of doing this unlikely(test) repeatedly in the loop, do it before
-> entering the loop and do a goto new_segment if needed.
-> 
-> I agree that doing it in the loop is easier to follow/read
-> and checking TCP_SKB_CB(skb)->eor is cheaper than my v1.
-> I will respin with your suggestion.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Mon, 18 Apr 2016 14:10:19 -0700
 
-I do not remember the suggestion. It is better to do the test in the
-loop, as you could have multiple threads doing a sendmsg() on the same
-socket, and eventually sleeping in sk_stream_wait_memory()
+> This patch adds a new RTM_GETSTATS message to query link stats via
+> netlink from the kernel. RTM_NEWLINK also dumps stats today, but
+> RTM_NEWLINK returns a lot more than just stats and is expensive in
+> some cases when frequent polling for stats from userspace is a
+> common operation.
 
-A bit convoluted, but who knows what can be done by some applications ;)
+I'm holding off on this until we sort out the 64-bit netlink
+attribute alignment issue.
+
+Meanwhile, I'll some kind of a fix into the tree for the
+rtnl_fill_stats() change so that it doesn't cause unaligned
+accesses.
+
+I just tested out a clever idea, where for architectures where
+unaligned accesses is a problem, we insert a zero length NOP attribute
+before the 64-bit stats.  This makes it properly aligned.  A quick
+hack patch just passed testing on my sparc64 box, but I'll go over it
+some more.
+
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index bb3a90b..5ffdcb3 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -155,6 +155,7 @@ enum {
+ 	IFLA_PROTO_DOWN,
+ 	IFLA_GSO_MAX_SEGS,
+ 	IFLA_GSO_MAX_SIZE,
++	IFLA_PAD,
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a7a3d34..b192576 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1052,6 +1052,15 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
+ 	struct rtnl_link_stats64 *sp;
+ 	struct nlattr *attr;
+ 
++	/* Add a zero length NOP attribute so that the nla_data()
++	 * of the IFLA_STATS64 will be 64-bit aligned.
++	 */
++#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
++	attr = nla_reserve(skb, IFLA_PAD, 0);
++	if (!attr)
++		return -EMSGSIZE;
++#endif
++
+ 	attr = nla_reserve(skb, IFLA_STATS64,
+ 			   sizeof(struct rtnl_link_stats64));
+ 	if (!attr)
