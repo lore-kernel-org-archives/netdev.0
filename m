@@ -1,82 +1,67 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Mon, 18 Apr 2016 21:43:32 -0700
-Message-ID: <5715B774.9070208@cumulusnetworks.com>
-References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com> <20160418.234137.26692086759328024.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35296 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbcDSEne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 00:43:34 -0400
-Received: by mail-pa0-f49.google.com with SMTP id fs9so2513154pac.2
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 21:43:34 -0700 (PDT)
-In-Reply-To: <20160418.234137.26692086759328024.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v3 00/18] wcn36xx fixes
+Date: Mon, 18 Apr 2016 22:00:38 -0700
+Message-ID: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: Pontus Fuchs <pontus.fuchs@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/18/16, 8:41 PM, David Miller wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Mon, 18 Apr 2016 14:10:19 -0700
->
->> This patch adds a new RTM_GETSTATS message to query link stats via
->> netlink from the kernel. RTM_NEWLINK also dumps stats today, but
->> RTM_NEWLINK returns a lot more than just stats and is expensive in
->> some cases when frequent polling for stats from userspace is a
->> common operation.
-> I'm holding off on this until we sort out the 64-bit netlink
-> attribute alignment issue.
-sure,
->
-> Meanwhile, I'll some kind of a fix into the tree for the
-> rtnl_fill_stats() change so that it doesn't cause unaligned
-> accesses.
->
-> I just tested out a clever idea, where for architectures where
-> unaligned accesses is a problem, we insert a zero length NOP attribute
-> before the 64-bit stats.  This makes it properly aligned.  A quick
-> hack patch just passed testing on my sparc64 box, but I'll go over it
-> some more.
->
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index bb3a90b..5ffdcb3 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -155,6 +155,7 @@ enum {
->  	IFLA_PROTO_DOWN,
->  	IFLA_GSO_MAX_SEGS,
->  	IFLA_GSO_MAX_SIZE,
-> +	IFLA_PAD,
->  	__IFLA_MAX
->  };
->  
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index a7a3d34..b192576 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1052,6 +1052,15 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
->  	struct rtnl_link_stats64 *sp;
->  	struct nlattr *attr;
->  
-> +	/* Add a zero length NOP attribute so that the nla_data()
-> +	 * of the IFLA_STATS64 will be 64-bit aligned.
-> +	 */
-> +#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
-> +	attr = nla_reserve(skb, IFLA_PAD, 0);
-> +	if (!attr)
-> +		return -EMSGSIZE;
-> +#endif
-> +
->  	attr = nla_reserve(skb, IFLA_STATS64,
->  			   sizeof(struct rtnl_link_stats64));
->  	if (!attr)
->
-that is cleaver :)
+The bulk of the following patches have been sitting in Eugene's Github tree for
+quite some time. They fix various issues existing in the mainline drivers, so
+they should be merged there too.
 
-thanks!
+Also included are two new fixes, of my own; the important one being the
+reordering of deletion of the bss, as this crashes the firmware on the
+Dragonbaord 410c (apq8016 with pronto & wcn3620).
+
+Lastly is a patch that adds a bunch of new capabilities found in the downstream
+driver.
+
+Changes since v2:
+- Restore BEACON_TEMPLATE_SIZE to not break UPDATE_PROBE_RSP_TEMPLATE_REQ
+- Added patch to correct WCN36XX_HAL_RMV_BSSKEY_RSP decoder
+- Added patch with missing capabilities from downstream
+
+Changes since v1:
+- Reorder patch 6 and 7 to not break the build temporarily
+- Inline fix from Jason Mobarak in the TIM PVM padding
+
+Bjorn Andersson (3):
+  wcn36xx: Delete BSS before idling link
+  wcn36xx: Correct remove bss key response encoding
+  wcn36xx: Fill in capability list
+
+Pontus Fuchs (15):
+  wcn36xx: Clean up wcn36xx_smd_send_beacon
+  wcn36xx: Pad TIM PVM if needed
+  wcn36xx: Add helper macros to cast vif to private vif and vice versa
+  wcn36xx: Use consistent name for private vif
+  wcn36xx: Use define for invalid index and fix typo
+  wcn36xx: Add helper macros to cast sta to priv
+  wcn36xx: Fetch private sta data from sta entry instead of from vif
+  wcn36xx: Remove sta pointer in private vif struct
+  wcn36xx: Parse trigger_ba response properly
+  wcn36xx: Copy all members in config_sta v1 conversion
+  wcn36xx: Use allocated self sta index instead of hard coded
+  wcn36xx: Clear encrypt_type when deleting bss key
+  wcn36xx: Track association state
+  wcn36xx: Implement multicast filtering
+  wcn36xx: Use correct command struct for EXIT_BMPS_REQ
+
+ drivers/net/wireless/ath/wcn36xx/debug.c   |  12 +-
+ drivers/net/wireless/ath/wcn36xx/hal.h     |  55 ++++++-
+ drivers/net/wireless/ath/wcn36xx/main.c    | 133 +++++++++++++----
+ drivers/net/wireless/ath/wcn36xx/pmc.c     |   4 +-
+ drivers/net/wireless/ath/wcn36xx/smd.c     | 224 +++++++++++++++++++----------
+ drivers/net/wireless/ath/wcn36xx/smd.h     |  12 +-
+ drivers/net/wireless/ath/wcn36xx/txrx.c    |   8 +-
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  20 ++-
+ 8 files changed, 336 insertions(+), 132 deletions(-)
+
+-- 
+2.5.0
