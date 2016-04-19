@@ -1,57 +1,105 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: [PATCH 1/3] e1000e: e1000e_cyclecounter_read(): incvalue is 32 bits, not 64
-Date: Tue, 19 Apr 2016 14:34:44 +0200
-Message-ID: <1461069286-31946-1-git-send-email-dvlasenk@redhat.com>
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 1/9] net/mlx5_core: Fix soft lockup in steering error flow
+Date: Tue, 19 Apr 2016 15:33:34 +0300
+Message-ID: <1461069222-27076-2-git-send-email-saeedm@mellanox.com>
+References: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:48489 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754100AbcDSMfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 08:35:05 -0400
+In-Reply-To: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"incvalue" variable holds a result of "er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK"
-and used in "do_div(temp, incvalue)" as a divisor.
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Thus, "u64 incvalue" declaration is probably a mistake.
-Even though it seems to be a harmless one, let's fix it.
+In the error flow of adding flow rule to auto-grouped flow
+table, we call to tree_remove_node.
 
-Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Shannon Nelson <shannon.nelson@intel.com>
-CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
-CC: Don Skidmore <donald.c.skidmore@intel.com>
-CC: Bruce Allan <bruce.w.allan@intel.com>
-CC: John Ronciak <john.ronciak@intel.com>
-CC: Mitch Williams <mitch.a.williams@intel.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: LKML <linux-kernel@vger.kernel.org>
-CC: netdev@vger.kernel.org
+tree_remove_node locks the node's parent, however the node's parent
+is already locked by mlx5_add_flow_rule and this causes a deadlock.
+After this patch, if we failed to add the flow rule, we unlock the
+flow table before calling to tree_remove_node.
+
+fixes: f0d22d187473 ('net/mlx5_core: Introduce flow steering autogrouped
+flow table')
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Reported-by: Amir Vadai <amir@vadai.me>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c |   46 ++++++++-------------
+ 1 files changed, 17 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 9b4ec13..967311b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4300,7 +4300,8 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 5121be4..3c7e3e5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1065,33 +1065,6 @@ unlock_fg:
+ 	return rule;
+ }
  
- 	if ((hw->mac.type == e1000_82574) || (hw->mac.type == e1000_82583)) {
--		u64 incvalue, time_delta, rem, temp;
-+		u64 time_delta, rem, temp;
-+		u32 incvalue;
- 		int i;
+-static struct mlx5_flow_rule *add_rule_to_auto_fg(struct mlx5_flow_table *ft,
+-						  u8 match_criteria_enable,
+-						  u32 *match_criteria,
+-						  u32 *match_value,
+-						  u8 action,
+-						  u32 flow_tag,
+-						  struct mlx5_flow_destination *dest)
+-{
+-	struct mlx5_flow_rule *rule;
+-	struct mlx5_flow_group *g;
+-
+-	g = create_autogroup(ft, match_criteria_enable, match_criteria);
+-	if (IS_ERR(g))
+-		return (void *)g;
+-
+-	rule = add_rule_fg(g, match_value,
+-			   action, flow_tag, dest);
+-	if (IS_ERR(rule)) {
+-		/* Remove assumes refcount > 0 and autogroup creates a group
+-		 * with a refcount = 0.
+-		 */
+-		tree_get_node(&g->node);
+-		tree_remove_node(&g->node);
+-	}
+-	return rule;
+-}
+-
+ static struct mlx5_flow_rule *
+ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 		    u8 match_criteria_enable,
+@@ -1119,8 +1092,23 @@ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 				goto unlock;
+ 		}
  
- 		/* errata for 82574/82583 possible bad bits read from SYSTIMH/L
+-	rule = add_rule_to_auto_fg(ft, match_criteria_enable, match_criteria,
+-				   match_value, action, flow_tag, dest);
++	g = create_autogroup(ft, match_criteria_enable, match_criteria);
++	if (IS_ERR(g)) {
++		rule = (void *)g;
++		goto unlock;
++	}
++
++	rule = add_rule_fg(g, match_value,
++			   action, flow_tag, dest);
++	if (IS_ERR(rule)) {
++		/* Remove assumes refcount > 0 and autogroup creates a group
++		 * with a refcount = 0.
++		 */
++		unlock_ref_node(&ft->node);
++		tree_get_node(&g->node);
++		tree_remove_node(&g->node);
++		return rule;
++	}
+ unlock:
+ 	unlock_ref_node(&ft->node);
+ 	return rule;
 -- 
-1.8.1.4
+1.7.1
