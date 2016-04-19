@@ -1,84 +1,54 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v3 17/18] wcn36xx: Correct remove bss key response encoding
-Date: Mon, 18 Apr 2016 22:00:55 -0700
-Message-ID: <1461042056-10607-18-git-send-email-bjorn.andersson@linaro.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v3 12/18] wcn36xx: Clear encrypt_type when deleting bss key
+Date: Mon, 18 Apr 2016 22:00:50 -0700
+Message-ID: <1461042056-10607-13-git-send-email-bjorn.andersson@linaro.org>
 References: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
-Cc: Pontus Fuchs <pontus.fuchs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Pontus Fuchs <pontus.fuchs@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35004 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567AbcDSFBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:01:24 -0400
+Received: by mail-pf0-f181.google.com with SMTP id n1so2718430pfn.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:01:18 -0700 (PDT)
+In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The WCN36XX_HAL_RMV_BSSKEY_RSP carries a single u32 with "status", so we
-can use the standard status check function for decoding the result.
+From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-This is the last user of the v2 status checker, so remove the struct and
-helper function.
+This fixes a problem connecting to an open network after being
+connected to an encrypted network.
 
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
+ drivers/net/wireless/ath/wcn36xx/main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Changes since v2:
-- Added this patch to the series
-
- drivers/net/wireless/ath/wcn36xx/smd.c | 19 +------------------
- drivers/net/wireless/ath/wcn36xx/smd.h |  9 ---------
- 2 files changed, 1 insertion(+), 27 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
-index c15501c06eb2..5f6ca3124bd8 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.c
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -312,22 +312,6 @@ static int wcn36xx_smd_rsp_status_check(void *buf, size_t len)
- 	return 0;
- }
- 
--static int wcn36xx_smd_rsp_status_check_v2(struct wcn36xx *wcn, void *buf,
--					     size_t len)
--{
--	struct wcn36xx_fw_msg_status_rsp_v2 *rsp;
--
--	if (len < sizeof(struct wcn36xx_hal_msg_header) + sizeof(*rsp))
--		return wcn36xx_smd_rsp_status_check(buf, len);
--
--	rsp = buf + sizeof(struct wcn36xx_hal_msg_header);
--
--	if (WCN36XX_FW_MSG_RESULT_SUCCESS != rsp->status)
--		return rsp->status;
--
--	return 0;
--}
--
- int wcn36xx_smd_load_nv(struct wcn36xx *wcn)
- {
- 	struct nv_data *nv_d;
-@@ -1647,8 +1631,7 @@ int wcn36xx_smd_remove_bsskey(struct wcn36xx *wcn,
- 		wcn36xx_err("Sending hal_remove_bsskey failed\n");
- 		goto out;
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 7c06ca9fdd2c..f9c77de94583 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -471,6 +471,7 @@ static int wcn36xx_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 		break;
+ 	case DISABLE_KEY:
+ 		if (!(IEEE80211_KEY_FLAG_PAIRWISE & key_conf->flags)) {
++			vif_priv->encrypt_type = WCN36XX_HAL_ED_NONE;
+ 			wcn36xx_smd_remove_bsskey(wcn,
+ 				vif_priv->encrypt_type,
+ 				key_conf->keyidx);
+@@ -626,6 +627,7 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
+ 		} else {
+ 			vif_priv->is_joining = false;
+ 			wcn36xx_smd_delete_bss(wcn, vif);
++			vif_priv->encrypt_type = WCN36XX_HAL_ED_NONE;
+ 		}
  	}
--	ret = wcn36xx_smd_rsp_status_check_v2(wcn, wcn->hal_buf,
--					      wcn->hal_rsp_len);
-+	ret = wcn36xx_smd_rsp_status_check(wcn->hal_buf, wcn->hal_rsp_len);
- 	if (ret) {
- 		wcn36xx_err("hal_remove_bsskey response failed err=%d\n", ret);
- 		goto out;
-diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
-index c1b76d75cf85..d74d781f4c8d 100644
---- a/drivers/net/wireless/ath/wcn36xx/smd.h
-+++ b/drivers/net/wireless/ath/wcn36xx/smd.h
-@@ -44,15 +44,6 @@ struct wcn36xx_fw_msg_status_rsp {
- 	u32	status;
- } __packed;
  
--/* wcn3620 returns this for tigger_ba */
--
--struct wcn36xx_fw_msg_status_rsp_v2 {
--	u8	bss_id[6];
--	u32	status __packed;
--	u16	count_following_candidates __packed;
--	/* candidate list follows */
--};
+-- 
+2.5.0
