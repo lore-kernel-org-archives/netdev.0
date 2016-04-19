@@ -1,44 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 14:23:24 -0400 (EDT)
-Message-ID: <20160419.142324.1774057494079734967.davem@davemloft.net>
-References: <20160418.214851.122286645854721047.davem@davemloft.net>
-	<20160418.235207.395468709808133833.davem@davemloft.net>
-	<1461060543.2766.20.camel@sipsolutions.net>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH] rtl8xxxu: hide unused tables
+Date: Tue, 19 Apr 2016 14:24:40 -0400
+Message-ID: <wrfjmvop5udz.fsf@redhat.com>
+References: <1461016782-2640046-1-git-send-email-arnd@arndb.de>
+	<wrfjzisp64d7.fsf@redhat.com> <87mvopy4dy.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, roopa@cumulusnetworks.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, egrumbach@gmail.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36524 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754378AbcDSSXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 14:23:31 -0400
-In-Reply-To: <1461060543.2766.20.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Jakub Sitnicki <jsitnicki@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87mvopy4dy.fsf@purkki.adurom.net> (Kalle Valo's message of "Tue,
+	19 Apr 2016 19:01:13 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Tue, 19 Apr 2016 12:09:03 +0200
+Kalle Valo <kvalo@codeaurora.org> writes:
+> Jes Sorensen <Jes.Sorensen@redhat.com> writes:
+>
+>> Arnd Bergmann <arnd@arndb.de> writes:
+>>> The references to some arrays in the rtl8xxxu driver were moved inside
+>>> of an #ifdef, but the symbols remain outside, resulting in build warnings:
+>>>
+>>> rtl8xxxu/rtl8xxxu.c:1506:33: error:
+>>> 'rtl8188ru_radioa_1t_highpa_table' defined but not used
+>>> rtl8xxxu/rtl8xxxu.c:1431:33: error:
+>>> 'rtl8192cu_radioa_1t_init_table' defined but not used
+>>> rtl8xxxu/rtl8xxxu.c:1407:33: error:
+>>> 'rtl8192cu_radiob_2t_init_table' defined but not used
+>>> rtl8xxxu/rtl8xxxu.c:1332:33: error:
+>>> 'rtl8192cu_radioa_2t_init_table' defined but not used
+>>> rtl8xxxu/rtl8xxxu.c:239:35: error: 'rtl8192c_power_base' defined but not used
+>>> rtl8xxxu/rtl8xxxu.c:217:35: error: 'rtl8188r_power_base' defined but not used
+>>>
+>>> This adds an extra #ifdef around them to shut up the warnings.
+>>>
+>>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>>> Fixes: 2fc0b8e5a17d ("rtl8xxxu: Add TX power base values for gen1 parts")
+>>> Fixes: 4062b8ffec36 ("rtl8xxxu: Move PHY RF init into device
+>>> specific functions")
+>>> ---
+>>>  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 4 ++++
+>>>  1 file changed, 4 insertions(+)
+>>
+>> I'll apply it to my tree!
+>
+> Actually I would prefer to apply this directly to wireless-drivers-next
+> so that the warnings are quickly fixed.
 
-> At netconf, we talked about how awkward it can be that one doesn't know
-> if an attribute was accepted by the kernel or simply ignored because
-> it's not supported (older kernel version).
-> 
-> I considered (and Emmanuel has started to cook up a patch for it)
-> adding a flag here meaning "reject if not parsed" (or so).
-> 
-> Now, I realize that with all the existing netlink commands one can't
-> actually rely on that (since it requires some infrastructure), but new
-> commands in existing families and also entirely new generic netlink
-> families would allow let userspace rely on such a thing.
+Thats fine with me, I already applied it here before I started doing any
+of the refactoring work, so we should be in sync.
 
-I like this nlattr flag idea, it's opt-in and any tool can be updated
-to use the new facility.
-
-I'd be willing the backport the nlattr flag bit change to all stable
-releases as well.
+Cheers,
+Jes
