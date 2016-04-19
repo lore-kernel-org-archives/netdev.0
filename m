@@ -1,79 +1,51 @@
-From: Mel Gorman <mgorman@techsingularity.net>
-Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet WQE
- (Striding RQ)
-Date: Tue, 19 Apr 2016 18:39:26 +0100
-Message-ID: <20160419173833.GB15167@techsingularity.net>
-References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
- <1460928725-18741-6-git-send-email-saeedm@mellanox.com>
- <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
- <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
- <1460989033.10638.120.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160419182532.423d3c05@redhat.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [RFC PATCH net-next 2/8] sfc: batch up RX delivery on EF10
+Date: Tue, 19 Apr 2016 18:42:47 +0100
+Message-ID: <57166E17.6030002@solarflare.com>
+References: <5716338E.4050003@solarflare.com>
+ <57163404.2000507@solarflare.com>
+ <1461077257.10638.185.camel@edumazet-glaptop3.roam.corp.google.com>
+ <57165E73.60402@solarflare.com>
+ <1461086440.10638.208.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>, linux-mm <linux-mm@kvack.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20160419182532.423d3c05@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	"Jesper Dangaard Brouer" <brouer@redhat.com>,
+	<linux-net-drivers@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:62301 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752915AbcDSRm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:42:58 -0400
+In-Reply-To: <1461086440.10638.208.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 19, 2016 at 06:25:32PM +0200, Jesper Dangaard Brouer wrote:
-> On Mon, 18 Apr 2016 07:17:13 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Mon, 2016-04-18 at 16:05 +0300, Saeed Mahameed wrote:
-> > > On Mon, Apr 18, 2016 at 3:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:  
-> > > > On Sun, 2016-04-17 at 17:29 -0700, Eric Dumazet wrote:
-> > > >  
-> > > >>
-> > > >> If really you need to allocate physically contiguous memory, have you
-> > > >> considered converting the order-5 pages into 32 order-0 ones ?  
-> > > >
-> > > > Search for split_page() call sites for examples.
-> > > >
-> > > >  
-> > > 
-> > > Thanks Eric, we are already evaluating split_page as we speak.
-> > > 
-> > > We did look but could not find any specific alloc_pages API that
+On 19/04/16 18:20, Eric Dumazet wrote:
+> It seems all the discussions about fast kernel networking these days is
+> adding yet another queues, code duplication and complexity, batches, and
+> add latencies, on top of a single NIC RX queue.
+>
+> Apparently the multiqueue nature of a NIC is obsolete and people want to
+> process 10+Mpps on a single queue.
+The real goal here is to speed up packet processing generally.
+Doing everything on a single queue (and thus a single CPU) is just a
+convenient way of measuring that, while making sure performance is limited
+by the RX side rather than the TX not being able to generate enough packets
+to keep us busy.  Similarly, measuring single-byte UDP packet rate with one
+CPU running flat-out is easier than measuring CPU usage while receiving
+line-rate TCP in 1400-byte chunks.
 
-alloc_pages_exact()
+> We could probably get ~100% improvement in UDP if we really cared, just
+> by changing net/ipv[46]/udp.c, not changing other layers.
+Well, I don't know how to achieve that, but it sounds like you do, so why
+not go ahead and show us ;)
+If you submitted a patch series to make UDP twice as fast, I think people
+would "really care" about an improvement of that magnitude.
 
-> > > allocates many physically contiguous pages with order0 ! so we assume
-> > > it is ok to use split_page.  
-> > 
-> > Note: I have no idea of split_page() performance :
-> 
-> Maybe Mel knows?
+But RX batching should speed up all traffic, not just UDP.  Or at least,
+that's the theory.
 
-Irrelevant in comparison to the cost of allocating an order-5 pages if
-one is not already available.
-
-> And maybe Mel have an opinion about if this is a good
-> or bad approach, e.g. will this approach stress the page allocator in a
-> bad way?
-> 
-
-It'll contend on the zone lock minimally but again, irrelevant in
-comparison to having to reclaim/compact an order-5 page if one is not
-already free.
-
-It'll appear to work well in benchmarks and then fall apart when the
-system is running for long enough.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-Ed
