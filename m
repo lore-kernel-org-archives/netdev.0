@@ -1,60 +1,51 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 12:05:00 -0700
-Message-ID: <5716815C.6080601@cumulusnetworks.com>
-References: <20160418.234137.26692086759328024.davem@davemloft.net> <1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com> <20160419.010316.1863885429013017239.davem@davemloft.net> <20160419.143134.2014460805657420897.davem@davemloft.net>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [RFC PATCH 0/5] Add GSO Partial support for devices with existing
+ tunnel offloads
+Date: Tue, 19 Apr 2016 15:05:50 -0400
+Message-ID: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	tgraf@suug.ch, nicolas.dichtel@6wind.com
-To: David Miller <davem@davemloft.net>
+To: eugenia@mellanox.com, bruce.w.allan@intel.com, saeedm@mellanox.com,
+	netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	ariel.elior@qlogic.com, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35315 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754916AbcDSTFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 15:05:03 -0400
-Received: by mail-pa0-f41.google.com with SMTP id fs9so9400403pac.2
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 12:05:02 -0700 (PDT)
-In-Reply-To: <20160419.143134.2014460805657420897.davem@davemloft.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35447 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933162AbcDSTGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 15:06:00 -0400
+Received: by mail-pa0-f53.google.com with SMTP id fs9so9407487pac.2
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 12:06:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/19/16, 11:31 AM, David Miller wrote:
+This patch set is meant to extend tunnel offload support for devices that
+already support UDP or GRE tunnels to include support for those type of
+tunnels with an outer checksum.  To do this I am enabling GSO partial
+support for these types of tunnels which should work assuming the devices
+supported by these drivers are either overwriting or ignoring checksum and
+length fields contained in the IPv4/v6 and ignoring the checksum contained
+in the outer L4 tunnel headers.
 
-[snip]
->
-> Here is the final patch I'm about to push out, thanks a lot Eric.
->
-> Roopa, please adjust your GETSTATS patch as needed (I think you need
-> to adjust the SELinux table entry as well) and we can integrate that
-> too.
-ok, will do. one thing though, for GETSTATS, if I need a pad attribute like IFLA_PAD,
-I will need to add a new stats attribute IFLA_STATS_PAD and burn a bit for it in filter_mask too.
-In which case, I am wondering if we should live with the copy. I will take any suggestions here.
+I don't have any of the hardware that uses the drivers that these patches
+are applied do.  That was one of the motivations for submitting them as RFC.
+My hope is that somebody out there with this hardware is willing to pull in
+the patch and test it out in order to determine if this approach actually
+works for these devices.
 
-I had adjusted the SELinux table entries for v5. I will check again and make sure it is right for v6.
+---
 
->
-> ====================
-> [PATCH] net: Align IFLA_STATS64 attributes properly on architectures that need it.
->
-> Since the nlattr header is 4 bytes in size, it can cause the netlink
-> attribute payload to not be 8-byte aligned.
->
-> This is particularly troublesome for IFLA_STATS64 which contains 64-bit
-> statistic values.
->
-> Solve this by creating a dummy IFLA_PAD attribute which has a payload
-> which is zero bytes in size.  When HAVE_EFFICIENT_UNALIGNED_ACCESS is
-> false, we insert an IFLA_PAD attribute into the netlink response when
-> necessary such that the IFLA_STATS64 payload will be properly aligned.
->
-> With help and suggestions from Eric Dumazet.
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-[snip]
+Alexander Duyck (5):
+      mlx4: Add support for UDP tunnel segmentation with outer checksum offload
+      mlx5: Add support for UDP tunnel segmentation with outer checksum offload
+      bnx2x: Add support for segmentation of tunnels with outer checksums
+      bnxt: Add support for segmentation of tunnels with outer checksums
+      fm10k: Add support for UDP tunnel segmentation with outer checksum offload
 
 
-Thanks David.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   13 ++++++++++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |    9 +++++++--
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c   |   14 ++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   17 +++++++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    7 ++++++-
+ 5 files changed, 46 insertions(+), 14 deletions(-)
