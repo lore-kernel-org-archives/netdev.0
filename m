@@ -1,92 +1,33 @@
-From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Subject: RE: [PATCHv2] wlcore: spi: add wl18xx support
-Date: Tue, 19 Apr 2016 09:05:45 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
-References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
- <14313437.cDJIgY3kzo@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
- <1463330011.BhWEcYYuGD@wuerfel>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCHv3 net-next] net: use jiffies_to_msecs to replace EXPIRES_IN_MS in inet/sctp_diag
+Date: Tue, 19 Apr 2016 11:13:07 +0200
+Message-ID: <87mvoqotb0.fsf@beetle.home>
+References: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1463330011.BhWEcYYuGD@wuerfel>
-Content-Language: en-US
-Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37264 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbcDSJNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 05:13:10 -0400
+Received: by mail-wm0-f48.google.com with SMTP id n3so18386731wmn.0
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 02:13:09 -0700 (PDT)
+In-reply-to: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd,
+On Tue, Apr 19, 2016 at 09:10 AM CEST, Xin Long <lucien.xin@gmail.com> wrote:
+> EXPIRES_IN_MS macro comes from net/ipv4/inet_diag.c and dates
+> back to before jiffies_to_msecs() has been introduced.
+>
+> Now we can remove it and use jiffies_to_msecs().
+>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
 
-> > > >
-> > > > - all wilink family needs special init command for entering wspi mode.
-> > > >   extra clock cycles should be sent after the spi init command while the
-> > > >   cs pin is high.
-> > > > - switch to controling the cs pin from the spi driver for achieveing the
-> > > >   above.
-> > > > - the selected cs gpio is read from the spi device-tree node using the
-> > > >   cs-gpios field and setup as a gpio.
-> > > > - See the example below for specifying the cs gpio using the cs-gpios
-> entry
-> > > > &spi0   {
-> > > >         ...
-> > > >         cs-gpios = <&gpio0 5 0>;
-> > > >         ...
-> > > >         wlcore: wlcore@0 {
-> > > >                 compatible = "ti,wl1835";
-> > > >         ...
-> > > >         ...
-> > > >         };
-> > > > };
-> > > >
-> > > > Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-> > >
-> > > I don't think this can work in general: not all SPI hosts uses GPIOs
-> > > for controlling CS, so the logic can't work, and it's also a
-> > > layering violation for the driver to look at the parent.
-> > >
-> > > I would suggest fixing this using a new API function from the SPI
-> > > core, if we don't already have a generic way to do it.
-> > >
-> > Originally this is what I have done until I was pointed to the generic
-> > cs-gpio mechanism in the SPI core.
-> > It is a generic mechanism already in the SPI core driver.
-> > See: Documentation/devicetree/bindings/spi/spi-bus.txt
-> 
-> The cs-gpios property is documented as optional, it defines how you should
-> list the gpios if CS is implemented using gpio, but not all hardware does it like
-> this.
-> 
-> > It is also part of the generic spi.h (include/Linux/spi/spi.h),
-> > already part of " struct spi_device" So it seemed redundant adding
-> > another mechanism for implementing the same.
-> > Platform that interact with a wilink need to use it, and platforms
-> > that don't have this capability will probably not interact with a wilink device
-> using SPI.
-> 
-> The cs_gpio field in spi_device belongs to the spi host controller, no other
-> slave driver uses it.
-> 
-> I wasn't asking for a duplication of this mechanism, but an interface to use it
-> properly. Internally, the spi core uses the spi_set_cs() function to pick a CS.
-> Find a way to use that rather than reimplementing it incorrectly.
-> 
-
-Understood. As this special CS manipulation is unique to wspi (wilink spi)  I think the 
-best option is to move this gpio allocation into wlcore_spi as a new device tree entry
-used only by this driver.
-If you agree I will submit a v3.
-
-Best Regards,
-Eyal
---
-To unsubscribe from this list: send the line "unsubscribe linux-spi" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Jakub Sitnicki <jkbs@redhat.com>
