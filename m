@@ -1,35 +1,57 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: neigh: Fix leftover attributes message
- during flush
-Date: Tue, 19 Apr 2016 07:59:21 -0700
-Message-ID: <20160419075921.073cf18e@xeon-e3>
-References: <1460657703-8222-1-git-send-email-jefftharris@gmail.com>
+Subject: Re: [patch iproute2 00/11] devlink: add support for shared buffer
+ configuration and control
+Date: Tue, 19 Apr 2016 08:01:39 -0700
+Message-ID: <20160419080139.5539cfa6@xeon-e3>
+References: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Harris <jefftharris@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com, sfeldma@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34133 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754742AbcDSO7u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 10:59:50 -0400
-Received: by mail-pa0-f51.google.com with SMTP id r5so6789577pag.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 07:59:44 -0700 (PDT)
-In-Reply-To: <1460657703-8222-1-git-send-email-jefftharris@gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35280 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932106AbcDSPB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 11:01:26 -0400
+Received: by mail-pa0-f48.google.com with SMTP id fs9so7522037pac.2
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 08:01:26 -0700 (PDT)
+In-Reply-To: <1460706713-5942-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Apr 2016 14:15:03 -0400
-Jeff Harris <jefftharris@gmail.com> wrote:
+On Fri, 15 Apr 2016 09:51:42 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> Use the same rtnl_dump_request_n call as the show.  The rtnl_wilddump_request
-> assumes the type uses an ifinfomsg which is not the case for the neighbor
-> table.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Signed-off-by: Jeff Harris <jefftharris@gmail.com>
-> ---
->  ip/ipneigh.c |    6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> Jiri Pirko (11):
+>   devlink: fix "devlink port" help message
+>   list: add list_for_each_entry_reverse macro
+>   list: add list_add_tail helper
+>   devlink: introduce pr_out_port_handle helper
+>   devlink: introduce helper to print out nice names (ifnames)
+>   devlink: split dl_argv_parse_put to parse and put parts
+>   devlink: introduce dump filtering function
+>   devlink: allow to parse both devlink and port handle in the same time
+>   devlink: implement shared buffer support
+>   devlink: implement shared buffer occupancy control
+>   devlink: add manpage for shared buffer
+> 
+>  devlink/devlink.c          | 1310 +++++++++++++++++++++++++++++++++++++++++---
+>  include/linux/devlink.h    |   63 +++
+>  include/list.h             |   16 +
+>  man/man8/devlink-dev.8     |    2 +
+>  man/man8/devlink-monitor.8 |    1 +
+>  man/man8/devlink-port.8    |    2 +
+>  man/man8/devlink-sb.8      |  313 +++++++++++
+>  man/man8/devlink.8         |    5 +
+>  8 files changed, 1636 insertions(+), 76 deletions(-)
+>  create mode 100644 man/man8/devlink-sb.8
+> 
 
-Applied thanks
+Applied
