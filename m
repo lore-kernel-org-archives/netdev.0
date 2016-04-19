@@ -1,61 +1,64 @@
-From: Jorgen Hansen <jhansen@vmware.com>
-Subject: [PATCH] VSOCK: Only check error on skb_recv_datagram when skb is NULL
-Date: Mon, 18 Apr 2016 23:58:52 -0700
-Message-ID: <1461049132-59927-1-git-send-email-jhansen@vmware.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: switchdev fib offload issues
+Date: Tue, 19 Apr 2016 09:02:03 +0200
+Message-ID: <20160419070203.GB1958@nanopsycho.orion>
+References: <20160418154757.GA2059@nanopsycho.amit.cz>
+ <57151279.4020806@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, gregkh@linuxfoundation.org, davem@davemloft.net,
-	Jorgen Hansen <jhansen@vmware.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com, stephen@networkplumber.org,
+	sfeldma@gmail.com, f.fainelli@gmail.com, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
+	aduyck@mirantis.com
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37686 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060AbcDSHCG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 03:02:06 -0400
+Received: by mail-wm0-f53.google.com with SMTP id n3so12793587wmn.0
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 00:02:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <57151279.4020806@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If skb_recv_datagram returns an skb, we should ignore the err
-value returned. Otherwise, datagram receives will return EAGAIN
-when they have to wait for a datagram.
+Mon, Apr 18, 2016 at 06:59:37PM CEST, dsa@cumulusnetworks.com wrote:
+>On 4/18/16 9:47 AM, Jiri Pirko wrote:
+>>Proposed solutions (ideas):
+>>1) per-netns. Add a procfs file:
+>>	/proc/sys/net/ipv4/route/fib_offload_error_policy
+>>	  with values: "evict" - default, current behaviour
+>>                        "fail" - propagate offload error to user
+>>	The policy value would be stored in struct net.
+>>
+>>2) per-VRF/table
+>>	When user creates a VRF master, he specifies a table ID
+>>	this VRF is going to use. I propose to extend this so
+>>	he can pass a policy ("evict"/"fail").
+>>	The policy value would be stored in struct fib_table or
+>>	struct fib6_table. The problem is that vfr only saves
+>>	table ID, allocates dst but does not actually create
+>>	table. That might be created later. But I think this
+>>	could be resolved.
+>
+>Yes, we have a local patch where I do create the table for IPv6. Can do that
+>for IPv4 as well. Some other clean ups are needed in this area - like the
+>ability to delete a table
+>
+>>
+>>3) per-VFR/master_netdev
+>>	In this case, the policy would be also set during
+>>	the creation of VFR master. From user perspective,
+>>	this looks same as 2)
+>>	The policy value would be stored in struct net_vrf (vrf private).
+>
+>The VRF device is really only used for guiding lookups, not inserting routes.
+>
+>A per table/VRF policy (option 2) seems more appropriate.
 
-Acked-by: Adit Ranadive <aditr@vmware.com>
-Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
----
- net/vmw_vsock/vmci_transport.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index 662bdd2..5621473 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -1735,11 +1735,8 @@ static int vmci_transport_dgram_dequeue(struct vsock_sock *vsk,
- 	/* Retrieve the head sk_buff from the socket's receive queue. */
- 	err = 0;
- 	skb = skb_recv_datagram(&vsk->sk, flags, noblock, &err);
--	if (err)
--		return err;
--
- 	if (!skb)
--		return -EAGAIN;
-+		return err;
- 
- 	dg = (struct vmci_datagram *)skb->data;
- 	if (!dg)
-@@ -2154,7 +2151,7 @@ module_exit(vmci_transport_exit);
- 
- MODULE_AUTHOR("VMware, Inc.");
- MODULE_DESCRIPTION("VMCI transport for Virtual Sockets");
--MODULE_VERSION("1.0.3.0-k");
-+MODULE_VERSION("1.0.4.0-k");
- MODULE_LICENSE("GPL v2");
- MODULE_ALIAS("vmware_vsock");
- MODULE_ALIAS_NETPROTO(PF_VSOCK);
--- 
-1.7.0
+Right. Option 2 also seems better to me. Thanks.
