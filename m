@@ -1,39 +1,61 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] geneve: testing the wrong variable in
- geneve6_build_skb()
-Date: Tue, 19 Apr 2016 17:30:56 +0300
-Message-ID: <20160419143056.GD4876@mwanda>
+From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Subject: RE: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Tue, 19 Apr 2016 14:35:24 +0000
+Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360C0C5D@DFRE01.ent.ti.com>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
+ <1463330011.BhWEcYYuGD@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
+ <4133521.UUI3B1RTyv@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Gross <jesse@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexander Duyck <aduyck@mirantis.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4133521.UUI3B1RTyv@wuerfel>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We intended to test "err" and not "skb".
+> > > > It is also part of the generic spi.h (include/Linux/spi/spi.h),
+> > > > already part of " struct spi_device" So it seemed redundant adding
+> > > > another mechanism for implementing the same.
+> > > > Platform that interact with a wilink need to use it, and platforms
+> > > > that don't have this capability will probably not interact with a
+> > > > wilink device
+> > > using SPI.
+> > >
+> > > The cs_gpio field in spi_device belongs to the spi host controller,
+> > > no other slave driver uses it.
+> > >
+> > > I wasn't asking for a duplication of this mechanism, but an
+> > > interface to use it properly. Internally, the spi core uses the spi_set_cs()
+> function to pick a CS.
+> > > Find a way to use that rather than reimplementing it incorrectly.
+> > >
+> >
+> > Understood. As this special CS manipulation is unique to wspi (wilink
+> > spi)  I think the best option is to move this gpio allocation into
+> > wlcore_spi as a new device tree entry used only by this driver.
+> > If you agree I will submit a v3.
+> 
+> I don't think that can work either: aside of not solving the problem of wilink
+> devices on spi controllers that don't use gpio, it also doesn't solve the
+> problem of what happens when the driver manually triggers the gpio to hold
+> the CS signal while another driver talks to a different device using another CS
+> on the same controller.
+> 
+Ok, understood. Will look into it.
 
-Fixes: aed069df099c ('ip_tunnel_core: iptunnel_handle_offloads returns int and doesn't free skb')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index efbc7ce..512dbe0 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -733,7 +733,7 @@ static int geneve6_build_skb(struct dst_entry *dst, struct sk_buff *skb,
- 		goto free_dst;
- 
- 	err = udp_tunnel_handle_offloads(skb, udp_sum);
--	if (IS_ERR(skb))
-+	if (err)
- 		goto free_dst;
- 
- 	gnvh = (struct genevehdr *)__skb_push(skb, sizeof(*gnvh) + opt_len);
+Best Regards,
+Eyal
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
