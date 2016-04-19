@@ -1,40 +1,92 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3] prism54: isl_38xx: Replace 'struct timeval'
-Date: Tue, 19 Apr 2016 10:57:52 +0200
-Message-ID: <1461056272.2766.8.camel@sipsolutions.net>
-References: <20160413060916.GA21184@localhost> <5521267.mr5HLCdTY6@wuerfel>
- <1460896953.15362.2.camel@sipsolutions.net> <4679823.7bDEQhE9qO@wuerfel>
+From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Subject: RE: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Tue, 19 Apr 2016 09:05:45 +0000
+Message-ID: <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
+ <14313437.cDJIgY3kzo@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
+ <1463330011.BhWEcYYuGD@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>, y2038@lists.linaro.org,
- netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- Tina Ruchandani <ruchandani.tina@gmail.com>, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <4679823.7bDEQhE9qO@wuerfel>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1463330011.BhWEcYYuGD@wuerfel>
+Content-Language: en-US
+Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE2LTA0LTE4IGF0IDAwOjEwICswMjAwLCBBcm5kIEJlcmdtYW5uIHdyb3RlOgo+
-IE9uIFN1bmRheSAxNyBBcHJpbCAyMDE2IDE0OjQyOjMzIEpvaGFubmVzIEJlcmcgd3JvdGU6Cj4g
-PiAKPiA+IAo+ID4gSSB3YXMgdGhpbmtpbmcgbW9yZSByZXN0cmljdGl2ZWx5IG9mIGp1c3QgdGhl
-IHN0dWZmIHRoYXQgY2FuJ3QgZXZlbgo+ID4gYmUKPiA+IGJ1aWx0IHdpdGhvdXQgbW9kaWZ5aW5n
-IHRoZSBzb3VyY2VzIC0gbGlrZSB0aGUgIiNpZiBWRVJCT1NFIiB0aGluZy4KPiBBbGwgdGhlIERF
-QlVHKCkgc3RhdGVtZW50cyBhcmUgaW5zaWRlIG9mIHRoaXMga2luZCBvZiBjaGVjaywgc28gaWYg
-d2UKPiByZW1vdmUgdGhlICNpZmRlZnMsIGl0IHdvdWxkIGJlIGxvZ2ljYWwgdG8gcmVtb3ZlIHRo
-ZSByZXN0IG9mIHRoZQo+IGRlYnVnZ2luZyBpbmZyYXN0cnVjdHVyZSAoREVCVUcoKSBtYWNyb3Ms
-IFNIT1dfKiwgcGNfZGVidWcsIG1heWJlCj4gbW9yZSkgYXMgd2VsbC4KPiAKClNlZW1zIHJlYXNv
-bmFibGUuCgpNYXliZSB3ZSBzaG91bGQgQ2MgdGhlIG1haW50YWluZXIsIGJ1dCBJIHN1c3BlY3Qg
-dGhhdCBzaW5jZSB0aGUgZHJpdmVyCmlzIG1hcmtlZCBPYnNvbGV0ZSBhbnl3YXkgTHVpcyB3b24n
-dCBjYXJlIGVpdGhlciA6KQoKam9oYW5uZXMKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18KWTIwMzggbWFpbGluZyBsaXN0ClkyMDM4QGxpc3RzLmxpbmFyby5v
-cmcKaHR0cHM6Ly9saXN0cy5saW5hcm8ub3JnL21haWxtYW4vbGlzdGluZm8veTIwMzgK
+Arnd,
+
+> > > >
+> > > > - all wilink family needs special init command for entering wspi mode.
+> > > >   extra clock cycles should be sent after the spi init command while the
+> > > >   cs pin is high.
+> > > > - switch to controling the cs pin from the spi driver for achieveing the
+> > > >   above.
+> > > > - the selected cs gpio is read from the spi device-tree node using the
+> > > >   cs-gpios field and setup as a gpio.
+> > > > - See the example below for specifying the cs gpio using the cs-gpios
+> entry
+> > > > &spi0   {
+> > > >         ...
+> > > >         cs-gpios = <&gpio0 5 0>;
+> > > >         ...
+> > > >         wlcore: wlcore@0 {
+> > > >                 compatible = "ti,wl1835";
+> > > >         ...
+> > > >         ...
+> > > >         };
+> > > > };
+> > > >
+> > > > Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
+> > >
+> > > I don't think this can work in general: not all SPI hosts uses GPIOs
+> > > for controlling CS, so the logic can't work, and it's also a
+> > > layering violation for the driver to look at the parent.
+> > >
+> > > I would suggest fixing this using a new API function from the SPI
+> > > core, if we don't already have a generic way to do it.
+> > >
+> > Originally this is what I have done until I was pointed to the generic
+> > cs-gpio mechanism in the SPI core.
+> > It is a generic mechanism already in the SPI core driver.
+> > See: Documentation/devicetree/bindings/spi/spi-bus.txt
+> 
+> The cs-gpios property is documented as optional, it defines how you should
+> list the gpios if CS is implemented using gpio, but not all hardware does it like
+> this.
+> 
+> > It is also part of the generic spi.h (include/Linux/spi/spi.h),
+> > already part of " struct spi_device" So it seemed redundant adding
+> > another mechanism for implementing the same.
+> > Platform that interact with a wilink need to use it, and platforms
+> > that don't have this capability will probably not interact with a wilink device
+> using SPI.
+> 
+> The cs_gpio field in spi_device belongs to the spi host controller, no other
+> slave driver uses it.
+> 
+> I wasn't asking for a duplication of this mechanism, but an interface to use it
+> properly. Internally, the spi core uses the spi_set_cs() function to pick a CS.
+> Find a way to use that rather than reimplementing it incorrectly.
+> 
+
+Understood. As this special CS manipulation is unique to wspi (wilink spi)  I think the 
+best option is to move this gpio allocation into wlcore_spi as a new device tree entry
+used only by this driver.
+If you agree I will submit a v3.
+
+Best Regards,
+Eyal
+--
+To unsubscribe from this list: send the line "unsubscribe linux-spi" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
