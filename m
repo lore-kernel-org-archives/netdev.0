@@ -1,103 +1,44 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH v2 net-next 4/7] tcp: Make use of MSG_EOR flag in
- tcp_sendmsg
-Date: Mon, 18 Apr 2016 19:27:04 -0700
-Message-ID: <20160419022704.GB35817@dreloong-mbp.local.DHCP.thefacebook.com>
-References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
- <1461019569-3037369-5-git-send-email-kafai@fb.com>
- <1461021493.10638.131.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160418234202.GA27948@kafai-mba.local>
- <1461024417.10638.141.camel@edumazet-glaptop3.roam.corp.google.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Mon, 18 Apr 2016 19:30:02 -0700
+Message-ID: <5715982A.7000801@cumulusnetworks.com>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com> <1461015356.10638.124.camel@edumazet-glaptop3.roam.corp.google.com> <20160418.205755.87909888849343438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
+	tgraf@suug.ch, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:29218 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751896AbcDSC1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 22:27:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1461024417.10638.141.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35085 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751998AbcDSCaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 22:30:05 -0400
+Received: by mail-pa0-f53.google.com with SMTP id fs9so1354582pac.2
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 19:30:04 -0700 (PDT)
+In-Reply-To: <20160418.205755.87909888849343438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 05:06:57PM -0700, Eric Dumazet wrote:
-> It should only be a request from user space to ask TCP to not aggregate
-> stuff on future sendpage()/sendmsg() on the skb carrying this new flag.
+On 4/18/16, 5:57 PM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 18 Apr 2016 14:35:56 -0700
 >
-How about something like this.  Please advise if tcp_sendmsg_noappend can
-be simpler.
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c0ef054..ac31798 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -762,7 +762,8 @@ struct tcp_skb_cb {
-
- 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
- 	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
--			unused:7;
-+			eor:1,		/* Is skb MSG_EOR marked */
-+			unused:6;
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
- 	union {
- 		struct inet_skb_parm	h4;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4d73858..12772be 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -874,6 +874,13 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
- 	return mss_now;
- }
-
-+static bool tcp_sendmsg_noappend(const struct sock *sk)
-+{
-+	const struct sk_buff *skb = tcp_write_queue_tail(sk);
-+
-+	return (!skb || TCP_SKB_CB(skb)->eor);
-+}
-+
- static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
- 				size_t size, int flags)
- {
-@@ -903,6 +910,9 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 		goto out_err;
-
-+	if (tcp_sendmsg_noappend(sk))
-+		goto new_segment;
-+
- 	while (size > 0) {
- 		struct sk_buff *skb = tcp_write_queue_tail(sk);
- 		int copy, i;
-@@ -960,6 +970,7 @@ new_segment:
- 		size -= copy;
- 		if (!size) {
- 			tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
-+			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
- 			goto out;
- 		}
-
-@@ -1145,6 +1156,9 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
-
- 	sg = !!(sk->sk_route_caps & NETIF_F_SG);
-
-+	if (tcp_sendmsg_noappend(sk))
-+		goto new_segment;
-+
- 	while (msg_data_left(msg)) {
- 		int copy = 0;
- 		int max = size_goal;
-@@ -1250,6 +1264,7 @@ new_segment:
- 		copied += copy;
- 		if (!msg_data_left(msg)) {
- 			tcp_tx_timestamp(sk, sockc.tsflags, skb);
-+			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
- 			goto out;
- 		}
+>> On Mon, 2016-04-18 at 14:10 -0700, Roopa Prabhu wrote:
+>>
+>>> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
+>>> +		struct rtnl_link_stats64 *sp;
+>>> +
+>>> +		attr = nla_reserve(skb, IFLA_STATS_LINK_64,
+>>> +				   sizeof(struct rtnl_link_stats64));
+>>> +		if (!attr)
+>>> +			goto nla_put_failure;
+>>> +
+>>> +		sp = nla_data(attr);
+>> Are you sure we have a guarantee that sp is aligned to u64 fields ?
+>>
+>> x86 does not care, but some arches would have a potential misalign
+>> access here.
+> I'll do some testing on sparc and deal with any fallout.
+Thanks David. I will be happy to respin if you see problems.
