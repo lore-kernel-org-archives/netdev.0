@@ -1,52 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
-Date: Tue, 19 Apr 2016 07:50:34 -0700
-Message-ID: <1461077434.10638.189.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5716338E.4050003@solarflare.com>
-	 <5716347D.3030808@solarflare.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH 0/2] Minor ss filter fix and review
+Date: Tue, 19 Apr 2016 07:57:22 -0700
+Message-ID: <20160419075722.5a96bd1f@xeon-e3>
+References: <20160329193242.GA28502@orbyte.nwl.cc>
+	<1460578025-12224-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>, <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33063 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754605AbcDSOue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 10:50:34 -0400
-Received: by mail-pf0-f169.google.com with SMTP id 184so7633142pff.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 07:50:34 -0700 (PDT)
-In-Reply-To: <5716347D.3030808@solarflare.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:1662 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932106AbcDSO5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 10:57:14 -0400
+In-Reply-To: <1460578025-12224-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-19 at 14:37 +0100, Edward Cree wrote:
-> Also involved adding a way to run a netfilter hook over a list of packets.
-> Rather than attempting to make netfilter know about lists (which would be
-> horrendous) we just let it call the regular okfn (in this case
-> ip_rcv_finish()) for any packets it steals, and have it give us back a list
-> of packets it's synchronously accepted (which normally NF_HOOK would
-> automatically call okfn() on, but we want to be able to potentially pass
-> the list to a listified version of okfn().)
+On Wed, 13 Apr 2016 22:07:03 +0200
+Phil Sutter <phil@nwl.cc> wrote:
+
+> While looking for a solution to the problem described in patch 2/2, I
+> discovered the overly complicated assignment in filter_states_set() which
+> is simplified in patch 1/2.
 > 
-> There is potential for out-of-order receives if the netfilter hook ends up
-> synchronously stealing packets, as they will be processed before any accepts
-> earlier in the list.  However, it was already possible for an asynchronous
-> accept to cause out-of-order receives, so hopefully I haven't broken
-> anything that wasn't broken already.
+> Phil Sutter (2):
+>   ss: Drop silly assignment
+>   ss: Fix accidental state filter override
 > 
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
+>  misc/ss.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
 
-We have hard time to deal with latencies already, and maintaining some
-sanity in the stack(s)
-
-This is not going to give us a 10x or even 2x improvement factor, so
-what about working on something that would really lower cache line
-misses and use pipelines to amortize the costs ?
-
-The main problem in UDP stack today is having to lock the socket because
-of the dumb forward allocation problem. Are you really going to provide
-a list of skbs up to _one_ UDP socket ?
+Applied
