@@ -1,73 +1,108 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 2/8] perf, bpf: allow bpf programs attach to
- tracepoints
-Date: Mon, 18 Apr 2016 18:15:04 -0700
-Message-ID: <57158698.9080104@fb.com>
-References: <1459831974-2891931-1-git-send-email-ast@fb.com>
- <1459831974-2891931-3-git-send-email-ast@fb.com>
- <20160418162905.220df2f4@gandalf.local.home> <571554EB.9010702@fb.com>
- <20160418181631.2efee46e@gandalf.local.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Mon, 18 Apr 2016 21:48:51 -0400 (EDT)
+Message-ID: <20160418.214851.122286645854721047.davem@davemloft.net>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
+	<1461015356.10638.124.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160418.205755.87909888849343438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"David S . Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Wang Nan <wangnan0@huawei.com>, Josef Bacik <jbacik@fb.com>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160418181631.2efee46e@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57642 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751737AbcDSBsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 21:48:55 -0400
+In-Reply-To: <20160418.205755.87909888849343438.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/18/16 3:16 PM, Steven Rostedt wrote:
-> On Mon, 18 Apr 2016 14:43:07 -0700
-> Alexei Starovoitov <ast@fb.com> wrote:
->
->
->> I was worried about this too, but single 'if' and two calls
->> (as in commit 98b5c2c65c295) is a better way, since it's faster, cleaner
->> and doesn't need to refactor the whole perf_trace_buf_submit() to pass
->> extra event_call argument to it.
->> perf_trace_buf_submit() is already ugly with 8 arguments!
->
-> Right, but I solved that in ftrace by creating an on-stack descriptor
-> that can be passed by a single parameter. See the "fbuffer" in the
-> trace_event_raw_event* code.
+From: David Miller <davem@davemloft.net>
+Date: Mon, 18 Apr 2016 20:57:55 -0400 (EDT)
 
-Yes. That what I referred to in below 'a struct to pass args'...
-But, fine, will try to optimize the size further.
-Frankly much bigger .text savings will come from combining
-trace_event_raw_event_*() with perf_trace_*()
-Especially if you're ok with copying tp args into perf's percpu
-buffer first and then copying into ftrace's ring buffer.
-Then we can half the number of such auto-generated functions.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 18 Apr 2016 14:35:56 -0700
+> 
+>> On Mon, 2016-04-18 at 14:10 -0700, Roopa Prabhu wrote:
+>> 
+>>> +	if (filter_mask & IFLA_STATS_FILTER_BIT(IFLA_STATS_LINK_64)) {
+>>> +		struct rtnl_link_stats64 *sp;
+>>> +
+>>> +		attr = nla_reserve(skb, IFLA_STATS_LINK_64,
+>>> +				   sizeof(struct rtnl_link_stats64));
+>>> +		if (!attr)
+>>> +			goto nla_put_failure;
+>>> +
+>>> +		sp = nla_data(attr);
+>> 
+>> Are you sure we have a guarantee that sp is aligned to u64 fields ?
+>> 
+>> x86 does not care, but some arches would have a potential misalign
+>> access here.
+> 
+> I'll do some testing on sparc and deal with any fallout.
 
->> Passing more args or creating a struct to pass args only going to
->> hurt performance without much reduction in .text size.
->> tinyfication folks will disable tracepoints anyway.
->> Note that the most common case is bpf returning 0 and not even
->> calling perf_trace_buf_submit() which is already slow due
->> to so many args passed on stack.
->> This stuff is called million times a second, so every instruction
->> counts.
->
-> Note, that doesn't matter if you are bloating the kernel for the 99.9%
-> of those that don't use bpf.
->
-> Please remember this! Us tracing folks are second class citizens! If
-> there's a way to speed up tracing by 10%, but in doing so we cause
-> mainline to be hurt by over 1%, we shouldn't be doing it. Tracing and
-> hooks on tracepoints are really not used by many people. Don't fall
-> into Linus's category of "my code is the most important". That's
-> especially true for tracing.
+Just thinking out loud before I start testing, yeah I think you are
+right.  nlmsghdr is 64-bit aligned, but the nlattr header is 32-bit
+which will thus make the attribute data area not be aligned.
 
-tracing was indeed not used that often in the past, but
-bpf+tracing completely changed the picture. It's no longer just
-debugging. It is the first class citizen that runs 24/7 in production
-and its performance and lowest overhead are crucial.
+I think the time has probably come to have a new netlink attribute
+format that doesn't have this multi-decade old problem.
+
+There are a lot of bits left in nla_type, we can use one to indicate
+that the nlattr struct is another 4 bytes in length in order to
+archieve proper alignment of the payload data.
+
++struct nlattr64 {
++	__u16           nla_len;
++	__u16           nla_type;
++	__u32		nla_pad;
++};
+ ...
++#define NLA_F_64BIT_ALIGNED	(1 << 13)
+-#define NLA_TYPE_MASK		~(NLA_F_NESTED | NLA_F_NET_BYTEORDER)
++#define NLA_TYPE_MASK		~(NLA_F_NESTED | NLA_F_NET_BYTEORDER |
+				  NLA_F_64BIT_ALIGNED)
+ ...
+#define NLA64_ALIGNTO		8
+#define NLA64_ALIGN(len)	(((len) + NLA64_ALIGNTO - 1) & ~(NLA64_ALIGNTO - 1))
+#define NLA64_HDRLEN		((int) NLA64_ALIGN(sizeof(struct nlattr64)))
+
+We're going to need some new nla64_*() helpers and code added to some
+of the existing ones to test that new bit.
+
+For example, nla_data would now be:
+
+static inline void *nla_data(const struct nlattr *nla)
+{
+	if (nla->nla_type & NLA_F_64BIT_ALIGNED)
+		return (char *) nla + NLA64_HDRLEN;
+	else
+		return (char *) nla + NLA_HDRLEN;
+}
+
+nla_len would be:
+
+static inline int nla_len(const struct nlattr *nla)
+{
+	int hdrlen = NLA_HDRLEN;
+
+	if (nla->nla_type & NLA_F_64BIT_ALIGNED)
+		hdrlen = NLA64_hdrlen;
+	return nla->nla_len - hdrlen;
+}
+
+etc. etc.
+
+And anyways, I get unaligned accesses without Roopa's changes :-/
+
+davem@patience:~$ ip l l
+[3391066.656729] Kernel unaligned access at TPC[7d6c14] loopback_get_stats64+0x74/0xa0
+[3391066.672020] Kernel unaligned access at TPC[7d6c18] loopback_get_stats64+0x78/0xa0
+[3391066.687282] Kernel unaligned access at TPC[7d6c1c] loopback_get_stats64+0x7c/0xa0
+[3391066.702573] Kernel unaligned access at TPC[7d6c20] loopback_get_stats64+0x80/0xa0
+[3391066.717858] Kernel unaligned access at TPC[8609dc] dev_get_stats+0x3c/0xe0
