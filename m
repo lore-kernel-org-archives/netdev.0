@@ -1,40 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
-Date: Tue, 19 Apr 2016 09:54:42 -0700
-Message-ID: <1461084882.10638.193.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5716338E.4050003@solarflare.com>
-	 <5716347D.3030808@solarflare.com>
-	 <1461077434.10638.189.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CALx6S34ZFFFZVn2_ugp+eQg6QhdHj=CWPuvW3s9aC2dg75nqiQ@mail.gmail.com>
+From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Tue, 19 Apr 2016 18:07:31 +0100
+Message-ID: <20160419170731.GB3217@sirena.org.uk>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
+ <8665E2433BC68541A24DFFCA87B70F5B360B6C90@DFRE01.ent.ti.com>
+ <14313437.cDJIgY3kzo@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Edward Cree <ecree@solarflare.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	linux-net-drivers@solarflare.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36504 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754545AbcDSQyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:54:43 -0400
-Received: by mail-pf0-f171.google.com with SMTP id e128so8493909pfe.3
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 09:54:42 -0700 (PDT)
-In-Reply-To: <CALx6S34ZFFFZVn2_ugp+eQg6QhdHj=CWPuvW3s9aC2dg75nqiQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="m3zcgECJg5Qgddwj"
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B360BF614-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-04-19 at 08:46 -0700, Tom Herbert wrote:
 
-> Right, this is significant complexity for a fairly narrow use case.
-> One alternative might be to move early type demux like functionality
-> to the GRO layer. There's a lot of work done by GRO to parse and
-> identify packets of the same flow, even if we can't aggregate such
-> packets it might be nice if we can at least provide a cached route so
-> that we avoid doing a full route lookup on each one later on.
+--m3zcgECJg5Qgddwj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Moving early demux earlier in the stack would also allow us to implement
-RFS more efficiently, removing one hash lookup.
-(no extra cache line miss in global RFS table)
+On Mon, Apr 18, 2016 at 05:55:51AM +0000, Reizer, Eyal wrote:
+
+> > I would suggest fixing this using a new API function from the SPI core,=
+ if we
+> > don't already have a generic way to do it.
+
+> Originally this is what I have done until I was pointed to the generic cs=
+-gpio mechanism=20
+> in the SPI core.=20
+> It is a generic mechanism already in the SPI core driver.
+> See: Documentation/devicetree/bindings/spi/spi-bus.txt
+
+> It is also part of the generic spi.h (include/Linux/spi/spi.h), already p=
+art of=20
+> " struct spi_device" So it seemed redundant adding another mechanism for=
+=20
+> implementing the same.
+
+No!  This is a *terrible* and broken idea.  Client drivers should *not*
+be peering inside controller implementations like this, and they should
+especially not be trying to change the chip select without the core
+knowing about it.  This is at best going to be fragile, at worst it will
+actively break some systems.  Whatever you are trying to do needs to go
+through the SPI core with some degree of abstraction, the core needs to
+know what's going on and the driver needs to support systems that don't
+or can't mux the chip select out as a GPIO.
+
+--m3zcgECJg5Qgddwj
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJXFmXSAAoJECTWi3JdVIfQQzwH/3Rjx9TUJqPDdISE8n7y1lN+
+c4IwT396JHdP0+B9ewcv1CMp7OqBj4/HQIQcZPW+PS5w3awzRyzWxs/Smir+qet5
+mOPxB+GJAXB5H/fp1LH0Z/q/WFf2/1PimTvEztP4smIiOa9WDYiWlW7ppGOGNbu2
+3+wMVJ4X/+4MqBWyCI/T26Gn10+vAMtEazMZ48im2Vr3Fm8NxLz3JnYVzYDb4y1q
+H5f0b4lzW2EAvpWyvylwbnfKAuiH+mkRiHjlee2ppeoL08d6L1UlE7gEuKweUaqp
+J2cTg9VnTIi18NTkOZXWxI03QkJBZ4FiSmm3HHca00ShOzafLLdDeSYeh4Zl4OQ=
+=g+t8
+-----END PGP SIGNATURE-----
+
+--m3zcgECJg5Qgddwj--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-spi" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
