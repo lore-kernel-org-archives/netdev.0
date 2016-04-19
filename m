@@ -1,8 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [RFC PATCH net-next 6/8] net: core: propagate SKB lists through
- packet_type lookup
-Date: Tue, 19 Apr 2016 14:36:30 +0100
-Message-ID: <5716345E.3050206@solarflare.com>
+Subject: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
+Date: Tue, 19 Apr 2016 14:37:01 +0100
+Message-ID: <5716347D.3030808@solarflare.com>
 References: <5716338E.4050003@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,265 +10,248 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	<linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:42398 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752887AbcDSNgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:36:40 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:19871 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752887AbcDSNhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:37:13 -0400
 In-Reply-To: <5716338E.4050003@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This could maybe be made more efficient if we first split the list based on
- skb->protocol, and then did ptype lookup for each sublist.  Unfortunately,
- there are things liks sch_handle_ingress and the rx_handlers that can
- produce different results per packet.
+Also involved adding a way to run a netfilter hook over a list of packets.
+Rather than attempting to make netfilter know about lists (which would be
+horrendous) we just let it call the regular okfn (in this case
+ip_rcv_finish()) for any packets it steals, and have it give us back a list
+of packets it's synchronously accepted (which normally NF_HOOK would
+automatically call okfn() on, but we want to be able to potentially pass
+the list to a listified version of okfn().)
+
+There is potential for out-of-order receives if the netfilter hook ends up
+synchronously stealing packets, as they will be processed before any accepts
+earlier in the list.  However, it was already possible for an asynchronous
+accept to cause out-of-order receives, so hopefully I haven't broken
+anything that wasn't broken already.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- include/trace/events/net.h |   7 +++
- net/core/dev.c             | 146 ++++++++++++++++++++++++++++++++-------------
- 2 files changed, 113 insertions(+), 40 deletions(-)
+ include/linux/netdevice.h |  3 ++
+ include/linux/netfilter.h | 27 +++++++++++++++++
+ include/net/ip.h          |  2 ++
+ net/core/dev.c            | 11 +++++--
+ net/ipv4/af_inet.c        |  1 +
+ net/ipv4/ip_input.c       | 75 ++++++++++++++++++++++++++++++++++++++++++-----
+ 6 files changed, 110 insertions(+), 9 deletions(-)
 
-diff --git a/include/trace/events/net.h b/include/trace/events/net.h
-index 30f359c..7a17a31 100644
---- a/include/trace/events/net.h
-+++ b/include/trace/events/net.h
-@@ -130,6 +130,13 @@ DEFINE_EVENT(net_dev_template, netif_receive_skb,
- 	TP_ARGS(skb)
- );
- 
-+DEFINE_EVENT(net_dev_template, netif_receive_skb_list,
-+
-+	TP_PROTO(struct sk_buff *skb),
-+
-+	TP_ARGS(skb)
-+);
-+
- DEFINE_EVENT(net_dev_template, netif_rx,
- 
- 	TP_PROTO(struct sk_buff *skb),
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0f914bf..db1d16a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4061,12 +4061,13 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
- 	return 0;
- }
- 
--static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
-+static int __netif_receive_skb_taps(struct sk_buff *skb, bool pfmemalloc,
-+				    struct packet_type **pt_prev)
- {
--	struct packet_type *ptype, *pt_prev;
- 	rx_handler_func_t *rx_handler;
- 	struct net_device *orig_dev;
- 	bool deliver_exact = false;
-+	struct packet_type *ptype;
- 	int ret = NET_RX_DROP;
- 	__be16 type;
- 
-@@ -4081,7 +4082,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
- 		skb_reset_transport_header(skb);
- 	skb_reset_mac_len(skb);
- 
--	pt_prev = NULL;
-+	*pt_prev = NULL;
- 
- another_round:
- 	skb->skb_iif = skb->dev->ifindex;
-@@ -4106,25 +4107,25 @@ another_round:
- 		goto skip_taps;
- 
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (pt_prev)
--			ret = deliver_skb(skb, pt_prev, orig_dev);
--		pt_prev = ptype;
-+		if (*pt_prev)
-+			ret = deliver_skb(skb, *pt_prev, orig_dev);
-+		*pt_prev = ptype;
- 	}
- 
- 	list_for_each_entry_rcu(ptype, &skb->dev->ptype_all, list) {
--		if (pt_prev)
--			ret = deliver_skb(skb, pt_prev, orig_dev);
--		pt_prev = ptype;
-+		if (*pt_prev)
-+			ret = deliver_skb(skb, *pt_prev, orig_dev);
-+		*pt_prev = ptype;
- 	}
- 
- skip_taps:
- #ifdef CONFIG_NET_INGRESS
- 	if (static_key_false(&ingress_needed)) {
--		skb = sch_handle_ingress(skb, &pt_prev, &ret, orig_dev);
-+		skb = sch_handle_ingress(skb, pt_prev, &ret, orig_dev);
- 		if (!skb)
- 			goto out;
- 
--		if (nf_ingress(skb, &pt_prev, &ret, orig_dev) < 0)
-+		if (nf_ingress(skb, pt_prev, &ret, orig_dev) < 0)
- 			goto out;
- 	}
- #endif
-@@ -4136,9 +4137,9 @@ ncls:
- 		goto drop;
- 
- 	if (skb_vlan_tag_present(skb)) {
--		if (pt_prev) {
--			ret = deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev = NULL;
-+		if (*pt_prev) {
-+			ret = deliver_skb(skb, *pt_prev, orig_dev);
-+			*pt_prev = NULL;
- 		}
- 		if (vlan_do_receive(&skb))
- 			goto another_round;
-@@ -4148,9 +4149,9 @@ ncls:
- 
- 	rx_handler = rcu_dereference(skb->dev->rx_handler);
- 	if (rx_handler) {
--		if (pt_prev) {
--			ret = deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev = NULL;
-+		if (*pt_prev) {
-+			ret = deliver_skb(skb, *pt_prev, orig_dev);
-+			*pt_prev = NULL;
- 		}
- 		switch (rx_handler(&skb)) {
- 		case RX_HANDLER_CONSUMED:
-@@ -4181,47 +4182,112 @@ ncls:
- 
- 	/* deliver only exact match when indicated */
- 	if (likely(!deliver_exact)) {
--		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+		deliver_ptype_list_skb(skb, pt_prev, orig_dev, type,
- 				       &ptype_base[ntohs(type) &
- 						   PTYPE_HASH_MASK]);
- 	}
- 
--	deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+	deliver_ptype_list_skb(skb, pt_prev, orig_dev, type,
- 			       &orig_dev->ptype_specific);
- 
- 	if (unlikely(skb->dev != orig_dev)) {
--		deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
-+		deliver_ptype_list_skb(skb, pt_prev, orig_dev, type,
- 				       &skb->dev->ptype_specific);
- 	}
--
--	if (pt_prev) {
--		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
--			goto drop;
--		else
--			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
--	} else {
-+	if (*pt_prev && unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
-+		goto drop;
-+	return ret;
- drop:
--		if (!deliver_exact)
--			atomic_long_inc(&skb->dev->rx_dropped);
--		else
--			atomic_long_inc(&skb->dev->rx_nohandler);
--		kfree_skb(skb);
--		/* Jamal, now you will not able to escape explaining
--		 * me how you were going to use this. :-)
--		 */
--		ret = NET_RX_DROP;
--	}
--
-+	if (!deliver_exact)
-+		atomic_long_inc(&skb->dev->rx_dropped);
-+	else
-+		atomic_long_inc(&skb->dev->rx_nohandler);
-+	kfree_skb(skb);
-+	/* Jamal, now you will not able to escape explaining
-+	 * me how you were going to use this. :-)
-+	 */
-+	ret = NET_RX_DROP;
- out:
-+	*pt_prev = NULL;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 682d0ad..292f2d5 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2143,6 +2143,9 @@ struct packet_type {
+ 					 struct net_device *,
+ 					 struct packet_type *,
+ 					 struct net_device *);
++	void			(*list_func) (struct sk_buff_head *,
++					      struct packet_type *,
++					      struct net_device *);
+ 	bool			(*id_match)(struct packet_type *ptype,
+ 					    struct sock *sk);
+ 	void			*af_packet_priv;
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 9230f9a..e18e91b 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -220,6 +220,24 @@ NF_HOOK_THRESH(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
  	return ret;
  }
  
--static void __netif_receive_skb_list_core(struct sk_buff_head *list, bool pfmemalloc)
-+static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
++static inline void
++NF_HOOK_LIST_THRESH(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
++		    struct sk_buff_head *list, struct sk_buff_head *sublist,
++		    struct net_device *in, struct net_device *out,
++		    int (*okfn)(struct net *, struct sock *, struct sk_buff *),
++		    int thresh)
 +{
-+	struct net_device *orig_dev = skb->dev;
-+	struct packet_type *pt_prev;
-+	int ret;
++	struct sk_buff *skb;
 +
-+	ret = __netif_receive_skb_taps(skb, pfmemalloc, &pt_prev);
-+	if (pt_prev)
-+		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
-+	return ret;
++	__skb_queue_head_init(sublist); /* list of synchronously ACCEPTed skbs */
++	while ((skb = __skb_dequeue(list)) != NULL) {
++		int ret = nf_hook_thresh(pf, hook, net, sk, skb, in, out, okfn,
++					 thresh);
++		if (ret == 1)
++			__skb_queue_tail(sublist, skb);
++	}
 +}
 +
-+static inline void __netif_receive_skb_list_ptype(struct sk_buff_head *list,
-+						  struct packet_type *pt_prev,
-+						  struct net_device *orig_dev)
+ static inline int
+ NF_HOOK_COND(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
+ 	     struct sk_buff *skb, struct net_device *in, struct net_device *out,
+@@ -242,6 +260,15 @@ NF_HOOK(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk, struct
+ 	return NF_HOOK_THRESH(pf, hook, net, sk, skb, in, out, okfn, INT_MIN);
+ }
+ 
++static inline void
++NF_HOOK_LIST(uint8_t pf, unsigned int hook, struct net *net, struct sock *sk,
++	     struct sk_buff_head *list, struct sk_buff_head *sublist,
++	     struct net_device *in, struct net_device *out,
++	     int (*okfn)(struct net *, struct sock *, struct sk_buff *))
++{
++	NF_HOOK_LIST_THRESH(pf, hook, net, sk, list, sublist, in, out, okfn, INT_MIN);
++}
++
+ /* Call setsockopt() */
+ int nf_setsockopt(struct sock *sk, u_int8_t pf, int optval, char __user *opt,
+ 		  unsigned int len);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 93725e5..c994c44 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -106,6 +106,8 @@ int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
+ 			  struct ip_options_rcu *opt);
+ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	   struct net_device *orig_dev);
++void ip_list_rcv(struct sk_buff_head *list, struct packet_type *pt,
++		 struct net_device *orig_dev);
+ int ip_local_deliver(struct sk_buff *skb);
+ int ip_mr_input(struct sk_buff *skb);
+ int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index db1d16a..da768e2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4230,8 +4230,15 @@ static inline void __netif_receive_skb_list_ptype(struct sk_buff_head *list,
  {
  	struct sk_buff *skb;
  
- 	while ((skb = __skb_dequeue(list)) != NULL)
--		__netif_receive_skb_core(skb, pfmemalloc);
-+		pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+-	while ((skb = __skb_dequeue(list)) != NULL)
+-		pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++	if (!pt_prev)
++		return;
++	if (skb_queue_empty(list))
++		return;
++	if (pt_prev->list_func != NULL)
++		pt_prev->list_func(list, pt_prev, orig_dev);
++	else
++		while ((skb = __skb_dequeue(list)) != NULL)
++			pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ }
+ 
+ static void __netif_receive_skb_list_core(struct sk_buff_head *list, bool pfmemalloc)
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 2e6e65f..1424147 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1757,6 +1757,7 @@ fs_initcall(ipv4_offload_init);
+ static struct packet_type ip_packet_type __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_IP),
+ 	.func = ip_rcv,
++	.list_func = ip_list_rcv,
+ };
+ 
+ static int __init inet_init(void)
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index e3d7827..e7d0d85 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -395,10 +395,9 @@ drop:
+ /*
+  * 	Main IP Receive routine.
+  */
+-int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
+ {
+ 	const struct iphdr *iph;
+-	struct net *net;
+ 	u32 len;
+ 
+ 	/* When the interface is in promisc. mode, drop all the crap
+@@ -408,7 +407,6 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 		goto drop;
+ 
+ 
+-	net = dev_net(dev);
+ 	IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_IN, skb->len);
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+@@ -475,9 +473,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	/* Must drop socket now because of tproxy. */
+ 	skb_orphan(skb);
+ 
+-	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING,
+-		       net, NULL, skb, dev, NULL,
+-		       ip_rcv_finish);
++	return skb;
+ 
+ csum_error:
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_CSUMERRORS);
+@@ -486,5 +482,70 @@ inhdr_error:
+ drop:
+ 	kfree_skb(skb);
+ out:
+-	return NET_RX_DROP;
++	return NULL;
 +}
 +
-+static void __netif_receive_skb_list_core(struct sk_buff_head *list, bool pfmemalloc)
++/*
++ * IP receive entry point
++ */
++int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
++	   struct net_device *orig_dev)
 +{
-+	/* Fast-path assumptions:
-+	 * - There is no RX handler.
-+	 * - Only one packet_type matches.
-+	 * If either of these fails, we will end up doing some per-packet
-+	 * processing in-line, then handling the 'last ptype' for the whole
-+	 * sublist.  This can't cause out-of-order delivery to any single ptype,
-+	 * because the 'last ptype' must be constant across the sublist, and all
-+	 * other ptypes are handled per-packet.  Unless, that is, a ptype can
-+	 * be delivered to more than once for a single packet - but that seems
-+	 * like it would be a bad idea anyway.
-+	 * So it should be fine (at least, I think so), but you'll lose the
-+	 * (putative) performance benefits of batching.
-+	 */
-+	/* Current (common) ptype of sublist */
-+	struct packet_type *pt_curr = NULL;
-+	/* In the normal (device RX) case, orig_dev should be the same for
-+	 * every skb in the list.  But as I'm not certain of this, I check
-+	 * it's constant and split the list if not.
-+	 * So, od_curr is the current (common) orig_dev of sublist.
-+	 */
-+	struct net_device *od_curr = NULL;
++	struct net *net = dev_net(dev);
++
++	skb = ip_rcv_core(skb, net);
++	if (skb == NULL)
++		return NET_RX_DROP;
++	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING,
++		       net, NULL, skb, dev, NULL,
++		       ip_rcv_finish);
++}
++
++static void ip_sublist_rcv(struct sk_buff_head *list, struct net_device *dev,
++			   struct net *net)
++{
++	struct sk_buff_head sublist;
++	struct sk_buff *skb;
++
++	NF_HOOK_LIST(NFPROTO_IPV4, NF_INET_PRE_ROUTING, net, NULL,
++		     list, &sublist, dev, NULL, ip_rcv_finish);
++	while ((skb = __skb_dequeue(&sublist)) != NULL)
++		ip_rcv_finish(net, NULL, skb);
++}
++
++/* Receive a list of IP packets */
++void ip_list_rcv(struct sk_buff_head *list, struct packet_type *pt,
++		 struct net_device *orig_dev)
++{
++	struct net_device *curr_dev = NULL;
++	struct net *curr_net = NULL;
 +	struct sk_buff_head sublist;
 +	struct sk_buff *skb;
 +
 +	__skb_queue_head_init(&sublist);
 +
 +	while ((skb = __skb_dequeue(list)) != NULL) {
-+		struct packet_type *pt_prev;
-+		struct net_device *orig_dev = skb->dev;
++		struct net_device *dev = skb->dev;
++		struct net *net = dev_net(dev);
 +
-+		__netif_receive_skb_taps(skb, pfmemalloc, &pt_prev);
-+		if (pt_prev) {
-+			if (skb_queue_empty(&sublist)) {
-+				pt_curr = pt_prev;
-+				od_curr = orig_dev;
-+			} else if (!(pt_curr == pt_prev &&
-+				     od_curr == orig_dev)) {
-+				/* dispatch old sublist */
-+				__netif_receive_skb_list_ptype(&sublist,
-+							       pt_curr,
-+							       od_curr);
-+				/* start new sublist */
-+				__skb_queue_head_init(&sublist);
-+				pt_curr = pt_prev;
-+				od_curr = orig_dev;
-+			}
-+			__skb_queue_tail(&sublist, skb);
++		skb = ip_rcv_core(skb, net);
++		if (skb == NULL)
++			continue;
++
++		if (skb_queue_empty(&sublist)) {
++			curr_dev = dev;
++			curr_net = net;
++		} else if (curr_dev != dev || curr_net != net) {
++			/* dispatch old sublist */
++			ip_sublist_rcv(&sublist, dev, net);
++			/* start new sublist */
++			__skb_queue_head_init(&sublist);
++			curr_dev = dev;
++			curr_net = net;
 +		}
++		/* add to current sublist */
++		__skb_queue_tail(&sublist, skb);
 +	}
-+
 +	/* dispatch final sublist */
-+	__netif_receive_skb_list_ptype(&sublist, pt_curr, od_curr);
++	ip_sublist_rcv(&sublist, curr_dev, curr_net);
  }
- 
- static int __netif_receive_skb(struct sk_buff *skb)
