@@ -1,168 +1,148 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 6/9] net/mlx5e: Use vport MTU rather than physical port MTU
-Date: Tue, 19 Apr 2016 15:33:39 +0300
-Message-ID: <1461069222-27076-7-git-send-email-saeedm@mellanox.com>
-References: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH 1/4] net: thunderx: Introduce a mailbox message to reset VF counters
+Date: Tue, 19 Apr 2016 19:03:29 +0530
+Message-ID: <1461072812-44239-2-git-send-email-sunil.kovvuri@gmail.com>
+References: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
+	Jerin Jacob <jerin.jacob@caviumnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:48440 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752718AbcDSMfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2016 08:35:03 -0400
-In-Reply-To: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33210 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753295AbcDSN3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:29:46 -0400
+In-Reply-To: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set and report vport MTU rather than physical MTU,
-Driver will set both vport and physical port mtu and will
-rely on the query of vport mtu.
+From: Jerin Jacob <jerin.jacob@caviumnetworks.com>
 
-SRIOV VFs have to report their MTU to their vport manager (PF),
-and this will allow them to work with any MTU they need
-without failing the request.
+Write access to VF statistics counter register is only allowed from PF.
+Added a new mailbox message to reset VF's Rx/Tx counters, this is used
+by userspace DPDK.
 
-Also for some cases where the PF is not a port owner, PF can
-work with MTU less than the physical port mtu if set physical
-port mtu didn't take effect.
-
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
+Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   44 ++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx5/core/vport.c   |   40 +++++++++++++++++++
- include/linux/mlx5/vport.h                        |    2 +
- 3 files changed, 77 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h      |   27 ++++++++++++++
+ drivers/net/ethernet/cavium/thunder/nic_main.c |   45 ++++++++++++++++++++++++
+ 2 files changed, 72 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 93e4ef4..85773f8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1404,24 +1404,50 @@ static int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5e_priv *priv)
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 83025bb..e2ac9bd 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -368,6 +368,7 @@ struct nicvf {
+ #define	NIC_MBOX_MSG_PNICVF_PTR		0x14	/* Get primary qset nicvf ptr */
+ #define	NIC_MBOX_MSG_SNICVF_PTR		0x15	/* Send sqet nicvf ptr to PVF */
+ #define	NIC_MBOX_MSG_LOOPBACK		0x16	/* Set interface in loopback */
++#define	NIC_MBOX_MSG_RESET_STAT_COUNTER 0x17	/* Reset statistics counters */
+ #define	NIC_MBOX_MSG_CFG_DONE		0xF0	/* VF configuration done */
+ #define	NIC_MBOX_MSG_SHUTDOWN		0xF1	/* VF is being shutdown */
+ 
+@@ -484,6 +485,31 @@ struct set_loopback {
+ 	bool  enable;
+ };
+ 
++/* Reset statistics counters */
++struct reset_stat_cfg {
++	u8    msg;
++	/* Bitmap to select NIC_PF_VNIC(vf_id)_RX_STAT(0..13) */
++	u16   rx_stat_mask;
++	/* Bitmap to select NIC_PF_VNIC(vf_id)_TX_STAT(0..4) */
++	u8    tx_stat_mask;
++	/* Bitmap to select NIC_PF_QS(0..127)_RQ(0..7)_STAT(0..1)
++	 * bit14, bit15 NIC_PF_QS(vf_id)_RQ7_STAT(0..1)
++	 * bit12, bit13 NIC_PF_QS(vf_id)_RQ6_STAT(0..1)
++	 * ..
++	 * bit2, bit3 NIC_PF_QS(vf_id)_RQ1_STAT(0..1)
++	 * bit0, bit1 NIC_PF_QS(vf_id)_RQ0_STAT(0..1)
++	 */
++	u16   rq_stat_mask;
++	/* Bitmap to select NIC_PF_QS(0..127)_SQ(0..7)_STAT(0..1)
++	 * bit14, bit15 NIC_PF_QS(vf_id)_SQ7_STAT(0..1)
++	 * bit12, bit13 NIC_PF_QS(vf_id)_SQ6_STAT(0..1)
++	 * ..
++	 * bit2, bit3 NIC_PF_QS(vf_id)_SQ1_STAT(0..1)
++	 * bit0, bit1 NIC_PF_QS(vf_id)_SQ0_STAT(0..1)
++	 */
++	u16   sq_stat_mask;
++};
++
+ /* 128 bit shared memory between PF and each VF */
+ union nic_mbx {
+ 	struct { u8 msg; }	msg;
+@@ -501,6 +527,7 @@ union nic_mbx {
+ 	struct sqs_alloc        sqs_alloc;
+ 	struct nicvf_ptr	nicvf;
+ 	struct set_loopback	lbk;
++	struct reset_stat_cfg	reset_stat;
+ };
+ 
+ #define NIC_NODE_ID_MASK	0x03
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index 95f17f8..77ee260 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -616,6 +616,48 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
  	return 0;
  }
  
--static int mlx5e_set_dev_port_mtu(struct net_device *netdev)
-+static int mlx5e_set_mtu(struct mlx5e_priv *priv, u16 mtu)
- {
--	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	struct mlx5_core_dev *mdev = priv->mdev;
--	u16 hw_mtu;
-+	u16 hw_mtu = MLX5E_SW2HW_MTU(mtu);
- 	int err;
- 
--	err = mlx5_set_port_mtu(mdev, MLX5E_SW2HW_MTU(netdev->mtu), 1);
-+	err = mlx5_set_port_mtu(mdev, hw_mtu, 1);
- 	if (err)
- 		return err;
- 
--	mlx5_query_port_oper_mtu(mdev, &hw_mtu, 1);
-+	/* Update vport context MTU */
-+	mlx5_modify_nic_vport_mtu(mdev, hw_mtu);
++/* Reset statistics counters */
++static int nic_reset_stat_counters(struct nicpf *nic,
++				   int vf, struct reset_stat_cfg *cfg)
++{
++	int i, stat, qnum;
++	u64 reg_addr;
++
++	for (i = 0; i < RX_STATS_ENUM_LAST; i++) {
++		if (cfg->rx_stat_mask & BIT(i)) {
++			reg_addr = NIC_PF_VNIC_0_127_RX_STAT_0_13 |
++				   (vf << NIC_QS_ID_SHIFT) |
++				   (i << 3);
++			nic_reg_write(nic, reg_addr, 0);
++		}
++	}
++
++	for (i = 0; i < TX_STATS_ENUM_LAST; i++) {
++		if (cfg->tx_stat_mask & BIT(i)) {
++			reg_addr = NIC_PF_VNIC_0_127_TX_STAT_0_4 |
++				   (vf << NIC_QS_ID_SHIFT) |
++				   (i << 3);
++			nic_reg_write(nic, reg_addr, 0);
++		}
++	}
++
++	for (i = 0; i <= 15; i++) {
++		qnum = i >> 1;
++		stat = i & 1 ? 1 : 0;
++		reg_addr = (vf << NIC_QS_ID_SHIFT) |
++			   (qnum << NIC_Q_NUM_SHIFT) | (stat << 3);
++		if (cfg->rq_stat_mask & BIT(i)) {
++			reg_addr |= NIC_PF_QSET_0_127_RQ_0_7_STAT_0_1;
++			nic_reg_write(nic, reg_addr, 0);
++		}
++		if (cfg->sq_stat_mask & BIT(i)) {
++			reg_addr |= NIC_PF_QSET_0_127_SQ_0_7_STAT_0_1;
++			nic_reg_write(nic, reg_addr, 0);
++		}
++	}
 +	return 0;
 +}
 +
-+static void mlx5e_query_mtu(struct mlx5e_priv *priv, u16 *mtu)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u16 hw_mtu = 0;
-+	int err;
-+
-+	err = mlx5_query_nic_vport_mtu(mdev, &hw_mtu);
-+	if (err || !hw_mtu) /* fallback to port oper mtu */
-+		mlx5_query_port_oper_mtu(mdev, &hw_mtu, 1);
-+
-+	*mtu = MLX5E_HW2SW_MTU(hw_mtu);
-+}
-+
-+static int mlx5e_set_dev_port_mtu(struct net_device *netdev)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(netdev);
-+	u16 mtu;
-+	int err;
-+
-+	err = mlx5e_set_mtu(priv, netdev->mtu);
-+	if (err)
-+		return err;
- 
--	if (MLX5E_HW2SW_MTU(hw_mtu) != netdev->mtu)
--		netdev_warn(netdev, "%s: Port MTU %d is different than netdev mtu %d\n",
--			    __func__, MLX5E_HW2SW_MTU(hw_mtu), netdev->mtu);
-+	mlx5e_query_mtu(priv, &mtu);
-+	if (mtu != netdev->mtu)
-+		netdev_warn(netdev, "%s: VPort MTU %d is different than netdev mtu %d\n",
-+			    __func__, mtu, netdev->mtu);
- 
--	netdev->mtu = MLX5E_HW2SW_MTU(hw_mtu);
-+	netdev->mtu = mtu;
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index bd51840..b69dadc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -196,6 +196,46 @@ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- }
- EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_mac_address);
- 
-+int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu)
-+{
-+	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
-+	u32 *out;
-+	int err;
-+
-+	out = mlx5_vzalloc(outlen);
-+	if (!out)
-+		return -ENOMEM;
-+
-+	err = mlx5_query_nic_vport_context(mdev, 0, out, outlen);
-+	if (!err)
-+		*mtu = MLX5_GET(query_nic_vport_context_out, out,
-+				nic_vport_context.mtu);
-+
-+	kvfree(out);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_mtu);
-+
-+int mlx5_modify_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 mtu)
-+{
-+	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
-+	void *in;
-+	int err;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in)
-+		return -ENOMEM;
-+
-+	MLX5_SET(modify_nic_vport_context_in, in, field_select.mtu, 1);
-+	MLX5_SET(modify_nic_vport_context_in, in, nic_vport_context.mtu, mtu);
-+
-+	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
-+
-+	kvfree(in);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_modify_nic_vport_mtu);
-+
- int mlx5_query_nic_vport_mac_list(struct mlx5_core_dev *dev,
- 				  u32 vport,
- 				  enum mlx5_list_type list_type,
-diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
-index bd93e63..301da4a 100644
---- a/include/linux/mlx5/vport.h
-+++ b/include/linux/mlx5/vport.h
-@@ -45,6 +45,8 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 				     u16 vport, u8 *addr);
- int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
- 				      u16 vport, u8 *addr);
-+int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
-+int mlx5_modify_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 mtu);
- int mlx5_query_nic_vport_system_image_guid(struct mlx5_core_dev *mdev,
- 					   u64 *system_image_guid);
- int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid);
+ static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
+ {
+ 	int bgx, lmac;
+@@ -757,6 +799,9 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 	case NIC_MBOX_MSG_LOOPBACK:
+ 		ret = nic_config_loopback(nic, &mbx.lbk);
+ 		break;
++	case NIC_MBOX_MSG_RESET_STAT_COUNTER:
++		ret = nic_reset_stat_counters(nic, vf, &mbx.reset_stat);
++		break;
+ 	default:
+ 		dev_err(&nic->pdev->dev,
+ 			"Invalid msg from VF%d, msg 0x%x\n", vf, mbx.msg.msg);
 -- 
 1.7.1
