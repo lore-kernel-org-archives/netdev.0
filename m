@@ -1,133 +1,73 @@
-From: sunil.kovvuri@gmail.com
-Subject: [PATCH 3/4] net: thunderx: add sysfs attribute for SQS/SVF assigments
-Date: Tue, 19 Apr 2016 19:03:31 +0530
-Message-ID: <1461072812-44239-4-git-send-email-sunil.kovvuri@gmail.com>
-References: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	Radoslaw Biernacki <rad@semihalf.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Edward Cree <ecree@solarflare.com>
+Subject: [RFC PATCH net-next 0/8] Handle multiple received packets at each
+ stage
+Date: Tue, 19 Apr 2016 14:33:02 +0100
+Message-ID: <5716338E.4050003@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	<linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:23490 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752739AbcDSNdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 09:33:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Radoslaw Biernacki <rad@semihalf.com>
+Earlier discussions on this list[1] suggested that having multiple packets
+traverse the network stack together (rather than calling the stack for each
+packet singly) could improve performance through better cache locality.
+This patch series is an attempt to implement this by having drivers pass an
+SKB list to the stack at the end of the NAPI poll.  The stack then attempts
+to keep the list together, only splitting it when either packets need to be
+treated differently, or the next layer of the stack is not list-aware.
 
-With this sysfs attribute (sriov_sqs_assignment) administrator will be
-able to read the current assigment of SQS/SVF for a given VF. This is
-useful to decide which VFs needs to be attached to UIO for a successful
-allocation of secondary Qsets
+The first two patches simply place received packets on a list during the
+event processing loop on the sfc EF10 architecture, then call the normal
+stack for each packet singly at the end of the NAPI poll.
+The remaining patches extend the 'listified' processing as far as the IP
+receive handler.
 
-Signed-off-by: Radoslaw Biernacki <rad@semihalf.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nic_main.c |   67 +++++++++++++++++++++++-
- 1 files changed, 66 insertions(+), 1 deletions(-)
+Packet rate was tested with NetPerf UDP_STREAM, with 10 streams of 1-byte
+packets, and the process and interrupt pinned to a single core on the RX
+side.
+The NIC was a 40G Solarflare 7x42Q; the CPU was a Xeon E3-1220V2 @ 3.10GHz.
+Baseline:      5.07Mpps
+after patch 2: 5.59Mpps (10.2% above baseline)
+after patch 8: 6.44Mpps (25.6% above baseline)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index d6a6914..e2d8db9 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1159,6 +1159,60 @@ static void nic_poll_for_link(struct work_struct *work)
- 	queue_delayed_work(nic->check_link, &nic->dwork, HZ * 2);
- }
- 
-+ssize_t sriov_sqs_assignment_show(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
-+{
-+	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
-+	struct pci_dev *vf_dev;
-+	struct pci_driver *vf_drv;
-+	struct nicpf *nic = pci_get_drvdata(pdev);
-+	size_t vf, off, svf_idx;
-+
-+	off = scnprintf(buf, PAGE_SIZE, "%u\n", nic->num_vf_en);
-+
-+	for (vf = 0; vf < nic->num_vf_en; vf++) {
-+		vf_dev = nic->vf_pdev[vf];
-+		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off,
-+				 "%zu %04x:%02x:%02x.%d %s %c:",
-+				 vf, pci_domain_nr(vf_dev->bus),
-+				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
-+				 PCI_FUNC(vf_dev->devfn),
-+				 vf_drv ? vf_drv->name : "no-driver",
-+				 nic->vf_enabled[vf] ? '+' : '-');
-+		for (svf_idx = 0; svf_idx < MAX_SQS_PER_VF; svf_idx++) {
-+			if (off >= PAGE_SIZE)
-+				break;
-+			if (nic->vf_sqs[vf][svf_idx] == NIC_VF_UNASSIGNED)
-+				break;
-+			off += scnprintf(&buf[off], PAGE_SIZE - off, " %d",
-+					 nic->vf_sqs[vf][svf_idx]);
-+		}
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off, "\n");
-+	}
-+
-+	for (vf = nic->num_vf_en; vf < nic->num_vf_en + nic->num_sqs_en; vf++) {
-+		vf_dev = nic->vf_pdev[vf];
-+		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off,
-+				 "%zu %04x:%02x:%02x.%d %s: %u\n",
-+				 vf, pci_domain_nr(vf_dev->bus),
-+				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
-+				 PCI_FUNC(vf_dev->devfn),
-+				 vf_drv ? vf_drv->name : "no-driver",
-+				 nic->pqs_vf[vf]);
-+	}
-+
-+	return off;
-+}
-+DEVICE_ATTR_RO(sriov_sqs_assignment);
-+
- static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
- 	struct device *dev = &pdev->dev;
-@@ -1235,12 +1289,18 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_unregister_interrupts;
- 
-+	err = device_create_file(dev, &dev_attr_sriov_sqs_assignment);
-+	if (err) {
-+		err = -ENOMEM;
-+		goto err_disable_sriov;
-+	}
-+
- 	/* Register a physical link status poll fn() */
- 	nic->check_link = alloc_workqueue("check_link_status",
- 					  WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
- 	if (!nic->check_link) {
- 		err = -ENOMEM;
--		goto err_disable_sriov;
-+		goto err_remove_sysfs_attr;
- 	}
- 
- 	INIT_DELAYED_WORK(&nic->dwork, nic_poll_for_link);
-@@ -1248,6 +1308,8 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	return 0;
- 
-+err_remove_sysfs_attr:
-+	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
- err_disable_sriov:
- 	if (nic->flags & NIC_SRIOV_ENABLED) {
- 		nic_put_vf_pdev(nic);
-@@ -1266,6 +1328,9 @@ err_disable_device:
- static void nic_remove(struct pci_dev *pdev)
- {
- 	struct nicpf *nic = pci_get_drvdata(pdev);
-+	struct device *dev = &pdev->dev;
-+
-+	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
- 
- 	if (nic->flags & NIC_SRIOV_ENABLED) {
- 		nic_put_vf_pdev(nic);
--- 
-1.7.1
+I also attempted to measure the latency, but couldn't get reliable numbers;
+my best estimate is that the series cost about 160ns if interrupt moderation
+is disabled and busy-poll is enabled; about 60ns vice-versa.
+I tried adding a check in the driver to only perform bundling if interrupt
+moderation was active on the channel, but was unable to demonstrate any
+latency gain from this, so I have omitted it from this series.
+
+[1] http://thread.gmane.org/gmane.linux.network/395502
+
+Edward Cree (8):
+  net: core: trivial netif_receive_skb_list() entry point
+  sfc: batch up RX delivery on EF10
+  net: core: unwrap skb list receive slightly further
+  net: core: Another step of skb receive list processing
+  net: core: another layer of lists, around PF_MEMALLOC skb handling
+  net: core: propagate SKB lists through packet_type lookup
+  net: ipv4: listified version of ip_rcv
+  net: ipv4: listify ip_rcv_finish
+
+ drivers/net/ethernet/sfc/ef10.c       |   9 ++
+ drivers/net/ethernet/sfc/efx.c        |   2 +
+ drivers/net/ethernet/sfc/net_driver.h |   3 +
+ drivers/net/ethernet/sfc/rx.c         |   7 +-
+ include/linux/netdevice.h             |   4 +
+ include/linux/netfilter.h             |  27 ++++
+ include/linux/skbuff.h                |  16 +++
+ include/net/ip.h                      |   2 +
+ include/trace/events/net.h            |  14 ++
+ net/core/dev.c                        | 245 ++++++++++++++++++++++++++++------
+ net/ipv4/af_inet.c                    |   1 +
+ net/ipv4/ip_input.c                   | 127 ++++++++++++++++--
+ 12 files changed, 409 insertions(+), 48 deletions(-)
