@@ -1,9 +1,9 @@
 From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [RFC PATCH v2 net-next 2/7] tcp: Merge tx_flags/tskey/txstamp_ack
- in tcp_collapse_retrans
-Date: Tue, 19 Apr 2016 01:32:14 -0400
-Message-ID: <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
-References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-3-git-send-email-kafai@fb.com>
+Subject: Re: [RFC PATCH v2 net-next 3/7] tcp: Merge tx_flags/tskey/txstamp_ack
+ in tcp_shifted_skb
+Date: Tue, 19 Apr 2016 01:38:37 -0400
+Message-ID: <CACSApvby=6cnYiZQAZnzvdjgwOz1WiO46aij3rcAx6U55BBOHQ@mail.gmail.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-4-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
@@ -14,37 +14,34 @@ Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
 	Kernel Team <kernel-team@fb.com>
 To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:33019 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751741AbcDSFdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:33:00 -0400
-Received: by mail-ob0-f180.google.com with SMTP id tz8so2982688obc.0
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:32:59 -0700 (PDT)
-In-Reply-To: <1461019569-3037369-3-git-send-email-kafai@fb.com>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:34219 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092AbcDSFjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:39:17 -0400
+Received: by mail-ob0-f169.google.com with SMTP id bg3so2992470obb.1
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:39:17 -0700 (PDT)
+In-Reply-To: <1461019569-3037369-4-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> If two skbs are merged/collapsed during retransmission, the current
-> logic does not merge the tx_flags, tskey and txstamp_ack.  The end
-> result is the SCM_TSTAMP_ACK timestamp could be missing for a
-> packet that the end-user has specifically turned on
-> SOF_TIMESTAMPING_TX_ACK (e.g. by cmsg).
+> After receiving sacks, tcp_shifted_skb() will collapse
+> skbs if possible.  tx_flags/tskey/txstamp_ack also has
+> to be merged in this case.
 >
-> The patch:
-> 1. Merge the tx_flags and txstamp_ack
-> 2. Overwrite the tskey with the later skb (next_skb)
+> This patch resues the tcp_skb_collapse_tstamp() to handle
+> them.
 >
 > BPF Output Before:
-> ~~~~~~
+> ~~~~~
 > <no-output-due-to-missing-tstamp-event>
 >
 > BPF Output After:
-> ~~~~~~
-> packetdrill-2092  [001] d.s.   453.998486: : ee_data:1459
+> ~~~~~
+> <...>-2024  [007] d.s.    88.644374: : ee_data:14599
 >
 > Packetdrill Script:
-> ~~~~~~
+> ~~~~~
 > +0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
 > +0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
 > +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
@@ -58,89 +55,81 @@ On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
 > 0.200 accept(3, ..., ...) = 4
 > +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
 >
-> 0.200 write(4, ..., 730) = 730
+> 0.200 write(4, ..., 1460) = 1460
 > +0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
-> 0.200 write(4, ..., 730) = 730
+> 0.200 write(4, ..., 13140) = 13140
 > +0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
-> 0.200 write(4, ..., 11680) = 11680
 >
-> 0.200 > P. 1:731(730) ack 1
-> 0.200 > P. 731:1461(730) ack 1
+> 0.200 > P. 1:1461(1460) ack 1
 > 0.200 > . 1461:8761(7300) ack 1
-> 0.200 > P. 8761:13141(4380) ack 1
+> 0.200 > P. 8761:14601(5840) ack 1
 >
-> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:2921,nop,nop>
-> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:4381,nop,nop>
-> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:5841,nop,nop>
+> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:14601,nop,nop>
 > 0.300 > P. 1:1461(1460) ack 1
-> 0.400 < . 1:1(0) ack 13141 win 257
+> 0.400 < . 1:1(0) ack 14601 win 257
 >
 > 0.400 close(4) = 0
-> 0.400 > F. 13141:13141(0) ack 1
-> 0.500 < F. 1:1(0) ack 13142 win 257
-> 0.500 > . 13142:13142(0) ack 2
+> 0.400 > F. 14601:14601(0) ack 1
+> 0.500 < F. 1:1(0) ack 14602 win 257
+> 0.500 > . 14602:14602(0) ack 2
 >
 > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 > Cc: Eric Dumazet <edumazet@google.com>
 > Cc: Neal Cardwell <ncardwell@google.com>
 > Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 
-Cc:  Soheil Hassas Yeganeh <soheil@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
 > Cc: Willem de Bruijn <willemb@google.com>
 > Cc: Yuchung Cheng <ycheng@google.com>
 > ---
->  net/ipv4/tcp_output.c | 18 ++++++++++++++++++
->  1 file changed, 18 insertions(+)
+>  include/net/tcp.h     | 2 ++
+>  net/ipv4/tcp_input.c  | 1 +
+>  net/ipv4/tcp_output.c | 4 ++--
+>  3 files changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index fd40f8c..c0ef054 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -557,6 +557,8 @@ void tcp_send_ack(struct sock *sk);
+>  void tcp_send_delayed_ack(struct sock *sk);
+>  void tcp_send_loss_probe(struct sock *sk);
+>  bool tcp_schedule_loss_probe(struct sock *sk);
+> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> +                            const struct sk_buff *next_skb);
+>
+>  /* tcp_input.c */
+>  void tcp_resume_early_retransmit(struct sock *sk);
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 5e45a9c..75e8336 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1309,6 +1309,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+>         if (skb == tcp_highest_sack(sk))
+>                 tcp_advance_highest_sack(sk, skb);
+>
+> +       tcp_skb_collapse_tstamp(prev, skb);
+>         tcp_unlink_write_queue(skb, sk);
+>         sk_wmem_free_skb(sk, skb);
 >
 > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 0527ce9..889ed96 100644
+> index 889ed96..d21a78f 100644
 > --- a/net/ipv4/tcp_output.c
 > +++ b/net/ipv4/tcp_output.c
-> @@ -2443,6 +2443,22 @@ u32 __tcp_select_window(struct sock *sk)
+> @@ -2443,8 +2443,8 @@ u32 __tcp_select_window(struct sock *sk)
 >         return window;
 >  }
 >
-> +static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-> +                                   const struct sk_buff *next_skb)
-> +{
-> +       const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
-> +
-> +       if (unlikely(next_shinfo->tx_flags & SKBTX_ANY_TSTAMP)) {
-> +               struct skb_shared_info *shinfo = skb_shinfo(skb);
-> +               u8 tsflags = next_shinfo->tx_flags & SKBTX_ANY_TSTAMP;
-
-nit: maybe move this local variable out of the if block?
-
-      tsflags = ...
-      if (unlikely(tsflags)) { ... }
-
-> +
-> +               shinfo->tx_flags |= tsflags;
-> +               shinfo->tskey = next_shinfo->tskey;
-> +               TCP_SKB_CB(skb)->txstamp_ack =
-> +                       !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
-
-Maybe we can skip a conditional jump here (because of !!), by simply
-using the cached bit in next_skb:
-TCP_SKB_CB(skb)->txstamp_ack = TCP_SKB_CB(next_skb)->txstamp_ack;
-
-> +       }
-> +}
-> +
->  /* Collapses two adjacent SKB's during retransmission. */
->  static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+> -static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> -                                   const struct sk_buff *next_skb)
+> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> +                            const struct sk_buff *next_skb)
 >  {
-> @@ -2486,6 +2502,8 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+>         const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
 >
->         tcp_adjust_pcount(sk, next_skb, tcp_skb_pcount(next_skb));
->
-> +       tcp_skb_collapse_tstamp(skb, next_skb);
-> +
->         sk_wmem_free_skb(sk, next_skb);
->  }
 
-Really nice fixes! thanks.
+nice, thanks for the fix!
 
 > --
 > 2.5.1
