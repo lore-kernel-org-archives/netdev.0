@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 2/4] net: thunderx: Add multiqset support for dataplane apps
-Date: Tue, 19 Apr 2016 19:03:30 +0530
-Message-ID: <1461072812-44239-3-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 3/4] net: thunderx: add sysfs attribute for SQS/SVF assigments
+Date: Tue, 19 Apr 2016 19:03:31 +0530
+Message-ID: <1461072812-44239-4-git-send-email-sunil.kovvuri@gmail.com>
 References: <1461072812-44239-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
@@ -14,376 +14,120 @@ List-Id: netdev.vger.kernel.org
 
 From: Radoslaw Biernacki <rad@semihalf.com>
 
-This patch adds support to PF for allocating additional Qsets to
-dataplane apps such as DPDK. Till now PF, upon host bound interface's
-request it used to allocate Qsets from the free ones, but for dataplane
-apps support has been added for it to request specific Qsets instead of
-just PF's choice.
-
-And also adds validation checks at different places, these are needed to
- have proper secondary Qset allocation when interfaces in different domain
-i.e Host, VFIO, DPDK e.t.c exist at the same time.
-
-Some of the checks are
-- Check if RSS indirection table has valid entries.
-- When host bound interface requests additional Qsets, PF should
-  assign only those which in host domain i.e both primary VF and
-  secondary VFs should be using same driver. Hence added PCI driver
-  checks.
-- If dataplane app terminates without proper shutdown then when
-  restarted it will request the same or different SQsets as were
-  assigned before. This is taken care of otherwise application
-  won't recover.
-
-Removed 'sqs_used' which became redundant due to new SQset allocation scheme.
+With this sysfs attribute (sriov_sqs_assignment) administrator will be
+able to read the current assigment of SQS/SVF for a given VF. This is
+useful to decide which VFs needs to be attached to UIO for a successful
+allocation of secondary Qsets
 
 Signed-off-by: Radoslaw Biernacki <rad@semihalf.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h        |    5 +-
- drivers/net/ethernet/cavium/thunder/nic_main.c   |  193 +++++++++++++++++++---
- drivers/net/ethernet/cavium/thunder/nicvf_main.c |    2 +-
- 3 files changed, 170 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic_main.c |   67 +++++++++++++++++++++++-
+ 1 files changed, 66 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index e2ac9bd..b63278a 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -463,11 +463,12 @@ struct bgx_link_status {
- 	u32   speed;
- };
- 
--/* Get Extra Qset IDs */
-+/* Allocate additional SQS to VF */
- struct sqs_alloc {
- 	u8    msg;
--	u8    vf_id;
-+	u8    spec; /* 1 - For specific SQS allocation, 0 - For PF's choice */
- 	u8    qs_count;
-+	u8    svf[MAX_SQS_PER_VF]; /* SQS VF ids for specific allocation */
- };
- 
- struct nicvf_ptr {
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 77ee260..d6a6914 100644
+index d6a6914..e2d8db9 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -29,9 +29,9 @@ struct nicpf {
- 	void __iomem		*reg_base;       /* Register start address */
- 	u8			num_sqs_en;	/* Secondary qsets enabled */
- 	u64			nicvf[MAX_NUM_VFS_SUPPORTED];
-+#define	NIC_VF_UNASSIGNED	((u8)0xFF)
- 	u8			vf_sqs[MAX_NUM_VFS_SUPPORTED][MAX_SQS_PER_VF];
- 	u8			pqs_vf[MAX_NUM_VFS_SUPPORTED];
--	bool			sqs_used[MAX_NUM_VFS_SUPPORTED];
- 	struct pkind_cfg	pkind;
- #define	NIC_SET_VF_LMAC_MAP(bgx, lmac)	(((bgx & 0xF) << 4) | (lmac & 0xF))
- #define	NIC_GET_BGX_FROM_VF_LMAC_MAP(map)	((map >> 4) & 0xF)
-@@ -46,6 +46,7 @@ struct nicpf {
- 	u16			rssi_base[MAX_NUM_VFS_SUPPORTED];
- 	u16			rss_ind_tbl_size;
- 	bool			mbx_lock[MAX_NUM_VFS_SUPPORTED];
-+	struct pci_dev		*vf_pdev[MAX_NUM_VFS_SUPPORTED];
- 
- 	/* MSI-X */
- 	bool			msix_enabled;
-@@ -458,10 +459,18 @@ static void nic_config_rss(struct nicpf *nic, struct rss_cfg_msg *cfg)
- 	for (; rssi < (rssi_base + cfg->tbl_len); rssi++) {
- 		u8 svf = cfg->ind_tbl[idx] >> 3;
- 
--		if (svf)
-+		if (svf && (svf <= MAX_SQS_PER_VF)) {
- 			qset = nic->vf_sqs[cfg->vf_id][svf - 1];
--		else
-+			if ((qset >= MAX_NUM_VFS_SUPPORTED) ||
-+			    (nic->pqs_vf[qset] != cfg->vf_id)) {
-+				dev_err(&nic->pdev->dev,
-+					"Invalid rss table entry %d from VF %d\n",
-+					cfg->ind_tbl[idx], cfg->vf_id);
-+				qset = cfg->vf_id;
-+			}
-+		} else {
- 			qset = cfg->vf_id;
-+		}
- 		nic_reg_write(nic, NIC_PF_RSSI_0_4097_RQ | (rssi << 3),
- 			      (qset << 3) | (cfg->ind_tbl[idx] & 0x7));
- 		idx++;
-@@ -550,7 +559,19 @@ static void nic_send_pnicvf(struct nicpf *nic, int sqs)
- static void nic_send_snicvf(struct nicpf *nic, struct nicvf_ptr *nicvf)
- {
- 	union nic_mbx mbx = {};
--	int sqs_id = nic->vf_sqs[nicvf->vf_id][nicvf->sqs_id];
-+	int sqs_id;
-+
-+	if (nicvf->sqs_id >= MAX_SQS_PER_VF) {
-+		nic_mbx_send_nack(nic, nicvf->vf_id);
-+		return;
-+	}
-+
-+	sqs_id = nic->vf_sqs[nicvf->vf_id][nicvf->sqs_id];
-+	if ((sqs_id < nic->num_vf_en) ||
-+	    (nic->pqs_vf[sqs_id] != nicvf->vf_id)) {
-+		nic_mbx_send_nack(nic, nicvf->vf_id);
-+		return;
-+	}
- 
- 	mbx.nicvf.msg = NIC_MBOX_MSG_SNICVF_PTR;
- 	mbx.nicvf.sqs_id = nicvf->sqs_id;
-@@ -558,47 +579,150 @@ static void nic_send_snicvf(struct nicpf *nic, struct nicvf_ptr *nicvf)
- 	nic_send_msg_to_vf(nic, nicvf->vf_id, &mbx);
+@@ -1159,6 +1159,60 @@ static void nic_poll_for_link(struct work_struct *work)
+ 	queue_delayed_work(nic->check_link, &nic->dwork, HZ * 2);
  }
  
-+/* Find and take reference to all vf devices */
-+static void nic_get_vf_pdev(struct nicpf *nic, int vf_en)
++ssize_t sriov_sqs_assignment_show(struct device *dev,
++				  struct device_attribute *attr, char *buf)
 +{
-+	struct pci_dev *pdev = nic->pdev;
-+	struct pci_dev *vfdev;
-+	u16 vid = pdev->vendor;
-+	u16 devid;
-+	int vf = 0, pos;
++	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
++	struct pci_dev *vf_dev;
++	struct pci_driver *vf_drv;
++	struct nicpf *nic = pci_get_drvdata(pdev);
++	size_t vf, off, svf_idx;
 +
-+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
-+	if (!pos)
-+		return;
-+	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_DID, &devid);
++	off = scnprintf(buf, PAGE_SIZE, "%u\n", nic->num_vf_en);
 +
-+	vfdev = pci_get_device(vid, devid, NULL);
-+	for (; vfdev; vfdev = pci_get_device(vid, devid, vfdev)) {
-+		if (!vfdev->is_virtfn)
-+			continue;
-+		if (vfdev->physfn != pdev)
-+			continue;
-+		if (vf >= vf_en)
-+			continue;
-+		nic->vf_pdev[vf] = vfdev;
-+		pci_dev_get(vfdev);
-+		++vf;
++	for (vf = 0; vf < nic->num_vf_en; vf++) {
++		vf_dev = nic->vf_pdev[vf];
++		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
++		if (off >= PAGE_SIZE)
++			break;
++		off += scnprintf(&buf[off], PAGE_SIZE - off,
++				 "%zu %04x:%02x:%02x.%d %s %c:",
++				 vf, pci_domain_nr(vf_dev->bus),
++				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
++				 PCI_FUNC(vf_dev->devfn),
++				 vf_drv ? vf_drv->name : "no-driver",
++				 nic->vf_enabled[vf] ? '+' : '-');
++		for (svf_idx = 0; svf_idx < MAX_SQS_PER_VF; svf_idx++) {
++			if (off >= PAGE_SIZE)
++				break;
++			if (nic->vf_sqs[vf][svf_idx] == NIC_VF_UNASSIGNED)
++				break;
++			off += scnprintf(&buf[off], PAGE_SIZE - off, " %d",
++					 nic->vf_sqs[vf][svf_idx]);
++		}
++		if (off >= PAGE_SIZE)
++			break;
++		off += scnprintf(&buf[off], PAGE_SIZE - off, "\n");
 +	}
-+}
 +
-+/* Release references to all vf devices */
-+static void nic_put_vf_pdev(struct nicpf *nic)
-+{
-+	int vf;
-+
-+	for (vf = 0; vf < MAX_NUM_VFS_SUPPORTED; vf++) {
-+		struct pci_dev *vfdev = nic->vf_pdev[vf];
-+
-+		nic->vf_pdev[vf] = NULL;
-+		if (vfdev)
-+			pci_dev_put(vfdev);
++	for (vf = nic->num_vf_en; vf < nic->num_vf_en + nic->num_sqs_en; vf++) {
++		vf_dev = nic->vf_pdev[vf];
++		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
++		if (off >= PAGE_SIZE)
++			break;
++		off += scnprintf(&buf[off], PAGE_SIZE - off,
++				 "%zu %04x:%02x:%02x.%d %s: %u\n",
++				 vf, pci_domain_nr(vf_dev->bus),
++				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
++				 PCI_FUNC(vf_dev->devfn),
++				 vf_drv ? vf_drv->name : "no-driver",
++				 nic->pqs_vf[vf]);
 +	}
++
++	return off;
 +}
++DEVICE_ATTR_RO(sriov_sqs_assignment);
 +
-+/* Check if pri.VF and sec.VF are in same domain i.e bound to same driver */
-+static bool nic_check_svf_drv(struct nicpf *nic, u8 pvf, u8 svf)
-+{
-+	return pci_dev_driver(nic->vf_pdev[pvf]) ==
-+	       pci_dev_driver(nic->vf_pdev[svf]);
-+}
-+
- /* Find next available Qset that can be assigned as a
-  * secondary Qset to a VF.
-  */
--static int nic_nxt_avail_sqs(struct nicpf *nic)
-+static int nic_nxt_avail_sqs(struct nicpf *nic, u8 pvf)
- {
- 	int sqs;
- 
--	for (sqs = 0; sqs < nic->num_sqs_en; sqs++) {
--		if (!nic->sqs_used[sqs])
--			nic->sqs_used[sqs] = true;
-+	for (sqs = nic->num_vf_en;
-+	     sqs < (nic->num_vf_en + nic->num_sqs_en); sqs++) {
-+		if ((nic->pqs_vf[sqs] == NIC_VF_UNASSIGNED) &&
-+		    nic_check_svf_drv(nic, pvf, sqs))
-+			nic->pqs_vf[sqs] = pvf;
- 		else
- 			continue;
--		return sqs + nic->num_vf_en;
-+		return sqs;
- 	}
- 	return -1;
- }
- 
- /* Allocate additional Qsets for requested VF */
--static void nic_alloc_sqs(struct nicpf *nic, struct sqs_alloc *sqs)
-+static void nic_alloc_sqs(struct nicpf *nic, u8 pvf, struct sqs_alloc *sqs)
- {
- 	union nic_mbx mbx = {};
- 	int idx, alloc_qs = 0;
- 	int sqs_id;
- 
--	if (!nic->num_sqs_en)
-+	if (!nic->num_sqs_en || (sqs->qs_count > MAX_SQS_PER_VF))
- 		goto send_mbox;
- 
--	for (idx = 0; idx < sqs->qs_count; idx++) {
--		sqs_id = nic_nxt_avail_sqs(nic);
--		if (sqs_id < 0)
--			break;
--		nic->vf_sqs[sqs->vf_id][idx] = sqs_id;
--		nic->pqs_vf[sqs_id] = sqs->vf_id;
--		alloc_qs++;
-+	if (sqs->spec) {
-+		for (idx = 0; idx < sqs->qs_count; idx++) {
-+			sqs_id = sqs->svf[idx];
-+
-+			/* Check if desired SQS is within the allowed range */
-+			if (!((sqs_id >= nic->num_vf_en) &&
-+			      (sqs_id < (nic->num_vf_en + nic->num_sqs_en)))) {
-+				dev_err(&nic->pdev->dev,
-+					"Req SQS is invalid sqs->svf[%d]=%u",
-+					idx, sqs_id);
-+				break;
-+			}
-+
-+			/* Check if desired SQS is free or assigned to a PVF */
-+			if ((nic->pqs_vf[sqs_id] != NIC_VF_UNASSIGNED) &&
-+			    (nic->pqs_vf[sqs_id] != pvf)) {
-+				dev_err(&nic->pdev->dev,
-+					"SQS%d is already allocated to VF%u",
-+					sqs_id, nic->pqs_vf[sqs_id]);
-+				break;
-+			}
-+
-+			/* Check if SQS is bound to the same driver as PVF */
-+			if (!nic_check_svf_drv(nic, pvf, sqs_id)) {
-+				dev_err(&nic->pdev->dev,
-+					"SQS%d use different driver", sqs_id);
-+				break;
-+			}
-+		}
-+
-+		if (idx != sqs->qs_count)
-+			goto send_mbox;
-+
-+		/* Clear any existing assignments */
-+		for (idx = 0; idx < MAX_SQS_PER_VF; idx++)
-+			nic->vf_sqs[pvf][idx] = NIC_VF_UNASSIGNED;
-+		for (idx = nic->num_vf_en;
-+		     idx < (nic->num_vf_en + nic->num_sqs_en); idx++) {
-+			if (nic->pqs_vf[idx] == pvf)
-+				nic->pqs_vf[idx] = NIC_VF_UNASSIGNED;
-+		}
-+
-+		/* Populate VF's SQS table */
-+		for (idx = 0; idx < sqs->qs_count; idx++) {
-+			sqs_id = sqs->svf[idx];
-+			nic->vf_sqs[pvf][idx] = sqs_id;
-+			nic->pqs_vf[sqs_id] = pvf;
-+			mbx.sqs_alloc.svf[idx] = sqs_id;
-+		}
-+		alloc_qs = idx;
-+	} else {
-+		for (idx = 0; idx < sqs->qs_count; idx++) {
-+			sqs_id = nic_nxt_avail_sqs(nic, pvf);
-+			if (sqs_id < 0)
-+				break;
-+			nic->vf_sqs[pvf][idx] = sqs_id;
-+			nic->pqs_vf[sqs_id] = pvf;
-+			mbx.sqs_alloc.svf[idx] = sqs_id;
-+		}
-+		alloc_qs = idx;
- 	}
- 
- send_mbox:
- 	mbx.sqs_alloc.msg = NIC_MBOX_MSG_ALLOC_SQS;
--	mbx.sqs_alloc.vf_id = sqs->vf_id;
- 	mbx.sqs_alloc.qs_count = alloc_qs;
--	nic_send_msg_to_vf(nic, sqs->vf_id, &mbx);
-+	nic_send_msg_to_vf(nic, pvf, &mbx);
- }
- 
- static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
-@@ -776,13 +900,15 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		goto unlock;
- 	case NIC_MBOX_MSG_SHUTDOWN:
- 		/* First msg in VF teardown sequence */
--		if (vf >= nic->num_vf_en)
--			nic->sqs_used[vf - nic->num_vf_en] = false;
--		nic->pqs_vf[vf] = 0;
-+		if (vf < nic->num_vf_en) {
-+			for (i = 0; i < MAX_SQS_PER_VF; i++)
-+				nic->vf_sqs[vf][i] = NIC_VF_UNASSIGNED;
-+		}
-+		nic->pqs_vf[vf] = NIC_VF_UNASSIGNED;
- 		nic_enable_vf(nic, vf, false);
- 		break;
- 	case NIC_MBOX_MSG_ALLOC_SQS:
--		nic_alloc_sqs(nic, &mbx.sqs_alloc);
-+		nic_alloc_sqs(nic, vf, &mbx.sqs_alloc);
- 		goto unlock;
- 	case NIC_MBOX_MSG_NICVF_PTR:
- 		nic->nicvf[vf] = mbx.nicvf.nicvf;
-@@ -979,6 +1105,8 @@ static int nic_sriov_init(struct pci_dev *pdev, struct nicpf *nic)
- 		return err;
- 	}
- 
-+	nic_get_vf_pdev(nic, vf_en);
-+
- 	dev_info(&pdev->dev, "SRIOV enabled, number of VF available %d\n",
- 		 vf_en);
- 
-@@ -1035,7 +1163,7 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
  	struct device *dev = &pdev->dev;
- 	struct nicpf *nic;
--	int    err;
-+	int    err, vf, sqs;
+@@ -1235,12 +1289,18 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_unregister_interrupts;
  
- 	BUILD_BUG_ON(sizeof(union nic_mbx) > 16);
- 
-@@ -1090,6 +1218,13 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* Set RSS TBL size for each VF */
- 	nic->rss_ind_tbl_size = NIC_MAX_RSS_IDR_TBL_SIZE;
- 
-+	/* Initialize all VF's primary Qset */
-+	for (vf = 0; vf < MAX_NUM_VFS_SUPPORTED; vf++) {
-+		nic->pqs_vf[vf] = NIC_VF_UNASSIGNED;
-+		for (sqs = 0; sqs < MAX_SQS_PER_VF; sqs++)
-+			nic->vf_sqs[vf][sqs] = NIC_VF_UNASSIGNED;
++	err = device_create_file(dev, &dev_attr_sriov_sqs_assignment);
++	if (err) {
++		err = -ENOMEM;
++		goto err_disable_sriov;
 +	}
 +
- 	/* Register interrupts */
- 	err = nic_register_interrupts(nic);
- 	if (err)
-@@ -1114,8 +1249,10 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* Register a physical link status poll fn() */
+ 	nic->check_link = alloc_workqueue("check_link_status",
+ 					  WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+ 	if (!nic->check_link) {
+ 		err = -ENOMEM;
+-		goto err_disable_sriov;
++		goto err_remove_sysfs_attr;
+ 	}
+ 
+ 	INIT_DELAYED_WORK(&nic->dwork, nic_poll_for_link);
+@@ -1248,6 +1308,8 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
  	return 0;
  
++err_remove_sysfs_attr:
++	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
  err_disable_sriov:
--	if (nic->flags & NIC_SRIOV_ENABLED)
-+	if (nic->flags & NIC_SRIOV_ENABLED) {
-+		nic_put_vf_pdev(nic);
- 		pci_disable_sriov(pdev);
-+	}
- err_unregister_interrupts:
- 	nic_unregister_interrupts(nic);
- err_release_regions:
-@@ -1130,8 +1267,10 @@ static void nic_remove(struct pci_dev *pdev)
+ 	if (nic->flags & NIC_SRIOV_ENABLED) {
+ 		nic_put_vf_pdev(nic);
+@@ -1266,6 +1328,9 @@ err_disable_device:
+ static void nic_remove(struct pci_dev *pdev)
  {
  	struct nicpf *nic = pci_get_drvdata(pdev);
++	struct device *dev = &pdev->dev;
++
++	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
  
--	if (nic->flags & NIC_SRIOV_ENABLED)
-+	if (nic->flags & NIC_SRIOV_ENABLED) {
-+		nic_put_vf_pdev(nic);
- 		pci_disable_sriov(pdev);
-+	}
- 
- 	if (nic->check_link) {
- 		/* Destroy work Queue */
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index bfee298..87d0f56 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -386,7 +386,7 @@ static void nicvf_request_sqs(struct nicvf *nic)
- 		return;
- 
- 	mbx.sqs_alloc.msg = NIC_MBOX_MSG_ALLOC_SQS;
--	mbx.sqs_alloc.vf_id = nic->vf_id;
-+	mbx.sqs_alloc.spec = 0; /* Let PF choose which SQS to alloc */
- 	mbx.sqs_alloc.qs_count = nic->sqs_count;
- 	if (nicvf_send_msg_to_pf(nic, &mbx)) {
- 		/* No response from PF */
+ 	if (nic->flags & NIC_SRIOV_ENABLED) {
+ 		nic_put_vf_pdev(nic);
 -- 
 1.7.1
