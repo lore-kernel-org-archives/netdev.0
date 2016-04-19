@@ -1,37 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/8] sfc: batch up RX delivery on EF10
-Date: Tue, 19 Apr 2016 07:47:37 -0700
-Message-ID: <1461077257.10638.185.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5716338E.4050003@solarflare.com>
-	 <57163404.2000507@solarflare.com>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH] rtl8xxxu: hide unused tables
+Date: Tue, 19 Apr 2016 10:49:08 -0400
+Message-ID: <wrfjzisp64d7.fsf@redhat.com>
+References: <1461016782-2640046-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
+Content-Type: text/plain
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Jakub Sitnicki <jsitnicki@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33640 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbcDSOrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 10:47:39 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 184so7610694pff.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 07:47:38 -0700 (PDT)
-In-Reply-To: <57163404.2000507@solarflare.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56169 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754481AbcDSOtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 10:49:11 -0400
+In-Reply-To: <1461016782-2640046-1-git-send-email-arnd@arndb.de> (Arnd
+	Bergmann's message of "Mon, 18 Apr 2016 23:59:31 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-19 at 14:35 +0100, Edward Cree wrote:
-> Improves packet rate of 1-byte UDP receives by 10%.
+Arnd Bergmann <arnd@arndb.de> writes:
+> The references to some arrays in the rtl8xxxu driver were moved inside
+> of an #ifdef, but the symbols remain outside, resulting in build warnings:
+>
+> rtl8xxxu/rtl8xxxu.c:1506:33: error: 'rtl8188ru_radioa_1t_highpa_table' defined but not used
+> rtl8xxxu/rtl8xxxu.c:1431:33: error: 'rtl8192cu_radioa_1t_init_table' defined but not used
+> rtl8xxxu/rtl8xxxu.c:1407:33: error: 'rtl8192cu_radiob_2t_init_table' defined but not used
+> rtl8xxxu/rtl8xxxu.c:1332:33: error: 'rtl8192cu_radioa_2t_init_table' defined but not used
+> rtl8xxxu/rtl8xxxu.c:239:35: error: 'rtl8192c_power_base' defined but not used
+> rtl8xxxu/rtl8xxxu.c:217:35: error: 'rtl8188r_power_base' defined but not used
+>
+> This adds an extra #ifdef around them to shut up the warnings.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 2fc0b8e5a17d ("rtl8xxxu: Add TX power base values for gen1 parts")
+> Fixes: 4062b8ffec36 ("rtl8xxxu: Move PHY RF init into device specific functions")
+> ---
+>  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 4 ++++
+>  1 file changed, 4 insertions(+)
 
-Sure, by adding yet another queue and extra latencies.
+I'll apply it to my tree!
 
-If the switch delivered a high prio packet to your host right before a
-train of 60 low prio packets, this is not to allow us to wait the end of
-the train.
-
-We have to really invent something better, like a real pipeline, instead
-of hacks like this, adding complexity everywhere.
-
-Have you tested this on cpus with tiny caches, like 32KB ?
+Thanks,
+Jes
