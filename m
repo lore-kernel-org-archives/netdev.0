@@ -1,68 +1,58 @@
-From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
-Date: Tue, 19 Apr 2016 18:54:02 +0100
-Message-ID: <20160419175402.GE3217@sirena.org.uk>
-References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
- <14313437.cDJIgY3kzo@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
- <1463330011.BhWEcYYuGD@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
- <20160419171239.GC3217@sirena.org.uk>
- <sjdvun1fuj4nyi0bgf268g53.1461086401627@email.android.com>
- <20160419172706.GD3217@sirena.org.uk>
- <oe8hqfknrcljrjawnrxlohvr.1461087275186@email.android.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
+Date: Tue, 19 Apr 2016 10:54:40 -0700
+Message-ID: <1461088480.10638.221.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <5716338E.4050003@solarflare.com>
+	 <5716347D.3030808@solarflare.com>
+	 <1461077434.10638.189.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALx6S34ZFFFZVn2_ugp+eQg6QhdHj=CWPuvW3s9aC2dg75nqiQ@mail.gmail.com>
+	 <57166719.4070209@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="xzV2nyj/vUZRUtI2"
-Cc: "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	=?utf-8?B?15DXmdeZ15wg16jXmdeZ15bXqA==?= <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <oe8hqfknrcljrjawnrxlohvr.1461087275186-2ueSQiBKiTY7tOexoI0I+QC/G2K4zDHf@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34498 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933531AbcDSRyk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:54:40 -0400
+Received: by mail-pf0-f169.google.com with SMTP id c20so8992002pfc.1
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 10:54:40 -0700 (PDT)
+In-Reply-To: <57166719.4070209@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2016-04-19 at 18:12 +0100, Edward Cree wrote:
 
---xzV2nyj/vUZRUtI2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> I think if we pushed bundled RX all the way up to the TCP layer, it might
+> potentially also be faster than GRO, because it avoids the work of
+> coalescing superframes; plus going through the GRO callbacks for each
+> packet could end up blowing icache in the same way the regular stack does.
+> If bundling did prove faster, we could then remove GRO, and overall
+> complexity would be _reduced_.
 
-On Tue, Apr 19, 2016 at 05:38:02PM +0000, Reizer, Eyal wrote:
-> Hi Mark,
->=20
-> Hope you can see the attached picture that illustrates what need to sent =
-for sucesfull SPI init.
+Oh well. You really are coming 8 years too late.
 
-I think what the picture shows is that you just need to send at least
-one byte at the end of the transfer *after* deasserting /CS which is
-totally not what I'd have understood from any of the previous
-discussion.  That is already supported, just send an extra byte using
-=2Ecs_change to do what is says.
+I receive ~40 Gbit on a _single_ TCP flow with GRO, I have no idea what
+you expect to get without GRO, but my educated guess is :
 
---xzV2nyj/vUZRUtI2
-Content-Type: application/pgp-signature; name="signature.asc"
+It will be horrible, and will add memory overhead. (remember GRO shares
+a single sk_buff/head for all the segs)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+And as a bonus, GRO works also on forwarding workloads, when this packet
+is delivered to another NIC or a virtual device.
 
-iQEcBAEBCAAGBQJXFnC3AAoJECTWi3JdVIfQU8kH/3jz5VWTyBTQmHtKqmredWGw
-RCR7Gu9WWJy4QZKDJsnKK0bfYB2uwv2CoiWQoHsfKmnQUOImfeO3AsoMqKgFOqlB
-ejS61RJfH8LGFv9vYR+6+hiAetRz1QU8klHemhxZ+DoYkTeqTW2hb6Igzr2TVrEi
-OJQDhPYSBJFqEjrd3U7Ew/lLHmpTmq0ITo2OPn203djVqUlaBnS/jbS5LFriGfds
-cAd6FKENsrYdq3r4YNpoi7pD2heRWK4mPKzSrza6cAN//HB7Uqx0FO9A2tsh4Q7+
-bsyY/GKjhwuo6CfP0LVuzcw8pQ+WaMj4lOa86b2W0t4ZzITDHEQC3BLsFKhWAEo=
-=1OGS
------END PGP SIGNATURE-----
+Are you claiming TSO is useless ?
 
---xzV2nyj/vUZRUtI2--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It is not because a model works well in some other stack (userspace I
+guess), that we have to copy it in linux kernel.
+
+Feel free to experiment things, but if your non GRO solution is slower
+than GRO, don't even mention it here.
+
+Remember to test things with a realistic iptables setup.
