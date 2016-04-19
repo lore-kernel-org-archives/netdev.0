@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] drivers: net: cpsw: Prevent NUll pointer
- dereference with two PHYs
-Date: Tue, 19 Apr 2016 12:05:28 -0400 (EDT)
-Message-ID: <20160419.120528.249343005652011691.davem@davemloft.net>
-References: <1461074186-25535-1-git-send-email-andrew.goodbody@cambrionix.com>
-	<1461074186-25535-2-git-send-email-andrew.goodbody@cambrionix.com>
-	<57164383.6080103@ti.com>
+From: "Reyes, Irene" <Irene.Reyes@bartshealth.nhs.uk>
+Subject: RE: LOG ON TO ITHELPDESK TO VALIDATE YOUR MAILBOX
+Date: Tue, 19 Apr 2016 16:08:19 +0000
+Message-ID: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E777E8__22491.8173779317$1461082245$gmane$org@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
+References: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E75F85@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrew.goodbody@cambrionix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	mugunthanvnm@ti.com, tony@atomide.com
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57164383.6080103@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Reyes, Irene" <Irene.Reyes@bartshealth.nhs.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.e.amses.net ([213.161.89.71]:14844 "EHLO
+	smtp1.e.amses.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933198AbcDSQKD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:10:03 -0400
+In-Reply-To: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E75F85@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Tue, 19 Apr 2016 17:41:07 +0300
 
-> David, Is it possible to drop prev version of this patch from linux-next
-> - it breaks boot on many TI boards with -next.
+________________________________
+From: Reyes, Irene
+Sent: 19 April 2016 16:38
+To: Reyes, Irene
+Subject: LOG ON TO ITHELPDESK TO VALIDATE YOUR MAILBOX
 
-It doesn't work that way, I cannot "drop" patches.
-
-One has to send me a fix to the existing patch, or a revert.
+http://ithelpdeskteam2016.stinge.com/
