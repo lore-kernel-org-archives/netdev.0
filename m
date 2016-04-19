@@ -1,27 +1,49 @@
-From: "Reyes, Irene" <Irene.Reyes@bartshealth.nhs.uk>
-Subject: RE: LOG ON TO ITHELPDESK TO VALIDATE YOUR MAILBOX
-Date: Tue, 19 Apr 2016 16:08:19 +0000
-Message-ID: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E777E8__22491.8173779317$1461082245$gmane$org@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
-References: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E75F85@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/hsr: Added support for HSR v1
+Date: Tue, 19 Apr 2016 12:12:27 -0400 (EDT)
+Message-ID: <20160419.121227.1437003570791513649.davem@davemloft.net>
+References: <20160413115222.GA42572@aircraft-controller>
+	<20160419082100.237f1b6e@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Reyes, Irene" <Irene.Reyes@bartshealth.nhs.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mail@pheise.de, arvid.brodin@alten.se, hannes@stressinduktion.org,
+	sd@queasysnail.net, henrik@austad.us, nikolay@cumulusnetworks.com,
+	tgraf@suug.ch, linville@tuxdriver.com, gospo@cumulusnetworks.com,
+	dsa@cumulusnetworks.com, eranbe@mellanox.com, ast@plumgrid.com,
+	netdev@vger.kernel.org, peter.heise@airbus.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.e.amses.net ([213.161.89.71]:14844 "EHLO
-	smtp1.e.amses.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933198AbcDSQKD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:10:03 -0400
-In-Reply-To: <99C2FC0E07CA2647948CBE4F825F7A8F01A1E75F85@RL1VMEXC15.live.TRUST.XBLT.NHS.UK>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([149.20.54.216]:35519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933276AbcDSQMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:12:31 -0400
+In-Reply-To: <20160419082100.237f1b6e@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 19 Apr 2016 08:21:00 -0700
 
-________________________________
-From: Reyes, Irene
-Sent: 19 April 2016 16:38
-To: Reyes, Irene
-Subject: LOG ON TO ITHELPDESK TO VALIDATE YOUR MAILBOX
+> On Wed, 13 Apr 2016 13:52:22 +0200
+> Peter Heise <mail@pheise.de> wrote:
+> 
+>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>> index 9427f17..bb3a90b 100644
+>> --- a/include/uapi/linux/if_link.h
+>> +++ b/include/uapi/linux/if_link.h
+>> @@ -773,6 +773,7 @@ enum {
+>>  	IFLA_HSR_SLAVE1,
+>>  	IFLA_HSR_SLAVE2,
+>>  	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
+>> +	IFLA_HSR_VERSION,		/* HSR version */
+>>  	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
+>>  	IFLA_HSR_SEQ_NR,
+> 
+> You added a new value into the middle of an enumeration field.
+> This breaks kernel ABI. Older applications (like iproute) would see the wrong
+> values.
+> 
+> Please submit a new change which moves HSR_VERSION to the end of the enum
 
-http://ithelpdeskteam2016.stinge.com/
+Good catch, Stephen.
