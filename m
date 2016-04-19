@@ -1,40 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 01:03:16 -0400 (EDT)
-Message-ID: <20160419.010316.1863885429013017239.davem@davemloft.net>
-References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
-	<20160418.234137.26692086759328024.davem@davemloft.net>
-	<1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58734 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbcDSFDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:03:18 -0400
-In-Reply-To: <1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH v3 10/18] wcn36xx: Copy all members in config_sta v1 conversion
+Date: Mon, 18 Apr 2016 22:00:48 -0700
+Message-ID: <1461042056-10607-11-git-send-email-bjorn.andersson@linaro.org>
+References: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: Pontus Fuchs <pontus.fuchs@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461042056-10607-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 18 Apr 2016 21:32:04 -0700
+From: Pontus Fuchs <pontus.fuchs@gmail.com>
 
-> On Mon, 2016-04-18 at 23:41 -0400, David Miller wrote:
->>  
->> +	/* Add a zero length NOP attribute so that the nla_data()
->> +	 * of the IFLA_STATS64 will be 64-bit aligned.
->> +	 */
->> +#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
->> +	attr = nla_reserve(skb, IFLA_PAD, 0);
->> +	if (!attr)
->> +		return -EMSGSIZE;
->> +#endif
-> 
-> You must do this only if current skb->data alignment is not correct.
+When converting to version 1 of the config_sta struct not all
+members where copied. This fixes the problem of multicast frames
+not being delivered on an encrypted network.
 
-I'll put an assertion there if it makes you happy. :-)
+Signed-off-by: Pontus Fuchs <pontus.fuchs@gmail.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/net/wireless/ath/wcn36xx/smd.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index 7f315d098f52..ebb446272d21 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -949,17 +949,32 @@ static void wcn36xx_smd_convert_sta_to_v1(struct wcn36xx *wcn,
+ 	memcpy(&v1->mac, orig->mac, ETH_ALEN);
+ 	v1->aid = orig->aid;
+ 	v1->type = orig->type;
++	v1->short_preamble_supported = orig->short_preamble_supported;
+ 	v1->listen_interval = orig->listen_interval;
++	v1->wmm_enabled = orig->wmm_enabled;
+ 	v1->ht_capable = orig->ht_capable;
+-
++	v1->tx_channel_width_set = orig->tx_channel_width_set;
++	v1->rifs_mode = orig->rifs_mode;
++	v1->lsig_txop_protection = orig->lsig_txop_protection;
+ 	v1->max_ampdu_size = orig->max_ampdu_size;
+ 	v1->max_ampdu_density = orig->max_ampdu_density;
+ 	v1->sgi_40mhz = orig->sgi_40mhz;
+ 	v1->sgi_20Mhz = orig->sgi_20Mhz;
+-
++	v1->rmf = orig->rmf;
++	v1->encrypt_type = orig->encrypt_type;
++	v1->action = orig->action;
++	v1->uapsd = orig->uapsd;
++	v1->max_sp_len = orig->max_sp_len;
++	v1->green_field_capable = orig->green_field_capable;
++	v1->mimo_ps = orig->mimo_ps;
++	v1->delayed_ba_support = orig->delayed_ba_support;
++	v1->max_ampdu_duration = orig->max_ampdu_duration;
++	v1->dsss_cck_mode_40mhz = orig->dsss_cck_mode_40mhz;
+ 	memcpy(&v1->supported_rates, &orig->supported_rates,
+ 	       sizeof(orig->supported_rates));
+ 	v1->sta_index = orig->sta_index;
++	v1->bssid_index = orig->bssid_index;
++	v1->p2p = orig->p2p;
+ }
+ 
+ static int wcn36xx_smd_config_sta_rsp(struct wcn36xx *wcn,
+-- 
+2.5.0
