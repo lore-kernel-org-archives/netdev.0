@@ -1,51 +1,55 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [RFC PATCH net-next 2/8] sfc: batch up RX delivery on EF10
-Date: Tue, 19 Apr 2016 18:42:47 +0100
-Message-ID: <57166E17.6030002@solarflare.com>
-References: <5716338E.4050003@solarflare.com>
- <57163404.2000507@solarflare.com>
- <1461077257.10638.185.camel@edumazet-glaptop3.roam.corp.google.com>
- <57165E73.60402@solarflare.com>
- <1461086440.10638.208.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] tcp: Merge tx_flags/tskey/txstamp_ack
+ in tcp_collapse_retrans
+Date: Tue, 19 Apr 2016 13:42:51 -0400
+Message-ID: <CACSApvaUPuDB=k9K5fvfMuE5JOMxrwuGEa5ddTZmJ7a0itERDA@mail.gmail.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
+ <1461019569-3037369-3-git-send-email-kafai@fb.com> <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
+ <20160419172837.GA37697@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	"Jesper Dangaard Brouer" <brouer@redhat.com>,
-	<linux-net-drivers@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:62301 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915AbcDSRm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:42:58 -0400
-In-Reply-To: <1461086440.10638.208.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:33660 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932666AbcDSRnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:43:32 -0400
+Received: by mail-oi0-f48.google.com with SMTP id r78so16654243oie.0
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 10:43:31 -0700 (PDT)
+In-Reply-To: <20160419172837.GA37697@kafai-mba.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/04/16 18:20, Eric Dumazet wrote:
-> It seems all the discussions about fast kernel networking these days is
-> adding yet another queues, code duplication and complexity, batches, and
-> add latencies, on top of a single NIC RX queue.
+On Tue, Apr 19, 2016 at 1:28 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Tue, Apr 19, 2016 at 01:32:14AM -0400, Soheil Hassas Yeganeh wrote:
+>> > +               TCP_SKB_CB(skb)->txstamp_ack =
+>> > +                       !!(shinfo->tx_flags & SKBTX_ACK_TSTAMP);
+>>
+>> Maybe we can skip a conditional jump here (because of !!), by simply
+>> using the cached bit in next_skb:
+>> TCP_SKB_CB(skb)->txstamp_ack = TCP_SKB_CB(next_skb)->txstamp_ack;
+> Recall the tx_flags are merged/combined (and so should be the txstamp_ack).
+
+Oh sure, sorry, I missed an "or":
+
+TCP_SKB_CB(skb)->txstamp_ack |= TCP_SKB_CB(next_skb)->txstamp_ack;
+
+> Would there be a case that TCP_SKB_CB(skb)->txstamp_ack is 1 and
+> TCP_SKB_CB(next_skb)->txstamp_ack is 0?
 >
-> Apparently the multiqueue nature of a NIC is obsolete and people want to
-> process 10+Mpps on a single queue.
-The real goal here is to speed up packet processing generally.
-Doing everything on a single queue (and thus a single CPU) is just a
-convenient way of measuring that, while making sure performance is limited
-by the RX side rather than the TX not being able to generate enough packets
-to keep us busy.  Similarly, measuring single-byte UDP packet rate with one
-CPU running flat-out is easier than measuring CPU usage while receiving
-line-rate TCP in 1400-byte chunks.
+> I can change it like the following which may help in showing the intention:
+> if (TCP_SKB_CB(next_skb)->txstamp_ack)
+>         TCP_SKB_CB(skb)->txstamp_ack = 1;
+>
+> A bit off topic, I feel like the SKBTX_ACK_TSTAMP and txstamp_ack are sort
+> of redundant but I have not look into the details yet, so not completely
+> sure.  It wwould be a separate cleanup patch if it is the case.
 
-> We could probably get ~100% improvement in UDP if we really cared, just
-> by changing net/ipv[46]/udp.c, not changing other layers.
-Well, I don't know how to achieve that, but it sounds like you do, so why
-not go ahead and show us ;)
-If you submitted a patch series to make UDP twice as fast, I think people
-would "really care" about an improvement of that magnitude.
-
-But RX batching should speed up all traffic, not just UDP.  Or at least,
-that's the theory.
-
--Ed
+As Eric mentioned, this is needed to avoid a cache-line miss in
+accessing the shared info.
