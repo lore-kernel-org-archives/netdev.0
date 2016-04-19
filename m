@@ -1,209 +1,145 @@
-From: Marek Vasut <marex@denx.de>
-Subject: [PATCH] net: stmmac: socfpga: Remove re-registration of reset controller
-Date: Wed, 20 Apr 2016 01:49:00 +0200
-Message-ID: <1461109740-7105-1-git-send-email-marex@denx.de>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-	Marek Vasut <marex@denx.de>,
-	Matthew Gerlach <mgerlach@opensource.altera.com>,
-	Dinh Nguyen <dinguyen@opensource.altera.com>,
-	"David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Tue, 19 Apr 2016 19:50:09 -0400 (EDT)
+Message-ID: <20160419.195009.1052027353987244150.davem@davemloft.net>
+References: <20160419.143134.2014460805657420897.davem@davemloft.net>
+	<1461091667.10638.229.camel@edumazet-glaptop3.roam.corp.google.com>
+	<57168225.2040507@6wind.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, roopa@cumulusnetworks.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:36930 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753807AbcDSXtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 19:49:15 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:38544 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753807AbcDSXuN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 19:50:13 -0400
+In-Reply-To: <57168225.2040507@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
-in stmmac_main.c functions call devm_reset_control_get() to register an
-reset controller for the stmmac. This results in an attempt to register
-two reset controllers for the same non-shared reset line.
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 19 Apr 2016 21:08:21 +0200
 
-The first attempt to register the reset controller works fine. The second
-attempt fails with warning from the reset controller core, see below.
-The warning is produced because the reset line is non-shared and thus
-it is allowed to have only up-to one reset controller associated with
-that reset line, not two or more.
+> Le 19/04/2016 20:47, Eric Dumazet a =E9crit :
+>> Since we want to use this in other places, we could define a helper.
+>>
+>> nla_align_64bit(skb, attribute)  or something.
+> Yes, with the corresponding nla_total_size_64bit()
 
-The solution is not great. Since the hardware needs to toggle the reset
-before calling stmmac_dvr_probe() to perform mandatory preconfiguration,
-this patch splits socfpga_dwmac_init_probe() from socfpga_dwmac_init().
+Good, idea, committed the following:
 
-The socfpga_dwmac_init_probe() temporarily registers the reset controller,
-performs the pre-configuration and unregisters the reset controller again.
-This function is only called from the socfpga_dwmac_probe().
+Roopa, please use these helpers in your RTM_GETSTATS patch.
 
-The original socfpga_dwmac_init() is tweaked to use reset controller
-pointer from the stmmac_priv (private data of the stmmac core) instead
-of the local instance, which was used before.
+Thank you.
 
-Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
-since the functionality is already performed by the stmmac core.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+[PATCH] net: Add helpers for 64-bit aligning netlink attributes.
 
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
-Modules linked in:
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
-Hardware name: Altera SOCFPGA
-[<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
-[<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
-[<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
-[<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
-[<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
-[<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
-[<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
-[<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
-[<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
-[<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
-[<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
-[<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
-[<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
-[<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
-[<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
-[<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
-[<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
-[<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
----[ end trace 059d2fbe87608fa9 ]---
-
-Signed-off-by: Marek Vasut <marex@denx.de>
-Cc: Matthew Gerlach <mgerlach@opensource.altera.com>
-Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
-Cc: David S. Miller <davem@davemloft.net>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Suggested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 69 ++++++++++++----------
- 1 file changed, 38 insertions(+), 31 deletions(-)
+ include/net/netlink.h | 37 +++++++++++++++++++++++++++++++++++++
+ net/core/rtnetlink.c  | 24 +++++-------------------
+ 2 files changed, 42 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 76d671e..9ece2dd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -49,7 +49,6 @@ struct socfpga_dwmac {
- 	u32	reg_shift;
- 	struct	device *dev;
- 	struct regmap *sys_mgr_base_addr;
--	struct reset_control *stmmac_rst;
- 	void __iomem *splitter_base;
- 	bool f2h_ptp_ref_clk;
- };
-@@ -92,15 +91,6 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 	struct device_node *np_splitter;
- 	struct resource res_splitter;
- 
--	dwmac->stmmac_rst = devm_reset_control_get(dev,
--						  STMMAC_RESOURCE_NAME);
--	if (IS_ERR(dwmac->stmmac_rst)) {
--		dev_info(dev, "Could not get reset control!\n");
--		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
--			return -EPROBE_DEFER;
--		dwmac->stmmac_rst = NULL;
--	}
--
- 	dwmac->interface = of_get_phy_mode(np);
- 
- 	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
-@@ -194,30 +184,23 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
- 	return 0;
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 0e31727..e644b34 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -1231,6 +1231,43 @@ static inline int nla_validate_nested(const stru=
+ct nlattr *start, int maxtype,
  }
- 
--static void socfpga_dwmac_exit(struct platform_device *pdev, void *priv)
--{
--	struct socfpga_dwmac	*dwmac = priv;
--
--	/* On socfpga platform exit, assert and hold reset to the
--	 * enet controller - the default state after a hard reset.
--	 */
--	if (dwmac->stmmac_rst)
--		reset_control_assert(dwmac->stmmac_rst);
--}
--
- static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- {
--	struct socfpga_dwmac	*dwmac = priv;
-+	struct socfpga_dwmac *dwmac = priv;
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct stmmac_priv *stpriv = NULL;
- 	int ret = 0;
- 
--	if (ndev)
--		stpriv = netdev_priv(ndev);
-+	if (!ndev)
-+		return -EINVAL;
-+
-+	stpriv = netdev_priv(ndev);
-+	if (!stpriv)
-+		return -EINVAL;
- 
- 	/* Assert reset to the enet controller before changing the phy mode */
--	if (dwmac->stmmac_rst)
--		reset_control_assert(dwmac->stmmac_rst);
-+	if (stpriv->stmmac_rst)
-+		reset_control_assert(stpriv->stmmac_rst);
- 
- 	/* Setup the phy mode in the system manager registers according to
- 	 * devicetree configuration
-@@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	/* Deassert reset for the phy configuration to be sampled by
- 	 * the enet controller, and operation to start in requested mode
- 	 */
--	if (dwmac->stmmac_rst)
--		reset_control_deassert(dwmac->stmmac_rst);
-+	if (stpriv->stmmac_rst)
-+		reset_control_deassert(stpriv->stmmac_rst);
- 
- 	/* Before the enet controller is suspended, the phy is suspended.
- 	 * This causes the phy clock to be gated. The enet controller is
-@@ -245,12 +228,37 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	 * control register 0, and can be modified by the phy driver
- 	 * framework.
- 	 */
--	if (stpriv && stpriv->phydev)
-+	if (stpriv->phydev)
- 		phy_resume(stpriv->phydev);
- 
- 	return ret;
- }
- 
-+static int socfpga_dwmac_init_probe(struct socfpga_dwmac *dwmac)
+=20
+ /**
++ * nla_align_64bit - 64-bit align the nla_data() of next attribute
++ * @skb: socket buffer the message is stored in
++ * @padattr: attribute type for the padding
++ *
++ * Conditionally emit a padding netlink attribute in order to make
++ * the next attribute we emit have a 64-bit aligned nla_data() area.
++ * This will only be done in architectures which do not have
++ * HAVE_EFFICIENT_UNALIGNED_ACCESS defined.
++ *
++ * Returns zero on success or a negative error code.
++ */
++static inline int nla_align_64bit(struct sk_buff *skb, int padattr)
 +{
-+	struct reset_control *stmmac_rst;
-+	int ret;
-+
-+	stmmac_rst = reset_control_get(dwmac->dev, STMMAC_RESOURCE_NAME);
-+	if (IS_ERR(stmmac_rst)) {
-+		dev_info(dwmac->dev, "Could not get reset control!\n");
-+		if (PTR_ERR(stmmac_rst) == -EPROBE_DEFER)
-+			return -EPROBE_DEFER;
++#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
++	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
++		struct nlattr *attr =3D nla_reserve(skb, padattr, 0);
++		if (!attr)
++			return -EMSGSIZE;
 +	}
-+
-+	if (stmmac_rst)
-+		reset_control_assert(stmmac_rst);
-+
-+	ret = socfpga_dwmac_setup(dwmac);
-+
-+	if (stmmac_rst) {
-+		reset_control_deassert(stmmac_rst);
-+		reset_control_put(stmmac_rst);
-+	}
-+
-+	return ret;
++#endif
++	return 0;
 +}
 +
- static int socfpga_dwmac_probe(struct platform_device *pdev)
++/**
++ * nla_total_size_64bit - total length of attribute including padding
++ * @payload: length of payload
++ */
++static inline int nla_total_size_64bit(int payload)
++{
++	return NLA_ALIGN(nla_attr_size(payload))
++#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
++		+ NLA_ALIGN(nla_attr_size(0))
++#endif
++		;
++}
++
++/**
+  * nla_for_each_attr - iterate over a stream of attributes
+  * @pos: loop counter, set to current attribute
+  * @head: head of attribute stream
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 198ca2c..d3694a1 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -878,10 +878,7 @@ static noinline size_t if_nlmsg_size(const struct =
+net_device *dev,
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_QDISC */
+ 	       + nla_total_size(sizeof(struct rtnl_link_ifmap))
+ 	       + nla_total_size(sizeof(struct rtnl_link_stats))
+-#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
+-	       + nla_total_size(0) /* IFLA_PAD */
+-#endif
+-	       + nla_total_size(sizeof(struct rtnl_link_stats64))
++	       + nla_total_size_64bit(sizeof(struct rtnl_link_stats64))
+ 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
+ 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_BROADCAST */
+ 	       + nla_total_size(4) /* IFLA_TXQLEN */
+@@ -1054,22 +1051,11 @@ static noinline_for_stack int rtnl_fill_stats(s=
+truct sk_buff *skb,
  {
- 	struct plat_stmmacenet_data *plat_dat;
-@@ -279,10 +287,9 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 
- 	plat_dat->bsp_priv = dwmac;
- 	plat_dat->init = socfpga_dwmac_init;
--	plat_dat->exit = socfpga_dwmac_exit;
- 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
- 
--	ret = socfpga_dwmac_init(pdev, plat_dat->bsp_priv);
-+	ret = socfpga_dwmac_init_probe(dwmac);
- 	if (ret)
- 		return ret;
- 
--- 
-2.7.0
+ 	struct rtnl_link_stats64 *sp;
+ 	struct nlattr *attr;
++	int err;
+=20
+-#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
+-	/* IF necessary, add a zero length NOP attribute so that the
+-	 * nla_data() of the IFLA_STATS64 will be 64-bit aligned.
+-	 *
+-	 * The nlattr header is 4 bytes in size, that's why we test
+-	 * if the skb->data _is_ aligned.  This NOP attribute, plus
+-	 * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
+-	 * aligned.
+-	 */
+-	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
+-		attr =3D nla_reserve(skb, IFLA_PAD, 0);
+-		if (!attr)
+-			return -EMSGSIZE;
+-	}
+-#endif
++	err =3D nla_align_64bit(skb, IFLA_PAD);
++	if (err)
++		return err;
+=20
+ 	attr =3D nla_reserve(skb, IFLA_STATS64,
+ 			   sizeof(struct rtnl_link_stats64));
+--=20
+2.1.0
