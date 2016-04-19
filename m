@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/hsr: Added support for HSR v1
-Date: Tue, 19 Apr 2016 12:12:27 -0400 (EDT)
-Message-ID: <20160419.121227.1437003570791513649.davem@davemloft.net>
-References: <20160413115222.GA42572@aircraft-controller>
-	<20160419082100.237f1b6e@xeon-e3>
+Subject: Re: Poorer networking performance in later kernels?
+Date: Tue, 19 Apr 2016 12:13:07 -0400 (EDT)
+Message-ID: <20160419.121307.1112327654033728204.davem@davemloft.net>
+References: <57152600.7000801@hpe.com>
+	<SN1PR0301MB19983F545852731CD1410DB9D66C0@SN1PR0301MB1998.namprd03.prod.outlook.com>
+	<5716558B.2080103@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mail@pheise.de, arvid.brodin@alten.se, hannes@stressinduktion.org,
-	sd@queasysnail.net, henrik@austad.us, nikolay@cumulusnetworks.com,
-	tgraf@suug.ch, linville@tuxdriver.com, gospo@cumulusnetworks.com,
-	dsa@cumulusnetworks.com, eranbe@mellanox.com, ast@plumgrid.com,
-	netdev@vger.kernel.org, peter.heise@airbus.com
-To: stephen@networkplumber.org
+Cc: pbutler@sonusnet.com, rick.jones2@hpe.com, netdev@vger.kernel.org
+To: socketcan@hartkopp.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35519 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35533 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933276AbcDSQMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:12:31 -0400
-In-Reply-To: <20160419082100.237f1b6e@xeon-e3>
+	with ESMTP id S933378AbcDSQNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:13:09 -0400
+In-Reply-To: <5716558B.2080103@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 19 Apr 2016 08:21:00 -0700
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Tue, 19 Apr 2016 17:58:03 +0200
 
-> On Wed, 13 Apr 2016 13:52:22 +0200
-> Peter Heise <mail@pheise.de> wrote:
+> On 04/19/2016 04:54 PM, Butler, Peter wrote:
 > 
->> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
->> index 9427f17..bb3a90b 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -773,6 +773,7 @@ enum {
->>  	IFLA_HSR_SLAVE1,
->>  	IFLA_HSR_SLAVE2,
->>  	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
->> +	IFLA_HSR_VERSION,		/* HSR version */
->>  	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
->>  	IFLA_HSR_SEQ_NR,
+>>
+>> I think the issue is resolved.  I had to recompile my 4.4.0 kernel
+>> with a few options pertaining to the Intel NIC which somehow (?) got
+>> left out or otherwise clobbered when I ported my 3.4.2 .config to the
+>> 4.4.0 kernel source tree.  With those changes now in I see essentially
+>> identical performance with the two kernels.  Sorry for any confusion
+>> and/or waste of time here.  My bad.
+>>
 > 
-> You added a new value into the middle of an enumeration field.
-> This breaks kernel ABI. Older applications (like iproute) would see the wrong
-> values.
+> Can you please send the relevant changes in the config that caused the
+> discussed issue?
 > 
-> Please submit a new change which moves HSR_VERSION to the end of the enum
+> Just in the case other people do a similar kernel upgrade from 3.x to
+> a recent kernel and the current defaults lead to this non-optimal
+> result.
 
-Good catch, Stephen.
++1
