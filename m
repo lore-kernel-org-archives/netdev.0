@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Poorer networking performance in later kernels?
-Date: Tue, 19 Apr 2016 12:13:07 -0400 (EDT)
-Message-ID: <20160419.121307.1112327654033728204.davem@davemloft.net>
-References: <57152600.7000801@hpe.com>
-	<SN1PR0301MB19983F545852731CD1410DB9D66C0@SN1PR0301MB1998.namprd03.prod.outlook.com>
-	<5716558B.2080103@hartkopp.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 2/2] net-ath9k_htc: Replace a variable initialisation by an assignment in ath9k_htc_set_channel()
+Date: Tue, 19 Apr 2016 19:13:20 +0300
+Message-ID: <87mvopinkv.fsf@kamboji.qca.qualcomm.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+	<5686C390.5060600@users.sourceforge.net>
+	<5686C47E.1040906@users.sourceforge.net>
+	<CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pbutler@sonusnet.com, rick.jones2@hpe.com, netdev@vger.kernel.org
-To: socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35533 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933378AbcDSQNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 12:13:09 -0400
-In-Reply-To: <5716558B.2080103@hartkopp.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ath9k-devel@lists.ath9k.org,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	SF Markus Elfring <elfring@users.sourceforge.net>,
+	kernel-janitors <kernel-janitors@vger.kernel.org>,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Julian Calaby <julian.calaby@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGRGNgXR_OoER0rN5Z8n_5VtZimpU7WDNZuc4vkdb2eKDT2frQ@mail.gmail.com>
+	(Julian Calaby's message of "Fri, 8 Apr 2016 11:40:45 +1000")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Tue, 19 Apr 2016 17:58:03 +0200
+Julian Calaby <julian.calaby@gmail.com> writes:
 
-> On 04/19/2016 04:54 PM, Butler, Peter wrote:
-> 
+> On Sat, Jan 2, 2016 at 5:25 AM, SF Markus Elfring
+> <elfring@users.sourceforge.net> wrote:
+>> From: Markus Elfring <elfring@users.sourceforge.net>
+>> Date: Fri, 1 Jan 2016 19:09:32 +0100
 >>
->> I think the issue is resolved.  I had to recompile my 4.4.0 kernel
->> with a few options pertaining to the Intel NIC which somehow (?) got
->> left out or otherwise clobbered when I ported my 3.4.2 .config to the
->> 4.4.0 kernel source tree.  With those changes now in I see essentially
->> identical performance with the two kernels.  Sorry for any confusion
->> and/or waste of time here.  My bad.
+>> Replace an explicit initialisation for one local variable at the beginning
+>> by a conditional assignment.
 >>
-> 
-> Can you please send the relevant changes in the config that caused the
-> discussed issue?
-> 
-> Just in the case other people do a similar kernel upgrade from 3.x to
-> a recent kernel and the current defaults lead to this non-optimal
-> result.
+>> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+>
+> This looks sane to me.
+>
+> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
 
-+1
+Applied, thanks.
+
+-- 
+Kalle Valo
