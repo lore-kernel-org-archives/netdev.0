@@ -1,106 +1,46 @@
-From: Josh Hunt <joshhunt00@gmail.com>
-Subject: Re: Poorer networking performance in later kernels?
-Date: Tue, 19 Apr 2016 10:13:28 -0500
-Message-ID: <CAKA=qzb6kLTeJW4U42J12Fq50_54TFBHgEOcR3DyZgg_LoLtdQ@mail.gmail.com>
-References: <SN1PR0301MB19987565B71A4688593A2CDBD6680@SN1PR0301MB1998.namprd03.prod.outlook.com>
-	<SN1PR0301MB19983946D7A38001E4B54D20D6680@SN1PR0301MB1998.namprd03.prod.outlook.com>
-	<57116D21.8000807@hpe.com>
-	<BY2PR0301MB1990F3095CFA07EBBE600F9DD66B0@BY2PR0301MB1990.namprd03.prod.outlook.com>
-	<57152600.7000801@hpe.com>
-	<SN1PR0301MB19983F545852731CD1410DB9D66C0@SN1PR0301MB1998.namprd03.prod.outlook.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] net/hsr: Added support for HSR v1
+Date: Tue, 19 Apr 2016 08:21:00 -0700
+Message-ID: <20160419082100.237f1b6e@xeon-e3>
+References: <20160413115222.GA42572@aircraft-controller>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Rick Jones <rick.jones2@hpe.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Butler, Peter" <pbutler@sonusnet.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: arvid.brodin@alten.se, davem@davemloft.net,
+	hannes@stressinduktion.org, sd@queasysnail.net, henrik@austad.us,
+	nikolay@cumulusnetworks.com, tgraf@suug.ch, linville@tuxdriver.com,
+	gospo@cumulusnetworks.com, dsa@cumulusnetworks.com,
+	eranbe@mellanox.com, ast@plumgrid.com, netdev@vger.kernel.org,
+	peter.heise@airbus.com
+To: Peter Heise <mail@pheise.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f195.google.com ([209.85.214.195]:33751 "EHLO
-	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932106AbcDSPNa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 11:13:30 -0400
-Received: by mail-ob0-f195.google.com with SMTP id js7so2137651obc.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 08:13:29 -0700 (PDT)
-In-Reply-To: <SN1PR0301MB19983F545852731CD1410DB9D66C0@SN1PR0301MB1998.namprd03.prod.outlook.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:35124 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932106AbcDSPU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 11:20:58 -0400
+Received: by mail-io0-f173.google.com with SMTP id g185so22015714ioa.2
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 08:20:53 -0700 (PDT)
+In-Reply-To: <20160413115222.GA42572@aircraft-controller>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 19, 2016 at 9:54 AM, Butler, Peter <pbutler@sonusnet.com> wrote:
->> -----Original Message-----
->> From: Rick Jones [mailto:rick.jones2@hpe.com]
->> Sent: April-15-16 6:37 PM
->> To: Butler, Peter <pbutler@sonusnet.com>; netdev@vger.kernel.org
->> Subject: Re: Poorer networking performance in later kernels?
->>
->> On 04/15/2016 02:02 PM, Butler, Peter wrote:
->>> (Please keep me CC'd to all comments/responses)
->>>
->>> I've tried a kernel upgrade from 3.4.2 to 4.4.0 and see a marked drop
->>> in networking performance.  Nothing was changed on the test systems,
->>> other than the kernel itself (and kernel modules).  The identical
->>> .config used to build the 3.4.2 kernel was brought over into the
->>> 4.4.0 kernel source tree, and any configuration differences (e.g. new
->>> parameters, etc.) were taken as default values.
->>>
->>> The testing was performed on the same actual hardware for both kernel
->>> versions (i.e. take the existing 3.4.2 physical setup, simply boot
->>> into the (new) kernel and run the same test).  The netperf utility
->>> was used for benchmarking and the testing was always performed on
->>> idle systems.
->>>
->>> TCP testing yielded the following results, where the 4.4.0 kernel
->>> only got about 1/2 of the throughput:
->>>
->>
->>>         Recv     Send       Send                          Utilization       Service Demand
->>>         Socket   Socket     Message Elapsed               Send     Recv     Send    Recv
->>>         Size     Size       Size    Time       Throughput local    remote   local   remote
->>>         bytes    bytes      bytes   secs.      10^6bits/s % S      % S      us/KB   us/KB
->>>
->>> 3.4.2 13631488 13631488   8952    30.01      9370.29    10.14    6.50     0.709   0.454
->>> 4.4.0 13631488 13631488   8952    30.02      5314.03    9.14     14.31    1.127   1.765
->>>
->>> SCTP testing yielded the following results, where the 4.4.0 kernel only got about 1/3 of the throughput:
->>>
->>>         Recv     Send       Send                          Utilization       Service Demand
->>>         Socket   Socket     Message Elapsed               Send     Recv     Send    Recv
->>>         Size     Size       Size    Time       Throughput local    remote   local   remote
->>>         bytes    bytes      bytes   secs.      10^6bits/s  % S     % S      us/KB   us/KB
->>>
->>> 3.4.2 13631488 13631488   8952    30.00      2306.22    13.87    13.19    3.941   3.747
->>> 4.4.0 13631488 13631488   8952    30.01       882.74    16.86    19.14    12.516  14.210
->>>
->>> The same tests were performed a multitude of time, and are always
->>> consistent (within a few percent).  I've also tried playing with
->>> various run-time kernel parameters (/proc/sys/kernel/net/...) on the
->>> 4.4.0 kernel to alleviate the issue but have had no success at all.
->>>
->>> I'm at a loss as to what could possibly account for such a discrepancy...
->>>
->>
->> I suspect I am not alone in being curious about the CPU(s) present in the systems and the model/whatnot of the NIC being used.  I'm also curious as to why you have what at first glance seem like absurdly large socket buffer sizes.
->>
->> That said, it looks like you have some Really Big (tm) increases in service demand.  Many more CPU cycles being consumed per KB of data transferred.
->>
->> Your message size makes me wonder if you were using a 9000 byte MTU.
->>
->> Perhaps in the move from 3.4.2 to 4.4.0 you lost some or all of the stateless offloads for your NIC(s)?  Running ethtool -k <interface> on both ends under both kernels might be good.
->>
->> Also, if you did have a 9000 byte MTU under 3.4.2 are you certain you still had it under 4.4.0?
->>
->> It would (at least to me) also be interesting to run a TCP_RR test comparing the two kernels.  TCP_RR (at least with the default request/response size of one byte) doesn't really care about stateless offloads or MTUs and could show how much difference there is in basic path length (or I suppose in interrupt coalescing behaviour if the NIC in question has a mildly dodgy heuristic for such things).
->>
->> happy benchmarking,
->>
->> rick jones
->>
->
->
-> I think the issue is resolved.  I had to recompile my 4.4.0 kernel with a few options pertaining to the Intel NIC which somehow (?) got left out or otherwise clobbered when I ported my 3.4.2 .config to the 4.4.0 kernel source tree.  With those changes now in I see essentially identical performance with the two kernels.  Sorry for any confusion and/or waste of time here.  My bad.
->
->
+On Wed, 13 Apr 2016 13:52:22 +0200
+Peter Heise <mail@pheise.de> wrote:
 
-Can you share which config options you enabled to get your performance back?
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index 9427f17..bb3a90b 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -773,6 +773,7 @@ enum {
+>  	IFLA_HSR_SLAVE1,
+>  	IFLA_HSR_SLAVE2,
+>  	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
+> +	IFLA_HSR_VERSION,		/* HSR version */
+>  	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
+>  	IFLA_HSR_SEQ_NR,
 
--- 
-Josh
+You added a new value into the middle of an enumeration field.
+This breaks kernel ABI. Older applications (like iproute) would see the wrong
+values.
+
+Please submit a new change which moves HSR_VERSION to the end of the enum
