@@ -1,136 +1,72 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [RFC PATCH v2 net-next 3/7] tcp: Merge tx_flags/tskey/txstamp_ack
- in tcp_shifted_skb
-Date: Tue, 19 Apr 2016 01:38:37 -0400
-Message-ID: <CACSApvby=6cnYiZQAZnzvdjgwOz1WiO46aij3rcAx6U55BBOHQ@mail.gmail.com>
-References: <1461019569-3037369-1-git-send-email-kafai@fb.com> <1461019569-3037369-4-git-send-email-kafai@fb.com>
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [PATCH 2/5] arcnet: com90xx: add __init attribute
+Date: Tue, 19 Apr 2016 08:56:57 +0200
+Message-ID: <20160419065657.GD2471@pengutronix.de>
+References: <1460991338-9845-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Luis R . Rodriguez" <mcgrof@kernel.org>,
+	Josh Triplett <josh@joshtriplett.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:34219 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbcDSFjR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 01:39:17 -0400
-Received: by mail-ob0-f169.google.com with SMTP id bg3so2992470obb.1
-        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 22:39:17 -0700 (PDT)
-In-Reply-To: <1461019569-3037369-4-git-send-email-kafai@fb.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59737 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751237AbcDSG5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 02:57:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 6:46 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> After receiving sacks, tcp_shifted_skb() will collapse
-> skbs if possible.  tx_flags/tskey/txstamp_ack also has
-> to be merged in this case.
->
-> This patch resues the tcp_skb_collapse_tstamp() to handle
-> them.
->
-> BPF Output Before:
-> ~~~~~
-> <no-output-due-to-missing-tstamp-event>
->
-> BPF Output After:
-> ~~~~~
-> <...>-2024  [007] d.s.    88.644374: : ee_data:14599
->
-> Packetdrill Script:
-> ~~~~~
-> +0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
-> +0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
-> +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-> +0 bind(3, ..., ...) = 0
-> +0 listen(3, 1) = 0
->
-> 0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
-> 0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
-> 0.200 < . 1:1(0) ack 1 win 257
-> 0.200 accept(3, ..., ...) = 4
-> +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
->
-> 0.200 write(4, ..., 1460) = 1460
-> +0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
-> 0.200 write(4, ..., 13140) = 13140
-> +0 setsockopt(4, SOL_SOCKET, 37, [2176], 4) = 0
->
-> 0.200 > P. 1:1461(1460) ack 1
-> 0.200 > . 1461:8761(7300) ack 1
-> 0.200 > P. 8761:14601(5840) ack 1
->
-> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:14601,nop,nop>
-> 0.300 > P. 1:1461(1460) ack 1
-> 0.400 < . 1:1(0) ack 14601 win 257
->
-> 0.400 close(4) = 0
-> 0.400 > F. 14601:14601(0) ack 1
-> 0.500 < F. 1:1(0) ack 14602 win 257
-> 0.500 > . 14602:14602(0) ack 2
->
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+On Mon, Apr 18, 2016 at 04:55:35PM +0200, Julia Lawall wrote:
+> Add __init attribute on a function that is only called from other __init
+> functions and that is not inlined, at least with gcc version 4.8.4 on an
+> x86 machine with allyesconfig.  Currently, the function is put in the
+> .text.unlikely segment.  Declaring it as __init will cause it to be put in
+> the .init.text and to disappear after initialization.
+> 
+> The result of objdump -x on the function before the change is as follows:
+> 
+> 0000000000000000 l     F .text.unlikely 00000000000000bf check_mirror
+> 
+> And after the change it is as follows:
+> 
+> 0000000000000000 l     F .init.text	00000000000000ba check_mirror
+> 
+> Done with the help of Coccinelle.  The semantic patch checks for local
+> static non-init functions that are called from an __init function and are
+> not called from any other function.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Acked-by: Michael Grzeschik <mgr@pengutronix.de>
 
-> Cc: Willem de Bruijn <willemb@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
 > ---
->  include/net/tcp.h     | 2 ++
->  net/ipv4/tcp_input.c  | 1 +
->  net/ipv4/tcp_output.c | 4 ++--
->  3 files changed, 5 insertions(+), 2 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index fd40f8c..c0ef054 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -557,6 +557,8 @@ void tcp_send_ack(struct sock *sk);
->  void tcp_send_delayed_ack(struct sock *sk);
->  void tcp_send_loss_probe(struct sock *sk);
->  bool tcp_schedule_loss_probe(struct sock *sk);
-> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-> +                            const struct sk_buff *next_skb);
->
->  /* tcp_input.c */
->  void tcp_resume_early_retransmit(struct sock *sk);
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 5e45a9c..75e8336 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -1309,6 +1309,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
->         if (skb == tcp_highest_sack(sk))
->                 tcp_advance_highest_sack(sk, skb);
->
-> +       tcp_skb_collapse_tstamp(prev, skb);
->         tcp_unlink_write_queue(skb, sk);
->         sk_wmem_free_skb(sk, skb);
->
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 889ed96..d21a78f 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2443,8 +2443,8 @@ u32 __tcp_select_window(struct sock *sk)
->         return window;
+>  drivers/net/arcnet/com90xx.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
+> index 0d9b45f..81f90c4 100644
+> --- a/drivers/net/arcnet/com90xx.c
+> +++ b/drivers/net/arcnet/com90xx.c
+> @@ -433,7 +433,7 @@ static void __init com90xx_probe(void)
+>  	kfree(iomem);
 >  }
->
-> -static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-> -                                   const struct sk_buff *next_skb)
-> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
-> +                            const struct sk_buff *next_skb)
+>  
+> -static int check_mirror(unsigned long addr, size_t size)
+> +static int __init check_mirror(unsigned long addr, size_t size)
 >  {
->         const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
->
+>  	void __iomem *p;
+>  	int res = -1;
+> 
+> 
 
-nice, thanks for the fix!
-
-> --
-> 2.5.1
->
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
