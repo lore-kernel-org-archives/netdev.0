@@ -1,59 +1,81 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 13:40:52 -0700
-Message-ID: <571697D4.5090404@cumulusnetworks.com>
-References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com> <5715EBCF.20801@6wind.com> <CAHC9VhRjjWk9drwY5Db2Zwu1CHw+dxtkMKR6Ovw3pzuHBvieVQ@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/3] e1000e: e1000e_cyclecounter_read(): incvalue is 32
+ bits, not 64
+Date: Tue, 19 Apr 2016 13:57:14 -0700
+Message-ID: <1461099434.2923.6.camel@intel.com>
+References: <1461069286-31946-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, davem@davemloft.net, tgraf@suug.ch,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Eric Paris <eparis@parisplace.org>
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-XEdlnNZGkuDI70ZjBCvU"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34299 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932155AbcDSUkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 16:40:55 -0400
-Received: by mail-pf0-f176.google.com with SMTP id c20so10212754pfc.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 13:40:55 -0700 (PDT)
-In-Reply-To: <CAHC9VhRjjWk9drwY5Db2Zwu1CHw+dxtkMKR6Ovw3pzuHBvieVQ@mail.gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:59528 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932091AbcDSU5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 16:57:16 -0400
+In-Reply-To: <1461069286-31946-1-git-send-email-dvlasenk@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/19/16, 12:55 PM, Paul Moore wrote:
-> On Tue, Apr 19, 2016 at 4:26 AM, Nicolas Dichtel
-> <nicolas.dichtel@6wind.com> wrote:
->> + selinux maintainers
->>
->> Le 18/04/2016 23:10, Roopa Prabhu a =C3=A9crit :
->> [snip]
->>> diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgta=
-b.c
->>> index 8495b93..1714633 100644
->>> --- a/security/selinux/nlmsgtab.c
->>> +++ b/security/selinux/nlmsgtab.c
->>> @@ -76,6 +76,8 @@ static struct nlmsg_perm nlmsg_route_perms[] =3D
->>>         { RTM_NEWNSID,          NETLINK_ROUTE_SOCKET__NLMSG_WRITE }=
-,
->>>         { RTM_DELNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
-,
->>>         { RTM_GETNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
-,
->>> +       { RTM_NEWSTATS,         NETLINK_ROUTE_SOCKET__NLMSG_WRITE }=
-,
->> I would say it's NETLINK_ROUTE_SOCKET__NLMSG_READ, not WRITE. This c=
-ommand
->> is only sent by the kernel, not by the userland.
-> From what I could tell from the patch description, it looks like
-> RTM_NEWSTATS only dumps stats to userspace and doesn't alter the stat=
-e
-> of the kernel, is that correct?  If so, then yes, NLMSG__READ is the
-> right SELinux permission.  However, if RTM_NEWSTATS does alter the
-> state/configuration of the kernel then we should use NLMSG__WRITE.
->
-okay, will change it to READ in the next version,
 
-thanks.
+--=-XEdlnNZGkuDI70ZjBCvU
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2016-04-19 at 14:34 +0200, Denys Vlasenko wrote:
+> "incvalue" variable holds a result of "er32(TIMINCA) &
+> E1000_TIMINCA_INCVALUE_MASK"
+> and used in "do_div(temp, incvalue)" as a divisor.
+>=20
+> Thus, "u64 incvalue" declaration is probably a mistake.
+> Even though it seems to be a harmless one, let's fix it.
+>=20
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Shannon Nelson <shannon.nelson@intel.com>
+> CC: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> CC: Don Skidmore <donald.c.skidmore@intel.com>
+> CC: Bruce Allan <bruce.w.allan@intel.com>
+> CC: John Ronciak <john.ronciak@intel.com>
+> CC: Mitch Williams <mitch.a.williams@intel.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: LKML <linux-kernel@vger.kernel.org>
+> CC: netdev@vger.kernel.org
+> ---
+> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
+> =C2=A01 file changed, 2 insertions(+), 1 deletion(-)
+
+First of all, trimmed down the recipient list since almost all of the
+reviewers you added have nothing to do with e1000e.
+
+Any chance you can send this to the "correct" list intel-wired-
+lan@lists.osuosl.org? =C2=A0Kind of amazing that your shotgun blast approac=
+h
+in emailing out the patch series managed to miss sending it to the one
+email list that handles Intel Wired LAN kernel patches.
+--=-XEdlnNZGkuDI70ZjBCvU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXFpuqAAoJEOVv75VaS+3OdUYP/1e32625WF2nvKKMUCEdF7aB
+pBH0Yq4IDERUk9bM7/Se0ht+ZoKxtaRhFz8XMr7FTc6tTpDYRMv2kLBhEvTrRyjN
+qt9/zc4a5FPkJbNgMhyBNtrGmEj0ZPDh4w4kqQGz6F5Pse8bVsl/oDDcE5F4grj/
+QuW0A3Yn0q7eON0dlxGuRK39VNM71TZWrmeyAXI3fvKVvIbZz98OxCJddDx8aOFu
+GYRJLQRHQV2BOMdf9EsOCS6rWaeM/K/ALbSAfQcsh9JWGoyddZxL6NVBy34BgBME
+Nwnj8gk8lt7Smy56XkbhCm/TnzNyQS8mlHHY+wsAcCm683cxOHNitaFYcs9iayKt
+OnWyZ9j8e/vdix9vWrRFm5UXMAy6AjSIlTt7XYEy92YFMI6qc98a0XbGj7KysRqK
+PkBSGQw/0lAAitKVpHZycYi0WMzebWIT6xkdWXad8XpARYlO5bLHp/rcX3w5F6tu
+dW8gSeYWis0vFKL0P7t/l5zSnme3MjRVd3nGEfhkRlDo8j1kUJrZTgcXDU+9PSiA
+W64neFDa4kv/lGXXY7r7y7lSgIK83FjGyK/NWphuDkmLo5DD9jCV9rYnuBZPM2h2
+ASN6RWESWGb0NIE9Npa+bOpZB1Cx6tYUki7AmYb0ZdWhvTvBTeRUCVs1h+1bOoNJ
+qvyr5K1MNY53b5thCZQG
+=7fS+
+-----END PGP SIGNATURE-----
+
+--=-XEdlnNZGkuDI70ZjBCvU--
