@@ -1,75 +1,68 @@
-From: "Parikh, Neerav" <neerav.parikh@intel.com>
-Subject: RE: [Intel-wired-lan] i40e error handling LLDP messages from	Arista
-	switches
-Date: Tue, 19 Apr 2016 17:53:14 +0000
-Message-ID: <739353123C992A4C8800D77E2094259090524953@ORSMSX103.amr.corp.intel.com>
-References: <CAH9ADKU7DMbEoWD8Qu+=hXr2Pfhga5D_=FCz7btea2oV9=GdzA@mail.gmail.com>
- <739353123C992A4C8800D77E20942590905248DF@ORSMSX103.amr.corp.intel.com>
+From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
+Date: Tue, 19 Apr 2016 18:54:02 +0100
+Message-ID: <20160419175402.GE3217@sirena.org.uk>
+References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
+ <14313437.cDJIgY3kzo@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
+ <1463330011.BhWEcYYuGD@wuerfel>
+ <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
+ <20160419171239.GC3217@sirena.org.uk>
+ <sjdvun1fuj4nyi0bgf268g53.1461086401627@email.android.com>
+ <20160419172706.GD3217@sirena.org.uk>
+ <oe8hqfknrcljrjawnrxlohvr.1461087275186@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Parikh, Neerav" <neerav.parikh@intel.com>
-To: Jeremy Ashton <jeremy.ashton@shopify.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:65420 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933228AbcDSRxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2016 13:53:16 -0400
-In-Reply-To: <739353123C992A4C8800D77E20942590905248DF@ORSMSX103.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="xzV2nyj/vUZRUtI2"
+Cc: "kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org" <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	=?utf-8?B?15DXmdeZ15wg16jXmdeZ15bXqA==?= <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <oe8hqfknrcljrjawnrxlohvr.1461087275186-2ueSQiBKiTY7tOexoI0I+QC/G2K4zDHf@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-UmVzZW5kaW5nIGFzIHRoZSBvcmlnaW5hbCBlbWFpbCB3YXMgc2VudCBpbiBIVExNIGZvcm1hdCBh
-bmQgaGVuY2UgbXkgcmVwbHkgd2VudCBpbiB0aGF0IGZvcm1hdA0KYXMgd2VsbDsgd2hpY2ggZ290
-IHJlamVjdGVkIGJ5IG5ldGRldiBtYWlsZXIuDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCj4gRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5j
-ZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIFBhcmlraCwgTmVlcmF2DQo+IFNlbnQ6
-IFR1ZXNkYXksIEFwcmlsIDE5LCAyMDE2IDEwOjQ1IEFNDQo+IFRvOiBKZXJlbXkgQXNodG9uIDxq
-ZXJlbXkuYXNodG9uQHNob3BpZnkuY29tPg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
-aW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtJbnRlbC13
-aXJlZC1sYW5dIGk0MGUgZXJyb3IgaGFuZGxpbmcgTExEUCBtZXNzYWdlcyBmcm9tIEFyaXN0YSBz
-d2l0Y2hlcw0KPg0KPiA+IEZyb206IEludGVsLXdpcmVkLWxhbiBbbWFpbHRvOmludGVsLXdpcmVk
-LWxhbi1ib3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uIEJlaGFsZiBPZiBKZXJlbXkgQXNodG9u
-DQo+ID4gU2VudDogVHVlc2RheSwgQXByaWwgMTksIDIwMTYgMTA6MjYgQU0NCj4gPiBDYzogbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4g
-PiBTdWJqZWN0OiBbSW50ZWwtd2lyZWQtbGFuXSBpNDBlIGVycm9yIGhhbmRsaW5nIExMRFAgbWVz
-c2FnZXMgZnJvbSBBcmlzdGEgc3dpdGNoZXMNCj4gPg0KPiA+IEkgaGF2ZSBiZWVuIHRyeWluZyB0
-byBnZXQgcGZfcmluZyB3aXRoIHpjIHJ1bm5pbmcgb24gdWJ1bnR1IDE0LjA0LsKgIFRoZSB0aHJl
-YWQgY2FuIGJlIGZvdW5kIGhlcmU6DQo+ID4NCj4gPiBodHRwczovL2dpdGh1Yi5jb20vbnRvcC9Q
-Rl9SSU5HL2lzc3Vlcy84MQ0KPiA+DQo+ID4gVW5mb3J0dW5hdGVseSBpdCBzZWVtcyB0aGVyZSBp
-cyBhIGJ1ZyBpbiBpNDBlIHdoaWNoIGlzIGNhcnJpZWQgaW50byB0aGUgY29kZSBiYXNlIGZvciBp
-NDBlX3pjLg0KPiA+DQo+ID4gJCBtb2RpbmZvIGk0MGUNCj4gPiBmaWxlbmFtZTogwqAgwqAgwqAg
-L2xpYi9tb2R1bGVzLzMuMTkuMC01OC1nZW5lcmljL2tlcm5lbC9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9pNDBlL2k0MGUua28NCj4gPiB2ZXJzaW9uOiDCoCDCoCDCoCDCoDEuMi4yLWsNCj4g
-PiBsaWNlbnNlOiDCoCDCoCDCoCDCoEdQTA0KPiA+IGRlc2NyaXB0aW9uOiDCoCDCoEludGVsKFIp
-IEV0aGVybmV0IENvbm5lY3Rpb24gWEw3MTAgTmV0d29yayBEcml2ZXINCj4gPiBhdXRob3I6IMKg
-IMKgIMKgIMKgIEludGVsIENvcnBvcmF0aW9uLCA8ZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9y
-Z2UubmV0Pg0KPiA+IHNyY3ZlcnNpb246IMKgIMKgIEUzREVFRTAwRjQ5QkJGQkI4RkYzM0E3DQo+
-ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4NnN2KnNkKmJjKnNj
-KmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4NXN2KnNk
-KmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4
-NHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQw
-MDAwMTU4M3N2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAw
-ODA4NmQwMDAwMTU4MXN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNp
-OnYwMDAwODA4NmQwMDAwMTU4MHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKg
-IMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3RnN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKg
-IMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3NHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6
-IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3MnN2KnNkKmJjKnNjKmkqDQo+ID4g
-ZGVwZW5kczogwqAgwqAgwqAgwqBwdHAsdnhsYW4NCj4gPiBpbnRyZWU6IMKgIMKgIMKgIMKgIFkN
-Cj4gPiB2ZXJtYWdpYzogwqAgwqAgwqAgMy4xOS4wLTU4LWdlbmVyaWMgU01QIG1vZF91bmxvYWQg
-bW9kdmVyc2lvbnMNCj4gPiBzaWduZXI6IMKgIMKgIMKgIMKgIE1hZ3JhdGhlYTogR2xhY2llciBz
-aWduaW5nIGtleQ0KPiA+IHNpZ19rZXk6IMKgIMKgIMKgIMKgREU6QjM6NDM6MEE6MjY6RTY6N0Q6
-M0Q6M0I6NTQ6Qjk6REQ6MTM6MjU6QjM6M0E6NDY6QjI6RjI6REQNCj4gPiBzaWdfaGFzaGFsZ286
-IMKgIHNoYTUxMg0KPiA+IHBhcnQ6IMKgIMKgIMKgIMKgIMKgIGRlYnVnOkRlYnVnIGxldmVsICgw
-PW5vbmUsLi4uLDE2PWFsbCkgKGludCkNCj4gPg0KPiA+DQo+ID4gSSB3b25kZXIgaWYgc29tZW9u
-ZSBtaWdodCBvZmZlciBzb21lIGluc2lnaHQgYXMgdG8gdGhlIG5leHQgc3RlcHMgdG8gZGVidWcv
-cmVzb2x2ZSB0aGlzLg0KPiA+DQo+ID4gQ2hlZXJzLg0KPiA+DQo+ID4gQ2FuIHlvdSBzZW5kIHVz
-IHRoZSBkbWVzZyBvdXRwdXQgYWZ0ZXIgcnVubmluZyBpNDBlIGRlYnVnZnMgY29tbWFuZHMgDQo+
-ID4gdml6LiDigJxkdW1wIHBvcnTigJ0sIOKAnGxscGQgZ2V0IGxvY2Fs4oCdICwg4oCcbGxkcCBn
-ZXQgcmVtb3Rl4oCdLCBmb3IgdGhlIHBvcnQgdGhhdCBpcyBzaG93aW5nDQo+ID4gdGhpcyBiZWhh
-dmlvcj8gQWxzbywgZG8geW91IGhhcHBlbiB0byBrbm93IHdoYXQgaXMgdGhlIEFyaXN0YSBzaWRl
-IGNvbmZpZ3VyYXRpb24/DQo+ID4gVGhpcyB3aWxsIGhlbHAgdXMgZGVidWcgYmV0dGVyLg0KPiA+
-DQo+ID4gVGhhbmtzLA0KPiA+IE5lZXJhdg0K
+
+--xzV2nyj/vUZRUtI2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Apr 19, 2016 at 05:38:02PM +0000, Reizer, Eyal wrote:
+> Hi Mark,
+>=20
+> Hope you can see the attached picture that illustrates what need to sent =
+for sucesfull SPI init.
+
+I think what the picture shows is that you just need to send at least
+one byte at the end of the transfer *after* deasserting /CS which is
+totally not what I'd have understood from any of the previous
+discussion.  That is already supported, just send an extra byte using
+=2Ecs_change to do what is says.
+
+--xzV2nyj/vUZRUtI2
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQEcBAEBCAAGBQJXFnC3AAoJECTWi3JdVIfQU8kH/3jz5VWTyBTQmHtKqmredWGw
+RCR7Gu9WWJy4QZKDJsnKK0bfYB2uwv2CoiWQoHsfKmnQUOImfeO3AsoMqKgFOqlB
+ejS61RJfH8LGFv9vYR+6+hiAetRz1QU8klHemhxZ+DoYkTeqTW2hb6Igzr2TVrEi
+OJQDhPYSBJFqEjrd3U7Ew/lLHmpTmq0ITo2OPn203djVqUlaBnS/jbS5LFriGfds
+cAd6FKENsrYdq3r4YNpoi7pD2heRWK4mPKzSrza6cAN//HB7Uqx0FO9A2tsh4Q7+
+bsyY/GKjhwuo6CfP0LVuzcw8pQ+WaMj4lOa86b2W0t4ZzITDHEQC3BLsFKhWAEo=
+=1OGS
+-----END PGP SIGNATURE-----
+
+--xzV2nyj/vUZRUtI2--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
