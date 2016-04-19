@@ -1,84 +1,87 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net-next] net: use jiffies_to_msecs to replace EXPIRES_IN_MS in inet/sctp_diag
-Date: Tue, 19 Apr 2016 15:10:01 +0800
-Message-ID: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net, eric.dumazet@gmail.com, jsitnick@redhat.com
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: switchdev fib offload issues
+Date: Tue, 19 Apr 2016 09:21:17 +0200
+Message-ID: <20160419072117.GC1958@nanopsycho.orion>
+References: <20160418154757.GA2059@nanopsycho.amit.cz>
+ <20160418.135227.1430871435945779629.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	jhs@mojatatu.com, john.fastabend@gmail.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com, stephen@networkplumber.org,
+	sfeldma@gmail.com, dsa@cumulusnetworks.com, f.fainelli@gmail.com,
+	andrew@lunn.ch, vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
+	aduyck@mirantis.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34773 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbcDSHKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 03:10:06 -0400
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:34836 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137AbcDSHVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 03:21:21 -0400
+Received: by mail-wm0-f47.google.com with SMTP id e201so2551905wme.0
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 00:21:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160418.135227.1430871435945779629.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-EXPIRES_IN_MS macro comes from net/ipv4/inet_diag.c and dates
-back to before jiffies_to_msecs() has been introduced.
+Mon, Apr 18, 2016 at 07:52:27PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 18 Apr 2016 17:47:57 +0200
+>
+>> However, if for any reason the switchdev add operation fails, there is an
+>> abort function called (switchdev_fib_ipv4_abort). This function does two
+>> things which are both unfortunate in many usecases:
+>> 1) evicts all fib entries from HW leaving all processing done in kernel
+>>     - For Spectrum ASIC this means that all traffic running at 100G between
+>>       all ports is immediately downgraded to ~1-3Gbits
+>>     - Also this happens silently, user knows nothing about anything went wrong,
+>>       only forwarding performance suddenly sucks.
+>> 
+>> 2) sets net->ipv4.fib_offload_disabled = true
+>>     - That results in no other fib entry being offloaded, forever,
+>>       until net is removed and added again, machine reboot is required
+>>       in case if init_ns
+>> 
+>> These 2 issues makes fib offload completely unusable. So I propose
+>> to start thinking about fixing this.
+>> 
+>> I believe that although the current behaviour might be good for default,
+>> user should be able to change it by setting a different policy. This
+>> policy will allow to propagate offload error to user.
+>
+>There were many length discussions about this.
 
-Now we can remove it and use jiffies_to_msecs().
+I know. I wouln't start this one if the 2 issues I described did not exist.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv4/inet_diag.c | 12 ++++++------
- net/sctp/sctp_diag.c |  6 ++----
- 2 files changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 70212bd..ad7956f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -197,27 +197,27 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 		goto out;
- 	}
- 
--#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
--
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 		r->idiag_timer = 1;
- 		r->idiag_retrans = icsk->icsk_retransmits;
--		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
-+		r->idiag_expires =
-+			jiffies_to_msecs(icsk->icsk_timeout - jiffies);
- 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
- 		r->idiag_timer = 4;
- 		r->idiag_retrans = icsk->icsk_probes_out;
--		r->idiag_expires = EXPIRES_IN_MS(icsk->icsk_timeout);
-+		r->idiag_expires =
-+			jiffies_to_msecs(icsk->icsk_timeout - jiffies);
- 	} else if (timer_pending(&sk->sk_timer)) {
- 		r->idiag_timer = 2;
- 		r->idiag_retrans = icsk->icsk_probes_out;
--		r->idiag_expires = EXPIRES_IN_MS(sk->sk_timer.expires);
-+		r->idiag_expires =
-+			jiffies_to_msecs(sk->sk_timer.expires - jiffies);
- 	} else {
- 		r->idiag_timer = 0;
- 		r->idiag_expires = 0;
- 	}
--#undef EXPIRES_IN_MS
- 
- 	if ((ext & (1 << (INET_DIAG_INFO - 1))) && handler->idiag_info_size) {
- 		attr = nla_reserve(skb, INET_DIAG_INFO,
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-index 98ecd16..bb2d8d9 100644
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@ -48,10 +48,8 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
- 	r->idiag_state = asoc->state;
- 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
- 	r->idiag_retrans = asoc->rtx_data_chunks;
--#define EXPIRES_IN_MS(tmo)  DIV_ROUND_UP((tmo - jiffies) * 1000, HZ)
--	r->idiag_expires =
--		EXPIRES_IN_MS(asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX]);
--#undef EXPIRES_IN_MS
-+	r->idiag_expires = jiffies_to_msecs(
-+		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
- }
- 
- static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
--- 
-2.1.0
+>
+>It is extremely hard to load a partial table into the chip and
+>have it work correctly.  This is because with longest matching
+>prefix you have to pull out the least specific routing entires
+>and process them in software.
+
+Agreed. My my policy change did not change this behavious. the tables
+would still be in since. Only capacity of kernel table would be limited
+by capacity of HW table for that policy.
+
+
+>
+>Also, there is no communication about what makes an entry not be
+>insertable or not.  So it may be the case that the shorter prefixes
+>all fit into the table, because those can be compressed and take
+>up less table space in the chip.
+>
+>So it's extremely hard to know when "room" is available again.  Room
+>for what?  One 16-bit prefixed route?  Or room for one arbitrarily
+>prefixed route?  Which is it?
+>
+>The user shouldn't need to know anything about this, and I will
+>be strongly against any design which puts the onus on the user
+>to configure a table that will fit into the chip.
+
+I agree. User should not care and should not speculate if some rule fits
+and some other does not. He should just try to add *anything* and see if
+the operation was successful or not.
