@@ -1,7 +1,7 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net 5/5] macsec: add consistency check to netlink dumps
-Date: Tue, 19 Apr 2016 19:36:42 +0200
-Message-ID: <a8cb391b7303358a4887865db958f11c5ac290cb.1460967681.git.sd@queasysnail.net>
+Subject: [PATCH net 4/5] macsec: fix rx_sa refcounting with decrypt callback
+Date: Tue, 19 Apr 2016 19:36:41 +0200
+Message-ID: <cbe411e32aa66958819c6cdb04ef75f39f4f534d.1460967681.git.sd@queasysnail.net>
 References: <cover.1460967681.git.sd@queasysnail.net>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Johannes Berg <johannes@sipsolutions.net>,
@@ -9,75 +9,87 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58359 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56422 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932209AbcDSRhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Apr 2016 13:37:16 -0400
+	id S932885AbcDSRhO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 13:37:14 -0400
 In-Reply-To: <cover.1460967681.git.sd@queasysnail.net>
 In-Reply-To: <cover.1460967681.git.sd@queasysnail.net>
 References: <cover.1460967681.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use genl_dump_check_consistent in dump_secy.
+The decrypt callback macsec_decrypt_done needs a reference on the rx_sa
+and releases it before returning, but macsec_handle_frame already
+put that reference after macsec_decrypt returned NULL.
+
+Change macsec_decrypt to return error codes, and use -EINPROGRESS as
+an indication that macsec_handle_frame must not release the reference.
 
 Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-Suggested-by: Johannes Berg <johannes@sipsolutions.net>
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/macsec.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/macsec.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index 1fd2b147fda1..41fbe556ba6d 100644
+index 2a2136b7d324..1fd2b147fda1 100644
 --- a/drivers/net/macsec.c
 +++ b/drivers/net/macsec.c
-@@ -2271,6 +2271,8 @@ static int dump_secy(struct macsec_secy *secy, struct net_device *dev,
- 	if (!hdr)
- 		return -EMSGSIZE;
+@@ -880,12 +880,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	macsec_skb_cb(skb)->valid = false;
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (!skb)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
  
-+	genl_dump_check_consistent(cb, hdr, &macsec_fam);
-+
- 	if (nla_put_u32(skb, MACSEC_ATTR_IFINDEX, dev->ifindex))
- 		goto nla_put_failure;
+ 	req = aead_request_alloc(rx_sa->key.tfm, GFP_ATOMIC);
+ 	if (!req) {
+ 		kfree_skb(skb);
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 	}
  
-@@ -2439,6 +2441,8 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
+ 	hdr = (struct macsec_eth_header *)skb->data;
+@@ -905,7 +905,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 		skb = skb_unshare(skb, GFP_ATOMIC);
+ 		if (!skb) {
+ 			aead_request_free(req);
+-			return NULL;
++			return ERR_PTR(-ENOMEM);
+ 		}
+ 	} else {
+ 		/* integrity only: all headers + data authenticated */
+@@ -921,14 +921,14 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	dev_hold(dev);
+ 	ret = crypto_aead_decrypt(req);
+ 	if (ret == -EINPROGRESS) {
+-		return NULL;
++		return ERR_PTR(ret);
+ 	} else if (ret != 0) {
+ 		/* decryption/authentication failed
+ 		 * 10.6 if validateFrames is disabled, deliver anyway
+ 		 */
+ 		if (ret != -EBADMSG) {
+ 			kfree_skb(skb);
+-			skb = NULL;
++			skb = ERR_PTR(ret);
+ 		}
+ 	} else {
+ 		macsec_skb_cb(skb)->valid = true;
+@@ -1146,8 +1146,10 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
+ 	    secy->validate_frames != MACSEC_VALIDATE_DISABLED)
+ 		skb = macsec_decrypt(skb, dev, rx_sa, sci, secy);
  
-+static int macsec_generation = 1; /* protected by RTNL */
-+
- static int macsec_dump_txsc(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -2449,6 +2453,9 @@ static int macsec_dump_txsc(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	d = 0;
- 	rtnl_lock();
-+
-+	cb->seq = macsec_generation;
-+
- 	for_each_netdev(net, dev) {
- 		struct macsec_secy *secy;
- 
-@@ -2920,6 +2927,8 @@ static void macsec_dellink(struct net_device *dev, struct list_head *head)
- 	struct net_device *real_dev = macsec->real_dev;
- 	struct macsec_rxh_data *rxd = macsec_data_rtnl(real_dev);
- 
-+	macsec_generation++;
-+
- 	unregister_netdevice_queue(dev, head);
- 	list_del_rcu(&macsec->secys);
- 	if (list_empty(&rxd->secys))
-@@ -3066,6 +3075,8 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
- 	if (err < 0)
- 		goto del_dev;
- 
-+	macsec_generation++;
-+
- 	dev_hold(real_dev);
- 
- 	return 0;
+-	if (!skb) {
+-		macsec_rxsa_put(rx_sa);
++	if (IS_ERR(skb)) {
++		/* the decrypt callback needs the reference */
++		if (PTR_ERR(skb) != -EINPROGRESS)
++			macsec_rxsa_put(rx_sa);
+ 		rcu_read_unlock();
+ 		*pskb = NULL;
+ 		return RX_HANDLER_CONSUMED;
 -- 
 2.8.0
