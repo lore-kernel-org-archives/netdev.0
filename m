@@ -1,125 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 14:31:34 -0400 (EDT)
-Message-ID: <20160419.143134.2014460805657420897.davem@davemloft.net>
-References: <20160418.234137.26692086759328024.davem@davemloft.net>
-	<1461040324.10638.159.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160419.010316.1863885429013017239.davem@davemloft.net>
+From: "Parikh, Neerav" <neerav.parikh@intel.com>
+Subject: RE: [Intel-wired-lan] i40e error handling LLDP messages from Arista
+ switches
+Date: Tue, 19 Apr 2016 18:31:41 +0000
+Message-ID: <739353123C992A4C8800D77E2094259090524A59@ORSMSX103.amr.corp.intel.com>
+References: <CAH9ADKU7DMbEoWD8Qu+=hXr2Pfhga5D_=FCz7btea2oV9=GdzA@mail.gmail.com>
+ <739353123C992A4C8800D77E20942590905248DF@ORSMSX103.amr.corp.intel.com>
+ <739353123C992A4C8800D77E2094259090524953@ORSMSX103.amr.corp.intel.com>
+ <CAH9ADKW4cse2v88xwOisr__R5w-O7siTMhAa2eUAUWK1hUtt9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Jeremy Ashton <jeremy.ashton@shopify.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36575 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754830AbcDSSbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 14:31:36 -0400
-In-Reply-To: <20160419.010316.1863885429013017239.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:7329 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933522AbcDSSbn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 14:31:43 -0400
+In-Reply-To: <CAH9ADKW4cse2v88xwOisr__R5w-O7siTMhAa2eUAUWK1hUtt9Q@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 19 Apr 2016 01:03:16 -0400 (EDT)
-
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 18 Apr 2016 21:32:04 -0700
-> 
->> On Mon, 2016-04-18 at 23:41 -0400, David Miller wrote:
->>>  
->>> +	/* Add a zero length NOP attribute so that the nla_data()
->>> +	 * of the IFLA_STATS64 will be 64-bit aligned.
->>> +	 */
->>> +#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
->>> +	attr = nla_reserve(skb, IFLA_PAD, 0);
->>> +	if (!attr)
->>> +		return -EMSGSIZE;
->>> +#endif
->> 
->> You must do this only if current skb->data alignment is not correct.
-> 
-> I'll put an assertion there if it makes you happy. :-)
-
-Actually, you are right, as usual.
-
-Here is the final patch I'm about to push out, thanks a lot Eric.
-
-Roopa, please adjust your GETSTATS patch as needed (I think you need
-to adjust the SELinux table entry as well) and we can integrate that
-too.
-
-====================
-[PATCH] net: Align IFLA_STATS64 attributes properly on architectures that need it.
-
-Since the nlattr header is 4 bytes in size, it can cause the netlink
-attribute payload to not be 8-byte aligned.
-
-This is particularly troublesome for IFLA_STATS64 which contains 64-bit
-statistic values.
-
-Solve this by creating a dummy IFLA_PAD attribute which has a payload
-which is zero bytes in size.  When HAVE_EFFICIENT_UNALIGNED_ACCESS is
-false, we insert an IFLA_PAD attribute into the netlink response when
-necessary such that the IFLA_STATS64 payload will be properly aligned.
-
-With help and suggestions from Eric Dumazet.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 19 +++++++++++++++++++
- 2 files changed, 20 insertions(+)
-
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index bb3a90b..5ffdcb3 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -155,6 +155,7 @@ enum {
- 	IFLA_PROTO_DOWN,
- 	IFLA_GSO_MAX_SEGS,
- 	IFLA_GSO_MAX_SIZE,
-+	IFLA_PAD,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a7a3d34..198ca2c 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -878,6 +878,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_QDISC */
- 	       + nla_total_size(sizeof(struct rtnl_link_ifmap))
- 	       + nla_total_size(sizeof(struct rtnl_link_stats))
-+#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	       + nla_total_size(0) /* IFLA_PAD */
-+#endif
- 	       + nla_total_size(sizeof(struct rtnl_link_stats64))
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_BROADCAST */
-@@ -1052,6 +1055,22 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
- 	struct rtnl_link_stats64 *sp;
- 	struct nlattr *attr;
- 
-+#ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	/* IF necessary, add a zero length NOP attribute so that the
-+	 * nla_data() of the IFLA_STATS64 will be 64-bit aligned.
-+	 *
-+	 * The nlattr header is 4 bytes in size, that's why we test
-+	 * if the skb->data _is_ aligned.  This NOP attribute, plus
-+	 * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
-+	 * aligned.
-+	 */
-+	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
-+		attr = nla_reserve(skb, IFLA_PAD, 0);
-+		if (!attr)
-+			return -EMSGSIZE;
-+	}
-+#endif
-+
- 	attr = nla_reserve(skb, IFLA_STATS64,
- 			   sizeof(struct rtnl_link_stats64));
- 	if (!attr)
--- 
-2.4.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmVyZW15IEFzaHRvbiBb
+bWFpbHRvOmplcmVteS5hc2h0b25Ac2hvcGlmeS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIEFwcmls
+IDE5LCAyMDE2IDExOjEwIEFNDQo+IFRvOiBQYXJpa2gsIE5lZXJhdiA8bmVlcmF2LnBhcmlraEBp
+bnRlbC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBpbnRlbC13aXJlZC1sYW5A
+bGlzdHMub3N1b3NsLm9yZw0KPiBTdWJqZWN0OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gaTQwZSBl
+cnJvciBoYW5kbGluZyBMTERQIG1lc3NhZ2VzIGZyb20gQXJpc3RhDQo+IHN3aXRjaGVzDQo+IA0K
+PiBTbywgd2hhdCBjb21tYW5kcyBleGFjdGx5IGFyZSB5b3UgbG9va2luZyB0byBoYXZlIHJ1bj8g
+IFdvdWxkIHBhY2tldA0KPiBjYXB0dXJlIG9mIHRoZSBsbGRwIHRyYWZmaWMgaGVscD8NCj4gDQpM
+TERQIGlzIHJ1bm5pbmcgaW4gdGhlIGk0MGUgZGV2aWNlIGZpcm13YXJlIHNvIHVubGVzcyB5b3Un
+dmUgYSBwYWNrZXQgY2FwdHVyZSBvbg0KdGhlIHdpcmUgKFhnaWcpIHlvdSBtYXkgbm90IHNlZSB0
+aGF0IGluIHRoZSB3aXJlc2hhcmsvdHNoYXJrIG9uIHRoZSBob3N0IHN5c3RlbS4NCg0KVGhlIGRl
+YnVnZnMgY29tbWFuZHMgSSB3YXMgcmVmZXJyaW5nIHRvIGJlbG93IGNhbiBoZWxwIGNhcHR1cmUg
+c29tZSANCmluZm9ybWF0aW9uOyBhbmQgZm9yIHRoYXQgeW91IG1heSBuZWVkIHRvIG1vdW50IHRo
+ZSBkZWJ1Z2ZzIGZpbGUgc3lzdGVtIG9uIA0KeW91ciBzZXR1cC4gSWYgZGVidWdmcyBpcyBzdXBw
+b3J0ZWQgdGhlbiBvbmNlIHlvdSd2ZSB0aGF0IG1vdW50ZWQgYW5kIGhhdmUgdGhlDQppNDBlIGRy
+aXZlciBsb2FkZWQgdGhlbiB5b3UgbWF5IHNlZSBhbiBlbnRyeSBuYW1lZCAiaTQwZSIgdW5kZXIg
+dGhlIG1vdW50IHBvaW50Lg0KQXNzdW1pbmcgZGVidWdmcyBpcyBtb3VudGVkIG9uIC9zeXMva2Vy
+bmVsL2RlYnVnIHRoZSBpNDBlIGRpcmVjdG9yeSB3aWxsIGJlIHVuZGVyDQovc3lzL2tlcm5lbC9k
+ZWJ1Zy9pNDBlLiBUaGlzIGRpcmVjdG9yeSB3aWxsIGhhdmUgZW50cnkgZm9yIGVhY2ggUENJZSBk
+ZXZpY2UgYmVpbmcNCm1hbmFnZWQgYnkgdGhlIGk0MGUgZHJpdmVyLiBZb3UgY2FuIHNlbGVjdCB0
+aGUgUENJZSBkZXZpY2UgdGhhdCBtYXBzIHRvIHRoZSBkZXZpY2UNCmluIHF1ZXN0aW9uIGFuZCBj
+YW4gcnVuIHRoZSBjb21tYW5kcyBsaWtlOg0KZWNobyAiZHVtcCBwb3J0IiA+IC9zeXMva2VybmVs
+L2RlYnVnL2k0MGUvPHBjaS1wYXRoPi9jb21tYW5kDQplY2hvICJsbGRwIGdldCBsb2NhbCIgPiAv
+c3lzL2tlcm5lbC9kZWJ1Zy9pNDBlLzxwY2ktcGF0aD4vY29tbWFuZA0KZWNobyAibGxkcCBnZXQg
+cmVtb3RlIiA+IC9zeXMva2VybmVsL2RlYnVnL2k0MGUvPHBjaS1wYXRoPi9jb21tYW5kDQoNClRo
+ZSBvdXRwdXQgb2YgdGhlc2UgY29tbWFuZHMgd2lsbCBzaG93IHVwIGluIHRoZSBkbWVzZyBsb2cu
+DQoNCk9uZSBhbm90aGVyIEkgbm90aWNlZCBpbiB5b3VyIHRocmVhZCBvbiB0aGUgUEZfUklORyBi
+eiBpcyB0aGF0IHlvdSdyZSB1c2luZyBpbmJveA0KVWJ1bnR1IGRyaXZlci4gSGF2ZSB5b3UgdHJp
+ZWQgd2l0aCBjdXJyZW50IHVwc3RyZWFtIGFuZCBzZWVuIHRoaXMgaXNzdWU/DQoNClRoYW5rcywN
+Ck5lZXJhdg0KDQo+IE9uIFR1ZSwgQXByIDE5LCAyMDE2IGF0IDE6NTMgUE0sIFBhcmlraCwgTmVl
+cmF2IDxuZWVyYXYucGFyaWtoQGludGVsLmNvbT4NCj4gd3JvdGU6DQo+ID4gUmVzZW5kaW5nIGFz
+IHRoZSBvcmlnaW5hbCBlbWFpbCB3YXMgc2VudCBpbiBIVExNIGZvcm1hdCBhbmQgaGVuY2UgbXkg
+cmVwbHkNCj4gd2VudCBpbiB0aGF0IGZvcm1hdA0KPiA+IGFzIHdlbGw7IHdoaWNoIGdvdCByZWpl
+Y3RlZCBieSBuZXRkZXYgbWFpbGVyLg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+ID4+IEZyb206IEludGVsLXdpcmVkLWxhbiBbbWFpbHRvOmludGVsLXdpcmVkLWxhbi1i
+b3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uDQo+IEJlaGFsZiBPZiBQYXJpa2gsIE5lZXJhdg0K
+PiA+PiBTZW50OiBUdWVzZGF5LCBBcHJpbCAxOSwgMjAxNiAxMDo0NSBBTQ0KPiA+PiBUbzogSmVy
+ZW15IEFzaHRvbiA8amVyZW15LmFzaHRvbkBzaG9waWZ5LmNvbT4NCj4gPj4gQ2M6IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4+IFN1
+YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBpNDBlIGVycm9yIGhhbmRsaW5nIExMRFAgbWVz
+c2FnZXMgZnJvbSBBcmlzdGENCj4gc3dpdGNoZXMNCj4gPj4NCj4gPj4gPiBGcm9tOiBJbnRlbC13
+aXJlZC1sYW4gW21haWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0BsaXN0cy5vc3Vvc2wub3Jn
+XSBPbg0KPiBCZWhhbGYgT2YgSmVyZW15IEFzaHRvbg0KPiA+PiA+IFNlbnQ6IFR1ZXNkYXksIEFw
+cmlsIDE5LCAyMDE2IDEwOjI2IEFNDQo+ID4+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4+ID4gU3ViamVjdDogW0ludGVs
+LXdpcmVkLWxhbl0gaTQwZSBlcnJvciBoYW5kbGluZyBMTERQIG1lc3NhZ2VzIGZyb20gQXJpc3Rh
+DQo+IHN3aXRjaGVzDQo+ID4+ID4NCj4gPj4gPiBJIGhhdmUgYmVlbiB0cnlpbmcgdG8gZ2V0IHBm
+X3Jpbmcgd2l0aCB6YyBydW5uaW5nIG9uIHVidW50dSAxNC4wNC4gIFRoZQ0KPiB0aHJlYWQgY2Fu
+IGJlIGZvdW5kIGhlcmU6DQo+ID4+ID4NCj4gPj4gPiBodHRwczovL2dpdGh1Yi5jb20vbnRvcC9Q
+Rl9SSU5HL2lzc3Vlcy84MQ0KPiA+PiA+DQo+ID4+ID4gVW5mb3J0dW5hdGVseSBpdCBzZWVtcyB0
+aGVyZSBpcyBhIGJ1ZyBpbiBpNDBlIHdoaWNoIGlzIGNhcnJpZWQgaW50byB0aGUgY29kZQ0KPiBi
+YXNlIGZvciBpNDBlX3pjLg0KPiA+PiA+DQo+ID4+ID4gJCBtb2RpbmZvIGk0MGUNCj4gPj4gPiBm
+aWxlbmFtZTogICAgICAgL2xpYi9tb2R1bGVzLzMuMTkuMC01OC0NCj4gZ2VuZXJpYy9rZXJuZWwv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlLmtvDQo+ID4+ID4gdmVyc2lvbjog
+ICAgICAgIDEuMi4yLWsNCj4gPj4gPiBsaWNlbnNlOiAgICAgICAgR1BMDQo+ID4+ID4gZGVzY3Jp
+cHRpb246ICAgIEludGVsKFIpIEV0aGVybmV0IENvbm5lY3Rpb24gWEw3MTAgTmV0d29yayBEcml2
+ZXINCj4gPj4gPiBhdXRob3I6ICAgICAgICAgSW50ZWwgQ29ycG9yYXRpb24sIDxlMTAwMC1kZXZl
+bEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQ+DQo+ID4+ID4gc3JjdmVyc2lvbjogICAgIEUzREVFRTAw
+RjQ5QkJGQkI4RkYzM0E3DQo+ID4+ID4gYWxpYXM6ICAgICAgICAgIHBjaTp2MDAwMDgwODZkMDAw
+MDE1ODZzdipzZCpiYypzYyppKg0KPiA+PiA+IGFsaWFzOiAgICAgICAgICBwY2k6djAwMDA4MDg2
+ZDAwMDAxNTg1c3Yqc2QqYmMqc2MqaSoNCj4gPj4gPiBhbGlhczogICAgICAgICAgcGNpOnYwMDAw
+ODA4NmQwMDAwMTU4NHN2KnNkKmJjKnNjKmkqDQo+ID4+ID4gYWxpYXM6ICAgICAgICAgIHBjaTp2
+MDAwMDgwODZkMDAwMDE1ODNzdipzZCpiYypzYyppKg0KPiA+PiA+IGFsaWFzOiAgICAgICAgICBw
+Y2k6djAwMDA4MDg2ZDAwMDAxNTgxc3Yqc2QqYmMqc2MqaSoNCj4gPj4gPiBhbGlhczogICAgICAg
+ICAgcGNpOnYwMDAwODA4NmQwMDAwMTU4MHN2KnNkKmJjKnNjKmkqDQo+ID4+ID4gYWxpYXM6ICAg
+ICAgICAgIHBjaTp2MDAwMDgwODZkMDAwMDE1N0ZzdipzZCpiYypzYyppKg0KPiA+PiA+IGFsaWFz
+OiAgICAgICAgICBwY2k6djAwMDA4MDg2ZDAwMDAxNTc0c3Yqc2QqYmMqc2MqaSoNCj4gPj4gPiBh
+bGlhczogICAgICAgICAgcGNpOnYwMDAwODA4NmQwMDAwMTU3MnN2KnNkKmJjKnNjKmkqDQo+ID4+
+ID4gZGVwZW5kczogICAgICAgIHB0cCx2eGxhbg0KPiA+PiA+IGludHJlZTogICAgICAgICBZDQo+
+ID4+ID4gdmVybWFnaWM6ICAgICAgIDMuMTkuMC01OC1nZW5lcmljIFNNUCBtb2RfdW5sb2FkIG1v
+ZHZlcnNpb25zDQo+ID4+ID4gc2lnbmVyOiAgICAgICAgIE1hZ3JhdGhlYTogR2xhY2llciBzaWdu
+aW5nIGtleQ0KPiA+PiA+IHNpZ19rZXk6DQo+IERFOkIzOjQzOjBBOjI2OkU2OjdEOjNEOjNCOjU0
+OkI5OkREOjEzOjI1OkIzOjNBOjQ2OkIyOkYyOkREDQo+ID4+ID4gc2lnX2hhc2hhbGdvOiAgIHNo
+YTUxMg0KPiA+PiA+IHBhcnQ6ICAgICAgICAgICBkZWJ1ZzpEZWJ1ZyBsZXZlbCAoMD1ub25lLC4u
+LiwxNj1hbGwpIChpbnQpDQo+ID4+ID4NCj4gPj4gPg0KPiA+PiA+IEkgd29uZGVyIGlmIHNvbWVv
+bmUgbWlnaHQgb2ZmZXIgc29tZSBpbnNpZ2h0IGFzIHRvIHRoZSBuZXh0IHN0ZXBzIHRvDQo+IGRl
+YnVnL3Jlc29sdmUgdGhpcy4NCj4gPj4gPg0KPiA+PiA+IENoZWVycy4NCj4gPj4gPg0KPiA+PiA+
+IENhbiB5b3Ugc2VuZCB1cyB0aGUgZG1lc2cgb3V0cHV0IGFmdGVyIHJ1bm5pbmcgaTQwZSBkZWJ1
+Z2ZzIGNvbW1hbmRzDQo+ID4+ID4gdml6LiDigJxkdW1wIHBvcnTigJ0sIOKAnGxscGQgZ2V0IGxv
+Y2Fs4oCdICwg4oCcbGxkcCBnZXQgcmVtb3Rl4oCdLCBmb3IgdGhlIHBvcnQgdGhhdCBpcw0KPiBz
+aG93aW5nDQo+ID4+ID4gdGhpcyBiZWhhdmlvcj8gQWxzbywgZG8geW91IGhhcHBlbiB0byBrbm93
+IHdoYXQgaXMgdGhlIEFyaXN0YSBzaWRlDQo+IGNvbmZpZ3VyYXRpb24/DQo+ID4+ID4gVGhpcyB3
+aWxsIGhlbHAgdXMgZGVidWcgYmV0dGVyLg0KPiA+PiA+DQo+ID4+ID4gVGhhbmtzLA0KPiA+PiA+
+IE5lZXJhdg0K
