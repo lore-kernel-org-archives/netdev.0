@@ -1,33 +1,37 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCHv3 net-next] net: use jiffies_to_msecs to replace EXPIRES_IN_MS in inet/sctp_diag
-Date: Tue, 19 Apr 2016 11:13:07 +0200
-Message-ID: <87mvoqotb0.fsf@beetle.home>
-References: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH v2 net-next 4/7] tcp: Make use of MSG_EOR flag in
+ tcp_sendmsg
+Date: Tue, 19 Apr 2016 09:47:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4A53D7@AcuExch.aculab.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
+	 <1461019569-3037369-5-git-send-email-kafai@fb.com>
+ <1461021493.10638.131.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net, eric.dumazet@gmail.com
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	"Soheil Hassas Yeganeh" <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37264 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbcDSJNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 05:13:10 -0400
-Received: by mail-wm0-f48.google.com with SMTP id n3so18386731wmn.0
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 02:13:09 -0700 (PDT)
-In-reply-to: <87a0e83132ce64a3fe2266a5323fa6577a2e5c96.1461049801.git.lucien.xin@gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.189]:58961 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083AbcDSJsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 05:48:23 -0400
+In-Reply-To: <1461021493.10638.131.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 19, 2016 at 09:10 AM CEST, Xin Long <lucien.xin@gmail.com> wrote:
-> EXPIRES_IN_MS macro comes from net/ipv4/inet_diag.c and dates
-> back to before jiffies_to_msecs() has been introduced.
->
-> Now we can remove it and use jiffies_to_msecs().
->
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
-
-Acked-by: Jakub Sitnicki <jkbs@redhat.com>
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDE5IEFwcmlsIDIwMTYgMDA6MTgNCi4uLg0KPiBN
+U0dfRU9SIHNob3VsZCBub3QgZGVwZW5kIG9uIFNLQlRYX0FOWV9UU1RBTVANCj4gDQo+IFJlYWxs
+eSwgc2ltcGx5IHVzaW5nIHNlbmQoZmQsIC4uLiwgbGVuLCBNU0dfRU9SKSBzaG91bGQgaW5zdHJ1
+Y3QgVENQIHRvDQo+IG1hcmsgdGhlIGNvb2tlZCBza2IgYXMgYSBub24gY2FuZGlkYXRlIGZvciBm
+dXR1cmUgY29hbGVzY2luZy4NCg0KSXNuJ3QgdGhhdCB2ZXJ5IHNpbWlsYXIgdG8gdGhlIGludmVy
+c2Ugb2YgTVNHX01PUkU/DQpPciBhIHNlbmQgd2l0aCBOYWdsZSBkaXNhYmxlZD8NCg0KCURhdmlk
+DQoNCg==
