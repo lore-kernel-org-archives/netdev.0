@@ -1,38 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
-Date: Tue, 19 Apr 2016 11:06:46 -0700
-Message-ID: <1461089206.10638.226.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <5716338E.4050003@solarflare.com>
-	 <5716347D.3030808@solarflare.com>
-	 <1461077434.10638.189.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <571661E5.7010304@solarflare.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] drivers: net: cpsw: fix wrong regs access in cpsw_ndo_open
+Date: Tue, 19 Apr 2016 21:09:49 +0300
+Message-ID: <1461089389-17508-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	linux-net-drivers@solarflare.com
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35241 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753683AbcDSSGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 14:06:46 -0400
-Received: by mail-pa0-f47.google.com with SMTP id fs9so8965805pac.2
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 11:06:46 -0700 (PDT)
-In-Reply-To: <571661E5.7010304@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-04-19 at 17:50 +0100, Edward Cree wrote:
-> On 19/04/16 15:50, Eric Dumazet wrote:
-> > The main problem in UDP stack today is having to lock the socket because
-> > of the dumb forward allocation problem.
-> I'm not quite sure what you're referring to here, care to educate me?
+The cpsw_ndo_open() could try to access CPSW registers before
+calling pm_runtime_get_sync(). This will trigger L3 error:
 
+ WARNING: CPU: 0 PID: 21 at drivers/bus/omap_l3_noc.c:147 l3_interrupt_handler+0x220/0x34c()
+ 44000000.ocp:L3 Custom Error: MASTER M2 (64-bit) TARGET L4_FAST (Idle): Data Access in Supervisor mode during Functional access
 
-This was added for memory accounting, commit
-95766fff6b9a78d11fc2d3812dd035381690b55d
+and CPSW will stop functioning.
 
-TCP stack does not reclaim its forward allocations as aggressively.
-(It has a concept of 'memory pressure')
+Hence, fix it by moving pm_runtime_get_sync() before the first access
+to CPSW registers in cpsw_ndo_open().
+
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 54bcc38..0fa75a8 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1244,12 +1244,12 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 	int i, ret;
+ 	u32 reg;
+ 
++	pm_runtime_get_sync(&priv->pdev->dev);
++
+ 	if (!cpsw_common_res_usage_state(priv))
+ 		cpsw_intr_disable(priv);
+ 	netif_carrier_off(ndev);
+ 
+-	pm_runtime_get_sync(&priv->pdev->dev);
+-
+ 	reg = priv->version;
+ 
+ 	dev_info(priv->dev, "initializing cpsw version %d.%d (%d)\n",
+-- 
+2.8.1
