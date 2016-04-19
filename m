@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
  dump link stats
-Date: Mon, 18 Apr 2016 23:52:07 -0400 (EDT)
-Message-ID: <20160418.235207.395468709808133833.davem@davemloft.net>
-References: <1461015356.10638.124.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160418.205755.87909888849343438.davem@davemloft.net>
-	<20160418.214851.122286645854721047.davem@davemloft.net>
+Date: Mon, 18 Apr 2016 21:17:44 -0700
+Message-ID: <1461039464.10638.150.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461013819-23223-1-git-send-email-roopa@cumulusnetworks.com>
+	 <20160418.234137.26692086759328024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
 	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>, Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58410 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752137AbcDSDwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Apr 2016 23:52:10 -0400
-In-Reply-To: <20160418.214851.122286645854721047.davem@davemloft.net>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:34126 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbcDSERq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 00:17:46 -0400
+Received: by mail-pa0-f54.google.com with SMTP id r5so2087452pag.1
+        for <netdev@vger.kernel.org>; Mon, 18 Apr 2016 21:17:46 -0700 (PDT)
+In-Reply-To: <20160418.234137.26692086759328024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Mon, 18 Apr 2016 21:48:51 -0400 (EDT)
+On Mon, 2016-04-18 at 23:41 -0400, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Mon, 18 Apr 2016 14:10:19 -0700
+> 
+> > This patch adds a new RTM_GETSTATS message to query link stats via
+> > netlink from the kernel. RTM_NEWLINK also dumps stats today, but
+> > RTM_NEWLINK returns a lot more than just stats and is expensive in
+> > some cases when frequent polling for stats from userspace is a
+> > common operation.
+> 
+> I'm holding off on this until we sort out the 64-bit netlink
+> attribute alignment issue.
+> 
+> Meanwhile, I'll some kind of a fix into the tree for the
+> rtnl_fill_stats() change so that it doesn't cause unaligned
+> accesses.
 
-> I think the time has probably come to have a new netlink attribute
-> format that doesn't have this multi-decade old problem.
- ...
+Also it looks like my previous feedback for sctp_get_sctp_info() has
+been ignored.
 
-Scratch this whole idea, I think the padding attribute works a lot
-better and is backwards compatible with every properly written
-netlink application.
+<Quoting http://www.spinics.net/lists/netdev/msg372523.html >
+
+info is not guaranteed to be aligned on 8 bytes.
+
+You need to use put_unaligned()
+
+Check commit ff5d749772018 ("tcp: beware of alignments in
+tcp_get_info()") for details.
+
+</quote>
