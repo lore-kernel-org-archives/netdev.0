@@ -1,66 +1,54 @@
-From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCHv2] wlcore: spi: add wl18xx support
-Date: Tue, 19 Apr 2016 18:12:39 +0100
-Message-ID: <20160419171239.GC3217@sirena.org.uk>
-References: <1460273570-12298-1-git-send-email-eyalr@ti.com>
- <14313437.cDJIgY3kzo@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360BF614@DFRE01.ent.ti.com>
- <1463330011.BhWEcYYuGD@wuerfel>
- <8665E2433BC68541A24DFFCA87B70F5B360C0745@DFRE01.ent.ti.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [RFC PATCH net-next 7/8] net: ipv4: listified version of ip_rcv
+Date: Tue, 19 Apr 2016 18:12:57 +0100
+Message-ID: <57166719.4070209@solarflare.com>
+References: <5716338E.4050003@solarflare.com>
+ <5716347D.3030808@solarflare.com>
+ <1461077434.10638.189.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S34ZFFFZVn2_ugp+eQg6QhdHj=CWPuvW3s9aC2dg75nqiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="4cv0JMvpEKiCIDl2"
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B360C0745-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
-Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	<linux-net-drivers@solarflare.com>
+To: Tom Herbert <tom@herbertland.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:15752 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754382AbcDSRNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 13:13:09 -0400
+In-Reply-To: <CALx6S34ZFFFZVn2_ugp+eQg6QhdHj=CWPuvW3s9aC2dg75nqiQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 19/04/16 16:46, Tom Herbert wrote:
+> On Tue, Apr 19, 2016 at 7:50 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> We have hard time to deal with latencies already, and maintaining some
+>> sanity in the stack(s)
+> Right, this is significant complexity for a fairly narrow use case.
+Why do you say the use case is narrow?  This approach should increase
+packet rate for any (non-GROed) traffic, whether for local delivery or
+forwarding.  If you're line-rate limited, it'll save CPU time instead.
+The only reason I focused my testing on single-byte UDP is because the
+benefits are more easily measured in that case.
 
---4cv0JMvpEKiCIDl2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+If anything, the use case is broader than GRO, because GRO can't be used
+for datagram protocols where packet boundaries must be maintained.
+And because the listified processing is at least partly sharing code with
+the regular stack, it's less complexity than GRO which has to have
+essentially its own receive stack, _and_ code to coalesce the results
+back into a superframe.
 
-On Tue, Apr 19, 2016 at 09:05:45AM +0000, Reizer, Eyal wrote:
+I think if we pushed bundled RX all the way up to the TCP layer, it might
+potentially also be faster than GRO, because it avoids the work of
+coalescing superframes; plus going through the GRO callbacks for each
+packet could end up blowing icache in the same way the regular stack does.
+If bundling did prove faster, we could then remove GRO, and overall
+complexity would be _reduced_.
 
-> Understood. As this special CS manipulation is unique to wspi (wilink spi=
-)  I think the=20
-> best option is to move this gpio allocation into wlcore_spi as a new devi=
-ce tree entry
-> used only by this driver.
+But I admit it may be a long shot.
 
-That sounds like it is going to break normal chip select operation which
-doesn't seem like a good idea either.  What exactly are you trying to do
-here?  If you need to send some extra bytes at the end of a transfer why
-not just do that, or add an empty transfer with a delay.  It's hard to
-see what more you could do with only control of the chip select...
-
---4cv0JMvpEKiCIDl2
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJXFmcGAAoJECTWi3JdVIfQV3cH/13tX6IFbyU7cJBFsp94l8u0
-RZ8ygWZrra/QQMyPguVMdheFO50a6wPZL1nZ0iPa2Zp8b0RUCjCuuDxtjoJf5QD6
-39GH1LuyIK122A2S1DG5aRP8HjUtrOT5s1oE8IwGSTxSow9E60bJPOHoDt23uoFi
-EDa6F+MnQ0QhPSQhKdUEwVCrNCep+qEmQxOT83fei+xd3MFAFtb9vTACNaPexOO4
-iRU94K2wUO1np7ug8M9Q4Sx5inkXh+Fy3Ug34x2fWG8prhqa/TDXXfu/IyfDwlpM
-0UIWRQheG7zxMdGqGsXL84gI4k6mNZKn0f37vwmGV3ioan07BzSY+LkBREXpv7I=
-=FdXk
------END PGP SIGNATURE-----
-
---4cv0JMvpEKiCIDl2--
---
-To unsubscribe from this list: send the line "unsubscribe linux-spi" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-Ed
