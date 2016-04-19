@@ -1,57 +1,51 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH] rtl8xxxu: hide unused tables
-Date: Tue, 19 Apr 2016 14:24:40 -0400
-Message-ID: <wrfjmvop5udz.fsf@redhat.com>
-References: <1461016782-2640046-1-git-send-email-arnd@arndb.de>
-	<wrfjzisp64d7.fsf@redhat.com> <87mvopy4dy.fsf@purkki.adurom.net>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] tcp: Merge tx_flags/tskey/txstamp_ack
+ in tcp_collapse_retrans
+Date: Tue, 19 Apr 2016 14:24:38 -0400
+Message-ID: <CACSApvbzAtCTnom+xyQmaG=ATwncMnvLLDdxqCAYWG7rgYbBmw@mail.gmail.com>
+References: <1461019569-3037369-1-git-send-email-kafai@fb.com>
+ <1461019569-3037369-3-git-send-email-kafai@fb.com> <CACSApvY5ZdyUO1i2O0KPGJM5meWHFv3hdi9Ew89CH--jFV4yOw@mail.gmail.com>
+ <20160419172837.GA37697@kafai-mba.local> <CANn89iJ=Kk3oNbkJ4pOg6bnvJFOUjJa6SSem1jb=BOkR0FF=3g@mail.gmail.com>
+ <20160419181644.GA40600@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Jakub Sitnicki <jsitnicki@gmail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mvopy4dy.fsf@purkki.adurom.net> (Kalle Valo's message of "Tue,
-	19 Apr 2016 19:01:13 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:35592 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754622AbcDSSZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 14:25:19 -0400
+Received: by mail-oi0-f50.google.com with SMTP id p188so19843494oih.2
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 11:25:18 -0700 (PDT)
+In-Reply-To: <20160419181644.GA40600@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kalle Valo <kvalo@codeaurora.org> writes:
-> Jes Sorensen <Jes.Sorensen@redhat.com> writes:
->
->> Arnd Bergmann <arnd@arndb.de> writes:
->>> The references to some arrays in the rtl8xxxu driver were moved inside
->>> of an #ifdef, but the symbols remain outside, resulting in build warnings:
->>>
->>> rtl8xxxu/rtl8xxxu.c:1506:33: error:
->>> 'rtl8188ru_radioa_1t_highpa_table' defined but not used
->>> rtl8xxxu/rtl8xxxu.c:1431:33: error:
->>> 'rtl8192cu_radioa_1t_init_table' defined but not used
->>> rtl8xxxu/rtl8xxxu.c:1407:33: error:
->>> 'rtl8192cu_radiob_2t_init_table' defined but not used
->>> rtl8xxxu/rtl8xxxu.c:1332:33: error:
->>> 'rtl8192cu_radioa_2t_init_table' defined but not used
->>> rtl8xxxu/rtl8xxxu.c:239:35: error: 'rtl8192c_power_base' defined but not used
->>> rtl8xxxu/rtl8xxxu.c:217:35: error: 'rtl8188r_power_base' defined but not used
->>>
->>> This adds an extra #ifdef around them to shut up the warnings.
->>>
->>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->>> Fixes: 2fc0b8e5a17d ("rtl8xxxu: Add TX power base values for gen1 parts")
->>> Fixes: 4062b8ffec36 ("rtl8xxxu: Move PHY RF init into device
->>> specific functions")
->>> ---
->>>  drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu.c | 4 ++++
->>>  1 file changed, 4 insertions(+)
+On Tue, Apr 19, 2016 at 2:18 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Tue, Apr 19, 2016 at 10:35:52AM -0700, Eric Dumazet wrote:
+>> On Tue, Apr 19, 2016 at 10:28 AM, Martin KaFai Lau <kafai@fb.com> wrote:
 >>
->> I'll apply it to my tree!
->
-> Actually I would prefer to apply this directly to wireless-drivers-next
-> so that the warnings are quickly fixed.
+>> > A bit off topic, I feel like the SKBTX_ACK_TSTAMP and txstamp_ack are sort
+>> > of redundant but I have not look into the details yet, so not completely
+>> > sure.  It wwould be a separate cleanup patch if it is the case.
+>>
+>> Please read 6b084928baac562ed61866f540a96120e9c9ddb7 changelog ;)
+>>
+>> A cache line miss avoidance is critical
+> I looked at the patch but I probably am missing something :(
+> Is checking txstamp_ack alone enough and SKBTX_ACK_TSTAMP is not needed
+> since they are always set together?
 
-Thats fine with me, I already applied it here before I started doing any
-of the refactoring work, so we should be in sync.
+That's right, the check on "(shinfo->tx_flags & SKBTX_ACK_TSTAMP)" in
+tcp_ack_tstamp() is redundant and I had a patch prepared to remove it.
+But I thought it's better to wait for
+https://patchwork.ozlabs.org/patch/611938/ to be merged first.
 
-Cheers,
-Jes
+Feel free to remove it in your patches, if you'd prefer that.
