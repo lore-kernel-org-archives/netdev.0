@@ -1,44 +1,75 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 1/1] drivers: net: cpsw: Prevent NUll pointer
- dereference with two PHYs
-Date: Tue, 19 Apr 2016 10:44:15 -0700
-Message-ID: <57166E6F.90905@gmail.com>
-References: <1461074186-25535-1-git-send-email-andrew.goodbody@cambrionix.com>
- <1461074186-25535-2-git-send-email-andrew.goodbody@cambrionix.com>
- <57164383.6080103@ti.com>
- <20160419110140.75e35c3c.drivshin.allworx@gmail.com> <57165269.40207@ti.com>
- <20160419131443.7a3b3ef7.drivshin.allworx@gmail.com>
+From: "Parikh, Neerav" <neerav.parikh@intel.com>
+Subject: RE: [Intel-wired-lan] i40e error handling LLDP messages from	Arista
+	switches
+Date: Tue, 19 Apr 2016 17:53:14 +0000
+Message-ID: <739353123C992A4C8800D77E2094259090524953@ORSMSX103.amr.corp.intel.com>
+References: <CAH9ADKU7DMbEoWD8Qu+=hXr2Pfhga5D_=FCz7btea2oV9=GdzA@mail.gmail.com>
+ <739353123C992A4C8800D77E20942590905248DF@ORSMSX103.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Goodbody <andrew.goodbody@cambrionix.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org, mugunthanvnm@ti.com, tony@atomide.com,
-	andrew@lunn.ch
-To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160419131443.7a3b3ef7.drivshin.allworx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Parikh, Neerav" <neerav.parikh@intel.com>
+To: Jeremy Ashton <jeremy.ashton@shopify.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:65420 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933228AbcDSRxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 13:53:16 -0400
+In-Reply-To: <739353123C992A4C8800D77E20942590905248DF@ORSMSX103.amr.corp.intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/04/16 10:14, David Rivshin (Allworx) wrote:
->> Ah Ok. There are no user of cpsw_platform_data outside of net/ethernet/ti/,
->> so yes, looks like your patch 1 does exactly what's needed.
-> 
-> Given that the v1 of Andrew's patch is already in Dave's net tree, and 
-> would obviously have many conflicts with mine, how should I proceed? 
-> Since you already requested Dave revert that patch, should I just wait 
-> for that to happen and then resubmit my series? 
-> 
-> Dave, Does that sound good to you? 
-
-At some point, it would be good for the cpsw driver to be moved to the
-DSA subsystem, a lot of these tiny little details, like how to attach
-the PHY to the internal, external, fixed MDIO bus have been solved
-already using standard DT bindings. This leaves you with the fun part:
-how to program your switch such that it works in response to the
-networking stack sollicitations (bridge, VLAN, ethtool etc.).
--- 
-Florian
+UmVzZW5kaW5nIGFzIHRoZSBvcmlnaW5hbCBlbWFpbCB3YXMgc2VudCBpbiBIVExNIGZvcm1hdCBh
+bmQgaGVuY2UgbXkgcmVwbHkgd2VudCBpbiB0aGF0IGZvcm1hdA0KYXMgd2VsbDsgd2hpY2ggZ290
+IHJlamVjdGVkIGJ5IG5ldGRldiBtYWlsZXIuDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCj4gRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5j
+ZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIFBhcmlraCwgTmVlcmF2DQo+IFNlbnQ6
+IFR1ZXNkYXksIEFwcmlsIDE5LCAyMDE2IDEwOjQ1IEFNDQo+IFRvOiBKZXJlbXkgQXNodG9uIDxq
+ZXJlbXkuYXNodG9uQHNob3BpZnkuY29tPg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsg
+aW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtJbnRlbC13
+aXJlZC1sYW5dIGk0MGUgZXJyb3IgaGFuZGxpbmcgTExEUCBtZXNzYWdlcyBmcm9tIEFyaXN0YSBz
+d2l0Y2hlcw0KPg0KPiA+IEZyb206IEludGVsLXdpcmVkLWxhbiBbbWFpbHRvOmludGVsLXdpcmVk
+LWxhbi1ib3VuY2VzQGxpc3RzLm9zdW9zbC5vcmddIE9uIEJlaGFsZiBPZiBKZXJlbXkgQXNodG9u
+DQo+ID4gU2VudDogVHVlc2RheSwgQXByaWwgMTksIDIwMTYgMTA6MjYgQU0NCj4gPiBDYzogbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4g
+PiBTdWJqZWN0OiBbSW50ZWwtd2lyZWQtbGFuXSBpNDBlIGVycm9yIGhhbmRsaW5nIExMRFAgbWVz
+c2FnZXMgZnJvbSBBcmlzdGEgc3dpdGNoZXMNCj4gPg0KPiA+IEkgaGF2ZSBiZWVuIHRyeWluZyB0
+byBnZXQgcGZfcmluZyB3aXRoIHpjIHJ1bm5pbmcgb24gdWJ1bnR1IDE0LjA0LsKgIFRoZSB0aHJl
+YWQgY2FuIGJlIGZvdW5kIGhlcmU6DQo+ID4NCj4gPiBodHRwczovL2dpdGh1Yi5jb20vbnRvcC9Q
+Rl9SSU5HL2lzc3Vlcy84MQ0KPiA+DQo+ID4gVW5mb3J0dW5hdGVseSBpdCBzZWVtcyB0aGVyZSBp
+cyBhIGJ1ZyBpbiBpNDBlIHdoaWNoIGlzIGNhcnJpZWQgaW50byB0aGUgY29kZSBiYXNlIGZvciBp
+NDBlX3pjLg0KPiA+DQo+ID4gJCBtb2RpbmZvIGk0MGUNCj4gPiBmaWxlbmFtZTogwqAgwqAgwqAg
+L2xpYi9tb2R1bGVzLzMuMTkuMC01OC1nZW5lcmljL2tlcm5lbC9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9pNDBlL2k0MGUua28NCj4gPiB2ZXJzaW9uOiDCoCDCoCDCoCDCoDEuMi4yLWsNCj4g
+PiBsaWNlbnNlOiDCoCDCoCDCoCDCoEdQTA0KPiA+IGRlc2NyaXB0aW9uOiDCoCDCoEludGVsKFIp
+IEV0aGVybmV0IENvbm5lY3Rpb24gWEw3MTAgTmV0d29yayBEcml2ZXINCj4gPiBhdXRob3I6IMKg
+IMKgIMKgIMKgIEludGVsIENvcnBvcmF0aW9uLCA8ZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9y
+Z2UubmV0Pg0KPiA+IHNyY3ZlcnNpb246IMKgIMKgIEUzREVFRTAwRjQ5QkJGQkI4RkYzM0E3DQo+
+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4NnN2KnNkKmJjKnNj
+KmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4NXN2KnNk
+KmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU4
+NHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQw
+MDAwMTU4M3N2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAw
+ODA4NmQwMDAwMTU4MXN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKgIMKgcGNp
+OnYwMDAwODA4NmQwMDAwMTU4MHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKgIMKgIMKg
+IMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3RnN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6IMKgIMKg
+IMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3NHN2KnNkKmJjKnNjKmkqDQo+ID4gYWxpYXM6
+IMKgIMKgIMKgIMKgIMKgcGNpOnYwMDAwODA4NmQwMDAwMTU3MnN2KnNkKmJjKnNjKmkqDQo+ID4g
+ZGVwZW5kczogwqAgwqAgwqAgwqBwdHAsdnhsYW4NCj4gPiBpbnRyZWU6IMKgIMKgIMKgIMKgIFkN
+Cj4gPiB2ZXJtYWdpYzogwqAgwqAgwqAgMy4xOS4wLTU4LWdlbmVyaWMgU01QIG1vZF91bmxvYWQg
+bW9kdmVyc2lvbnMNCj4gPiBzaWduZXI6IMKgIMKgIMKgIMKgIE1hZ3JhdGhlYTogR2xhY2llciBz
+aWduaW5nIGtleQ0KPiA+IHNpZ19rZXk6IMKgIMKgIMKgIMKgREU6QjM6NDM6MEE6MjY6RTY6N0Q6
+M0Q6M0I6NTQ6Qjk6REQ6MTM6MjU6QjM6M0E6NDY6QjI6RjI6REQNCj4gPiBzaWdfaGFzaGFsZ286
+IMKgIHNoYTUxMg0KPiA+IHBhcnQ6IMKgIMKgIMKgIMKgIMKgIGRlYnVnOkRlYnVnIGxldmVsICgw
+PW5vbmUsLi4uLDE2PWFsbCkgKGludCkNCj4gPg0KPiA+DQo+ID4gSSB3b25kZXIgaWYgc29tZW9u
+ZSBtaWdodCBvZmZlciBzb21lIGluc2lnaHQgYXMgdG8gdGhlIG5leHQgc3RlcHMgdG8gZGVidWcv
+cmVzb2x2ZSB0aGlzLg0KPiA+DQo+ID4gQ2hlZXJzLg0KPiA+DQo+ID4gQ2FuIHlvdSBzZW5kIHVz
+IHRoZSBkbWVzZyBvdXRwdXQgYWZ0ZXIgcnVubmluZyBpNDBlIGRlYnVnZnMgY29tbWFuZHMgDQo+
+ID4gdml6LiDigJxkdW1wIHBvcnTigJ0sIOKAnGxscGQgZ2V0IGxvY2Fs4oCdICwg4oCcbGxkcCBn
+ZXQgcmVtb3Rl4oCdLCBmb3IgdGhlIHBvcnQgdGhhdCBpcyBzaG93aW5nDQo+ID4gdGhpcyBiZWhh
+dmlvcj8gQWxzbywgZG8geW91IGhhcHBlbiB0byBrbm93IHdoYXQgaXMgdGhlIEFyaXN0YSBzaWRl
+IGNvbmZpZ3VyYXRpb24/DQo+ID4gVGhpcyB3aWxsIGhlbHAgdXMgZGVidWcgYmV0dGVyLg0KPiA+
+DQo+ID4gVGhhbmtzLA0KPiA+IE5lZXJhdg0K
