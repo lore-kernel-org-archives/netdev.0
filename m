@@ -1,95 +1,110 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: remove tag_protocol from dsa_switch
-Date: Wed, 20 Apr 2016 16:39:23 +0200
-Message-ID: <20160420143923.GG13247@lunn.ch>
-References: <1461018244-5371-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Subject: [PATCH 1/1] Revert "Prevent NUll pointer dereference with two PHYs on cpsw"
+Date: Wed, 20 Apr 2016 15:42:29 +0100
+Message-ID: <1461163349-24696-2-git-send-email-andrew.goodbody@cambrionix.com>
+References: <1461163349-24696-1-git-send-email-andrew.goodbody@cambrionix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41707 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933095AbcDTOj0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 10:39:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1461018244-5371-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <grygorii.strashko@ti.com>,
+	<tony@atomide.com>, <davem@davemloft.net>,
+	Andrew Goodbody <andrew.goodbody@cambrionix.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461163349-24696-1-git-send-email-andrew.goodbody@cambrionix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2016 at 06:24:04PM -0400, Vivien Didelot wrote:
-> Having the tag protocol in dsa_switch_driver for setup time and in
-> dsa_switch_tree for runtime is enough. Remove dsa_switch's one.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+This reverts commit cfe255600154f0072d4a8695590dbd194dfd1aeb
 
-I had to think about this one for a minute. At the moment it is good,
-however, sometime in the future, we might want to revert it. Some
-Marvell switches support two tagging schemes. At the moment, we have
-no way to express that, so the switch driver only offers one. If we
-were to extend the API to express a list of supported tagging schemes,
-we would then want dsa_switch to contain the scheme actually chosen.
-However, until we actually implement something like this, lets remove
-it.
+This can result in a "Unable to handle kernel paging request"
+during boot. This was due to using an uninitialised struct member,
+data->slaves.
+---
+ drivers/net/ethernet/ti/cpsw.c | 31 +++++++++++++++----------------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-	     Andrew
-
-> ---
->  include/net/dsa.h | 5 -----
->  net/dsa/dsa.c     | 5 ++---
->  2 files changed, 2 insertions(+), 8 deletions(-)
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index c4bc42b..2d280ab 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -136,11 +136,6 @@ struct dsa_switch {
->  	void *priv;
->  
->  	/*
-> -	 * Tagging protocol understood by this switch
-> -	 */
-> -	enum dsa_tag_protocol	tag_protocol;
-> -
-> -	/*
->  	 * Configuration data for this switch.
->  	 */
->  	struct dsa_chip_data	*pd;
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index efa612f..d61ceed 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -267,7 +267,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  	 * switch.
->  	 */
->  	if (dst->cpu_switch == index) {
-> -		switch (ds->tag_protocol) {
-> +		switch (drv->tag_protocol) {
->  #ifdef CONFIG_NET_DSA_TAG_DSA
->  		case DSA_TAG_PROTO_DSA:
->  			dst->rcv = dsa_netdev_ops.rcv;
-> @@ -295,7 +295,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  			goto out;
->  		}
->  
-> -		dst->tag_protocol = ds->tag_protocol;
-> +		dst->tag_protocol = drv->tag_protocol;
->  	}
->  
->  	/*
-> @@ -411,7 +411,6 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
->  	ds->pd = pd;
->  	ds->drv = drv;
->  	ds->priv = priv;
-> -	ds->tag_protocol = drv->tag_protocol;
->  	ds->master_dev = host_dev;
->  
->  	ret = dsa_switch_setup_one(ds, parent);
-> -- 
-> 2.8.0
-> 
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 2cd67a5..54bcc38 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -349,7 +349,6 @@ struct cpsw_slave {
+ 	struct cpsw_slave_data		*data;
+ 	struct phy_device		*phy;
+ 	struct net_device		*ndev;
+-	struct device_node		*phy_node;
+ 	u32				port_vlan;
+ 	u32				open_stat;
+ };
+@@ -368,6 +367,7 @@ struct cpsw_priv {
+ 	spinlock_t			lock;
+ 	struct platform_device		*pdev;
+ 	struct net_device		*ndev;
++	struct device_node		*phy_node;
+ 	struct napi_struct		napi_rx;
+ 	struct napi_struct		napi_tx;
+ 	struct device			*dev;
+@@ -1142,8 +1142,8 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 		cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+ 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
+ 
+-	if (slave->phy_node)
+-		slave->phy = of_phy_connect(priv->ndev, slave->phy_node,
++	if (priv->phy_node)
++		slave->phy = of_phy_connect(priv->ndev, priv->phy_node,
+ 				 &cpsw_adjust_link, 0, slave->data->phy_if);
+ 	else
+ 		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+@@ -2025,8 +2025,7 @@ static int cpsw_probe_dt(struct cpsw_priv *priv,
+ 		if (strcmp(slave_node->name, "slave"))
+ 			continue;
+ 
+-		priv->slaves[i].phy_node =
+-			of_parse_phandle(slave_node, "phy-handle", 0);
++		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if (of_phy_is_fixed_link(slave_node)) {
+ 			struct device_node *phy_node;
+@@ -2267,22 +2266,12 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	/* Select default pin state */
+ 	pinctrl_pm_select_default_state(&pdev->dev);
+ 
+-	data = &priv->data;
+-	priv->slaves = devm_kzalloc(&pdev->dev,
+-				    sizeof(struct cpsw_slave) * data->slaves,
+-				    GFP_KERNEL);
+-	if (!priv->slaves) {
+-		ret = -ENOMEM;
+-		goto clean_runtime_disable_ret;
+-	}
+-	for (i = 0; i < data->slaves; i++)
+-		priv->slaves[i].slave_num = i;
+-
+ 	if (cpsw_probe_dt(priv, pdev)) {
+ 		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+ 		ret = -ENODEV;
+ 		goto clean_runtime_disable_ret;
+ 	}
++	data = &priv->data;
+ 
+ 	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
+ 		memcpy(priv->mac_addr, data->slave_data[0].mac_addr, ETH_ALEN);
+@@ -2294,6 +2283,16 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
+ 
++	priv->slaves = devm_kzalloc(&pdev->dev,
++				    sizeof(struct cpsw_slave) * data->slaves,
++				    GFP_KERNEL);
++	if (!priv->slaves) {
++		ret = -ENOMEM;
++		goto clean_runtime_disable_ret;
++	}
++	for (i = 0; i < data->slaves; i++)
++		priv->slaves[i].slave_num = i;
++
+ 	priv->slaves[0].ndev = ndev;
+ 	priv->emac_port = 0;
+ 
+-- 
+2.5.0
