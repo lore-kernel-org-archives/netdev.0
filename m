@@ -1,117 +1,40 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 0/3] net: dsa: cross-chip operations
-Date: Wed, 20 Apr 2016 16:26:06 -0400
-Message-ID: <1461183969-24610-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: drop all fragments inside tx queue if one gets dropped
+Date: Wed, 20 Apr 2016 13:45:50 -0700
+Message-ID: <5717EA7E.1020606@hpe.com>
+References: <57175156.3050501@pengutronix.de>
+ <11312.1461183334@obiwan.sandelman.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Aring <aar@pengutronix.de>
+To: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
+	linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t3427.houston.hp.com ([15.201.208.55]:33763 "EHLO
+	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbcDTUp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:45:58 -0400
+In-Reply-To: <11312.1461183334@obiwan.sandelman.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patchset aims to start a thread on cross-chips operations in DSA, no need
-to spend time on reviewing the details of the code (especially for mv88e6xxx).
+For the "everything old is new again" files, back in the 1990s, it was 
+noticed that on the likes of a netperf UDP_STREAM test on HP-UX, with 
+fragmentation taking place, it was possible to consume 100% of the link 
+bandwidth and have 0% effective throughput because the transmit queue 
+was kept full with IP datagram fragments which could not possibly be 
+reassembled (*) because one or more of the fragments of a datagram were 
+dropped because the transmit queue was full.
 
-So when several switch chips are interconnected, we need to configure them all
-to ensure correct hardware switching. We can think about this case:
+HP-UX implemented "packet trains" where all the fragments of a 
+fragmented datagram were presented to the driver, which then either 
+queued them all, or none of them.
 
-          sw0             sw1             sw2
-    [ 0 1 2 3 4 5 ] [ 0 1 2 3 4 5 ] [ 0 1 2 3 4 5 ]
-      |   '     ^     ^         ^     ^     '
-      v   '     |     |         |     |     '
-     CPU  '     `-DSA-'         `-DSA-'     '
-          '                                 '
-          + - - - - - - - br0 - - - - - - - +
+I don't recall seeing similar poor behaviour in Linux; I would have 
+assumed that the intra-stack flow-control "took care" of it.  Perhaps 
+there is something specific to wpan which precludes that?
 
-Here sw1 needs to be aware of br0, to configure itself with MAC addresses,
-VIDs, or whatever to ensure hardware frame bridging between sw0 and sw2.
+happy benchmarking,
 
-Two cross-chip unbridged ports (e.g. sw0p3 and sw1p1) of mv88e6xxx-supported
-devices can currently talk to each other, because the chips are configured to
-allow frames to ingress from any external ports. This is not what we want, and
-this patchset fixes that. The only important part for the thread is 1/3 though.
-
-Some Marvell switches have a cross-chip port based VLAN table used to allow or
-not external frames to egress its internal ports. So a new switch-level
-operation needs to be added in order to inform the other switches that a port
-joined or left a bridge group. This is what dsa_slave_broadcast_bridge() does.
-
-But this is not enough. When a port joins a bridge group, its switch driver
-needs to learn the existing cross-chip members, so that ingressing frames from
-them can be allowed. This is what dsa_tree_broadcast_bridge() does.
-
-But that is ugly. This adds yet another DSA function, and makes the DSA layer
-code quite complex. Also, similar notifications need to be implemented to
-configure cross-chip VLANs (for VLAN filtering aware systems where br0 is
-implemented with a 802.1Q VLAN), FDB additions/deletions so that frames get
-switched correctly by the hardware, etc.
-
-Actually the DSA drivers functions are just switchdev ops with a bit of
-syntactic sugar, but no real value added. The purpose of the DSA layer is to
-scale the switchdev ops "horizontally" to every tree port. To avoid numerous
-operations and keep it simple for drivers, I think we need 2 things:
-
-  1) The scope of DSA switch driver ops should be the DSA tree, not the switch.
-  This means having each dsa_switch_driver implements functions such as:
-
-      int (*port_bridge_join)(struct dsa_switch *ds, int sw_index, int sw_port,
-           struct net_device *bridge);
-
-  instead of the current:
-
-      int (*port_bridge_join)(struct dsa_switch *ds, int port,
-           struct net_device *bridge);
-
-  So that drivers can configure their in-chip or cross-chip stuffs, return 0 or
-  -EOPNOTSUPP if ds->index != sw_index. Replacing dsa_slave_broadcast_bridge.
-
-  2) To replace dsa_tree_broadcast_bridge, drivers need to access public info
-  in the tree, such as bridge membership of every port. That can be acheived
-  with a bit of refactoring like the following:
-
-      /* include/net/dsa.h */
-      struct dsa_port {
-          struct list_head    list;
-          struct dsa_switch   *ds;
-          int                 port;
-          struct net_device   *bridge_dev;
-      }
-
-      struct dsa_switch_tree {
-          ...
-          struct list_head ports;
-      };
-
-      /* net/dsa/dsa_priv.h */
-      struct dsa_slave_priv {
-          ...
-          dsa_port dp;
-      };
-
-      Then DSA switch drivers can implement tree-level ops such as:
-
-      int (*port_bridge_join)(struct dsa_switch *ds, struct dsa_port *dp,
-           struct net_device *bridge);
-
-I'm working on an RFC for the above. Let me know what you think and if this
-seems correct to you.
-
-Cheers,
-
-Vivien Didelot (3):
-  net: dsa: add cross-chip notification for bridge
-  net: dsa: mv88e6xxx: initialize PVT
-  net: dsa: mv88e6xxx: setup PVT
-
- drivers/net/dsa/mv88e6352.c |   1 +
- drivers/net/dsa/mv88e6xxx.c | 181 ++++++++++++++++++++++++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx.h |   7 ++
- include/net/dsa.h           |   6 ++
- net/dsa/slave.c             |  60 ++++++++++++++-
- 5 files changed, 246 insertions(+), 9 deletions(-)
-
--- 
-2.8.0
+rick jones
