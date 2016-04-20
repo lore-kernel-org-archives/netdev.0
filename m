@@ -1,56 +1,74 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next resubmit PATCH v2 3/3] net: Add support for IP ID
- mangling TSO in cases that require encapsulation
-Date: Wed, 20 Apr 2016 16:51:00 -0400
-Message-ID: <20160420205100.4029.36793.stgit@ahduyck-xeon-server>
-References: <20160420204900.4029.42938.stgit@ahduyck-xeon-server>
+From: Elad Raz <eladr@mellanox.com>
+Subject: Re: [PATCH net-next v6] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Wed, 20 Apr 2016 20:57:42 +0000
+Message-ID: <C42FBC0B-C41E-4C4D-A07D-A7FA6BDDB920@mellanox.com>
+References: <1461167023-7640-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	alexander.duyck@gmail.com
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jhs@mojatatu.com" <jhs@mojatatu.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:32842 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbcDTUvK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:51:10 -0400
-Received: by mail-pa0-f44.google.com with SMTP id zm5so21276963pac.0
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 13:51:10 -0700 (PDT)
-In-Reply-To: <20160420204900.4029.42938.stgit@ahduyck-xeon-server>
+Received: from mail-am1on0063.outbound.protection.outlook.com ([157.56.112.63]:1807
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751126AbcDTU5p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 16:57:45 -0400
+In-Reply-To: <1461167023-7640-1-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
+Content-ID: <5324235F5283D64598639C83EE1DA1C4@eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for NETIF_F_TSO_MANGLEID if a given tunnel supports
-NETIF_F_TSO.  This way if needed a device can then later enable the TSO
-with IP ID mangling and the tunnels on top of that device can then also
-make use of the IP ID mangling as well.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
----
- net/core/dev.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 52d446b2cb99..6324bc9267f7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7029,8 +7029,19 @@ int register_netdevice(struct net_device *dev)
- 	if (!(dev->flags & IFF_LOOPBACK))
- 		dev->hw_features |= NETIF_F_NOCACHE_COPY;
- 
-+	/* If IPv4 TCP segmentation offload is supported we should also
-+	 * allow the device to enable segmenting the frame with the option
-+	 * of ignoring a static IP ID value.  This doesn't enable the
-+	 * feature itself but allows the user to enable it later.
-+	 */
- 	if (dev->hw_features & NETIF_F_TSO)
- 		dev->hw_features |= NETIF_F_TSO_MANGLEID;
-+	if (dev->vlan_features & NETIF_F_TSO)
-+		dev->vlan_features |= NETIF_F_TSO_MANGLEID;
-+	if (dev->mpls_features & NETIF_F_TSO)
-+		dev->mpls_features |= NETIF_F_TSO_MANGLEID;
-+	if (dev->hw_enc_features & NETIF_F_TSO)
-+		dev->hw_enc_features |= NETIF_F_TSO_MANGLEID;
- 
- 	/* Make NETIF_F_HIGHDMA inheritable to VLAN devices.
- 	 */
+DQo+IE9uIDIwIEFwciAyMDE2LCBhdCA2OjQzIFBNLCBSb29wYSBQcmFiaHUgPHJvb3BhQGN1bXVs
+dXNuZXR3b3Jrcy5jb20+IHdyb3RlOg0KPiANCj4gRnJvbTogUm9vcGEgUHJhYmh1IDxyb29wYUBj
+dW11bHVzbmV0d29ya3MuY29tPg0KPiANCj4gVGhpcyBwYXRjaCBhZGRzIGEgbmV3IFJUTV9HRVRT
+VEFUUyBtZXNzYWdlIHRvIHF1ZXJ5IGxpbmsgc3RhdHMgdmlhIG5ldGxpbmsNCj4gZnJvbSB0aGUg
+a2VybmVsLiBSVE1fTkVXTElOSyBhbHNvIGR1bXBzIHN0YXRzIHRvZGF5LCBidXQgUlRNX05FV0xJ
+TksNCj4gcmV0dXJucyBhIGxvdCBtb3JlIHRoYW4ganVzdCBzdGF0cyBhbmQgaXMgZXhwZW5zaXZl
+IGluIHNvbWUgY2FzZXMgd2hlbg0KPiBmcmVxdWVudCBwb2xsaW5nIGZvciBzdGF0cyBmcm9tIHVz
+ZXJzcGFjZSBpcyBhIGNvbW1vbiBvcGVyYXRpb24uDQo+IA0KPiBSVE1fR0VUU1RBVFMgaXMgYW4g
+YXR0ZW1wdCB0byBwcm92aWRlIGEgbGlnaHQgd2VpZ2h0IG5ldGxpbmsgbWVzc2FnZQ0KPiB0byBl
+eHBsaWNpdHkgcXVlcnkgb25seSBsaW5rIHN0YXRzIGZyb20gdGhlIGtlcm5lbCBvbiBhbiBpbnRl
+cmZhY2UuDQo+IFRoZSBpZGVhIGlzIHRvIGFsc28ga2VlcCBpdCBleHRlbnNpYmxlIHNvIHRoYXQg
+bmV3IGtpbmRzIG9mIHN0YXRzIGNhbiBiZQ0KPiBhZGRlZCB0byBpdCBpbiB0aGUgZnV0dXJlLg0K
+PiANCj4gVGhpcyBwYXRjaCBhZGRzIHRoZSBmb2xsb3dpbmcgYXR0cmlidXRlIGZvciBORVRERVYg
+c3RhdHM6DQo+IHN0cnVjdCBubGFfcG9saWN5IGlmbGFfc3RhdHNfcG9saWN5W0lGTEFfU1RBVFNf
+TUFYICsgMV0gPSB7DQo+ICAgICAgICBbSUZMQV9TVEFUU19MSU5LXzY0XSAgPSB7IC5sZW4gPSBz
+aXplb2Yoc3RydWN0IHJ0bmxfbGlua19zdGF0czY0KSB9LA0KPiB9Ow0KPiANCj4gTGlrZSBhbnkg
+b3RoZXIgcnRuZXRsaW5rIG1lc3NhZ2UsIFJUTV9HRVRTVEFUUyBjYW4gYmUgdXNlZCB0byBnZXQg
+c3RhdHMgb2YNCj4gYSBzaW5nbGUgaW50ZXJmYWNlIG9yIGFsbCBpbnRlcmZhY2VzIHdpdGggTkxN
+X0ZfRFVNUC4NCj4gDQo+IEZ1dHVyZSBwb3NzaWJsZSBuZXcgdHlwZXMgb2Ygc3RhdCBhdHRyaWJ1
+dGVzOg0KPiBsaW5rIGFmIHN0YXRzOg0KPiAgICAtIElGTEFfU1RBVFNfTElOS19JUFY2ICAobmVz
+dGVkLiBmb3IgaXB2NiBzdGF0cykNCj4gICAgLSBJRkxBX1NUQVRTX0xJTktfTVBMUyAgKG5lc3Rl
+ZC4gZm9yIG1wbHMvbWRldiBzdGF0cykNCj4gZXh0ZW5kZWQgc3RhdHM6DQo+ICAgIC0gSUZMQV9T
+VEFUU19MSU5LX0VYVEVOREVEIChuZXN0ZWQuIGV4dGVuZGVkIHNvZnR3YXJlIG5ldGRldiBzdGF0
+cyBsaWtlIGJyaWRnZSwNCj4gICAgICB2bGFuLCB2eGxhbiBldGMpDQo+ICAgIC0gSUZMQV9TVEFU
+U19MSU5LX0hXX0VYVEVOREVEIChuZXN0ZWQuIGV4dGVuZGVkIGhhcmR3YXJlIHN0YXRzIHdoaWNo
+IGFyZQ0KPiAgICAgIGF2YWlsYWJsZSB2aWEgZXRodG9vbCB0b2RheSkNCg0KSSB0aGluayB0aGF0
+IGl04oCZcyBiZXR0ZXIgdG8gaGF2ZSBJRkxBX1NUQVRTX0xJTktfQ1BVX09OTFkgYXR0cmlidXRl
+LiBUaGUgZGVmYXVsdCBzdGF0IHNob3VsZCBiZSBhZ2dyZWdhdGlvbiBvZiBIVyBvbmx5IHBhY2tl
+dHMgYW5kIHBhY2tldHMgdGhhdCBnb3QgdHJhcHBlZCB0byBDUFUgdG9nZXRoZXIuDQoNCj4gDQo+
+IFRoaXMgcGF0Y2ggYWxzbyBkZWNsYXJlcyBhIGZpbHRlciBtYXNrIGZvciBhbGwgc3RhdCBhdHRy
+aWJ1dGVzLg0KPiBVc2VyIGhhcyB0byBwcm92aWRlIGEgbWFzayBvZiBzdGF0cyBhdHRyaWJ1dGVz
+IHRvIHF1ZXJ5LiBmaWx0ZXIgbWFzaw0KPiBjYW4gYmUgc3BlY2lmaWVkIGluIHRoZSBuZXcgaGRy
+ICdzdHJ1Y3QgaWZfc3RhdHNfbXNnJyBmb3Igc3RhdHMgbWVzc2FnZXMuDQo+IE90aGVyIGltcG9y
+dGFudCBmaWVsZCBpbiB0aGUgaGVhZGVyIGlzIHRoZSBpZmluZGV4Lg0KPiANCj4gVGhpcyBhcGkg
+Y2FuIGFsc28gaW5jbHVkZSBhdHRyaWJ1dGVzIGZvciBnbG9iYWwgc3RhdHMgKGVnIHRjcCkgaW4g
+dGhlIGZ1dHVyZS4NCj4gV2hlbiBnbG9iYWwgc3RhdHMgYXJlIGluY2x1ZGVkIGluIGEgc3RhdHMg
+bXNnLCB0aGUgaWZpbmRleCBpbiB0aGUgaGVhZGVyDQo+IG11c3QgYmUgemVyby4gQSBzaW5nbGUg
+c3RhdHMgbWVzc2FnZSBjYW5ub3QgY29udGFpbiBib3RoIGdsb2JhbCBhbmQNCj4gbmV0ZGV2IHNw
+ZWNpZmljIHN0YXRzLiBUbyBlYXNpbHkgZGlzdGluZ3Vpc2ggdGhlbSwgbmV0ZGV2IHNwZWNpZmlj
+IHN0YXQNCj4gYXR0cmlidXRlcyBuYW1lIGFyZSBwcmVmaXhlZCB3aXRoIElGTEFfU1RBVFNfTElO
+S18NCj4gDQo+IFdpdGhvdXQgYW55IGF0dHJpYnV0ZXMgaW4gdGhlIGZpbHRlcl9tYXNrLCBubyBz
+dGF0cyB3aWxsIGJlIHJldHVybmVkLg0KPiANCj4gVGhpcyBwYXRjaCBoYXMgYmVlbiB0ZXN0ZWQg
+d2l0aCBtb2ZpZmllZCBpcHJvdXRlMiBpZnN0YXQuDQo+IA0KPiBTdWdnZXN0ZWQtYnk6IEphbWFs
+IEhhZGkgU2FsaW0gPGpoc0Btb2phdGF0dS5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IFJvb3BhIFBy
+YWJodSA8cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT4NCg0KTmljZSB3b3JrISBUaGFuayB5b3Ug
+Um9vcGEhDQoNCg==
