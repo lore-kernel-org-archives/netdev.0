@@ -1,43 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Wed, 20 Apr 2016 14:48:28 +0200
-Message-ID: <20160420144828.5537dce7@griffin>
-References: <20160418.214851.122286645854721047.davem@davemloft.net>
-	<20160418.235207.395468709808133833.davem@davemloft.net>
-	<1461060543.2766.20.camel@sipsolutions.net>
-	<20160419.142324.1774057494079734967.davem@davemloft.net>
-	<1461094901.2766.26.camel@sipsolutions.net>
-	<5716E123.8040002@cumulusnetworks.com>
-	<1461137540.2176.5.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com,
-	egrumbach@gmail.com
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/4] Mellaox 40G driver fixes for 4.6-rc
+Date: Wed, 20 Apr 2016 16:01:14 +0300
+Message-ID: <1461157278-18528-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47767 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750941AbcDTMse convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 08:48:34 -0400
-In-Reply-To: <1461137540.2176.5.camel@sipsolutions.net>
+Received: from [193.47.165.129] ([193.47.165.129]:51067 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753363AbcDTNBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 09:01:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Apr 2016 09:32:20 +0200, Johannes Berg wrote:
-> 2) Use the new attribute flag with some required attribute for
-> =C2=A0 =C2=A0existing commands, so that older kernel will not find th=
-e required
-> =C2=A0 =C2=A0attribute and will reject the operation entirely.
-> =C2=A0 =C2=A0May or may not fall back to trying the operation again w=
-ithout the
-> =C2=A0 =C2=A0flag.
+Hi Dave,
 
-This is basically what I submitted half a year ago. See:
-http://thread.gmane.org/gmane.linux.network/382850
+With the fix for ARM bug being under the works, these are 
+few other fixes for mlx4 we have ready to go.
 
- Jiri
+Eran addressed the problematic/wrong reporting of dropped packets, Daniel 
+fixed some matters related to PPC EEH's and Jenny's patch makes sure
+VFs can't change the port's pause settings.
+
+Or.
+
+Daniel Jurgens (2):
+  net/mlx4_core: Implement pci_resume callback
+  net/mlx4_core: Avoid repeated calls to pci enable/disable
+
+Eran Ben Elisha (1):
+  net/mlx4_en: Split SW RX dropped counter per RX ring
+
+Eugenia Emantayev (1):
+  net/mlx4_core: Don't allow to VF change global pause settings
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  5 +-
+ drivers/net/ethernet/mellanox/mlx4/en_port.c    |  5 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c       | 76 ++++++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h       |  2 +
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  1 +
+ drivers/net/ethernet/mellanox/mlx4/port.c       | 13 +++++
+ include/linux/mlx4/device.h                     |  7 +++
+ 8 files changed, 89 insertions(+), 22 deletions(-)
+
+-- 
+2.3.7
