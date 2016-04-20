@@ -1,91 +1,53 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: [PATCH 02/19] io-mapping: Specify mapping size for io_mapping_map_wc()
-Date: Wed, 20 Apr 2016 19:42:13 +0100
-Message-ID: <1461177750-20187-3-git-send-email-chris@chris-wilson.co.uk>
-References: <1461177750-20187-1-git-send-email-chris@chris-wilson.co.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 WIP] ifstat: use new RTM_GETSTATS api
+Date: Wed, 20 Apr 2016 11:53:47 -0700
+Message-ID: <20160420115347.6a43d7f7@xeon-e3>
+References: <1461168975-28081-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tvrtko Ursulin <tvrtko.ursulin@linux.intel.com>,
- Tvrtko Ursulin <tvrtko.ursulin@intel.com>,
- Mika Kuoppala <mika.kuoppala@linux.intel.com>,
- Yishai Hadas <yishaih@mellanox.com>, linux-kernel@vger.kernel.org,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- "Luis R . Rodriguez" <mcgrof@kernel.org>, dri-devel@lists.freedesktop.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
- Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: intel-gfx@lists.freedesktop.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1461177750-20187-1-git-send-email-chris@chris-wilson.co.uk>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36129 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcDTSxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 14:53:36 -0400
+Received: by mail-pa0-f45.google.com with SMTP id er2so20386062pad.3
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 11:53:36 -0700 (PDT)
+In-Reply-To: <1461168975-28081-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19tYXBwaW5nX21hcF93YygpIGNvbnZl
-bmllbmNlIGhlbHBlcgpjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxlIHBhZ2VzLiBF
-eHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0CmZ1dHVyZSBjYWxsZXJzIGNhbiB1c2UgaXQgZm9yIGxh
-cmdlciByYW5nZXMuCgpTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24gPGNocmlzQGNocmlzLXdp
-bHNvbi5jby51az4KQ2M6IFR2cnRrbyBVcnN1bGluIDx0dnJ0a28udXJzdWxpbkBpbnRlbC5jb20+
-CkNjOiBEYW5pZWwgVmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KQ2M6IEphbmkgTmlr
-dWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxp
-ZWRAbGludXguaWU+CkNjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgpDYzog
-RGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+CkNjOiBJbmdvIE1vbG5hciA8
-bWluZ29Aa2VybmVsLm9yZz4KQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwpIiA8cGV0ZXJ6QGlu
-ZnJhZGVhZC5vcmc+CkNjOiBEYXZpZCBIaWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5j
-b20+CkNjOiBMdWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGtlcm5lbC5vcmc+CkNjOiBpbnRlbC1n
-ZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Au
-b3JnCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCkNjOiBsaW51eC1yZG1hQHZnZXIua2VybmVs
-Lm9yZwpDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZwotLS0KIGRyaXZlcnMvZ3B1L2Ry
-bS9pOTE1L2ludGVsX292ZXJsYXkuYyAgICB8ICAzICsrLQogZHJpdmVycy9uZXQvZXRoZXJuZXQv
-bWVsbGFub3gvbWx4NC9wZC5jIHwgIDQgKysrLQogaW5jbHVkZS9saW51eC9pby1tYXBwaW5nLmgg
-ICAgICAgICAgICAgIHwgMTAgKysrKysrKy0tLQogMyBmaWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRp
-b25zKCspLCA1IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1
-L2ludGVsX292ZXJsYXkuYyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX292ZXJsYXkuYwpp
-bmRleCA5NzQ2Yjk4NDFjMTMuLjBkNWEzNzY4NzhkMyAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUv
-ZHJtL2k5MTUvaW50ZWxfb3ZlcmxheS5jCisrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVs
-X292ZXJsYXkuYwpAQCAtMTk4LDcgKzE5OCw4IEBAIGludGVsX292ZXJsYXlfbWFwX3JlZ3Moc3Ry
-dWN0IGludGVsX292ZXJsYXkgKm92ZXJsYXkpCiAJCXJlZ3MgPSAoc3RydWN0IG92ZXJsYXlfcmVn
-aXN0ZXJzIF9faW9tZW0gKilvdmVybGF5LT5yZWdfYm8tPnBoeXNfaGFuZGxlLT52YWRkcjsKIAll
-bHNlCiAJCXJlZ3MgPSBpb19tYXBwaW5nX21hcF93YyhnZ3R0LT5tYXBwYWJsZSwKLQkJCQkJIG92
-ZXJsYXktPmZsaXBfYWRkcik7CisJCQkJCSBvdmVybGF5LT5mbGlwX2FkZHIsCisJCQkJCSBQQUdF
-X1NJWkUpOwogCiAJcmV0dXJuIHJlZ3M7CiB9CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9tZWxsYW5veC9tbHg0L3BkLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9t
-bHg0L3BkLmMKaW5kZXggYjNjYzNhYjYzNzk5Li42ZmMxNTZhMzkxOGQgMTAwNjQ0Ci0tLSBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvcGQuYworKysgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9tZWxsYW5veC9tbHg0L3BkLmMKQEAgLTIwNSw3ICsyMDUsOSBAQCBpbnQgbWx4NF9i
-Zl9hbGxvYyhzdHJ1Y3QgbWx4NF9kZXYgKmRldiwgc3RydWN0IG1seDRfYmYgKmJmLCBpbnQgbm9k
-ZSkKIAkJCWdvdG8gZnJlZV91YXI7CiAJCX0KIAotCQl1YXItPmJmX21hcCA9IGlvX21hcHBpbmdf
-bWFwX3djKHByaXYtPmJmX21hcHBpbmcsIHVhci0+aW5kZXggPDwgUEFHRV9TSElGVCk7CisJCXVh
-ci0+YmZfbWFwID0gaW9fbWFwcGluZ19tYXBfd2MocHJpdi0+YmZfbWFwcGluZywKKwkJCQkJCXVh
-ci0+aW5kZXggPDwgUEFHRV9TSElGVCwKKwkJCQkJCVBBR0VfU0laRSk7CiAJCWlmICghdWFyLT5i
-Zl9tYXApIHsKIAkJCWVyciA9IC1FTk9NRU07CiAJCQlnb3RvIHVuYW1wX3VhcjsKZGlmZiAtLWdp
-dCBhL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oIGIvaW5jbHVkZS9saW51eC9pby1tYXBwaW5n
-LmgKaW5kZXggZTM5OTAyOWI2OGM1Li42NDVhZDA2YjVkNTIgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUv
-bGludXgvaW8tbWFwcGluZy5oCisrKyBiL2luY2x1ZGUvbGludXgvaW8tbWFwcGluZy5oCkBAIC0x
-MDAsMTQgKzEwMCwxNiBAQCBpb19tYXBwaW5nX3VubWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZh
-ZGRyKQogfQogCiBzdGF0aWMgaW5saW5lIHZvaWQgX19pb21lbSAqCi1pb19tYXBwaW5nX21hcF93
-YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywgdW5zaWduZWQgbG9uZyBvZmZzZXQpCitpb19t
-YXBwaW5nX21hcF93YyhzdHJ1Y3QgaW9fbWFwcGluZyAqbWFwcGluZywKKwkJICB1bnNpZ25lZCBs
-b25nIG9mZnNldCwKKwkJICB1bnNpZ25lZCBsb25nIHNpemUpCiB7CiAJcmVzb3VyY2Vfc2l6ZV90
-IHBoeXNfYWRkcjsKIAogCUJVR19PTihvZmZzZXQgPj0gbWFwcGluZy0+c2l6ZSk7CiAJcGh5c19h
-ZGRyID0gbWFwcGluZy0+YmFzZSArIG9mZnNldDsKIAotCXJldHVybiBpb3JlbWFwX3djKHBoeXNf
-YWRkciwgUEFHRV9TSVpFKTsKKwlyZXR1cm4gaW9yZW1hcF93YyhwaHlzX2FkZHIsIHNpemUpOwog
-fQogCiBzdGF0aWMgaW5saW5lIHZvaWQKQEAgLTE1NSw3ICsxNTcsOSBAQCBpb19tYXBwaW5nX3Vu
-bWFwX2F0b21pYyh2b2lkIF9faW9tZW0gKnZhZGRyKQogCiAvKiBOb24tYXRvbWljIG1hcC91bm1h
-cCAqLwogc3RhdGljIGlubGluZSB2b2lkIF9faW9tZW0gKgotaW9fbWFwcGluZ19tYXBfd2Moc3Ry
-dWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsIHVuc2lnbmVkIGxvbmcgb2Zmc2V0KQoraW9fbWFwcGlu
-Z19tYXBfd2Moc3RydWN0IGlvX21hcHBpbmcgKm1hcHBpbmcsCisJCSAgdW5zaWduZWQgbG9uZyBv
-ZmZzZXQsCisJCSAgdW5zaWduZWQgbG9uZyBzaXplKQogewogCXJldHVybiAoKGNoYXIgX19mb3Jj
-ZSBfX2lvbWVtICopIG1hcHBpbmcpICsgb2Zmc2V0OwogfQotLSAKMi44LjEKCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxp
-c3QKZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNr
-dG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
+On Wed, 20 Apr 2016 09:16:15 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+
+> +int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int family, int type,
+> +				   __u32 filt_mask)
+> +{
+> +	struct {
+> +		struct nlmsghdr nlh;
+> +		struct if_stats_msg ifsm;
+> +	} req;
+
+Please use C99 initialization instead of memset in new code.
+
+> +	int err;
+> +
+> +	memset(&req, 0, sizeof(req));
+> +	req.nlh.nlmsg_len = sizeof(req);
+> +	req.nlh.nlmsg_type = type;
+> +	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
+> +	req.nlh.nlmsg_pid = 0;
+> +	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
+> +	req.ifsm.family = family;
+> +	req.ifsm.filter_mask = filt_mask;
+> +
+> +	err = send(rth->fd, (void*)&req, sizeof(req), 0);
+> +
+> +	return err;
+
+Why not just:
+        return send(rth->fd, &req, sizoef(req), 0);
+
+> +}
