@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 08/11] net/mlx5e: Use napi_alloc_skb for RX SKB allocations
-Date: Wed, 20 Apr 2016 22:02:16 +0300
-Message-ID: <1461178939-20687-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V3 11/11] net/mlx5e: Add ethtool counter for RX buffer allocation failures
+Date: Wed, 20 Apr 2016 22:02:19 +0300
+Message-ID: <1461178939-20687-12-git-send-email-saeedm@mellanox.com>
 References: <1461178939-20687-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
@@ -12,92 +12,119 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:59418 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:59426 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751219AbcDTTDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 15:03:09 -0400
+	id S1751219AbcDTTDO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 15:03:14 -0400
 In-Reply-To: <1461178939-20687-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Instead of netdev_alloc_skb, we use the napi_alloc_skb function
-which is designated to allocate skbuff's for RX in a
-channel-specific NAPI instance, and implies the IP packet alignment.
+Counts the number of RX buffer allocation failures and shows it
+in ethtool statistics.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |    1 -
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   12 +++++-------
- 3 files changed, 7 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    8 ++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    2 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   11 +++++++++--
+ 3 files changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index c99fdff..303e6cd 100644
+index 303e6cd..6e24e82 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -93,7 +93,6 @@
- #define MLX5E_SQ_BF_BUDGET             16
+@@ -189,6 +189,7 @@ static const char vport_strings[][ETH_GSTRING_LEN] = {
+ 	"rx_wqe_err",
+ 	"rx_mpwqe_filler",
+ 	"rx_mpwqe_frag",
++	"rx_buff_alloc_err",
+ };
  
- #define MLX5E_NUM_MAIN_GROUPS 9
--#define MLX5E_NET_IP_ALIGN 2
+ struct mlx5e_vport_stats {
+@@ -232,8 +233,9 @@ struct mlx5e_vport_stats {
+ 	u64 rx_wqe_err;
+ 	u64 rx_mpwqe_filler;
+ 	u64 rx_mpwqe_frag;
++	u64 rx_buff_alloc_err;
  
- static inline u16 mlx5_min_rx_wqes(int wq_type, u32 wq_size)
- {
+-#define NUM_VPORT_COUNTERS     37
++#define NUM_VPORT_COUNTERS     38
+ };
+ 
+ static const char pport_strings[][ETH_GSTRING_LEN] = {
+@@ -329,6 +331,7 @@ static const char rq_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"wqe_err",
+ 	"mpwqe_filler",
+ 	"mpwqe_frag",
++	"buff_alloc_err",
+ };
+ 
+ struct mlx5e_rq_stats {
+@@ -341,7 +344,8 @@ struct mlx5e_rq_stats {
+ 	u64 wqe_err;
+ 	u64 mpwqe_filler;
+ 	u64 mpwqe_frag;
+-#define NUM_RQ_STATS 9
++	u64 buff_alloc_err;
++#define NUM_RQ_STATS 10
+ };
+ 
+ static const char sq_stats_strings[][ETH_GSTRING_LEN] = {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 942829e..9b17bc0 100644
+index 9b17bc0..d485d1e 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -373,8 +373,8 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 		rq->wqe_sz = (priv->params.lro_en) ?
- 				priv->params.lro_wqe_sz :
- 				MLX5E_SW2HW_MTU(priv->netdev->mtu);
--		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz + MLX5E_NET_IP_ALIGN);
--		byte_count = rq->wqe_sz - MLX5E_NET_IP_ALIGN;
-+		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz);
-+		byte_count = rq->wqe_sz;
- 		byte_count |= MLX5_HW_START_PADDING;
- 	}
+@@ -180,6 +180,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 	s->rx_wqe_err		= 0;
+ 	s->rx_mpwqe_filler	= 0;
+ 	s->rx_mpwqe_frag	= 0;
++	s->rx_buff_alloc_err	= 0;
+ 	for (i = 0; i < priv->params.num_channels; i++) {
+ 		rq_stats = &priv->channel[i]->rq.stats;
  
+@@ -192,6 +193,7 @@ void mlx5e_update_stats(struct mlx5e_priv *priv)
+ 		s->rx_wqe_err   += rq_stats->wqe_err;
+ 		s->rx_mpwqe_filler += rq_stats->mpwqe_filler;
+ 		s->rx_mpwqe_frag   += rq_stats->mpwqe_frag;
++		s->rx_buff_alloc_err += rq_stats->buff_alloc_err;
+ 
+ 		for (j = 0; j < priv->params.num_tc; j++) {
+ 			sq_stats = &priv->channel[i]->sq[j].stats;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index d71919c..5bdcc0b 100644
+index ee5fa16..918b7c7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -47,7 +47,7 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- 	struct sk_buff *skb;
- 	dma_addr_t dma_addr;
+@@ -447,9 +447,14 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
  
--	skb = netdev_alloc_skb(rq->netdev, rq->wqe_sz);
-+	skb = napi_alloc_skb(rq->cq.napi, rq->wqe_sz);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
+ 	while (!mlx5_wq_ll_is_full(wq)) {
+ 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
++		int err;
  
-@@ -61,10 +61,8 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- 	if (unlikely(dma_mapping_error(rq->pdev, dma_addr)))
- 		goto err_free_skb;
+-		if (unlikely(rq->alloc_wqe(rq, wqe, wq->head)))
++		err = rq->alloc_wqe(rq, wqe, wq->head);
++		if (unlikely(err)) {
++			if (err != -EBUSY)
++				rq->stats.buff_alloc_err++;
+ 			break;
++		}
  
--	skb_reserve(skb, MLX5E_NET_IP_ALIGN);
--
- 	*((dma_addr_t *)skb->cb) = dma_addr;
--	wqe->data.addr = cpu_to_be64(dma_addr + MLX5E_NET_IP_ALIGN);
-+	wqe->data.addr = cpu_to_be64(dma_addr);
- 	wqe->data.lkey = rq->mkey_be;
- 
- 	rq->skb[ix] = skb;
-@@ -701,9 +699,9 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 		goto mpwrq_cqe_out;
+ 		mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
  	}
- 
--	skb = netdev_alloc_skb(rq->netdev,
--			       ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
--				     sizeof(long)));
-+	skb = napi_alloc_skb(rq->cq.napi,
-+			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
-+				   sizeof(long)));
- 	if (unlikely(!skb))
+@@ -701,8 +706,10 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 	skb = napi_alloc_skb(rq->cq.napi,
+ 			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
+ 				   sizeof(long)));
+-	if (unlikely(!skb))
++	if (unlikely(!skb)) {
++		rq->stats.buff_alloc_err++;
  		goto mpwrq_cqe_out;
++	}
  
+ 	prefetch(skb->data);
+ 	cqe_bcnt = mpwrq_get_cqe_byte_cnt(cqe);
 -- 
 1.7.1
