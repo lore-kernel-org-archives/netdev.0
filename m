@@ -1,69 +1,55 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Wed, 20 Apr 2016 14:24:21 -0700
-Message-ID: <CAAmHdhzAEG-oXsA0P1mEJfseBTUdU7X_bEhgvkCLOLcqOHcQSw@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-	<CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-	<1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [Intel-gfx] [PATCH 4/4] drm/i915: Move ioremap_wc tracking onto
+ VMA
+Date: Wed, 20 Apr 2016 23:27:27 +0200
+Message-ID: <20160420212727.GS1990@wotan.suse.de>
+References: <20160419123028.GI1990@wotan.suse.de>
+ <1461069238-31539-1-git-send-email-chris@chris-wilson.co.uk>
+ <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
+ <20160420091054.GL1990@wotan.suse.de>
+ <20160420111730.GL2510@phenom.ffwll.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:35524 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096AbcDTVYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 17:24:22 -0400
-Received: by mail-io0-f196.google.com with SMTP id u185so8544623iod.2
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 14:24:22 -0700 (PDT)
-In-Reply-To: <1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>,
+	David Airlie <airlied-cv59FeDIM0c@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"Peter Zijlstra (Intel)" <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Vetter <daniel.vetter-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	David Hildenbrand <dahi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160420111730.GL2510-dv86pmgwkMBes7Z6vYuT8azUEOm+Xw19@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2016-04-08 7:19 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Thu, 2016-03-31 at 16:48 -0700, Michael Ma wrote:
->> I didn't really know that multiple qdiscs can be isolated using MQ so
->> that each txq can be associated with a particular qdisc. Also we don't
->> really have multiple interfaces...
->>
->> With this MQ solution we'll still need to assign transmit queues to
->> different classes by doing some math on the bandwidth limit if I
->> understand correctly, which seems to be less convenient compared with
->> a solution purely within HTB.
->>
->> I assume that with this solution I can still share qdisc among
->> multiple transmit queues - please let me know if this is not the case.
->
-> Note that this MQ + HTB thing works well, unless you use a bonding
-> device. (Or you need the MQ+HTB on the slaves, with no way of sharing
-> tokens between the slaves)
+On Wed, Apr 20, 2016 at 01:17:30PM +0200, Daniel Vetter wrote:
+> On Wed, Apr 20, 2016 at 11:10:54AM +0200, Luis R. Rodriguez wrote:
+> > Reason I ask is since I noticed a while ago a lot of drivers
+> > were using info->fix.smem_start and info->fix.smem_len consistently
+> > for their ioremap'd areas it might make sense instead to let the
+> > internal framebuffer (register_framebuffer()) optionally manage the
+> > ioremap_wc() for drivers, given that this is pretty generic stuff.
+> 
+> All that legacy fbdev stuff is just for legacy support, and I prefer to
+> have that as dumb as possible. There's been some discussion even around
+> lifting the "kick out firmware fb driver" out of fbdev, since we'd need it
+> to have a simple drm driver for e.g. uefi.
+> 
+> But I definitely don't want a legacy horror show like fbdev to
+> automagically take care of device mappings for drivers.
 
-Actually MQ+HTB works well for small packets - like flow of 512 byte
-packets can be throttled by HTB using one txq without being affected
-by other flows with small packets. However I found using this solution
-large packets (10k for example) will only achieve very limited
-bandwidth. In my test I used MQ to assign one txq to a HTB which sets
-rate at 1Gbit/s, 512 byte packets can achieve the ceiling rate by
-using 30 threads. But sending 10k packets using 10 threads has only 10
-Mbit/s with the same TC configuration. If I increase burst and cburst
-of HTB to some extreme large value (like 50MB) the ceiling rate can be
-hit.
+Makes sense, it also still begs the question if more modern APIs
+could manage the ioremap for you. Evidence shows people get
+sloppy and if things were done internally with helpers it may
+be easier to later make adjustments.
 
-The strange thing is that I don't see this problem when using HTB as
-the root. So txq number seems to be a factor here - however it's
-really hard to understand why would it only affect larger packets. Is
-this a known issue? Any suggestion on how to investigate the issue
-further? Profiling shows that the cpu utilization is pretty low.
-
->
->
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=bb1d912323d5dd50e1079e389f4e964be14f0ae3
->
-> bonding can not really be used as a true MQ device yet.
->
-> I might send a patch to disable this 'bonding feature' if no slave sets
-> a queue_id.
->
->
+  Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
