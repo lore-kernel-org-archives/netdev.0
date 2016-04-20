@@ -1,112 +1,53 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
- with outer checksum offload
-Date: Wed, 20 Apr 2016 11:06:34 -0700
-Message-ID: <CAKgT0Uc5poLcTzkeA_8fi2jQeF08zbtj3+obTG1q0ha+ESZRCQ@mail.gmail.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
-	<20160419190603.11723.31623.stgit@ahduyck-xeon-server>
-	<CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net 4/4] net/mlx4_en: Split SW RX dropped counter per RX
+ ring
+Date: Wed, 20 Apr 2016 11:05:10 -0700
+Message-ID: <5717C4D6.4020704@gmail.com>
+References: <1461157278-18528-1-git-send-email-ogerlitz@mellanox.com>
+ <1461157278-18528-5-git-send-email-ogerlitz@mellanox.com>
+ <1461164209.10638.262.camel@edumazet-glaptop3.roam.corp.google.com>
+ <571799A3.402@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>, eugenia@mellanox.com,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Matthew Finlay <matt@mellanox.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:36142 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752493AbcDTSGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 14:06:35 -0400
-Received: by mail-ig0-f174.google.com with SMTP id f1so135643594igr.1
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 11:06:35 -0700 (PDT)
-In-Reply-To: <CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35079 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219AbcDTSHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 14:07:22 -0400
+Received: by mail-pf0-f172.google.com with SMTP id n1so20710139pfn.2
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 11:07:21 -0700 (PDT)
+In-Reply-To: <571799A3.402@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2016 at 10:40 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Tue, Apr 19, 2016 at 10:06 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch assumes that the mlx5 hardware will ignore existing IPv4/v6
->> header fields for length and checksum as well as the length and checksum
->> fields for outer UDP headers.
+On 20/04/16 08:00, Or Gerlitz wrote:
+> On 4/20/2016 5:56 PM, Eric Dumazet wrote:
+>>> >Fixes: a3333b35da16 ('net/mlx4_en: Moderate ethtool callback to
+>>> [...] ')
+>>> >Signed-off-by: Eran Ben Elisha<eranbe@mellanox.com>
+>>> >Reported-by: Brenden Blanco<bblanco@plumgrid.com>
+>>> >Signed-off-by: Saeed Mahameed<saeedm@mellanox.com>
+>>> >Signed-off-by: Or Gerlitz<ogerlitz@mellanox.com>
+>>> >---
+>> Reported-by: Eric Dumazet<edumazet@google.com>
 >>
->> I have no means of testing this as I do not have any mlx5 hardware but
->> thought I would submit it as an RFC to see if anyone out there wants to
->> test this and see if this does in fact enable this functionality allowing
->> us to to segment UDP tunneled frames that have an outer checksum.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    7 ++++++-
->>  1 file changed, 6 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> index e0adb604f461..57d8da796d50 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
->> @@ -2390,13 +2390,18 @@ static void mlx5e_build_netdev(struct net_device *netdev)
->>         netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
->>
->>         if (mlx5e_vxlan_allowed(mdev)) {
->> -               netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL;
->> +               netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL |
->> +                                          NETIF_F_GSO_UDP_TUNNEL_CSUM |
->> +                                          NETIF_F_GSO_PARTIAL;
->>                 netdev->hw_enc_features |= NETIF_F_IP_CSUM;
->>                 netdev->hw_enc_features |= NETIF_F_RXCSUM;
->>                 netdev->hw_enc_features |= NETIF_F_TSO;
->>                 netdev->hw_enc_features |= NETIF_F_TSO6;
->>                 netdev->hw_enc_features |= NETIF_F_RXHASH;
->>                 netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
->> +               netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM |
->> +                                          NETIF_F_GSO_PARTIAL;
->> +               netdev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
->>         }
->>
->>         netdev->features          = netdev->hw_features;
->>
->
-> Hi Alex,
->
-> Adding Matt, VxLAN feature owner from Mellanox,
-> Matt please correct me if am wrong, but We already tested GSO VxLAN
-> and we saw the TCP/IP checksum offloads for both inner and outer
-> headers handled by the hardware.
->
-> And looking at mlx5e_sq_xmit:
->
-> if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
->         eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
-> if (skb->encapsulation) {
->         eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
-> MLX5_ETH_WQE_L4_INNER_CSUM;
->         sq->stats.csum_offload_inner++;
-> } else {
->         eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
-> }
->
-> We enable inner/outer hardware checksumming unconditionally without
-> looking at the features Alex is suggesting in this patch,
-> Alex, can you elaborate more on the meaning of those features ? and
-> why would it work for us without declaring them ?
+>> (http://www.spinics.net/lists/netdev/msg371318.html  )
+> 
+> Hi Eric,
+> 
+> Just to be sure, you'd like me to re-spin this and fix the reporter name?
 
-Well right now the feature list exposed by the device indicates that
-TSO is not used if a VxLAN tunnel has a checksum in an outer header.
-Since that is not exposed currently that is completely offloaded in
-software via GSO.
+There is no need for that, patchwork amends Reported-by (and a bunch of
+other tags) automatically when somebody replies to the message, see the
+resulting mbox for this patch:
 
-What the GSO partial does is allow us to treat GSO for tunnels with
-checksum like it is GSO for tunnels without checksum by precomputing
-the UDP checksum as though the frame had already been segmented and
-restricts us to an even multiple of MSS bytes that are to be segmented
-between all the frames.  One side effect though is that all of the IP
-and UDP header fields are also precomputed, but from what I can tell
-it looks like the values that would be changed by a change in length
-are ignored or overwritten by the hardware and driver anyway.
-
-- Alex
+http://patchwork.ozlabs.org/patch/612664/mbox/
+-- 
+Florian
