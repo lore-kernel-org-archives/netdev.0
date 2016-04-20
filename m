@@ -1,59 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/4] netlink: fix test alignment in
- nla_align_64bit()
-Date: Wed, 20 Apr 2016 02:33:22 -0700
-Message-ID: <1461144802.10638.249.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160419.195009.1052027353987244150.davem@davemloft.net>
-	 <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1461142655-5067-2-git-send-email-nicolas.dichtel@6wind.com>
+From: Chris Wilson <chris@chris-wilson.co.uk>
+Subject: Re: [PATCH 4/4] drm/i915: Move ioremap_wc tracking onto VMA
+Date: Wed, 20 Apr 2016 10:38:05 +0100
+Message-ID: <20160420093805.GE14602@nuc-i3427.alporthouse.com>
+References: <20160419123028.GI1990@wotan.suse.de>
+ <1461069238-31539-1-git-send-email-chris@chris-wilson.co.uk>
+ <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
+ <20160420091054.GL1990@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	roopa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35011 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932994AbcDTJdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:33:20 -0400
-Received: by mail-pf0-f169.google.com with SMTP id n1so16644075pfn.2
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 02:33:19 -0700 (PDT)
-In-Reply-To: <1461142655-5067-2-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>, netdev@vger.kernel.org,
+ intel-gfx@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+ Ingo Molnar <mingo@kernel.org>,
+ "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
+ dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
+ Daniel Vetter <daniel.vetter@intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
+ David Hildenbrand <dahi@linux.vnet.ibm.com>
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20160420091054.GL1990@wotan.suse.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-04-20 at 10:57 +0200, Nicolas Dichtel wrote:
-> IS_ALIGN() returns true when the alignment is as expected. The pad
-> attribute should be added only when the alignment is not 8.
-> 
-> Fixes: 35c5845957c7 ("net: Add helpers for 64-bit aligning netlink attributes.")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  include/net/netlink.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/netlink.h b/include/net/netlink.h
-> index e644b3489acf..694caac31d2c 100644
-> --- a/include/net/netlink.h
-> +++ b/include/net/netlink.h
-> @@ -1245,7 +1245,7 @@ static inline int nla_validate_nested(const struct nlattr *start, int maxtype,
->  static inline int nla_align_64bit(struct sk_buff *skb, int padattr)
->  {
->  #ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
-> -	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
-> +	if (!IS_ALIGNED((unsigned long)skb->data, 8)) {
->  		struct nlattr *attr = nla_reserve(skb, padattr, 0);
->  		if (!attr)
->  			return -EMSGSIZE;
-
-This is silly.
-
-How have you tested your patch exactly ?
-
-I guess David should have copied his original comment here.
-
--        * The nlattr header is 4 bytes in size, that's why we test
--        * if the skb->data _is_ aligned.  This NOP attribute, plus
--        * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
--        * aligned.
+T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMTE6MTA6NTRBTSArMDIwMCwgTHVpcyBSLiBSb2RyaWd1
+ZXogd3JvdGU6Cj4gT24gVHVlLCBBcHIgMTksIDIwMTYgYXQgMDE6MzM6NThQTSArMDEwMCwgQ2hy
+aXMgV2lsc29uIHdyb3RlOgo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5
+MTVfZ2VtLmMgYi9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gPiBpbmRleCA2Y2Uy
+YzMxYjlhODEuLjllZjQ3MzI5ZThhZSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9p
+OTE1L2k5MTVfZ2VtLmMKPiA+ICsrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMK
+PiA+IEBAIC0zMzQ2LDYgKzMzNDYsMTUgQEAgc3RhdGljIHZvaWQgaTkxNV9nZW1fb2JqZWN0X2Zp
+bmlzaF9ndHQoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaikKPiA+ICAJCQkJCSAgICBv
+bGRfd3JpdGVfZG9tYWluKTsKPiA+ICB9Cj4gPiAgCj4gPiArc3RhdGljIHZvaWQgX19pOTE1X3Zt
+YV9pb3VubWFwKHN0cnVjdCBpOTE1X3ZtYSAqdm1hKQo+ID4gK3sKPiA+ICsJaWYgKHZtYS0+aW9t
+YXAgPT0gTlVMTCkKPiA+ICsJCXJldHVybjsKPiA+ICsKPiA+ICsJaW9fbWFwcGluZ191bm1hcCh2
+bWEtPmlvbWFwKTsKPiAKPiBUaGUgTlVMTCBjaGVjayBjb3VsZCBqdXN0IGJlIGRvbmUgYnkgaW9f
+bWFwcGluZ191bm1hcCgpIHRoZW4geW91Cj4gY2FuIGF2b2lkIHRoaXMgaW4gb3RoZXIgZHJpdmVy
+cyB0b28uCj4gCj4gPiArCXZtYS0+aW9tYXAgPSBOVUxMOwo+IAo+IFlvdSBhZGRlZCBhY2NvdW50
+aW5nIGhlcmUsIGJ5IHNpbXBsZSBpbnQgYW5kIGluYyAvIGRlYydpbmcgaXQuCj4gSSBjYW5ub3Qg
+Y29uZmlybSBpZiBpdCBpcyBjb3JyZWN0bHkgYXZvaWRpbmcgcmFjZXMsIGNhbiB5b3UKPiBjb25m
+aXJtPwoKWWVzLCB0aGUgdm1hLT5waW5fY291bnQgaXMgZ3VhcmRlZCBieSB0aGUgc3RydWN0X211
+dGV4IGF0bS4gKFRoZQpzdHJ1Y3RfbXV0ZXggaXMgb3VyIG93biBCS0wgOigKCj4gQWxzbyB5b3Ug
+YWRkZWQgYWNjb3VudGluZyBmb3IgdGhlIGN1c3RvbSB2bWEgcGlubmluZyB0aGluZyBhbmQgZG8K
+PiBHRU1fQlVHX09OKHZtYS0+cGluX2NvdW50ID09IDApOyB3aGVuIHlvdSB1bnBpbiBvbmUgaW5z
+dGFuY2UgYnV0ICp5b3UgZG8gbm90Kgo+IGRvIHNvbWV0aGluZyBsaWtlIEdFTV9CVUdfT04odm1h
+LT5waW5fY291bnQgIT0gMCk7IHdoZW4geW91IGRvIHRoZSBmaW5hbCBmdWxsCj4gaW91bm1hcC4g
+VGhhdCBzZWVtcyByYXRoZXIgc2xvcHB5LgoKSXQncyBwbGFjZWQgbmV4dCB0byB0aGUgZnVuY3Rp
+b24gd2hlcmUgcGluX2NvdW50ID09IDAgYW5kIG9ubHkgY2FsbGVkCmZyb20gaXQuIFllcywgSSBk
+aWQgdGhpbmsgdGhlIHNhbWUuLi4KIAo+IGlvbWFwcGluZyBzdHVmZiBoYXMgaXRzIG93biBjdXN0
+b20gZGF0YSBzdHJ1Y3R1cmUsIHdoeSBub3QganVzdCB1c2UgdGhhdCBkYXRhCj4gc3RydWN0dXJl
+IGluc3RlYWQgb2YgdGhlIHN0cnVjdCBpOTE1X3ZtYSBhbmQgZ2VuZXJhbGl6ZSB0aGlzID8gRHJp
+dmVycyBjYW4KPiBiZSBidWdneSBhbmQgYmVzdCBpZiB3ZSBhdm9pZCBjdXN0b20gZHJpdmVyIGFj
+Y291bnRpbmcgYW5kIGp1c3QgZG8gaXQgaW4gYSBuZWF0Cj4gZ2VuZXJpYyBmYXNoaW9uLgoKQ29t
+cGxldGVseSBkaWZmZXJlbnQgdGFza3MsIGFzIGZhciBhcyBJIGFtIGF3YXJlLiBUaGUgaW9tYXBw
+aW5nIGlzIGFib3V0CnByb3ZpZGluZyBDUFUgYWNjZXNzIHRvIHRoZSBJTyByZWdpb24sIGRtYS1y
+ZW1hcHBpbmcgYWJvdXQgcHJvdmlkaW5nCmRldmljZSBhY2Nlc3MgdG8gcGh5c2ljYWwgbWVtb3J5
+LCBhbmQgb3VyIG93biBWTUEgaXMgYWJvdXQgaG93IHRoZQpvYmplY3Qgc2l0cyBpbiBhbGwgdGhl
+IGRpZmZlcmVudCB2aWV3cyBvZiBib3RoIENQVSBhbmQgZGV2aWNlIGFkZHJlc3MKc3BhY2VzIChv
+ZiB3aGljaCB0aGVyZSBhcmUgbWFueSwgYW5kIGV2ZW4gdGhlIENQVSBhY2Nlc3NpYmxlIGFkZHJl
+c3MKc3BhY2UgaXMgbm90IHRoZSBlbnRpcmV0eSBvZiB0aGF0IHBhcnRpY3VsYXIgYWRkcmVzcyBz
+cGFjZSkuIAogCj4gVGhlbiBvdGhlciBkcml2ZXJzIGNvdWxkIHVzZSB0aGlzIHRvby4KCmRyaXZl
+cnMvZ3B1L2RybS90dG0gKHlvdSBkaWRuJ3QgaGVhciBtZSBzYXkgdGhhdC4uLikKCj4gPiBkaWZm
+IC0tZ2l0IGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYyBiL2RyaXZlcnMvZ3B1
+L2RybS9pOTE1L2ludGVsX2ZiZGV2LmMKPiA+IGluZGV4IDc5YWMyMDJmMzg3MC4uOTNmNTRhMTAw
+NDJmIDEwMDY0NAo+ID4gLS0tIGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYwo+
+ID4gKysrIGIvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYwo+ID4gQEAgLTI0NCwy
+MiArMjQ1LDIzIEBAIHN0YXRpYyBpbnQgaW50ZWxmYl9jcmVhdGUoc3RydWN0IGRybV9mYl9oZWxw
+ZXIgKmhlbHBlciwKPiA+ICAJaW5mby0+ZmxhZ3MgPSBGQklORk9fREVGQVVMVCB8IEZCSU5GT19D
+QU5fRk9SQ0VfT1VUUFVUOwo+ID4gIAlpbmZvLT5mYm9wcyA9ICZpbnRlbGZiX29wczsKPiA+ICAK
+PiA+ICsJdm1hID0gaTkxNV9nZW1fb2JqX3RvX2dndHQob2JqKTsKPiA+ICsKPiA+ICAJLyogc2V0
+dXAgYXBlcnR1cmUgYmFzZS9zaXplIGZvciB2ZXNhZmIgdGFrZW92ZXIgKi8KPiA+ICAJaW5mby0+
+YXBlcnR1cmVzLT5yYW5nZXNbMF0uYmFzZSA9IGRldi0+bW9kZV9jb25maWcuZmJfYmFzZTsKPiA+
+ICAJaW5mby0+YXBlcnR1cmVzLT5yYW5nZXNbMF0uc2l6ZSA9IGdndHQtPm1hcHBhYmxlX2VuZDsK
+PiA+ICAKPiA+IC0JaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmlnLmZiX2Jh
+c2UgKyBpOTE1X2dlbV9vYmpfZ2d0dF9vZmZzZXQob2JqKTsKPiA+IC0JaW5mby0+Zml4LnNtZW1f
+bGVuID0gc2l6ZTsKPiA+ICsJaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmln
+LmZiX2Jhc2UgKyB2bWEtPm5vZGUuc3RhcnQ7Cj4gPiArCWluZm8tPmZpeC5zbWVtX2xlbiA9IHZt
+YS0+bm9kZS5zaXplOwo+ID4gIAo+ID4gLQlpbmZvLT5zY3JlZW5fYmFzZSA9Cj4gPiAtCQlpb3Jl
+bWFwX3djKGdndHQtPm1hcHBhYmxlX2Jhc2UgKyBpOTE1X2dlbV9vYmpfZ2d0dF9vZmZzZXQob2Jq
+KSwKPiA+IC0JCQkgICBzaXplKTsKPiA+IC0JaWYgKCFpbmZvLT5zY3JlZW5fYmFzZSkgewo+ID4g
+Kwl2YWRkciA9IGk5MTVfdm1hX3Bpbl9pb21hcCh2bWEpOwo+ID4gKwlpZiAoSVNfRVJSKHZhZGRy
+KSkgewo+ID4gIAkJRFJNX0VSUk9SKCJGYWlsZWQgdG8gcmVtYXAgZnJhbWVidWZmZXIgaW50byB2
+aXJ0dWFsIG1lbW9yeVxuIik7Cj4gPiAtCQlyZXQgPSAtRU5PU1BDOwo+ID4gKwkJcmV0ID0gUFRS
+X0VSUih2YWRkcik7Cj4gPiAgCQlnb3RvIG91dF9kZXN0cm95X2ZiaTsKPiA+ICAJfQo+ID4gLQlp
+bmZvLT5zY3JlZW5fc2l6ZSA9IHNpemU7Cj4gPiArCWluZm8tPnNjcmVlbl9iYXNlID0gdmFkZHI7
+Cj4gPiArCWluZm8tPnNjcmVlbl9zaXplID0gdm1hLT5ub2RlLnNpemU7Cj4gCj4gc29tZSBmcmFt
+ZWJ1ZmZlciBkcml2ZXJzIHRlbmQgdG8gdXNlIGEgZ2VuZXJpYyBzdGFydCBhZGRyZXNzIG9mCj4g
+aWluZm8tPmZpeC5zbWVtX3N0YXJ0IGFuZCBhIGxlbmd0aCBvZiBpbmZvLT5maXguc21lbV9sZW4s
+IHRoaXMKPiBkcml2ZXIgc2V0cyB0aGUgc21lbV9zdGFydCBhYm92ZSwgYnV0IGl0cyBkaWZmZXJl
+bnQgdGhhbiB3aGF0Cj4gZ2V0cyBpb3JlbWFwIGZvciBhIHN0YXJ0IGFkZHJlc3M6Cj4gCj4gKyAg
+ICAgICAgICAgICAgIHB0ciA9IGlvX21hcHBpbmdfbWFwX3djKGk5MTVfdm1fdG9fZ2d0dCh2bWEt
+PnZtKS0+bWFwcGFibGUsCj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHZtYS0+bm9kZS5zdGFydCwKPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgdm1hLT5ub2RlLnNpemUpOwo+IAo+IGZpeC5zbWVtX3N0YXJ0IGlzIDoKPiAKPiAKPiA+ICsJ
+aW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmlnLmZiX2Jhc2UgKyB2bWEtPm5v
+ZGUuc3RhcnQ7Cj4gCj4gVGhlIHNtZW1fbGVuIG1hdGNoZXMgdGhvdWdoLiBDYW4geW91IGNsYXJp
+ZnkgaWYgaXRzIGNvcnJlY3QgZm9yCj4gdGhlIGlvX21hcHBpbmdfbWFwX3djKCkgc2hvdWxkIG5v
+dCBiZSB1c2luZyBpbmZvLT5maXguc21lbV9zdGFydAo+ICh3aGljaCBpcyBkZXYtPm1vZGVfY29u
+ZmlnLmZiX2Jhc2UgKyB2bWEtPm5vZGUuc3RhcnQpPwoKZGV2LT5tb2RlX2NvbmZpZy5mYl9iYXNl
+IGlzIHRoZSBiYXNlIGFkZHJlc3Mgb2YgdGhlIG1hcHBhYmxlIHJlZ2lvbi4gSXQKaXMgYW4gaW5j
+b25zaXN0ZW50bHkgaW4gbmFtaW5nIHRoYXQganVzdCBoYXNuJ3QgYW5ub3llZCBtZSBlbm91Z2gg
+dG8KZml4LgogCj4gUmVhc29uIEkgYXNrIGlzIHNpbmNlIEkgbm90aWNlZCBhIHdoaWxlIGFnbyBh
+IGxvdCBvZiBkcml2ZXJzCj4gd2VyZSB1c2luZyBpbmZvLT5maXguc21lbV9zdGFydCBhbmQgaW5m
+by0+Zml4LnNtZW1fbGVuIGNvbnNpc3RlbnRseQo+IGZvciB0aGVpciBpb3JlbWFwJ2QgYXJlYXMg
+aXQgbWlnaHQgbWFrZSBzZW5zZSBpbnN0ZWFkIHRvIGxldCB0aGUKPiBpbnRlcm5hbCBmcmFtZWJ1
+ZmZlciAocmVnaXN0ZXJfZnJhbWVidWZmZXIoKSkgb3B0aW9uYWxseSBtYW5hZ2UgdGhlCj4gaW9y
+ZW1hcF93YygpIGZvciBkcml2ZXJzLCBnaXZlbiB0aGF0IHRoaXMgaXMgcHJldHR5IGdlbmVyaWMg
+c3R1ZmYuCgpBcGFydCBmcm9tIGRyaXZlcnMgbGlrZSBvdXJzIHdlIHdvdWxkIGVuZCB1cCB3aXRo
+IG11bHRpcGxlIG1hcHBpbmdzIHRvCnRoZSBzYW1lIHJlZ2lvbi4gSXQgd2FzIGp1c3QgYSBsaXR0
+bGUgZ3JldmllbmNlIHRoYXQgSSB0aGluayB3YXMgd29ydGgKZml4aW5nLiBJdCBkb2VzIGhpZ2hs
+aWdodCBob3cgYnVnZ3kgb3VyIGNvZGUgaXMgY3VycmVudGx5IHRob3VnaCBhcyB3ZQpuZXZlciBy
+ZWxpbnF1aXNoIHRoYXQgbWFwcGluZyB3aGVuIHRoZSBkcml2ZXIgaXMgdW5sb2FkZWQuCi1DaHJp
+cwoKLS0gCkNocmlzIFdpbHNvbiwgSW50ZWwgT3BlbiBTb3VyY2UgVGVjaG5vbG9neSBDZW50cmUK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVs
+IG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlz
+dHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
