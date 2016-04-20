@@ -1,89 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 3/3] ipvs: don't alter conntrack in OPS mode
-Date: Wed, 20 Apr 2016 12:46:34 +1000
-Message-ID: <1461120394-5548-4-git-send-email-horms@verge.net.au>
-References: <1461120394-5548-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Marco Angaroni <marcoangaroni@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1461120394-5548-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Tue, 19 Apr 2016 20:53:36 -0700
+Message-ID: <5716FD40.7060408@cumulusnetworks.com>
+References: <20160419.010316.1863885429013017239.davem@davemloft.net> <20160419.143134.2014460805657420897.davem@davemloft.net> <5716815C.6080601@cumulusnetworks.com> <20160419.184920.1193931883675948435.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, jhs@mojatatu.com,
+	tgraf@suug.ch, nicolas.dichtel@6wind.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33970 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbcDTDxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 23:53:39 -0400
+Received: by mail-pa0-f43.google.com with SMTP id r5so12022892pag.1
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 20:53:38 -0700 (PDT)
+In-Reply-To: <20160419.184920.1193931883675948435.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
+On 4/19/16, 3:49 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Tue, 19 Apr 2016 12:05:00 -0700
+>
+>> ok, will do. one thing though, for GETSTATS, if I need a pad
+>> attribute like IFLA_PAD, I will need to add a new stats attribute
+>> IFLA_STATS_PAD and burn a bit for it in filter_mask too.  In which
+>> case, I am wondering if we should live with the copy. I will take
+>> any suggestions here.
+> I don't think the copy is appropriate, especially if the existing full
+> link state dump gets away without it.  We're adding this facility for
+> performance reasons after all.
+>
+> You have several options to avoid wasting filter mask space. For
+> example, you could use IFLA_STATS_UNSPEC, which should be OK since
+> only new applications will use these.
+>
+> Or you could make IFLA_STATS_PAD the first attribute, and define the
+> filter mask as relative to it.  Ie. IFLA_STATS_LINK_64 uses bit
+> (IFLA_STATS_LINK_64 - IFLA_STATS_PAD), etc.
+ok ack, makes sense.
 
-When using OPS mode in conjunction with SIP persistent-engine, packets
-originating from the same ip-address/port could be balanced to different
-real servers, and (to properly handle SIP responses) OPS connections
-are created in the in-out direction too, where ip_vs_update_conntrack()
-is called to modify the reply tuple.
-
-As a result, there can be collision of conntrack tuples, causing random
-packet drops, as explained below:
-
-conntrack1: orig=CIP->VIP, reply=RIP1->CIP
-conntrack2: orig=RIP2->CIP, reply=CIP->VIP
-
-Tuple CIP->VIP is both in orig of conntrack1 and reply of conntrack2.
-The collision triggers packet drop inside nf_conntrack processing.
-
-In addition, the current implementation deletes the conntrack object at
-every expire of an OPS connection (once every forwarded packet), to have
-it recreated from scratch at next packet traversing IPVS.
-
-Since in OPS mode, by definition, we don't expect any associated
-response, the choices implemented in this patch are:
-a) don't call nf_conntrack_alter_reply() for OPS connections inside
-   ip_vs_update_conntrack().
-b) don't delete the conntrack object at OPS connection expire.
-
-The result is that created conntrack objects for each tuple CIP->VIP,
-RIP-N->CIP, etc. are left in UNREPLIED state and not modified by IPVS
-OPS connection management. This eliminates packet drops and leaves
-a single conntrack object for each tuple packets are sent from.
-
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c | 3 ++-
- net/netfilter/ipvs/ip_vs_nfct.c | 4 ++++
- 2 files changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index dd75d4120099..292365ffa4f0 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -836,7 +836,8 @@ static void ip_vs_conn_expire(unsigned long data)
- 		if (cp->control)
- 			ip_vs_control_del(cp);
- 
--		if (cp->flags & IP_VS_CONN_F_NFCT) {
-+		if ((cp->flags & IP_VS_CONN_F_NFCT) &&
-+		    !(cp->flags & IP_VS_CONN_F_ONE_PACKET)) {
- 			/* Do not access conntracks during subsys cleanup
- 			 * because nf_conntrack_find_get can not be used after
- 			 * conntrack cleanup for the net.
-diff --git a/net/netfilter/ipvs/ip_vs_nfct.c b/net/netfilter/ipvs/ip_vs_nfct.c
-index 30434fb133df..f04fd8df210b 100644
---- a/net/netfilter/ipvs/ip_vs_nfct.c
-+++ b/net/netfilter/ipvs/ip_vs_nfct.c
-@@ -93,6 +93,10 @@ ip_vs_update_conntrack(struct sk_buff *skb, struct ip_vs_conn *cp, int outin)
- 	if (IP_VS_FWD_METHOD(cp) != IP_VS_CONN_F_MASQ)
- 		return;
- 
-+	/* Never alter conntrack for OPS conns (no reply is expected) */
-+	if (cp->flags & IP_VS_CONN_F_ONE_PACKET)
-+		return;
-+
- 	/* Alter reply only in original direction */
- 	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
- 		return;
--- 
-2.7.0.rc3.207.g0ac5344
-
+thanks,
+Roopa
