@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/1] drivers: net: cpsw: Fix NULL pointer
- dereference with two slave PHYs
-Date: Tue, 19 Apr 2016 20:15:50 -0400 (EDT)
-Message-ID: <20160419.201550.902520333910307559.davem@davemloft.net>
-References: <1460987606-18125-1-git-send-email-andrew.goodbody@cambrionix.com>
+Subject: Re: [PATCH 2/5] arcnet: com90xx: add __init attribute
+Date: Tue, 19 Apr 2016 20:18:01 -0400 (EDT)
+Message-ID: <20160419.201801.1678960326029844695.davem@davemloft.net>
+References: <1460991338-9845-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andrew.goodbody@cambrionix.com
+Cc: m.grzeschik@pengutronix.de, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mcgrof@kernel.org, josh@joshtriplett.org
+To: Julia.Lawall@lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460987606-18125-1-git-send-email-andrew.goodbody@cambrionix.com>
+In-Reply-To: <1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Goodbody <andrew.goodbody@cambrionix.com>
-Date: Mon, 18 Apr 2016 14:53:25 +0100
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Mon, 18 Apr 2016 16:55:35 +0200
 
-> This is a fix for a NULL pointer dereference from cpsw which is triggered
-> by having two slave PHYs attached to a cpsw network device. The problem is
-> due to only maintaining a single reference to a PHY node in the prive data
-> which gets overwritten by the second PHY probe. So move the PHY node
-> reference to the individual slave data so that there is now one per slave.
+> Add __init attribute on a function that is only called from other __init
+> functions and that is not inlined, at least with gcc version 4.8.4 on an
+> x86 machine with allyesconfig.  Currently, the function is put in the
+> .text.unlikely segment.  Declaring it as __init will cause it to be put in
+> the .init.text and to disappear after initialization.
 > 
-> v1 had a problem that data->slaves was used before it had been filled in
+> The result of objdump -x on the function before the change is as follows:
+> 
+> 0000000000000000 l     F .text.unlikely 00000000000000bf check_mirror
+> 
+> And after the change it is as follows:
+> 
+> 0000000000000000 l     F .init.text	00000000000000ba check_mirror
+> 
+> Done with the help of Coccinelle.  The semantic patch checks for local
+> static non-init functions that are called from an __init function and are
+> not called from any other function.
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-I already applied v1 the other day, so you need to send me a relative
-patch rather than a whole new one.
-
-Thanks.
+Applied to net-next, thanks.
