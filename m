@@ -1,85 +1,63 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] MAINTAINERS: net: add entry for TI Ethernet Switch
- drivers
-Date: Wed, 20 Apr 2016 19:18:20 +0300
-Message-ID: <5717ABCC.50406@ti.com>
-References: <1461151509-2368-1-git-send-email-grygorii.strashko@ti.com>
- <20160420142350.GD5995@atomide.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 05/11] net/mlx5e: Support RX multi-packet WQE
+ (Striding RQ)
+Date: Wed, 20 Apr 2016 19:46:12 +0300
+Message-ID: <CALzJLG-XwPv_V51nHBxQQcsiWG20sHj0OvVacc0eVLhoQF2c8g@mail.gmail.com>
+References: <1460928725-18741-1-git-send-email-saeedm@mellanox.com>
+ <1460928725-18741-6-git-send-email-saeedm@mellanox.com> <1460939371.10638.97.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1460983695.10638.113.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG_W9SkgMBQp86P0WDknw4Kc=DCBrvpPemAUbRX=r4r8Yg@mail.gmail.com>
+ <1460989033.10638.120.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160419182532.423d3c05@redhat.com> <20160419173833.GB15167@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Sekhar Nori <nsekhar@ti.com>, <linux-omap@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:53455 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750717AbcDTQS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 12:18:28 -0400
-In-Reply-To: <20160420142350.GD5995@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>, "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Tariq Toukan <tariqt@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>, Achiad Shochat <achiad@mellanox.com>, linux-mm <linux-mm@kvack.org>
+To: Mel Gorman <mgorman@techsingularity.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160419173833.GB15167@techsingularity.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 04/20/2016 05:23 PM, Tony Lindgren wrote:
-> * Grygorii Strashko <grygorii.strashko@ti.com> [160420 04:26]:
->> Add record for TI Ethernet Switch Driver CPSW/CPDMA/MDIO HW
->> (am33/am43/am57/dr7/davinci) to ensure that related patches
->> will go through dedicated linux-omap list.
+On Tue, Apr 19, 2016 at 8:39 PM, Mel Gorman <mgorman@techsingularity.net> wrote:
+> On Tue, Apr 19, 2016 at 06:25:32PM +0200, Jesper Dangaard Brouer wrote:
+>> On Mon, 18 Apr 2016 07:17:13 -0700
+>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >>
->> Also add Mugunthan as maintainer and myself as the reviewer.
+>
+> alloc_pages_exact()
+>
+
+We want to allocate 32 order-0 physically contiguous pages and to free
+each one of them individually.
+the documentation states "Memory allocated by this function must be
+released by free_pages_exact()"
+
+Also it returns a pointer to the memory and we need pointers to pages.
+
+>> > > allocates many physically contiguous pages with order0 ! so we assume
+>> > > it is ok to use split_page.
+>> >
+>> > Note: I have no idea of split_page() performance :
 >>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->> Cc: Richard Cochran <richardcochran@gmail.com>
->> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->> ---
->>   MAINTAINERS | 8 ++++++++
->>   1 file changed, 8 insertions(+)
->>
->> diff --git a/MAINTAINERS b/MAINTAINERS
->> index 1d5b4be..aca864d 100644
->> --- a/MAINTAINERS
->> +++ b/MAINTAINERS
->> @@ -11071,6 +11071,14 @@ S:	Maintained
->>   F:	drivers/clk/ti/
->>   F:	include/linux/clk/ti.h
->>   
->> +TI ETHERNET SWITCH DRIVER (CPSW)
->> +M:	Mugunthan V N <mugunthanvnm@ti.com>
->> +R:	Grygorii Strashko <grygorii.strashko@ti.com>
->> +L:	linux-omap@vger.kernel.org
->> +S:	Maintained
->> +F:	drivers/net/ethernet/ti/cpsw*
->> +F:	drivers/net/ethernet/ti/davinci*
->> +
->>   TI FLASH MEDIA INTERFACE DRIVER
->>   M:	Alex Dubov <oakad@yahoo.com>
->>   S:	Maintained
->> -- 
-> 
-> Please add netdev list also there as the primary list:
-> 
-> L:	netdev@vger.kernel.org
-> L:	linux-omap@vger.kernel.org
-> 
-> Then we can easily review and ack the patches for Dave to apply.
-> 
+>> Maybe Mel knows?
+>
+> Irrelevant in comparison to the cost of allocating an order-5 pages if
+> one is not already available.
+>
 
-I can, but want clarify if it really necessary, because get_maintainer.pl
-automatically adds netdev@vger.kernel.org:
+we still allocate order-5 pages but now we split them to 32 order-0 pages.
+the split adds extra few cpu cycles but it is lookless and
+straightforward, and it does the job in terms of better memory
+utilization.
+now in scenarios where small packets can hold a ref on pages for too
+long they would hold a ref on order-0 pages rather than order-5.
 
-./scripts/get_maintainer.pl ~/.../0001-drivers-net-cpsw-fix-port_mask-parameters-in-ale-cal.patch 
-Mugunthan V N <mugunthanvnm@ti.com> (maintainer:TI ETHERNET SWITCH DRIVER (CPSW))
-Grygorii Strashko <grygorii.strashko@ti.com> (reviewer:TI ETHERNET SWITCH DRIVER (CPSW))
-linux-omap@vger.kernel.org (open list:TI ETHERNET SWITCH DRIVER (CPSW))
-netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-linux-kernel@vger.kernel.org (open list)
- 
-
-
--- 
-regards,
--grygorii
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
