@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] arcnet: com90xx: add __init attribute
-Date: Tue, 19 Apr 2016 20:18:01 -0400 (EDT)
-Message-ID: <20160419.201801.1678960326029844695.davem@davemloft.net>
-References: <1460991338-9845-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH net-next 0/3] qede: Bug fixes
+Date: Tue, 19 Apr 2016 20:21:26 -0400 (EDT)
+Message-ID: <20160419.202126.734822407546551092.davem@davemloft.net>
+References: <1460999167-3746-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m.grzeschik@pengutronix.de, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mcgrof@kernel.org, josh@joshtriplett.org
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460991338-9845-3-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38759 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752806AbcDTAV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 20:21:28 -0400
+In-Reply-To: <1460999167-3746-1-git-send-email-manish.chopra@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Mon, 18 Apr 2016 16:55:35 +0200
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Mon, 18 Apr 2016 13:06:04 -0400
 
-> Add __init attribute on a function that is only called from other __init
-> functions and that is not inlined, at least with gcc version 4.8.4 on an
-> x86 machine with allyesconfig.  Currently, the function is put in the
-> .text.unlikely segment.  Declaring it as __init will cause it to be put in
-> the .init.text and to disappear after initialization.
+> Please note that I have intentionally targeted this for "net-next"
+> to avoid merge conflicts when net-next changes gets merged to net
 > 
-> The result of objdump -x on the function before the change is as follows:
-> 
-> 0000000000000000 l     F .text.unlikely 00000000000000bf check_mirror
-> 
-> And after the change it is as follows:
-> 
-> 0000000000000000 l     F .init.text	00000000000000ba check_mirror
-> 
-> Done with the help of Coccinelle.  The semantic patch checks for local
-> static non-init functions that are called from an __init function and are
-> not called from any other function.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Please consider applying this series to "net-next"
 
-Applied to net-next, thanks.
+I do not understand what you are saying here.
+
+If these bugs exist in 'net' you must target these bug fixes
+there.
+
+If there will be merge conflicts after this when I merge net
+into net-next, that's exactly what is supposed to happen and
+is what I'm supposed to work on to resolve.  That's my job.
