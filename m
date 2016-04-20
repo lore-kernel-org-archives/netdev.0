@@ -1,69 +1,130 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: Re: [PATCH 02/19] io-mapping: Specify mapping size for
- io_mapping_map_wc()
-Date: Wed, 20 Apr 2016 20:14:32 +0100
-Message-ID: <20160420191432.GK17454@nuc-i3427.alporthouse.com>
-References: <1461177750-20187-1-git-send-email-chris@chris-wilson.co.uk>
- <1461177750-20187-3-git-send-email-chris@chris-wilson.co.uk>
- <20160420185844.GQ1990@wotan.suse.de>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net 2/2] tcp: Merge tx_flags and tskey in tcp_shifted_skb
+Date: Wed, 20 Apr 2016 15:14:42 -0400
+Message-ID: <CACSApvYcuCLYxdjOmG7uywqM9b_dDx0QwwARSiByxU0OYCmnxA@mail.gmail.com>
+References: <1461130769-1442865-1-git-send-email-kafai@fb.com> <1461130769-1442865-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Airlie <airlied@linux.ie>, intel-gfx@lists.freedesktop.org,
- linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- dri-devel@lists.freedesktop.org, netdev@vger.kernel.org,
- linux-rdma@vger.kernel.org, Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <20160420185844.GQ1990@wotan.suse.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:33956 "EHLO
+	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbcDTTPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 15:15:22 -0400
+Received: by mail-oi0-f44.google.com with SMTP id k142so51086829oib.1
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 12:15:22 -0700 (PDT)
+In-Reply-To: <1461130769-1442865-3-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDg6NTg6NDRQTSArMDIwMCwgTHVpcyBSLiBSb2RyaWd1
-ZXogd3JvdGU6Cj4gT24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDc6NDI6MTNQTSArMDEwMCwgQ2hy
-aXMgV2lsc29uIHdyb3RlOgo+ID4gVGhlIGlvcmVtYXAoKSBoaWRkZW4gYmVoaW5kIHRoZSBpb19t
-YXBwaW5nX21hcF93YygpIGNvbnZlbmllbmNlIGhlbHBlcgo+ID4gY2FuIGJlIHVzZWQgZm9yIHJl
-bWFwcGluZyBtdWx0aXBsZSBwYWdlcy4gRXh0ZW5kIHRoZSBoZWxwZXIgc28gdGhhdAo+ID4gZnV0
-dXJlIGNhbGxlcnMgY2FuIHVzZSBpdCBmb3IgbGFyZ2VyIHJhbmdlcy4KPiA+IAo+ID4gU2lnbmVk
-LW9mZi1ieTogQ2hyaXMgV2lsc29uIDxjaHJpc0BjaHJpcy13aWxzb24uY28udWs+Cj4gPiBDYzog
-VHZydGtvIFVyc3VsaW4gPHR2cnRrby51cnN1bGluQGludGVsLmNvbT4KPiA+IENjOiBEYW5pZWwg
-VmV0dGVyIDxkYW5pZWwudmV0dGVyQGludGVsLmNvbT4KPiA+IENjOiBKYW5pIE5pa3VsYSA8amFu
-aS5uaWt1bGFAbGludXguaW50ZWwuY29tPgo+ID4gQ2M6IERhdmlkIEFpcmxpZSA8YWlybGllZEBs
-aW51eC5pZT4KPiA+IENjOiBZaXNoYWkgSGFkYXMgPHlpc2hhaWhAbWVsbGFub3guY29tPgo+ID4g
-Q2M6IERhbiBXaWxsaWFtcyA8ZGFuLmoud2lsbGlhbXNAaW50ZWwuY29tPgo+ID4gQ2M6IEluZ28g
-TW9sbmFyIDxtaW5nb0BrZXJuZWwub3JnPgo+ID4gQ2M6ICJQZXRlciBaaWpsc3RyYSAoSW50ZWwp
-IiA8cGV0ZXJ6QGluZnJhZGVhZC5vcmc+Cj4gPiBDYzogRGF2aWQgSGlsZGVuYnJhbmQgPGRhaGlA
-bGludXgudm5ldC5pYm0uY29tPgo+ID4gQ2M6IEx1aXMgUi4gUm9kcmlndWV6IDxtY2dyb2ZAa2Vy
-bmVsLm9yZz4KPiA+IENjOiBpbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCj4gPiBDYzog
-ZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcKPiA+IENjOiBsaW51eC1yZG1hQHZnZXIua2VybmVsLm9yZwo+ID4gQ2M6IGxpbnV4LWtl
-cm5lbEB2Z2VyLmtlcm5lbC5vcmcKPiAKPiBXZSBoYXZlIDIgY2FsbGVycyB0b2RheSwgaW4gdGhl
-IGZ1dHVyZSwgY2FuIHlvdSBlbnZpc2lvbgo+IHRoaXMgQVBJIGdldHRpbmcgbW9yZSBvcHRpb25z
-PyBJZiBzbywgaW4gb3JkZXIgdG8gYXZvaWQgdGhlCj4gcGFpbiBvZiBjb2xsYXRlcmFsIGV2b2x1
-dGlvbnMgSSBjYW4gc3VnZ2VzdCBhIGRlc2NyaXB0b3IKPiBiZWluZyBwYXNzZWQgd2l0aCB0aGUg
-cmVxdWlyZWQgc2V0dGluZ3MgLyBvcHRpb25zLiBUaGlzIGxldHMKPiB5b3UgZXZvbHZlIHRoZSBB
-UEkgd2l0aG91dCBuZWVkaW5nIHRvIGdvIGluIGFuZCBtb2RpZnkKPiBvbGQgdXNlcnMuIElmIHlv
-dSBjaG9vc2Ugbm90IHRvIHRoYXQncyBmaW5lIHRvbywganVzdAo+IGZpZ3VyZWQgSSdkIGNoaW1l
-IGluIHdpdGggdGhhdCBhcyBJJ3ZlIHNlZW4gdGhlIHBhaW4KPiB3aXRoIG90aGVyIEFQSXMsIGFu
-ZCBJJ20gcHV0dGluZyBhbiBlbmQgdG8gdGhlIG5lZWRsZXNzCj4gc2V0IG9mIGNvbGxhdGVyYWwg
-ZXZvbHV0aW9ucyB0aGlzIHdheS4KCkRvIHlvdSBoYXZlIGEgZ29vZCBleGFtcGxlIGluIG1pbmQ/
-IEkndmUgb25lIG1vcmUgcGF0Y2ggdG8gdHJ5IGFuZCB0YWtlCmFkdmFudGFnZSBvZiB0aGUgaW8t
-bWFwcGluZyAodGhhdCBtYXkgb3Igbm90IGJlIHN1Y2ggYSBnb29kIGlkZWEgaW4KcHJhY3RpY2Up
-IGJ1dCBJIG1heSBhcyB3ZWxsIHNlZSBpZiBJIGNhbiBtYWtlIGlvX21hcHBpbmcgbW9yZSB1c2Vm
-dWwKd2hlbiBJIGRvLgotQ2hyaXMKCi0tIApDaHJpcyBXaWxzb24sIEludGVsIE9wZW4gU291cmNl
-IFRlY2hub2xvZ3kgQ2VudHJlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNr
-dG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2lu
-dGVsLWdmeAo=
+On Wed, Apr 20, 2016 at 1:39 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> After receiving sacks, tcp_shifted_skb() will collapse
+> skbs if possible.  tx_flags and tskey also have to be
+> merged.
+>
+> This patch reuses the tcp_skb_collapse_tstamp() to handle
+> them.
+>
+> BPF Output Before:
+> ~~~~~
+> <no-output-due-to-missing-tstamp-event>
+>
+> BPF Output After:
+> ~~~~~
+> <...>-2024  [007] d.s.    88.644374: : ee_data:14599
+>
+> Packetdrill Script:
+> ~~~~~
+> +0 `sysctl -q -w net.ipv4.tcp_min_tso_segs=10`
+> +0 `sysctl -q -w net.ipv4.tcp_no_metrics_save=1`
+> +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+> +0 bind(3, ..., ...) = 0
+> +0 listen(3, 1) = 0
+>
+> 0.100 < S 0:0(0) win 32792 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+> 0.100 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+> 0.200 < . 1:1(0) ack 1 win 257
+> 0.200 accept(3, ..., ...) = 4
+> +0 setsockopt(4, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+>
+> 0.200 write(4, ..., 1460) = 1460
+> +0 setsockopt(4, SOL_SOCKET, 37, [2688], 4) = 0
+> 0.200 write(4, ..., 13140) = 13140
+>
+> 0.200 > P. 1:1461(1460) ack 1
+> 0.200 > . 1461:8761(7300) ack 1
+> 0.200 > P. 8761:14601(5840) ack 1
+>
+> 0.300 < . 1:1(0) ack 1 win 257 <sack 1461:14601,nop,nop>
+> 0.300 > P. 1:1461(1460) ack 1
+> 0.400 < . 1:1(0) ack 14601 win 257
+>
+> 0.400 close(4) = 0
+> 0.400 > F. 14601:14601(0) ack 1
+> 0.500 < F. 1:1(0) ack 14602 win 257
+> 0.500 > . 14602:14602(0) ack 2
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Tested-by: Soheil Hassas Yeganeh <soheil@google.com>
+> ---
+>  include/net/tcp.h     | 2 ++
+>  net/ipv4/tcp_input.c  | 1 +
+>  net/ipv4/tcp_output.c | 4 ++--
+>  3 files changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index b91370f..6db1022 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -552,6 +552,8 @@ void tcp_send_ack(struct sock *sk);
+>  void tcp_send_delayed_ack(struct sock *sk);
+>  void tcp_send_loss_probe(struct sock *sk);
+>  bool tcp_schedule_loss_probe(struct sock *sk);
+> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> +                            const struct sk_buff *next_skb);
+>
+>  /* tcp_input.c */
+>  void tcp_resume_early_retransmit(struct sock *sk);
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 0edb071..c124c3c 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1309,6 +1309,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+>         if (skb == tcp_highest_sack(sk))
+>                 tcp_advance_highest_sack(sk, skb);
+>
+> +       tcp_skb_collapse_tstamp(prev, skb);
+>         tcp_unlink_write_queue(skb, sk);
+>         sk_wmem_free_skb(sk, skb);
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 5bc3c30..441ae9d 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2441,8 +2441,8 @@ u32 __tcp_select_window(struct sock *sk)
+>         return window;
+>  }
+>
+> -static void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> -                                   const struct sk_buff *next_skb)
+> +void tcp_skb_collapse_tstamp(struct sk_buff *skb,
+> +                            const struct sk_buff *next_skb)
+>  {
+>         const struct skb_shared_info *next_shinfo = skb_shinfo(next_skb);
+>         u8 tsflags = next_shinfo->tx_flags & SKBTX_ANY_TSTAMP;
+> --
+> 2.5.1
+>
