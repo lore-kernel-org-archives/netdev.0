@@ -1,83 +1,96 @@
-From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: [RESEND] Re: updating carl9170-1.fw in linux-firmware.git
-Date: Wed, 20 Apr 2016 23:11:09 +0200
-Message-ID: <2185358.G319l0XIJC@debian64>
-References: <20160416113312.8de2266358165182bb4b4a15@gmx.com> <11418613.XH7h8m2RjK@debian64> <87a8koiubz.fsf@kamboji.qca.qualcomm.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Subject: Re: [PATCH 02/19] io-mapping: Specify mapping size for
+ io_mapping_map_wc()
+Date: Wed, 20 Apr 2016 23:23:47 +0200
+Message-ID: <20160420212347.GR1990@wotan.suse.de>
+References: <1461177750-20187-1-git-send-email-chris@chris-wilson.co.uk>
+ <1461177750-20187-3-git-send-email-chris@chris-wilson.co.uk>
+ <20160420185844.GQ1990@wotan.suse.de>
+ <20160420191432.GK17454@nuc-i3427.alporthouse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Lauri Kasanen <cand-KK0ffGbhmjU@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Firmware Maintainers <linux-firmware-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Xose Vazquez Perez <xose.vazquez-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87a8koiubz.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Chris Wilson <chris@chris-wilson.co.uk>,
+ "Luis R. Rodriguez" <mcgrof@kernel.org>, intel-gfx@lists.freedesktop.org,
+ Tvrtko Ursulin <tvrtko.ursulin@linux.intel.com>,
+ Mika Kuoppala <mika.kuoppala@linux.intel.com>,
+ Joonas Lahtinen <joonas.lahtinen@linux.intel.com>,
+ Tvrtko Ursulin <tvrtko.ursulin@intel.com>,
+ Daniel Vetter <daniel.vetter@intel.com>,
+ Jani Nikula <jani.nikula@linux.intel.com>, David Airlie <airlied@linux.ie>,
+ Yishai Hadas <yishaih@mellanox.com>,
+ Dan Williams <dan.j.williams@intel.com>, Ingo Molnar <mingo@kernel.org>,
+ "Peter Zijlstra (Intel)" <peterz@infradead.org>,
+ David Hildenbrand <dahi@linux.vnet.ibm.com>,
+ dri-devel@lists.freedesktop.org, netdev@vger.kernel.org,
+ linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20160420191432.GK17454@nuc-i3427.alporthouse.com>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, April 20, 2016 10:59:44 AM Kalle Valo wrote:
-> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
-> 
-> > On Monday, April 18, 2016 07:42:05 PM Kalle Valo wrote:
-> >> Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
-> >> 
-> >> > On Monday, April 18, 2016 06:45:09 PM Kalle Valo wrote:
-> >> >
-> >> >> Why even mention anything about a "special firmware" as the firmware is
-> >> >> already available from linux-firmware.git? 
-> >> >
-> >> > Yes and no. 1.9.6 is in linux-firmware.git. I've tried to add 1.9.9 too
-> >> > but that failed.
-> >> > <http://comments.gmane.org/gmane.linux.kernel.wireless.general/114639>
-> >> 
-> >> Rick's comment makes sense to me, better just to provide the latest
-> >> version. No need to unnecessary confuse the users. And if someone really
-> >> wants to use an older version that she can retrieve it from the git
-> >> history.
-> >
-> > Part of the fun here is that firmware is GPLv2. The linux-firmware.git has
-> > to point to or add the firmware source to their tree. They have added every
-> > single source file to it.... instead of "packaging" it in a tar.bz2/gz/xz
-> > like you normally do for release sources.
-> >
-> > If you want to read more about it:
-> > <http://www.spinics.net/lists/linux-wireless/msg101868.html>
-> 
-> Yeah, that's more work. I get that. But I'm still not understanding
-> what's the actual problem which prevents us from updating carl9170
-> firmware in linux-firmware.
-I'm not sure, but why not ask? I've added the cc'ed Linux Firmware
-Maintainers. So for those people reading the fw list:
-
-What would it take to update the carl9170-1.fw firmware file in your
-repository to the latest version?
-
-Who has to sent the firmware update. Does it have to be the person who
-sent the first request? (Xose)? The maintainer of the firmware (me)?
-someone from Qualcomm Atheros? Or someone else (specific)? (the 
-firmware is licensed as GPLv2 - in theory anyone should be able to
-do that)
-
-How should the firmware source update be handled? Currently the latest
-.tar.xz of the firmware has ~130kb. The formated patches from 1.9.6 to
-latest are about ~100kb (182 individual patches).
-
-How does linux-firmware handle new binary firmware images and new 
-sources? What if carl9170fw-2.bin is added. Do we need another
-source directory for this in the current tree then? Because 
-carl9170fw-1.bin will still be needed for backwards compatibility
-so we basically need to duplicate parts of the source?
-
-Also, how's the situation with ath9k_htc? The 1.4.0 image contains
-some GPLv2 code as well? So, why is there no source in the tree, but 
-just the link to it? Because, I would like to do basically the same
-for carl9170fw and just add a link to the carl9170fw repository and
-save everyone this source update "song and dance".
-
-Regards,
-Christian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDg6MTQ6MzJQTSArMDEwMCwgQ2hyaXMgV2lsc29uIHdy
+b3RlOgo+IE9uIFdlZCwgQXByIDIwLCAyMDE2IGF0IDA4OjU4OjQ0UE0gKzAyMDAsIEx1aXMgUi4g
+Um9kcmlndWV6IHdyb3RlOgo+ID4gT24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDc6NDI6MTNQTSAr
+MDEwMCwgQ2hyaXMgV2lsc29uIHdyb3RlOgo+ID4gPiBUaGUgaW9yZW1hcCgpIGhpZGRlbiBiZWhp
+bmQgdGhlIGlvX21hcHBpbmdfbWFwX3djKCkgY29udmVuaWVuY2UgaGVscGVyCj4gPiA+IGNhbiBi
+ZSB1c2VkIGZvciByZW1hcHBpbmcgbXVsdGlwbGUgcGFnZXMuIEV4dGVuZCB0aGUgaGVscGVyIHNv
+IHRoYXQKPiA+ID4gZnV0dXJlIGNhbGxlcnMgY2FuIHVzZSBpdCBmb3IgbGFyZ2VyIHJhbmdlcy4K
+PiA+ID4gCj4gPiA+IFNpZ25lZC1vZmYtYnk6IENocmlzIFdpbHNvbiA8Y2hyaXNAY2hyaXMtd2ls
+c29uLmNvLnVrPgo+ID4gPiBDYzogVHZydGtvIFVyc3VsaW4gPHR2cnRrby51cnN1bGluQGludGVs
+LmNvbT4KPiA+ID4gQ2M6IERhbmllbCBWZXR0ZXIgPGRhbmllbC52ZXR0ZXJAaW50ZWwuY29tPgo+
+ID4gPiBDYzogSmFuaSBOaWt1bGEgPGphbmkubmlrdWxhQGxpbnV4LmludGVsLmNvbT4KPiA+ID4g
+Q2M6IERhdmlkIEFpcmxpZSA8YWlybGllZEBsaW51eC5pZT4KPiA+ID4gQ2M6IFlpc2hhaSBIYWRh
+cyA8eWlzaGFpaEBtZWxsYW5veC5jb20+Cj4gPiA+IENjOiBEYW4gV2lsbGlhbXMgPGRhbi5qLndp
+bGxpYW1zQGludGVsLmNvbT4KPiA+ID4gQ2M6IEluZ28gTW9sbmFyIDxtaW5nb0BrZXJuZWwub3Jn
+Pgo+ID4gPiBDYzogIlBldGVyIFppamxzdHJhIChJbnRlbCkiIDxwZXRlcnpAaW5mcmFkZWFkLm9y
+Zz4KPiA+ID4gQ2M6IERhdmlkIEhpbGRlbmJyYW5kIDxkYWhpQGxpbnV4LnZuZXQuaWJtLmNvbT4K
+PiA+ID4gQ2M6IEx1aXMgUi4gUm9kcmlndWV6IDxtY2dyb2ZAa2VybmVsLm9yZz4KPiA+ID4gQ2M6
+IGludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKPiA+ID4gQ2M6IGRyaS1kZXZlbEBsaXN0
+cy5mcmVlZGVza3RvcC5vcmcKPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKPiA+ID4g
+Q2M6IGxpbnV4LXJkbWFAdmdlci5rZXJuZWwub3JnCj4gPiA+IENjOiBsaW51eC1rZXJuZWxAdmdl
+ci5rZXJuZWwub3JnCj4gPiAKPiA+IFdlIGhhdmUgMiBjYWxsZXJzIHRvZGF5LCBpbiB0aGUgZnV0
+dXJlLCBjYW4geW91IGVudmlzaW9uCj4gPiB0aGlzIEFQSSBnZXR0aW5nIG1vcmUgb3B0aW9ucz8g
+SWYgc28sIGluIG9yZGVyIHRvIGF2b2lkIHRoZQo+ID4gcGFpbiBvZiBjb2xsYXRlcmFsIGV2b2x1
+dGlvbnMgSSBjYW4gc3VnZ2VzdCBhIGRlc2NyaXB0b3IKPiA+IGJlaW5nIHBhc3NlZCB3aXRoIHRo
+ZSByZXF1aXJlZCBzZXR0aW5ncyAvIG9wdGlvbnMuIFRoaXMgbGV0cwo+ID4geW91IGV2b2x2ZSB0
+aGUgQVBJIHdpdGhvdXQgbmVlZGluZyB0byBnbyBpbiBhbmQgbW9kaWZ5Cj4gPiBvbGQgdXNlcnMu
+IElmIHlvdSBjaG9vc2Ugbm90IHRvIHRoYXQncyBmaW5lIHRvbywganVzdAo+ID4gZmlndXJlZCBJ
+J2QgY2hpbWUgaW4gd2l0aCB0aGF0IGFzIEkndmUgc2VlbiB0aGUgcGFpbgo+ID4gd2l0aCBvdGhl
+ciBBUElzLCBhbmQgSSdtIHB1dHRpbmcgYW4gZW5kIHRvIHRoZSBuZWVkbGVzcwo+ID4gc2V0IG9m
+IGNvbGxhdGVyYWwgZXZvbHV0aW9ucyB0aGlzIHdheS4KPiAKPiBEbyB5b3UgaGF2ZSBhIGdvb2Qg
+ZXhhbXBsZSBpbiBtaW5kPyBJJ3ZlIG9uZSBtb3JlIHBhdGNoIHRvIHRyeSBhbmQgdGFrZQo+IGFk
+dmFudGFnZSBvZiB0aGUgaW8tbWFwcGluZyAodGhhdCBtYXkgb3Igbm90IGJlIHN1Y2ggYSBnb29k
+IGlkZWEgaW4KPiBwcmFjdGljZSkgYnV0IEkgbWF5IGFzIHdlbGwgc2VlIGlmIEkgY2FuIG1ha2Ug
+aW9fbWFwcGluZyBtb3JlIHVzZWZ1bAo+IHdoZW4gSSBkby4KClN1cmUsIGhlcmUncyBteSBjdXJy
+ZW50IHZlcnNpb24gb2YgdGhlIHJldmFtcCBvZiB0aGUgZmlybXdhcmUgQVBJCnRvIGEgbW9yZSBm
+bGV4aWJsZSBBUEksIHdoaWNoIGxldHMgdXMgY29tcGFydGFtZW50YWxpemUgdGhlCnVzZXJtb2Rl
+IGhlbHBlciwgYW5kIHRocm91Z2ggdGhlIG5ldyBBUEkgYXZvaWRzIHRoZSBpc3N1ZXMgd2l0aCBm
+dXJ0aGVyCmZ1dHVyZSBjb2xsYXRlcmFsIGV2b2x1dGlvbnMuIEl0IGlzIHN0aWxsIGJlaW5nIGJh
+a2VkLCBJJ20gZmluZSB0dW5pbmcKdGhlIFNtUEwgdG8gZm9sa3MgYXV0b21hdGljYWxseSBkbyBj
+b252ZXJzaW9uIGlmIHRoZXkgd2FudDoKCmh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51
+eC9rZXJuZWwvZ2l0L21jZ3JvZi9saW51eC5naXQvbG9nLz9oPTIwMTYwNDE3LXN5c2RhdGEtYXBp
+LXYxCgpJdCBhbHNvIGhhcyBhIHRlc3QgZHJpdmVyICh3aGljaCBJJ2QgYWxzbyByZWNvbW1lbmQg
+aWYgeW91IGNhbiBwdWxsIG9mZikuCkl0IHdvdWxkIGJlIGtpbmQgb2YgaGFyZCB0byBkbyBzb21l
+dGhpbmcgbGlrZSBhIGxpYi9pby1tYXBwaW5nX3Rlc3QuYwpnaXZlbiB0aGVyZSBpcyBubyByZWFs
+IGRldmljZSB0byBpb3JlbWFwIC0tIF9idXRfIHBlcmhhcHMgcmVndWxhcgpSQU0gY2FuIGJlIHVz
+ZWQgZm9yIGZha2UgYSBkZXZpY2UgTU1JTy4gSSBhbSBub3Qgc3VyZSBpZiBpdHMgZXZlbgpwb3Nz
+aWJsZS4uLiBidXQgaWYgc28gaXQgd291bGQgbm90IG9ubHkgYmUgdXNlZnVsIGZvciBzb21ldGhp
+bmcKbGlrZSB5b3VyIEFQSSBidXQgYWxzbyBmb3IgdGVzdGluZyBpb3JlbWFwKCkgYW5kIGZyaWVu
+ZHMsIGFuZAphbnkgcG9zc2libGUgYWxpYXNpbmcgYm9tYnMgd2UgbWF5IHdhbnQgdG8gdmV0IGZv
+ci4gSXQgYWxzbyBoaW50cwpob3cgd2UgbWF5IGluIHRoZSBmdXR1cmUgYmUgYWJsZSB0byBhdXRv
+bWF0aWNhbGx5IHdyaXRlIHRlc3QgZHJpdmVycwpmb3IgQVBJcyBmb3IgdXMgdGhyb3VnaCBpbmZl
+cmVuY2UsIGJ1dCB0aGF0IG5lZWRzIGEgbG90IG9mIG1vcmUgbG92ZQp0byBtYWtlIGl0IHRhbmdp
+YmxlLgoKICBMdWlzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCkludGVsLWdmeCBtYWlsaW5nIGxpc3QKSW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNrdG9wLm9y
+ZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVsLWdm
+eAo=
