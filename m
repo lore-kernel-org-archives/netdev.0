@@ -1,109 +1,97 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next V5 2/2] intel: ixgbevf:
- Support Windows hosts (Hyper-V)
-Date: Tue, 19 Apr 2016 23:24:42 -0700
-Message-ID: <1461133482.2923.28.camel@intel.com>
-References: <1461118655-28103-1-git-send-email-kys@microsoft.com>
-	 <1461118677-28142-1-git-send-email-kys@microsoft.com>
-	 <1461118677-28142-2-git-send-email-kys@microsoft.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [RFC PATCH v3 net-next 2/3] tcp: Handle eor bit when coalescing skb
+Date: Tue, 19 Apr 2016 23:24:56 -0700
+Message-ID: <1461133497-1515104-3-git-send-email-kafai@fb.com>
+References: <1461133497-1515104-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Kkir4QACtr8b7lCaI9xB"
-To: "K. Y. Srinivasan" <kys@microsoft.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
-	jasowang@redhat.com, eli@mellanox.com, jackm@mellanox.com,
-	yevgenyp@mellanox.com, john.ronciak@intel.com,
-	intel-wired-lan@lists.osuosl.org, alexander.duyck@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461118677-28142-2-git-send-email-kys@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:49039 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752967AbcDTGZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 02:25:09 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3K6OHb1007150
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:08 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 22d1yk2v3b-4
+	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:08 -0700
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 9ebf652e06c011e68c7a24be05956610-3dfdc50 for <netdev@vger.kernel.org>;	Tue,
+ 19 Apr 2016 23:25:05 -0700
+In-Reply-To: <1461133497-1515104-1-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This patch:
+1. Prevent next_skb from coalescing to the prev_skb if
+   TCP_SKB_CB(prev_skb)->eor is set
+2. Update the TCP_SKB_CB(prev_skb)->eor if coalescing is
+   allowed
 
---=-Kkir4QACtr8b7lCaI9xB
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Soheil Hassas Yeganeh <soheil@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c  | 4 ++++
+ net/ipv4/tcp_output.c | 4 ++++
+ 2 files changed, 8 insertions(+)
 
-On Tue, 2016-04-19 at 19:17 -0700, K. Y. Srinivasan wrote:
-> On Hyper-V, the VF/PF communication is a via software mediated path
-> as opposed to the hardware mailbox. Make the necessary
-> adjustments to support Hyper-V.
->=20
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0V2: Addressed most of the=
- comments from
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 Alexan=
-der Duyck <alexander.duyck@gmail.com>
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 and Ru=
-stad, Mark D <mark.d.rustad@intel.com>.
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0V3: Addressed additional =
-comments from
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 Alexan=
-der Duyck <alexander.duyck@gmail.com>
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0V4: Addressed kbuild erro=
-rs reported by:
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 kbuild=
- test robot <lkp@intel.com>
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0V5: Addressed additional =
-comments from
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 Alexan=
-der Duyck <alexander.duyck@gmail.com>
-
-First I commend you on actually making a proper changelog for a patch.
-=C2=A0The only issue I have is that the changelog provides not actual
-changes. =C2=A0Saying you reacted to comments does not summarize what the
-actual changes were. =C2=A0I purposely did not review the earlier versions
-because by the time I went to do a review, there was another version
-already submitted. =C2=A0So your changelog requires that users look at all
-the previous emails to actually see what Alex and Mark requested in
-changes.
-
-I am telling you this for future patches, it will not impact these
-patches, just really disappointing. =C2=A0I will take the extra time to
-track down all the previous emails and the changes requested to ensure
-you made all the changes that were requested of you. :-( =C2=A0This will
-just delay when I apply the patches for testing.
-
->=20
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/ixgbevf.h=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0 |=C2=A0=C2=A0 12 ++
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |=C2=A0=C2=A0 31 =
-+++-
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/mbx.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=A0 12 ++
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/vf.c=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0 216
-> +++++++++++++++++++++
-> =C2=A0drivers/net/ethernet/intel/ixgbevf/vf.h=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 |=C2=A0=C2=A0=C2=A0 2 +
-> =C2=A05 files changed, 266 insertions(+), 7 deletions(-)
-
---=-Kkir4QACtr8b7lCaI9xB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXFyCqAAoJEOVv75VaS+3OXs0QAIhD7cnzNvXnaxpJtQCEPHw0
-X9pHxLNsm8tDkEvA5LesQN+03SD8APowE6OO5oe7ZOM2XenOTMpsiPpKOcQWR0tQ
-3sZCADEVzelHoox1erppIlhjb2BG3HsZNNJ87TsAQNmbs5iLatFtAgct/PC+w3rc
-xvjjIdV652oY6yX38/a2BVQwACtZIz1PgGa2d2LBL3TQi5/6frXNfVgiVfSOe3DP
-EOBp3Jk6aG8hfyrFupOKzOXI8nXVaCeD+YgJvKdOrEwXi+LC8BXCtw2dLoCv7lq9
-A0mqn1i+A+nXV1DOZ3HBvv0iJ+DKNd5abRSVlU/VxW+lrB3hyTRQYeRlt6BpSJhM
-Q1/I8QNt+eJmI7+jyKNaKsfyP3qjo6E8msIGFVeM0DpCRVBUJIcTdE6yNzoCyAl4
-n/BKAvt9b++m7KfXg1n2I5QE6o7R1/PU04uInuMK0988vC1vLtA9mAL53xh/Fdr8
-YJIoTMoTMXvXZGBOx/QB23T4usAd7EHHtYlFYpmvy2uXAXh3ByF1bJMk5opeE4OT
-HYL8f+H4phxSzrAZhyaE9bHpT/JJqZUexNfUZZlpOBBVhLpwSiNQIqR3STd2+/6L
-HEq0JBVdPxBhVclcSQkevCorFJyC3Is0psgU0ah88ngBevYo8s7MM/cY1hIhmJR6
-dKtPxpE/8GRE+9+YpvIR
-=aiXL
------END PGP SIGNATURE-----
-
---=-Kkir4QACtr8b7lCaI9xB--
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 75e8336..68c55e5 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1303,6 +1303,7 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	TCP_SKB_CB(prev)->tcp_flags |= TCP_SKB_CB(skb)->tcp_flags;
++	TCP_SKB_CB(prev)->eor = TCP_SKB_CB(skb)->eor;
+ 	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+ 		TCP_SKB_CB(prev)->end_seq++;
+ 
+@@ -1368,6 +1369,9 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
+ 	if ((TCP_SKB_CB(prev)->sacked & TCPCB_TAGBITS) != TCPCB_SACKED_ACKED)
+ 		goto fallback;
+ 
++	if (TCP_SKB_CB(prev)->eor)
++		goto fallback;
++
+ 	in_sack = !after(start_seq, TCP_SKB_CB(skb)->seq) &&
+ 		  !before(end_seq, TCP_SKB_CB(skb)->end_seq);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index a6e4a83..96bdf98 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2494,6 +2494,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ 	 * packet counting does not break.
+ 	 */
+ 	TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked & TCPCB_EVER_RETRANS;
++	TCP_SKB_CB(skb)->eor = TCP_SKB_CB(next_skb)->eor;
+ 
+ 	/* changed transmit queue under us so clear hints */
+ 	tcp_clear_retrans_hints_partial(tp);
+@@ -2545,6 +2546,9 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+ 		if (!tcp_can_collapse(sk, skb))
+ 			break;
+ 
++		if (TCP_SKB_CB(to)->eor)
++			break;
++
+ 		space -= skb->len;
+ 
+ 		if (first) {
+-- 
+2.5.1
