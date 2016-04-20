@@ -1,7 +1,8 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH v3 net-next 0/3] tcp: Make use of MSG_EOR in tcp_sendmsg
-Date: Tue, 19 Apr 2016 23:24:54 -0700
-Message-ID: <1461133497-1515104-1-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH v3 net-next 3/3] tcp: Handle eor bit when fragmenting a skb
+Date: Tue, 19 Apr 2016 23:24:57 -0700
+Message-ID: <1461133497-1515104-4-git-send-email-kafai@fb.com>
+References: <1461133497-1515104-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Eric Dumazet <edumazet@google.com>,
@@ -12,64 +13,72 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Kernel Team <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:64983 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752908AbcDTGZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 02:25:08 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u3K6KvcS009129
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:07 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:13127 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752904AbcDTGZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 02:25:07 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3K6MBtZ008470
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:06 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 22e1qurnen-2
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:07 -0700
+	by mx0a-00082601.pphosted.com with ESMTP id 22dt90b396-3
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 23:25:06 -0700
 Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 9ec8587806c011e69cde0002c95209d8-52d1c50 for <netdev@vger.kernel.org>;	Tue,
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 9ed1eb9006c011e68ea70002c9521c9e-a72c8c50 for <netdev@vger.kernel.org>;	Tue,
  19 Apr 2016 23:25:05 -0700
+In-Reply-To: <1461133497-1515104-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3:
-~ Separate EOR marking from the SKBTX_ANY_TSTAMP logic.
-~ Move the eor bit test back to the loop in tcp_sendmsg and
-  tcp_sendpage because there could be >1 threads doing
-  sendmsg.
-~ Thanks to Eric Dumazet's suggestions on v2.
-~ The TCP timestamp bug fixes are separated into other threads.
+When fragmenting a skb, the next_skb should carry
+the eor from prev_skb.  The eor of prev_skb should
+also be reset.
 
-v2:
-~ Rework based on the recent work
-  "add TX timestamping via cmsg" by
-  Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-~ This version takes the MSG_EOR bit as a signal of
-  end-of-response-message and leave the selective
-  timestamping job to the cmsg
-~ Changes based on the v1 feedback (like avoid
-  unlikely check in a loop and adding tcp_sendpage
-  support)
-~ The first 3 patches are bug fixes.  The fixes in this
-  series depend on the newly introduced txstamp_ack in
-  net-next.  I will make relevant patches against net after
-  getting some feedback.
-~ The test results are based on the recently posted net fix:
-  "tcp: Fix SOF_TIMESTAMPING_TX_ACK when handling dup acks"
-~ Due to the lacking cmsg support in packetdrill (or may
-  be I just could not find it), a BPF prog is used to kprobe
-  to sock_queue_err_skb() and print out the value of
-  serr->ee.ee_data.  The BPF prog (run-able from bcc) is
-  attached at the end.
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Soheil Hassas Yeganeh <soheil@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_output.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-One potential use case is to use MSG_EOR with
-SOF_TIMESTAMPING_TX_ACK to get a more accurate
-TCP ack timestamping on application protocol with
-multiple outgoing response messages (e.g. HTTP2).
-
-One of our use case is at the webserver.  The webserver tracks
-the HTTP2 response latency by measuring when the webserver sends
-the first byte to the socket till the TCP ACK of the last byte
-is received.  In the cases where we don't have client side
-measurement, measuring from the server side is the only option.
-In the cases we have the client side measurement, the server side
-data can also be used to justify/cross-check-with the client
-side data.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 96bdf98..95f419b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1128,6 +1128,12 @@ static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
+ 	}
+ }
+ 
++static void tcp_skb_fragment_eor(struct sk_buff *skb, struct sk_buff *skb2)
++{
++	TCP_SKB_CB(skb2)->eor = TCP_SKB_CB(skb)->eor;
++	TCP_SKB_CB(skb)->eor = 0;
++}
++
+ /* Function to create two new TCP segments.  Shrinks the given segment
+  * to the specified size and appends a new segment with the rest of the
+  * packet to the list.  This won't be called frequently, I hope.
+@@ -1173,6 +1179,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+ 	TCP_SKB_CB(skb)->tcp_flags = flags & ~(TCPHDR_FIN | TCPHDR_PSH);
+ 	TCP_SKB_CB(buff)->tcp_flags = flags;
+ 	TCP_SKB_CB(buff)->sacked = TCP_SKB_CB(skb)->sacked;
++	tcp_skb_fragment_eor(skb, buff);
+ 
+ 	if (!skb_shinfo(skb)->nr_frags && skb->ip_summed != CHECKSUM_PARTIAL) {
+ 		/* Copy and checksum data tail into the new buffer. */
+@@ -1733,6 +1740,8 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+ 	/* This packet was never sent out yet, so no SACK bits. */
+ 	TCP_SKB_CB(buff)->sacked = 0;
+ 
++	tcp_skb_fragment_eor(skb, buff);
++
+ 	buff->ip_summed = skb->ip_summed = CHECKSUM_PARTIAL;
+ 	skb_split(skb, buff, len);
+ 	tcp_fragment_tstamp(skb, buff);
+-- 
+2.5.1
