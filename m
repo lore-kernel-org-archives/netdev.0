@@ -1,126 +1,106 @@
-From: Chris Wilson <chris@chris-wilson.co.uk>
-Subject: Re: [PATCH 4/4] drm/i915: Move ioremap_wc tracking onto VMA
-Date: Wed, 20 Apr 2016 10:38:05 +0100
-Message-ID: <20160420093805.GE14602@nuc-i3427.alporthouse.com>
-References: <20160419123028.GI1990@wotan.suse.de>
- <1461069238-31539-1-git-send-email-chris@chris-wilson.co.uk>
- <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
- <20160420091054.GL1990@wotan.suse.de>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH v2 1/1] drivers: net: cpsw: Prevent NUll pointer
+ dereference with two PHYs
+Date: Wed, 20 Apr 2016 12:37:48 +0300
+Message-ID: <57174DEC.5090104@ti.com>
+References: <57165269.40207@ti.com>
+ <20160419131443.7a3b3ef7.drivshin.allworx@gmail.com> <57167C79.20205@ti.com>
+ <20160419.184339.1558043853032502121.davem@davemloft.net>
+ <20160419193808.29dc51c3.drivshin.allworx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tvrtko Ursulin <tvrtko.ursulin@intel.com>, netdev@vger.kernel.org,
- intel-gfx@lists.freedesktop.org, linux-kernel@vger.kernel.org,
- Ingo Molnar <mingo@kernel.org>,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
- Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <20160420091054.GL1990@wotan.suse.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <andrew.goodbody@cambrionix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	<mugunthanvnm@ti.com>, <tony@atomide.com>
+To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160419193808.29dc51c3.drivshin.allworx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMTE6MTA6NTRBTSArMDIwMCwgTHVpcyBSLiBSb2RyaWd1
-ZXogd3JvdGU6Cj4gT24gVHVlLCBBcHIgMTksIDIwMTYgYXQgMDE6MzM6NThQTSArMDEwMCwgQ2hy
-aXMgV2lsc29uIHdyb3RlOgo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5
-MTVfZ2VtLmMgYi9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gPiBpbmRleCA2Y2Uy
-YzMxYjlhODEuLjllZjQ3MzI5ZThhZSAxMDA2NDQKPiA+IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9p
-OTE1L2k5MTVfZ2VtLmMKPiA+ICsrKyBiL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMK
-PiA+IEBAIC0zMzQ2LDYgKzMzNDYsMTUgQEAgc3RhdGljIHZvaWQgaTkxNV9nZW1fb2JqZWN0X2Zp
-bmlzaF9ndHQoc3RydWN0IGRybV9pOTE1X2dlbV9vYmplY3QgKm9iaikKPiA+ICAJCQkJCSAgICBv
-bGRfd3JpdGVfZG9tYWluKTsKPiA+ICB9Cj4gPiAgCj4gPiArc3RhdGljIHZvaWQgX19pOTE1X3Zt
-YV9pb3VubWFwKHN0cnVjdCBpOTE1X3ZtYSAqdm1hKQo+ID4gK3sKPiA+ICsJaWYgKHZtYS0+aW9t
-YXAgPT0gTlVMTCkKPiA+ICsJCXJldHVybjsKPiA+ICsKPiA+ICsJaW9fbWFwcGluZ191bm1hcCh2
-bWEtPmlvbWFwKTsKPiAKPiBUaGUgTlVMTCBjaGVjayBjb3VsZCBqdXN0IGJlIGRvbmUgYnkgaW9f
-bWFwcGluZ191bm1hcCgpIHRoZW4geW91Cj4gY2FuIGF2b2lkIHRoaXMgaW4gb3RoZXIgZHJpdmVy
-cyB0b28uCj4gCj4gPiArCXZtYS0+aW9tYXAgPSBOVUxMOwo+IAo+IFlvdSBhZGRlZCBhY2NvdW50
-aW5nIGhlcmUsIGJ5IHNpbXBsZSBpbnQgYW5kIGluYyAvIGRlYydpbmcgaXQuCj4gSSBjYW5ub3Qg
-Y29uZmlybSBpZiBpdCBpcyBjb3JyZWN0bHkgYXZvaWRpbmcgcmFjZXMsIGNhbiB5b3UKPiBjb25m
-aXJtPwoKWWVzLCB0aGUgdm1hLT5waW5fY291bnQgaXMgZ3VhcmRlZCBieSB0aGUgc3RydWN0X211
-dGV4IGF0bS4gKFRoZQpzdHJ1Y3RfbXV0ZXggaXMgb3VyIG93biBCS0wgOigKCj4gQWxzbyB5b3Ug
-YWRkZWQgYWNjb3VudGluZyBmb3IgdGhlIGN1c3RvbSB2bWEgcGlubmluZyB0aGluZyBhbmQgZG8K
-PiBHRU1fQlVHX09OKHZtYS0+cGluX2NvdW50ID09IDApOyB3aGVuIHlvdSB1bnBpbiBvbmUgaW5z
-dGFuY2UgYnV0ICp5b3UgZG8gbm90Kgo+IGRvIHNvbWV0aGluZyBsaWtlIEdFTV9CVUdfT04odm1h
-LT5waW5fY291bnQgIT0gMCk7IHdoZW4geW91IGRvIHRoZSBmaW5hbCBmdWxsCj4gaW91bm1hcC4g
-VGhhdCBzZWVtcyByYXRoZXIgc2xvcHB5LgoKSXQncyBwbGFjZWQgbmV4dCB0byB0aGUgZnVuY3Rp
-b24gd2hlcmUgcGluX2NvdW50ID09IDAgYW5kIG9ubHkgY2FsbGVkCmZyb20gaXQuIFllcywgSSBk
-aWQgdGhpbmsgdGhlIHNhbWUuLi4KIAo+IGlvbWFwcGluZyBzdHVmZiBoYXMgaXRzIG93biBjdXN0
-b20gZGF0YSBzdHJ1Y3R1cmUsIHdoeSBub3QganVzdCB1c2UgdGhhdCBkYXRhCj4gc3RydWN0dXJl
-IGluc3RlYWQgb2YgdGhlIHN0cnVjdCBpOTE1X3ZtYSBhbmQgZ2VuZXJhbGl6ZSB0aGlzID8gRHJp
-dmVycyBjYW4KPiBiZSBidWdneSBhbmQgYmVzdCBpZiB3ZSBhdm9pZCBjdXN0b20gZHJpdmVyIGFj
-Y291bnRpbmcgYW5kIGp1c3QgZG8gaXQgaW4gYSBuZWF0Cj4gZ2VuZXJpYyBmYXNoaW9uLgoKQ29t
-cGxldGVseSBkaWZmZXJlbnQgdGFza3MsIGFzIGZhciBhcyBJIGFtIGF3YXJlLiBUaGUgaW9tYXBw
-aW5nIGlzIGFib3V0CnByb3ZpZGluZyBDUFUgYWNjZXNzIHRvIHRoZSBJTyByZWdpb24sIGRtYS1y
-ZW1hcHBpbmcgYWJvdXQgcHJvdmlkaW5nCmRldmljZSBhY2Nlc3MgdG8gcGh5c2ljYWwgbWVtb3J5
-LCBhbmQgb3VyIG93biBWTUEgaXMgYWJvdXQgaG93IHRoZQpvYmplY3Qgc2l0cyBpbiBhbGwgdGhl
-IGRpZmZlcmVudCB2aWV3cyBvZiBib3RoIENQVSBhbmQgZGV2aWNlIGFkZHJlc3MKc3BhY2VzIChv
-ZiB3aGljaCB0aGVyZSBhcmUgbWFueSwgYW5kIGV2ZW4gdGhlIENQVSBhY2Nlc3NpYmxlIGFkZHJl
-c3MKc3BhY2UgaXMgbm90IHRoZSBlbnRpcmV0eSBvZiB0aGF0IHBhcnRpY3VsYXIgYWRkcmVzcyBz
-cGFjZSkuIAogCj4gVGhlbiBvdGhlciBkcml2ZXJzIGNvdWxkIHVzZSB0aGlzIHRvby4KCmRyaXZl
-cnMvZ3B1L2RybS90dG0gKHlvdSBkaWRuJ3QgaGVhciBtZSBzYXkgdGhhdC4uLikKCj4gPiBkaWZm
-IC0tZ2l0IGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYyBiL2RyaXZlcnMvZ3B1
-L2RybS9pOTE1L2ludGVsX2ZiZGV2LmMKPiA+IGluZGV4IDc5YWMyMDJmMzg3MC4uOTNmNTRhMTAw
-NDJmIDEwMDY0NAo+ID4gLS0tIGEvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYwo+
-ID4gKysrIGIvZHJpdmVycy9ncHUvZHJtL2k5MTUvaW50ZWxfZmJkZXYuYwo+ID4gQEAgLTI0NCwy
-MiArMjQ1LDIzIEBAIHN0YXRpYyBpbnQgaW50ZWxmYl9jcmVhdGUoc3RydWN0IGRybV9mYl9oZWxw
-ZXIgKmhlbHBlciwKPiA+ICAJaW5mby0+ZmxhZ3MgPSBGQklORk9fREVGQVVMVCB8IEZCSU5GT19D
-QU5fRk9SQ0VfT1VUUFVUOwo+ID4gIAlpbmZvLT5mYm9wcyA9ICZpbnRlbGZiX29wczsKPiA+ICAK
-PiA+ICsJdm1hID0gaTkxNV9nZW1fb2JqX3RvX2dndHQob2JqKTsKPiA+ICsKPiA+ICAJLyogc2V0
-dXAgYXBlcnR1cmUgYmFzZS9zaXplIGZvciB2ZXNhZmIgdGFrZW92ZXIgKi8KPiA+ICAJaW5mby0+
-YXBlcnR1cmVzLT5yYW5nZXNbMF0uYmFzZSA9IGRldi0+bW9kZV9jb25maWcuZmJfYmFzZTsKPiA+
-ICAJaW5mby0+YXBlcnR1cmVzLT5yYW5nZXNbMF0uc2l6ZSA9IGdndHQtPm1hcHBhYmxlX2VuZDsK
-PiA+ICAKPiA+IC0JaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmlnLmZiX2Jh
-c2UgKyBpOTE1X2dlbV9vYmpfZ2d0dF9vZmZzZXQob2JqKTsKPiA+IC0JaW5mby0+Zml4LnNtZW1f
-bGVuID0gc2l6ZTsKPiA+ICsJaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmln
-LmZiX2Jhc2UgKyB2bWEtPm5vZGUuc3RhcnQ7Cj4gPiArCWluZm8tPmZpeC5zbWVtX2xlbiA9IHZt
-YS0+bm9kZS5zaXplOwo+ID4gIAo+ID4gLQlpbmZvLT5zY3JlZW5fYmFzZSA9Cj4gPiAtCQlpb3Jl
-bWFwX3djKGdndHQtPm1hcHBhYmxlX2Jhc2UgKyBpOTE1X2dlbV9vYmpfZ2d0dF9vZmZzZXQob2Jq
-KSwKPiA+IC0JCQkgICBzaXplKTsKPiA+IC0JaWYgKCFpbmZvLT5zY3JlZW5fYmFzZSkgewo+ID4g
-Kwl2YWRkciA9IGk5MTVfdm1hX3Bpbl9pb21hcCh2bWEpOwo+ID4gKwlpZiAoSVNfRVJSKHZhZGRy
-KSkgewo+ID4gIAkJRFJNX0VSUk9SKCJGYWlsZWQgdG8gcmVtYXAgZnJhbWVidWZmZXIgaW50byB2
-aXJ0dWFsIG1lbW9yeVxuIik7Cj4gPiAtCQlyZXQgPSAtRU5PU1BDOwo+ID4gKwkJcmV0ID0gUFRS
-X0VSUih2YWRkcik7Cj4gPiAgCQlnb3RvIG91dF9kZXN0cm95X2ZiaTsKPiA+ICAJfQo+ID4gLQlp
-bmZvLT5zY3JlZW5fc2l6ZSA9IHNpemU7Cj4gPiArCWluZm8tPnNjcmVlbl9iYXNlID0gdmFkZHI7
-Cj4gPiArCWluZm8tPnNjcmVlbl9zaXplID0gdm1hLT5ub2RlLnNpemU7Cj4gCj4gc29tZSBmcmFt
-ZWJ1ZmZlciBkcml2ZXJzIHRlbmQgdG8gdXNlIGEgZ2VuZXJpYyBzdGFydCBhZGRyZXNzIG9mCj4g
-aWluZm8tPmZpeC5zbWVtX3N0YXJ0IGFuZCBhIGxlbmd0aCBvZiBpbmZvLT5maXguc21lbV9sZW4s
-IHRoaXMKPiBkcml2ZXIgc2V0cyB0aGUgc21lbV9zdGFydCBhYm92ZSwgYnV0IGl0cyBkaWZmZXJl
-bnQgdGhhbiB3aGF0Cj4gZ2V0cyBpb3JlbWFwIGZvciBhIHN0YXJ0IGFkZHJlc3M6Cj4gCj4gKyAg
-ICAgICAgICAgICAgIHB0ciA9IGlvX21hcHBpbmdfbWFwX3djKGk5MTVfdm1fdG9fZ2d0dCh2bWEt
-PnZtKS0+bWFwcGFibGUsCj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHZtYS0+bm9kZS5zdGFydCwKPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgdm1hLT5ub2RlLnNpemUpOwo+IAo+IGZpeC5zbWVtX3N0YXJ0IGlzIDoKPiAKPiAKPiA+ICsJ
-aW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmlnLmZiX2Jhc2UgKyB2bWEtPm5v
-ZGUuc3RhcnQ7Cj4gCj4gVGhlIHNtZW1fbGVuIG1hdGNoZXMgdGhvdWdoLiBDYW4geW91IGNsYXJp
-ZnkgaWYgaXRzIGNvcnJlY3QgZm9yCj4gdGhlIGlvX21hcHBpbmdfbWFwX3djKCkgc2hvdWxkIG5v
-dCBiZSB1c2luZyBpbmZvLT5maXguc21lbV9zdGFydAo+ICh3aGljaCBpcyBkZXYtPm1vZGVfY29u
-ZmlnLmZiX2Jhc2UgKyB2bWEtPm5vZGUuc3RhcnQpPwoKZGV2LT5tb2RlX2NvbmZpZy5mYl9iYXNl
-IGlzIHRoZSBiYXNlIGFkZHJlc3Mgb2YgdGhlIG1hcHBhYmxlIHJlZ2lvbi4gSXQKaXMgYW4gaW5j
-b25zaXN0ZW50bHkgaW4gbmFtaW5nIHRoYXQganVzdCBoYXNuJ3QgYW5ub3llZCBtZSBlbm91Z2gg
-dG8KZml4LgogCj4gUmVhc29uIEkgYXNrIGlzIHNpbmNlIEkgbm90aWNlZCBhIHdoaWxlIGFnbyBh
-IGxvdCBvZiBkcml2ZXJzCj4gd2VyZSB1c2luZyBpbmZvLT5maXguc21lbV9zdGFydCBhbmQgaW5m
-by0+Zml4LnNtZW1fbGVuIGNvbnNpc3RlbnRseQo+IGZvciB0aGVpciBpb3JlbWFwJ2QgYXJlYXMg
-aXQgbWlnaHQgbWFrZSBzZW5zZSBpbnN0ZWFkIHRvIGxldCB0aGUKPiBpbnRlcm5hbCBmcmFtZWJ1
-ZmZlciAocmVnaXN0ZXJfZnJhbWVidWZmZXIoKSkgb3B0aW9uYWxseSBtYW5hZ2UgdGhlCj4gaW9y
-ZW1hcF93YygpIGZvciBkcml2ZXJzLCBnaXZlbiB0aGF0IHRoaXMgaXMgcHJldHR5IGdlbmVyaWMg
-c3R1ZmYuCgpBcGFydCBmcm9tIGRyaXZlcnMgbGlrZSBvdXJzIHdlIHdvdWxkIGVuZCB1cCB3aXRo
-IG11bHRpcGxlIG1hcHBpbmdzIHRvCnRoZSBzYW1lIHJlZ2lvbi4gSXQgd2FzIGp1c3QgYSBsaXR0
-bGUgZ3JldmllbmNlIHRoYXQgSSB0aGluayB3YXMgd29ydGgKZml4aW5nLiBJdCBkb2VzIGhpZ2hs
-aWdodCBob3cgYnVnZ3kgb3VyIGNvZGUgaXMgY3VycmVudGx5IHRob3VnaCBhcyB3ZQpuZXZlciBy
-ZWxpbnF1aXNoIHRoYXQgbWFwcGluZyB3aGVuIHRoZSBkcml2ZXIgaXMgdW5sb2FkZWQuCi1DaHJp
-cwoKLS0gCkNocmlzIFdpbHNvbiwgSW50ZWwgT3BlbiBTb3VyY2UgVGVjaG5vbG9neSBDZW50cmUK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVs
-IG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlz
-dHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
+On 04/20/2016 02:38 AM, David Rivshin (Allworx) wrote:
+> On Tue, 19 Apr 2016 18:43:39 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: Grygorii Strashko <grygorii.strashko@ti.com>
+>> Date: Tue, 19 Apr 2016 21:44:09 +0300
+>>
+>>> May be you can send revert + your patch 1 (only fix for this issue).
+>>>
+>>> Dave, Does that sound good to you?
+>>
+>> Sure.
+> 
+> OK, I will hopefully have that ready tomorrow evening.
+> 
+> Anything in particular I should mention in the revert commit message?
+> I didn't find a discussion on it, other than the earlier statement that
+> "it breaks boot on many TI boards".
+> 
+
+Such kind of issues are tracked automatically now for ARM through https://kernelci.org
+Example:
+https://storage.kernelci.org/next/next-20160419/arm-multi_v7_defconfig+CONFIG_EFI=y/lab-cambridge/boot-am335x-boneblack.txt
+
+And We're trying to auto check it internally also
+https://github.com/nmenon/kernel-test-logs
+
+Below is my boot log:
+
+
+ ata1: SATA max UDMA/133 mmio [mem 0x4a140000-0x4a1410ff] port 0x100 irq 332
+ mtdoops: mtd device (mtddev=name/number) must be supplied
+ davinci_mdio 48485000.mdio: davinci mdio revision 1.6
+ davinci_mdio 48485000.mdio: detected phy mask fffffff9
+ libphy: 48485000.mdio: probed
+ davinci_mdio 48485000.mdio: phy[1]: device 48485000.mdio:01, driver unknown
+ davinci_mdio 48485000.mdio: phy[2]: device 48485000.mdio:02, driver unknown
+ cpsw 48484000.ethernet: Detected MACID = 74:da:ea:47:7d:9c
+ cpsw 48484000.ethernet: cpsw: Random MACID = ca:39:e7:f3:28:69
+ Unable to handle kernel paging request at virtual address fffffffc
+ pgd = c0004000
+ [fffffffc] *pgd=affae861, *pte=00000000, *ppte=00000000
+ Internal error: Oops: 37 [#1] SMP ARM
+ Modules linked in:
+ CPU: 1 PID: 1 Comm: swapper/0 Tainted: G        W       4.6.0-rc4-next-20160419-00002-g94c3d2a #4
+ Hardware name: Generic DRA74X (Flattened Device Tree)
+ task: ee0c4d80 ti: ee0c6000 task.ti: ee0c6000
+ PC is at kset_find_obj+0x28/0xa4
+ LR is at kset_find_obj+0x3c/0xa4
+ pc : [<c04814b4>]    lr : [<c04814c8>]    psr: a0000013
+ sp : ee0c7ec8  ip : 00000000  fp : c0b005a0
+ 
+ [<c04814b4>] (kset_find_obj) from [<c0523780>] (driver_find+0x14/0x30)
+ ata1: SATA link down (SStatus 0 SControl 300)
+ [<c0523780>] (driver_find) from [<c0523804>] (driver_register+0x68/0xf8)
+ [<c0523804>] (driver_register) from [<c010185c>] (do_one_initcall+0x3c/0x178)
+ [<c010185c>] (do_one_initcall) from [<c0b00e94>] (kernel_init_freeable+0x218/0x2e8)
+ [<c0b00e94>] (kernel_init_freeable) from [<c07a4bc8>] (kernel_init+0x8/0x118)
+ [<c07a4bc8>] (kernel_init) from [<c01078d0>] (ret_from_fork+0x14/0x24)
+ Code: e5954000 e1550004 e2444004 0a00000a (e5943000) 
+ ---[ end trace 593c492662ed437e ]---
+ Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b
+ 
+ CPU0: stopping
+ CPU: 0 PID: 0 Comm: swapper/0 Tainted: G      D W       4.6.0-rc4-next-20160419-00002-g94c3d2a #4
+ Hardware name: Generic DRA74X (Flattened Device Tree)
+ [<c01101dc>] (unwind_backtrace) from [<c010c2a4>] (show_stack+0x10/0x14)
+ [<c010c2a4>] (show_stack) from [<c047f01c>] (dump_stack+0xb0/0xe4)
+ [<c047f01c>] (dump_stack) from [<c010e7cc>] (handle_IPI+0x2c4/0x360)
+ [<c010e7cc>] (handle_IPI) from [<c0101574>] (gic_handle_irq+0x84/0x94)
+ [<c0101574>] (gic_handle_irq) from [<c07abc78>] (__irq_svc+0x58/0x78)
+ Exception stack(0xc0c01f58 to 0xc0c01fa0)
+ 1f40:                                                       c0108318 00000000
+ 1f60: 00000000 00000000 c0c02a34 00000000 00000000 c0cbe5f8 c0c029cc c0cbe5f8
+ 1f80: c0b71a38 c0cbd3a9 00000000 c0c01fa8 c0108318 c010831c 60000013 ffffffff
+ [<c07abc78>] (__irq_svc) from [<c010831c>] (arch_cpu_idle+0x20/0x3c)
+ [<c010831c>] (arch_cpu_idle) from [<c0184c58>] (cpu_startup_entry+0x30c/0x3f0)
+ [<c0184c58>] (cpu_startup_entry) from [<c0b00c04>] (start_kernel+0x33c/0x3b4)
+ [<c0b00c04>] (start_kernel) from [<8000807c>] (0x8000807c)
+
+
+-- 
+regards,
+-grygorii
