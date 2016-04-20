@@ -1,63 +1,103 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Subject: Re: [PATCH 02/19] io-mapping: Specify mapping size for
- io_mapping_map_wc()
-Date: Wed, 20 Apr 2016 20:58:44 +0200
-Message-ID: <20160420185844.GQ1990@wotan.suse.de>
-References: <1461177750-20187-1-git-send-email-chris@chris-wilson.co.uk>
- <1461177750-20187-3-git-send-email-chris@chris-wilson.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Airlie <airlied@linux.ie>, intel-gfx@lists.freedesktop.org,
- linux-kernel@vger.kernel.org, Ingo Molnar <mingo@kernel.org>,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
- "Luis R . Rodriguez" <mcgrof@kernel.org>, dri-devel@lists.freedesktop.org,
- netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
- Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: Chris Wilson <chris@chris-wilson.co.uk>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <1461177750-20187-3-git-send-email-chris@chris-wilson.co.uk>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V3 08/11] net/mlx5e: Use napi_alloc_skb for RX SKB allocations
+Date: Wed, 20 Apr 2016 22:02:16 +0300
+Message-ID: <1461178939-20687-9-git-send-email-saeedm@mellanox.com>
+References: <1461178939-20687-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:59418 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751219AbcDTTDJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 15:03:09 -0400
+In-Reply-To: <1461178939-20687-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDc6NDI6MTNQTSArMDEwMCwgQ2hyaXMgV2lsc29uIHdy
-b3RlOgo+IFRoZSBpb3JlbWFwKCkgaGlkZGVuIGJlaGluZCB0aGUgaW9fbWFwcGluZ19tYXBfd2Mo
-KSBjb252ZW5pZW5jZSBoZWxwZXIKPiBjYW4gYmUgdXNlZCBmb3IgcmVtYXBwaW5nIG11bHRpcGxl
-IHBhZ2VzLiBFeHRlbmQgdGhlIGhlbHBlciBzbyB0aGF0Cj4gZnV0dXJlIGNhbGxlcnMgY2FuIHVz
-ZSBpdCBmb3IgbGFyZ2VyIHJhbmdlcy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBDaHJpcyBXaWxzb24g
-PGNocmlzQGNocmlzLXdpbHNvbi5jby51az4KPiBDYzogVHZydGtvIFVyc3VsaW4gPHR2cnRrby51
-cnN1bGluQGludGVsLmNvbT4KPiBDYzogRGFuaWVsIFZldHRlciA8ZGFuaWVsLnZldHRlckBpbnRl
-bC5jb20+Cj4gQ2M6IEphbmkgTmlrdWxhIDxqYW5pLm5pa3VsYUBsaW51eC5pbnRlbC5jb20+Cj4g
-Q2M6IERhdmlkIEFpcmxpZSA8YWlybGllZEBsaW51eC5pZT4KPiBDYzogWWlzaGFpIEhhZGFzIDx5
-aXNoYWloQG1lbGxhbm94LmNvbT4KPiBDYzogRGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0Bp
-bnRlbC5jb20+Cj4gQ2M6IEluZ28gTW9sbmFyIDxtaW5nb0BrZXJuZWwub3JnPgo+IENjOiAiUGV0
-ZXIgWmlqbHN0cmEgKEludGVsKSIgPHBldGVyekBpbmZyYWRlYWQub3JnPgo+IENjOiBEYXZpZCBI
-aWxkZW5icmFuZCA8ZGFoaUBsaW51eC52bmV0LmlibS5jb20+Cj4gQ2M6IEx1aXMgUi4gUm9kcmln
-dWV6IDxtY2dyb2ZAa2VybmVsLm9yZz4KPiBDYzogaW50ZWwtZ2Z4QGxpc3RzLmZyZWVkZXNrdG9w
-Lm9yZwo+IENjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCj4gQ2M6IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmcKPiBDYzogbGludXgtcmRtYUB2Z2VyLmtlcm5lbC5vcmcKPiBDYzogbGlu
-dXgta2VybmVsQHZnZXIua2VybmVsLm9yZwoKV2UgaGF2ZSAyIGNhbGxlcnMgdG9kYXksIGluIHRo
-ZSBmdXR1cmUsIGNhbiB5b3UgZW52aXNpb24KdGhpcyBBUEkgZ2V0dGluZyBtb3JlIG9wdGlvbnM/
-IElmIHNvLCBpbiBvcmRlciB0byBhdm9pZCB0aGUKcGFpbiBvZiBjb2xsYXRlcmFsIGV2b2x1dGlv
-bnMgSSBjYW4gc3VnZ2VzdCBhIGRlc2NyaXB0b3IKYmVpbmcgcGFzc2VkIHdpdGggdGhlIHJlcXVp
-cmVkIHNldHRpbmdzIC8gb3B0aW9ucy4gVGhpcyBsZXRzCnlvdSBldm9sdmUgdGhlIEFQSSB3aXRo
-b3V0IG5lZWRpbmcgdG8gZ28gaW4gYW5kIG1vZGlmeQpvbGQgdXNlcnMuIElmIHlvdSBjaG9vc2Ug
-bm90IHRvIHRoYXQncyBmaW5lIHRvbywganVzdApmaWd1cmVkIEknZCBjaGltZSBpbiB3aXRoIHRo
-YXQgYXMgSSd2ZSBzZWVuIHRoZSBwYWluCndpdGggb3RoZXIgQVBJcywgYW5kIEknbSBwdXR0aW5n
-IGFuIGVuZCB0byB0aGUgbmVlZGxlc3MKc2V0IG9mIGNvbGxhdGVyYWwgZXZvbHV0aW9ucyB0aGlz
-IHdheS4KCk90aGVyIHRoYW4gdGhhdCBwb3NzaWJsZSBBUEkgb3B0aW1pemF0aW9uOgoKUmV2aWV3
-ZWQtYnk6IEx1aXMgUi4gUm9kcmlndWV6IDxtY2dyb2ZAa2VybmVsLm9yZz4KCiAgTHVpcwpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFp
-bGluZyBsaXN0CkludGVsLWdmeEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5m
-cmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9pbnRlbC1nZngK
+From: Tariq Toukan <tariqt@mellanox.com>
+
+Instead of netdev_alloc_skb, we use the napi_alloc_skb function
+which is designated to allocate skbuff's for RX in a
+channel-specific NAPI instance, and implies the IP packet alignment.
+
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   12 +++++-------
+ 3 files changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index c99fdff..303e6cd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -93,7 +93,6 @@
+ #define MLX5E_SQ_BF_BUDGET             16
+ 
+ #define MLX5E_NUM_MAIN_GROUPS 9
+-#define MLX5E_NET_IP_ALIGN 2
+ 
+ static inline u16 mlx5_min_rx_wqes(int wq_type, u32 wq_size)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 942829e..9b17bc0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -373,8 +373,8 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+ 		rq->wqe_sz = (priv->params.lro_en) ?
+ 				priv->params.lro_wqe_sz :
+ 				MLX5E_SW2HW_MTU(priv->netdev->mtu);
+-		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz + MLX5E_NET_IP_ALIGN);
+-		byte_count = rq->wqe_sz - MLX5E_NET_IP_ALIGN;
++		rq->wqe_sz = SKB_DATA_ALIGN(rq->wqe_sz);
++		byte_count = rq->wqe_sz;
+ 		byte_count |= MLX5_HW_START_PADDING;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index d71919c..5bdcc0b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -47,7 +47,7 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+ 	struct sk_buff *skb;
+ 	dma_addr_t dma_addr;
+ 
+-	skb = netdev_alloc_skb(rq->netdev, rq->wqe_sz);
++	skb = napi_alloc_skb(rq->cq.napi, rq->wqe_sz);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+@@ -61,10 +61,8 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+ 	if (unlikely(dma_mapping_error(rq->pdev, dma_addr)))
+ 		goto err_free_skb;
+ 
+-	skb_reserve(skb, MLX5E_NET_IP_ALIGN);
+-
+ 	*((dma_addr_t *)skb->cb) = dma_addr;
+-	wqe->data.addr = cpu_to_be64(dma_addr + MLX5E_NET_IP_ALIGN);
++	wqe->data.addr = cpu_to_be64(dma_addr);
+ 	wqe->data.lkey = rq->mkey_be;
+ 
+ 	rq->skb[ix] = skb;
+@@ -701,9 +699,9 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 		goto mpwrq_cqe_out;
+ 	}
+ 
+-	skb = netdev_alloc_skb(rq->netdev,
+-			       ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
+-				     sizeof(long)));
++	skb = napi_alloc_skb(rq->cq.napi,
++			     ALIGN(MLX5_MPWRQ_SMALL_PACKET_THRESHOLD,
++				   sizeof(long)));
+ 	if (unlikely(!skb))
+ 		goto mpwrq_cqe_out;
+ 
+-- 
+1.7.1
