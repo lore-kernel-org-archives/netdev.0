@@ -1,47 +1,89 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: skb_at_tc_ingress helper breaks compilation of oot modules
-Date: Wed, 20 Apr 2016 10:33:09 -0700
-Message-ID: <20160420173307.GA31849@ast-mbp.thefacebook.com>
-References: <20160420102148.GA18615@echse.zoo>
- <57175C13.8080109@iogearbox.net>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [RFC PATCH 2/5] mlx5: Add support for UDP tunnel segmentation
+ with outer checksum offload
+Date: Wed, 20 Apr 2016 20:40:22 +0300
+Message-ID: <CALzJLG-8enmxxvjbVbcygVgM0VhX7Eo=6B=2pZF5jQzN9L9YEg@mail.gmail.com>
+References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server> <20160419190603.11723.31623.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Saitz <ingo@stud.uni-hannover.de>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: eugenia@mellanox.com, bruce.w.allan@intel.com,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org, ariel.elior@qlogic.com,
+	mchan@broadcom.com, Matthew Finlay <matt@mellanox.com>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:35928 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751442AbcDTRdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 13:33:15 -0400
-Received: by mail-pa0-f41.google.com with SMTP id er2so19789973pad.3
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 10:33:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <57175C13.8080109@iogearbox.net>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:36321 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807AbcDTRkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 13:40:42 -0400
+Received: by mail-yw0-f195.google.com with SMTP id u62so7683965ywe.3
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 10:40:42 -0700 (PDT)
+In-Reply-To: <20160419190603.11723.31623.stgit@ahduyck-xeon-server>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2016 at 12:38:11PM +0200, Daniel Borkmann wrote:
-> On 04/20/2016 12:21 PM, Ingo Saitz wrote:
-> >In Linux 4.5, when CONFIG_NET_CLS_ACT is defined, compilation of out of
-> >tree modules breaks with undeclared functions/constants. The culprit is:
-> >
-> >commit fdc5432a7b44ab7de17141beec19d946b9344e91
-> >Author: Daniel Borkmann <daniel@iogearbox.net>
-> >Date:   Thu Jan 7 15:50:22 2016 +0100
-> >
-> >     net, sched: add skb_at_tc_ingress helper
-> >
-> >which uses G_TC_AT and AT_INGRESS but only includes linux/pkt_cls.h,
-> >which does not include these #defines for oot builds. Unfortunately I'm
-> >not sure what the correct fix is, maybe the uapi folks could help, but i
-> >attached a simple testcase and build log (Makefile is straight from
-> >kernelnewbies).
-> 
-> Hmm, your fail.c test case only contains '#include <net/ipv6.h>'?
-> 
-> Note, upstream kernel never cared about out-of-tree modules, only
-> in-tree code. ;) Did you run into an issue with any in-tree code?
+On Tue, Apr 19, 2016 at 10:06 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> This patch assumes that the mlx5 hardware will ignore existing IPv4/v6
+> header fields for length and checksum as well as the length and checksum
+> fields for outer UDP headers.
+>
+> I have no means of testing this as I do not have any mlx5 hardware but
+> thought I would submit it as an RFC to see if anyone out there wants to
+> test this and see if this does in fact enable this functionality allowing
+> us to to segment UDP tunneled frames that have an outer checksum.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> index e0adb604f461..57d8da796d50 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+> @@ -2390,13 +2390,18 @@ static void mlx5e_build_netdev(struct net_device *netdev)
+>         netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
+>
+>         if (mlx5e_vxlan_allowed(mdev)) {
+> -               netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL;
+> +               netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL |
+> +                                          NETIF_F_GSO_UDP_TUNNEL_CSUM |
+> +                                          NETIF_F_GSO_PARTIAL;
+>                 netdev->hw_enc_features |= NETIF_F_IP_CSUM;
+>                 netdev->hw_enc_features |= NETIF_F_RXCSUM;
+>                 netdev->hw_enc_features |= NETIF_F_TSO;
+>                 netdev->hw_enc_features |= NETIF_F_TSO6;
+>                 netdev->hw_enc_features |= NETIF_F_RXHASH;
+>                 netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
+> +               netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM |
+> +                                          NETIF_F_GSO_PARTIAL;
+> +               netdev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
+>         }
+>
+>         netdev->features          = netdev->hw_features;
+>
 
-I'm glad it broke out of tree module. We should do it more often.
-llvm constantly reshuffles internal api to incentivize upstreaming
-and working with the community.
+Hi Alex,
+
+Adding Matt, VxLAN feature owner from Mellanox,
+Matt please correct me if am wrong, but We already tested GSO VxLAN
+and we saw the TCP/IP checksum offloads for both inner and outer
+headers handled by the hardware.
+
+And looking at mlx5e_sq_xmit:
+
+if (likely(skb->ip_summed == CHECKSUM_PARTIAL)) {
+        eseg->cs_flags = MLX5_ETH_WQE_L3_CSUM;
+if (skb->encapsulation) {
+        eseg->cs_flags |= MLX5_ETH_WQE_L3_INNER_CSUM |
+MLX5_ETH_WQE_L4_INNER_CSUM;
+        sq->stats.csum_offload_inner++;
+} else {
+        eseg->cs_flags |= MLX5_ETH_WQE_L4_CSUM;
+}
+
+We enable inner/outer hardware checksumming unconditionally without
+looking at the features Alex is suggesting in this patch,
+Alex, can you elaborate more on the meaning of those features ? and
+why would it work for us without declaring them ?
