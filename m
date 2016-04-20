@@ -1,58 +1,58 @@
-From: Michael Richardson <mcr@sandelman.ca>
-Subject: Re: drop all fragments inside tx queue if one gets dropped
-Date: Wed, 20 Apr 2016 16:15:34 -0400
-Message-ID: <11312.1461183334@obiwan.sandelman.ca>
-References: <57175156.3050501@pengutronix.de>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 WIP] ifstat: use new RTM_GETSTATS api
+Date: Wed, 20 Apr 2016 13:25:05 -0700
+Message-ID: <5717E5A1.6020403@cumulusnetworks.com>
+References: <1461168975-28081-1-git-send-email-roopa@cumulusnetworks.com> <20160420115347.6a43d7f7@xeon-e3>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-	micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: Alexander Aring <aar@pengutronix.de>
-To: netdev@vger.kernel.org, linux-wpan@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tuna.sandelman.ca ([209.87.249.19]:55567 "EHLO
-	tuna.sandelman.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096AbcDTUXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:23:17 -0400
-In-Reply-To: <57175156.3050501@pengutronix.de>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35654 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbcDTUZJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:25:09 -0400
+Received: by mail-pf0-f180.google.com with SMTP id n1so21752810pfn.2
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 13:25:08 -0700 (PDT)
+In-Reply-To: <20160420115347.6a43d7f7@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Type: text/plain
+On 4/20/16, 11:53 AM, Stephen Hemminger wrote:
+> On Wed, 20 Apr 2016 09:16:15 -0700
+> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>> +int rtnl_wilddump_stats_req_filter(struct rtnl_handle *rth, int family, int type,
+>> +				   __u32 filt_mask)
+>> +{
+>> +	struct {
+>> +		struct nlmsghdr nlh;
+>> +		struct if_stats_msg ifsm;
+>> +	} req;
+> Please use C99 initialization instead of memset in new code.
 
+yes, ack.
+>
+>> +	int err;
+>> +
+>> +	memset(&req, 0, sizeof(req));
+>> +	req.nlh.nlmsg_len = sizeof(req);
+>> +	req.nlh.nlmsg_type = type;
+>> +	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
+>> +	req.nlh.nlmsg_pid = 0;
+>> +	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
+>> +	req.ifsm.family = family;
+>> +	req.ifsm.filter_mask = filt_mask;
+>> +
+>> +	err = send(rth->fd, (void*)&req, sizeof(req), 0);
+>> +
+>> +	return err;
+> Why not just:
+>         return send(rth->fd, &req, sizoef(req), 0);
 
-{adding some more comments from the -wpan side of things}
+yes, i had that initially. and then changed it to add some debugs before returning.
 
-Alexander Aring <aar@pengutronix.de> wrote:
-    > On linux-wpan we had a discussion about setting the right tx_queue_len
-    > and came to some issues in 802.15.4 6LoWPAN networks.
+this is all WIP. will clean it up.
 
-...
-
-    > And then a lot of fragments laying inside the tx_queue and waits to
-    > transfer to the transceiver which has only one framebuffer to transmit
-    > one frame and waits for tx completion to transfer the next one.
-
-    > My question is, if qdisc drops some fragment because the queue is full
-    > or something else. Exists there some way to remove all fragments inside
-    > the queue? If one fragment will be dropped and all related are still
-    > inside the queue then we send mostly garbage.
-
-The big concern is that if we make tx_queue_len too big, we are effectively
-introducing bloat.
-If we make it too small, then we might drop one fragment, when we would
-prefer to drop the entire packet.
-
-It seems that maybe we ought to have a queue in the upper interface and fill
-the lower interface with at most two packets' worth of fragments.
-
-    > I want to add a behaviour which drops all related fragments for 6LoWPAN
-    > fragmentation at first, if the payload is above 1280 bytes, then we
-    > have also IPv6 fragmentation on it. In future I also like to remove all
-    > related 6LoWPAN fragments which are related according to the IPv6
-    > fragment.
-
-It would still be useful to be able to do this in general: this kind of
-operation would also benefit sending large UDP packets over ethernet when we
-have to do IP-layer fragmentation.
---=-=-=--
+thanks.
