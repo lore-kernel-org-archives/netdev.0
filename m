@@ -1,52 +1,114 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v2] carl9170: Clarify kconfig text
-Date: Wed, 20 Apr 2016 10:59:44 +0300
-Message-ID: <87a8koiubz.fsf@kamboji.qca.qualcomm.com>
-References: <20160416113312.8de2266358165182bb4b4a15@gmx.com>
-	<3244016.0TmHG3E4A9@debian64>
-	<87r3e2kgwy.fsf@kamboji.qca.qualcomm.com>
-	<11418613.XH7h8m2RjK@debian64>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lauri Kasanen <cand@gmx.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <11418613.XH7h8m2RjK@debian64> (Christian Lamparter's message of
-	"Mon, 18 Apr 2016 10:07:02 -0700 (PDT)")
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCHv2 bluetooth-next 04/10] ndisc: add addr_len parameter to ndisc_opt_addr_space
+Date: Wed, 20 Apr 2016 10:19:36 +0200
+Message-ID: <1461140382-4784-5-git-send-email-aar@pengutronix.de>
+References: <1461140382-4784-1-git-send-email-aar@pengutronix.de>
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461140382-4784-1-git-send-email-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Christian Lamparter <chunkeey@googlemail.com> writes:
+This patch makes the address length as argument for the
+ndisc_opt_addr_space function. This is necessary to handle addresses
+which don't use dev->addr_len as address length.
 
-> On Monday, April 18, 2016 07:42:05 PM Kalle Valo wrote:
->> Christian Lamparter <chunkeey@googlemail.com> writes:
->> 
->> > On Monday, April 18, 2016 06:45:09 PM Kalle Valo wrote:
->> >
->> >> Why even mention anything about a "special firmware" as the firmware is
->> >> already available from linux-firmware.git? 
->> >
->> > Yes and no. 1.9.6 is in linux-firmware.git. I've tried to add 1.9.9 too
->> > but that failed.
->> > <http://comments.gmane.org/gmane.linux.kernel.wireless.general/114639>
->> 
->> Rick's comment makes sense to me, better just to provide the latest
->> version. No need to unnecessary confuse the users. And if someone really
->> wants to use an older version that she can retrieve it from the git
->> history.
->
-> Part of the fun here is that firmware is GPLv2. The linux-firmware.git has
-> to point to or add the firmware source to their tree. They have added every
-> single source file to it.... instead of "packaging" it in a tar.bz2/gz/xz
-> like you normally do for release sources.
->
-> If you want to read more about it:
-> <http://www.spinics.net/lists/linux-wireless/msg101868.html>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ include/net/ndisc.h |  8 ++++----
+ net/ipv6/ndisc.c    | 10 +++++-----
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-Yeah, that's more work. I get that. But I'm still not understanding
-what's the actual problem which prevents us from updating carl9170
-firmware in linux-firmware.
-
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 2d8edaa..ef43e88 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -127,10 +127,10 @@ static inline int ndisc_addr_option_pad(unsigned short type)
+ 	}
+ }
+ 
+-static inline int ndisc_opt_addr_space(struct net_device *dev)
++static inline int ndisc_opt_addr_space(struct net_device *dev,
++				       unsigned char addr_len)
+ {
+-	return NDISC_OPT_SPACE(dev->addr_len +
+-			       ndisc_addr_option_pad(dev->type));
++	return NDISC_OPT_SPACE(addr_len + ndisc_addr_option_pad(dev->type));
+ }
+ 
+ static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
+@@ -139,7 +139,7 @@ static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
+ 	u8 *lladdr = (u8 *)(p + 1);
+ 	int lladdrlen = p->nd_opt_len << 3;
+ 	int prepad = ndisc_addr_option_pad(dev->type);
+-	if (lladdrlen != ndisc_opt_addr_space(dev))
++	if (lladdrlen != ndisc_opt_addr_space(dev, dev->addr_len))
+ 		return NULL;
+ 	return lladdr + prepad;
+ }
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index c245895..69e20e3 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -154,7 +154,7 @@ static void ndisc_fill_addr_option(struct sk_buff *skb, int type, void *data)
+ {
+ 	int pad   = ndisc_addr_option_pad(skb->dev->type);
+ 	int data_len = skb->dev->addr_len;
+-	int space = ndisc_opt_addr_space(skb->dev);
++	int space = ndisc_opt_addr_space(skb->dev, skb->dev->addr_len);
+ 	u8 *opt = skb_put(skb, space);
+ 
+ 	opt[0] = type;
+@@ -509,7 +509,7 @@ void ndisc_send_na(struct net_device *dev, const struct in6_addr *daddr,
+ 	if (!dev->addr_len)
+ 		inc_opt = 0;
+ 	if (inc_opt)
+-		optlen += ndisc_opt_addr_space(dev);
++		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 
+ 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
+ 	if (!skb)
+@@ -574,7 +574,7 @@ void ndisc_send_ns(struct net_device *dev, const struct in6_addr *solicit,
+ 	if (ipv6_addr_any(saddr))
+ 		inc_opt = false;
+ 	if (inc_opt)
+-		optlen += ndisc_opt_addr_space(dev);
++		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 
+ 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
+ 	if (!skb)
+@@ -626,7 +626,7 @@ void ndisc_send_rs(struct net_device *dev, const struct in6_addr *saddr,
+ 	}
+ #endif
+ 	if (send_sllao)
+-		optlen += ndisc_opt_addr_space(dev);
++		optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 
+ 	skb = ndisc_alloc_skb(dev, sizeof(*msg) + optlen);
+ 	if (!skb)
+@@ -1563,7 +1563,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 			memcpy(ha_buf, neigh->ha, dev->addr_len);
+ 			read_unlock_bh(&neigh->lock);
+ 			ha = ha_buf;
+-			optlen += ndisc_opt_addr_space(dev);
++			optlen += ndisc_opt_addr_space(dev, dev->addr_len);
+ 		} else
+ 			read_unlock_bh(&neigh->lock);
+ 
 -- 
-Kalle Valo
+2.8.0
