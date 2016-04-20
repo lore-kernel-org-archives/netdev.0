@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] BPF updates
-Date: Tue, 19 Apr 2016 20:26:33 -0400 (EDT)
-Message-ID: <20160419.202633.2113732043199657318.davem@davemloft.net>
-References: <cover.1461005139.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/7] net: network drivers should not depend on
+ geneve/vxlan
+Date: Tue, 19 Apr 2016 20:27:50 -0400 (EDT)
+Message-ID: <20160419.202750.1844614056540086769.davem@davemloft.net>
+References: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, jesse@kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38776 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38781 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986AbcDTA0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 20:26:36 -0400
-In-Reply-To: <cover.1461005139.git.daniel@iogearbox.net>
+	with ESMTP id S1753749AbcDTA1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 20:27:51 -0400
+In-Reply-To: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 18 Apr 2016 21:01:22 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 18 Apr 2016 21:19:41 +0200
 
-> This minor set adds a new helper bpf_event_output() for eBPF cls/act
-> program types which allows to pass events to user space applications.
-> For details, please see individual patches.
- ...
-> v1 -> v2:
->   - Address kbuild bot found compile issue in patch 2
->   - Rest as is
+> This patchset removes the dependency of network drivers on vxlan or
+> geneve, so those don't get autoloaded when the nic driver is loaded.
 > 
+> Also audited the code such that vxlan_get_rx_port and geneve_get_rx_port
+> are not called without rtnl lock.
 
-Series applied, thanks.
+In net-next, the 'qed' driver has tunneling offload support too.
+Don't you need to update this series to handle that driver as
+well?
+
+Thanks.
