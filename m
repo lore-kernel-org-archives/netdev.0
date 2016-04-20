@@ -1,27 +1,78 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: remove tag_protocol from dsa_switch
-Date: Wed, 20 Apr 2016 10:59:27 -0700
-Message-ID: <5717C37F.4060702@gmail.com>
-References: <1461018244-5371-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH] MAINTAINERS: net: add entry for TI Ethernet Switch
+ drivers
+Date: Wed, 20 Apr 2016 11:03:27 -0700
+Message-ID: <20160420180327.GJ5995@atomide.com>
+References: <1461151509-2368-1-git-send-email-grygorii.strashko@ti.com>
+ <20160420142350.GD5995@atomide.com>
+ <5717ABCC.50406@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sekhar Nori <nsekhar@ti.com>, linux-omap@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461018244-5371-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from muru.com ([72.249.23.125]:51590 "EHLO muru.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751515AbcDTSDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 14:03:32 -0400
+Content-Disposition: inline
+In-Reply-To: <5717ABCC.50406@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18/04/16 15:24, Vivien Didelot wrote:
-> Having the tag protocol in dsa_switch_driver for setup time and in
-> dsa_switch_tree for runtime is enough. Remove dsa_switch's one.
+* Grygorii Strashko <grygorii.strashko@ti.com> [160420 09:19]:
+> On 04/20/2016 05:23 PM, Tony Lindgren wrote:
+> > * Grygorii Strashko <grygorii.strashko@ti.com> [160420 04:26]:
+> >> Add record for TI Ethernet Switch Driver CPSW/CPDMA/MDIO HW
+> >> (am33/am43/am57/dr7/davinci) to ensure that related patches
+> >> will go through dedicated linux-omap list.
+> >>
+> >> Also add Mugunthan as maintainer and myself as the reviewer.
+> >>
+> >> Cc: "David S. Miller" <davem@davemloft.net>
+> >> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> >> Cc: Richard Cochran <richardcochran@gmail.com>
+> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> >> ---
+> >>   MAINTAINERS | 8 ++++++++
+> >>   1 file changed, 8 insertions(+)
+> >>
+> >> diff --git a/MAINTAINERS b/MAINTAINERS
+> >> index 1d5b4be..aca864d 100644
+> >> --- a/MAINTAINERS
+> >> +++ b/MAINTAINERS
+> >> @@ -11071,6 +11071,14 @@ S:	Maintained
+> >>   F:	drivers/clk/ti/
+> >>   F:	include/linux/clk/ti.h
+> >>   
+> >> +TI ETHERNET SWITCH DRIVER (CPSW)
+> >> +M:	Mugunthan V N <mugunthanvnm@ti.com>
+> >> +R:	Grygorii Strashko <grygorii.strashko@ti.com>
+> >> +L:	linux-omap@vger.kernel.org
+> >> +S:	Maintained
+> >> +F:	drivers/net/ethernet/ti/cpsw*
+> >> +F:	drivers/net/ethernet/ti/davinci*
+> >> +
+> >>   TI FLASH MEDIA INTERFACE DRIVER
+> >>   M:	Alex Dubov <oakad@yahoo.com>
+> >>   S:	Maintained
+> >> -- 
+> > 
+> > Please add netdev list also there as the primary list:
+> > 
+> > L:	netdev@vger.kernel.org
+> > L:	linux-omap@vger.kernel.org
+> > 
+> > Then we can easily review and ack the patches for Dave to apply.
+> > 
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> I can, but want clarify if it really necessary, because get_maintainer.pl
+> automatically adds netdev@vger.kernel.org:
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Well it may not be obvious from reading MAINTAINERS file though :)
+
+Tony
