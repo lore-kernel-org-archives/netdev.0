@@ -1,78 +1,55 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH] MAINTAINERS: net: add entry for TI Ethernet Switch
- drivers
-Date: Wed, 20 Apr 2016 11:03:27 -0700
-Message-ID: <20160420180327.GJ5995@atomide.com>
-References: <1461151509-2368-1-git-send-email-grygorii.strashko@ti.com>
- <20160420142350.GD5995@atomide.com>
- <5717ABCC.50406@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Davicom DM9162 PHY supported in the kernel?
+Date: Wed, 20 Apr 2016 11:03:11 -0700
+Message-ID: <5717C45F.30205@gmail.com>
+References: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sekhar Nori <nsekhar@ti.com>, linux-omap@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch
+To: Amr Bekhit <amrbekhit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from muru.com ([72.249.23.125]:51590 "EHLO muru.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751515AbcDTSDc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 14:03:32 -0400
-Content-Disposition: inline
-In-Reply-To: <5717ABCC.50406@ti.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35799 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752552AbcDTSFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 14:05:22 -0400
+Received: by mail-pf0-f173.google.com with SMTP id n1so20694678pfn.2
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 11:05:22 -0700 (PDT)
+In-Reply-To: <CAOLz05qgn2-9Qxm1cR7mXa67GAwD2SGbMnbeeEBrYeSPsBexuw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Grygorii Strashko <grygorii.strashko@ti.com> [160420 09:19]:
-> On 04/20/2016 05:23 PM, Tony Lindgren wrote:
-> > * Grygorii Strashko <grygorii.strashko@ti.com> [160420 04:26]:
-> >> Add record for TI Ethernet Switch Driver CPSW/CPDMA/MDIO HW
-> >> (am33/am43/am57/dr7/davinci) to ensure that related patches
-> >> will go through dedicated linux-omap list.
-> >>
-> >> Also add Mugunthan as maintainer and myself as the reviewer.
-> >>
-> >> Cc: "David S. Miller" <davem@davemloft.net>
-> >> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> >> Cc: Richard Cochran <richardcochran@gmail.com>
-> >> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> >> ---
-> >>   MAINTAINERS | 8 ++++++++
-> >>   1 file changed, 8 insertions(+)
-> >>
-> >> diff --git a/MAINTAINERS b/MAINTAINERS
-> >> index 1d5b4be..aca864d 100644
-> >> --- a/MAINTAINERS
-> >> +++ b/MAINTAINERS
-> >> @@ -11071,6 +11071,14 @@ S:	Maintained
-> >>   F:	drivers/clk/ti/
-> >>   F:	include/linux/clk/ti.h
-> >>   
-> >> +TI ETHERNET SWITCH DRIVER (CPSW)
-> >> +M:	Mugunthan V N <mugunthanvnm@ti.com>
-> >> +R:	Grygorii Strashko <grygorii.strashko@ti.com>
-> >> +L:	linux-omap@vger.kernel.org
-> >> +S:	Maintained
-> >> +F:	drivers/net/ethernet/ti/cpsw*
-> >> +F:	drivers/net/ethernet/ti/davinci*
-> >> +
-> >>   TI FLASH MEDIA INTERFACE DRIVER
-> >>   M:	Alex Dubov <oakad@yahoo.com>
-> >>   S:	Maintained
-> >> -- 
-> > 
-> > Please add netdev list also there as the primary list:
-> > 
-> > L:	netdev@vger.kernel.org
-> > L:	linux-omap@vger.kernel.org
-> > 
-> > Then we can easily review and ack the patches for Dave to apply.
-> > 
+Hi,
+
+On 20/04/16 08:21, Amr Bekhit wrote:
+> Hello,
 > 
-> I can, but want clarify if it really necessary, because get_maintainer.pl
-> automatically adds netdev@vger.kernel.org:
+> I'm using an embedded Linux board based on an AT91SAM9X25 that uses the
+> Davicom DM9162IEP PHY chip. I'm struggling to get packets out on the
+> wire and I'm suspecting that I might have an issue between the AT91 MAC
+> and the PHY chip. I've looked through the kernel config options and the
+> kernel already has compiled-in support for the Davicom PHYs, however I
+> noticed that according to the help text, only the dm9161e and dm9131
+> chips are supported, which may indicate why my ethernet isn't working. I
+> was wondering whether the DM9162 is backwards compatible with the
+> existing driver? I'm currently using the mainline kernel 4.3. (p.s. I
+> know the hardware works fine since I have no problem transferring files
+> using tftp via u-boot).
 
-Well it may not be obvious from reading MAINTAINERS file though :)
+Well, u-boot is a very simplistic networking stack, there could be tons
+of issues that get under the radar because it cannot report them
+properly, but let's assume it works so you have something to compare
+against.
 
-Tony
+The DM9162 should be very similar to the DM9161, so the first thing
+might be trying to add the PHY ID (32-bits OUI) to the matching table in
+drivers/net/phy/davicom.c, and make it configure the PHY through
+dm9161_config_init() since that looks at the PHY interface (MII, RMII
+etc.) and does a bit of configuration here.
+
+Right now, chances are that you are running with the Generic PHY driver
+which has no clue about Davicom specific programming (if any). There
+could also be board-level fixups required (adjusting trace lengths, if
+you are using a RGMII interface for instance), etc.
+-- 
+Florian
