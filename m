@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/ipv6/addrconf: simplify sysctl registration
-Date: Tue, 19 Apr 2016 20:13:29 -0400 (EDT)
-Message-ID: <20160419.201329.457243095977049352.davem@davemloft.net>
-References: <146097967035.15409.8235893232862124602.stgit@buzz>
+Subject: Re: [PATCH v2 0/1] drivers: net: cpsw: Fix NULL pointer
+ dereference with two slave PHYs
+Date: Tue, 19 Apr 2016 20:15:50 -0400 (EDT)
+Message-ID: <20160419.201550.902520333910307559.davem@davemloft.net>
+References: <1460987606-18125-1-git-send-email-andrew.goodbody@cambrionix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: khlebnikov@yandex-team.ru
+To: andrew.goodbody@cambrionix.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146097967035.15409.8235893232862124602.stgit@buzz>
+In-Reply-To: <1460987606-18125-1-git-send-email-andrew.goodbody@cambrionix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Date: Mon, 18 Apr 2016 14:41:10 +0300
+From: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Date: Mon, 18 Apr 2016 14:53:25 +0100
 
-> Struct ctl_table_header holds pointer to sysctl table which could be used
-> for freeing it after unregistration. IPv4 sysctls already use that.
-> Remove redundant NULL assignment: ndev allocated using kzalloc.
+> This is a fix for a NULL pointer dereference from cpsw which is triggered
+> by having two slave PHYs attached to a cpsw network device. The problem is
+> due to only maintaining a single reference to a PHY node in the prive data
+> which gets overwritten by the second PHY probe. So move the PHY node
+> reference to the individual slave data so that there is now one per slave.
 > 
-> This also saves some bytes: sysctl table could be shorter than
-> DEVCONF_MAX+1 if some options are disable in config.
-> 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> v1 had a problem that data->slaves was used before it had been filled in
 
-Applied.
+I already applied v1 the other day, so you need to send me a relative
+patch rather than a whole new one.
+
+Thanks.
