@@ -1,48 +1,60 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 1/4] netlink: fix test alignment in
- nla_align_64bit()
-Date: Wed, 20 Apr 2016 11:44:46 +0200
-Message-ID: <57174F8E.6050201@6wind.com>
-References: <20160419.195009.1052027353987244150.davem@davemloft.net>
- <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461142655-5067-2-git-send-email-nicolas.dichtel@6wind.com>
- <1461144802.10638.249.camel@edumazet-glaptop3.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Alexander Aring <aar@pengutronix.de>
+Subject: drop all fragments inside tx queue if one gets dropped
+Date: Wed, 20 Apr 2016 11:52:22 +0200
+Message-ID: <57175156.3050501@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	roopa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-wpan@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36639 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932923AbcDTJot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:44:49 -0400
-Received: by mail-wm0-f45.google.com with SMTP id v188so195693677wme.1
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 02:44:49 -0700 (PDT)
-In-Reply-To: <1461144802.10638.249.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:42695 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932980AbcDTJwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:52:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 20/04/2016 11:33, Eric Dumazet a =C3=A9crit :
-[snip]
-> How have you tested your patch exactly ?
-As stated in the cover letter, I didn't test it.
+Hi,
 
->
-> I guess David should have copied his original comment here.
->
-> -        * The nlattr header is 4 bytes in size, that's why we test
-> -        * if the skb->data _is_ aligned.  This NOP attribute, plus
-> -        * nlattr header for IFLA_STATS64, will make nla_data() 8-byt=
-e
-> -        * aligned.
->
->
-I knew I was missing something, thanks for the explanation.
+On linux-wpan we had a discussion about setting the right tx_queue_len
+and came to some issues in 802.15.4 6LoWPAN networks.
 
-All other patches of this series need to be updated, I will do it if th=
-ere is
-no other comment.
+Our hardware parameters are:
+ 
+ - Bandwidth: 250kb/s
+ - One framebuffer at hardware side for transmit a frame.
+ - MTU - 127 bytes (without mac headers)
+
+To provide 6LoWPAN (IPv6) on such interface, we have two interfaces.
+
+One wpan interface (which works on 802.15.4 layer and has a queue) and
+another lowpan interface (gets IPv6 and queue 6LoWPAN into wpan
+interface, has no queue - it's virtual interface).
+
+If the IPv6 packets needs fragmentation, mostly if payload is 127 bytes.
+We have the following situation:
+
+ - 6lowpan interface gets IPv6 packet:
+   - generate 6LoWPAN fragments
+     - dev_queue_xmit(wpan_dev, frag1)
+     - dev_queue_xmit(wpan_dev, frag2)
+     - dev_queue_xmit(wpan_dev, frag3)
+     - dev_queue_xmit(wpan_dev, ...)
+
+And then a lot of fragments laying inside the tx_queue and waits to
+transfer to the transceiver which has only one framebuffer to transmit
+one frame and waits for tx completion to transfer the next one.
+
+My question is, if qdisc drops some fragment because the queue is full
+or something else. Exists there some way to remove all fragments inside
+the queue? If one fragment will be dropped and all related are still
+inside the queue then we send mostly garbage.
+
+I want to add a behaviour which drops all related fragments for
+6LoWPAN fragmentation at first, if the payload is above 1280 bytes, then
+we have also IPv6 fragmentation on it. In future I also like to remove
+all related 6LoWPAN fragments which are related according to the IPv6
+fragment.
+
+- Alex
