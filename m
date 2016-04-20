@@ -1,126 +1,94 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 4/4] net/mlx4_en: Split SW RX dropped counter per RX ring
-Date: Wed, 20 Apr 2016 16:01:18 +0300
-Message-ID: <1461157278-18528-5-git-send-email-ogerlitz@mellanox.com>
-References: <1461157278-18528-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Wed, 20 Apr 2016 15:17:08 +0200
+Message-ID: <1461158228.2176.18.camel@sipsolutions.net>
+References: <20160418.214851.122286645854721047.davem@davemloft.net>
+	 <20160418.235207.395468709808133833.davem@davemloft.net>
+	 <1461060543.2766.20.camel@sipsolutions.net>
+	 <20160419.142324.1774057494079734967.davem@davemloft.net>
+	 <1461094901.2766.26.camel@sipsolutions.net>
+	 <5716E123.8040002@cumulusnetworks.com>
+	 <1461137540.2176.5.camel@sipsolutions.net>
+	 <20160420144828.5537dce7@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com,
+	egrumbach@gmail.com
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51103 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751726AbcDTNCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 09:02:04 -0400
-In-Reply-To: <1461157278-18528-1-git-send-email-ogerlitz@mellanox.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:56606 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753796AbcDTNRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 09:17:16 -0400
+In-Reply-To: <20160420144828.5537dce7@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+On Wed, 2016-04-20 at 14:48 +0200, Jiri Benc wrote:
+> On Wed, 20 Apr 2016 09:32:20 +0200, Johannes Berg wrote:
+> >=20
+> > 2) Use the new attribute flag with some required attribute for
+> > =C2=A0 =C2=A0existing commands, so that older kernel will not find =
+the
+> > required
+> > =C2=A0 =C2=A0attribute and will reject the operation entirely.
+> > =C2=A0 =C2=A0May or may not fall back to trying the operation again=
+ without
+> > the
+> > =C2=A0 =C2=A0flag.
+> This is basically what I submitted half a year ago. See:
+> http://thread.gmane.org/gmane.linux.network/382850
+>=20
 
-Count SW packet drops per RX ring instead of a global counter. This
-will allow monitoring the number of rx drops per ring.
+That looks like a *huge* patchset though - whereas my proposal really
+required only what Emmanuel sent in this thread. It did make some
+assumptions, for example that any attribute lower than the "maxtype"
+argument to nla_parse() was understood. [1]
 
-In addition, SW rx_dropped counter was overwritten by HW rx_dropped
-counter, sum both of them instead to show the accurate value.
+Looks like you have this on a per-message basis. I thought it was
+better on an attribute basis because that's really where the issue is.
 
-Fixes: a3333b35da16 ('net/mlx4_en: Moderate ethtool callback to [...] ')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Reported-by: Brenden Blanco <bblanco@plumgrid.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 5 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_port.c    | 5 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    | 1 +
- 4 files changed, 10 insertions(+), 3 deletions(-)
+You can still detect it with the per-attribute flag approach as I
+described in (2) - if, for your lwtunnel example, you could specify the
+flag on the=C2=A0RTA_ENCAP attribute, without which no lwtunnel can be
+created (if I understand the code correctly.)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index f69584a..c761194 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -337,7 +337,7 @@ static int mlx4_en_get_sset_count(struct net_device *dev, int sset)
- 	case ETH_SS_STATS:
- 		return bitmap_iterator_count(&it) +
- 			(priv->tx_ring_num * 2) +
--			(priv->rx_ring_num * 2);
-+			(priv->rx_ring_num * 3);
- 	case ETH_SS_TEST:
- 		return MLX4_EN_NUM_SELF_TEST - !(priv->mdev->dev->caps.flags
- 					& MLX4_DEV_CAP_FLAG_UC_LOOPBACK) * 2;
-@@ -404,6 +404,7 @@ static void mlx4_en_get_ethtool_stats(struct net_device *dev,
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		data[index++] = priv->rx_ring[i]->packets;
- 		data[index++] = priv->rx_ring[i]->bytes;
-+		data[index++] = priv->rx_ring[i]->dropped;
- 	}
- 	spin_unlock_bh(&priv->stats_lock);
- 
-@@ -477,6 +478,8 @@ static void mlx4_en_get_strings(struct net_device *dev,
- 				"rx%d_packets", i);
- 			sprintf(data + (index++) * ETH_GSTRING_LEN,
- 				"rx%d_bytes", i);
-+			sprintf(data + (index++) * ETH_GSTRING_LEN,
-+				"rx%d_dropped", i);
- 		}
- 		break;
- 	case ETH_SS_PRIV_FLAGS:
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index 3904b5f..20b6c2e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -158,6 +158,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	u64 in_mod = reset << 8 | port;
- 	int err;
- 	int i, counter_index;
-+	unsigned long sw_rx_dropped = 0;
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(mdev->dev);
- 	if (IS_ERR(mailbox))
-@@ -180,6 +181,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		stats->rx_packets += priv->rx_ring[i]->packets;
- 		stats->rx_bytes += priv->rx_ring[i]->bytes;
-+		sw_rx_dropped += priv->rx_ring[i]->dropped;
- 		priv->port_stats.rx_chksum_good += priv->rx_ring[i]->csum_ok;
- 		priv->port_stats.rx_chksum_none += priv->rx_ring[i]->csum_none;
- 		priv->port_stats.rx_chksum_complete += priv->rx_ring[i]->csum_complete;
-@@ -236,7 +238,8 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 					  &mlx4_en_stats->MCAST_prio_1,
- 					  NUM_PRIORITIES);
- 	stats->collisions = 0;
--	stats->rx_dropped = be32_to_cpu(mlx4_en_stats->RDROP);
-+	stats->rx_dropped = be32_to_cpu(mlx4_en_stats->RDROP) +
-+			    sw_rx_dropped;
- 	stats->rx_length_errors = be32_to_cpu(mlx4_en_stats->RdropLength);
- 	stats->rx_over_errors = 0;
- 	stats->rx_crc_errors = be32_to_cpu(mlx4_en_stats->RCRC);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 86bcfe5..91abc13 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -939,7 +939,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		/* GRO not possible, complete processing here */
- 		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
- 		if (!skb) {
--			priv->stats.rx_dropped++;
-+			ring->dropped++;
- 			goto next;
- 		}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d12ab6a..63b1aea 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -323,6 +323,7 @@ struct mlx4_en_rx_ring {
- 	unsigned long csum_ok;
- 	unsigned long csum_none;
- 	unsigned long csum_complete;
-+	unsigned long dropped;
- 	int hwtstamp_rx_filter;
- 	cpumask_var_t affinity_mask;
- };
--- 
-2.3.7
+johannes
+
+
+
+[1] for example, if I have three attributes:
+enum attrs {__unused, A, B, C};
+
+and the policy
+
+policy =3D {
+	[A] =3D { .type =3D NLA_U32 },
+	[C] =3D { .type =3D NLA_U8 },
+}
+
+and then do
+
+nla_parse(tb, 3, msg, msg_len, &policy)
+
+it would assume that "B" is valid. Since this policy is equivalent to
+the policy with
+	[B] =3D { .type =3D NLA_BINARY }
+
+(minimum length 0) we could also reject anything that has type=3Dlen=3D=
+0 in
+the policy, if the=C2=A0NLA_F_NET_MUST_PARSE flag is set in the nla_typ=
+e.
+
+This would likely be the right approach for most netlink families,
+since they usually don't have holes that they actually care about -
+I've yet to see any attribute that's not specified at all in the policy
+but used anyway, normally you want some level of checking, and indicate
+that by using { .type =3D NLA_BINARY } - but other things are possible.
+
+johannes
