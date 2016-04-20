@@ -1,102 +1,104 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Subject: Re: [PATCH 4/4] drm/i915: Move ioremap_wc tracking onto
-	VMA
-Date: Wed, 20 Apr 2016 11:10:54 +0200
-Message-ID: <20160420091054.GL1990@wotan.suse.de>
-References: <20160419123028.GI1990@wotan.suse.de>
- <1461069238-31539-1-git-send-email-chris@chris-wilson.co.uk>
- <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: [PATCH V2] net: stmmac: socfpga: Remove re-registration of reset
+ controller
+Date: Wed, 20 Apr 2016 11:04:35 +0200
+Message-ID: <57174623.60606@denx.de>
+References: <1461110753-7641-1-git-send-email-marex@denx.de> <5716E39E.3010905@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
- intel-gfx@lists.freedesktop.org, linux-kernel@vger.kernel.org,
- Ingo Molnar <mingo@kernel.org>,
- "Peter Zijlstra \(Intel\)" <peterz@infradead.org>, mcgrof@kernel.org,
- dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
- Daniel Vetter <daniel.vetter@intel.com>,
- Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
- David Hildenbrand <dahi@linux.vnet.ibm.com>
-To: Chris Wilson <chris@chris-wilson.co.uk>
-Return-path: <intel-gfx-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
-List-Post: <mailto:intel-gfx@lists.freedesktop.org>
-List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
- <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: intel-gfx-bounces@lists.freedesktop.org
-Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+	Matthew Gerlach <mgerlach@opensource.altera.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: Dinh Nguyen <dinguyen@opensource.altera.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:37894 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbcDTJUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:20:49 -0400
+In-Reply-To: <5716E39E.3010905@opensource.altera.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBBcHIgMTksIDIwMTYgYXQgMDE6MzM6NThQTSArMDEwMCwgQ2hyaXMgV2lsc29uIHdy
-b3RlOgo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jIGIvZHJp
-dmVycy9ncHUvZHJtL2k5MTUvaTkxNV9nZW0uYwo+IGluZGV4IDZjZTJjMzFiOWE4MS4uOWVmNDcz
-MjllOGFlIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2k5MTVfZ2VtLmMKPiAr
-KysgYi9kcml2ZXJzL2dwdS9kcm0vaTkxNS9pOTE1X2dlbS5jCj4gQEAgLTMzNDYsNiArMzM0Niwx
-NSBAQCBzdGF0aWMgdm9pZCBpOTE1X2dlbV9vYmplY3RfZmluaXNoX2d0dChzdHJ1Y3QgZHJtX2k5
-MTVfZ2VtX29iamVjdCAqb2JqKQo+ICAJCQkJCSAgICBvbGRfd3JpdGVfZG9tYWluKTsKPiAgfQo+
-ICAKPiArc3RhdGljIHZvaWQgX19pOTE1X3ZtYV9pb3VubWFwKHN0cnVjdCBpOTE1X3ZtYSAqdm1h
-KQo+ICt7Cj4gKwlpZiAodm1hLT5pb21hcCA9PSBOVUxMKQo+ICsJCXJldHVybjsKPiArCj4gKwlp
-b19tYXBwaW5nX3VubWFwKHZtYS0+aW9tYXApOwoKVGhlIE5VTEwgY2hlY2sgY291bGQganVzdCBi
-ZSBkb25lIGJ5IGlvX21hcHBpbmdfdW5tYXAoKSB0aGVuIHlvdQpjYW4gYXZvaWQgdGhpcyBpbiBv
-dGhlciBkcml2ZXJzIHRvby4KCj4gKwl2bWEtPmlvbWFwID0gTlVMTDsKCllvdSBhZGRlZCBhY2Nv
-dW50aW5nIGhlcmUsIGJ5IHNpbXBsZSBpbnQgYW5kIGluYyAvIGRlYydpbmcgaXQuCkkgY2Fubm90
-IGNvbmZpcm0gaWYgaXQgaXMgY29ycmVjdGx5IGF2b2lkaW5nIHJhY2VzLCBjYW4geW91CmNvbmZp
-cm0/CgpBbHNvIHlvdSBhZGRlZCBhY2NvdW50aW5nIGZvciB0aGUgY3VzdG9tIHZtYSBwaW5uaW5n
-IHRoaW5nIGFuZCBkbwpHRU1fQlVHX09OKHZtYS0+cGluX2NvdW50ID09IDApOyB3aGVuIHlvdSB1
-bnBpbiBvbmUgaW5zdGFuY2UgYnV0ICp5b3UgZG8gbm90KgpkbyBzb21ldGhpbmcgbGlrZSBHRU1f
-QlVHX09OKHZtYS0+cGluX2NvdW50ICE9IDApOyB3aGVuIHlvdSBkbyB0aGUgZmluYWwgZnVsbApp
-b3VubWFwLiBUaGF0IHNlZW1zIHJhdGhlciBzbG9wcHkuCgppb21hcHBpbmcgc3R1ZmYgaGFzIGl0
-cyBvd24gY3VzdG9tIGRhdGEgc3RydWN0dXJlLCB3aHkgbm90IGp1c3QgdXNlIHRoYXQgZGF0YQpz
-dHJ1Y3R1cmUgaW5zdGVhZCBvZiB0aGUgc3RydWN0IGk5MTVfdm1hIGFuZCBnZW5lcmFsaXplIHRo
-aXMgPyBEcml2ZXJzIGNhbgpiZSBidWdneSBhbmQgYmVzdCBpZiB3ZSBhdm9pZCBjdXN0b20gZHJp
-dmVyIGFjY291bnRpbmcgYW5kIGp1c3QgZG8gaXQgaW4gYSBuZWF0CmdlbmVyaWMgZmFzaGlvbi4K
-ClRoZW4gb3RoZXIgZHJpdmVycyBjb3VsZCB1c2UgdGhpcyB0b28uCgo+IGRpZmYgLS1naXQgYS9k
-cml2ZXJzL2dwdS9kcm0vaTkxNS9pbnRlbF9mYmRldi5jIGIvZHJpdmVycy9ncHUvZHJtL2k5MTUv
-aW50ZWxfZmJkZXYuYwo+IGluZGV4IDc5YWMyMDJmMzg3MC4uOTNmNTRhMTAwNDJmIDEwMDY0NAo+
-IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9pOTE1L2ludGVsX2ZiZGV2LmMKPiArKysgYi9kcml2ZXJz
-L2dwdS9kcm0vaTkxNS9pbnRlbF9mYmRldi5jCj4gQEAgLTI0NCwyMiArMjQ1LDIzIEBAIHN0YXRp
-YyBpbnQgaW50ZWxmYl9jcmVhdGUoc3RydWN0IGRybV9mYl9oZWxwZXIgKmhlbHBlciwKPiAgCWlu
-Zm8tPmZsYWdzID0gRkJJTkZPX0RFRkFVTFQgfCBGQklORk9fQ0FOX0ZPUkNFX09VVFBVVDsKPiAg
-CWluZm8tPmZib3BzID0gJmludGVsZmJfb3BzOwo+ICAKPiArCXZtYSA9IGk5MTVfZ2VtX29ial90
-b19nZ3R0KG9iaik7Cj4gKwo+ICAJLyogc2V0dXAgYXBlcnR1cmUgYmFzZS9zaXplIGZvciB2ZXNh
-ZmIgdGFrZW92ZXIgKi8KPiAgCWluZm8tPmFwZXJ0dXJlcy0+cmFuZ2VzWzBdLmJhc2UgPSBkZXYt
-Pm1vZGVfY29uZmlnLmZiX2Jhc2U7Cj4gIAlpbmZvLT5hcGVydHVyZXMtPnJhbmdlc1swXS5zaXpl
-ID0gZ2d0dC0+bWFwcGFibGVfZW5kOwo+ICAKPiAtCWluZm8tPmZpeC5zbWVtX3N0YXJ0ID0gZGV2
-LT5tb2RlX2NvbmZpZy5mYl9iYXNlICsgaTkxNV9nZW1fb2JqX2dndHRfb2Zmc2V0KG9iaik7Cj4g
-LQlpbmZvLT5maXguc21lbV9sZW4gPSBzaXplOwo+ICsJaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBk
-ZXYtPm1vZGVfY29uZmlnLmZiX2Jhc2UgKyB2bWEtPm5vZGUuc3RhcnQ7Cj4gKwlpbmZvLT5maXgu
-c21lbV9sZW4gPSB2bWEtPm5vZGUuc2l6ZTsKPiAgCj4gLQlpbmZvLT5zY3JlZW5fYmFzZSA9Cj4g
-LQkJaW9yZW1hcF93YyhnZ3R0LT5tYXBwYWJsZV9iYXNlICsgaTkxNV9nZW1fb2JqX2dndHRfb2Zm
-c2V0KG9iaiksCj4gLQkJCSAgIHNpemUpOwo+IC0JaWYgKCFpbmZvLT5zY3JlZW5fYmFzZSkgewo+
-ICsJdmFkZHIgPSBpOTE1X3ZtYV9waW5faW9tYXAodm1hKTsKPiArCWlmIChJU19FUlIodmFkZHIp
-KSB7Cj4gIAkJRFJNX0VSUk9SKCJGYWlsZWQgdG8gcmVtYXAgZnJhbWVidWZmZXIgaW50byB2aXJ0
-dWFsIG1lbW9yeVxuIik7Cj4gLQkJcmV0ID0gLUVOT1NQQzsKPiArCQlyZXQgPSBQVFJfRVJSKHZh
-ZGRyKTsKPiAgCQlnb3RvIG91dF9kZXN0cm95X2ZiaTsKPiAgCX0KPiAtCWluZm8tPnNjcmVlbl9z
-aXplID0gc2l6ZTsKPiArCWluZm8tPnNjcmVlbl9iYXNlID0gdmFkZHI7Cj4gKwlpbmZvLT5zY3Jl
-ZW5fc2l6ZSA9IHZtYS0+bm9kZS5zaXplOwoKc29tZSBmcmFtZWJ1ZmZlciBkcml2ZXJzIHRlbmQg
-dG8gdXNlIGEgZ2VuZXJpYyBzdGFydCBhZGRyZXNzIG9mCmlpbmZvLT5maXguc21lbV9zdGFydCBh
-bmQgYSBsZW5ndGggb2YgaW5mby0+Zml4LnNtZW1fbGVuLCB0aGlzCmRyaXZlciBzZXRzIHRoZSBz
-bWVtX3N0YXJ0IGFib3ZlLCBidXQgaXRzIGRpZmZlcmVudCB0aGFuIHdoYXQKZ2V0cyBpb3JlbWFw
-IGZvciBhIHN0YXJ0IGFkZHJlc3M6CgorICAgICAgICAgICAgICAgcHRyID0gaW9fbWFwcGluZ19t
-YXBfd2MoaTkxNV92bV90b19nZ3R0KHZtYS0+dm0pLT5tYXBwYWJsZSwKKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIHZtYS0+bm9kZS5zdGFydCwKKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIHZtYS0+bm9kZS5zaXplKTsKCmZpeC5zbWVtX3N0YXJ0
-IGlzIDoKCgo+ICsJaW5mby0+Zml4LnNtZW1fc3RhcnQgPSBkZXYtPm1vZGVfY29uZmlnLmZiX2Jh
-c2UgKyB2bWEtPm5vZGUuc3RhcnQ7CgpUaGUgc21lbV9sZW4gbWF0Y2hlcyB0aG91Z2guIENhbiB5
-b3UgY2xhcmlmeSBpZiBpdHMgY29ycmVjdCBmb3IKdGhlIGlvX21hcHBpbmdfbWFwX3djKCkgc2hv
-dWxkIG5vdCBiZSB1c2luZyBpbmZvLT5maXguc21lbV9zdGFydAood2hpY2ggaXMgZGV2LT5tb2Rl
-X2NvbmZpZy5mYl9iYXNlICsgdm1hLT5ub2RlLnN0YXJ0KT8KClJlYXNvbiBJIGFzayBpcyBzaW5j
-ZSBJIG5vdGljZWQgYSB3aGlsZSBhZ28gYSBsb3Qgb2YgZHJpdmVycwp3ZXJlIHVzaW5nIGluZm8t
-PmZpeC5zbWVtX3N0YXJ0IGFuZCBpbmZvLT5maXguc21lbV9sZW4gY29uc2lzdGVudGx5CmZvciB0
-aGVpciBpb3JlbWFwJ2QgYXJlYXMgaXQgbWlnaHQgbWFrZSBzZW5zZSBpbnN0ZWFkIHRvIGxldCB0
-aGUKaW50ZXJuYWwgZnJhbWVidWZmZXIgKHJlZ2lzdGVyX2ZyYW1lYnVmZmVyKCkpIG9wdGlvbmFs
-bHkgbWFuYWdlIHRoZQppb3JlbWFwX3djKCkgZm9yIGRyaXZlcnMsIGdpdmVuIHRoYXQgdGhpcyBp
-cyBwcmV0dHkgZ2VuZXJpYyBzdHVmZi4KCiAgTHVpcwpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpJbnRlbC1nZnggbWFpbGluZyBsaXN0CkludGVsLWdmeEBs
-aXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1h
-bi9saXN0aW5mby9pbnRlbC1nZngK
+On 04/20/2016 04:04 AM, Dinh Nguyen wrote:
+> 
+> 
+> On 04/19/2016 07:05 PM, Marek Vasut wrote:
+>> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
+>> in stmmac_main.c functions call devm_reset_control_get() to register an
+>> reset controller for the stmmac. This results in an attempt to register
+>> two reset controllers for the same non-shared reset line.
+>>
+>> The first attempt to register the reset controller works fine. The second
+>> attempt fails with warning from the reset controller core, see below.
+>> The warning is produced because the reset line is non-shared and thus
+>> it is allowed to have only up-to one reset controller associated with
+>> that reset line, not two or more.
+>>
+>> The solution is not great. Since the hardware needs to toggle the reset
+>> before calling stmmac_dvr_probe() to perform mandatory preconfiguration,
+>> this patch splits socfpga_dwmac_init_probe() from socfpga_dwmac_init().
+>>
+>> The socfpga_dwmac_init_probe() temporarily registers the reset controller,
+>> performs the pre-configuration and unregisters the reset controller again.
+>> This function is only called from the socfpga_dwmac_probe().
+>>
+>> The original socfpga_dwmac_init() is tweaked to use reset controller
+>> pointer from the stmmac_priv (private data of the stmmac core) instead
+>> of the local instance, which was used before.
+>>
+>> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
+>> since the functionality is already performed by the stmmac core.
+>>
+>> ------------[ cut here ]------------
+>> WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
+>> Modules linked in:
+>> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
+>> Hardware name: Altera SOCFPGA
+>> [<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
+>> [<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
+>> [<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
+>> [<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
+>> [<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
+>> [<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
+>> [<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
+>> [<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
+>> [<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
+>> [<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
+>> [<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
+>> [<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
+>> [<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
+>> [<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
+>> [<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
+>> [<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
+>> [<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
+>> [<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
+>> ---[ end trace 059d2fbe87608fa9 ]---
+>>
+> 
+> Odd, I hadn't seen this error before. I would have noticed it, but I
+> haven't ran linux-next for a few days.
+> 
+> I see that this error was introduced on linux-next/next-20160414. The
+> error was not there prior to that. While I agree that the extra call to
+> get the reset control is not needed, I wonder what commit between
+> next-20160413 and next-20160414 exposed this error. I'll try to dig this
+> some more.
+
+
+I'll save you the work, it's this one :)
+
+commit 0b52297f2288ca239e598afe6c92db83d8d2bfcd
+Author: Hans de Goede <hdegoede@redhat.com>
+Date:   Tue Feb 23 18:46:26 2016 +0100
+
+    reset: Add support for shared reset controls
+
+    In some SoCs some hw-blocks share a reset control. Add support for this
+    setup by adding new:
+
+
+-- 
+Best regards,
+Marek Vasut
