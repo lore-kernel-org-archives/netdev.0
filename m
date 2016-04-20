@@ -1,57 +1,88 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Tue, 19 Apr 2016 19:53:39 -0600
-Message-ID: <5716E123.8040002@cumulusnetworks.com>
-References: <20160418.214851.122286645854721047.davem@davemloft.net>
- <20160418.235207.395468709808133833.davem@davemloft.net>
- <1461060543.2766.20.camel@sipsolutions.net>
- <20160419.142324.1774057494079734967.davem@davemloft.net>
- <1461094901.2766.26.camel@sipsolutions.net>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: [PATCH V2] net: stmmac: socfpga: Remove re-registration of reset
+ controller
+Date: Tue, 19 Apr 2016 21:04:14 -0500
+Message-ID: <5716E39E.3010905@opensource.altera.com>
+References: <1461110753-7641-1-git-send-email-marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, roopa@cumulusnetworks.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, egrumbach@gmail.com
-To: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+	Matthew Gerlach <mgerlach@opensource.altera.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: Marek Vasut <marex@denx.de>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:38199 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753304AbcDTBxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 21:53:44 -0400
-Received: by mail-ig0-f170.google.com with SMTP id m9so25270802ige.1
-        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 18:53:43 -0700 (PDT)
-In-Reply-To: <1461094901.2766.26.camel@sipsolutions.net>
+Received: from mail-bl2on0093.outbound.protection.outlook.com ([65.55.169.93]:55017
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751723AbcDTChR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Apr 2016 22:37:17 -0400
+In-Reply-To: <1461110753-7641-1-git-send-email-marex@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/19/16 1:41 PM, Johannes Berg wrote:
-> On Tue, 2016-04-19 at 14:23 -0400, David Miller wrote:
->>
->> I like this nlattr flag idea, it's opt-in and any tool can be updated
->> to use the new facility.
->
-> Right.
->
->> I'd be willing the backport the nlattr flag bit change to all stable
->> releases as well.
->
-> I'm not really convinced that helps much - tools still can't really
-> rely on the kernel supporting it.
->
-> One thing that might work is that a tool might say it only wants to
-> support kernels that have this change (assuming we backport it to
-> enough kernels etc.); in that case the tool could add some absolutely
-> must-have information (like the IFINDEX or whatever, depends on the
-> command) with the new flag, this would get rejected since unpatched
-> kernels wouldn't understand the flag and wouldn't find that must-have
-> information.
->
-> Nevertheless, I think it's most reliable with new netlink commands that
-> are known to be available only on kernels understand and treating the
-> flag correctly.
 
-The kernel can set a flag in the response that it acknowledges the new 
-attribute/flag. I did that for filtering neigh dumps -- 21fdd092acc7.
+
+On 04/19/2016 07:05 PM, Marek Vasut wrote:
+> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
+> in stmmac_main.c functions call devm_reset_control_get() to register an
+> reset controller for the stmmac. This results in an attempt to register
+> two reset controllers for the same non-shared reset line.
+> 
+> The first attempt to register the reset controller works fine. The second
+> attempt fails with warning from the reset controller core, see below.
+> The warning is produced because the reset line is non-shared and thus
+> it is allowed to have only up-to one reset controller associated with
+> that reset line, not two or more.
+> 
+> The solution is not great. Since the hardware needs to toggle the reset
+> before calling stmmac_dvr_probe() to perform mandatory preconfiguration,
+> this patch splits socfpga_dwmac_init_probe() from socfpga_dwmac_init().
+> 
+> The socfpga_dwmac_init_probe() temporarily registers the reset controller,
+> performs the pre-configuration and unregisters the reset controller again.
+> This function is only called from the socfpga_dwmac_probe().
+> 
+> The original socfpga_dwmac_init() is tweaked to use reset controller
+> pointer from the stmmac_priv (private data of the stmmac core) instead
+> of the local instance, which was used before.
+> 
+> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
+> since the functionality is already performed by the stmmac core.
+> 
+> ------------[ cut here ]------------
+> WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
+> Modules linked in:
+> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
+> Hardware name: Altera SOCFPGA
+> [<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
+> [<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
+> [<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
+> [<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
+> [<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
+> [<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
+> [<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
+> [<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
+> [<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
+> [<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
+> [<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
+> [<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
+> [<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
+> [<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
+> [<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
+> [<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
+> [<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
+> [<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
+> ---[ end trace 059d2fbe87608fa9 ]---
+> 
+
+Odd, I hadn't seen this error before. I would have noticed it, but I
+haven't ran linux-next for a few days.
+
+I see that this error was introduced on linux-next/next-20160414. The
+error was not there prior to that. While I agree that the extra call to
+get the reset control is not needed, I wonder what commit between
+next-20160413 and next-20160414 exposed this error. I'll try to dig this
+some more.
+
+Dinh
