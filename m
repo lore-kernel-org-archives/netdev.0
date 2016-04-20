@@ -1,56 +1,40 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH] MAINTAINERS: net: add entry for TI Ethernet Switch drivers
-Date: Wed, 20 Apr 2016 14:25:09 +0300
-Message-ID: <1461151509-2368-1-git-send-email-grygorii.strashko@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, Tony Lindgren <tony@atomide.com>,
-	<linux-omap@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: [PATCH] net: phy: spi_ks8895: Don't leak references to SPI devices
+Date: Wed, 20 Apr 2016 12:54:05 +0100
+Message-ID: <1461153245-7992-1-git-send-email-broonie@kernel.org>
+Cc: netdev@vger.kernel.org, Mark Brown <broonie@kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:50261 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933747AbcDTLZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 07:25:41 -0400
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:56704 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbcDTLyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 07:54:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add record for TI Ethernet Switch Driver CPSW/CPDMA/MDIO HW
-(am33/am43/am57/dr7/davinci) to ensure that related patches
-will go through dedicated linux-omap list.
+The ks8895 driver is using spi_dev_get() apparently just to take a copy
+of the SPI device used to instantiate it but never calls spi_dev_put()
+to free it.  Since the device is guaranteed to exist between probe() and
+remove() there should be no need for the driver to take an extra
+reference to it so fix the leak by just using a straight assignment.
 
-Also add Mugunthan as maintainer and myself as the reviewer.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Mugunthan V N <mugunthanvnm@ti.com>
-Cc: Richard Cochran <richardcochran@gmail.com>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
 ---
- MAINTAINERS | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/phy/spi_ks8995.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1d5b4be..aca864d 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -11071,6 +11071,14 @@ S:	Maintained
- F:	drivers/clk/ti/
- F:	include/linux/clk/ti.h
+diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+index b5d50d458728..93ffedfa2994 100644
+--- a/drivers/net/phy/spi_ks8995.c
++++ b/drivers/net/phy/spi_ks8995.c
+@@ -441,7 +441,7 @@ static int ks8995_probe(struct spi_device *spi)
+ 		return -ENOMEM;
  
-+TI ETHERNET SWITCH DRIVER (CPSW)
-+M:	Mugunthan V N <mugunthanvnm@ti.com>
-+R:	Grygorii Strashko <grygorii.strashko@ti.com>
-+L:	linux-omap@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/ti/cpsw*
-+F:	drivers/net/ethernet/ti/davinci*
-+
- TI FLASH MEDIA INTERFACE DRIVER
- M:	Alex Dubov <oakad@yahoo.com>
- S:	Maintained
+ 	mutex_init(&ks->lock);
+-	ks->spi = spi_dev_get(spi);
++	ks->spi = spi;
+ 	ks->chip = &ks8995_chip[variant];
+ 
+ 	if (ks->spi->dev.of_node) {
 -- 
-2.8.1
+2.8.0.rc3
