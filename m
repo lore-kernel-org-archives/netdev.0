@@ -1,45 +1,47 @@
-From: DrHaruna Bello <drharunabello486@gmail.com>
-Subject: ASSALAMU ALAIKUM
-Date: Wed, 20 Apr 2016 15:07:01 +0000 (UTC)
-Message-ID: <423625983.3261692.1461164821070.JavaMail.yahoo@mail.yahoo.com>
-References: <423625983.3261692.1461164821070.JavaMail.yahoo.ref@mail.yahoo.com>
-Reply-To: DrHaruna Bello <drharunabello486@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net 4/4] net/mlx4_en: Split SW RX dropped counter per RX
+ ring
+Date: Wed, 20 Apr 2016 18:00:51 +0300
+Message-ID: <571799A3.402@mellanox.com>
+References: <1461157278-18528-1-git-send-email-ogerlitz@mellanox.com>
+ <1461157278-18528-5-git-send-email-ogerlitz@mellanox.com>
+ <1461164209.10638.262.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Eran Ben Elisha" <eranbe@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	"Saeed Mahameed" <saeedm@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm33-vm6.bullet.mail.ne1.yahoo.com ([98.138.229.70]:42244 "EHLO
-	nm33-vm6.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751697AbcDTPP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 11:15:59 -0400
+Received: from mail-db3on0061.outbound.protection.outlook.com ([157.55.234.61]:19104
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751811AbcDTPRE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 11:17:04 -0400
+In-Reply-To: <1461164209.10638.262.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 4/20/2016 5:56 PM, Eric Dumazet wrote:
+>> >Fixes: a3333b35da16 ('net/mlx4_en: Moderate ethtool callback to [...] ')
+>> >Signed-off-by: Eran Ben Elisha<eranbe@mellanox.com>
+>> >Reported-by: Brenden Blanco<bblanco@plumgrid.com>
+>> >Signed-off-by: Saeed Mahameed<saeedm@mellanox.com>
+>> >Signed-off-by: Or Gerlitz<ogerlitz@mellanox.com>
+>> >---
+> Reported-by: Eric Dumazet<edumazet@google.com>
+>
+> (http://www.spinics.net/lists/netdev/msg371318.html  )
 
+Hi Eric,
 
-BUSINESS RELATIONSHIP
+Just to be sure, you'd like me to re-spin this and fix the reporter name?
 
-Dear Friend,
+>
+> Thanks for following up !
 
+sure
 
-Let me start by introducing myself,I am Dr Haruna Bello,
-Manager of Bank Of Africa Burkina faso.
-I am writting you this letter based on the latest development at my Departmentwhich I will like to bring to your personal edification.(18.5 million U.SDollars transfer claims).
-This is a legitimate transaction and I agreed to offer you 40% of this money as my foreign partner after confirmation of the fund in your bank account.
-If you are interested,get back to me with the following details below.
-
-(1)Your age........................                 
-(2)Sex........................
-(3)Your occupation.....
-(4)Your marital status.....
-(5)Your country Name......
-(6)Your full residential address.......
-(7)Your private phone and fax number and your complete name.......
-(8)A copy of your int'l passport or ID card............
-As soon as I receive these data, I will forward to you the application form whichyou will send to the bank.
-
-
-
-Best Regard
-Dr Haruna Bello
+Or.
