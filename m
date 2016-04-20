@@ -1,67 +1,57 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/7] net: network drivers should not depend on
- geneve/vxlan
-Date: Wed, 20 Apr 2016 03:21:02 +0200
-Message-ID: <5716D97E.6030000@stressinduktion.org>
-References: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org>
- <20160419.202750.1844614056540086769.davem@davemloft.net>
- <1461114373.2649930.583890089.0C126826@webmail.messagingengine.com>
- <20160419.211134.2163748309501010595.davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
+ dump link stats
+Date: Tue, 19 Apr 2016 19:53:39 -0600
+Message-ID: <5716E123.8040002@cumulusnetworks.com>
+References: <20160418.214851.122286645854721047.davem@davemloft.net>
+ <20160418.235207.395468709808133833.davem@davemloft.net>
+ <1461060543.2766.20.camel@sipsolutions.net>
+ <20160419.142324.1774057494079734967.davem@davemloft.net>
+ <1461094901.2766.26.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, roopa@cumulusnetworks.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, egrumbach@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:56083 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932298AbcDTBVF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 21:21:05 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id BA3DB21138
-	for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 21:21:04 -0400 (EDT)
-In-Reply-To: <20160419.211134.2163748309501010595.davem@davemloft.net>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:38199 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304AbcDTBxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 21:53:44 -0400
+Received: by mail-ig0-f170.google.com with SMTP id m9so25270802ige.1
+        for <netdev@vger.kernel.org>; Tue, 19 Apr 2016 18:53:43 -0700 (PDT)
+In-Reply-To: <1461094901.2766.26.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.04.2016 03:11, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 20 Apr 2016 03:06:13 +0200
-> 
->> On Wed, Apr 20, 2016, at 02:27, David Miller wrote:
->>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>> Date: Mon, 18 Apr 2016 21:19:41 +0200
->>>
->>>> This patchset removes the dependency of network drivers on vxlan or
->>>> geneve, so those don't get autoloaded when the nic driver is loaded.
->>>>
->>>> Also audited the code such that vxlan_get_rx_port and geneve_get_rx_port
->>>> are not called without rtnl lock.
->>>
->>> In net-next, the 'qed' driver has tunneling offload support too.
->>> Don't you need to update this series to handle that driver as
->>> well?
+On 4/19/16 1:41 PM, Johannes Berg wrote:
+> On Tue, 2016-04-19 at 14:23 -0400, David Miller wrote:
 >>
->> I audited qede as well:
->>
->> qede calls {vxlan,geneve}_get_rx_port only from ndo_open which isn't
->> reused anywhere else in the driver, only from ndo_open, which holds
->> rtnl_lock also. Thus the driver is safe and doesn't need a change.
-> 
-> I'm talking about your final patches which elide the dependencies.
+>> I like this nlattr flag idea, it's opt-in and any tool can be updated
+>> to use the new facility.
+>
+> Right.
+>
+>> I'd be willing the backport the nlattr flag bit change to all stable
+>> releases as well.
+>
+> I'm not really convinced that helps much - tools still can't really
+> rely on the kernel supporting it.
+>
+> One thing that might work is that a tool might say it only wants to
+> support kernels that have this change (assuming we backport it to
+> enough kernels etc.); in that case the tool could add some absolutely
+> must-have information (like the IFINDEX or whatever, depends on the
+> command) with the new flag, this would get rejected since unpatched
+> kernels wouldn't understand the flag and wouldn't find that must-have
+> information.
+>
+> Nevertheless, I think it's most reliable with new netlink commands that
+> are known to be available only on kernels understand and treating the
+> flag correctly.
 
-The dependency will be removed with only the last two patches for all
-drivers. The static inline functions {vxlan,geneve}_get_rx_port now
-simply expand to a call to call_netdevice_notifiers, which is provided
-by the core kernel and not by the vxlan or geneve module anymore.
-
-During testing I saw that very often some drivers actually reused their
-*_attach or *_open function from other callbacks, e.g. pci ones. While
-they often didn't care about rtnl_lock, we now require that for the new
-get_rx_port functions, thus I added them.
-
-I hadn't had to modify all drivers with vxlan offloading support, e.g.
-also mlx5 and the broadcom drivers, bnx2x and bnxt, were already fine.
-
-Bye,
-Hannes
+The kernel can set a flag in the response that it acknowledges the new 
+attribute/flag. I did that for filtering neigh dumps -- 21fdd092acc7.
