@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp-tso: do not split TSO packets at
- retransmit time
-Date: Tue, 19 Apr 2016 20:36:56 -0400 (EDT)
-Message-ID: <20160419.203656.505846026424405432.davem@davemloft.net>
-References: <1461012972-15757-1-git-send-email-edumazet@google.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next V5 0/2] ethernet: intel: Support Hyper-V hosts
+Date: Tue, 19 Apr 2016 19:17:35 -0700
+Message-ID: <1461118655-28103-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
-	eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38831 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752967AbcDTAg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Apr 2016 20:36:59 -0400
-In-Reply-To: <1461012972-15757-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com, eli@mellanox.com, jackm@mellanox.com,
+ yevgenyp@mellanox.com, john.ronciak@intel.com,
+ intel-wired-lan@lists.osuosl.org, alexander.duyck@gmail.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon, 18 Apr 2016 13:56:12 -0700
+Make adjustments to the Intel 10G VF driver to support
+running on Hyper-V hosts.
 
-> 1 % packet losses are common today, and at 100Gbit speeds, this
-> translates to ~80,000 losses per second. If we are unlucky and
-> first MSS of a 45-MSS TSO is lost, we are cooking 44 MSS segments
-> at rtx instead of a single 44-MSS TSO packet.
+K. Y. Srinivasan (2):
+  ethernet: intel: Add the device ID's presented while running on
+    Hyper-V
+  intel: ixgbevf: Support Windows hosts (Hyper-V)
 
-I'm having trouble understanding this.
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |    5 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   12 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   31 +++-
+ drivers/net/ethernet/intel/ixgbevf/mbx.c          |   12 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           |  216 +++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |    2 +
+ 6 files changed, 271 insertions(+), 7 deletions(-)
 
-If the first mss is lost, then we simply chop the 45 MSS TSO skb into
-two pieces.  The first piece is a 1 MSS chunk for the retransmit, and
-the second piece is remaining 44 MSS TSO skb.
-
-I am pretty sure that is what the current stack does, and regardless
-it is certainly what I intended it to do all those years ago when I
-wrote this code. :-)
-
-The only case where I can see this patch helping is when we have to
-retransmit multi-mss chunks.  And yes indeed, it might be a useful
-optimization to TSO those frames rather than sending them one MSS at a
-time.
+-- 
+1.7.4.1
