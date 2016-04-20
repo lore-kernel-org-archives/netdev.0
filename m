@@ -1,318 +1,104 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 1/2] skbuff: Add pskb_extract() helper function
-Date: Wed, 20 Apr 2016 03:17:41 -0700
-Message-ID: <8d683318ede700f5f1b4d4333dfad8a1935f9ce6.1461086306.git.sowmini.varadhan@oracle.com>
-References: <cover.1461086306.git.sowmini.varadhan@oracle.com>
-Cc: sowmini.varadhan@oracle.com, eric.dumazet@gmail.com,
-	marcelo.leitner@gmail.com
-To: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
-	santosh.shilimkar@oracle.com, davem@davemloft.net
+From: Ingo Saitz <ingo@stud.uni-hannover.de>
+Subject: skb_at_tc_ingress helper breaks compilation of oot modules
+Date: Wed, 20 Apr 2016 12:21:49 +0200
+Message-ID: <20160420102148.GA18615@echse.zoo>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="G4iJoqBmSsgzjUCe"
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:36910 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932979AbcDTKS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 06:18:29 -0400
-In-Reply-To: <cover.1461086306.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1461086306.git.sowmini.varadhan@oracle.com>
-References: <cover.1461086306.git.sowmini.varadhan@oracle.com>
+Received: from mailout1n.rrzn.uni-hannover.de ([130.75.2.107]:48465 "EHLO
+	mailout1n.rrzn.uni-hannover.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932188AbcDTK1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 06:27:07 -0400
+Received: from echse.zoo (dslb-084-056-223-182.084.056.pools.vodafone-ip.de [84.56.223.182])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by mailout1n.rrzn.uni-hannover.de (Postfix) with ESMTPSA id 120D91056006
+	for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 12:21:49 +0200 (CEST)
+Received: from ingo by echse.zoo with local (Exim 4.87)
+	(envelope-from <ingo@echse.zoo>)
+	id 1aspGX-0004tF-28
+	for netdev@vger.kernel.org; Wed, 20 Apr 2016 12:21:49 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A pattern of skb usage seen in modules such as RDS-TCP is to
-extract `to_copy' bytes from the received TCP segment, starting
-at some offset `off' into a new skb `clone'. This is done in
-the ->data_ready callback, where the clone skb is queued up for rx on
-the PF_RDS socket, while the parent TCP segment is returned unchanged
-back to the TCP engine.
 
-The existing code uses the sequence
-	clone = skb_clone(..);
-	pskb_pull(clone, off, ..);
-	pskb_trim(clone, to_copy, ..);
-with the intention of discarding the first `off' bytes. However,
-skb_clone() + pskb_pull() implies pksb_expand_head(), which ends
-up doing a redundant memcpy of bytes that will then get discarded
-in __pskb_pull_tail().
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
 
-To avoid this inefficiency, this commit adds pskb_extract() that
-creates the clone, and memcpy's only the relevant header/frag/frag_list
-to the start of `clone'. pskb_trim() is then invoked to trim clone
-down to the requested to_copy bytes.
+In Linux 4.5, when CONFIG_NET_CLS_ACT is defined, compilation of out of
+tree modules breaks with undeclared functions/constants. The culprit is:
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- include/linux/skbuff.h |    2 +
- net/core/skbuff.c      |  248 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 250 insertions(+), 0 deletions(-)
+commit fdc5432a7b44ab7de17141beec19d946b9344e91
+Author: Daniel Borkmann <daniel@iogearbox.net>
+Date:   Thu Jan 7 15:50:22 2016 +0100
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index da0ace3..a1ce639 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2986,6 +2986,8 @@ struct sk_buff *skb_vlan_untag(struct sk_buff *skb);
- int skb_ensure_writable(struct sk_buff *skb, int write_len);
- int skb_vlan_pop(struct sk_buff *skb);
- int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
-+struct sk_buff *pskb_extract(struct sk_buff *skb, int off, int to_copy,
-+			     gfp_t gfp);
- 
- static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
- {
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4cc594c..e8b6d20 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4619,3 +4619,251 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
- 	return NULL;
- }
- EXPORT_SYMBOL(alloc_skb_with_frags);
-+
-+/* carve out the first off bytes from skb when off < headlen */
-+static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
-+				    const int headlen, gfp_t gfp_mask)
-+{
-+	int i;
-+	int size = skb_end_offset(skb);
-+	int new_hlen = headlen - off;
-+	u8 *data;
-+	int doff = 0;
-+
-+	size = SKB_DATA_ALIGN(size);
-+
-+	if (skb_pfmemalloc(skb))
-+		gfp_mask |= __GFP_MEMALLOC;
-+	data = kmalloc_reserve(size +
-+			       SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
-+			       gfp_mask, NUMA_NO_NODE, NULL);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	size = SKB_WITH_OVERHEAD(ksize(data));
-+
-+	/* Copy real data, and all frags */
-+	skb_copy_from_linear_data_offset(skb, off, data, new_hlen);
-+	skb->len -= off;
-+
-+	memcpy((struct skb_shared_info *)(data + size),
-+	       skb_shinfo(skb),
-+	       offsetof(struct skb_shared_info,
-+			frags[skb_shinfo(skb)->nr_frags]));
-+	if (skb_cloned(skb)) {
-+		/* drop the old head gracefully */
-+		if (skb_orphan_frags(skb, gfp_mask)) {
-+			kfree(data);
-+			return -ENOMEM;
-+		}
-+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+			skb_frag_ref(skb, i);
-+		if (skb_has_frag_list(skb))
-+			skb_clone_fraglist(skb);
-+		skb_release_data(skb);
-+	} else {
-+		/* we can reuse existing recount- all we did was
-+		 * relocate values
-+		 */
-+		skb_free_head(skb);
-+	}
-+
-+	doff = (data - skb->head);
-+	skb->head = data;
-+	skb->data = data;
-+	skb->head_frag = 0;
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+	skb->end = size;
-+	doff = 0;
-+#else
-+	skb->end = skb->head + size;
-+#endif
-+	skb_set_tail_pointer(skb, skb_headlen(skb));
-+	skb_headers_offset_update(skb, 0);
-+	skb->cloned = 0;
-+	skb->hdr_len = 0;
-+	skb->nohdr = 0;
-+	atomic_set(&skb_shinfo(skb)->dataref, 1);
-+
-+	return 0;
-+}
-+
-+static int pskb_carve(struct sk_buff *skb, const u32 off, gfp_t gfp);
-+
-+/* carve out the first eat bytes from skb's frag_list. May recurse into
-+ * pskb_carve()
-+ */
-+static int pskb_carve_frag_list(struct sk_buff *skb,
-+				struct skb_shared_info *shinfo, int eat,
-+				gfp_t gfp_mask)
-+{
-+	struct sk_buff *list = shinfo->frag_list;
-+	struct sk_buff *clone = NULL;
-+	struct sk_buff *insp = NULL;
-+
-+	do {
-+		if (!list) {
-+			pr_err("Not enough bytes to eat. Want %d\n", eat);
-+			return -EFAULT;
-+		}
-+		if (list->len <= eat) {
-+			/* Eaten as whole. */
-+			eat -= list->len;
-+			list = list->next;
-+			insp = list;
-+		} else {
-+			/* Eaten partially. */
-+			if (skb_shared(list)) {
-+				clone = skb_clone(list, gfp_mask);
-+				if (!clone)
-+					return -ENOMEM;
-+				insp = list->next;
-+				list = clone;
-+			} else {
-+				/* This may be pulled without problems. */
-+				insp = list;
-+			}
-+			if (pskb_carve(list, eat, gfp_mask) < 0) {
-+				kfree_skb(clone);
-+				return -ENOMEM;
-+			}
-+			break;
-+		}
-+	} while (eat);
-+
-+	/* Free pulled out fragments. */
-+	while ((list = shinfo->frag_list) != insp) {
-+		shinfo->frag_list = list->next;
-+		kfree_skb(list);
-+	}
-+	/* And insert new clone at head. */
-+	if (clone) {
-+		clone->next = list;
-+		shinfo->frag_list = clone;
-+	}
-+	return 0;
-+}
-+
-+/* carve off first len bytes from skb. Split line (off) is in the
-+ * non-linear part of skb
-+ */
-+static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
-+				       int pos, gfp_t gfp_mask)
-+{
-+	int i, k = 0;
-+	int size = skb_end_offset(skb);
-+	u8 *data;
-+	const int nfrags = skb_shinfo(skb)->nr_frags;
-+	struct skb_shared_info *shinfo;
-+	int doff = 0;
-+
-+	size = SKB_DATA_ALIGN(size);
-+
-+	if (skb_pfmemalloc(skb))
-+		gfp_mask |= __GFP_MEMALLOC;
-+	data = kmalloc_reserve(size +
-+			       SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
-+			       gfp_mask, NUMA_NO_NODE, NULL);
-+	if (!data)
-+		return -ENOMEM;
-+
-+	size = SKB_WITH_OVERHEAD(ksize(data));
-+
-+	memcpy((struct skb_shared_info *)(data + size),
-+	       skb_shinfo(skb), offsetof(struct skb_shared_info,
-+					 frags[skb_shinfo(skb)->nr_frags]));
-+	if (skb_orphan_frags(skb, gfp_mask)) {
-+		kfree(data);
-+		return -ENOMEM;
-+	}
-+	shinfo = (struct skb_shared_info *)(data + size);
-+	for (i = 0; i < nfrags; i++) {
-+		int fsize = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-+
-+		if (pos + fsize > off) {
-+			shinfo->frags[k] = skb_shinfo(skb)->frags[i];
-+
-+			if (pos < off) {
-+				/* Split frag.
-+				 * We have two variants in this case:
-+				 * 1. Move all the frag to the second
-+				 *    part, if it is possible. F.e.
-+				 *    this approach is mandatory for TUX,
-+				 *    where splitting is expensive.
-+				 * 2. Split is accurately. We make this.
-+				 */
-+				shinfo->frags[0].page_offset += off - pos;
-+				skb_frag_size_sub(&shinfo->frags[0], off - pos);
-+			}
-+			skb_frag_ref(skb, i);
-+			k++;
-+		}
-+		pos += fsize;
-+	}
-+	shinfo->nr_frags = k;
-+	if (skb_has_frag_list(skb))
-+		skb_clone_fraglist(skb);
-+
-+	if (k == 0) {
-+		/* split line is in frag list */
-+		pskb_carve_frag_list(skb, shinfo, off - pos, gfp_mask);
-+	}
-+	skb_release_data(skb);
-+
-+	doff = (data - skb->head);
-+	skb->head = data;
-+	skb->head_frag = 0;
-+	skb->data = data;
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+	skb->end = size;
-+	doff = 0;
-+#else
-+	skb->end = skb->head + size;
-+#endif
-+	skb_reset_tail_pointer(skb);
-+	skb_headers_offset_update(skb, 0);
-+	skb->cloned   = 0;
-+	skb->hdr_len  = 0;
-+	skb->nohdr    = 0;
-+	skb->len -= off;
-+	skb->data_len = skb->len;
-+	atomic_set(&skb_shinfo(skb)->dataref, 1);
-+	return 0;
-+}
-+
-+/* remove len bytes from the beginning of the skb */
-+static int pskb_carve(struct sk_buff *skb, const u32 len, gfp_t gfp)
-+{
-+	int headlen = skb_headlen(skb);
-+
-+	if (len < headlen)
-+		return pskb_carve_inside_header(skb, len, headlen, gfp);
-+	else
-+		return pskb_carve_inside_nonlinear(skb, len, headlen, gfp);
-+}
-+
-+/* Extract to_copy bytes starting at off from skb, and return this in
-+ * a new skb
-+ */
-+struct sk_buff *pskb_extract(struct sk_buff *skb, int off,
-+			     int to_copy, gfp_t gfp)
-+{
-+	struct sk_buff  *clone = skb_clone(skb, gfp);
-+
-+	if (!clone)
-+		return NULL;
-+
-+	if (pskb_carve(clone, off, gfp) < 0) {
-+		pr_warn("pskb_carve failed\n");
-+		kfree_skb(clone);
-+		return NULL;
-+	}
-+
-+	if (pskb_trim(clone, to_copy)) {
-+		pr_warn("pskb_trim failed\n");
-+		kfree_skb(clone);
-+		return NULL;
-+	}
-+	return clone;
-+}
-+EXPORT_SYMBOL(pskb_extract);
+    net, sched: add skb_at_tc_ingress helper
+
+which uses G_TC_AT and AT_INGRESS but only includes linux/pkt_cls.h,
+which does not include these #defines for oot builds. Unfortunately I'm
+not sure what the correct fix is, maybe the uapi folks could help, but i
+attached a simple testcase and build log (Makefile is straight from
+kernelnewbies).
+
+    Ingo
 -- 
-1.7.1
+ ╭─╮  Kennedy's Lemma:
+╭│───╮  If you can parse Perl, you can solve the Halting Problem.
+│╰─│─╯
+╰──╯  http://www.perlmonks.org/?node_id=663393
+
+--G4iJoqBmSsgzjUCe
+Content-Type: text/x-csrc; charset=us-ascii
+Content-Disposition: attachment; filename="fail.c"
+
+#include <net/ipv6.h>
+
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=Makefile
+
+obj-m := fail.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="make.log"
+Content-Transfer-Encoding: 8bit
+
+make -C /lib/modules/4.5.0-pinguin20160314/build M=/home/ingo/src/linux/pkt_cls-bug modules
+make[1]: Entering directory '/usr/src/linux-headers-4.5.0-pinguin20160314'
+  CC [M]  /home/ingo/src/linux/pkt_cls-bug/fail.o
+In file included from include/linux/filter.h:16:0,
+                 from include/net/sock.h:64,
+                 from include/linux/tcp.h:22,
+                 from include/linux/ipv6.h:72,
+                 from include/net/ipv6.h:16,
+                 from /home/ingo/src/linux/pkt_cls-bug/fail.c:1:
+include/net/sch_generic.h: In function ‘skb_at_tc_ingress’:
+include/net/sch_generic.h:413:9: error: implicit declaration of function ‘G_TC_AT’ [-Werror=implicit-function-declaration]
+  return G_TC_AT(skb->tc_verd) & AT_INGRESS;
+         ^
+include/net/sch_generic.h:413:33: error: ‘AT_INGRESS’ undeclared (first use in this function)
+  return G_TC_AT(skb->tc_verd) & AT_INGRESS;
+                                 ^
+include/net/sch_generic.h:413:33: note: each undeclared identifier is reported only once for each function it appears in
+cc1: some warnings being treated as errors
+scripts/Makefile.build:264: recipe for target '/home/ingo/src/linux/pkt_cls-bug/fail.o' failed
+make[2]: *** [/home/ingo/src/linux/pkt_cls-bug/fail.o] Error 1
+Makefile:1391: recipe for target '_module_/home/ingo/src/linux/pkt_cls-bug' failed
+make[1]: *** [_module_/home/ingo/src/linux/pkt_cls-bug] Error 2
+make[1]: Leaving directory '/usr/src/linux-headers-4.5.0-pinguin20160314'
+Makefile:4: recipe for target 'all' failed
+make: *** [all] Error 2
+
+--G4iJoqBmSsgzjUCe--
