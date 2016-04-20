@@ -1,140 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v3 net-next 1/3] tcp: Make use of MSG_EOR in
- tcp_sendmsg and tcp_sendpage
-Date: Wed, 20 Apr 2016 02:21:24 -0700
-Message-ID: <1461144084.10638.245.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1461133497-1515104-1-git-send-email-kafai@fb.com>
-	 <1461133497-1515104-2-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH net-next 1/4] netlink: fix test alignment in
+ nla_align_64bit()
+Date: Wed, 20 Apr 2016 02:33:22 -0700
+Message-ID: <1461144802.10638.249.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160419.195009.1052027353987244150.davem@davemloft.net>
+	 <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <1461142655-5067-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Soheil Hassas Yeganeh <soheil@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	roopa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35088 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709AbcDTJVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:21:24 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n1so16539036pfn.2
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 02:21:24 -0700 (PDT)
-In-Reply-To: <1461133497-1515104-2-git-send-email-kafai@fb.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35011 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932994AbcDTJdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:33:20 -0400
+Received: by mail-pf0-f169.google.com with SMTP id n1so16644075pfn.2
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 02:33:19 -0700 (PDT)
+In-Reply-To: <1461142655-5067-2-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-19 at 23:24 -0700, Martin KaFai Lau wrote:
-> This patch adds an eor bit to the TCP_SKB_CB.  When MSG_EOR
-> is passed to tcp_sendmsg/tcp_sendpage, the eor bit will
-> be set at the skb containing the last byte of the userland's
-> msg.  The eor bit will prevent data from appending to that
-> skb in the future.
+On Wed, 2016-04-20 at 10:57 +0200, Nicolas Dichtel wrote:
+> IS_ALIGN() returns true when the alignment is as expected. The pad
+> attribute should be added only when the alignment is not 8.
 > 
-> This patch handles the tcp_sendmsg and tcp_sendpage cases.
-> 
-> The followup patches will handle other skb coalescing
-> and fragment cases.
-> 
-> One potential use case is to use MSG_EOR with
-> SOF_TIMESTAMPING_TX_ACK to get a more accurate
-> TCP ack timestamping on application protocol with
-> multiple outgoing response messages (e.g. HTTP2).
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 35c5845957c7 ("net: Add helpers for 64-bit aligning netlink attributes.")
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > ---
->  include/net/tcp.h | 3 ++-
->  net/ipv4/tcp.c    | 7 +++++--
->  2 files changed, 7 insertions(+), 3 deletions(-)
+>  include/net/netlink.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index c0ef054..ac31798 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -762,7 +762,8 @@ struct tcp_skb_cb {
->  
->  	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
->  	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
-> -			unused:7;
-> +			eor:1,		/* Is skb MSG_EOR marked */
-> +			unused:6;
->  	__u32		ack_seq;	/* Sequence number ACK'd	*/
->  	union {
->  		struct inet_skb_parm	h4;
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 4d73858..7df0c1a88 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -908,7 +908,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
->  		int copy, i;
->  		bool can_coalesce;
->  
-> -		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
-> +		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0 ||
-> +		    TCP_SKB_CB(skb)->eor) {
->  new_segment:
->  			if (!sk_stream_memory_free(sk))
->  				goto wait_for_sndbuf;
-> @@ -960,6 +961,7 @@ new_segment:
->  		size -= copy;
->  		if (!size) {
->  			tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
-> +			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
+> diff --git a/include/net/netlink.h b/include/net/netlink.h
+> index e644b3489acf..694caac31d2c 100644
+> --- a/include/net/netlink.h
+> +++ b/include/net/netlink.h
+> @@ -1245,7 +1245,7 @@ static inline int nla_validate_nested(const struct nlattr *start, int maxtype,
+>  static inline int nla_align_64bit(struct sk_buff *skb, int padattr)
+>  {
+>  #ifndef HAVE_EFFICIENT_UNALIGNED_ACCESS
+> -	if (IS_ALIGNED((unsigned long)skb->data, 8)) {
+> +	if (!IS_ALIGNED((unsigned long)skb->data, 8)) {
+>  		struct nlattr *attr = nla_reserve(skb, padattr, 0);
+>  		if (!attr)
+>  			return -EMSGSIZE;
 
-I am not sure you understood how do_tcp_sendpages() was working.
+This is silly.
 
-1) It is called one page at a time, so size would reach zero for every
-sent page, and we would have at most 4096 bytes (on x86) per skb, even
-if a sendfile() or splice() or vmsplice() is requesting a large size.
+How have you tested your patch exactly ?
 
-2) @flags here does not contain typical MSG_... values,
-  but a combination of MSG_MORE and MSG_SENDPAGE_NOTLAST
+I guess David should have copied his original comment here.
 
-Since there is no way to add a MSG_EOR yet in the sendfile() and related
-functions, you should remove the above line and not claim sendpage()
-support in patch changelog/title, since it is not true.
-
-We only support not aggregating data to the last skb in write queue if
-eor bit is set on it, thus not breaking sendmsg( ... MSG_EOR) prior
-uses.
-
-
-
->  			goto out;
->  		}
->  
-> @@ -1156,7 +1158,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
->  			copy = max - skb->len;
->  		}
->  
-> -		if (copy <= 0) {
-> +		if (copy <= 0 || TCP_SKB_CB(skb)->eor) {
->  new_segment:
->  			/* Allocate new segment. If the interface is SG,
->  			 * allocate skb fitting to single page.
-> @@ -1250,6 +1252,7 @@ new_segment:
->  		copied += copy;
->  		if (!msg_data_left(msg)) {
->  			tcp_tx_timestamp(sk, sockc.tsflags, skb);
-> +			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
-
-Since this is a rmw, it is probably better to avoid it in common case,
-since we know prior value of eor must be 0 at this point.
-
-	if (unlikely(flags & MSG_EOR))
-           TCP_SKB_CB(skb)->eor = 1;
-
-
->  			goto out;
->  		}
->  
-
-Thanks.
+-        * The nlattr header is 4 bytes in size, that's why we test
+-        * if the skb->data _is_ aligned.  This NOP attribute, plus
+-        * nlattr header for IFLA_STATS64, will make nla_data() 8-byte
+-        * aligned.
