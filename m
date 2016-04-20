@@ -1,57 +1,48 @@
-From: Qiang Zhao <qiang.zhao@nxp.com>
-Subject: RE: [PATCH 5/5] drivers/net: support hdlc function for QE-UCC
-Date: Wed, 20 Apr 2016 02:28:08 +0000
-Message-ID: <AM3PR04MB11852D3C68F35C92CC344B98916D0@AM3PR04MB1185.eurprd04.prod.outlook.com>
-References: <1459327830-19829-1-git-send-email-qiang.zhao@nxp.com>
- <1459327830-19829-5-git-send-email-qiang.zhao@nxp.com>
- <57165B27.60000@c-s.fr>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next 0/3] IPVS Updates for v4.6
+Date: Wed, 20 Apr 2016 12:46:31 +1000
+Message-ID: <1461120394-5548-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"oss@buserror.net" <oss@buserror.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: Christophe Leroy <christophe.leroy@c-s.fr>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57165B27.60000@c-s.fr>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjAvMDQvMjAxNiAxMjoyMkFNLCBDaHJpc3RvcGhlIExlcm95IDxjaHJpc3RvcGhlLmxlcm95
-QGMtcy5mcj4gd3JvdGUNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ2hy
-aXN0b3BoZSBMZXJveSBbbWFpbHRvOmNocmlzdG9waGUubGVyb3lAYy1zLmZyXQ0KPiBTZW50OiBX
-ZWRuZXNkYXksIEFwcmlsIDIwLCAyMDE2IDEyOjIyIEFNDQo+IFRvOiBRaWFuZyBaaGFvIDxxaWFu
-Zy56aGFvQG54cC5jb20+OyBkYXZlbUBkYXZlbWxvZnQubmV0DQo+IENjOiBncmVna2hAbGludXhm
-b3VuZGF0aW9uLm9yZzsgWGlhb2JvIFhpZSA8eGlhb2JvLnhpZUBueHAuY29tPjsgbGludXgtDQo+
-IGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IG9zc0BidXNlcnJvci5uZXQ7IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7DQo+IGFrcG1AbGludXgtZm91bmRhdGlvbi5vcmc7IGxpbnV4cHBjLWRldkBsaXN0
-cy5vemxhYnMub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggNS81XSBkcml2ZXJzL25ldDogc3Vw
-cG9ydCBoZGxjIGZ1bmN0aW9uIGZvciBRRS1VQ0MNCj4gDQo+IExlIDMwLzAzLzIwMTYgMTA6NTAs
-IFpoYW8gUWlhbmcgYSDDqWNyaXQgOg0KPiA+IFRoZSBkcml2ZXIgYWRkIGhkbGMgc3VwcG9ydCBm
-b3IgRnJlZXNjYWxlIFFVSUNDIEVuZ2luZS4NCj4gPiBJdCBzdXBwb3J0IE5NU0kgYW5kIFRTQSBt
-b2RlLg0KPiBXaGVuIHVzaW5nIFRTQSwgaG93IGRvZXMgdGhlIFRTQSBnZXRzIGNvbmZpZ3VyZWQg
-PyBFc3BlY2lhbGx5IGhvdyBkbyB5b3UNCj4gZGVzY3JpYmUgd2hpY2ggVGltZXNsb3QgaXMgc3dp
-dGNoZWQgdG8gSERMQyBjaGFubmVscyA/DQoNCnRoZSBUU0EgaXMgY29uZmlndXJlZCBzdGF0aWNh
-bGx5IGFjY29yZGluZyB0byBkZXZpY2UgdHJlZSBub2RlLiANCkZvciAiIHdoaWNoIFRpbWVzbG90
-IGlzIHN3aXRjaGVkIHRvIEhETEMgY2hhbm5lbHMgIiwgdGhlcmUgaXMgYSBwcm9wZXJ0eSANCiJm
-c2wsdHgtdGltZXNsb3QtbWFzayIgaW4gZGV2aWNlIHRyZWUgdG8gZGVzY3JpYmUgaXQuDQoNCj4g
-SXMgaXQgcG9zc2libGUgdG8gcm91dGUgc29tZSBUaW1lc2xvdHMgdG8gb25lIFVDQyBmb3IgSERM
-QywgYW5kIHJvdXRlIHNvbWUNCj4gb3RoZXJzIHRvIGFub3RoZXIgVUNDIGZvciBhbiBBTFNBIHNv
-dW5kIGRyaXZlciA/DQoNClRoZSBmZWF0dXJlIHlvdSBkZXNjcmliZSBpcyBub3Qgc3VwcG9ydGVk
-IGF0IHByZXNlbnQuDQoNCj4gVGhlIFFFIGFsc28gaGF2ZSBhIFFNQyB3aGljaCBhbGxvd3MgdG8g
-c3BsaXQgYWxsIHRpbWVzbG90cyB0byBhIGdpdmVuIFVDQyBpbnRvDQo+IGluZGVwZW5kYW50IGNo
-YW5uZWxzIHRoYXQgY2FuIGVpdGhlciBiZSB1c2VkIHdpdGggSERMQyBvciB0cmFuc3BhcmVudHMg
-KGZvcg0KPiBhdWRpbyBmb3IgaW5zdGFuY2UpLiBEbyB5b3UgaW50ZW50IHRvIGFsc28gc3VwcG9y
-dCBRTUMgPw0KDQpuZXcgUUUgdXNlIFVNQ0MgaW5zdGVhZCBvZiBRTUMgaW4gb2xkIFFFLCB3ZSBo
-YXZlIHN0YXJ0ZWQgdG8gZGV2ZWxvcCBVTUNDLg0KIA0KPiBBY2NvcmRpbmcgdG8gdGhlIGNvbXBh
-dGlibGUgcHJvcGVydHksIGl0IGxvb2tzIGxpa2UgeW91ciBkcml2ZXIgaXMgZm9yIGZyZWVzY2Fs
-ZQ0KPiBUMTA0MC4gVGhlIE1QQzgzeHggYWxzbyBoYXMgYSBRdWljayBFbmdpbmUsIHdvdWxkIGl0
-IHdvcmsgb24gaXQgdG9vID8NCg0KVGhlIGRyaXZlciBpcyBjb21tb24sIGJ1dCB0ZXN0ZWQgb24g
-dDEwNDAsIGl0IGlzIG5lZWRlZCB0byBhZGQgbm9kZSB0byBNUEM4M3h4DQpJZiB5b3Ugd2FudCB0
-byB0ZXN0IG9uIG1wYzgzeHguDQoNCi1aaGFvIFFpYW5nDQo=
+Hi Pablo,
+
+please consider these enhancements to the IPVS. They allow SIP connections
+originating from real-servers to be load balanced by the SIP psersitence
+engine as is already implemented in the other direction. And for better one
+packet scheduling (OPS) performance.
+
+The following changes since commit 4a96300cec88729415683db8a2b909563b09fbaa:
+
+  netfilter: ctnetlink: restore inlining for netlink message size calculation (2016-04-18 22:14:40 +0200)
+
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.7
+
+for you to fetch changes up to 8fb04d9fc70a67ccabf71dbabf92d7f6fca64a16:
+
+  ipvs: don't alter conntrack in OPS mode (2016-04-20 12:34:17 +1000)
+
+----------------------------------------------------------------
+Marco Angaroni (3):
+      ipvs: handle connections started by real-servers
+      ipvs: optimize release of connections in OPS mode
+      ipvs: don't alter conntrack in OPS mode
+
+ include/net/ip_vs.h               |  17 +++++
+ net/netfilter/ipvs/ip_vs_conn.c   |  29 ++++++-
+ net/netfilter/ipvs/ip_vs_core.c   | 154 ++++++++++++++++++++++++++++++++++++++
+ net/netfilter/ipvs/ip_vs_ctl.c    |  46 +++++++++++-
+ net/netfilter/ipvs/ip_vs_nfct.c   |   4 +
+ net/netfilter/ipvs/ip_vs_pe_sip.c |  15 ++++
+ 6 files changed, 260 insertions(+), 5 deletions(-)
