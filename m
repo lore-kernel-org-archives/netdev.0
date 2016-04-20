@@ -1,101 +1,145 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [Intel-wired-lan] [PATCH net-next V5 2/2] intel: ixgbevf: Support
- Windows hosts (Hyper-V)
-Date: Wed, 20 Apr 2016 13:44:18 +0000
-Message-ID: <BL2PR03MB19088BCE884A63A4EA188AB8A06D0@BL2PR03MB1908.namprd03.prod.outlook.com>
-References: <1461118655-28103-1-git-send-email-kys@microsoft.com>
-	 <1461118677-28142-1-git-send-email-kys@microsoft.com>
-	 <1461118677-28142-2-git-send-email-kys@microsoft.com>
- <1461133482.2923.28.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"eli@mellanox.com" <eli@mellanox.com>,
-	"jackm@mellanox.com" <jackm@mellanox.com>,
-	"yevgenyp@mellanox.com" <yevgenyp@mellanox.com>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461133482.2923.28.camel@intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Angel <marc@arista.com>
+Subject: [PATCH net-next] macvtap: add namespace support to the sysfs device class
+Date: Wed, 20 Apr 2016 16:11:31 +0200
+Message-ID: <1461161491-22867-1-git-send-email-marc@arista.com>
+Cc: ebiederm@xmission.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35256 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298AbcDTOLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 10:11:01 -0400
+Received: by mail-wm0-f43.google.com with SMTP id e201so52235526wme.0
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 07:11:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmVmZiBLaXJzaGVyIFtt
-YWlsdG86amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJp
-bCAxOSwgMjAxNiAxMToyNSBQTQ0KPiBUbzogS1kgU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5j
-b20+OyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51
-eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3Jn
-OyBvbGFmQGFlcGZsZS5kZTsgYXB3QGNhbm9uaWNhbC5jb207DQo+IGphc293YW5nQHJlZGhhdC5j
-b207IGVsaUBtZWxsYW5veC5jb207IGphY2ttQG1lbGxhbm94LmNvbTsNCj4geWV2Z2VueXBAbWVs
-bGFub3guY29tOyBqb2huLnJvbmNpYWtAaW50ZWwuY29tOyBpbnRlbC13aXJlZC0NCj4gbGFuQGxp
-c3RzLm9zdW9zbC5vcmc7IGFsZXhhbmRlci5kdXlja0BnbWFpbC5jb20NCj4gU3ViamVjdDogUmU6
-IFtJbnRlbC13aXJlZC1sYW5dIFtQQVRDSCBuZXQtbmV4dCBWNSAyLzJdIGludGVsOiBpeGdiZXZm
-OiBTdXBwb3J0DQo+IFdpbmRvd3MgaG9zdHMgKEh5cGVyLVYpDQo+IA0KPiBPbiBUdWUsIDIwMTYt
-MDQtMTkgYXQgMTk6MTcgLTA3MDAsIEsuIFkuIFNyaW5pdmFzYW4gd3JvdGU6DQo+ID4gT24gSHlw
-ZXItViwgdGhlIFZGL1BGIGNvbW11bmljYXRpb24gaXMgYSB2aWEgc29mdHdhcmUgbWVkaWF0ZWQg
-cGF0aA0KPiA+IGFzIG9wcG9zZWQgdG8gdGhlIGhhcmR3YXJlIG1haWxib3guIE1ha2UgdGhlIG5l
-Y2Vzc2FyeQ0KPiA+IGFkanVzdG1lbnRzIHRvIHN1cHBvcnQgSHlwZXItVi4NCj4gPg0KPiA+IFNp
-Z25lZC1vZmYtYnk6IEsuIFkuIFNyaW5pdmFzYW4gPGt5c0BtaWNyb3NvZnQuY29tPg0KPiA+IC0t
-LQ0KPiA+IMKgwqDCoMKgwqDCoMKgwqBWMjogQWRkcmVzc2VkIG1vc3Qgb2YgdGhlIGNvbW1lbnRz
-IGZyb20NCj4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIEFsZXhhbmRlciBEdXljayA8YWxleGFu
-ZGVyLmR1eWNrQGdtYWlsLmNvbT4NCj4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIGFuZCBSdXN0
-YWQsIE1hcmsgRCA8bWFyay5kLnJ1c3RhZEBpbnRlbC5jb20+Lg0KPiA+DQo+ID4gwqDCoMKgwqDC
-oMKgwqDCoFYzOiBBZGRyZXNzZWQgYWRkaXRpb25hbCBjb21tZW50cyBmcm9tDQo+ID4gwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoCBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5kdXlja0BnbWFpbC5j
-b20+DQo+ID4NCj4gPiDCoMKgwqDCoMKgwqDCoMKgVjQ6IEFkZHJlc3NlZCBrYnVpbGQgZXJyb3Jz
-IHJlcG9ydGVkIGJ5Og0KPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAga2J1aWxkIHRlc3Qgcm9i
-b3QgPGxrcEBpbnRlbC5jb20+DQo+ID4NCj4gPiDCoMKgwqDCoMKgwqDCoMKgVjU6IEFkZHJlc3Nl
-ZCBhZGRpdGlvbmFsIGNvbW1lbnRzIGZyb20NCj4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIEFs
-ZXhhbmRlciBEdXljayA8YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbT4NCj4gDQo+IEZpcnN0IEkg
-Y29tbWVuZCB5b3Ugb24gYWN0dWFsbHkgbWFraW5nIGEgcHJvcGVyIGNoYW5nZWxvZyBmb3IgYSBw
-YXRjaC4NCj4gwqBUaGUgb25seSBpc3N1ZSBJIGhhdmUgaXMgdGhhdCB0aGUgY2hhbmdlbG9nIHBy
-b3ZpZGVzIG5vdCBhY3R1YWwNCj4gY2hhbmdlcy4gwqBTYXlpbmcgeW91IHJlYWN0ZWQgdG8gY29t
-bWVudHMgZG9lcyBub3Qgc3VtbWFyaXplIHdoYXQgdGhlDQo+IGFjdHVhbCBjaGFuZ2VzIHdlcmUu
-IMKgSSBwdXJwb3NlbHkgZGlkIG5vdCByZXZpZXcgdGhlIGVhcmxpZXIgdmVyc2lvbnMNCj4gYmVj
-YXVzZSBieSB0aGUgdGltZSBJIHdlbnQgdG8gZG8gYSByZXZpZXcsIHRoZXJlIHdhcyBhbm90aGVy
-IHZlcnNpb24NCj4gYWxyZWFkeSBzdWJtaXR0ZWQuIMKgU28geW91ciBjaGFuZ2Vsb2cgcmVxdWly
-ZXMgdGhhdCB1c2VycyBsb29rIGF0IGFsbA0KPiB0aGUgcHJldmlvdXMgZW1haWxzIHRvIGFjdHVh
-bGx5IHNlZSB3aGF0IEFsZXggYW5kIE1hcmsgcmVxdWVzdGVkIGluDQo+IGNoYW5nZXMuDQo+IA0K
-PiBJIGFtIHRlbGxpbmcgeW91IHRoaXMgZm9yIGZ1dHVyZSBwYXRjaGVzLCBpdCB3aWxsIG5vdCBp
-bXBhY3QgdGhlc2UNCj4gcGF0Y2hlcywganVzdCByZWFsbHkgZGlzYXBwb2ludGluZy4gwqBJIHdp
-bGwgdGFrZSB0aGUgZXh0cmEgdGltZSB0bw0KPiB0cmFjayBkb3duIGFsbCB0aGUgcHJldmlvdXMg
-ZW1haWxzIGFuZCB0aGUgY2hhbmdlcyByZXF1ZXN0ZWQgdG8gZW5zdXJlDQo+IHlvdSBtYWRlIGFs
-bCB0aGUgY2hhbmdlcyB0aGF0IHdlcmUgcmVxdWVzdGVkIG9mIHlvdS4gOi0oIMKgVGhpcyB3aWxs
-DQo+IGp1c3QgZGVsYXkgd2hlbiBJIGFwcGx5IHRoZSBwYXRjaGVzIGZvciB0ZXN0aW5nLg0KDQpU
-aGFuayB5b3UgZm9yIHRha2luZyB0aGUgdGltZS4gSGVyZSBpcyBhIGJyaWVmIHN1bW1hcnkgb2Yg
-YWxsIHRoZSBjaGFuZ2VzIChmcm9tDQp0aGUgaW5pdGlhbCB2ZXJzaW9uIC0gaWdub3JpbmcgY29z
-bWV0aWMgY2hhbmdlcyk6DQoNCjEuIENoYW5nZWQgdGhlIGNoZWNrIGZvciBydW5uaW5nIG9uIEh5
-cGVyLVYgdG8gYmUgaW5zdHJ1Y3Rpb24gc2V0IA0KYXJjaGl0ZWN0dXJlIGluZGVwZW5kZW50LiBU
-aGlzIGlzIG5vdyBiYXNlZCBvbiBkZXZpY2UgSURzIChzaW5jZSB3ZSBoYXZlDQp1bmlxdWUgZGV2
-aWNlIElEcyB3aGVuIHJ1bm5pbmcgb24gSHlwZXItVikuDQoNCjIuIEludHJvZHVjZWQgYSBidW5j
-aCBvZiBzdHViIGZ1bmN0aW9ucyB0byBlbGltaW5hdGUgYSBidW5jaCBvZiBjaGVja3MgSSBpbml0
-aWFsbHkNCmhhZCBpbiBpeGdiZXZfbWFpbi5jLiBJIG5vdyBmdWxseSBwb3B1bGF0ZSB0aGUgbWFj
-IG9wZXJhdGlvbnMgbWFueSBvZiB0aGUgZW50cnkNCnBvaW50cyBiZWluZyBzdHVicyAoaXhnYmV2
-Zl9odl9tYWNfb3BzKS4NCg0KMy4gQWRkZWQgYSBjaGVjayB0byBlbnN1cmUgdGhhdCB3ZSByZXR1
-cm4gYXBwcm9wcmlhdGUgZXJyb3IgaWYgIFBDSV9NTUNPTkZJRw0KSXMgbm90IGRlZmluZWQgLSBv
-biBIeXBlci1WIHdlIGdldCB0aGUgbWFjIGFkZHJlc3MgYnkgcmVhZGluZyB0aGUgUENJIGNvbmZp
-ZyBzcGFjZQ0KYXQgc3BlY2lhbCBvZmZzZXQuDQoNCjQuIE1hZGUgdGhlIGZvbGxvd2luZyBmdW5j
-dGlvbnMgc3RhbmRhbG9uZSBmdW5jdGlvbnM6DQogaXhnYmV2Zl9odl9ybHBtbF9zZXRfdmYoKSBh
-bmQNCml4Z2JldmZfbmVnb3RpYXRlX2FwaV92ZXJzaW9uKCkNClRoZXNlIGFyZSB0aGUgSHlwZXIt
-ViB2YXJpYW50cy4gV2Ugbm93IGhhdmUgdGhlIGNoZWNrIGF0IHRoZSBjYWxsIHNpdGVzDQppbiBp
-eGdiZXZmX21haW4uYy4NCg0KSG9wZSB0aGlzIGhlbHBzIGFuZCBhZ2FpbiBJIGFtIHNvcnJ5IGZv
-ciBub3QgaW5jbHVkaW5nIHRoZSBzdW1tYXJ5Lg0KDQpSZWdhcmRzLA0KDQpLLiBZDQo+IA0KPiA+
-DQo+ID4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZmL2l4Z2JldmYuaMKgwqDC
-oMKgwqAgfMKgwqAgMTIgKysNCj4gPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
-dmYvaXhnYmV2Zl9tYWluLmMgfMKgwqAgMzEgKysrLQ0KPiA+IMKgZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaXhnYmV2Zi9tYnguY8KgwqDCoMKgwqDCoMKgwqDCoCB8wqDCoCAxMiArKw0KPiA+
-IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi92Zi5jwqDCoMKgwqDCoMKgwqDC
-oMKgwqAgfMKgIDIxNg0KPiA+ICsrKysrKysrKysrKysrKysrKysrKw0KPiA+IMKgZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmV2Zi92Zi5owqDCoMKgwqDCoMKgwqDCoMKgwqAgfMKgwqDC
-oCAyICsNCj4gPiDCoDUgZmlsZXMgY2hhbmdlZCwgMjY2IGluc2VydGlvbnMoKyksIDcgZGVsZXRp
-b25zKC0pDQo=
+When creating macvtaps that are expected to have the same ifindex
+in different network namespaces, only the first one will succeed.
+The others will fail with a sysfs_warn_dup warning due to them trying
+to create the following sysfs link (with 'NN' the ifindex of macvtapX):
+
+/sys/class/macvtap/tapNN -> /sys/devices/virtual/net/macvtapX/tapNN
+
+This is reproducible by running the following commands:
+
+ip netns add ns1
+ip netns add ns2
+ip link add veth0 type veth peer name veth1
+ip link set veth0 netns ns1
+ip link set veth1 netns ns2
+ip netns exec ns1 ip l add link veth0 macvtap0 type macvtap
+ip netns exec ns2 ip l add link veth1 macvtap1 type macvtap
+
+The last command will fail with "RTNETLINK answers: File exists" (along
+with the kernel warning) but retrying it will work because the ifindex
+was incremented.
+
+The 'net' device class is isolated between network namespaces so each
+one has its own hierarchy of net devices.
+This isn't the case for the 'macvtap' device class.
+The problem occurs half-way through the netdev registration, when
+`macvtap_device_event` is called-back to create the 'tapNN' macvtap
+class device under the 'macvtapX' net class device.
+
+This patch adds namespace support the the 'macvtap' device class so
+that /sys/class/macvtap is no longer shared between net namespaces.
+
+However, doing this has the side effect of changing
+/sys/devices/virtual/net/macvtapX/tapNN  into
+/sys/devices/virtual/net/macvtapX/macvtap/tapNN
+
+This is due to Commit 24b1442 ("Driver-core: Always create class
+directories for classses that support namespaces.")
+
+Signed-off-by: Marc Angel <marc@arista.com>
+---
+I'm not sure that the problems described in that commit message
+apply to macvtaps so maybe it is possible to keep the 'tapNN'
+device directly under 'macvtapX' and not disrupt userland.
+
+Should it even be possible to add a device of a class that doesn't
+support namespaces under one that does?
+This could lead to dead symlinks in the new device class directory or
+duplicate warnings because a device of the same name already exists in
+another namespace.
+---
+ drivers/net/macvtap.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 95394ed..a76d72d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -129,7 +129,18 @@ static DEFINE_MUTEX(minor_lock);
+ static DEFINE_IDR(minor_idr);
+ 
+ #define GOODCOPY_LEN 128
+-static struct class *macvtap_class;
++static const void *macvtap_net_namespace(struct device *d)
++{
++	struct net_device *dev = to_net_dev(d->parent);
++	return dev_net(dev);
++}
++
++static struct class macvtap_class = {
++	.name = "macvtap",
++	.owner = THIS_MODULE,
++	.ns_type = &net_ns_type_operations,
++	.namespace = macvtap_net_namespace,
++};
+ static struct cdev macvtap_cdev;
+ 
+ static const struct proto_ops macvtap_socket_ops;
+@@ -1295,7 +1306,7 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 			return notifier_from_errno(err);
+ 
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		classdev = device_create(macvtap_class, &dev->dev, devt,
++		classdev = device_create(&macvtap_class, &dev->dev, devt,
+ 					 dev, "tap%d", dev->ifindex);
+ 		if (IS_ERR(classdev)) {
+ 			macvtap_free_minor(vlan);
+@@ -1304,7 +1315,7 @@ static int macvtap_device_event(struct notifier_block *unused,
+ 		break;
+ 	case NETDEV_UNREGISTER:
+ 		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
+-		device_destroy(macvtap_class, devt);
++		device_destroy(&macvtap_class, devt);
+ 		macvtap_free_minor(vlan);
+ 		break;
+ 	}
+@@ -1330,11 +1341,9 @@ static int macvtap_init(void)
+ 	if (err)
+ 		goto out2;
+ 
+-	macvtap_class = class_create(THIS_MODULE, "macvtap");
+-	if (IS_ERR(macvtap_class)) {
+-		err = PTR_ERR(macvtap_class);
++	err = class_register(&macvtap_class);
++	if (err)
+ 		goto out3;
+-	}
+ 
+ 	err = register_netdevice_notifier(&macvtap_notifier_block);
+ 	if (err)
+@@ -1349,7 +1358,7 @@ static int macvtap_init(void)
+ out5:
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+ out4:
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ out3:
+ 	cdev_del(&macvtap_cdev);
+ out2:
+@@ -1363,7 +1372,7 @@ static void macvtap_exit(void)
+ {
+ 	rtnl_link_unregister(&macvtap_link_ops);
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+-	class_unregister(macvtap_class);
++	class_unregister(&macvtap_class);
+ 	cdev_del(&macvtap_cdev);
+ 	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
+ 	idr_destroy(&minor_idr);
+-- 
+2.8.0
