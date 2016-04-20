@@ -1,32 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/2] net: bcmsysport: utilize newer NAPI APIs
-Date: Wed, 20 Apr 2016 11:37:07 -0700
-Message-ID: <1461177429-23553-1-git-send-email-f.fainelli@gmail.com>
-Cc: edumazet@google.com, pgynther@google.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35374 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751945AbcDTSjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 14:39:24 -0400
-Received: by mail-pa0-f49.google.com with SMTP id fs9so20422245pac.2
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 11:39:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eran Ben Elisha <eranlinuxmellanox-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Wed, 20 Apr 2016 21:40:30 +0300
+Message-ID: <CAKHjkjmYNLABO10V1DZQmZ_zczjbfDZU0TDPHoMmv_1FMi9_gA@mail.gmail.com>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+	<20160419182212.GA8441@infradead.org>
+	<571785A5.5040306@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <571785A5.5040306-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David, Eric, Petri,
+>
+> It is been 1.5 years since I reported the problem. We came up with three
+> different solutions this week. I'd like to see a version of the solution
+> to get merged until Mellanox comes up with a better solution with another
+> patch. My proposal is to use this one.
+>
 
-These two patches are very analoguous to what was already submitted for
-BCMGENET and switch the SYSTEMPORT driver to utilizing __napi_schedule_irqoff()
-and napi_complete_done for the RX NAPI context.
-
-Florian Fainelli (2):
-  net: bcmsysport: use  __napi_schedule_irqoff()
-  net: bcmsysport: use napi_complete_done()
-
- drivers/net/ethernet/broadcom/bcmsysport.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
--- 
-2.1.0
+We will post our suggestion here in the following days.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
