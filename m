@@ -1,95 +1,115 @@
-From: "Heise, Peter" <peter.heise@airbus.com>
-Subject: AW: [PATCH net-next] net/hsr: Added support for HSR v1
-Date: Wed, 20 Apr 2016 07:10:28 +0000
-Message-ID: <28805_1461136234_57172B6A_28805_14792_1_01b784c4ce1945e28da3d3dd423a56a9@DE0-03DAG07-P04.central.mail.corp>
-References: <20160413115222.GA42572@aircraft-controller>
-	<20160419082100.237f1b6e@xeon-e3>
- <8104_1461082351_571658EF_8104_4642_1_20160419.121227.1437003570791513649.davem@davemloft.net>
+From: Quentin Monnet <quentin.monnet@6wind.com>
+Subject: Re: [PATCH net-next 0/2] act_bpf, cls_bpf: send eBPF bytecode through
+Date: Wed, 20 Apr 2016 09:25:07 +0200
+Message-ID: <57172ED3.30101@6wind.com>
+References: <1460714856-7221-1-git-send-email-quentin.monnet@6wind.com>
+ <5710C541.7070609@iogearbox.net>
+ <20160415184445.GA58007@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "arvid.brodin@alten.se" <arvid.brodin@alten.se>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"sd@queasysnail.net" <sd@queasysnail.net>,
-	"henrik@austad.us" <henrik@austad.us>,
-	"nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-	"eranbe@mellanox.com" <eranbe@mellanox.com>,
-	"ast@plumgrid.com" <ast@plumgrid.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from airbus-sf10.airbus.gmessaging.net ([81.252.56.26]:55795 "EHLO
-	airbus-sf10.airbus.gmessaging.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753365AbcDTHQu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 03:16:50 -0400
-In-Reply-To: <8104_1461082351_571658EF_8104_4642_1_20160419.121227.1437003570791513649.davem@davemloft.net>
-Content-Language: de-DE
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36042 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813AbcDTHZX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 03:25:23 -0400
+Received: by mail-wm0-f43.google.com with SMTP id v188so190911305wme.1
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 00:25:22 -0700 (PDT)
+In-Reply-To: <20160415184445.GA58007@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the advice Stephen, new patch submitted!
+Hi Daniel, Alexei, and many thanks for your answers,
 
-
------Urspr=FCngliche Nachricht-----
-Von: David Miller [mailto:davem@davemloft.net]=20
-Gesendet: Dienstag, 19. April 2016 18:12
-An: stephen@networkplumber.org
-Cc: mail@pheise.de; arvid.brodin@alten.se; hannes@stressinduktion.org; =
-sd@queasysnail.net; henrik@austad.us; nikolay@cumulusnetworks.com; tgra=
-f@suug.ch; linville@tuxdriver.com; gospo@cumulusnetworks.com; dsa@cumul=
-usnetworks.com; eranbe@mellanox.com; ast@plumgrid.com; netdev@vger.kern=
-el.org; Heise, Peter
-Betreff: Re: [PATCH net-next] net/hsr: Added support for HSR v1
-
-=46rom: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 19 Apr 2016 08:21:00 -0700
-
-> On Wed, 13 Apr 2016 13:52:22 +0200
-> Peter Heise <mail@pheise.de> wrote:
+2016-04-15 (11:44 UTC-0700) ~ Alexei Starovoitov:
+> On Fri, Apr 15, 2016 at 12:41:05PM +0200, Daniel Borkmann wrote:
+>> Hi Quentin,
+>>
+>> On 04/15/2016 12:07 PM, Quentin Monnet wrote:
+>>> When a new BPF traffic control filter or action is set up with tc, =
+the
+>>> bytecode is sent back to userspace through a netlink socket for cBP=
+=46, but
+>>> not for eBPF (the file descriptor pointing to the object file conta=
+ining
+>>> the bytecode is sent instead).
+>>>
+>>> This patch makes cls_bpf and act_bpf modules send the bytecode for =
+eBPF as
+>>> well (in addition to the file descriptor).
+>>>
+[=85]
+>>
+>> Thanks for working on this, but it's unfortunately not that easy. Le=
+t
+>> me ask, what would be the intended use-case to dump the insns?
 >=20
->> diff --git a/include/uapi/linux/if_link.h=20
->> b/include/uapi/linux/if_link.h index 9427f17..bb3a90b 100644
->> --- a/include/uapi/linux/if_link.h
->> +++ b/include/uapi/linux/if_link.h
->> @@ -773,6 +773,7 @@ enum {
->>  	IFLA_HSR_SLAVE1,
->>  	IFLA_HSR_SLAVE2,
->>  	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
->> +	IFLA_HSR_VERSION,		/* HSR version */
->>  	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
->>  	IFLA_HSR_SEQ_NR,
+> +1
 >=20
-> You added a new value into the middle of an enumeration field.
-> This breaks kernel ABI. Older applications (like iproute) would see=20
-> the wrong values.
+>> I'm asking because if you dump them as-is, then a reinject at a late=
+r
+>> time of that bytecode back into the kernel will most likely be rejec=
+ted
+>> by the verifier.
+>>
+>> This is because on load time, verifier does rewrites/expansion on so=
+me
+>> of the insns (f.e. map pointers, helper functions, ctx access etc, s=
+ee
+>> also appendix in [1]), so the code as seen in the kernel would need =
+to
+>> be sanitized first.
 >=20
-> Please submit a new change which moves HSR_VERSION to the end of the=20
-> enum
+> +1
+> we had similar discussion about this in seccomp context and decided t=
+hat
+> the only sensible way is to keep original instructions, but it's wast=
+eful
+> to do unconditionally and snapshotting of maps is not possible,
+> so there was no use for such dumping facility other than debugging.
+> Is it what the patch after?
+> We need to discuss it in the proper context.
 
-Good catch, Stephen.
+I am experimenting with BPF, and so far I was just trying to dump the
+bytecode sent from tc to the kernel. I had not realized that the
+verifier would bring some changes to the instructions. And I agree that
+a more comprehensive debugging solution could be obtained if I can find
+some way to get a snapshot of the maps.
 
-This mail has originated outside your organization, either from an exte=
-rnal partner or the Global Internet.
-Keep this in mind if you answer this message.
+>> Also, how would you make sense/transform maps into a meaningful
+>> representation (probably possible to find a scheme when they are pin=
+ned)?
+>>
+>> Another possibility is that such programs need to be pinned (can be =
+done
+>> easily by tc in the background) and then implement a CRIU facility i=
+nto
+>> the bpf(2) syscall to retrieve them. tc could make use of this w/o t=
+oo
+>> much effort, and at the same time it would help CRIU folks, too. It
+>> also seems cleaner to have only one central api (bpf(2)) to dump the=
+m,
+>> but needs a bit of thought.
+>=20
+> +1
+> any debugging or criu needs to be done in a centralized way via sysca=
+ll
+> and/or bpffs.
 
+Maintaining a central API around bpf() makes sense to me. I have been
+looking at the BPF filesystem to see what information I can obtain from
+it, but I did not understand it well. I read the logs of Daniel's commi=
+t
+b2197755b263 (=93bpf: add support for persistent maps/progs=94), but I =
+am
+unsure how I could use it in order to gather data about the maps and
+programs (if this is possible at all). I tried to set up some BPF
+filters working with maps, but I could not find any file under
+/sys/fs/bpf/tc.
 
-
-The information in this e-mail is confidential. The contents may not be=
- disclosed or used by anyone other than the addressee. Access to this e=
--mail by anyone else is unauthorised.
-If you are not the intended recipient, please notify Airbus immediately=
- and delete this e-mail.
-Airbus cannot accept any responsibility for the accuracy or completenes=
-s of this e-mail as it has been sent over public networks. If you have =
-any concerns over the content of this message or its Accuracy or Integr=
-ity, please contact Airbus immediately.
-All outgoing e-mails from Airbus are checked using regularly updated vi=
-rus scanning software but you should take whatever measures you deem to=
- be appropriate to ensure that this message and any attachments are vir=
-us free.
+Would you have a pointer to some documentation about this filesystem? O=
+r
+is there only the kernel code?
