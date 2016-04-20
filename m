@@ -1,104 +1,140 @@
-From: Marek Vasut <marex@denx.de>
-Subject: Re: [PATCH V2] net: stmmac: socfpga: Remove re-registration of reset
- controller
-Date: Wed, 20 Apr 2016 11:04:35 +0200
-Message-ID: <57174623.60606@denx.de>
-References: <1461110753-7641-1-git-send-email-marex@denx.de> <5716E39E.3010905@opensource.altera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v3 net-next 1/3] tcp: Make use of MSG_EOR in
+ tcp_sendmsg and tcp_sendpage
+Date: Wed, 20 Apr 2016 02:21:24 -0700
+Message-ID: <1461144084.10638.245.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461133497-1515104-1-git-send-email-kafai@fb.com>
+	 <1461133497-1515104-2-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-	Matthew Gerlach <mgerlach@opensource.altera.com>,
-	"David S . Miller" <davem@davemloft.net>
-To: Dinh Nguyen <dinguyen@opensource.altera.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:37894 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750859AbcDTJUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:20:49 -0400
-In-Reply-To: <5716E39E.3010905@opensource.altera.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35088 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752709AbcDTJVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 05:21:24 -0400
+Received: by mail-pf0-f182.google.com with SMTP id n1so16539036pfn.2
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 02:21:24 -0700 (PDT)
+In-Reply-To: <1461133497-1515104-2-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2016 04:04 AM, Dinh Nguyen wrote:
+On Tue, 2016-04-19 at 23:24 -0700, Martin KaFai Lau wrote:
+> This patch adds an eor bit to the TCP_SKB_CB.  When MSG_EOR
+> is passed to tcp_sendmsg/tcp_sendpage, the eor bit will
+> be set at the skb containing the last byte of the userland's
+> msg.  The eor bit will prevent data from appending to that
+> skb in the future.
 > 
+> This patch handles the tcp_sendmsg and tcp_sendpage cases.
 > 
-> On 04/19/2016 07:05 PM, Marek Vasut wrote:
->> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
->> in stmmac_main.c functions call devm_reset_control_get() to register an
->> reset controller for the stmmac. This results in an attempt to register
->> two reset controllers for the same non-shared reset line.
->>
->> The first attempt to register the reset controller works fine. The second
->> attempt fails with warning from the reset controller core, see below.
->> The warning is produced because the reset line is non-shared and thus
->> it is allowed to have only up-to one reset controller associated with
->> that reset line, not two or more.
->>
->> The solution is not great. Since the hardware needs to toggle the reset
->> before calling stmmac_dvr_probe() to perform mandatory preconfiguration,
->> this patch splits socfpga_dwmac_init_probe() from socfpga_dwmac_init().
->>
->> The socfpga_dwmac_init_probe() temporarily registers the reset controller,
->> performs the pre-configuration and unregisters the reset controller again.
->> This function is only called from the socfpga_dwmac_probe().
->>
->> The original socfpga_dwmac_init() is tweaked to use reset controller
->> pointer from the stmmac_priv (private data of the stmmac core) instead
->> of the local instance, which was used before.
->>
->> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
->> since the functionality is already performed by the stmmac core.
->>
->> ------------[ cut here ]------------
->> WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
->> Modules linked in:
->> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
->> Hardware name: Altera SOCFPGA
->> [<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
->> [<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
->> [<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
->> [<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
->> [<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
->> [<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
->> [<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
->> [<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
->> [<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
->> [<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
->> [<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
->> [<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
->> [<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
->> [<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
->> [<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
->> [<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
->> [<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
->> [<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
->> ---[ end trace 059d2fbe87608fa9 ]---
->>
+> The followup patches will handle other skb coalescing
+> and fragment cases.
 > 
-> Odd, I hadn't seen this error before. I would have noticed it, but I
-> haven't ran linux-next for a few days.
+> One potential use case is to use MSG_EOR with
+> SOF_TIMESTAMPING_TX_ACK to get a more accurate
+> TCP ack timestamping on application protocol with
+> multiple outgoing response messages (e.g. HTTP2).
 > 
-> I see that this error was introduced on linux-next/next-20160414. The
-> error was not there prior to that. While I agree that the extra call to
-> get the reset control is not needed, I wonder what commit between
-> next-20160413 and next-20160414 exposed this error. I'll try to dig this
-> some more.
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  include/net/tcp.h | 3 ++-
+>  net/ipv4/tcp.c    | 7 +++++--
+>  2 files changed, 7 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index c0ef054..ac31798 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -762,7 +762,8 @@ struct tcp_skb_cb {
+>  
+>  	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
+>  	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
+> -			unused:7;
+> +			eor:1,		/* Is skb MSG_EOR marked */
+> +			unused:6;
+>  	__u32		ack_seq;	/* Sequence number ACK'd	*/
+>  	union {
+>  		struct inet_skb_parm	h4;
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 4d73858..7df0c1a88 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -908,7 +908,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+>  		int copy, i;
+>  		bool can_coalesce;
+>  
+> -		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
+> +		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0 ||
+> +		    TCP_SKB_CB(skb)->eor) {
+>  new_segment:
+>  			if (!sk_stream_memory_free(sk))
+>  				goto wait_for_sndbuf;
+> @@ -960,6 +961,7 @@ new_segment:
+>  		size -= copy;
+>  		if (!size) {
+>  			tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
+> +			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
+
+I am not sure you understood how do_tcp_sendpages() was working.
+
+1) It is called one page at a time, so size would reach zero for every
+sent page, and we would have at most 4096 bytes (on x86) per skb, even
+if a sendfile() or splice() or vmsplice() is requesting a large size.
+
+2) @flags here does not contain typical MSG_... values,
+  but a combination of MSG_MORE and MSG_SENDPAGE_NOTLAST
+
+Since there is no way to add a MSG_EOR yet in the sendfile() and related
+functions, you should remove the above line and not claim sendpage()
+support in patch changelog/title, since it is not true.
+
+We only support not aggregating data to the last skb in write queue if
+eor bit is set on it, thus not breaking sendmsg( ... MSG_EOR) prior
+uses.
 
 
-I'll save you the work, it's this one :)
 
-commit 0b52297f2288ca239e598afe6c92db83d8d2bfcd
-Author: Hans de Goede <hdegoede@redhat.com>
-Date:   Tue Feb 23 18:46:26 2016 +0100
+>  			goto out;
+>  		}
+>  
+> @@ -1156,7 +1158,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+>  			copy = max - skb->len;
+>  		}
+>  
+> -		if (copy <= 0) {
+> +		if (copy <= 0 || TCP_SKB_CB(skb)->eor) {
+>  new_segment:
+>  			/* Allocate new segment. If the interface is SG,
+>  			 * allocate skb fitting to single page.
+> @@ -1250,6 +1252,7 @@ new_segment:
+>  		copied += copy;
+>  		if (!msg_data_left(msg)) {
+>  			tcp_tx_timestamp(sk, sockc.tsflags, skb);
+> +			TCP_SKB_CB(skb)->eor = !!(flags & MSG_EOR);
 
-    reset: Add support for shared reset controls
+Since this is a rmw, it is probably better to avoid it in common case,
+since we know prior value of eor must be 0 at this point.
 
-    In some SoCs some hw-blocks share a reset control. Add support for this
-    setup by adding new:
+	if (unlikely(flags & MSG_EOR))
+           TCP_SKB_CB(skb)->eor = 1;
 
 
--- 
-Best regards,
-Marek Vasut
+>  			goto out;
+>  		}
+>  
+
+Thanks.
