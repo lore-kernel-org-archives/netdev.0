@@ -1,40 +1,52 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Wed, 20 Apr 2016 15:34:49 +0200
-Message-ID: <20160420153449.5dd5fb24@griffin>
-References: <20160418.214851.122286645854721047.davem@davemloft.net>
-	<20160418.235207.395468709808133833.davem@davemloft.net>
-	<1461060543.2766.20.camel@sipsolutions.net>
-	<20160419.142324.1774057494079734967.davem@davemloft.net>
-	<1461094901.2766.26.camel@sipsolutions.net>
-	<5716E123.8040002@cumulusnetworks.com>
-	<1461137540.2176.5.camel@sipsolutions.net>
-	<20160420144828.5537dce7@griffin>
-	<1461158228.2176.18.camel@sipsolutions.net>
+From: Sinan Kaya <okaya-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH V2] net: ethernet: mellanox: correct page conversion
+Date: Wed, 20 Apr 2016 09:35:33 -0400
+Message-ID: <571785A5.5040306@codeaurora.org>
+References: <1460845412-13120-1-git-send-email-okaya@codeaurora.org>
+ <20160419182212.GA8441@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, tgraf@suug.ch, nicolas.dichtel@6wind.com,
-	egrumbach@gmail.com
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34341 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752966AbcDTNez (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 09:34:55 -0400
-In-Reply-To: <1461158228.2176.18.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160419182212.GA8441-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Apr 2016 15:17:08 +0200, Johannes Berg wrote:
-> Looks like you have this on a per-message basis. I thought it was
-> better on an attribute basis because that's really where the issue is.
+On 4/19/2016 2:22 PM, Christoph Hellwig wrote:
+> What I think we need is something like the patch below.  In the long
+> ru nwe should also kill the mlx4_buf structure which now is pretty
+> pointless.
+> 
 
-No problem. I'm not that happy with my patchset myself. Just wanted to
-point it out in case it's useful.
+It is been 1.5 years since I reported the problem. We came up with three
+different solutions this week. I'd like to see a version of the solution
+to get merged until Mellanox comes up with a better solution with another
+patch. My proposal is to use this one.
 
- Jiri
+-- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -588,7 +588,7 @@ int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
+ {
+        dma_addr_t t;
+
+-       if (size <= max_direct) {
++       if ((size <= max_direct) || (BITS_PER_LONG == 64)){
+                buf->nbufs        = 1;
+                buf->npages       = 1;
+                buf->page_shift   = get_order(size) + PAGE_SHIFT;
+
+Of course, this is assuming that you are not ready to submit your patch yet. If you 
+are, feel free to post.
+
+-- 
+Sinan Kaya
+Qualcomm Technologies, Inc. on behalf of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a Linux Foundation Collaborative Project
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
