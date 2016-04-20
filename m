@@ -1,40 +1,43 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: drop all fragments inside tx queue if one gets dropped
-Date: Wed, 20 Apr 2016 13:45:50 -0700
-Message-ID: <5717EA7E.1020606@hpe.com>
-References: <57175156.3050501@pengutronix.de>
- <11312.1461183334@obiwan.sandelman.ca>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net-next resubmit PATCH v2 0/3] Feature tweaks/fixes follow-up to
+ GSO partial patches
+Date: Wed, 20 Apr 2016 16:50:41 -0400
+Message-ID: <20160420204900.4029.42938.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Aring <aar@pengutronix.de>
-To: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
-	linux-wpan@vger.kernel.org
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:33763 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbcDTUp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:45:58 -0400
-In-Reply-To: <11312.1461183334@obiwan.sandelman.ca>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36508 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbcDTUuw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 16:50:52 -0400
+Received: by mail-pf0-f171.google.com with SMTP id e128so21755698pfe.3
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 13:50:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the "everything old is new again" files, back in the 1990s, it was 
-noticed that on the likes of a netperf UDP_STREAM test on HP-UX, with 
-fragmentation taking place, it was possible to consume 100% of the link 
-bandwidth and have 0% effective throughput because the transmit queue 
-was kept full with IP datagram fragments which could not possibly be 
-reassembled (*) because one or more of the fragments of a datagram were 
-dropped because the transmit queue was full.
+This patch series is a set of minor fix-ups and tweaks following the GSO
+partial and TSO with IPv4 ID mangling patches.  It mostly is just meant to
+make certain that if we have GSO partial support at the device we can make
+use of it from the far end of the tunnel.
 
-HP-UX implemented "packet trains" where all the fragments of a 
-fragmented datagram were presented to the driver, which then either 
-queued them all, or none of them.
+I submitted this earlier today but it was set as RFC in patchwork.  This is
+a submission for net-next and not an RFC so I am resubmitting.
 
-I don't recall seeing similar poor behaviour in Linux; I would have 
-assumed that the intra-stack flow-control "took care" of it.  Perhaps 
-there is something specific to wpan which precludes that?
+v2: Added cover page which was forgotten with first submission.
+    Added patch that enables TSOv4 IP ID mangling w/ tunnels and/or VLANs.
 
-happy benchmarking,
+---
 
-rick jones
+Alexander Duyck (3):
+      netdev_features: Fold NETIF_F_ALL_TSO into NETIF_F_GSO_SOFTWARE
+      veth: Update features to include all tunnel GSO types
+      net: Add support for IP ID mangling TSO in cases that require encapsulation
+
+
+ drivers/net/veth.c              |    7 +++----
+ include/linux/netdev_features.h |    8 +++-----
+ net/core/dev.c                  |   11 +++++++++++
+ 3 files changed, 17 insertions(+), 9 deletions(-)
