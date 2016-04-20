@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [RFC 3/3] net: dsa: mv88e6xxx: setup PVT
-Date: Wed, 20 Apr 2016 16:26:09 -0400
-Message-ID: <1461183969-24610-4-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: [RFC 1/3] net: dsa: add cross-chip notification for bridge
+Date: Wed, 20 Apr 2016 16:26:07 -0400
+Message-ID: <1461183969-24610-2-git-send-email-vivien.didelot@savoirfairelinux.com>
 References: <1461183969-24610-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,223 +14,123 @@ In-Reply-To: <1461183969-24610-1-git-send-email-vivien.didelot@savoirfairelinux.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Instead of allowing any external frame to egress any internal port,
-configure the Cross-chip Port VLAN Table (PVT) to forbid that.
+When multiple switch chips are chained together, one needs to know about
+the bridge membership of others. For instance, switches like Marvell
+6352 have cross-chip port-based VLAN table to allow or forbid cross-chip
+frames to egress.
 
-When an external source port joins or leaves a bridge crossing this
-switch, mask it in the PVT to allow or forbid frames to egress.
-
-Add support for the cross-chip bridge notification to the 6352 family.
+Add a cross_chip_bridge DSA driver function, used to notify a switch
+about bridge membership configured in other chips.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6352.c |   1 +
- drivers/net/dsa/mv88e6xxx.c | 137 +++++++++++++++++++++++++++++++++++++++++++-
- drivers/net/dsa/mv88e6xxx.h |   2 +
- 3 files changed, 138 insertions(+), 2 deletions(-)
+ include/net/dsa.h |  6 ++++++
+ net/dsa/slave.c   | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 62 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
-index 4afc24d..03ab309 100644
---- a/drivers/net/dsa/mv88e6352.c
-+++ b/drivers/net/dsa/mv88e6352.c
-@@ -364,6 +364,7 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
- 	.port_fdb_add		= mv88e6xxx_port_fdb_add,
- 	.port_fdb_del		= mv88e6xxx_port_fdb_del,
- 	.port_fdb_dump		= mv88e6xxx_port_fdb_dump,
-+	.cross_chip_bridge	= mv88e6xxx_cross_chip_bridge,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index c4bc42b..1994fa7 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -340,6 +340,12 @@ struct dsa_switch_driver {
+ 	int	(*port_fdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_fdb *fdb,
+ 				 int (*cb)(struct switchdev_obj *obj));
++
++	/*
++	 * Cross-chip notifications
++	 */
++	void	(*cross_chip_bridge)(struct dsa_switch *ds, int sw_index,
++				     int sw_port, struct net_device *bridge);
  };
  
- MODULE_ALIAS("platform:mv88e6172");
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index e35bc9f..dccefdb 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -481,6 +481,14 @@ static bool mv88e6xxx_has_stu(struct dsa_switch *ds)
- 	return false;
- }
- 
-+static bool mv88e6xxx_has_pvt(struct dsa_switch *ds)
-+{
-+	if (mv88e6xxx_6185_family(ds))
-+		return false;
-+
-+	return true;
-+}
-+
- /* We expect the switch to perform auto negotiation if there is a real
-  * phy. However, in the case of a fixed link phy, we force the port
-  * settings from the fixed link settings.
-@@ -2228,8 +2236,69 @@ static int _mv88e6xxx_pvt_cmd(struct dsa_switch *ds, int src_dev, int src_port,
- 	return _mv88e6xxx_pvt_wait(ds);
- }
- 
-+static int _mv88e6xxx_pvt_read(struct dsa_switch *ds, int src_dev, int src_port,
-+			       u16 *data)
-+{
-+	int ret;
-+
-+	ret = _mv88e6xxx_pvt_wait(ds);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
-+				GLOBAL2_PVT_ADDR_OP_READ);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = _mv88e6xxx_reg_read(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA);
-+	if (ret < 0)
-+		return ret;
-+
-+	*data = ret;
-+
-+	return 0;
-+}
-+
-+static int _mv88e6xxx_pvt_write(struct dsa_switch *ds, int src_dev,
-+				int src_port, u16 data)
-+{
-+	int err;
-+
-+	err = _mv88e6xxx_pvt_wait(ds);
-+	if (err)
-+		return err;
-+
-+	err = _mv88e6xxx_reg_write(ds, REG_GLOBAL2, GLOBAL2_PVT_DATA, data);
-+	if (err)
-+		return err;
-+
-+        return _mv88e6xxx_pvt_cmd(ds, src_dev, src_port,
-+				GLOBAL2_PVT_ADDR_OP_WRITE_PVLAN);
-+}
-+
-+static int _mv88e6xxx_pvt_map(struct dsa_switch *ds, int src_dev, int src_port,
-+			      struct net_device *bridge)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+	u16 pvlan = 0;
-+	int port;
-+
-+	for (port = 0; port < ps->info->num_ports; ++port) {
-+		/* Frames from external ports can egress DSA and CPU ports */
-+		if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
-+			pvlan |= BIT(port);
-+
-+		/* Frames can egress bridge group members */
-+		if (bridge && ps->ports[port].bridge_dev == bridge)
-+			pvlan |= BIT(port);
-+	}
-+
-+	return _mv88e6xxx_pvt_write(ds, src_dev, src_port, pvlan);
-+}
-+
- static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
- {
-+	int src_dev, src_port;
- 	int err;
- 
- 	/* Clear 5 Bit Port for usage with Marvell Link Street devices:
-@@ -2240,8 +2309,21 @@ static int _mv88e6xxx_pvt_init(struct dsa_switch *ds)
- 	if (err)
- 		return err;
- 
--	/* Allow any external frame to egress any internal port */
--	return _mv88e6xxx_pvt_cmd(ds, 0, 0, GLOBAL2_PVT_ADDR_OP_INIT_ONES);
-+	/* Forbid every port of potential neighbor switches to egress frames on
-+	 * the normal ports of this switch.
-+	 */
-+	for (src_dev = 0; src_dev < 32; ++src_dev) {
-+		if (src_dev == ds->index)
-+			continue;
-+
-+		for (src_port = 0; src_port < 16; ++src_port) {
-+			err = _mv88e6xxx_pvt_map(ds, src_dev, src_port, NULL);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	return 0;
- }
- 
- int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
-@@ -2286,6 +2368,35 @@ unlock:
+ void register_switch_driver(struct dsa_switch_driver *type);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 3b6750f..bd8f4e2 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -431,19 +431,68 @@ static int dsa_slave_port_obj_dump(struct net_device *dev,
  	return err;
  }
  
-+static int _mv88e6xxx_pvt_unmap_local(struct dsa_switch *ds, int port)
++static void dsa_slave_broadcast_bridge(struct net_device *dev)
 +{
-+	u16 pvlan;
-+	int src_dev, src_port, err;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	int chip;
 +
-+	for (src_dev = 0; src_dev < 32; ++src_dev) {
-+		if (src_dev == ds->index)
++	for (chip = 0; chip < ds->dst->pd->nr_chips; ++chip) {
++		struct dsa_switch *sw = ds->dst->ds[chip];
++
++		if (sw->index == ds->index)
 +			continue;
 +
-+		for (src_port = 0; src_port < 16; ++src_port) {
-+			err = _mv88e6xxx_pvt_read(ds, src_dev, src_port,
-+						  &pvlan);
-+			if (err)
-+				return err;
++		if (sw->drv->cross_chip_bridge)
++			sw->drv->cross_chip_bridge(sw, ds->index, p->port,
++						   p->bridge_dev);
++	}
++}
 +
-+			/* Forbid external normal frames to egress this port */
-+			if (pvlan & BIT(port)) {
-+				err = _mv88e6xxx_pvt_write(ds, src_dev,
-+							   src_port,
-+							   pvlan & ~BIT(port));
-+				if (err)
-+					return err;
-+			}
++static void dsa_tree_broadcast_bridge(struct dsa_switch_tree *dst,
++				      struct net_device *bridge)
++{
++	struct net_device *dev;
++	struct dsa_slave_priv *p;
++	struct dsa_switch *ds;
++	int chip, port;
++
++	for (chip = 0; chip < dst->pd->nr_chips; ++chip) {
++		ds = dst->ds[chip];
++
++		for (port = 0; port < DSA_MAX_PORTS; ++port) {
++			if (!ds->ports[port])
++				continue;
++
++			dev = ds->ports[port];
++			p = netdev_priv(dev);
++
++			if (p->bridge_dev == bridge)
++				dsa_slave_broadcast_bridge(dev);
 +		}
 +	}
-+
-+	return 0;
 +}
 +
- void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
+ static int dsa_slave_bridge_port_join(struct net_device *dev,
+ 				      struct net_device *br)
  {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-@@ -2308,6 +2419,28 @@ void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- 			if (_mv88e6xxx_port_based_vlan_map(ds, i))
- 				netdev_warn(ds->ports[i], "failed to remap\n");
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	int ret = -EOPNOTSUPP;
++	int err;
  
-+	if (mv88e6xxx_has_pvt(ds) && _mv88e6xxx_pvt_unmap_local(ds, port))
-+		netdev_err(ds->ports[port], "failed to unmap\n");
+ 	p->bridge_dev = br;
+ 
+-	if (ds->drv->port_bridge_join)
+-		ret = ds->drv->port_bridge_join(ds, p->port, br);
++	/* In-chip hardware bridging */
++	if (ds->drv->port_bridge_join) {
++		err = ds->drv->port_bridge_join(ds, p->port, br);
++		if (err && err != -EOPNOTSUPP)
++			return err;
++	}
 +
-+	mutex_unlock(&ps->smi_mutex);
-+}
-+
-+void mv88e6xxx_cross_chip_bridge(struct dsa_switch *ds, int sw_index,
-+				 int sw_port, struct net_device *bridge)
-+{
-+	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
-+
-+	if (!mv88e6xxx_has_pvt(ds))
-+		return;
-+
-+	/* Update the Cross-chip Port VLAN Table (PVT) entry for this external
-+	 * source port to map which internal ports frames are allowed to egress.
-+	 */
-+
-+	mutex_lock(&ps->smi_mutex);
-+	if (_mv88e6xxx_pvt_map(ds, sw_index, sw_port, bridge))
-+		dev_err(ds->master_dev, "failed to access PVT for sw%dp%d\n",
-+			sw_index, sw_port);
- 	mutex_unlock(&ps->smi_mutex);
++	/* Broadcast bridge membership across chips */
++	dsa_tree_broadcast_bridge(ds->dst, br);
+ 
+-	return ret == -EOPNOTSUPP ? 0 : ret;
++	return 0;
  }
  
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index dd63377..ea214f2 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -523,6 +523,8 @@ int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 			    struct switchdev_obj_port_fdb *fdb,
- 			    int (*cb)(struct switchdev_obj *obj));
-+void mv88e6xxx_cross_chip_bridge(struct dsa_switch *ds, int sw_index,
-+				 int sw_port, struct net_device *bridge);
- int mv88e6xxx_phy_page_read(struct dsa_switch *ds, int port, int page, int reg);
- int mv88e6xxx_phy_page_write(struct dsa_switch *ds, int port, int page,
- 			     int reg, int val);
+ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+@@ -462,6 +511,9 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
+ 	 */
+ 	if (ds->drv->port_stp_state_set)
+ 		ds->drv->port_stp_state_set(ds, p->port, BR_STATE_FORWARDING);
++
++	/* Notify the port leaving to other chips */
++	dsa_slave_broadcast_bridge(dev);
+ }
+ 
+ static int dsa_slave_port_attr_get(struct net_device *dev,
 -- 
 2.8.0
