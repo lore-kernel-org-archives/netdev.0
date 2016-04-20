@@ -1,64 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next v5] rtnetlink: add new RTM_GETSTATS message to
- dump link stats
-Date: Wed, 20 Apr 2016 09:32:20 +0200
-Message-ID: <1461137540.2176.5.camel@sipsolutions.net>
-References: <20160418.214851.122286645854721047.davem@davemloft.net>
-	 <20160418.235207.395468709808133833.davem@davemloft.net>
-	 <1461060543.2766.20.camel@sipsolutions.net>
-	 <20160419.142324.1774057494079734967.davem@davemloft.net>
-	 <1461094901.2766.26.camel@sipsolutions.net>
-	 <5716E123.8040002@cumulusnetworks.com>
-	 (sfid-20160420_035344_487995_3E03AD21)
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH v2 net 3/3] qede: Fix single MTU sized packet from firmware GRO flow
+Date: Wed, 20 Apr 2016 03:03:29 -0400
+Message-ID: <1461135809-9776-4-git-send-email-manish.chopra@qlogic.com>
+References: <1461135809-9776-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, roopa@cumulusnetworks.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, egrumbach@gmail.com
-To: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:55241 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752813AbcDTHc1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Apr 2016 03:32:27 -0400
-In-Reply-To: <5716E123.8040002@cumulusnetworks.com> (sfid-20160420_035344_487995_3E03AD21)
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40660 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754242AbcDTHpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 03:45:19 -0400
+In-Reply-To: <1461135809-9776-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-04-19 at 19:53 -0600, David Ahern wrote:
->=C2=A0
-> The kernel can set a flag in the response that it acknowledges the
-> new =C2=A0attribute/flag. I did that for filtering neigh dumps --
-> 21fdd092acc7.
->=20
+In firmware assisted GRO flow there could be a single MTU sized
+segment arriving due to firmware aggregation timeout/last segment
+in an aggregation flow, which is not expected to be an actual gro
+packet. So If a skb has zero frags from the GRO flow then simply
+push it in the stack as non gso skb.
 
-Hm, that works, but I think it requires writing extra code, which I was
-kinda trying to avoid. With the patch that Emmanuel wrote, we can
-restrict the changes to just nla_parse().
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Signed-off-by: Yuval Mintz <yuval.mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-Anyway, I think we just have to document the behaviour very precisely,
-and userspace can make its own decisions.
-
-Essentially, apps will have a number of choices:
-
-1) Use the new attribute flag only with commands known to have been
-=C2=A0 =C2=A0added after the kernel support was added.
-
-2) Use the new attribute flag with some required attribute for
-=C2=A0 =C2=A0existing commands, so that older kernel will not find the =
-required
-=C2=A0 =C2=A0attribute and will reject the operation entirely.
-=C2=A0 =C2=A0May or may not fall back to trying the operation again wit=
-hout the
-=C2=A0 =C2=A0flag.
-
-3) Simply use the new flag and do unexpected things on kernels not
-=C2=A0 =C2=A0supporting the rejection mechanism - not much worse than t=
-oday in
-=C2=A0 =C2=A0many cases.
-
-I guess we'll write a proper commit message and send the patch.
-
-johannes
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index bf0fb99..7869465 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1069,6 +1069,17 @@ static void qede_gro_receive(struct qede_dev *edev,
+ 			     struct sk_buff *skb,
+ 			     u16 vlan_tag)
+ {
++	/* FW can send a single MTU sized packet from gro flow
++	 * due to aggregation timeout/last segment etc. which
++	 * is not expected to be a gro packet. If a skb has zero
++	 * frags then simply push it in the stack as non gso skb.
++	 */
++	if (unlikely(!skb->data_len)) {
++		skb_shinfo(skb)->gso_type = 0;
++		skb_shinfo(skb)->gso_size = 0;
++		goto send_skb;
++	}
++
+ #ifdef CONFIG_INET
+ 	if (skb_shinfo(skb)->gso_size) {
+ 		skb_set_network_header(skb, 0);
+@@ -1087,6 +1098,8 @@ static void qede_gro_receive(struct qede_dev *edev,
+ 		}
+ 	}
+ #endif
++
++send_skb:
+ 	skb_record_rx_queue(skb, fp->rss_id);
+ 	qede_skb_receive(edev, fp, skb, vlan_tag);
+ }
+-- 
+2.7.2
