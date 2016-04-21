@@ -1,98 +1,119 @@
-From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 0/6] Add Shared MDIO framework for iProc based SoCs
-Date: Thu, 21 Apr 2016 14:48:37 +0530
-Message-ID: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
-Cc: BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
-	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Pramod Kumar <pramod.kumar@broadcom.com>
+Subject: [PATCH 2/6] Documentation: DT binding doc for iProc Shared MDIO Controller.
+Date: Thu, 21 Apr 2016 14:48:39 +0530
+Message-ID: <1461230323-27891-3-git-send-email-pramod.kumar@broadcom.com>
+References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+Cc: BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Suzuki K Poulose <suzuki.poulose@arm.com>,
+	Punit Agrawal <punit.agrawal@arm.com>,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pramod Kumar <pramod.kumar@broadcom.com>
+To: Rob Herring <robh+dt@kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Masahiro Yamada <yamada.masahiro@socionext.com>,
+	Chen-Yu Tsai <wens@csie.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Broadcom iProc based SoCs uses MDIO bus for programming PHYs belonging to
-different I/O subsystem like USB, SATA, PCIe, ETHERNET etc. Every subsystem
-is referred as "Master" When a master is selected, all PHYs belonging to
-this subsystem get active on the MDIO bus and responds to MDIO transaction.
-In this way one MDIO controller is shared among all masters hence named as
-"Shared MDIO controller".
+Add DT binding doc for iProc Shared MDIO Controller which
+populate all masters to Shared MDIO framework.
 
-We have two important entities in "Shared MDIO Bus" framework:
-1) shared_mdio_master and
-2) shared_mdio_driver.
-
-The shared MDIO controller driver is registered as platform driver and it
-creates shared_mdio_master instances and adds them to "Shared MDIO Bus"
-framework. The "Shared MDIO Bus" framework will try to match-n-probe each
-shared_mdio_master instance with all available shared_mdio_driver based on
-DT matching. The shared_mdio_driver will acts as phy provider for
-respective PHY frameworks and it will access PHY registers only using
-"Shared MDIO Bus" framework APIs. All PHY read/write from
-shared_mdio_driver will eventually reach shared MDIO controller driver
-(who originally created shared_mdio_master instances) and shared MDIO
-controller driver will serialized these PHY read/write as required.
-
-This patch set includes Shared MDIO Bus framework, Shared MDIO block driver
-and one Shared MDIO driver, ETHERNET PHY provider driver.
-
-shared_mdio.c: This is the bus framework where all masters are registered
-via shared MDIO block driver.
-
-iproc_shared_mdio.c: Represent the shared MDIO block driver. The driver
-registers all masters to shared mdio bus framework.
-
-mdio-bcm-iproc-shared.c: Master driver which registers ETHERNET phy to
-legacy MII framework.
-
-In future there will be more driver for SATA, USB, PCIe masters which will
-register phys for their subsystem.
-
-Patch series is developed based on Linux v4.6-rc1 and available at:
-repo: https://github.com/Broadcom/arm64-linux.git
-branch: shared_mdio_v0
-
-Pramod Kumar (6):
-  bus: Add shared MDIO bus framework
-  Documentation: DT binding doc for iProc Shared MDIO Controller.
-  bus: Add platform driver for iProc shared MDIO Controller
-  dt: Add Shared MDIO Controller node for NS2
-  Documentation: Binding doc for ethernet master in NS2
-  net:phy: Add Ethernet Master for iProc Shared MDIO Controller
-
- .../bindings/bus/brcm,iproc-shared-mdio.txt        |  76 ++++++
- .../bindings/net/brcm,iproc-mdio-shared.txt        |  32 +++
- arch/arm64/boot/dts/broadcom/ns2-svk.dts           |  15 ++
- arch/arm64/boot/dts/broadcom/ns2.dtsi              |   8 +
- drivers/bus/Kconfig                                |  22 ++
- drivers/bus/Makefile                               |   2 +
- drivers/bus/iproc_shared_mdio.c                    | 287 +++++++++++++++++++++
- drivers/bus/shared_mdio.c                          | 179 +++++++++++++
- drivers/net/phy/Kconfig                            |  11 +
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/mdio-bcm-iproc-shared.c            | 116 +++++++++
- include/linux/shared_mdio.h                        | 123 +++++++++
- 12 files changed, 872 insertions(+)
+Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
+Reviewed-by: Ray Jui <ray.jui@broadcom.com>
+Reviewed-by: Scott Branden <scott.branden@broadcom.com>
+---
+ .../bindings/bus/brcm,iproc-shared-mdio.txt        | 76 ++++++++++++++++++++++
+ 1 file changed, 76 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
- create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
- create mode 100644 drivers/bus/iproc_shared_mdio.c
- create mode 100644 drivers/bus/shared_mdio.c
- create mode 100644 drivers/net/phy/mdio-bcm-iproc-shared.c
- create mode 100644 include/linux/shared_mdio.h
 
+diff --git a/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+new file mode 100644
+index 0000000..f455f3d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+@@ -0,0 +1,76 @@
++Broadcom iProc Shared MDIO Controller
++
++Required properties:
++- compatible:
++    "brcm,iproc-shared-mdio" for shared MDIO controller.
++- reg: specifies the base physical address and size of the registers
++- reg-names: should be "mdio"
++- #address-cells: must be 1.
++- #size-cells: must be 0.
++
++optional:
++child nodes: Masters are represented as a child node of shared MDIO controller
++and all the PHYs handled by this master are represented as its child node.
++
++Master nodes properties are defined as-
++
++Required properties:
++- compatible: Used to match driver of this PHY.
++- reg: MDIO master ID.
++- #address-cells: must be 1.
++- #size-cells: must be 0.
++
++optional:
++-brcm,phy-internal: if presents, PHYs are internal. Absence shows phy is
++external.
++-brcm,is-c45: if presents, Controller uses Clause-45 to issue MDIO transaction.
++else Controller uses Clause-22 for transactions.
++
++PHY nodes are represented as the child node of Master. Child nodes properties
++are defined as-
++
++Required properties:
++-reg: phy id of attached PHY.
++
++optional:
++There could be additional properties required to configure the specific phy like
++phy-mode in case of gpphy node below. These should be defined here and used by
++respective drivers.
++
++Example:
++iproc_mdio: iproc_mdio@663f0000 {
++	compatible = "brcm,iproc-shared-mdio";
++	reg = <0x6602023c 0x14>;
++	reg-names = "mdio";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	sata-master@6 {
++		compatible = "brcm,iproc-ns2-sata-phy";
++		reg = <0x6>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		brcm,phy-internal;
++
++		sata_phy0: sata-phy@1 {
++			reg = <0x1>;
++			#phy-cells = <0>;
++		};
++
++		sata_phy1: sata-phy@2 {
++			reg = <0x2>;
++			#phy-cells = <0>;
++		};
++	};
++
++	eth-master@0 {
++		compatible = "brcm,iproc-mdio-master-eth";
++		reg = <0x0>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		gphy0: eth-phy@10 {
++			reg = <0x10>;
++			phy-mode = "mii";
++		};
++	};
++};
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
