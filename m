@@ -1,13 +1,15 @@
-From: Peter Zijlstra <peterz@infradead.org>
+From: Steven Rostedt <rostedt@goodmis.org>
 Subject: Re: [PATCH net-next] perf, bpf: minimize the size of perf_trace_()
  tracepoint handler
-Date: Thu, 21 Apr 2016 16:02:55 +0200
-Message-ID: <20160421140255.GH3430@twins.programming.kicks-ass.net>
+Date: Thu, 21 Apr 2016 10:12:51 -0400
+Message-ID: <20160421101251.2b3604b6@gandalf.local.home>
 References: <1461035510-2810305-1-git-send-email-ast@fb.com>
+	<20160421140255.GH3430@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>,
+	"David S . Miller" <davem@davemloft.net>,
 	Ingo Molnar <mingo@kernel.org>,
 	Daniel Borkmann <daniel@iogearbox.net>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
@@ -15,39 +17,23 @@ Cc: "David S . Miller" <davem@davemloft.net>,
 	Brendan Gregg <brendan.d.gregg@gmail.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1461035510-2810305-1-git-send-email-ast@fb.com>
+In-Reply-To: <20160421140255.GH3430@twins.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2016 at 08:11:50PM -0700, Alexei Starovoitov wrote:
-> move trace_call_bpf() into helper function to minimize the size
-> of perf_trace_*() tracepoint handlers.
->     text	   data	    bss	    dec	 	   hex	filename
-> 10541679	5526646	2945024	19013349	1221ee5	vmlinux_before
-> 10509422	5526646	2945024	18981092	121a0e4	vmlinux_after
-> 
-> It may seem that perf_fetch_caller_regs() can also be moved,
-> but that is incorrect, since ip/sp will be wrong.
-> 
-> bpf+tracepoint performance is not affected, since
-> perf_swevent_put_recursion_context() is now inlined.
-> export_symbol_gpl can also be dropped.
-> 
-> No measurable change in normal perf tracepoints.
-> 
-> Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> ---
->  include/linux/trace_events.h |  5 +++++
->  include/trace/perf.h         | 13 +++----------
->  kernel/events/core.c         | 20 +++++++++++++++++++-
->  3 files changed, 27 insertions(+), 11 deletions(-)
-> 
+On Thu, 21 Apr 2016 16:02:55 +0200
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
-David, please take through the net tree as this depends on prior patches
-by Alexei that are already in your tree.
+> Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+> 
+> David, please take through the net tree as this depends on prior patches
+> by Alexei that are already in your tree.
+
+Yes please!
+
+Acked-by: Steven Rostedt <rostedt@goodmis.org>
+
+-- Steve
