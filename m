@@ -1,57 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] net: network drivers should not depend on
- geneve/vxlan
-Date: Thu, 21 Apr 2016 15:36:35 -0400 (EDT)
-Message-ID: <20160421.153635.1778845733284417120.davem@davemloft.net>
-References: <1461114373.2649930.583890089.0C126826@webmail.messagingengine.com>
-	<20160419.211134.2163748309501010595.davem@davemloft.net>
-	<1461224591.4101216.585253121.498EBE7C@webmail.messagingengine.com>
+From: Babu Moger <babu.moger@oracle.com>
+Subject: Re: [PATCH] ixgbevf: Fix relaxed order settings in VF driver
+Date: Thu, 21 Apr 2016 14:39:41 -0500
+Message-ID: <57192C7D.9080507@oracle.com>
+References: <1461259276-54151-1-git-send-email-babu.moger@oracle.com>
+ <CAKgT0UeU+Q1HDvR8pK3kxYofjEqk8jVeh5xONoUpD34MsPZCCA@mail.gmail.com>
+ <CAKgT0UdEP9ZMnNjSSqh-vZvaEc9N8_X_KWvykChxRv1bretYtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54835 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379AbcDUTgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 15:36:37 -0400
-In-Reply-To: <1461224591.4101216.585253121.498EBE7C@webmail.messagingengine.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UdEP9ZMnNjSSqh-vZvaEc9N8_X_KWvykChxRv1bretYtw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 21 Apr 2016 09:43:11 +0200
+Hi Alex,
 
-> Hi David,
+On 4/21/2016 2:22 PM, Alexander Duyck wrote:
+> On Thu, Apr 21, 2016 at 11:13 AM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Thu, Apr 21, 2016 at 10:21 AM, Babu Moger <babu.moger@oracle.com> wrote:
+>>> Current code writes the tx/rx relaxed order without reading it first.
+>>> This can lead to unintended consequences as we are forcibly writing
+>>> other bits.
+>>
+>> The consequences were very much intended as there are situations where
+>> enabling relaxed ordering can lead to data corruption.
+>>
+>>> We noticed this problem while testing VF driver on sparc. Relaxed
+>>> order settings for rx queue were all messed up which was causing
+>>> performance drop with VF interface.
+>>
+>> What additional relaxed ordering bits are you enabling on Sparc?  I'm
+>> assuming it is just the Rx data write back but I want to verify.
+>>
+>>> Fixed it by reading the registers first and setting the specific
+>>> bit of interest. With this change we are able to match the bandwidth
+>>> equivalent to PF interface.
+>>>
+>>> Signed-off-by: Babu Moger <babu.moger@oracle.com>
+>>
+>> Fixed is a relative term here since you are only chasing performance
+>> from what I can tell.  We need to make certain that this doesn't break
+>> the driver on any other architectures by leading to things like data
+>> corruption.
+>>
+>> - Alex
 > 
-> On Wed, Apr 20, 2016, at 03:11, David Miller wrote:
->> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> Date: Wed, 20 Apr 2016 03:06:13 +0200
->> 
->> > On Wed, Apr 20, 2016, at 02:27, David Miller wrote:
->> >> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> >> Date: Mon, 18 Apr 2016 21:19:41 +0200
->> >> 
->> >> > This patchset removes the dependency of network drivers on vxlan or
->> >> > geneve, so those don't get autoloaded when the nic driver is loaded.
->> >> > 
->> >> > Also audited the code such that vxlan_get_rx_port and geneve_get_rx_port
->> >> > are not called without rtnl lock.
->> >> 
->> >> In net-next, the 'qed' driver has tunneling offload support too.
->> >> Don't you need to update this series to handle that driver as
->> >> well?
->> > 
->> > I audited qede as well:
->> > 
->> > qede calls {vxlan,geneve}_get_rx_port only from ndo_open which isn't
->> > reused anywhere else in the driver, only from ndo_open, which holds
->> > rtnl_lock also. Thus the driver is safe and doesn't need a change.
->> 
->> I'm talking about your final patches which elide the dependencies.
-> 
-> could you look at this again? If you have further feedback I am happy to
-> incooperate those.
+> It occurs to me that what might be easier is instead of altering the
+> configuration on all architectures you could instead wrap the write so
+> that on SPARC you include the extra bits you need and on all other
+> architectures you leave the write as-is similar to how the code in the
+> ixgbe_start_hw_gen2 only clears the bits if CONFIG_SPARC is not
+> defined.
 
-Series applied, thanks Hannes.
+
+Here are the default values that I see when testing on Sparc.
+
+Default tx value 0x2a00
+
+All below 3 set
+#define IXGBE_DCA_TXCTRL_DESC_RRO_EN (1 << 9) /* Tx rd Desc Relax Order */
+#define IXGBE_DCA_TXCTRL_DESC_WRO_EN (1 << 11) /* Tx Desc writeback RO bit */
+#define IXGBE_DCA_TXCTRL_DATA_RRO_EN (1 << 13) /* Tx rd data Relax Order */
+
+I am not too worried about tx values. I can keep it as it is. It did not
+seem to cause any problems right now.
+
+
+Default rx value 0xb200
+
+All below 3 set plus one more
+
+#define IXGBE_DCA_RXCTRL_DESC_RRO_EN (1 << 9) /* DCA Rx rd Desc Relax Order */
+#define IXGBE_DCA_RXCTRL_DATA_WRO_EN (1 << 13) /* Rx wr data Relax Order */
+#define IXGBE_DCA_RXCTRL_HEAD_WRO_EN (1 << 15) /* Rx wr header RO */
+
+Is there a reason to disable IXGBE_DCA_RXCTRL_DATA_WRO_EN and
+IXGBE_DCA_RXCTRL_HEAD_WRO_EN for RX? 
+
+I would think CONFIG_SPARC should be our last option. What do you think?
+
+> 
+> - Alex
+> 
