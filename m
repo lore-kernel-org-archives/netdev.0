@@ -1,54 +1,61 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH v3 net-next 2/3] tcp: Handle eor bit when coalescing
- skb
-Date: Thu, 21 Apr 2016 09:56:33 -0700
-Message-ID: <20160421165633.GA74969@kafai-mba.local>
-References: <1461133497-1515104-1-git-send-email-kafai@fb.com>
- <1461133497-1515104-3-git-send-email-kafai@fb.com>
- <CACSApvbyD7wFy+y2MrShKRMCTg-zF6UkP-Le867N=ssCYa-Yng@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Kernel Team <kernel-team@fb.com>
-To: Soheil Hassas Yeganeh <soheil@google.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 3/4] ipmr: align RTA_MFC_STATS on 64-bit
+Date: Thu, 21 Apr 2016 18:58:26 +0200
+Message-ID: <1461257907-4458-4-git-send-email-nicolas.dichtel@6wind.com>
+References: <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com, tgraf@suug.ch, jhs@mojatatu.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59813 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752172AbcDUQ4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 12:56:47 -0400
-Content-Disposition: inline
-In-Reply-To: <CACSApvbyD7wFy+y2MrShKRMCTg-zF6UkP-Le867N=ssCYa-Yng@mail.gmail.com>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:52626 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753160AbcDUQ6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 12:58:49 -0400
+In-Reply-To: <1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 20, 2016 at 04:04:54PM -0400, Soheil Hassas Yeganeh wrote:
-> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> > index a6e4a83..96bdf98 100644
-> > --- a/net/ipv4/tcp_output.c
-> > +++ b/net/ipv4/tcp_output.c
-> > @@ -2494,6 +2494,7 @@ static void tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
-> >          * packet counting does not break.
-> >          */
-> >         TCP_SKB_CB(skb)->sacked |= TCP_SKB_CB(next_skb)->sacked & TCPCB_EVER_RETRANS;
-> > +       TCP_SKB_CB(skb)->eor = TCP_SKB_CB(next_skb)->eor;
-> >
-> >         /* changed transmit queue under us so clear hints */
-> >         tcp_clear_retrans_hints_partial(tp);
-> > @@ -2545,6 +2546,9 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
-> >                 if (!tcp_can_collapse(sk, skb))
-> >                         break;
-> >
-> > +               if (TCP_SKB_CB(to)->eor)
-> > +                       break;
-> > +
->
-> nit: Perhaps a better place to check for eor is right after entering
-> the loop? to skip a few instructions and tcp_can_collapse, in an
-> unlikely case eor is set.
-hmm... Not sure I understand it.
-You meant moving the unlikely case before (or after?) the more likely
-cases which may have a better chance to break the loop sooner?
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/rtnetlink.h | 1 +
+ net/ipv4/ipmr.c                | 4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index cc885c4e9065..a94e0b69c769 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -317,6 +317,7 @@ enum rtattr_type_t {
+ 	RTA_ENCAP_TYPE,
+ 	RTA_ENCAP,
+ 	RTA_EXPIRES,
++	RTA_PAD,
+ 	__RTA_MAX
+ };
+ 
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 395e2814a46d..21a38e296fe2 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2104,7 +2104,7 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 	mfcs.mfcs_packets = c->mfc_un.res.pkt;
+ 	mfcs.mfcs_bytes = c->mfc_un.res.bytes;
+ 	mfcs.mfcs_wrong_if = c->mfc_un.res.wrong_if;
+-	if (nla_put(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs) < 0)
++	if (nla_put_64bit(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs, RTA_PAD) < 0)
+ 		return -EMSGSIZE;
+ 
+ 	rtm->rtm_type = RTN_MULTICAST;
+@@ -2237,7 +2237,7 @@ static size_t mroute_msgsize(bool unresolved, int maxvif)
+ 		      + nla_total_size(0)	/* RTA_MULTIPATH */
+ 		      + maxvif * NLA_ALIGN(sizeof(struct rtnexthop))
+ 						/* RTA_MFC_STATS */
+-		      + nla_total_size(sizeof(struct rta_mfc_stats))
++		      + nla_total_size_64bit(sizeof(struct rta_mfc_stats))
+ 		;
+ 
+ 	return len;
+-- 
+2.4.2
