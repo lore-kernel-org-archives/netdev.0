@@ -1,60 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 9/9] net/mlx5e: Reset link modes upon setting speed
- to zero
-Date: Thu, 21 Apr 2016 14:07:23 -0400 (EDT)
-Message-ID: <20160421.140723.1560539945918260688.davem@davemloft.net>
-References: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
-	<1461069222-27076-10-git-send-email-saeedm@mellanox.com>
-	<20160421.140454.143155848960923980.davem@davemloft.net>
+Subject: Re: [patch -next] geneve: testing the wrong variable in
+ geneve6_build_skb()
+Date: Thu, 21 Apr 2016 14:08:19 -0400 (EDT)
+Message-ID: <20160421.140819.672617348227733752.davem@davemloft.net>
+References: <20160419143056.GD4876@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
-	eranbe@mellanox.com
-To: saeedm@mellanox.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aduyck@mirantis.com, jesse@kernel.org, linville@tuxdriver.com,
+	pshelar@nicira.com, jbenc@redhat.com, daniel@iogearbox.net,
+	tom@herbertland.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54141 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54147 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753098AbcDUSHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 14:07:25 -0400
-In-Reply-To: <20160421.140454.143155848960923980.davem@davemloft.net>
+	with ESMTP id S1751657AbcDUSIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 14:08:22 -0400
+In-Reply-To: <20160419143056.GD4876@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAyMSBB
-cHIgMjAxNiAxNDowNDo1NCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFNhZWVkIE1haGFtZWVkIDxz
-YWVlZG1AbWVsbGFub3guY29tPg0KPiBEYXRlOiBUdWUsIDE5IEFwciAyMDE2IDE1OjMzOjQyICsw
-MzAwDQo+IA0KPj4gVXBvbiBldGh0b29sIHJlcXVlc3QgdG8gc2V0IHNwZWVkIHRvIDAgd2UgaGFu
-ZGxlIGl0IGFzIGEgc3BlY2lhbCByZXF1ZXN0DQo+PiB0byByZXNldCBsaW5rIG1vZGVzIHRvIERl
-dmljZSdzIGRlZmF1bHRzLg0KPj4gDQo+PiBGaXhlczogZjYyYjhiYjhmMmQzICgibmV0L21seDU6
-IEV4dGVuZCBtbHg1X2NvcmUgdG8gc3VwcG9ydCBDb25uZWN0WC00DQo+PiBFdGhlcm5ldCBmdW5j
-dGlvbmFsaXR5IikNCj4+IFNpZ25lZC1vZmYtYnk6IFNhZWVkIE1haGFtZWVkIDxzYWVlZG1AbWVs
-bGFub3guY29tPg0KPiANCj4gUGxlYXNlIGRvbid0IHRyeSB0byBzbmVhayB0aGluZ3MgbGlrZSB0
-aGlzIGludG8gdGhlIHBhdGNoZXMgeW91IHN1Ym1pdC4NCg0KQWxzbywgdGhpcyBwYXRjaCBzZXJp
-ZXMgZG9lc24ndCBldmVuIGNvbXBpbGU6DQoNCltkYXZlbUBkaGNwLTEwLTE1LTQ5LTIxMCBuZXRd
-JCBtYWtlIC1zIC1qMTYNCk1ha2VmaWxlOjY3OTogQ2Fubm90IHVzZSBDT05GSUdfS0NPVjogLWZz
-YW5pdGl6ZS1jb3ZlcmFnZT10cmFjZS1wYyBpcyBub3Qgc3VwcG9ydGVkIGJ5IGNvbXBpbGVyDQog
-IERFU0NFTkQgIG9ianRvb2wNCmRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21haW4uYzogSW4g
-ZnVuY3Rpb24goW1seDVfcXVlcnlfaGNhX3BvcnSiOg0KZHJpdmVycy9pbmZpbmliYW5kL2h3L21s
-eDUvbWFpbi5jOjcyMTozMjogZXJyb3I6IHBhc3NpbmcgYXJndW1lbnQgMiBvZiChbWx4NV9xdWVy
-eV9wb3J0X21heF9tdHWiIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbLVdlcnJvcj1p
-bmNvbXBhdGlibGUtcG9pbnRlci10eXBlc10NCiAgbWx4NV9xdWVyeV9wb3J0X21heF9tdHUobWRl
-diwgJm1heF9tdHUsIHBvcnQpOw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQpJ
-biBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L21seDUvbWFpbi5jOjQ1
-OjA6DQppbmNsdWRlL2xpbnV4L21seDUvcG9ydC5oOjU4OjY6IG5vdGU6IGV4cGVjdGVkIKF1MTYg
-KiB7YWthIHNob3J0IHVuc2lnbmVkIGludCAqfaIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoWlu
-dCAqog0KIHZvaWQgbWx4NV9xdWVyeV9wb3J0X21heF9tdHUoc3RydWN0IG1seDVfY29yZV9kZXYg
-KmRldiwgdTE2ICptYXhfbXR1LCB1OCBwb3J0KTsNCiAgICAgIF4NCmRyaXZlcnMvaW5maW5pYmFu
-ZC9ody9tbHg1L21haW4uYzo3MjU6MzM6IGVycm9yOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoW1s
-eDVfcXVlcnlfcG9ydF9vcGVyX210daIgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFst
-V2Vycm9yPWluY29tcGF0aWJsZS1wb2ludGVyLXR5cGVzXQ0KICBtbHg1X3F1ZXJ5X3BvcnRfb3Bl
-cl9tdHUobWRldiwgJm9wZXJfbXR1LCBwb3J0KTsNCiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIF4NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4
-NS9tYWluLmM6NDU6MDoNCmluY2x1ZGUvbGludXgvbWx4NS9wb3J0Lmg6NTk6Njogbm90ZTogZXhw
-ZWN0ZWQgoXUxNiAqIHtha2Egc2hvcnQgdW5zaWduZWQgaW50ICp9oiBidXQgYXJndW1lbnQgaXMg
-b2YgdHlwZSChaW50ICqiDQogdm9pZCBtbHg1X3F1ZXJ5X3BvcnRfb3Blcl9tdHUoc3RydWN0IG1s
-eDVfY29yZV9kZXYgKmRldiwgdTE2ICpvcGVyX210dSwNCiAgICAgIF4NCmNjMTogc29tZSB3YXJu
-aW5ncyBiZWluZyB0cmVhdGVkIGFzIGVycm9ycw0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyOTE6
-IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4NS9tYWluLm8nIGZh
-aWxlZA0KbWFrZVs0XTogKioqIFtkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4NS9tYWluLm9dIEVy
-cm9yIDENCg==
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 19 Apr 2016 17:30:56 +0300
+
+> We intended to test "err" and not "skb".
+> 
+> Fixes: aed069df099c ('ip_tunnel_core: iptunnel_handle_offloads returns int and doesn't free skb')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+Applied, thanks Dan.
