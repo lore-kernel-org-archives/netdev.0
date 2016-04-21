@@ -1,66 +1,98 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: linux-next: zillions of lockdep whinges in include/net/sock.h:1408
-Date: Thu, 21 Apr 2016 05:05:55 -0400
-Message-ID: <43037.1461229555@turing-police.cc.vt.edu>
-References: <66816.1461198639@turing-police.cc.vt.edu>
- <1461224532.4101068.585250481.7A43E285@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1461229555_7324P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461224532.4101068.585250481.7A43E285@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH 0/6] Add Shared MDIO framework for iProc based SoCs
+Date: Thu, 21 Apr 2016 14:48:37 +0530
+Message-ID: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
+Cc: BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1461229555_7324P
-Content-Type: text/plain; charset=us-ascii
+Broadcom iProc based SoCs uses MDIO bus for programming PHYs belonging to
+different I/O subsystem like USB, SATA, PCIe, ETHERNET etc. Every subsystem
+is referred as "Master" When a master is selected, all PHYs belonging to
+this subsystem get active on the MDIO bus and responds to MDIO transaction.
+In this way one MDIO controller is shared among all masters hence named as
+"Shared MDIO controller".
 
-On Thu, 21 Apr 2016 09:42:12 +0200, Hannes Frederic Sowa said:
-> Hi,
->
-> On Thu, Apr 21, 2016, at 02:30, Valdis Kletnieks wrote:
-> > linux-next 20160420 is whining at an incredible rate - in 20 minutes of
-> > uptime, I piled up some 41,000 hits from all over the place (cleaned up
-> > to skip the CPU and PID so the list isn't quite so long):
->
-> Thanks for the report. Can you give me some more details:
->
-> Is this an nfs socket? Do you by accident know if this socket went
-> through xs_reclassify_socket at any point? We do hold the appropriate
-> locks at that point but I fear that the lockdep reinitialization
-> confused lockdep.
+We have two important entities in "Shared MDIO Bus" framework:
+1) shared_mdio_master and
+2) shared_mdio_driver.
 
-It wasn't an NFS socket, as NFS wasn't even active at the time.  I'm reasonably
-sure that multiple sockets were in play, given that tcp_v6_rcv and
-udpv6_queue_rcv_skb were both implicated.  I strongly suspect that pretty much
-any IPv6 traffic could do it - the frequency dropped off quite a bit when I
-closed firefox, which is usually a heavy network hitter on my laptop.
+The shared MDIO controller driver is registered as platform driver and it
+creates shared_mdio_master instances and adds them to "Shared MDIO Bus"
+framework. The "Shared MDIO Bus" framework will try to match-n-probe each
+shared_mdio_master instance with all available shared_mdio_driver based on
+DT matching. The shared_mdio_driver will acts as phy provider for
+respective PHY frameworks and it will access PHY registers only using
+"Shared MDIO Bus" framework APIs. All PHY read/write from
+shared_mdio_driver will eventually reach shared MDIO controller driver
+(who originally created shared_mdio_master instances) and shared MDIO
+controller driver will serialized these PHY read/write as required.
 
+This patch set includes Shared MDIO Bus framework, Shared MDIO block driver
+and one Shared MDIO driver, ETHERNET PHY provider driver.
 
---==_Exmh_1461229555_7324P
-Content-Type: application/pgp-signature
+shared_mdio.c: This is the bus framework where all masters are registered
+via shared MDIO block driver.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
+iproc_shared_mdio.c: Represent the shared MDIO block driver. The driver
+registers all masters to shared mdio bus framework.
 
-iQIVAwUBVxiX8wdmEQWDXROgAQLI+RAAkA0dLhdBkySQm5+jK/ZHa0/EyZyopJCA
-/KoozJ/hEvhheVdrMLfOSw9ratJSyhgxzaJiV2zAM/QB3QT8jzRsgJiK4onyL9Il
-hVzL4meP4RjHI0tLCkPZ8BdMpwqwoRB3oJM5oS67PyQfFCgvHFmhrOCKRBLWsuAr
-/2VMVL417MBZ4voLyCYnCJIf6nkx6ZnLmIvz+lOpdFn7y3II8MS/voBy2gJV1KNb
-/MHT6PzuP19Lwc5fSYv1ciG+FCM1wx6GwqETQUd2abOrM4wfNNKVrTop2tcVBC1p
-EF1hcWPnkcN1oJelWVc5hwtjdLsnzjtyt158w0Vj1QPIZtdRmuHC8J4C8NX4yhqG
-mfAmCt2LD08mwscqtNYskEdorfM7pjmXUJ/+MYt04TbYT6fZtWD54eacUd+0zfxV
-xY9H7W2enKCpFgCSd2Uz1DvTXwU6q+u9k6Pex4JAv4bkdox2Elhn5QcVssFTDFs3
-LTiRyu+TSEKBsGWBnF0jiLIINGW14/r0nZ2IjiEOOwrKOu/1tM3Cbh5NOXL1TN9/
-tA41P+uK1xjCkH3znIyc1jUjT9bLy7Z9xFzMc5OqocOl5wwJDv1YHRjIqgb4or4q
-hzm8wGoTVIuLeURnO/Qt39ZuwT+Pklzf+ddCsFxibmOD8bWD/qAScclgm1eX6qpU
-BUQZr1vRPdM=
-=E/8B
------END PGP SIGNATURE-----
+mdio-bcm-iproc-shared.c: Master driver which registers ETHERNET phy to
+legacy MII framework.
 
---==_Exmh_1461229555_7324P--
+In future there will be more driver for SATA, USB, PCIe masters which will
+register phys for their subsystem.
+
+Patch series is developed based on Linux v4.6-rc1 and available at:
+repo: https://github.com/Broadcom/arm64-linux.git
+branch: shared_mdio_v0
+
+Pramod Kumar (6):
+  bus: Add shared MDIO bus framework
+  Documentation: DT binding doc for iProc Shared MDIO Controller.
+  bus: Add platform driver for iProc shared MDIO Controller
+  dt: Add Shared MDIO Controller node for NS2
+  Documentation: Binding doc for ethernet master in NS2
+  net:phy: Add Ethernet Master for iProc Shared MDIO Controller
+
+ .../bindings/bus/brcm,iproc-shared-mdio.txt        |  76 ++++++
+ .../bindings/net/brcm,iproc-mdio-shared.txt        |  32 +++
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts           |  15 ++
+ arch/arm64/boot/dts/broadcom/ns2.dtsi              |   8 +
+ drivers/bus/Kconfig                                |  22 ++
+ drivers/bus/Makefile                               |   2 +
+ drivers/bus/iproc_shared_mdio.c                    | 287 +++++++++++++++++++++
+ drivers/bus/shared_mdio.c                          | 179 +++++++++++++
+ drivers/net/phy/Kconfig                            |  11 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/mdio-bcm-iproc-shared.c            | 116 +++++++++
+ include/linux/shared_mdio.h                        | 123 +++++++++
+ 12 files changed, 872 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+ create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
+ create mode 100644 drivers/bus/iproc_shared_mdio.c
+ create mode 100644 drivers/bus/shared_mdio.c
+ create mode 100644 drivers/net/phy/mdio-bcm-iproc-shared.c
+ create mode 100644 include/linux/shared_mdio.h
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
