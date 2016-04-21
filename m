@@ -1,38 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] atl2: Disable unimplemented scatter/gather feature
-Date: Thu, 21 Apr 2016 15:12:48 -0400 (EDT)
-Message-ID: <20160421.151248.1066170820995763060.davem@davemloft.net>
-References: <20160420222308.GJ3348@decadent.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] ixgbevf: Fix relaxed order settings in VF driver
+Date: Thu, 21 Apr 2016 12:22:38 -0700
+Message-ID: <CAKgT0UdEP9ZMnNjSSqh-vZvaEc9N8_X_KWvykChxRv1bretYtw@mail.gmail.com>
+References: <1461259276-54151-1-git-send-email-babu.moger@oracle.com>
+	<CAKgT0UeU+Q1HDvR8pK3kxYofjEqk8jVeh5xONoUpD34MsPZCCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jyackoski@crypto-nite.com
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54697 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751851AbcDUTMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 15:12:49 -0400
-In-Reply-To: <20160420222308.GJ3348@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	shannon nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Bruce W Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Babu Moger <babu.moger@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UeU+Q1HDvR8pK3kxYofjEqk8jVeh5xONoUpD34MsPZCCA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 20 Apr 2016 23:23:08 +0100
+On Thu, Apr 21, 2016 at 11:13 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Thu, Apr 21, 2016 at 10:21 AM, Babu Moger <babu.moger@oracle.com> wrote:
+>> Current code writes the tx/rx relaxed order without reading it first.
+>> This can lead to unintended consequences as we are forcibly writing
+>> other bits.
+>
+> The consequences were very much intended as there are situations where
+> enabling relaxed ordering can lead to data corruption.
+>
+>> We noticed this problem while testing VF driver on sparc. Relaxed
+>> order settings for rx queue were all messed up which was causing
+>> performance drop with VF interface.
+>
+> What additional relaxed ordering bits are you enabling on Sparc?  I'm
+> assuming it is just the Rx data write back but I want to verify.
+>
+>> Fixed it by reading the registers first and setting the specific
+>> bit of interest. With this change we are able to match the bandwidth
+>> equivalent to PF interface.
+>>
+>> Signed-off-by: Babu Moger <babu.moger@oracle.com>
+>
+> Fixed is a relative term here since you are only chasing performance
+> from what I can tell.  We need to make certain that this doesn't break
+> the driver on any other architectures by leading to things like data
+> corruption.
+>
+> - Alex
 
-> atl2 includes NETIF_F_SG in hw_features even though it has no support
-> for non-linear skbs.  This bug was originally harmless since the
-> driver does not claim to implement checksum offload and that used to
-> be a requirement for SG.
-> 
-> Now that SG and checksum offload are independent features, if you
-> explicitly enable SG *and* use one of the rare protocols that can use
-> SG without checkusm offload, this potentially leaks sensitive
-> information (before you notice that it just isn't working).  Therefore
-> this obscure bug has been designated CVE-2016-2117.
-> 
-> Reported-by: Justin Yackoski <jyackoski@crypto-nite.com>
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> Fixes: ec5f06156423 ("net: Kill link between CSUM and SG features.")
+It occurs to me that what might be easier is instead of altering the
+configuration on all architectures you could instead wrap the write so
+that on SPARC you include the extra bits you need and on all other
+architectures you leave the write as-is similar to how the code in the
+ixgbe_start_hw_gen2 only clears the bits if CONFIG_SPARC is not
+defined.
 
-Applied and queued up for -stable, thanks.
+- Alex
