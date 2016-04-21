@@ -1,66 +1,60 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net] Driver: Vmxnet3: set CHECKSUM_UNNECESSARY for IPv6 packets
-Date: Wed, 20 Apr 2016 18:12:29 -0700
-Message-ID: <1461201149-45583-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>, Jin Heo <heoj@vmware.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net] openvswitch: use flow protocol when recalculating ipv6 checksums
+Date: Thu, 21 Apr 2016 11:49:15 +1000
+Message-ID: <1461203355-3088-1-git-send-email-simon.horman@netronome.com>
+Cc: Jesse Gross <jesse@kernel.org>, netdev@vger.kernel.org,
+	dev@openvswitch.org, Simon Horman <simon.horman@netronome.com>,
+	Jarno Rajahalme <jrajahalme@nicira.com>
+To: Pravin Shelar <pshelar@ovn.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33815 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608AbcDUBtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 21:49:31 -0400
+Received: by mail-pf0-f175.google.com with SMTP id y69so7637190pfb.1
+        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 18:49:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For IPv6, if the device indicates that the checksum is correct, set
-CHECKSUM_UNNECESSARY.
+When using masked actions the ipv6_proto field of an action
+to set IPv6 fields may be zero rather than the prevailing protocol
+which will result in skipping checksum recalculation.
 
-Reported-by: Subbarao Narahari <snarahari@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
-Signed-off-by: Jin Heo <heoj@vmware.com>
+This patch resolves the problem by relying on the protocol
+in the flow key rather than that in the set field action.
+
+Fixes: 83d2b9ba1abc ("net: openvswitch: Support masked set actions.")
+Cc: Jarno Rajahalme <jrajahalme@nicira.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 12 ++++++++----
- drivers/net/vmxnet3/vmxnet3_int.h |  4 ++--
- 2 files changed, 10 insertions(+), 6 deletions(-)
+* Found using tcpdump to examine the checksums of packets.
+* I believe a similar fix is required for the user-space implementation
+  of the datapath. I plan to look into that unless someone else wishes to.
+---
+ net/openvswitch/actions.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index fc895d0..4a67e4f 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1152,12 +1152,16 @@ vmxnet3_rx_csum(struct vmxnet3_adapter *adapter,
- 		union Vmxnet3_GenericDesc *gdesc)
- {
- 	if (!gdesc->rcd.cnc && adapter->netdev->features & NETIF_F_RXCSUM) {
--		/* typical case: TCP/UDP over IP and both csums are correct */
--		if ((le32_to_cpu(gdesc->dword[3]) & VMXNET3_RCD_CSUM_OK) ==
--							VMXNET3_RCD_CSUM_OK) {
-+		if (gdesc->rcd.v4 &&
-+		    (le32_to_cpu(gdesc->dword[3]) &
-+		     VMXNET3_RCD_CSUM_OK) == VMXNET3_RCD_CSUM_OK) {
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			BUG_ON(!(gdesc->rcd.tcp || gdesc->rcd.udp));
-+			BUG_ON(gdesc->rcd.frg);
-+		} else if (gdesc->rcd.v6 && (le32_to_cpu(gdesc->dword[3]) &
-+					     (1 << VMXNET3_RCD_TUC_SHIFT))) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			BUG_ON(!(gdesc->rcd.tcp || gdesc->rcd.udp));
--			BUG_ON(!(gdesc->rcd.v4  || gdesc->rcd.v6));
- 			BUG_ON(gdesc->rcd.frg);
- 		} else {
- 			if (gdesc->rcd.csum) {
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 729c344..c482539 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.4.6.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.4.7.0-k"
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index e9dd47b2a85b..879185fe183f 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -461,7 +461,7 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 		mask_ipv6_addr(saddr, key->ipv6_src, mask->ipv6_src, masked);
  
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01040600
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01040700
+ 		if (unlikely(memcmp(saddr, masked, sizeof(masked)))) {
+-			set_ipv6_addr(skb, key->ipv6_proto, saddr, masked,
++			set_ipv6_addr(skb, flow_key->ip.proto, saddr, masked,
+ 				      true);
+ 			memcpy(&flow_key->ipv6.addr.src, masked,
+ 			       sizeof(flow_key->ipv6.addr.src));
+@@ -483,7 +483,7 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *flow_key,
+ 							     NULL, &flags)
+ 					       != NEXTHDR_ROUTING);
  
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
+-			set_ipv6_addr(skb, key->ipv6_proto, daddr, masked,
++			set_ipv6_addr(skb, flow_key->ip.proto, daddr, masked,
+ 				      recalc_csum);
+ 			memcpy(&flow_key->ipv6.addr.dst, masked,
+ 			       sizeof(flow_key->ipv6.addr.dst));
 -- 
-1.9.1
+2.7.0.rc3.207.g0ac5344
