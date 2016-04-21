@@ -1,190 +1,340 @@
 From: Marek Vasut <marex@denx.de>
-Subject: [PATCH V3] net: stmmac: socfpga: Remove re-registration of reset controller
-Date: Thu, 21 Apr 2016 14:11:50 +0200
-Message-ID: <1461240710-5381-1-git-send-email-marex@denx.de>
+Subject: [RFC][PATCH] net: stmmac: Call custom init from stmmac_dvr_probe
+Date: Thu, 21 Apr 2016 14:12:28 +0200
+Message-ID: <1461240748-5464-1-git-send-email-marex@denx.de>
 Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
 	Marek Vasut <marex@denx.de>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Chen-Yu Tsai <wens@csie.org>,
 	Matthew Gerlach <mgerlach@opensource.altera.com>,
 	Dinh Nguyen <dinguyen@opensource.altera.com>,
 	"David S . Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:55629 "EHLO
+Received: from mail-out.m-online.net ([212.18.0.9]:57850 "EHLO
 	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526AbcDUMMI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 08:12:08 -0400
+	with ESMTP id S1751970AbcDUMNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 08:13:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
-in stmmac_main.c functions call devm_reset_control_get() to register an
-reset controller for the stmmac. This results in an attempt to register
-two reset controllers for the same non-shared reset line.
+Each and every driver which implements custom plat_data->init function
+calls it exactly before stmmac_dvr_probe(). Trim down the code duplication
+by calling the plat_data->init function from stmmac_dvr_probe() instead.
 
-The first attempt to register the reset controller works fine. The second
-attempt fails with warning from the reset controller core, see below.
-The warning is produced because the reset line is non-shared and thus
-it is allowed to have only up-to one reset controller associated with
-that reset line, not two or more.
-
-The solution has multiple parts. First, the original socfpga_dwmac_init()
-is tweaked to use reset controller pointer from the stmmac_priv (private
-data of the stmmac core) instead of the local instance, which was used
-before. The local re-registration of the reset controller is removed.
-
-Next, the socfpga_dwmac_init() is moved after stmmac_dvr_probe() in the
-probe function. This order is legal according to Altera and it makes the
-code much easier, since there is no need to temporarily register and
-unregister the reset controller ; the reset controller is already registered
-by the stmmac_dvr_probe().
-
-Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
-since the functionality is already performed by the stmmac core.
-
-------------[ cut here ]------------
-WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
-Modules linked in:
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
-Hardware name: Altera SOCFPGA
-[<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
-[<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
-[<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
-[<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
-[<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
-[<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
-[<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
-[<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
-[<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
-[<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
-[<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
-[<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
-[<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
-[<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
-[<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
-[<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
-[<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
-[<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
----[ end trace 059d2fbe87608fa9 ]---
+The stmmac_dvr_probe() does not have access to struct platform_device ,
+since not all callers register the driver as a platform device. Analyzing
+the ->init and ->exit functions, the platform_device is only used on in
+one instance, on loongson, and only to access private data. Thus, replace
+the platform device with net_device in both .init and .exit first and fix
+up the code slightly to deal with this change.
 
 Signed-off-by: Marek Vasut <marex@denx.de>
+Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+Cc: Chen-Yu Tsai <wens@csie.org>
 Cc: Matthew Gerlach <mgerlach@opensource.altera.com>
 Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
 Cc: David S. Miller <davem@davemloft.net>
 ---
-V2: Add missing stmmac_rst = NULL; into socfpga_dwmac_init_probe()
-V3: Greatly simplify the code by moving socfpga_dwmac_init() after
-    stmmac_dvr_probe(), which is legal. This removes the need for
-    temporary registration of the reset controller, which is super.
----
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 50 +++++++---------------
- 1 file changed, 16 insertions(+), 34 deletions(-)
+ arch/blackfin/mach-bf609/boards/ezkit.c               |  2 +-
+ arch/mips/loongson32/common/platform.c                |  6 +++---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c   |  7 -------
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c        |  8 ++------
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c   | 15 +++------------
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c       |  8 ++------
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c     |  8 ++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 13 +++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  8 +++-----
+ include/linux/stmmac.h                                |  5 +++--
+ 10 files changed, 32 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 76d671e..784eb53 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -49,7 +49,6 @@ struct socfpga_dwmac {
- 	u32	reg_shift;
- 	struct	device *dev;
- 	struct regmap *sys_mgr_base_addr;
--	struct reset_control *stmmac_rst;
- 	void __iomem *splitter_base;
- 	bool f2h_ptp_ref_clk;
+diff --git a/arch/blackfin/mach-bf609/boards/ezkit.c b/arch/blackfin/mach-bf609/boards/ezkit.c
+index aad5d74..3454fe2 100644
+--- a/arch/blackfin/mach-bf609/boards/ezkit.c
++++ b/arch/blackfin/mach-bf609/boards/ezkit.c
+@@ -122,7 +122,7 @@ static struct stmmac_dma_cfg eth_dma_cfg = {
+ 	.pbl	= 2,
  };
-@@ -92,15 +91,6 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 	struct device_node *np_splitter;
- 	struct resource res_splitter;
  
--	dwmac->stmmac_rst = devm_reset_control_get(dev,
--						  STMMAC_RESOURCE_NAME);
--	if (IS_ERR(dwmac->stmmac_rst)) {
--		dev_info(dev, "Could not get reset control!\n");
--		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
--			return -EPROBE_DEFER;
--		dwmac->stmmac_rst = NULL;
+-int stmmac_ptp_clk_init(struct platform_device *pdev, void *priv)
++int stmmac_ptp_clk_init(struct net_device *ndev, void *priv)
+ {
+ 	bfin_write32(PADS0_EMAC_PTP_CLKSEL, 0);
+ 	return 0;
+diff --git a/arch/mips/loongson32/common/platform.c b/arch/mips/loongson32/common/platform.c
+index f2c714d..e746df7 100644
+--- a/arch/mips/loongson32/common/platform.c
++++ b/arch/mips/loongson32/common/platform.c
+@@ -125,14 +125,14 @@ static struct stmmac_dma_cfg ls1x_eth_dma_cfg = {
+ 	.pbl		= 1,
+ };
+ 
+-int ls1x_eth_mux_init(struct platform_device *pdev, void *priv)
++int ls1x_eth_mux_init(struct net_device *ndev, void *priv)
+ {
+-	struct plat_stmmacenet_data *plat_dat = NULL;
++	struct stmmac_priv *priv = netdev_priv(ndev);
++	struct plat_stmmacenet_data *plat_dat = priv->plat;
+ 	u32 val;
+ 
+ 	val = __raw_readl(LS1X_MUX_CTRL1);
+ 
+-	plat_dat = dev_get_platdata(&pdev->dev);
+ 	if (plat_dat->bus_id) {
+ 		__raw_writel(__raw_readl(LS1X_MUX_CTRL0) | GMAC1_USE_UART1 |
+ 			     GMAC1_USE_UART0, LS1X_MUX_CTRL0);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+index b1e5f24..3107a71 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+@@ -46,13 +46,6 @@ static int dwmac_generic_probe(struct platform_device *pdev)
+ 		plat_dat->unicast_filter_entries = 1;
+ 	}
+ 
+-	/* Custom initialisation (if needed) */
+-	if (plat_dat->init) {
+-		ret = plat_dat->init(pdev, plat_dat->bsp_priv);
+-		if (ret)
+-			return ret;
 -	}
 -
- 	dwmac->interface = of_get_phy_mode(np);
+ 	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ }
  
- 	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
-@@ -194,30 +184,23 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 0cd3ecf..3b5a59d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -529,7 +529,7 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
+ 	return bsp_priv;
+ }
+ 
+-static int rk_gmac_init(struct platform_device *pdev, void *priv)
++static int rk_gmac_init(struct net_device *ndev, void *priv)
+ {
+ 	struct rk_priv_data *bsp_priv = priv;
+ 	int ret;
+@@ -545,7 +545,7 @@ static int rk_gmac_init(struct platform_device *pdev, void *priv)
  	return 0;
  }
  
--static void socfpga_dwmac_exit(struct platform_device *pdev, void *priv)
--{
--	struct socfpga_dwmac	*dwmac = priv;
--
--	/* On socfpga platform exit, assert and hold reset to the
--	 * enet controller - the default state after a hard reset.
--	 */
--	if (dwmac->stmmac_rst)
--		reset_control_assert(dwmac->stmmac_rst);
--}
--
- static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+-static void rk_gmac_exit(struct platform_device *pdev, void *priv)
++static void rk_gmac_exit(struct net_device *ndev, void *priv)
  {
--	struct socfpga_dwmac	*dwmac = priv;
-+	struct socfpga_dwmac *dwmac = priv;
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct stmmac_priv *stpriv = NULL;
- 	int ret = 0;
+ 	struct rk_priv_data *gmac = priv;
  
--	if (ndev)
--		stpriv = netdev_priv(ndev);
-+	if (!ndev)
-+		return -EINVAL;
-+
-+	stpriv = netdev_priv(ndev);
-+	if (!stpriv)
-+		return -EINVAL;
+@@ -596,10 +596,6 @@ static int rk_gmac_probe(struct platform_device *pdev)
+ 	if (IS_ERR(plat_dat->bsp_priv))
+ 		return PTR_ERR(plat_dat->bsp_priv);
  
- 	/* Assert reset to the enet controller before changing the phy mode */
--	if (dwmac->stmmac_rst)
--		reset_control_assert(dwmac->stmmac_rst);
-+	if (stpriv->stmmac_rst)
-+		reset_control_assert(stpriv->stmmac_rst);
- 
- 	/* Setup the phy mode in the system manager registers according to
- 	 * devicetree configuration
-@@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	/* Deassert reset for the phy configuration to be sampled by
- 	 * the enet controller, and operation to start in requested mode
- 	 */
--	if (dwmac->stmmac_rst)
--		reset_control_deassert(dwmac->stmmac_rst);
-+	if (stpriv->stmmac_rst)
-+		reset_control_deassert(stpriv->stmmac_rst);
- 
- 	/* Before the enet controller is suspended, the phy is suspended.
- 	 * This causes the phy clock to be gated. The enet controller is
-@@ -245,7 +228,7 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	 * control register 0, and can be modified by the phy driver
- 	 * framework.
- 	 */
--	if (stpriv && stpriv->phydev)
-+	if (stpriv->phydev)
- 		phy_resume(stpriv->phydev);
- 
- 	return ret;
-@@ -279,14 +262,13 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 
- 	plat_dat->bsp_priv = dwmac;
- 	plat_dat->init = socfpga_dwmac_init;
--	plat_dat->exit = socfpga_dwmac_exit;
- 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
- 
--	ret = socfpga_dwmac_init(pdev, plat_dat->bsp_priv);
+-	ret = rk_gmac_init(pdev, plat_dat->bsp_priv);
 -	if (ret)
 -		return ret;
-+	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	if (!ret)
-+		ret = socfpga_dwmac_init(pdev, dwmac);
+-
+ 	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ }
  
--	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-+	return ret;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 784eb53..97f5615 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -184,17 +184,12 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+ 	return 0;
+ }
+ 
+-static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
++static int socfpga_dwmac_init(struct net_device *ndev, void *priv)
+ {
+ 	struct socfpga_dwmac *dwmac = priv;
+-	struct net_device *ndev = platform_get_drvdata(pdev);
+-	struct stmmac_priv *stpriv = NULL;
++	struct stmmac_priv *stpriv = netdev_priv(ndev);
+ 	int ret = 0;
+ 
+-	if (!ndev)
+-		return -EINVAL;
+-
+-	stpriv = netdev_priv(ndev);
+ 	if (!stpriv)
+ 		return -EINVAL;
+ 
+@@ -264,11 +259,7 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
+ 	plat_dat->init = socfpga_dwmac_init;
+ 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
+ 
+-	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+-	if (!ret)
+-		ret = socfpga_dwmac_init(pdev, dwmac);
+-
+-	return ret;
++	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
  }
  
  static const struct of_device_id socfpga_dwmac_match[] = {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+index 58c05ac..049d1dc 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -228,7 +228,7 @@ static void stid127_fix_retime_src(void *priv, u32 spd)
+ 	regmap_update_bits(dwmac->regmap, reg, STID127_RETIME_SRC_MASK, val);
+ }
+ 
+-static int sti_dwmac_init(struct platform_device *pdev, void *priv)
++static int sti_dwmac_init(struct net_device *ndev, void *priv)
+ {
+ 	struct sti_dwmac *dwmac = priv;
+ 	struct regmap *regmap = dwmac->regmap;
+@@ -254,7 +254,7 @@ static int sti_dwmac_init(struct platform_device *pdev, void *priv)
+ 	return 0;
+ }
+ 
+-static void sti_dwmac_exit(struct platform_device *pdev, void *priv)
++static void sti_dwmac_exit(struct net_device *ndev, void *priv)
+ {
+ 	struct sti_dwmac *dwmac = priv;
+ 
+@@ -361,10 +361,6 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+ 	plat_dat->exit = sti_dwmac_exit;
+ 	plat_dat->fix_mac_speed = data->fix_retime_src;
+ 
+-	ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
+-	if (ret)
+-		return ret;
+-
+ 	return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ }
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+index adff463..5a21574 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+@@ -36,7 +36,7 @@ struct sunxi_priv_data {
+ #define SUN7I_GMAC_GMII_RGMII_RATE	125000000
+ #define SUN7I_GMAC_MII_RATE		25000000
+ 
+-static int sun7i_gmac_init(struct platform_device *pdev, void *priv)
++static int sun7i_gmac_init(struct net_device *ndev, void *priv)
+ {
+ 	struct sunxi_priv_data *gmac = priv;
+ 	int ret;
+@@ -65,7 +65,7 @@ static int sun7i_gmac_init(struct platform_device *pdev, void *priv)
+ 	return 0;
+ }
+ 
+-static void sun7i_gmac_exit(struct platform_device *pdev, void *priv)
++static void sun7i_gmac_exit(struct net_device *ndev, void *priv)
+ {
+ 	struct sunxi_priv_data *gmac = priv;
+ 
+@@ -149,10 +149,6 @@ static int sun7i_gmac_probe(struct platform_device *pdev)
+ 	plat_dat->exit = sun7i_gmac_exit;
+ 	plat_dat->fix_mac_speed = sun7i_fix_speed;
+ 
+-	ret = sun7i_gmac_init(pdev, plat_dat->bsp_priv);
+-	if (ret)
+-		return ret;
+-
+ 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ 	if (ret)
+ 		sun7i_gmac_exit(pdev, plat_dat->bsp_priv);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index b87edb7..a62cbe31 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3260,6 +3260,13 @@ int stmmac_dvr_probe(struct device *device,
+ 	if (priv->stmmac_rst)
+ 		reset_control_deassert(priv->stmmac_rst);
+ 
++	/* Custom initialisation (if needed) */
++	if (plat_dat->init) {
++		ret = plat_dat->init(ndev, plat_dat->bsp_priv);
++		if (ret)
++			return ret;
++	}
++
+ 	/* Init MAC and get the capabilities */
+ 	ret = stmmac_hw_init(priv);
+ 	if (ret)
+@@ -3357,6 +3364,7 @@ EXPORT_SYMBOL_GPL(stmmac_dvr_probe);
+ int stmmac_dvr_remove(struct net_device *ndev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
++	struct plat_stmmacenet_data *plat_dat = priv->plat;
+ 
+ 	pr_info("%s:\n\tremoving driver", __func__);
+ 
+@@ -3366,6 +3374,11 @@ int stmmac_dvr_remove(struct net_device *ndev)
+ 	stmmac_set_mac(priv->ioaddr, false);
+ 	netif_carrier_off(ndev);
+ 	unregister_netdev(ndev);
++
++	/* Custom de-initialisation (if needed) */
++	if (plat_dat->exit)
++		plat_dat->exit(ndev, plat_dat->bsp_priv);
++
+ 	if (priv->stmmac_rst)
+ 		reset_control_assert(priv->stmmac_rst);
+ 	clk_disable_unprepare(priv->pclk);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index effaa4f..7473433 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -389,7 +389,7 @@ int stmmac_pltfr_remove(struct platform_device *pdev)
+ 	int ret = stmmac_dvr_remove(ndev);
+ 
+ 	if (priv->plat->exit)
+-		priv->plat->exit(pdev, priv->plat->bsp_priv);
++		priv->plat->exit(ndev, priv->plat->bsp_priv);
+ 
+ 	return ret;
+ }
+@@ -408,11 +408,10 @@ static int stmmac_pltfr_suspend(struct device *dev)
+ 	int ret;
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+-	struct platform_device *pdev = to_platform_device(dev);
+ 
+ 	ret = stmmac_suspend(ndev);
+ 	if (priv->plat->exit)
+-		priv->plat->exit(pdev, priv->plat->bsp_priv);
++		priv->plat->exit(ndev, priv->plat->bsp_priv);
+ 
+ 	return ret;
+ }
+@@ -428,10 +427,9 @@ static int stmmac_pltfr_resume(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+-	struct platform_device *pdev = to_platform_device(dev);
+ 
+ 	if (priv->plat->init)
+-		priv->plat->init(pdev, priv->plat->bsp_priv);
++		priv->plat->init(ndev, priv->plat->bsp_priv);
+ 
+ 	return stmmac_resume(ndev);
+ }
+diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+index ffdaca9..ddd4342 100644
+--- a/include/linux/stmmac.h
++++ b/include/linux/stmmac.h
+@@ -27,6 +27,7 @@
+ #define __STMMAC_PLATFORM_DATA
+ 
+ #include <linux/platform_device.h>
++#include <linux/netdevice.h>
+ 
+ #define STMMAC_RX_COE_NONE	0
+ #define STMMAC_RX_COE_TYPE1	1
+@@ -133,8 +134,8 @@ struct plat_stmmacenet_data {
+ 	int rx_fifo_size;
+ 	void (*fix_mac_speed)(void *priv, unsigned int speed);
+ 	void (*bus_setup)(void __iomem *ioaddr);
+-	int (*init)(struct platform_device *pdev, void *priv);
+-	void (*exit)(struct platform_device *pdev, void *priv);
++	int (*init)(struct net_device *ndev, void *priv);
++	void (*exit)(struct net_device *ndev, void *priv);
+ 	void *bsp_priv;
+ 	struct stmmac_axi *axi;
+ 	int has_gmac4;
 -- 
 2.7.0
