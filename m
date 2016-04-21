@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ethernet: davinci_emac: Fix Unbalanced
- pm_runtime_enable
-Date: Thu, 21 Apr 2016 14:58:06 -0400 (EDT)
-Message-ID: <20160421.145806.264243075732892897.davem@davemloft.net>
-References: <1461142573-4276-1-git-send-email-narmstrong@baylibre.com>
+Subject: Re: [PATCH] net: phy: spi_ks8895: Don't leak references to SPI
+ devices
+Date: Thu, 21 Apr 2016 15:00:39 -0400 (EDT)
+Message-ID: <20160421.150039.591459586047228776.davem@davemloft.net>
+References: <1461153245-7992-1-git-send-email-broonie@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, thomas.lendacky@amd.com, mugunthanvnm@ti.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	b.hutchman@gmail.com
-To: narmstrong@baylibre.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461142573-4276-1-git-send-email-narmstrong@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: broonie@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54594 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751172AbcDUTAl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 15:00:41 -0400
+In-Reply-To: <1461153245-7992-1-git-send-email-broonie@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Armstrong <narmstrong@baylibre.com>
-Date: Wed, 20 Apr 2016 10:56:13 +0200
+From: Mark Brown <broonie@kernel.org>
+Date: Wed, 20 Apr 2016 12:54:05 +0100
 
-> In order to avoid an Unbalanced pm_runtime_enable in the DaVinci
-> emac driver when the device is removed and re-probed, and a
-> pm_runtime_disable() call in davinci_emac_remove().
+> The ks8895 driver is using spi_dev_get() apparently just to take a copy
+> of the SPI device used to instantiate it but never calls spi_dev_put()
+> to free it.  Since the device is guaranteed to exist between probe() and
+> remove() there should be no need for the driver to take an extra
+> reference to it so fix the leak by just using a straight assignment.
 > 
-> Actually, using unbind/bind on a TI DM8168 SoC gives :
-> $ echo 4a120000.ethernet > /sys/bus/platform/drivers/davinci_emac/unbind
-> net eth1: DaVinci EMAC: davinci_emac_remove()
-> $ echo 4a120000.ethernet > /sys/bus/platform/drivers/davinci_emac/bind
-> davinci_emac 4a120000.ethernet: Unbalanced pm_runtime_enable
-> 
-> Cc: Brian Hutchinson <b.hutchman@gmail.com>
-> Fixes: 3ba97381343b ("net: ethernet: davinci_emac: add pm_runtime support")
-> Signed-off-by: Neil Armstrong <narmstrong@baylibre.com>
+> Signed-off-by: Mark Brown <broonie@kernel.org>
 
 Applied.
