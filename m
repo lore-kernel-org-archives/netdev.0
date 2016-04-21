@@ -1,52 +1,58 @@
-From: Babu Moger <babu.moger@oracle.com>
-Subject: [PATCH v2] ixgbevf: Change the relaxed order settings in VF driver for sparc
-Date: Thu, 21 Apr 2016 15:56:49 -0700
-Message-ID: <1461279409-248697-1-git-send-email-babu.moger@oracle.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, babu.moger@oracle.com,
-	sowmini.varadhan@oracle.com
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 21 Apr 2016 19:54:23 -0400
+Message-ID: <87mvomr00g.fsf@ketchup.mtl.sfl>
+References: <20160418113038.00d78799@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160418113038.00d78799@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We noticed performance issues with VF interface on sparc compared
-to PF. Setting the RX to IXGBE_DCA_RXCTRL_DATA_WRO_EN brings it
-on far with PF. Also this matches to the default sparc setting in
-PF driver.
+Hi David,
 
-Signed-off-by: Babu Moger <babu.moger@oracle.com>
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
-v2:
-  Alexander had concerns about this negativily affecting other architectures.
-  Added CONFIG_SPARC check so this should not affect other architectures.
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+> Hi all,
+>
+> Today's linux-next merge of the net-next tree got a conflict in:
+>
+>   drivers/net/dsa/mv88e6xxx.c
+>
+> between commit:
+>
+>   207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
+>
+> from the net tree and commit:
+>
+>   009a2b9843bf ("net: dsa: mv88e6xxx: add number of ports to info")
+>
+> from the net-next tree.
+>
+> I fixed it up (the former removed some of the code updated by the latter)
+> and can carry the fix as necessary. This is now fixed as far as linux-next
+> is concerned, but any non trivial conflicts should be mentioned to your
+> upstream maintainer when your tree is submitted for merging.  You may
+> also want to consider cooperating with the maintainer of the conflicting
+> tree to minimise any particularly complex conflicts.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 0ea14c0..3596e0b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1748,9 +1748,15 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
- 			ring->count * sizeof(union ixgbe_adv_rx_desc));
- 
-+#ifndef CONFIG_SPARC
- 	/* enable relaxed ordering */
- 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
- 			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
-+#else
-+	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
-+			IXGBE_DCA_RXCTRL_DESC_RRO_EN |
-+			IXGBE_DCA_RXCTRL_DATA_WRO_EN);
-+#endif
- 
- 	/* reset head and tail pointers */
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
--- 
-1.7.1
+I have another series to send to net-next which will also conflict with this
+fix from net. As it is also required in net-next, can the fix be merged
+in net-next as well?
+
+This fix is the 3 commits:
+
+  65fa40276ac1 ("net: dsa: mv88e6xxx: unlock DSA and CPU ports")
+  996ecb824667 ("net: dsa: mv88e6xxx: enable SA learning on DSA ports")
+  207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
+
+For the merge commit:
+
+  cf6b5fb2514d ("Merge branch 'dsa-mv88e6xxx-fix-cross-chip-bridging'")
+
+Regards,
+Vivien
