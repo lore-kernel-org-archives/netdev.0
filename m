@@ -1,164 +1,56 @@
-From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
-Subject: [PATCH net v2 1/3] drivers: net: cpsw: fix parsing of phy-handle DT property in dual_emac config
-Date: Thu, 21 Apr 2016 14:19:54 -0400
-Message-ID: <1461262794-9562-1-git-send-email-drivshin.allworx@gmail.com>
-References: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
-	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
-	Nicolas Chauvet <kwizart@gmail.com>
-To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] libnl: enhance API to ease 64bit
+ alignment for attribute
+Date: Thu, 21 Apr 2016 14:28:31 -0400 (EDT)
+Message-ID: <20160421.142831.1815562418742721577.davem@davemloft.net>
+References: <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com, tgraf@suug.ch, jhs@mojatatu.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54299 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752118AbcDUS2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 14:28:33 -0400
+In-Reply-To: <1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Rivshin <drivshin@allworx.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 21 Apr 2016 18:58:23 +0200
 
-Commit 9e42f715264ff158478fa30eaed847f6e131366b ("drivers: net: cpsw: add
-phy-handle parsing") saved the "phy-handle" phandle into a new cpsw_priv
-field. However, phy connections are per-slave, so the phy_node field should
-be in cpsw_slave_data rather than cpsw_priv.
+> Here is a proposal to add more helpers in the libnetlink to manage 64-bit
+> alignment issues.
+> Note that this series was only tested on x86 by tweeking
+> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS and adding some traces.
+> 
+> The first patch adds helpers for 64bit alignment and other patches
+> use them.
+> 
+> We could also add helpers for nla_put_u64() and its variants if needed.
+> 
+> v1 -> v2:
+>  - remove patch #1
+>  - split patch #2 (now #1 and #2)
+>  - add nla_need_padding_for_64bit()
 
-This would go unnoticed in a single emac configuration. But in dual_emac
-mode, the last "phy-handle" property parsed for either slave would be used
-by both of them, causing them both to refer to the same phy_device.
+I like it, nice work Nicolas.
 
-Fixes: 9e42f715264f ("drivers: net: cpsw: add phy-handle parsing")
-Signed-off-by: David Rivshin <drivshin@allworx.com>
-Tested-by: Nicolas Chauvet <kwizart@gmail.com>
----
-I would suggest this for -stable. It should apply cleanly as far back
-as 4.4.
+Applied to net-next.
 
-Changes since v1 [1]:
-- Rebased (no conflicts)
-- Added Tested-by from Nicolas Chauvet
+I did a quick scan and the following jumped out at me as cases we need
+to fix up as well:
 
-[1] https://patchwork.ozlabs.org/patch/560326/
+1) xfrm_user
+2) tcp_info
+3) taskstats
+4) pkt_{cls,sched}
+5) openvswitch
+etc.
 
- drivers/net/ethernet/ti/cpsw.c | 13 ++++++-------
- drivers/net/ethernet/ti/cpsw.h |  1 +
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 42fdfd4..d69cb3f 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -363,15 +363,14 @@ static inline void slave_write(struct cpsw_slave *slave, u32 val, u32 offset)
- 	__raw_writel(val, slave->regs + offset);
- }
- 
- struct cpsw_priv {
- 	spinlock_t			lock;
- 	struct platform_device		*pdev;
- 	struct net_device		*ndev;
--	struct device_node		*phy_node;
- 	struct napi_struct		napi_rx;
- 	struct napi_struct		napi_tx;
- 	struct device			*dev;
- 	struct cpsw_platform_data	data;
- 	struct cpsw_ss_regs __iomem	*regs;
- 	struct cpsw_wr_regs __iomem	*wr_regs;
- 	u8 __iomem			*hw_stats;
-@@ -1144,16 +1143,16 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 
- 	if (priv->data.dual_emac)
- 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
- 	else
- 		cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
- 				   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
- 
--	if (priv->phy_node)
--		slave->phy = of_phy_connect(priv->ndev, priv->phy_node,
-+	if (slave->data->phy_node)
-+		slave->phy = of_phy_connect(priv->ndev, slave->data->phy_node,
- 				 &cpsw_adjust_link, 0, slave->data->phy_if);
- 	else
- 		slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
- 				 &cpsw_adjust_link, slave->data->phy_if);
- 	if (IS_ERR(slave->phy)) {
- 		dev_err(priv->dev, "phy %s not found on slave %d\n",
- 			slave->data->phy_id, slave->slave_num);
-@@ -1936,20 +1935,19 @@ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
- 
- 	slave->data	= data;
- 	slave->regs	= regs + slave_reg_ofs;
- 	slave->sliver	= regs + sliver_reg_ofs;
- 	slave->port_vlan = data->dual_emac_res_vlan;
- }
- 
--static int cpsw_probe_dt(struct cpsw_priv *priv,
-+static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 			 struct platform_device *pdev)
- {
- 	struct device_node *node = pdev->dev.of_node;
- 	struct device_node *slave_node;
--	struct cpsw_platform_data *data = &priv->data;
- 	int i = 0, ret;
- 	u32 prop;
- 
- 	if (!node)
- 		return -EINVAL;
- 
- 	if (of_property_read_u32(node, "slaves", &prop)) {
-@@ -2029,15 +2027,16 @@ static int cpsw_probe_dt(struct cpsw_priv *priv,
- 		int lenp;
- 		const __be32 *parp;
- 
- 		/* This is no slave child node, continue */
- 		if (strcmp(slave_node->name, "slave"))
- 			continue;
- 
--		priv->phy_node = of_parse_phandle(slave_node, "phy-handle", 0);
-+		slave_data->phy_node = of_parse_phandle(slave_node,
-+							"phy-handle", 0);
- 		parp = of_get_property(slave_node, "phy_id", &lenp);
- 		if (of_phy_is_fixed_link(slave_node)) {
- 			struct device_node *phy_node;
- 			struct phy_device *phy_dev;
- 
- 			/* In the case of a fixed PHY, the DT node associated
- 			 * to the PHY is the Ethernet MAC DT node.
-@@ -2271,15 +2270,15 @@ static int cpsw_probe(struct platform_device *pdev)
- 	 * This may be required here for child devices.
- 	 */
- 	pm_runtime_enable(&pdev->dev);
- 
- 	/* Select default pin state */
- 	pinctrl_pm_select_default_state(&pdev->dev);
- 
--	if (cpsw_probe_dt(priv, pdev)) {
-+	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		dev_err(&pdev->dev, "cpsw: platform data missing\n");
- 		ret = -ENODEV;
- 		goto clean_runtime_disable_ret;
- 	}
- 	data = &priv->data;
- 
- 	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
-diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
-index 442a703..e50afd1 100644
---- a/drivers/net/ethernet/ti/cpsw.h
-+++ b/drivers/net/ethernet/ti/cpsw.h
-@@ -14,14 +14,15 @@
- #ifndef __CPSW_H__
- #define __CPSW_H__
- 
- #include <linux/if_ether.h>
- #include <linux/phy.h>
- 
- struct cpsw_slave_data {
-+	struct device_node *phy_node;
- 	char		phy_id[MII_BUS_ID_SIZE];
- 	int		phy_if;
- 	u8		mac_addr[ETH_ALEN];
- 	u16		dual_emac_res_vlan;	/* Reserved VLAN for DualEMAC */
- };
- 
- struct cpsw_platform_data {
--- 
-2.5.5
+Most of these are statistic cases just like all of the existing ones
+we have fixed so far.
