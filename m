@@ -1,43 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: Fix SOF_TIMESTAMPING_TX_ACK when handling dup
- acks
-Date: Thu, 21 Apr 2016 13:46:26 -0400 (EDT)
-Message-ID: <20160421.134626.1196772506489683431.davem@davemloft.net>
-References: <1461019193-3034571-1-git-send-email-kafai@fb.com>
+From: Michael Richardson <mcr@sandelman.ca>
+Subject: Re: drop all fragments inside tx queue if one gets dropped
+Date: Thu, 21 Apr 2016 13:48:24 -0400
+Message-ID: <2319.1461260904@obiwan.sandelman.ca>
+References: <57175156.3050501@pengutronix.de> <11312.1461183334@obiwan.sandelman.ca> <5717EA7E.1020606@hpe.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com, edumazet@google.com,
-	ncardwell@google.com, soheil.kdev@gmail.com, willemb@google.com,
-	ycheng@google.com
-To: kafai@fb.com
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, linux-wpan@vger.kernel.org,
+	Alexander Aring <aar@pengutronix.de>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53943 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752033AbcDURq3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 13:46:29 -0400
-In-Reply-To: <1461019193-3034571-1-git-send-email-kafai@fb.com>
+Received: from tuna.sandelman.ca ([209.87.249.19]:41803 "EHLO
+	tuna.sandelman.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871AbcDURs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 13:48:27 -0400
+In-Reply-To: <5717EA7E.1020606@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Mon, 18 Apr 2016 15:39:53 -0700
+--=-=-=
+Content-Type: text/plain
 
-> Assuming SOF_TIMESTAMPING_TX_ACK is on. When dup acks are received,
-> it could incorrectly think that a skb has already
-> been acked and queue a SCM_TSTAMP_ACK cmsg to the
-> sk->sk_error_queue.
-> 
-> In tcp_ack_tstamp(), it checks
-> 'between(shinfo->tskey, prior_snd_una, tcp_sk(sk)->snd_una - 1)'.
-> If prior_snd_una == tcp_sk(sk)->snd_una like the following packetdrill
-> script, between() returns true but the tskey is actually not acked.
-> e.g. try between(3, 2, 1).
-> 
-> The fix is to replace between() with one before() and one !before().
-> By doing this, the -1 offset on the tcp_sk(sk)->snd_una can also be
-> removed.
- ...
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-Applied, thank you.
+Rick Jones <rick.jones2@hpe.com> wrote:
+    > I don't recall seeing similar poor behaviour in Linux; I would have
+    > assumed
+    > that the intra-stack flow-control "took care" of it.  Perhaps there is
+    > something specific to wpan which precludes that?
+
+The major user of big UDP packets in the 1990s was NFS.
+I fondly recall deploying wsize=1024,rsize=1024 for NFS mounts between HPUX,
+Apollo and Sun machines across the intersite Ottawa BNR "WAN"
+
+NFS mounts now use TCP by default, and NFS is not a well used protocol
+outside of clueful people (everyone else uses CIFS), and modern machines have
+way DMA engines in their ethernet that can accomodate more than enough
+xmit buffers to perhaps make this moot.  But, I dealt with this very problem
+with a Linux NFS server that would get GbE XOFF's by a broken Cisco switch
+that wouldn't always XON, and would seem to drop it's queue. (Turning QoS off
+on the cisco switch made it tolerable.)
+
+Still, Alex, it would be worth looking at whether the NFS UDP transmitter
+does anything clueful to keep from overwhelming the ethernet layer.
+
+wpan deals with sub-IP fragmentation of 1280 (or larger) IPv6 packets into
+127 6lowpan fragments for transmission over 802.15.4 interfaces which run at
+typically 250kb/s.   Those radios are typically SPI interfaced (often with
+bit-banged SPI interfaces), and the radio MAC has only a single transmit
+buffer (which is also the receive buffer!).
+
+Packet trains would be nice to have.
+--=-=-=--
