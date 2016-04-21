@@ -1,40 +1,45 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 15/17] fm10k: fix possible null pointer deref after
- kcalloc
-Date: Thu, 21 Apr 2016 20:09:27 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857A7DB5E@ORSMSX115.amr.corp.intel.com>
-References: <1461218969-68578-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1461218969-68578-16-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <02874ECE860811409154E81DA85FBB5857A7C1E0@ORSMSX115.amr.corp.intel.com>
-	 <20160421.154727.1143899173479860095.davem@davemloft.net>
- <1461268100.3018.5.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:36524 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751041AbcDUUJc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2016 16:09:32 -0400
-In-Reply-To: <1461268100.3018.5.camel@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ipv4/fib: don't warn when primary address is missing if in_dev is dead
+Date: Thu, 21 Apr 2016 22:23:31 +0200
+Message-ID: <d6406682cc84a9de9a52bd31eaa6a372f3251f88.1461269273.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBPbiBUaHUsIDIwMTYtMDQtMjEgYXQgMTU6NDcgLTA0MDAsIERhdmlkIE1pbGxlciB3cm90ZToN
-Cj4gPiBGcm9tOiAiS2VsbGVyLCBKYWNvYiBFIiA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0K
-PiA+IERhdGU6IFRodSwgMjEgQXByIDIwMTYgMTk6NDQ6MjQgKzAwMDANCj4gPg0KPiA+ID4gRGF2
-ZSwgcGxlYXNlIGRvbid0IHB1bGwgdGhpcyBwYXRjaC4gS3Jpc2huZWlsIGZvdW5kIGFuIGlzc3Vl
-IHdpdGgNCj4gPiA+IHRoaXMgcGF0Y2gsIGFuZCBJIHNlbnQgYSBjb3JyZWN0ZWQgZml4IHRvIHNx
-dWFzaCBpbiBidXQgaXQgZGlkbid0DQo+ID4gPiBtYWtlIGl0IGludG8gdGhpcyBvbmUuIEknZCBs
-aWtlIHRvIGdldCB0aGUgZml4IHNxdWFzaGVkIGluIGEgcmVzZW5kDQo+ID4gPiBiZWZvcmUgdGhp
-cyBpcyBwdWxsZWQgaW50byBuZXQtbmV4dC4NCj4gPg0KPiA+IFRvbyBsYXRlLCBpdCdzIGFscmVh
-ZHkgaW4gbXkgdHJlZS4NCj4gDQo+IEkgd2lsbCBhZGRyZXNzIEpha2VzIGNvbmNlcm5zIGluIG15
-IG5leHQgZm0xMGsgcHVsbCByZXF1ZXN0Lg0KDQpUaGFua3MgSmVmZi4gU29ycnkgSSBkaWRuJ3Qg
-bm90aWNlIHRoaXMgZWFybGllci4NCg0KUmVnYXJkcywNCkpha2UNCg==
+After commit fbd40ea0180a ("ipv4: Don't do expensive useless work
+during inetdev destroy.") when deleting an interface,
+fib_del_ifaddr() can be executed without any primary address
+present on the dead interface.
+
+The above is safe, but triggers some "bug: prim == NULL" warnings.
+
+This commit avoids warning if the in_dev is dead
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/fib_frontend.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 8a9246d..63566ec 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -904,7 +904,11 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
+ 	if (ifa->ifa_flags & IFA_F_SECONDARY) {
+ 		prim = inet_ifa_byprefix(in_dev, any, ifa->ifa_mask);
+ 		if (!prim) {
+-			pr_warn("%s: bug: prim == NULL\n", __func__);
++			/* if the device has been deleted, we don't perform
++			 * address promotion
++			 */
++			if (!in_dev->dead)
++				pr_warn("%s: bug: prim == NULL\n", __func__);
+ 			return;
+ 		}
+ 		if (iprim && iprim != prim) {
+-- 
+1.8.3.1
