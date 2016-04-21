@@ -1,48 +1,77 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 4/4] ip6mr: align RTA_MFC_STATS on 64-bit
-Date: Thu, 21 Apr 2016 18:58:27 +0200
-Message-ID: <1461257907-4458-5-git-send-email-nicolas.dichtel@6wind.com>
-References: <1461142655-5067-1-git-send-email-nicolas.dichtel@6wind.com>
- <1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, roopa@cumulusnetworks.com,
-	eric.dumazet@gmail.com, tgraf@suug.ch, jhs@mojatatu.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:52634 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753053AbcDUQ6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 12:58:49 -0400
-In-Reply-To: <1461257907-4458-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Babu Moger <babu.moger@oracle.com>
+Subject: [PATCH] ixgbevf: Fix relaxed order settings in VF driver
+Date: Thu, 21 Apr 2016 10:21:16 -0700
+Message-ID: <1461259276-54151-1-git-send-email-babu.moger@oracle.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, babu.moger@oracle.com,
+	sowmini.varadhan@oracle.com
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Current code writes the tx/rx relaxed order without reading it first.
+This can lead to unintended consequences as we are forcibly writing
+other bits.
+
+We noticed this problem while testing VF driver on sparc. Relaxed
+order settings for rx queue were all messed up which was causing
+performance drop with VF interface.
+
+Fixed it by reading the registers first and setting the specific
+bit of interest. With this change we are able to match the bandwidth
+equivalent to PF interface.
+
+Signed-off-by: Babu Moger <babu.moger@oracle.com>
 ---
- net/ipv6/ip6mr.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index a10e77103c88..bf678324fd52 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -2268,7 +2268,7 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
- 	mfcs.mfcs_packets = c->mfc_un.res.pkt;
- 	mfcs.mfcs_bytes = c->mfc_un.res.bytes;
- 	mfcs.mfcs_wrong_if = c->mfc_un.res.wrong_if;
--	if (nla_put(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs) < 0)
-+	if (nla_put_64bit(skb, RTA_MFC_STATS, sizeof(mfcs), &mfcs, RTA_PAD) < 0)
- 		return -EMSGSIZE;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 0ea14c0..51abff1 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1545,6 +1545,7 @@ static inline void ixgbevf_irq_enable(struct ixgbevf_adapter *adapter)
+ static void ixgbevf_configure_tx_ring(struct ixgbevf_adapter *adapter,
+ 				      struct ixgbevf_ring *ring)
+ {
++	u32 regval;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u64 tdba = ring->dma;
+ 	int wait_loop = 10;
+@@ -1565,8 +1566,10 @@ static void ixgbevf_configure_tx_ring(struct ixgbevf_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFTDWBAL(reg_idx), 0);
  
- 	rtm->rtm_type = RTN_MULTICAST;
-@@ -2411,7 +2411,7 @@ static int mr6_msgsize(bool unresolved, int maxvif)
- 		      + nla_total_size(0)	/* RTA_MULTIPATH */
- 		      + maxvif * NLA_ALIGN(sizeof(struct rtnexthop))
- 						/* RTA_MFC_STATS */
--		      + nla_total_size(sizeof(struct rta_mfc_stats))
-+		      + nla_total_size_64bit(sizeof(struct rta_mfc_stats))
- 		;
+ 	/* enable relaxed ordering */
++	regval = IXGBE_READ_REG(hw, IXGBE_VFDCA_TXCTRL(reg_idx));
++
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_TXCTRL(reg_idx),
+-			(IXGBE_DCA_TXCTRL_DESC_RRO_EN |
++			(regval | IXGBE_DCA_TXCTRL_DESC_RRO_EN |
+ 			 IXGBE_DCA_TXCTRL_DATA_RRO_EN));
  
- 	return len;
+ 	/* reset head and tail pointers */
+@@ -1734,6 +1737,7 @@ static void ixgbevf_setup_vfmrqc(struct ixgbevf_adapter *adapter)
+ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 				      struct ixgbevf_ring *ring)
+ {
++	u32 regval;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u64 rdba = ring->dma;
+ 	u32 rxdctl;
+@@ -1749,8 +1753,9 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 			ring->count * sizeof(union ixgbe_adv_rx_desc));
+ 
+ 	/* enable relaxed ordering */
++	regval = IXGBE_READ_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx));
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
+-			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
++			regval | IXGBE_DCA_RXCTRL_DESC_RRO_EN);
+ 
+ 	/* reset head and tail pointers */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
 -- 
-2.4.2
+1.7.1
