@@ -1,87 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] gro: Partly revert "net: gro: allow to build full
- sized skb"
-Date: Thu, 21 Apr 2016 05:59:06 -0700
-Message-ID: <1461243546.7627.15.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160421074042.GF3347@gauss.secunet.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: switchdev fib offload issues
+Date: Thu, 21 Apr 2016 06:00:38 -0700
+Message-ID: <5718CEF6.3080809@cumulusnetworks.com>
+References: <20160418154757.GA2059@nanopsycho.amit.cz> <571516C7.6070301@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	nikolay@cumulusnetworks.com, jhs@mojatatu.com,
+	john.fastabend@gmail.com, rami.rosen@intel.com,
+	gospo@cumulusnetworks.com, stephen@networkplumber.org,
+	sfeldma@gmail.com, dsa@cumulusnetworks.com, f.fainelli@gmail.com,
+	andrew@lunn.ch, vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
+	aduyck@mirantis.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35304 "EHLO
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33930 "EHLO
 	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbcDUM7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 08:59:08 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fs9so29175025pac.2
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 05:59:07 -0700 (PDT)
-In-Reply-To: <20160421074042.GF3347@gauss.secunet.com>
+	with ESMTP id S1751591AbcDUNAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 09:00:42 -0400
+Received: by mail-pa0-f50.google.com with SMTP id r5so26343123pag.1
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 06:00:41 -0700 (PDT)
+In-Reply-To: <571516C7.6070301@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-04-21 at 09:40 +0200, Steffen Klassert wrote:
-> This partly reverts the below mentioned patch because on
-> forwarding, such skbs can't be offloaded to a NIC.
-> 
-> We need this to get IPsec GRO for forwarding to work properly,
-> otherwise the GRO aggregated packets get segmented again by
-> the GSO layer. Although discovered when implementing IPsec GRO,
-> this is a general problem in the forwarding path.
-> 
-> -------------------------------------------------------------------------
-> commit 8a29111c7ca68d928dfab58636f3f6acf0ac04f7
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Tue Oct 8 09:02:23 2013 -0700
-> 
->     net: gro: allow to build full sized skb
-> 
->     skb_gro_receive() is currently limited to 16 or 17 MSS per GRO skb,
->     typically 24616 bytes, because it fills up to MAX_SKB_FRAGS frags.
-> 
->     It's relatively easy to extend the skb using frag_list to allow
->     more frags to be appended into the last sk_buff.
-> 
->     This still builds very efficient skbs, and allows reaching 45 MSS per
->     skb.
-> 
->     (45 MSS GRO packet uses one skb plus a frag_list containing 2 additional
->     sk_buff)
-> 
->     High speed TCP flows benefit from this extension by lowering TCP stack
->     cpu usage (less packets stored in receive queue, less ACK packets
->     processed)
-> 
->     Forwarding setups could be hurt, as such skbs will need to be
->     linearized, although its not a new problem, as GRO could already
->     provide skbs with a frag_list.
-> 
->     We could make the 65536 bytes threshold a tunable to mitigate this.
-> 
->     (First time we need to linearize skb in skb_needs_linearize(), we could
->     lower the tunable to ~16*1460 so that following skb_gro_receive() calls
->     build smaller skbs)
-> 
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---------------------------------------------------------------------------
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
-> 
-> Hi Eric, this is a followup on our discussion at the netdev
-> conference. Would you still be ok with this revert, or do
-> you think there is a better solution in sight?
-
-Note that some GRO enabled drivers would still generate frag_list.
-
-(This happens if they are using skb with some TCP payload in skb->head
-and skb->head was allocated with kmalloc())
-
-We have sysctl_max_skb_frags sysctl, we might have a sysctl
-enabling/disabling GRO from building any frag_list.
-Or simply reuse an existing one, like /proc/sys/net/ipv4/ip_forward ?)
-
-Here at Google, we increased MAX_SKB_FRAGS, but this is a rather
-intrusive change to be upstreamed :(
+On 4/18/16, 10:17 AM, Hannes Frederic Sowa wrote:
+> Hi Jiri,
+>
+> On 18.04.2016 17:47, Jiri Pirko wrote:
+>> Proposed solutions (ideas):
+>> 1) per-netns. Add a procfs file:
+>>     /proc/sys/net/ipv4/route/fib_offload_error_policy
+>>       with values: "evict" - default, current behaviour
+>>                         "fail" - propagate offload error to user
+>>     The policy value would be stored in struct net.
+> >
+>> 2) per-VRF/table
+>>     When user creates a VRF master, he specifies a table ID
+>>     this VRF is going to use. I propose to extend this so
+>>     he can pass a policy ("evict"/"fail").
+>>     The policy value would be stored in struct fib_table or
+>>     struct fib6_table. The problem is that vfr only saves
+>>     table ID, allocates dst but does not actually create
+>>     table. That might be created later. But I think this
+>>     could be resolved.
+>>
+>> 3) per-VFR/master_netdev
+>>     In this case, the policy would be also set during
+>>     the creation of VFR master. From user perspective,
+>>     this looks same as 2)
+>>     The policy value would be stored in struct net_vrf (vrf private).
+>
+> I agree that a fail policy is probably the way forward regarding the issues you outlined.
+>
+> One question though:
+>
+> Shouldn't the policy by an attribute of the switch, e.g. configurable by devlink (maybe also not the right place)? Not sure how user space can otherwise make correct assumptions about the state of the switch and initiate proper countermeasures (e.g. reducing the smallest prefix length installed to hardware).
+>
+I am with hannes here. If we introduce a policy, I think it should be global or per switchdev instance (possibly via devlink).
+This would be a system policy (set via the administrator) and the user or app does not need to know about it.
