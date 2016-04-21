@@ -1,64 +1,28 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] ixgbevf: Fix relaxed order settings in VF driver
-Date: Thu, 21 Apr 2016 12:22:38 -0700
-Message-ID: <CAKgT0UdEP9ZMnNjSSqh-vZvaEc9N8_X_KWvykChxRv1bretYtw@mail.gmail.com>
-References: <1461259276-54151-1-git-send-email-babu.moger@oracle.com>
-	<CAKgT0UeU+Q1HDvR8pK3kxYofjEqk8jVeh5xONoUpD34MsPZCCA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Driver: Vmxnet3: set CHECKSUM_UNNECESSARY for IPv6
+ packets
+Date: Thu, 21 Apr 2016 15:29:23 -0400 (EDT)
+Message-ID: <20160421.152923.1193193877419098358.davem@davemloft.net>
+References: <1461201149-45583-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	shannon nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Bruce W Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: Babu Moger <babu.moger@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, heoj@vmware.com
+To: skhare@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UeU+Q1HDvR8pK3kxYofjEqk8jVeh5xONoUpD34MsPZCCA@mail.gmail.com>
+In-Reply-To: <1461201149-45583-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 21, 2016 at 11:13 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Thu, Apr 21, 2016 at 10:21 AM, Babu Moger <babu.moger@oracle.com> wrote:
->> Current code writes the tx/rx relaxed order without reading it first.
->> This can lead to unintended consequences as we are forcibly writing
->> other bits.
->
-> The consequences were very much intended as there are situations where
-> enabling relaxed ordering can lead to data corruption.
->
->> We noticed this problem while testing VF driver on sparc. Relaxed
->> order settings for rx queue were all messed up which was causing
->> performance drop with VF interface.
->
-> What additional relaxed ordering bits are you enabling on Sparc?  I'm
-> assuming it is just the Rx data write back but I want to verify.
->
->> Fixed it by reading the registers first and setting the specific
->> bit of interest. With this change we are able to match the bandwidth
->> equivalent to PF interface.
->>
->> Signed-off-by: Babu Moger <babu.moger@oracle.com>
->
-> Fixed is a relative term here since you are only chasing performance
-> from what I can tell.  We need to make certain that this doesn't break
-> the driver on any other architectures by leading to things like data
-> corruption.
->
-> - Alex
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Wed, 20 Apr 2016 18:12:29 -0700
 
-It occurs to me that what might be easier is instead of altering the
-configuration on all architectures you could instead wrap the write so
-that on SPARC you include the extra bits you need and on all other
-architectures you leave the write as-is similar to how the code in the
-ixgbe_start_hw_gen2 only clears the bits if CONFIG_SPARC is not
-defined.
+> For IPv6, if the device indicates that the checksum is correct, set
+> CHECKSUM_UNNECESSARY.
+> 
+> Reported-by: Subbarao Narahari <snarahari@vmware.com>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed-off-by: Jin Heo <heoj@vmware.com>
 
-- Alex
+Applied.
