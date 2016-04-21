@@ -1,46 +1,70 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V1 3/8] net/mlx5_core: Add ConnectX-5 to list of supported devices
-Date: Fri, 22 Apr 2016 00:33:02 +0300
-Message-ID: <1461274387-10653-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net V1 5/8] net/mlx5e: Fix minimum MTU
+Date: Fri, 22 Apr 2016 00:33:04 +0300
+Message-ID: <1461274387-10653-6-git-send-email-saeedm@mellanox.com>
 References: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Eran Ben Elisha <eranbe@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:60190 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:60182 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752348AbcDUVeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Apr 2016 17:34:05 -0400
+	id S1752331AbcDUVeE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Apr 2016 17:34:04 -0400
 In-Reply-To: <1461274387-10653-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Majd Dibbiny <majd@mellanox.com>
+Minimum MTU that can be set in Connectx4 device is 68.
 
-Add the upcoming ConnectX-5 devices (PF and VF) to the list of
-supported devices by the mlx5 driver.
+This fixes the case where a user wants to set invalid MTU,
+the driver will fail to satisfy this request and the interface
+will stay down.
 
-Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+It is better to report an error and continue working with old
+mtu.
+
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 3f3b2fa..ddd352a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1459,6 +1459,8 @@ static const struct pci_device_id mlx5_core_pci_table[] = {
- 	{ PCI_VDEVICE(MELLANOX, 0x1014), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4 VF */
- 	{ PCI_VDEVICE(MELLANOX, 0x1015) },			/* ConnectX-4LX */
- 	{ PCI_VDEVICE(MELLANOX, 0x1016), MLX5_PCI_DEV_IS_VF},	/* ConnectX-4LX VF */
-+	{ PCI_VDEVICE(MELLANOX, 0x1017) },			/* ConnectX-5 */
-+	{ PCI_VDEVICE(MELLANOX, 0x1018), MLX5_PCI_DEV_IS_VF},	/* ConnectX-5 VF */
- 	{ 0, }
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 2fbbc62..93e4ef4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1999,22 +1999,27 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 	return err;
+ }
+ 
++#define MXL5_HW_MIN_MTU 64
++#define MXL5E_MIN_MTU (MXL5_HW_MIN_MTU + ETH_FCS_LEN)
++
+ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	bool was_opened;
+ 	u16 max_mtu;
++	u16 min_mtu;
+ 	int err = 0;
+ 
+ 	mlx5_query_port_max_mtu(mdev, &max_mtu, 1);
+ 
+ 	max_mtu = MLX5E_HW2SW_MTU(max_mtu);
++	min_mtu = MLX5E_HW2SW_MTU(MXL5E_MIN_MTU);
+ 
+-	if (new_mtu > max_mtu) {
++	if (new_mtu > max_mtu || new_mtu < min_mtu) {
+ 		netdev_err(netdev,
+-			   "%s: Bad MTU (%d) > (%d) Max\n",
+-			   __func__, new_mtu, max_mtu);
++			   "%s: Bad MTU (%d), valid range is: [%d..%d]\n",
++			   __func__, new_mtu, min_mtu, max_mtu);
+ 		return -EINVAL;
+ 	}
  
 -- 
 1.7.1
