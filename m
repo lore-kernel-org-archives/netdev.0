@@ -1,64 +1,61 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: switchdev fib offload issues
-Date: Thu, 21 Apr 2016 06:00:38 -0700
-Message-ID: <5718CEF6.3080809@cumulusnetworks.com>
-References: <20160418154757.GA2059@nanopsycho.amit.cz> <571516C7.6070301@stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: zillions of lockdep whinges in
+ include/net/sock.h:1408
+Date: Thu, 21 Apr 2016 06:31:36 -0700
+Message-ID: <1461245496.7627.17.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <66816.1461198639@turing-police.cc.vt.edu>
+	 <1461224532.4101068.585250481.7A43E285@webmail.messagingengine.com>
+	 <43037.1461229555@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	nikolay@cumulusnetworks.com, jhs@mojatatu.com,
-	john.fastabend@gmail.com, rami.rosen@intel.com,
-	gospo@cumulusnetworks.com, stephen@networkplumber.org,
-	sfeldma@gmail.com, dsa@cumulusnetworks.com, f.fainelli@gmail.com,
-	andrew@lunn.ch, vivien.didelot@savoirfairelinux.com, tgraf@suug.ch,
-	aduyck@mirantis.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33930 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbcDUNAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 09:00:42 -0400
-Received: by mail-pa0-f50.google.com with SMTP id r5so26343123pag.1
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 06:00:41 -0700 (PDT)
-In-Reply-To: <571516C7.6070301@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <43037.1461229555@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/18/16, 10:17 AM, Hannes Frederic Sowa wrote:
-> Hi Jiri,
->
-> On 18.04.2016 17:47, Jiri Pirko wrote:
->> Proposed solutions (ideas):
->> 1) per-netns. Add a procfs file:
->>     /proc/sys/net/ipv4/route/fib_offload_error_policy
->>       with values: "evict" - default, current behaviour
->>                         "fail" - propagate offload error to user
->>     The policy value would be stored in struct net.
+On Thu, 2016-04-21 at 05:05 -0400, Valdis.Kletnieks@vt.edu wrote:
+> On Thu, 21 Apr 2016 09:42:12 +0200, Hannes Frederic Sowa said:
+> > Hi,
 > >
->> 2) per-VRF/table
->>     When user creates a VRF master, he specifies a table ID
->>     this VRF is going to use. I propose to extend this so
->>     he can pass a policy ("evict"/"fail").
->>     The policy value would be stored in struct fib_table or
->>     struct fib6_table. The problem is that vfr only saves
->>     table ID, allocates dst but does not actually create
->>     table. That might be created later. But I think this
->>     could be resolved.
->>
->> 3) per-VFR/master_netdev
->>     In this case, the policy would be also set during
->>     the creation of VFR master. From user perspective,
->>     this looks same as 2)
->>     The policy value would be stored in struct net_vrf (vrf private).
->
-> I agree that a fail policy is probably the way forward regarding the issues you outlined.
->
-> One question though:
->
-> Shouldn't the policy by an attribute of the switch, e.g. configurable by devlink (maybe also not the right place)? Not sure how user space can otherwise make correct assumptions about the state of the switch and initiate proper countermeasures (e.g. reducing the smallest prefix length installed to hardware).
->
-I am with hannes here. If we introduce a policy, I think it should be global or per switchdev instance (possibly via devlink).
-This would be a system policy (set via the administrator) and the user or app does not need to know about it.
+> > On Thu, Apr 21, 2016, at 02:30, Valdis Kletnieks wrote:
+> > > linux-next 20160420 is whining at an incredible rate - in 20 minutes of
+> > > uptime, I piled up some 41,000 hits from all over the place (cleaned up
+> > > to skip the CPU and PID so the list isn't quite so long):
+> >
+> > Thanks for the report. Can you give me some more details:
+> >
+> > Is this an nfs socket? Do you by accident know if this socket went
+> > through xs_reclassify_socket at any point? We do hold the appropriate
+> > locks at that point but I fear that the lockdep reinitialization
+> > confused lockdep.
+> 
+> It wasn't an NFS socket, as NFS wasn't even active at the time.  I'm reasonably
+> sure that multiple sockets were in play, given that tcp_v6_rcv and
+> udpv6_queue_rcv_skb were both implicated.  I strongly suspect that pretty much
+> any IPv6 traffic could do it - the frequency dropped off quite a bit when I
+> closed firefox, which is usually a heavy network hitter on my laptop.
+
+
+Looks like the following patch is needed, can you try it please ?
+
+Thanks !
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index d997ec13a643..db8301c76d50 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1350,7 +1350,8 @@ static inline bool lockdep_sock_is_held(const struct sock *csk)
+ {
+ 	struct sock *sk = (struct sock *)csk;
+ 
+-	return lockdep_is_held(&sk->sk_lock) ||
++	return !debug_locks ||
++	       lockdep_is_held(&sk->sk_lock) ||
+ 	       lockdep_is_held(&sk->sk_lock.slock);
+ }
+ #endif
