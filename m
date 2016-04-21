@@ -1,41 +1,60 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net 1/1] qlcnic: Update version to 5.3.64
-Date: Thu, 21 Apr 2016 13:25:20 -0400
-Message-ID: <1461259520-14893-1-git-send-email-manish.chopra@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 9/9] net/mlx5e: Reset link modes upon setting speed
+ to zero
+Date: Thu, 21 Apr 2016 14:07:23 -0400 (EDT)
+Message-ID: <20160421.140723.1560539945918260688.davem@davemloft.net>
+References: <1461069222-27076-1-git-send-email-saeedm@mellanox.com>
+	<1461069222-27076-10-git-send-email-saeedm@mellanox.com>
+	<20160421.140454.143155848960923980.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-GELinuxNICDev@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
+	eranbe@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:37530 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751679AbcDUSHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 14:07:16 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:54141 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753098AbcDUSHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 14:07:25 -0400
+In-Reply-To: <20160421.140454.143155848960923980.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just updating the version as many fixes got
-accumulated over 5.3.63
-
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 55007f1..caf6ddb 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -37,8 +37,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 3
--#define _QLCNIC_LINUX_SUBVERSION 63
--#define QLCNIC_LINUX_VERSIONID  "5.3.63"
-+#define _QLCNIC_LINUX_SUBVERSION 64
-+#define QLCNIC_LINUX_VERSIONID  "5.3.64"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-2.7.2
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAyMSBB
+cHIgMjAxNiAxNDowNDo1NCAtMDQwMCAoRURUKQ0KDQo+IEZyb206IFNhZWVkIE1haGFtZWVkIDxz
+YWVlZG1AbWVsbGFub3guY29tPg0KPiBEYXRlOiBUdWUsIDE5IEFwciAyMDE2IDE1OjMzOjQyICsw
+MzAwDQo+IA0KPj4gVXBvbiBldGh0b29sIHJlcXVlc3QgdG8gc2V0IHNwZWVkIHRvIDAgd2UgaGFu
+ZGxlIGl0IGFzIGEgc3BlY2lhbCByZXF1ZXN0DQo+PiB0byByZXNldCBsaW5rIG1vZGVzIHRvIERl
+dmljZSdzIGRlZmF1bHRzLg0KPj4gDQo+PiBGaXhlczogZjYyYjhiYjhmMmQzICgibmV0L21seDU6
+IEV4dGVuZCBtbHg1X2NvcmUgdG8gc3VwcG9ydCBDb25uZWN0WC00DQo+PiBFdGhlcm5ldCBmdW5j
+dGlvbmFsaXR5IikNCj4+IFNpZ25lZC1vZmYtYnk6IFNhZWVkIE1haGFtZWVkIDxzYWVlZG1AbWVs
+bGFub3guY29tPg0KPiANCj4gUGxlYXNlIGRvbid0IHRyeSB0byBzbmVhayB0aGluZ3MgbGlrZSB0
+aGlzIGludG8gdGhlIHBhdGNoZXMgeW91IHN1Ym1pdC4NCg0KQWxzbywgdGhpcyBwYXRjaCBzZXJp
+ZXMgZG9lc24ndCBldmVuIGNvbXBpbGU6DQoNCltkYXZlbUBkaGNwLTEwLTE1LTQ5LTIxMCBuZXRd
+JCBtYWtlIC1zIC1qMTYNCk1ha2VmaWxlOjY3OTogQ2Fubm90IHVzZSBDT05GSUdfS0NPVjogLWZz
+YW5pdGl6ZS1jb3ZlcmFnZT10cmFjZS1wYyBpcyBub3Qgc3VwcG9ydGVkIGJ5IGNvbXBpbGVyDQog
+IERFU0NFTkQgIG9ianRvb2wNCmRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21haW4uYzogSW4g
+ZnVuY3Rpb24goW1seDVfcXVlcnlfaGNhX3BvcnSiOg0KZHJpdmVycy9pbmZpbmliYW5kL2h3L21s
+eDUvbWFpbi5jOjcyMTozMjogZXJyb3I6IHBhc3NpbmcgYXJndW1lbnQgMiBvZiChbWx4NV9xdWVy
+eV9wb3J0X21heF9tdHWiIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbLVdlcnJvcj1p
+bmNvbXBhdGlibGUtcG9pbnRlci10eXBlc10NCiAgbWx4NV9xdWVyeV9wb3J0X21heF9tdHUobWRl
+diwgJm1heF9tdHUsIHBvcnQpOw0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQpJ
+biBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9pbmZpbmliYW5kL2h3L21seDUvbWFpbi5jOjQ1
+OjA6DQppbmNsdWRlL2xpbnV4L21seDUvcG9ydC5oOjU4OjY6IG5vdGU6IGV4cGVjdGVkIKF1MTYg
+KiB7YWthIHNob3J0IHVuc2lnbmVkIGludCAqfaIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoWlu
+dCAqog0KIHZvaWQgbWx4NV9xdWVyeV9wb3J0X21heF9tdHUoc3RydWN0IG1seDVfY29yZV9kZXYg
+KmRldiwgdTE2ICptYXhfbXR1LCB1OCBwb3J0KTsNCiAgICAgIF4NCmRyaXZlcnMvaW5maW5pYmFu
+ZC9ody9tbHg1L21haW4uYzo3MjU6MzM6IGVycm9yOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoW1s
+eDVfcXVlcnlfcG9ydF9vcGVyX210daIgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFst
+V2Vycm9yPWluY29tcGF0aWJsZS1wb2ludGVyLXR5cGVzXQ0KICBtbHg1X3F1ZXJ5X3BvcnRfb3Bl
+cl9tdHUobWRldiwgJm9wZXJfbXR1LCBwb3J0KTsNCiAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgIF4NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4
+NS9tYWluLmM6NDU6MDoNCmluY2x1ZGUvbGludXgvbWx4NS9wb3J0Lmg6NTk6Njogbm90ZTogZXhw
+ZWN0ZWQgoXUxNiAqIHtha2Egc2hvcnQgdW5zaWduZWQgaW50ICp9oiBidXQgYXJndW1lbnQgaXMg
+b2YgdHlwZSChaW50ICqiDQogdm9pZCBtbHg1X3F1ZXJ5X3BvcnRfb3Blcl9tdHUoc3RydWN0IG1s
+eDVfY29yZV9kZXYgKmRldiwgdTE2ICpvcGVyX210dSwNCiAgICAgIF4NCmNjMTogc29tZSB3YXJu
+aW5ncyBiZWluZyB0cmVhdGVkIGFzIGVycm9ycw0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyOTE6
+IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4NS9tYWluLm8nIGZh
+aWxlZA0KbWFrZVs0XTogKioqIFtkcml2ZXJzL2luZmluaWJhbmQvaHcvbWx4NS9tYWluLm9dIEVy
+cm9yIDENCg==
