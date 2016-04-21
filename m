@@ -1,59 +1,37 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/7] net: network drivers should not depend on
- geneve/vxlan
-Date: Thu, 21 Apr 2016 09:43:11 +0200
-Message-ID: <1461224591.4101216.585253121.498EBE7C@webmail.messagingengine.com>
-References: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org>
- <20160419.202750.1844614056540086769.davem@davemloft.net>
- <1461114373.2649930.583890089.0C126826@webmail.messagingengine.com>
- <20160419.211134.2163748309501010595.davem@davemloft.net>
+Subject: Re: IPv6 patch mysteriously breaks IPv4 VPN
+Date: Thu, 21 Apr 2016 10:08:00 +0200
+Message-ID: <57188A60.9060901@stressinduktion.org>
+References: <15023.1461205453@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:50148 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751571AbcDUHnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 03:43:12 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id CEDC220201
-	for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 03:43:11 -0400 (EDT)
-In-Reply-To: <20160419.211134.2163748309501010595.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>, bjorn@mork.no,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15023.1461205453@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-On Wed, Apr 20, 2016, at 03:11, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 20 Apr 2016 03:06:13 +0200
+On 21.04.2016 04:24, Valdis Kletnieks wrote:
+> I'll say up front - no, I do *not* have a clue why this commit causes this
+> problem - it makes exactly zero fsking sense.
 > 
-> > On Wed, Apr 20, 2016, at 02:27, David Miller wrote:
-> >> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >> Date: Mon, 18 Apr 2016 21:19:41 +0200
-> >> 
-> >> > This patchset removes the dependency of network drivers on vxlan or
-> >> > geneve, so those don't get autoloaded when the nic driver is loaded.
-> >> > 
-> >> > Also audited the code such that vxlan_get_rx_port and geneve_get_rx_port
-> >> > are not called without rtnl lock.
-> >> 
-> >> In net-next, the 'qed' driver has tunneling offload support too.
-> >> Don't you need to update this series to handle that driver as
-> >> well?
-> > 
-> > I audited qede as well:
-> > 
-> > qede calls {vxlan,geneve}_get_rx_port only from ndo_open which isn't
-> > reused anywhere else in the driver, only from ndo_open, which holds
-> > rtnl_lock also. Thus the driver is safe and doesn't need a change.
+> Scenario:  $WORK is blessed with a Juniper VPN system.  I've been
+> seeing for a while now (since Dec-ish) an issue where at startup,
+> the tun0 device will get wedged.  ifconfig reports this:
 > 
-> I'm talking about your final patches which elide the dependencies.
+> tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1400
+>         inet 172.27.1.165  netmask 255.255.255.255  destination 172.27.1.165
+>         inet6 fe80::6802:d95c:f3f4:2a6f  prefixlen 64  scopeid 0x20<link>
+>         unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+>         RX packets 0  bytes 0 (0.0 B)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 1  bytes 48 (48.0 B)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
-could you look at this again? If you have further feedback I am happy to
-incooperate those.
+Can you show us a ip -d l l ?
 
-Thank you,
+Thanks,
 Hannes
