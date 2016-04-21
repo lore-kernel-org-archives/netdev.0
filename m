@@ -1,103 +1,52 @@
-From: Michael Ma <make0818@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Thu, 21 Apr 2016 15:12:28 -0700
-Message-ID: <CAAmHdhx_Db3GMCmwn3UJajP7_se6tRHPGk_fQUDgDWDq5hN34A@mail.gmail.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	<CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-	<CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-	<1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAAmHdhzAEG-oXsA0P1mEJfseBTUdU7X_bEhgvkCLOLcqOHcQSw@mail.gmail.com>
-	<1461191684.10638.265.camel@edumazet-glaptop3.roam.corp.google.com>
-	<CAAmHdhy_foFw6udQnFk+KUNUjt+zCPRbq5QDBcw0gZ_-jmb4ow@mail.gmail.com>
-	<1461242518.7627.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36341 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594AbcDUWM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 18:12:29 -0400
-Received: by mail-io0-f193.google.com with SMTP id s2so12277152iod.3
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 15:12:29 -0700 (PDT)
-In-Reply-To: <1461242518.7627.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Babu Moger <babu.moger@oracle.com>
+Subject: [PATCH v2] ixgbevf: Change the relaxed order settings in VF driver for sparc
+Date: Thu, 21 Apr 2016 15:56:49 -0700
+Message-ID: <1461279409-248697-1-git-send-email-babu.moger@oracle.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, babu.moger@oracle.com,
+	sowmini.varadhan@oracle.com
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-04-21 5:41 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Wed, 2016-04-20 at 22:51 -0700, Michael Ma wrote:
->> 2016-04-20 15:34 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
->> > On Wed, 2016-04-20 at 14:24 -0700, Michael Ma wrote:
->> >> 2016-04-08 7:19 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
->> >> > On Thu, 2016-03-31 at 16:48 -0700, Michael Ma wrote:
->> >> >> I didn't really know that multiple qdiscs can be isolated using MQ so
->> >> >> that each txq can be associated with a particular qdisc. Also we don't
->> >> >> really have multiple interfaces...
->> >> >>
->> >> >> With this MQ solution we'll still need to assign transmit queues to
->> >> >> different classes by doing some math on the bandwidth limit if I
->> >> >> understand correctly, which seems to be less convenient compared with
->> >> >> a solution purely within HTB.
->> >> >>
->> >> >> I assume that with this solution I can still share qdisc among
->> >> >> multiple transmit queues - please let me know if this is not the case.
->> >> >
->> >> > Note that this MQ + HTB thing works well, unless you use a bonding
->> >> > device. (Or you need the MQ+HTB on the slaves, with no way of sharing
->> >> > tokens between the slaves)
->> >>
->> >> Actually MQ+HTB works well for small packets - like flow of 512 byte
->> >> packets can be throttled by HTB using one txq without being affected
->> >> by other flows with small packets. However I found using this solution
->> >> large packets (10k for example) will only achieve very limited
->> >> bandwidth. In my test I used MQ to assign one txq to a HTB which sets
->> >> rate at 1Gbit/s, 512 byte packets can achieve the ceiling rate by
->> >> using 30 threads. But sending 10k packets using 10 threads has only 10
->> >> Mbit/s with the same TC configuration. If I increase burst and cburst
->> >> of HTB to some extreme large value (like 50MB) the ceiling rate can be
->> >> hit.
->> >>
->> >> The strange thing is that I don't see this problem when using HTB as
->> >> the root. So txq number seems to be a factor here - however it's
->> >> really hard to understand why would it only affect larger packets. Is
->> >> this a known issue? Any suggestion on how to investigate the issue
->> >> further? Profiling shows that the cpu utilization is pretty low.
->> >
->> > You could try
->> >
->> > perf record -a -g -e skb:kfree_skb sleep 5
->> > perf report
->> >
->> > So that you see where the packets are dropped.
->> >
->> > Chances are that your UDP sockets SO_SNDBUF is too big, and packets are
->> > dropped at qdisc enqueue time, instead of having backpressure.
->> >
->>
->> Thanks for the hint - how should I read the perf report? Also we're
->> using TCP socket in this testing - TCP window size is set to 70kB.
->
-> But how are you telling TCP to send 10k packets ?
->
-We just write to the socket with 10k buffer and wait for a response
-from the server (using read()) before the next write. Using tcpdump I
-can see the 10k write is actually sent through 3 packets
-(7.3k/1.5k/1.3k).
+We noticed performance issues with VF interface on sparc compared
+to PF. Setting the RX to IXGBE_DCA_RXCTRL_DATA_WRO_EN brings it
+on far with PF. Also this matches to the default sparc setting in
+PF driver.
 
-> AFAIK you can not : TCP happily aggregates packets in write queue
-> (see current MSG_EOR discussion)
->
-> I suspect a bug in your tc settings.
->
->
+Signed-off-by: Babu Moger <babu.moger@oracle.com>
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+v2:
+  Alexander had concerns about this negativily affecting other architectures.
+  Added CONFIG_SPARC check so this should not affect other architectures.
 
-Could you help to check my tc setting?
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-sudo tc qdisc add dev eth0 root mqprio num_tc 6 map 0 1 2 3 4 5 0 0
-queues 19@0 1@19 1@20 1@21 1@22 1@23 hw 0
-sudo tc qdisc add dev eth0 parent 805a:1a handle 8001:0 htb default 10
-sudo tc class add dev eth0 parent 8001: classid 8001:10 htb rate 1000Mbit
-
-I didn't set r2q/burst/cburst/mtu/mpu so the default value should be used.
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 0ea14c0..3596e0b 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1748,9 +1748,15 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
+ 			ring->count * sizeof(union ixgbe_adv_rx_desc));
+ 
++#ifndef CONFIG_SPARC
+ 	/* enable relaxed ordering */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
+ 			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
++#else
++	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
++			IXGBE_DCA_RXCTRL_DESC_RRO_EN |
++			IXGBE_DCA_RXCTRL_DATA_WRO_EN);
++#endif
+ 
+ 	/* reset head and tail pointers */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDH(reg_idx), 0);
+-- 
+1.7.1
