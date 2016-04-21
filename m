@@ -1,71 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: qdisc spin lock
-Date: Wed, 20 Apr 2016 15:34:44 -0700
-Message-ID: <1461191684.10638.265.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAmHdhw9bQkCm7uehRZ9mTetMzafdXxWhYj16f8W-YvSz8V4=g@mail.gmail.com>
-	 <CAM_iQpVSHqLcGjrErAsh54+iD8uwGH5QNGwiJVOQOTsk=dwDbw@mail.gmail.com>
-	 <CAAmHdhxagKnLP1_5ZW7HTsVBu0TSFYKCvNstAEWN-NHrdnvvVQ@mail.gmail.com>
-	 <1460125157.6473.434.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAAmHdhzAEG-oXsA0P1mEJfseBTUdU7X_bEhgvkCLOLcqOHcQSw@mail.gmail.com>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: linux-next: zillions of lockdep whinges in include/net/sock.h:1408
+Date: Wed, 20 Apr 2016 20:30:39 -0400
+Message-ID: <66816.1461198639@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; boundary="==_Exmh_1461198639_3237P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Michael Ma <make0818@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35132 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbcDTWeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 18:34:46 -0400
-Received: by mail-pa0-f45.google.com with SMTP id fs9so22089006pac.2
-        for <netdev@vger.kernel.org>; Wed, 20 Apr 2016 15:34:46 -0700 (PDT)
-In-Reply-To: <CAAmHdhzAEG-oXsA0P1mEJfseBTUdU7X_bEhgvkCLOLcqOHcQSw@mail.gmail.com>
+Received: from outbound.smtp.vt.edu ([198.82.183.121]:59987 "EHLO
+	omr1.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751279AbcDUAap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 20:30:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-04-20 at 14:24 -0700, Michael Ma wrote:
-> 2016-04-08 7:19 GMT-07:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> > On Thu, 2016-03-31 at 16:48 -0700, Michael Ma wrote:
-> >> I didn't really know that multiple qdiscs can be isolated using MQ so
-> >> that each txq can be associated with a particular qdisc. Also we don't
-> >> really have multiple interfaces...
-> >>
-> >> With this MQ solution we'll still need to assign transmit queues to
-> >> different classes by doing some math on the bandwidth limit if I
-> >> understand correctly, which seems to be less convenient compared with
-> >> a solution purely within HTB.
-> >>
-> >> I assume that with this solution I can still share qdisc among
-> >> multiple transmit queues - please let me know if this is not the case.
-> >
-> > Note that this MQ + HTB thing works well, unless you use a bonding
-> > device. (Or you need the MQ+HTB on the slaves, with no way of sharing
-> > tokens between the slaves)
-> 
-> Actually MQ+HTB works well for small packets - like flow of 512 byte
-> packets can be throttled by HTB using one txq without being affected
-> by other flows with small packets. However I found using this solution
-> large packets (10k for example) will only achieve very limited
-> bandwidth. In my test I used MQ to assign one txq to a HTB which sets
-> rate at 1Gbit/s, 512 byte packets can achieve the ceiling rate by
-> using 30 threads. But sending 10k packets using 10 threads has only 10
-> Mbit/s with the same TC configuration. If I increase burst and cburst
-> of HTB to some extreme large value (like 50MB) the ceiling rate can be
-> hit.
-> 
-> The strange thing is that I don't see this problem when using HTB as
-> the root. So txq number seems to be a factor here - however it's
-> really hard to understand why would it only affect larger packets. Is
-> this a known issue? Any suggestion on how to investigate the issue
-> further? Profiling shows that the cpu utilization is pretty low.
+--==_Exmh_1461198639_3237P
+Content-Type: text/plain; charset=us-ascii
 
-You could try 
+linux-next 20160420 is whining at an incredible rate - in 20 minutes of
+uptime, I piled up some 41,000 hits from all over the place (cleaned up
+to skip the CPU and PID so the list isn't quite so long):
 
-perf record -a -g -e skb:kfree_skb sleep 5
-perf report
+% grep include/net/sock.h /var/log/messages | cut -f5- -d: |  sed -e 's/PID: [0-9]* /PID: (elided) /' -e 's/CPU: [0-3]/CPU: +/' | sort | uniq -c | sort -nr
+  13468  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_v6_rcv+0xc20/0xcb0
+   9770  CPU: + PID: (elided) at include/net/sock.h:1408 udp_queue_rcv_skb+0x3ca/0x6d0
+   7706  CPU: + PID: (elided) at include/net/sock.h:1408 sock_owned_by_user+0x91/0xa0
+   2818  CPU: + PID: (elided) at include/net/sock.h:1408 udpv6_queue_rcv_skb+0x3b6/0x6d0
+   1981  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_write_timer+0xf2/0x110
+   1954  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_delack_timer+0x110/0x130
+   1912  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_keepalive_timer+0x136/0x2c0
+    882  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_close+0x226/0x4f0
+    804  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_tasklet_func+0x192/0x1e0
+     28  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_child_process+0x17a/0x350
+      2  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_v6_err+0x401/0x660
+      2  CPU: + PID: (elided) at include/net/sock.h:1408 tcp_v6_err+0x1fd/0x660
 
-So that you see where the packets are dropped.
+Seems to be from this commit, which is apparently over-stringent or
+isn't handling some case correctly:
 
-Chances are that your UDP sockets SO_SNDBUF is too big, and packets are
-dropped at qdisc enqueue time, instead of having backpressure.
+commit fafc4e1ea1a4c1eb13a30c9426fb799f5efacbc3
+Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date:   Fri Apr 8 15:11:27 2016 +0200
+
+    sock: tigthen lockdep checks for sock_owned_by_user
+
+    sock_owned_by_user should not be used without socket lock held. It seems
+    to be a common practice to check .owned before lock reclassification, so
+    provide a little help to abstract this check away.
+
+    Cc: linux-cifs@vger.kernel.org
+    Cc: linux-bluetooth@vger.kernel.org
+    Cc: linux-nfs@vger.kernel.org
+    Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+--==_Exmh_1461198639_3237P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBVxgfLgdmEQWDXROgAQLfVhAApJUOcQtJpVr5umASsvKeM3BDbFmwS8kT
+IEsZRNi6Inv0zVB4s7vnGI58mjWP22snAp1D0Ip7V/Z6FhdRS50OOk/6o+GQ1duK
+HntSZP7T3YAqtb1+WO0ufReh1JKFGNtAZ2UZvzN0bPKSmkRP9KJAY2KDkSwXeeEP
+qmxyqCuG9XKAP0SRHqJ4bpo/BeXj2Ae5JVzXABR54MxyexPo+oZXf/uwNwi3Tc5V
+gA108kj1sYt+x/A42DbRxAZ6nviRyZ8cOa7WXfzFIAD6XFZeQn81zX53uxnnNPhF
+SrCaIigMszxO8pu7SKJyfKtAcuKrl+jODwWejMkWnoJx0i2vdMhOFI6LDHjIoJZo
+rG5usi4xFensTnoaAJYPQ8sXXud8BUzmPqRhaRJcapA649EWv2oLyE6N63LZHM7B
+G8COVR+CvSpKRLTdr+JvNMhAToAel2cA+hoBUnYTg5B4k2cU0a2IxTcRTj8ceIAZ
+vbX7p+9d8U88V81FTnZTEctK60MdDW1IamXix9VF/Pcv0ECDmzNDAPDddx5oOtcO
+VnPCWRGtsK976SGjgHx7fPeArbLZ5AEfRWxD0U6v2v+zvkOQj8GVs69dA2cZs488
+LcCIZt98ULox26Useu45hzbYS/vE1slfU7xSRpSaSHQillBCTz0yE78o/DFTOpeu
+O4HPuoadlp8=
+=eUi5
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1461198639_3237P--
