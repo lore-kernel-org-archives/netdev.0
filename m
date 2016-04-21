@@ -1,130 +1,251 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: IPv6 patch mysteriously breaks IPv4 VPN
-Date: Wed, 20 Apr 2016 22:24:13 -0400
-Message-ID: <15023.1461205453@turing-police.cc.vt.edu>
+From: Dinh Nguyen <dinguyen@opensource.altera.com>
+Subject: Re: [PATCH V2] net: stmmac: socfpga: Remove re-registration of reset
+ controller
+Date: Wed, 20 Apr 2016 21:44:11 -0500
+Message-ID: <57183E7B.5050804@opensource.altera.com>
+References: <1461110753-7641-1-git-send-email-marex@denx.de>
+ <5717F1DF.1020004@opensource.altera.com> <5718023F.1060707@denx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1461205453_7324P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bjorn@mork.no, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---==_Exmh_1461205453_7324P
-Content-Type: text/plain; charset="UTF-8"
-Content-Id: <15016.1461205453.1@turing-police.cc.vt.edu>
-Content-Transfer-Encoding: quoted-printable
-
-I'll say up front - no, I do *not* have a clue why this commit causes this
-problem - it makes exactly zero fsking sense.
-
-Scenario:  $WORK is blessed with a Juniper VPN system.  I've been
-seeing for a while now (since Dec-ish) an issue where at startup,
-the tun0 device will get wedged.  ifconfig reports this:
-
-tun0: flags=3D4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1400
-        inet 172.27.1.165  netmask 255.255.255.255  destination 172.27.1.1=
-65
-        inet6 fe80::6802:d95c:f3f4:2a6f  prefixlen 64  scopeid 0x20<link>
-        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen=
- 500  (UNSPEC)
-        RX packets 0  bytes 0 (0.0 B)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 1  bytes 48 (48.0 B)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-and no more packets cross - not even a ping.
-
-Yes, the tunnel is ipv4 only, and only ipv4 routes get set by the VPN soft=
-ware.
-
-bisect results confirmed - linux-next 20160327 is bad, but 20160420 with t=
-his
-one conmmit reverted works.
-
-% git bisect bad                  =
-
-cc9da6cc4f56e05cc9e591459fe0192727ff58b3 is the first bad commit
-commit cc9da6cc4f56e05cc9e591459fe0192727ff58b3
-Author: Bj=C3=83=C2=B8rn Mork <bjorn@mork.no>
-Date:   Wed Dec 16 16:44:38 2015 +0100
-                                =
-
-    ipv6: addrconf: use stable address generator for ARPHRD_NONE
-                                =
-
-    Add a new address generator mode, using the stable address generator
-    with an automatically generated secret. This is intended as a default
-    address generator mode for device types with no EUI64 implementation.
-    The new generator is used for ARPHRD_NONE interfaces initially, adding
-    default IPv6 autoconf support to e.g. tun interfaces.
-    =
-
-    If the addrgenmode is set to 'random', either by default or manually,
-    and no stable secret is available, then a random secret is used as
-    input for the stable-privacy address generator.  The secret can be
-    read and modified like manually configured secrets, using the proc
-    interface.  Modifying the secret will change the addrgen mode to
-    'stable-privacy' to indicate that it operates on a known secret.
-    =
-
-    Existing behaviour of the 'stable-privacy' mode is kept unchanged. If
-    a known secret is available when the device is created, then the mode
-    will default to 'stable-privacy' as before.  The mode can be manually
-    set to 'random' but it will behave exactly like 'stable-privacy' in
-    this case. The secret will not change.
-    =
-
-    Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-    Cc: =C3=A5=C2=90=C2=89=C3=A8=C2=97=C2=A4=C3=A8=C2=8B=C2=B1=C3=A6=C2=98=
-=C2=8E <hideaki.yoshifuji@miraclelinux.com>
-    Signed-off-by: Bj=C3=83=C2=B8rn Mork <bjorn@mork.no>
-    Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-(Sorry for the delay in reporting this - bisecting this proved to be
-a bear and a half, because this problematic commit landed only about 10 co=
-mmits after
-this one: =
+Cc: <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+	Matthew Gerlach <mgerlach@opensource.altera.com>,
+	"David S . Miller" <davem@davemloft.net>
+To: Marek Vasut <marex@denx.de>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1on0088.outbound.protection.outlook.com ([157.56.110.88]:10720
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751001AbcDUCo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Apr 2016 22:44:28 -0400
+In-Reply-To: <5718023F.1060707@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-git bisect start
-# good: [1bd4978a88ac2589f3105f599b1d404a312fb7f6] tun: honor IFF_UP in tu=
-n_get_user()
 
-which fixed a *different* issue that prevented the tun device from getting
-created at all (or it was immediately taken back down by the VPN software)=
-.
-End result was that unless I gave a "known good" start point in that dozen
-commit range, there's be a month's worth of 'git commit skip' to wade thro=
-ugh.
-I got damned lucky and found a record on one of my servers of an ssh over =
-VPN,
-and correlated it to the one day that linux-next had the above fix for the
-previous issue, and wasn't broken by this current issue....)
+On 04/20/2016 05:27 PM, Marek Vasut wrote:
+> On 04/20/2016 11:17 PM, Dinh Nguyen wrote:
+>> On 04/19/2016 07:05 PM, Marek Vasut wrote:
+>>> Both socfpga_dwmac_parse_data() in dwmac-socfpga.c and stmmac_dvr_probe()
+>>> in stmmac_main.c functions call devm_reset_control_get() to register an
+>>> reset controller for the stmmac. This results in an attempt to register
+>>> two reset controllers for the same non-shared reset line.
+>>>
+>>> The first attempt to register the reset controller works fine. The second
+>>> attempt fails with warning from the reset controller core, see below.
+>>> The warning is produced because the reset line is non-shared and thus
+>>> it is allowed to have only up-to one reset controller associated with
+>>> that reset line, not two or more.
+>>>
+>>> The solution is not great. Since the hardware needs to toggle the reset
+>>> before calling stmmac_dvr_probe() to perform mandatory preconfiguration,
+>>> this patch splits socfpga_dwmac_init_probe() from socfpga_dwmac_init().
+>>>
+>>> The socfpga_dwmac_init_probe() temporarily registers the reset controller,
+>>> performs the pre-configuration and unregisters the reset controller again.
+>>> This function is only called from the socfpga_dwmac_probe().
+>>>
+>>> The original socfpga_dwmac_init() is tweaked to use reset controller
+>>> pointer from the stmmac_priv (private data of the stmmac core) instead
+>>> of the local instance, which was used before.
+>>>
+>>> Finally, plat_dat->exit and socfpga_dwmac_exit() is no longer necessary,
+>>> since the functionality is already performed by the stmmac core.
+>>>
+>>> ------------[ cut here ]------------
+>>> WARNING: CPU: 0 PID: 1 at drivers/reset/core.c:187 __of_reset_control_get+0x218/0x270
+>>> Modules linked in:
+>>> CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.6.0-rc4-next-20160419-00015-gabb2477-dirty #4
+>>> Hardware name: Altera SOCFPGA
+>>> [<c010f290>] (unwind_backtrace) from [<c010b82c>] (show_stack+0x10/0x14)
+>>> [<c010b82c>] (show_stack) from [<c0373da4>] (dump_stack+0x94/0xa8)
+>>> [<c0373da4>] (dump_stack) from [<c011bcc0>] (__warn+0xec/0x104)
+>>> [<c011bcc0>] (__warn) from [<c011bd88>] (warn_slowpath_null+0x20/0x28)
+>>> [<c011bd88>] (warn_slowpath_null) from [<c03a6eb4>] (__of_reset_control_get+0x218/0x270)
+>>> [<c03a6eb4>] (__of_reset_control_get) from [<c03a701c>] (__devm_reset_control_get+0x54/0x90)
+>>> [<c03a701c>] (__devm_reset_control_get) from [<c041fa30>] (stmmac_dvr_probe+0x1b4/0x8e8)
+>>> [<c041fa30>] (stmmac_dvr_probe) from [<c04298c8>] (socfpga_dwmac_probe+0x1b8/0x28c)
+>>> [<c04298c8>] (socfpga_dwmac_probe) from [<c03d6ffc>] (platform_drv_probe+0x4c/0xb0)
+>>> [<c03d6ffc>] (platform_drv_probe) from [<c03d54ec>] (driver_probe_device+0x224/0x2bc)
+>>> [<c03d54ec>] (driver_probe_device) from [<c03d5630>] (__driver_attach+0xac/0xb0)
+>>> [<c03d5630>] (__driver_attach) from [<c03d382c>] (bus_for_each_dev+0x6c/0xa0)
+>>> [<c03d382c>] (bus_for_each_dev) from [<c03d4ad4>] (bus_add_driver+0x1a4/0x21c)
+>>> [<c03d4ad4>] (bus_add_driver) from [<c03d60ac>] (driver_register+0x78/0xf8)
+>>> [<c03d60ac>] (driver_register) from [<c0101760>] (do_one_initcall+0x40/0x170)
+>>> [<c0101760>] (do_one_initcall) from [<c0800e38>] (kernel_init_freeable+0x1dc/0x27c)
+>>> [<c0800e38>] (kernel_init_freeable) from [<c05d1bd4>] (kernel_init+0x8/0x114)
+>>> [<c05d1bd4>] (kernel_init) from [<c01076f8>] (ret_from_fork+0x14/0x3c)
+>>> ---[ end trace 059d2fbe87608fa9 ]---
+>>>
+>>> Signed-off-by: Marek Vasut <marex@denx.de>
+>>> Cc: Matthew Gerlach <mgerlach@opensource.altera.com>
+>>> Cc: Dinh Nguyen <dinguyen@opensource.altera.com>
+>>> Cc: David S. Miller <davem@davemloft.net>
+>>> ---
+>>> V2: Add missing stmmac_rst = NULL; into socfpga_dwmac_init_probe()
+>>> ---
+>>>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 70 ++++++++++++----------
+>>>  1 file changed, 39 insertions(+), 31 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+>>> index 76d671e..5885a2e 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+>>> @@ -49,7 +49,6 @@ struct socfpga_dwmac {
+>>>  	u32	reg_shift;
+>>>  	struct	device *dev;
+>>>  	struct regmap *sys_mgr_base_addr;
+>>> -	struct reset_control *stmmac_rst;
+>>>  	void __iomem *splitter_base;
+>>>  	bool f2h_ptp_ref_clk;
+>>>  };
+>>> @@ -92,15 +91,6 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+>>>  	struct device_node *np_splitter;
+>>>  	struct resource res_splitter;
+>>>  
+>>> -	dwmac->stmmac_rst = devm_reset_control_get(dev,
+>>> -						  STMMAC_RESOURCE_NAME);
+>>> -	if (IS_ERR(dwmac->stmmac_rst)) {
+>>> -		dev_info(dev, "Could not get reset control!\n");
+>>> -		if (PTR_ERR(dwmac->stmmac_rst) == -EPROBE_DEFER)
+>>> -			return -EPROBE_DEFER;
+>>> -		dwmac->stmmac_rst = NULL;
+>>> -	}
+>>> -
+>>>  	dwmac->interface = of_get_phy_mode(np);
+>>>  
+>>>  	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
+>>> @@ -194,30 +184,23 @@ static int socfpga_dwmac_setup(struct socfpga_dwmac *dwmac)
+>>>  	return 0;
+>>>  }
+>>>  
+>>> -static void socfpga_dwmac_exit(struct platform_device *pdev, void *priv)
+>>> -{
+>>> -	struct socfpga_dwmac	*dwmac = priv;
+>>> -
+>>> -	/* On socfpga platform exit, assert and hold reset to the
+>>> -	 * enet controller - the default state after a hard reset.
+>>> -	 */
+>>> -	if (dwmac->stmmac_rst)
+>>> -		reset_control_assert(dwmac->stmmac_rst);
+>>> -}
+>>> -
+>>>  static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>>  {
+>>> -	struct socfpga_dwmac	*dwmac = priv;
+>>> +	struct socfpga_dwmac *dwmac = priv;
+>>>  	struct net_device *ndev = platform_get_drvdata(pdev);
+>>>  	struct stmmac_priv *stpriv = NULL;
+>>>  	int ret = 0;
+>>>  
+>>> -	if (ndev)
+>>> -		stpriv = netdev_priv(ndev);
+>>> +	if (!ndev)
+>>> +		return -EINVAL;
+>>> +
+>>> +	stpriv = netdev_priv(ndev);
+>>> +	if (!stpriv)
+>>> +		return -EINVAL;
+>>>  
+>>>  	/* Assert reset to the enet controller before changing the phy mode */
+>>> -	if (dwmac->stmmac_rst)
+>>> -		reset_control_assert(dwmac->stmmac_rst);
+>>> +	if (stpriv->stmmac_rst)
+>>> +		reset_control_assert(stpriv->stmmac_rst);
+>>>  
+>>>  	/* Setup the phy mode in the system manager registers according to
+>>>  	 * devicetree configuration
+>>> @@ -227,8 +210,8 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>>  	/* Deassert reset for the phy configuration to be sampled by
+>>>  	 * the enet controller, and operation to start in requested mode
+>>>  	 */
+>>> -	if (dwmac->stmmac_rst)
+>>> -		reset_control_deassert(dwmac->stmmac_rst);
+>>> +	if (stpriv->stmmac_rst)
+>>> +		reset_control_deassert(stpriv->stmmac_rst);
+>>>  
+>>>  	/* Before the enet controller is suspended, the phy is suspended.
+>>>  	 * This causes the phy clock to be gated. The enet controller is
+>>> @@ -245,12 +228,38 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
+>>>  	 * control register 0, and can be modified by the phy driver
+>>>  	 * framework.
+>>>  	 */
+>>> -	if (stpriv && stpriv->phydev)
+>>> +	if (stpriv->phydev)
+>>>  		phy_resume(stpriv->phydev);
+>>>  
+>>>  	return ret;
+>>>  }
+>>>  
+>>> +static int socfpga_dwmac_init_probe(struct socfpga_dwmac *dwmac)
+>>> +{
+>>> +	struct reset_control *stmmac_rst;
+>>> +	int ret;
+>>> +
+>>> +	stmmac_rst = reset_control_get(dwmac->dev, STMMAC_RESOURCE_NAME);
+>>> +	if (IS_ERR(stmmac_rst)) {
+>>> +		dev_info(dwmac->dev, "Could not get reset control!\n");
+>>> +		if (PTR_ERR(stmmac_rst) == -EPROBE_DEFER)
+>>> +			return -EPROBE_DEFER;
+>>> +		stmmac_rst = NULL;
+>>> +	}
+>>> +
+>>> +	if (stmmac_rst)
+>>> +		reset_control_assert(stmmac_rst);
+>>> +
+>>> +	ret = socfpga_dwmac_setup(dwmac);
+>>> +
+>>> +	if (stmmac_rst) {
+>>> +		reset_control_deassert(stmmac_rst);
+>>> +		reset_control_put(stmmac_rst);
+>>> +	}
+>>> +
+>>> +	return ret;
+>>> +}
+>>
+>> I don't think you this function because...
+>>
+>>> +
+>>>  static int socfpga_dwmac_probe(struct platform_device *pdev)
+>>>  {
+>>>  	struct plat_stmmacenet_data *plat_dat;
+>>> @@ -279,10 +288,9 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
+>>>  
+>>>  	plat_dat->bsp_priv = dwmac;
+>>>  	plat_dat->init = socfpga_dwmac_init;
+>>> -	plat_dat->exit = socfpga_dwmac_exit;
+>>>  	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
+>>>  
+>>> -	ret = socfpga_dwmac_init(pdev, plat_dat->bsp_priv);
+>>> +	ret = socfpga_dwmac_init_probe(dwmac);
+>>>  	if (ret)
+>>>  		return ret;
+>>>  
+>>>
+>>
+>> if you modify the patch to call stmmac_dvr_probe() before calling
+>> socfpga_dwmac_init(), then you would already have the reset control
+>> information.
+> 
+> I was under the impression that you must call socfpga_dwmac_init()
+> before stmmac_dvr_probe() for whatever hardware-related reason. If
+> you are absolutely certain this is not necessary, then that's just
+> perfect and the patch can be simplified even further -- just remove
+> the call to socfpga_dwmac_init() from probe altogether , the dwmac
+> core code will call plat_dat->init at the end of probe .
+> 
+> So shall we do that ? I am happy to spin V3 like that if you confirm
+> that it's legal to do things in the aforementioned order.
+> 
 
---==_Exmh_1461205453_7324P
-Content-Type: application/pgp-signature
+AFAICT, I don't see any reason why the socfpga_dwmac_init() has to go
+before the stmmac_dvr_probe(). I tested this by using U-Boot to put the
+PHY modes in the system manager into a different mode, and put the
+ethernet IP into reset. Linux was able to use ethernet just fine with
+the aformentioned order.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
+So yes, please spin V3.
 
-iQIVAwUBVxg5zQdmEQWDXROgAQJqeA//Uo5TUplxH4xni12y7qL1n8cJDp1byL8S
-G1v5SLbBB0JS6+jxof/YHM17XMaGV1nbKDAVpCFULJfu0wans1OQgDtspuJ7E/TF
-L8JgnC49vuOdmDKfsVxCdlKOEUWP8IcQdfBhUeJ91RYAYzGNJpfsiGbf8Hp4uLJj
-ZgSTTSlXnTKjxVR6B4g4bSlBBNG+BdbR5y38DgJWAlJsjeEySr0/9sVgqw67D2oB
-AEhEp8SlYvL7o/erDbrVQ96mpA/nDSuSSoaaqbR/ls0hIlWcegI3FrJ3Jws7aWOd
-q10pBAfx0hqHPA9pNEBStOofGKawE6Kj3pxXorjCDEm3jBTrKbJCSIQPoQCKCLe5
-DvCJIipsv0LSWDdujjrfXJ8cpFw21DtKxuYBsh0wogAgWgnJGArrUWeNHwX5so+T
-/Qezqu6nlc3Vp1Q2DvryBSb7ZtgcL2264g8rBu94+0mAqt4zgdCsdk8diyI9X/wI
-n5DpuqKQZd/0zjvYgj4Wsawi+lwQu5+kB9d63jo1O3UrYmow2LJkymrnK00sYcz2
-rG2QJheqxZMwEbjl767wTf57iPEtc5Bog2g6XRK340kLjoXNN7T2uibxNUpvoORM
-y5ypvjgpOKst+OiRTOTL1LJnrR8Oz7sNwSW5zEzq+XLJZZR1jTXCc5CmvOITAUYR
-098ki0WiDY0=
-=CHn/
------END PGP SIGNATURE-----
-
---==_Exmh_1461205453_7324P--
+Thanks,
+Dinh
