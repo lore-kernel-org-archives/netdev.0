@@ -1,79 +1,84 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH 4/6] dt: Add Shared MDIO Controller node for NS2
-Date: Thu, 21 Apr 2016 14:48:41 +0530
-Message-ID: <1461230323-27891-5-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH 5/6] Documentation: Binding doc for ethernet master in NS2
+Date: Thu, 21 Apr 2016 14:48:42 +0530
+Message-ID: <1461230323-27891-6-git-send-email-pramod.kumar@broadcom.com>
 References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
-Cc: BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Suzuki K Poulose <suzuki.poulose@arm.com>,
-	Punit Agrawal <punit.agrawal@arm.com>,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pramod Kumar <pramod.kumar@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Pawel Moll <pawel.moll@arm.com>, Arnd Bergmann <arnd@arndb.de>,
+ Suzuki K Poulose <suzuki.poulose@arm.com>, netdev@vger.kernel.org,
+ Punit Agrawal <punit.agrawal@arm.com>, linux-kernel@vger.kernel.org,
+ Pramod Kumar <pramod.kumar@broadcom.com>,
+ BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+ linux-arm-kernel@lists.infradead.org
 To: Rob Herring <robh+dt@kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Masahiro Yamada <yamada.masahiro@socionext.com>,
-	Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ Catalin Marinas <catalin.marinas@arm.com>,
+ Will Deacon <will.deacon@arm.com>,
+ Masahiro Yamada <yamada.masahiro@socionext.com>,
+ Chen-Yu Tsai <wens@csie.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Add NS2 Shared MDIO Controller DT node having eth phy as child.
-This node represents the NS2 AMAC eth phy.
+Adding binding doc for ethernet master present in shared
+MDIO controller.
 
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 Reviewed-by: Ray Jui <ray.jui@broadcom.com>
 Reviewed-by: Scott Branden <scott.branden@broadcom.com>
 ---
- arch/arm64/boot/dts/broadcom/ns2-svk.dts | 15 +++++++++++++++
- arch/arm64/boot/dts/broadcom/ns2.dtsi    |  8 ++++++++
- 2 files changed, 23 insertions(+)
+ .../bindings/net/brcm,iproc-mdio-shared.txt        | 32 ++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
 
-diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-index ce0ab84..2944418 100644
---- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-+++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-@@ -87,3 +87,18 @@
- 		#size-cells = <1>;
- 	};
- };
+diff --git a/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
+new file mode 100644
+index 0000000..1ffdd4b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
+@@ -0,0 +1,32 @@
++Broadcom Ethernet master for shared mdio controller
 +
-+&iproc_shared_mdio {
++Required properties:
++- compatible: must be "brcm,iproc-mdio-master-eth"
++- reg: master id of Ethernet block
++- address-cells: should be 1
++- size-cells: should be 0
++
++Sub-nodes:
++  Each port's PHY should be represented as a sub-node.
++
++Sub-nodes required properties:
++- reg: the PHY number
++- phy-mode: media type connecting the PHY and MAC.
++
++
++Example:
 +	eth-master@0 {
 +		compatible = "brcm,iproc-mdio-master-eth";
 +		reg = <0x0>;
 +		#address-cells = <1>;
 +		#size-cells = <0>;
-+		status = "ok";
-+
 +		gphy0: eth-phy@10 {
 +			reg = <0x10>;
 +			phy-mode = "mii";
 +		};
++		status = "ok"
 +	};
-+};
-diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-index 6f81c9d..5b98c81 100644
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@ -330,6 +330,14 @@
- 			      <0x65260000 0x1000>;
- 		};
- 
-+		iproc_shared_mdio: iproc_shared_mdio@6602023c {
-+			compatible = "brcm,iproc-shared-mdio";
-+			reg = <0x6602023c 0x14>;
-+			reg-names = "mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+		};
 +
- 		timer0: timer@66030000 {
- 			compatible = "arm,sp804", "arm,primecell";
- 			reg = <0x66030000 0x1000>;
++For more info on ethernet phy binding, please,refer to:
++Documentation/devicetree/bindings/net/phy.txt
++Documentation/devicetree/bindings/net/ethernet.txt
 -- 
 1.9.1
