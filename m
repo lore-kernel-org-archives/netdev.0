@@ -1,133 +1,71 @@
-From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 3/4] net: thunderx: add sysfs attribute for SQS/SVF assigments
-Date: Thu, 21 Apr 2016 12:27:51 +0530
-Message-ID: <1461221872-38841-4-git-send-email-sunil.kovvuri@gmail.com>
-References: <1461221872-38841-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	sgoutham@cavium.com, robert.richter@caviumnetworks.com,
-	Radoslaw Biernacki <rad@semihalf.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1461221872-38841-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Vetter <daniel@ffwll.ch>
+Subject: Re: [PATCH 4/4] drm/i915: Move ioremap_wc tracking onto
+ VMA
+Date: Thu, 21 Apr 2016 09:27:39 +0200
+Message-ID: <20160421072739.GV2510@phenom.ffwll.local>
+References: <20160419123028.GI1990@wotan.suse.de>
+ <1461069238-31539-1-git-send-email-chris@chris-wilson.co.uk>
+ <1461069238-31539-4-git-send-email-chris@chris-wilson.co.uk>
+ <20160420091054.GL1990@wotan.suse.de>
+ <20160420111730.GL2510@phenom.ffwll.local>
+ <20160420212727.GS1990@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Hildenbrand <dahi@linux.vnet.ibm.com>,
+ David Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+ intel-gfx@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+ dri-devel@lists.freedesktop.org,
+ "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
+ Daniel Vetter <daniel.vetter@intel.com>,
+ Dan Williams <dan.j.williams@intel.com>, Yishai Hadas <yishaih@mellanox.com>,
+ Ingo Molnar <mingo@kernel.org>, linux-rdma@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Return-path: <intel-gfx-bounces@lists.freedesktop.org>
+Content-Disposition: inline
+In-Reply-To: <20160420212727.GS1990@wotan.suse.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/intel-gfx>
+List-Post: <mailto:intel-gfx@lists.freedesktop.org>
+List-Help: <mailto:intel-gfx-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/intel-gfx>,
+ <mailto:intel-gfx-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: intel-gfx-bounces@lists.freedesktop.org
+Sender: "Intel-gfx" <intel-gfx-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-From: Radoslaw Biernacki <rad@semihalf.com>
-
-With this sysfs attribute (sriov_sqs_assignment) administrator will be
-able to read the current assigment of SQS/SVF for a given VF. This is
-useful to decide which VFs needs to be attached to UIO for a successful
-allocation of secondary Qsets
-
-Signed-off-by: Radoslaw Biernacki <rad@semihalf.com>
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nic_main.c |   67 +++++++++++++++++++++++-
- 1 files changed, 66 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index cd5e7a4..02e9a75 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1163,6 +1163,60 @@ static void nic_poll_for_link(struct work_struct *work)
- 	queue_delayed_work(nic->check_link, &nic->dwork, HZ * 2);
- }
- 
-+ssize_t sriov_sqs_assignment_show(struct device *dev,
-+				  struct device_attribute *attr, char *buf)
-+{
-+	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
-+	struct pci_dev *vf_dev;
-+	struct pci_driver *vf_drv;
-+	struct nicpf *nic = pci_get_drvdata(pdev);
-+	size_t vf, off, svf_idx;
-+
-+	off = scnprintf(buf, PAGE_SIZE, "%u\n", nic->num_vf_en);
-+
-+	for (vf = 0; vf < nic->num_vf_en; vf++) {
-+		vf_dev = nic->vf_pdev[vf];
-+		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off,
-+				 "%zu %04x:%02x:%02x.%d %s %c:",
-+				 vf, pci_domain_nr(vf_dev->bus),
-+				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
-+				 PCI_FUNC(vf_dev->devfn),
-+				 vf_drv ? vf_drv->name : "no-driver",
-+				 nic->vf_enabled[vf] ? '+' : '-');
-+		for (svf_idx = 0; svf_idx < MAX_SQS_PER_VF; svf_idx++) {
-+			if (off >= PAGE_SIZE)
-+				break;
-+			if (nic->vf_sqs[vf][svf_idx] == NIC_VF_UNASSIGNED)
-+				break;
-+			off += scnprintf(&buf[off], PAGE_SIZE - off, " %d",
-+					 nic->vf_sqs[vf][svf_idx]);
-+		}
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off, "\n");
-+	}
-+
-+	for (vf = nic->num_vf_en; vf < nic->num_vf_en + nic->num_sqs_en; vf++) {
-+		vf_dev = nic->vf_pdev[vf];
-+		vf_drv = vf_dev ? pci_dev_driver(vf_dev) : NULL;
-+		if (off >= PAGE_SIZE)
-+			break;
-+		off += scnprintf(&buf[off], PAGE_SIZE - off,
-+				 "%zu %04x:%02x:%02x.%d %s: %u\n",
-+				 vf, pci_domain_nr(vf_dev->bus),
-+				 vf_dev->bus->number, PCI_SLOT(vf_dev->devfn),
-+				 PCI_FUNC(vf_dev->devfn),
-+				 vf_drv ? vf_drv->name : "no-driver",
-+				 nic->pqs_vf[vf]);
-+	}
-+
-+	return off;
-+}
-+DEVICE_ATTR_RO(sriov_sqs_assignment);
-+
- static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- {
- 	struct device *dev = &pdev->dev;
-@@ -1239,12 +1293,18 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto err_unregister_interrupts;
- 
-+	err = device_create_file(dev, &dev_attr_sriov_sqs_assignment);
-+	if (err) {
-+		err = -ENOMEM;
-+		goto err_disable_sriov;
-+	}
-+
- 	/* Register a physical link status poll fn() */
- 	nic->check_link = alloc_workqueue("check_link_status",
- 					  WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
- 	if (!nic->check_link) {
- 		err = -ENOMEM;
--		goto err_disable_sriov;
-+		goto err_remove_sysfs_attr;
- 	}
- 
- 	INIT_DELAYED_WORK(&nic->dwork, nic_poll_for_link);
-@@ -1252,6 +1312,8 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	return 0;
- 
-+err_remove_sysfs_attr:
-+	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
- err_disable_sriov:
- 	if (nic->flags & NIC_SRIOV_ENABLED) {
- 		nic_put_vf_pdev(nic);
-@@ -1270,6 +1332,9 @@ err_disable_device:
- static void nic_remove(struct pci_dev *pdev)
- {
- 	struct nicpf *nic = pci_get_drvdata(pdev);
-+	struct device *dev = &pdev->dev;
-+
-+	device_remove_file(dev, &dev_attr_sriov_sqs_assignment);
- 
- 	if (nic->flags & NIC_SRIOV_ENABLED) {
- 		nic_put_vf_pdev(nic);
--- 
-1.7.1
+T24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMTE6Mjc6MjdQTSArMDIwMCwgTHVpcyBSLiBSb2RyaWd1
+ZXogd3JvdGU6Cj4gT24gV2VkLCBBcHIgMjAsIDIwMTYgYXQgMDE6MTc6MzBQTSArMDIwMCwgRGFu
+aWVsIFZldHRlciB3cm90ZToKPiA+IE9uIFdlZCwgQXByIDIwLCAyMDE2IGF0IDExOjEwOjU0QU0g
+KzAyMDAsIEx1aXMgUi4gUm9kcmlndWV6IHdyb3RlOgo+ID4gPiBSZWFzb24gSSBhc2sgaXMgc2lu
+Y2UgSSBub3RpY2VkIGEgd2hpbGUgYWdvIGEgbG90IG9mIGRyaXZlcnMKPiA+ID4gd2VyZSB1c2lu
+ZyBpbmZvLT5maXguc21lbV9zdGFydCBhbmQgaW5mby0+Zml4LnNtZW1fbGVuIGNvbnNpc3RlbnRs
+eQo+ID4gPiBmb3IgdGhlaXIgaW9yZW1hcCdkIGFyZWFzIGl0IG1pZ2h0IG1ha2Ugc2Vuc2UgaW5z
+dGVhZCB0byBsZXQgdGhlCj4gPiA+IGludGVybmFsIGZyYW1lYnVmZmVyIChyZWdpc3Rlcl9mcmFt
+ZWJ1ZmZlcigpKSBvcHRpb25hbGx5IG1hbmFnZSB0aGUKPiA+ID4gaW9yZW1hcF93YygpIGZvciBk
+cml2ZXJzLCBnaXZlbiB0aGF0IHRoaXMgaXMgcHJldHR5IGdlbmVyaWMgc3R1ZmYuCj4gPiAKPiA+
+IEFsbCB0aGF0IGxlZ2FjeSBmYmRldiBzdHVmZiBpcyBqdXN0IGZvciBsZWdhY3kgc3VwcG9ydCwg
+YW5kIEkgcHJlZmVyIHRvCj4gPiBoYXZlIHRoYXQgYXMgZHVtYiBhcyBwb3NzaWJsZS4gVGhlcmUn
+cyBiZWVuIHNvbWUgZGlzY3Vzc2lvbiBldmVuIGFyb3VuZAo+ID4gbGlmdGluZyB0aGUgImtpY2sg
+b3V0IGZpcm13YXJlIGZiIGRyaXZlciIgb3V0IG9mIGZiZGV2LCBzaW5jZSB3ZSdkIG5lZWQgaXQK
+PiA+IHRvIGhhdmUgYSBzaW1wbGUgZHJtIGRyaXZlciBmb3IgZS5nLiB1ZWZpLgo+ID4gCj4gPiBC
+dXQgSSBkZWZpbml0ZWx5IGRvbid0IHdhbnQgYSBsZWdhY3kgaG9ycm9yIHNob3cgbGlrZSBmYmRl
+diB0bwo+ID4gYXV0b21hZ2ljYWxseSB0YWtlIGNhcmUgb2YgZGV2aWNlIG1hcHBpbmdzIGZvciBk
+cml2ZXJzLgo+IAo+IE1ha2VzIHNlbnNlLCBpdCBhbHNvIHN0aWxsIGJlZ3MgdGhlIHF1ZXN0aW9u
+IGlmIG1vcmUgbW9kZXJuIEFQSXMKPiBjb3VsZCBtYW5hZ2UgdGhlIGlvcmVtYXAgZm9yIHlvdS4g
+RXZpZGVuY2Ugc2hvd3MgcGVvcGxlIGdldAo+IHNsb3BweSBhbmQgaWYgdGhpbmdzIHdlcmUgZG9u
+ZSBpbnRlcm5hbGx5IHdpdGggaGVscGVycyBpdCBtYXkKPiBiZSBlYXNpZXIgdG8gbGF0ZXIgbWFr
+ZSBhZGp1c3RtZW50cy4KClJlYWwgZ3B1cyBnZW5lcmFsbHkgaGF2ZSBzbyBtdWNoIG1taW8gc3Bh
+Y2UgdGhhdCB5b3Ugd2FudCB0byBpb3JlbWFwIHRoZW0Kb24gZGVtYW5kLiBBdCBsZWFzdCBpZiB5
+b3Ugc3RpbGwgY2FyZSBhYm91dCAzMmJpdCBzdXBwb3J0LiBBbmQgb24tZGllIGdwdXMKb24gc29j
+cyBvciBzaW1pbGFyIHRlbmQgdG8gbm90IGhhdmUgYW4gbW1pbyByYW5nZSB0byBhY2Nlc3MgdGhl
+IGdmeApyZW1hcHBpbmcgcmFuZ2UgYXQgYWxsLCBidXQgaW5zdGVhZCBleHBlY3QgdGhhdCB0byBi
+ZSBkb25lIHdpdGggZ3B1CnBhZ2V0YWJsZXMuCgpTbyBhdCBsZWFzdCB3aXRoIGdwdXMgSSBkb24n
+dCBzZWUgYSByZWFsIGRlbWFuZCBmb3IgdGhpcywgYW5kIHRoZSBleGlzdGluZwp1c2VycyBhcmUg
+bW9zdGx5IG9sZCBmYmRldiBkcml2ZXJzIHRoYXQgcmVhbGx5IG5vIG9uZSBzaG91bGQgYmUgdG91
+Y2hpbmcKOy0pCgpDaGVlcnMsIERhbmllbAotLSAKRGFuaWVsIFZldHRlcgpTb2Z0d2FyZSBFbmdp
+bmVlciwgSW50ZWwgQ29ycG9yYXRpb24KaHR0cDovL2Jsb2cuZmZ3bGwuY2gKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KSW50ZWwtZ2Z4IG1haWxpbmcgbGlz
+dApJbnRlbC1nZnhAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0
+b3Aub3JnL21haWxtYW4vbGlzdGluZm8vaW50ZWwtZ2Z4Cg==
