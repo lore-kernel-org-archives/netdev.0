@@ -1,20 +1,17 @@
 From: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>
 Subject: [PATCH net v2 0/3] drivers: net: cpsw: phy-handle fixes
-Date: Wed, 20 Apr 2016 23:51:31 -0400
-Message-ID: <1461210694-29120-1-git-send-email-drivshin.allworx@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
+Date: Thu, 21 Apr 2016 00:00:25 -0400
+Message-ID: <1461211228-30371-1-git-send-email-drivshin.allworx@gmail.com>
+Cc: devicetree@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
 	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Andrew Goodbody <andrew.goodbody@cambrionix.com>,
 	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
 	Nicolas Chauvet <kwizart@gmail.com>
 To: netdev@vger.kernel.org, linux-omap@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f68.google.com ([209.85.192.68]:33043 "EHLO
-	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbcDUDwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Apr 2016 23:52:21 -0400
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:36331 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683AbcDUEBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 00:01:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
