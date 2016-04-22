@@ -1,96 +1,51 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH net v2 3/3] drivers: net: cpsw: use of_phy_connect() in
- fixed-link case
-Date: Fri, 22 Apr 2016 16:34:08 +0300
-Message-ID: <571A2850.30700@ti.com>
-References: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
- <1461264066-12358-1-git-send-email-drivshin.allworx@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-	Andrew Goodbody <andrew.goodbody-nYQdZkeIoGZN8Ch2cx6nig@public.gmane.org>,
-	Markus Brunner <systemprogrammierung.brunner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Nicolas Chauvet <kwizart-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: "David Rivshin (Allworx)" <drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1461264066-12358-1-git-send-email-drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 05/23] netfilter: x_tables: assert minimum target size
+Date: Fri, 22 Apr 2016 15:39:36 +0200
+Message-ID: <1461332394-3994-6-git-send-email-pablo@netfilter.org>
+References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45212 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753359AbcDVNkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 09:40:09 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 9B4725B9
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:07 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 80FD8FAB51
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:07 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 59A43B505B
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:05 +0200 (CEST)
+In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/21/2016 09:41 PM, David Rivshin (Allworx) wrote:
-> From: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
->
-> If a fixed-link DT subnode is used, the phy_device was looked up so
-> that a PHY ID string could be constructed and passed to phy_connect().
-> This is not necessary, as the device_node can be passed directly to
-> of_phy_connect() instead. This reuses the same codepath as if the
-> phy-handle DT property was used.
->
-> Signed-off-by: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
-> Tested-by: Nicolas Chauvet <kwizart-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->
-> Changes since v1 [1]:
-> - Rebased (trivial conflict, e5a03bfd modified the deleted snprintf)
-> - Added Tested-by from Nicolas Chauvet
->
-> [1] https://patchwork.ozlabs.org/patch/560327/
->
+From: Florian Westphal <fw@strlen.de>
 
-Reviewed-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+The target size includes the size of the xt_entry_target struct.
 
->
->   drivers/net/ethernet/ti/cpsw.c | 11 +----------
->   1 file changed, 1 insertion(+), 10 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 3c81413..245f919 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -2038,30 +2038,21 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
->   							"phy-handle", 0);
->   		parp = of_get_property(slave_node, "phy_id", &lenp);
->   		if (slave_data->phy_node) {
->   			dev_dbg(&pdev->dev,
->   				"slave[%d] using phy-handle=\"%s\"\n",
->   				i, slave_data->phy_node->full_name);
->   		} else if (of_phy_is_fixed_link(slave_node)) {
-> -			struct device_node *phy_node;
-> -			struct phy_device *phy_dev;
-> -
->   			/* In the case of a fixed PHY, the DT node associated
->   			 * to the PHY is the Ethernet MAC DT node.
->   			 */
->   			ret = of_phy_register_fixed_link(slave_node);
->   			if (ret)
->   				return ret;
-> -			phy_node = of_node_get(slave_node);
-> -			phy_dev = of_phy_find_device(phy_node);
-> -			if (!phy_dev)
-> -				return -ENODEV;
-> -			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
-> -				 PHY_ID_FMT, phy_dev->mdio.bus->id,
-> -				 phy_dev->mdio.addr);
-> +			slave_data->phy_node = of_node_get(slave_node);
->   		} else if (parp) {
->   			u32 phyid;
->   			struct device_node *mdio_node;
->   			struct platform_device *mdio;
->
->   			if (lenp != (sizeof(__be32) * 2)) {
->   				dev_err(&pdev->dev, "Invalid slave[%d] phy_id property\n", i);
->
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/x_tables.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 1f44bfa..ec1b718 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -568,6 +568,9 @@ int xt_check_entry_offsets(const void *base,
+ 		return -EINVAL;
+ 
+ 	t = (void *)(e + target_offset);
++	if (t->u.target_size < sizeof(*t))
++		return -EINVAL;
++
+ 	if (target_offset + t->u.target_size > next_offset)
+ 		return -EINVAL;
+ 
 -- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.4
