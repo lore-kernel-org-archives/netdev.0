@@ -1,156 +1,90 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 2/6] Documentation: DT binding doc for iProc Shared MDIO
- Controller.
-Date: Fri, 22 Apr 2016 15:10:45 -0500
-Message-ID: <20160422201045.GA32303@rob-hp-laptop>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 5/6] Documentation: Binding doc for ethernet master in NS2
+Date: Fri, 22 Apr 2016 15:13:51 -0500
+Message-ID: <20160422201351.GA3048@rob-hp-laptop>
 References: <1461230323-27891-1-git-send-email-pramod.kumar@broadcom.com>
- <1461230323-27891-3-git-send-email-pramod.kumar@broadcom.com>
+ <1461230323-27891-6-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Masahiro Yamada <yamada.masahiro@socionext.com>,
-	Chen-Yu Tsai <wens@csie.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Suzuki K Poulose <suzuki.poulose@arm.com>,
-	netdev@vger.kernel.org, Punit Agrawal <punit.agrawal@arm.com>,
-	linux-kernel@vger.kernel.org,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Pramod Kumar <pramod.kumar@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:33010 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751084AbcDVUKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 16:10:52 -0400
+Cc: Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Suzuki K Poulose <suzuki.poulose-5wv7dgnIgG8@public.gmane.org>,
+	Punit Agrawal <punit.agrawal-5wv7dgnIgG8@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1461230323-27891-3-git-send-email-pramod.kumar@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1461230323-27891-6-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 21, 2016 at 02:48:39PM +0530, Pramod Kumar wrote:
-> Add DT binding doc for iProc Shared MDIO Controller which
-> populate all masters to Shared MDIO framework.
+On Thu, Apr 21, 2016 at 02:48:42PM +0530, Pramod Kumar wrote:
+> Adding binding doc for ethernet master present in shared
+> MDIO controller.
 > 
-> Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> Reviewed-by: Ray Jui <ray.jui@broadcom.com>
-> Reviewed-by: Scott Branden <scott.branden@broadcom.com>
+> Signed-off-by: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Reviewed-by: Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Reviewed-by: Scott Branden <scott.branden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 > ---
->  .../bindings/bus/brcm,iproc-shared-mdio.txt        | 76 ++++++++++++++++++++++
->  1 file changed, 76 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+>  .../bindings/net/brcm,iproc-mdio-shared.txt        | 32 ++++++++++++++++++++++
+>  1 file changed, 32 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
 > 
-> diff --git a/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
+> diff --git a/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
 > new file mode 100644
-> index 0000000..f455f3d
+> index 0000000..1ffdd4b
 > --- /dev/null
-> +++ b/Documentation/devicetree/bindings/bus/brcm,iproc-shared-mdio.txt
-> @@ -0,0 +1,76 @@
-> +Broadcom iProc Shared MDIO Controller
+> +++ b/Documentation/devicetree/bindings/net/brcm,iproc-mdio-shared.txt
+> @@ -0,0 +1,32 @@
+> +Broadcom Ethernet master for shared mdio controller
 > +
 > +Required properties:
-> +- compatible:
-> +    "brcm,iproc-shared-mdio" for shared MDIO controller.
-> +- reg: specifies the base physical address and size of the registers
-> +- reg-names: should be "mdio"
-> +- #address-cells: must be 1.
-> +- #size-cells: must be 0.
+> +- compatible: must be "brcm,iproc-mdio-master-eth"
+> +- reg: master id of Ethernet block
+> +- address-cells: should be 1
+> +- size-cells: should be 0
 > +
-> +optional:
-> +child nodes: Masters are represented as a child node of shared MDIO controller
-> +and all the PHYs handled by this master are represented as its child node.
-
-Seems kind of useless if child nodes are optional.
-
+> +Sub-nodes:
+> +  Each port's PHY should be represented as a sub-node.
 > +
-> +Master nodes properties are defined as-
+> +Sub-nodes required properties:
+> +- reg: the PHY number
+> +- phy-mode: media type connecting the PHY and MAC.
 > +
-> +Required properties:
-> +- compatible: Used to match driver of this PHY.
-> +- reg: MDIO master ID.
-> +- #address-cells: must be 1.
-> +- #size-cells: must be 0.
-> +
-> +optional:
-> +-brcm,phy-internal: if presents, PHYs are internal. Absence shows phy is
-> +external.
-> +-brcm,is-c45: if presents, Controller uses Clause-45 to issue MDIO transaction.
-> +else Controller uses Clause-22 for transactions.
-
-Isn't this a property of the phy? IIRC, there is a standard property or 
-compatible string for this.
-
-> +
-> +PHY nodes are represented as the child node of Master. Child nodes properties
-> +are defined as-
-> +
-> +Required properties:
-> +-reg: phy id of attached PHY.
-> +
-> +optional:
-> +There could be additional properties required to configure the specific phy like
-> +phy-mode in case of gpphy node below. These should be defined here and used by
-> +respective drivers.
 > +
 > +Example:
-> +iproc_mdio: iproc_mdio@663f0000 {
-> +	compatible = "brcm,iproc-shared-mdio";
-> +	reg = <0x6602023c 0x14>;
-> +	reg-names = "mdio";
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +
-> +	sata-master@6 {
-
-mdio@6
-
-> +		compatible = "brcm,iproc-ns2-sata-phy";
-> +		reg = <0x6>;
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		brcm,phy-internal;
-> +
-> +		sata_phy0: sata-phy@1 {
-
-phy@1
-
-> +			reg = <0x1>;
-> +			#phy-cells = <0>;
-> +		};
-> +
-> +		sata_phy1: sata-phy@2 {
-
-phy@2
-
-> +			reg = <0x2>;
-> +			#phy-cells = <0>;
-> +		};
-> +	};
-> +
 > +	eth-master@0 {
 
-mdio@0
+Is this a child of something?
+
+Why is this not just an mdio bus underneath the ethernet controller? How 
+is this accessed?
 
 > +		compatible = "brcm,iproc-mdio-master-eth";
 > +		reg = <0x0>;
 > +		#address-cells = <1>;
 > +		#size-cells = <0>;
 > +		gphy0: eth-phy@10 {
-
-phy@10
-
 > +			reg = <0x10>;
 > +			phy-mode = "mii";
 > +		};
+> +		status = "ok"
 > +	};
-> +};
+> +
+> +For more info on ethernet phy binding, please,refer to:
+> +Documentation/devicetree/bindings/net/phy.txt
+> +Documentation/devicetree/bindings/net/ethernet.txt
 > -- 
 > 1.9.1
 > 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
