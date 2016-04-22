@@ -1,7 +1,7 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net v2 8/9] macsec: add missing macsec prefix in uapi
-Date: Fri, 22 Apr 2016 11:28:08 +0200
-Message-ID: <f8d652f0d117881bebbbcb8010ea41f69b3ca9f8.1461315621.git.sd@queasysnail.net>
+Subject: [PATCH net v2 7/9] macsec: fix SA leak if initialization fails
+Date: Fri, 22 Apr 2016 11:28:07 +0200
+Message-ID: <0af413c382a3683dbf816a2e45ba7c21ddee53f4.1461315621.git.sd@queasysnail.net>
 References: <cover.1461315621.git.sd@queasysnail.net>
 Cc: Lance Richardson <lrichard@redhat.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -10,84 +10,43 @@ Cc: Lance Richardson <lrichard@redhat.com>,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49823 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42703 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754243AbcDVJ2o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 05:28:44 -0400
+	id S1754132AbcDVJ2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 05:28:42 -0400
 In-Reply-To: <cover.1461315621.git.sd@queasysnail.net>
 In-Reply-To: <cover.1461315621.git.sd@queasysnail.net>
 References: <cover.1461315621.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I accidentally forgot some MACSEC_ prefixes in if_macsec.h.
-
-Fixes: dece8d2b78d1 ("uapi: add MACsec bits")
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+Reported-by: Lance Richardson <lrichard@redhat.com>
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/macsec.c           | 12 +++++++-----
- include/uapi/linux/if_macsec.h |  4 ++--
- 2 files changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/macsec.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index b37d348b8ea0..9f63cc7b0a73 100644
+index 826c6c9ce7fd..b37d348b8ea0 100644
 --- a/drivers/net/macsec.c
 +++ b/drivers/net/macsec.c
-@@ -2232,7 +2232,8 @@ static int nla_put_secy(struct macsec_secy *secy, struct sk_buff *skb)
- 		return 1;
- 
- 	if (nla_put_sci(skb, MACSEC_SECY_ATTR_SCI, secy->sci) ||
--	    nla_put_u64(skb, MACSEC_SECY_ATTR_CIPHER_SUITE, DEFAULT_CIPHER_ID) ||
-+	    nla_put_u64(skb, MACSEC_SECY_ATTR_CIPHER_SUITE,
-+			MACSEC_DEFAULT_CIPHER_ID) ||
- 	    nla_put_u8(skb, MACSEC_SECY_ATTR_ICV_LEN, secy->icv_len) ||
- 	    nla_put_u8(skb, MACSEC_SECY_ATTR_OPER, secy->operational) ||
- 	    nla_put_u8(skb, MACSEC_SECY_ATTR_PROTECT, secy->protect_frames) ||
-@@ -3096,7 +3097,7 @@ unregister:
- 
- static int macsec_validate_attr(struct nlattr *tb[], struct nlattr *data[])
- {
--	u64 csid = DEFAULT_CIPHER_ID;
-+	u64 csid = MACSEC_DEFAULT_CIPHER_ID;
- 	u8 icv_len = DEFAULT_ICV_LEN;
- 	int flag;
- 	bool es, scb, sci;
-@@ -3111,8 +3112,8 @@ static int macsec_validate_attr(struct nlattr *tb[], struct nlattr *data[])
- 		icv_len = nla_get_u8(data[IFLA_MACSEC_ICV_LEN]);
- 
- 	switch (csid) {
--	case DEFAULT_CIPHER_ID:
--	case DEFAULT_CIPHER_ALT:
-+	case MACSEC_DEFAULT_CIPHER_ID:
-+	case MACSEC_DEFAULT_CIPHER_ALT:
- 		if (icv_len < MACSEC_MIN_ICV_LEN ||
- 		    icv_len > MACSEC_MAX_ICV_LEN)
- 			return -EINVAL;
-@@ -3185,7 +3186,8 @@ static int macsec_fill_info(struct sk_buff *skb,
- 
- 	if (nla_put_sci(skb, IFLA_MACSEC_SCI, secy->sci) ||
- 	    nla_put_u8(skb, IFLA_MACSEC_ICV_LEN, secy->icv_len) ||
--	    nla_put_u64(skb, IFLA_MACSEC_CIPHER_SUITE, DEFAULT_CIPHER_ID) ||
-+	    nla_put_u64(skb, IFLA_MACSEC_CIPHER_SUITE,
-+			MACSEC_DEFAULT_CIPHER_ID) ||
- 	    nla_put_u8(skb, IFLA_MACSEC_ENCODING_SA, tx_sc->encoding_sa) ||
- 	    nla_put_u8(skb, IFLA_MACSEC_ENCRYPT, tx_sc->encrypt) ||
- 	    nla_put_u8(skb, IFLA_MACSEC_PROTECT, secy->protect_frames) ||
-diff --git a/include/uapi/linux/if_macsec.h b/include/uapi/linux/if_macsec.h
-index 26b0d1e3e3e7..4c58d9917aa4 100644
---- a/include/uapi/linux/if_macsec.h
-+++ b/include/uapi/linux/if_macsec.h
-@@ -19,8 +19,8 @@
- 
- #define MACSEC_MAX_KEY_LEN 128
- 
--#define DEFAULT_CIPHER_ID   0x0080020001000001ULL
--#define DEFAULT_CIPHER_ALT  0x0080C20001000001ULL
-+#define MACSEC_DEFAULT_CIPHER_ID   0x0080020001000001ULL
-+#define MACSEC_DEFAULT_CIPHER_ALT  0x0080C20001000001ULL
- 
- #define MACSEC_MIN_ICV_LEN 8
- #define MACSEC_MAX_ICV_LEN 32
+@@ -1627,6 +1627,7 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
+ 	rx_sa = kmalloc(sizeof(*rx_sa), GFP_KERNEL);
+ 	if (!rx_sa || init_rx_sa(rx_sa, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+ 				 secy->key_len, secy->icv_len)) {
++		kfree(rx_sa);
+ 		rtnl_unlock();
+ 		return -ENOMEM;
+ 	}
+@@ -1771,6 +1772,7 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
+ 	tx_sa = kmalloc(sizeof(*tx_sa), GFP_KERNEL);
+ 	if (!tx_sa || init_tx_sa(tx_sa, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
+ 				 secy->key_len, secy->icv_len)) {
++		kfree(tx_sa);
+ 		rtnl_unlock();
+ 		return -ENOMEM;
+ 	}
 -- 
 2.8.0
