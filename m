@@ -1,157 +1,185 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/23] netfilter: x_tables: validate targets of jumps
-Date: Fri, 22 Apr 2016 15:39:33 +0200
-Message-ID: <1461332394-3994-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/23] netfilter: x_tables: add and use xt_check_entry_offsets
+Date: Fri, 22 Apr 2016 15:39:34 +0200
+Message-ID: <1461332394-3994-4-git-send-email-pablo@netfilter.org>
 References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45196 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:45206 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752918AbcDVNkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:40:05 -0400
+	id S1753132AbcDVNkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 09:40:07 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id E244E8449
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:03 +0200 (CEST)
+	by mail.us.es (Postfix) with ESMTP id 57632B185
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:05 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id C8DE1FAB4E
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:03 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 4184C8E553
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:05 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A5A749D11C
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:01 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id C3B32FAB48
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:02 +0200 (CEST)
 In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-When we see a jump also check that the offset gets us to beginning of
-a rule (an ipt_entry).
+Currently arp/ip and ip6tables each implement a short helper to check that
+the target offset is large enough to hold one xt_entry_target struct and
+that t->u.target_size fits within the current rule.
 
-The extra overhead is negible, even with absurd cases.
+Unfortunately these checks are not sufficient.
 
-300k custom rules, 300k jumps to 'next' user chain:
-[ plus one jump from INPUT to first userchain ]:
-
-Before:
-real    0m24.874s
-user    0m7.532s
-sys     0m16.076s
-
-After:
-real    0m27.464s
-user    0m7.436s
-sys     0m18.840s
+To avoid adding new tests to all of ip/ip6/arptables move the current
+checks into a helper, then extend this helper in followup patches.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/arp_tables.c | 16 ++++++++++++++++
- net/ipv4/netfilter/ip_tables.c  | 16 ++++++++++++++++
- net/ipv6/netfilter/ip6_tables.c | 16 ++++++++++++++++
- 3 files changed, 48 insertions(+)
+ include/linux/netfilter/x_tables.h |  4 ++++
+ net/ipv4/netfilter/arp_tables.c    | 11 +----------
+ net/ipv4/netfilter/ip_tables.c     | 12 +-----------
+ net/ipv6/netfilter/ip6_tables.c    | 12 +-----------
+ net/netfilter/x_tables.c           | 34 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 41 insertions(+), 32 deletions(-)
 
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 80a305b..0de0862 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -242,6 +242,10 @@ void xt_unregister_match(struct xt_match *target);
+ int xt_register_matches(struct xt_match *match, unsigned int n);
+ void xt_unregister_matches(struct xt_match *match, unsigned int n);
+ 
++int xt_check_entry_offsets(const void *base,
++			   unsigned int target_offset,
++			   unsigned int next_offset);
++
+ int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
+ 		   bool inv_proto);
+ int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
 diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 82a434b..ec37f7c 100644
+index ec37f7c..74668c1 100644
 --- a/net/ipv4/netfilter/arp_tables.c
 +++ b/net/ipv4/netfilter/arp_tables.c
-@@ -367,6 +367,18 @@ static inline bool unconditional(const struct arpt_entry *e)
- 	       memcmp(&e->arp, &uncond, sizeof(uncond)) == 0;
+@@ -496,19 +496,10 @@ next:
+ 
+ static inline int check_entry(const struct arpt_entry *e)
+ {
+-	const struct xt_entry_target *t;
+-
+ 	if (!arp_checkentry(&e->arp))
+ 		return -EINVAL;
+ 
+-	if (e->target_offset + sizeof(struct xt_entry_target) > e->next_offset)
+-		return -EINVAL;
+-
+-	t = arpt_get_target_c(e);
+-	if (e->target_offset + t->u.target_size > e->next_offset)
+-		return -EINVAL;
+-
+-	return 0;
++	return xt_check_entry_offsets(e, e->target_offset, e->next_offset);
  }
  
-+static bool find_jump_target(const struct xt_table_info *t,
-+			     const struct arpt_entry *target)
-+{
-+	struct arpt_entry *iter;
-+
-+	xt_entry_foreach(iter, t->entries, t->size) {
-+		 if (iter == target)
-+			return true;
-+	}
-+	return false;
-+}
-+
- /* Figures out from what hook each rule can be called: returns 0 if
-  * there are loops.  Puts hook bitmask in comefrom.
-  */
-@@ -460,6 +472,10 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
- 					/* This a jump; chase it. */
- 					duprintf("Jump rule %u -> %u\n",
- 						 pos, newpos);
-+					e = (struct arpt_entry *)
-+						(entry0 + newpos);
-+					if (!find_jump_target(newinfo, e))
-+						return 0;
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
+ static inline int check_target(struct arpt_entry *e, const char *name)
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index e301a3d..503038e 100644
+index 503038e..71c204d 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -443,6 +443,18 @@ ipt_do_table(struct sk_buff *skb,
- #endif
+@@ -590,20 +590,10 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
+ static int
+ check_entry(const struct ipt_entry *e)
+ {
+-	const struct xt_entry_target *t;
+-
+ 	if (!ip_checkentry(&e->ip))
+ 		return -EINVAL;
+ 
+-	if (e->target_offset + sizeof(struct xt_entry_target) >
+-	    e->next_offset)
+-		return -EINVAL;
+-
+-	t = ipt_get_target_c(e);
+-	if (e->target_offset + t->u.target_size > e->next_offset)
+-		return -EINVAL;
+-
+-	return 0;
++	return xt_check_entry_offsets(e, e->target_offset, e->next_offset);
  }
  
-+static bool find_jump_target(const struct xt_table_info *t,
-+			     const struct ipt_entry *target)
-+{
-+	struct ipt_entry *iter;
-+
-+	xt_entry_foreach(iter, t->entries, t->size) {
-+		 if (iter == target)
-+			return true;
-+	}
-+	return false;
-+}
-+
- /* Figures out from what hook each rule can be called: returns 0 if
-    there are loops.  Puts hook bitmask in comefrom. */
  static int
-@@ -540,6 +552,10 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 					/* This a jump; chase it. */
- 					duprintf("Jump rule %u -> %u\n",
- 						 pos, newpos);
-+					e = (struct ipt_entry *)
-+						(entry0 + newpos);
-+					if (!find_jump_target(newinfo, e))
-+						return 0;
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 7b3335b..126f2a0 100644
+index 126f2a0..24ae7f4 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -455,6 +455,18 @@ ip6t_do_table(struct sk_buff *skb,
- #endif
+@@ -602,20 +602,10 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
+ static int
+ check_entry(const struct ip6t_entry *e)
+ {
+-	const struct xt_entry_target *t;
+-
+ 	if (!ip6_checkentry(&e->ipv6))
+ 		return -EINVAL;
+ 
+-	if (e->target_offset + sizeof(struct xt_entry_target) >
+-	    e->next_offset)
+-		return -EINVAL;
+-
+-	t = ip6t_get_target_c(e);
+-	if (e->target_offset + t->u.target_size > e->next_offset)
+-		return -EINVAL;
+-
+-	return 0;
++	return xt_check_entry_offsets(e, e->target_offset, e->next_offset);
  }
  
-+static bool find_jump_target(const struct xt_table_info *t,
-+			     const struct ip6t_entry *target)
+ static int check_match(struct xt_entry_match *m, struct xt_mtchk_param *par)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 582c9cf..1f44bfa 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -541,6 +541,40 @@ int xt_compat_match_to_user(const struct xt_entry_match *m,
+ EXPORT_SYMBOL_GPL(xt_compat_match_to_user);
+ #endif /* CONFIG_COMPAT */
+ 
++/**
++ * xt_check_entry_offsets - validate arp/ip/ip6t_entry
++ *
++ * @base: pointer to arp/ip/ip6t_entry
++ * @target_offset: the arp/ip/ip6_t->target_offset
++ * @next_offset: the arp/ip/ip6_t->next_offset
++ *
++ * validates that target_offset and next_offset are sane.
++ *
++ * The arp/ip/ip6t_entry structure @base must have passed following tests:
++ * - it must point to a valid memory location
++ * - base to base + next_offset must be accessible, i.e. not exceed allocated
++ *   length.
++ *
++ * Return: 0 on success, negative errno on failure.
++ */
++int xt_check_entry_offsets(const void *base,
++			   unsigned int target_offset,
++			   unsigned int next_offset)
 +{
-+	struct ip6t_entry *iter;
++	const struct xt_entry_target *t;
++	const char *e = base;
 +
-+	xt_entry_foreach(iter, t->entries, t->size) {
-+		 if (iter == target)
-+			return true;
-+	}
-+	return false;
++	if (target_offset + sizeof(*t) > next_offset)
++		return -EINVAL;
++
++	t = (void *)(e + target_offset);
++	if (target_offset + t->u.target_size > next_offset)
++		return -EINVAL;
++
++	return 0;
 +}
++EXPORT_SYMBOL(xt_check_entry_offsets);
 +
- /* Figures out from what hook each rule can be called: returns 0 if
-    there are loops.  Puts hook bitmask in comefrom. */
- static int
-@@ -552,6 +564,10 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 					/* This a jump; chase it. */
- 					duprintf("Jump rule %u -> %u\n",
- 						 pos, newpos);
-+					e = (struct ip6t_entry *)
-+						(entry0 + newpos);
-+					if (!find_jump_target(newinfo, e))
-+						return 0;
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
+ int xt_check_target(struct xt_tgchk_param *par,
+ 		    unsigned int size, u_int8_t proto, bool inv_proto)
+ {
 -- 
 2.1.4
