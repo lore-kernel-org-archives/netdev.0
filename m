@@ -1,66 +1,162 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
-Date: Thu, 21 Apr 2016 19:00:34 -0700
-Message-ID: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
-	tremyfr@gmail.com, gerg@uclinux.org,
-	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
-	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
-	arnd@arndb.de, holgerschurig@gmail.com,
-	Troy Kisky <troy.kisky@boundarydevices.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
-	lznuaa@gmail.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: ipv6: Delete host routes on an ifdown
+Date: Thu, 21 Apr 2016 20:56:12 -0700
+Message-ID: <1461297372-18796-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: mmanning@brocade.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34260 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752291AbcDVCBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 22:01:01 -0400
-Received: by mail-pf0-f182.google.com with SMTP id y69so18138463pfb.1
-        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 19:01:00 -0700 (PDT)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33363 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbcDVD4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 23:56:34 -0400
+Received: by mail-pf0-f175.google.com with SMTP id 184so37045911pff.0
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 20:56:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If dirty_tx isn't updated, then dma_unmap_single
-will be called twice.
+It was a simple idea -- save IPv6 configured addresses on a link down
+so that IPv6 behaves similar to IPv4. As always the devil is in the
+details and the IPv6 stack as too many behavioral differences from IPv4
+making the simple idea more complicated than it needs to be.
 
-This fixes a
-[   58.420980] ------------[ cut here ]------------
-[   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
-[   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x0000000000000000] [size=66 bytes]
+The current implementation for keeping IPv6 addresses can panic or spit
+out a warning in one of many paths:
 
-encountered by Holger
+1. IPv6 route gets an IPv4 route as its 'next' which causes a panic in
+   rt6_fill_node while handling a route dump request.
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-Tested-by: <holgerschurig@gmail.com>
+2. rt->dst.obsolete is set to DST_OBSOLETE_DEAD hitting the WARN_ON in
+   fib6_del
+
+3. Panic in fib6_purge_rt because rt6i_ref count is not 1.
+
+The root cause of all these is references related to the host route for
+an address that is retained.
+
+So, this patch deletes the host route every time the ifdown loop runs.
+Since the host route is deleted and will be re-generated an up there is
+no longer a need for the l3mdev fix up. On the 'admin up' side move
+addrconf_permanent_addr into the NETDEV_UP event handling so that it
+runs only once versus on UP and CHANGE events.
+
+All of the current panics and warnings appear to be related to
+addresses on the loopback device, but given the catastrophic nature when
+a bug is triggered this patch takes the conservative approach and evicts
+all host routes rather than trying to determine when it can be re-used
+and when it can not. That can be a later optimizaton if desired.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+Dave: I realize this goes against your preference to keep routes cached
+      on a down but this patch really emphasizes my point of all the
+      dark corners to be handled. 
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 08243c2..b71654c 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- 					 fec16_to_cpu(bdp->cbd_datlen),
- 					 DMA_TO_DEVICE);
- 		bdp->cbd_bufaddr = cpu_to_fec32(0);
--		if (!skb) {
--			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
--			continue;
--		}
-+		if (!skb)
-+			goto skb_done;
+ net/ipv6/addrconf.c | 48 +++++++++++++++---------------------------------
+ 1 file changed, 15 insertions(+), 33 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 23cec53b568a..8ec4b3089e20 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3176,35 +3176,9 @@ static void addrconf_gre_config(struct net_device *dev)
+ }
+ #endif
  
- 		/* Check for errors. */
- 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
-@@ -1239,7 +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- 
- 		/* Free the sk buffer associated with this last transmit */
- 		dev_kfree_skb_any(skb);
+-#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
+-/* If the host route is cached on the addr struct make sure it is associated
+- * with the proper table. e.g., enslavement can change and if so the cached
+- * host route needs to move to the new table.
+- */
+-static void l3mdev_check_host_rt(struct inet6_dev *idev,
+-				  struct inet6_ifaddr *ifp)
+-{
+-	if (ifp->rt) {
+-		u32 tb_id = l3mdev_fib_table(idev->dev) ? : RT6_TABLE_LOCAL;
 -
-+skb_done:
- 		/* Make sure the update to bdp and tx_skbuff are performed
- 		 * before dirty_tx
- 		 */
+-		if (tb_id != ifp->rt->rt6i_table->tb6_id) {
+-			ip6_del_rt(ifp->rt);
+-			ifp->rt = NULL;
+-		}
+-	}
+-}
+-#else
+-static void l3mdev_check_host_rt(struct inet6_dev *idev,
+-				  struct inet6_ifaddr *ifp)
+-{
+-}
+-#endif
+-
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
+-	l3mdev_check_host_rt(idev, ifp);
+-
+ 	if (!ifp->rt) {
+ 		struct rt6_info *rt;
+ 
+@@ -3304,6 +3278,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			break;
+ 
+ 		if (event == NETDEV_UP) {
++			/* restore routes for permanent addresses */
++			addrconf_permanent_addr(dev);
++
+ 			if (!addrconf_qdisc_ok(dev)) {
+ 				/* device is not ready yet. */
+ 				pr_info("ADDRCONF(NETDEV_UP): %s: link is not ready\n",
+@@ -3337,9 +3314,6 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			run_pending = 1;
+ 		}
+ 
+-		/* restore routes for permanent addresses */
+-		addrconf_permanent_addr(dev);
+-
+ 		switch (dev->type) {
+ #if IS_ENABLED(CONFIG_IPV6_SIT)
+ 		case ARPHRD_SIT:
+@@ -3556,6 +3530,8 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 
+ 	INIT_LIST_HEAD(&del_list);
+ 	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
++		struct rt6_info *rt = NULL;
++
+ 		addrconf_del_dad_work(ifa);
+ 
+ 		write_unlock_bh(&idev->lock);
+@@ -3568,6 +3544,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 			ifa->state = 0;
+ 			if (!(ifa->flags & IFA_F_NODAD))
+ 				ifa->flags |= IFA_F_TENTATIVE;
++
++			rt = ifa->rt;
++			ifa->rt = NULL;
+ 		} else {
+ 			state = ifa->state;
+ 			ifa->state = INET6_IFADDR_STATE_DEAD;
+@@ -3578,6 +3557,9 @@ static int addrconf_ifdown(struct net_device *dev, int how)
+ 
+ 		spin_unlock_bh(&ifa->lock);
+ 
++		if (rt)
++			ip6_del_rt(rt);
++
+ 		if (state != INET6_IFADDR_STATE_DEAD) {
+ 			__ipv6_ifa_notify(RTM_DELADDR, ifa);
+ 			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
+@@ -5343,10 +5325,10 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ 			if (rt)
+ 				ip6_del_rt(rt);
+ 		}
+-		dst_hold(&ifp->rt->dst);
+-
+-		ip6_del_rt(ifp->rt);
+-
++		if (ifp->rt) {
++			dst_hold(&ifp->rt->dst);
++			ip6_del_rt(ifp->rt);
++		}
+ 		rt_genid_bump_ipv6(net);
+ 		break;
+ 	}
 -- 
-2.5.0
+2.1.4
