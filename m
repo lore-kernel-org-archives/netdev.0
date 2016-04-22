@@ -1,65 +1,45 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Fri, 22 Apr 2016 10:20:17 +0100
-Message-ID: <20160422092017.GY3217@sirena.org.uk>
-References: <20160413175028.5d3a4cf2@canb.auug.org.au>
- <20160413.111513.295841881765244758.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="OF9salbnfkEgqvaK"
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mark.d.rustad@intel.com, jeffrey.t.kirsher@intel.com,
-	andrewx.bowers@intel.com, kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160413.111513.295841881765244758.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net v2 0/9] macsec: a few fixes
+Date: Fri, 22 Apr 2016 11:28:00 +0200
+Message-ID: <cover.1461315621.git.sd@queasysnail.net>
+Cc: Lance Richardson <lrichard@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32959 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751868AbcDVJ2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 05:28:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Some small fixes for the macsec driver:
+ - possible NULL pointer dereferences
+ - netlink dumps fixes: RTNL locking, consistent dumps
+ - a reference counting bug
+ - wrong name for uapi constant
+ - a few memory leaks
 
---OF9salbnfkEgqvaK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Patches 1 to 5 are the same as in v1, patches 6 to 9 are new.
+Patch 6 fixes the memleak that Lance spotted in v1.
 
-On Wed, Apr 13, 2016 at 11:15:13AM -0400, David Miller wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
+Sabrina Dubroca (9):
+  macsec: add missing NULL check after kmalloc
+  macsec: take rtnl lock before for_each_netdev
+  macsec: don't put a NULL rxsa
+  macsec: fix rx_sa refcounting with decrypt callback
+  macsec: add consistency check to netlink dumps
+  macsec: fix memory leaks around rx_handler (un)registration
+  macsec: fix SA leak if initialization fails
+  macsec: add missing macsec prefix in uapi
+  macsec: fix netlink attribute validation
 
-> > After merging the net-next tree, today's linux-next build (arm
-> > allmodconfig) failed like thisi (this has actually been failing for a
-> > few days, now):
+ drivers/net/macsec.c           | 65 +++++++++++++++++++++++++++---------------
+ include/uapi/linux/if_macsec.h |  4 +--
+ 2 files changed, 44 insertions(+), 25 deletions(-)
 
-> > ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko] undefined!
-
-> > Caused by commit
-
-> >   49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC type")
-
-> > arm only allows udelay()s up to 2 milliseconds.  This commit
-> > adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
-> > drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
-
-> Jeff, please have your folks look into this.  Probably just a simple
-> conversion to mdelay().
-
-This is still present, it's been breaking ARM allmodconfig builds for
-about two weeks now.
-
---OF9salbnfkEgqvaK
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJXGezPAAoJECTWi3JdVIfQwVoH/1PObZeqwTdPwXtexQ9WqU55
-CcHzBrbx1J7ZAJyhrtxZ9qgtp3T93LogFa17sPhEGQdSScN51MKyN8QRupTlIp5N
-AgaTBe3TtOwpiU2CO8rTpom5cGCa1i1oVwOa4r6ez07yk7oNs0vRe2gYrwXiHuek
-hAICgg0mITwqRx/uiEFiW4gb2CByRsCg8oUkDUhzvKsMzQn/S4PRc3e9cQtyKqcc
-K7AoRnDvrab5dBvG5pCk0K5fpGYAvDoTuM7MjZX0FljvZ0oTtWN0kUQKkX39lJn/
-GZfuktFd1S8R64OlUYthq71slpD0NCwYWBZfmL2moGKNBb95y+kwZQzhHWWBsrY=
-=zZ0f
------END PGP SIGNATURE-----
-
---OF9salbnfkEgqvaK--
+-- 
+2.8.0
