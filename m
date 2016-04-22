@@ -1,153 +1,576 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 6/9] libnl: nla_put_msecs(): align on a
-	64-bit area
-Date: Fri, 22 Apr 2016 17:31:21 +0200
-Message-ID: <1461339084-3849-7-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 3/9] libnl: nla_put_be64(): align on a 64-bit area
+Date: Fri, 22 Apr 2016 17:31:18 +0200
+Message-ID: <1461339084-3849-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	linux-wpan@vger.kernel.org, aar@pengutronix.de,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
+	dev@openvswitch.org, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au, bsingharora@gmail.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53536 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913AbcDVPcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:03 -0400
+In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bmxhX2RhdGEoKSBpcyBub3cgYWxpZ25lZCBvbiBhIDY0LWJpdCBhcmVhLgoKU2lnbmVkLW9mZi1i
-eTogTmljb2xhcyBEaWNodGVsIDxuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29tPgotLS0KIGluY2x1
-ZGUvbmV0L25ldGxpbmsuaCAgICAgICAgICAgIHwgMTEgKysrKysrKy0tLS0KIGluY2x1ZGUvdWFw
-aS9saW51eC9sMnRwLmggICAgICAgIHwgIDEgKwogaW5jbHVkZS91YXBpL2xpbnV4L25laWdoYm91
-ci5oICAgfCAgMiArKwogaW5jbHVkZS91YXBpL2xpbnV4L3RjcF9tZXRyaWNzLmggfCAgMSArCiBu
-ZXQvY29yZS9uZWlnaGJvdXIuYyAgICAgICAgICAgICB8IDE5ICsrKysrKysrKystLS0tLS0tLS0K
-IG5ldC9pcHY0L3RjcF9tZXRyaWNzLmMgICAgICAgICAgIHwgIDYgKysrKy0tCiBuZXQvbDJ0cC9s
-MnRwX25ldGxpbmsuYyAgICAgICAgICB8ICAzICsrLQogNyBmaWxlcyBjaGFuZ2VkLCAyNyBpbnNl
-cnRpb25zKCspLCAxNiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9uZXRs
-aW5rLmggYi9pbmNsdWRlL25ldC9uZXRsaW5rLmgKaW5kZXggMDc0MjE1YTU5ZDE5Li4xMTNiNDgz
-YjZlZTggMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L25ldGxpbmsuaAorKysgYi9pbmNsdWRlL25l
-dC9uZXRsaW5rLmgKQEAgLTEwNiw3ICsxMDYsOCBAQAogICogICAgICAgICAgICAgICBwYWRhdHRy
-KQkJYWRkIHM2NCBhdHRyaWJ1dGUgdG8gc2tiCiAgKiAgIG5sYV9wdXRfc3RyaW5nKHNrYiwgdHlw
-ZSwgc3RyKQlhZGQgc3RyaW5nIGF0dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9mbGFnKHNr
-YiwgdHlwZSkJCWFkZCBmbGFnIGF0dHJpYnV0ZSB0byBza2IKLSAqICAgbmxhX3B1dF9tc2Vjcyhz
-a2IsIHR5cGUsIGppZmZpZXMpCWFkZCBtc2VjcyBhdHRyaWJ1dGUgdG8gc2tiCisgKiAgIG5sYV9w
-dXRfbXNlY3Moc2tiLCB0eXBlLCBqaWZmaWVzLAorICogICAgICAgICAgICAgICAgIHBhZGF0dHIp
-CQlhZGQgbXNlY3MgYXR0cmlidXRlIHRvIHNrYgogICogICBubGFfcHV0X2luX2FkZHIoc2tiLCB0
-eXBlLCBhZGRyKQlhZGQgSVB2NCBhZGRyZXNzIGF0dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1
-dF9pbjZfYWRkcihza2IsIHR5cGUsIGFkZHIpCWFkZCBJUHY2IGFkZHJlc3MgYXR0cmlidXRlIHRv
-IHNrYgogICoKQEAgLTk2NSwxNiArOTY2LDE4IEBAIHN0YXRpYyBpbmxpbmUgaW50IG5sYV9wdXRf
-ZmxhZyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5cGUpCiB9CiAKIC8qKgotICogbmxh
-X3B1dF9tc2VjcyAtIEFkZCBhIG1zZWNzIG5ldGxpbmsgYXR0cmlidXRlIHRvIGEgc29ja2V0IGJ1
-ZmZlcgorICogbmxhX3B1dF9tc2VjcyAtIEFkZCBhIG1zZWNzIG5ldGxpbmsgYXR0cmlidXRlIHRv
-IGEgc2tiIGFuZCBhbGlnbiBpdAogICogQHNrYjogc29ja2V0IGJ1ZmZlciB0byBhZGQgYXR0cmli
-dXRlIHRvCiAgKiBAYXR0cnR5cGU6IGF0dHJpYnV0ZSB0eXBlCiAgKiBAbmppZmZpZXM6IG51bWJl
-ciBvZiBqaWZmaWVzIHRvIGNvbnZlcnQgdG8gbXNlY3MKKyAqIEBwYWRhdHRyOiBhdHRyaWJ1dGUg
-dHlwZSBmb3IgdGhlIHBhZGRpbmcKICAqLwogc3RhdGljIGlubGluZSBpbnQgbmxhX3B1dF9tc2Vj
-cyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5cGUsCi0JCQkJdW5zaWduZWQgbG9uZyBu
-amlmZmllcykKKwkJCQl1bnNpZ25lZCBsb25nIG5qaWZmaWVzLCBpbnQgcGFkYXR0cikKIHsKIAl1
-NjQgdG1wID0gamlmZmllc190b19tc2VjcyhuamlmZmllcyk7Ci0JcmV0dXJuIG5sYV9wdXQoc2ti
-LCBhdHRydHlwZSwgc2l6ZW9mKHU2NCksICZ0bXApOworCisJcmV0dXJuIG5sYV9wdXRfNjRiaXQo
-c2tiLCBhdHRydHlwZSwgc2l6ZW9mKHU2NCksICZ0bXAsIHBhZGF0dHIpOwogfQogCiAvKioKZGlm
-ZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51eC9sMnRwLmggYi9pbmNsdWRlL3VhcGkvbGludXgv
-bDJ0cC5oCmluZGV4IDM0N2VmMjJhOTY0ZS4uMzM4NmE5OWUwMzk3IDEwMDY0NAotLS0gYS9pbmNs
-dWRlL3VhcGkvbGludXgvbDJ0cC5oCisrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9sMnRwLmgKQEAg
-LTEyNiw2ICsxMjYsNyBAQCBlbnVtIHsKIAlMMlRQX0FUVFJfSVA2X0RBRERSLAkJLyogc3RydWN0
-IGluNl9hZGRyICovCiAJTDJUUF9BVFRSX1VEUF9aRVJPX0NTVU02X1RYLAkvKiB1OCAqLwogCUwy
-VFBfQVRUUl9VRFBfWkVST19DU1VNNl9SWCwJLyogdTggKi8KKwlMMlRQX0FUVFJfUEFELAogCV9f
-TDJUUF9BVFRSX01BWCwKIH07CiAKZGlmZiAtLWdpdCBhL2luY2x1ZGUvdWFwaS9saW51eC9uZWln
-aGJvdXIuaCBiL2luY2x1ZGUvdWFwaS9saW51eC9uZWlnaGJvdXIuaAppbmRleCA3ODg2NTViZmEw
-ZjMuLmJkOTlhOGQ4MGYzNiAxMDA2NDQKLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L25laWdoYm91
-ci5oCisrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9uZWlnaGJvdXIuaApAQCAtMTI4LDYgKzEyOCw3
-IEBAIGVudW0gewogCU5EVFBBX0xPQ0tUSU1FLAkJCS8qIHU2NCwgbXNlY3MgKi8KIAlORFRQQV9R
-VUVVRV9MRU5CWVRFUywJCS8qIHUzMiAqLwogCU5EVFBBX01DQVNUX1JFUFJPQkVTLAkJLyogdTMy
-ICovCisJTkRUUEFfUEFELAogCV9fTkRUUEFfTUFYCiB9OwogI2RlZmluZSBORFRQQV9NQVggKF9f
-TkRUUEFfTUFYIC0gMSkKQEAgLTE2MCw2ICsxNjEsNyBAQCBlbnVtIHsKIAlORFRBX1BBUk1TLAkJ
-CS8qIG5lc3RlZCBUTFYgTkRUUEFfKiAqLwogCU5EVEFfU1RBVFMsCQkJLyogc3RydWN0IG5kdF9z
-dGF0cywgcmVhZC1vbmx5ICovCiAJTkRUQV9HQ19JTlRFUlZBTCwJCS8qIHU2NCwgbXNlY3MgKi8K
-KwlORFRBX1BBRCwKIAlfX05EVEFfTUFYCiB9OwogI2RlZmluZSBORFRBX01BWCAoX19ORFRBX01B
-WCAtIDEpCmRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvdGNwX21ldHJpY3MuaCBiL2lu
-Y2x1ZGUvdWFwaS9saW51eC90Y3BfbWV0cmljcy5oCmluZGV4IDkzNTMzOTI2MDM1Yy4uODBhZDkw
-ZDBjZmMyIDEwMDY0NAotLS0gYS9pbmNsdWRlL3VhcGkvbGludXgvdGNwX21ldHJpY3MuaAorKysg
-Yi9pbmNsdWRlL3VhcGkvbGludXgvdGNwX21ldHJpY3MuaApAQCAtNDAsNiArNDAsNyBAQCBlbnVt
-IHsKIAlUQ1BfTUVUUklDU19BVFRSX0ZPUEVOX0NPT0tJRSwJCS8qIGJpbmFyeSAqLwogCVRDUF9N
-RVRSSUNTX0FUVFJfU0FERFJfSVBWNCwJCS8qIHUzMiAqLwogCVRDUF9NRVRSSUNTX0FUVFJfU0FE
-RFJfSVBWNiwJCS8qIGJpbmFyeSAqLworCVRDUF9NRVRSSUNTX0FUVFJfUEFELAogCiAJX19UQ1Bf
-TUVUUklDU19BVFRSX01BWCwKIH07CmRpZmYgLS1naXQgYS9uZXQvY29yZS9uZWlnaGJvdXIuYyBi
-L25ldC9jb3JlL25laWdoYm91ci5jCmluZGV4IGYxOGFlOTFiNjUyZS4uNmEzOTVkNDQwMjI4IDEw
-MDY0NAotLS0gYS9uZXQvY29yZS9uZWlnaGJvdXIuYworKysgYi9uZXQvY29yZS9uZWlnaGJvdXIu
-YwpAQCAtMTc2MywyMSArMTc2MywyMiBAQCBzdGF0aWMgaW50IG5laWdodGJsX2ZpbGxfcGFybXMo
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5laWdoX3Bhcm1zICpwYXJtcykKIAkJCU5FSUdI
-X1ZBUihwYXJtcywgTUNBU1RfUFJPQkVTKSkgfHwKIAkgICAgbmxhX3B1dF91MzIoc2tiLCBORFRQ
-QV9NQ0FTVF9SRVBST0JFUywKIAkJCU5FSUdIX1ZBUihwYXJtcywgTUNBU1RfUkVQUk9CRVMpKSB8
-fAotCSAgICBubGFfcHV0X21zZWNzKHNrYiwgTkRUUEFfUkVBQ0hBQkxFX1RJTUUsIHBhcm1zLT5y
-ZWFjaGFibGVfdGltZSkgfHwKKwkgICAgbmxhX3B1dF9tc2Vjcyhza2IsIE5EVFBBX1JFQUNIQUJM
-RV9USU1FLCBwYXJtcy0+cmVhY2hhYmxlX3RpbWUsCisJCQkgIE5EVFBBX1BBRCkgfHwKIAkgICAg
-bmxhX3B1dF9tc2Vjcyhza2IsIE5EVFBBX0JBU0VfUkVBQ0hBQkxFX1RJTUUsCi0JCQkgIE5FSUdI
-X1ZBUihwYXJtcywgQkFTRV9SRUFDSEFCTEVfVElNRSkpIHx8CisJCQkgIE5FSUdIX1ZBUihwYXJt
-cywgQkFTRV9SRUFDSEFCTEVfVElNRSksIE5EVFBBX1BBRCkgfHwKIAkgICAgbmxhX3B1dF9tc2Vj
-cyhza2IsIE5EVFBBX0dDX1NUQUxFVElNRSwKLQkJCSAgTkVJR0hfVkFSKHBhcm1zLCBHQ19TVEFM
-RVRJTUUpKSB8fAorCQkJICBORUlHSF9WQVIocGFybXMsIEdDX1NUQUxFVElNRSksIE5EVFBBX1BB
-RCkgfHwKIAkgICAgbmxhX3B1dF9tc2Vjcyhza2IsIE5EVFBBX0RFTEFZX1BST0JFX1RJTUUsCi0J
-CQkgIE5FSUdIX1ZBUihwYXJtcywgREVMQVlfUFJPQkVfVElNRSkpIHx8CisJCQkgIE5FSUdIX1ZB
-UihwYXJtcywgREVMQVlfUFJPQkVfVElNRSksIE5EVFBBX1BBRCkgfHwKIAkgICAgbmxhX3B1dF9t
-c2Vjcyhza2IsIE5EVFBBX1JFVFJBTlNfVElNRSwKLQkJCSAgTkVJR0hfVkFSKHBhcm1zLCBSRVRS
-QU5TX1RJTUUpKSB8fAorCQkJICBORUlHSF9WQVIocGFybXMsIFJFVFJBTlNfVElNRSksIE5EVFBB
-X1BBRCkgfHwKIAkgICAgbmxhX3B1dF9tc2Vjcyhza2IsIE5EVFBBX0FOWUNBU1RfREVMQVksCi0J
-CQkgIE5FSUdIX1ZBUihwYXJtcywgQU5ZQ0FTVF9ERUxBWSkpIHx8CisJCQkgIE5FSUdIX1ZBUihw
-YXJtcywgQU5ZQ0FTVF9ERUxBWSksIE5EVFBBX1BBRCkgfHwKIAkgICAgbmxhX3B1dF9tc2Vjcyhz
-a2IsIE5EVFBBX1BST1hZX0RFTEFZLAotCQkJICBORUlHSF9WQVIocGFybXMsIFBST1hZX0RFTEFZ
-KSkgfHwKKwkJCSAgTkVJR0hfVkFSKHBhcm1zLCBQUk9YWV9ERUxBWSksIE5EVFBBX1BBRCkgfHwK
-IAkgICAgbmxhX3B1dF9tc2Vjcyhza2IsIE5EVFBBX0xPQ0tUSU1FLAotCQkJICBORUlHSF9WQVIo
-cGFybXMsIExPQ0tUSU1FKSkpCisJCQkgIE5FSUdIX1ZBUihwYXJtcywgTE9DS1RJTUUpLCBORFRQ
-QV9QQUQpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKIAlyZXR1cm4gbmxhX25lc3RfZW5kKHNr
-YiwgbmVzdCk7CiAKQEAgLTE4MDQsNyArMTgwNSw3IEBAIHN0YXRpYyBpbnQgbmVpZ2h0YmxfZmls
-bF9pbmZvKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZWlnaF90YWJsZSAqdGJsLAogCW5k
-dG1zZy0+bmR0bV9wYWQyICAgPSAwOwogCiAJaWYgKG5sYV9wdXRfc3RyaW5nKHNrYiwgTkRUQV9O
-QU1FLCB0YmwtPmlkKSB8fAotCSAgICBubGFfcHV0X21zZWNzKHNrYiwgTkRUQV9HQ19JTlRFUlZB
-TCwgdGJsLT5nY19pbnRlcnZhbCkgfHwKKwkgICAgbmxhX3B1dF9tc2Vjcyhza2IsIE5EVEFfR0Nf
-SU5URVJWQUwsIHRibC0+Z2NfaW50ZXJ2YWwsIE5EVEFfUEFEKSB8fAogCSAgICBubGFfcHV0X3Uz
-Mihza2IsIE5EVEFfVEhSRVNIMSwgdGJsLT5nY190aHJlc2gxKSB8fAogCSAgICBubGFfcHV0X3Uz
-Mihza2IsIE5EVEFfVEhSRVNIMiwgdGJsLT5nY190aHJlc2gyKSB8fAogCSAgICBubGFfcHV0X3Uz
-Mihza2IsIE5EVEFfVEhSRVNIMywgdGJsLT5nY190aHJlc2gzKSkKZGlmZiAtLWdpdCBhL25ldC9p
-cHY0L3RjcF9tZXRyaWNzLmMgYi9uZXQvaXB2NC90Y3BfbWV0cmljcy5jCmluZGV4IDdiN2VlYzQz
-OTkwNi4uYjYxNzgyNmUyNDc3IDEwMDY0NAotLS0gYS9uZXQvaXB2NC90Y3BfbWV0cmljcy5jCisr
-KyBiL25ldC9pcHY0L3RjcF9tZXRyaWNzLmMKQEAgLTgwMCw3ICs4MDAsOCBAQCBzdGF0aWMgaW50
-IHRjcF9tZXRyaWNzX2ZpbGxfaW5mbyhzdHJ1Y3Qgc2tfYnVmZiAqbXNnLAogCX0KIAogCWlmIChu
-bGFfcHV0X21zZWNzKG1zZywgVENQX01FVFJJQ1NfQVRUUl9BR0UsCi0JCQkgIGppZmZpZXMgLSB0
-bS0+dGNwbV9zdGFtcCkgPCAwKQorCQkJICBqaWZmaWVzIC0gdG0tPnRjcG1fc3RhbXAsCisJCQkg
-IFRDUF9NRVRSSUNTX0FUVFJfUEFEKSA8IDApCiAJCWdvdG8gbmxhX3B1dF9mYWlsdXJlOwogCWlm
-ICh0bS0+dGNwbV90c19zdGFtcCkgewogCQlpZiAobmxhX3B1dF9zMzIobXNnLCBUQ1BfTUVUUklD
-U19BVFRSX1RXX1RTX1NUQU1QLApAQCAtODY0LDcgKzg2NSw4IEBAIHN0YXRpYyBpbnQgdGNwX21l
-dHJpY3NfZmlsbF9pbmZvKHN0cnVjdCBza19idWZmICptc2csCiAJCSAgICAobmxhX3B1dF91MTYo
-bXNnLCBUQ1BfTUVUUklDU19BVFRSX0ZPUEVOX1NZTl9EUk9QUywKIAkJCQl0Zm9tLT5zeW5fbG9z
-cykgPCAwIHx8CiAJCSAgICAgbmxhX3B1dF9tc2Vjcyhtc2csIFRDUF9NRVRSSUNTX0FUVFJfRk9Q
-RU5fU1lOX0RST1BfVFMsCi0JCQkJamlmZmllcyAtIHRmb20tPmxhc3Rfc3luX2xvc3MpIDwgMCkp
-CisJCQkJamlmZmllcyAtIHRmb20tPmxhc3Rfc3luX2xvc3MsCisJCQkJVENQX01FVFJJQ1NfQVRU
-Ul9QQUQpIDwgMCkpCiAJCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsKIAkJaWYgKHRmb20tPmNvb2tp
-ZS5sZW4gPiAwICYmCiAJCSAgICBubGFfcHV0KG1zZywgVENQX01FVFJJQ1NfQVRUUl9GT1BFTl9D
-T09LSUUsCmRpZmYgLS1naXQgYS9uZXQvbDJ0cC9sMnRwX25ldGxpbmsuYyBiL25ldC9sMnRwL2wy
-dHBfbmV0bGluay5jCmluZGV4IDJjYWFhODRjZTkyZC4uMjRlZDJlODc1YzQ1IDEwMDY0NAotLS0g
-YS9uZXQvbDJ0cC9sMnRwX25ldGxpbmsuYworKysgYi9uZXQvbDJ0cC9sMnRwX25ldGxpbmsuYwpA
-QCAtNzQ2LDcgKzc0Niw4IEBAIHN0YXRpYyBpbnQgbDJ0cF9ubF9zZXNzaW9uX3NlbmQoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwgdTMyIHBvcnRpZCwgdTMyIHNlcSwgaW50IGZsCiAJICAgICBubGFfcHV0
-X3U4KHNrYiwgTDJUUF9BVFRSX1VTSU5HX0lQU0VDLCAxKSkgfHwKICNlbmRpZgogCSAgICAoc2Vz
-c2lvbi0+cmVvcmRlcl90aW1lb3V0ICYmCi0JICAgICBubGFfcHV0X21zZWNzKHNrYiwgTDJUUF9B
-VFRSX1JFQ1ZfVElNRU9VVCwgc2Vzc2lvbi0+cmVvcmRlcl90aW1lb3V0KSkpCisJICAgICBubGFf
-cHV0X21zZWNzKHNrYiwgTDJUUF9BVFRSX1JFQ1ZfVElNRU9VVCwKKwkJCSAgIHNlc3Npb24tPnJl
-b3JkZXJfdGltZW91dCwgTDJUUF9BVFRSX1BBRCkpKQogCQlnb3RvIG5sYV9wdXRfZmFpbHVyZTsK
-IAogCW5lc3QgPSBubGFfbmVzdF9zdGFydChza2IsIEwyVFBfQVRUUl9TVEFUUyk7Ci0tIAoyLjgu
-MQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+nla_data() is now aligned on a 64-bit area.
+
+A temporary version (nla_put_be64_32bit()) is added for nla_put_net64().
+This function is removed in the next patch.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/netlink.h                              | 15 ++++++++++----
+ include/uapi/linux/fib_rules.h                     |  1 +
+ include/uapi/linux/lwtunnel.h                      |  2 ++
+ include/uapi/linux/netfilter/nf_tables.h           |  8 ++++++++
+ include/uapi/linux/netfilter/nfnetlink_acct.h      |  1 +
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |  3 +++
+ include/uapi/linux/openvswitch.h                   |  1 +
+ net/core/fib_rules.c                               |  4 ++--
+ net/ipv4/ip_tunnel_core.c                          | 10 +++++----
+ net/netfilter/nf_conntrack_netlink.c               | 18 +++++++++-------
+ net/netfilter/nf_conntrack_proto_dccp.c            |  4 +++-
+ net/netfilter/nf_tables_api.c                      | 24 ++++++++++++++--------
+ net/netfilter/nf_tables_trace.c                    |  5 +++--
+ net/netfilter/nfnetlink_acct.c                     |  9 +++++---
+ net/netfilter/nft_counter.c                        |  6 ++++--
+ net/netfilter/nft_dynset.c                         |  3 ++-
+ net/netfilter/nft_limit.c                          |  6 ++++--
+ net/openvswitch/flow_netlink.c                     |  5 +++--
+ 18 files changed, 87 insertions(+), 38 deletions(-)
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 7f6b99483ab7..47d7d1356fa3 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -856,16 +856,23 @@ static inline int nla_put_u64(struct sk_buff *skb, int attrtype, u64 value)
+ }
+ 
+ /**
+- * nla_put_be64 - Add a __be64 netlink attribute to a socket buffer
++ * nla_put_be64 - Add a __be64 netlink attribute to a socket buffer and align it
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+  * @value: numeric value
++ * @padattr: attribute type for the padding
+  */
+-static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value)
++static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value,
++			       int padattr)
+ {
+-	return nla_put(skb, attrtype, sizeof(__be64), &value);
++	return nla_put_64bit(skb, attrtype, sizeof(__be64), &value, padattr);
+ }
+ 
++static inline int nla_put_be64_32bit(struct sk_buff *skb, int attrtype,
++				     __be64 value)
++{
++	return nla_put(skb, attrtype, sizeof(__be64), &value);
++}
+ /**
+  * nla_put_net64 - Add 64-bit network byte order netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+@@ -874,7 +881,7 @@ static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value)
+  */
+ static inline int nla_put_net64(struct sk_buff *skb, int attrtype, __be64 value)
+ {
+-	return nla_put_be64(skb, attrtype | NLA_F_NET_BYTEORDER, value);
++	return nla_put_be64_32bit(skb, attrtype | NLA_F_NET_BYTEORDER, value);
+ }
+ 
+ /**
+diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
+index 96161b8202b5..620c8a5ddc00 100644
+--- a/include/uapi/linux/fib_rules.h
++++ b/include/uapi/linux/fib_rules.h
+@@ -49,6 +49,7 @@ enum {
+ 	FRA_TABLE,	/* Extended table id */
+ 	FRA_FWMASK,	/* mask for netfilter mark */
+ 	FRA_OIFNAME,
++	FRA_PAD,
+ 	__FRA_MAX
+ };
+ 
+diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
+index f8b01887a495..a478fe80e203 100644
+--- a/include/uapi/linux/lwtunnel.h
++++ b/include/uapi/linux/lwtunnel.h
+@@ -22,6 +22,7 @@ enum lwtunnel_ip_t {
+ 	LWTUNNEL_IP_TTL,
+ 	LWTUNNEL_IP_TOS,
+ 	LWTUNNEL_IP_FLAGS,
++	LWTUNNEL_IP_PAD,
+ 	__LWTUNNEL_IP_MAX,
+ };
+ 
+@@ -35,6 +36,7 @@ enum lwtunnel_ip6_t {
+ 	LWTUNNEL_IP6_HOPLIMIT,
+ 	LWTUNNEL_IP6_TC,
+ 	LWTUNNEL_IP6_FLAGS,
++	LWTUNNEL_IP6_PAD,
+ 	__LWTUNNEL_IP6_MAX,
+ };
+ 
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index eeffde196f80..660231363bb5 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -182,6 +182,7 @@ enum nft_chain_attributes {
+ 	NFTA_CHAIN_USE,
+ 	NFTA_CHAIN_TYPE,
+ 	NFTA_CHAIN_COUNTERS,
++	NFTA_CHAIN_PAD,
+ 	__NFTA_CHAIN_MAX
+ };
+ #define NFTA_CHAIN_MAX		(__NFTA_CHAIN_MAX - 1)
+@@ -206,6 +207,7 @@ enum nft_rule_attributes {
+ 	NFTA_RULE_COMPAT,
+ 	NFTA_RULE_POSITION,
+ 	NFTA_RULE_USERDATA,
++	NFTA_RULE_PAD,
+ 	__NFTA_RULE_MAX
+ };
+ #define NFTA_RULE_MAX		(__NFTA_RULE_MAX - 1)
+@@ -308,6 +310,7 @@ enum nft_set_attributes {
+ 	NFTA_SET_TIMEOUT,
+ 	NFTA_SET_GC_INTERVAL,
+ 	NFTA_SET_USERDATA,
++	NFTA_SET_PAD,
+ 	__NFTA_SET_MAX
+ };
+ #define NFTA_SET_MAX		(__NFTA_SET_MAX - 1)
+@@ -341,6 +344,7 @@ enum nft_set_elem_attributes {
+ 	NFTA_SET_ELEM_EXPIRATION,
+ 	NFTA_SET_ELEM_USERDATA,
+ 	NFTA_SET_ELEM_EXPR,
++	NFTA_SET_ELEM_PAD,
+ 	__NFTA_SET_ELEM_MAX
+ };
+ #define NFTA_SET_ELEM_MAX	(__NFTA_SET_ELEM_MAX - 1)
+@@ -584,6 +588,7 @@ enum nft_dynset_attributes {
+ 	NFTA_DYNSET_SREG_DATA,
+ 	NFTA_DYNSET_TIMEOUT,
+ 	NFTA_DYNSET_EXPR,
++	NFTA_DYNSET_PAD,
+ 	__NFTA_DYNSET_MAX,
+ };
+ #define NFTA_DYNSET_MAX		(__NFTA_DYNSET_MAX - 1)
+@@ -806,6 +811,7 @@ enum nft_limit_attributes {
+ 	NFTA_LIMIT_BURST,
+ 	NFTA_LIMIT_TYPE,
+ 	NFTA_LIMIT_FLAGS,
++	NFTA_LIMIT_PAD,
+ 	__NFTA_LIMIT_MAX
+ };
+ #define NFTA_LIMIT_MAX		(__NFTA_LIMIT_MAX - 1)
+@@ -820,6 +826,7 @@ enum nft_counter_attributes {
+ 	NFTA_COUNTER_UNSPEC,
+ 	NFTA_COUNTER_BYTES,
+ 	NFTA_COUNTER_PACKETS,
++	NFTA_COUNTER_PAD,
+ 	__NFTA_COUNTER_MAX
+ };
+ #define NFTA_COUNTER_MAX	(__NFTA_COUNTER_MAX - 1)
+@@ -1055,6 +1062,7 @@ enum nft_trace_attibutes {
+ 	NFTA_TRACE_MARK,
+ 	NFTA_TRACE_NFPROTO,
+ 	NFTA_TRACE_POLICY,
++	NFTA_TRACE_PAD,
+ 	__NFTA_TRACE_MAX
+ };
+ #define NFTA_TRACE_MAX (__NFTA_TRACE_MAX - 1)
+diff --git a/include/uapi/linux/netfilter/nfnetlink_acct.h b/include/uapi/linux/netfilter/nfnetlink_acct.h
+index f3e34dbbf966..36047ec70f37 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_acct.h
++++ b/include/uapi/linux/netfilter/nfnetlink_acct.h
+@@ -29,6 +29,7 @@ enum nfnl_acct_type {
+ 	NFACCT_FLAGS,
+ 	NFACCT_QUOTA,
+ 	NFACCT_FILTER,
++	NFACCT_PAD,
+ 	__NFACCT_MAX
+ };
+ #define NFACCT_MAX (__NFACCT_MAX - 1)
+diff --git a/include/uapi/linux/netfilter/nfnetlink_conntrack.h b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+index c1a4e1441a25..9df789709abe 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_conntrack.h
++++ b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+@@ -116,6 +116,7 @@ enum ctattr_protoinfo_dccp {
+ 	CTA_PROTOINFO_DCCP_STATE,
+ 	CTA_PROTOINFO_DCCP_ROLE,
+ 	CTA_PROTOINFO_DCCP_HANDSHAKE_SEQ,
++	CTA_PROTOINFO_DCCP_PAD,
+ 	__CTA_PROTOINFO_DCCP_MAX,
+ };
+ #define CTA_PROTOINFO_DCCP_MAX (__CTA_PROTOINFO_DCCP_MAX - 1)
+@@ -135,6 +136,7 @@ enum ctattr_counters {
+ 	CTA_COUNTERS_BYTES,		/* 64bit counters */
+ 	CTA_COUNTERS32_PACKETS,		/* old 32bit counters, unused */
+ 	CTA_COUNTERS32_BYTES,		/* old 32bit counters, unused */
++	CTA_COUNTERS_PAD,
+ 	__CTA_COUNTERS_MAX
+ };
+ #define CTA_COUNTERS_MAX (__CTA_COUNTERS_MAX - 1)
+@@ -143,6 +145,7 @@ enum ctattr_tstamp {
+ 	CTA_TIMESTAMP_UNSPEC,
+ 	CTA_TIMESTAMP_START,
+ 	CTA_TIMESTAMP_STOP,
++	CTA_TIMESTAMP_PAD,
+ 	__CTA_TIMESTAMP_MAX
+ };
+ #define CTA_TIMESTAMP_MAX (__CTA_TIMESTAMP_MAX - 1)
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 616d04761730..0358f94af86e 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -351,6 +351,7 @@ enum ovs_tunnel_key_attr {
+ 	OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS,		/* Nested OVS_VXLAN_EXT_* */
+ 	OVS_TUNNEL_KEY_ATTR_IPV6_SRC,		/* struct in6_addr src IPv6 address. */
+ 	OVS_TUNNEL_KEY_ATTR_IPV6_DST,		/* struct in6_addr dst IPv6 address. */
++	OVS_TUNNEL_KEY_ATTR_PAD,
+ 	__OVS_TUNNEL_KEY_ATTR_MAX
+ };
+ 
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 365de66436ac..840acebbb80c 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -549,7 +549,7 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
+ 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+ 			 + nla_total_size(4) /* FRA_FWMASK */
+-			 + nla_total_size(8); /* FRA_TUN_ID */
++			 + nla_total_size_64bit(8); /* FRA_TUN_ID */
+ 
+ 	if (ops->nlmsg_payload)
+ 		payload += ops->nlmsg_payload(rule);
+@@ -607,7 +607,7 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
+ 	    (rule->target &&
+ 	     nla_put_u32(skb, FRA_GOTO, rule->target)) ||
+ 	    (rule->tun_id &&
+-	     nla_put_be64(skb, FRA_TUN_ID, rule->tun_id)))
++	     nla_put_be64(skb, FRA_TUN_ID, rule->tun_id, FRA_PAD)))
+ 		goto nla_put_failure;
+ 
+ 	if (rule->suppress_ifgroup != -1) {
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index f46c5c873831..786fa7ca28e0 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -271,7 +271,8 @@ static int ip_tun_fill_encap_info(struct sk_buff *skb,
+ {
+ 	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
+ 
+-	if (nla_put_be64(skb, LWTUNNEL_IP_ID, tun_info->key.tun_id) ||
++	if (nla_put_be64(skb, LWTUNNEL_IP_ID, tun_info->key.tun_id,
++			 LWTUNNEL_IP_PAD) ||
+ 	    nla_put_in_addr(skb, LWTUNNEL_IP_DST, tun_info->key.u.ipv4.dst) ||
+ 	    nla_put_in_addr(skb, LWTUNNEL_IP_SRC, tun_info->key.u.ipv4.src) ||
+ 	    nla_put_u8(skb, LWTUNNEL_IP_TOS, tun_info->key.tos) ||
+@@ -284,7 +285,7 @@ static int ip_tun_fill_encap_info(struct sk_buff *skb,
+ 
+ static int ip_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
+ {
+-	return nla_total_size(8)	/* LWTUNNEL_IP_ID */
++	return nla_total_size_64bit(8)	/* LWTUNNEL_IP_ID */
+ 		+ nla_total_size(4)	/* LWTUNNEL_IP_DST */
+ 		+ nla_total_size(4)	/* LWTUNNEL_IP_SRC */
+ 		+ nla_total_size(1)	/* LWTUNNEL_IP_TOS */
+@@ -366,7 +367,8 @@ static int ip6_tun_fill_encap_info(struct sk_buff *skb,
+ {
+ 	struct ip_tunnel_info *tun_info = lwt_tun_info(lwtstate);
+ 
+-	if (nla_put_be64(skb, LWTUNNEL_IP6_ID, tun_info->key.tun_id) ||
++	if (nla_put_be64(skb, LWTUNNEL_IP6_ID, tun_info->key.tun_id,
++			 LWTUNNEL_IP6_PAD) ||
+ 	    nla_put_in6_addr(skb, LWTUNNEL_IP6_DST, &tun_info->key.u.ipv6.dst) ||
+ 	    nla_put_in6_addr(skb, LWTUNNEL_IP6_SRC, &tun_info->key.u.ipv6.src) ||
+ 	    nla_put_u8(skb, LWTUNNEL_IP6_TC, tun_info->key.tos) ||
+@@ -379,7 +381,7 @@ static int ip6_tun_fill_encap_info(struct sk_buff *skb,
+ 
+ static int ip6_tun_encap_nlsize(struct lwtunnel_state *lwtstate)
+ {
+-	return nla_total_size(8)	/* LWTUNNEL_IP6_ID */
++	return nla_total_size_64bit(8)	/* LWTUNNEL_IP6_ID */
+ 		+ nla_total_size(16)	/* LWTUNNEL_IP6_DST */
+ 		+ nla_total_size(16)	/* LWTUNNEL_IP6_SRC */
+ 		+ nla_total_size(1)	/* LWTUNNEL_IP6_HOPLIMIT */
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 355e8552fd5b..3362d65f3285 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -245,8 +245,10 @@ dump_counters(struct sk_buff *skb, struct nf_conn_acct *acct,
+ 	if (!nest_count)
+ 		goto nla_put_failure;
+ 
+-	if (nla_put_be64(skb, CTA_COUNTERS_PACKETS, cpu_to_be64(pkts)) ||
+-	    nla_put_be64(skb, CTA_COUNTERS_BYTES, cpu_to_be64(bytes)))
++	if (nla_put_be64(skb, CTA_COUNTERS_PACKETS, cpu_to_be64(pkts),
++			 CTA_COUNTERS_PAD) ||
++	    nla_put_be64(skb, CTA_COUNTERS_BYTES, cpu_to_be64(bytes),
++			 CTA_COUNTERS_PAD))
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest_count);
+@@ -287,9 +289,11 @@ ctnetlink_dump_timestamp(struct sk_buff *skb, const struct nf_conn *ct)
+ 	if (!nest_count)
+ 		goto nla_put_failure;
+ 
+-	if (nla_put_be64(skb, CTA_TIMESTAMP_START, cpu_to_be64(tstamp->start)) ||
++	if (nla_put_be64(skb, CTA_TIMESTAMP_START, cpu_to_be64(tstamp->start),
++			 CTA_TIMESTAMP_PAD) ||
+ 	    (tstamp->stop != 0 && nla_put_be64(skb, CTA_TIMESTAMP_STOP,
+-					       cpu_to_be64(tstamp->stop))))
++					       cpu_to_be64(tstamp->stop),
++					       CTA_TIMESTAMP_PAD)))
+ 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest_count);
+ 
+@@ -562,8 +566,8 @@ ctnetlink_acct_size(const struct nf_conn *ct)
+ 	if (!nf_ct_ext_exist(ct, NF_CT_EXT_ACCT))
+ 		return 0;
+ 	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
+-	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
+-	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
++	       + 2 * nla_total_size_64bit(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
++	       + 2 * nla_total_size_64bit(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
+ 	       ;
+ }
+ 
+@@ -590,7 +594,7 @@ ctnetlink_timestamp_size(const struct nf_conn *ct)
+ #ifdef CONFIG_NF_CONNTRACK_TIMESTAMP
+ 	if (!nf_ct_ext_exist(ct, NF_CT_EXT_TSTAMP))
+ 		return 0;
+-	return nla_total_size(0) + 2 * nla_total_size(sizeof(uint64_t));
++	return nla_total_size(0) + 2 * nla_total_size_64bit(sizeof(uint64_t));
+ #else
+ 	return 0;
+ #endif
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index fce1b1cca32d..399a38fd685a 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -645,7 +645,8 @@ static int dccp_to_nlattr(struct sk_buff *skb, struct nlattr *nla,
+ 	    nla_put_u8(skb, CTA_PROTOINFO_DCCP_ROLE,
+ 		       ct->proto.dccp.role[IP_CT_DIR_ORIGINAL]) ||
+ 	    nla_put_be64(skb, CTA_PROTOINFO_DCCP_HANDSHAKE_SEQ,
+-			 cpu_to_be64(ct->proto.dccp.handshake_seq)))
++			 cpu_to_be64(ct->proto.dccp.handshake_seq),
++			 CTA_PROTOINFO_DCCP_PAD))
+ 		goto nla_put_failure;
+ 	nla_nest_end(skb, nest_parms);
+ 	spin_unlock_bh(&ct->lock);
+@@ -660,6 +661,7 @@ static const struct nla_policy dccp_nla_policy[CTA_PROTOINFO_DCCP_MAX + 1] = {
+ 	[CTA_PROTOINFO_DCCP_STATE]	= { .type = NLA_U8 },
+ 	[CTA_PROTOINFO_DCCP_ROLE]	= { .type = NLA_U8 },
+ 	[CTA_PROTOINFO_DCCP_HANDSHAKE_SEQ] = { .type = NLA_U64 },
++	[CTA_PROTOINFO_DCCP_PAD]	= { .type = NLA_UNSPEC },
+ };
+ 
+ static int nlattr_to_dccp(struct nlattr *cda[], struct nf_conn *ct)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 2011977cd79d..7a85a9dd37ad 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -944,8 +944,10 @@ static int nft_dump_stats(struct sk_buff *skb, struct nft_stats __percpu *stats)
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+ 
+-	if (nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(total.pkts)) ||
+-	    nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes)))
++	if (nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(total.pkts),
++			 NFTA_COUNTER_PAD) ||
++	    nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes),
++			 NFTA_COUNTER_PAD))
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+@@ -975,7 +977,8 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
+ 
+ 	if (nla_put_string(skb, NFTA_CHAIN_TABLE, table->name))
+ 		goto nla_put_failure;
+-	if (nla_put_be64(skb, NFTA_CHAIN_HANDLE, cpu_to_be64(chain->handle)))
++	if (nla_put_be64(skb, NFTA_CHAIN_HANDLE, cpu_to_be64(chain->handle),
++			 NFTA_CHAIN_PAD))
+ 		goto nla_put_failure;
+ 	if (nla_put_string(skb, NFTA_CHAIN_NAME, chain->name))
+ 		goto nla_put_failure;
+@@ -1803,13 +1806,15 @@ static int nf_tables_fill_rule_info(struct sk_buff *skb, struct net *net,
+ 		goto nla_put_failure;
+ 	if (nla_put_string(skb, NFTA_RULE_CHAIN, chain->name))
+ 		goto nla_put_failure;
+-	if (nla_put_be64(skb, NFTA_RULE_HANDLE, cpu_to_be64(rule->handle)))
++	if (nla_put_be64(skb, NFTA_RULE_HANDLE, cpu_to_be64(rule->handle),
++			 NFTA_RULE_PAD))
+ 		goto nla_put_failure;
+ 
+ 	if ((event != NFT_MSG_DELRULE) && (rule->list.prev != &chain->rules)) {
+ 		prule = list_entry(rule->list.prev, struct nft_rule, list);
+ 		if (nla_put_be64(skb, NFTA_RULE_POSITION,
+-				 cpu_to_be64(prule->handle)))
++				 cpu_to_be64(prule->handle),
++				 NFTA_RULE_PAD))
+ 			goto nla_put_failure;
+ 	}
+ 
+@@ -2473,7 +2478,8 @@ static int nf_tables_fill_set(struct sk_buff *skb, const struct nft_ctx *ctx,
+ 	}
+ 
+ 	if (set->timeout &&
+-	    nla_put_be64(skb, NFTA_SET_TIMEOUT, cpu_to_be64(set->timeout)))
++	    nla_put_be64(skb, NFTA_SET_TIMEOUT, cpu_to_be64(set->timeout),
++			 NFTA_SET_PAD))
+ 		goto nla_put_failure;
+ 	if (set->gc_int &&
+ 	    nla_put_be32(skb, NFTA_SET_GC_INTERVAL, htonl(set->gc_int)))
+@@ -3076,7 +3082,8 @@ static int nf_tables_fill_setelem(struct sk_buff *skb,
+ 
+ 	if (nft_set_ext_exists(ext, NFT_SET_EXT_TIMEOUT) &&
+ 	    nla_put_be64(skb, NFTA_SET_ELEM_TIMEOUT,
+-			 cpu_to_be64(*nft_set_ext_timeout(ext))))
++			 cpu_to_be64(*nft_set_ext_timeout(ext)),
++			 NFTA_SET_ELEM_PAD))
+ 		goto nla_put_failure;
+ 
+ 	if (nft_set_ext_exists(ext, NFT_SET_EXT_EXPIRATION)) {
+@@ -3089,7 +3096,8 @@ static int nf_tables_fill_setelem(struct sk_buff *skb,
+ 			expires = 0;
+ 
+ 		if (nla_put_be64(skb, NFTA_SET_ELEM_EXPIRATION,
+-				 cpu_to_be64(jiffies_to_msecs(expires))))
++				 cpu_to_be64(jiffies_to_msecs(expires)),
++				 NFTA_SET_ELEM_PAD))
+ 			goto nla_put_failure;
+ 	}
+ 
+diff --git a/net/netfilter/nf_tables_trace.c b/net/netfilter/nf_tables_trace.c
+index e9e959f65d91..39eb1cc62e91 100644
+--- a/net/netfilter/nf_tables_trace.c
++++ b/net/netfilter/nf_tables_trace.c
+@@ -156,7 +156,8 @@ static int nf_trace_fill_rule_info(struct sk_buff *nlskb,
+ 		return 0;
+ 
+ 	return nla_put_be64(nlskb, NFTA_TRACE_RULE_HANDLE,
+-			    cpu_to_be64(info->rule->handle));
++			    cpu_to_be64(info->rule->handle),
++			    NFTA_TRACE_PAD);
+ }
+ 
+ void nft_trace_notify(struct nft_traceinfo *info)
+@@ -174,7 +175,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
+ 	size = nlmsg_total_size(sizeof(struct nfgenmsg)) +
+ 		nla_total_size(NFT_TABLE_MAXNAMELEN) +
+ 		nla_total_size(NFT_CHAIN_MAXNAMELEN) +
+-		nla_total_size(sizeof(__be64)) +	/* rule handle */
++		nla_total_size_64bit(sizeof(__be64)) +	/* rule handle */
+ 		nla_total_size(sizeof(__be32)) +	/* trace type */
+ 		nla_total_size(0) +			/* VERDICT, nested */
+ 			nla_total_size(sizeof(u32)) +	/* verdict code */
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index 4c2b4c0c4d5f..d016066a25e3 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -160,15 +160,18 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 		pkts = atomic64_read(&acct->pkts);
+ 		bytes = atomic64_read(&acct->bytes);
+ 	}
+-	if (nla_put_be64(skb, NFACCT_PKTS, cpu_to_be64(pkts)) ||
+-	    nla_put_be64(skb, NFACCT_BYTES, cpu_to_be64(bytes)) ||
++	if (nla_put_be64(skb, NFACCT_PKTS, cpu_to_be64(pkts),
++			 NFACCT_PAD) ||
++	    nla_put_be64(skb, NFACCT_BYTES, cpu_to_be64(bytes),
++			 NFACCT_PAD) ||
+ 	    nla_put_be32(skb, NFACCT_USE, htonl(atomic_read(&acct->refcnt))))
+ 		goto nla_put_failure;
+ 	if (acct->flags & NFACCT_F_QUOTA) {
+ 		u64 *quota = (u64 *)acct->data;
+ 
+ 		if (nla_put_be32(skb, NFACCT_FLAGS, htonl(old_flags)) ||
+-		    nla_put_be64(skb, NFACCT_QUOTA, cpu_to_be64(*quota)))
++		    nla_put_be64(skb, NFACCT_QUOTA, cpu_to_be64(*quota),
++				 NFACCT_PAD))
+ 			goto nla_put_failure;
+ 	}
+ 	nlmsg_end(skb, nlh);
+diff --git a/net/netfilter/nft_counter.c b/net/netfilter/nft_counter.c
+index c9743f78f219..77db8358ab14 100644
+--- a/net/netfilter/nft_counter.c
++++ b/net/netfilter/nft_counter.c
+@@ -76,8 +76,10 @@ static int nft_counter_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ 
+ 	nft_counter_fetch(priv->counter, &total);
+ 
+-	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes)) ||
+-	    nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(total.packets)))
++	if (nla_put_be64(skb, NFTA_COUNTER_BYTES, cpu_to_be64(total.bytes),
++			 NFTA_COUNTER_PAD) ||
++	    nla_put_be64(skb, NFTA_COUNTER_PACKETS, cpu_to_be64(total.packets),
++			 NFTA_COUNTER_PAD))
+ 		goto nla_put_failure;
+ 	return 0;
+ 
+diff --git a/net/netfilter/nft_dynset.c b/net/netfilter/nft_dynset.c
+index 9dec3bd1b63c..78d4914fb39c 100644
+--- a/net/netfilter/nft_dynset.c
++++ b/net/netfilter/nft_dynset.c
+@@ -227,7 +227,8 @@ static int nft_dynset_dump(struct sk_buff *skb, const struct nft_expr *expr)
+ 		goto nla_put_failure;
+ 	if (nla_put_string(skb, NFTA_DYNSET_SET_NAME, priv->set->name))
+ 		goto nla_put_failure;
+-	if (nla_put_be64(skb, NFTA_DYNSET_TIMEOUT, cpu_to_be64(priv->timeout)))
++	if (nla_put_be64(skb, NFTA_DYNSET_TIMEOUT, cpu_to_be64(priv->timeout),
++			 NFTA_DYNSET_PAD))
+ 		goto nla_put_failure;
+ 	if (priv->expr && nft_expr_dump(skb, NFTA_DYNSET_EXPR, priv->expr))
+ 		goto nla_put_failure;
+diff --git a/net/netfilter/nft_limit.c b/net/netfilter/nft_limit.c
+index 99d18578afc6..070b98938e02 100644
+--- a/net/netfilter/nft_limit.c
++++ b/net/netfilter/nft_limit.c
+@@ -97,8 +97,10 @@ static int nft_limit_dump(struct sk_buff *skb, const struct nft_limit *limit,
+ 	u64 secs = div_u64(limit->nsecs, NSEC_PER_SEC);
+ 	u64 rate = limit->rate - limit->burst;
+ 
+-	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(rate)) ||
+-	    nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(secs)) ||
++	if (nla_put_be64(skb, NFTA_LIMIT_RATE, cpu_to_be64(rate),
++			 NFTA_LIMIT_PAD) ||
++	    nla_put_be64(skb, NFTA_LIMIT_UNIT, cpu_to_be64(secs),
++			 NFTA_LIMIT_PAD) ||
+ 	    nla_put_be32(skb, NFTA_LIMIT_BURST, htonl(limit->burst)) ||
+ 	    nla_put_be32(skb, NFTA_LIMIT_TYPE, htonl(type)) ||
+ 	    nla_put_be32(skb, NFTA_LIMIT_FLAGS, htonl(flags)))
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 689c17264221..0bb650f4f219 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -261,7 +261,7 @@ size_t ovs_tun_key_attr_size(void)
+ 	/* Whenever adding new OVS_TUNNEL_KEY_ FIELDS, we should consider
+ 	 * updating this function.
+ 	 */
+-	return    nla_total_size(8)    /* OVS_TUNNEL_KEY_ATTR_ID */
++	return    nla_total_size_64bit(8) /* OVS_TUNNEL_KEY_ATTR_ID */
+ 		+ nla_total_size(16)   /* OVS_TUNNEL_KEY_ATTR_IPV[46]_SRC */
+ 		+ nla_total_size(16)   /* OVS_TUNNEL_KEY_ATTR_IPV[46]_DST */
+ 		+ nla_total_size(1)    /* OVS_TUNNEL_KEY_ATTR_TOS */
+@@ -720,7 +720,8 @@ static int __ip_tun_to_nlattr(struct sk_buff *skb,
+ 			      unsigned short tun_proto)
+ {
+ 	if (output->tun_flags & TUNNEL_KEY &&
+-	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id))
++	    nla_put_be64(skb, OVS_TUNNEL_KEY_ATTR_ID, output->tun_id,
++			 OVS_TUNNEL_KEY_ATTR_PAD))
+ 		return -EMSGSIZE;
+ 	switch (tun_proto) {
+ 	case AF_INET:
+-- 
+2.8.1
