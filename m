@@ -1,82 +1,62 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 02/10] net: hns: set debug port irq index to 0
-Date: Fri, 22 Apr 2016 15:20:11 +0800
-Message-ID: <1461309619-167621-3-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1461309619-167621-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Fix the list processing for network
+ change event
+Date: Fri, 22 Apr 2016 10:49:19 +0200
+Message-ID: <87y486yqnk.fsf@vitty.brq.redhat.com>
+References: <1461280381-17530-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<davem@davemloft.net>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <salil.mehta@huawei.com>,
-	<lipeng321@huawei.com>, <liguozhu@huawei.com>,
-	<xieqianqian@huawei.com>, <linuxarm@huawei.com>
-To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:55294 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751863AbcDVHCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 03:02:49 -0400
-In-Reply-To: <1461309619-167621-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1461280381-17530-1-git-send-email-haiyangz@microsoft.com>
+ (Haiyang Zhang's message of "Thu, 21 Apr 2016 16:13:01 -0700")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Daode Huang <huangdaode@hisilicon.com>
+Haiyang Zhang <haiyangz@microsoft.com> writes:
 
-As debug ports are moved from service dsaf to debug dsaf,
-the interrupts offset should start from 0, So this patch
-re-defines the offset index of debug ports.
+> RNDIS_STATUS_NETWORK_CHANGE event is handled as two "half events" --
+> media disconnect & connect. The second half should be added to the list
+> head, not to the tail. So all events are processed in normal order.
+>
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 8 +-------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h | 5 +----
- 2 files changed, 2 insertions(+), 11 deletions(-)
+Thanks,
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index 121ba4e..054f391 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -445,20 +445,14 @@ static int hns_rcb_get_port_in_comm(
- 
- #define SERVICE_RING_IRQ_IDX(v1) \
- 	((v1) ? HNS_SERVICE_RING_IRQ_IDX : HNSV2_SERVICE_RING_IRQ_IDX)
--#define DEBUG_RING_IRQ_IDX(v1) \
--	((v1) ? HNS_DEBUG_RING_IRQ_IDX : HNSV2_DEBUG_RING_IRQ_IDX)
--#define DEBUG_RING_IRQ_OFFSET(v1) \
--	((v1) ? HNS_DEBUG_RING_IRQ_OFFSET : HNSV2_DEBUG_RING_IRQ_OFFSET)
- static int hns_rcb_get_base_irq_idx(struct rcb_common_cb *rcb_common)
- {
--	int comm_index = rcb_common->comm_index;
- 	bool is_ver1 = AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver);
- 
- 	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev))
- 		return SERVICE_RING_IRQ_IDX(is_ver1);
- 	else
--		return  DEBUG_RING_IRQ_IDX(is_ver1) +
--			(comm_index - 1) * DEBUG_RING_IRQ_OFFSET(is_ver1);
-+		return  HNS_DEBUG_RING_IRQ_IDX;
- }
- 
- #define RCB_COMM_BASE_TO_RING_BASE(base, ringid)\
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index cffd244..8782608 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -10,12 +10,9 @@
- #ifndef _DSAF_REG_H_
- #define _DSAF_REG_H_
- 
--#define HNS_DEBUG_RING_IRQ_IDX 55
-+#define HNS_DEBUG_RING_IRQ_IDX 0
- #define HNS_SERVICE_RING_IRQ_IDX 59
--#define HNS_DEBUG_RING_IRQ_OFFSET 2
--#define HNSV2_DEBUG_RING_IRQ_IDX 409
- #define HNSV2_SERVICE_RING_IRQ_IDX 25
--#define HNSV2_DEBUG_RING_IRQ_OFFSET 9
- 
- #define DSAF_MAX_PORT_NUM_PER_CHIP 8
- #define DSAF_SERVICE_PORT_NUM_PER_DSAF 6
+this matters when we get some other events in between these two halves.
+
+Reviewed-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc_drv.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index bfdb568a..ba3f3f3 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -1125,7 +1125,7 @@ static void netvsc_link_change(struct work_struct *w)
+>  			netif_tx_stop_all_queues(net);
+>  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
+>  			spin_lock_irqsave(&ndev_ctx->lock, flags);
+> -			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
+> +			list_add(&event->list, &ndev_ctx->reconfig_events);
+>  			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
+>  			reschedule = true;
+>  		}
+
 -- 
-1.9.1
+  Vitaly
