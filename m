@@ -1,75 +1,58 @@
-From: David Decotigny <ddecotig@gmail.com>
-Subject: [ethtool PATCH v7 2/2] ethtool: use netlink socket when AF_INET not available
-Date: Fri, 22 Apr 2016 09:48:20 -0700
-Message-ID: <1461343700-44087-3-git-send-email-ddecotig@gmail.com>
-References: <1461343700-44087-1-git-send-email-ddecotig@gmail.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	Joe Perches <joe@perches.com>,
-	David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35398 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932263AbcDVQsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 12:48:36 -0400
-Received: by mail-pf0-f194.google.com with SMTP id r187so10565530pfr.2
-        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 09:48:35 -0700 (PDT)
-In-Reply-To: <1461343700-44087-1-git-send-email-ddecotig@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 2/9] libnl: nla_put_le64(): align on
+ a 64-bit area
+Date: Fri, 22 Apr 2016 09:51:20 -0700
+Message-ID: <1461343880.7627.34.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1461339084-3849-3-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+ herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+ linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1461339084-3849-3-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: David Decotigny <decot@googlers.com>
-
-To benefit from this, kernel commit 025c68186e07 ("netlink: add support
-for NIC driver ioctls") is needed.
-
-
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- configure.ac | 2 +-
- ethtool.c    | 7 +++++++
- 2 files changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/configure.ac b/configure.ac
-index 3105415..47d2a0f 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -15,7 +15,7 @@ AM_PROG_CC_C_O
- dnl Checks for libraries.
- 
- dnl Checks for header files.
--AC_CHECK_HEADERS(sys/ioctl.h)
-+AC_CHECK_HEADERS(sys/ioctl.h linux/netlink.h)
- 
- dnl Checks for typedefs, structures, and compiler characteristics.
- AC_MSG_CHECKING([whether <linux/types.h> defines big-endian types])
-diff --git a/ethtool.c b/ethtool.c
-index cb3d971..314b1b8 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -42,6 +42,9 @@
- #include <arpa/inet.h>
- 
- #include <linux/sockios.h>
-+#ifdef HAVE_LINUX_NETLINK_H
-+# include <linux/netlink.h>
-+#endif
- 
- #ifndef MAX_ADDR_LEN
- #define MAX_ADDR_LEN	32
-@@ -4645,6 +4648,10 @@ opt_found:
- 
- 		/* Open control socket. */
- 		ctx.fd = socket(AF_INET, SOCK_DGRAM, 0);
-+#ifdef HAVE_LINUX_NETLINK_H
-+		if (ctx.fd < 0)
-+			ctx.fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_GENERIC);
-+#endif
- 		if (ctx.fd < 0) {
- 			perror("Cannot get control socket");
- 			return 70;
--- 
-2.8.0.rc3.226.g39d4020
+T24gRnJpLCAyMDE2LTA0LTIyIGF0IDE3OjMxICswMjAwLCBOaWNvbGFzIERpY2h0ZWwgd3JvdGU6
+Cj4gbmxhX2RhdGEoKSBpcyBub3cgYWxpZ25lZCBvbiBhIDY0LWJpdCBhcmVhLgo+IAo+IFNpZ25l
+ZC1vZmYtYnk6IE5pY29sYXMgRGljaHRlbCA8bmljb2xhcy5kaWNodGVsQDZ3aW5kLmNvbT4KPiAt
+LS0KPiAgaW5jbHVkZS9uZXQvbmV0bGluay5oICAgICB8ICA4ICsrKysrLS0tCj4gIGluY2x1ZGUv
+bmV0L25sODAyMTU0LmggICAgfCAgNiArKysrKysKPiAgbmV0L2llZWU4MDIxNTQvbmw4MDIxNTQu
+YyB8IDEzICsrKysrKysrLS0tLS0KPiAgMyBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCsp
+LCA4IGRlbGV0aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL25ldC9uZXRsaW5rLmgg
+Yi9pbmNsdWRlL25ldC9uZXRsaW5rLmgKPiBpbmRleCA2ZjUxYThhMDY0OTguLjdmNmI5OTQ4M2Fi
+NyAxMDA2NDQKPiAtLS0gYS9pbmNsdWRlL25ldC9uZXRsaW5rLmgKPiArKysgYi9pbmNsdWRlL25l
+dC9uZXRsaW5rLmgKPiBAQCAtODc4LDE0ICs4NzgsMTYgQEAgc3RhdGljIGlubGluZSBpbnQgbmxh
+X3B1dF9uZXQ2NChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5cGUsIF9fYmU2NCB2YWx1
+ZSkKPiAgfQo+ICAKPiAgLyoqCj4gLSAqIG5sYV9wdXRfbGU2NCAtIEFkZCBhIF9fbGU2NCBuZXRs
+aW5rIGF0dHJpYnV0ZSB0byBhIHNvY2tldCBidWZmZXIKPiArICogbmxhX3B1dF9sZTY0IC0gQWRk
+IGEgX19sZTY0IG5ldGxpbmsgYXR0cmlidXRlIHRvIGEgc29ja2V0IGJ1ZmZlciBhbmQgYWxpZ24g
+aXQKPiAgICogQHNrYjogc29ja2V0IGJ1ZmZlciB0byBhZGQgYXR0cmlidXRlIHRvCj4gICAqIEBh
+dHRydHlwZTogYXR0cmlidXRlIHR5cGUKPiAgICogQHZhbHVlOiBudW1lcmljIHZhbHVlCj4gKyAq
+IEBwYWRhdHRyOiBhdHRyaWJ1dGUgdHlwZSBmb3IgdGhlIHBhZGRpbmcKPiAgICovCj4gLXN0YXRp
+YyBpbmxpbmUgaW50IG5sYV9wdXRfbGU2NChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5
+cGUsIF9fbGU2NCB2YWx1ZSkKPiArc3RhdGljIGlubGluZSBpbnQgbmxhX3B1dF9sZTY0KHN0cnVj
+dCBza19idWZmICpza2IsIGludCBhdHRydHlwZSwgX19sZTY0IHZhbHVlLAo+ICsJCQkgICAgICAg
+aW50IHBhZGF0dHIpCj4gIHsKPiAtCXJldHVybiBubGFfcHV0KHNrYiwgYXR0cnR5cGUsIHNpemVv
+ZihfX2xlNjQpLCAmdmFsdWUpOwo+ICsJcmV0dXJuIG5sYV9wdXRfNjRiaXQoc2tiLCBhdHRydHlw
+ZSwgc2l6ZW9mKF9fbGU2NCksICZ2YWx1ZSwgcGFkYXR0cik7Cj4gIH0KPiAgCgpCdXQgX3doeV8g
+aXMgaXQgbmVlZGVkID8KCm5sYV9wdXQoKSBoYXMgbm8gYWxpZ25tZW50IGFzc3VtcHRpb25zLCBp
+dCBzaW1wbHkgY29waWVzIDggYnl0ZXMuCgpTZWVtcyB0aGlzIGlzIGdvaW5nIHRvbyBmYXIuCgoK
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
+YW4vbGlzdGluZm8vZGV2Cg==
