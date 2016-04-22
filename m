@@ -1,211 +1,64 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/23] netfilter: ip_tables: simplify translate_compat_table args
-Date: Fri, 22 Apr 2016 15:39:41 +0200
-Message-ID: <1461332394-3994-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 23/23] netfilter: conntrack: don't acquire lock during seq_printf
+Date: Fri, 22 Apr 2016 15:39:54 +0200
+Message-ID: <1461332394-3994-24-git-send-email-pablo@netfilter.org>
 References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45231 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753719AbcDVNkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:40:15 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 04E774B100
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:13 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id E4374EBADB
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:12 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 326E5FAB53
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:10 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
+
+read access doesn't need any lock here.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ip_tables.c | 59 +++++++++++++++++-------------------------
- 1 file changed, 24 insertions(+), 35 deletions(-)
+ net/netfilter/nf_conntrack_proto_sctp.c | 8 +-------
+ net/netfilter/nf_conntrack_proto_tcp.c  | 8 +-------
+ 2 files changed, 2 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index baab033d..d7041860 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1449,7 +1449,6 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
- 
- static int
- compat_find_calc_match(struct xt_entry_match *m,
--		       const char *name,
- 		       const struct ipt_ip *ip,
- 		       int *size)
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 9578a7c..1d7ab96 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -191,13 +191,7 @@ static void sctp_print_tuple(struct seq_file *s,
+ /* Print out the private part of the conntrack. */
+ static void sctp_print_conntrack(struct seq_file *s, struct nf_conn *ct)
  {
-@@ -1486,8 +1485,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
- 				  const unsigned char *base,
- 				  const unsigned char *limit,
- 				  const unsigned int *hook_entries,
--				  const unsigned int *underflows,
--				  const char *name)
-+				  const unsigned int *underflows)
+-	enum sctp_conntrack state;
+-
+-	spin_lock_bh(&ct->lock);
+-	state = ct->proto.sctp.state;
+-	spin_unlock_bh(&ct->lock);
+-
+-	seq_printf(s, "%s ", sctp_conntrack_names[state]);
++	seq_printf(s, "%s ", sctp_conntrack_names[ct->proto.sctp.state]);
+ }
+ 
+ #define for_each_sctp_chunk(skb, sch, _sch, offset, dataoff, count)	\
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 278f3b9..e0cb0ce 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -313,13 +313,7 @@ static void tcp_print_tuple(struct seq_file *s,
+ /* Print out the private part of the conntrack. */
+ static void tcp_print_conntrack(struct seq_file *s, struct nf_conn *ct)
  {
- 	struct xt_entry_match *ematch;
- 	struct xt_entry_target *t;
-@@ -1523,7 +1521,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
- 	entry_offset = (void *)e - (void *)base;
- 	j = 0;
- 	xt_ematch_foreach(ematch, e) {
--		ret = compat_find_calc_match(ematch, name, &e->ip, &off);
-+		ret = compat_find_calc_match(ematch, &e->ip, &off);
- 		if (ret != 0)
- 			goto release_matches;
- 		++j;
-@@ -1572,7 +1570,7 @@ release_matches:
+-	enum tcp_conntrack state;
+-
+-	spin_lock_bh(&ct->lock);
+-	state = ct->proto.tcp.state;
+-	spin_unlock_bh(&ct->lock);
+-
+-	seq_printf(s, "%s ", tcp_conntrack_names[state]);
++	seq_printf(s, "%s ", tcp_conntrack_names[ct->proto.tcp.state]);
+ }
  
- static int
- compat_copy_entry_from_user(struct compat_ipt_entry *e, void **dstptr,
--			    unsigned int *size, const char *name,
-+			    unsigned int *size,
- 			    struct xt_table_info *newinfo, unsigned char *base)
- {
- 	struct xt_entry_target *t;
-@@ -1655,14 +1653,9 @@ compat_check_entry(struct ipt_entry *e, struct net *net, const char *name)
- 
- static int
- translate_compat_table(struct net *net,
--		       const char *name,
--		       unsigned int valid_hooks,
- 		       struct xt_table_info **pinfo,
- 		       void **pentry0,
--		       unsigned int total_size,
--		       unsigned int number,
--		       unsigned int *hook_entries,
--		       unsigned int *underflows)
-+		       const struct compat_ipt_replace *compatr)
- {
- 	unsigned int i, j;
- 	struct xt_table_info *newinfo, *info;
-@@ -1674,8 +1667,8 @@ translate_compat_table(struct net *net,
- 
- 	info = *pinfo;
- 	entry0 = *pentry0;
--	size = total_size;
--	info->number = number;
-+	size = compatr->size;
-+	info->number = compatr->num_entries;
- 
- 	/* Init all hooks to impossible value. */
- 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
-@@ -1686,40 +1679,39 @@ translate_compat_table(struct net *net,
- 	duprintf("translate_compat_table: size %u\n", info->size);
- 	j = 0;
- 	xt_compat_lock(AF_INET);
--	xt_compat_init_offsets(AF_INET, number);
-+	xt_compat_init_offsets(AF_INET, compatr->num_entries);
- 	/* Walk through entries, checking offsets. */
--	xt_entry_foreach(iter0, entry0, total_size) {
-+	xt_entry_foreach(iter0, entry0, compatr->size) {
- 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
- 							entry0,
--							entry0 + total_size,
--							hook_entries,
--							underflows,
--							name);
-+							entry0 + compatr->size,
-+							compatr->hook_entry,
-+							compatr->underflow);
- 		if (ret != 0)
- 			goto out_unlock;
- 		++j;
- 	}
- 
- 	ret = -EINVAL;
--	if (j != number) {
-+	if (j != compatr->num_entries) {
- 		duprintf("translate_compat_table: %u not %u entries\n",
--			 j, number);
-+			 j, compatr->num_entries);
- 		goto out_unlock;
- 	}
- 
- 	/* Check hooks all assigned */
- 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
- 		/* Only hooks which are valid */
--		if (!(valid_hooks & (1 << i)))
-+		if (!(compatr->valid_hooks & (1 << i)))
- 			continue;
- 		if (info->hook_entry[i] == 0xFFFFFFFF) {
- 			duprintf("Invalid hook entry %u %u\n",
--				 i, hook_entries[i]);
-+				 i, info->hook_entry[i]);
- 			goto out_unlock;
- 		}
- 		if (info->underflow[i] == 0xFFFFFFFF) {
- 			duprintf("Invalid underflow %u %u\n",
--				 i, underflows[i]);
-+				 i, info->underflow[i]);
- 			goto out_unlock;
- 		}
- 	}
-@@ -1729,17 +1721,17 @@ translate_compat_table(struct net *net,
- 	if (!newinfo)
- 		goto out_unlock;
- 
--	newinfo->number = number;
-+	newinfo->number = compatr->num_entries;
- 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
- 		newinfo->hook_entry[i] = info->hook_entry[i];
- 		newinfo->underflow[i] = info->underflow[i];
- 	}
- 	entry1 = newinfo->entries;
- 	pos = entry1;
--	size = total_size;
--	xt_entry_foreach(iter0, entry0, total_size) {
-+	size = compatr->size;
-+	xt_entry_foreach(iter0, entry0, compatr->size) {
- 		ret = compat_copy_entry_from_user(iter0, &pos, &size,
--						  name, newinfo, entry1);
-+						  newinfo, entry1);
- 		if (ret != 0)
- 			break;
- 	}
-@@ -1749,12 +1741,12 @@ translate_compat_table(struct net *net,
- 		goto free_newinfo;
- 
- 	ret = -ELOOP;
--	if (!mark_source_chains(newinfo, valid_hooks, entry1))
-+	if (!mark_source_chains(newinfo, compatr->valid_hooks, entry1))
- 		goto free_newinfo;
- 
- 	i = 0;
- 	xt_entry_foreach(iter1, entry1, newinfo->size) {
--		ret = compat_check_entry(iter1, net, name);
-+		ret = compat_check_entry(iter1, net, compatr->name);
- 		if (ret != 0)
- 			break;
- 		++i;
-@@ -1794,7 +1786,7 @@ translate_compat_table(struct net *net,
- free_newinfo:
- 	xt_free_table_info(newinfo);
- out:
--	xt_entry_foreach(iter0, entry0, total_size) {
-+	xt_entry_foreach(iter0, entry0, compatr->size) {
- 		if (j-- == 0)
- 			break;
- 		compat_release_entry(iter0);
-@@ -1839,10 +1831,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
- 		goto free_newinfo;
- 	}
- 
--	ret = translate_compat_table(net, tmp.name, tmp.valid_hooks,
--				     &newinfo, &loc_cpu_entry, tmp.size,
--				     tmp.num_entries, tmp.hook_entry,
--				     tmp.underflow);
-+	ret = translate_compat_table(net, &newinfo, &loc_cpu_entry, &tmp);
- 	if (ret != 0)
- 		goto free_newinfo;
- 
+ static unsigned int get_conntrack_index(const struct tcphdr *tcph)
 -- 
 2.1.4
+
