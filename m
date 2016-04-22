@@ -1,64 +1,61 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 0/9] netlink: align attributes when needed (patchset #1)
-Date: Fri, 22 Apr 2016 17:31:15 +0200
-Message-ID: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	linux-wpan@vger.kernel.org, aar@pengutronix.de,
-	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
-	dev@openvswitch.org, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, bsingharora@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53513 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488AbcDVPcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 5/9] libnl: nla_put_s64(): align on a
+	64-bit area
+Date: Fri, 22 Apr 2016 17:31:20 +0200
+Message-ID: <1461339084-3849-6-git-send-email-nicolas.dichtel@6wind.com>
+References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+ herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
+ linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-
-This is the continuation of the work done to align netlink attributes
-when these attributes contain some 64-bit fields.
-
-David, if the third patch is too big (or maybe the series), I can split it.
-Just tell me what you prefer.
-
- include/linux/netfilter/ipset/ip_set.h             |  9 ++--
- include/net/netlink.h                              | 60 ++++++++++++++++------
- include/net/nl802154.h                             |  6 +++
- include/uapi/linux/fib_rules.h                     |  1 +
- include/uapi/linux/l2tp.h                          |  1 +
- include/uapi/linux/lwtunnel.h                      |  2 +
- include/uapi/linux/neighbour.h                     |  2 +
- include/uapi/linux/netfilter/ipset/ip_set.h        |  1 +
- include/uapi/linux/netfilter/nf_tables.h           |  8 +++
- include/uapi/linux/netfilter/nfnetlink_acct.h      |  1 +
- include/uapi/linux/netfilter/nfnetlink_conntrack.h |  3 ++
- include/uapi/linux/openvswitch.h                   |  1 +
- include/uapi/linux/tcp_metrics.h                   |  1 +
- include/uapi/linux/xfrm.h                          |  1 +
- kernel/taskstats.c                                 | 37 ++-----------
- lib/nlattr.c                                       |  8 ++-
- net/core/fib_rules.c                               |  4 +-
- net/core/neighbour.c                               | 19 +++----
- net/ieee802154/nl802154.c                          | 13 +++--
- net/ipv4/ip_tunnel_core.c                          | 10 ++--
- net/ipv4/tcp_metrics.c                             |  6 ++-
- net/l2tp/l2tp_netlink.c                            |  3 +-
- net/netfilter/nf_conntrack_netlink.c               | 18 ++++---
- net/netfilter/nf_conntrack_proto_dccp.c            |  4 +-
- net/netfilter/nf_tables_api.c                      | 24 ++++++---
- net/netfilter/nf_tables_trace.c                    |  5 +-
- net/netfilter/nfnetlink_acct.c                     |  9 ++--
- net/netfilter/nft_counter.c                        |  6 ++-
- net/netfilter/nft_dynset.c                         |  3 +-
- net/netfilter/nft_limit.c                          |  6 ++-
- net/openvswitch/flow_netlink.c                     |  5 +-
- net/xfrm/xfrm_user.c                               | 10 ++--
- 32 files changed, 178 insertions(+), 109 deletions(-)
-
-Comments are welcomed,
-Regards,
-Nicolas
+bmxhX2RhdGEoKSBpcyBub3cgYWxpZ25lZCBvbiBhIDY0LWJpdCBhcmVhLgpJbiBmYWN0LCB0aGVy
+ZSBpcyBubyB1c2VyIG9mIHRoaXMgZnVuY3Rpb24uCgpTaWduZWQtb2ZmLWJ5OiBOaWNvbGFzIERp
+Y2h0ZWwgPG5pY29sYXMuZGljaHRlbEA2d2luZC5jb20+Ci0tLQogaW5jbHVkZS9uZXQvbmV0bGlu
+ay5oIHwgMTEgKysrKysrKy0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyksIDQg
+ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvbmV0bGluay5oIGIvaW5jbHVk
+ZS9uZXQvbmV0bGluay5oCmluZGV4IDA2NmE5MjFlN2NiZS4uMDc0MjE1YTU5ZDE5IDEwMDY0NAot
+LS0gYS9pbmNsdWRlL25ldC9uZXRsaW5rLmgKKysrIGIvaW5jbHVkZS9uZXQvbmV0bGluay5oCkBA
+IC0xMDIsNyArMTAyLDggQEAKICAqICAgbmxhX3B1dF9zOChza2IsIHR5cGUsIHZhbHVlKQlhZGQg
+czggYXR0cmlidXRlIHRvIHNrYgogICogICBubGFfcHV0X3MxNihza2IsIHR5cGUsIHZhbHVlKQlh
+ZGQgczE2IGF0dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9zMzIoc2tiLCB0eXBlLCB2YWx1
+ZSkJYWRkIHMzMiBhdHRyaWJ1dGUgdG8gc2tiCi0gKiAgIG5sYV9wdXRfczY0KHNrYiwgdHlwZSwg
+dmFsdWUpCWFkZCBzNjQgYXR0cmlidXRlIHRvIHNrYgorICogICBubGFfcHV0X3M2NChza2IsIHR5
+cGUsIHZhbHVlLAorICogICAgICAgICAgICAgICBwYWRhdHRyKQkJYWRkIHM2NCBhdHRyaWJ1dGUg
+dG8gc2tiCiAgKiAgIG5sYV9wdXRfc3RyaW5nKHNrYiwgdHlwZSwgc3RyKQlhZGQgc3RyaW5nIGF0
+dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9mbGFnKHNrYiwgdHlwZSkJCWFkZCBmbGFnIGF0
+dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9tc2Vjcyhza2IsIHR5cGUsIGppZmZpZXMpCWFk
+ZCBtc2VjcyBhdHRyaWJ1dGUgdG8gc2tiCkBAIC05MjksMTQgKzkzMCwxNiBAQCBzdGF0aWMgaW5s
+aW5lIGludCBubGFfcHV0X3MzMihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5cGUsIHMz
+MiB2YWx1ZSkKIH0KIAogLyoqCi0gKiBubGFfcHV0X3M2NCAtIEFkZCBhIHM2NCBuZXRsaW5rIGF0
+dHJpYnV0ZSB0byBhIHNvY2tldCBidWZmZXIKKyAqIG5sYV9wdXRfczY0IC0gQWRkIGEgczY0IG5l
+dGxpbmsgYXR0cmlidXRlIHRvIGEgc29ja2V0IGJ1ZmZlciBhbmQgYWxpZ24gaXQKICAqIEBza2I6
+IHNvY2tldCBidWZmZXIgdG8gYWRkIGF0dHJpYnV0ZSB0bwogICogQGF0dHJ0eXBlOiBhdHRyaWJ1
+dGUgdHlwZQogICogQHZhbHVlOiBudW1lcmljIHZhbHVlCisgKiBAcGFkYXR0cjogYXR0cmlidXRl
+IHR5cGUgZm9yIHRoZSBwYWRkaW5nCiAgKi8KLXN0YXRpYyBpbmxpbmUgaW50IG5sYV9wdXRfczY0
+KHN0cnVjdCBza19idWZmICpza2IsIGludCBhdHRydHlwZSwgczY0IHZhbHVlKQorc3RhdGljIGlu
+bGluZSBpbnQgbmxhX3B1dF9zNjQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IGF0dHJ0eXBlLCBz
+NjQgdmFsdWUsCisJCQkgICAgICBpbnQgcGFkYXR0cikKIHsKLQlyZXR1cm4gbmxhX3B1dChza2Is
+IGF0dHJ0eXBlLCBzaXplb2YoczY0KSwgJnZhbHVlKTsKKwlyZXR1cm4gbmxhX3B1dF82NGJpdChz
+a2IsIGF0dHJ0eXBlLCBzaXplb2YoczY0KSwgJnZhbHVlLCBwYWRhdHRyKTsKIH0KIAogLyoqCi0t
+IAoyLjguMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
+cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
