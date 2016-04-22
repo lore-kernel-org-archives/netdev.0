@@ -1,62 +1,58 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] hv_netvsc: Fix the list processing for network
- change event
-Date: Fri, 22 Apr 2016 10:49:19 +0200
-Message-ID: <87y486yqnk.fsf@vitty.brq.redhat.com>
-References: <1461280381-17530-1-git-send-email-haiyangz@microsoft.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH] gro: Partly revert "net: gro: allow to build full
+ sized skb"
+Date: Fri, 22 Apr 2016 10:51:07 +0200
+Message-ID: <20160422085107.GJ3347@gauss.secunet.com>
+References: <20160421074042.GF3347@gauss.secunet.com>
+ <CAKgT0Uc-MfZseKauJMW+xh+5LTEww6hcWmuXeCATsDA+Z-POsQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1461280381-17530-1-git-send-email-haiyangz@microsoft.com>
- (Haiyang Zhang's message of "Thu, 21 Apr 2016 16:13:01 -0700")
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:37990 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751659AbcDVIvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 04:51:12 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKgT0Uc-MfZseKauJMW+xh+5LTEww6hcWmuXeCATsDA+Z-POsQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Haiyang Zhang <haiyangz@microsoft.com> writes:
+On Thu, Apr 21, 2016 at 09:02:48AM -0700, Alexander Duyck wrote:
+> On Thu, Apr 21, 2016 at 12:40 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > This partly reverts the below mentioned patch because on
+> > forwarding, such skbs can't be offloaded to a NIC.
+> >
+> > We need this to get IPsec GRO for forwarding to work properly,
+> > otherwise the GRO aggregated packets get segmented again by
+> > the GSO layer. Although discovered when implementing IPsec GRO,
+> > this is a general problem in the forwarding path.
+> 
+> I'm confused as to why you would need this to get IPsec GRO forwarding
+> to work. 
 
-> RNDIS_STATUS_NETWORK_CHANGE event is handled as two "half events" --
-> media disconnect & connect. The second half should be added to the list
-> head, not to the tail. So all events are processed in normal order.
->
+It works without this, but the performance numbers are not that good
+if we have to do GSO in software.
 
-Thanks,
+> Are you having to go through a device that doesn't have
+> NETIF_F_FRAGLIST defined?
 
-this matters when we get some other events in between these two halves.
+I don't know of any NIC that can do TSO on a skbuff with fraglist,
+that's why I try to avoid to have a buffer with fraglist.
 
-Reviewed-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Also what is the issue with having to go
+> through the GSO layer on segmentation?  It seems like we might be able
+> to do something like what we did with GSO partial to split frames so
+> that they are in chunks that wouldn't require NETIF_F_FRAGLIST.  Then
+> you could get the best of both worlds in that the stack would only
+> process one super-frame, and the transmitter could TSO a series of
+> frames that are some fixed MSS in size.
 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index bfdb568a..ba3f3f3 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -1125,7 +1125,7 @@ static void netvsc_link_change(struct work_struct *w)
->  			netif_tx_stop_all_queues(net);
->  			event->event = RNDIS_STATUS_MEDIA_CONNECT;
->  			spin_lock_irqsave(&ndev_ctx->lock, flags);
-> -			list_add_tail(&event->list, &ndev_ctx->reconfig_events);
-> +			list_add(&event->list, &ndev_ctx->reconfig_events);
->  			spin_unlock_irqrestore(&ndev_ctx->lock, flags);
->  			reschedule = true;
->  		}
-
--- 
-  Vitaly
+This could be interesting. Then we could have a buffer with
+fraglist, GSO layer splits in skbuffs without fraglist that
+can be TSO offloaded. Something like this might solve my
+performance problems.
