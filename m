@@ -1,7 +1,7 @@
 From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
-Subject: [v8, 1/7] Documentation: DT: update Freescale DCFG compatible
-Date: Fri, 22 Apr 2016 14:27:38 +0800
-Message-ID: <1461306464-19521-2-git-send-email-yangbo.lu@nxp.com>
+Subject: [v8, 2/7] ARM64: dts: ls2080a: add device configuration node
+Date: Fri, 22 Apr 2016 14:27:39 +0800
+Message-ID: <1461306464-19521-3-git-send-email-yangbo.lu@nxp.com>
 References: <1461306464-19521-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -32,29 +32,40 @@ Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.o
 Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Update Freescale DCFG compatible with 'fsl,<chip>-dcfg' instead
-of 'fsl,ls1021a-dcfg' to include more chips.
+Add the dts node for device configuration unit that provides
+general purpose configuration and status for the device.
 
 Signed-off-by: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Acked-by: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
 ---
-Changes for v8:
+Changes for v5:
 	- Added this patch
+Changes for v6:
+	- None
+Changes for v7:
+	- None
+Changes for v8:
+	- Added 'Acked-by: Scott Wood'
 ---
- Documentation/devicetree/bindings/arm/fsl.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/arm/fsl.txt b/Documentation/devicetree/bindings/arm/fsl.txt
-index 752a685..1d5f512 100644
---- a/Documentation/devicetree/bindings/arm/fsl.txt
-+++ b/Documentation/devicetree/bindings/arm/fsl.txt
-@@ -119,7 +119,7 @@ Freescale DCFG
- configuration and status for the device. Such as setting the secondary
- core start address and release the secondary core from holdoff and startup.
-   Required properties:
--  - compatible: should be "fsl,ls1021a-dcfg"
-+  - compatible: should be "fsl,<chip>-dcfg"
-   - reg : should contain base address and length of DCFG memory-mapped registers
+diff --git a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+index 9d746c6..8724cf1 100644
+--- a/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
++++ b/arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi
+@@ -191,6 +191,12 @@
+ 			clocks = <&sysclk>;
+ 		};
  
- Example:
++		dcfg: dcfg@1e00000 {
++			compatible = "fsl,ls2080a-dcfg", "syscon";
++			reg = <0x0 0x1e00000 0x0 0x10000>;
++			little-endian;
++		};
++
+ 		serial0: serial@21c0500 {
+ 			compatible = "fsl,ns16550", "ns16550a";
+ 			reg = <0x0 0x21c0500 0x0 0x100>;
 -- 
 2.1.0.27.g96db324
