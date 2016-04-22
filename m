@@ -1,47 +1,80 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
-Date: Fri, 22 Apr 2016 16:14:19 -0600
-Message-ID: <571AA23B.3040703@cumulusnetworks.com>
-References: <571A4D11.8070307@brocade.com> <571A4DEB.3090204@brocade.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Fri, 22 Apr 2016 16:20:43 -0700
+Message-ID: <1461367243.3018.42.camel@intel.com>
+References: <20160413175028.5d3a4cf2@canb.auug.org.au>
+	 <20160413.111513.295841881765244758.davem@davemloft.net>
+	 <20160422092017.GY3217@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-lHjQNpBqXycFjvz0Tr57"
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mark.d.rustad@intel.com, andrewx.bowers@intel.com,
+	kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org
+To: Mark Brown <broonie@kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160422092017.GY3217@sirena.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-lHjQNpBqXycFjvz0Tr57
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2016-04-22 at 10:20 +0100, Mark Brown wrote:
+> On Wed, Apr 13, 2016 at 11:15:13AM -0400, David Miller wrote:
+> > From: Stephen Rothwell <sfr@canb.auug.org.au>
+>=20
+> > > After merging the net-next tree, today's linux-next build (arm
+> > > allmodconfig) failed like thisi (this has actually been failing
+> for a
+> > > few days, now):
+>=20
+> > > ERROR: "__bad_udelay" [drivers/net/ethernet/intel/ixgbe/ixgbe.ko]
+> undefined!
+>=20
+> > > Caused by commit
+>=20
+> > >=C2=A0=C2=A0 49425dfc7451 ("ixgbe: Add support for x550em_a 10G MAC ty=
+pe")
+>=20
+> > > arm only allows udelay()s up to 2 milliseconds.=C2=A0 This commit
+> > > adds a 5 ms udelay in ixgbe_acquire_swfw_sync_x550em_a() in
+> > > drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c.
+>=20
+> > Jeff, please have your folks look into this.=C2=A0 Probably just a
+> simple
+> > conversion to mdelay().
+>=20
+> This is still present, it's been breaking ARM allmodconfig builds for
+> about two weeks now.
+
+Interesting that no one spoke up until just a week ago. =C2=A0I have a fix
+and I ready to push it to David Miller.
+--=-lHjQNpBqXycFjvz0Tr57
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:37298 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752372AbcDVWOW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 18:14:22 -0400
-Received: by mail-ig0-f177.google.com with SMTP id g8so28910716igr.0
-        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:14:22 -0700 (PDT)
-In-Reply-To: <571A4DEB.3090204@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On 4/22/16 10:14 AM, Mike Manning wrote:
-> commit f1705ec197e7 ("net: ipv6: Make address flushing on ifdown
-> optional") added the option to retain user configured addresses on an
-> admin down. A comment to one of the later revisions suggested using
-> the IFA_F_PERMANENT flag rather than adding a user_managed boolean to
-> the ifaddr struct. A side effect of this change is that link local and
-> loopback addresses were also retained which was not part of the
-> objective of the original changes. The commit 70af921db6f8 ("net: ipv6:
-> Do not keep linklocal and loopback addresses") ensures that these are
-> no longer kept. Similarly, the present fix ensures that these addresses
-> are not incorrectly fixed up.
->
-> Testing also with the recent patch in place to delete host routes on
-> ifdown still shows that fixup of the LL & loopback addrs is incorrectly
-> being attempted (and without that patch was causing a crash in fib6).
-> Another approach to this is through code inspection by checking where
-> the user_managed flag in the original dahern patch (which we have been
-> using for nearly a year) has been replaced by checking IFA_F_PERMANENT.
->
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
-> ---
->   net/ipv6/addrconf.c |   13 +++++++------
->   1 file changed, 7 insertions(+), 6 deletions(-)
->
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+iQIcBAABCgAGBQJXGrHMAAoJEOVv75VaS+3OLnwP/2bIB4v7GVm6EO1DRvAcFBIy
+uNRAmRB+7vDX2Wl3AoaimDU7QJuVESFusiDn5hv4667q9YKbW4M17f5QiICqyZqO
+Xxh+enmerP/sbRfiJxtrGFOGJmiWdPXqAV01ezaAMDb2YgQDJ7m2CxCWhzPc4W28
+Zy9eEYGi2V/UlLDXgCYefHRw9lwM+PMa76hnF5Ume/PgKncfxl9a1Xfzx6e8glI0
+5cI6LHPPT49DW0QRP8zy29AHJ/f0+PsA8sOjaDg8L+TtSNcbHl+BVEGcpN9jyYJN
+zKpWwFOJrzXnUcp6rovzD3/xuughTbK55so3D1Hv68/s4Nba2za+PVQiTOkZnBex
+TAuxXBNoYZcnxGi7Eqsxt3PL7HUR3iRqrfV7udoj/+IkJZ8RUssh2e3VX5n53nyq
+pRC2m4P8P8v8k96ZwpK3TzQLYeNbxrt/m3kIXRw7FYzY11YS6Bv2U+xD5PPyXM27
+qz/Uufy70EV6+MPa0nDX3cy955kOjN2hhpOzl6TaRcUgH35xNf3gBmSXvucwY0On
+wek3WTCgNKOclpVGpKUdjHF6dBNj01WkqA7+fmy6XgL5yTDqiSRP2x4ZC3dkUr6y
+tKw6FdL6oclbix5E8WAj12W2plwOCGkueS8lUu7X2G5LclUJJvQqli9BCGJ93ULo
+X7hX8MITWWZNskl6K9oW
+=x5pR
+-----END PGP SIGNATURE-----
+
+--=-lHjQNpBqXycFjvz0Tr57--
