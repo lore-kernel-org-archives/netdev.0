@@ -1,7 +1,7 @@
 From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net v2 2/9] macsec: take rtnl lock before for_each_netdev
-Date: Fri, 22 Apr 2016 11:28:02 +0200
-Message-ID: <7cbdf80a0b692611d0e0303ebc5f6a7628747413.1461315621.git.sd@queasysnail.net>
+Subject: [PATCH net v2 4/9] macsec: fix rx_sa refcounting with decrypt callback
+Date: Fri, 22 Apr 2016 11:28:04 +0200
+Message-ID: <237ed3772aba308ef012a05d696065332d8ab0d1.1461315621.git.sd@queasysnail.net>
 References: <cover.1461315621.git.sd@queasysnail.net>
 Cc: Lance Richardson <lrichard@redhat.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -10,67 +10,87 @@ Cc: Lance Richardson <lrichard@redhat.com>,
 	Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60098 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49793 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754064AbcDVJ2d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 05:28:33 -0400
+	id S1754132AbcDVJ2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 05:28:37 -0400
 In-Reply-To: <cover.1461315621.git.sd@queasysnail.net>
 In-Reply-To: <cover.1461315621.git.sd@queasysnail.net>
 References: <cover.1461315621.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The decrypt callback macsec_decrypt_done needs a reference on the rx_sa
+and releases it before returning, but macsec_handle_frame already
+put that reference after macsec_decrypt returned NULL.
+
+Set rx_sa to NULL when the decrypt callback runs so that
+macsec_handle_frame knows it must not release the reference.
+
 Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-Reported-by: Johannes Berg <johannes@sipsolutions.net>
 Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/macsec.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/macsec.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index f691030ee3df..5f3ea8026074 100644
+index 2a2136b7d324..1fd2b147fda1 100644
 --- a/drivers/net/macsec.c
 +++ b/drivers/net/macsec.c
-@@ -2268,8 +2268,6 @@ static int dump_secy(struct macsec_secy *secy, struct net_device *dev,
- 	if (!hdr)
- 		return -EMSGSIZE;
+@@ -880,12 +880,12 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	macsec_skb_cb(skb)->valid = false;
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (!skb)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
  
--	rtnl_lock();
--
- 	if (nla_put_u32(skb, MACSEC_ATTR_IFINDEX, dev->ifindex))
- 		goto nla_put_failure;
- 
-@@ -2429,14 +2427,11 @@ static int dump_secy(struct macsec_secy *secy, struct net_device *dev,
- 
- 	nla_nest_end(skb, rxsc_list);
- 
--	rtnl_unlock();
--
- 	genlmsg_end(skb, hdr);
- 
- 	return 0;
- 
- nla_put_failure:
--	rtnl_unlock();
- 	genlmsg_cancel(skb, hdr);
- 	return -EMSGSIZE;
- }
-@@ -2450,6 +2445,7 @@ static int macsec_dump_txsc(struct sk_buff *skb, struct netlink_callback *cb)
- 	dev_idx = cb->args[0];
- 
- 	d = 0;
-+	rtnl_lock();
- 	for_each_netdev(net, dev) {
- 		struct macsec_secy *secy;
- 
-@@ -2467,6 +2463,7 @@ next:
+ 	req = aead_request_alloc(rx_sa->key.tfm, GFP_ATOMIC);
+ 	if (!req) {
+ 		kfree_skb(skb);
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
  	}
  
- done:
-+	rtnl_unlock();
- 	cb->args[0] = d;
- 	return skb->len;
- }
+ 	hdr = (struct macsec_eth_header *)skb->data;
+@@ -905,7 +905,7 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 		skb = skb_unshare(skb, GFP_ATOMIC);
+ 		if (!skb) {
+ 			aead_request_free(req);
+-			return NULL;
++			return ERR_PTR(-ENOMEM);
+ 		}
+ 	} else {
+ 		/* integrity only: all headers + data authenticated */
+@@ -921,14 +921,14 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	dev_hold(dev);
+ 	ret = crypto_aead_decrypt(req);
+ 	if (ret == -EINPROGRESS) {
+-		return NULL;
++		return ERR_PTR(ret);
+ 	} else if (ret != 0) {
+ 		/* decryption/authentication failed
+ 		 * 10.6 if validateFrames is disabled, deliver anyway
+ 		 */
+ 		if (ret != -EBADMSG) {
+ 			kfree_skb(skb);
+-			skb = NULL;
++			skb = ERR_PTR(ret);
+ 		}
+ 	} else {
+ 		macsec_skb_cb(skb)->valid = true;
+@@ -1146,8 +1146,10 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
+ 	    secy->validate_frames != MACSEC_VALIDATE_DISABLED)
+ 		skb = macsec_decrypt(skb, dev, rx_sa, sci, secy);
+ 
+-	if (!skb) {
+-		macsec_rxsa_put(rx_sa);
++	if (IS_ERR(skb)) {
++		/* the decrypt callback needs the reference */
++		if (PTR_ERR(skb) != -EINPROGRESS)
++			macsec_rxsa_put(rx_sa);
+ 		rcu_read_unlock();
+ 		*pskb = NULL;
+ 		return RX_HANDLER_CONSUMED;
 -- 
 2.8.0
