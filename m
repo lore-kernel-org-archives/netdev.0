@@ -1,130 +1,78 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/23] netfilter: x_tables: don't move to non-existent next rule
-Date: Fri, 22 Apr 2016 15:39:32 +0200
-Message-ID: <1461332394-3994-2-git-send-email-pablo@netfilter.org>
-References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45192 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752461AbcDVNkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:40:05 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id EAC3E8443
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:02 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D4AA8FAB4F
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:02 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id BA670A827A
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:00 +0200 (CEST)
-In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Goodbody <andrew.goodbody@cambrionix.com>
+Subject: RE: [PATCH net v2 0/3] drivers: net: cpsw: phy-handle fixes
+Date: Fri, 22 Apr 2016 13:44:14 +0000
+Message-ID: <80ea1660b86143fab7a9805749f06bd2@THHSTE15D2BE2.hs20.net>
+References: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Mugunthan V N" <mugunthanvnm@ti.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	Markus Brunner <systemprogrammierung.brunner@gmail.com>,
+	Nicolas Chauvet <kwizart@gmail.com>
+To: "David Rivshin (Allworx)" <drivshin.allworx@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+> From: David Rivshin <drivshin@allworx.com>
+> 
+> The first patch fixes a bug that makes dual_emac mode break if either slave
+> uses the phy-handle property in the devicetree.
+> 
+> The second patch fixes some cosmetic problems with error messages, and
+> also makes the binding documentation more explicit.
+> 
+> The third patch cleans up the fixed-link case to work like the now-fixed phy-
+> handle case.
+> 
+> I have tested on the following hardware configurations:
+>  - (EVMSK) dual emac, phy_id property in both slaves
+>  - (EVMSK) dual emac, phy-handle property in both slaves
+>  - (BeagleBoneBlack) single emac, phy_id property
+>  - (custom) single emac, fixed-link subnode
+> 
+> Nicolas Chauvet reported testing on an HP t410 (dm8148).
+> 
+> Markus Brunner reported testing v1 on the following [1]:
+>  - emac0 with phy_id and emac1 with fixed phy
+>  - emac0 with phy-handle and emac1 with fixed phy
+>  - emac0 with fixed phy and emac1 with fixed phy
+> 
+> 
+> Changes since v1 [2]:
+> - Rebased
+> - Added Tested-by from Nicolas Chauvet on all patches
+> - Added Acked-by from Rob Herring for the binding change in patch 2 [3]
+> 
+> [1] http://www.spinics.net/lists/netdev/msg357890.html
+> [2] http://www.spinics.net/lists/netdev/msg357772.html
+> [3] http://www.spinics.net/lists/netdev/msg358254.html
+> 
+> David Rivshin (3):
+>   drivers: net: cpsw: fix parsing of phy-handle DT property in dual_emac
+>     config
+>   drivers: net: cpsw: fix error messages when using phy-handle DT
+>     property
+>   drivers: net: cpsw: use of_phy_connect() in fixed-link case
+> 
+>  Documentation/devicetree/bindings/net/cpsw.txt |  4 +--
+>  drivers/net/ethernet/ti/cpsw.c                 | 41 +++++++++++++-------------
+>  drivers/net/ethernet/ti/cpsw.h                 |  1 +
+>  3 files changed, 23 insertions(+), 23 deletions(-)
+> 
+> --
+> 2.5.5
 
-Ben Hawkes says:
+Tested on hardware with 2 PHYs but not dual_emac mode, DT has phy-handle entries.
 
- In the mark_source_chains function (net/ipv4/netfilter/ip_tables.c) it
- is possible for a user-supplied ipt_entry structure to have a large
- next_offset field. This field is not bounds checked prior to writing a
- counter value at the supplied offset.
-
-Base chains enforce absolute verdict.
-
-User defined chains are supposed to end with an unconditional return,
-xtables userspace adds them automatically.
-
-But if such return is missing we will move to non-existent next rule.
-
-Reported-by: Ben Hawkes <hawkes@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/arp_tables.c | 8 +++++---
- net/ipv4/netfilter/ip_tables.c  | 4 ++++
- net/ipv6/netfilter/ip6_tables.c | 4 ++++
- 3 files changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 4133b0f..82a434b 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -439,6 +439,8 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
- 				size = e->next_offset;
- 				e = (struct arpt_entry *)
- 					(entry0 + pos + size);
-+				if (pos + size >= newinfo->size)
-+					return 0;
- 				e->counters.pcnt = pos;
- 				pos += size;
- 			} else {
-@@ -461,6 +463,8 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
-+					if (newpos >= newinfo->size)
-+						return 0;
- 				}
- 				e = (struct arpt_entry *)
- 					(entry0 + newpos);
-@@ -691,10 +695,8 @@ static int translate_table(struct xt_table_info *newinfo, void *entry0,
- 		}
- 	}
- 
--	if (!mark_source_chains(newinfo, repl->valid_hooks, entry0)) {
--		duprintf("Looping hook\n");
-+	if (!mark_source_chains(newinfo, repl->valid_hooks, entry0))
- 		return -ELOOP;
--	}
- 
- 	/* Finally, each sanity check must pass */
- 	i = 0;
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 631c100..e301a3d 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -520,6 +520,8 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 				size = e->next_offset;
- 				e = (struct ipt_entry *)
- 					(entry0 + pos + size);
-+				if (pos + size >= newinfo->size)
-+					return 0;
- 				e->counters.pcnt = pos;
- 				pos += size;
- 			} else {
-@@ -541,6 +543,8 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
-+					if (newpos >= newinfo->size)
-+						return 0;
- 				}
- 				e = (struct ipt_entry *)
- 					(entry0 + newpos);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 86b67b7..7b3335b 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -532,6 +532,8 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 				size = e->next_offset;
- 				e = (struct ip6t_entry *)
- 					(entry0 + pos + size);
-+				if (pos + size >= newinfo->size)
-+					return 0;
- 				e->counters.pcnt = pos;
- 				pos += size;
- 			} else {
-@@ -553,6 +555,8 @@ mark_source_chains(const struct xt_table_info *newinfo,
- 				} else {
- 					/* ... this is a fallthru */
- 					newpos = pos + e->next_offset;
-+					if (newpos >= newinfo->size)
-+						return 0;
- 				}
- 				e = (struct ip6t_entry *)
- 					(entry0 + newpos);
--- 
-2.1.4
+Tested-by: Andrew Goodbody <andrew.goodbody@cambrionix.com>
