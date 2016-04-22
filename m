@@ -1,125 +1,159 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next v2 3/4] qed*: Conditions for changing link
-Date: Fri, 22 Apr 2016 08:41:03 +0300
-Message-ID: <1461303664-15961-4-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1461303664-15961-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Fugang Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+Date: Fri, 22 Apr 2016 05:59:07 +0000
+Message-ID: <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Fabio Estevam <fabio.estevam@nxp.com>,
+	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"gerg@uclinux.org" <gerg@uclinux.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"holgerschurig@gmail.com" <holgerschurig@gmail.com>
+To: Troy Kisky <troy.kisky@boundarydevices.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"lznuaa@gmail.com" <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:54030 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753882AbcDVFlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 01:41:22 -0400
-In-Reply-To: <1461303664-15961-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mail-am1on0072.outbound.protection.outlook.com ([157.56.112.72]:22412
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751696AbcDVF7L convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 01:59:11 -0400
+In-Reply-To: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There's some inconsistency in current logic determining whether the
-link settings of a given interface can be changed; I.e., in all modes
-other than the so-called `deault' mode the interfaces are forbidden from
-changing the configuration - but even this rule is not applied to all
-user APIs that may change the configuration.
+From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday, April 22, 2016 10:01 AM
+> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
+> <fugang.duan@nxp.com>; lznuaa@gmail.com
+> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
+> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
+> kernel@lists.infradead.org; johannes@sipsolutions.net;
+> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
+> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
+> <troy.kisky@boundarydevices.com>
+> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+> 
+> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
+> 
+> This fixes a
+> [   58.420980] ------------[ cut here ]------------
+> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-
+> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
+> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA
+> memory it has not allocated [device address=0x0000000000000000] [size=66
+> bytes]
+> 
+> encountered by Holger
+> 
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> Tested-by: <holgerschurig@gmail.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
+>  1 file changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index 08243c2..b71654c 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16
+> queue_id)
+>  					 fec16_to_cpu(bdp->cbd_datlen),
+>  					 DMA_TO_DEVICE);
+>  		bdp->cbd_bufaddr = cpu_to_fec32(0);
+> -		if (!skb) {
+> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+> -			continue;
+> -		}
+> +		if (!skb)
+> +			goto skb_done;
+> 
+>  		/* Check for errors. */
+>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
+> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+> 
+>  		/* Free the sk buffer associated with this last transmit */
+>  		dev_kfree_skb_any(skb);
+> -
+> +skb_done:
+>  		/* Make sure the update to bdp and tx_skbuff are performed
+>  		 * before dirty_tx
+>  		 */
+> --
+> 2.5.0
 
-Instead, let the core-module [qed] decide whether an interface can change
-the configuration by supporting a new API function. We also revise the
-current rule, allowing all interfaces to change their configurations while
-laying the infrastructure for future modes where an interface would be
-blocked from making such a configuration.
+The patch is fine for me.
+Can you review below patch that also fix the issue. It can take much effort due to less rmb() and READ_ONCE() operation that is very sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  6 ++++++
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 14 ++++++++++----
- include/linux/qed/qed_if.h                      | 10 ++++++++++
- 3 files changed, 26 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 1e9f321..d189871 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -915,6 +915,11 @@ static u32 qed_sb_release(struct qed_dev *cdev,
- 	return rc;
- }
- 
-+static bool qed_can_link_change(struct qed_dev *cdev)
-+{
-+	return true;
-+}
-+
- static int qed_set_link(struct qed_dev *cdev,
- 			struct qed_link_params *params)
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1160,12 +1160,13 @@ static void
+ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
  {
-@@ -1177,6 +1182,7 @@ const struct qed_common_ops qed_common_ops_pass = {
- 	.sb_release = &qed_sb_release,
- 	.simd_handler_config = &qed_simd_handler_config,
- 	.simd_handler_clean = &qed_simd_handler_clean,
-+	.can_link_change = &qed_can_link_change,
- 	.set_link = &qed_set_link,
- 	.get_link = &qed_get_current_link,
- 	.drain = &qed_drain,
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 2ac98d4..f1dd25a 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -239,9 +239,9 @@ static int qede_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	struct qed_link_params params;
- 	u32 speed;
- 
--	if (!edev->dev_info.common.is_mf_default) {
-+	if (!edev->ops || !edev->ops->common->can_link_change(edev->cdev)) {
- 		DP_INFO(edev,
--			"Link parameters can not be changed in non-default mode\n");
-+			"Link settings are not allowed to be changed\n");
- 		return -EOPNOTSUPP;
- 	}
- 
-@@ -350,6 +350,12 @@ static int qede_nway_reset(struct net_device *dev)
- 	struct qed_link_output current_link;
- 	struct qed_link_params link_params;
- 
-+	if (!edev->ops || !edev->ops->common->can_link_change(edev->cdev)) {
-+		DP_INFO(edev,
-+			"Link settings are not allowed to be changed\n");
-+		return -EOPNOTSUPP;
-+	}
+        struct  fec_enet_private *fep;
+-       struct bufdesc *bdp;
++       struct bufdesc *bdp, *bdp_t;
+        unsigned short status;
+        struct  sk_buff *skb;
+        struct fec_enet_priv_tx_q *txq;
+        struct netdev_queue *nq;
+        int     index = 0;
++       int     i, bdnum;
+        int     entries_free;
+
+        fep = netdev_priv(ndev);
+@@ -1187,20 +1188,28 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+                if (status & BD_ENET_TX_READY)
+                        break;
+
+-               index = fec_enet_get_bd_index(bdp, &txq->bd);
+-
++               bdp_t = bdp;
++               bdnum = 1;
++               index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
+                skb = txq->tx_skbuff[index];
+-               txq->tx_skbuff[index] = NULL;
+-               if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
+-                       dma_unmap_single(&fep->pdev->dev,
+-                                        fec32_to_cpu(bdp->cbd_bufaddr),
+-                                        fec16_to_cpu(bdp->cbd_datlen),
+-                                        DMA_TO_DEVICE);
+-               bdp->cbd_bufaddr = cpu_to_fec32(0);
+-               if (!skb) {
+-                       bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+-                       continue;
++               while (!skb) {
++                       bdp_t = fec_enet_get_nextdesc(bdp_t, &txq->bd);
++                       index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
++                       skb = txq->tx_skbuff[index];
++                       bdnum++;
++               }
++               status = fec16_to_cpu(READ_ONCE(bdp->cbd_sc));
++               if (status & BD_ENET_TX_READY)
++                       break;
 +
- 	if (!netif_running(dev))
- 		return 0;
- 
-@@ -450,9 +456,9 @@ static int qede_set_pauseparam(struct net_device *dev,
- 	struct qed_link_params params;
- 	struct qed_link_output current_link;
- 
--	if (!edev->dev_info.common.is_mf_default) {
-+	if (!edev->ops || !edev->ops->common->can_link_change(edev->cdev)) {
- 		DP_INFO(edev,
--			"Pause parameters can not be updated in non-default mode\n");
-+			"Pause settings are not allowed to be changed\n");
- 		return -EOPNOTSUPP;
- 	}
- 
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 82a7fe0..e5de42b 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -211,6 +211,16 @@ struct qed_common_ops {
- 
- 	void		(*simd_handler_clean)(struct qed_dev *cdev,
- 					      int index);
-+
-+/**
-+ * @brief can_link_change - can the instance change the link or not
-+ *
-+ * @param cdev
-+ *
-+ * @return true if link-change is allowed, false otherwise.
-+ */
-+	bool (*can_link_change)(struct qed_dev *cdev);
-+
- /**
-  * @brief set_link - set links according to params
-  *
--- 
-1.9.3
++               for (i = 0; i < bdnum; i++) {
++                       if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
++                               dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
++                                                bdp->cbd_datlen, DMA_TO_DEVICE);
++                       bdp->cbd_bufaddr = 0;
++                       if (i < bdnum - 1)
++                               bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+                }
++               txq->tx_skbuff[index] = NULL;
+
+
+Regards,
+Andy
