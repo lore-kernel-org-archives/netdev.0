@@ -1,159 +1,74 @@
-From: Fugang Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
-Date: Fri, 22 Apr 2016 05:59:07 +0000
-Message-ID: <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
-References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: [v8, 0/7] Fix eSDHC host version register bug
+Date: Fri, 22 Apr 2016 14:27:37 +0800
+Message-ID: <1461306464-19521-1-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"holgerschurig@gmail.com" <holgerschurig@gmail.com>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"lznuaa@gmail.com" <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0072.outbound.protection.outlook.com ([157.56.112.72]:22412
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751696AbcDVF7L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 01:59:11 -0400
-In-Reply-To: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, Zhao Qiang <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Jochen Friedrich <jochen-NIgtFMG+Po8@public.gmane.org>, scott.wood-3arQi8VN3Tc@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Kumar
+	Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, leoyang.li-3arQi8VN3Tc@public.gmane.org, xiaobo.xie-3arQi8VN3Tc@public.gmane.org
+To: <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday, April 22, 2016 10:01 AM
-> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
-> <fugang.duan@nxp.com>; lznuaa@gmail.com
-> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
-> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
-> kernel@lists.infradead.org; johannes@sipsolutions.net;
-> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
-> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
-> <troy.kisky@boundarydevices.com>
-> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
-> 
-> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
-> 
-> This fixes a
-> [   58.420980] ------------[ cut here ]------------
-> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-
-> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
-> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA
-> memory it has not allocated [device address=0x0000000000000000] [size=66
-> bytes]
-> 
-> encountered by Holger
-> 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> Tested-by: <holgerschurig@gmail.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> b/drivers/net/ethernet/freescale/fec_main.c
-> index 08243c2..b71654c 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16
-> queue_id)
->  					 fec16_to_cpu(bdp->cbd_datlen),
->  					 DMA_TO_DEVICE);
->  		bdp->cbd_bufaddr = cpu_to_fec32(0);
-> -		if (!skb) {
-> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-> -			continue;
-> -		}
-> +		if (!skb)
-> +			goto skb_done;
-> 
->  		/* Check for errors. */
->  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
-> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
-> 
->  		/* Free the sk buffer associated with this last transmit */
->  		dev_kfree_skb_any(skb);
-> -
-> +skb_done:
->  		/* Make sure the update to bdp and tx_skbuff are performed
->  		 * before dirty_tx
->  		 */
-> --
-> 2.5.0
+This patchset is used to fix a host version register bug in the T4240-R1.0-R2.0
+eSDHC controller. To get the SoC version and revision, it's needed to add the
+GUTS driver to access the global utilities registers.
 
-The patch is fine for me.
-Can you review below patch that also fix the issue. It can take much effort due to less rmb() and READ_ONCE() operation that is very sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
+So, the first four patches are to add the GUTS driver.
+The following patches except the updating MAINTAINERS patch are to enable
+GUTS driver support to get SVR in eSDHC driver and fix host version for T4240.
 
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1160,12 +1160,13 @@ static void
- fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
- {
-        struct  fec_enet_private *fep;
--       struct bufdesc *bdp;
-+       struct bufdesc *bdp, *bdp_t;
-        unsigned short status;
-        struct  sk_buff *skb;
-        struct fec_enet_priv_tx_q *txq;
-        struct netdev_queue *nq;
-        int     index = 0;
-+       int     i, bdnum;
-        int     entries_free;
+Yangbo Lu (7):
+  Documentation: DT: update Freescale DCFG compatible
+  ARM64: dts: ls2080a: add device configuration node
+  soc: fsl: add GUTS driver for QorIQ platforms
+  dt: move guts devicetree doc out of powerpc directory
+  powerpc/fsl: move mpc85xx.h to include/linux/fsl
+  MAINTAINERS: add entry for Freescale SoC specific driver
+  mmc: sdhci-of-esdhc: fix host version for T4240-R1.0-R2.0
 
-        fep = netdev_priv(ndev);
-@@ -1187,20 +1188,28 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
-                if (status & BD_ENET_TX_READY)
-                        break;
+ Documentation/devicetree/bindings/arm/fsl.txt      |   2 +-
+ .../bindings/{powerpc => soc}/fsl/guts.txt         |   3 +
+ MAINTAINERS                                        |  16 ++-
+ arch/arm64/boot/dts/freescale/fsl-ls2080a.dtsi     |   6 +
+ arch/powerpc/kernel/cpu_setup_fsl_booke.S          |   2 +-
+ drivers/clk/clk-qoriq.c                            |   3 +-
+ drivers/i2c/busses/i2c-mpc.c                       |   2 +-
+ drivers/iommu/fsl_pamu.c                           |   3 +-
+ drivers/mmc/host/Kconfig                           |   1 +
+ drivers/mmc/host/sdhci-of-esdhc.c                  |  23 ++++
+ drivers/net/ethernet/freescale/gianfar.c           |   2 +-
+ drivers/soc/Kconfig                                |   2 +-
+ drivers/soc/fsl/Kconfig                            |   8 ++
+ drivers/soc/fsl/Makefile                           |   1 +
+ drivers/soc/fsl/guts.c                             | 119 +++++++++++++++++++
+ include/linux/fsl/guts.h                           | 126 +++++++++++++--------
+ .../asm/mpc85xx.h => include/linux/fsl/svr.h       |   4 +-
+ 17 files changed, 263 insertions(+), 60 deletions(-)
+ rename Documentation/devicetree/bindings/{powerpc => soc}/fsl/guts.txt (91%)
+ create mode 100644 drivers/soc/fsl/Kconfig
+ create mode 100644 drivers/soc/fsl/guts.c
+ rename arch/powerpc/include/asm/mpc85xx.h => include/linux/fsl/svr.h (97%)
 
--               index = fec_enet_get_bd_index(bdp, &txq->bd);
--
-+               bdp_t = bdp;
-+               bdnum = 1;
-+               index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
-                skb = txq->tx_skbuff[index];
--               txq->tx_skbuff[index] = NULL;
--               if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
--                       dma_unmap_single(&fep->pdev->dev,
--                                        fec32_to_cpu(bdp->cbd_bufaddr),
--                                        fec16_to_cpu(bdp->cbd_datlen),
--                                        DMA_TO_DEVICE);
--               bdp->cbd_bufaddr = cpu_to_fec32(0);
--               if (!skb) {
--                       bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
--                       continue;
-+               while (!skb) {
-+                       bdp_t = fec_enet_get_nextdesc(bdp_t, &txq->bd);
-+                       index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
-+                       skb = txq->tx_skbuff[index];
-+                       bdnum++;
-+               }
-+               status = fec16_to_cpu(READ_ONCE(bdp->cbd_sc));
-+               if (status & BD_ENET_TX_READY)
-+                       break;
-+
-+               for (i = 0; i < bdnum; i++) {
-+                       if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
-+                               dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
-+                                                bdp->cbd_datlen, DMA_TO_DEVICE);
-+                       bdp->cbd_bufaddr = 0;
-+                       if (i < bdnum - 1)
-+                               bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-                }
-+               txq->tx_skbuff[index] = NULL;
-
-
-Regards,
-Andy
+-- 
+2.1.0.27.g96db324
