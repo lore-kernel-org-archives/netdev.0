@@ -1,151 +1,211 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/23] netfilter: x_tables: validate all offsets and sizes in a rule
-Date: Fri, 22 Apr 2016 15:39:40 +0200
-Message-ID: <1461332394-3994-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/23] netfilter: ip_tables: simplify translate_compat_table args
+Date: Fri, 22 Apr 2016 15:39:41 +0200
+Message-ID: <1461332394-3994-11-git-send-email-pablo@netfilter.org>
 References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:45231 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753719AbcDVNkP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 09:40:15 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 04E774B100
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:13 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id E4374EBADB
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:12 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 326E5FAB53
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:10 +0200 (CEST)
 In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
-
-Validate that all matches (if any) add up to the beginning of
-the target and that each match covers at least the base structure size.
-
-The compat path should be able to safely re-use the function
-as the structures only differ in alignment; added a
-BUILD_BUG_ON just in case we have an arch that adds padding as well.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/x_tables.c | 81 +++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 76 insertions(+), 5 deletions(-)
+ net/ipv4/netfilter/ip_tables.c | 59 +++++++++++++++++-------------------------
+ 1 file changed, 24 insertions(+), 35 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index e2a6f2a..f9aa971 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -416,6 +416,47 @@ int xt_check_match(struct xt_mtchk_param *par,
- }
- EXPORT_SYMBOL_GPL(xt_check_match);
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index baab033d..d7041860 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1449,7 +1449,6 @@ compat_copy_entry_to_user(struct ipt_entry *e, void __user **dstptr,
  
-+/** xt_check_entry_match - check that matches end before start of target
-+ *
-+ * @match: beginning of xt_entry_match
-+ * @target: beginning of this rules target (alleged end of matches)
-+ * @alignment: alignment requirement of match structures
-+ *
-+ * Validates that all matches add up to the beginning of the target,
-+ * and that each match covers at least the base structure size.
-+ *
-+ * Return: 0 on success, negative errno on failure.
-+ */
-+static int xt_check_entry_match(const char *match, const char *target,
-+				const size_t alignment)
-+{
-+	const struct xt_entry_match *pos;
-+	int length = target - match;
-+
-+	if (length == 0) /* no matches */
-+		return 0;
-+
-+	pos = (struct xt_entry_match *)match;
-+	do {
-+		if ((unsigned long)pos % alignment)
-+			return -EINVAL;
-+
-+		if (length < (int)sizeof(struct xt_entry_match))
-+			return -EINVAL;
-+
-+		if (pos->u.match_size < sizeof(struct xt_entry_match))
-+			return -EINVAL;
-+
-+		if (pos->u.match_size > length)
-+			return -EINVAL;
-+
-+		length -= pos->u.match_size;
-+		pos = ((void *)((char *)(pos) + (pos)->u.match_size));
-+	} while (length > 0);
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_COMPAT
- int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta)
+ static int
+ compat_find_calc_match(struct xt_entry_match *m,
+-		       const char *name,
+ 		       const struct ipt_ip *ip,
+ 		       int *size)
  {
-@@ -571,7 +612,14 @@ int xt_compat_check_entry_offsets(const void *base, const char *elems,
- 	    target_offset + sizeof(struct compat_xt_standard_target) != next_offset)
- 		return -EINVAL;
+@@ -1486,8 +1485,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
+ 				  const unsigned char *base,
+ 				  const unsigned char *limit,
+ 				  const unsigned int *hook_entries,
+-				  const unsigned int *underflows,
+-				  const char *name)
++				  const unsigned int *underflows)
+ {
+ 	struct xt_entry_match *ematch;
+ 	struct xt_entry_target *t;
+@@ -1523,7 +1521,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
+ 	entry_offset = (void *)e - (void *)base;
+ 	j = 0;
+ 	xt_ematch_foreach(ematch, e) {
+-		ret = compat_find_calc_match(ematch, name, &e->ip, &off);
++		ret = compat_find_calc_match(ematch, &e->ip, &off);
+ 		if (ret != 0)
+ 			goto release_matches;
+ 		++j;
+@@ -1572,7 +1570,7 @@ release_matches:
  
--	return 0;
-+	/* compat_xt_entry match has less strict aligment requirements,
-+	 * otherwise they are identical.  In case of padding differences
-+	 * we need to add compat version of xt_check_entry_match.
-+	 */
-+	BUILD_BUG_ON(sizeof(struct compat_xt_entry_match) != sizeof(struct xt_entry_match));
-+
-+	return xt_check_entry_match(elems, base + target_offset,
-+				    __alignof__(struct compat_xt_entry_match));
- }
- EXPORT_SYMBOL(xt_compat_check_entry_offsets);
- #endif /* CONFIG_COMPAT */
-@@ -584,17 +632,39 @@ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
-  * @target_offset: the arp/ip/ip6_t->target_offset
-  * @next_offset: the arp/ip/ip6_t->next_offset
-  *
-- * validates that target_offset and next_offset are sane.
-- * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
-+ * validates that target_offset and next_offset are sane and that all
-+ * match sizes (if any) align with the target offset.
-  *
-  * This function does not validate the targets or matches themselves, it
-- * only tests that all the offsets and sizes are correct.
-+ * only tests that all the offsets and sizes are correct, that all
-+ * match structures are aligned, and that the last structure ends where
-+ * the target structure begins.
-+ *
-+ * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
-  *
-  * The arp/ip/ip6t_entry structure @base must have passed following tests:
-  * - it must point to a valid memory location
-  * - base to base + next_offset must be accessible, i.e. not exceed allocated
-  *   length.
-  *
-+ * A well-formed entry looks like this:
-+ *
-+ * ip(6)t_entry   match [mtdata]  match [mtdata] target [tgdata] ip(6)t_entry
-+ * e->elems[]-----'                              |               |
-+ *                matchsize                      |               |
-+ *                                matchsize      |               |
-+ *                                               |               |
-+ * target_offset---------------------------------'               |
-+ * next_offset---------------------------------------------------'
-+ *
-+ * elems[]: flexible array member at end of ip(6)/arpt_entry struct.
-+ *          This is where matches (if any) and the target reside.
-+ * target_offset: beginning of target.
-+ * next_offset: start of the next rule; also: size of this rule.
-+ * Since targets have a minimum size, target_offset + minlen <= next_offset.
-+ *
-+ * Every match stores its size, sum of sizes must not exceed target_offset.
-+ *
-  * Return: 0 on success, negative errno on failure.
-  */
- int xt_check_entry_offsets(const void *base,
-@@ -624,7 +694,8 @@ int xt_check_entry_offsets(const void *base,
- 	    target_offset + sizeof(struct xt_standard_target) != next_offset)
- 		return -EINVAL;
+ static int
+ compat_copy_entry_from_user(struct compat_ipt_entry *e, void **dstptr,
+-			    unsigned int *size, const char *name,
++			    unsigned int *size,
+ 			    struct xt_table_info *newinfo, unsigned char *base)
+ {
+ 	struct xt_entry_target *t;
+@@ -1655,14 +1653,9 @@ compat_check_entry(struct ipt_entry *e, struct net *net, const char *name)
  
--	return 0;
-+	return xt_check_entry_match(elems, base + target_offset,
-+				    __alignof__(struct xt_entry_match));
- }
- EXPORT_SYMBOL(xt_check_entry_offsets);
+ static int
+ translate_compat_table(struct net *net,
+-		       const char *name,
+-		       unsigned int valid_hooks,
+ 		       struct xt_table_info **pinfo,
+ 		       void **pentry0,
+-		       unsigned int total_size,
+-		       unsigned int number,
+-		       unsigned int *hook_entries,
+-		       unsigned int *underflows)
++		       const struct compat_ipt_replace *compatr)
+ {
+ 	unsigned int i, j;
+ 	struct xt_table_info *newinfo, *info;
+@@ -1674,8 +1667,8 @@ translate_compat_table(struct net *net,
+ 
+ 	info = *pinfo;
+ 	entry0 = *pentry0;
+-	size = total_size;
+-	info->number = number;
++	size = compatr->size;
++	info->number = compatr->num_entries;
+ 
+ 	/* Init all hooks to impossible value. */
+ 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
+@@ -1686,40 +1679,39 @@ translate_compat_table(struct net *net,
+ 	duprintf("translate_compat_table: size %u\n", info->size);
+ 	j = 0;
+ 	xt_compat_lock(AF_INET);
+-	xt_compat_init_offsets(AF_INET, number);
++	xt_compat_init_offsets(AF_INET, compatr->num_entries);
+ 	/* Walk through entries, checking offsets. */
+-	xt_entry_foreach(iter0, entry0, total_size) {
++	xt_entry_foreach(iter0, entry0, compatr->size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+ 							entry0,
+-							entry0 + total_size,
+-							hook_entries,
+-							underflows,
+-							name);
++							entry0 + compatr->size,
++							compatr->hook_entry,
++							compatr->underflow);
+ 		if (ret != 0)
+ 			goto out_unlock;
+ 		++j;
+ 	}
+ 
+ 	ret = -EINVAL;
+-	if (j != number) {
++	if (j != compatr->num_entries) {
+ 		duprintf("translate_compat_table: %u not %u entries\n",
+-			 j, number);
++			 j, compatr->num_entries);
+ 		goto out_unlock;
+ 	}
+ 
+ 	/* Check hooks all assigned */
+ 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
+ 		/* Only hooks which are valid */
+-		if (!(valid_hooks & (1 << i)))
++		if (!(compatr->valid_hooks & (1 << i)))
+ 			continue;
+ 		if (info->hook_entry[i] == 0xFFFFFFFF) {
+ 			duprintf("Invalid hook entry %u %u\n",
+-				 i, hook_entries[i]);
++				 i, info->hook_entry[i]);
+ 			goto out_unlock;
+ 		}
+ 		if (info->underflow[i] == 0xFFFFFFFF) {
+ 			duprintf("Invalid underflow %u %u\n",
+-				 i, underflows[i]);
++				 i, info->underflow[i]);
+ 			goto out_unlock;
+ 		}
+ 	}
+@@ -1729,17 +1721,17 @@ translate_compat_table(struct net *net,
+ 	if (!newinfo)
+ 		goto out_unlock;
+ 
+-	newinfo->number = number;
++	newinfo->number = compatr->num_entries;
+ 	for (i = 0; i < NF_INET_NUMHOOKS; i++) {
+ 		newinfo->hook_entry[i] = info->hook_entry[i];
+ 		newinfo->underflow[i] = info->underflow[i];
+ 	}
+ 	entry1 = newinfo->entries;
+ 	pos = entry1;
+-	size = total_size;
+-	xt_entry_foreach(iter0, entry0, total_size) {
++	size = compatr->size;
++	xt_entry_foreach(iter0, entry0, compatr->size) {
+ 		ret = compat_copy_entry_from_user(iter0, &pos, &size,
+-						  name, newinfo, entry1);
++						  newinfo, entry1);
+ 		if (ret != 0)
+ 			break;
+ 	}
+@@ -1749,12 +1741,12 @@ translate_compat_table(struct net *net,
+ 		goto free_newinfo;
+ 
+ 	ret = -ELOOP;
+-	if (!mark_source_chains(newinfo, valid_hooks, entry1))
++	if (!mark_source_chains(newinfo, compatr->valid_hooks, entry1))
+ 		goto free_newinfo;
+ 
+ 	i = 0;
+ 	xt_entry_foreach(iter1, entry1, newinfo->size) {
+-		ret = compat_check_entry(iter1, net, name);
++		ret = compat_check_entry(iter1, net, compatr->name);
+ 		if (ret != 0)
+ 			break;
+ 		++i;
+@@ -1794,7 +1786,7 @@ translate_compat_table(struct net *net,
+ free_newinfo:
+ 	xt_free_table_info(newinfo);
+ out:
+-	xt_entry_foreach(iter0, entry0, total_size) {
++	xt_entry_foreach(iter0, entry0, compatr->size) {
+ 		if (j-- == 0)
+ 			break;
+ 		compat_release_entry(iter0);
+@@ -1839,10 +1831,7 @@ compat_do_replace(struct net *net, void __user *user, unsigned int len)
+ 		goto free_newinfo;
+ 	}
+ 
+-	ret = translate_compat_table(net, tmp.name, tmp.valid_hooks,
+-				     &newinfo, &loc_cpu_entry, tmp.size,
+-				     tmp.num_entries, tmp.hook_entry,
+-				     tmp.underflow);
++	ret = translate_compat_table(net, &newinfo, &loc_cpu_entry, &tmp);
+ 	if (ret != 0)
+ 		goto free_newinfo;
  
 -- 
 2.1.4
-
