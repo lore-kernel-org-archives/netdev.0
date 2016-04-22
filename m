@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 04/10] net: hns: add attribute reset-field-offset for dsaf node
-Date: Fri, 22 Apr 2016 15:20:13 +0800
-Message-ID: <1461309619-167621-5-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 03/10] net: hns: add attribute port-idx-in-ae in enet node.
+Date: Fri, 22 Apr 2016 15:20:12 +0800
+Message-ID: <1461309619-167621-4-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461309619-167621-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,178 +17,223 @@ In-Reply-To: <1461309619-167621-1-git-send-email-Yisen.Zhuang-hv44wF8Li93QT0dZR+
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add the subctrl reset offset for dsaf, this property is used to reset
-xge/ge ports for different dsaf. If this attribute is not present,
-default value 0 will be used.
+This patch parses port-idx-in-ae in enet node. In NIC mode of DSAF, all 6
+PHYs of service DSAF are taken as ethernet ports to the CPU. The
+port-idx-in-ae can be 0 to 5. Here is the diagram:
+            +-----+---------------+
+            |            CPU      |
+            +-+-+-+---+-+-+-+-+-+-+
+              |    |   | | | | | |
+           debug debug   service
+           port  port     port
+           (0)   (0)     (0-5)
+
+In Switch mode of DSAF, all 6 PHYs of service DSAF are taken as physical
+ports connected to a LAN Switch while the CPU side assume itself have one
+single NIC connected to this switch. In this case, the port-idx-in-ae will
+be 0 only.
+            +-----+-----+------+------+
+            |                CPU      |
+            +-+-+-+-+-+-+-+-+-+-+-+-+-+
+              |    |     service| port(0)
+            debug debug  +------------+
+            port  port   |   switch   |
+            (0)   (0)    +-+-+-+-+-+-++
+                          | | | | | |
+                         external port
+
+when port-idx-in-ae does not exist, old attribute port-id will be used
+(only for compatible purpose, not recommended to use port-id in new code).
 
 Signed-off-by: Daode Huang <huangdaode-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
 Signed-off-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
- .../devicetree/bindings/net/hisilicon-hns-dsaf.txt |  2 ++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  8 +++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 40 +++++++++++++++-------
- 4 files changed, 39 insertions(+), 12 deletions(-)
+ .../devicetree/bindings/net/hisilicon-hns-nic.txt  | 30 +++++++++++++++++++-
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  | 33 ++++------------------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  1 -
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      | 17 ++++++++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.h      |  3 ++
+ 5 files changed, 51 insertions(+), 33 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-index ecacfa4..291b3d8 100644
---- a/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-+++ b/Documentation/devicetree/bindings/net/hisilicon-hns-dsaf.txt
-@@ -17,6 +17,8 @@ Required properties:
-   The fourth region is dsa fabric base register and size.
-   The fifth region is cpld base register and size, it is not required if do not use cpld.
- - phy-handle: phy handle of physicl port, 0 if not any phy device. see ethernet.txt [1].
-+- reset-field-offset: is offset of reset field. Its value depends on the hardware
-+  user manual.
- - buf-size: rx buffer size, should be 16-1024.
- - desc-num: number of description in TX and RX queue, should be 512, 1024, 2048 or 4096.
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+index e6a9d1c..b9ff4ba 100644
+--- a/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
++++ b/Documentation/devicetree/bindings/net/hisilicon-hns-nic.txt
+@@ -36,6 +36,34 @@ Required properties:
+                        | | | | | |
+                       external port
  
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 7692853..b418d42 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -36,6 +36,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	int ret, i;
- 	u32 desc_num;
- 	u32 buf_size;
-+	u32 reset_offset = 0;
- 	const char *mode_str;
- 	struct device_node *np = dsaf_dev->dev->of_node;
- 
-@@ -119,6 +120,13 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	}
- 	dsaf_dev->desc_num = desc_num;
- 
-+	ret = of_property_read_u32(np, "reset-field-offset", &reset_offset);
-+	if (ret < 0) {
-+		dev_dbg(dsaf_dev->dev,
-+			"get reset-field-offset fail, ret=%d!\r\n", ret);
-+	}
-+	dsaf_dev->reset_offset = reset_offset;
++  This attribute is remained for compatible purpose. It is not recommended to
++  use it in new code.
 +
- 	ret = of_property_read_u32(np, "buf-size", &buf_size);
- 	if (ret < 0) {
- 		dev_err(dsaf_dev->dev,
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index a783019..47e768b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -281,6 +281,7 @@ struct dsaf_device {
- 
- 	u32 desc_num; /*  desc num per queue*/
- 	u32 buf_size; /*  ring buffer size */
-+	u32 reset_offset; /* reset field offset in sub sysctrl */
- 	int buf_size_type; /* ring buffer size-type */
- 	enum dsaf_mode dsaf_mode;	 /* dsaf mode  */
- 	enum hal_dsaf_mode dsaf_en;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 8cb13d9..91e0382 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -110,7 +110,11 @@ void hns_dsaf_xge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 		return;
- 
- 	reg_val |= RESET_REQ_OR_DREQ;
--	reg_val |= 0x2082082 << port;
++- port-idx-in-ae: is the index of port provided by AE.
++  In NIC mode of DSAF, all 6 PHYs of service DSAF are taken as ethernet ports
++  to the CPU. The port-idx-in-ae can be 0 to 5. Here is the diagram:
++            +-----+---------------+
++            |            CPU      |
++            +-+-+-+---+-+-+-+-+-+-+
++              |    |   | | | | | |
++           debug debug   service
++           port  port     port
++           (0)   (0)     (0-5)
 +
-+	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
-+		reg_val |= 0x2082082 << port;
-+	else
-+		reg_val |= 0x2082082 << (dsaf_dev->reset_offset + 6);
++  In Switch mode of DSAF, all 6 PHYs of service DSAF are taken as physical
++  ports connected to a LAN Switch while the CPU side assume itself have one
++  single NIC connected to this switch. In this case, the port-idx-in-ae
++  will be 0 only.
++            +-----+-----+------+------+
++            |                CPU      |
++            +-+-+-+-+-+-+-+-+-+-+-+-+-+
++              |    |     service| port(0)
++            debug debug  +------------+
++            port  port   |   switch   |
++            (0)   (0)    +-+-+-+-+-+-++
++                          | | | | | |
++                         external port
++
+ - local-mac-address: mac addr of the ethernet interface
  
- 	if (val == 0)
- 		reg_addr = DSAF_SUB_SC_XGE_RESET_REQ_REG;
-@@ -129,7 +133,11 @@ void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	if (port >= DSAF_XGE_NUM)
- 		return;
+ Example:
+@@ -43,6 +71,6 @@ Example:
+ 	ethernet@0{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <0>;
++		port-idx-in-ae = <0>;
+ 		local-mac-address = [a2 14 e4 4b 56 76];
+ 	};
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 1e8bf22..1c86336 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -29,25 +29,6 @@ static struct hns_mac_cb *hns_get_mac_cb(struct hnae_handle *handle)
+ 	return vf_cb->mac_cb;
+ }
  
--	reg_val |= XGMAC_TRX_CORE_SRST_M << port;
-+	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
-+		reg_val |= XGMAC_TRX_CORE_SRST_M << port;
-+	else
-+		reg_val |= XGMAC_TRX_CORE_SRST_M <<
-+			(dsaf_dev->reset_offset + 6);
- 
- 	if (val == 0)
- 		reg_addr = DSAF_SUB_SC_XGE_RESET_REQ_REG;
-@@ -173,8 +181,8 @@ void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 				       reg_val_1);
- 		}
- 	} else {
--		reg_val_1 = 0x15540 << (port - 6);
--		reg_val_2 = 0x100 << (port - 6);
-+		reg_val_1 = 0x15540 << dsaf_dev->reset_offset;
-+		reg_val_2 = 0x100 << dsaf_dev->reset_offset;
- 
- 		if (val == 0) {
- 			dsaf_write_reg(dsaf_dev->sc_base,
-@@ -201,7 +209,11 @@ void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 	u32 reg_val = 0;
- 	u32 reg_addr;
- 
--	reg_val |= RESET_REQ_OR_DREQ << port;
-+	if (!HNS_DSAF_IS_DEBUG(dsaf_dev))
-+		reg_val |= RESET_REQ_OR_DREQ << port;
-+	else
-+		reg_val |= RESET_REQ_OR_DREQ <<
-+			(dsaf_dev->reset_offset + 6);
- 
- 	if (val == 0)
- 		reg_addr = DSAF_SUB_SC_PPE_RESET_REQ_REG;
-@@ -213,7 +225,6 @@ void hns_ppe_srst_by_port(struct dsaf_device *dsaf_dev, u32 port, u32 val)
- 
- void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
+-/**
+- * hns_ae_map_eport_to_dport - translate enet port id to dsaf port id
+- * @port_id: enet port id
+- *: debug port 0-1, service port 2 -7 (dsaf mode only 2)
+- * return: dsaf port id
+- *: service ports 0 - 5, debug port 6-7
+- **/
+-static int hns_ae_map_eport_to_dport(u32 port_id)
+-{
+-	int port_index;
+-
+-	if (port_id < DSAF_DEBUG_NW_NUM)
+-		port_index = port_id + DSAF_SERVICE_PORT_NUM_PER_DSAF;
+-	else
+-		port_index = port_id - DSAF_DEBUG_NW_NUM;
+-
+-	return port_index;
+-}
+-
+ static struct dsaf_device *hns_ae_get_dsaf_dev(struct hnae_ae_dev *dev)
  {
--	int comm_index = ppe_common->comm_index;
- 	struct dsaf_device *dsaf_dev = ppe_common->dsaf_dev;
- 	u32 reg_val;
- 	u32 reg_addr;
-@@ -226,7 +237,7 @@ void hns_ppe_com_srst(struct ppe_common_cb *ppe_common, u32 val)
- 			reg_addr = DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG;
+ 	return container_of(dev, struct dsaf_device, ae_dev);
+@@ -110,7 +91,6 @@ static struct ring_pair_cb *hns_ae_get_ring_pair(struct hnae_queue *q)
+ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 				      u32 port_id)
+ {
+-	int port_idx;
+ 	int vfnum_per_port;
+ 	int qnum_per_vf;
+ 	int i;
+@@ -120,11 +100,10 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	struct hnae_vf_cb *vf_cb;
  
- 	} else {
--		reg_val = 0x100 << (comm_index - 1);
-+		reg_val = 0x100 << dsaf_dev->reset_offset;
+ 	dsaf_dev = hns_ae_get_dsaf_dev(dev);
+-	port_idx = hns_ae_map_eport_to_dport(port_id);
  
- 		if (val == 0)
- 			reg_addr = DSAF_SUB_SC_PPE_RESET_REQ_REG;
-@@ -247,14 +258,16 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 	u32 mode;
- 	u32 reg;
- 	u32 shift;
-+	u32 phy_offset;
- 	bool is_ver1 = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver);
- 	void __iomem *sys_ctl_vaddr = mac_cb->sys_ctl_vaddr;
- 	int mac_id = mac_cb->mac_id;
- 	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
+-	ring_pair_cb = hns_ae_get_base_ring_pair(dsaf_dev, port_idx);
+-	vfnum_per_port = hns_ae_get_vf_num_per_port(dsaf_dev, port_idx);
+-	qnum_per_vf = hns_ae_get_q_num_per_vf(dsaf_dev, port_idx);
++	ring_pair_cb = hns_ae_get_base_ring_pair(dsaf_dev, port_id);
++	vfnum_per_port = hns_ae_get_vf_num_per_port(dsaf_dev, port_id);
++	qnum_per_vf = hns_ae_get_q_num_per_vf(dsaf_dev, port_id);
  
--	if (is_ver1 && (mac_id >= 6 && mac_id <= 7)) {
-+	if (is_ver1 && HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
- 		phy_if = PHY_INTERFACE_MODE_SGMII;
--	} else if (mac_id >= 0 && mac_id <= 3) {
-+	} else if (mac_id >= 0 && mac_id <= 3 &&
-+		   !HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
- 		reg = is_ver1 ? HNS_MAC_HILINK4_REG : HNS_MAC_HILINK4V2_REG;
- 		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
- 		/* mac_id 0, 1, 2, 3 ---> hilink4 lane 0, 1, 2, 3 */
-@@ -263,11 +276,14 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
- 			phy_if = PHY_INTERFACE_MODE_XGMII;
- 		else
- 			phy_if = PHY_INTERFACE_MODE_SGMII;
--	} else if (mac_id >= 4 && mac_id <= 7) {
-+	} else {
- 		reg = is_ver1 ? HNS_MAC_HILINK3_REG : HNS_MAC_HILINK3V2_REG;
- 		mode = dsaf_read_reg(sys_ctl_vaddr, reg);
--		/* mac_id 4, 5, 6, 7 ---> hilink3 lane 2, 3, 0, 1 */
--		shift = is_ver1 ? 0 : mac_id <= 5 ? mac_id - 2 : mac_id - 6;
-+		/* mac_id 4, 5,---> hilink3 lane 2, 3
-+		 * debug port 0(6), 1(7) ---> hilink3 lane 0, 1
-+		 */
-+		phy_offset = mac_cb->dsaf_dev->reset_offset - 1;
-+		shift = is_ver1 ? 0 : mac_id >= 4 ? mac_id - 2 : phy_offset;
- 		if (dsaf_get_bit(mode, shift))
- 			phy_if = PHY_INTERFACE_MODE_XGMII;
- 		else
+ 	vf_cb = kzalloc(sizeof(*vf_cb) +
+ 			qnum_per_vf * sizeof(struct hnae_queue *), GFP_KERNEL);
+@@ -163,14 +142,14 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	}
+ 
+ 	vf_cb->dsaf_dev = dsaf_dev;
+-	vf_cb->port_index = port_idx;
+-	vf_cb->mac_cb = &dsaf_dev->mac_cb[port_idx];
++	vf_cb->port_index = port_id;
++	vf_cb->mac_cb = &dsaf_dev->mac_cb[port_id];
+ 
+ 	ae_handle->phy_if = vf_cb->mac_cb->phy_if;
+ 	ae_handle->phy_node = vf_cb->mac_cb->phy_node;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
+-	ae_handle->dport_id = port_idx;
++	ae_handle->dport_id = port_id;
+ 
+ 	return ae_handle;
+ vf_id_err:
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+index 8782608..ed0043a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
+@@ -24,7 +24,6 @@
+ #define DSAF_SERVICE_NW_NUM	6
+ #define DSAF_COMM_CHN		DSAF_SERVICE_NW_NUM
+ #define DSAF_GE_NUM		((DSAF_SERVICE_NW_NUM) + (DSAF_DEBUG_NW_NUM))
+-#define DSAF_PORT_NUM		((DSAF_SERVICE_NW_NUM) + (DSAF_DEBUG_NW_NUM))
+ #define DSAF_XGE_NUM		DSAF_SERVICE_NW_NUM
+ #define DSAF_PORT_TYPE_NUM 3
+ #define DSAF_NODE_NUM		18
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 687204b..e47aff2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1873,6 +1873,7 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	struct net_device *ndev;
+ 	struct hns_nic_priv *priv;
+ 	struct device_node *node = dev->of_node;
++	u32 port_id;
+ 	int ret;
+ 
+ 	ndev = alloc_etherdev_mq(sizeof(struct hns_nic_priv), NIC_MAX_Q_PER_VF);
+@@ -1896,10 +1897,18 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 		dev_err(dev, "not find ae-handle\n");
+ 		goto out_read_prop_fail;
+ 	}
+-
+-	ret = of_property_read_u32(node, "port-id", &priv->port_id);
+-	if (ret)
+-		goto out_read_prop_fail;
++	/* try to find port-idx-in-ae first */
++	ret = of_property_read_u32(node, "port-idx-in-ae", &port_id);
++	if (ret) {
++		/* only for old code compatible */
++		ret = of_property_read_u32(node, "port-id", &port_id);
++		if (ret)
++			goto out_read_prop_fail;
++		/* for old dts, we need to caculate the port offset */
++		port_id = port_id < HNS_SRV_OFFSET ? port_id + HNS_DEBUG_OFFSET
++			: port_id - HNS_SRV_OFFSET;
++	}
++	priv->port_id = port_id;
+ 
+ 	hns_init_mac_addr(ndev);
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.h b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+index c68ab3d..337efa5 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.h
+@@ -18,6 +18,9 @@
+ 
+ #include "hnae.h"
+ 
++#define HNS_DEBUG_OFFSET	6
++#define HNS_SRV_OFFSET		2
++
+ enum hns_nic_state {
+ 	NIC_STATE_TESTING = 0,
+ 	NIC_STATE_RESETTING,
 -- 
 1.9.1
 
