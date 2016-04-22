@@ -1,61 +1,155 @@
-From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 5/9] libnl: nla_put_s64(): align on a
-	64-bit area
-Date: Fri, 22 Apr 2016 17:31:20 +0200
-Message-ID: <1461339084-3849-6-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 2/9] libnl: nla_put_le64(): align on a 64-bit area
+Date: Fri, 22 Apr 2016 17:31:17 +0200
+Message-ID: <1461339084-3849-3-git-send-email-nicolas.dichtel@6wind.com>
 References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
- herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	linux-wpan@vger.kernel.org, aar@pengutronix.de,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	pshelar@nicira.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
+	dev@openvswitch.org, steffen.klassert@secunet.com,
+	herbert@gondor.apana.org.au, bsingharora@gmail.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53562 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847AbcDVPcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:03 -0400
+In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bmxhX2RhdGEoKSBpcyBub3cgYWxpZ25lZCBvbiBhIDY0LWJpdCBhcmVhLgpJbiBmYWN0LCB0aGVy
-ZSBpcyBubyB1c2VyIG9mIHRoaXMgZnVuY3Rpb24uCgpTaWduZWQtb2ZmLWJ5OiBOaWNvbGFzIERp
-Y2h0ZWwgPG5pY29sYXMuZGljaHRlbEA2d2luZC5jb20+Ci0tLQogaW5jbHVkZS9uZXQvbmV0bGlu
-ay5oIHwgMTEgKysrKysrKy0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA3IGluc2VydGlvbnMoKyksIDQg
-ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvbmV0bGluay5oIGIvaW5jbHVk
-ZS9uZXQvbmV0bGluay5oCmluZGV4IDA2NmE5MjFlN2NiZS4uMDc0MjE1YTU5ZDE5IDEwMDY0NAot
-LS0gYS9pbmNsdWRlL25ldC9uZXRsaW5rLmgKKysrIGIvaW5jbHVkZS9uZXQvbmV0bGluay5oCkBA
-IC0xMDIsNyArMTAyLDggQEAKICAqICAgbmxhX3B1dF9zOChza2IsIHR5cGUsIHZhbHVlKQlhZGQg
-czggYXR0cmlidXRlIHRvIHNrYgogICogICBubGFfcHV0X3MxNihza2IsIHR5cGUsIHZhbHVlKQlh
-ZGQgczE2IGF0dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9zMzIoc2tiLCB0eXBlLCB2YWx1
-ZSkJYWRkIHMzMiBhdHRyaWJ1dGUgdG8gc2tiCi0gKiAgIG5sYV9wdXRfczY0KHNrYiwgdHlwZSwg
-dmFsdWUpCWFkZCBzNjQgYXR0cmlidXRlIHRvIHNrYgorICogICBubGFfcHV0X3M2NChza2IsIHR5
-cGUsIHZhbHVlLAorICogICAgICAgICAgICAgICBwYWRhdHRyKQkJYWRkIHM2NCBhdHRyaWJ1dGUg
-dG8gc2tiCiAgKiAgIG5sYV9wdXRfc3RyaW5nKHNrYiwgdHlwZSwgc3RyKQlhZGQgc3RyaW5nIGF0
-dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9mbGFnKHNrYiwgdHlwZSkJCWFkZCBmbGFnIGF0
-dHJpYnV0ZSB0byBza2IKICAqICAgbmxhX3B1dF9tc2Vjcyhza2IsIHR5cGUsIGppZmZpZXMpCWFk
-ZCBtc2VjcyBhdHRyaWJ1dGUgdG8gc2tiCkBAIC05MjksMTQgKzkzMCwxNiBAQCBzdGF0aWMgaW5s
-aW5lIGludCBubGFfcHV0X3MzMihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgYXR0cnR5cGUsIHMz
-MiB2YWx1ZSkKIH0KIAogLyoqCi0gKiBubGFfcHV0X3M2NCAtIEFkZCBhIHM2NCBuZXRsaW5rIGF0
-dHJpYnV0ZSB0byBhIHNvY2tldCBidWZmZXIKKyAqIG5sYV9wdXRfczY0IC0gQWRkIGEgczY0IG5l
-dGxpbmsgYXR0cmlidXRlIHRvIGEgc29ja2V0IGJ1ZmZlciBhbmQgYWxpZ24gaXQKICAqIEBza2I6
-IHNvY2tldCBidWZmZXIgdG8gYWRkIGF0dHJpYnV0ZSB0bwogICogQGF0dHJ0eXBlOiBhdHRyaWJ1
-dGUgdHlwZQogICogQHZhbHVlOiBudW1lcmljIHZhbHVlCisgKiBAcGFkYXR0cjogYXR0cmlidXRl
-IHR5cGUgZm9yIHRoZSBwYWRkaW5nCiAgKi8KLXN0YXRpYyBpbmxpbmUgaW50IG5sYV9wdXRfczY0
-KHN0cnVjdCBza19idWZmICpza2IsIGludCBhdHRydHlwZSwgczY0IHZhbHVlKQorc3RhdGljIGlu
-bGluZSBpbnQgbmxhX3B1dF9zNjQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IGF0dHJ0eXBlLCBz
-NjQgdmFsdWUsCisJCQkgICAgICBpbnQgcGFkYXR0cikKIHsKLQlyZXR1cm4gbmxhX3B1dChza2Is
-IGF0dHJ0eXBlLCBzaXplb2YoczY0KSwgJnZhbHVlKTsKKwlyZXR1cm4gbmxhX3B1dF82NGJpdChz
-a2IsIGF0dHJ0eXBlLCBzaXplb2YoczY0KSwgJnZhbHVlLCBwYWRhdHRyKTsKIH0KIAogLyoqCi0t
-IAoyLjguMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
-cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+nla_data() is now aligned on a 64-bit area.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/netlink.h     |  8 +++++---
+ include/net/nl802154.h    |  6 ++++++
+ net/ieee802154/nl802154.c | 13 ++++++++-----
+ 3 files changed, 19 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 6f51a8a06498..7f6b99483ab7 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -878,14 +878,16 @@ static inline int nla_put_net64(struct sk_buff *skb, int attrtype, __be64 value)
+ }
+ 
+ /**
+- * nla_put_le64 - Add a __le64 netlink attribute to a socket buffer
++ * nla_put_le64 - Add a __le64 netlink attribute to a socket buffer and align it
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+  * @value: numeric value
++ * @padattr: attribute type for the padding
+  */
+-static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value)
++static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value,
++			       int padattr)
+ {
+-	return nla_put(skb, attrtype, sizeof(__le64), &value);
++	return nla_put_64bit(skb, attrtype, sizeof(__le64), &value, padattr);
+ }
+ 
+ /**
+diff --git a/include/net/nl802154.h b/include/net/nl802154.h
+index 32cb3e591e07..fcab4de49951 100644
+--- a/include/net/nl802154.h
++++ b/include/net/nl802154.h
+@@ -138,6 +138,8 @@ enum nl802154_attrs {
+ 	NL802154_ATTR_SEC_KEY,
+ #endif /* CONFIG_IEEE802154_NL802154_EXPERIMENTAL */
+ 
++	NL802154_ATTR_PAD,
++
+ 	__NL802154_ATTR_AFTER_LAST,
+ 	NL802154_ATTR_MAX = __NL802154_ATTR_AFTER_LAST - 1
+ };
+@@ -295,6 +297,7 @@ enum nl802154_dev_addr_attrs {
+ 	NL802154_DEV_ADDR_ATTR_MODE,
+ 	NL802154_DEV_ADDR_ATTR_SHORT,
+ 	NL802154_DEV_ADDR_ATTR_EXTENDED,
++	NL802154_DEV_ADDR_ATTR_PAD,
+ 
+ 	/* keep last */
+ 	__NL802154_DEV_ADDR_ATTR_AFTER_LAST,
+@@ -320,6 +323,7 @@ enum nl802154_key_id_attrs {
+ 	NL802154_KEY_ID_ATTR_IMPLICIT,
+ 	NL802154_KEY_ID_ATTR_SOURCE_SHORT,
+ 	NL802154_KEY_ID_ATTR_SOURCE_EXTENDED,
++	NL802154_KEY_ID_ATTR_PAD,
+ 
+ 	/* keep last */
+ 	__NL802154_KEY_ID_ATTR_AFTER_LAST,
+@@ -402,6 +406,7 @@ enum nl802154_dev {
+ 	NL802154_DEV_ATTR_EXTENDED_ADDR,
+ 	NL802154_DEV_ATTR_SECLEVEL_EXEMPT,
+ 	NL802154_DEV_ATTR_KEY_MODE,
++	NL802154_DEV_ATTR_PAD,
+ 
+ 	/* keep last */
+ 	__NL802154_DEV_ATTR_AFTER_LAST,
+@@ -414,6 +419,7 @@ enum nl802154_devkey {
+ 	NL802154_DEVKEY_ATTR_FRAME_COUNTER,
+ 	NL802154_DEVKEY_ATTR_EXTENDED_ADDR,
+ 	NL802154_DEVKEY_ATTR_ID,
++	NL802154_DEVKEY_ATTR_PAD,
+ 
+ 	/* keep last */
+ 	__NL802154_DEVKEY_ATTR_AFTER_LAST,
+diff --git a/net/ieee802154/nl802154.c b/net/ieee802154/nl802154.c
+index 16ef0d9f566e..614072064d03 100644
+--- a/net/ieee802154/nl802154.c
++++ b/net/ieee802154/nl802154.c
+@@ -722,7 +722,8 @@ ieee802154_llsec_send_key_id(struct sk_buff *msg,
+ 			break;
+ 		case NL802154_DEV_ADDR_EXTENDED:
+ 			if (nla_put_le64(msg, NL802154_DEV_ADDR_ATTR_EXTENDED,
+-					 desc->device_addr.extended_addr))
++					 desc->device_addr.extended_addr,
++					 NL802154_DEV_ADDR_ATTR_PAD))
+ 				return -ENOBUFS;
+ 			break;
+ 		default:
+@@ -742,7 +743,8 @@ ieee802154_llsec_send_key_id(struct sk_buff *msg,
+ 		break;
+ 	case NL802154_KEY_ID_MODE_INDEX_EXTENDED:
+ 		if (nla_put_le64(msg, NL802154_KEY_ID_ATTR_SOURCE_EXTENDED,
+-				 desc->extended_source))
++				 desc->extended_source,
++				 NL802154_KEY_ID_ATTR_PAD))
+ 			return -ENOBUFS;
+ 		break;
+ 	default:
+@@ -819,7 +821,8 @@ nl802154_send_iface(struct sk_buff *msg, u32 portid, u32 seq, int flags,
+ 
+ 	/* address settings */
+ 	if (nla_put_le64(msg, NL802154_ATTR_EXTENDED_ADDR,
+-			 wpan_dev->extended_addr) ||
++			 wpan_dev->extended_addr,
++			 NL802154_ATTR_PAD) ||
+ 	    nla_put_le16(msg, NL802154_ATTR_SHORT_ADDR,
+ 			 wpan_dev->short_addr) ||
+ 	    nla_put_le16(msg, NL802154_ATTR_PAN_ID, wpan_dev->pan_id))
+@@ -1614,7 +1617,7 @@ static int nl802154_send_device(struct sk_buff *msg, u32 cmd, u32 portid,
+ 	    nla_put_le16(msg, NL802154_DEV_ATTR_SHORT_ADDR,
+ 			 dev_desc->short_addr) ||
+ 	    nla_put_le64(msg, NL802154_DEV_ATTR_EXTENDED_ADDR,
+-			 dev_desc->hwaddr) ||
++			 dev_desc->hwaddr, NL802154_DEV_ATTR_PAD) ||
+ 	    nla_put_u8(msg, NL802154_DEV_ATTR_SECLEVEL_EXEMPT,
+ 		       dev_desc->seclevel_exempt) ||
+ 	    nla_put_u32(msg, NL802154_DEV_ATTR_KEY_MODE, dev_desc->key_mode))
+@@ -1778,7 +1781,7 @@ static int nl802154_send_devkey(struct sk_buff *msg, u32 cmd, u32 portid,
+ 		goto nla_put_failure;
+ 
+ 	if (nla_put_le64(msg, NL802154_DEVKEY_ATTR_EXTENDED_ADDR,
+-			 extended_addr) ||
++			 extended_addr, NL802154_DEVKEY_ATTR_PAD) ||
+ 	    nla_put_u32(msg, NL802154_DEVKEY_ATTR_FRAME_COUNTER,
+ 			devkey->frame_counter))
+ 		goto nla_put_failure;
+-- 
+2.8.1
