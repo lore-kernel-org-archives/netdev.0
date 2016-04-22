@@ -1,58 +1,66 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Thu, 21 Apr 2016 19:54:23 -0400
-Message-ID: <87mvomr00g.fsf@ketchup.mtl.sfl>
-References: <20160418113038.00d78799@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160418113038.00d78799@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
+Date: Thu, 21 Apr 2016 19:00:34 -0700
+Message-ID: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
+Cc: fabio.estevam@nxp.com, l.stach@pengutronix.de, andrew@lunn.ch,
+	tremyfr@gmail.com, gerg@uclinux.org,
+	linux-arm-kernel@lists.infradead.org, johannes@sipsolutions.net,
+	stillcompiling@gmail.com, sergei.shtylyov@cogentembedded.com,
+	arnd@arndb.de, holgerschurig@gmail.com,
+	Troy Kisky <troy.kisky@boundarydevices.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, fugang.duan@nxp.com,
+	lznuaa@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34260 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbcDVCBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Apr 2016 22:01:01 -0400
+Received: by mail-pf0-f182.google.com with SMTP id y69so18138463pfb.1
+        for <netdev@vger.kernel.org>; Thu, 21 Apr 2016 19:01:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+If dirty_tx isn't updated, then dma_unmap_single
+will be called twice.
 
-Stephen Rothwell <sfr@canb.auug.org.au> writes:
+This fixes a
+[   58.420980] ------------[ cut here ]------------
+[   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
+[   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA memory it has not allocated [device address=0x0000000000000000] [size=66 bytes]
 
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in:
->
->   drivers/net/dsa/mv88e6xxx.c
->
-> between commit:
->
->   207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
->
-> from the net tree and commit:
->
->   009a2b9843bf ("net: dsa: mv88e6xxx: add number of ports to info")
->
-> from the net-next tree.
->
-> I fixed it up (the former removed some of the code updated by the latter)
-> and can carry the fix as necessary. This is now fixed as far as linux-next
-> is concerned, but any non trivial conflicts should be mentioned to your
-> upstream maintainer when your tree is submitted for merging.  You may
-> also want to consider cooperating with the maintainer of the conflicting
-> tree to minimise any particularly complex conflicts.
+encountered by Holger
 
-I have another series to send to net-next which will also conflict with this
-fix from net. As it is also required in net-next, can the fix be merged
-in net-next as well?
+Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+Tested-by: <holgerschurig@gmail.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-This fix is the 3 commits:
-
-  65fa40276ac1 ("net: dsa: mv88e6xxx: unlock DSA and CPU ports")
-  996ecb824667 ("net: dsa: mv88e6xxx: enable SA learning on DSA ports")
-  207afda1b503 ("net: dsa: mv88e6xxx: share the same default FDB")
-
-For the merge commit:
-
-  cf6b5fb2514d ("Merge branch 'dsa-mv88e6xxx-fix-cross-chip-bridging'")
-
-Regards,
-Vivien
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 08243c2..b71654c 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+ 					 fec16_to_cpu(bdp->cbd_datlen),
+ 					 DMA_TO_DEVICE);
+ 		bdp->cbd_bufaddr = cpu_to_fec32(0);
+-		if (!skb) {
+-			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
+-			continue;
+-		}
++		if (!skb)
++			goto skb_done;
+ 
+ 		/* Check for errors. */
+ 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+@@ -1239,7 +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
+ 
+ 		/* Free the sk buffer associated with this last transmit */
+ 		dev_kfree_skb_any(skb);
+-
++skb_done:
+ 		/* Make sure the update to bdp and tx_skbuff are performed
+ 		 * before dirty_tx
+ 		 */
+-- 
+2.5.0
