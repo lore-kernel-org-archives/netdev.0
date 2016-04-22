@@ -1,38 +1,34 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH] cxgbi: fix uninitialized flowi6
-Date: Fri, 22 Apr 2016 13:09:13 +0200
-Message-ID: <89cb4d2647db3bc922c7067d421e983a271483ca.1461322282.git.jbenc@redhat.com>
-Cc: netdev@vger.kernel.org,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	Anish Bhatt <anish@chelsio.com>
-To: linux-scsi@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH net-next] macsec: Convert to using IFF_NO_QUEUE
+Date: Fri, 22 Apr 2016 14:02:42 +0200
+Message-ID: <1461326562-6595-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:49681 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752000AbcDVMCz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Apr 2016 08:02:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ip6_route_output looks into different fields in the passed flowi6 structure,
-yet cxgbi passes garbage in nearly all those fields. Zero the structure out
-first.
-
-Fixes: fc8d0590d9142 ("libcxgbi: Add ipv6 api to driver")
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/scsi/cxgbi/libcxgbi.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/macsec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index f3bb7af4e984..ead83a24bcd1 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -688,6 +688,7 @@ static struct rt6_info *find_route_ipv6(const struct in6_addr *saddr,
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 84d3e5ca88171..6caa72402de7d 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -2826,7 +2826,7 @@ static void macsec_free_netdev(struct net_device *dev)
+ static void macsec_setup(struct net_device *dev)
  {
- 	struct flowi6 fl;
+ 	ether_setup(dev);
+-	dev->tx_queue_len = 0;
++	dev->priv_flags |= IFF_NO_QUEUE;
+ 	dev->netdev_ops = &macsec_netdev_ops;
+ 	dev->destructor = macsec_free_netdev;
  
-+	memset(&fl, 0, sizeof(fl));
- 	if (saddr)
- 		memcpy(&fl.saddr, saddr, sizeof(struct in6_addr));
- 	if (daddr)
 -- 
-1.8.3.1
-
+2.8.0
