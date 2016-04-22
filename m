@@ -1,170 +1,89 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
-Date: Fri, 22 Apr 2016 09:11:34 -0700
-Message-ID: <571A4D36.2000506@boundarydevices.com>
-References: <1461290434-18462-1-git-send-email-troy.kisky@boundarydevices.com>
- <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH] net: ipv6: Do not fix up linklocal and loopback addresses
+Date: Fri, 22 Apr 2016 17:14:35 +0100
+Message-ID: <571A4DEB.3090204@brocade.com>
+References: <571A4D11.8070307@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-	"l.stach@pengutronix.de" <l.stach@pengutronix.de>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"gerg@uclinux.org" <gerg@uclinux.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"stillcompiling@gmail.com" <stillcompiling@gmail.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"holgerschurig@gmail.com" <holgerschurig@gmail.com>
-To: Fugang Duan <fugang.duan@nxp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"lznuaa@gmail.com" <lznuaa@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34832 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753881AbcDVQLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 12:11:37 -0400
-Received: by mail-pa0-f45.google.com with SMTP id fs9so41177794pac.2
-        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 09:11:36 -0700 (PDT)
-In-Reply-To: <VI1PR0401MB18558325A80D252D2EC64A7BFF6F0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:49084 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752827AbcDVQOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 12:14:46 -0400
+Received: from pps.filterd (m0000542.ppops.net [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u3MG5swo017927
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 09:14:45 -0700
+Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
+	by mx0a-000f0801.pphosted.com with ESMTP id 22fm1p8m62-2
+	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 09:14:45 -0700
+In-Reply-To: <571A4D11.8070307@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/2016 10:59 PM, Fugang Duan wrote:
-> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Friday, April 22, 2016 10:01 AM
->> To: netdev@vger.kernel.org; davem@davemloft.net; Fugang Duan
->> <fugang.duan@nxp.com>; lznuaa@gmail.com
->> Cc: Fabio Estevam <fabio.estevam@nxp.com>; l.stach@pengutronix.de;
->> andrew@lunn.ch; tremyfr@gmail.com; gerg@uclinux.org; linux-arm-
->> kernel@lists.infradead.org; johannes@sipsolutions.net;
->> stillcompiling@gmail.com; sergei.shtylyov@cogentembedded.com;
->> arnd@arndb.de; holgerschurig@gmail.com; Troy Kisky
->> <troy.kisky@boundarydevices.com>
->> Subject: [PATCH net 1/1] net: fec: update dirty_tx even if no skb
->>
->> If dirty_tx isn't updated, then dma_unmap_single will be called twice.
->>
->> This fixes a
->> [   58.420980] ------------[ cut here ]------------
->> [   58.425667] WARNING: CPU: 0 PID: 377 at /home/schurig/d/mkarm/linux-
->> 4.5/lib/dma-debug.c:1096 check_unmap+0x9d0/0xab8()
->> [   58.436405] fec 2188000.ethernet: DMA-API: device driver tries to free DMA
->> memory it has not allocated [device address=0x0000000000000000] [size=66
->> bytes]
->>
->> encountered by Holger
->>
->> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
->> Tested-by: <holgerschurig@gmail.com>
->> ---
->>  drivers/net/ethernet/freescale/fec_main.c | 8 +++-----
->>  1 file changed, 3 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->> b/drivers/net/ethernet/freescale/fec_main.c
->> index 08243c2..b71654c 100644
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -1197,10 +1197,8 @@ fec_enet_tx_queue(struct net_device *ndev, u16
->> queue_id)
->>  					 fec16_to_cpu(bdp->cbd_datlen),
->>  					 DMA_TO_DEVICE);
->>  		bdp->cbd_bufaddr = cpu_to_fec32(0);
->> -		if (!skb) {
->> -			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
->> -			continue;
->> -		}
->> +		if (!skb)
->> +			goto skb_done;
->>
->>  		/* Check for errors. */
->>  		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC | @@ -1239,7
->> +1237,7 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
->>
->>  		/* Free the sk buffer associated with this last transmit */
->>  		dev_kfree_skb_any(skb);
->> -
->> +skb_done:
->>  		/* Make sure the update to bdp and tx_skbuff are performed
->>  		 * before dirty_tx
->>  		 */
->> --
->> 2.5.0
-> 
-> The patch is fine for me.
-> Can you review below patch that also fix the issue. It can take much effort due to less rmb() and READ_ONCE() operation that is very sensitive for duplex Gbps test for i.MX6SX/i.MX7d SOC. (i.MX6SX can reach at 1.4Gbps, i.MX7D can reach at 1.8Gbps.)
+commit f1705ec197e7 ("net: ipv6: Make address flushing on ifdown 
+optional") added the option to retain user configured addresses on an
+admin down. A comment to one of the later revisions suggested using
+the IFA_F_PERMANENT flag rather than adding a user_managed boolean to
+the ifaddr struct. A side effect of this change is that link local and
+loopback addresses were also retained which was not part of the
+objective of the original changes. The commit 70af921db6f8 ("net: ipv6: 
+Do not keep linklocal and loopback addresses") ensures that these are
+no longer kept. Similarly, the present fix ensures that these addresses
+are not incorrectly fixed up. 
 
+Testing also with the recent patch in place to delete host routes on
+ifdown still shows that fixup of the LL & loopback addrs is incorrectly
+being attempted (and without that patch was causing a crash in fib6).
+Another approach to this is through code inspection by checking where
+the user_managed flag in the original dahern patch (which we have been
+using for nearly a year) has been replaced by checking IFA_F_PERMANENT.
 
+Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+---
+ net/ipv6/addrconf.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-If  "READ_ONCE(bdp->cbd_sc)" is really that expensive, then you should skip the 1st read as well and
-only do it after skb presence is verified. But some numbers would really help sell the patch.
-Also, I comment as to why the code is reorganized would be warranted
-
-
-> 
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -1160,12 +1160,13 @@ static void
->  fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
->  {
->         struct  fec_enet_private *fep;
-> -       struct bufdesc *bdp;
-> +       struct bufdesc *bdp, *bdp_t;
->         unsigned short status;
->         struct  sk_buff *skb;
->         struct fec_enet_priv_tx_q *txq;
->         struct netdev_queue *nq;
->         int     index = 0;
-> +       int     i, bdnum;
->         int     entries_free;
-> 
->         fep = netdev_priv(ndev);
-> @@ -1187,20 +1188,28 @@ fec_enet_tx_queue(struct net_device *ndev, u16 queue_id)
->                 if (status & BD_ENET_TX_READY)
->                         break;
-> 
-> -               index = fec_enet_get_bd_index(bdp, &txq->bd);
-> -
-> +               bdp_t = bdp;
-> +               bdnum = 1;
-> +               index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
->                 skb = txq->tx_skbuff[index];
-> -               txq->tx_skbuff[index] = NULL;
-> -               if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
-> -                       dma_unmap_single(&fep->pdev->dev,
-> -                                        fec32_to_cpu(bdp->cbd_bufaddr),
-> -                                        fec16_to_cpu(bdp->cbd_datlen),
-> -                                        DMA_TO_DEVICE);
-> -               bdp->cbd_bufaddr = cpu_to_fec32(0);
-> -               if (!skb) {
-> -                       bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-> -                       continue;
-> +               while (!skb) {
-> +                       bdp_t = fec_enet_get_nextdesc(bdp_t, &txq->bd);
-> +                       index = fec_enet_get_bd_index(txq->tx_bd_base, bdp_t, fep);
-> +                       skb = txq->tx_skbuff[index];
-> +                       bdnum++;
-> +               }
-> +               status = fec16_to_cpu(READ_ONCE(bdp->cbd_sc));
-> +               if (status & BD_ENET_TX_READY)
-> +                       break;
-> +
-> +               for (i = 0; i < bdnum; i++) {
-> +                       if (!IS_TSO_HEADER(txq, bdp->cbd_bufaddr))
-> +                               dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
-> +                                                bdp->cbd_datlen, DMA_TO_DEVICE);
-> +                       bdp->cbd_bufaddr = 0;
-> +                       if (i < bdnum - 1)
-> +                               bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
->                 }
-> +               txq->tx_skbuff[index] = NULL;
-> 
-> 
-> Regards,
-> Andy
-> 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 23cec53..cba4e10 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3200,6 +3200,12 @@ static void l3mdev_check_host_rt(struct inet6_dev *idev,
+ }
+ #endif
+ 
++static bool addr_is_local(const struct in6_addr *addr)
++{
++	return ipv6_addr_type(addr) &
++		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
++}
++
+ static int fixup_permanent_addr(struct inet6_dev *idev,
+ 				struct inet6_ifaddr *ifp)
+ {
+@@ -3238,6 +3244,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 
+ 	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
++		    !addr_is_local(&ifp->addr) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+ 			write_unlock_bh(&idev->lock);
+ 			ipv6_del_addr(ifp);
+@@ -3448,12 +3455,6 @@ static void addrconf_type_change(struct net_device *dev, unsigned long event)
+ 		ipv6_mc_unmap(idev);
+ }
+ 
+-static bool addr_is_local(const struct in6_addr *addr)
+-{
+-	return ipv6_addr_type(addr) &
+-		(IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK);
+-}
+-
+ static int addrconf_ifdown(struct net_device *dev, int how)
+ {
+ 	struct net *net = dev_net(dev);
+-- 
+1.7.10.4
