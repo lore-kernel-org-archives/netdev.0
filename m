@@ -1,51 +1,151 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/23] netfilter: x_tables: assert minimum target size
-Date: Fri, 22 Apr 2016 15:39:36 +0200
-Message-ID: <1461332394-3994-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/23] netfilter: x_tables: validate all offsets and sizes in a rule
+Date: Fri, 22 Apr 2016 15:39:40 +0200
+Message-ID: <1461332394-3994-10-git-send-email-pablo@netfilter.org>
 References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45212 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753359AbcDVNkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:40:09 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 9B4725B9
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:07 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 80FD8FAB51
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:07 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 59A43B505B
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:05 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-The target size includes the size of the xt_entry_target struct.
+Validate that all matches (if any) add up to the beginning of
+the target and that each match covers at least the base structure size.
+
+The compat path should be able to safely re-use the function
+as the structures only differ in alignment; added a
+BUILD_BUG_ON just in case we have an arch that adds padding as well.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/x_tables.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/netfilter/x_tables.c | 81 +++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 76 insertions(+), 5 deletions(-)
 
 diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 1f44bfa..ec1b718 100644
+index e2a6f2a..f9aa971 100644
 --- a/net/netfilter/x_tables.c
 +++ b/net/netfilter/x_tables.c
-@@ -568,6 +568,9 @@ int xt_check_entry_offsets(const void *base,
+@@ -416,6 +416,47 @@ int xt_check_match(struct xt_mtchk_param *par,
+ }
+ EXPORT_SYMBOL_GPL(xt_check_match);
+ 
++/** xt_check_entry_match - check that matches end before start of target
++ *
++ * @match: beginning of xt_entry_match
++ * @target: beginning of this rules target (alleged end of matches)
++ * @alignment: alignment requirement of match structures
++ *
++ * Validates that all matches add up to the beginning of the target,
++ * and that each match covers at least the base structure size.
++ *
++ * Return: 0 on success, negative errno on failure.
++ */
++static int xt_check_entry_match(const char *match, const char *target,
++				const size_t alignment)
++{
++	const struct xt_entry_match *pos;
++	int length = target - match;
++
++	if (length == 0) /* no matches */
++		return 0;
++
++	pos = (struct xt_entry_match *)match;
++	do {
++		if ((unsigned long)pos % alignment)
++			return -EINVAL;
++
++		if (length < (int)sizeof(struct xt_entry_match))
++			return -EINVAL;
++
++		if (pos->u.match_size < sizeof(struct xt_entry_match))
++			return -EINVAL;
++
++		if (pos->u.match_size > length)
++			return -EINVAL;
++
++		length -= pos->u.match_size;
++		pos = ((void *)((char *)(pos) + (pos)->u.match_size));
++	} while (length > 0);
++
++	return 0;
++}
++
+ #ifdef CONFIG_COMPAT
+ int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta)
+ {
+@@ -571,7 +612,14 @@ int xt_compat_check_entry_offsets(const void *base, const char *elems,
+ 	    target_offset + sizeof(struct compat_xt_standard_target) != next_offset)
  		return -EINVAL;
  
- 	t = (void *)(e + target_offset);
-+	if (t->u.target_size < sizeof(*t))
-+		return -EINVAL;
+-	return 0;
++	/* compat_xt_entry match has less strict aligment requirements,
++	 * otherwise they are identical.  In case of padding differences
++	 * we need to add compat version of xt_check_entry_match.
++	 */
++	BUILD_BUG_ON(sizeof(struct compat_xt_entry_match) != sizeof(struct xt_entry_match));
 +
- 	if (target_offset + t->u.target_size > next_offset)
++	return xt_check_entry_match(elems, base + target_offset,
++				    __alignof__(struct compat_xt_entry_match));
+ }
+ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
+ #endif /* CONFIG_COMPAT */
+@@ -584,17 +632,39 @@ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
+  * @target_offset: the arp/ip/ip6_t->target_offset
+  * @next_offset: the arp/ip/ip6_t->next_offset
+  *
+- * validates that target_offset and next_offset are sane.
+- * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
++ * validates that target_offset and next_offset are sane and that all
++ * match sizes (if any) align with the target offset.
+  *
+  * This function does not validate the targets or matches themselves, it
+- * only tests that all the offsets and sizes are correct.
++ * only tests that all the offsets and sizes are correct, that all
++ * match structures are aligned, and that the last structure ends where
++ * the target structure begins.
++ *
++ * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
+  *
+  * The arp/ip/ip6t_entry structure @base must have passed following tests:
+  * - it must point to a valid memory location
+  * - base to base + next_offset must be accessible, i.e. not exceed allocated
+  *   length.
+  *
++ * A well-formed entry looks like this:
++ *
++ * ip(6)t_entry   match [mtdata]  match [mtdata] target [tgdata] ip(6)t_entry
++ * e->elems[]-----'                              |               |
++ *                matchsize                      |               |
++ *                                matchsize      |               |
++ *                                               |               |
++ * target_offset---------------------------------'               |
++ * next_offset---------------------------------------------------'
++ *
++ * elems[]: flexible array member at end of ip(6)/arpt_entry struct.
++ *          This is where matches (if any) and the target reside.
++ * target_offset: beginning of target.
++ * next_offset: start of the next rule; also: size of this rule.
++ * Since targets have a minimum size, target_offset + minlen <= next_offset.
++ *
++ * Every match stores its size, sum of sizes must not exceed target_offset.
++ *
+  * Return: 0 on success, negative errno on failure.
+  */
+ int xt_check_entry_offsets(const void *base,
+@@ -624,7 +694,8 @@ int xt_check_entry_offsets(const void *base,
+ 	    target_offset + sizeof(struct xt_standard_target) != next_offset)
  		return -EINVAL;
+ 
+-	return 0;
++	return xt_check_entry_match(elems, base + target_offset,
++				    __alignof__(struct xt_entry_match));
+ }
+ EXPORT_SYMBOL(xt_check_entry_offsets);
  
 -- 
 2.1.4
+
