@@ -1,7 +1,7 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 8/9] xfrm: align nlattr properly when needed
-Date: Fri, 22 Apr 2016 17:31:23 +0200
-Message-ID: <1461339084-3849-9-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 9/9] taskstats: use the libnl API to align nlattr on 64-bit
+Date: Fri, 22 Apr 2016 17:31:24 +0200
+Message-ID: <1461339084-3849-10-git-send-email-nicolas.dichtel@6wind.com>
 References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	linux-wpan@vger.kernel.org, aar@pengutronix.de,
@@ -13,73 +13,93 @@ Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53597 "EHLO
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53605 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753811AbcDVPcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:05 -0400
+	with ESMTP id S1753488AbcDVPcG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:06 -0400
 In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Goal of this patch is to use the new libnl API to align netlink attribute
+when needed.
+The layout of the netlink message will be a bit different after the patch,
+because the padattr (TASKSTATS_TYPE_STATS) will be inside the nested
+attribute instead of before it.
+
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/uapi/linux/xfrm.h |  1 +
- net/xfrm/xfrm_user.c      | 10 ++++++----
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ kernel/taskstats.c | 37 +++++--------------------------------
+ 1 file changed, 5 insertions(+), 32 deletions(-)
 
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 2cd9e608d0d1..143338978b48 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -302,6 +302,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_SA_EXTRA_FLAGS,	/* __u32 */
- 	XFRMA_PROTO,		/* __u8 */
- 	XFRMA_ADDRESS_FILTER,	/* struct xfrm_address_filter */
-+	XFRMA_PAD,
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 2cc7af858c6f..d516845e16e3 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -809,7 +809,8 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
- 			goto out;
- 	}
- 	if (x->lastused) {
--		ret = nla_put_u64(skb, XFRMA_LASTUSED, x->lastused);
-+		ret = nla_put_u64_64bit(skb, XFRMA_LASTUSED, x->lastused,
-+					XFRMA_PAD);
- 		if (ret)
- 			goto out;
- 	}
-@@ -1813,7 +1814,7 @@ static inline size_t xfrm_aevent_msgsize(struct xfrm_state *x)
- 
- 	return NLMSG_ALIGN(sizeof(struct xfrm_aevent_id))
- 	       + nla_total_size(replay_size)
--	       + nla_total_size(sizeof(struct xfrm_lifetime_cur))
-+	       + nla_total_size_64bit(sizeof(struct xfrm_lifetime_cur))
- 	       + nla_total_size(sizeof(struct xfrm_mark))
- 	       + nla_total_size(4) /* XFRM_AE_RTHR */
- 	       + nla_total_size(4); /* XFRM_AE_ETHR */
-@@ -1848,7 +1849,8 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct
- 	}
- 	if (err)
- 		goto out_cancel;
--	err = nla_put(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft);
-+	err = nla_put_64bit(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft,
-+			    XFRMA_PAD);
- 	if (err)
- 		goto out_cancel;
- 
-@@ -2617,7 +2619,7 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 		l += nla_total_size(sizeof(x->props.extra_flags));
- 
- 	/* Must count x->lastused as it may become non-zero behind our back. */
--	l += nla_total_size(sizeof(u64));
-+	l += nla_total_size_64bit(sizeof(u64));
- 
- 	return l;
+diff --git a/kernel/taskstats.c b/kernel/taskstats.c
+index 21f82c29c914..b3f05ee20d18 100644
+--- a/kernel/taskstats.c
++++ b/kernel/taskstats.c
+@@ -357,10 +357,6 @@ static int parse(struct nlattr *na, struct cpumask *mask)
+ 	return ret;
  }
+ 
+-#if defined(CONFIG_64BIT) && !defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+-#define TASKSTATS_NEEDS_PADDING 1
+-#endif
+-
+ static struct taskstats *mk_reply(struct sk_buff *skb, int type, u32 pid)
+ {
+ 	struct nlattr *na, *ret;
+@@ -370,29 +366,6 @@ static struct taskstats *mk_reply(struct sk_buff *skb, int type, u32 pid)
+ 			? TASKSTATS_TYPE_AGGR_PID
+ 			: TASKSTATS_TYPE_AGGR_TGID;
+ 
+-	/*
+-	 * The taskstats structure is internally aligned on 8 byte
+-	 * boundaries but the layout of the aggregrate reply, with
+-	 * two NLA headers and the pid (each 4 bytes), actually
+-	 * force the entire structure to be unaligned. This causes
+-	 * the kernel to issue unaligned access warnings on some
+-	 * architectures like ia64. Unfortunately, some software out there
+-	 * doesn't properly unroll the NLA packet and assumes that the start
+-	 * of the taskstats structure will always be 20 bytes from the start
+-	 * of the netlink payload. Aligning the start of the taskstats
+-	 * structure breaks this software, which we don't want. So, for now
+-	 * the alignment only happens on architectures that require it
+-	 * and those users will have to update to fixed versions of those
+-	 * packages. Space is reserved in the packet only when needed.
+-	 * This ifdef should be removed in several years e.g. 2012 once
+-	 * we can be confident that fixed versions are installed on most
+-	 * systems. We add the padding before the aggregate since the
+-	 * aggregate is already a defined type.
+-	 */
+-#ifdef TASKSTATS_NEEDS_PADDING
+-	if (nla_put(skb, TASKSTATS_TYPE_NULL, 0, NULL) < 0)
+-		goto err;
+-#endif
+ 	na = nla_nest_start(skb, aggr);
+ 	if (!na)
+ 		goto err;
+@@ -401,7 +374,8 @@ static struct taskstats *mk_reply(struct sk_buff *skb, int type, u32 pid)
+ 		nla_nest_cancel(skb, na);
+ 		goto err;
+ 	}
+-	ret = nla_reserve(skb, TASKSTATS_TYPE_STATS, sizeof(struct taskstats));
++	ret = nla_reserve_64bit(skb, TASKSTATS_TYPE_STATS,
++				sizeof(struct taskstats), TASKSTATS_TYPE_NULL);
+ 	if (!ret) {
+ 		nla_nest_cancel(skb, na);
+ 		goto err;
+@@ -500,10 +474,9 @@ static size_t taskstats_packet_size(void)
+ 	size_t size;
+ 
+ 	size = nla_total_size(sizeof(u32)) +
+-		nla_total_size(sizeof(struct taskstats)) + nla_total_size(0);
+-#ifdef TASKSTATS_NEEDS_PADDING
+-	size += nla_total_size(0); /* Padding for alignment */
+-#endif
++		nla_total_size_64bit(sizeof(struct taskstats)) +
++		nla_total_size(0);
++
+ 	return size;
+ }
+ 
 -- 
 2.8.1
