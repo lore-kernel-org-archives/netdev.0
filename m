@@ -1,78 +1,96 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [v8, 1/7] Documentation: DT: update Freescale DCFG compatible
-Date: Fri, 22 Apr 2016 14:11:51 +0100
-Message-ID: <20160422131151.GJ10606@leverpostej>
-References: <1461306464-19521-1-git-send-email-yangbo.lu@nxp.com>
- <1461306464-19521-2-git-send-email-yangbo.lu@nxp.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH net v2 3/3] drivers: net: cpsw: use of_phy_connect() in
+ fixed-link case
+Date: Fri, 22 Apr 2016 16:34:08 +0300
+Message-ID: <571A2850.30700@ti.com>
+References: <1461261035-5578-1-git-send-email-drivshin.allworx@gmail.com>
+ <1461264066-12358-1-git-send-email-drivshin.allworx@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mmc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, linux-clk@vger.kernel.org,
-	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
-	netdev@vger.kernel.org, ulf.hansson@linaro.org, scott.wood@nxp.com,
-	Rob Herring <robh+dt@kernel.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jochen Friedrich <jochen@scram.de>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Zhao Qiang <qiang.zhao@freescale.com>,
-	Kumar Gala <galak@codeaurora.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
-	xiaobo.xie@nxp.com
-To: Yangbo Lu <yangbo.lu@nxp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:34089 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752923AbcDVNL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:11:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1461306464-19521-2-git-send-email-yangbo.lu@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+	Andrew Goodbody <andrew.goodbody-nYQdZkeIoGZN8Ch2cx6nig@public.gmane.org>,
+	Markus Brunner <systemprogrammierung.brunner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Nicolas Chauvet <kwizart-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "David Rivshin (Allworx)" <drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1461264066-12358-1-git-send-email-drivshin.allworx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 22, 2016 at 02:27:38PM +0800, Yangbo Lu wrote:
-> Update Freescale DCFG compatible with 'fsl,<chip>-dcfg' instead
-> of 'fsl,ls1021a-dcfg' to include more chips.
-> 
-> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+On 04/21/2016 09:41 PM, David Rivshin (Allworx) wrote:
+> From: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
+>
+> If a fixed-link DT subnode is used, the phy_device was looked up so
+> that a PHY ID string could be constructed and passed to phy_connect().
+> This is not necessary, as the device_node can be passed directly to
+> of_phy_connect() instead. This reuses the same codepath as if the
+> phy-handle DT property was used.
+>
+> Signed-off-by: David Rivshin <drivshin-5fOYsn7Fw8lBDgjK7y7TUQ@public.gmane.org>
+> Tested-by: Nicolas Chauvet <kwizart-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
-> Changes for v8:
-> 	- Added this patch
-> ---
->  Documentation/devicetree/bindings/arm/fsl.txt | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/arm/fsl.txt b/Documentation/devicetree/bindings/arm/fsl.txt
-> index 752a685..1d5f512 100644
-> --- a/Documentation/devicetree/bindings/arm/fsl.txt
-> +++ b/Documentation/devicetree/bindings/arm/fsl.txt
-> @@ -119,7 +119,7 @@ Freescale DCFG
->  configuration and status for the device. Such as setting the secondary
->  core start address and release the secondary core from holdoff and startup.
->    Required properties:
-> -  - compatible: should be "fsl,ls1021a-dcfg"
-> +  - compatible: should be "fsl,<chip>-dcfg"
+>
+> Changes since v1 [1]:
+> - Rebased (trivial conflict, e5a03bfd modified the deleted snprintf)
+> - Added Tested-by from Nicolas Chauvet
+>
+> [1] https://patchwork.ozlabs.org/patch/560327/
+>
 
-Please list specific values expected for <chip>, while jusy saying
-<chip> may be more generic, it makes it practically impossible to search
-for the correct binding given a compatible string, and it's vague as to
-exaclty what <chip> should be.
+Reviewed-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 
-Thanks,
-Mark.
+>
+>   drivers/net/ethernet/ti/cpsw.c | 11 +----------
+>   1 file changed, 1 insertion(+), 10 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 3c81413..245f919 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -2038,30 +2038,21 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+>   							"phy-handle", 0);
+>   		parp = of_get_property(slave_node, "phy_id", &lenp);
+>   		if (slave_data->phy_node) {
+>   			dev_dbg(&pdev->dev,
+>   				"slave[%d] using phy-handle=\"%s\"\n",
+>   				i, slave_data->phy_node->full_name);
+>   		} else if (of_phy_is_fixed_link(slave_node)) {
+> -			struct device_node *phy_node;
+> -			struct phy_device *phy_dev;
+> -
+>   			/* In the case of a fixed PHY, the DT node associated
+>   			 * to the PHY is the Ethernet MAC DT node.
+>   			 */
+>   			ret = of_phy_register_fixed_link(slave_node);
+>   			if (ret)
+>   				return ret;
+> -			phy_node = of_node_get(slave_node);
+> -			phy_dev = of_phy_find_device(phy_node);
+> -			if (!phy_dev)
+> -				return -ENODEV;
+> -			snprintf(slave_data->phy_id, sizeof(slave_data->phy_id),
+> -				 PHY_ID_FMT, phy_dev->mdio.bus->id,
+> -				 phy_dev->mdio.addr);
+> +			slave_data->phy_node = of_node_get(slave_node);
+>   		} else if (parp) {
+>   			u32 phyid;
+>   			struct device_node *mdio_node;
+>   			struct platform_device *mdio;
+>
+>   			if (lenp != (sizeof(__be32) * 2)) {
+>   				dev_err(&pdev->dev, "Invalid slave[%d] phy_id property\n", i);
+>
 
 
-
->    - reg : should contain base address and length of DCFG memory-mapped registers
->  
->  Example:
-> -- 
-> 2.1.0.27.g96db324
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+regards,
+-grygorii
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
