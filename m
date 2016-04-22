@@ -1,7 +1,7 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 1/9] libnl: fix help of _64bit functions
-Date: Fri, 22 Apr 2016 17:31:16 +0200
-Message-ID: <1461339084-3849-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 8/9] xfrm: align nlattr properly when needed
+Date: Fri, 22 Apr 2016 17:31:23 +0200
+Message-ID: <1461339084-3849-9-git-send-email-nicolas.dichtel@6wind.com>
 References: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	linux-wpan@vger.kernel.org, aar@pengutronix.de,
@@ -13,67 +13,73 @@ Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53596 "EHLO
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:53597 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753719AbcDVPcF (ORCPT
+	with ESMTP id S1753811AbcDVPcF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 22 Apr 2016 11:32:05 -0400
 In-Reply-To: <1461339084-3849-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix typo and describe 'padattr'.
-
-Fixes: 089bf1a6a924 ("libnl: add more helpers to align attributes on 64-bit")
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- lib/nlattr.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ include/uapi/linux/xfrm.h |  1 +
+ net/xfrm/xfrm_user.c      | 10 ++++++----
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index 2b82f1e2ebc2..fce1e9afc6d9 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -359,10 +359,11 @@ EXPORT_SYMBOL(__nla_reserve);
-  * @skb: socket buffer to reserve room on
-  * @attrtype: attribute type
-  * @attrlen: length of attribute payload
-+ * @padattr: attribute type for the padding
-  *
-  * Adds a netlink attribute header to a socket buffer and reserves
-  * room for the payload but does not copy it. It also ensure that this
-- * attribute will be 64-bit aign.
-+ * attribute will have a 64-bit aligned nla_data() area.
-  *
-  * The caller is responsible to ensure that the skb provides enough
-  * tailroom for the attribute header and payload.
-@@ -424,10 +425,11 @@ EXPORT_SYMBOL(nla_reserve);
-  * @skb: socket buffer to reserve room on
-  * @attrtype: attribute type
-  * @attrlen: length of attribute payload
-+ * @padattr: attribute type for the padding
-  *
-  * Adds a netlink attribute header to a socket buffer and reserves
-  * room for the payload but does not copy it. It also ensure that this
-- * attribute will be 64-bit aign.
-+ * attribute will have a 64-bit aligned nla_data() area.
-  *
-  * Returns NULL if the tailroom of the skb is insufficient to store
-  * the attribute header and payload.
-@@ -493,6 +495,7 @@ EXPORT_SYMBOL(__nla_put);
-  * @attrtype: attribute type
-  * @attrlen: length of attribute payload
-  * @data: head of attribute payload
-+ * @padattr: attribute type for the padding
-  *
-  * The caller is responsible to ensure that the skb provides enough
-  * tailroom for the attribute header and payload.
-@@ -551,6 +554,7 @@ EXPORT_SYMBOL(nla_put);
-  * @attrtype: attribute type
-  * @attrlen: length of attribute payload
-  * @data: head of attribute payload
-+ * @padattr: attribute type for the padding
-  *
-  * Returns -EMSGSIZE if the tailroom of the skb is insufficient to store
-  * the attribute header and payload.
+diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
+index 2cd9e608d0d1..143338978b48 100644
+--- a/include/uapi/linux/xfrm.h
++++ b/include/uapi/linux/xfrm.h
+@@ -302,6 +302,7 @@ enum xfrm_attr_type_t {
+ 	XFRMA_SA_EXTRA_FLAGS,	/* __u32 */
+ 	XFRMA_PROTO,		/* __u8 */
+ 	XFRMA_ADDRESS_FILTER,	/* struct xfrm_address_filter */
++	XFRMA_PAD,
+ 	__XFRMA_MAX
+ 
+ #define XFRMA_MAX (__XFRMA_MAX - 1)
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 2cc7af858c6f..d516845e16e3 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -809,7 +809,8 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
+ 			goto out;
+ 	}
+ 	if (x->lastused) {
+-		ret = nla_put_u64(skb, XFRMA_LASTUSED, x->lastused);
++		ret = nla_put_u64_64bit(skb, XFRMA_LASTUSED, x->lastused,
++					XFRMA_PAD);
+ 		if (ret)
+ 			goto out;
+ 	}
+@@ -1813,7 +1814,7 @@ static inline size_t xfrm_aevent_msgsize(struct xfrm_state *x)
+ 
+ 	return NLMSG_ALIGN(sizeof(struct xfrm_aevent_id))
+ 	       + nla_total_size(replay_size)
+-	       + nla_total_size(sizeof(struct xfrm_lifetime_cur))
++	       + nla_total_size_64bit(sizeof(struct xfrm_lifetime_cur))
+ 	       + nla_total_size(sizeof(struct xfrm_mark))
+ 	       + nla_total_size(4) /* XFRM_AE_RTHR */
+ 	       + nla_total_size(4); /* XFRM_AE_ETHR */
+@@ -1848,7 +1849,8 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct
+ 	}
+ 	if (err)
+ 		goto out_cancel;
+-	err = nla_put(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft);
++	err = nla_put_64bit(skb, XFRMA_LTIME_VAL, sizeof(x->curlft), &x->curlft,
++			    XFRMA_PAD);
+ 	if (err)
+ 		goto out_cancel;
+ 
+@@ -2617,7 +2619,7 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
+ 		l += nla_total_size(sizeof(x->props.extra_flags));
+ 
+ 	/* Must count x->lastused as it may become non-zero behind our back. */
+-	l += nla_total_size(sizeof(u64));
++	l += nla_total_size_64bit(sizeof(u64));
+ 
+ 	return l;
+ }
 -- 
 2.8.1
