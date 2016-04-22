@@ -1,198 +1,127 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/23] netfilter: x_tables: check for bogus target offset
-Date: Fri, 22 Apr 2016 15:39:39 +0200
-Message-ID: <1461332394-3994-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/23] netfilter: x_tables: add compat version of xt_check_entry_offsets
+Date: Fri, 22 Apr 2016 15:39:37 +0200
+Message-ID: <1461332394-3994-7-git-send-email-pablo@netfilter.org>
 References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45224 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753621AbcDVNkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Apr 2016 09:40:13 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 2A53E5B9
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:11 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 156C99D0F0
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:11 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 53A79FAB4F
-	for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 15:40:08 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-We're currently asserting that targetoff + targetsize <= nextoff.
-
-Extend it to also check that targetoff is >= sizeof(xt_entry).
-Since this is generic code, add an argument pointing to the start of the
-match/target, we can then derive the base structure size from the delta.
-
-We also need the e->elems pointer in a followup change to validate matches.
+32bit rulesets have different layout and alignment requirements, so once
+more integrity checks get added to xt_check_entry_offsets it will reject
+well-formed 32bit rulesets.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/x_tables.h |  4 ++--
- net/ipv4/netfilter/arp_tables.c    |  5 +++--
- net/ipv4/netfilter/ip_tables.c     |  5 +++--
- net/ipv6/netfilter/ip6_tables.c    |  5 +++--
- net/netfilter/x_tables.c           | 17 +++++++++++++++--
- 5 files changed, 26 insertions(+), 10 deletions(-)
+ include/linux/netfilter/x_tables.h |  3 +++
+ net/ipv4/netfilter/arp_tables.c    |  3 ++-
+ net/ipv4/netfilter/ip_tables.c     |  3 ++-
+ net/ipv6/netfilter/ip6_tables.c    |  3 ++-
+ net/netfilter/x_tables.c           | 22 ++++++++++++++++++++++
+ 5 files changed, 31 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 08de48b..30cfb1e 100644
+index 0de0862..08de48b 100644
 --- a/include/linux/netfilter/x_tables.h
 +++ b/include/linux/netfilter/x_tables.h
-@@ -242,7 +242,7 @@ void xt_unregister_match(struct xt_match *target);
- int xt_register_matches(struct xt_match *match, unsigned int n);
- void xt_unregister_matches(struct xt_match *match, unsigned int n);
- 
--int xt_check_entry_offsets(const void *base,
-+int xt_check_entry_offsets(const void *base, const char *elems,
- 			   unsigned int target_offset,
- 			   unsigned int next_offset);
- 
-@@ -494,7 +494,7 @@ void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
+@@ -494,6 +494,9 @@ void xt_compat_target_from_user(struct xt_entry_target *t, void **dstptr,
  				unsigned int *size);
  int xt_compat_target_to_user(const struct xt_entry_target *t,
  			     void __user **dstptr, unsigned int *size);
--int xt_compat_check_entry_offsets(const void *base,
-+int xt_compat_check_entry_offsets(const void *base, const char *elems,
- 				  unsigned int target_offset,
- 				  unsigned int next_offset);
++int xt_compat_check_entry_offsets(const void *base,
++				  unsigned int target_offset,
++				  unsigned int next_offset);
  
+ #endif /* CONFIG_COMPAT */
+ #endif /* _X_TABLES_H */
 diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index ab8952a..95ed4e4 100644
+index 24ad92a..ab8952a 100644
 --- a/net/ipv4/netfilter/arp_tables.c
 +++ b/net/ipv4/netfilter/arp_tables.c
-@@ -592,7 +592,8 @@ static inline int check_entry_size_and_hooks(struct arpt_entry *e,
+@@ -1254,7 +1254,8 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
  	if (!arp_checkentry(&e->arp))
  		return -EINVAL;
  
--	err = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
-+	err = xt_check_entry_offsets(e, e->elems, e->target_offset,
-+				     e->next_offset);
- 	if (err)
- 		return err;
- 
-@@ -1254,7 +1255,7 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
- 	if (!arp_checkentry(&e->arp))
- 		return -EINVAL;
- 
--	ret = xt_compat_check_entry_offsets(e, e->target_offset,
-+	ret = xt_compat_check_entry_offsets(e, e->elems, e->target_offset,
- 					    e->next_offset);
+-	ret = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
++	ret = xt_compat_check_entry_offsets(e, e->target_offset,
++					    e->next_offset);
  	if (ret)
  		return ret;
+ 
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 7d24c87..baab033d 100644
+index cdf1850..7d24c87 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -754,7 +754,8 @@ check_entry_size_and_hooks(struct ipt_entry *e,
+@@ -1513,7 +1513,8 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
  	if (!ip_checkentry(&e->ip))
  		return -EINVAL;
  
--	err = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
-+	err = xt_check_entry_offsets(e, e->elems, e->target_offset,
-+				     e->next_offset);
- 	if (err)
- 		return err;
- 
-@@ -1513,7 +1514,7 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
- 	if (!ip_checkentry(&e->ip))
- 		return -EINVAL;
- 
--	ret = xt_compat_check_entry_offsets(e,
-+	ret = xt_compat_check_entry_offsets(e, e->elems,
- 					    e->target_offset, e->next_offset);
+-	ret = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
++	ret = xt_compat_check_entry_offsets(e,
++					    e->target_offset, e->next_offset);
  	if (ret)
  		return ret;
+ 
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 73eee7b..6957627 100644
+index e378311..73eee7b 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -766,7 +766,8 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
+@@ -1525,7 +1525,8 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
  	if (!ip6_checkentry(&e->ipv6))
  		return -EINVAL;
  
--	err = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
-+	err = xt_check_entry_offsets(e, e->elems, e->target_offset,
-+				     e->next_offset);
- 	if (err)
- 		return err;
- 
-@@ -1525,7 +1526,7 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
- 	if (!ip6_checkentry(&e->ipv6))
- 		return -EINVAL;
- 
--	ret = xt_compat_check_entry_offsets(e,
-+	ret = xt_compat_check_entry_offsets(e, e->elems,
- 					    e->target_offset, e->next_offset);
+-	ret = xt_check_entry_offsets(e, e->target_offset, e->next_offset);
++	ret = xt_compat_check_entry_offsets(e,
++					    e->target_offset, e->next_offset);
  	if (ret)
  		return ret;
+ 
 diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 1cb7a27..e2a6f2a 100644
+index ec1b718..fa206ce 100644
 --- a/net/netfilter/x_tables.c
 +++ b/net/netfilter/x_tables.c
-@@ -546,14 +546,17 @@ struct compat_xt_standard_target {
- 	compat_uint_t verdict;
- };
- 
--/* see xt_check_entry_offsets */
--int xt_compat_check_entry_offsets(const void *base,
-+int xt_compat_check_entry_offsets(const void *base, const char *elems,
- 				  unsigned int target_offset,
- 				  unsigned int next_offset)
- {
-+	long size_of_base_struct = elems - (const char *)base;
- 	const struct compat_xt_entry_target *t;
- 	const char *e = base;
- 
-+	if (target_offset < size_of_base_struct)
+@@ -539,6 +539,27 @@ int xt_compat_match_to_user(const struct xt_entry_match *m,
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(xt_compat_match_to_user);
++
++int xt_compat_check_entry_offsets(const void *base,
++				  unsigned int target_offset,
++				  unsigned int next_offset)
++{
++	const struct compat_xt_entry_target *t;
++	const char *e = base;
++
++	if (target_offset + sizeof(*t) > next_offset)
 +		return -EINVAL;
 +
- 	if (target_offset + sizeof(*t) > next_offset)
- 		return -EINVAL;
++	t = (void *)(e + target_offset);
++	if (t->u.target_size < sizeof(*t))
++		return -EINVAL;
++
++	if (target_offset + t->u.target_size > next_offset)
++		return -EINVAL;
++
++	return 0;
++}
++EXPORT_SYMBOL(xt_compat_check_entry_offsets);
+ #endif /* CONFIG_COMPAT */
  
-@@ -577,12 +580,16 @@ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
-  * xt_check_entry_offsets - validate arp/ip/ip6t_entry
-  *
-  * @base: pointer to arp/ip/ip6t_entry
-+ * @elems: pointer to first xt_entry_match, i.e. ip(6)t_entry->elems
-  * @target_offset: the arp/ip/ip6_t->target_offset
+ /**
+@@ -549,6 +570,7 @@ EXPORT_SYMBOL_GPL(xt_compat_match_to_user);
   * @next_offset: the arp/ip/ip6_t->next_offset
   *
   * validates that target_offset and next_offset are sane.
-  * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
++ * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
   *
-+ * This function does not validate the targets or matches themselves, it
-+ * only tests that all the offsets and sizes are correct.
-+ *
   * The arp/ip/ip6t_entry structure @base must have passed following tests:
   * - it must point to a valid memory location
-  * - base to base + next_offset must be accessible, i.e. not exceed allocated
-@@ -591,12 +598,18 @@ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
-  * Return: 0 on success, negative errno on failure.
-  */
- int xt_check_entry_offsets(const void *base,
-+			   const char *elems,
- 			   unsigned int target_offset,
- 			   unsigned int next_offset)
- {
-+	long size_of_base_struct = elems - (const char *)base;
- 	const struct xt_entry_target *t;
- 	const char *e = base;
- 
-+	/* target start is within the ip/ip6/arpt_entry struct */
-+	if (target_offset < size_of_base_struct)
-+		return -EINVAL;
-+
- 	if (target_offset + sizeof(*t) > next_offset)
- 		return -EINVAL;
- 
 -- 
 2.1.4
+
