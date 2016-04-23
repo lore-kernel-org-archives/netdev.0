@@ -1,108 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Warning triggered by lockdep checks for sock_owned_by_user on
- linux-next-20160420
-Date: Fri, 22 Apr 2016 21:50:28 -0700
-Message-ID: <1461387028.7627.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <571AF3C2.3010509@linaro.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net 3/3] gre: receive also TEB packets for lwtunnels
+Date: Sat, 23 Apr 2016 15:09:16 +1000
+Message-ID: <20160423050912.GA4520@penelope.isobedori.kobe.vergenet.net>
+References: <cover.1461346798.git.jbenc@redhat.com>
+ <017d8f2b1c00e8fdbdb92a5898b1b5f365b58d6d.1461346798.git.jbenc@redhat.com>
+ <20160423014938.GD32327@pox.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	hannes@stressinduktion.org, LKML <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: "Shi, Yang" <yang.shi@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Benc <jbenc@redhat.com>, netdev@vger.kernel.org,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:36773 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbcDWEuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 00:50:32 -0400
-In-Reply-To: <571AF3C2.3010509@linaro.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:32805 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbcDWFJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 01:09:31 -0400
+Received: by mail-pa0-f44.google.com with SMTP id zm5so45688685pac.0
+        for <netdev@vger.kernel.org>; Fri, 22 Apr 2016 22:09:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160423014938.GD32327@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-04-22 at 21:02 -0700, Shi, Yang wrote:
-> Hi David,
+On Sat, Apr 23, 2016 at 03:49:38AM +0200, Thomas Graf wrote:
+> On 04/22/16 at 07:44pm, Jiri Benc wrote:
+> > For ipgre interfaces in collect metadata mode, receive also traffic with
+> > encapsulated Ethernet headers. The lwtunnel users are supposed to sort this
+> > out correctly. This allows to have mixed Ethernet + L3-only traffic on the
+> > same lwtunnel interface.
+> > 
+> > To keep backwards compatibility and prevent any surprises, gretap interfaces
+> > have priority in receiving packets with Ethernet headers.
 > 
-> When I ran some test on a nfs mounted rootfs, I got the below warning 
-> with LOCKDEP enabled on linux-next-20160420:
-> 
-> WARNING: CPU: 9 PID: 0 at include/net/sock.h:1408 
-> udp_queue_rcv_skb+0x3d0/0x660
-> Modules linked in:
-> CPU: 9 PID: 0 Comm: swapper/9 Tainted: G      D 
-> 4.6.0-rc4-next-20160420-WR7.0.0.0_standard+ #6
-> Hardware name: Intel Corporation S5520HC/S5520HC, BIOS 
-> S5500.86B.01.10.0025.030220091519 03/02/2009
->   0000000000000000 ffff88066fd03a70 ffffffff8155855f 0000000000000000
->   0000000000000000 ffff88066fd03ab0 ffffffff81062803 0000058061318ec8
->   ffff88065d1e39c0 ffff880661318e40 0000000000000000 ffff880661318ec8
-> Call Trace:
->   <IRQ>  [<ffffffff8155855f>] dump_stack+0x67/0x98
-> Checking out fil [<ffffffff81062803>] __warn+0xd3/0xf0
->   [<ffffffff810628ed>] warn_slowpath_null+0x1d/0x20
->   [<ffffffff81aa48f0>] udp_queue_rcv_skb+0x3d0/0x660
->   [<ffffffff81aa505c>] __udp4_lib_rcv+0x4dc/0xc00
->   [<ffffffff81aa5b5a>] udp_rcv+0x1a/0x20
->   [<ffffffff81a728a1>] ip_local_deliver_finish+0xd1/0x2e0
-> es:  57% (30585/ [<ffffffff81a7280f>] ? ip_local_deliver_finish+0x3f/0x2e0
->   [<ffffffff81a73262>] ip_local_deliver+0xc2/0xd0
->   [<ffffffff81a72c92>] ip_rcv_finish+0x1e2/0x5a0
->   [<ffffffff81a7354c>] ip_rcv+0x2dc/0x410
->   [<ffffffff81a20a32>] ? __pskb_pull_tail+0x82/0x400
->   [<ffffffff81a2e188>] __netif_receive_skb_core+0x3a8/0xa80
->   [<ffffffff81a30b9b>] ? netif_receive_skb_internal+0x1b/0xf0
->   [<ffffffff81a30b3d>] __netif_receive_skb+0x1d/0x60
->   [<ffffffff81a30bd5>] netif_receive_skb_internal+0x55/0xf0
->   [<ffffffff81a30b9b>] ? netif_receive_skb_internal+0x1b/0xf0
->   [<ffffffff81a31b52>] napi_gro_receive+0xc2/0x180
->   [<ffffffff8187188a>] igb_poll+0x5ea/0xdf0
->   [<ffffffff81a32b9c>] net_rx_action+0x15c/0x3d0
->   [<ffffffff81c668c1>] __do_softirq+0x161/0x413
->   [<ffffffff810683a1>] irq_exit+0xd1/0x110
->   [<ffffffff81c664d2>] do_IRQ+0x62/0xf0
->   [<ffffffff81c6474e>] common_interrupt+0x8e/0x8e
->   <EOI>  [<ffffffff8198d9c6>] ? cpuidle_enter_state+0xc6/0x290
->   [<ffffffff8198dbc7>] cpuidle_enter+0x17/0x20
->   [<ffffffff810aa963>] call_cpuidle+0x33/0x50
->   [<ffffffff810aace9>] cpu_startup_entry+0x229/0x3b0
->   [<ffffffff810407e4>] start_secondary+0x144/0x150
-> ---[ end trace ba508c424f0d52bf ]---
-> 
-> 
-> The warning is triggered by commit 
-> fafc4e1ea1a4c1eb13a30c9426fb799f5efacbc3 ("sock: tigthen lockdep checks 
-> for sock_owned_by_user"), which checks if slock is held before locking 
-> "owned".
-> 
-> It looks good to lock_sock which is just called lock_sock_nested. But, 
-> bh_lock_sock is different, which just calls spin_lock so it doesn't 
-> touch dep_map then the check will fail even though it is locked.
+> I may be missing some context. Is anyone using this already or is this
+> preparing the stage for another user? It's not clear to me from the
+> commit message.
 
-?? spin_lock() definitely is lockdep friendly.
+Hi Thomas,
 
-> 
-> So, I'm wondering what a right fix for it should be:
-> 
-> 1. Replace bh_lock_sock to bh_lock_sock_nested in the protocols 
-> implementation, but there are a lot places calling it.
-> 
-> 2. Just like lock_sock, just call bh_lock_sock_nested instead of spin_lock.
-> 
-> Or the both approach is wrong or not ideal?
+I'm not sure what use Jiri may have in mind but I plan to use
+this to allow OvS to support packets without an Ethernet header to
+be received from and sent to a GRE tunnel.
 
-I sent a patch yesterday, I am not sure what the status is.
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index d997ec13a643..db8301c76d50 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1350,7 +1350,8 @@ static inline bool lockdep_sock_is_held(const struct sock *csk)
- {
- 	struct sock *sk = (struct sock *)csk;
- 
--	return lockdep_is_held(&sk->sk_lock) ||
-+	return !debug_locks ||
-+	       lockdep_is_held(&sk->sk_lock) ||
- 	       lockdep_is_held(&sk->sk_lock.slock);
- }
- #endif
+I am reasonably sure there are no existing users.
