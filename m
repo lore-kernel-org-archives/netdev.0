@@ -1,7 +1,7 @@
 From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v5 16/21] IB/hns: Add ah operation support
-Date: Sat, 23 Apr 2016 18:26:54 +0800
-Message-ID: <1461407219-72027-17-git-send-email-oulijun@huawei.com>
+Subject: [PATCH v5 02/21] devicetree: bindings: IB: Add binding document for HiSilicon RoCE
+Date: Sat, 23 Apr 2016 18:26:40 +0800
+Message-ID: <1461407219-72027-3-git-send-email-oulijun@huawei.com>
 References: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,244 +15,132 @@ To: <dledford@redhat.com>, <sean.hefty@intel.com>,
 	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
 	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
 	<ogerlitz@mellanox.com>, <linuxarm@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29765 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbcDWKSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 06:18:17 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1461407219-72027-1-git-send-email-oulijun@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch was for implemention of address handle operation.
-It includes three verbs that create ah, query ah and destory
-ah. They is completed independently by RoCE driver.
+This patch adds related DTS binding document for HiSilicon RoCE driver.
 
 Signed-off-by: Lijun Ou <oulijun@huawei.com>
 Signed-off-by: Wei Hu(Xavier) <xavier.huwei@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_ah.c     | 109 ++++++++++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_common.h |   4 +
- drivers/infiniband/hw/hns/hns_roce_device.h |  31 +++++++-
- drivers/infiniband/hw/hns/hns_roce_main.c   |   5 ++
- 4 files changed, 148 insertions(+), 1 deletion(-)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
+ .../bindings/infiniband/hisilicon-hns-roce.txt     | 107 +++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
 
-diff --git a/drivers/infiniband/hw/hns/hns_roce_ah.c b/drivers/infiniband/hw/hns/hns_roce_ah.c
+diff --git a/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
 new file mode 100644
-index 0000000..9d0eb61
+index 0000000..5180fef
 --- /dev/null
-+++ b/drivers/infiniband/hw/hns/hns_roce_ah.c
-@@ -0,0 +1,109 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++++ b/Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
+@@ -0,0 +1,107 @@
++HiSilicon RoCE DT description
 +
-+#include <linux/inet.h>
-+#include <linux/init.h>
-+#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_cache.h>
-+#include "hns_roce_common.h"
-+#include "hns_roce_device.h"
++HiSilicon RoCE engine is a part of network subsystem.
++It works depending on other part of network wubsytem, such as, gmac and
++dsa fabric.
 +
-+#define HNS_ROCE_PORT_NUM_SHIFT		24
-+#define HNS_ROCE_VLAN_SL_BIT_MASK	7
-+#define HNS_ROCE_VLAN_SL_SHIFT		13
++Additional properties are described here:
 +
-+struct ib_ah *hns_roce_create_ah(struct ib_pd *ibpd, struct ib_ah_attr *ah_attr)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ibpd->device);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct ib_gid_attr gid_attr;
-+	struct hns_roce_ah *ah;
-+	u16 vlan_tag = 0xffff;
-+	struct in6_addr in6;
-+	union ib_gid sgid;
-+	int ret;
++Required properties:
++- compatible: Should contain "hisilicon,hns-roce-v1".
++- reg: Physical base address of the roce driver and
++length of memory mapped region.
++- eth-handle: phandle, specifies a reference to a node
++representing a ethernet device.
++- dsaf-handle: phandle, specifies a reference to a node
++representing a dsaf device.
++- #address-cells: must be 2
++- #size-cells: must be 2
++Optional properties:
++- dma-coherent: Present if DMA operations are coherent.
++- interrupt-parent: the interrupt parent of this device.
++- interrupts: should contain 32 completion event irq,1 async event irq
++and 1 event overflow irq.
++- interrupt-names:should be one of 34 irqs for roce device
++  - roce_ce0_irq ~ roce_ce31_irq: 32 complete event irq
++  - roce_ae_irq: 1 async event irq
++  - roce_common_irq: named common exception warning irq
++Example:
++	infiniband@c4000000 {
++			compatible = "hisilicon,hns-roce-v1";
++			reg = <0x0 0xc4000000 0x0 0x100000>;
++			dma-coherent;
++			eth-handle = <&eth2 &eth3 &eth4 &eth5 &eth6 &eth7>;
++			dsaf-handle = <&soc0_dsa>;
++			#address-cells = <2>;
++			#size-cells = <2>;
++			interrupt-parent = <&mbigen_dsa>;
++			interrupts = <722 1>,
++					<723 1>,
++					<724 1>,
++					<725 1>,
++					<726 1>,
++					<727 1>,
++					<728 1>,
++					<729 1>,
++					<730 1>,
++					<731 1>,
++					<732 1>,
++					<733 1>,
++					<734 1>,
++					<735 1>,
++					<736 1>,
++					<737 1>,
++					<738 1>,
++					<739 1>,
++					<740 1>,
++					<741 1>,
++					<742 1>,
++					<743 1>,
++					<744 1>,
++					<745 1>,
++					<746 1>,
++					<747 1>,
++					<748 1>,
++					<749 1>,
++					<750 1>,
++					<751 1>,
++					<752 1>,
++					<753 1>,
++					<785 1>,
++					<754 4>;
 +
-+	ah = kzalloc(sizeof(*ah), GFP_ATOMIC);
-+	if (!ah)
-+		return ERR_PTR(-ENOMEM);
-+
-+	/* Get mac address */
-+	memcpy(&in6, ah_attr->grh.dgid.raw, sizeof(ah_attr->grh.dgid.raw));
-+	if (rdma_is_multicast_addr(&in6))
-+		rdma_get_mcast_mac(&in6, ah->av.mac);
-+	else
-+		memcpy(ah->av.mac, ah_attr->dmac, sizeof(ah_attr->dmac));
-+
-+	/* Get source gid */
-+	ret = ib_get_cached_gid(ibpd->device, ah_attr->port_num,
-+				ah_attr->grh.sgid_index, &sgid, &gid_attr);
-+	if (ret) {
-+		dev_err(dev, "get sgid failed! ret = %d\n", ret);
-+		kfree(ah);
-+		return ERR_PTR(ret);
-+	}
-+
-+	if (gid_attr.ndev) {
-+		if (is_vlan_dev(gid_attr.ndev))
-+			vlan_tag = vlan_dev_vlan_id(gid_attr.ndev);
-+		dev_put(gid_attr.ndev);
-+	}
-+
-+	if (vlan_tag < 0x1000)
-+		vlan_tag |= (ah_attr->sl & HNS_ROCE_VLAN_SL_BIT_MASK) <<
-+			     HNS_ROCE_VLAN_SL_SHIFT;
-+
-+	ah->av.port_pd = cpu_to_be32(to_hr_pd(ibpd)->pdn | (ah_attr->port_num <<
-+				     HNS_ROCE_PORT_NUM_SHIFT));
-+	ah->av.gid_index = ah_attr->grh.sgid_index;
-+	ah->av.vlan = cpu_to_le16(vlan_tag);
-+	dev_dbg(dev, "gid_index = 0x%x,vlan = 0x%x\n", ah->av.gid_index,
-+		ah->av.vlan);
-+
-+	if (ah_attr->static_rate)
-+		ah->av.stat_rate = IB_RATE_10_GBPS;
-+
-+	memcpy(ah->av.dgid, ah_attr->grh.dgid.raw, HNS_ROCE_GID_SIZE);
-+	ah->av.sl_tclass_flowlabel = cpu_to_le32(ah_attr->sl <<
-+						 HNS_ROCE_SL_SHIFT);
-+
-+	return &ah->ibah;
-+}
-+
-+int hns_roce_query_ah(struct ib_ah *ibah, struct ib_ah_attr *ah_attr)
-+{
-+	struct hns_roce_ah *ah = to_hr_ah(ibah);
-+
-+	memset(ah_attr, 0, sizeof(*ah_attr));
-+
-+	ah_attr->sl = le32_to_cpu(ah->av.sl_tclass_flowlabel) >>
-+				  HNS_ROCE_SL_SHIFT;
-+	ah_attr->port_num = le32_to_cpu(ah->av.port_pd) >>
-+					HNS_ROCE_PORT_NUM_SHIFT;
-+	ah_attr->static_rate = ah->av.stat_rate;
-+	ah_attr->ah_flags = IB_AH_GRH;
-+	ah_attr->grh.traffic_class = le32_to_cpu(ah->av.sl_tclass_flowlabel) >>
-+						 HNS_ROCE_TCLASS_SHIFT;
-+	ah_attr->grh.flow_label = le32_to_cpu(ah->av.sl_tclass_flowlabel) &
-+					      HNS_ROCE_FLOW_LABLE_MASK;
-+	ah_attr->grh.hop_limit = ah->av.hop_limit;
-+	ah_attr->grh.sgid_index = ah->av.gid_index;
-+	memcpy(ah_attr->grh.dgid.raw, ah->av.dgid, HNS_ROCE_GID_SIZE);
-+
-+	return 0;
-+}
-+
-+int hns_roce_destroy_ah(struct ib_ah *ah)
-+{
-+	kfree(to_hr_ah(ah));
-+
-+	return 0;
-+}
-diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
-index 9283f05..db32a52 100644
---- a/drivers/infiniband/hw/hns/hns_roce_common.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_common.h
-@@ -10,6 +10,10 @@
- #ifndef _HNS_ROCE_COMMON_H
- #define _HNS_ROCE_COMMON_H
- 
-+#ifndef assert
-+#define assert(cond)
-+#endif
-+
- #define roce_writel(value, addr)     writel((value), (addr))
- #define roce_readl(addr)            readl((addr))
- #define roce_raw_write(value, addr) \
-diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 68d78e9..f74786b 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
-+++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -24,7 +24,6 @@
- #define MAC_ADDR_OCTET_NUM			6
- #define HNS_ROCE_MAX_MSG_LEN			0x80000000
- 
--
- #define HNS_ROCE_BA_SIZE			(32 * 4096)
- 
- #define HNS_ROCE_MAX_IRQ_NUM			34
-@@ -35,6 +34,11 @@
- #define HNS_ROCE_AEQE_VEC_NUM			1
- #define HNS_ROCE_AEQE_OF_VEC_NUM		1
- 
-+/* 4G/4K = 1M */
-+#define HNS_ROCE_SL_SHIFT			29
-+#define HNS_ROCE_TCLASS_SHIFT			20
-+#define HNS_ROCE_FLOW_LABLE_MASK		0xfffff
-+
- #define HNS_ROCE_MAX_PORTS			6
- #define HNS_ROCE_MAX_GID_NUM			16
- #define HNS_ROCE_GID_SIZE			16
-@@ -208,6 +212,22 @@ struct hns_roce_raq_table {
- 	struct hns_roce_buf_list	*e_raq_buf;
- };
- 
-+struct hns_roce_av {
-+	__le32      port_pd;
-+	u8          gid_index;
-+	u8          stat_rate;
-+	u8          hop_limit;
-+	__le32      sl_tclass_flowlabel;
-+	u8          dgid[HNS_ROCE_GID_SIZE];
-+	u8          mac[6];
-+	__le16      vlan;
-+};
-+
-+struct hns_roce_ah {
-+	struct ib_ah		ibah;
-+	struct hns_roce_av	av;
-+};
-+
- struct hns_roce_cmd_context {
- 	struct completion	done;
- 	int			result;
-@@ -394,6 +414,11 @@ static inline struct hns_roce_pd *to_hr_pd(struct ib_pd *ibpd)
- 	return container_of(ibpd, struct hns_roce_pd, ibpd);
- }
- 
-+static inline struct hns_roce_ah *to_hr_ah(struct ib_ah *ibah)
-+{
-+	return container_of(ibah, struct hns_roce_ah, ibah);
-+}
-+
- static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
- {
- 	__raw_writeq(*(u64 *) val, dest);
-@@ -441,6 +466,10 @@ int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap, u32 obj,
- 				int cnt);
- 
-+struct ib_ah *hns_roce_create_ah(struct ib_pd *pd, struct ib_ah_attr *ah_attr);
-+int hns_roce_query_ah(struct ib_ah *ibah, struct ib_ah_attr *ah_attr);
-+int hns_roce_destroy_ah(struct ib_ah *ah);
-+
- struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
- 				struct ib_ucontext *context,
- 				struct ib_udata *udata);
-diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index eeae944..b9b88f7 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -605,6 +605,11 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->alloc_pd		= hns_roce_alloc_pd;
- 	ib_dev->dealloc_pd		= hns_roce_dealloc_pd;
- 
-+	/* AH */
-+	ib_dev->create_ah		= hns_roce_create_ah;
-+	ib_dev->query_ah		= hns_roce_query_ah;
-+	ib_dev->destroy_ah		= hns_roce_destroy_ah;
-+
- 	ret = ib_register_device(ib_dev, NULL);
- 	if (ret) {
- 		dev_err(dev, "ib_register_device failed!\n");
++			interrupt-names = "roce_ce0_irq",
++					"roce_ce1_irq",
++					"roce_ce2_irq",
++					"roce_ce3_irq",
++					"roce_ce4_irq",
++					"roce_ce5_irq",
++					"roce_ce6_irq",
++					"roce_ce7_irq",
++					"roce_ce8_irq",
++					"roce_ce9_irq",
++					"roce_ce10_irq",
++					"roce_ce11_irq",
++					"roce_ce12_irq",
++					"roce_ce13_irq",
++					"roce_ce14_irq",
++					"roce_ce15_irq",
++					"roce_ce16_irq",
++					"roce_ce17_irq",
++					"roce_ce18_irq",
++					"roce_ce19_irq",
++					"roce_ce20_irq",
++					"roce_ce21_irq",
++					"roce_ce22_irq",
++					"roce_ce23_irq",
++					"roce_ce24_irq",
++					"roce_ce25_irq",
++					"roce_ce26_irq",
++					"roce_ce27_irq",
++					"roce_ce28_irq",
++					"roce_ce29_irq",
++					"roce_ce30_irq",
++					"roce_ce31_irq",
++					"roce_ae_irq",
++					"roce_common_irq";
++		};
 -- 
 1.9.1
