@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 08/13] net: hns: add attribute cpld_ctrl for dsaf port node
-Date: Sat, 23 Apr 2016 17:05:12 +0800
-Message-ID: <1461402317-136499-9-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 10/13] net: hns: add attribute port-mode-offset for dsaf port node
+Date: Sat, 23 Apr 2016 17:05:14 +0800
+Message-ID: <1461402317-136499-11-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,20 +16,21 @@ Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
 To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
 	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:47046 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:46996 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbcDWIsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 04:48:42 -0400
+	with ESMTP id S1751681AbcDWIsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 04:48:38 -0400
 In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds attribute cpld_ctrl for dsaf port node, parses the syscon
-for mac_cb from dts, and changes the method of access the cpld related
-registers through syscon.
+Port mode offset for each dsaf port is different. The current code is not
+so readability. This patch adds configuration named port-mode-offset to
+make the code simple and more readability. If port-mode-offset isn't
+exists, default value 0 will be used.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
 change log:
  PATCH v2:
@@ -38,247 +39,111 @@ change log:
  PATCH v1:
   - first submit
 ---
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 38 ++++++++++++----------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  3 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  5 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  1 -
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 36 +++++++++++++++-----
- 6 files changed, 51 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 10 +++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 44 ++++++++++------------
+ 3 files changed, 30 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-index 58341da..7a757e8 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
-@@ -664,7 +664,7 @@ void hns_ae_update_led_status(struct hnae_handle *handle)
- 
- 	assert(handle);
- 	mac_cb = hns_get_mac_cb(handle);
--	if (!mac_cb->cpld_vaddr)
-+	if (!mac_cb->cpld_ctrl)
- 		return;
- 	hns_set_led_opt(mac_cb);
- }
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index a731777..7073ca2 100644
+index 52d757d..1c8fdd3 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -82,17 +82,6 @@ static enum mac_mode hns_get_enet_interface(const struct hns_mac_cb *mac_cb)
- 	}
- }
+@@ -665,6 +665,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 	mac_cb->max_frm = MAC_DEFAULT_MTU;
+ 	mac_cb->tx_pause_frm_time = MAC_DEFAULT_PAUSE_TIME;
+ 	mac_cb->port_rst_off = mac_cb->mac_id;
++	mac_cb->port_mode_off = 0;
  
--int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
--{
--	if (!mac_cb->cpld_vaddr)
--		return -ENODEV;
--
--	*sfp_prsnt = !dsaf_read_b((u8 *)mac_cb->cpld_vaddr
--					+ MAC_SFP_PORT_OFFSET);
--
--	return 0;
--}
--
- void hns_mac_get_link_status(struct hns_mac_cb *mac_cb, u32 *link_status)
- {
- 	struct mac_driver *mac_ctrl_drv;
-@@ -658,6 +647,8 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- {
- 	struct device_node *np = mac_cb->dev->of_node;
- 	struct regmap *syscon;
-+	u32 ret;
-+
- 	mac_cb->link = false;
- 	mac_cb->half_duplex = false;
- 	mac_cb->speed = mac_phy_to_speed[mac_cb->phy_if];
-@@ -701,6 +692,23 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
- 		return -EINVAL;
+ 	/* if the dsaf node doesn't contain a port subnode, get phy-handle
+ 	 * from dsaf node
+@@ -703,6 +704,15 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 			mac_cb->mac_id);
  	}
- 	mac_cb->serdes_ctrl = syscon;
-+
-+	syscon = syscon_node_to_regmap(
-+			of_parse_phandle(to_of_node(mac_cb->fw_port),
-+					 "cpld-syscon", 0));
-+	if (IS_ERR_OR_NULL(syscon)) {
-+		dev_dbg(mac_cb->dev, "no cpld-syscon found!\n");
-+		mac_cb->cpld_ctrl = NULL;
-+	} else {
-+		mac_cb->cpld_ctrl = syscon;
-+		ret = fwnode_property_read_u32(mac_cb->fw_port,
-+					       "cpld-ctrl-reg",
-+					       &mac_cb->cpld_ctrl_reg);
-+		if (ret) {
-+			dev_err(mac_cb->dev, "get cpld-ctrl-reg fail!\n");
-+			return ret;
-+		}
+ 
++	ret = fwnode_property_read_u32(mac_cb->fw_port,
++				       "port-mode-offset",
++				       &mac_cb->port_mode_off);
++	if (ret) {
++		dev_dbg(mac_cb->dev,
++			"mac%d port-mode-offset not found, use default value.\n",
++			mac_cb->mac_id);
 +	}
- 	return 0;
- }
- 
-@@ -751,11 +759,6 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
- 	mac_cb->sys_ctl_vaddr =	dsaf_dev->sc_base;
- 	mac_cb->serdes_vaddr = dsaf_dev->sds_base;
- 
--	if (dsaf_dev->cpld_base && !HNS_DSAF_IS_DEBUG(dsaf_dev)) {
--		mac_cb->cpld_vaddr = dsaf_dev->cpld_base +
--			mac_cb->mac_id * CPLD_ADDR_PORT_OFFSET;
--		cpld_led_reset(mac_cb);
--	}
- 	mac_cb->sfp_prsnt = 0;
- 	mac_cb->txpkt_for_led = 0;
- 	mac_cb->rxpkt_for_led = 0;
-@@ -780,6 +783,7 @@ int hns_mac_get_cfg(struct dsaf_device *dsaf_dev, struct hns_mac_cb *mac_cb)
- 	if (ret)
- 		return ret;
- 
-+	cpld_led_reset(mac_cb);
- 	mac_cb->vaddr = hns_mac_get_vaddr(dsaf_dev, mac_cb, mac_mode_idx);
- 
- 	return 0;
-@@ -956,7 +960,7 @@ void hns_set_led_opt(struct hns_mac_cb *mac_cb)
- int hns_cpld_led_set_id(struct hns_mac_cb *mac_cb,
- 			enum hnae_led_state status)
- {
--	if (!mac_cb || !mac_cb->cpld_vaddr)
-+	if (!mac_cb || !mac_cb->cpld_ctrl)
- 		return 0;
- 
- 	return cpld_set_led_id(mac_cb, status);
++
+ 	syscon = syscon_node_to_regmap(
+ 			of_parse_phandle(to_of_node(mac_cb->fw_port),
+ 					 "cpld-syscon", 0));
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-index 45c5f16..719816b 100644
+index 7be7104..97ce9a7 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
-@@ -313,10 +313,11 @@ struct hns_mac_cb {
- 	struct mac_priv priv;
- 	struct fwnode_handle *fw_port;
- 	u8 __iomem *vaddr;
--	u8 __iomem *cpld_vaddr;
- 	u8 __iomem *sys_ctl_vaddr;
- 	u8 __iomem *serdes_vaddr;
- 	struct regmap *serdes_ctrl;
-+	struct regmap *cpld_ctrl;
-+	u32 cpld_ctrl_reg;
+@@ -319,6 +319,7 @@ struct hns_mac_cb {
+ 	struct regmap *cpld_ctrl;
+ 	u32 cpld_ctrl_reg;
+ 	u32 port_rst_off;
++	u32 port_mode_off;
  	struct mac_entry_idx addr_entry_idx[DSAF_MAX_VM_NUM];
  	u8 sfp_prsnt;
  	u8 cpld_led_value;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 33cdb21..1c2ddb2 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -189,8 +189,6 @@ unmap_base_addr:
- 		iounmap(dsaf_dev->sds_base);
- 	if (dsaf_dev->sc_base)
- 		iounmap(dsaf_dev->sc_base);
--	if (dsaf_dev->cpld_base)
--		iounmap(dsaf_dev->cpld_base);
- 	return ret;
- }
- 
-@@ -207,9 +205,6 @@ static void hns_dsaf_free_cfg(struct dsaf_device *dsaf_dev)
- 
- 	if (dsaf_dev->sc_base)
- 		iounmap(dsaf_dev->sc_base);
--
--	if (dsaf_dev->cpld_base)
--		iounmap(dsaf_dev->cpld_base);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index a48ef26..f0502ba 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -277,7 +277,6 @@ struct dsaf_device {
- 	u8 __iomem *sds_base;
- 	u8 __iomem *ppe_base;
- 	u8 __iomem *io_base;
--	u8 __iomem *cpld_base;
- 	struct regmap *sub_ctrl;
- 	phys_addr_t ppe_paddr;
- 
 diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 972eab0..c549aa8 100644
+index e549a11..a837bb9 100644
 --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
 +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -42,8 +42,8 @@ void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
- 		pr_err("sfp_led_opt mac_dev is null!\n");
- 		return;
- 	}
--	if (!mac_cb->cpld_vaddr) {
--		dev_err(mac_cb->dev, "mac_id=%d, cpld_vaddr is null !\n",
-+	if (!mac_cb->cpld_ctrl) {
-+		dev_err(mac_cb->dev, "mac_id=%d, cpld syscon is null !\n",
- 			mac_cb->mac_id);
- 		return;
- 	}
-@@ -60,21 +60,24 @@ void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
- 		dsaf_set_bit(value, DSAF_LED_DATA_B, data);
- 
- 		if (value != mac_cb->cpld_led_value) {
--			dsaf_write_b(mac_cb->cpld_vaddr, value);
-+			dsaf_write_syscon(mac_cb->cpld_ctrl,
-+					  mac_cb->cpld_ctrl_reg, value);
- 			mac_cb->cpld_led_value = value;
- 		}
- 	} else {
--		dsaf_write_b(mac_cb->cpld_vaddr, CPLD_LED_DEFAULT_VALUE);
-+		dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
-+				  CPLD_LED_DEFAULT_VALUE);
- 		mac_cb->cpld_led_value = CPLD_LED_DEFAULT_VALUE;
- 	}
- }
- 
- void cpld_led_reset(struct hns_mac_cb *mac_cb)
+@@ -265,37 +265,31 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
  {
--	if (!mac_cb || !mac_cb->cpld_vaddr)
-+	if (!mac_cb || !mac_cb->cpld_ctrl)
- 		return;
+ 	u32 mode;
+ 	u32 reg;
+-	u32 shift;
+-	u32 phy_offset;
+ 	bool is_ver1 = AE_IS_VER1(mac_cb->dsaf_dev->dsaf_ver);
+ 	int mac_id = mac_cb->mac_id;
+-	phy_interface_t phy_if = PHY_INTERFACE_MODE_NA;
++	phy_interface_t phy_if;
  
--	dsaf_write_b(mac_cb->cpld_vaddr, CPLD_LED_DEFAULT_VALUE);
-+	dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
-+			  CPLD_LED_DEFAULT_VALUE);
- 	mac_cb->cpld_led_value = CPLD_LED_DEFAULT_VALUE;
- }
- 
-@@ -83,15 +86,19 @@ int cpld_set_led_id(struct hns_mac_cb *mac_cb,
- {
- 	switch (status) {
- 	case HNAE_LED_ACTIVE:
--		mac_cb->cpld_led_value = dsaf_read_b(mac_cb->cpld_vaddr);
-+		mac_cb->cpld_led_value =
-+			dsaf_read_syscon(mac_cb->cpld_ctrl,
-+					 mac_cb->cpld_ctrl_reg);
- 		dsaf_set_bit(mac_cb->cpld_led_value, DSAF_LED_ANCHOR_B,
- 			     CPLD_LED_ON_VALUE);
--		dsaf_write_b(mac_cb->cpld_vaddr, mac_cb->cpld_led_value);
-+		dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
-+				  mac_cb->cpld_led_value);
- 		return 2;
- 	case HNAE_LED_INACTIVE:
- 		dsaf_set_bit(mac_cb->cpld_led_value, DSAF_LED_ANCHOR_B,
- 			     CPLD_LED_DEFAULT_VALUE);
--		dsaf_write_b(mac_cb->cpld_vaddr, mac_cb->cpld_led_value);
-+		dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
-+				  mac_cb->cpld_led_value);
- 		break;
- 	default:
- 		break;
-@@ -301,6 +308,17 @@ phy_interface_t hns_mac_get_phy_if(struct hns_mac_cb *mac_cb)
+-	if (is_ver1 && HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
+-		phy_if = PHY_INTERFACE_MODE_SGMII;
+-	} else if (mac_id >= 0 && mac_id <= 3 &&
+-		   !HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev)) {
+-		reg = is_ver1 ? HNS_MAC_HILINK4_REG : HNS_MAC_HILINK4V2_REG;
+-		mode = dsaf_read_sub(mac_cb->dsaf_dev, reg);
+-		/* mac_id 0, 1, 2, 3 ---> hilink4 lane 0, 1, 2, 3 */
+-		shift = is_ver1 ? 0 : mac_id;
+-		if (dsaf_get_bit(mode, shift))
+-			phy_if = PHY_INTERFACE_MODE_XGMII;
++	if (is_ver1) {
++		if (HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev))
++			return PHY_INTERFACE_MODE_SGMII;
++
++		if (mac_id >= 0 && mac_id <= 3)
++			reg = HNS_MAC_HILINK4_REG;
+ 		else
+-			phy_if = PHY_INTERFACE_MODE_SGMII;
+-	} else {
+-		reg = is_ver1 ? HNS_MAC_HILINK3_REG : HNS_MAC_HILINK3V2_REG;
+-		mode = dsaf_read_sub(mac_cb->dsaf_dev, reg);
+-		/* mac_id 4, 5,---> hilink3 lane 2, 3
+-		 * debug port 0(6), 1(7) ---> hilink3 lane 0, 1
+-		 */
+-		phy_offset = mac_cb->dsaf_dev->reset_offset - 1;
+-		shift = is_ver1 ? 0 : mac_id >= 4 ? mac_id - 2 : phy_offset;
+-		if (dsaf_get_bit(mode, shift))
+-			phy_if = PHY_INTERFACE_MODE_XGMII;
++			reg = HNS_MAC_HILINK3_REG;
++	} else{
++		if (!HNS_DSAF_IS_DEBUG(mac_cb->dsaf_dev) && mac_id <= 3)
++			reg = HNS_MAC_HILINK4V2_REG;
+ 		else
+-			phy_if = PHY_INTERFACE_MODE_SGMII;
++			reg = HNS_MAC_HILINK3V2_REG;
+ 	}
++
++	mode = dsaf_read_sub(mac_cb->dsaf_dev, reg);
++	if (dsaf_get_bit(mode, mac_cb->port_mode_off))
++		phy_if = PHY_INTERFACE_MODE_XGMII;
++	else
++		phy_if = PHY_INTERFACE_MODE_SGMII;
++
  	return phy_if;
  }
  
-+int hns_mac_get_sfp_prsnt(struct hns_mac_cb *mac_cb, int *sfp_prsnt)
-+{
-+	if (!mac_cb->cpld_ctrl)
-+		return -ENODEV;
-+
-+	*sfp_prsnt = !dsaf_read_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg
-+					+ MAC_SFP_PORT_OFFSET);
-+
-+	return 0;
-+}
-+
- /**
-  * hns_mac_config_sds_loopback - set loop back for serdes
-  * @mac_cb: mac control block
 -- 
 1.9.1
