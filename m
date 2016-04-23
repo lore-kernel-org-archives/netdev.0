@@ -1,7 +1,8 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 02/13] net: hns: set debug port irq index to 0
-Date: Sat, 23 Apr 2016 17:05:06 +0800
-Message-ID: <1461402317-136499-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 06/13] net: hns: sort the header file by
+ alphabetical order
+Date: Sat, 23 Apr 2016 17:05:10 +0800
+Message-ID: <1461402317-136499-7-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,60 +30,94 @@ List-Id: netdev.vger.kernel.org
 
 From: Daode Huang <huangdaode@hisilicon.com>
 
-As debug ports are moved from service dsaf to debug dsaf,
-the interrupts offset should start from 0, So this patch
-re-defines the offset index of debug ports.
+This patch tunes the header file by the alphabetical order.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c | 8 +-------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h | 5 +----
- 2 files changed, 2 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 12 ++++++------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  4 ++--
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-index 121ba4e..054f391 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c
-@@ -445,20 +445,14 @@ static int hns_rcb_get_port_in_comm(
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index 353b9e7..3730385 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -7,18 +7,18 @@
+  * (at your option) any later version.
+  */
  
- #define SERVICE_RING_IRQ_IDX(v1) \
- 	((v1) ? HNS_SERVICE_RING_IRQ_IDX : HNSV2_SERVICE_RING_IRQ_IDX)
--#define DEBUG_RING_IRQ_IDX(v1) \
--	((v1) ? HNS_DEBUG_RING_IRQ_IDX : HNSV2_DEBUG_RING_IRQ_IDX)
--#define DEBUG_RING_IRQ_OFFSET(v1) \
--	((v1) ? HNS_DEBUG_RING_IRQ_OFFSET : HNSV2_DEBUG_RING_IRQ_OFFSET)
- static int hns_rcb_get_base_irq_idx(struct rcb_common_cb *rcb_common)
- {
--	int comm_index = rcb_common->comm_index;
- 	bool is_ver1 = AE_IS_VER1(rcb_common->dsaf_dev->dsaf_ver);
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+ #include <linux/init.h>
+-#include <linux/netdevice.h>
+-#include <linux/phy_fixed.h>
+ #include <linux/interrupt.h>
+-#include <linux/platform_device.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
++#include <linux/phy_fixed.h>
++#include <linux/platform_device.h>
  
- 	if (!HNS_DSAF_IS_DEBUG(rcb_common->dsaf_dev))
- 		return SERVICE_RING_IRQ_IDX(is_ver1);
- 	else
--		return  DEBUG_RING_IRQ_IDX(is_ver1) +
--			(comm_index - 1) * DEBUG_RING_IRQ_OFFSET(is_ver1);
-+		return  HNS_DEBUG_RING_IRQ_IDX;
- }
+-#include "hns_dsaf_misc.h"
+ #include "hns_dsaf_main.h"
++#include "hns_dsaf_misc.h"
+ #include "hns_dsaf_rcb.h"
  
- #define RCB_COMM_BASE_TO_RING_BASE(base, ringid)\
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index cffd244..8782608 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -10,12 +10,9 @@
- #ifndef _DSAF_REG_H_
- #define _DSAF_REG_H_
+ #define MAC_EN_FLAG_V		0xada0328
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index b418d42..98e0e83 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -7,22 +7,22 @@
+  * (at your option) any later version.
+  */
  
--#define HNS_DEBUG_RING_IRQ_IDX 55
-+#define HNS_DEBUG_RING_IRQ_IDX 0
- #define HNS_SERVICE_RING_IRQ_IDX 59
--#define HNS_DEBUG_RING_IRQ_OFFSET 2
--#define HNSV2_DEBUG_RING_IRQ_IDX 409
- #define HNSV2_SERVICE_RING_IRQ_IDX 25
--#define HNSV2_DEBUG_RING_IRQ_OFFSET 9
+-#include <linux/module.h>
+-#include <linux/kernel.h>
++#include <linux/device.h>
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
+ #include <linux/netdevice.h>
+-#include <linux/platform_device.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
+-#include <linux/device.h>
++#include <linux/platform_device.h>
+ #include <linux/vmalloc.h>
  
- #define DSAF_MAX_PORT_NUM_PER_CHIP 8
- #define DSAF_SERVICE_PORT_NUM_PER_DSAF 6
++#include "hns_dsaf_mac.h"
+ #include "hns_dsaf_main.h"
+-#include "hns_dsaf_rcb.h"
+ #include "hns_dsaf_ppe.h"
+-#include "hns_dsaf_mac.h"
++#include "hns_dsaf_rcb.h"
+ 
+ const char *g_dsaf_mode_match[DSAF_MODE_MAX] = {
+ 	[DSAF_MODE_DISABLE_2PORT_64VM] = "2port-64vf",
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index 91e0382..67c8b9e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -7,10 +7,10 @@
+  * (at your option) any later version.
+  */
+ 
+-#include "hns_dsaf_misc.h"
+ #include "hns_dsaf_mac.h"
+-#include "hns_dsaf_reg.h"
++#include "hns_dsaf_misc.h"
+ #include "hns_dsaf_ppe.h"
++#include "hns_dsaf_reg.h"
+ 
+ void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
+ 		      u16 speed, int data)
 -- 
 1.9.1
