@@ -1,123 +1,156 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 06/13] net: hns: sort the header file by
- alphabetical order
-Date: Sat, 23 Apr 2016 17:05:10 +0800
-Message-ID: <1461402317-136499-7-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 13/13] dts: hisi: update hns dst for separating dsaf dev support
+Date: Sat, 23 Apr 2016 17:05:17 +0800
+Message-ID: <1461402317-136499-14-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, salil.mehta@huawei.com, yankejian@huawei.com,
- xieqianqian@huawei.com, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk,
- catalin.marinas@arm.com, lipeng321@huawei.com, will.deacon@arm.com,
- linuxarm@huawei.com, xuwei5@hisilicon.com, robh+dt@kernel.org,
- huangdaode@hisilicon.com, galak@codeaurora.org, liguozhu@huawei.com,
- davem@davemloft.net
+Content-Type: text/plain
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<davem@davemloft.net>, <will.deacon@arm.com>,
+	<catalin.marinas@arm.com>, <yankejian@huawei.com>,
+	<huangdaode@hisilicon.com>, <salil.mehta@huawei.com>,
+	<lipeng321@huawei.com>, <liguozhu@huawei.com>,
+	<xieqianqian@huawei.com>, <xuwei5@hisilicon.com>,
+	<linuxarm@huawei.com>
 To: <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
- <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+	<linux-arm-kernel@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:47087 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752040AbcDWIsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Apr 2016 04:48:45 -0400
 In-Reply-To: <1461402317-136499-1-git-send-email-Yisen.Zhuang@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daode Huang <huangdaode@hisilicon.com>
+Because debug dsaf port was separated from service dsaf port, this patch
+updates the related configurations of hns dts, changes it to match with
+the new binding files. This also removes enet nodes which don't exist in
+d02 board.
 
-This patch tunes the header file by the alphabetical order.
-
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <yisen.zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 12 ++++++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 12 ++++++------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  4 ++--
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi | 72 ++++++++++++----------------
+ 1 file changed, 30 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 353b9e7..3730385 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -7,18 +7,18 @@
-  * (at your option) any later version.
-  */
+diff --git a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+index 933cba3..058cb78 100644
+--- a/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
++++ b/arch/arm64/boot/dts/hisilicon/hip05_hns.dtsi
+@@ -28,13 +28,13 @@ soc0: soc@000000000 {
+ 		mode = "6port-16rss";
+ 		interrupt-parent = <&mbigen_dsa>;
  
--#include <linux/module.h>
--#include <linux/kernel.h>
- #include <linux/init.h>
--#include <linux/netdevice.h>
--#include <linux/phy_fixed.h>
- #include <linux/interrupt.h>
--#include <linux/platform_device.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
- #include <linux/of.h>
- #include <linux/of_address.h>
-+#include <linux/phy_fixed.h>
-+#include <linux/platform_device.h>
+-		reg = <0x0 0xC0000000 0x0 0x420000
+-		       0x0 0xC2000000 0x0 0x300000
+-		       0x0 0xc5000000 0x0 0x890000
++		reg = <0x0 0xc5000000 0x0 0x890000
+ 		       0x0 0xc7000000 0x0 0x60000
+ 		       >;
  
--#include "hns_dsaf_misc.h"
- #include "hns_dsaf_main.h"
-+#include "hns_dsaf_misc.h"
- #include "hns_dsaf_rcb.h"
+-		phy-handle = <0 0 0 0 &soc0_phy0 &soc0_phy1 0 0>;
++		reg-names = "ppe-base","dsaf-base";
++		subctrl-syscon = <&dsaf_subctrl>;
++		reset-field-offset = <0>;
+ 		interrupts = <
+ 			/* [14] ge fifo err 8 / xge 6**/
+ 			149 0x4 150 0x4 151 0x4 152 0x4
+@@ -122,12 +122,31 @@ soc0: soc@000000000 {
+ 		buf-size = <4096>;
+ 		desc-num = <1024>;
+ 		dma-coherent;
++
++		port@0 {
++			port-id = <0>;
++			serdes-syscon = <&serdes_ctrl0>;
++		};
++		port@1 {
++			port-id = <1>;
++			serdes-syscon = <&serdes_ctrl0>;
++		};
++		port@4 {
++			port-id = <4>;
++			phy-handle = <&soc0_phy0>;
++			serdes-syscon = <&serdes_ctrl1>;
++		};
++		port@5 {
++			port-id = <5>;
++			phy-handle = <&soc0_phy1>;
++			serdes-syscon = <&serdes_ctrl1>;
++		};
+ 	};
  
- #define MAC_EN_FLAG_V		0xada0328
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index b418d42..98e0e83 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -7,22 +7,22 @@
-  * (at your option) any later version.
-  */
- 
--#include <linux/module.h>
--#include <linux/kernel.h>
-+#include <linux/device.h>
- #include <linux/init.h>
- #include <linux/interrupt.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/platform_device.h>
- #include <linux/of.h>
- #include <linux/of_address.h>
- #include <linux/of_irq.h>
--#include <linux/device.h>
-+#include <linux/platform_device.h>
- #include <linux/vmalloc.h>
- 
-+#include "hns_dsaf_mac.h"
- #include "hns_dsaf_main.h"
--#include "hns_dsaf_rcb.h"
- #include "hns_dsaf_ppe.h"
--#include "hns_dsaf_mac.h"
-+#include "hns_dsaf_rcb.h"
- 
- const char *g_dsaf_mode_match[DSAF_MODE_MAX] = {
- 	[DSAF_MODE_DISABLE_2PORT_64VM] = "2port-64vf",
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 91e0382..67c8b9e 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -7,10 +7,10 @@
-  * (at your option) any later version.
-  */
- 
--#include "hns_dsaf_misc.h"
- #include "hns_dsaf_mac.h"
--#include "hns_dsaf_reg.h"
-+#include "hns_dsaf_misc.h"
- #include "hns_dsaf_ppe.h"
-+#include "hns_dsaf_reg.h"
- 
- void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
- 		      u16 speed, int data)
+ 	eth0: ethernet@0{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <0>;
++		port-idx-in-ae = <0>;
+ 		local-mac-address = [00 00 00 01 00 58];
+ 		status = "disabled";
+ 		dma-coherent;
+@@ -135,56 +154,25 @@ soc0: soc@000000000 {
+ 	eth1: ethernet@1{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <1>;
++		port-idx-in-ae = <1>;
++		local-mac-address = [00 00 00 01 00 59];
+ 		status = "disabled";
+ 		dma-coherent;
+ 	};
+-	eth2: ethernet@2{
++	eth2: ethernet@4{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <2>;
++		port-idx-in-ae = <4>;
+ 		local-mac-address = [00 00 00 01 00 5a];
+ 		status = "disabled";
+ 		dma-coherent;
+ 	};
+-	eth3: ethernet@3{
++	eth3: ethernet@5{
+ 		compatible = "hisilicon,hns-nic-v1";
+ 		ae-handle = <&dsaf0>;
+-		port-id = <3>;
++		port-idx-in-ae = <5>;
+ 		local-mac-address = [00 00 00 01 00 5b];
+ 		status = "disabled";
+ 		dma-coherent;
+ 	};
+-	eth4: ethernet@4{
+-		compatible = "hisilicon,hns-nic-v1";
+-		ae-handle = <&dsaf0>;
+-		port-id = <4>;
+-		local-mac-address = [00 00 00 01 00 5c];
+-		status = "disabled";
+-		dma-coherent;
+-	};
+-	eth5: ethernet@5{
+-		compatible = "hisilicon,hns-nic-v1";
+-		ae-handle = <&dsaf0>;
+-		port-id = <5>;
+-		local-mac-address = [00 00 00 01 00 5d];
+-		status = "disabled";
+-		dma-coherent;
+-	};
+-	eth6: ethernet@6{
+-		compatible = "hisilicon,hns-nic-v1";
+-		ae-handle = <&dsaf0>;
+-		port-id = <6>;
+-		local-mac-address = [00 00 00 01 00 5e];
+-		status = "disabled";
+-		dma-coherent;
+-	};
+-	eth7: ethernet@7{
+-		compatible = "hisilicon,hns-nic-v1";
+-		ae-handle = <&dsaf0>;
+-		port-id = <7>;
+-		local-mac-address = [00 00 00 01 00 5f];
+-		status = "disabled";
+-		dma-coherent;
+-	};
+ };
 -- 
 1.9.1
